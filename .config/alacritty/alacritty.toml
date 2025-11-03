@@ -1,0 +1,28 @@
+general.import = [
+	"~/.config/alacritty/keybindings.toml",
+	"~/.config/alacritty/themes/gruvbox-dark.toml,"
+]
+
+general.live_config_reload = true
+
+[window]
+dynamic_padding = true
+decorations = "Full"
+opacity = 0.8
+startup_mode = "Windowed"
+dynamic_title = true
+
+[font]
+normal = { family = "monospace", style = "Regular"}
+size = 12
+
+[selection]
+save_to_clipboard = true
+
+[cursor]
+blink_timeout = 0
+unfocused_hollow = true
+thickness = 0.20
+
+[terminal]
+shell = { program = "/usr/bin/fish" }

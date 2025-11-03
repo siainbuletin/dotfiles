@@ -1,0 +1,275 @@
+<LeftMouse>directory: ~/Volumes/music/beets-cleaned
+library: ~/.config/beets/library.db
+
+################################
+######## DECLARE PLUGINS #######
+################################
+
+plugins:
+  [
+    # albumtype, # CAN'T GET IT TO LOAD YET
+    alternatives,
+    # autobpm, # CAN'T GET IT TO LOAD YET
+    badfiles,
+    # check, # similar to badfiles, but it's committed to writing a checksum for the files that don't have it already
+    # CURRENTLY HAVEN'T MANAGED TO GET IT INSTALLED, THE GITHUB REPOSITORY FAILS. refer to pip clone issue
+    chroma,
+    convert,
+    # discogs, # postponed until i can actually log in
+    duplicates,
+    edit,
+    embedart,
+    fetchart, 
+    fish,
+    fuzzy,
+    hook,
+    info,
+    keyfinder,
+    lastgenre,
+    lastimport,
+    lyrics,
+    mbcollection,
+    metasync,
+    missing,
+    # mpdupdate, # currently turned off because it introduces errors
+    play,
+    random,
+    replaygain,
+    scrub,
+    smartplaylist,
+    # spotify, # it creates errors on import
+    types,
+  ]
+pluginpath: ~/beets/plugins
+
+###########################
+### PATH CONFIGURATIONS ###
+# These are all based on
+# metadata that already exists
+# within the files.
+###########################
+###########################
+
+paths:
+  # comp: $label_or_albumartist/$catalogue_or_album%aunique{}/${track_identification}_${artist}_${title}
+  default: $albumartist/$year - $album/$track $title
+  # albumtype:soundtrack: soundtracks/$year - $album/$track $title
+
+item_fields:
+  multidisc: 1 if disctotal > 1 else 0
+ 
+# ignore the traditional system files from UNIX or windows systems
+ignore_hidden: yes
+
+# enable multi-threaded processing for tagging jobs
+threaded: no # doesn't end up overlapping a ton of information
+
+sort_item: artist+ album+ disc+ track+
+sort_case_insensitive: yes
+
+original_date: yes
+
+format_item: $artist - $year - $album - $title
+format_album: $albumartist - $year - $album
+
+########################################
+### DEALING WITH ILLEGAL CHARACTERS ####
+########################################
+
+replace:
+  '[\\/]': _ # replace forward and backslashes
+  '^\.': _ # replace leading dots
+  '[\x00-\x1f]': _ # replace control characters
+  '[<>:"\?\*\|]': _ # remove Windows 'reserved characters' (useful for SMB compatibility)
+  '\.$': _
+  '\s+$': ''
+  '^\s+': ''
+  '^-': _
+
+asciify_paths: yes
+
+##############################################
+### FETCHING INFORMATION FROM THE DATABASE ###
+##############################################
+
+sort_item: artist+ year+ album+ disc+ track+
+sort_case_insensitive: yes
+
+#####################
+### IMPORTER DATA ###
+#####################
+
+import:
+  autotag: yes
+  bell: yes # signal when the importer needs your attention
+  copy: yes
+  delete: no
+  detail: yes # the importer should show detailed information about each match that it finds
+  duplicate_action: ask # but maybe it would be better if the default was 'merge' (meaning for the metadata).
+  from_scratch: no # doesn't erase original metadata when it is fetched from MusicBrainz
+  group_albums: 
+  incremental: yes
+  incremental_skip_later: yes
+  languages: en ro
+  log: ~/beets-logs/import.txt
+  move: yes
+  resume: ask
+  quiet: yes # if it is yes then it will conflict with timid
+  quiet_fallback: skip  
+  timid: no # it's preferable to keep as 'yes' so you don't use custom genre information
+  write: yes # writes metadata to music files (instead of simply keeping the information in the database file)
+
+########################
+###### AUTOTAGGER ######
+########################
+
+match:
+  strong_rec_thresh: 0.1 # match 90% or better for auto import
+  preferred:
+    countries: ['US', 'GB|UK'] # prefered releases to match against
+    media: ['CD', 'Digital Media|File']
+    original_year: yes # prefer the original release (which might also have the original master recordings)
+  required: year label country # avoid matches that don't have enough embedded info inside
+  ignored_media: ['Data CD', 'DVD', 'DVD-Video', 'Blu-ray', 'HD-DVD', 'VCD', 'SVCD', 'UMD', 'VHS']
+
+########################
+### METADATA SOURCES ###
+########################
+
+discogs:
+  source_weight: 0.2
+
+####################################
+#### INDIVIDUAL PLUGIN SETTINGS ####
+####################################
+
+albumtypes:
+  types:
+    - ep: 'EP'
+    - single: 'Single'
+    - soundtrack: 'OST'
+    - live: 'Live'
+    - compilation: 'Anthology'
+    - remix: 'Remix'
+  ignore_va: compilation
+  bracket: '[]'
+
+alternatives: # this enhances the output of the 'convert' plugin
+  ipod-rb-6g:
+    directory: /Volumes/SIA-IPOD
+    paths:
+      default: $artist/$year - $album/$title
+    query: "onplayer:true"
+
+chroma:
+  auto: no # disables running on normal export. has to be specified
+
+convert:
+  auto: no
+  dest: /Volumes/SIA-IPOD
+  copy_album_art: yes
+  never_convert_lossy_files: yes
+  embed: no # leaves the album art in the folder of the album
+
+edit:
+  itemfields:
+  - track
+  - title
+  - artist
+  - albumartist
+  - album
+  - label
+  ignore_fields: bpm genre id
+
+embedart:
+  auto: no
+  compare_threshold: 10 # the images have to be really similar in order to be embedded into the end file
+  maxwidth: 500 # the accepted dimension for Rockbox
+  # quality: # TODO determine what would be the best size for Rockbox imports
+  
+fetchart:
+  art_filename: cover
+  cautious: true
+  cover_format: JPEG # force JPEG for better function in Rockbox
+  cover_names: [cover, front, art, album, folder]
+  deinterlace: yes # important for proper Rockbox import
+  enforce_ratio: yes
+  high_resolution: yes
+  quality: 85 # is this too much? is this unrealistic?
+  sources: 
+    - filesystem
+    - coverart: release
+    - itunes
+    - coverart: releasegroup
+    - albumart
+  store_source: yes
+
+lastfm:
+  user: forseeobstacles
+
+lastgenre:
+  auto: no
+  count: 
+  source:
+  title_case:
+
+lyrics:
+  auto: yes # fetch lyrics automatically on import
+  sources: genius lrclib
+  synced: yes
+
+missing:
+  count: yes
+  total: yes
+
+musicbrainz: # can be instructed to pull from a personal musicbrainz database instead of the main server
+  auto: yes
+  collection: 754fabbe-a1b4-4439-9e20-72f2d194ccb3
+  user: siainbuletin
+  pass: Joetrick2k17
+  external_ids: 
+    discogs: yes
+    tidal: yes
+    spotify: yes # might end up with a lot of nasty strings included
+
+replaygain:
+  # auto: yes
+  backend: ffmpeg
+  overwrite: yes
+
+scrub: 
+  auto: yes
+
+spotify:
+  region_filter: US
+  show_failures: yes
+  mode: open
+
+#############################
+### USER INTERFACE CONFIG ###
+#############################
+
+color: ues
+terminal_encoding: utf8
+
+# ui:
+#   color: yes
+#   colors:
+#     text_success: ['bold', 'green']
+#     text_warning: ['bold', 'yellow']
+#     text_error: ['bold', 'red']
+#     text_highlight: ['bold', 'red']
+#     text_highlight_minor: ['lightgray']
+#     action_default: ['bold', 'turquoise']
+#     action: ['bold', 'blue']
+
+###########
+## HOOKS ##
+###########
+
+hook:
+  hooks:
+    # Output on exit from beets:
+    #   BEETS processing is done. Have a nice day!
+    - event: cli_exit
+      command: echo "BEETS processing is done. Have a nice day!"
