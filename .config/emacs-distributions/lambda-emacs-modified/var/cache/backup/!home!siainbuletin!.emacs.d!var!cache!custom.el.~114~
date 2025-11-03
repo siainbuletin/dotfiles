@@ -1,0 +1,48 @@
+;;; -*- lexical-binding: t -*-
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages
+   '(ace-window aggressive-indent all-the-icons all-the-icons-completion
+                all-the-icons-dired anaphora async auctex auto-compile
+                backup-walker bug-hunter cape citar-denote claudemacs
+                consult-dir consult-flyspell consult-notes corfu crux dash
+                deadgrep define-word denote diff-hl dimmer dired-narrow
+                dired-ranger diredfl eat el-patch elfeed elfeed-tube elisp-def
+                elisp-demos embark embark-consult embrace esh-help
+                eshell-syntax-highlighting eshell-up esup exec-path-from-shell
+                expand-region f flymake-collection flyover flyspell-correct
+                goggles goto-last-change helpful highlight-indent-guides
+                highlight-numbers hl-todo htmlize iedit imenu-list kind-icon
+                lambda-themes lorem-ipsum magit marginalia markdown-mode
+                markdown-toc multi-compile ns-auto-titlebar orderless org-appear
+                org-autolist org-contrib org-download org-modern org-noter
+                org-pomodoro osx-dictionary outline-minor-faces ox-hugo
+                ox-pandoc package-lint palimpsest pcmpl-args pcmpl-homebrew
+                pcomplete-extension pdf-tools peep-dired popper puni
+                rainbow-delimiters rainbow-identifiers revert-buffer-all rg s
+                svg-tag-mode tabspaces vdiff-magit vertico visual-regexp
+                writeroom-mode ws-butler yasnippet yasnippet-snippets))
+ '(package-vc-selected-packages
+   '((esup :vc-backend Git :url "https://github.com/kiennq/esup.git")
+     (claudemacs :url "https://github.com/cpoile/claudemacs.git")
+     (all-the-icons-completion :vc-backend Git :url
+       "https://github.com/MintSoup/all-the-icons-completion")
+     (lambda-themes :vc-backend Git :url
+       "https://github.com/Lambda-Emacs/lambda-themes.git")
+     (zotxt-emacs :url "https://github.com/egh/zotxt-emacs.git" :branch "master")
+     (bibtex-capf :url "https://github.com/mclear-tools/bibtex-capf.git" :branch
+       "main")
+     (pulsing-cursor :url "https://github.com/jasonjckn/pulsing-cursor" :branch
+       "main")
+     (org-devonthink :url "https://github.com/lasvice/org-devonthink" :branch
+       "master")
+     (org-modern-indent :url "https://github.com/jdtsmith/org-modern-indent"))))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
