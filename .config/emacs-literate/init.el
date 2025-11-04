@@ -87,10 +87,11 @@
 
 (use-package transient)
 
+(use-package consult) ;Consulting completing-read
+
 (use-package avy)
 (use-package helm)
-(use-package ivy)
-(use-package org-ql)
+;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
 
 (use-package prescient)
 (use-package company-prescient)
@@ -194,10 +195,20 @@
 
 (use-package company)
 (use-package marginalia) ; Enrich existing commands with completion annotations
-(use-package consult) ;Consulting completing-read
 
 (use-package vertico
-  :demand t)
+  :demand t
+  :custom
+  (vertico-count 13) ; Number of candidates to display
+  (vertico-resize t)
+  (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
+  :config
+  (vertico-mode))
+
+(use-package marginalia
+  :init
+  (marginalia-mode)
+  (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
 
 ;; Visual packages (for navigation)
 (use-package org-sidebar)
@@ -243,10 +254,11 @@
               )
     )
 
-(use-package djvu) ; needed for org-noter
-(use-package org-noter)
 ;; (use-package org-annotate)
 (use-package org-remark)
+
+(use-package org-noter)
+(use-package djvu) ; apparently needed for org-noter
 
 (use-package org-ref)
 (use-package helm-bibtex)

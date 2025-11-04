@@ -19,6 +19,8 @@ On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to usi
 - [ ] Make it possible to automatically tangle the org file to the corresponding Emacs Lisp files on save from the Org buffer (this is possible through =org-auto-tangle=
 - [ ] Find a way to place the table of contents before this actual heading with the tasks
 
+Try to find a way to make access to the configuration file a little easier (like hitting a keyboard shortcut to actually get it to open.
+
 * How is a literate configuration actually done?
 
 ** Different methodologies for doing an Emacs literate configuration
@@ -330,7 +332,6 @@ Symbol's value as variable is void: user-name-directory
 To ensure normal operation, you should investigate and remove the cause of the error in your initialization file. Start Emacs with the ‘–debug-init’ option to view a complete error backtrace.
 #+end_example
 
-
 *** Find where the user configuration file is located
 
 #+begin_src emacs-lisp :tangle no
@@ -373,7 +374,6 @@ To ensure normal operation, you should investigate and remove the cause of the e
            (message "No user early-config file exists.")
            (message "Loading default settings."))))
 #+end_src
-
 
 ** GUI settings
 *** Frame settings
@@ -434,7 +434,6 @@ not retain the generic background set by the function
 
 This is taking inspiration from Prot's =early-init.el= configuration in which he has to take into consideration whether he'll be using a tiling window manager or will be launching Emacs within a desktop environment like KDE Plasma. As I usually need to have quick access to my utilities through a DE
 
-
 ** Choose fundamental mode at startup
 *What exactly is fundamental mode used for?*
 
@@ -459,7 +458,13 @@ As per the convention that we have noted in [[*Structure of the emacs config]], 
 
 #+end_src
 
-** RETIRED: Bootstrapping =straight.el=
+** How package managament works for Emacs
+
+By default, Emacs uses the =package.el= framework, which is imperative. This makes it harder to manage configuration if you're working between machines. And it's always a lot more convenient to have direct access to the "declaration" of installation if it's written in plain text natively.
+
+=(require)= is used for loading Emacs modules. Emacs Lisp source files call on =(require)= at the beginning of the file so they can get all the modules that they need to function properly. This is what makes a modular configuration possible. Also, through =(require)=, it makes "features" of the code available to be used within a configuration.
+
+*** RETIRED: Bootstrapping =straight.el=
 
 It is very important to call =straight.el= as early on in the configuration, so that the calls made can be resolved
 
@@ -496,7 +501,7 @@ I still don't know what the difference between =straight-use-package= and =use-p
     (straight-use-package-by-default t))
 #+end_src
 
-** Installing =elpaca=
+*** Installing =elpaca=
 
 =Elpaca= is a way to have the GUI for the native package manager available (with more modern tweaks), while also having good integration with =use-package=. Hopefully it will make managing the configuration a lot easier in the long run.
 
@@ -578,7 +583,7 @@ Making the repo directory:
   ;;(use-package general :ensure (:wait t) :demand t)
 #+end_src
 
-Since =elpaca= isn't as widely used as =straight-el=, a lot of packages that you might install from GitHub don't actually have instructions for how to install them. But now =elpaca= supports using =use-package='s =:ensure= keyboard, so you can just use regular =use-package= installation.[fn:6]
+Since =elpaca= isn't as widely used as =straight-el=, a lot of packages that you might install from GitHub don't actually have instructions for how to install them. But now =elpaca= supports using =use-package='s =:ensure= keyboard, so you can just use regular =use-package= installation.[fn:4]
 
 *** Other variables suggested in the elpaca configuration on the site
 
@@ -670,7 +675,7 @@ We can load decorative icons in several different places.
 
 In the event that I mistakenly call =M-x customize= to change something in my Emacs, this function makes sure that the file never actually appends to the =init.el=. (Afterall, it will get overwritten anyway once I run =org-babel-tangle= again.)
 
-By using the =make-temp-file= function, the file will be placed in the =/tmp= directory[fn:4]
+By using the =make-temp-file= function, the file will be placed in the =/tmp= directory[fn:5]
 
 #+begin_src emacs-lisp :tangle "init.el"
   (setq custom-file (make-temp-file "emacs-custom-"))
@@ -709,7 +714,6 @@ This will be telling Emacs to use UTF-8 encoding as much as possible
   (use-package counsel)
 #+end_src
 
-
 * Good helper function for elpaca
 
 One good thing to remember is that if you're using =elpaca=, because of the asynchronous nature, you should ensure that everything is actually bootstrapped correctly, meaning that you should make =elpaca= *wait*.
@@ -717,7 +721,6 @@ One good thing to remember is that if you're using =elpaca=, because of the asyn
 #+begin_src emacs-lisp :tangle "init.el"
   (elpaca-wait)
 #+end_src
-
 
 * Browsing the internet in Emacs
 
@@ -741,7 +744,7 @@ Before installing =magit=, the version that's available on =elpaca= requires tha
   (use-package transient)
 #+end_src
 
-* Documentation helpers
+* TODO Documentation helpers
 
 Stuff like GNU Info and man pages
 
@@ -749,15 +752,37 @@ Stuff like GNU Info and man pages
   (use-package help-fns+)
 #+end_src
 
+** Configuring my own annotations and modifications to man pages
+
+* Shell setup in Emacs
+
+This is part of interfacing with the larger system through my computer.
+
 * Search and navigation packages
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package consult) ;Consulting completing-read
+#+end_src
+
+Consult, especially =consult-line= almost allows the type of searching within the buffer that you're used to with =C-f= outside of Emacs.
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package avy)
   (use-package helm)
-  (use-package ivy)
-  (use-package org-ql)
+  ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
 #+end_src
 
+** Configuring =org-ql=
+
+#+begin_src emacs-lisp :tangle no
+    (use-package org-ql)
+#+end_src
+
+** Is it worth it to look into =rg.el=?
+
+It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
+
+** Prescient packages
 *What exactly were the prescient packages used for?*
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -768,7 +793,7 @@ Stuff like GNU Info and man pages
   (use-package vertico-prescient)
 #+end_src
 
-* The Embark package
+* TODO The Embark package
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package embark)
@@ -783,11 +808,17 @@ This is the =org-super-agenda= enhancement suite made for org-agenda and it's de
   (use-package org-super-agenda)
 #+end_src
 
+** Inline task setup
+
 I usually find myself wanting to deal with inline tasks, instead of cluttering up the org file with different headings (not everything is that big a deal to warrant an entire heading.
 
 #+begin_src emacs-lisp :tangle "init.el"
   (require 'org-inlinetask)
 #+end_src
+
+** Creating a dashboard for outstanding tasks
+
+*Where should this dashboard show up? should it be on the splash page as you choose to log into Emacs?*
 
 * Useful default settings and small utility functions
 
@@ -897,7 +928,7 @@ We'll be installing a utility package called =vc-backup= which creates a version
   (use-package vc-backup)
 #+end_src
 
-Before actually saving a file, what Emacs does is that it takes the contents of the old file and creates a "backup" file for it. These will usually have a =~= attached at the end. As long as you have the file open in the current buffer, the backup will stay at the point _before_ you first opened it. Basically, the backups are done *session by session*.[fn:5]
+Before actually saving a file, what Emacs does is that it takes the contents of the old file and creates a "backup" file for it. These will usually have a =~= attached at the end. As long as you have the file open in the current buffer, the backup will stay at the point _before_ you first opened it. Basically, the backups are done *session by session*.[fn:6]
 
 After you kill a buffer, if you visit the file again, it will create a new backup file, since what you're doing is effectively *starting a new session*.
 
@@ -916,9 +947,13 @@ This code snippet will also make sure that the autosaved files are offloaded to 
         version-control t)
 #+end_src
 
-* Keybindings
+* TODO Keybindings
 
 These should go in the =sia-keybindings.el= file. *They shall be moved in the future.*
+
+** TODO Enable CUA mode automatically on startup
+
+Something that's completely upsetting about Emacs is that it doesn't come installed with CUA mode and I always have to turn it on when I'm first booting into Emacs when booting the computer itself. I haven't yet found a way to enable CUA mode automatically when logging in to Emacs.
 
 ** Disable stupid keybindings (general)
 
@@ -950,6 +985,22 @@ For now, the default keybinding for this mode is =C-c C-t v=.
   (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
   (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 #+end_src
+
+** TODO Looking for better keybinding solutions
+
+The =general.el= package is, unfortunately, about to be deprecated. It seems that the best and easiest option to go about keybindings nowadays is to try and work with a declarative setup, by using =(use-package :bind (...))= for all of the packages that support it.[fn:7]
+
+=use-package= allows the creation of global keybindings
+
+Using :bind with a list of conses
+Here is an example of using :bind with a list of conses:
+
+#+begin_example emacs-lisp :tangle no
+(use-package hi-lock
+  :bind (("M-o l" . highlight-lines-matching-regexp)
+         ("M-o r" . highlight-regexp)
+         ("M-o w" . highlight-phrase)))
+#+end_example
 
 * TODO Set up programming modes
 
@@ -984,26 +1035,46 @@ Is =global-display-line-numbers-mode= the function that's actually creating this
 
 * TODO Completion framework
 
-** Initial call for packages
+If our goal is to develop a _modern_ completion framework, then the components will be =vertico=, =marginalia=, =orderless=, =consult=, =embark=
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package company)
   (use-package marginalia) ; Enrich existing commands with completion annotations
-  (use-package consult) ;Consulting completing-read
 #+end_src
 
-** Vertico
+** DONE Configuring =vertico=
 
 #+begin_src emacs-lisp :tangle "init.el"
-    (use-package vertico
-      :demand t)
+  (use-package vertico
+    :demand t
+    :custom
+    (vertico-count 13) ; Number of candidates to display
+    (vertico-resize t)
+    (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
+    :config
+    (vertico-mode))
 #+end_src
 
 How exactly does the vertical interactive completion work with =vertico=?
 
-** Marginalia
+What is the scope of the =:demand= flag?
+
+** DONE Configuring =marginalia=
 
 The scope of =marginalia= is that it brings completion annotations to the commands that you're running.
+
+#+begin_src emacs-lisp :tangle "init.el"
+            (use-package marginalia
+              :init
+              (marginalia-mode)
+              (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
+#+end_src
+
+*What exactly is this =alist-get= function for getting information about =marginalia-command-categories=?*
+
+** How =marginalia= can be combined with =embark= and =consult=
+
+Combining with =embark= means that you get action support[fn:8]
 
 ** Consult
 
@@ -1015,7 +1086,7 @@ Consult is also used for BibTeX.
   (use-package corfu-prescient)
 #+end_src
 
-* Search packages
+* Packages made for searching
 
 See the configuration for Recoll in [[*Integrating Recoll with Emacs]]
 
@@ -1032,7 +1103,7 @@ For looking through really large repositories, use ripgrep through Emacs with =r
   (use-package org-sidebar)
 #+end_src
 
-* GNU Hyperbole
+* TODO GNU Hyperbole
 
 ** TODO Initial installation with =use-package=
 
@@ -1049,11 +1120,37 @@ I need to actually find a way to do the installation through =use-package=.
 
 ** TODO configuration
 
+* Quick idea inboxing setup
 
+** Working with =org-capture=
+
+** Working with =org-protocol= from anywhere in my system
+
+Could org-protocol actually be plugged into an application launcher like =rofi=?
+
+** Configuring remember-mode
+
+** How can you access the notes from remember-mode again? Do you have to use org-refile for it?
+
+* Reading and link-storing workflow
+
+Since I usually find myself just saving a lot of information to my Obsidian so I can find it again _topically_, when I actually want to tackle a particular problem, I want to replicate this sort of link-storage in Emacs as well. But I need to find a way to archive them as kind of an annex to the main file that I'm working with, and also have a way to mark these links as having been read.
 
 * Academic and zettelkasten setup
 
+My academic workflow is deeply entangled with my practice of writing complex notes that I should always have the possibility to fall back on if needed. This means that I need to have a robust backlinking system, like I managed to have it in Obsidian, and a really good completion framework. For this, see Quick switcher functionality for Emacs
+
 ** Reading packages
+
+You want to have a unified framework for reading material in Emacs, and that it is *as well integrated with the annotation framework used as possible*. The structure of support that I seek is as follows
+
+- PDFs :: I need to be able to work on both well constructed and digitally-generated documents (with native OCR layers) and PDFs that weren't as well scanned, as those may be the only sources I have available in some cases.
+
+  For PDFs, the current solution I've adopted is =pdf-tools=, which is also the most common.
+
+- EPUBs :: Some books aren't distributed in any other format.
+
+  The good thing about the =nov-el= package is that it's also easy to integrate it with =calibredb=, which makes it possible to show all of the nice metadata about what I'm reading. The =calibredb= can also allow better portability for the system
 
 *** Installing =nov-el=
 
@@ -1072,6 +1169,10 @@ I need to actually find a way to do the installation through =use-package=.
     )
 #+end_src
 
+*** Integrating =calibredb= with =org-ref=
+
+What would be the benefits of this?
+
 *** Configuring =pdf-tools=
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -1080,6 +1181,10 @@ I need to actually find a way to do the installation through =use-package=.
 #+end_src
 
 What exactly was =pdf-tools-install= necessary for?
+
+**** Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+
+It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
 
 ** Calling notetaking packages
 
@@ -1126,16 +1231,21 @@ I might need to actually remove Obsidian mode, as the indexing it chooses to do 
 
 ** Annotation packages
 
-Calling initial packages
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package djvu) ; needed for org-noter
-  (use-package org-noter)
   ;; (use-package org-annotate)
   (use-package org-remark)
 #+end_src
 
 How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
+
+*** Creating an integrated annotation environment with =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package org-noter)
+  (use-package djvu) ; apparently needed for org-noter
+#+end_src
+
 
 *** TODO =org-remark= setup
 
@@ -1157,6 +1267,62 @@ When trying to install this snippet, I get an error that =org-remark-global-trac
     (org-remark-info-mode +1))
 #+end_src
 
+* Zettelkasten writing mode
+
+For writing my personal thoughts, since I _don't want to lose anything_, I use a system that's very based in bidirectional linking. This also has to be easily discoverable through different panes, like emulating the backlink pane that's available at the bottom of a note from Obsidian.
+
+** TODO Emulating the bi-directional linking system within Obsidian
+
+This is a tricky problem. See more in the note in Obsidian.
+
+** Creating a backlink pane
+
+** Taming denote
+
+Is it possible to actually turn off the tagging and the naming scheme and have my own arbitrary note names that actually reflect the content of the note that I'm working with?
+
+
+
+* Org-mode configuration
+
+** Making the folding headings of org-mode less insufferable
+
+Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
+
+* Creating a usable graph for org-mode notesw
+
+* Manuscript writing mode
+
+** TODO Tangling the different parts of the manuscript together
+
+This would also be meant to emulate the Scrivener mode that you get in Obsidian with longform, but only in this case it actually works well and you don't feel the jankiness of an Electron program.
+
+*Is there any need for =pandoc= in this case, or can I just use =org-babel=?
+
+** Project management considerations
+
+This can also refer to the points that you should be following through the practice of a proper literature review.
+
+** TODO Support a drafting workflow
+
+Iterative development for a text is also something that concerns project management, at its base.
+
+*** TODO Support adding comments that are a lot like Google Docs
+
+When you're editing a project, it's always useful to be able to annotate *over* the text so that you can see what you can do better in the next revisions. It might be an observation about the way I've written content, or maybe an observation that I need to add more information. In any case, it's a _lot_ easier to parse the information when you know that this is a layer that you can choose to turn off at any point you may need to. It's different from having your thoughts on a matter actually deeply _embedded_ into the text.
+
+For this reason, I've looked at =org-remark= to be able to emulate this functionality.
+
+*** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
+
+** Writing integrated notes
+
+The point while drafting a manuscript is to have quick and easy access to the PDFs that I'm taking references from, as well as be able to connect the annotation content to what I'm reading. This is later materialised in the Zettelkasten notes that I use for actual writing of the manuscript.
+
+=org-noter= seems to be best suited package for this scope.
+
+* Theorising a literature review as a form of project management
+
 * Bibliography management packages
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -1165,6 +1331,14 @@ When trying to install this snippet, I get an error that =org-remark-global-trac
   (use-package citar)
   (use-package ebib)
 #+end_src
+
+** Deciding on the proper bibliography management framework
+
+These are the components that I need to somehow fulfill in my bibliography management system
+
+- a way to attach my PDF files :: I want to have integration with the file system that can go as deep as I need it to
+
+  **
 
 ** What exactly are you doing with so many bibliography management packages?
 
@@ -1201,6 +1375,9 @@ I need both functionality with =markdown-mode= and =org-mode= for rendering the 
 
 ** TODO Configuration scripts for =org-capture=
 
+** The complicated nature of =org-ref=
+
+=org-ref= is one of the most advanced packages for bibliography management that has been made for Emacs, but it doesn't actually provide all of the functions that I may want.
 
 ** Configuration for =org-ref=
 
@@ -1272,6 +1449,35 @@ I'm having an error with =elpaca= not being able to pull =org-ref=, so I will be
      '("~/Documents/bibliography/marx.bib")))
 #+end_src
 
+** How do you plan to deal with all of the biggest BibTeX files?
+
+It seems that =org-ref=, like other bibliography managers built for Emacs, was made to work with pure BibTeX files. Now, I know that if my BibTeX files get too big (aroung 2k entries), they don't even really load within BibDesk anymore. This is a large issue.
+
+Ideally, I would be able to keep all of the BibTeX entries into one gargantuan file, but I am scared that this will make the entire system just crash instantly.
+
+Org-cite is reportedly not very suited for handling large files[1] (at least it wasn't 4 years ago). Suggestions for other packages
+- Org-cite per se is not slow, but the =oc-basic= insert processor you're using is on the first load, after which the data is cached.
+- citar uses =parsebib=, which is very fast.
+
+You can also limit which parts of the org-cite libraries will load.
+- this is actually adjusted in the Lambda Emacs distribution (to deal with any kind of speed issue)
+  - Lambda Emacs uses =oc= and =oc-csl= along with =citar=
+  - it doesn't make use of =org-ref=
+  - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
+
+** TODO Get the hang of using =org-ref= for managing all references
+
+How do you load multiple bibliography files?
+
+* Window management
+
+** The possibility of window management through Emacs
+
+* Reorganising the notes through =org-refile=
+
+Since I want my files to be as short and atomic as possible, I need to find a way to shuck away the files after I don't need them anymore and leave a backlink that's easily searchable.
+
+* Obsidian-like quick-switcher functionality
 
 * TODO Creating a DMS system through Emacs
 
@@ -1301,6 +1507,16 @@ Defining the PATH here:
   (setq exec-path (append exec-path '("/Users/rougier/bin")))
 #+end_src
 
+* TODO Logic and Mathematics environment
+
+** Configuring rendering equations using Typst
+
+** Permanently plugging Typst into the system
+
+* Computational notebook setup
+
+Can't this just be kind of resolved through =org-babel=?
+
 * TODO - Configuring the Casual Suite
 
 #+begin_src emacs-lisp :tangle no
@@ -1319,36 +1535,37 @@ Defining the PATH here:
   ;; CASUAL DIRED
 #+end_src
 
-* Minibuffer configuration
 
-Everything regarding the graphical display of the minibuffer is defined in =sia-minibuffer.el=, as it is pretty extensive configuration.
+* TODO Creating music in Emacs
 
-** Calling =emacs-mini-frame=
+** Controling an audio server
 
-Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave like the Alfred launcher for computing several things. The =emacs-mini-frame= package would basically work in the same way that Rofi does. It would be cool if I could integrate this with the eval section in StumpWM.
+** Writing scores from Emacs
 
-#+begin_src emacs-lisp :tangle no
-  (use-package mini-frame)
+I'm not actually looking for a way to write directly like Dorico, but rather to write my scores somehow declaratively and be able to interact with my music more easily. Something like _replicating_ how OpusModus works would genuinely be great
 
-  ;; Is this the command that you want to use if you're on a tiling window manager like Hyprland?
-  ;; (setq mini-frame-detach-on-hide nil)
-  (setq mini-frame-standalone 't)
-  (setq mini-frame-resize-min-height 10)
-  ;; (setq mini-frame-ignore-commands
-  ;;      (append mini-frame-ignore-commands '(evil-window-split evil-window-vsplit evil-ex))
-  ;;      )
-#+end_src
+** Working with the experimental annotated music library system
 
-*** Set up a custom position for the mini frame
+** Live-coding within Emacs
 
-#+begin_src emacs-lisp :tangle no
-  ;; Custom position for the mini frame
+This means also the integration of REPLs.
 
-  ;; Making the miniframe scale better in the middle of the page
-  ;; this has to use resize-mini-frames
-#+end_src
+* Making a language-learning environment
+
+* Spaced repetition environment
+
+=org-gnosis=
+
+** Defining the directory of files that you can create flashcards from
+
+* Experimental version control system to work with
 
 * Appearance
+
+There's multiple tenets to follow in this case
+- readability
+- clearness of the commands that I may end up using (so that nothing leads to data loss)
+- a nice enough environment in which I can read about various commands through GNU Info (see more in the section for reading directly from Emacs)
 
 ** Setting up NANO Emacs
 
@@ -1443,6 +1660,12 @@ I can't actually run this big below because of missing ='require smex= something
 
 This is done through the =nano-toggle-theme= function, which can be accessed with =M-x=. I'll get to customizing what these themes do a little later than now.
 
+** Adjusting NANO theme for better readability
+
+You need to differentiate the ~code-blocks~ from the rest of the inline text
+
+Why is the modeline no longer enabled when using an org-mode buffer is enabled? What's wrong with the NANO theming?
+
 ** TODO Other available themes for Emacs
 
 This entire section is currently disabled, as I managed to make
@@ -1505,8 +1728,91 @@ Calling the Modus themes that were created by Protesilaos Stavrou.
 Footnotes:
 [1]  https://xeechou.net/posts/emacs-literate-config/ (written in quite poor english)
 
+** TODO Adding nice decorative icons
+
+*** Installing the font files
+
+the user must do this manually with =M-x nerd-icons-install-fonts=.
+
+*Is there any way to actually make this work automated?*
+
+*** TODO Choosing where we choose to load the decorative icons in our Emacs interface
+
+Here we check whether to load decorative icons in a number of places,
+such as Dired buffers and the completion user interface (where
+relevant). My setup does not try to install the font files:
+
+Remember to read how these options come into effect
+
+Also check [the =prot-emacs-icons.el= module
+
+#+begin_src emacs-lisp :tangle no
+(defcustom prot-emacs-load-icons nil
+  "When non-nil, enable iconography in various contexts.
+This installs and uses the `nerd-icons' package and its variants.
+NOTE that you still need to invoke `nerd-icons-install-fonts'
+manually to first get the icon files.
+
+This user option must be set in the `prot-emacs-pre-custom.el'
+file.  If that file exists in the Emacs directory, it is loaded
+before all other modules of my setup."
+  :group 'prot-emacs
+  :type 'boolean)
+#+end_src
+
+** TODO Toggling automatic light-dark mode depending on the system values
+
+It would be preferable if the dark mode followed the actual state of the system
+
+** Graphical display for the Emacs minibuffer
+
+Everything regarding the graphical display of the minibuffer is defined in =sia-minibuffer.el=, as it is pretty extensive configuration.
+
+*** Calling =emacs-mini-frame=
+
+Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave like the Alfred launcher for computing several things. The =emacs-mini-frame= package would basically work in the same way that Rofi does. It would be cool if I could integrate this with the eval section in StumpWM.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package mini-frame)
+
+  ;; Is this the command that you want to use if you're on a tiling window manager like Hyprland?
+  ;; (setq mini-frame-detach-on-hide nil)
+  (setq mini-frame-standalone 't)
+  (setq mini-frame-resize-min-height 10)
+  ;; (setq mini-frame-ignore-commands
+  ;;      (append mini-frame-ignore-commands '(evil-window-split evil-window-vsplit evil-ex))
+  ;;      )
+#+end_src
+
+*** Set up a custom position for the mini frame
+
+#+begin_src emacs-lisp :tangle no
+  ;; Custom position for the mini frame
+
+  ;; Making the miniframe scale better in the middle of the page
+  ;; this has to use resize-mini-frames
+#+end_src
+
+
+
+* TODO Interfacing with GNU Guix operating system
+
+Since I plan to make a literate configuration file for GNU Guix as well, it's important to document how I might pipe output from Emacs into other parts of the system that I can't yet control solely through Emacs.
+
+* Communicating from Emacs
+
+** Setting up Email
+
+** Enabling encryption for email
+
+Since my goal is to be private, there has to be a way to plug into GnuPG somehow and encrypt my files.
+
+Making disroot work with Emacs.
+
+Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
+
 * Footnotes
-[fn:6] https://www.reddit.com/r/emacs/comments/1dnvp9n/elpaca_vs_straightel_is_one_clearly_better_or_is/
+[fn:7] https://www.masteringemacs.org/article/mastering-key-bindings-emacs
 
 [fn:1] https://protesilaos.com/emacs/dotemacs
 
@@ -1514,6 +1820,10 @@ Footnotes:
 
 [fn:3] https://emacs.stackexchange.com/questions/27001/debugging-some-elisp-end-of-file-during-parsing-error-in-init-el
 
-[fn:4] https://protesilaos.com/emacs/dotemacs#h:f2ffe0e9-a58d-4bba-9831-cc35940ea83f
+[fn:4] https://www.reddit.com/r/emacs/comments/1dnvp9n/elpaca_vs_straightel_is_one_clearly_better_or_is/
 
-[fn:5] https://github.com/rougier/dotemacs/blob/master/dotemacs.org
+[fn:5] https://protesilaos.com/emacs/dotemacs#h:f2ffe0e9-a58d-4bba-9831-cc35940ea83f
+
+[fn:6] https://github.com/rougier/dotemacs/blob/master/dotemacs.org
+
+[fn:8] https://github.com/minad/marginalia
