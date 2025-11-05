@@ -619,7 +619,7 @@ If you want to include subfiles to your Emacs configuration, then you need to fi
 *** The stupidly easy solution (from stack overflow)
 This will make it possible to write local custom written Emacs Lisp files (instead of just pulling them down from a package repository like MELPA.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
   (load "~/.config/emacs/load-directory.el")
   (load-directory "~/.config/emacs/custom-functions")
 #+end_src
@@ -1177,7 +1177,11 @@ You want to have a unified framework for reading material in Emacs, and that it 
 *** Installing =nov-el=
 
 #+begin_src emacs-lisp :tangle no
-  (use-package nov)
+          (use-package nov
+            :ensure t
+            :config
+            (setq nov-variable-pitch nil
+                  nov-text-width 70))
 #+end_src
 
 *** =calibredb= configuration
