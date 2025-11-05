@@ -210,6 +210,12 @@
   (marginalia-mode)
   (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
 
+(use-package corg
+  :ensure
+  (:host github :repo "isamert/corg.el"))
+
+(add-hook 'org-mode-hook #'corg-setup)
+
 ;; Visual packages (for navigation)
 (use-package org-sidebar)
 

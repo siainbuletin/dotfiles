@@ -1076,14 +1076,36 @@ The scope of =marginalia= is that it brings completion annotations to the comman
 
 Combining with =embark= means that you get action support[fn:8]
 
-** Consult
+** TODO Configuring =consult=
 
-Consult is also used for BibTeX.
+Consult is also used for the BibTeX mode I have installed.
 
-** Corfu
+=consult-line= can be used as a replacement for =isearch= and it functions a lot more like a traditional =CTRL+F= that you know from other projects.
+
+** TODO Configuring =corfu= for in-buffer completion
+
 #+begin_src emacs-lisp
   (use-package corfu)
   (use-package corfu-prescient)
+#+end_src
+
+** TODO Configuring =corg.el= for auto-completion in org blocks
+
+This can help with faster writing of several examples
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (use-package corg
+      :ensure
+      (:host github :repo "isamert/corg.el"))
+#+end_src
+
+Enabling =corg= in the current org buffer automatically, you need to add a hook:
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (add-hook 'org-mode-hook #'corg-setup)
+#+end_src
+
+#+begin_src
 #+end_src
 
 * Packages made for searching
