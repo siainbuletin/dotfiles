@@ -22,7 +22,6 @@ On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to usi
 Try to find a way to make access to the configuration file a little easier (like hitting a keyboard shortcut to actually get it to open.
 
 * How is a literate configuration actually done?
-
 ** Different methodologies for doing an Emacs literate configuration
 
 *** Loading the org configuration from =init.el= through =org-babel-load-file=
@@ -762,7 +761,7 @@ Since the EWW browser basically trusts any kind of link, it would generally be s
 
 For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "/Queries injected in editor buffers".
 
-* Version control
+* TODO Version control
 
 Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
 
@@ -773,6 +772,7 @@ Before installing =magit=, the version that's available on =elpaca= requires tha
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package transient)
 #+end_src
+
 
 * TODO Documentation helpers
 
@@ -830,13 +830,14 @@ It would only seem to be worth it if I could enable full-text search even for do
   (use-package embark-consult)
 #+end_src
 
+
 * TODO Task management setup
 
 ** Keyword setup for TODOs
 
 Setting up the keywords. These are taken from [[https://doc.norang.ca/org-mode.html][Organize your life in plain text]].
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
   (setq org-todo-keywords
     (quote ((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
             (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
@@ -844,9 +845,11 @@ Setting up the keywords. These are taken from [[https://doc.norang.ca/org-mode.h
 
 *But where exactly will you be able to see all of these new task statuses?*
 
+I currently can't have these special keywords be enabled, because it always brings up a special buffer which will ask me why I cancelled a task or why it's being defered. I need to actually see how to make use of this.
+
 ** To-do faces (how they show up in the buffer)
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
     (setq org-todo-keyword-faces
       (quote (("TODO" :foreground "red" :weight bold)
               ("NEXT" :foreground "blue" :weight bold)
@@ -879,7 +882,7 @@ I usually find myself wanting to deal with inline tasks, instead of cluttering u
   (require 'org-inlinetask)
 #+end_src
 
-** TODO Creating a dashboard for outstanding tasks
+** TODO Sending outstanding tasks to the Emacs Dashboard
 
 *Where should this dashboard show up? should it be on the splash page as you choose to log into Emacs?*
 
@@ -1081,7 +1084,7 @@ Here is an example of using :bind with a list of conses:
 
 *This currently doesn't work as intended, because it introduces line numbers in org buffers as well.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
   (add-hook 'prog-mode-hook
             (if (or
   			   ; If linum-mode doesn't exist...
@@ -1095,6 +1098,8 @@ Here is an example of using :bind with a list of conses:
 
   (global-display-line-numbers-mode)
 #+end_src
+
+I untangled the entire code block instead of simply commenting out the =global-display-line-numbers-mode= because apparently it's still incompatible with =pdf-tools=.
 
 Is =global-display-line-numbers-mode= the function that's actually creating this entire mess?
 
@@ -1229,15 +1234,13 @@ I need to actually find a way to do the installation through =use-package=.
 ** TODO configuration
 
 * Quick idea inboxing setup
-
 ** Working with =org-capture=
 
 ** Working with =org-protocol= from anywhere in my system
 
 Could org-protocol actually be plugged into an application launcher like =rofi=?
 
-** Configuring remember-mode
-
+** HOLD Configuring remember-mode
 ** How can you access the notes from remember-mode again? Do you have to use org-refile for it?
 
 * Reading and link-storing workflow
@@ -1286,21 +1289,24 @@ You want to have a unified framework for reading material in Emacs, and that it 
 What would be the benefits of this?
 
 *** Configuring =pdf-tools=
+:PROPERTIES:
+:NOTER_DOCUMENT: /home/siainbuletin/Documents/literature/Philobiblon vol. XXIII-1_Full_Text-95-108.pdf
+:END:
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package pdf-tools)
-  ;; (pdf-tools-install)
+    (use-package pdf-tools)
 #+end_src
 
-What exactly was =pdf-tools-install= necessary for?
+It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
+
+This function will tell =pdf-tools= to launch by default.
 
 **** Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
 
 
-
 **** Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
 
-It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
+
 
 ** Calling notetaking packages
 
@@ -1460,7 +1466,25 @@ After jotting down some really quick ideas, I need to have a way to actually ref
 
 *** TODO Setting up =remember-mode=
 
-* Org-mode configuration
+* TODO =org-mode= configuration
+
+** TODO Enabling useful minor modes for =org-mode=
+
+*** Turning on =visual-line-mode= by default
+
+#+begin_src emacs-lisp :tangle "init.el"
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+#+end_src
+
+** DONE Turning off auto-indentation (=electric-indent-mode=)
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (electric-indent-mode 0)
+#+end_src
+
+Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
 
 ** Making the folding headings of org-mode less insufferable
 
@@ -1475,9 +1499,15 @@ This would also be meant to emulate the Scrivener mode that you get in Obsidian 
 
 *Is there any need for =pandoc= in this case, or can I just use =org-babel=?
 
-** Project management considerations
+** TODO Project management considerations
 
 This can also refer to the points that you should be following through the practice of a proper literature review.
+
+** Structuring writing projects in multiple chapters with =binder=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package binder)
+#+end_src
 
 ** TODO Support a drafting workflow
 
@@ -1488,6 +1518,36 @@ Iterative development for a text is also something that concerns project managem
 When you're editing a project, it's always useful to be able to annotate *over* the text so that you can see what you can do better in the next revisions. It might be an observation about the way I've written content, or maybe an observation that I need to add more information. In any case, it's a _lot_ easier to parse the information when you know that this is a layer that you can choose to turn off at any point you may need to. It's different from having your thoughts on a matter actually deeply _embedded_ into the text.
 
 For this reason, I've looked at =org-remark= to be able to emulate this functionality.
+
+This will be done with the =org-remark= package
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-remark-global-tracking
+  ;; It is recommended that `org-remark-global-tracking-mode' be
+  ;; enabled when Emacs initializes. You can set it in
+  ;; `after-init-hook'.
+  :hook after-init
+  :config
+  ;; Selectively keep or comment out the following if you want to use
+  ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
+  (use-package org-remark-info :after info :config (org-remark-info-mode +1))
+  (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
+  (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+
+(use-package org-remark
+  :bind (;; :bind keyword also implicitly defers org-remark itself.
+         ;; Keybindings before :map is set for global-map. Adjust the keybinds
+         ;; as you see fit.
+         ("C-c n m" . org-remark-mark)
+         ("C-c n l" . org-remark-mark-line)
+         :map org-remark-mode-map
+         ("C-c n o" . org-remark-open)
+         ("C-c n ]" . org-remark-view-next)
+         ("C-c n [" . org-remark-view-prev)
+         ("C-c n r" . org-remark-remove)
+         ("C-c n d" . org-remark-delete)))
+#+end_src
+
 
 *** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
 
@@ -1560,26 +1620,26 @@ I need both functionality with =markdown-mode= and =org-mode= for rendering the 
 =org-ref= seems to be using the =bibtex-completion= library for this, but I might be wrong. Hasn't =bibtex-completion= just evolved into =helm-bibtex=?
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (setq bibtex-completion-bibliography '("~/Documents/bib-files/master.bib"
-  					                   "~/Documents/bib-files/thesis.bib"
-                                         "~/Documents/bib-files/marx.bib"
-                                         "~/Documents/bib-files/hci.bib"
-                                         "~/Documents/bib-files/aesthetics.bib")
-  	  bibtex-completion-library-path '("~/Documents/literature/")
-  	  bibtex-completion-notes-path "~/Documents/org-files/"
-  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
+        (setq bibtex-completion-bibliography
+              '("~/Documents/bibliography/thesis.bib"
+                "~/Documents/bibliography/marx.bib"
+                "~/Documents/bibliography/hci.bib"
+                "~/Documents/bibliography/aesthetics.bib")
+        	  bibtex-completion-library-path '("~/Documents/literature/")
+        	  bibtex-completion-notes-path "~/Documents/org/"
+        	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
 
-      ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
-  	  bibtex-completion-additional-search-fields '(keywords)
-  	  bibtex-completion-display-formats
-  	  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
-  	    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
-  	    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-  	    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-  	    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
-  	  bibtex-completion-pdf-open-function
-  	  (lambda (fpath)
-  	    (call-process "open" nil 0 nil fpath)))
+            ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
+        	  bibtex-completion-additional-search-fields '(keywords)
+        	  bibtex-completion-display-formats
+        	  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
+        	    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
+        	    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+        	    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+        	    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
+        	  bibtex-completion-pdf-open-function
+        	  (lambda (fpath)
+        	    (call-process "open" nil 0 nil fpath)))
 #+end_src
 
 *** TODO Getting =OpenAlex= to work for fetching more bibliography
@@ -1647,21 +1707,74 @@ You can also limit which parts of the org-cite libraries will load.
 
 How do you load multiple bibliography files?
 
-* Recognising other cross-references within a PDF
+* Creating an interleaved bibliography environment
+
+This means that I spend as little time as possible within any other app than Emacs, so I can focus on simply writing and researching as much as possible.
+
+** Recognising other cross-references within a PDF
+
+One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
+
+The manual workflow that I have outside of Emacs is that I copy-paste the name of the referenced article into my search bar (it's a little faster if I also have a search bang setup in that browser or if I'm using the extension for Alfred to open the query directly in Google Scholar), and then try to fetch the article from there. If I can't download it directly from Google Scholar, then I try to go to Sci-Hub where I can ask for the DOI. At any point, for either Google Scholar or Sci-Hub I may end up having a rate limit, or being hit with a CAPTCHA because I'm trying to download the files directly from Emacs. This isn't really ideal especially when I'm researching and I just want to have a big schema down that I can later traverse.
+
+As I don't actually end up reading the articles that quickly, I want to have a very quick way to chart out the references so at least when I _choose_ to go out and manually download that source, I at least know for sure what it is that I'm getting into.
+
+For this reason, I should at least be able to make a DOI into a usable BibTeX record that can be used in plotting out a reference network (or at least organise everything based on some kind of tag). This would speed up the workflow and minimise the interruptions.
 
 It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
 
 This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
 
+*** Fetching the DOI in the case of papers that already have a DOI specified in the article
+
+there should be a way to open the link under the point, and then directly format that DOI into an entry.
+
+Should this entry be formatted in the annotated bibliography format?
+
 * Window management
 
-** The possibility of window management through Emacs
+** Buffer management through perspective-el
+
+This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package perspective
+    :ensure t  ; use `:straight t` if using straight.el!
+    :bind
+    ("C-x k" . persp-kill-buffer*)
+    :custom
+    (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
+    :init
+    (persp-mode))
+#+end_src
+
+If you're using Emacs >v.28, you need to specificy =persp-mode-prefix-key= to be able to use =perspective-el=.
+
+*** Replacing the =switch-to-buffer= functionality with =perspective-el=
+
+Replace the binding for C-x C-b, the default Emacs buffer switcher, with one of the nicer implementations described in the Buffer switchers section.
+
+** TODO Configuring =ace-window=
+
+Note that =ace-window= is quite outdated at this point, and should be replaced with a more modern framework instead.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package ace-window)
+#+end_src
+
+Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
+
+** Integrating Emacs with a tiling window manager
+
+** The possibility of window management through Emacs (for the entire system)
 
 * Reorganising the notes through =org-refile=
 
 Since I want my files to be as short and atomic as possible, I need to find a way to shuck away the files after I don't need them anymore and leave a backlink that's easily searchable.
 
 * Obsidian-like quick-switcher functionality
+
+This isn't actually too different from just using an application launcher like =rofi=, but I want to be able to take advantage of the global state that I have in Emacs.
 
 * TODO Creating a DMS system through Emacs
 
@@ -1717,6 +1830,51 @@ Can't this just be kind of resolved through =org-babel=?
 
 #+begin_src emacs-lisp :tangle no
   ;; CASUAL DIRED
+#+end_src
+
+
+* Project management
+
+** TODO Configuring =projectile=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Optional: ag is nice alternative to using grep with Projectile
+  (use-package ag
+    :ensure t)
+#+end_src
+
+This block for vertico isn't actually necessary as I have already instantiated it before.
+
+#+begin_src emacs-lisp :tangle no
+  ;; Optional: Enable vertico as the selection framework to use with Projectile
+  (use-package vertico
+    :ensure t
+    :init
+    (vertico-mode +1))
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Optional: which-key will show you options for partially completed keybindings
+  ;; It's extremely useful for packages with many keybindings like Projectile.
+  (use-package which-key
+    :ensure t
+    :config
+    (which-key-mode +1))
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package projectile
+    :ensure t
+    :init
+    (setq projectile-project-search-path
+          '("~/writing-prokects/"
+            "~/work/"
+            "~/playground"))
+    :config
+    ;; These are the configurations to use on Linux for projectile
+    (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
+    (global-set-key (kbd "C-c p") 'projectile-command-map)
+    (projectile-mode +1))
 #+end_src
 
 
@@ -1982,6 +2140,155 @@ Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave
 * TODO Interfacing with GNU Guix operating system
 
 Since I plan to make a literate configuration file for GNU Guix as well, it's important to document how I might pipe output from Emacs into other parts of the system that I can't yet control solely through Emacs.
+
+* TODO Defining a dashboard
+
+There's also other frameworks than just =emacs-dashboard= for making this, but this was currently the handiest solution I had.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package dashboard
+  :ensure t
+  :config
+  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
+  (dashboard-setup-startup-hook))
+#+end_src
+
+** Configuring the dashboard in =emacs-dashboard=
+
+#+begin_src emacs-lisp :tangle "init.el"
+;; Set the title
+(setq dashboard-banner-logo-title "Welcome to Emacs Dashboard")
+
+;; Set the banner
+(setq dashboard-startup-banner '3)
+;; Value can be:
+;;  - 'official which displays the official emacs logo.
+;;  - 'logo which displays an alternative emacs logo.
+;;  - an integer which displays one of the text banners
+;;    (see dashboard-banners-directory files).
+;;  - a string that specifies a path for a custom banner
+;;    currently supported types are gif/image/text/xbm.
+;;  - a cons of 2 strings which specifies the path of an image to use
+;;    and other path of a text file to use if image isn't supported.
+;;    (cons "path/to/image/file/image.png" "path/to/text/file/text.txt").
+;;  - a list that can display an random banner,
+;;    supported values are: string (filepath), 'official, 'logo and integers.
+
+;; Content is not centered by default. To center, set
+(setq dashboard-center-content t)
+;; vertically center content
+(setq dashboard-vertically-center-content t)
+
+;; To disable shortcut "jump" indicators for each section, set
+(setq dashboard-show-shortcuts nil)
+#+end_src
+
+*** Customizing the items that are displayed
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq dashboard-items '((recents   . 5)
+                        (bookmarks . 5)
+                        (projects  . 5)
+                        (agenda    . 5)
+                        (registers . 5)))
+#+end_src
+
+*** Order of the items to show in the dashboard
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq dashboard-startupify-list '(dashboard-insert-banner
+                                  dashboard-insert-newline
+                                  dashboard-insert-banner-title
+                                  dashboard-insert-newline
+                                  dashboard-insert-navigator
+                                  dashboard-insert-newline
+                                  dashboard-insert-init-info
+                                  dashboard-insert-items
+                                  dashboard-insert-newline
+                                  dashboard-insert-footer))
+#+end_src
+
+*** Customizing the item shortcuts
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq dashboard-item-shortcuts '((recents   . "r")
+                                 (bookmarks . "m")
+                                 (projects  . "p")
+                                 (agenda    . "a")
+                                 (registers . "e")))
+#+end_src
+
+*** Working with icons in the dashboard
+
+To use nerd-icons package:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
+(setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+#+end_src
+
+To add icons to the widget headings and their items:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+#+end_src
+
+To modify heading icons with another icon from nerd-icons octicons:
+
+#+begin_src emacs-lisp :tangle no
+(dashboard-modify-heading-icons '((recents   . "nf-oct-file_text")
+                                  (bookmarks . "nf-oct-book")))
+#+end_src
+
+To modify the icon height or vertical adjust:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-icon-file-height 1.75)
+(setq dashboard-icon-file-v-adjust -0.125)
+(setq dashboard-heading-icon-height 1.75)
+(setq dashboard-heading-icon-v-adjust -0.125)
+#+end_src
+
+*** Integrating with =org-agenda=
+
+To display today’s agenda items on the dashboard, add agenda to dashboard-items:
+
+(add-to-list 'dashboard-items '(agenda) t)
+To show agenda for the upcoming seven days set the variable dashboard-week-agenda to t.
+
+(setq dashboard-week-agenda t)
+By default org-agenda entries are filter by time, only showing those task with DEADLINE, SCHEDULE-TIME or TIMESTAMP . To show all agenda entries (except DONE)
+
+(setq dashboard-filter-agenda-entry 'dashboard-no-filter-agenda)
+To have an extra filter, MATCH parameter is exposed as dashboard-match-agenda-entry variable, by default is nil
+
+‘MATCH’ is a tags/property/TODO match. Org iterates only matched headlines. Org iterates over all headlines when MATCH is nil or t.
+
+See Org Manual for more information.
+
+Once the agenda appears in the dashboard, org-agenda-files stay open. With (setq dashboard-agenda-release-buffers t) the org files are close. Note that this could slow down the dashboard buffer refreshment.
+
+**** Customizing how sorting is done
+Agenda is now sorted with dashboard-agenda-sort-strategy following the idea of org-agenda-sorting-strategy. Suported strategies are priority-up, priority-down, time-up, time-down, todo-state-up and todo-state-down
+
+**** Change the aspect of agenda entries
+To personalize the aspect of each entry, there is dashboard-agenda-prefix-format which initial value is " %i %-12:c %-10s " where %i is the icon category of the item (see org-agenda-category-icon-alist), %-12:c gives the category a 12 chars wide field and append a colon to the category. A similar padding but for a 10 wide field is %-10s that is for the scheduling or deadline information. For more information see org-agenda-prefix-format.
+
+Deadline or Scheduling time will be formatted using dashboard-agenda-time-string-format and the keywords (TODO, DONE) respect org-agenda-todo-keyword-format.
+
+**** Customizing the format of the tags
+
+To customize the tags format there is a variable dashboard-agenda-tags-format. This variable could be any function that receives the tags directly from org-get-tags. By default dashboard-agenda-tags-format is set to identity. To hide the tags set the variable to ignore: (setq dashboard-agenda-tags-format 'ignore) or to nil.
+
+*** Integrating with =projectile=
+
+Integration with =projectile= can be done either through =counsel-projectile= or =persp-projectile=.
+
+*** Integrating with =perspective-el=
+
+As of <2025-11-06 Thu>, support for =perspective-el= hasn't yet been implemented for =emacs-dashboard=
 
 * Communicating from Emacs
 
