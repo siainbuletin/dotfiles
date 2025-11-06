@@ -1,14 +1,14 @@
 # the readme for the original EWS project
-readme.org
+ews/readme.org
 
-# files created by the emacs configuration
-bookmarks
-history
-recentf
+# files created by running the ews configuration
+ews/bookmarks
+ews/history
+ews/recentf
 
 # directories of binary files
-transient/
-eln-cache/
-elpa/
-emms/
-backups/
+ews/transient/**
+ews/eln-cache/**
+ews/elpa/**
+ews/emms/**
+ews/backups/**
