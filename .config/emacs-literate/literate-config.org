@@ -501,7 +501,7 @@ I still don't know what the difference between =straight-use-package= and =use-p
     (straight-use-package-by-default t))
 #+end_src
 
-*** Installing =elpaca=
+con*** Installing =elpaca=
 
 =Elpaca= is a way to have the GUI for the native package manager available (with more modern tweaks), while also having good integration with =use-package=. Hopefully it will make managing the configuration a lot easier in the long run.
 
@@ -699,7 +699,6 @@ This will be telling Emacs to use UTF-8 encoding as much as possible
 (set-language-environment "English")    ; Set up multilingual environment
 #+end_src
 
-
 ** Adding =persistent-scratch=
 
 *Is this even actually all that useful?*
@@ -708,13 +707,14 @@ This will be telling Emacs to use UTF-8 encoding as much as possible
   (use-package persistent-scratch)
 #+end_src
 
-** Install counsel
+** Install =counsel=
+
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package counsel)
 #+end_src
 
-* Good helper function for elpaca
+* DONE Good helper function for elpaca
 
 One good thing to remember is that if you're using =elpaca=, because of the asynchronous nature, you should ensure that everything is actually bootstrapped correctly, meaning that you should make =elpaca= *wait*.
 
@@ -722,7 +722,7 @@ One good thing to remember is that if you're using =elpaca=, because of the asyn
   (elpaca-wait)
 #+end_src
 
-* Browsing the internet in Emacs
+* TODO Browsing the internet in Emacs
 
 ** Installing relevant packages
 
@@ -731,6 +731,36 @@ One good thing to remember is that if you're using =elpaca=, because of the asyn
   (use-package elfeed)
   (use-package elfeed-org)
 #+end_src
+
+** TODO Making search more integrated with the research workflow
+
+Since you don't want to be distracted during the moment of ideation, but you also want to be able to find information promptly as you're developing ideas, you want to be able to integrate searching into the buffer workflow that you have in Emacs (as well as integrating all of the org-mode goodies).
+
+On the one hand, this can be done with =org-ref='s integration with =OpenAlex=, which makes it possible to search academic documents without actually leaving Emacs.
+
+** TODO Configuring =consult-omni=
+
+This package allows minibuffer completion for several queries.
+
+#+begin_src emacs-lisp :tangle no
+                (use-package consult-omni
+                  :ensure
+                  (consult-omni
+                   :host github
+                   :repo "armindarvish/consult-omni"))
+#+end_src
+
+While I've managed to get the =use-package= call to work, I unfortunately can't actually get the package to work because of a "function not defined" error with a bunch of things in this package. Remains to be seen for later on.
+
+** TODO Setting up the sources for =consult-omni=
+
+** TODO Set up links to open in an external browser
+
+Since the EWW browser basically trusts any kind of link, it would generally be safer to simply query a search engine from inside Emacs, and then handle the task of _browsing_ and viewing the files themselves elsewhere.
+
+** TODO Making the queries from =consult-omni= show up in a different buffer
+
+For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "/Queries injected in editor buffers".
 
 * Version control
 
@@ -800,7 +830,40 @@ It would only seem to be worth it if I could enable full-text search even for do
   (use-package embark-consult)
 #+end_src
 
-* Task management setup
+* TODO Task management setup
+
+** Keyword setup for TODOs
+
+Setting up the keywords. These are taken from [[https://doc.norang.ca/org-mode.html][Organize your life in plain text]].
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq org-todo-keywords
+    (quote ((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
+            (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
+#+end_src
+
+*But where exactly will you be able to see all of these new task statuses?*
+
+** To-do faces (how they show up in the buffer)
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (setq org-todo-keyword-faces
+      (quote (("TODO" :foreground "red" :weight bold)
+              ("NEXT" :foreground "blue" :weight bold)
+              ("DONE" :foreground "forest green" :weight bold)
+              ("WAITING" :foreground "orange" :weight bold)
+              ("HOLD" :foreground "magenta" :weight bold)
+              ("CANCELLED" :foreground "forest green" :weight bold)
+              ("MEETING" :foreground "forest green" :weight bold)
+              ("PHONE" :foreground "forest green" :weight bold))))
+
+  ;; I don't wan't the keywords in my exports by default
+  (setq-default org-export-with-todo-keywords nil)
+#+end_src
+
+** Setting up =org-agenda=
+
+** TODO Calling =org-super-agenda=
 
 This is the =org-super-agenda= enhancement suite made for org-agenda and it's developed by Alphapa.
 
@@ -808,7 +871,7 @@ This is the =org-super-agenda= enhancement suite made for org-agenda and it's de
   (use-package org-super-agenda)
 #+end_src
 
-** Inline task setup
+** TODO Inline task setup
 
 I usually find myself wanting to deal with inline tasks, instead of cluttering up the org file with different headings (not everything is that big a deal to warrant an entire heading.
 
@@ -816,9 +879,19 @@ I usually find myself wanting to deal with inline tasks, instead of cluttering u
   (require 'org-inlinetask)
 #+end_src
 
-** Creating a dashboard for outstanding tasks
+** TODO Creating a dashboard for outstanding tasks
 
 *Where should this dashboard show up? should it be on the splash page as you choose to log into Emacs?*
+
+This should tell you what you should be doing next up.
+
+** TODO Time tracking for the tasks you're working on
+
+*** TODO Selecting tasks that you're about to clock in on
+
+* TODO Org archiving functions
+
+** Archiving subtrees
 
 * Useful default settings and small utility functions
 
@@ -1027,19 +1100,32 @@ Is =global-display-line-numbers-mode= the function that's actually creating this
 
 * TODO Dired (file management)
 
-  #+begin_src emacs-lisp :tangle no
-    ;; DIRED COMMANDS
+#+begin_src emacs-lisp :tangle no
+(use-package dired
+  :ensure nil
+  :commands (dired dired-jump)
+  :bind (("C-x C-j" . dired-jump))
+  :custom ((dired-listing-switches "-agho --group-directories-first"))
+  :config
+  (evil-collection-define-key 'normal 'dired-mode-map
+    "h" 'dired-single-up-directory
+    "l" 'dired-single-buffer))
+#+end_src
 
-    ;; Enable cut/paste behaviour with files from dired
+#+begin_src emacs-lisp :tangle no
+  ;; DIRED COMMANDS
+
+  ;; Enable cut/paste behaviour with files from dired
   #+end_src
 
 * TODO Completion framework
 
 If our goal is to develop a _modern_ completion framework, then the components will be =vertico=, =marginalia=, =orderless=, =consult=, =embark=
 
+** TODO Configuring =company-mode=
+
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package company)
-  (use-package marginalia) ; Enrich existing commands with completion annotations
 #+end_src
 
 ** DONE Configuring =vertico=
@@ -1208,6 +1294,10 @@ What would be the benefits of this?
 
 What exactly was =pdf-tools-install= necessary for?
 
+**** Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+
+
+
 **** Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
 
 It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
@@ -1215,7 +1305,6 @@ It seems that when I try to open a PDF through Emacs, it opens in docview mode, 
 ** Calling notetaking packages
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package denote)
   (use-package howm)
   ;; (straight-use-package 'phi-notes) ;; can't actually find the package (it has to be installed manually)
 #+end_src
@@ -1297,17 +1386,79 @@ When trying to install this snippet, I get an error that =org-remark-global-trac
 
 For writing my personal thoughts, since I _don't want to lose anything_, I use a system that's very based in bidirectional linking. This also has to be easily discoverable through different panes, like emulating the backlink pane that's available at the bottom of a note from Obsidian.
 
+*
 ** TODO Emulating the bi-directional linking system within Obsidian
 
 This is a tricky problem. See more in the note in Obsidian.
 
 ** Creating a backlink pane
 
-** Taming denote
+** Taming =denote=
 
 Is it possible to actually turn off the tagging and the naming scheme and have my own arbitrary note names that actually reflect the content of the note that I'm working with?
 
+This block is taken from Prot's video on =use-package=.
 
+#+begin_src emacs-lisp :tangle "init.el"
+  ;;; Define many keys in many key maps
+  (use-package denote
+    :ensure t
+    :bind
+    ( :map global-map
+      ("C-c n n" . denote)
+      ("C-c n r" . denote-rename-file)
+
+      :map text-mode-map
+      ("C-c n i" . denote-link) ; "insert" mnemonic
+      ("C-c n I" . denote-add-links)
+
+      :map dired-mode-map
+      ("C-c C-d C-i" . denote-link-dired-marked-notes)
+      ("C-c C-d C-r" . denote-dired-rename-marked-files)))
+
+#+end_src
+
+** TODO Creating fleeting notes
+
+This should be done with the =org-capture= package, or with =remember-mode=
+
+*** TODO Setting up =org-capture=
+
+This setting of =org-capture= is taken from the Emacs Writing Studio configuration.
+
+#+begin_src emacs-lisp :tangle no
+  ;;; org-capture and its templates
+  (use-package org
+  :bind
+  (("C-c c" . org-capture)
+   ("C-c l" . org-store-link))
+  :custom
+  (org-capture-templates
+   '(("f" "Fleeting note"
+      item
+      (file+headline org-default-notes-file "Notes")
+      "- %?")
+     ("p" "Permanent note" plain
+      (file denote-last-path)
+      #'denote-org-capture
+      :no-save t
+      :immediate-finish nil
+      :kill-buffer t
+      :jump-to-captured t)
+     ("t" "New task" entry
+      (file+headline org-default-notes-file "Tasks")
+      "* TODO %i%?"))))
+#+end_src
+`
+The block is modified so that it doesn't call on compiling =org-mode= once again with =elpaca=. As such, it uses the =setq= syntax instead for setting up the options.
+
+*I need to find a different way to add different bindings to commands without having to use use-package.*
+
+*** TODO Settings for =org-refile= in the case of these fleeting notes
+
+After jotting down some really quick ideas, I need to have a way to actually refile them and make them usable later. For this, I need an org-refile setup
+
+*** TODO Setting up =remember-mode=
 
 * Org-mode configuration
 
@@ -1315,8 +1466,7 @@ Is it possible to actually turn off the tagging and the naming scheme and have m
 
 Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
 
-* Creating a usable graph for org-mode notesw
-
+* Creating a usable graph for =org-mode notes
 * Manuscript writing mode
 
 ** TODO Tangling the different parts of the manuscript together
@@ -1432,6 +1582,8 @@ I need both functionality with =markdown-mode= and =org-mode= for rendering the 
   	    (call-process "open" nil 0 nil fpath)))
 #+end_src
 
+*** TODO Getting =OpenAlex= to work for fetching more bibliography
+
 *** Automatically generate BibTeX keys
 
 This needs to be tested to see if it really works.
@@ -1494,6 +1646,12 @@ You can also limit which parts of the org-cite libraries will load.
 ** TODO Get the hang of using =org-ref= for managing all references
 
 How do you load multiple bibliography files?
+
+* Recognising other cross-references within a PDF
+
+It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
+
+This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
 
 * Window management
 

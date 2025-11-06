@@ -62,9 +62,6 @@
 
 (setq load-path (cons "~/.config/emacs-literate/sia-modules" load-path))
 
-(load "~/.config/emacs/load-directory.el")
-(load-directory "~/.config/emacs/custom-functions")
-
 ;; (require 'sensible-defaults)
 ;; (require 'sia-keybindings)
 ;; (require 'sia-minibuffer)
@@ -82,6 +79,12 @@
 (use-package elpher)
 (use-package elfeed)
 (use-package elfeed-org)
+
+(use-package consult-omni
+  :ensure
+  (consult-omni
+   :host github
+   :repo "armindarvish/consult-omni"))
 
 (use-package magit)
 
@@ -101,6 +104,23 @@
 
 (use-package embark)
 (use-package embark-consult)
+
+(setq org-todo-keywords
+  (quote ((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
+          (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
+
+(setq org-todo-keyword-faces
+    (quote (("TODO" :foreground "red" :weight bold)
+            ("NEXT" :foreground "blue" :weight bold)
+            ("DONE" :foreground "forest green" :weight bold)
+            ("WAITING" :foreground "orange" :weight bold)
+            ("HOLD" :foreground "magenta" :weight bold)
+            ("CANCELLED" :foreground "forest green" :weight bold)
+            ("MEETING" :foreground "forest green" :weight bold)
+            ("PHONE" :foreground "forest green" :weight bold))))
+
+;; I don't wan't the keywords in my exports by default
+(setq-default org-export-with-todo-keywords nil)
 
 (use-package org-super-agenda)
 
@@ -194,7 +214,6 @@
 (global-display-line-numbers-mode)
 
 (use-package company)
-(use-package marginalia) ; Enrich existing commands with completion annotations
 
 (use-package vertico
   :demand t
@@ -229,7 +248,6 @@
 (use-package pdf-tools)
 ;; (pdf-tools-install)
 
-(use-package denote)
 (use-package howm)
 ;; (straight-use-package 'phi-notes) ;; can't actually find the package (it has to be installed manually)
 
@@ -265,6 +283,22 @@
 
 (use-package org-noter)
 (use-package djvu) ; apparently needed for org-noter
+
+;;; Define many keys in many key maps
+(use-package denote
+  :ensure t
+  :bind
+  ( :map global-map
+    ("C-c n n" . denote)
+    ("C-c n r" . denote-rename-file)
+
+    :map text-mode-map
+    ("C-c n i" . denote-link) ; "insert" mnemonic
+    ("C-c n I" . denote-add-links)
+
+    :map dired-mode-map
+    ("C-c C-d C-i" . denote-link-dired-marked-notes)
+    ("C-c C-d C-r" . denote-dired-rename-marked-files)))
 
 (use-package org-ref)
 (use-package helm-bibtex)
