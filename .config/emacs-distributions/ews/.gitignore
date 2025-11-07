@@ -7,8 +7,8 @@ ews/history
 ews/recentf
 
 # directories of binary files
-ews/transient/**
-ews/eln-cache/**
-ews/elpa/**
-ews/emms/**
-ews/backups/**
+ews/transient/
+ews/eln-cache/
+ews/elpa/
+ews/emms/
+ews/backups/
