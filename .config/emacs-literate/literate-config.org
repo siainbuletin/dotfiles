@@ -93,7 +93,7 @@ See also the =load-file= function that is supported by default in Emacs Lisp.
 
 You can set the tangle to trigger based on when the file was modified (meaning: through looking at the =modification-time=).[1]
 
-#+begin_src emacs-lisp :tangle no results: none
+#+begin_src emacs-lisp :tangle no
   (let* ((dotfile-dir (file-name-directory (or (buffer-file-name)
     				     load-file-name)))
        ;; disabled
@@ -137,6 +137,8 @@ You can also enable =show-paren-mode=, which will help
 - =sia-modules/= directory :: These are the configuration modules. They don't introduce new bits of Emacs Lisp code, instead they just tweak some configuration for packages.
 
 - =sia-lisp/= directory :: This actually loads custom Emacs Lisp code.
+
+- =sia-ews-functions.el= :: temporary file from where I load helped functions inspired by Emacs Writing Studio.
 
 - =literate-config.org= :: is the current file, which describes the entire architecture.
 
@@ -387,44 +389,50 @@ When adjusting the font size, I don't want to also resize the frame, as is done 
 
 For some reason, Prot prefers to do this from the =early-init.el= file. The functions defined allow us to load light or dark themes as needed.
 
-#+begin_src emacs-lisp :tangle none
-;;;; General theme code
+#+begin_src emacs-lisp :tangle no
+  ;;;; General theme code
 
-(defun prot-emacs-theme-gsettings-dark-p ()
-  "Return non-nil if gsettings (GNOME) has a dark theme.
-Return nil if the DESKTOP_SESSION is either bspwm or
-herbstluftwm, per the configuration of my dotfiles.  Also check
-the `delight.sh' shell script."
-  (prot-emacs-with-desktop-session
-    (string-match-p
-     "dark"
-     (shell-command-to-string "gsettings get org.gnome.desktop.interface color-scheme"))))
+  (defun prot-emacs-theme-gsettings-dark-p ()
+    "Return non-nil if gsettings (GNOME) has a dark theme.
+  Return nil if the DESKTOP_SESSION is either bspwm or
+  herbstluftwm, per the configuration of my dotfiles.  Also check
+  the `delight.sh' shell script."
+    (prot-emacs-with-desktop-session
+     (string-match-p
+      "dark"
+      (shell-command-to-string "gsettings get org.gnome.desktop.interface color-scheme"))))
+#+end_src
 
-(defun prot-emacs-theme-twm-dark-p ()
-  "Return non-nil if my custom setup has a dark theme.
-I place a file in ~/.config/prot-xtwm-active-theme which contains
-a single word describing my system-wide theme.  This is part of
-my dotfiles.  Check my `delight.sh' shell script for more."
-  (when-let* ((file "~/.config/prot-xtwm-active-theme")
-              ((file-exists-p file)))
-    (string-match-p
-     "dark"
-     (with-temp-buffer
-       (insert-file-contents file)
-       (buffer-string)))))
+#+begin_src emacs-lisp :tangle no
+  (defun prot-emacs-theme-twm-dark-p ()
+    "Return non-nil if my custom setup has a dark theme.
+  I place a file in ~/.config/prot-xtwm-active-theme which contains
+  a single word describing my system-wide theme.  This is part of
+  my dotfiles.  Check my `delight.sh' shell script for more."
+    (when-let* ((file "~/.config/prot-xtwm-active-theme")
+                ((file-exists-p file)))
+      (string-match-p
+       "dark"
+       (with-temp-buffer
+         (insert-file-contents file)
+         (buffer-string)))))
+#+end_src
 
-(defun prot-emacs-theme-environment-dark-p ()
-  "Return non-nil if environment theme is dark."
-  (or (prot-emacs-theme-twm-dark-p)
-      (prot-emacs-theme-gsettings-dark-p)))
+#+begin_src emacs-lisp :tangle no
+  (defun prot-emacs-theme-environment-dark-p ()
+    "Return non-nil if environment theme is dark."
+    (or (prot-emacs-theme-twm-dark-p)
+        (prot-emacs-theme-gsettings-dark-p)))
+#+end_src
 
-(defun prot-emacs-re-enable-frame-theme (_frame)
-  "Re-enable active theme, if any, upon FRAME creation.
-Add this to `after-make-frame-functions' so that new frames do
-not retain the generic background set by the function
-`prot-emacs-avoid-initial-flash-of-light'."
-  (when-let* ((theme (car custom-enabled-themes)))
-    (enable-theme theme)))
+#+begin_src emacs-lisp :tangle no
+  (defun prot-emacs-re-enable-frame-theme (_frame)
+    "Re-enable active theme, if any, upon FRAME creation.
+  Add this to `after-make-frame-functions' so that new frames do
+  not retain the generic background set by the function
+  `prot-emacs-avoid-initial-flash-of-light'."
+    (when-let* ((theme (car custom-enabled-themes)))
+      (enable-theme theme)))
 #+end_src
 
 *** Avoid flashing white on Emacs when starting up in a dark environment
@@ -512,7 +520,7 @@ I still don't know what the difference between =straight-use-package= and =use-p
     (straight-use-package-by-default t))
 #+end_src
 
-con*** Installing =elpaca=
+*** Installing =elpaca=
 
 =Elpaca= is a way to have the GUI for the native package manager available (with more modern tweaks), while also having good integration with =use-package=. Hopefully it will make managing the configuration a lot easier in the long run.
 
@@ -596,7 +604,7 @@ Making the repo directory:
 
 Since =elpaca= isn't as widely used as =straight-el=, a lot of packages that you might install from GitHub don't actually have instructions for how to install them. But now =elpaca= supports using =use-package='s =:ensure= keyboard, so you can just use regular =use-package= installation.[fn:4]
 
-*** Other variables suggested in the elpaca configuration on the site
+*** Other variables suggested in the =elpaca= configuration on the site
 
 And other useful variables for the init file...
 
@@ -660,6 +668,42 @@ Adding them to the path is done through:
   '("sia-lisp" "sia-modules"))
 #+end_src
 
+*** TODO Loading modules from =ews= (renamed to =sia= functions)
+
+The file from Emacs Writing Studio called =ews.el= is now renamed to =sia-ews-functions.el=.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(load-file (concat (file-name-as-directory user-emacs-directory)
+		   "sia-ews-functions.el"))
+#+end_src
+
+** TODO Loading necessary external software
+
+For some functions, it's a better idea to rely on external commandline software.
+
+*** Adding a function that checks whether software is missing
+
+The =sia-missing-executables= function checks if external software is available on your system. Emacs writes a message in the minibuffer if any of the recommended tools are missing. You can jump to the =Messages= buffer with =C-h e= to review the output. Emacs will function normally when this software is unavailable, but some features might not work.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(sia-missing-executables
+ '(("gs" "mutool")
+   "pdftotext"
+   "soffice"
+   "zip"
+   "ddjvu"
+   "curl"
+   ("mpg321" "ogg123" "mplayer" "mpv" "vlc")
+   ("grep" "ripgrep")
+   ("convert" "gm")
+   "dvipng"
+   "latex"
+   "hunspell"
+   "git"))
+#+end_src
+
+This function checks whether all these packages are available on your system. For software in a nested list, such as =("convert" "gm")=, only one of them has to be available, as these programs are alternatives for the same functionality.
+
 ** TODO Loading icons for preview
 
 We can load decorative icons in several different places.
@@ -690,6 +734,16 @@ This will be telling Emacs to use UTF-8 encoding as much as possible
 (set-terminal-coding-system 'utf-8)     ; Set coding system of terminal output
 (set-keyboard-coding-system 'utf-8)     ; Set coding system for keyboard input on TERMINAL
 (set-language-environment "English")    ; Set up multilingual environment
+#+end_src
+
+** Configuring =mixed-pitch= mode
+
+Mixed pitch (variable pitch) for org buffers means that written prose is displayed in variable pitch, while metadata, code and other items are in fixed pitch. A hook is a construction in Emacs that associates modes with each other. In this case, variable pitch text is enabled for all text mode buffers.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package mixed-pitch
+    :hook
+    (org-mode . mixed-pitch-mode))
 #+end_src
 
 ** Adding =persistent-scratch=
@@ -727,7 +781,6 @@ Taken from Emacs Writing Studio.
   (openwith-associations nil))
 #+end_src
 
-
 * TODO Version control
 
 Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
@@ -740,7 +793,8 @@ Before installing =magit=, the version that's available on =elpaca= requires tha
   (use-package transient)
 #+end_src
 
-** Enabling git gutter within Emacs
+** TODO Enabling =git-annex= support from within =magit=
+** TODO Enabling git gutter within Emacs
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package git-gutter
@@ -928,56 +982,6 @@ This should tell you what you should be doing next up.
   (keymap-global-set "<f5>" 'reload-init-file)
 #+end_src
 
-** Text editing utilities
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Adding global shift-select support in Org buffers (bypassing other SHIFT bindings)
-  (setq org-support-shift-select t)
-#+end_src
-
-*** Always enable the visual-line-mode when reading in a normal org buffer
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (visual-line-mode)
-  ; is this actually enabled just for org buffers or is it enabled globally?
-#+end_src
-
-*** Wrapping the text
-
-#+begin_src emacs-lisp :tangle "init.el"
-    ;; visual-fill-column for a nice soft wrap
-    (use-package visual-fill-column
-      :commands visual-fill-column-mode
-
-      :custom
-      (fill-column-enable-sensible-window-split t)
-
-      :bind
-      (("C-x p" . 'visual-fill-column-mode)))
-#+end_src
-
-*** TODO Enabling CUA mode by default
-
-CUA mode only affects the shortcuts when the region is active (meaning that the text is selected).
-
-#+begin_src emacs-lisp :tangle no
-  ;; Enable CUA mode by default
-#+end_src
-
-*** Automatically closing parentheses properly
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
-  (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
-#+end_src
-
-*** TODO Introduce something like regular linting functionality that you have in Obsidian
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (add-hook 'before-save-hook
-            'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
-#+end_src
-
 ** TODO Redraw the display upon graphical errors
 
 It still is something that I have to deal with: figuring out why there's screen tearing when I'm editing on my Legion Pro 5. Might be because of Wayland. Currently, I switch back and forth between Wayland and XWayland. On the ThinkPad E14, I have to make use of X11 no matter what I do (it's what I built EndeavourOS with).
@@ -1021,37 +1025,139 @@ This code snippet will also make sure that the autosaved files are offloaded to 
         version-control t)
 #+end_src
 
+* Text editing settings
+** Global shift-select support in =org-mode= buffers
+
+This will bypass other =SHIFT= bindings.
+#+begin_src emacs-lisp :tangle "init.el"
+
+  (setq org-support-shift-select t)
+#+end_src
+** DONE Always enable the visual-line-mode when reading in a normal org buffer
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (visual-line-mode)
+  ; is this actually enabled just for org buffers or is it enabled globally?
+#+end_src
+
+** Wrapping the text with =visual-fill-column=
+
+*I still don't really know what is the use of this package.*
+
+#+begin_src emacs-lisp :tangle "init.el"
+    ;; visual-fill-column for a nice soft wrap
+    (use-package visual-fill-column
+      :commands visual-fill-column-mode
+
+      :custom
+      (fill-column-enable-sensible-window-split t)
+
+      :bind
+      (("C-x p" . 'visual-fill-column-mode)))
+#+end_src
+
+** TODO Configuring =text-mode=
+
+Text mode allows replacing text when you start typing. _This is taken directly from Emacs Writing Studio_.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package text-mode
+    :ensure nil
+    ;; :hook
+    ;; (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+    :init
+    (delete-selection-mode t)
+    :custom
+    (sentence-end-double-space nil)
+    (scroll-error-top-bottom t)
+    (save-interprogram-paste-before-kill t))
+#+end_src
+
+This section also redefines the way Emacs defines a sentence (refer to section #sec-count in Emacs Writing Studio).
+
+=save-interprogram-paste-before-kil= saves any existing clipboard text into the kill ring for better operability between the operating system's clipboard and Emacs's kill ring.
+
+** TODO Enabling CUA mode automatically on startup
+
+Something that's completely upsetting about Emacs is that it doesn't come installed with CUA mode and I always have to turn it on when I'm first booting into Emacs when booting the computer itself. I haven't yet found a way to enable CUA mode automatically when logging in to Emacs.
+
+CUA mode only affects the shortcuts when the region is active (meaning that the text is selected).
+
+#+begin_src emacs-lisp :tangle no
+
+#+end_src
+
+** Automatically closing parentheses properly
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+  (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+#+end_src
+
+** TODO Introduce something like regular linting functionality that you have in Obsidian
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (add-hook 'before-save-hook
+            'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+#+end_src
+** Spellchecking support
+
+The Flyspell package interfaces with the Hunspell software and the relevant dictionary to check spelling on the fly.
+
+Flyspell is built-in, so you have to change the way that it is called from =elpaca=.
+
+*I currently can't get this one to work because I can't make =elpaca= not try to install it, despite it being actually built in.*
+
+You must change the standard dictionary to your local variety by customising  the ~ews-hunspell-dictionaries~  variable. EWS uses this particular variable because the dictionaries are set in two places to enable multilingual spelling. You can set multiple dictionaries for the same buffer. In my configuration I use ="en_AU,nl_NL"= so I can write in either the Australian variant of English or Dutch without having to change dictionaries. Section #sec-spelling in Emacs Writing Studio explains how to use this package.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package flyspell
+    :custom
+    (ispell-program-name "hunspell")
+    (ispell-dictionary ews-hunspell-dictionaries)
+    (flyspell-mark-duplications-flag nil) ;; Writegood mode does this
+    (org-fold-core-style 'overlays) ;; Fix Org mode bug
+    :config
+    (ispell-set-spellchecker-params)
+    (ispell-hunspell-add-multi-dic ews-hunspell-dictionaries)
+    :hook
+    (text-mode . flyspell-mode)
+    :bind
+    (("C-c w s s" . ispell)
+     ("C-;"       . flyspell-auto-correct-previous-word)))
+#+end_src
+
 * TODO Keybindings
 ** TODO Enabling and configuring =which-key=
 
 This allows us to improve the discoverability for commands in Emacs.
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package which-key
-  :config
-  (which-key-mode)
-  :custom
-  (which-key-max-description-length 40)
-  (which-key-lighter nil)
-  (which-key-sort-order 'which-key-description-order)
-  :init
-  (which-key-add-key-based-replacements
-    "C-c w"   "Emacs Writing Studio"
-    "C-c w b" "Bibliographic"
-    "C-c w d" "Denote"
-    "C-c w m" "Multimedia"
-    "C-c w s" "Spelling and Grammar"
-    "C-c w t" "Themes"
-    "C-c w x" "Explore"))
+        (use-package which-key
+          :ensure t
+          :config
+          (which-key-mode)
+          :custom
+          (which-key-max-description-length 40)
+          (which-key-lighter nil)
+          (which-key-sort-order 'which-key-description-order)
+          (which-key-mode +1)
+          :init
+          (which-key-add-key-based-replacements
+  	  "C-c w"   "Emacs Writing Studio"
+          "C-c w b" "Bibliographic"
+          "C-c w d" "Denote"
+          "C-c w m" "Multimedia"
+          "C-c w s" "Spelling and Grammar"
+          "C-c w t" "Themes"
+          "C-c w x" "Explore"))
 #+end_src
+
+=which-key= is apparently a really useful package for bindings for =projectile= (see notes in EWS)
 
 ** Specific proper settings for keybindings
 
 These should go in the =sia-keybindings.el= file. *They shall be moved in the future, once I figure out how to do a modular Emacs Lisp setup.*
-
-** TODO Enable CUA mode automatically on startup
-
-Something that's completely upsetting about Emacs is that it doesn't come installed with CUA mode and I always have to turn it on when I'm first booting into Emacs when booting the computer itself. I haven't yet found a way to enable CUA mode automatically when logging in to Emacs.
 
 ** Disable stupid keybindings (general)
 
@@ -1063,8 +1169,11 @@ This one would just close Emacs, instead of doing undo if it wasn't in the CUA m
 
 ** TODO Right-click context menu
 
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; (keymap-global-set [mouse-3] 'mouse-popup-menubar-stuff) ;; This will give right-click a context menu
+This code snippet enables a contextual popup menu when clicking the right mouse button. Taken from Emacs Writing Studio.
+
+#+begin_src elisp
+  (when (display-graphic-p)
+    (context-menu-mode))
 #+end_src
 
 ** TODO Tangling the org literate config
@@ -1128,15 +1237,21 @@ Is =global-display-line-numbers-mode= the function that's actually creating this
 * TODO Dired (file management)
 
 #+begin_src emacs-lisp :tangle no
-(use-package dired
-  :ensure nil
-  :commands (dired dired-jump)
-  :bind (("C-x C-j" . dired-jump))
-  :custom ((dired-listing-switches "-agho --group-directories-first"))
-  :config
-  (evil-collection-define-key 'normal 'dired-mode-map
-    "h" 'dired-single-up-directory
-    "l" 'dired-single-buffer))
+    (use-package dired
+      :ensure nil
+      :commands
+      (dired dired-jump)
+      :bind (("C-x C-j" . dired-jump))
+      :custom
+      (dired-listing-switches "-agho --group-directories-first")
+      (dired-dwim-target t)
+      (delete-by-moving-to-trash t)
+      :config
+      (evil-collection-define-key 'normal 'dired-mode-map
+        "h" 'dired-single-up-directory
+        "l" 'dired-single-buffer)
+      (put 'dired-find-alternate-file 'disabled nil)
+  )
 #+end_src
 
 ** Add git status gutter to the dired buffer
@@ -1220,9 +1335,11 @@ Consult is also used for the BibTeX mode I have installed.
 
 ** TODO Configuring =corg.el= for auto-completion in org blocks
 
-This can help with faster writing of several examples
+This can help with faster writing of several examples.
 
-#+begin_src emacs-lisp :tangle "init.el"
+Currently, =corg= is disabled because of a debugger issue that I'm getting.
+
+#+begin_src emacs-lisp :tangle no
     (use-package corg
       :ensure
       (:host github :repo "isamert/corg.el"))
@@ -1230,11 +1347,8 @@ This can help with faster writing of several examples
 
 Enabling =corg= in the current org buffer automatically, you need to add a hook:
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
   (add-hook 'org-mode-hook #'corg-setup)
-#+end_src
-
-#+begin_src
 #+end_src
 
 * Packages made for searching
@@ -1304,12 +1418,16 @@ You want to have a unified framework for reading material in Emacs, and that it 
 *** Installing =nov-el=
 
 #+begin_src emacs-lisp :tangle no
-          (use-package nov
-            :ensure t
-            :config
-            (setq nov-variable-pitch nil
-                  nov-text-width 70))
+              (use-package nov
+                :ensure t
+                :config
+                (setq nov-variable-pitch nil
+                      nov-text-width 70)
+                :init
+                (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
 #+end_src
+
+The init section ensures that any file with an =epub= extension is associated with this package. An ePub file is essentially a compressed website, so you will need the Zip program to enable reading these files. Refer to section #sec-epub in _Emacs Writing Studio_ on how to read ePub files.
 
 *** =calibredb= configuration
 
@@ -1562,14 +1680,23 @@ After jotting down some really quick ideas, I need to have a way to actually ref
 
 This is taken directly from Emacs Writing Studio.
 
+*Do the setq definitions actually work for this?*
+
 #+begin_src emacs-lisp :tangle no
-  (org-hide-emphasis-markers t)
-  (org-startup-with-inline-images t)
-  (org-image-actual-width '(450))
-  (org-pretty-entities t) ; What makes them pretty?
-  (org-use-sub-superscripts "{}")
-  (org-id-link-to-org-use-id t) ; What exactly does this do to the links?
-  (org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+      (setq org-hide-emphasis-markers t)
+      (setq org-startup-with-inline-images t)
+      (setq org-image-actual-width '(450))
+      (setq org-pretty-entities t) ; What makes them pretty?
+      (setq org-use-sub-superscripts "{}")
+      (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
+      (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+#+end_src
+
+This is taken from the README for org-modern.
+
+#+begin_src emacs-lisp :tangle no
+(setq org-agenda-tags-column 0)
+      (setq org-ellipsis "…")
 #+end_src
 
 ** TODO Show hidden emphasis markers
@@ -1579,6 +1706,8 @@ This is taken directly from Emacs Writing Studio.
   :hook
   (org-mode . org-appear-mode))
 #+end_src
+
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds.
 
 ** DONE Turning off auto-indentation (=electric-indent-mode=)
 
@@ -1591,6 +1720,53 @@ Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disa
 ** TODO Making the folding headings of org-mode less insufferable
 
 Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
+
+** Enhacing =org-mode= with =org-modern= mode
+
+*I currently can't get this to work properly. It doesn't seem to do anything to the buffer at all.*
+
+#+begin_src emacs-lisp :tangle no
+  (use-package org-modern)
+#+end_src
+
+Loading for all org-mode buffers. Currently doesn't work and gives me "Symbol's function definition is void: =global-org-modern-mode="
+
+#+begin_src emacs-lisp :tangle no
+  (with-eval-after-load 'org (global-org-modern-mode))
+#+end_src
+
+#+begin_src emacs-lisp :tangle no
+  ;; Add frame borders and window dividers
+  (modify-all-frames-parameters
+   '((right-divider-width . 40)
+     (internal-border-width . 40)))
+  (dolist (face '(window-divider
+                  window-divider-first-pixel
+                  window-divider-last-pixel))
+    (face-spec-reset-face face)
+    (set-face-foreground face (face-attribute 'default :background)))
+  (set-face-background 'fringe (face-attribute 'default :background))
+#+end_src
+
+These will be the settings that are edited.
+
+#+begin_src emacs-lisp :tangle no
+  (setq
+   org-auto-align-tags nil
+   org-tags-column 0
+   org-catch-invisible-edits 'show-and-error
+   org-special-ctrl-a/e t
+   org-insert-heading-respect-content t)
+#+end_src
+
+#+begin_src emacs-lisp :tangle no
+  (global-org-modern-mode)
+#+end_src
+
+*** Watch out for incompatibilities with =org-modern=
+- If org-indent-mode is enabled, org-modern will disable the block prettification in the fringe. See the package org-modern-indent which provides a different mechanism for block styling, than using the fringe.
+- org-num-mode interferes with the org-modern prettification of TODO keywords.
+- visual-wrap-prefix-mode relies on the wrap-prefix text property which is also used by org-modern.
 
 * Creating a usable graph for =org-mode= notes
 * =org-mode= presentation workflow
@@ -1633,33 +1809,39 @@ When you're editing a project, it's always useful to be able to annotate *over* 
 
 For this reason, I've looked at =org-remark= to be able to emulate this functionality.
 
-This will be done with the =org-remark= package
+This will be done with the =org-remark= package.
 
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-remark-global-tracking
-  ;; It is recommended that `org-remark-global-tracking-mode' be
-  ;; enabled when Emacs initializes. You can set it in
-  ;; `after-init-hook'.
-  :hook after-init
-  :config
-  ;; Selectively keep or comment out the following if you want to use
-  ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
-  (use-package org-remark-info :after info :config (org-remark-info-mode +1))
-  (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
-  (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+It is recommended that =org-remark-global-tracking-mode= be enabled when Emacs initializes. You can set it in =after-init-hook=.
 
-(use-package org-remark
-  :bind (;; :bind keyword also implicitly defers org-remark itself.
-         ;; Keybindings before :map is set for global-map. Adjust the keybinds
-         ;; as you see fit.
-         ("C-c n m" . org-remark-mark)
-         ("C-c n l" . org-remark-mark-line)
-         :map org-remark-mode-map
-         ("C-c n o" . org-remark-open)
-         ("C-c n ]" . org-remark-view-next)
-         ("C-c n [" . org-remark-view-prev)
-         ("C-c n r" . org-remark-remove)
-         ("C-c n d" . org-remark-delete)))
+=org-remark= is currently disabled because of an error with =org-remark-global-tracking= not being able to be pulled by =elpaca=. I can't figure out the reason why it doesn't work currently.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package org-remark-global-tracking
+    :ensure t
+    :hook after-init
+    :config
+    ;; Selectively keep or comment out the following if you want to use
+    ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
+    (use-package org-remark-info :after info :config (org-remark-info-mode +1))
+    (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
+    (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+#+end_src
+
+Now we're bootstrapping the real =org-remark= package.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package org-remark
+    :bind (;; :bind keyword also implicitly defers org-remark itself.
+           ;; Keybindings before :map is set for global-map. Adjust the keybinds
+           ;; as you see fit.
+           ("C-c n m" . org-remark-mark)
+           ("C-c n l" . org-remark-mark-line)
+           :map org-remark-mode-map
+           ("C-c n o" . org-remark-open)
+           ("C-c n ]" . org-remark-view-next)
+           ("C-c n [" . org-remark-view-prev)
+           ("C-c n r" . org-remark-remove)
+           ("C-c n d" . org-remark-delete)))
 #+end_src
 
 *** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
@@ -1708,7 +1890,7 @@ This should work both for learning languages and practicing an instrument. It sh
 #+begin_src emacs-lisp :tangle no
   (use-package gnosis)
 #+end_src
-
+*** Defining the directory of files that you can create flashcards from
 ** TODO Configuring foreign language dictionaries
 
 ** TODO Configuring an ear training package for audiating intervals and other musical features
@@ -1726,7 +1908,7 @@ It also needs to not be bound to specific directories. The problem with =org-att
 
 - functionality between markdown and org-mode :: This is especially important if I want to have =completion-at-point= for my citation keys. Currently, the package that supports this is =citar=.
 
-** How do you plan to deal with all of the biggest BibTeX files?
+** TODO How do you plan to deal with all of the biggest BibTeX files?
 
 It seems that =org-ref=, like other bibliography managers built for Emacs, was made to work with pure BibTeX files. Now, I know that if my BibTeX files get too big (aroung 2k entries), they don't even really load within BibDesk anymore. This is a large issue.
 
@@ -1742,44 +1924,66 @@ You can also limit which parts of the org-cite libraries will load.
   - it doesn't make use of =org-ref=
   - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
 
-** Exporting citations from =org-mode= through =org-cite=
+** TODO Exporting citations from =org-mode= through =org-cite=
 
 This is taken directly from the =init.el= of Emacs Writing Studio.
 
 I'm currently not tangling this because I can't get the =sia-bibtex-files= variable to work, and I also don't know how to set a real file path for this configuration. I need to check with the official =org-cite= documentation for this purpose.
 
-#+begin_src emacs-lisp :tangle no
-;;; Export citations with Org Mode
-(require 'oc-natbib)
-(require 'oc-csl)
+** TODO Rendering the citations inline
 
-(setq org-cite-global-bibliography sia-bibtex-files
-      org-cite-insert-processor 'citar
-      org-cite-follow-processor 'citar
-      org-cite-activate-processor 'citar)
-#+end_src
+_Taken directly from Emacs Writing Studio._
 
-** TODO General biliography bootstrapping
-
-This is where we're calling the default BibTex file.
+This configuration sets the global bibliography equal to the =sia-bibtex-files= variable. To set this variable, configure the =sia-bibtex-directory= to register bibliography files and run the =sia-bibtex-register= function every time you add new bib-files.
 
 #+begin_src emacs-lisp :tangle "init.el"
-;;; BibTeX first configuration
-(use-package bibtex
-  :custom
-  (bibtex-user-optional-fields
-   '(("keywords" "Keywords to describe the entry" "")
-     ("file"     "Relative or absolute path to attachments" "" )))
-  (bibtex-align-at-equal-sign t)
-  :config
-  (sia-bibtex-register)
-  :bind
-  (("C-c w b r" . sia-bibtex-register)))
+  (require 'oc-natbib)
+  (require 'oc-csl)
+
+  (setq org-cite-global-bibliography sia-bibtex-files
+        org-cite-insert-processor 'citar
+        org-cite-follow-processor 'citar
+        org-cite-activate-processor 'citar)
 #+end_src
 
 ** TODO Defining BibTeX files as separate variables for portability
 
 If you want to avoid setting the same file path for bibliography files across different packages, you can take the Emacs Writing Studio approach and define them as a variable that can be called later.
+
+** TODO General biliography bootstrapping
+
+This is where we're calling the default BibTex functions. =bibtex=, here, refers to the Emacs BibTeX mode.
+
+BibTeX mode has support for adding entries according to certain field configurations (it would be a lot more visual, like working in BibDesk for the same purpose).
+
+The new optional fields that are defined under =bibtex-user-optional-fields= define keywords for tagging the literature and =file= to allow reading attachments from Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package bibtex
+    :ensure nil
+    :custom
+    (bibtex-user-optional-fields
+     '(("keywords" "Keywords to describe the entry" "")
+       ("file"     "Relative or absolute path to attachments" "" )))
+    (bibtex-align-at-equal-sign t)
+    :config
+    (sia-bibtex-register)
+    :bind
+    (("C-c w b r" . sia-bibtex-register))
+  )
+#+end_src
+
+The =sia-register-bibtex= function  assigns all files with the =.bib= extension in the directory stored in the ~sia-bibliography-directory~ variable to the list of global BibTeX files. You need to set this variable to the location where you store your bibliography. Section #sec-bib in _Emacs Writing Studio_ explains creating and managing a bibliography. We use a special variable to ensure other variables have the same value.
+
+** TODO Configuring the =biblio= package
+
+The Biblio package enables you to extract literature from various databases.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package biblio
+    :bind
+    (("C-c w b b" . sia-bibtex-biblio-lookup)))
+#+end_src
 
 ** TODO Calling the necessary packages
 
@@ -1787,7 +1991,7 @@ If you want to avoid setting the same file path for bibliography files across di
 
 Not calling this because I can't make =sia-bibtex-files= work. This is something that's taken ad-literam from Emacs Writing Studio, where the function that Prevos defines is =ews-bibtex-files=. See [[#Defining BibTeX files as separate variables for portability]].
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el"
   (use-package citar
     :ensure t
     :defer t ; what's the point of defering in this case?
@@ -1798,6 +2002,8 @@ Not calling this because I can't make =sia-bibtex-files= work. This is something
 #+end_src
 
 *** Caling =ebib=
+
+Do I still have any use for =ebib= if I'm using =citar=?
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package ebib)
@@ -1850,21 +2056,13 @@ If you don't have the BibTex file open, you can search the BibTeX database with 
 
 ** TODO Managing literature notes with the =citar-denote= package
 
-Taken from Emacs Writing Studio.
+_Taken from Emacs Writing Studio._ =citar-denote= is also developed by Peter Prevos. It allows the user to browse and *act* on bibliographic data which can be stored in BibTeX, BibLaTeX or JSON.
 
-Tangle is disabled because of these errors:
+By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. *But I should find a better way to normalise this entire functionality.*
 
-#+begin_example
-Warning (native-compiler): denote-explore.el:729:33: Warning: the function ‘org-toggle-link-display’ is not known to be defined.
-⛔ Warning (native-compiler): denote-explore.el:707:4: Warning: the function ‘org-table-align’ is not known to be defined.
-⛔ Warning (native-compiler): denote-explore.el:474:10: Warning: the function ‘org-insert-time-stamp’ is not known to be defined.
-⛔ Warning (native-compiler): citar-denote.el:754:27: Warning: the function ‘denote-silo-directory-prompt’ is not known to be defined.
-⛔ Warning (native-compiler): citar-denote.el:664:27: Warning: the function ‘denote-link--find-file-prompt’ is not known to be defined.
-⛔ Warning (native-compiler): citar-denote.el:509:18: Warning: the function ‘denote-sequence-get-new’ is not known to be defined.
-⛔ Warning (native-compiler): citar-denote.el:507:30: Warning: the function ‘denote-sequence-file-prompt’ is not known to be defined.
-#+end_example
+It is also claimed that this method will help with creating literature reviews.[fn:10]
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el"
 (use-package citar-denote
   :custom
   (citar-open-always-create-notes t)
@@ -1880,6 +2078,10 @@ Warning (native-compiler): denote-explore.el:729:33: Warning: the function ‘or
    ("C-c w b d" . citar-denote-dwim)
    ("C-c w b e" . citar-denote-open-reference-entry)))
 #+end_src
+
+*** TODO Configuring the name of the bibliographic notes created with =citar-denote=
+
+I don't like the fact that the notes created have a really long file name and I would prefer creating files with the BibTeX citekey, which is created according to some RegEx rules. The goal is to replicate the functionality I had natively in BibDesk which I then used to generated literature notes directly in Obsidian with the same name, which then could be queried through Alfred.
 
 ** TODO Rougier's =org-bib= minor mode
 
@@ -2047,9 +2249,34 @@ This would either mean that it's an overlay, or it's in the special org file tha
 
 there should be a way to open the link under the point, and then directly format that DOI into an entry.
 
-Should this entry be formatted in the annotated bibliography format?
+*Should this entry be formatted in the annotated bibliography format?*
 
-* TODO Window management
+* Session management
+
+Persisting history across Emacs restarts.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package savehist
+    :init
+    (savehist-mode))
+#+end_src
+
+* TODO Emacs's internal window management
+** TODO Configuring internal windows to split vertically instead of horizontally
+
+#+begin_src elisp :tangle "init.el"
+  ;; Split windows sensibly
+  (setq split-width-threshold 120
+        split-height-threshold nil)
+#+end_src
+
+** Configuring automatic resizing for windows with =balanced-windows=
+
+#+begin_src elisp
+  (use-package balanced-windows
+    :config
+    (balanced-windows-mode))
+#+end_src
 
 ** TODO Buffer management through perspective-el
 
@@ -2082,7 +2309,9 @@ Note that =ace-window= is quite outdated at this point, and should be replaced w
 
 Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
 
-** TODO Integrating Emacs with a tiling window manager
+* TODO Integrating Emacs with a tiling window manager (global window management functions)
+
+This has to be developed depending on the display manager that you're using. Under X11, I will be using i3 until I can learn how to use StumpWM. Under Wayland, Sway seems like the best candidate.
 
 ** TODO The possibility of window management through Emacs (for the entire system)
 
@@ -2098,6 +2327,8 @@ This isn't actually too different from just using an application launcher like =
 * TODO Logic and Mathematics environment
 ** LaTeX previews within org-mode buffers
 
+=org-fragtog= is similar to =org-appear=, but it's made specifically for snippets of LaTeX. It automatically toggles Org mode LaTeX fragment previews as the cursor enters and exits them. By default, the text is small and can become unreadable when changing between dark and light themes.
+
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package org-fragtog
   :after org
@@ -2111,6 +2342,12 @@ This isn't actually too different from just using an application launcher like =
    (plist-put org-format-latex-options :background 'auto)))
 #+end_src
 
+The =org-format-latex-options= variable controls the way Emacs presents fragments. This variable is a list with properties such as colours and size. The =plist-put= function lets you change options in the list. The foreground and background are set to take the same colour as your text. If you change from dark to light mode or vice versa, you should evaluate the ~org-latex-preview~ function (=C-c C-x C-l=) to change the preview images.
+
+Automated LaTeX previews are disabled because they can delay loading a page and cause trouble when the user does not have LaTeX installed.
+
+*Do you even want to have automated LaTeX previews in this case?*
+
 ** Configuring rendering equations using Typst
 
 ** Permanently plugging Typst into the system
@@ -2119,7 +2356,7 @@ This isn't actually too different from just using an application launcher like =
 
 Can't this just be kind of resolved through =org-babel=?
 
-* TODO - Configuring the Casual Suite
+* TODO Configuring the Casual Suite
 
 #+begin_src emacs-lisp :tangle no
   (use-package casual)
@@ -2150,20 +2387,14 @@ Can't this just be kind of resolved through =org-babel=?
 This block for vertico isn't actually necessary as I have already instantiated it before.
 
 #+begin_src emacs-lisp :tangle no
-  ;; Optional: Enable vertico as the selection framework to use with Projectile
-  (use-package vertico
-    :ensure t
-    :init
-    (vertico-mode +1))
-#+end_src
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Optional: which-key will show you options for partially completed keybindings
-  ;; It's extremely useful for packages with many keybindings like Projectile.
-  (use-package which-key
-    :ensure t
-    :config
-    (which-key-mode +1))
+        ;; Optional: Enable vertico as the selection framework to use with Projectile
+        (use-package vertico
+          :ensure t
+          :init
+          (vertico-mode +1)
+          :custom
+          (vertico-sort-function
+           'vertico-sort-history-alpha))
 #+end_src
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -2180,7 +2411,6 @@ This block for vertico isn't actually necessary as I have already instantiated i
     (global-set-key (kbd "C-c p") 'projectile-command-map)
     (projectile-mode +1))
 #+end_src
-
 
 * TODO Browsing the internet in Emacs
 ** TODO Configuration for =eww=
@@ -2265,22 +2495,18 @@ I'm not actually looking for a way to write directly like Dorico, but rather to 
 
 This means also the integration of REPLs.
 
-* Making a language-learning environment
-
-* Spaced repetition environment
-
-=org-gnosis=
-
-** Defining the directory of files that you can create flashcards from
-
 * Experimental version control system to work with
 
 * Appearance
 
 There's multiple tenets to follow in this case
-- readability
-- clearness of the commands that I may end up using (so that nothing leads to data loss)
-- a nice enough environment in which I can read about various commands through GNU Info (see more in the section for reading directly from Emacs)
+- readability :: The fonts should be thick enough, there should be enough space on the page, and have serif fonts in case of writing prose. The experience shall be as close as possible to that of writing in typography (in the case of writing prose).
+
+For code, I want the best readability with monospaced fonts.
+
+- command clarity :: Sometimes it isn't clear what happens when I use a keybinding by accident, so I want to avoid any potential data loss.
+
+- good documentation reading environment :: The original layout for the GNU Info pages is quite shit. I want to improve that and the appearance of EWW.  (see more in the Obsidian note about _Reading directly from Emacs_)
 
 ** Setting up NANO Emacs
 
@@ -2661,19 +2887,32 @@ Integration with =projectile= can be done either through =counsel-projectile= or
 
 As of <2025-11-06 Thu>, support for =perspective-el= hasn't yet been implemented for =emacs-dashboard=
 
+* Sysadmin work from Emacs
 * Communicating from Emacs
+** Configuring the IRC client
+** Browsing Reddit from Emacs
+** TODO Setting up Email
 
-** Setting up Email
+*** Choosing the proper email client for this
 
-** Enabling encryption for email
+*** Storing the email in a local directory
+
+*** Keeping an address book of names
+
+*** Making sure that you don't send out bogus emails
+
+*** TODO Enabling encryption for email
 
 Since my goal is to be private, there has to be a way to plug into GnuPG somehow and encrypt my files.
 
-Making disroot work with Emacs.
+*** Making disroot work with Emacs.
+
+Since this is an anonymous server, I believe it might work a little differently.
 
 Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
 
 * Footnotes
+[fn:10] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
 
 [fn:1] https://protesilaos.com/emacs/dotemacs
 

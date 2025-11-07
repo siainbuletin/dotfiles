@@ -18,40 +18,6 @@ https:://github.com/pprevos/emacs-writing-studio
 #+end_example
 
 This repository is not actively maintained. For beginning Emacs users, the configuration acts as a starting point to develop a configuration. More advanced users can copy ideas. The code will only be updated when there are bugs due to future changes in packages or Emacs itself.
-  
-#+begin_src elisp :exports none
-  ;;; init.el --- Emacs Writing Studio init -*- lexical-binding: t; -*-
-
-  ;; Copyright (C) 2024-2025 Peter Prevos
-
-  ;; Author: Peter Prevos <peter@prevos.net>
-  ;; Maintainer: Peter Prevos <peter@prevos.net>
-  ;; URL: https://github.com/pprevos/emacs-writing-studio/
-  ;;
-  ;; This file is NOT part of GNU Emacs.
-  ;;
-  ;; This program is free software; you can redistribute it and/or modify
-  ;; it under the terms of the GNU General Public License as published by
-  ;; the Free Software Foundation, either version 3 of the License, or
-  ;; (at your option) any later version.
-  ;;
-  ;; This program is distributed in the hope that it will be useful,
-  ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-  ;; GNU General Public License for more details.
-  ;;
-  ;; You should have received a copy of the GNU General Public License
-  ;; along with this program. If not, see <https://www.gnu.org/licenses/>.
-  ;;
-  ;; Emacs Writing Studio init file: https://lucidmanager.org/tags/emacs
-  ;;
-  ;; This init file is tangled from: documents/99-appendix.org
-  ;;
-  ;; This file provides a starter kit for developing a configuration and is
-  ;; not a package that is regularly updated.
-  ;;
-  ;;; Code:
-#+end_src
 
 * Using EWS
 The first part of the configuration sets the basic principles of the EWS configuration, such as package management, the user interface look and feel, the minibuffer completion system and basic settings to enable writing for humans.
@@ -527,9 +493,6 @@ The ~ews-register-bibtex~ function assigns all files with the =.bib= extension i
 
 The Biblio package enables you to extract literature from various databases.
 
-#+begin_src elisp :exports none
-  ;; Biblio package for adding BibTeX records
-#+end_src
 #+begin_src elisp
   (use-package biblio
     :bind

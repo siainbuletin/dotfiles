@@ -68,7 +68,29 @@
 
 (setq load-path (cons "~/.config/emacs-literate/sia-modules" load-path))
 
+(load-file (concat (file-name-as-directory user-emacs-directory)
+		   "sia-ews-functions.el"))
+
+(sia-missing-executables
+ '(("gs" "mutool")
+   "pdftotext"
+   "soffice"
+   "zip"
+   "ddjvu"
+   "curl"
+   ("mpg321" "ogg123" "mplayer" "mpv" "vlc")
+   ("grep" "ripgrep")
+   ("convert" "gm")
+   "dvipng"
+   "latex"
+   "hunspell"
+   "git"))
+
 (setq custom-file (make-temp-file "emacs-custom-"))
+
+(use-package mixed-pitch
+  :hook
+  (org-mode . mixed-pitch-mode))
 
 (use-package counsel)
 
@@ -146,28 +168,6 @@
 ;; set shortcut for the reloading
 (keymap-global-set "<f5>" 'reload-init-file)
 
-;; Adding global shift-select support in Org buffers (bypassing other SHIFT bindings)
-(setq org-support-shift-select t)
-
-(visual-line-mode)
-; is this actually enabled just for org buffers or is it enabled globally?
-
-;; visual-fill-column for a nice soft wrap
-(use-package visual-fill-column
-  :commands visual-fill-column-mode
-
-  :custom
-  (fill-column-enable-sensible-window-split t)
-
-  :bind
-  (("C-x p" . 'visual-fill-column-mode)))
-
-(show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
-(delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
-
-(add-hook 'before-save-hook
-          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
-
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
 
@@ -187,26 +187,58 @@
       kept-old-versions 3
       version-control t)
 
+(setq org-support-shift-select t)
+
+(visual-line-mode)
+; is this actually enabled just for org buffers or is it enabled globally?
+
+;; visual-fill-column for a nice soft wrap
+(use-package visual-fill-column
+  :commands visual-fill-column-mode
+
+  :custom
+  (fill-column-enable-sensible-window-split t)
+
+  :bind
+  (("C-x p" . 'visual-fill-column-mode)))
+
+(use-package text-mode
+  :ensure nil
+  ;; :hook
+  ;; (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+  :init
+  (delete-selection-mode t)
+  :custom
+  (sentence-end-double-space nil)
+  (scroll-error-top-bottom t)
+  (save-interprogram-paste-before-kill t))
+
+(show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+(delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+
+(add-hook 'before-save-hook
+          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+
 (use-package which-key
-:config
-(which-key-mode)
-:custom
-(which-key-max-description-length 40)
-(which-key-lighter nil)
-(which-key-sort-order 'which-key-description-order)
-:init
-(which-key-add-key-based-replacements
-  "C-c w"   "Emacs Writing Studio"
-  "C-c w b" "Bibliographic"
-  "C-c w d" "Denote"
-  "C-c w m" "Multimedia"
-  "C-c w s" "Spelling and Grammar"
-  "C-c w t" "Themes"
-  "C-c w x" "Explore"))
+    :ensure t
+    :config
+    (which-key-mode)
+    :custom
+    (which-key-max-description-length 40)
+    (which-key-lighter nil)
+    (which-key-sort-order 'which-key-description-order)
+    (which-key-mode +1)
+    :init
+    (which-key-add-key-based-replacements
+"C-c w"   "Emacs Writing Studio"
+    "C-c w b" "Bibliographic"
+    "C-c w d" "Denote"
+    "C-c w m" "Multimedia"
+    "C-c w s" "Spelling and Grammar"
+    "C-c w t" "Themes"
+    "C-c w x" "Explore"))
 
 (global-unset-key (kbd "C-z"))
-
-;; (keymap-global-set [mouse-3] 'mouse-popup-menubar-stuff) ;; This will give right-click a context menu
 
 (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
@@ -233,12 +265,6 @@
   (completion-category-defaults nil)
   (completion-category-overrides
    '((file (styles partial-completion)))))
-
-(use-package corg
-  :ensure
-  (:host github :repo "isamert/corg.el"))
-
-(add-hook 'org-mode-hook #'corg-setup)
 
 ;; Visual packages (for navigation)
 (use-package org-sidebar)
@@ -340,33 +366,16 @@
 
 (use-package binder)
 
-(use-package org-remark-global-tracking
-  ;; It is recommended that `org-remark-global-tracking-mode' be
-  ;; enabled when Emacs initializes. You can set it in
-  ;; `after-init-hook'.
-  :hook after-init
-  :config
-  ;; Selectively keep or comment out the following if you want to use
-  ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
-  (use-package org-remark-info :after info :config (org-remark-info-mode +1))
-  (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
-  (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+(require 'oc-natbib)
+(require 'oc-csl)
 
-(use-package org-remark
-  :bind (;; :bind keyword also implicitly defers org-remark itself.
-         ;; Keybindings before :map is set for global-map. Adjust the keybinds
-         ;; as you see fit.
-         ("C-c n m" . org-remark-mark)
-         ("C-c n l" . org-remark-mark-line)
-         :map org-remark-mode-map
-         ("C-c n o" . org-remark-open)
-         ("C-c n ]" . org-remark-view-next)
-         ("C-c n [" . org-remark-view-prev)
-         ("C-c n r" . org-remark-remove)
-         ("C-c n d" . org-remark-delete)))
+(setq org-cite-global-bibliography sia-bibtex-files
+      org-cite-insert-processor 'citar
+      org-cite-follow-processor 'citar
+      org-cite-activate-processor 'citar)
 
-;;; BibTeX first configuration
 (use-package bibtex
+  :ensure nil
   :custom
   (bibtex-user-optional-fields
    '(("keywords" "Keywords to describe the entry" "")
@@ -375,7 +384,20 @@
   :config
   (sia-bibtex-register)
   :bind
-  (("C-c w b r" . sia-bibtex-register)))
+  (("C-c w b r" . sia-bibtex-register))
+)
+
+(use-package biblio
+  :bind
+  (("C-c w b b" . sia-bibtex-biblio-lookup)))
+
+(use-package citar
+  :ensure t
+  :defer t ; what's the point of defering in this case?
+  :custom (citar-bibliography sia-bibtex-files)
+  :bind
+  (("C-c w b o" . citar-open))
+  )
 
 (use-package ebib)
 
@@ -384,6 +406,21 @@
 
 (setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
       org-ref-pdf-directory "~/Documents/literature/")
+
+(use-package citar-denote
+  :custom
+  (citar-open-always-create-notes t)
+  :init
+  (citar-denote-mode)
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-denote-open-note)
+   ("C-c w b x" . citar-denote-nocite)
+   :map org-mode-map
+   ("C-c w b k" . citar-denote-add-citekey)
+   ("C-c w b K" . citar-denote-remove-citekey)
+   ("C-c w b d" . citar-denote-dwim)
+   ("C-c w b e" . citar-denote-open-reference-entry)))
 
 (setq bibtex-completion-bibliography
       '("~/Documents/bibliography/master.bib"
@@ -430,6 +467,14 @@ bibtex-completion-pdf-open-function
 
 (use-package consult-recoll)
 
+(use-package savehist
+  :init
+  (savehist-mode))
+
+;; Split windows sensibly
+(setq split-width-threshold 120
+      split-height-threshold nil)
+
 (use-package perspective
   :ensure t  ; use `:straight t` if using straight.el!
   :bind
@@ -455,13 +500,6 @@ bibtex-completion-pdf-open-function
 ;; Optional: ag is nice alternative to using grep with Projectile
 (use-package ag
   :ensure t)
-
-;; Optional: which-key will show you options for partially completed keybindings
-;; It's extremely useful for packages with many keybindings like Projectile.
-(use-package which-key
-  :ensure t
-  :config
-  (which-key-mode +1))
 
 (use-package projectile
   :ensure t

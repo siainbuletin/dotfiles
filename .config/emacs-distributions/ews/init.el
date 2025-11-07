@@ -1,40 +1,3 @@
-;;; init.el --- Emacs Writing Studio init -*- lexical-binding: t; -*-
-
-;; Copyright (C) 2024-2025 Peter Prevos
-
-;; Author: Peter Prevos <peter@prevos.net>
-;; Maintainer: Peter Prevos <peter@prevos.net>
-;; URL: https://github.com/pprevos/emacs-writing-studio/
-;;
-;; This file is NOT part of GNU Emacs.
-;;
-;; This program is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-;;
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-;; GNU General Public License for more details.
-;;
-;; You should have received a copy of the GNU General Public License
-;; along with this program. If not, see <https://www.gnu.org/licenses/>.
-;;
-;; Emacs Writing Studio init file: https://lucidmanager.org/tags/emacs
-;;
-;; This init file is tangled from: documents/99-appendix.org
-;;
-;; This file provides a starter kit for developing a configuration and is
-;; not a package that is regularly updated.
-;;
-;;; Code:
-
-;; Emacs 29 available?
-
-(when (< emacs-major-version 29)
-  (error "Emacs Writing Studio requires version 29 or later"))
-
 ;; Set package archives
 
 (use-package package
@@ -65,7 +28,7 @@
    "zip"
    "ddjvu"
    "curl"
-   ("mpg321" "ogg123" "mplayer" "mpv" "vlc") 
+   ("mpg321" "ogg123" "mplayer" "mpv" "vlc")
    ("grep" "ripgrep")
    ("convert" "gm")
    "dvipng"
@@ -77,7 +40,7 @@
 
 (setq inhibit-splash-screen t)
 (tool-bar-mode -1)
-(menu-bar-mode -1)
+(menu-bar-mode 1)
 (scroll-bar-mode -1)
 
 ;; Short answers only please
@@ -627,7 +590,7 @@
      "\\documentclass[11pt, twoside, hidelinks]{memoir}
         \\setstocksize{9.25in}{7.5in}
         \\settrimmedsize{\\stockheight}{\\stockwidth}{*}
-        \\setlrmarginsandblock{1.5in}{1in}{*} 
+        \\setlrmarginsandblock{1.5in}{1in}{*}
         \\setulmarginsandblock{1in}{1.5in}{*}
         \\checkandfixthelayout
         \\layout
