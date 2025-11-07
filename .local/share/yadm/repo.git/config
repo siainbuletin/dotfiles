@@ -1,0 +1,19 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	sharedrepository = 0600
+	worktree = /home/siainbuletin
+[receive]
+	denyNonFastforwards = true
+[remote "origin"]
+	url = https://github.com/siainbuletin/dotfiles.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[status]
+	showUntrackedFiles = no
+[yadm]
+	managed = true
