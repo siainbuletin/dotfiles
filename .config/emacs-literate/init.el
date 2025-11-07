@@ -123,11 +123,13 @@
    ("C-h k" . helpful-key)
    ("C-h v" . helpful-variable)))
 
-(use-package consult) ;Consulting completing-read
+(use-package consult)
 
-(use-package avy)
+;; (use-package avy) ;; is this still useful for anything?
 (use-package helm)
 ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
+
+(use-package deadgrep)
 
 (use-package prescient)
 (use-package company-prescient)
@@ -467,10 +469,6 @@ bibtex-completion-pdf-open-function
 
 (use-package consult-recoll)
 
-(use-package savehist
-  :init
-  (savehist-mode))
-
 ;; Split windows sensibly
 (setq split-width-threshold 120
       split-height-threshold nil)
@@ -595,6 +593,11 @@ bibtex-completion-pdf-open-function
 
 (use-package dracula-theme)
 (use-package suscolors-theme) ; like an overarall-warmer gruvbox
+
+(load-file (concat (file-name-as-directory user-emacs-directory)
+		   "universal-launcher.el"))
+
+(load "universal-launcher")
 
 (use-package dashboard
   :ensure t

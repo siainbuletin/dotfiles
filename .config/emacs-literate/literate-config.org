@@ -843,14 +843,16 @@ This is part of interfacing with the larger system through my computer.
 
 * Search and navigation packages
 
+=consult= is a package made for consulting =completing-read=. =consult-line= is basically indispensible to my workflow, as it allows a kind of search in the buffer that you're used to with =C-f= outside of Emacs.
+
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package consult) ;Consulting completing-read
+  (use-package consult)
 #+end_src
 
-Consult, especially =consult-line= almost allows the type of searching within the buffer that you're used to with =C-f= outside of Emacs.
+Consult, especially
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package avy)
+  ;; (use-package avy) ;; is this still useful for anything?
   (use-package helm)
   ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
 #+end_src
@@ -861,11 +863,22 @@ Consult, especially =consult-line= almost allows the type of searching within th
     (use-package org-ql)
 #+end_src
 
-** Is it worth it to look into =rg.el=?
+** Implementing =ripgrep= support in Emacs
+*** Adding =ripgrep= support for =xref=
+
+This support is necessary to make searching across note files easier and faster.
+
+*** Configuring =deadgrep=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package deadgrep)
+#+end_src
+
+*** Is it worth it to look into =rg.el=?
 
 It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
 
-** Prescient packages
+** =prescient= packages
 *What exactly were the prescient packages used for?*
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -2060,6 +2073,8 @@ _Taken from Emacs Writing Studio._ =citar-denote= is also developed by Peter Pre
 
 By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. *But I should find a better way to normalise this entire functionality.*
 
+What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:10]
+
 It is also claimed that this method will help with creating literature reviews.[fn:10]
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -2082,6 +2097,30 @@ It is also claimed that this method will help with creating literature reviews.[
 *** TODO Configuring the name of the bibliographic notes created with =citar-denote=
 
 I don't like the fact that the notes created have a really long file name and I would prefer creating files with the BibTeX citekey, which is created according to some RegEx rules. The goal is to replicate the functionality I had natively in BibDesk which I then used to generated literature notes directly in Obsidian with the same name, which then could be queried through Alfred.
+
+Unfortunately, apparently this isn't possible, because =denote= follows a very strict naming scheme.
+
+Perhaps it could be overcome by simply querying the document through its title instead of relying on the filename to actually get that document.
+
+*It remains to be seen just how easy to use this will be for me*.
+
+Instead, the citekey of the article is part of the =denote= file on the =reference= line.
+
+*** How are relationships between citation keys and note files maintained?
+
+=citar-denote= creates a cache.
+
+The package regenerates this cache after you edit a bibliography file or call any Citar functions.
+
+*Can this package ever cause any kind of problem?*
+
+Each bibliographic note is marked with the configurable bib file tag (=citar-denote-keyword=). This tag reduces the search space to generate the cache.
+
+**** TODO Making the search through bibliographic files faster
+
+The citation search mechanism in =citar-denote= uses =xref= at its base. This can be improved if you use =ripgrep= instead. You just have to set =xref-search-program= to =ripgrep=, which I have done above.
+
+*** Adding a bibliographic note in a silo
 
 ** TODO Rougier's =org-bib= minor mode
 
@@ -2251,11 +2290,15 @@ there should be a way to open the link under the point, and then directly format
 
 *Should this entry be formatted in the annotated bibliography format?*
 
-* Session management
+* TODO Session management
 
 Persisting history across Emacs restarts.
 
-#+begin_src emacs-lisp :tangle "init.el"
+This is currently disabled because I'm getting issues with =elpaca=.
+
+*From which configuration was this taken?*
+
+#+begin_src emacs-lisp :tangle no
   (use-package savehist
     :init
     (savehist-mode))
@@ -2322,7 +2365,6 @@ Since I want my files to be as short and atomic as possible, I need to find a wa
 * Obsidian-like quick-switcher functionality
 
 This isn't actually too different from just using an application launcher like =rofi=, but I want to be able to take advantage of the global state that I have in Emacs.
-
 
 * TODO Logic and Mathematics environment
 ** LaTeX previews within org-mode buffers
@@ -2671,6 +2713,20 @@ Footnotes:
 
 ** TODO Adding nice decorative icons
 
+I keep getting errors with all-the-icons, so all of this is currently disabled,
+
+#+begin_src emacs-lisp :tangle no
+    (use-package all-the-icons
+      :ensure t
+      :init
+      (all-the-icons-completion-mode))
+#+end_src
+
+#+begin_src emacs-lisp :tangle no
+(when (display-graphic-p)
+  (require 'all-the-icons))
+#+end_src
+
 *** Installing the font files
 
 the user must do this manually with =M-x nerd-icons-install-fonts=.
@@ -2733,6 +2789,48 @@ Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave
   ;; Making the miniframe scale better in the middle of the page
   ;; this has to use resize-mini-frames
 #+end_src
+
+* TODO Interfacing with the operating system
+** Allowing =org-capture= to be conjured from anywhere on the system
+
+The =org-capture= global keybinding should allow me to bring up the org-capture templates screen immediately so I can write my ideas.
+
+** Invoking =org-agenda= from anywhere on the system
+
+This is especially important if you want to capture TODOs in the way that you used to in Things 3 on Emacs.
+
+** Replacing =dired= with another file browser, but listening to a key in Emacs
+
+This basically allows you to invoke another program. This is since =dired= is pretty shitty for navigating files (it's not the most visual) and I prefer the column layout of something like =yazi= instead.
+
+I need to do some more research into different packages I could use for this specifically.
+
+* Invoking the emacs =universal-launcher= created by Joshua Blais
+
+This basically allows you to completely forgo the usage of something like =rofi=.
+
+Since this isn't configured as a package yet, I am actually taking the code ad literam and compiling it into my own version of it. Perhaps I can make it actually float in the future, in the way that you can with =emacs-mini-frame=
+
+
+This bit of the configuration will show how this launcher is actually built for working in Emacs.
+
+*
+==all-the-icons= is already loaded a little earlier than this.
+
+#+begin_src emacs-lisp "init.el"
+    (use-package json)
+    (use-package url-util)
+    (use-package calc)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el"
+(load-file (concat (file-name-as-directory user-emacs-directory)
+		   "universal-launcher.el"))
+
+(load "universal-launcher")
+#+end_src
+
+The =require= method doesn't seem to work here at all.
 
 * TODO Interfacing with GNU Guix operating system
 
@@ -2817,8 +2915,31 @@ There's also other frameworks than just =emacs-dashboard= for making this, but t
 #+end_src
 
 *** Working with icons in the dashboard
+**** Using =all-the-icons=
 
-To use nerd-icons package:
+I'm currently using =all-the-icons= so I can use it with =universal-launcher=.
+
+To use all-the-icons package:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+#+end_src
+
+To add icons to the widget headings and their items:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+#+end_src
+
+To modify heading icons with another icon from all-the-icons octicons:
+
+#+begin_src emacs-lisp :tangle no
+(dashboard-modify-heading-icons '((recents   . "file-text")
+                                  (bookmarks . "book")))
+#+end_src
+
+**** CANCELLED To use nerd-icons package:
 
 #+begin_src emacs-lisp :tangle no
 (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
@@ -2892,7 +3013,6 @@ As of <2025-11-06 Thu>, support for =perspective-el= hasn't yet been implemented
 ** Configuring the IRC client
 ** Browsing Reddit from Emacs
 ** TODO Setting up Email
-
 *** Choosing the proper email client for this
 
 *** Storing the email in a local directory
@@ -2912,7 +3032,6 @@ Since this is an anonymous server, I believe it might work a little differently.
 Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
 
 * Footnotes
-[fn:10] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
 
 [fn:1] https://protesilaos.com/emacs/dotemacs
 
@@ -2931,3 +3050,5 @@ Storing secrets in the literate configuration without ending up leaking them acc
 [fn:8] https://github.com/minad/marginalia
 
 [fn:9] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+
+[fn:10] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
