@@ -849,7 +849,6 @@ It would only seem to be worth it if I could enable full-text search even for do
   (use-package embark-consult)
 #+end_src
 
-
 * TODO Task management setup
 
 ** Keyword setup for TODOs
@@ -1375,7 +1374,7 @@ I might need to actually remove Obsidian mode, as the indexing it chooses to do 
 
 ** Annotation packages
 
-=org-remark= is being used for adding comments in the [[*Support a drafting workflow][drafting workflow with Google Docs comments]] that I will further annotated below.
+=org-remark= is being used for adding comments in the [[#Support a drafting workflow][drafting workflow with Google Docs-like comments]] that I will further annotated below.
 
 How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
 
@@ -1509,8 +1508,41 @@ Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disa
 
 Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
 
-* Creating a usable graph for =org-mode notes
-* Manuscript writing mode
+* Creating a usable graph for =org-mode= notes
+* =org-mode= presentation workflow
+
+You want to be able to connect a second screen and for nothing to actually get corrupted.
+
+Also find a nice way to include images to the presentations.
+
+* TODO Document compilation/export workflow for org-mode manuscripts
+** TODO Exporting to HTML for creating websites
+*** TODO Exporting to multi-node HTML pages for easier navigation
+
+This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
+** TODO Exporting documents to GNU Info mode for creating personal man pages
+
+Do you need to invoke the =WoMan= Emacs mode for this?
+
+** TODO Export org-mode manuscripts to Microsoft Word
+
+Is there any way to preserve the formatting?
+
+** TODO Reingesting Microsoft Word documents received from advisors
+
+This also includes finding ways to apply the advice and the requirements from the thesis advisor.
+
+** TODO Dealing with the typography
+
+Would it be better to continue relying on =typst= for doing my documents, or would I want to go back to =LaTeX= for some of the documents?
+
+=org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
+
+However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
+
+* TODO Manuscript writing mode
+
+This is specifically concerning larger projects that have to be broken up in specific chapters.
 
 ** TODO Tangling the different parts of the manuscript together
 
@@ -1522,11 +1554,15 @@ This would also be meant to emulate the Scrivener mode that you get in Obsidian 
 
 This can also refer to the points that you should be following through the practice of a proper literature review.
 
-** Structuring writing projects in multiple chapters with =binder=
+** TODO Structuring writing projects in multiple chapters with =binder=
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package binder)
 #+end_src
+
+*** Customizing the binder sidebar for seeing the different files in there
+
+Since =emacs-binder='s purpose is to emulate a Scrivener workflow,
 
 ** TODO Support a drafting workflow
 
@@ -1566,7 +1602,6 @@ This will be done with the =org-remark= package
          ("C-c n r" . org-remark-remove)
          ("C-c n d" . org-remark-delete)))
 #+end_src
-
 
 *** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
 
@@ -1694,7 +1729,7 @@ I'm having an error with =elpaca= not being able to pull =org-ref=, so I will be
   (require 'org-ref-helm)
 #+end_src
 
-** BibTeX-CAPF (from =Citar=)
+** TODO BibTeX-CAPF (from =Citar=)
 
 #+begin_src emacs-lisp :tangle "init.el"
   ;; CONFIGURING BIBTEX-CAPF
@@ -1726,11 +1761,11 @@ You can also limit which parts of the org-cite libraries will load.
 
 How do you load multiple bibliography files?
 
-* Creating an interleaved bibliography environment
+* TODO Creating an interleaved bibliography environment
 
 This means that I spend as little time as possible within any other app than Emacs, so I can focus on simply writing and researching as much as possible.
 
-** Recognising other cross-references within a PDF
+** TODO Recognising other cross-references within a PDF
 
 One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
 
@@ -1750,9 +1785,9 @@ there should be a way to open the link under the point, and then directly format
 
 Should this entry be formatted in the annotated bibliography format?
 
-* Window management
+* TODO Window management
 
-** Buffer management through perspective-el
+** TODO Buffer management through perspective-el
 
 This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=
 
@@ -1769,7 +1804,7 @@ This would basically be better than trying to use the native =switch-to-buffer= 
 
 If you're using Emacs >v.28, you need to specificy =persp-mode-prefix-key= to be able to use =perspective-el=.
 
-*** Replacing the =switch-to-buffer= functionality with =perspective-el=
+*** TODO Replacing the =switch-to-buffer= functionality with =perspective-el=
 
 Replace the binding for C-x C-b, the default Emacs buffer switcher, with one of the nicer implementations described in the Buffer switchers section.
 
@@ -1783,9 +1818,9 @@ Note that =ace-window= is quite outdated at this point, and should be replaced w
 
 Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
 
-** Integrating Emacs with a tiling window manager
+** TODO Integrating Emacs with a tiling window manager
 
-** The possibility of window management through Emacs (for the entire system)
+** TODO The possibility of window management through Emacs (for the entire system)
 
 * Reorganising the notes through =org-refile=
 
@@ -1851,7 +1886,6 @@ Can't this just be kind of resolved through =org-babel=?
   ;; CASUAL DIRED
 #+end_src
 
-
 * Project management
 
 ** TODO Configuring =projectile=
@@ -1895,7 +1929,6 @@ This block for vertico isn't actually necessary as I have already instantiated i
     (global-set-key (kbd "C-c p") 'projectile-command-map)
     (projectile-mode +1))
 #+end_src
-
 
 * TODO Creating music in Emacs
 
@@ -2153,7 +2186,6 @@ Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave
   ;; Making the miniframe scale better in the middle of the page
   ;; this has to use resize-mini-frames
 #+end_src
-
 
 
 * TODO Interfacing with GNU Guix operating system
