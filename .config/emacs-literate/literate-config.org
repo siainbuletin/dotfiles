@@ -457,6 +457,18 @@ As per the convention that we have noted in [[*Structure of the emacs config]], 
 
 #+end_src
 
+** Configuring the scratch buffer
+
+So that it isn't actually empty. This setting is taken from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq initial-major-mode 'org-mode
+      initial-scratch-message (concat "#+title: Emacs Writing Studio\n"
+					"#+subtitle: Scratch Buffer\n\n"
+					"The text in this buffer is not saved "
+					"when exiting Emacs!\n\n"))
+#+end_src
+
 ** How package managament works for Emacs
 
 By default, Emacs uses the =package.el= framework, which is imperative. This makes it harder to manage configuration if you're working between machines. And it's always a lot more convenient to have direct access to the "declaration" of installation if it's written in plain text natively.
@@ -648,24 +660,6 @@ Adding them to the path is done through:
   '("sia-lisp" "sia-modules"))
 #+end_src
 
-** Modules that we're loading
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; (require 'sensible-defaults)
-  ;; (require 'sia-keybindings)
-  ;; (require 'sia-minibuffer)
-  ;; (require 'sia-appearance)
-  ;; (require 'sia-academic) ; haven't set this one up yet
-#+end_src
-
-I actually can't get most of my submodules to work, it probably is because of the way that the Emacs Lisp files are actually formatted.
-
-*** TODO Enabling and configuring =which-key=
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package which-key)
-#+end_src
-
 ** TODO Loading icons for preview
 
 We can load decorative icons in several different places.
@@ -721,45 +715,18 @@ One good thing to remember is that if you're using =elpaca=, because of the asyn
   (elpaca-wait)
 #+end_src
 
-* TODO Browsing the internet in Emacs
+* TODO Opening files in external applications
 
-** Installing relevant packages
+Taken from Emacs Writing Studio.
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package elpher)
-  (use-package elfeed)
-  (use-package elfeed-org)
+(use-package openwith
+  :config
+  (openwith-mode t)
+  :custom
+  (openwith-associations nil))
 #+end_src
 
-** TODO Making search more integrated with the research workflow
-
-Since you don't want to be distracted during the moment of ideation, but you also want to be able to find information promptly as you're developing ideas, you want to be able to integrate searching into the buffer workflow that you have in Emacs (as well as integrating all of the org-mode goodies).
-
-On the one hand, this can be done with =org-ref='s integration with =OpenAlex=, which makes it possible to search academic documents without actually leaving Emacs.
-
-** TODO Configuring =consult-omni=
-
-This package allows minibuffer completion for several queries.
-
-#+begin_src emacs-lisp :tangle no
-                (use-package consult-omni
-                  :ensure
-                  (consult-omni
-                   :host github
-                   :repo "armindarvish/consult-omni"))
-#+end_src
-
-While I've managed to get the =use-package= call to work, I unfortunately can't actually get the package to work because of a "function not defined" error with a bunch of things in this package. Remains to be seen for later on.
-
-** TODO Setting up the sources for =consult-omni=
-
-** TODO Set up links to open in an external browser
-
-Since the EWW browser basically trusts any kind of link, it would generally be safer to simply query a search engine from inside Emacs, and then handle the task of _browsing_ and viewing the files themselves elsewhere.
-
-** TODO Making the queries from =consult-omni= show up in a different buffer
-
-For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "/Queries injected in editor buffers".
 
 * TODO Version control
 
@@ -795,13 +762,26 @@ Ideally, we’d like git-gutter to show up when the current buffer is version-co
 
 * TODO Documentation helpers
 
-Stuff like GNU Info and man pages
+Stuff like GNU Info and man pages.
 
-#+begin_src emacs-lisp :tangle on
+#+begin_src emacs-lisp :tangle no
   (use-package help-fns+)
 #+end_src
 
-** Configuring my own annotations and modifications to man pages
+I still don't really know what this package does, so for now it will be disabled.
+
+** TODO Improving the Help buffers with =helpful=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package helpful
+  :bind
+  (("C-h f" . helpful-function)
+   ("C-h x" . helpful-command)
+   ("C-h k" . helpful-key)
+   ("C-h v" . helpful-variable)))
+#+end_src
+
+** TODO Configuring my own annotations and modifications to man pages
 
 * Shell setup in Emacs
 
@@ -1042,8 +1022,32 @@ This code snippet will also make sure that the autosaved files are offloaded to 
 #+end_src
 
 * TODO Keybindings
+** TODO Enabling and configuring =which-key=
 
-These should go in the =sia-keybindings.el= file. *They shall be moved in the future.*
+This allows us to improve the discoverability for commands in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package which-key
+  :config
+  (which-key-mode)
+  :custom
+  (which-key-max-description-length 40)
+  (which-key-lighter nil)
+  (which-key-sort-order 'which-key-description-order)
+  :init
+  (which-key-add-key-based-replacements
+    "C-c w"   "Emacs Writing Studio"
+    "C-c w b" "Bibliographic"
+    "C-c w d" "Denote"
+    "C-c w m" "Multimedia"
+    "C-c w s" "Spelling and Grammar"
+    "C-c w t" "Themes"
+    "C-c w x" "Explore"))
+#+end_src
+
+** Specific proper settings for keybindings
+
+These should go in the =sia-keybindings.el= file. *They shall be moved in the future, once I figure out how to do a modular Emacs Lisp setup.*
 
 ** TODO Enable CUA mode automatically on startup
 
@@ -1184,6 +1188,18 @@ The scope of =marginalia= is that it brings completion annotations to the comman
 #+end_src
 
 *What exactly is this =alist-get= function for getting information about =marginalia-command-categories=?*
+** TODO Configuring =orderless=
+
+Orderless allows us to search for partial matches in any order.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  (completion-category-overrides
+   '((file (styles partial-completion)))))
+#+end_src
 
 ** How =marginalia= can be combined with =embark= and =consult=
 
@@ -1329,7 +1345,6 @@ This function will tell =pdf-tools= to launch by default.
 **** Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
 
 
-
 ** Calling notetaking packages
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -1384,7 +1399,6 @@ How exactly would =marginalia= be used for this purpose, since it's normally a c
   (use-package org-noter)
   (use-package djvu) ; apparently needed for org-noter
 #+end_src
-
 
 *** TODO =org-remark= setup
 
@@ -1442,6 +1456,55 @@ This block is taken from Prot's video on =use-package=.
 
 #+end_src
 
+** =denote= extension packages
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package denote-journal)
+#+end_src
+
+What exactly does this do?
+
+#+begin_src emacs-lisp :tangle no
+  (use-package denote-org
+    :bind
+    (("C-c w d h" . denote-org-link-to-heading)))
+#+end_src
+
+Functions as the folgezettel sequence.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package denote-sequence)
+#+end_src
+
+** Exploring the denote collection
+
+This is using the =denote-explore= package created by Peter Prevos for Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package denote-explore
+  :bind
+  (;; Statistics
+   ("C-c w x c" . denote-explore-count-notes)
+   ("C-c w x C" . denote-explore-count-keywords)
+   ("C-c w x b" . denote-explore-barchart-keywords)
+   ("C-c w x e" . denote-explore-barchart-filetypes)
+   ;; Random walks
+   ("C-c w x r" . denote-explore-random-note)
+   ("C-c w x l" . denote-explore-random-link)
+   ("C-c w x k" . denote-explore-random-keyword)
+   ("C-c w x x" . denote-explore-random-regex)
+   ;; Denote Janitor
+   ("C-c w x d" . denote-explore-identify-duplicate-notes)
+   ("C-c w x z" . denote-explore-zero-keywords)
+   ("C-c w x s" . denote-explore-single-keywords)
+   ("C-c w x o" . denote-explore-sort-keywords)
+   ("C-c w x w" . denote-explore-rename-keyword)
+   ;; Visualise denote
+   ("C-c w x n" . denote-explore-network)
+   ("C-c w x v" . denote-explore-network-regenerate)
+   ("C-c w x D" . denote-explore-barchart-degree)))
+#+end_src
+
 ** TODO Creating fleeting notes
 
 This should be done with the =org-capture= package, or with =remember-mode=
@@ -1488,12 +1551,33 @@ After jotting down some really quick ideas, I need to have a way to actually ref
 
 ** TODO Enabling useful minor modes for =org-mode=
 
-*** Turning on =visual-line-mode= by default
+*** DONE Turning on =visual-line-mode= by default
 
 #+begin_src emacs-lisp :tangle "init.el"
 (with-eval-after-load 'org
   (setq org-startup-indented t) ; Enable `org-indent-mode' by default
   (add-hook 'org-mode-hook #'visual-line-mode))
+#+end_src
+** TODO Other nice additions to =org-mode=
+
+This is taken directly from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle no
+  (org-hide-emphasis-markers t)
+  (org-startup-with-inline-images t)
+  (org-image-actual-width '(450))
+  (org-pretty-entities t) ; What makes them pretty?
+  (org-use-sub-superscripts "{}")
+  (org-id-link-to-org-use-id t) ; What exactly does this do to the links?
+  (org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+#+end_src
+
+** TODO Show hidden emphasis markers
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
 #+end_src
 
 ** DONE Turning off auto-indentation (=electric-indent-mode=)
@@ -1504,7 +1588,7 @@ After jotting down some really quick ideas, I need to have a way to actually ref
 
 Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
 
-** Making the folding headings of org-mode less insufferable
+** TODO Making the folding headings of org-mode less insufferable
 
 Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
 
@@ -1514,31 +1598,6 @@ Many people sell the folding headings from org-mode as terrific for organisation
 You want to be able to connect a second screen and for nothing to actually get corrupted.
 
 Also find a nice way to include images to the presentations.
-
-* TODO Document compilation/export workflow for org-mode manuscripts
-** TODO Exporting to HTML for creating websites
-*** TODO Exporting to multi-node HTML pages for easier navigation
-
-This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
-** TODO Exporting documents to GNU Info mode for creating personal man pages
-
-Do you need to invoke the =WoMan= Emacs mode for this?
-
-** TODO Export org-mode manuscripts to Microsoft Word
-
-Is there any way to preserve the formatting?
-
-** TODO Reingesting Microsoft Word documents received from advisors
-
-This also includes finding ways to apply the advice and the requirements from the thesis advisor.
-
-** TODO Dealing with the typography
-
-Would it be better to continue relying on =typst= for doing my documents, or would I want to go back to =LaTeX= for some of the documents?
-
-=org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
-
-However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
 * TODO Manuscript writing mode
 
@@ -1611,41 +1670,38 @@ The point while drafting a manuscript is to have quick and easy access to the PD
 
 =org-noter= seems to be best suited package for this scope.
 
-* Theorising a literature review as a form of project management
+* TODO Document compilation/export workflow for org-mode manuscripts
+** TODO Exporting to HTML for creating websites
+*** TODO Exporting to multi-node HTML pages for easier navigation
 
-* Bibliography management packages
+This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
+** TODO Exporting documents to GNU Info mode for creating personal man pages
 
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package org-ref)
-  (use-package helm-bibtex)
-  (use-package citar)
-  (use-package ebib)
-#+end_src
+Do you need to invoke the =WoMan= Emacs mode for this?
 
-** Deciding on the proper bibliography management framework
+** TODO Export org-mode manuscripts to Microsoft Word
 
-These are the components that I need to somehow fulfill in my bibliography management system
+Is there any way to preserve the formatting?
 
-- a way to attach my PDF files :: I want to have integration with the file system that can go as deep as I need it to
+** TODO Reingesting Microsoft Word documents received from advisors
 
-  **
+This also includes finding ways to apply the advice and the requirements from the thesis advisor.
 
-** What exactly are you doing with so many bibliography management packages?
+** TODO Dealing with the typography
 
-It's actually quite hard to settle on a combination of settings for what I need in my own usage.
+Would it be better to continue relying on =typst= for doing my documents, or would I want to go back to =LaTeX= for some of the documents?
 
-I need both functionality with =markdown-mode= and =org-mode= for rendering the citations with *completion-at-point* (hence the usage of all the CAPF packages thus far), and I need to be able to attach the PDF files I'm using.
+=org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
 
-** TODO Rougier's =org-bib= minor mode
+However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
-#+begin_src emacs-lisp :tangle no
-  ;; This is Rougier's org-bib-mode (minor mode), but I can't currently get it to work well
-  ;; (straight-use-package
-  ;;  '(org-imenu :type git :host github :repo "rougier/org-imenu"))
+* TODO Theorising a literature review as a form of project management
 
-  ;; (straight-use-package
-  ;; '(pdf-drop-mode :type git :host github :repo "rougier/pdf-drop-mode"))
-#+end_src
+This is detailed in Obsidian with the note on _Research as a task_.
+
+* TODO Learning environment
+
+This should work both for learning languages and practicing an instrument. It should also make use of the already existing base of Zettelkasten notes on whatever topic I might need.
 
 ** TODO Spaced repetition through =org-gnosis=
 
@@ -1653,52 +1709,251 @@ I need both functionality with =markdown-mode= and =org-mode= for rendering the 
   (use-package gnosis)
 #+end_src
 
-** TODO Configuration for built-in academic and DMS related packages
+** TODO Configuring foreign language dictionaries
+
+** TODO Configuring an ear training package for audiating intervals and other musical features
+
+* TODO Managing reading resources (bibliography)
+** TODO Deciding on the proper bibliography management framework
+
+It's actually quite hard to settle on a combination of settings for what I need in my own usage. While =org-ref= is one of the most advanced packages for bibliography management that has been made for Emacs, it doesn't actually provide all of the functions that I may want.
+
+- a way to attach my PDF files :: I want to have integration with the file system that can go as deep as I need it to.
+
+It also needs to not be bound to specific directories. The problem with =org-attach= is that it creates specific directories
+
+- easy way to find the PDF files again :: This would also mean that I can search the PDF files by name, or query them through the command line through something like grep. I want to avoid being locked into the Emacs ecosystem as much as possible. Also, the PDF files should be able to live in a single flat directory from which I can select things.
+
+- functionality between markdown and org-mode :: This is especially important if I want to have =completion-at-point= for my citation keys. Currently, the package that supports this is =citar=.
+
+** How do you plan to deal with all of the biggest BibTeX files?
+
+It seems that =org-ref=, like other bibliography managers built for Emacs, was made to work with pure BibTeX files. Now, I know that if my BibTeX files get too big (aroung 2k entries), they don't even really load within BibDesk anymore. This is a large issue.
+
+Ideally, I would be able to keep all of the BibTeX entries into one gargantuan file, but I am scared that this will make the entire system just crash instantly.
+
+Org-cite is reportedly not very suited for handling large files[1] (at least it wasn't 4 years ago). Suggestions for other packages
+- Org-cite per se is not slow, but the =oc-basic= insert processor you're using is on the first load, after which the data is cached.
+- citar uses =parsebib=, which is very fast.
+
+You can also limit which parts of the org-cite libraries will load.
+- this is actually adjusted in the Lambda Emacs distribution (to deal with any kind of speed issue)
+  - Lambda Emacs uses =oc= and =oc-csl= along with =citar=
+  - it doesn't make use of =org-ref=
+  - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
+
+** Exporting citations from =org-mode= through =org-cite=
+
+This is taken directly from the =init.el= of Emacs Writing Studio.
+
+I'm currently not tangling this because I can't get the =sia-bibtex-files= variable to work, and I also don't know how to set a real file path for this configuration. I need to check with the official =org-cite= documentation for this purpose.
 
 #+begin_src emacs-lisp :tangle no
-  ;; Definitions for built in packages
-  ;; org-attach
-  ;; org-capture
+;;; Export citations with Org Mode
+(require 'oc-natbib)
+(require 'oc-csl)
+
+(setq org-cite-global-bibliography sia-bibtex-files
+      org-cite-insert-processor 'citar
+      org-cite-follow-processor 'citar
+      org-cite-activate-processor 'citar)
 #+end_src
 
-** TODO configuration for =org-attach=
+** TODO General biliography bootstrapping
 
-** TODO Configuration scripts for =org-capture=
-
-** The complicated nature of =org-ref=
-
-=org-ref= is one of the most advanced packages for bibliography management that has been made for Emacs, but it doesn't actually provide all of the functions that I may want.
-
-** Configuration for =org-ref=
-
-=org-ref= seems to be using the =bibtex-completion= library for this, but I might be wrong. Hasn't =bibtex-completion= just evolved into =helm-bibtex=?
+This is where we're calling the default BibTex file.
 
 #+begin_src emacs-lisp :tangle "init.el"
-        (setq bibtex-completion-bibliography
-              '("~/Documents/bibliography/thesis.bib"
-                "~/Documents/bibliography/marx.bib"
-                "~/Documents/bibliography/hci.bib"
-                "~/Documents/bibliography/aesthetics.bib")
-        	  bibtex-completion-library-path '("~/Documents/literature/")
-        	  bibtex-completion-notes-path "~/Documents/org/"
-        	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
-
-            ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
-        	  bibtex-completion-additional-search-fields '(keywords)
-        	  bibtex-completion-display-formats
-        	  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
-        	    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
-        	    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-        	    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-        	    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
-        	  bibtex-completion-pdf-open-function
-        	  (lambda (fpath)
-        	    (call-process "open" nil 0 nil fpath)))
+;;; BibTeX first configuration
+(use-package bibtex
+  :custom
+  (bibtex-user-optional-fields
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file"     "Relative or absolute path to attachments" "" )))
+  (bibtex-align-at-equal-sign t)
+  :config
+  (sia-bibtex-register)
+  :bind
+  (("C-c w b r" . sia-bibtex-register)))
 #+end_src
+
+** TODO Defining BibTeX files as separate variables for portability
+
+If you want to avoid setting the same file path for bibliography files across different packages, you can take the Emacs Writing Studio approach and define them as a variable that can be called later.
+
+** TODO Calling the necessary packages
+
+*** Calling =citar=
+
+Not calling this because I can't make =sia-bibtex-files= work. This is something that's taken ad-literam from Emacs Writing Studio, where the function that Prevos defines is =ews-bibtex-files=. See [[#Defining BibTeX files as separate variables for portability]].
+
+#+begin_src emacs-lisp :tangle no
+  (use-package citar
+    :ensure t
+    :defer t ; what's the point of defering in this case?
+    :custom (citar-bibliography sia-bibtex-files)
+    :bind
+    (("C-c w b o" . citar-open))
+    )
+#+end_src
+
+*** Caling =ebib=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package ebib)
+#+end_src
+
+*** Adding =org-ref=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package org-ref)
+  (use-package helm-bibtex)
+#+end_src
+
+*** Adding main paths for =org-ref=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
+      org-ref-pdf-directory "~/Documents/literature/")
+#+end_src
+
+** What exactly are you doing with so many bibliography management packages?
+** TODO Bringing in new bibliography
+
+There's multiple options that you can use in this case:
+
+- drag and drop PDF or DOI link :: org-ref can take care of the entry and download the PDF for you.
+
+But how do you tell =org-ref= where to find these fles?
+
+- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:9]
+
+- replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
+
+*** TODO Templates for =org-capture= for bringing in new bibliography
 
 *** TODO Getting =OpenAlex= to work for fetching more bibliography
 
-*** Automatically generate BibTeX keys
+=OpenAlex= is a part of =org-ref=, so first and foremost that has to be configured separately.
+
+** TODO Linting incoming BibTeX references
+
+A lot of references might be downloaded from Google Scholar (if I can't benefit from a DOI entry), so I need to have a way to format them properly for usage.
+
+** TODO Creating a literature note for the reference I want to read
+
+When I decide that I'm about to read something, I need to create an entry for it somehow.
+
+There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:9] *But how exactly does it locate this entry?*
+
+If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially:
+
+** TODO Managing literature notes with the =citar-denote= package
+
+Taken from Emacs Writing Studio.
+
+Tangle is disabled because of these errors:
+
+#+begin_example
+Warning (native-compiler): denote-explore.el:729:33: Warning: the function ‘org-toggle-link-display’ is not known to be defined.
+⛔ Warning (native-compiler): denote-explore.el:707:4: Warning: the function ‘org-table-align’ is not known to be defined.
+⛔ Warning (native-compiler): denote-explore.el:474:10: Warning: the function ‘org-insert-time-stamp’ is not known to be defined.
+⛔ Warning (native-compiler): citar-denote.el:754:27: Warning: the function ‘denote-silo-directory-prompt’ is not known to be defined.
+⛔ Warning (native-compiler): citar-denote.el:664:27: Warning: the function ‘denote-link--find-file-prompt’ is not known to be defined.
+⛔ Warning (native-compiler): citar-denote.el:509:18: Warning: the function ‘denote-sequence-get-new’ is not known to be defined.
+⛔ Warning (native-compiler): citar-denote.el:507:30: Warning: the function ‘denote-sequence-file-prompt’ is not known to be defined.
+#+end_example
+
+#+begin_src emacs-lisp :tangle no
+(use-package citar-denote
+  :custom
+  (citar-open-always-create-notes t)
+  :init
+  (citar-denote-mode)
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-denote-open-note)
+   ("C-c w b x" . citar-denote-nocite)
+   :map org-mode-map
+   ("C-c w b k" . citar-denote-add-citekey)
+   ("C-c w b K" . citar-denote-remove-citekey)
+   ("C-c w b d" . citar-denote-dwim)
+   ("C-c w b e" . citar-denote-open-reference-entry)))
+#+end_src
+
+** TODO Rougier's =org-bib= minor mode
+
+This is Rougier's org-bib-mode (minor mode), but I can't currently get it to work well.
+
+It makes use of =org-imenu=
+
+=pdf-drop-mode= adds support for simply dragging and dropping PDFs to add them to the configuration file
+
+#+begin_src emacs-lisp :tangle no
+  (straight-use-package
+   '(org-imenu :type git :host github :repo "rougier/org-imenu"))
+
+  (straight-use-package
+  '(pdf-drop-mode :type git :host github :repo "rougier/pdf-drop-mode"))
+#+end_src
+
+** TODO Configuring the attachment framework
+
+Since org-attach doesn't allow a flat directory structure, I will be using a different framework for storing the fields.
+
+*** CANCELLED configuration for =org-attach=
+*** TODO Configuring =helm-bibtex= for opening external files
+
+=helm-bibtex= will open the files either with =pdf-tools= or =docview=
+
+*But how do you attach a PDF to a BibTex entry?*
+
+** TODO Separate bibliographic records for each BibTeX entry
+
+It is actually possible to use dedicated =org= files from which you can tangle a BibTeX file.
+
+But how can this even get managed through something like =org-ref= effectively? I feel like it would only introduce more and more headaches.
+
+It is also possible to set the bibliography notes to go into a single file, but this isn't the approach that I want to take (mostly because I don't want to deal with gargantuan org files).
+
+#+begin_src emacs-lisp :tangle no
+(setq org-ref-bibliography-notes "~/org/bibnotes.org")
+#+end_src
+
+Note that it is entirely possible to have separate note files for every entry in your bibliography file.
+- *Could I be able to do this by adopting those separate bibliographic records I saw?*
+- see [[#Separate bibliographic records for each BibTeX entry]]
+
+*** Configuring source for BibTeX completion from =helm-bibtex=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq bibtex-completion-bibliography
+        '("~/Documents/bibliography/master.bib"
+          "~/Documents/bibliography/thesis.bib"
+          "~/Documents/bibliography/marx.bib"
+          "~/Documents/bibliography/hci.bib"
+          "~/Documents/bibliography/aesthetics.bib")
+  	  bibtex-completion-library-path '("~/Documents/literature/")
+  	  bibtex-completion-notes-path "~/Documents/org/"
+  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
+  bibtex-completion-additional-search-fields '(keywords)
+  bibtex-completion-display-formats
+  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
+    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
+    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
+  bibtex-completion-pdf-open-function
+  (lambda (fpath)
+    (call-process "open" nil 0 nil fpath)))
+#+end_src
+
+
+*** TODO Generating BibTeX citekeys automatically
 
 This needs to be tested to see if it really works.
 
@@ -1719,13 +1974,8 @@ This needs to be tested to see if it really works.
 
 *** TODO Helm-bibtex for inserting citations
 
-Do I still need to call this if I have =bibtex-completion=? Also, from where did I take this configuration part?==
-
-I'm having an error with =elpaca= not being able to pull =org-ref=, so I will be disabling this.
-
 #+begin_src emacs-lisp :tangle no
   ;; Helm-bibtex for citation insertion
-  (require 'org-ref)
   (require 'org-ref-helm)
 #+end_src
 
@@ -1741,29 +1991,43 @@ I'm having an error with =elpaca= not being able to pull =org-ref=, so I will be
      '("~/Documents/bibliography/marx.bib")))
 #+end_src
 
-** How do you plan to deal with all of the biggest BibTeX files?
-
-It seems that =org-ref=, like other bibliography managers built for Emacs, was made to work with pure BibTeX files. Now, I know that if my BibTeX files get too big (aroung 2k entries), they don't even really load within BibDesk anymore. This is a large issue.
-
-Ideally, I would be able to keep all of the BibTeX entries into one gargantuan file, but I am scared that this will make the entire system just crash instantly.
-
-Org-cite is reportedly not very suited for handling large files[1] (at least it wasn't 4 years ago). Suggestions for other packages
-- Org-cite per se is not slow, but the =oc-basic= insert processor you're using is on the first load, after which the data is cached.
-- citar uses =parsebib=, which is very fast.
-
-You can also limit which parts of the org-cite libraries will load.
-- this is actually adjusted in the Lambda Emacs distribution (to deal with any kind of speed issue)
-  - Lambda Emacs uses =oc= and =oc-csl= along with =citar=
-  - it doesn't make use of =org-ref=
-  - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
-
 ** TODO Get the hang of using =org-ref= for managing all references
 
 How do you load multiple bibliography files?
 
-* TODO Creating an interleaved bibliography environment
+* TODO Document management system through Emacs
+
+In order to get this done, I have to get really good at the file system interaction with Emacs. Also, it might be good to add functions for =org-refile= to actually hook into =org-capture= so the PDFs that I'm using don't end up getting lost.
+
+How might you actually include dired for better operation in this case?
+
+It could also sort of be used as a file picker.
+
+** TODO Integrating Recoll with Emacs
+
+From Rougier's literate emacs config, you have to define a PATH where the Recoll program is found.
+
+To be able to make use of the presence of Recoll on our system, we need to plug Recoll into =consult=.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package consult-recoll)
+#+end_src
+
+Defining the PATH here:
+
+#+begin_src emacs-lisp :tangle no
+  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/Applications/recoll.app/Contents/MacOS"))
+  (setq exec-path (append exec-path '("/Users/rougier/Applications/recoll.app/Contents/MacOS")))
+
+  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/bin"))
+  (setq exec-path (append exec-path '("/Users/rougier/bin")))
+#+end_src
+
+* TODO Integrating bibliography with writing and ideation
 
 This means that I spend as little time as possible within any other app than Emacs, so I can focus on simply writing and researching as much as possible.
+
+It's detailed as an ideal workflow in _Interleaved Notes and Reference Management_ in Obsidian.
 
 ** TODO Recognising other cross-references within a PDF
 
@@ -1830,41 +2094,28 @@ Since I want my files to be as short and atomic as possible, I need to find a wa
 
 This isn't actually too different from just using an application launcher like =rofi=, but I want to be able to take advantage of the global state that I have in Emacs.
 
-* TODO Creating a DMS system through Emacs
-
-In order to get this done, I have to get really good at the file system interaction with Emacs. Also, it might be good to add functions for =org-refile= to actually hook into =org-capture= so the PDFs that I'm using don't end up getting lost.
-
-How might you actually include dired for better operation in this case?
-
-It could also sort of be used as a file picker.
-
-** TODO Integrating Recoll with Emacs
-
-From Rougier's literate emacs config, you have to define a PATH where the Recoll program is found.
-
-To be able to make use of the presence of Recoll on our system, we need to plug Recoll into =consult=.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package consult-recoll)
-#+end_src
-
-Defining the PATH here:
-
-#+begin_src emacs-lisp :tangle no
-  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/Applications/recoll.app/Contents/MacOS"))
-  (setq exec-path (append exec-path '("/Users/rougier/Applications/recoll.app/Contents/MacOS")))
-
-  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/bin"))
-  (setq exec-path (append exec-path '("/Users/rougier/bin")))
-#+end_src
 
 * TODO Logic and Mathematics environment
+** LaTeX previews within org-mode buffers
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-fragtog
+  :after org
+  :hook
+  (org-mode . org-fragtog-mode)
+  :custom
+  (org-startup-with-latex-preview nil)
+  (org-format-latex-options
+   (plist-put org-format-latex-options :scale 2)
+   (plist-put org-format-latex-options :foreground 'auto)
+   (plist-put org-format-latex-options :background 'auto)))
+#+end_src
 
 ** Configuring rendering equations using Typst
 
 ** Permanently plugging Typst into the system
 
-* Computational notebook setup
+* TODO Computational notebook setup
 
 Can't this just be kind of resolved through =org-babel=?
 
@@ -1929,6 +2180,76 @@ This block for vertico isn't actually necessary as I have already instantiated i
     (global-set-key (kbd "C-c p") 'projectile-command-map)
     (projectile-mode +1))
 #+end_src
+
+
+* TODO Browsing the internet in Emacs
+** TODO Configuration for =eww=
+** TODO Configuring =elpher=
+
+This package allows you to work with Gopher sites as well.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package elpher)
+#+end_src
+
+** TODO Configuring RSS Feeds for =elfeed=
+
+Taken directly from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package elfeed
+    :custom
+    (elfeed-db-directory
+     (expand-file-name "elfeed" user-emacs-directory))
+    (elfeed-show-entry-switch 'display-buffer)
+    :bind
+    ("C-c w e" . elfeed))
+#+end_src
+
+*** Configuring =elfeed= to be integrated with =org-mode=
+
+Taken directly from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package elfeed-org
+    :config
+    (elfeed-org)
+    :custom
+    (rmh-elfeed-org-files
+     (list (concat (file-name-as-directory (getenv "HOME"))
+  		         "elfeed.org"))))
+#+end_src
+
+** TODO Making search more integrated with the research workflow
+
+Since you don't want to be distracted during the moment of ideation, but you also want to be able to find information promptly as you're developing ideas, you want to be able to integrate searching into the buffer workflow that you have in Emacs (as well as integrating all of the org-mode goodies).
+
+On the one hand, this can be done with =org-ref='s integration with =OpenAlex=, which makes it possible to search academic documents without actually leaving Emacs.
+
+** TODO Configuring =consult-omni=
+
+This package allows minibuffer completion for several queries.
+
+#+begin_src emacs-lisp :tangle no
+                (use-package consult-omni
+                  :ensure
+                  (consult-omni
+                   :host github
+                   :repo "armindarvish/consult-omni"))
+#+end_src
+
+While I've managed to get the =use-package= call to work, I unfortunately can't actually get the package to work because of a "function not defined" error with a bunch of things in this package. Remains to be seen for later on.
+
+** TODO Setting up the sources for =consult-omni=
+
+** TODO Set up links to open in an external browser
+
+Since the EWW browser basically trusts any kind of link, it would generally be safer to simply query a search engine from inside Emacs, and then handle the task of _browsing_ and viewing the files themselves elsewhere.
+
+** TODO Integrating Emacs with Nyxt browser
+** TODO Making the queries from =consult-omni= show up in a different buffer
+
+For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "/Queries injected in editor buffers".
 
 * TODO Creating music in Emacs
 
@@ -2187,7 +2508,6 @@ Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave
   ;; this has to use resize-mini-frames
 #+end_src
 
-
 * TODO Interfacing with GNU Guix operating system
 
 Since I plan to make a literate configuration file for GNU Guix as well, it's important to document how I might pipe output from Emacs into other parts of the system that I can't yet control solely through Emacs.
@@ -2354,7 +2674,6 @@ Making disroot work with Emacs.
 Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
 
 * Footnotes
-[fn:7] https://www.masteringemacs.org/article/mastering-key-bindings-emacs
 
 [fn:1] https://protesilaos.com/emacs/dotemacs
 
@@ -2368,4 +2687,8 @@ Storing secrets in the literate configuration without ending up leaking them acc
 
 [fn:6] https://github.com/rougier/dotemacs/blob/master/dotemacs.org
 
+[fn:7] https://www.masteringemacs.org/article/mastering-key-bindings-emacs
+
 [fn:8] https://github.com/minad/marginalia
+
+[fn:9] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/

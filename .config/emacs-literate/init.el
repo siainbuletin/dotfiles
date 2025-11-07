@@ -1,6 +1,12 @@
 ;; This file has been generated from an org-mode file (=literate-config.org=)
 ;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
 
+(setq initial-major-mode 'org-mode
+      initial-scratch-message (concat "#+title: Emacs Writing Studio\n"
+					"#+subtitle: Scratch Buffer\n\n"
+					"The text in this buffer is not saved "
+					"when exiting Emacs!\n\n"))
+
 ;; Installing elpaca
 (defvar elpaca-installer-version 0.11)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
@@ -62,23 +68,17 @@
 
 (setq load-path (cons "~/.config/emacs-literate/sia-modules" load-path))
 
-;; (require 'sensible-defaults)
-;; (require 'sia-keybindings)
-;; (require 'sia-minibuffer)
-;; (require 'sia-appearance)
-;; (require 'sia-academic) ; haven't set this one up yet
-
-(use-package which-key)
-
 (setq custom-file (make-temp-file "emacs-custom-"))
 
 (use-package counsel)
 
 (elpaca-wait)
 
-(use-package elpher)
-(use-package elfeed)
-(use-package elfeed-org)
+(use-package openwith
+  :config
+  (openwith-mode t)
+  :custom
+  (openwith-associations nil))
 
 (use-package magit)
 
@@ -93,6 +93,13 @@
 
 (use-package git-gutter-fringe
   :ensure t)
+
+(use-package helpful
+  :bind
+  (("C-h f" . helpful-function)
+   ("C-h x" . helpful-command)
+   ("C-h k" . helpful-key)
+   ("C-h v" . helpful-variable)))
 
 (use-package consult) ;Consulting completing-read
 
@@ -180,6 +187,23 @@
       kept-old-versions 3
       version-control t)
 
+(use-package which-key
+:config
+(which-key-mode)
+:custom
+(which-key-max-description-length 40)
+(which-key-lighter nil)
+(which-key-sort-order 'which-key-description-order)
+:init
+(which-key-add-key-based-replacements
+  "C-c w"   "Emacs Writing Studio"
+  "C-c w b" "Bibliographic"
+  "C-c w d" "Denote"
+  "C-c w m" "Multimedia"
+  "C-c w s" "Spelling and Grammar"
+  "C-c w t" "Themes"
+  "C-c w x" "Explore"))
+
 (global-unset-key (kbd "C-z"))
 
 ;; (keymap-global-set [mouse-3] 'mouse-popup-menubar-stuff) ;; This will give right-click a context menu
@@ -202,6 +226,13 @@
   :init
   (marginalia-mode)
   (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
+
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  (completion-category-overrides
+   '((file (styles partial-completion)))))
 
 (use-package corg
   :ensure
@@ -270,9 +301,40 @@
     ("C-c C-d C-i" . denote-link-dired-marked-notes)
     ("C-c C-d C-r" . denote-dired-rename-marked-files)))
 
+(use-package denote-journal)
+
+(use-package denote-sequence)
+
+(use-package denote-explore
+  :bind
+  (;; Statistics
+   ("C-c w x c" . denote-explore-count-notes)
+   ("C-c w x C" . denote-explore-count-keywords)
+   ("C-c w x b" . denote-explore-barchart-keywords)
+   ("C-c w x e" . denote-explore-barchart-filetypes)
+   ;; Random walks
+   ("C-c w x r" . denote-explore-random-note)
+   ("C-c w x l" . denote-explore-random-link)
+   ("C-c w x k" . denote-explore-random-keyword)
+   ("C-c w x x" . denote-explore-random-regex)
+   ;; Denote Janitor
+   ("C-c w x d" . denote-explore-identify-duplicate-notes)
+   ("C-c w x z" . denote-explore-zero-keywords)
+   ("C-c w x s" . denote-explore-single-keywords)
+   ("C-c w x o" . denote-explore-sort-keywords)
+   ("C-c w x w" . denote-explore-rename-keyword)
+   ;; Visualise denote
+   ("C-c w x n" . denote-explore-network)
+   ("C-c w x v" . denote-explore-network-regenerate)
+   ("C-c w x D" . denote-explore-barchart-degree)))
+
 (with-eval-after-load 'org
   (setq org-startup-indented t) ; Enable `org-indent-mode' by default
   (add-hook 'org-mode-hook #'visual-line-mode))
+
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
 
 (electric-indent-mode 0)
 
@@ -303,13 +365,29 @@
          ("C-c n r" . org-remark-remove)
          ("C-c n d" . org-remark-delete)))
 
-(use-package org-ref)
-(use-package helm-bibtex)
-(use-package citar)
+;;; BibTeX first configuration
+(use-package bibtex
+  :custom
+  (bibtex-user-optional-fields
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file"     "Relative or absolute path to attachments" "" )))
+  (bibtex-align-at-equal-sign t)
+  :config
+  (sia-bibtex-register)
+  :bind
+  (("C-c w b r" . sia-bibtex-register)))
+
 (use-package ebib)
 
+(use-package org-ref)
+(use-package helm-bibtex)
+
+(setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
+      org-ref-pdf-directory "~/Documents/literature/")
+
 (setq bibtex-completion-bibliography
-      '("~/Documents/bibliography/thesis.bib"
+      '("~/Documents/bibliography/master.bib"
+        "~/Documents/bibliography/thesis.bib"
         "~/Documents/bibliography/marx.bib"
         "~/Documents/bibliography/hci.bib"
         "~/Documents/bibliography/aesthetics.bib")
@@ -317,17 +395,17 @@
 	  bibtex-completion-notes-path "~/Documents/org/"
 	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
 
-    ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
-	  bibtex-completion-additional-search-fields '(keywords)
-	  bibtex-completion-display-formats
-	  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
-	    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
-	    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-	    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-	    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
-	  bibtex-completion-pdf-open-function
-	  (lambda (fpath)
-	    (call-process "open" nil 0 nil fpath)))
+;; this bit was copied directly from the GitHub page, I don't actually understand what it does
+bibtex-completion-additional-search-fields '(keywords)
+bibtex-completion-display-formats
+'((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
+  (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
+  (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+  (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+  (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
+bibtex-completion-pdf-open-function
+(lambda (fpath)
+  (call-process "open" nil 0 nil fpath)))
 
 ;; Automatically generating BibTeX keys
 (require 'bibtex)
@@ -350,6 +428,8 @@
   (bibtex-capf-bibliography
    '("~/Documents/bibliography/marx.bib")))
 
+(use-package consult-recoll)
+
 (use-package perspective
   :ensure t  ; use `:straight t` if using straight.el!
   :bind
@@ -361,7 +441,16 @@
 
 (use-package ace-window)
 
-(use-package consult-recoll)
+(use-package org-fragtog
+  :after org
+  :hook
+  (org-mode . org-fragtog-mode)
+  :custom
+  (org-startup-with-latex-preview nil)
+  (org-format-latex-options
+   (plist-put org-format-latex-options :scale 2)
+   (plist-put org-format-latex-options :foreground 'auto)
+   (plist-put org-format-latex-options :background 'auto)))
 
 ;; Optional: ag is nice alternative to using grep with Projectile
 (use-package ag
@@ -386,6 +475,24 @@
   (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
   (global-set-key (kbd "C-c p") 'projectile-command-map)
   (projectile-mode +1))
+
+(use-package elpher)
+
+(use-package elfeed
+  :custom
+  (elfeed-db-directory
+   (expand-file-name "elfeed" user-emacs-directory))
+  (elfeed-show-entry-switch 'display-buffer)
+  :bind
+  ("C-c w e" . elfeed))
+
+(use-package elfeed-org
+  :config
+  (elfeed-org)
+  :custom
+  (rmh-elfeed-org-files
+   (list (concat (file-name-as-directory (getenv "HOME"))
+		         "elfeed.org"))))
 
 (package-initialize)
 
