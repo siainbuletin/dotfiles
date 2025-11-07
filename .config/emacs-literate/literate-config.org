@@ -773,6 +773,25 @@ Before installing =magit=, the version that's available on =elpaca= requires tha
   (use-package transient)
 #+end_src
 
+** Enabling git gutter within Emacs
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package git-gutter
+    :ensure t
+    :hook
+    (prog-mode . git-gutter-mode)
+    :config
+    (setq git-gutter:update-interval 0.02))
+
+  (use-package git-gutter-fringe
+    :ensure t)
+#+end_src
+
+*Do I even need to install prog-mode for this or is it already installed within Emacs?*
+
+*** Getting Emacs to recognise that the buffer is in a git repository
+
+Ideally, we’d like git-gutter to show up when the current buffer is version-controlled. However, in Emacs there doesn’t seem to be a built-in variable indicating whether a buffer is in a git repository (Edit: There is, you may use the function “vc-backend” to query it. Thanks, u/emax-gomax on Reddit!).
 
 * TODO Documentation helpers
 
@@ -1117,11 +1136,15 @@ Is =global-display-line-numbers-mode= the function that's actually creating this
     "l" 'dired-single-buffer))
 #+end_src
 
-#+begin_src emacs-lisp :tangle no
-  ;; DIRED COMMANDS
+** Add git status gutter to the dired buffer
 
-  ;; Enable cut/paste behaviour with files from dired
-  #+end_src
+#+begin_src emacs-lisp :tangle no
+#+end_src
+
+** TODO Enable cut/paste behaviour with files from dired
+
+#+begin_src emacs-lisp :tangle no
+#+end_src
 
 * TODO Completion framework
 
@@ -1352,11 +1375,7 @@ I might need to actually remove Obsidian mode, as the indexing it chooses to do 
 
 ** Annotation packages
 
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; (use-package org-annotate)
-  (use-package org-remark)
-#+end_src
+=org-remark= is being used for adding comments in the [[*Support a drafting workflow][drafting workflow with Google Docs comments]] that I will further annotated below.
 
 How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
 

@@ -80,15 +80,19 @@
 (use-package elfeed)
 (use-package elfeed-org)
 
-(use-package consult-omni
-  :ensure
-  (consult-omni
-   :host github
-   :repo "armindarvish/consult-omni"))
-
 (use-package magit)
 
 (use-package transient)
+
+(use-package git-gutter
+  :ensure t
+  :hook
+  (prog-mode . git-gutter-mode)
+  :config
+  (setq git-gutter:update-interval 0.02))
+
+(use-package git-gutter-fringe
+  :ensure t)
 
 (use-package consult) ;Consulting completing-read
 
@@ -104,23 +108,6 @@
 
 (use-package embark)
 (use-package embark-consult)
-
-(setq org-todo-keywords
-  (quote ((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
-          (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
-
-(setq org-todo-keyword-faces
-    (quote (("TODO" :foreground "red" :weight bold)
-            ("NEXT" :foreground "blue" :weight bold)
-            ("DONE" :foreground "forest green" :weight bold)
-            ("WAITING" :foreground "orange" :weight bold)
-            ("HOLD" :foreground "magenta" :weight bold)
-            ("CANCELLED" :foreground "forest green" :weight bold)
-            ("MEETING" :foreground "forest green" :weight bold)
-            ("PHONE" :foreground "forest green" :weight bold))))
-
-;; I don't wan't the keywords in my exports by default
-(setq-default org-export-with-todo-keywords nil)
 
 (use-package org-super-agenda)
 
@@ -200,19 +187,6 @@
 (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 
-(add-hook 'prog-mode-hook
-          (if (or
-			   ; If linum-mode doesn't exist...
-			   (not (fboundp 'linum-mode))
-			   ; ...or Emacs has display-line-numbers-mode capability
-			   (and (fboundp 'display-line-numbers-mode) (display-graphic-p)))
-			  ; ...then use display-line-numbers-mode!
-              'display-line-numbers-mode
-			; Otherwise, use linum-mode
-            'linum-mode))
-
-(global-display-line-numbers-mode)
-
 (use-package company)
 
 (use-package vertico
@@ -246,7 +220,6 @@
   )
 
 (use-package pdf-tools)
-;; (pdf-tools-install)
 
 (use-package howm)
 ;; (straight-use-package 'phi-notes) ;; can't actually find the package (it has to be installed manually)
@@ -278,9 +251,6 @@
               )
     )
 
-;; (use-package org-annotate)
-(use-package org-remark)
-
 (use-package org-noter)
 (use-package djvu) ; apparently needed for org-noter
 
@@ -300,18 +270,51 @@
     ("C-c C-d C-i" . denote-link-dired-marked-notes)
     ("C-c C-d C-r" . denote-dired-rename-marked-files)))
 
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+
+(electric-indent-mode 0)
+
+(use-package binder)
+
+(use-package org-remark-global-tracking
+  ;; It is recommended that `org-remark-global-tracking-mode' be
+  ;; enabled when Emacs initializes. You can set it in
+  ;; `after-init-hook'.
+  :hook after-init
+  :config
+  ;; Selectively keep or comment out the following if you want to use
+  ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
+  (use-package org-remark-info :after info :config (org-remark-info-mode +1))
+  (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
+  (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+
+(use-package org-remark
+  :bind (;; :bind keyword also implicitly defers org-remark itself.
+         ;; Keybindings before :map is set for global-map. Adjust the keybinds
+         ;; as you see fit.
+         ("C-c n m" . org-remark-mark)
+         ("C-c n l" . org-remark-mark-line)
+         :map org-remark-mode-map
+         ("C-c n o" . org-remark-open)
+         ("C-c n ]" . org-remark-view-next)
+         ("C-c n [" . org-remark-view-prev)
+         ("C-c n r" . org-remark-remove)
+         ("C-c n d" . org-remark-delete)))
+
 (use-package org-ref)
 (use-package helm-bibtex)
 (use-package citar)
 (use-package ebib)
 
-(setq bibtex-completion-bibliography '("~/Documents/bib-files/master.bib"
-					                   "~/Documents/bib-files/thesis.bib"
-                                       "~/Documents/bib-files/marx.bib"
-                                       "~/Documents/bib-files/hci.bib"
-                                       "~/Documents/bib-files/aesthetics.bib")
+(setq bibtex-completion-bibliography
+      '("~/Documents/bibliography/thesis.bib"
+        "~/Documents/bibliography/marx.bib"
+        "~/Documents/bibliography/hci.bib"
+        "~/Documents/bibliography/aesthetics.bib")
 	  bibtex-completion-library-path '("~/Documents/literature/")
-	  bibtex-completion-notes-path "~/Documents/org-files/"
+	  bibtex-completion-notes-path "~/Documents/org/"
 	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
 
     ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
@@ -347,7 +350,42 @@
   (bibtex-capf-bibliography
    '("~/Documents/bibliography/marx.bib")))
 
+(use-package perspective
+  :ensure t  ; use `:straight t` if using straight.el!
+  :bind
+  ("C-x k" . persp-kill-buffer*)
+  :custom
+  (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
+  :init
+  (persp-mode))
+
+(use-package ace-window)
+
 (use-package consult-recoll)
+
+;; Optional: ag is nice alternative to using grep with Projectile
+(use-package ag
+  :ensure t)
+
+;; Optional: which-key will show you options for partially completed keybindings
+;; It's extremely useful for packages with many keybindings like Projectile.
+(use-package which-key
+  :ensure t
+  :config
+  (which-key-mode +1))
+
+(use-package projectile
+  :ensure t
+  :init
+  (setq projectile-project-search-path
+        '("~/writing-prokects/"
+          "~/work/"
+          "~/playground"))
+  :config
+  ;; These are the configurations to use on Linux for projectile
+  (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
+  (global-set-key (kbd "C-c p") 'projectile-command-map)
+  (projectile-mode +1))
 
 (package-initialize)
 
@@ -412,3 +450,59 @@
 
 (use-package dracula-theme)
 (use-package suscolors-theme) ; like an overarall-warmer gruvbox
+
+(use-package dashboard
+  :ensure t
+  :config
+  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
+  (dashboard-setup-startup-hook))
+
+;; Set the title
+(setq dashboard-banner-logo-title "Welcome to Emacs Dashboard")
+
+;; Set the banner
+(setq dashboard-startup-banner '3)
+;; Value can be:
+;;  - 'official which displays the official emacs logo.
+;;  - 'logo which displays an alternative emacs logo.
+;;  - an integer which displays one of the text banners
+;;    (see dashboard-banners-directory files).
+;;  - a string that specifies a path for a custom banner
+;;    currently supported types are gif/image/text/xbm.
+;;  - a cons of 2 strings which specifies the path of an image to use
+;;    and other path of a text file to use if image isn't supported.
+;;    (cons "path/to/image/file/image.png" "path/to/text/file/text.txt").
+;;  - a list that can display an random banner,
+;;    supported values are: string (filepath), 'official, 'logo and integers.
+
+;; Content is not centered by default. To center, set
+(setq dashboard-center-content t)
+;; vertically center content
+(setq dashboard-vertically-center-content t)
+
+;; To disable shortcut "jump" indicators for each section, set
+(setq dashboard-show-shortcuts nil)
+
+(setq dashboard-items '((recents   . 5)
+                        (bookmarks . 5)
+                        (projects  . 5)
+                        (agenda    . 5)
+                        (registers . 5)))
+
+(setq dashboard-startupify-list '(dashboard-insert-banner
+                                  dashboard-insert-newline
+                                  dashboard-insert-banner-title
+                                  dashboard-insert-newline
+                                  dashboard-insert-navigator
+                                  dashboard-insert-newline
+                                  dashboard-insert-init-info
+                                  dashboard-insert-items
+                                  dashboard-insert-newline
+                                  dashboard-insert-footer))
+
+(setq dashboard-item-shortcuts '((recents   . "r")
+                                 (bookmarks . "m")
+                                 (projects  . "p")
+                                 (agenda    . "a")
+                                 (registers . "e")))
