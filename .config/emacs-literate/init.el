@@ -98,7 +98,7 @@
 
 (when (display-graphic-p)
     (context-menu-mode 1)
-    (tool-bar-mode 1)
+    (tool-bar-mode -1) ; If this were on, then I would get TWO toolbars at the same time, which is just crazy.
     (scroll-bar-mode -1)
     (horizontal-scroll-bar-mode -1)
     (setq visible-bell 1
@@ -171,9 +171,6 @@
 
 (use-package all-the-icons
   :ensure t)
-
-(add-to-list 'load-path "~/.config/emacs-literate/universal-launcher/")
-(add-to-list 'load-path ".")
 
 (use-package openwith
   :config
@@ -297,6 +294,8 @@
   (scroll-error-top-bottom t)
   (save-interprogram-paste-before-kill t))
 
+(add-hook 'org-mode-hook #'org-num-mode)
+
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
@@ -304,23 +303,23 @@
           'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 
 (use-package which-key
-  :ensure t
-  :config
-  (which-key-mode)
-  :custom
-  (which-key-max-description-length 40)
-  (which-key-lighter nil)
-  (which-key-sort-order 'which-key-description-order)
-  (which-key-mode +1)
-  :init
-  (which-key-add-key-based-replacements
-  "C-c w"   "Emacs Writing Studio"
-  "C-c w b" "Bibliographic"
-  "C-c w d" "Denote"
-  "C-c w m" "Multimedia"
-  "C-c w s" "Spelling and Grammar"
-  "C-c w t" "Themes"
-  "C-c w x" "Explore"))
+    :ensure t
+    :config
+    (which-key-mode)
+    :custom
+    (which-key-max-description-length 40)
+    (which-key-lighter nil)
+    (which-key-sort-order 'which-key-description-order)
+    (which-key-mode +1)
+    :init
+    (which-key-add-key-based-replacements
+"C-c w"   "Emacs Writing Studio"
+    "C-c w b" "Bibliographic"
+    "C-c w d" "Denote"
+    "C-c w m" "Multimedia"
+    "C-c w s" "Spelling and Grammar"
+    "C-c w t" "Themes"
+    "C-c w x" "Explore"))
 
 (global-unset-key (kbd "C-z"))
 
@@ -442,11 +441,91 @@
   (setq org-startup-indented t) ; Enable `org-indent-mode' by default
   (add-hook 'org-mode-hook #'visual-line-mode))
 
+(setq org-hide-emphasis-markers t)
+  (setq org-hide-leading-stars t)
+  (setq org-startup-with-inline-images t)
+  (setq org-image-actual-width '(450))
+  (setq org-pretty-entities t) ; What makes them pretty?
+  (setq org-use-sub-superscripts "{}")
+  (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
+  (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+(setq org-ellipsis "  ·")
+
 (use-package org-appear
   :hook
   (org-mode . org-appear-mode))
 
 (electric-indent-mode 0)
+
+(use-package org-modern
+  :config
+  (setq
+   org-auto-align-tags t
+   org-tags-column 0
+   org-fold-catch-invisible-edits 'show-and-error
+   org-special-ctrl-a/e t
+   org-insert-heading-respect-content t
+
+   ;; Don't style the following
+   org-modern-tag nil
+   org-modern-priority nil
+   org-modern-todo nil
+   org-modern-table nil
+
+   ;; Agenda styling
+   org-agenda-tags-column 0
+   org-agenda-block-separator ?─
+   org-agenda-time-grid
+   '((daily today require-timed)
+	 (800 1000 1200 1400 1600 1800 2000)
+	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+   org-agenda-current-time-string
+   "⭠ now ─────────────────────────────────────────────────")
+
+  (global-org-modern-mode))
+
+(use-package org-superstar
+  :config
+  (setq org-superstar-leading-bullet " ")
+  (setq org-superstar-special-todo-items t) ;; Makes TODO header bullets into boxes
+  (setq org-superstar-todo-bullet-alist '(("TODO" . 9744)
+                                          ("PROG" . 9744)
+                                          ("DONE" . 9744))))
+
+(dolist (face '((org-level-1 . 1.5)
+                (org-level-2 . 1.4)
+                (org-level-3 . 1.3)
+                (org-level-4 . 1.1)
+                (org-level-5 . 1.1)
+                (org-level-6 . 1.1)
+                (org-level-7 . 1.1)
+                (org-level-8 . 1.1)))
+  (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
+
+(set-face-attribute 'org-document-title nil
+:font "Adobe Caslon Pro"
+:weight 'bold
+:height 1.8)
+
+(require 'org-indent)
+(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+
+(set-face-attribute 'org-block nil            :foreground nil :inherit
+'fixed-pitch :height 0.85)
+
+(set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
+fixed-pitch))
+
+(set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
+(set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
+
+(add-hook 'org-mode-hook 'variable-pitch-mode)
 
 (use-package org-grapher
   :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
@@ -459,6 +538,12 @@
   '("emacs" "#d65d0e"
     "work" "#458588"
     "personal" "#98971a"))
+
+(use-package olivetti
+  :ensure t
+  :demand t
+  :bind
+  (("C-c w o" . sia-olivetti)))
 
 (use-package binder)
 
@@ -663,7 +748,6 @@ bibtex-completion-pdf-open-function
 
 (use-package consult-recoll)
 
-;; Split windows sensibly
 (setq split-width-threshold 120
       split-height-threshold nil)
 
@@ -735,6 +819,29 @@ bibtex-completion-pdf-open-function
    (list (concat (file-name-as-directory (getenv "HOME"))
 		         "elfeed.org"))))
 
+(use-package consult-omni
+  :ensure
+  (consult-omni
+   :host github
+   :repo "armindarvish/consult-omni"))
+
+(consult-omni-define-source "Brave"
+                            :narrow-char ?b
+                            :type 'dynamic
+                            :require-match t
+                            :face 'consult-omni-engine-title-face
+                            :request #'consult-omni--brave-fetch-results
+                            :preview-key consult-omni-preview-key
+                            :search-hist 'consult-omni--search-history
+                            :select-hist 'consult-omni--selection-history
+                            :enabled (lambda () (bound-and-true-p consult-omni-brave-api-key))
+                            :group #'consult-omni--group-function
+                            :sort t
+                            :static 'both)
+
+(require 'consult-omni-sources)
+(consult-omni-sources-load-modules)
+
 (use-package dashboard
   :ensure t
   :config
@@ -795,9 +902,6 @@ bibtex-completion-pdf-open-function
 
 (setq dashboard-set-heading-icons t)
 (setq dashboard-set-file-icons t)
-
-(dashboard-modify-heading-icons '((recents   . "file-text")
-                                  (bookmarks . "book")))
 
 (use-package neotree
   :ensure t)

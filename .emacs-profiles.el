@@ -4,4 +4,5 @@
  ("prelude" . ((user-emacs-directory . "~/.config/emacs-distributions/emacs-prelude/")))
  ("literate" . ((user-emacs-directory . "~/.config/emacs-literate/")))
  ("ews" . ((user-emacs-directory . "~/.config/emacs-distributions/ews")))
+ ("debug-env" . ((user-emacs-directory . "~/.config/emacs-debug")))
 )
