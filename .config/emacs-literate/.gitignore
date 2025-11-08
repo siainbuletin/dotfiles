@@ -3,3 +3,7 @@ eln-cache/
 backups/
 elfeed/
 transient/
+
+# Ignore the preview exports of the literate config
+# as they're only used for testing and internal navigation
+*.html
