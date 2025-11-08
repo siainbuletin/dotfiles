@@ -102,6 +102,82 @@
   :custom
   (openwith-associations nil))
 
+(when (display-graphic-p)
+    (context-menu-mode 1)
+    (tool-bar-mode 1)
+    (scroll-bar-mode -1)
+    (horizontal-scroll-bar-mode -1)
+    (setq visible-bell 1
+          frame-inhibit-implied-resize t)
+)
+
+(package-initialize)
+
+;; Path to the NANO emacs modules
+(add-to-list 'load-path "~/.config/emacs-literate/nano")
+(add-to-list 'load-path ".")
+
+;; Default layout (optional)
+(require 'nano-layout)
+
+;; Theming Command line options (this will cancel warning messages)
+(add-to-list 'command-switch-alist '("-dark"   . (lambda (args))))
+(add-to-list 'command-switch-alist '("-light"  . (lambda (args))))
+(add-to-list 'command-switch-alist '("-default"  . (lambda (args))))
+(add-to-list 'command-switch-alist '("-no-splash" . (lambda (args))))
+(add-to-list 'command-switch-alist '("-no-help" . (lambda (args))))
+(add-to-list 'command-switch-alist '("-compact" . (lambda (args))))
+
+;; Customize support for 'emacs -q' (Optional)
+;; You can enable customizations by creating the nano-custom.el file
+;; with e.g. `touch nano-custom.el` in the folder containing this file.
+(let* ((this-file  (or load-file-name (buffer-file-name)))
+       (this-dir  (file-name-directory this-file))
+       (custom-path  (concat this-dir "nano-custom.el")))
+  (when (and (eq nil user-init-file)
+             (eq nil custom-file)
+             (file-exists-p custom-path))
+    (setq user-init-file this-file)
+    (setq custom-file custom-path)
+    (load custom-file)))
+
+;; Theme
+(require 'nano-faces)
+(require 'nano-theme)
+(require 'nano-theme-dark)
+(require 'nano-theme-light)
+
+(cond
+ ((member "-default" command-line-args) t)
+ ((member "-dark" command-line-args) (nano-theme-set-dark))
+ (t (nano-theme-set-light)))
+(call-interactively 'nano-refresh-theme)
+
+(require 'nano-defaults) ; Nano default settings (optional)
+(require 'nano-session) ; Nano session saving (optional)
+(require 'nano-modeline) ; Nano header & mode lines (optional)
+;; (require 'nano-bindings) ; Nano key bindings modification (optional)
+
+;; Compact layout (need to be loaded after nano-modeline)
+(when (member "-compact" command-line-args)
+  (require 'nano-compact))
+
+;; Nano counsel configuration (optional)
+;; (require 'nano-counsel)
+
+(require 'nano-splash)
+(require 'nano-help)
+
+(let ((inhibit-message t))
+  (message "Welcome to GNU Emacs / N Λ N O edition")
+  (message (format "Initialization time: %s" (emacs-init-time))))
+
+(use-package dracula-theme)
+(use-package suscolors-theme) ; like an overarall-warmer gruvbox
+
+(use-package all-the-icons
+  :ensure t)
+
 (use-package magit)
 
 (use-package transient)
@@ -366,6 +442,18 @@
 
 (electric-indent-mode 0)
 
+(use-package org-grapher
+  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+
+(setq org-grapher-notes-directory "~/Documents/org"
+      org-grapher-recursive t
+      org-grapher-output-file "~/.cache/org-graph.html")
+
+(setq org-grapher--tag-colors
+  '("emacs" "#d65d0e"
+    "work" "#458588"
+    "personal" "#98971a"))
+
 (use-package binder)
 
 (require 'oc-natbib)
@@ -461,17 +549,28 @@ bibtex-completion-pdf-open-function
 
 ;; CONFIGURING BIBTEX-CAPF
 (use-package bibtex-capf
-  :ensure (:type git :host github :repo "mclear-tools/bibtex-capf")
-  :hook ((org-mode markdown-mode tex-mode latex-mode reftex-mode). bibtex-capf-mode)
-  :custom
-  (bibtex-capf-bibliography
-   '("~/Documents/bibliography/marx.bib")))
+:ensure (:type git :host github :repo "mclear-tools/bibtex-capf")
+:hook ((org-mode markdown-mode tex-mode latex-mode reftex-mode). bibtex-capf-mode)
+:custom
+(bibtex-capf-bibliography
+ '("~/Documents/bibliography/marx.bib")))
 
 (use-package consult-recoll)
 
 ;; Split windows sensibly
 (setq split-width-threshold 120
       split-height-threshold nil)
+
+(use-package dimmer
+  :custom
+  (dimmer-adjustment-mode :foreground)
+
+  :config
+  (dimmer-configure-which-key)    ; Do not dim these special windows
+  (dimmer-configure-hydra)
+  (dimmer-configure-magit)
+
+  (dimmer-mode t))
 
 (use-package perspective
   :ensure t  ; use `:straight t` if using straight.el!
@@ -530,74 +629,8 @@ bibtex-completion-pdf-open-function
    (list (concat (file-name-as-directory (getenv "HOME"))
 		         "elfeed.org"))))
 
-(package-initialize)
-
-;; Path to the NANO emacs modules
-(add-to-list 'load-path "~/.config/emacs-literate/nano")
-(add-to-list 'load-path ".")
-
-;; Default layout (optional)
-(require 'nano-layout)
-
-;; Theming Command line options (this will cancel warning messages)
-(add-to-list 'command-switch-alist '("-dark"   . (lambda (args))))
-(add-to-list 'command-switch-alist '("-light"  . (lambda (args))))
-(add-to-list 'command-switch-alist '("-default"  . (lambda (args))))
-(add-to-list 'command-switch-alist '("-no-splash" . (lambda (args))))
-(add-to-list 'command-switch-alist '("-no-help" . (lambda (args))))
-(add-to-list 'command-switch-alist '("-compact" . (lambda (args))))
-
-;; Customize support for 'emacs -q' (Optional)
-;; You can enable customizations by creating the nano-custom.el file
-;; with e.g. `touch nano-custom.el` in the folder containing this file.
-(let* ((this-file  (or load-file-name (buffer-file-name)))
-       (this-dir  (file-name-directory this-file))
-       (custom-path  (concat this-dir "nano-custom.el")))
-  (when (and (eq nil user-init-file)
-             (eq nil custom-file)
-             (file-exists-p custom-path))
-    (setq user-init-file this-file)
-    (setq custom-file custom-path)
-    (load custom-file)))
-
-;; Theme
-(require 'nano-faces)
-(require 'nano-theme)
-(require 'nano-theme-dark)
-(require 'nano-theme-light)
-
-(cond
- ((member "-default" command-line-args) t)
- ((member "-dark" command-line-args) (nano-theme-set-dark))
- (t (nano-theme-set-light)))
-(call-interactively 'nano-refresh-theme)
-
-(require 'nano-defaults) ; Nano default settings (optional)
-(require 'nano-session) ; Nano session saving (optional)
-(require 'nano-modeline) ; Nano header & mode lines (optional)
-;; (require 'nano-bindings) ; Nano key bindings modification (optional)
-
-;; Compact layout (need to be loaded after nano-modeline)
-(when (member "-compact" command-line-args)
-  (require 'nano-compact))
-
-;; Nano counsel configuration (optional)
-;; (require 'nano-counsel)
-
-(require 'nano-splash)
-(require 'nano-help)
-
-(let ((inhibit-message t))
-  (message "Welcome to GNU Emacs / N Λ N O edition")
-  (message (format "Initialization time: %s" (emacs-init-time))))
-
-(use-package dracula-theme)
-(use-package suscolors-theme) ; like an overarall-warmer gruvbox
-
 (load-file (concat (file-name-as-directory user-emacs-directory)
 		   "universal-launcher.el"))
-
-(load "universal-launcher")
 
 (use-package dashboard
   :ensure t
@@ -654,3 +687,16 @@ bibtex-completion-pdf-open-function
                                  (projects  . "p")
                                  (agenda    . "a")
                                  (registers . "e")))
+
+(setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+
+(dashboard-modify-heading-icons '((recents   . "file-text")
+                                  (bookmarks . "book")))
+
+(use-package neotree
+  :ensure t)
+
+(setq neo-theme (if (display-graphic-p) 'icons 'arrow))

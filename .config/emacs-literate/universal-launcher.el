@@ -1,4 +1,11 @@
-;; (require 'all-the-icons)
+;;; universal-launcher.el --- Optimized universal launcher
+
+;;; Commentary:
+;; Simplified version that uses the existing Emacs frame
+
+;;; Code:
+
+(require 'all-the-icons)
 (require 'json)
 (require 'url-util)
 (require 'calc)
@@ -48,6 +55,75 @@
     ("Magnifying Glass" . "🔍")
     ("Light Bulb" . "💡"))
   "Common emojis for quick access.")
+
+;; Icon cache with category-specific icons
+(defvar universal-launcher--icon-cache
+  (let ((cache (make-hash-table :test 'equal)))
+    ;; Type icons with consistent styling
+    (puthash 'buffer (all-the-icons-octicon "file-code" :face '(:foreground "#3d424a" :height 0.9)) cache)
+    (puthash 'running (all-the-icons-material "desktop_windows" :face '(:foreground "#8b919a" :height 0.9)) cache)
+    (puthash 'app (all-the-icons-faicon "cube" :face '(:foreground "#e0dcd4" :height 0.9)) cache)
+    (puthash 'flatpak (all-the-icons-material "layers" :face '(:foreground "#56b6c2" :height 0.9)) cache)
+    (puthash 'firefox (all-the-icons-faicon "firefox" :face '(:foreground "#e06c75" :height 0.9)) cache)
+    (puthash 'bookmark (all-the-icons-octicon "bookmark" :face '(:foreground "#b8c4b8" :height 0.9)) cache)
+    (puthash 'file (all-the-icons-faicon "file" :face '(:foreground "#d4ccb4" :height 0.9)) cache)
+    (puthash 'command (all-the-icons-octicon "terminal" :face '(:foreground "#98c379" :height 0.9)) cache)
+    (puthash 'emoji (all-the-icons-material "insert_emoticon" :face '(:foreground "#e5c07b" :height 0.9)) cache)
+    (puthash 'calculator (all-the-icons-faicon "calculator" :face '(:foreground "#56b6c2" :height 0.9)) cache)
+    ;; Category icons with matching style
+    (puthash "Active" (all-the-icons-material "dashboard" :face '(:foreground "#61afef" :weight bold :height 1.0)) cache)
+    (puthash "Files & Apps" (all-the-icons-material "apps" :face '(:foreground "#c678dd" :weight bold :height 1.0)) cache)
+    (puthash "Web" (all-the-icons-material "public" :face '(:foreground "#e06c75" :weight bold :height 1.0)) cache)
+    (puthash "System" (all-the-icons-material "settings_applications" :face '(:foreground "#98c379" :weight bold :height 1.0)) cache)
+    (puthash "Tools" (all-the-icons-material "build" :face '(:foreground "#d19a66" :weight bold :height 1.0)) cache)
+    (puthash "Context" (all-the-icons-material "flash_on" :face '(:foreground "#e5c07b" :weight bold :height 1.0)) cache)
+    (puthash "Tasks" (all-the-icons-octicon "checklist" :face '(:foreground "#61afef" :weight bold :height 1.0)) cache)
+    cache)
+  "Pre-loaded icon cache with consistent styling.")
+
+;; Add fallback icon function
+(defun universal-launcher--get-icon-safe (type)
+  "Get icon for TYPE with fallback."
+  (condition-case nil
+      (or (gethash type universal-launcher--icon-cache)
+          (all-the-icons-octicon "dash" :face '(:foreground "#abb2bf" :height 0.9)))
+    (error "")))
+
+(defun universal-launcher--get-file-icon (filename)
+  "Get appropriate icon for FILENAME based on its extension."
+  (let ((ext (file-name-extension filename)))
+    (cond
+     ((null ext) (all-the-icons-faicon "file" :face 'font-lock-doc-face))
+     ((string= ext "org") (all-the-icons-fileicon "org" :face 'org-level-1))
+     ((member ext '("js" "jsx" "ts" "tsx")) (all-the-icons-alltheicon "javascript" :face 'font-lock-type-face))
+     ((string= ext "py") (all-the-icons-alltheicon "python" :face 'font-lock-keyword-face))
+     ((string= ext "rb") (all-the-icons-fileicon "ruby" :face 'font-lock-type-face))
+     ((string= ext "java") (all-the-icons-fileicon "java" :face 'font-lock-function-name-face))
+     ((string= ext "c") (all-the-icons-alltheicon "c" :face 'font-lock-keyword-face))
+     ((string= ext "cpp") (all-the-icons-fileicon "cpp" :face 'font-lock-keyword-face))
+     ((string= ext "h") (all-the-icons-fileicon "h" :face 'font-lock-preprocessor-face))
+     ((string= ext "go") (all-the-icons-alltheicon "go" :face 'font-lock-keyword-face))
+     ((string= ext "svelte") (all-the-icons-fileicon "svelte" :face 'font-lock-type-face))
+     ((string= ext "rs") (all-the-icons-alltheicon "rust" :face 'font-lock-type-face))
+     ((string= ext "php") (all-the-icons-fileicon "php" :face 'font-lock-function-name-face))
+     ((string= ext "el") (all-the-icons-fileicon "elisp" :face 'font-lock-variable-name-face))
+     ((string= ext "clj") (all-the-icons-fileicon "clojure" :face 'font-lock-function-name-face))
+     ((string= ext "hs") (all-the-icons-fileicon "haskell" :face 'font-lock-function-name-face))
+     ((string= ext "sh") (all-the-icons-fileicon "powershell" :face 'font-lock-builtin-face))
+     ((string= ext "css") (all-the-icons-alltheicon "css3" :face 'font-lock-variable-name-face))
+     ((string= ext "html") (all-the-icons-faicon "html5" :face 'font-lock-function-name-face))
+     ((string= ext "json") (all-the-icons-fileicon "jsonld" :face 'font-lock-constant-face))
+     ((string= ext "md") (all-the-icons-octicon "markdown" :face 'markdown-header-face))
+     ((string= ext "yml") (all-the-icons-fileicon "jsonld" :face 'font-lock-variable-name-face))
+     ((string= ext "pdf") (all-the-icons-faicon "file-pdf-o" :face 'font-lock-doc-face))
+     ((member ext '("jpg" "jpeg" "png" "gif" "svg")) (all-the-icons-faicon "file-image-o" :face 'font-lock-string-face))
+     ((member ext '("zip" "tar" "gz" "rar" "7z")) (all-the-icons-faicon "file-archive-o" :face 'font-lock-preprocessor-face))
+     ((member ext '("doc" "docx")) (all-the-icons-faicon "file-word-o" :face 'font-lock-keyword-face))
+     ((member ext '("xls" "xlsx")) (all-the-icons-faicon "file-excel-o" :face 'font-lock-type-face))
+     ((member ext '("ppt" "pptx")) (all-the-icons-faicon "file-powerpoint-o" :face 'font-lock-function-name-face))
+     ((member ext '("mp3" "wav" "flac" "ogg")) (all-the-icons-faicon "file-audio-o" :face 'font-lock-builtin-face))
+     ((member ext '("mp4" "avi" "mkv" "mov")) (all-the-icons-faicon "file-video-o" :face 'font-lock-constant-face))
+     (t (all-the-icons-faicon "file" :face 'font-lock-doc-face)))))
 
 (defun universal-launcher--grouped-candidates ()
   "Return candidates grouped by category."
@@ -464,13 +540,13 @@
      (call-process "wmctrl" nil nil nil "-a" "Firefox"))
     ('new-tab
      (call-process "firefox" nil nil nil "--new-tab" "about:newtab"))
-    ('org-task
+    ('org-task 
      (universal-launcher--jump-to-task item))
-    ('ssh
+    ('ssh 
      (universal-launcher--ssh-connect item))
-    ('kill-ring
+    ('kill-ring 
      (universal-launcher--yank-from-ring item))
-    ('custom-action
+    ('custom-action 
      (universal-launcher--execute-custom-action item))
     ('async-shell
      (let ((default-directory (or (locate-dominating-file default-directory ".git")
@@ -569,7 +645,11 @@ Otherwise, prompt for a search engine."
     (gui-set-selection 'CLIPBOARD emoji)
     (message "Emoji '%s' copied to clipboard" emoji)))
 
-;;; FRECENCY SYSTEM - The Foundation of Intelligence
+
+;; ============================================================================
+;; FRECENCY SYSTEM - The Foundation of Intelligence
+;; ============================================================================
+
 (defvar universal-launcher--history-file
   (expand-file-name "universal-launcher-history" user-emacs-directory)
   "File to persist launch history.")
@@ -584,7 +664,7 @@ Otherwise, prompt for a search engine."
         (with-temp-buffer
           (insert-file-contents universal-launcher--history-file)
           (setq universal-launcher--launch-history (read (current-buffer))))
-      (error
+      (error 
        (setq universal-launcher--launch-history nil)
        (message "Warning: Could not load launcher history")))))
 
@@ -617,7 +697,10 @@ Combines frequency (usage count) with recency (time decay)."
         (* count recency-factor))
     0))
 
-;;; CONTEXTUAL ACTIONS - Mode-Aware Intelligence
+;; ============================================================================
+;; CONTEXTUAL ACTIONS - Mode-Aware Intelligence
+;; ============================================================================
+
 (defun universal-launcher--get-contextual-actions ()
   "Get actions relevant to current buffer's major mode and project."
   (when (and universal-launcher--previous-frame
@@ -625,13 +708,13 @@ Combines frequency (usage count) with recency (time decay)."
     (with-selected-frame universal-launcher--previous-frame
       (let ((actions '())
             (icon (all-the-icons-material "flash_on" :face '(:foreground "#e5c07b" :height 0.9))))
-
+        
         ;; Universal org-capture (always available)
         (when (fboundp 'org-capture)
           (push (cons (format "%s Capture: Quick note" icon)
                       (list 'function #'org-capture))
                 actions))
-
+        
         ;; Mode-specific actions
         (pcase major-mode
           ;; Org Mode
@@ -650,7 +733,7 @@ Combines frequency (usage count) with recency (time decay)."
              (push (cons (format "%s Org: Set tags" icon)
                          (list 'function #'org-set-tags-command))
                    actions)))
-
+          
           ;; Go Mode
           ('go-mode
            (let ((default-directory (or (locate-dominating-file default-directory "go.mod")
@@ -670,7 +753,7 @@ Combines frequency (usage count) with recency (time decay)."
              (push (cons (format "%s Go: Format code" icon)
                          (list 'function #'gofmt))
                    actions)))
-
+          
           ;; Rust Mode
           ('rust-mode
            (let ((default-directory (or (locate-dominating-file default-directory "Cargo.toml")
@@ -687,7 +770,7 @@ Combines frequency (usage count) with recency (time decay)."
              (push (cons (format "%s Rust: Check" icon)
                          (list 'async-shell "cargo check"))
                    actions)))
-
+          
           ;; Emacs Lisp Mode
           ('emacs-lisp-mode
            (push (cons (format "%s Elisp: Eval buffer" icon)
@@ -699,7 +782,7 @@ Combines frequency (usage count) with recency (time decay)."
            (push (cons (format "%s Elisp: Load file" icon)
                        (list 'function #'load-file))
                  actions))
-
+          
           ;; Nix Mode
           ('nix-mode
            (push (cons (format "%s Nix: Rebuild switch" icon)
@@ -711,7 +794,7 @@ Combines frequency (usage count) with recency (time decay)."
            (push (cons (format "%s Nix: Update flake" icon)
                        (list 'async-shell "nix flake update"))
                  actions))
-
+          
           ;; Markdown Mode
           ('markdown-mode
            (when (fboundp 'markdown-preview)
@@ -721,10 +804,13 @@ Combines frequency (usage count) with recency (time decay)."
            (push (cons (format "%s Markdown: Export to HTML" icon)
                        (list 'function #'markdown-export))
                  actions)))
-
+        
         (nreverse actions)))))
 
-;;; SSH HOST LAUNCHER
+;; ============================================================================
+;; SSH HOST LAUNCHER
+;; ============================================================================
+
 (defun universal-launcher--get-ssh-hosts ()
   "Get SSH hosts from ~/.ssh/config."
   (let ((hosts '())
@@ -762,7 +848,7 @@ Combines frequency (usage count) with recency (time decay)."
             (vterm-send-return))
           (switch-to-buffer buf)
           (delete-other-windows)))))
-
+   
    ;; Fallback to eshell
    ((fboundp 'eshell)
     (let ((buffer (generate-new-buffer (format "*ssh-%s*" host))))
@@ -771,7 +857,7 @@ Combines frequency (usage count) with recency (time decay)."
       (eshell-mode)
       (insert (format "ssh %s" host))
       (eshell-send-input)))
-
+   
    ;; Last resort: shell-mode
    (t
     (let ((buffer (get-buffer-create (format "*ssh-%s*" host))))
@@ -783,7 +869,10 @@ Combines frequency (usage count) with recency (time decay)."
       (insert (format "ssh %s" host))
       (comint-send-input)))))
 
-;;; ORG AGENDA INTEGRATION
+;; ============================================================================
+;; ORG AGENDA INTEGRATION
+;; ============================================================================
+
 (defun universal-launcher--get-agenda-tasks ()
   "Get today's agenda tasks."
   (when (and (fboundp 'org-map-entries)
@@ -798,10 +887,10 @@ Combines frequency (usage count) with recency (time decay)."
                 (tags (org-get-tags))
                 (display (format "%s %s %s%s"
                                  icon
-                                 (propertize (or todo-state "TODO")
+                                 (propertize (or todo-state "TODO") 
                                              'face 'org-todo)
                                  heading
-                                 (if tags
+                                 (if tags 
                                      (propertize (format " :%s:" (string-join tags ":"))
                                                  'face 'org-tag)
                                    ""))))
@@ -821,19 +910,22 @@ Combines frequency (usage count) with recency (time decay)."
     (org-reveal)
     (recenter)))
 
-;;; KILL RING SEARCH
+;; ============================================================================
+;; KILL RING SEARCH
+;; ============================================================================
+
 (defun universal-launcher--get-kill-ring ()
   "Get recent kill ring entries."
   (let ((icon (all-the-icons-faicon "clipboard" :face '(:foreground "#c678dd" :height 0.9))))
     (cl-loop for item in (seq-take kill-ring 15)
              for idx from 1
-             when (and (stringp item)
+             when (and (stringp item) 
                        (> (length item) 0)
                        (not (string-match-p "^[[:space:]]*$" item)))
-             collect (cons (format "%s Clip #%d: %s"
+             collect (cons (format "%s Clip #%d: %s" 
                                    icon
                                    idx
-                                   (truncate-string-to-width
+                                   (truncate-string-to-width 
                                     (replace-regexp-in-string "\n" "↩ " item)
                                     60 nil nil "…"))
                            (list 'kill-ring item)))))
@@ -846,3 +938,135 @@ Combines frequency (usage count) with recency (time decay)."
       (when (not buffer-read-only)
         (insert text)
         (message "Inserted from kill ring")))))
+
+;; ============================================================================
+;; CUSTOM ACTIONS/SCRIPTS
+;; ============================================================================
+
+(defcustom universal-launcher-custom-actions nil
+  "Custom actions as ((name . (type . action))).
+Type can be 'function, 'shell-command, or 'async-shell.
+
+Examples:
+  ((\"Daily Review\" . (function . my-daily-review-fn))
+   (\"Rebuild NixOS\" . (async-shell . \"sudo nixos-rebuild switch\"))
+   (\"Git Status\" . (shell-command . \"git status\")))"
+  :type '(alist :key-type string 
+          :value-type (cons symbol sexp))
+  :group 'universal-launcher)
+
+(defun universal-launcher--get-custom-actions ()
+  "Get user-defined custom actions."
+  (let ((icon (all-the-icons-material "stars" :face '(:foreground "#e5c07b" :height 0.9))))
+    (mapcar (lambda (action)
+              (cons (format "%s Custom: %s" icon (car action))
+                    (list 'custom-action (cdr action))))
+            universal-launcher-custom-actions)))
+
+(defun universal-launcher--execute-custom-action (action)
+  "Execute custom ACTION."
+  (let ((type (car action))
+        (cmd (cdr action)))
+    (pcase type
+      ('function 
+       (if (functionp cmd)
+           (funcall cmd)
+         (message "Error: Not a valid function: %s" cmd)))
+      ('shell-command 
+       (shell-command cmd))
+      ('async-shell 
+       (async-shell-command cmd))
+      (_ 
+       (message "Unknown action type: %s" type)))))
+
+(defun universal-launcher-popup ()
+  "World-class launcher for Emacs."
+  (interactive)
+
+  ;; Store current frame
+  (setq universal-launcher--previous-frame (selected-frame))
+
+  ;; Force update if needed
+  (universal-launcher--update-candidates)
+
+  ;; Create candidates list with nil as completion table to allow any input
+  (let* ((candidates (mapcar #'car universal-launcher--all-candidates))
+         (prompt "🚀 Launch (or enter math expression): ")
+         (selection
+          (minibuffer-with-setup-hook
+              (lambda ()
+                ;; Allow any input, not just candidates
+                (setq-local completion-styles '(substring partial-completion basic))
+                (setq-local completion-category-overrides nil))
+            (completing-read prompt
+                             ;; Use a function that always returns all candidates
+                             ;; This allows typing anything while still showing candidates
+                             (lambda (string pred action)
+                               (if (eq action 'metadata)
+                                   '(metadata (category . universal-launcher))
+                                 (all-completions string candidates pred)))
+                             nil    ; predicate
+                             nil    ; require-match = nil allows any input!
+                             nil    ; initial-input
+                             nil    ; hist
+                             nil))) ; def
+         (candidate (cdr (assoc selection universal-launcher--all-candidates))))
+
+    (cond
+     ;; Empty input - do nothing
+     ((string-empty-p selection) nil)
+
+     ;; Calculator check - prioritize this before other matches
+     ((universal-launcher--is-calculator-input selection)
+      (universal-launcher--handle-calculator-input selection))
+
+     ;; Separator - do nothing
+     ((eq candidate 'separator) nil)
+
+     ;; Handle matched candidates
+     (candidate
+      (let ((type (car candidate))
+            (item (cadr candidate)))
+        (pcase type
+          ('buffer (switch-to-buffer item))
+          ('running (universal-launcher--focus-running-application item))
+          ('app (universal-launcher--run-application item))
+          ('firefox-action (universal-launcher--handle-firefox-action item))
+          ('bookmark (universal-launcher--handle-bookmark item))
+          ('file (find-file item))
+          ('command (universal-launcher--run-command item))
+          ('emoji (universal-launcher--insert-emoji item))
+          ('ssh (universal-launcher--ssh-connect item))
+          ('calculator (message "🧮 Type a math expression like: 2+2, sqrt(16), sin(45)"))
+          ('org-task (universal-launcher--jump-to-task item))
+          ('kill-ring (universal-launcher--yank-from-ring item))
+          ('custom-action (universal-launcher--execute-custom-action item))
+          ('function (funcall item))
+          ('async-shell 
+           (let ((default-directory (or (locate-dominating-file default-directory ".git")
+                                        default-directory)))
+             (async-shell-command item)))
+          ('shell-command
+           (let ((default-directory (or (locate-dominating-file default-directory ".git")
+                                        default-directory)))
+             (shell-command item)))
+          (_ (message "Unknown action type: %s" type)))))
+
+     ;; Web search fallback - only if not a calculator expression
+     ((and (not candidate)
+           (not (string-empty-p selection))
+           (not (universal-launcher--is-calculator-input selection)))
+      (universal-launcher--web-search selection)))
+
+    ;; Return to previous frame
+    (when (and universal-launcher--previous-frame
+               (frame-live-p universal-launcher--previous-frame))
+      (select-frame-set-input-focus universal-launcher--previous-frame))))
+
+;; Set up background update timer
+(run-with-timer universal-launcher--update-interval
+                universal-launcher--update-interval
+                #'universal-launcher--update-candidates)
+
+(provide 'universal-launcher)
+;;; universal-launcher.el ends here

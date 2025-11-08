@@ -781,6 +781,270 @@ Taken from Emacs Writing Studio.
   (openwith-associations nil))
 #+end_src
 
+* Appearance settings
+
+There's multiple tenets to follow in this case
+- readability :: The fonts should be thick enough, there should be enough space on the page, and have serif fonts in case of writing prose. The experience shall be as close as possible to that of writing in typography (in the case of writing prose).
+
+For code, I want the best readability with monospaced fonts.
+
+- command clarity :: Sometimes it isn't clear what happens when I use a keybinding by accident, so I want to avoid any potential data loss.
+
+- good documentation reading environment :: The original layout for the GNU Info pages is quite shit. I want to improve that and the appearance of EWW.  (see more in the Obsidian note about _Reading directly from Emacs_)
+
+Why is this configuration so high up in the org file? Apparently I can't make the icons work at all unless I call them very early on.
+
+** TODO Settings for =display-graphic-p=
+
+This will also enable the right-click context menu.
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (when (display-graphic-p)
+      (context-menu-mode 1)
+      (tool-bar-mode 1)
+      (scroll-bar-mode -1)
+      (horizontal-scroll-bar-mode -1)
+      (setq visible-bell 1
+            frame-inhibit-implied-resize t)
+  )
+#+end_src
+
+*What does the =frame-inhibit-implied-resize= setting actually do?*
+
+** Setting up NANO Emacs
+
+The NANO Emacs version has been installed manually through cloning and now lives in a subdirectory called =nano/=.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (package-initialize)
+
+  ;; Path to the NANO emacs modules
+  (add-to-list 'load-path "~/.config/emacs-literate/nano")
+  (add-to-list 'load-path ".")
+
+  ;; Default layout (optional)
+  (require 'nano-layout)
+
+  ;; Theming Command line options (this will cancel warning messages)
+  (add-to-list 'command-switch-alist '("-dark"   . (lambda (args))))
+  (add-to-list 'command-switch-alist '("-light"  . (lambda (args))))
+  (add-to-list 'command-switch-alist '("-default"  . (lambda (args))))
+  (add-to-list 'command-switch-alist '("-no-splash" . (lambda (args))))
+  (add-to-list 'command-switch-alist '("-no-help" . (lambda (args))))
+  (add-to-list 'command-switch-alist '("-compact" . (lambda (args))))
+#+end_src
+
+*** Adding support for =emacs-q=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Customize support for 'emacs -q' (Optional)
+  ;; You can enable customizations by creating the nano-custom.el file
+  ;; with e.g. `touch nano-custom.el` in the folder containing this file.
+  (let* ((this-file  (or load-file-name (buffer-file-name)))
+         (this-dir  (file-name-directory this-file))
+         (custom-path  (concat this-dir "nano-custom.el")))
+    (when (and (eq nil user-init-file)
+               (eq nil custom-file)
+               (file-exists-p custom-path))
+      (setq user-init-file this-file)
+      (setq custom-file custom-path)
+      (load custom-file)))
+#+end_src
+
+*** Main theme components
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Theme
+  (require 'nano-faces)
+  (require 'nano-theme)
+  (require 'nano-theme-dark)
+  (require 'nano-theme-light)
+
+  (cond
+   ((member "-default" command-line-args) t)
+   ((member "-dark" command-line-args) (nano-theme-set-dark))
+   (t (nano-theme-set-light)))
+  (call-interactively 'nano-refresh-theme)
+#+end_src
+
+*** Calling the different needed modules for NANO Emacs
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (require 'nano-defaults) ; Nano default settings (optional)
+  (require 'nano-session) ; Nano session saving (optional)
+  (require 'nano-modeline) ; Nano header & mode lines (optional)
+  ;; (require 'nano-bindings) ; Nano key bindings modification (optional)
+
+  ;; Compact layout (need to be loaded after nano-modeline)
+  (when (member "-compact" command-line-args)
+    (require 'nano-compact))
+#+end_src
+
+*** TODO (later) enabling NANO counsel support
+
+I can't actually run this big below because of missing ='require smex= something. I have no fucking idea.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Nano counsel configuration (optional)
+  ;; (require 'nano-counsel)
+#+end_src
+
+*** Define a splash screen for NANO
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (require 'nano-splash)
+  (require 'nano-help)
+
+  (let ((inhibit-message t))
+    (message "Welcome to GNU Emacs / N Λ N O edition")
+    (message (format "Initialization time: %s" (emacs-init-time))))
+#+end_src
+
+*** Toggling a theme within NANO
+
+This is done through the =nano-toggle-theme= function, which can be accessed with =M-x=. I'll get to customizing what these themes do a little later than now.
+
+** Adjusting NANO theme for better readability
+
+You need to differentiate the ~code-blocks~ from the rest of the inline text
+
+Why is the modeline no longer enabled when using an org-mode buffer is enabled? What's wrong with the NANO theming?
+
+** TODO Other available themes for Emacs
+
+This entire section is currently disabled, as I managed to make
+=sia-appearance.el= also doesn't work properly yet.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package dracula-theme)
+  (use-package suscolors-theme) ; like an overarall-warmer gruvbox
+#+end_src
+
+Calling the Modus themes that were created by Protesilaos Stavrou.
+
+#+begin_src emacs-lisp :tangle no
+  ;; These are themes made by Protesilaos
+  (use-package ef-themes
+    :ensure t
+    :init
+    ;; This makes the Modus commands listed below consider only the Ef
+    ;; themes.  For an alternative that includes Modus and all
+    ;; derivative themes (like Ef), enable the
+    ;; `modus-themes-include-derivatives-mode' instead.
+    (ef-themes-take-over-modus-themes-mode 1)
+    :bind
+    (
+      ;; ("<f5>" . modus-themes-rotate)
+      ;; ("C-<f5>" . modus-themes-select)
+      ;; ("M-<f5>" . modus-themes-load-random)
+      )
+    :config
+    ;; All customisations here.
+    (setq modus-themes-mixed-fonts t)
+    (setq modus-themes-italic-constructs t)
+
+    ;; Finally, load your theme of choice (or a random one with
+    ;; `modus-themes-load-random', `modus-themes-load-random-dark',
+    ;; `modus-themes-load-random-light').
+
+    ;; there are light themes (that I liked from the selection)
+    ;; (modus-themes-load-theme 'ef-cyprus)
+    ;; (modus-themes-load-theme 'ef-duo-light)
+    ;; (modus-themes-load-theme 'ef-frost)
+    ;; (modus-themes-load-theme 'ef-maris-light)
+    ;; (modus-themes-load-theme 'ef-reverie)
+
+    ;; these are some dark themes I liked
+    ;; (modus-themes-load-theme 'ef-dark)
+    ;; (modus-themes-load-theme 'ef-deuteranopia-dark)
+    (modus-themes-load-theme 'ef-dream) ;; ABSOLUTELY GOATED LOOKING THEME
+    )
+#+end_src
+
+#+begin_src emacs-lisp :tangle "sia-appearance.el"
+  ;; Loading currennnt theme
+  ;; (load-theme 'suscolors t)
+#+end_src
+
+** TODO Adding nice decorative icons
+
+When working with icons, there's two possible packages. =all-the-icons= and =nerd-icons=. =all-the-icons= is a little older, but it's used by the =universal-launcher= created by Joshua Blais, so for now I will be using that. =all-the-icons= also has a way to plug into =neotree=.
+
+I keep getting errors with =all-the-icons=, so all of this is currently disabled. Remember that =all-the-icons= needs a manual command run as =M-x all-the-icons-install-fonts=.
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (use-package all-the-icons
+      :ensure t)
+#+end_src
+
+This literate configuration mentions that I should also install =fontawesome=: https://www.karsdorp.io/posts/dotemacs/
+
+#+begin_src emacs-lisp
+(use-package fontawesome)
+#+end_src
+
+*** Installing the font files
+
+the user must do this manually with =M-x nerd-icons-install-fonts=.
+
+*Is there any way to actually make this work automated?*
+
+*** TODO Choosing where we choose to load the decorative icons in our Emacs interface
+
+Here we check whether to load decorative icons in a number of places,
+such as Dired buffers and the completion user interface (where
+relevant). My setup does not try to install the font files:
+
+Remember to read how these options come into effect
+
+Also check [the =prot-emacs-icons.el= module
+
+#+begin_src emacs-lisp :tangle no
+(defcustom prot-emacs-load-icons nil
+  "When non-nil, enable iconography in various contexts.
+This installs and uses the `nerd-icons' package and its variants.
+NOTE that you still need to invoke `nerd-icons-install-fonts'
+manually to first get the icon files.
+
+This user option must be set in the `prot-emacs-pre-custom.el'
+file.  If that file exists in the Emacs directory, it is loaded
+before all other modules of my setup."
+  :group 'prot-emacs
+  :type 'boolean)
+#+end_src
+
+** TODO Toggling automatic light-dark mode depending on the system values
+
+It would be preferable if the dark mode followed the actual state of the system
+
+** Graphical display for the Emacs minibuffer
+
+Everything regarding the graphical display of the minibuffer is defined in =sia-minibuffer.el=, as it is pretty extensive configuration.
+
+*** Calling =emacs-mini-frame=
+
+Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave like the Alfred launcher for computing several things. The =emacs-mini-frame= package would basically work in the same way that Rofi does. It would be cool if I could integrate this with the eval section in StumpWM.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package mini-frame)
+
+  ;; Is this the command that you want to use if you're on a tiling window manager like Hyprland?
+  ;; (setq mini-frame-detach-on-hide nil)
+  (setq mini-frame-standalone 't)
+  (setq mini-frame-resize-min-height 10)
+  ;; (setq mini-frame-ignore-commands
+  ;;      (append mini-frame-ignore-commands '(evil-window-split evil-window-vsplit evil-ex))
+  ;;      )
+#+end_src
+
+*** Set up a custom position for the mini frame
+
+#+begin_src emacs-lisp :tangle no
+  ;; Custom position for the mini frame
+
+  ;; Making the miniframe scale better in the middle of the page
+  ;; this has to use resize-mini-frames
+#+end_src
 * TODO Version control
 
 Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
@@ -837,7 +1101,7 @@ I still don't really know what this package does, so for now it will be disabled
 
 ** TODO Configuring my own annotations and modifications to man pages
 
-* Shell setup in Emacs
+* TODO Shell setup in Emacs
 
 This is part of interfacing with the larger system through my computer.
 
@@ -1179,16 +1443,6 @@ This one would just close Emacs, instead of doing undo if it wasn't in the CUA m
 #+begin_src emacs-lisp :tangle "init.el"
   (global-unset-key (kbd "C-z"))
 #+end_src
-
-** TODO Right-click context menu
-
-This code snippet enables a contextual popup menu when clicking the right mouse button. Taken from Emacs Writing Studio.
-
-#+begin_src elisp
-  (when (display-graphic-p)
-    (context-menu-mode))
-#+end_src
-
 ** TODO Tangling the org literate config
 
 If I simply set up =F10= as my keybinding for =org-babel-tangle=, for example, it will interfere with the =File= menu provided by the GUI Emacs toolbar. This behaviour isn't acceptable. This function here allows me to remove the binding from vanilla Emacs so I can binding for =org-babel-tangle=.
@@ -1206,7 +1460,7 @@ For now, the default keybinding for this mode is =C-c C-t v=.
   (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 #+end_src
 
-** TODO Looking for better keybinding solutions
+** TODO Looking for better keybinding solutions (as well as their management)
 
 The =general.el= package is, unfortunately, about to be deprecated. It seems that the best and easiest option to go about keybindings nowadays is to try and work with a declarative setup, by using =(use-package :bind (...))= for all of the packages that support it.[fn:7]
 
@@ -1221,6 +1475,18 @@ Here is an example of using :bind with a list of conses:
          ("M-o r" . highlight-regexp)
          ("M-o w" . highlight-phrase)))
 #+end_example
+
+*** TODO Creating combo keybindings with =hydra=
+
+Hydra is a package that simplifies the creation of keybinding combinations using a shared prefix. As a bonus, it also generates a menu displaying all potential commands:
+
+#+begin_src emacs-lisp :tangle no
+(use-package hydra
+  :ensure t)
+
+(use-package use-package-hydra
+  :ensure t)
+#+end_src
 
 * TODO Set up programming modes
 
@@ -1781,7 +2047,32 @@ These will be the settings that are edited.
 - org-num-mode interferes with the org-modern prettification of TODO keywords.
 - visual-wrap-prefix-mode relies on the wrap-prefix text property which is also used by org-modern.
 
-* Creating a usable graph for =org-mode= notes
+* TODO Creating a usable graph for =org-mode= notes
+
+Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:9]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-grapher
+  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+#+end_src
+
+Setting the org file directory:
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (setq org-grapher-notes-directory "~/Documents/org"
+          org-grapher-recursive t
+          org-grapher-output-file "~/.cache/org-graph.html")
+#+end_src
+
+Customizing the colors of the nodes:
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-grapher--tag-colors
+  '("emacs" "#d65d0e"
+    "work" "#458588"
+    "personal" "#98971a"))
+#+end_src
+
 * =org-mode= presentation workflow
 
 You want to be able to connect a second screen and for nothing to actually get corrupted.
@@ -2045,7 +2336,7 @@ There's multiple options that you can use in this case:
 
 But how do you tell =org-ref= where to find these fles?
 
-- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:9]
+- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:10]
 
 - replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
 
@@ -2063,7 +2354,7 @@ A lot of references might be downloaded from Google Scholar (if I can't benefit 
 
 When I decide that I'm about to read something, I need to create an entry for it somehow.
 
-There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:9] *But how exactly does it locate this entry?*
+There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:10] *But how exactly does it locate this entry?*
 
 If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially:
 
@@ -2073,9 +2364,9 @@ _Taken from Emacs Writing Studio._ =citar-denote= is also developed by Peter Pre
 
 By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. *But I should find a better way to normalise this entire functionality.*
 
-What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:10]
+What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:11]
 
-It is also claimed that this method will help with creating literature reviews.[fn:10]
+It is also claimed that this method will help with creating literature reviews.[fn:11]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package citar-denote
@@ -2131,11 +2422,17 @@ It makes use of =org-imenu=
 =pdf-drop-mode= adds support for simply dragging and dropping PDFs to add them to the configuration file
 
 #+begin_src emacs-lisp :tangle no
-  (straight-use-package
-   '(org-imenu :type git :host github :repo "rougier/org-imenu"))
+              (use-package
+               '(org-imenu
+                 :type git
+                 :host github
+                 :repo "rougier/org-imenu"))
 
-  (straight-use-package
-  '(pdf-drop-mode :type git :host github :repo "rougier/pdf-drop-mode"))
+              (use-package
+              '(pdf-drop-mode
+                :type git
+                :host github
+                :repo "rougier/pdf-drop-mode"))
 #+end_src
 
 ** TODO Configuring the attachment framework
@@ -2225,11 +2522,11 @@ This needs to be tested to see if it really works.
 #+begin_src emacs-lisp :tangle "init.el"
   ;; CONFIGURING BIBTEX-CAPF
   (use-package bibtex-capf
-    :ensure (:type git :host github :repo "mclear-tools/bibtex-capf")
-    :hook ((org-mode markdown-mode tex-mode latex-mode reftex-mode). bibtex-capf-mode)
-    :custom
-    (bibtex-capf-bibliography
-     '("~/Documents/bibliography/marx.bib")))
+  :ensure (:type git :host github :repo "mclear-tools/bibtex-capf")
+  :hook ((org-mode markdown-mode tex-mode latex-mode reftex-mode). bibtex-capf-mode)
+  :custom
+  (bibtex-capf-bibliography
+   '("~/Documents/bibliography/marx.bib")))
 #+end_src
 
 ** TODO Get the hang of using =org-ref= for managing all references
@@ -2320,6 +2617,24 @@ This is currently disabled because I'm getting issues with =elpaca=.
     :config
     (balanced-windows-mode))
 #+end_src
+** TODO Highlighting the active window with =dimmer=
+
+To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:12]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package dimmer
+  :custom
+  (dimmer-adjustment-mode :foreground)
+
+  :config
+  (dimmer-configure-which-key)    ; Do not dim these special windows
+  (dimmer-configure-hydra)
+  (dimmer-configure-magit)
+
+  (dimmer-mode t))
+#+end_src
+
+As an interesting alternative, check out the =selected-window-accent= project.
 
 ** TODO Buffer management through perspective-el
 
@@ -2539,256 +2854,6 @@ This means also the integration of REPLs.
 
 * Experimental version control system to work with
 
-* Appearance
-
-There's multiple tenets to follow in this case
-- readability :: The fonts should be thick enough, there should be enough space on the page, and have serif fonts in case of writing prose. The experience shall be as close as possible to that of writing in typography (in the case of writing prose).
-
-For code, I want the best readability with monospaced fonts.
-
-- command clarity :: Sometimes it isn't clear what happens when I use a keybinding by accident, so I want to avoid any potential data loss.
-
-- good documentation reading environment :: The original layout for the GNU Info pages is quite shit. I want to improve that and the appearance of EWW.  (see more in the Obsidian note about _Reading directly from Emacs_)
-
-** Setting up NANO Emacs
-
-The NANO Emacs version has been installed manually through cloning and now lives in a subdirectory called =nano/=.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (package-initialize)
-
-  ;; Path to the NANO emacs modules
-  (add-to-list 'load-path "~/.config/emacs-literate/nano")
-  (add-to-list 'load-path ".")
-
-  ;; Default layout (optional)
-  (require 'nano-layout)
-
-  ;; Theming Command line options (this will cancel warning messages)
-  (add-to-list 'command-switch-alist '("-dark"   . (lambda (args))))
-  (add-to-list 'command-switch-alist '("-light"  . (lambda (args))))
-  (add-to-list 'command-switch-alist '("-default"  . (lambda (args))))
-  (add-to-list 'command-switch-alist '("-no-splash" . (lambda (args))))
-  (add-to-list 'command-switch-alist '("-no-help" . (lambda (args))))
-  (add-to-list 'command-switch-alist '("-compact" . (lambda (args))))
-#+end_src
-
-*** Adding support for =emacs-q=
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Customize support for 'emacs -q' (Optional)
-  ;; You can enable customizations by creating the nano-custom.el file
-  ;; with e.g. `touch nano-custom.el` in the folder containing this file.
-  (let* ((this-file  (or load-file-name (buffer-file-name)))
-         (this-dir  (file-name-directory this-file))
-         (custom-path  (concat this-dir "nano-custom.el")))
-    (when (and (eq nil user-init-file)
-               (eq nil custom-file)
-               (file-exists-p custom-path))
-      (setq user-init-file this-file)
-      (setq custom-file custom-path)
-      (load custom-file)))
-#+end_src
-
-*** Main theme components
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Theme
-  (require 'nano-faces)
-  (require 'nano-theme)
-  (require 'nano-theme-dark)
-  (require 'nano-theme-light)
-
-  (cond
-   ((member "-default" command-line-args) t)
-   ((member "-dark" command-line-args) (nano-theme-set-dark))
-   (t (nano-theme-set-light)))
-  (call-interactively 'nano-refresh-theme)
-#+end_src
-
-*** Calling the different needed modules for NANO Emacs
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (require 'nano-defaults) ; Nano default settings (optional)
-  (require 'nano-session) ; Nano session saving (optional)
-  (require 'nano-modeline) ; Nano header & mode lines (optional)
-  ;; (require 'nano-bindings) ; Nano key bindings modification (optional)
-
-  ;; Compact layout (need to be loaded after nano-modeline)
-  (when (member "-compact" command-line-args)
-    (require 'nano-compact))
-#+end_src
-
-*** TODO (later) enabling NANO counsel support
-
-I can't actually run this big below because of missing ='require smex= something. I have no fucking idea.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Nano counsel configuration (optional)
-  ;; (require 'nano-counsel)
-#+end_src
-
-*** Define a splash screen for NANO
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (require 'nano-splash)
-  (require 'nano-help)
-
-  (let ((inhibit-message t))
-    (message "Welcome to GNU Emacs / N Λ N O edition")
-    (message (format "Initialization time: %s" (emacs-init-time))))
-#+end_src
-
-*** Toggling a theme within NANO
-
-This is done through the =nano-toggle-theme= function, which can be accessed with =M-x=. I'll get to customizing what these themes do a little later than now.
-
-** Adjusting NANO theme for better readability
-
-You need to differentiate the ~code-blocks~ from the rest of the inline text
-
-Why is the modeline no longer enabled when using an org-mode buffer is enabled? What's wrong with the NANO theming?
-
-** TODO Other available themes for Emacs
-
-This entire section is currently disabled, as I managed to make
-=sia-appearance.el= also doesn't work properly yet.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package dracula-theme)
-  (use-package suscolors-theme) ; like an overarall-warmer gruvbox
-#+end_src
-
-Calling the Modus themes that were created by Protesilaos Stavrou.
-
-#+begin_src emacs-lisp :tangle no
-  ;; These are themes made by Protesilaos
-  (use-package ef-themes
-    :ensure t
-    :init
-    ;; This makes the Modus commands listed below consider only the Ef
-    ;; themes.  For an alternative that includes Modus and all
-    ;; derivative themes (like Ef), enable the
-    ;; `modus-themes-include-derivatives-mode' instead.
-    (ef-themes-take-over-modus-themes-mode 1)
-    :bind
-    (
-      ;; ("<f5>" . modus-themes-rotate)
-      ;; ("C-<f5>" . modus-themes-select)
-      ;; ("M-<f5>" . modus-themes-load-random)
-      )
-    :config
-    ;; All customisations here.
-    (setq modus-themes-mixed-fonts t)
-    (setq modus-themes-italic-constructs t)
-
-    ;; Finally, load your theme of choice (or a random one with
-    ;; `modus-themes-load-random', `modus-themes-load-random-dark',
-    ;; `modus-themes-load-random-light').
-
-    ;; there are light themes (that I liked from the selection)
-    ;; (modus-themes-load-theme 'ef-cyprus)
-    ;; (modus-themes-load-theme 'ef-duo-light)
-    ;; (modus-themes-load-theme 'ef-frost)
-    ;; (modus-themes-load-theme 'ef-maris-light)
-    ;; (modus-themes-load-theme 'ef-reverie)
-
-    ;; these are some dark themes I liked
-    ;; (modus-themes-load-theme 'ef-dark)
-    ;; (modus-themes-load-theme 'ef-deuteranopia-dark)
-    (modus-themes-load-theme 'ef-dream) ;; ABSOLUTELY GOATED LOOKING THEME
-    )
-#+end_src
-
-#+begin_src emacs-lisp :tangle "sia-appearance.el"
-  ;; Loading currennnt theme
-  ;; (load-theme 'suscolors t)
-#+end_src
-
-
-
-
-Footnotes:
-[1]  https://xeechou.net/posts/emacs-literate-config/ (written in quite poor english)
-
-** TODO Adding nice decorative icons
-
-I keep getting errors with all-the-icons, so all of this is currently disabled,
-
-#+begin_src emacs-lisp :tangle no
-    (use-package all-the-icons
-      :ensure t
-      :init
-      (all-the-icons-completion-mode))
-#+end_src
-
-#+begin_src emacs-lisp :tangle no
-(when (display-graphic-p)
-  (require 'all-the-icons))
-#+end_src
-
-*** Installing the font files
-
-the user must do this manually with =M-x nerd-icons-install-fonts=.
-
-*Is there any way to actually make this work automated?*
-
-*** TODO Choosing where we choose to load the decorative icons in our Emacs interface
-
-Here we check whether to load decorative icons in a number of places,
-such as Dired buffers and the completion user interface (where
-relevant). My setup does not try to install the font files:
-
-Remember to read how these options come into effect
-
-Also check [the =prot-emacs-icons.el= module
-
-#+begin_src emacs-lisp :tangle no
-(defcustom prot-emacs-load-icons nil
-  "When non-nil, enable iconography in various contexts.
-This installs and uses the `nerd-icons' package and its variants.
-NOTE that you still need to invoke `nerd-icons-install-fonts'
-manually to first get the icon files.
-
-This user option must be set in the `prot-emacs-pre-custom.el'
-file.  If that file exists in the Emacs directory, it is loaded
-before all other modules of my setup."
-  :group 'prot-emacs
-  :type 'boolean)
-#+end_src
-
-** TODO Toggling automatic light-dark mode depending on the system values
-
-It would be preferable if the dark mode followed the actual state of the system
-
-** Graphical display for the Emacs minibuffer
-
-Everything regarding the graphical display of the minibuffer is defined in =sia-minibuffer.el=, as it is pretty extensive configuration.
-
-*** Calling =emacs-mini-frame=
-
-Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave like the Alfred launcher for computing several things. The =emacs-mini-frame= package would basically work in the same way that Rofi does. It would be cool if I could integrate this with the eval section in StumpWM.
-
-#+begin_src emacs-lisp :tangle no
-  (use-package mini-frame)
-
-  ;; Is this the command that you want to use if you're on a tiling window manager like Hyprland?
-  ;; (setq mini-frame-detach-on-hide nil)
-  (setq mini-frame-standalone 't)
-  (setq mini-frame-resize-min-height 10)
-  ;; (setq mini-frame-ignore-commands
-  ;;      (append mini-frame-ignore-commands '(evil-window-split evil-window-vsplit evil-ex))
-  ;;      )
-#+end_src
-
-*** Set up a custom position for the mini frame
-
-#+begin_src emacs-lisp :tangle no
-  ;; Custom position for the mini frame
-
-  ;; Making the miniframe scale better in the middle of the page
-  ;; this has to use resize-mini-frames
-#+end_src
 
 * TODO Interfacing with the operating system
 ** Allowing =org-capture= to be conjured from anywhere on the system
@@ -2805,17 +2870,15 @@ This basically allows you to invoke another program. This is since =dired= is pr
 
 I need to do some more research into different packages I could use for this specifically.
 
-* Invoking the emacs =universal-launcher= created by Joshua Blais
+* TODO Invoking the emacs =universal-launcher= created by Joshua Blais
 
-This basically allows you to completely forgo the usage of something like =rofi=.
+This launcher would serve as a replacement for =rofi=. If bound to a sensible key, it could be launched from anywhere on the system (but for this I would need to run my Emacs instance as just =emacsclient=, so I could send commands to the daemon directly).
 
-Since this isn't configured as a package yet, I am actually taking the code ad literam and compiling it into my own version of it. Perhaps I can make it actually float in the future, in the way that you can with =emacs-mini-frame=
+The launcher isn't presented as a package, and I intend to modify the contents of the scripts pretty heavily, so I will be tangling it from a separate org file: =universal-launcher.org=. This will also allow me to annotate the contents and reason about its logic.
 
+In the future, I plan to make the dialog float in the way that you can make the Emacs general minibuffer float with =emacs-mini-frame=.
 
-This bit of the configuration will show how this launcher is actually built for working in Emacs.
-
-*
-==all-the-icons= is already loaded a little earlier than this.
+This will load the necessary packages for the launcher to run. =all-the-icons= is already loaded a little earlier than this.
 
 #+begin_src emacs-lisp "init.el"
     (use-package json)
@@ -2826,11 +2889,7 @@ This bit of the configuration will show how this launcher is actually built for 
 #+begin_src emacs-lisp :tangle "init.el"
 (load-file (concat (file-name-as-directory user-emacs-directory)
 		   "universal-launcher.el"))
-
-(load "universal-launcher")
 #+end_src
-
-The =require= method doesn't seem to work here at all.
 
 * TODO Interfacing with GNU Guix operating system
 
@@ -2914,32 +2973,30 @@ There's also other frameworks than just =emacs-dashboard= for making this, but t
                                  (registers . "e")))
 #+end_src
 
-*** Working with icons in the dashboard
+*** TODO Working with icons in the dashboard
 **** Using =all-the-icons=
 
-I'm currently using =all-the-icons= so I can use it with =universal-launcher=.
+I'm currently using =all-the-icons= so I can use it with =universal-launcher=. For loading the =all-the-icons= package:
 
-To use all-the-icons package:
-
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el"
 (setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
 #+end_src
 
 To add icons to the widget headings and their items:
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el"
 (setq dashboard-set-heading-icons t)
 (setq dashboard-set-file-icons t)
 #+end_src
 
 To modify heading icons with another icon from all-the-icons octicons:
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el"
 (dashboard-modify-heading-icons '((recents   . "file-text")
                                   (bookmarks . "book")))
 #+end_src
 
-**** CANCELLED To use nerd-icons package:
+**** (CURRENTLY DISABLED) For using the =nerd-icons= packageC
 
 #+begin_src emacs-lisp :tangle no
 (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
@@ -3008,18 +3065,33 @@ Integration with =projectile= can be done either through =counsel-projectile= or
 
 As of <2025-11-06 Thu>, support for =perspective-el= hasn't yet been implemented for =emacs-dashboard=
 
-* Sysadmin work from Emacs
-* Communicating from Emacs
+* TODO Project tree organisation through =neotree=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package neotree
+    :ensure t)
+#+end_src
+
+Enabling icons display for =neotree=. Note that if =all-the-icons= and =neotree= are both installed, it will activate =all-the-icons= support immediately.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+#+end_src
+
+Sysadmin work from Emacs
+* TODO Communicating from Emacs
 ** Configuring the IRC client
 ** Browsing Reddit from Emacs
 ** TODO Setting up Email
 *** Choosing the proper email client for this
 
-*** Storing the email in a local directory
+*** TODO Storing the email in a local directory
 
-*** Keeping an address book of names
+*** TODO Keeping an address book of names
 
-*** Making sure that you don't send out bogus emails
+Isn't this basically done with =org-contacts=? Or with the Big Brother Database (BBDB).
+
+*** TODO Making sure that you don't send out bogus emails
 
 *** TODO Enabling encryption for email
 
@@ -3049,6 +3121,10 @@ Storing secrets in the literate configuration without ending up leaking them acc
 
 [fn:8] https://github.com/minad/marginalia
 
-[fn:9] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+[fn:9] https://github.com/SenkiReign/org-grapher/issues/3
 
-[fn:10] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+[fn:10] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+
+[fn:11] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+
+[fn:12] https://howardabrams.com/hamacs/ha-display.html
