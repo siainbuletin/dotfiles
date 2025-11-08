@@ -769,18 +769,6 @@ One good thing to remember is that if you're using =elpaca=, because of the asyn
   (elpaca-wait)
 #+end_src
 
-* TODO Opening files in external applications
-
-Taken from Emacs Writing Studio.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package openwith
-  :config
-  (openwith-mode t)
-  :custom
-  (openwith-associations nil))
-#+end_src
-
 * Appearance settings
 
 There's multiple tenets to follow in this case
@@ -1045,6 +1033,48 @@ Using =emacs-mini-frame= allows me to make the Emacs minibuffer basically behave
   ;; Making the miniframe scale better in the middle of the page
   ;; this has to use resize-mini-frames
 #+end_src
+
+* TODO Invoking the emacs =universal-launcher= created by Joshua Blais
+This launcher would serve as a replacement for =rofi=. If bound to a sensible key, it could be launched from anywhere on the system (but for this I would need to run my Emacs instance as just =emacsclient=, so I could send commands to the daemon directly).
+
+The launcher isn't presented as a package, and I intend to modify the contents of the scripts pretty heavily, so I will be tangling it from a separate org file: =universal-launcher.org=. This will also allow me to annotate the contents and reason about its logic.
+
+In the future, I plan to make the dialog float in the way that you can make the Emacs general minibuffer float with =emacs-mini-frame=.
+
+This will load the necessary packages for the launcher to run. =all-the-icons= is already loaded a little earlier than this.
+
+#+begin_src emacs-lisp "init.el"
+    (use-package json)
+    (use-package url-util)
+    (use-package calc)
+#+end_src
+
+This actually does nothing and I can only interactively load the launcher with it.
+
+#+begin_src emacs-lisp :tangle no
+(load-file (concat (file-name-as-directory user-emacs-directory)
+		   "universal-launcher.el"))
+#+end_src
+
+Trying to load it with =add-to-list=. *This also doesn't seem to work at all and I don't understand what LoadPath is supposed to even do.*
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (add-to-list 'load-path "~/.config/emacs-literate/universal-launcher/")
+  (add-to-list 'load-path ".")
+#+end_src
+
+* TODO Opening files in external applications
+
+Taken from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package openwith
+  :config
+  (openwith-mode t)
+  :custom
+  (openwith-associations nil))
+#+end_src
+
 * TODO Version control
 
 Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
@@ -1172,6 +1202,13 @@ Setting up the keywords. These are taken from [[https://doc.norang.ca/org-mode.h
             (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
 #+end_src
 
+I would prefer to have a framework in which I show tasks that I have already started.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
+#+end_src
+
 *But where exactly will you be able to see all of these new task statuses?*
 
 I currently can't have these special keywords be enabled, because it always brings up a special buffer which will ask me why I cancelled a task or why it's being defered. I need to actually see how to make use of this.
@@ -1195,6 +1232,49 @@ I currently can't have these special keywords be enabled, because it always brin
 
 ** Setting up =org-agenda=
 
+*** TODO Daily agenda view
+
+This should show some deadlines that you absolutely have to deal with. As well as tasks that have been marked as being in progress.
+
+But this gets significantly more complicated when you have to deal with tasks that are still in "WAITING" status.
+
+*** TODO Weekly agenda view
+
+What do you want out of this file?
+
+** Configuring icons for =org-agenda=
+
+This is taken from Colin McLear's config (the creator of Lambda Emacs).
+
+#+begin_src emacs-lisp :tangle no
+;; https://florianwinkelbauer.com/posts/2020-07-13-org-agenda-icons/
+(defun cpm-agenda-icon-material (name)
+  "Returns an all-the-icons-material icon"
+  (list (all-the-icons-material name)))
+(defun cpm-agenda-icon-faicon (name)
+  "Returns an all-the-icons-faicon icon"
+  (list (all-the-icons-faicon name)))
+
+(setq org-agenda-category-icon-alist
+      `(("Birthday"    ,(cpm-agenda-icon-material "cake")            nil nil :ascent center)
+        ("Anniversary" ,(cpm-agenda-icon-material "favorite")        nil nil :ascent center)
+        ("Diary"       ,(cpm-agenda-icon-faicon   "book")            nil nil :ascent center)
+        ("Inbox"       ,(cpm-agenda-icon-material "inbox")           nil nil :ascent center)
+        ("Todo"        ,(cpm-agenda-icon-material "check_circle")    nil nil :ascent center)
+        ("Mail"        ,(cpm-agenda-icon-material "email")           nil nil :ascent center)
+        ("Reading"     ,(cpm-agenda-icon-material "library_books")   nil nil :ascent center)
+        ("Service"     ,(cpm-agenda-icon-faicon   "th-list")         nil nil :ascent center)
+        ("Teaching"    ,(cpm-agenda-icon-material "school")          nil nil :ascent center)
+        ("Writing"     ,(cpm-agenda-icon-faicon   "pencil-square-o") nil nil :ascent center)
+        ("Advising"    ,(cpm-agenda-icon-faicon   "users")           nil nil :ascent center)
+        ("Admin"       ,(cpm-agenda-icon-material "folder")          nil nil :ascent center)
+#+end_src
+
+** TODO Archiving tasks that are already done
+
+How can you still manage to find these tasks again when you'll need them?
+
+** Configuring what gets added to =org-agenda=
 ** TODO Calling =org-super-agenda=
 
 This is the =org-super-agenda= enhancement suite made for org-agenda and it's developed by Alphapa.
@@ -2313,6 +2393,113 @@ Do I still have any use for =ebib= if I'm using =citar=?
   (use-package ebib)
 #+end_src
 
+=ebib= can be used for editing the BibTeX database itself, but it's important to load the actual files on startup of Emacs, instead of having to choose to do that myself every time.
+
+Before being able to point to a specific folder for BibTeX files that ebib should be preloading, we need to define a function.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defvar do.refs/db-dirs nil
+  "A list of paths to directories containing all my bibtex databases")
+
+(defvar do.refs/pdf-dir nil
+  "The path to the directory containing the PDF files. The file
+  for the entry with key <key> is stored as <key>.pdf.")
+
+(defvar do.refs/notes-dir nil
+  "The path to the directory containing my notes for the
+  references. The note for the item with key <key> is stored in
+  this folder as <key>.org")
+
+(defvar do.refs/pdf-download-dir nil
+  "The path to the temporary directory to which we download PDF
+  files.")
+
+(defvar do.refs/file-assoc `(("pdf" . "open")
+                           ("docx" . "open")
+                           ("doc" . "open")
+                           ("pptx" . "open")
+                           ("ppt" . "open"))
+  "The executables used to open related files from the reference database.")
+
+(defun do.refs/get-db-file-list ()
+  "Get the list of all the bib files containing my bib database."
+  (mapcan (lambda (dir) (directory-files dir t "\\.bib\\'"))
+          do.refs/db-dirs))
+
+(defun do.refs/update-db-file-list ()
+  "Update the list of bib files."
+  (interactive)
+  (let ((db-list (do.refs/get-db-file-list)))
+    (setq reftex-default-bibliography db-list)
+    (setq bibtex-completion-bibliography db-list)
+    (setq ebib-preload-bib-files db-list)))
+#+end_src
+
+Pointing ebib to the proper databases is done as such:[fn:10]
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq ebib-file-search-dirs sia-bibtex-files)
+  (setq ebib-notes-directory "~/Documents/ebib-literature-notes")
+  (setq ebib-preload-bib-files (do.refs/get-db-file-list))
+#+end_src
+
+Auto-generating the citekeys through =ebib= (with the help of the built-in BibTeX mode)[fn:10]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq bibtex-autokey-year-length 4)
+  (setq bibtex-autokey-titleword-separator "-")
+  (setq bibtex-autokey-name-year-separator "-")
+  (setq bibtex-autokey-year-title-separator "-")
+  (setq bibtex-autokey-titleword-length 8)
+  (setq bibtex-autokey-titlewords 3)
+  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+        '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
+#+end_src
+
+**** Importing from the clipboard into =ebib=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun do.refs/ebib-import-from-clipboard ()
+    "Attempt to import the contents in the kill ring/clipboard into `ebib'."
+    (interactive)
+    (with-temp-buffer
+      (yank)
+      (ebib-import)
+      (call-interactively #'ebib)))
+#+end_src
+
+**** Adding the most recently downloaded PDF to the current entry
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun do.refs/ebib-add-newest-from-downloads (&optional file-extension)
+    "Add the most recent file from `do.refs/pdf-download-dir' to the ebib entry at point."
+    (interactive)
+    ;; pull out the most recent file from ~/Downloads with the .pdf extension.
+    (let ((newest-file (let ((dir-files (directory-files-and-attributes do.refs/pdf-download-dir)))
+                         (caar (sort
+                                (if (not file-extension)
+                                    ;; the newest file from the download directory
+                                    (mapcan (lambda (x)
+                                              (let ((file-name (concat (file-name-as-directory do.refs/pdf-download-dir) (car x))))
+                                                (when (file-regular-p file-name) (cons x nil))))
+                                            dir-files)
+                                  ;; all files with a certain extension
+                                  (mapcan (lambda (x) (when (string-equal (file-name-extension (nth 0 x)) file-extension) (cons x nil)))
+                                          dir-files))
+                                ;; sort by date
+                                (lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))))
+      (if newest-file
+          ;; https://nullprogram.com/blog/2017/10/27/
+          ;; need to override `read-file-name' because ebib normally prompts us for the file to import
+          (let ((fpath (concat (file-name-as-directory do.refs/pdf-download-dir) newest-file))
+                (bibkey (ebib--get-key-at-point)))
+            (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) fpath)))
+              (let ((current-prefix-arg '(4))) ;; C-u (to keep from removing original file)
+                (call-interactively #'ebib-import-file)))
+            (message "[Ebib] [Dennis] Imported %s for %s" fpath bibkey))
+        (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
+#+end_src
+
 *** Adding =org-ref=
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -2336,7 +2523,7 @@ There's multiple options that you can use in this case:
 
 But how do you tell =org-ref= where to find these fles?
 
-- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:10]
+- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:11]
 
 - replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
 
@@ -2345,28 +2532,58 @@ But how do you tell =org-ref= where to find these fles?
 *** TODO Getting =OpenAlex= to work for fetching more bibliography
 
 =OpenAlex= is a part of =org-ref=, so first and foremost that has to be configured separately.
-
 ** TODO Linting incoming BibTeX references
 
 A lot of references might be downloaded from Google Scholar (if I can't benefit from a DOI entry), so I need to have a way to format them properly for usage.
 
-** TODO Creating a literature note for the reference I want to read
+You can reformat BibTeX entries that you download with Emacs' BibTeX mode, which has a function called =bibtex-clean-entry=.
+
+This can be used for
+- removing blank lines and spaces
+- reorder fields for BibTeX
+- change double dashes to single dashes in page ranges (BibTeX will convert single dashes to double as necessary)
+- change the entry type and field names to lower case
+
+And I have not found a way to make bibtex-clean-entry delete fields (such as issn, or publisher for the article type) that I do not use.
+
+This configuration is taken from https://github.com/higham/dot-emacs/blob/master/.emacs
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq bibtex-entry-format
+      `(page-dashes required-fields
+         numerical-fields whitespace last-comma delimiters
+         unify-case sort-fields))
+
+(setq bibtex-field-delimiters 'double-quotes)
+(setq bibtex-entry-delimiters 'braces)
+
+;; I prefer closing brace on its own line after cleaning BibTeX entry.
+(setq bibtex-clean-entry-hook 'mybibtex-clean-extra)
+(defun mybibtex-clean-extra ()
+  "Move final right brace to a line of its own."
+  (progn (bibtex-end-of-entry) (left-char) (newline-and-indent)
+         (insert "      ")))
+#+end_src
+
+** TODO Working with literature notes
 
 When I decide that I'm about to read something, I need to create an entry for it somehow.
 
-There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:10] *But how exactly does it locate this entry?*
+There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:11] *But how exactly does it locate this entry?*
 
-If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially:
+If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially.
 
-** TODO Managing literature notes with the =citar-denote= package
+As opposed to =citar-denote=, which creates an extremely verbose filename for my literature notes, I have configured =ebib= (above) to simply create notes based on the citekey. This is a lot more ergonomic.
+
+*** TODO Managing literature notes with the =citar-denote= package
 
 _Taken from Emacs Writing Studio._ =citar-denote= is also developed by Peter Prevos. It allows the user to browse and *act* on bibliographic data which can be stored in BibTeX, BibLaTeX or JSON.
 
 By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. *But I should find a better way to normalise this entire functionality.*
 
-What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:11]
+What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:12]
 
-It is also claimed that this method will help with creating literature reviews.[fn:11]
+It is also claimed that this method will help with creating literature reviews.[fn:12]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package citar-denote
@@ -2385,7 +2602,7 @@ It is also claimed that this method will help with creating literature reviews.[
    ("C-c w b e" . citar-denote-open-reference-entry)))
 #+end_src
 
-*** TODO Configuring the name of the bibliographic notes created with =citar-denote=
+**** TODO Configuring the name of the bibliographic notes created with =citar-denote=
 
 I don't like the fact that the notes created have a really long file name and I would prefer creating files with the BibTeX citekey, which is created according to some RegEx rules. The goal is to replicate the functionality I had natively in BibDesk which I then used to generated literature notes directly in Obsidian with the same name, which then could be queried through Alfred.
 
@@ -2397,7 +2614,7 @@ Perhaps it could be overcome by simply querying the document through its title i
 
 Instead, the citekey of the article is part of the =denote= file on the =reference= line.
 
-*** How are relationships between citation keys and note files maintained?
+**** How are relationships between citation keys and note files maintained?
 
 =citar-denote= creates a cache.
 
@@ -2407,13 +2624,13 @@ The package regenerates this cache after you edit a bibliography file or call an
 
 Each bibliographic note is marked with the configurable bib file tag (=citar-denote-keyword=). This tag reduces the search space to generate the cache.
 
-**** TODO Making the search through bibliographic files faster
+***** TODO Making the search through bibliographic files faster
 
 The citation search mechanism in =citar-denote= uses =xref= at its base. This can be improved if you use =ripgrep= instead. You just have to set =xref-search-program= to =ripgrep=, which I have done above.
 
-*** Adding a bibliographic note in a silo
+**** Adding a bibliographic note in a silo
 
-** TODO Rougier's =org-bib= minor mode
+*** TODO Rougier's =org-bib= minor mode
 
 This is Rougier's org-bib-mode (minor mode), but I can't currently get it to work well.
 
@@ -2438,6 +2655,8 @@ It makes use of =org-imenu=
 ** TODO Configuring the attachment framework
 
 Since org-attach doesn't allow a flat directory structure, I will be using a different framework for storing the fields.
+
+=ebib= is capable of attaching a PDF in the =file= field of a BibTeX file. I am worried about misplacing something at some point.
 
 *** CANCELLED configuration for =org-attach=
 *** TODO Configuring =helm-bibtex= for opening external files
@@ -2490,7 +2709,6 @@ Note that it is entirely possible to have separate note files for every entry in
     (call-process "open" nil 0 nil fpath)))
 #+end_src
 
-
 *** TODO Generating BibTeX citekeys automatically
 
 This needs to be tested to see if it really works.
@@ -2532,6 +2750,11 @@ This needs to be tested to see if it really works.
 ** TODO Get the hang of using =org-ref= for managing all references
 
 How do you load multiple bibliography files?
+
+** TODO Exporting special =.bib= file for the exported article
+
+We should be calling this function in either an org=mode of
+ buffer to generate a BibTeX file from the keys we inserted in the document using M-x cite or a custom snippet.
 
 * TODO Document management system through Emacs
 
@@ -2619,7 +2842,7 @@ This is currently disabled because I'm getting issues with =elpaca=.
 #+end_src
 ** TODO Highlighting the active window with =dimmer=
 
-To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:12]
+To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:13]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package dimmer
@@ -2870,27 +3093,6 @@ This basically allows you to invoke another program. This is since =dired= is pr
 
 I need to do some more research into different packages I could use for this specifically.
 
-* TODO Invoking the emacs =universal-launcher= created by Joshua Blais
-
-This launcher would serve as a replacement for =rofi=. If bound to a sensible key, it could be launched from anywhere on the system (but for this I would need to run my Emacs instance as just =emacsclient=, so I could send commands to the daemon directly).
-
-The launcher isn't presented as a package, and I intend to modify the contents of the scripts pretty heavily, so I will be tangling it from a separate org file: =universal-launcher.org=. This will also allow me to annotate the contents and reason about its logic.
-
-In the future, I plan to make the dialog float in the way that you can make the Emacs general minibuffer float with =emacs-mini-frame=.
-
-This will load the necessary packages for the launcher to run. =all-the-icons= is already loaded a little earlier than this.
-
-#+begin_src emacs-lisp "init.el"
-    (use-package json)
-    (use-package url-util)
-    (use-package calc)
-#+end_src
-
-#+begin_src emacs-lisp :tangle "init.el"
-(load-file (concat (file-name-as-directory user-emacs-directory)
-		   "universal-launcher.el"))
-#+end_src
-
 * TODO Interfacing with GNU Guix operating system
 
 Since I plan to make a literate configuration file for GNU Guix as well, it's important to document how I might pipe output from Emacs into other parts of the system that I can't yet control solely through Emacs.
@@ -3123,8 +3325,10 @@ Storing secrets in the literate configuration without ending up leaking them acc
 
 [fn:9] https://github.com/SenkiReign/org-grapher/issues/3
 
-[fn:10] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+[fn:10] https://ogbe.net/emacs/references
 
-[fn:11] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+[fn:11] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
 
-[fn:12] https://howardabrams.com/hamacs/ha-display.html
+[fn:12] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+
+[fn:13] https://howardabrams.com/hamacs/ha-display.html

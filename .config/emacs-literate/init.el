@@ -96,12 +96,6 @@
 
 (elpaca-wait)
 
-(use-package openwith
-  :config
-  (openwith-mode t)
-  :custom
-  (openwith-associations nil))
-
 (when (display-graphic-p)
     (context-menu-mode 1)
     (tool-bar-mode 1)
@@ -178,6 +172,15 @@
 (use-package all-the-icons
   :ensure t)
 
+(add-to-list 'load-path "~/.config/emacs-literate/universal-launcher/")
+(add-to-list 'load-path ".")
+
+(use-package openwith
+  :config
+  (openwith-mode t)
+  :custom
+  (openwith-associations nil))
+
 (use-package magit)
 
 (use-package transient)
@@ -215,6 +218,9 @@
 
 (use-package embark)
 (use-package embark-consult)
+
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
 
 (use-package org-super-agenda)
 
@@ -298,23 +304,23 @@
           'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 
 (use-package which-key
-    :ensure t
-    :config
-    (which-key-mode)
-    :custom
-    (which-key-max-description-length 40)
-    (which-key-lighter nil)
-    (which-key-sort-order 'which-key-description-order)
-    (which-key-mode +1)
-    :init
-    (which-key-add-key-based-replacements
-"C-c w"   "Emacs Writing Studio"
-    "C-c w b" "Bibliographic"
-    "C-c w d" "Denote"
-    "C-c w m" "Multimedia"
-    "C-c w s" "Spelling and Grammar"
-    "C-c w t" "Themes"
-    "C-c w x" "Explore"))
+  :ensure t
+  :config
+  (which-key-mode)
+  :custom
+  (which-key-max-description-length 40)
+  (which-key-lighter nil)
+  (which-key-sort-order 'which-key-description-order)
+  (which-key-mode +1)
+  :init
+  (which-key-add-key-based-replacements
+  "C-c w"   "Emacs Writing Studio"
+  "C-c w b" "Bibliographic"
+  "C-c w d" "Denote"
+  "C-c w m" "Multimedia"
+  "C-c w s" "Spelling and Grammar"
+  "C-c w t" "Themes"
+  "C-c w x" "Explore"))
 
 (global-unset-key (kbd "C-z"))
 
@@ -491,11 +497,111 @@
 
 (use-package ebib)
 
+(defvar do.refs/db-dirs nil
+  "A list of paths to directories containing all my bibtex databases")
+
+(defvar do.refs/pdf-dir nil
+  "The path to the directory containing the PDF files. The file
+  for the entry with key <key> is stored as <key>.pdf.")
+
+(defvar do.refs/notes-dir nil
+  "The path to the directory containing my notes for the
+  references. The note for the item with key <key> is stored in
+  this folder as <key>.org")
+
+(defvar do.refs/pdf-download-dir nil
+  "The path to the temporary directory to which we download PDF
+  files.")
+
+(defvar do.refs/file-assoc `(("pdf" . "open")
+                           ("docx" . "open")
+                           ("doc" . "open")
+                           ("pptx" . "open")
+                           ("ppt" . "open"))
+  "The executables used to open related files from the reference database.")
+
+(defun do.refs/get-db-file-list ()
+  "Get the list of all the bib files containing my bib database."
+  (mapcan (lambda (dir) (directory-files dir t "\\.bib\\'"))
+          do.refs/db-dirs))
+
+(defun do.refs/update-db-file-list ()
+  "Update the list of bib files."
+  (interactive)
+  (let ((db-list (do.refs/get-db-file-list)))
+    (setq reftex-default-bibliography db-list)
+    (setq bibtex-completion-bibliography db-list)
+    (setq ebib-preload-bib-files db-list)))
+
+(setq ebib-file-search-dirs sia-bibtex-files)
+(setq ebib-notes-directory "~/Documents/ebib-literature-notes")
+(setq ebib-preload-bib-files (do.refs/get-db-file-list))
+
+(setq bibtex-autokey-year-length 4)
+  (setq bibtex-autokey-titleword-separator "-")
+  (setq bibtex-autokey-name-year-separator "-")
+  (setq bibtex-autokey-year-title-separator "-")
+  (setq bibtex-autokey-titleword-length 8)
+  (setq bibtex-autokey-titlewords 3)
+  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+        '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
+
+(defun do.refs/ebib-import-from-clipboard ()
+    "Attempt to import the contents in the kill ring/clipboard into `ebib'."
+    (interactive)
+    (with-temp-buffer
+      (yank)
+      (ebib-import)
+      (call-interactively #'ebib)))
+
+(defun do.refs/ebib-add-newest-from-downloads (&optional file-extension)
+    "Add the most recent file from `do.refs/pdf-download-dir' to the ebib entry at point."
+    (interactive)
+    ;; pull out the most recent file from ~/Downloads with the .pdf extension.
+    (let ((newest-file (let ((dir-files (directory-files-and-attributes do.refs/pdf-download-dir)))
+                         (caar (sort
+                                (if (not file-extension)
+                                    ;; the newest file from the download directory
+                                    (mapcan (lambda (x)
+                                              (let ((file-name (concat (file-name-as-directory do.refs/pdf-download-dir) (car x))))
+                                                (when (file-regular-p file-name) (cons x nil))))
+                                            dir-files)
+                                  ;; all files with a certain extension
+                                  (mapcan (lambda (x) (when (string-equal (file-name-extension (nth 0 x)) file-extension) (cons x nil)))
+                                          dir-files))
+                                ;; sort by date
+                                (lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))))
+      (if newest-file
+          ;; https://nullprogram.com/blog/2017/10/27/
+          ;; need to override `read-file-name' because ebib normally prompts us for the file to import
+          (let ((fpath (concat (file-name-as-directory do.refs/pdf-download-dir) newest-file))
+                (bibkey (ebib--get-key-at-point)))
+            (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) fpath)))
+              (let ((current-prefix-arg '(4))) ;; C-u (to keep from removing original file)
+                (call-interactively #'ebib-import-file)))
+            (message "[Ebib] [Dennis] Imported %s for %s" fpath bibkey))
+        (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
+
 (use-package org-ref)
 (use-package helm-bibtex)
 
 (setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
       org-ref-pdf-directory "~/Documents/literature/")
+
+(setq bibtex-entry-format
+      `(page-dashes required-fields
+         numerical-fields whitespace last-comma delimiters
+         unify-case sort-fields))
+
+(setq bibtex-field-delimiters 'double-quotes)
+(setq bibtex-entry-delimiters 'braces)
+
+;; I prefer closing brace on its own line after cleaning BibTeX entry.
+(setq bibtex-clean-entry-hook 'mybibtex-clean-extra)
+(defun mybibtex-clean-extra ()
+  "Move final right brace to a line of its own."
+  (progn (bibtex-end-of-entry) (left-char) (newline-and-indent)
+         (insert "      ")))
 
 (use-package citar-denote
   :custom
@@ -628,9 +734,6 @@ bibtex-completion-pdf-open-function
   (rmh-elfeed-org-files
    (list (concat (file-name-as-directory (getenv "HOME"))
 		         "elfeed.org"))))
-
-(load-file (concat (file-name-as-directory user-emacs-directory)
-		   "universal-launcher.el"))
 
 (use-package dashboard
   :ensure t
