@@ -148,7 +148,7 @@
 (call-interactively 'nano-refresh-theme)
 
 (set-face-attribute 'default t
-                    :family "Liberation Serif"
+                    :family "Roboto Mono"
                     :weight 'bold)
 
 (require 'nano-defaults) ; Nano default settings (optional)

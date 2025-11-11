@@ -859,7 +859,7 @@ The NANO Emacs version has been installed manually through cloning and now lives
 
 #+begin_src emacs-lisp :tangle "init.el"
       (set-face-attribute 'default t
-                          :family "Liberation Serif"
+                          :family "Roboto Mono"
                           :weight 'bold)
 #+end_src
 

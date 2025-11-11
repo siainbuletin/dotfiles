@@ -1169,6 +1169,11 @@ Any changes made by the Emacs customisation system in EWS are stored in =custom.
   (load custom-file :no-error-if-file-is-missing)
 #+end_src
 
+* Added modules by Sia
+** Zetteldeft
+
+
+
 * Advanced export settings for EWS book                            :noexport:
 This part of the configuration provides functionality to export Graphviz diagrams. Graphviz is a visualisation tool for representing structural information as diagrams. Creating diagrams with Graphviz is outside the scope of EWS.
 
