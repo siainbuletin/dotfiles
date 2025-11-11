@@ -147,6 +147,10 @@
  (t (nano-theme-set-light)))
 (call-interactively 'nano-refresh-theme)
 
+(set-face-attribute 'default t
+                    :family "Liberation Serif"
+                    :weight 'bold)
+
 (require 'nano-defaults) ; Nano default settings (optional)
 (require 'nano-session) ; Nano session saving (optional)
 (require 'nano-modeline) ; Nano header & mode lines (optional)
@@ -178,9 +182,12 @@
   :custom
   (openwith-associations nil))
 
-(use-package magit)
+(use-package cond-let)
 
 (use-package transient)
+
+(use-package magit
+  :after transient)
 
 (use-package git-gutter
   :ensure t
@@ -302,25 +309,6 @@
 (add-hook 'before-save-hook
           'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 
-(use-package which-key
-    :ensure t
-    :config
-    (which-key-mode)
-    :custom
-    (which-key-max-description-length 40)
-    (which-key-lighter nil)
-    (which-key-sort-order 'which-key-description-order)
-    (which-key-mode +1)
-    :init
-    (which-key-add-key-based-replacements
-"C-c w"   "Emacs Writing Studio"
-    "C-c w b" "Bibliographic"
-    "C-c w d" "Denote"
-    "C-c w m" "Multimedia"
-    "C-c w s" "Spelling and Grammar"
-    "C-c w t" "Themes"
-    "C-c w x" "Explore"))
-
 (global-unset-key (kbd "C-z"))
 
 (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
@@ -361,38 +349,64 @@
 
 (use-package pdf-tools)
 
-(use-package howm)
-;; (straight-use-package 'phi-notes) ;; can't actually find the package (it has to be installed manually)
+(setopt pdf-view-continuous nil)
 
-(use-package obsidian
+(use-package deft
+  :bind
+  (("C-c d" . deft)))
+
+(setq deft-directory
+      (file-truename "~/Documents/notes"))
+(setq deft-extensions
+      '("md" "org" "txt"))
+(setq deft-default-extension "org")
+(setq deft-recursive t)
+
+(defun efls/deft-open-other ()
+ (interactive)
+ (deft-open-file-other-window t))
+
+(defun efls/deft-open-preview ()
+ (interactive)
+ (deft-open-file-other-window))
+
+(use-package zetteldeft
+  :after deft
   :config
-  (global-obsidian-mode t)
-  (obsidian-backlinks-mode t)
+  (defun sodaware/dteft-open-preview ()
+    (interactive)
+    (deft-open-file-other-window))
+  (zetteldeft-set-classic-keybindings)
 
-  :custom
-  (obsidian-directory "~/Documents/vault")
-  ;; Default location for new notes from `obsidian-capture'
-  (obsidian-inbox-directory "Inbox")
-  ;; Useful if you're going to be using wiki links
-  ;; is this setting taken from markdown-mode?
-  (markdown-enable-wiki-links t)
+(font-lock-add-keywords
+ 'org-mode
+ `((,zetteldeft-id-regex  . fontt-lock-warning-face)
+   (,zetteldeft-tag-regex . font-lock-warning-face))))
 
-  :bind (:map obsidian-mode-map
-              ;; Create note
-              ("C-c C-n" . obsidian-capture)
-              ;; If you prefer you can use `obsidian-insert-wikilink'
-              ("C-c C-l" . obsidian-insert-link)
-              ;; Open file pointed to by link at point
-              ("C-c C-o" . obsidian-follow-link-at-point)
-              ;; Open a note note from vault
-              ("C-c C-p" . obsidian-jump)
-              ;; Follow a backlink for the current file
-              ("C-c C-b" . obsidian-backlink-jump)
-              )
-    )
+;; Add custom `zdlink` to handle zettledeft links.
+(eval-after-load 'org
+  (lambda ()
+    (require 'zetteldeft)
+    (org-link-set-parameters
+     "zdlink"
+     :follow
+     (lambda (str) (zetteldeft--search-filename
+		    (zetteldeft--lift-id str)))
+     :complete  #'sodaware/zd-complete-link
+     :help-echo "Searches provided ID in Zetteldeft")))
 
-(use-package org-noter)
-(use-package djvu) ; apparently needed for org-noter
+(defun sodaware/zd-complete-link ()
+  "Link completion for `zdlink' type links."
+  (let* ((file (completing-read "File to link to: "
+				(deft-find-all-files-no-prefix)))
+	 (link (zetteldeft--lift-id file)))
+    (unless link (user-error "No file selected"))
+    (concat "zdlink:" link)))
+
+;; Default recent to sorting by mtime
+(advice-add 'howm-list-recent :after #'howm-view-sort-by-mtime)
+;; Default all to sorting by creation, newest first
+(advice-add 'howm-list-all :after #'(lambda () (howm-view-sort-by-date t)))
 
 ;;; Define many keys in many key maps
 (use-package denote
@@ -437,6 +451,78 @@
    ("C-c w x v" . denote-explore-network-regenerate)
    ("C-c w x D" . denote-explore-barchart-degree)))
 
+(setq org-capture-templates
+              '(
+                ("f" "Fleeting note"
+                 item
+                 (file+headline org-default-notes-file "Notes")
+                 "- %?")
+
+                ;; I want to replace this with something that doesn't rely on denote
+                ("p" "Permanent note" plain
+                 (file denote-last-path)
+                 #'denote-org-capture
+                 :no-save t
+                 :immediate-finish nil
+                 :kill-buffer t
+                 :jump-to-captured t)
+
+                ("t" "New task" entry
+                 (file+headline org-default-notes-file "Tasks")
+                 "* TODO %i%?"))
+)
+
+(setq org-directory "~/Documents/org")
+(setq org-default-notes-file "~/Documents/org/org-capture.org")
+
+(use-package org-journal)
+
+(use-package obsidian
+  :config
+  (global-obsidian-mode t)
+  (obsidian-backlinks-mode t)
+
+  :custom
+  (obsidian-directory "~/Documents/vault")
+  ;; Default location for new notes from `obsidian-capture'
+  (obsidian-inbox-directory "Inbox")
+  ;; Useful if you're going to be using wiki links
+  ;; is this setting taken from markdown-mode?
+  (markdown-enable-wiki-links t)
+
+  :bind (:map obsidian-mode-map
+              ;; Create note
+              ("C-c C-n" . obsidian-capture)
+              ;; If you prefer you can use `obsidian-insert-wikilink'
+              ("C-c C-l" . obsidian-insert-link)
+              ;; Open file pointed to by link at point
+              ("C-c C-o" . obsidian-follow-link-at-point)
+              ;; Open a note note from vault
+              ("C-c C-p" . obsidian-jump)
+              ;; Follow a backlink for the current file
+              ("C-c C-b" . obsidian-backlink-jump)
+              )
+    )
+
+(use-package org-noter
+        :after (org pdf-view)
+        :bind (:map org-noter-notes-mode-map
+                    ("C-M-i" . org-noter-insert-dynamic-block))
+        :custom
+        (org-noter-notes-search-path (list org-directory))
+        (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+        (org-noter-separate-notes-from-heading t)
+        :config
+        (require 'pdf-macs)
+        ;; (defun org-noter-pdf--show-arrow ())
+)
+
+      (use-package djvu) ; apparently needed for org-noter
+
+(setq org-noter-auto-save-last-location t)
+
+(setq org-noter-highlight-selected-text t)
+
 (with-eval-after-load 'org
   (setq org-startup-indented t) ; Enable `org-indent-mode' by default
   (add-hook 'org-mode-hook #'visual-line-mode))
@@ -444,7 +530,7 @@
 (setq org-hide-emphasis-markers t)
   (setq org-hide-leading-stars t)
   (setq org-startup-with-inline-images t)
-  (setq org-image-actual-width '(450))
+  ;; (setq org-image-actual-width '(450))
   (setq org-pretty-entities t) ; What makes them pretty?
   (setq org-use-sub-superscripts "{}")
   (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
@@ -503,15 +589,18 @@
   (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
 
 (set-face-attribute 'org-document-title nil
-:font "Adobe Caslon Pro"
+:font "Roboto Mono"
 :weight 'bold
 :height 1.8)
 
 (require 'org-indent)
 (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
 
-(set-face-attribute 'org-block nil            :foreground nil :inherit
-'fixed-pitch :height 0.85)
+(set-face-attribute 'org-block nil
+                    :foreground nil
+                    :background "#ffdf00"
+                    :inherit 'fixed-pitch
+                    :height 0.85)
 
 (set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
 
@@ -526,6 +615,14 @@ fixed-pitch))
 (set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
 
 (add-hook 'org-mode-hook 'variable-pitch-mode)
+
+(defun org-add-my-extra-markup ()
+  "Add highlight emphasis."
+  (add-to-list 'org-font-lock-extra-keywords
+               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
+                 (1 '(face highlight invisible nil)))))
+
+(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
 
 (use-package org-grapher
   :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
@@ -668,6 +765,10 @@ fixed-pitch))
         (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
 
 (use-package org-ref)
+  ;;(advice-add #'completing-read-multiple :override #'consult-completing-read-multiple)
+  ;;(require 'org-ref)
+  ;;(require 'doi-utils) ; this was taken from a different config
+
 (use-package helm-bibtex)
 
 (setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
@@ -708,22 +809,12 @@ fixed-pitch))
         "~/Documents/bibliography/thesis.bib"
         "~/Documents/bibliography/marx.bib"
         "~/Documents/bibliography/hci.bib"
-        "~/Documents/bibliography/aesthetics.bib")
+        "~/Documents/bibliography/aesthetics.bib"
+        "~/Documents/bibliography/hegel-prezentare.bib"
+        "~/Documents/bibliography/modernitate.bib")
 	  bibtex-completion-library-path '("~/Documents/literature/")
 	  bibtex-completion-notes-path "~/Documents/org/"
-	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
-
-;; this bit was copied directly from the GitHub page, I don't actually understand what it does
-bibtex-completion-additional-search-fields '(keywords)
-bibtex-completion-display-formats
-'((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
-  (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
-  (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-  (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
-  (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
-bibtex-completion-pdf-open-function
-(lambda (fpath)
-  (call-process "open" nil 0 nil fpath)))
+	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 
 ;; Automatically generating BibTeX keys
 (require 'bibtex)
@@ -746,7 +837,16 @@ bibtex-completion-pdf-open-function
 (bibtex-capf-bibliography
  '("~/Documents/bibliography/marx.bib")))
 
+(use-package citar-embark
+  :ensure t
+  :after citar embark
+  :no-require
+  :config (citar-embark-mode)
+  )
+
 (use-package consult-recoll)
+
+(desktop-save-mode 1)
 
 (setq split-width-threshold 120
       split-height-threshold nil)
@@ -818,29 +918,6 @@ bibtex-completion-pdf-open-function
   (rmh-elfeed-org-files
    (list (concat (file-name-as-directory (getenv "HOME"))
 		         "elfeed.org"))))
-
-(use-package consult-omni
-  :ensure
-  (consult-omni
-   :host github
-   :repo "armindarvish/consult-omni"))
-
-(consult-omni-define-source "Brave"
-                            :narrow-char ?b
-                            :type 'dynamic
-                            :require-match t
-                            :face 'consult-omni-engine-title-face
-                            :request #'consult-omni--brave-fetch-results
-                            :preview-key consult-omni-preview-key
-                            :search-hist 'consult-omni--search-history
-                            :select-hist 'consult-omni--selection-history
-                            :enabled (lambda () (bound-and-true-p consult-omni-brave-api-key))
-                            :group #'consult-omni--group-function
-                            :sort t
-                            :static 'both)
-
-(require 'consult-omni-sources)
-(consult-omni-sources-load-modules)
 
 (use-package dashboard
   :ensure t

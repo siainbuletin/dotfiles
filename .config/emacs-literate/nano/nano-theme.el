@@ -1,21 +1,4 @@
 ;;; nano-theme --- Face settings for nano-emacs
-;;; License:
-;; ---------------------------------------------------------------------
-;; GNU Emacs / N Λ N O - Emacs made simple
-;; Copyright (C) 2020 - N Λ N O developers
-;;
-;; This program is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-;;
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-;;
-;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;; ---------------------------------------------------------------------
 ;;; Commentary:
 ;;
@@ -52,7 +35,7 @@ Defaults to nil."
                           :box        'unspecified :inherit    style)
     (message "NANO Warning: Face %s could not be set. It may not be defined."
              face)))
-  
+
 
 
 (defun nano-theme--basics ()
@@ -166,7 +149,7 @@ Defaults to nil."
                       :overline nil
                       :inherit nil
                       :box nil)
-  
+
   ;;(when (display-graphic-p)
   (set-face-attribute 'header-line nil
                        :weight 'light
@@ -736,19 +719,19 @@ function is a convenience wrapper used by `describe-package-1'."
   (with-eval-after-load 'company
     (set-face 'company-tooltip-selection                   '(nano-face-strong nano-face-subtle))
     (set-face-attribute 'company-tooltip-selection nil :background nano-color-popout)
-    
+
     (set-face 'company-tooltip                                               'nano-face-subtle)
 
     (set-face 'company-scrollbar-fg                                          'nano-face-faded)
     (set-face-attribute 'company-scrollbar-fg nil :background nano-color-foreground)
-    
+
     (set-face 'company-scrollbar-bg                                          'nano-face-default)
     (set-face-attribute 'company-scrollbar-bg nil :background nano-color-faded)
 
     (set-face 'company-tooltip-common                                        'nano-face-faded)
     (set-face 'company-tooltip-common-selection            '(nano-face-strong nano-face-subtle))
     (set-face-attribute 'company-tooltip-common-selection nil :background nano-color-popout)
-    
+
     (set-face 'company-tooltip-annotation                                    'nano-face-default)
     (set-face 'company-tooltip-annotation-selection        '(nano-face-strong nano-face-subtle))))
 

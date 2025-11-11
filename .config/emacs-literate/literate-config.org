@@ -855,6 +855,14 @@ The NANO Emacs version has been installed manually through cloning and now lives
   (call-interactively 'nano-refresh-theme)
 #+end_src
 
+*** Configure text to render as bold
+
+#+begin_src emacs-lisp :tangle "init.el"
+      (set-face-attribute 'default t
+                          :family "Liberation Serif"
+                          :weight 'bold)
+#+end_src
+
 *** Calling the different needed modules for NANO Emacs
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -1086,11 +1094,12 @@ Taken from Emacs Writing Studio.
 Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package magit)
-#+end_src
+  (use-package cond-let)
 
-#+begin_src emacs-lisp :tangle "init.el"
   (use-package transient)
+
+  (use-package magit
+    :after transient)
 #+end_src
 
 ** TODO Enabling =git-annex= support from within =magit=
@@ -1417,6 +1426,14 @@ This will bypass other =SHIFT= bindings.
       (("C-x p" . 'visual-fill-column-mode)))
 #+end_src
 
+** Keybinding for joining two lines
+
+This makes the symbol to appear as void, so I'm not setting it properly. For now, to join lines, it's easier to just call =M-x jo=.
+
+#+begin_src emacs-lisp :tangle no
+  (keymap-global-set "C-x j" join-line)
+#+end_src
+
 ** TODO Configuring =text-mode=
 
 Text mode allows replacing text when you start typing. _This is taken directly from Emacs Writing Studio_.
@@ -1498,8 +1515,8 @@ You must change the standard dictionary to your local variety by customising  th
     :bind
     (("C-c w s s" . ispell)
      ("C-;"       . flyspell-auto-correct-previous-word)))
-#+end_src
-
+#+end_sr
+c
 * TODO Keybindings
 ** TODO Enabling and configuring =which-key=
 
@@ -1760,30 +1777,11 @@ I need to actually find a way to do the installation through =use-package=.
 
 ** TODO configuration
 
-* Quick idea inboxing setup
-** Working with =org-capture=
-
-** Working with =org-protocol= from anywhere in my system
-
-Could org-protocol actually be plugged into an application launcher like =rofi=?
-
-This can be configured through =universal-launcher= and the Go script that apparently Joshua Blais is using.
-
-** TODO Configuring remember-mode
-
-=remember-mode= creates a wholly different file where you can throw your information at. It would be good if I could also send the information to =org-agenda= as I figure out what I should be working on next.
-
-** How can you access the notes from remember-mode again? Do you have to use org-refile for it?
-
 * TODO Reading and link-storing workflow
 
 Since I usually find myself just saving a lot of information to my Obsidian so I can find it again _topically_, when I actually want to tackle a particular problem, I want to replicate this sort of link-storage in Emacs as well. But I need to find a way to archive them as kind of an annex to the main file that I'm working with, and also have a way to mark these links as having been read.
 
-* Academic and zettelkasten setup
-
-My academic workflow is deeply entangled with my practice of writing complex notes that I should always have the possibility to fall back on if needed. This means that I need to have a robust backlinking system, like I managed to have it in Obsidian, and a really good completion framework. For this, see Quick switcher functionality for Emacs
-
-** Reading packages
+* Reading packages
 
 You want to have a unified framework for reading material in Emacs, and that it is *as well integrated with the annotation framework used as possible*. The structure of support that I seek is as follows
 
@@ -1825,9 +1823,6 @@ The init section ensures that any file with an =epub= extension is associated wi
 What would be the benefits of this?
 
 *** Configuring =pdf-tools=
-:PROPERTIES:
-:NOTER_DOCUMENT: /home/siainbuletin/Documents/literature/Philobiblon vol. XXIII-1_Full_Text-95-108.pdf
-:END:
 
 #+begin_src emacs-lisp :tangle "init.el"
     (use-package pdf-tools)
@@ -1837,88 +1832,415 @@ It seems that when I try to open a PDF through Emacs, it opens in docview mode, 
 
 This function will tell =pdf-tools= to launch by default.
 
-**** Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+**** Setting keybindings for =pdf-tools=
 
-
-**** Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
-
-
-** Calling notetaking packages
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package howm)
-  ;; (straight-use-package 'phi-notes) ;; can't actually find the package (it has to be installed manually)
-#+end_src
-
-** TODO Looking at =org-supertag=
-
-** Configuring Obsidian mode
-
-I might need to actually remove Obsidian mode, as the indexing it chooses to do for all of the backlinks takes way too long to be acceptable.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package obsidian
-    :config
-    (global-obsidian-mode t)
-    (obsidian-backlinks-mode t)
-
-    :custom
-    (obsidian-directory "~/Documents/vault")
-    ;; Default location for new notes from `obsidian-capture'
-    (obsidian-inbox-directory "Inbox")
-    ;; Useful if you're going to be using wiki links
-    ;; is this setting taken from markdown-mode?
-    (markdown-enable-wiki-links t)
-
-    :bind (:map obsidian-mode-map
-                ;; Create note
-                ("C-c C-n" . obsidian-capture)
-                ;; If you prefer you can use `obsidian-insert-wikilink'
-                ("C-c C-l" . obsidian-insert-link)
-                ;; Open file pointed to by link at point
-                ("C-c C-o" . obsidian-follow-link-at-point)
-                ;; Open a note note from vault
-                ("C-c C-p" . obsidian-jump)
-                ;; Follow a backlink for the current file
-                ("C-c C-b" . obsidian-backlink-jump)
-                )
-      )
-#+end_src
-
-** Annotation packages
-
-=org-remark= is being used for adding comments in the [[#Support a drafting workflow][drafting workflow with Google Docs-like comments]] that I will further annotated below.
-
-How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
-
-*** Creating an integrated annotation environment with =org-noter=
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package org-noter)
-  (use-package djvu) ; apparently needed for org-noter
-#+end_src
-
-*** TODO =org-remark= setup
-
-When trying to install this snippet, I get an error that =org-remark-global-tracking-mode= "Symbol's function definition is void"
+I keep getting an error that the symbol function is void, so fuck this.
 
 #+begin_src emacs-lisp :tangle no
-  (org-remark-global-tracking-mode +1)
-
-  ;; Optional if you would like to highlight websites via eww-mode
-  (with-eval-after-load 'eww
-    (org-remark-eww-mode +1))
-
-  ;; Optional if you would like to highlight EPUB books via nov.el
-  (with-eval-after-load 'nov
-    (org-remark-nov-mode +1))
-
-  ;; Optional if you would like to highlight Info documentation via Info-mode
-  (with-eval-after-load 'info
-    (org-remark-info-mode +1))
+;; (define-key pdf-view-mode-map (kbd "g") nil)
+;; (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
+(define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
+(define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
+;; (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
+;; (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
+(define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
+(define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
+(define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
+(define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
+(define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation)
 #+end_src
 
-* TODO Zettelkasten writing mode
+**** Continuous scrolling mode in the PDF
+
+This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= instead.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setopt pdf-view-continuous nil)
+#+end_src
+
+**** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+
+**** TODO Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+
+I need to find a way to call =pdf-view-install= globally without having to do it interactively with =M-x pdf-view-install=.
+
+*** Configuring =eaf-pdf= as a modern alternative
+
+Unfortunately, EAF has to be installed from source and doesn't work that well.
+
+EAF is supposed to render the PDF in a different program instead of doing everything within Emacs itself.
+
+* Zettelkasten setup
+
+My academic workflow is deeply entangled with my practice of writing complex notes that I should always have the possibility to fall back on if needed. This means that I need to have a robust backlinking system, like I managed to have it in Obsidian, and a really good completion framework. For this, see Quick switcher functionality for Emacs
+
+** Installing =deft=
+
+#+begin_src emacs-lisp :tangle "init.el"
+      (use-package deft
+        :bind
+        (("C-c d" . deft)))
+#+end_src
+
+Theoretically, =deft= should be able to work with Markdown and org-mode at the same time.
+
+*** Settings for =deft=
+
+Set deft path to full path so that zetteldeft works.
+
+#+begin_src emacs-lisp :tangle "init.el"
+            (setq deft-directory
+                  (file-truename "~/Documents/notes"))
+            (setq deft-extensions
+                  '("md" "org" "txt"))
+            (setq deft-default-extension "org")
+            (setq deft-recursive t)
+#+end_src
+
+*** Open the file in another window
+
+A small function to open a file in the other window and shifting focus to it. That final part is what the t argument does.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun efls/deft-open-other ()
+ (interactive)
+ (deft-open-file-other-window t))
+#+end_src
+
+Let’s add another function, to simply preview in the other window, i.e. not switch focus to it.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun efls/deft-open-preview ()
+ (interactive)
+ (deft-open-file-other-window))
+#+end_src
+
+** Installing =zetteldeft=
+
+=deft= is a dependency on =zetteldeft=, so we have installed that first. =zetteldeft= adds support for linking syntax on top of =deft=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package zetteldeft
+    :after deft
+    :config
+    (defun sodaware/dteft-open-preview ()
+      (interactive)
+      (deft-open-file-other-window))
+    (zetteldeft-set-classic-keybindings)
+
+  (font-lock-add-keywords
+   'org-mode
+   `((,zetteldeft-id-regex  . fontt-lock-warning-face)
+     (,zetteldeft-tag-regex . font-lock-warning-face))))
+#+end_src
+
+Custom keybindings don't currently work because they conflict with the way that the configuration for emacs ends up compiling.w
+
+*** DONE Configuring the =zdlink= protocol for native linking within =org-mode=
+
+This is one of my favourite changes - it adds a new org-mode protocol, zdlink, which allows me to insert an org-style link to any note via C-c C-l. These links can be opened like any other org-mode link, and because they only include the note name (not the full path) they work across machines.
+
+This isn't very useful if you're using markdown, but for pure org it makes linking and navigating much easier.
+
+#+begin_src emacs-lisp :tangle "init.el"
+;; Add custom `zdlink` to handle zettledeft links.
+(eval-after-load 'org
+  (lambda ()
+    (require 'zetteldeft)
+    (org-link-set-parameters
+     "zdlink"
+     :follow
+     (lambda (str) (zetteldeft--search-filename
+		    (zetteldeft--lift-id str)))
+     :complete  #'sodaware/zd-complete-link
+     :help-echo "Searches provided ID in Zetteldeft")))
+
+(defun sodaware/zd-complete-link ()
+  "Link completion for `zdlink' type links."
+  (let* ((file (completing-read "File to link to: "
+				(deft-find-all-files-no-prefix)))
+	 (link (zetteldeft--lift-id file)))
+    (unless link (user-error "No file selected"))
+    (concat "zdlink:" link)))
+#+end_src
+
+*** TODO Making a home page for zetteldeft
+**** From the github repository (doesn't work)
+Configuring a base note for zetteldeft
+
+Let’s first store the availability to store an ID.
+
+#+begin_src emacs-lisp :tangle no
+(defvar zetteldeft-home-id nil
+  "String with ID of home note, used by `zetteldeft-go-home'.")
+#+end_src
+
+A function to open up this note is trivial.
+
+#+begin_src emacs-lisp :tangle no
+(defun zetteldeft-go-home ()
+  "Move to a designated home note.
+Set `zetteldeft-home-id' to an ID string of your home note."
+  (interactive)
+  (if (stringp zetteldeft-home-id)
+      (zetteldeft-find-file
+        (zetteldeft--id-to-full-path zetteldeft-home-id))
+    (message "No home set. Provide a string to zetteldeft-home-id.")))
+#+end_src
+
+** Getting a backlink pane working for =zetteldeft=
+
+There should be a way to show the backlinks in =org-sidebar= considering that there's support for special =zdlink= for org-mode.
+
+But this has to be investigated more seriously.
+
+** DISABLED Installing =zk=
+
+This one creates a different kind of link within the files.
+
+This would probably have to be removed at some point once it isn't maintained anymore (as it doesn't seem to have that big of a following as compared to =denote=)
+
+For now, it is configured to function only with Markdown, as I can't get the follow link function to work properly.Hegel's end-of-art-thesis [[202511092054]]
+
+#+begin_src emacs-lisp :tangle no
+  (use-package zk
+    :ensure (:files (:defaults "zk-consult.el"))
+    :custom
+    (zk-directory "~/Documents/zk")
+    (zk-file-extension "md")
+    :config
+    (zk-setup-auto-link-buttons)
+    (zk-setup-embark)
+    (setq zk-tag-grep-function #'zk-consult-grep-tag-search
+          zk-grep-function #'zk-consult-grep))
+#+end_src
+
+Will this work with opening separate files as needed?
+
+*** Making =zk= work properly within =org-mode=
+
+If we want org-mode to treat zk links as zk links (meaning that they open a different file), we can define a different function for that. The way that the function is defined means that it can still open a link as a heading within the same org document, but if that doesn't work, it will get rerouted externally.
+
+#+begin_src emacs-lisp :tangle no
+(defun zk-org-try-to-follow-link (fn &optional arg)
+  "When 'org-open-at-point' FN fails, try 'zk-follow-link-at-point'.
+Optional ARG."
+  (let ((org-link-search-must-match-exact-headline t))
+    (condition-case nil
+	(apply fn arg)
+      (error (zk-follow-link-at-point)))))
+
+(advice-add 'org-open-at-point :around #'zk-org-try-to-follow-link)
+#+end_src
+
+Briefly, this function instructs org-open-at-point to try calling zk-follow-link-at-point when a link is not an internal link.
+
+**** The better solution: creating =[[zk:]]= links
+
+The companion package =zk-org-link.el= provides a custom Org-link type called zk, such that links will be styled =[[zk:201812101245]]= instead of =[[201812101245]]=. Using Org-links allows notes to be followed as expected, as well as exported to various formats via org-export, stored via org-store-link, and completed via org-insert-link.
+
+The link styles cannot be combined — they are not mutually compatible. Use one style or the other. That is, either use zk-org-link.el or don’t. (I do not, but here it is anyway.)
+
+To use org-links, include the following in your init.el:
+
+#+begin_src emacs-lisp :tangle no
+(with-eval-after-load 'org
+  (with-eval-after-load 'zk
+    (require 'zk-org-link)))
+#+end_src
+
+This will set create the zk Org-link type and set necessary values for several variables. Be sure to load zk-org-link.el after zk, as the above code snippet does.
+
+NOTE: zk-completion-at-point functionality is not available when using zk-org-link.el.
+
+**** Including =link-hint.el=
+
+To allow link-hint.el to find zk-links, it is necessary to add a new link type, as follows:
+
+#+begin_src emacs-lisp :tangle no
+(defun zk-link-hint--zk-link-at-point-p ()
+  "Return the id of the zk-link at point or nil."
+  (thing-at-point-looking-at (zk-link-regexp)))
+
+(defun zk-link-hint--next-zk-link (&optional bound)
+  "Find the next zk-link.
+Only search the range between just after the point and BOUND."
+  (link-hint--next-regexp zk-id-regexp bound))
+
+(eval-when-compile
+  (link-hint-define-type 'zk-link
+    :next #'zk-link-hint--next-zk-link
+    :at-point-p #'zk-link-hint--zk-link-at-point-p
+    :open #'zk-follow-link-at-point
+    :copy #'kill-new))
+
+(push 'link-hint-zk-link link-hint-types)
+#+end_src
+
+*** Enabling interactive buttons for =org-mode=
+** DISABLED Setting up =howm=
+
+=howm= seems to be the only package that actually supports using backlinks between files. The only thing that I don't like about it is that it insists on having backlinks have its own line.
+
+But what's good is that it actually supports a kind of backlinking pane.
+
+Also, what I appreciate with =howm= is that it insists on the principle of atomic notes.
+
+Howm is currently completely uninstalled because of issues with the prefix. Besides, the linking syntax doesn't work the way I would want it to.
+
+*** How does it manage to do the backlinks?
+
+The links basically perform a full-text search on the base of notes, instead of being _links_ in the very serious sense.[fn:9]
+
+When created, filenames include the current timestamp. This helps with unique note identifiers. But it's possible to create explicitly named note files _if you need to_.[fn:10]
+
+*** Installing with =use-package=
+
+#+begin_src emacs-lisp :tangle no
+  (use-package howm
+    :ensure t
+    :init
+    ;; (require 'howm-markdown) ;; Write notes in markdown-mode.
+    (require 'howm-org) ;; Write notes in Org-mode.
+    (setq howm-directory "~/Documents/org") ; Setting the directory for where the files will be
+    (setq howm-home-directory howm-directory)
+    ;; (setq howm-follow-theme t) ; Uses the theme colors used by org-mode
+
+    ;; Formatting for the files
+    (setq howm-file-name-format "%Y-%m-%d-%H%M.org")
+    (setq howm-view-title-header "#+TITLE:")
+
+    ;; Avoiding conflicts with org-mode by changing the prefix from 'C-c ,'
+    ;; (setq howm-prefix (kbd "C-c ;"))
+    )
+#+end_src
+
+If you're using =markdown-mode= and =org-mode=, then the wiki link =[[...]]= will be disabled for syntax compatibility.
+
+You can't choose both =howm-markdown= and =howm-org= (which is really a shame because it would've been great to link my older Markdown notes in this manner).
+
+For operating =howm= in =org-mode=, just replace C-c , with C-c ; in Howm's documentation, including that C-c ; ; opens the menu.
+
+For =howm-theme= to work, you need to either use a theme that defines the org faces, or that the =init.el= loads org itself.
+
+Howm needs to cache the menu state so that opening the menu will be fast enough.
+- it regenerates the menu if either
+- (i) it's been more than 1 hour (the "expiry hours") since last menu update, or
+- (ii) you saved a file that belongs to Howm (howm-mode was active in the buffer).
+
+Howm doesn't regenerate the menu if you save a file either, only if it's been more than 1 hour since the last menu update. If you want to update it more frequently, you have to manually refresh it (keybinding R).
+
+*** Improving performance for =howm=
+
+This should speed up the caching for all the files. It will use =ripgrep= as a backend instead of =grep=.
+
+#+begin_src emacs-lisp :tangle no
+(setq howm-view-use-grep t)
+(setq howm-view-grep-command "rg")
+(setq howm-view-grep-option "-nH --no-heading --color never")
+(setq howm-view-grep-extended-option nil)
+(setq howm-view-grep-fixed-option "-F")
+(setq howm-view-grep-expr-option nil)
+(setq howm-view-grep-file-stdin-option nil)
+#+end_src
+
+Other performance functions for howm here:
+
+#+begin_src emacs-lisp :tangle no
+  (setq howm-menu-expiry-hours 1) ;; Cache menu N hours.
+  (setq howm-menu-refresh-after-save nil) ;; Speed up note saving. (*5)
+  (setq howm-menu-file "howm-menu.txt")  ;; don't *search*
+#+end_src
+
+*** Configuring interactive search for =howm= through =counsel-rg=
+
+ I used counsel-rg as an inspiration for this, and we turn the ripgrep matches into a regular howm summary buffer for further consumption.[fn:11] There's no need to bootstrap =counsel-rg= through =use-package=, as it is already installed.
+
+#+begin_src emacs-lisp :tangle no
+(defun howm-list--counsel-rg (match)
+  (if (string= match "")
+  (howm-list-all)
+(if (or (null ivy--old-cands)
+	(equal ivy--old-cands '("No matches found")))
+        (message "No match")
+  (let ((howm-view-use-grep
+	 #'(lambda (str file-list &optional fixed-p force-case-fold)
+                 (mapcar
+                  (lambda (cand)
+		(if (string-match "\\`\\(.*\\):\\([0-9]+\\):\\(.*\\)\\'" cand)
+                        (let ((file (match-string-no-properties 1 cand))
+			  (line (match-string-no-properties 2 cand))
+			  (match-line (match-string-no-properties 3 cand)))
+                          (list (expand-file-name file howm-directory)
+                                (string-to-number line)
+                                match-line))))
+                  ivy--old-cands))))
+        (howm-search ivy--old-re t)
+        (riffle-set-place
+     (1+ (cl-position match ivy--old-cands :test 'string=)))))))
+
+(defun howm-counsel-rg ()
+  "Interactively grep for a string in your howm notes using rg."
+  (interactive)
+  (let ((default-directory howm-directory)
+        (counsel-ag-base-command counsel-rg-base-command)
+        (counsel-ag-command (counsel--format-ag-command "--glob=!*~" "%s")))
+    (ivy-read "Search all (rg): "
+	      #'counsel-ag-function
+	      :dynamic-collection t
+	      :keymap counsel-ag-map
+	      :action #'howm-list--counsel-rg
+	      :require-match t
+	      :caller 'counsel-rg)))
+
+(define-key global-map (concat howm-prefix "r") 'howm-counsel-rg)
+#+end_src
+
+*** Tweaking the sorting settings
+
+Next, I tweak some sorting settings. I want the “recent” view to list files by mtime (so that recently edited files appear on top), but the “all” view should be sorted by creation date.
+
+#+begin_src emacs-lisp :tangle "init.el"
+;; Default recent to sorting by mtime
+(advice-add 'howm-list-recent :after #'howm-view-sort-by-mtime)
+;; Default all to sorting by creation, newest first
+(advice-add 'howm-list-all :after #'(lambda () (howm-view-sort-by-date t)))
+#+end_src
+
+*** Renaming buffers to show as their title for =howm=
+
+A great usability enhancement is buffer renaming: since howm file names are a bit unwieldy (like =~/prj/howm/2022/03/2022-03-25-162227.md=) you can use these two lines to rename note buffers according to their title, which makes switching between multiple notes more convenient.
+
+#+begin_src emacs-lisp :tangle no
+(add-hook 'howm-mode-hook 'howm-mode-set-buffer-name)
+(add-hook 'after-save-hook 'howm-mode-set-buffer-name)
+#+end_src
+
+*** Making wikilinks point directly to the first page with that title
+
+Generally, if you want to have links in howm, you have to do them on their own separate file. But it's also possible to use the inline wikilink syntax of =[[...]]= for making the links appear on a line.
+
+Finally, as mentioned above, this is how to make [[...]] wiki-links directly point to the first page with that title, skipping the summary buffer:
+
+*I currently don't know how I'm supposed to enable this and whether it's a good idea.* It's taken from https://leahneukirchen.org/blog/archive/2022/03/note-taking-in-emacs-with-howm.html
+
+#+begin_src emacs-lisp :tangle no
+;; make wiki-links jump to single title hit if possible
+(add-to-list 'action-lock-default-rules
+             (list howm-wiki-regexp
+                   (lambda (&optional dummy)
+                     (let ((s (match-string-no-properties howm-wiki-regexp-pos)))
+                       ;; letting create-p be nil here, howm-keyword-search-subr
+                       ;; should check create-p after open-unique-p
+                       (howm-keyword-search (concat "= " s) nil t)))
+                   howm-wiki-regexp-hilit-pos))
+#+end_src
+
+*** Indexing notes from Obsidian with =howm=
+
+Is it possible to redo all of the connections from Obsidian by using =homw=, or would it be better to just use =obsidian-el= for this task?
+
+** TODO Looking at =org-supertag=
 
 For writing my personal thoughts, since I _don't want to lose anything_, I use a system that's very based in bidirectional linking. This also has to be easily discoverable through different panes, like emulating the backlink pane that's available at the bottom of a note from Obsidian.
 
@@ -2014,49 +2336,221 @@ This is using the =denote-explore= package created by Peter Prevos for Emacs Wri
    ("C-c w x D" . denote-explore-barchart-degree)))
 #+end_src
 
-** TODO Creating fleeting notes
+** Quick idea inboxing setup
 
-This should be done with the =org-capture= package, or with =remember-mode=
+Fleeting notes can be captured either through =org-capture= or =remember-mode=
 
-*** TODO Setting up =org-capture=
+*** Capture templates (for fleeting notes and capturing tasks)
+:PROPERTIES:
+:ID:       3a5b0992-df06-4ebf-8653-2ed4ed15fbdc
+:END:
 
-This setting of =org-capture= is taken from the Emacs Writing Studio configuration.
+These can also be used for fleeting notes.
+
+#+begin_src emacs-lisp :tangle "init.el"
+          (setq org-capture-templates
+                '(
+                  ("f" "Fleeting note"
+                   item
+                   (file+headline org-default-notes-file "Notes")
+                   "- %?")
+
+                  ;; I want to replace this with something that doesn't rely on denote
+                  ("p" "Permanent note" plain
+                   (file denote-last-path)
+                   #'denote-org-capture
+                   :no-save t
+                   :immediate-finish nil
+                   :kill-buffer t
+                   :jump-to-captured t)
+
+                  ("t" "New task" entry
+                   (file+headline org-default-notes-file "Tasks")
+                   "* TODO %i%?"))
+  )
+#+end_src
+
+*** Change save location for captured notes
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-directory "~/Documents/org")
+(setq org-default-notes-file "~/Documents/org/org-capture.org")
+#+end_src
+
+*** Keeping a diary
+**** Installing the =org-journal= package
+
+This is more like creating a daily notes system. Alas.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-journal)
+#+end_src
+
+**** Capture to org-journal
+
+This will work with a special diary directory in =~/Documents/journal=. Each filename is today's date. When you want to trigger emacs to create a new journal file, use this function:
 
 #+begin_src emacs-lisp :tangle no
-  ;;; org-capture and its templates
+(defun get-journal-file-today ()
+  "Return filename for today's journal entry."
+  (let ((daily-name (format-time-string "%Y%m%d")))
+    (expand-file-name (concat org-journal-dir daily-name))))
+#+end_src
+
+Then a simple function to load that file:
+
+#+begin_src emacs-lisp :tangle no
+(defun journal-file-today ()
+  "Create and load a journal file based on today's date."
+  (interactive)
+  (find-file (get-journal-file-today)))
+
+(global-set-key (kbd "C-c f j") 'journal-file-today)
+#+end_src
+
+Since the time stamp for the file’s name was YYYYMMDD, I move back and forth between entries with a couple simple functions2, and the org-journal project lets me create the entry by selecting the day in Emacs’ calendar.
+
+These files do not have a .org extension, but we’re talking about Emacs, so I use this code to have org-mode be the default mode for filenames consisting of nothing but numbers:
+
+(add-to-list 'auto-mode-alist '(".*/[0-9]*$" . org-mode))
+
+*** Working with =org-protocol= from anywhere in my system
+
+Could org-protocol actually be plugged into an application launcher like =rofi=?
+
+This can be configured through =universal-launcher= and the Go script that apparently Joshua Blais is using.
+
+*** TODO Configuring remember-mode
+
+=remember-mode= creates a wholly different file where you can throw your information at. It would be good if I could also send the information to =org-agenda= as I figure out what I should be working on next.
+
+**** How can you access the notes from remember-mode again? Do you have to use org-refile for it?
+
+First bootstrapping =org-capture=. The block is modified from the version in _Emacs Writing Studio_ so that it doesn't call on compiling =org-mode= once again with =elpaca=. As such, it uses the =setq= syntax instead for setting up the options.
+
+*I need to find a different way to add different bindings to commands without having to use use-package.*
+
+#+begin_src emacs-lisp :tangle no
   (use-package org
   :bind
   (("C-c c" . org-capture)
-   ("C-c l" . org-store-link))
-  :custom
-  (org-capture-templates
-   '(("f" "Fleeting note"
-      item
-      (file+headline org-default-notes-file "Notes")
-      "- %?")
-     ("p" "Permanent note" plain
-      (file denote-last-path)
-      #'denote-org-capture
-      :no-save t
-      :immediate-finish nil
-      :kill-buffer t
-      :jump-to-captured t)
-     ("t" "New task" entry
-      (file+headline org-default-notes-file "Tasks")
-      "* TODO %i%?"))))
+   ("C-c l" . org-store-link)))
 #+end_src
-`
-The block is modified so that it doesn't call on compiling =org-mode= once again with =elpaca=. As such, it uses the =setq= syntax instead for setting up the options.
-
-*I need to find a different way to add different bindings to commands without having to use use-package.*
 
 *** TODO Settings for =org-refile= in the case of these fleeting notes
 
 After jotting down some really quick ideas, I need to have a way to actually refile them and make them usable later. For this, I need an org-refile setup
 
 *** TODO Setting up =remember-mode=
+** Configuring Obsidian mode
+
+I might need to actually remove Obsidian mode, as the indexing it chooses to do for all of the backlinks takes way too long to be acceptable.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package obsidian
+    :config
+    (global-obsidian-mode t)
+    (obsidian-backlinks-mode t)
+
+    :custom
+    (obsidian-directory "~/Documents/vault")
+    ;; Default location for new notes from `obsidian-capture'
+    (obsidian-inbox-directory "Inbox")
+    ;; Useful if you're going to be using wiki links
+    ;; is this setting taken from markdown-mode?
+    (markdown-enable-wiki-links t)
+
+    :bind (:map obsidian-mode-map
+                ;; Create note
+                ("C-c C-n" . obsidian-capture)
+                ;; If you prefer you can use `obsidian-insert-wikilink'
+                ("C-c C-l" . obsidian-insert-link)
+                ;; Open file pointed to by link at point
+                ("C-c C-o" . obsidian-follow-link-at-point)
+                ;; Open a note note from vault
+                ("C-c C-p" . obsidian-jump)
+                ;; Follow a backlink for the current file
+                ("C-c C-b" . obsidian-backlink-jump)
+                )
+      )
+#+end_src
+
+** Annotation packages
+
+=org-remark= is being used for adding comments in the [[#Support a drafting workflow][drafting workflow with Google Docs-like comments]] that I will further annotated below.
+
+How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
+
+*** Creating an integrated annotation environment with =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el"
+        (use-package org-noter
+          :after (org pdf-view)
+          :bind (:map org-noter-notes-mode-map
+                      ("C-M-i" . org-noter-insert-dynamic-block))
+          :custom
+          (org-noter-notes-search-path (list org-directory))
+          (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+          (org-noter-separate-notes-from-heading t)
+          :config
+          (require 'pdf-macs)
+          ;; (defun org-noter-pdf--show-arrow ())
+  )
+
+        (use-package djvu) ; apparently needed for org-noter
+#+end_src
+
+This function will autosave your last position when reading a PDF in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-noter-auto-save-last-location t)
+#+end_src
+
+Configuring =org-noter= to actually show annotated text on the PDF.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-noter-highlight-selected-text t)
+#+end_src
+
+*Does this mean that it will also become embedded into the PDF?*
+
+*** TODO =org-remark= setup
+
+When trying to install this snippet, I get an error that =org-remark-global-tracking-mode= "Symbol's function definition is void"
+
+#+begin_src emacs-lisp :tangle no
+  (org-remark-global-tracking-mode +1)
+
+  ;; Optional if you would like to highlight websites via eww-mode
+  (with-eval-after-load 'eww
+    (org-remark-eww-mode +1))
+
+  ;; Optional if you would like to highlight EPUB books via nov.el
+  (with-eval-after-load 'nov
+    (org-remark-nov-mode +1))
+
+  ;; Optional if you would like to highlight Info documentation via Info-mode
+  (with-eval-after-load 'info
+    (org-remark-info-mode +1))
+#+end_src
 
 * TODO =org-mode= configuration
+
+At some point it would be a good idea to improve on =olivetti-mode= by simply taking the setup for justification in page and apply it to a normal org-mode rendering instead of doing the weird setup that it adds on NANO Theme. For now (<2025-11-09 Sun>), it seems like NANO is enough to improve the readability of the program.
+
+** Go back to previous note after following a link
+
+The function you are looking for is =(org-mark-ring-goto)=, which is bound as =C-c &= by default.
+
+I like to bind it the same as =pop-tag-mark= as in other modes, so that pressing =C -= acts like going back to the previous location after you go to a definition. *It currently doesn't work.*
+
+#+begin_src emacs-lisp :tangle no
+(defun jz/org-mode-hook ()
+  (local-set-key (kbd "C--") 'org-mark-ring-goto))
+
+(add-hook 'org-mode-hook 'jz/org-mode-hook)
+#+end_src
+
 ** TODO Enabling useful minor modes for =org-mode=
 *** DONE Turning on =visual-line-mode= by default
 
@@ -2075,13 +2569,15 @@ This is taken directly from Emacs Writing Studio.
     (setq org-hide-emphasis-markers t)
     (setq org-hide-leading-stars t)
     (setq org-startup-with-inline-images t)
-    (setq org-image-actual-width '(450))
+    ;; (setq org-image-actual-width '(450))
     (setq org-pretty-entities t) ; What makes them pretty?
     (setq org-use-sub-superscripts "{}")
     (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
     (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
   (setq org-ellipsis "  ·")
 #+end_src
+
+I disabled =org-image-actual-width= because I'm getting the =Org width must be 8, not 4= error.
 
 =org-pretty-entities= allows us to insert special characters LaTeX-style by using a leading backslash (e.g., =\alpha= to write the greek letter alpha).
 
@@ -2164,9 +2660,9 @@ Many people sell the folding headings from org-mode as terrific for organisation
                                           ("DONE" . 9744))))
 #+end_src
 
-** TODO de ce nu merge org-superstar? it looks the same
+*** TODO de ce nu merge org-superstar? it looks the same
 
-** frame dividers
+** TODO Configuring some frame dividers
 
 *What exactly was this for?*
 
@@ -2182,9 +2678,6 @@ Many people sell the folding headings from org-mode as terrific for organisation
     (set-face-foreground face (face-attribute 'default :background)))
   (set-face-background 'fringe (face-attribute 'default :background))
 #+end_src
-
-
-
 
 
 ** Changing the appearance of each heading level to make it more readable
@@ -2203,12 +2696,11 @@ You can resize the headings based on the level.
   (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
 #+end_src
 
-
 *** Making the title of the document a bit bigger
 
 #+begin_src emacs-lisp :tangle "init.el"
 (set-face-attribute 'org-document-title nil
-:font "Adobe Caslon Pro"
+:font "Roboto Mono"
 :weight 'bold
 :height 1.8)
 #+end_src
@@ -2225,20 +2717,23 @@ In order to avoid line spacing issues when a line of text contains both variable
 And then, we want to make sure that some parts of the Org document always use fixed-pitch even when variable-pitch-mode is on.
 
 #+begin_src emacs-lisp :tangle "init.el"
-(set-face-attribute 'org-block nil            :foreground nil :inherit
-'fixed-pitch :height 0.85)
+  (set-face-attribute 'org-block nil
+                      :foreground nil
+                      :background "#ffdf00"
+                      :inherit 'fixed-pitch
+                      :height 0.85)
 
-(set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
+  (set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
 
-(set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
+  (set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
 
-(set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
+  (set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
 
-(set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
-fixed-pitch))
+  (set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
+  fixed-pitch))
 
-(set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
-(set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
+  (set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
 #+end_src
 
 For this all to come together, we need to make sure that variable-pitch-mode is always active in Org buffers.
@@ -2247,9 +2742,35 @@ For this all to come together, we need to make sure that variable-pitch-mode is 
 (add-hook 'org-mode-hook 'variable-pitch-mode)
 #+end_src
 
+** Adding a custom syntax function for in-text highlighting
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun org-add-my-extra-markup ()
+  "Add highlight emphasis."
+  (add-to-list 'org-font-lock-extra-keywords
+               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
+                 (1 '(face highlight invisible nil)))))
+
+(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
+#+end_src
+
+:here's highlight: (doesn't currently work)
+
+The elisp regular expression isn’t the easiest to understand, but this is what it matches:
+
+| Regex      | Explanation                                                             |
+|------------+-------------------------------------------------------------------------|
+| [^\\w]     | something that’s not a word                                             |
+| \\(        | start of a capture group (not matching)                                 |
+| :          | a colon                                                                 |
+| [^\n\r\t]+ | a string of 1 or more characters that doesn’t contain new-lines or tabs |
+| :          | a colon                                                                 |
+| \\)        | end of the capture group (not matching)                                 |
+| [^\\w]     | something that’s not a word                                             |
+
 * TODO Creating a usable graph for =org-mode= notes
 
-Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:9]
+Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package org-grapher
@@ -2414,6 +2935,32 @@ This should work both for learning languages and practicing an instrument. It sh
 ** TODO Configuring an ear training package for audiating intervals and other musical features
 
 * TODO Managing reading resources (bibliography)
+** A sample workflow from reddit
+
+Replacing Zotero completely with an Emacs workflow can be done as such:
+
+- managing the database :: through =ebib=. it can handle a much larger BibTeX file.
+
+- handling citations :: both =org-ref= and =org-cite= can handle this in =org= documents. set up both of them to use the =ebib= database as the default bibliography.
+
+- literature notes :: can be done with =org-roam-bibtex=, which plugs into =org-roam=. That means that when I click a citation, a hydra asks me what I want, I press 'n', and it takes me to an existing note or opens an =org-roam-capture= buffer, pre-filled with title, keywords, author etc.
+
+The problem with =org-roam-bibtex= is that it hasn't been updated much lately.
+
+- fetch PDFs from DOI :: org-ref
+
+- look up paper on databases :: =biblio= (dependency of org-ref) can be used to look up a paper on e.g. ArXiv and retrieve the BibTeX entry.
+
+Biblio can also download the PDF for you , either direct from ArXiv or it can look for open access versions of the paper. You need to provide a folder path for your bibliography.
+
+- getting up to speed with reading :: Having this folder path correctly set up, the hydra mentioned before will also offer to open the PDF. It must be named the same as the cite key. If this is correctly set up, it is a breeze to download PDFs and open them for a quick look in =pdf-tools= or even =org-noter=, read and annotate and save your note in the org-roam system, and close it again.
+
+- inserting from the bibtex database :: =Citar= can search your BibTeX database and insert org-cite formatted citations, BibTeX entries, or formatted references. It can also be used to find and insert multiple cite keys (I don't think it can be made to insert org-ref formatted citations, but once the keys are there, that is easy).
+
+With Citar + Embark, I can search for a reference , narrow it down with consult/vertico, and with the =embark-citar= menu I can either open the PDF or the org-roam notes for the entry that way.
+
+It took me a bit to find the right setup, and there are still a few rough edges, but I still think it is way nicer than any reference manager I have used before.
+
 ** TODO Deciding on the proper bibliography management framework
 
 It's actually quite hard to settle on a combination of settings for what I need in my own usage. While =org-ref= is one of the most advanced packages for bibliography management that has been made for Emacs, it doesn't actually provide all of the functions that I may want.
@@ -2569,7 +3116,7 @@ Before being able to point to a specific folder for BibTeX files that ebib shoul
     (setq ebib-preload-bib-files db-list)))
 #+end_src
 
-Pointing ebib to the proper databases is done as such:[fn:10]
+Pointing ebib to the proper databases is done as such:[fn:12]
 
 #+begin_src emacs-lisp :tangle "init.el"
   (setq ebib-file-search-dirs sia-bibtex-files)
@@ -2577,7 +3124,7 @@ Pointing ebib to the proper databases is done as such:[fn:10]
   (setq ebib-preload-bib-files (do.refs/get-db-file-list))
 #+end_src
 
-Auto-generating the citekeys through =ebib= (with the help of the built-in BibTeX mode)[fn:10]
+Auto-generating the citekeys through =ebib= (with the help of the built-in BibTeX mode)[fn:12]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (setq bibtex-autokey-year-length 4)
@@ -2638,6 +3185,10 @@ Auto-generating the citekeys through =ebib= (with the help of the built-in BibTe
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package org-ref)
+    ;;(advice-add #'completing-read-multiple :override #'consult-completing-read-multiple)
+    ;;(require 'org-ref)
+    ;;(require 'doi-utils) ; this was taken from a different config
+
   (use-package helm-bibtex)
 #+end_src
 
@@ -2657,7 +3208,7 @@ There's multiple options that you can use in this case:
 
 But how do you tell =org-ref= where to find these fles?
 
-- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:11]
+- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:13]
 
 - replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
 
@@ -2703,7 +3254,7 @@ This configuration is taken from https://github.com/higham/dot-emacs/blob/master
 
 When I decide that I'm about to read something, I need to create an entry for it somehow.
 
-There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:11] *But how exactly does it locate this entry?*
+There's the option to act directly on the BibTeX file while I have it open by running =org-ref-open-bibtex-notes=. It will create a new entry if it can't find one.[fn:13] *But how exactly does it locate this entry?*
 
 If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially.
 
@@ -2715,9 +3266,9 @@ _Taken from Emacs Writing Studio._ =citar-denote= is also developed by Peter Pre
 
 By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. *But I should find a better way to normalise this entire functionality.*
 
-What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:12]
+What's cool about =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:14]
 
-It is also claimed that this method will help with creating literature reviews.[fn:12]
+It is also claimed that this method will help with creating literature reviews.[fn:14]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package citar-denote
@@ -2823,13 +3374,33 @@ Note that it is entirely possible to have separate note files for every entry in
           "~/Documents/bibliography/thesis.bib"
           "~/Documents/bibliography/marx.bib"
           "~/Documents/bibliography/hci.bib"
-          "~/Documents/bibliography/aesthetics.bib")
+          "~/Documents/bibliography/aesthetics.bib"
+          "~/Documents/bibliography/hegel-prezentare.bib"
+          "~/Documents/bibliography/modernitate.bib")
   	  bibtex-completion-library-path '("~/Documents/literature/")
   	  bibtex-completion-notes-path "~/Documents/org/"
-  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n"
+  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 #+end_src
 
-#+begin_src emacs-lisp :tangle "init.el"
+**** Test for declaring the bibliography directory as a variable (=sia-bibtex-files=)
+
+If I try to do this, I run =helm-bibtex= to see if it worked and I get =Wrong type argument: stringp, sia-bibtex-files= as an error.
+
+Try to see if this solution might work: https://github.com/tmalsburg/helm-bibtex/issues/429
+
+#+begin_src emacs-lisp :tangle no
+  (setq bibtex-completion-bibliography
+        'sia-bibtex-files)
+  	  bibtex-completion-library-path '("~/Documents/literature/")
+  	  bibtex-completion-notes-path "~/Documents/org/"
+  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
+#+end_src
+
+*** Configuring BibTeX citekey generation from =bibtex-completion= engine
+
+At least this is what I think it is. This is currently disabled because I'm getting function is void error.
+
+#+begin_src emacs-lisp :tangle no
   ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
   bibtex-completion-additional-search-fields '(keywords)
   bibtex-completion-display-formats
@@ -2885,6 +3456,19 @@ This needs to be tested to see if it really works.
 
 How do you load multiple bibliography files?
 
+They have to be loaded manually in a list. You can also figure out how to load them as the variable =sia-bibtex-files=.
+
+** Configuring =citar-embark= for acting upon the citations
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package citar-embark
+  :ensure t
+  :after citar embark
+  :no-require
+  :config (citar-embark-mode)
+  )
+#+end_src
+
 ** TODO Exporting special =.bib= file for the exported article
 
 We should be calling this function in either an org=mode of
@@ -2904,11 +3488,11 @@ This could also be configured universally through =universal-launcher= at some p
 
 ** TODO Rename PDF files from citekey
 
-One solution would be adapting the function =org-ref-pdf-to-bibtex= from =org-ref=, which will accept a PDF file, try to find the DOI, and then try to fetch the BibTeX entry from online. After that, it will add the PDF to the designated =.bib= file, and will also move the PDF to a designated directory and rename it accordingly.[fn:13]
+One solution would be adapting the function =org-ref-pdf-to-bibtex= from =org-ref=, which will accept a PDF file, try to find the DOI, and then try to fetch the BibTeX entry from online. After that, it will add the PDF to the designated =.bib= file, and will also move the PDF to a designated directory and rename it accordingly.[fn:15]
 
 The problem with the =org-ref= solution is that a lot of the PDFs I'm using don't have a DOI, they're OCRd books.
 
-You can assign arbitrary PDF files to any BibTeX entry in =org-ref=. Just go to =C-c ]=, search your file and choose =Add PDF to library= helm action. The file will be assigned to your bibtex entry (no need to enter DOI or creaty new bibtex entry) and can be opened later from =C-c ]= interface.[fn:13]
+You can assign arbitrary PDF files to any BibTeX entry in =org-ref=. Just go to =C-c ]=, search your file and choose =Add PDF to library= helm action. The file will be assigned to your bibtex entry (no need to enter DOI or creaty new bibtex entry) and can be opened later from =C-c ]= interface.[fn:15]
 
 * TODO Integrating a full-text search engine over non-plain-text documents
 
@@ -2990,6 +3574,12 @@ This is currently disabled because I'm getting issues with =elpaca=.
     (savehist-mode))
 #+end_src
 
+Saving the state between restarts of Emacs (meaning which buffers were open).
+
+#+begin_src emacs-lisp :tangle "init.el"
+(desktop-save-mode 1)
+#+end_src
+
 * TODO Emacs's internal window management
 ** TODO Configuring internal windows to split vertically instead of horizontally
 
@@ -3011,7 +3601,7 @@ Split windows sensibly
 #+end_src
 ** TODO Highlighting the active window with =dimmer=
 
-To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:14]
+To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:16]
 
 #+begin_src emacs-lisp :tangle "init.el"
 (use-package dimmer
@@ -3207,7 +3797,7 @@ On the one hand, this can be done with =org-ref='s integration with =OpenAlex=, 
 
 This package allows minibuffer completion for several queries.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
                 (use-package consult-omni
                   :ensure
                   (consult-omni
@@ -3225,7 +3815,7 @@ What is the point of =universal-launcher=, then, if I have =consult-omni=?
 
 *** TODO Setting up the sources for =consult-omni=
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
 (consult-omni-define-source "Brave"
                             :narrow-char ?b
                             :type 'dynamic
@@ -3243,7 +3833,7 @@ What is the point of =universal-launcher=, then, if I have =consult-omni=?
 
 *** Loading the sources from =consult-omni=
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
 (require 'consult-omni-sources)
 (consult-omni-sources-load-modules)
 #+end_src
@@ -3536,14 +4126,18 @@ Storing secrets in the literate configuration without ending up leaking them acc
 
 [fn:8] https://github.com/minad/marginalia
 
-[fn:9] https://github.com/SenkiReign/org-grapher/issues/3
+[fn:9] https://leahneukirchen.org/blog/archive/2022/03/note-taking-in-emacs-with-howm.html
 
-[fn:10] https://ogbe.net/emacs/references
+[fn:10] https://github.com/SenkiReign/org-grapher/issues/3
 
-[fn:11] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+[fn:11] https://leahneukirchen.org/blog/archive/2022/03/note-taking-in-emacs-with-howm.html
 
-[fn:12] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+[fn:12] https://ogbe.net/emacs/references
 
-[fn:13]  https://www.reddit.com/r/emacs/comments/hulj9i/renaming_pdfs_when_changing_cite_key/
+[fn:13] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
 
-[fn:14] https://howardabrams.com/hamacs/ha-display.html
+[fn:14] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org
+
+[fn:15]  https://www.reddit.com/r/emacs/comments/hulj9i/renaming_pdfs_when_changing_cite_key/
+
+[fn:16] https://howardabrams.com/hamacs/ha-display.html
