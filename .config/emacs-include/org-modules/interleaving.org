@@ -1,0 +1,14 @@
+#+TITLE: Learning environment through Spaced Repetition
+
+
+This should work both for learning languages and practicing an instrument. It should also make use of the already existing base of Zettelkasten notes on whatever topic I might need.
+
+* TODO Spaced repetition through =org-gnosis=
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package gnosis)
+#+end_src
+** Defining the directory of files that you can create flashcards from
+** TODO Configuring foreign language dictionaries
+
+** TODO Configuring an ear training package for audiating intervals and other musical features

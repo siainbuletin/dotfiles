@@ -1,0 +1,124 @@
+#+TITLE: Typesetting settings for Emacs
+
+LaTeX and Typst.
+
+This should be ensuring that the =texlive= and =typst= binaries are actually installed on the system.
+
+* TODO Working with projects that are nested within chapters
+
+Large projects usually have to be treated in separate files, just like I prefer to set up the environment when
+
+This is specifically concerning larger projects that have to be broken up in specific chapters.
+
+** Appearance of the environment - plugging =olivetti-mode=
+
+I currently don't know if I actually like this environment, but I have to enable it if I want to make use of the =sia-olivetti= function.
+
+#+begin_src emacs-lisp :tangle no
+    (use-package olivetti
+      :ensure t
+      :demand t
+      :bind
+      (("C-c w o" . sia-olivetti)))
+#+end_src
+
+
+** TODO Tangling the different parts of the manuscript together
+
+This would also be meant to emulate the Scrivener mode that you get in Obsidian with longform, but only in this case it actually works well and you don't feel the jankiness of an Electron program.
+
+*Is there any need for =pandoc= in this case, or can I just use =org-babel=?
+
+** TODO Project management considerations
+
+This can also refer to the points that you should be following through the practice of a proper literature review.
+
+** TODO Structuring writing projects in multiple chapters with =binder=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package binder)
+#+end_src
+
+How do you make it open up the proper project? It doesn't seem to want to open with the sidebar anymore.thes
+
+*** Customizing the binder sidebar for seeing the different files in there
+
+Since =emacs-binder='s purpose is to emulate a Scrivener workflow,
+
+** TODO Support a drafting workflow
+
+Iterative development for a text is also something that concerns project management, at its base.
+
+*** TODO Support adding comments that are a lot like Google Docs
+
+When you're editing a project, it's always useful to be able to annotate *over* the text so that you can see what you can do better in the next revisions. It might be an observation about the way I've written content, or maybe an observation that I need to add more information. In any case, it's a _lot_ easier to parse the information when you know that this is a layer that you can choose to turn off at any point you may need to. It's different from having your thoughts on a matter actually deeply _embedded_ into the text.
+
+For this reason, I've looked at =org-remark= to be able to emulate this functionality.
+
+This will be done with the =org-remark= package.
+
+It is recommended that =org-remark-global-tracking-mode= be enabled when Emacs initializes. You can set it in =after-init-hook=.
+
+=org-remark= is currently disabled because of an error with =org-remark-global-tracking= not being able to be pulled by =elpaca=. I can't figure out the reason why it doesn't work currently.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package org-remark-global-tracking
+    :ensure t
+    :hook after-init
+    :config
+    ;; Selectively keep or comment out the following if you want to use
+    ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
+    (use-package org-remark-info :after info :config (org-remark-info-mode +1))
+    (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
+    (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+#+end_src
+
+Now we're bootstrapping the real =org-remark= package.
+
+#+begin_src emacs-lisp :tangle no
+  (use-package org-remark
+    :bind (;; :bind keyword also implicitly defers org-remark itself.
+           ;; Keybindings before :map is set for global-map. Adjust the keybinds
+           ;; as you see fit.
+           ("C-c n m" . org-remark-mark)
+           ("C-c n l" . org-remark-mark-line)
+           :map org-remark-mode-map
+           ("C-c n o" . org-remark-open)
+           ("C-c n ]" . org-remark-view-next)
+           ("C-c n [" . org-remark-view-prev)
+           ("C-c n r" . org-remark-remove)
+           ("C-c n d" . org-remark-delete)))
+#+end_src
+
+*** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
+
+** Writing integrated notes
+
+The point while drafting a manuscript is to have quick and easy access to the PDFs that I'm taking references from, as well as be able to connect the annotation content to what I'm reading. This is later materialised in the Zettelkasten notes that I use for actual writing of the manuscript.
+
+=org-noter= seems to be best suited package for this scope.
+
+* TODO Document compilation/export workflow for org-mode manuscripts
+** TODO Exporting to HTML for creating websites
+*** TODO Exporting to multi-node HTML pages for easier navigation
+
+This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
+** TODO Exporting documents to GNU Info mode for creating personal man pages
+
+Do you need to invoke the =WoMan= Emacs mode for this?
+
+** TODO Export org-mode manuscripts to Microsoft Word
+
+Is there any way to preserve the formatting?
+
+** TODO Reingesting Microsoft Word documents received from advisors
+
+This also includes finding ways to apply the advice and the requirements from the thesis advisor.
+
+** TODO Dealing with the typography
+
+Would it be better to continue relying on =typst= for doing my documents, or would I want to go back to =LaTeX= for some of the documents?
+
+=org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
+
+However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.

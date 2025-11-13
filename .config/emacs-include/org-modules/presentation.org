@@ -1,0 +1,7 @@
+#+TITLE: Making presentations directly in org-mode
+
+You want to be able to connect a second screen and for nothing to actually get corrupted.
+
+Also find a nice way to include images to the presentations.
+
+Which one of these workflows would also allow me to export to PDF easily?

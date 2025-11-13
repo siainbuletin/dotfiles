@@ -1,0 +1,174 @@
+#+TITLE: Emacs completion packages (and searching structure in the files)
+
+The completion packages and the search framework is lumped together in this case, as it does the job of finding your way around a really big code base (and a large number of files that you're dealing with).
+
+This might be split into more modular files in the future, but for now it lives in the same space.
+
+Even if =embark= isn't directly a completion package, it enables higher interactivity for the information which we have in buffers in Emacs.
+
+See the configuration for Recoll in [[*Integrating Recoll with Emacs]] (this is relevant for creating a document management system in Emacs)
+
+For looking through really large repositories, use ripgrep through Emacs with =rg.el=
+
+#+begin_src emacs-lisp "init.el" :eval never
+  (use-package rg)
+#+end_src
+
+*Where exactly should this configuration be made to sit?*
+
+* Overall search packages
+** TODO Configuring =counsel=
+
+I need to remember the specifics of using this package and why.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package counsel)
+#+end_src
+
+** Configuring =consult=
+
+=consult= is a package made for consulting =completing-read=. =consult-line= is basically indispensible to my workflow, as it allows a kind of search in the buffer that you're used to with =C-f= outside of Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package consult)
+#+end_src
+
+Consult is also used for the BibTeX mode I have installed.
+
+=consult-line= can be used as a replacement for =isearch= and it functions a lot more like a traditional =CTRL+F= that you know from other projects.
+
+** TODO Making =find-file= work for anywhere across the system
+
+It can be done with =iciles= through =icicle-locate= and =icicle-locate-file=. =icicles= is configured with =apropos= (meaning regular expressions), which allow you to find a file basically anywhere.
+
+** TODO Configuring =ripgrep= to work from within Emacs
+
+This is especially useful if you want to make searching across multiple notes faster. This can already be done through =xref=, but we need to enable backend support for =ripgrep=, which is why this is the first thing we're doing here.
+
+*** Adding =ripgrep= support for =xref=
+
+
+*** TODO Configuring =deadgrep=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package deadgrep)
+#+end_src
+
+*** TODO Is it worth it to look into =rg.el=?
+
+It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
+
+* Minibuffer completion packages
+** =vertico=: minibuffer completion candidates
+
+=Vertico= improves the minibuffer completion by showing the candidates in a vertical list, which improves the readability.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package vertico
+    :demand t
+    :custom
+    (vertico-count 13) ; Number of candidates to display
+    (vertico-resize t)
+    (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
+    :config
+    (vertico-mode))
+#+end_src
+
+What is the scope of the =:demand= flag?
+
+** =marginalia=: annotations for the commands showing up in the minibuffer
+
+This is basically like adding a spark of documentation to the commands you're about to run. See [[file:manuals.org][Documentation and man-mode configuration]] for more on this issue of discoverability within Emacs.
+
+The scope of =marginalia= is that it brings completion annotations to the commands that you're running.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+            (use-package marginalia
+              :init
+              (marginalia-mode)
+              (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
+#+end_src
+
+*What exactly is this =alist-get= function for getting information about =marginalia-command-categories=?*
+
+*** TODO Combining =marginalia= with =embark= and =consult=
+
+Combining with =embark= means that you get action support.[fn:1]
+
+** =orderless=: showing partial matches in any order
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  (completion-category-overrides
+   '((file (styles partial-completion)))))
+#+end_src
+
+* TODO In-buffer completion
+** TODO =company-mode=: inline completion candidates
+
+This is basically like the Obsidian functionality where you would type in a =[[wikilink]]= and it would show a bunch of options for completion before closing the =]]=.
+
+I don't yet know how to configure this package so that it doesn't show completion options for
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package company)
+#+end_src
+
+** TODO =corfu=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package corfu)
+  (use-package corfu-prescient)
+#+end_src
+
+** TODO =corg.el=: autocompletion within org blocks
+
+This can help with faster writing of several examples.
+
+Currently, =corg= is disabled because of a debugger issue that I'm getting.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package corg
+      :ensure
+      (:host github :repo "isamert/corg.el"))
+#+end_src
+
+Enabling =corg= in the current org buffer automatically, you need to add a hook:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-mode-hook #'corg-setup)
+#+end_src
+
+* TODO Acting upon buffers with =embark=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package embark)
+  (use-package embark-consult)
+#+end_src
+
+* TODO Other completion packages that I still don't know the functionality of
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; (use-package avy) ;; is this still useful for anything?
+  (use-package helm)
+  ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
+#+end_src
+
+** =prescient= packages
+*What exactly were the prescient packages used for?*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package prescient)
+  (use-package company-prescient)
+  (use-package ivy-prescient)
+  (use-package selectrum-prescient)
+  (use-package vertico-prescient)
+#+end_src
+
+
+* Footnotes
+
+[fn:1] https://github.com/minad/marginalia

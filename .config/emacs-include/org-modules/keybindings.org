@@ -1,0 +1,89 @@
+#+TITLE: Sorting out the keybindings
+
+This is _overall_ completely unfinished
+
+* TODO Enabling and configuring =which-key=
+
+This allows us to improve the discoverability for commands in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+        (use-package which-key
+          :ensure t
+          :config
+          (which-key-mode)
+          :custom
+          (which-key-max-description-length 40)
+          (which-key-lighter nil)
+          (which-key-sort-order 'which-key-description-order)
+          (which-key-mode +1)
+          :init
+          (which-key-add-key-based-replacements
+  	  "C-c w"   "Emacs Writing Studio"
+          "C-c w b" "Bibliographic"
+          "C-c w d" "Denote"
+          "C-c w m" "Multimedia"
+          "C-c w s" "Spelling and Grammar"
+          "C-c w t" "Themes"
+          "C-c w x" "Explore"))
+#+end_src
+
+=which-key= is apparently a really useful package for bindings for =projectile= (see notes in EWS)
+
+* Specific proper settings for keybindings
+
+These should go in the =sia-keybindings.el= file. *They shall be moved in the future, once I figure out how to do a modular Emacs Lisp setup.*
+
+* Disable stupid keybindings (general)
+
+This one would just close Emacs, instead of doing undo if it wasn't in the CUA mode.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (global-unset-key (kbd "C-z"))
+#+end_src
+
+* TODO Tangling the org literate config
+
+If I simply set up =F10= as my keybinding for =org-babel-tangle=, for example, it will interfere with the =File= menu provided by the GUI Emacs toolbar. This behaviour isn't acceptable. This function here allows me to remove the binding from vanilla Emacs so I can binding for =org-babel-tangle=.
+
+For now, the default keybinding for this mode is =C-c C-t v=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (keymap-global-set "<F10>" org-babel-tangle)
+#+end_src
+
+* TODO Indentation control
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
+  (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
+#+end_src
+
+I actually haven't tested whether this works or not.
+
+* TODO Looking for better keybinding solutions (as well as their management)
+
+The =general.el= package is, unfortunately, about to be deprecated. It seems that the best and easiest option to go about keybindings nowadays is to try and work with a declarative setup, by using =(use-package :bind (...))= for all of the packages that support it.[fn:7]
+
+=use-package= allows the creation of global keybindings
+
+Using :bind with a list of conses
+Here is an example of using :bind with a list of conses:
+
+#+begin_example emacs-lisp :tangle no :eval never
+(use-package hi-lock
+  :bind (("M-o l" . highlight-lines-matching-regexp)
+         ("M-o r" . highlight-regexp)
+         ("M-o w" . highlight-phrase)))
+#+end_example
+
+** TODO Creating combo keybindings with =hydra=
+
+Hydra is a package that simplifies the creation of keybinding combinations using a shared prefix. As a bonus, it also generates a menu displaying all potential commands:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package hydra
+  :ensure t)
+
+(use-package use-package-hydra
+  :ensure t)
+#+end_src

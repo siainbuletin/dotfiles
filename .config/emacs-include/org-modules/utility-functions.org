@@ -1,0 +1,94 @@
+#+TITLE: Utility functions for editing in Emacs
+
+This includes any kind of utility function that enhances the functionality of base Emacs. This doesn't make use of any kind of package (as much as possible). It's mostly composed of quick patches that I added on the go. Each function is explained as needed.
+
+* Reloading the configuration on the fly
+
+This will make reloading the configuration a lot easier.
+
+Unfortunately, the reloading won't function like a silverbullet for anything. You may need to actually quit Emacs sometimes to really test out whether the reloading worked. I also noticed that the reloading works worse with =elpaca=, that's where you'll need to restart Emacs more often.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun reload-init-file ()
+    (interactive)
+    (load-file user-init-file))
+
+  ;; set shortcut for the reloading
+  (keymap-global-set "<f5>" 'reload-init-file)
+#+end_src
+
+* Getting rid of customization via =M-x= menu
+
+This will eliminate the =custom-file= which is created if you try to configure Emacs through the interactive menu.
+
+In the event that I mistakenly call =M-x customize= to change something in my Emacs, this function makes sure that the file never actually appends to the =init.el=. (Afterall, it will get overwritten anyway once I run =org-babel-tangle= again.)
+
+By using the =make-temp-file= function, the file will be placed in the =/tmp= directory[fn:1]
+
+The function is taken from Protesilaos' configuration
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq custom-file (make-temp-file "emacs-custom-"))
+#+end_src
+
+* Persistent scratch when you jot down ideas
+
+This isn't really something that I use that much, since I don't use the scratch buffer (I replace it with a dashboard on startup). But it would be nice to use if I ever wanted to have a constant testing place (without setting up an entire REPL).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package persistent-scratch)
+#+end_src
+
+* Graphical interface
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
+
+  ;; WINDOW FUNCTIONS
+  (setq-default frame-title-format '("✨ %b 🌊")) ;; Make the window title to be the buffer name
+#+end_src
+
+** Redraw the entire display when there's graphical errors
+
+It still is something that I have to deal with: figuring out why there's screen tearing when I'm editing on my Legion Pro 5. Might be because of Wayland. Currently, I switch back and forth between Wayland and XWayland. On the ThinkPad E14, I have to make use of X11 no matter what I do (it's what I built EndeavourOS with).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Redrawing the display when there's graphical errors
+  (global-set-key (kbd "<f6>") 'redraw-display)
+#+end_src
+
+* Undo tree
+
+By default, the Emacs undo tree doesn't support redo, which is absolutely despicable.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; UNDO TREE
+  (use-package undo-tree
+    :init (global-undo-tree-mode)
+    :config (setq undo-tree-auto-save-history nil))
+#+end_src
+
+* TODO Deal with lockfiles
+
+*I still have to figure out how to make good use of this.*
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;;; Lockfiles unfortunately cause more pain than benefit
+  (setq create-lockfiles nil)
+#+end_src
+
+* Other
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; SOUNDS
+  (setq ring-bell-function 'ignore) ;; Disable the bell sound
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; BUFFER FUNCTIONS
+  (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
+#+end_src
+
+* Footnotes
+
+[fn:1] https://protesilaos.com/emacs/dotemacs#h:f2ffe0e9-a58d-4bba-9831-cc35940ea83f

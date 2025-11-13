@@ -1,0 +1,97 @@
+#+TITLE: Window management setup
+
+Emacs is quite complicated when it comes to deciding where to send the windows around.
+
+[[#Making buffers available globally]] is something that I still have to research into doing properly.
+
+* TODO Emacs's internal window management
+** TODO Configuring internal windows to split vertically instead of horizontally
+
+Split windows sensibly. *This doesn't actually seem to work*.
+
+#+begin_src elisp :tangle "init.el" :eval never
+  (setq split-width-threshold 120
+        split-height-threshold nil)
+#+end_src
+
+=C-x 2= will split horizontally by default and =C-x 3= splits vertically.
+
+** TODO Configuring automatic resizing for windows with =balanced-windows=
+
+This has to be tested.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package balanced-windows
+    :config
+    (balanced-windows-mode))
+#+end_src
+
+** TODO Highlighting the active window with =dimmer=
+
+To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:16]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package dimmer
+  :custom
+  (dimmer-adjustment-mode :foreground)
+
+  :config
+  (dimmer-configure-which-key)    ; Do not dim these special windows
+  (dimmer-configure-hydra)
+  (dimmer-configure-magit)
+
+  (dimmer-mode t))
+#+end_src
+
+As an interesting alternative, check out the =selected-window-accent= project.
+
+* TODO Buffer management
+
+The built-in buffer management option mostly just provides a list of buffers that I could switch to
+
+** TODO Enabling =perspective-el=
+
+This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package perspective
+    :ensure t  ; use `:straight t` if using straight.el!
+    :bind
+    ("C-x k" . persp-kill-buffer*)
+    :custom
+    (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
+    :init
+    (persp-mode))
+#+end_src
+
+If you're using Emacs >28, you need to specificy =persp-mode-prefix-key= to be able to use =perspective-el=.
+
+*** TODO Replacing the =switch-to-buffer= functionality with =perspective-el=
+
+Replace the binding for C-x C-b, the default Emacs buffer switcher, with one of the nicer implementations described in the Buffer switchers section.
+
+** TODO Configuring =ace-window=
+
+Note that =ace-window= is quite outdated at this point, and should be replaced with a more modern framework instead.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package ace-window)
+#+end_src
+
+Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
+
+* TODO Making buffers available globally
+
+One thing that I wish I could do is to persist the list of buffers that you can access across all of the frames that I spawn of Emacs, instead of having a separate list of buffers for each window. This would also make workflows with tiling window managers a lot more ergonomic in the long run.
+
+This is also a big part of [[#Buffer management]].
+
+This can also be used for Obsidian quick switcher functionality. This is described in [[file:search.org][The search structure used for the Emacs program]].
+
+* Integrating Emacs with a tiling window manager
+
+Having the [[#Making buffers available globally][buffers available globally]] would be integral to making switching around the buffers as easy as possible.
+
+This has to be developed depending on the display manager that you're using. Under X11, I will be using i3 until I can learn how to use StumpWM. Under Wayland, Sway seems like the best candidate.
+
+** TODO The possibility of window management through Emacs (for the entire system)

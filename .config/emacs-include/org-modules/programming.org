@@ -1,0 +1,24 @@
+#+TITLE: Programming setup
+
+* TODO Show line numbers in programming modes
+
+*This currently doesn't work as intended, because it introduces line numbers in org buffers as well.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'prog-mode-hook
+            (if (or
+  			   ; If linum-mode doesn't exist...
+  			   (not (fboundp 'linum-mode))
+  			   ; ...or Emacs has display-line-numbers-mode capability
+  			   (and (fboundp 'display-line-numbers-mode) (display-graphic-p)))
+  			  ; ...then use display-line-numbers-mode!
+                'display-line-numbers-mode
+  			; Otherwise, use linum-mode
+              'linum-mode))
+
+  (global-display-line-numbers-mode)
+#+end_src
+
+I untangled the entire code block instead of simply commenting out the =global-display-line-numbers-mode= because apparently it's still incompatible with =pdf-tools=.
+
+Is =global-display-line-numbers-mode= the function that's actually creating this entire mess?

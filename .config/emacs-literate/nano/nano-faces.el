@@ -15,14 +15,14 @@
 
 (require 'nano-base-colors)
 
-(defcustom nano-font-family-monospaced "Roboto Mono"
+(defcustom nano-font-family-monospaced "Adwaita Mono"
   "Name of the font-family to use for nano.
 Defaults to Roboto Mono. Customizing this might lead to conflicts
 if the family does not have sufficient bold/light etc faces."
   :group 'nano
   :type 'string)
 
-(defcustom nano-font-family-proportional "Roboto Mono"
+(defcustom nano-font-family-proportional "Adobe Caslon Pro"
   "Font to use for variable pitch faces.
 Setting this allows nano to display variable pitch faces when,
 for instance, 'variable-pitch-mode' or 'mixed-pitch-mode' is active in a buffer.
@@ -30,7 +30,7 @@ Defaults to nil."
   :group 'nano
   :type 'string)
 
-(defcustom nano-font-size 15
+(defcustom nano-font-size 18
   "Default value for the font size of nano-theme in pt units.
 Note: to change this after startup, call
 \(nano-faces\) and \(nano-themes\)."

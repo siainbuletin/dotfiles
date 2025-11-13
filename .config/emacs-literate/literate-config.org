@@ -185,6 +185,19 @@ If I ever add/remove files, I do this instead:
   ~/Git/Projects/dotfiles $ stow -t $HOME -R emacs
 #+end_src
 
+* Configuring proper languages for =org-babel=
+
+This will configure the languages that I want to be able to tangle to. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (org . t)
+     (R . t))
+)
+#+end_src
+
 * Bootstrapping various things in =early-init.el=
 ** Header
 
@@ -522,20 +535,6 @@ I still don't know what the difference between =straight-use-package= and =use-p
 
 *** Installing =elpaca=
 
-=Elpaca= is a way to have the GUI for the native package manager available (with more modern tweaks), while also having good integration with =use-package=. Hopefully it will make managing the configuration a lot easier in the long run.
-
-Because =elpaca= actually looks into the version requirements for the packages, it's easier to manage dependencies
-
-Another reason why Elpaca is superior to =straight-el= is because it has a logging system for installing packages, which makes it easier to debug when something goes wrong.
-
-The only thing is that it doesn't support lockfiles.
-
-But another downside of =straight-el= is that has a complex bootstrapping process.
-
-This snippet is taken directly from the installation page for Elpaca.
-
-Elpaca also is a lot faster when you need to clone your configuration to a new machine, because it supports asynchronous updating. "You have to move a lot of stuff into :config blocks so it gets run after installing/enabling the package for instance, or you get all kinds of errors. I'm still finding little dark corners."
-
 async nature: queues, the fact that most of the init happens after your init.el has been read
 
 #+begin_src emacs-lisp :tangle "init.el"
@@ -859,8 +858,8 @@ The NANO Emacs version has been installed manually through cloning and now lives
 
 #+begin_src emacs-lisp :tangle "init.el"
       (set-face-attribute 'default t
-                          :family "Roboto Mono"
-                          :weight 'bold)
+                          :family "Adwaita Mono"
+                          :weight 'regular)
 #+end_src
 
 *** Calling the different needed modules for NANO Emacs
@@ -1324,7 +1323,7 @@ This should tell you what you should be doing next up.
   (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
   ;; WINDOW FUNCTIONS
-  (setq-default frame-title-format '("%b")) ;; Make the window title to be the buffer name
+  (setq-default frame-title-format '("✨ %b 🌊")) ;; Make the window title to be the buffer name
 
   ;; SOUNDS
   (setq ring-bell-function 'ignore) ;; Disable the bell sound
@@ -1646,6 +1645,13 @@ Is =global-display-line-numbers-mode= the function that's actually creating this
   )
 #+end_src
 
+** Cosmetic modifications to dired
+
+#+begin_src emacs-lisp :tangle "init.el"
+;; Set Dired listing switches for more minimalist output
+(setq dired-listing-switches "-aghov --group-directories-first")
+#+end_src
+
 ** Add git status gutter to the dired buffer
 
 #+begin_src emacs-lisp :tangle no
@@ -1761,7 +1767,6 @@ For looking through really large repositories, use ripgrep through Emacs with =r
 #+end_src
 
 * TODO GNU Hyperbole
-
 ** TODO Initial installation with =use-package=
 
 I need to actually find a way to do the installation through =use-package=.
@@ -1780,7 +1785,6 @@ I need to actually find a way to do the installation through =use-package=.
 * TODO Reading and link-storing workflow
 
 Since I usually find myself just saving a lot of information to my Obsidian so I can find it again _topically_, when I actually want to tackle a particular problem, I want to replicate this sort of link-storage in Emacs as well. But I need to find a way to archive them as kind of an annex to the main file that I'm working with, and also have a way to mark these links as having been read.
-
 * Reading packages
 
 You want to have a unified framework for reading material in Emacs, and that it is *as well integrated with the annotation framework used as possible*. The structure of support that I seek is as follows
@@ -1869,6 +1873,255 @@ I need to find a way to call =pdf-view-install= globally without having to do it
 Unfortunately, EAF has to be installed from source and doesn't work that well.
 
 EAF is supposed to render the PDF in a different program instead of doing everything within Emacs itself.
+
+* TODO Basic =org-mode= configuration
+
+At some point it would be a good idea to improve on =olivetti-mode= by simply taking the setup for justification in page and apply it to a normal org-mode rendering instead of doing the weird setup that it adds on NANO Theme. For now (<2025-11-09 Sun>), it seems like NANO is enough to improve the readability of the program.
+
+** Essential modules
+
+#+begin_src emacs-lisp :tangle "init.el"
+(require 'org-id) ; for creating ids
+(require 'org-tempo) ; for template expansion
+#+end_src
+
+** Go back to previous note after following a link
+
+The function you are looking for is =(org-mark-ring-goto)=, which is bound as =C-c &= by default.
+
+I like to bind it the same as =pop-tag-mark= as in other modes, so that pressing =C -= acts like going back to the previous location after you go to a definition. *It currently doesn't work.*
+
+#+begin_src emacs-lisp :tangle no
+(defun jz/org-mode-hook ()
+  (local-set-key (kbd "C--") 'org-mark-ring-goto))
+
+(add-hook 'org-mode-hook 'jz/org-mode-hook)
+#+end_src
+
+** TODO Enabling useful minor modes for =org-mode=
+*** DONE Turning on =visual-line-mode= by default
+
+#+begin_src emacs-lisp :tangle "init.el"
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+#+end_src
+** TODO Other nice additions to =org-mode=
+
+This is taken directly from Emacs Writing Studio.
+
+*Do the setq definitions actually work for this?*
+
+#+begin_src emacs-lisp :tangle "init.el"
+    (setq org-hide-emphasis-markers t)
+    (setq org-hide-leading-stars t)
+    (setq org-startup-with-inline-images t)
+    ;; (setq org-image-actual-width '(450))
+    (setq org-pretty-entities t) ; What makes them pretty?
+    (setq org-use-sub-superscripts "{}")
+    (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
+    (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+  (setq org-ellipsis "  ·")
+#+end_src
+
+I disabled =org-image-actual-width= because I'm getting the =Org width must be 8, not 4= error.
+
+=org-pretty-entities= allows us to insert special characters LaTeX-style by using a leading backslash (e.g., =\alpha= to write the greek letter alpha).
+
+=org-ellipsis= is the symbol displayed after an Org-heading that is collapsed - I prefer a simple dot.
+
+This is taken from the README for org-modern.
+
+#+begin_src emacs-lisp :tangle no
+(setq org-agenda-tags-column 0)
+#+end_src
+
+** TODO Show hidden emphasis markers
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
+#+end_src
+
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds.
+
+** DONE Turning off auto-indentation (=electric-indent-mode=)
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (electric-indent-mode 0)
+#+end_src
+
+Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
+
+** TODO Making the folding headings of org-mode less insufferable
+
+Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
+
+** Enhacing =org-mode= with =org-modern= mode
+*** Proper settings
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-modern
+  :config
+  (setq
+   org-auto-align-tags t
+   org-tags-column 0
+   org-fold-catch-invisible-edits 'show-and-error
+   org-special-ctrl-a/e t
+   org-insert-heading-respect-content t
+
+   ;; Don't style the following
+   org-modern-tag nil
+   org-modern-priority nil
+   org-modern-todo nil
+   org-modern-table nil
+
+   ;; Agenda styling
+   org-agenda-tags-column 0
+   org-agenda-block-separator ?─
+   org-agenda-time-grid
+   '((daily today require-timed)
+	 (800 1000 1200 1400 1600 1800 2000)
+	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+   org-agenda-current-time-string
+   "⭠ now ─────────────────────────────────────────────────")
+
+  (global-org-modern-mode))
+#+end_src
+
+*** Watch out for incompatibilities with =org-modern=
+- If org-indent-mode is enabled, org-modern will disable the block prettification in the fringe. See the package org-modern-indent which provides a different mechanism for block styling, than using the fringe.
+- org-num-mode interferes with the org-modern prettification of TODO keywords.
+- visual-wrap-prefix-mode relies on the wrap-prefix text property which is also used by org-modern.
+
+** =org-superstar= setup
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-superstar
+  :config
+  (setq org-superstar-leading-bullet " ")
+  (setq org-superstar-special-todo-items t) ;; Makes TODO header bullets into boxes
+  (setq org-superstar-todo-bullet-alist '(("TODO" . 9744)
+                                          ("PROG" . 9744)
+                                          ("DONE" . 9744))))
+#+end_src
+
+*** TODO de ce nu merge org-superstar? it looks the same
+
+** TODO Configuring some frawme dividers
+
+*What exactly was this for?*
+
+#+begin_src emacs-lisp :tangle no
+  ;; Add frame borders and window dividers
+  (modify-all-frames-parameters
+   '((right-divider-width . 40)
+     (internal-border-width . 40)))
+  (dolist (face '(window-divider
+                  window-divider-first-pixel
+                  window-divider-last-pixel))
+    (face-spec-reset-face face)
+    (set-face-foreground face (face-attribute 'default :background)))
+  (set-face-background 'fringe (face-attribute 'default :background))
+#+end_src
+
+
+** Changing the appearance of each heading level to make it more readable
+
+You can resize the headings based on the level.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(dolist (face '((org-level-1 . 1.35)
+                (org-level-2 . 1.3)
+                (org-level-3 . 1.2)
+                (org-level-4 . 1.1)
+                (org-level-5 . 1.1)
+                (org-level-6 . 1.1)
+                (org-level-7 . 1.1)
+                (org-level-8 . 1.1)))
+  (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
+#+end_src
+
+*** Making the title of the document a bit bigger
+
+#+begin_src emacs-lisp :tangle "init.el"
+(set-face-attribute 'org-document-title nil
+:font "Roboto Mono"
+:weight 'bold
+:height 1.8)
+#+end_src
+
+** Making sure fixed pitched is turned on for some modes
+
+In order to avoid line spacing issues when a line of text contains both variable- and fixed-pitch text, we need to make sure that the org-indent face inherits from fixed-pitch.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(require 'org-indent)
+(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+#+end_src
+
+And then, we want to make sure that some parts of the Org document always use fixed-pitch even when variable-pitch-mode is on.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (set-face-attribute 'org-block nil
+                      :foreground nil
+                      :background "#ffdf00"
+                      :inherit 'fixed-pitch
+                      :height 0.85)
+
+  (set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
+  fixed-pitch))
+
+  (set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
+#+end_src
+
+For this all to come together, we need to make sure that variable-pitch-mode is always active in Org buffers.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(add-hook 'org-mode-hook 'variable-pitch-mode)
+#+end_src
+
+** Adding a custom syntax function for in-text highlighting
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun org-add-my-extra-markup ()
+  "Add highlight emphasis."
+  (add-to-list 'org-font-lock-extra-keywords
+               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
+                 (1 '(face highlight invisible nil)))))
+
+(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
+#+end_src
+
+:here's highlight: (doesn't currently work)
+
+The elisp regular expression isn’t the easiest to understand, but this is what it matches:
+
+| Regex      | Explanation                                                             |
+|------------+-------------------------------------------------------------------------|
+| [^\\w]     | something that’s not a word                                             |
+| \\(        | start of a capture group (not matching)                                 |
+| :          | a colon                                                                 |
+| [^\n\r\t]+ | a string of 1 or more characters that doesn’t contain new-lines or tabs |
+| :          | a colon                                                                 |
+| \\)        | end of the capture group (not matching)                                 |
+| [^\\w]     | something that’s not a word                                             |
+
+* Configuring links across documents on the entire system
+
+My goal in using Emacs is trying to get a more direct access to my entire file system. This means that links shouldn't just live within the one silo I have assigned to my Zettelkasten, but there should be an option to easily link across to my =org-agenda= as well, or to any coding process, while still keeping a degree of separation between my separate types of documents.
+
+At the same time, especially when I want to write, I'm interested in following along a series of questions that I may have about the content that I'm tackling. After all, that makes up about most of the tasks that I usually have, because they're tied to understanding and deep research. For this, I need a deep interconnection with my task management workplace.
+
+This can also be enhanced if I enable links to my magit commits, for the projects that I'm actually working on moving along through different commits. This is the version control part that's more complicated.
 
 * Zettelkasten setup
 
@@ -2262,8 +2515,8 @@ This is a tricky problem. See more in the note in Obsidian.
 
 This is somewhat related to _Queries injected into buffers_ from Obsidian, which would emulate the functionality of Dataview.
 
-** Taming =denote=
-
+** TODO Using =denote=
+*** Customizing denote to be more according to my style
 Is it possible to actually turn off the tagging and the naming scheme and have my own arbitrary note names that actually reflect the content of the note that I'm working with?
 
 This block is taken from Prot's video on =use-package=.
@@ -2287,7 +2540,7 @@ This block is taken from Prot's video on =use-package=.
 
 #+end_src
 
-** =denote= extension packages
+*** =denote= extension packages
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package denote-journal)
@@ -2533,240 +2786,6 @@ When trying to install this snippet, I get an error that =org-remark-global-trac
   (with-eval-after-load 'info
     (org-remark-info-mode +1))
 #+end_src
-
-* TODO =org-mode= configuration
-
-At some point it would be a good idea to improve on =olivetti-mode= by simply taking the setup for justification in page and apply it to a normal org-mode rendering instead of doing the weird setup that it adds on NANO Theme. For now (<2025-11-09 Sun>), it seems like NANO is enough to improve the readability of the program.
-
-** Go back to previous note after following a link
-
-The function you are looking for is =(org-mark-ring-goto)=, which is bound as =C-c &= by default.
-
-I like to bind it the same as =pop-tag-mark= as in other modes, so that pressing =C -= acts like going back to the previous location after you go to a definition. *It currently doesn't work.*
-
-#+begin_src emacs-lisp :tangle no
-(defun jz/org-mode-hook ()
-  (local-set-key (kbd "C--") 'org-mark-ring-goto))
-
-(add-hook 'org-mode-hook 'jz/org-mode-hook)
-#+end_src
-
-** TODO Enabling useful minor modes for =org-mode=
-*** DONE Turning on =visual-line-mode= by default
-
-#+begin_src emacs-lisp :tangle "init.el"
-(with-eval-after-load 'org
-  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
-  (add-hook 'org-mode-hook #'visual-line-mode))
-#+end_src
-** TODO Other nice additions to =org-mode=
-
-This is taken directly from Emacs Writing Studio.
-
-*Do the setq definitions actually work for this?*
-
-#+begin_src emacs-lisp :tangle "init.el"
-    (setq org-hide-emphasis-markers t)
-    (setq org-hide-leading-stars t)
-    (setq org-startup-with-inline-images t)
-    ;; (setq org-image-actual-width '(450))
-    (setq org-pretty-entities t) ; What makes them pretty?
-    (setq org-use-sub-superscripts "{}")
-    (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
-    (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
-  (setq org-ellipsis "  ·")
-#+end_src
-
-I disabled =org-image-actual-width= because I'm getting the =Org width must be 8, not 4= error.
-
-=org-pretty-entities= allows us to insert special characters LaTeX-style by using a leading backslash (e.g., =\alpha= to write the greek letter alpha).
-
-=org-ellipsis= is the symbol displayed after an Org-heading that is collapsed - I prefer a simple dot.
-
-This is taken from the README for org-modern.
-
-#+begin_src emacs-lisp :tangle no
-(setq org-agenda-tags-column 0)
-#+end_src
-
-** TODO Show hidden emphasis markers
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-appear
-  :hook
-  (org-mode . org-appear-mode))
-#+end_src
-
-The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds.
-
-** DONE Turning off auto-indentation (=electric-indent-mode=)
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (electric-indent-mode 0)
-#+end_src
-
-Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
-
-** TODO Making the folding headings of org-mode less insufferable
-
-Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
-
-** Enhacing =org-mode= with =org-modern= mode
-*** Proper settings
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-modern
-  :config
-  (setq
-   org-auto-align-tags t
-   org-tags-column 0
-   org-fold-catch-invisible-edits 'show-and-error
-   org-special-ctrl-a/e t
-   org-insert-heading-respect-content t
-
-   ;; Don't style the following
-   org-modern-tag nil
-   org-modern-priority nil
-   org-modern-todo nil
-   org-modern-table nil
-
-   ;; Agenda styling
-   org-agenda-tags-column 0
-   org-agenda-block-separator ?─
-   org-agenda-time-grid
-   '((daily today require-timed)
-	 (800 1000 1200 1400 1600 1800 2000)
-	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
-   org-agenda-current-time-string
-   "⭠ now ─────────────────────────────────────────────────")
-
-  (global-org-modern-mode))
-#+end_src
-
-*** Watch out for incompatibilities with =org-modern=
-- If org-indent-mode is enabled, org-modern will disable the block prettification in the fringe. See the package org-modern-indent which provides a different mechanism for block styling, than using the fringe.
-- org-num-mode interferes with the org-modern prettification of TODO keywords.
-- visual-wrap-prefix-mode relies on the wrap-prefix text property which is also used by org-modern.
-
-** =org-superstar= setup
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-superstar
-  :config
-  (setq org-superstar-leading-bullet " ")
-  (setq org-superstar-special-todo-items t) ;; Makes TODO header bullets into boxes
-  (setq org-superstar-todo-bullet-alist '(("TODO" . 9744)
-                                          ("PROG" . 9744)
-                                          ("DONE" . 9744))))
-#+end_src
-
-*** TODO de ce nu merge org-superstar? it looks the same
-
-** TODO Configuring some frame dividers
-
-*What exactly was this for?*
-
-#+begin_src emacs-lisp :tangle no
-  ;; Add frame borders and window dividers
-  (modify-all-frames-parameters
-   '((right-divider-width . 40)
-     (internal-border-width . 40)))
-  (dolist (face '(window-divider
-                  window-divider-first-pixel
-                  window-divider-last-pixel))
-    (face-spec-reset-face face)
-    (set-face-foreground face (face-attribute 'default :background)))
-  (set-face-background 'fringe (face-attribute 'default :background))
-#+end_src
-
-
-** Changing the appearance of each heading level to make it more readable
-
-You can resize the headings based on the level.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(dolist (face '((org-level-1 . 1.5)
-                (org-level-2 . 1.4)
-                (org-level-3 . 1.3)
-                (org-level-4 . 1.1)
-                (org-level-5 . 1.1)
-                (org-level-6 . 1.1)
-                (org-level-7 . 1.1)
-                (org-level-8 . 1.1)))
-  (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
-#+end_src
-
-*** Making the title of the document a bit bigger
-
-#+begin_src emacs-lisp :tangle "init.el"
-(set-face-attribute 'org-document-title nil
-:font "Roboto Mono"
-:weight 'bold
-:height 1.8)
-#+end_src
-
-** Making sure fixed pitched is turned on for some modes
-
-In order to avoid line spacing issues when a line of text contains both variable- and fixed-pitch text, we need to make sure that the org-indent face inherits from fixed-pitch.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(require 'org-indent)
-(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
-#+end_src
-
-And then, we want to make sure that some parts of the Org document always use fixed-pitch even when variable-pitch-mode is on.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (set-face-attribute 'org-block nil
-                      :foreground nil
-                      :background "#ffdf00"
-                      :inherit 'fixed-pitch
-                      :height 0.85)
-
-  (set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
-
-  (set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
-
-  (set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
-
-  (set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
-  fixed-pitch))
-
-  (set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
-  (set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
-#+end_src
-
-For this all to come together, we need to make sure that variable-pitch-mode is always active in Org buffers.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(add-hook 'org-mode-hook 'variable-pitch-mode)
-#+end_src
-
-** Adding a custom syntax function for in-text highlighting
-
-#+begin_src emacs-lisp :tangle "init.el"
-(defun org-add-my-extra-markup ()
-  "Add highlight emphasis."
-  (add-to-list 'org-font-lock-extra-keywords
-               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
-                 (1 '(face highlight invisible nil)))))
-
-(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
-#+end_src
-
-:here's highlight: (doesn't currently work)
-
-The elisp regular expression isn’t the easiest to understand, but this is what it matches:
-
-| Regex      | Explanation                                                             |
-|------------+-------------------------------------------------------------------------|
-| [^\\w]     | something that’s not a word                                             |
-| \\(        | start of a capture group (not matching)                                 |
-| :          | a colon                                                                 |
-| [^\n\r\t]+ | a string of 1 or more characters that doesn’t contain new-lines or tabs |
-| :          | a colon                                                                 |
-| \\)        | end of the capture group (not matching)                                 |
-| [^\\w]     | something that’s not a word                                             |
 
 * TODO Creating a usable graph for =org-mode= notes
 

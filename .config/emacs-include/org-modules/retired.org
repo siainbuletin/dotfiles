@@ -1,0 +1,14 @@
+#+TITLE: Retired functions from the Emacs config
+
+* GNU Hyperbole configuration
+** TODO Initial installation with =use-package=
+
+I need to actually find a way to do the installation through =use-package=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package
+   '(hyperbole
+     :host nil
+     :repo "https://git.savannah.gnu.org/git/hyperbole.git"
+     :config (hyperbole-mode 1)))
+#+end_src

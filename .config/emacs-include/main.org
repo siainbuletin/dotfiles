@@ -1,0 +1,328 @@
+#+TITLE: Emacs configuration with org submodules
+#+AUTHOR: Sia Piperea
+#+OPTIONS: ':t author:t
+#+STARTUP: overview
+#+EXPORT_FILE_NAME: temp.org
+#+PROPERTY: header-args:org :results drawer replace
+#+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
+#+macro: word-count (eval  (count-words (point-min) (point-max)))
+
+[ Last revised and exported on *{{{latest-export-date}}}*, with a word count of *{{{word-count}}}*. ]
+
+* Changelog
+
+On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
+
+On <2025-11-12 Wed>, I converted the configuration to a multi-file org setup, which will later compile to multiple Emacs Lisp files.
+
+See [[file:config-tasks.org][Open tasks and next improvements for the configuration]] for what should be done next.
+
+- [ ] This also needs a table of contents to facilitate easier navigation between the modules (even if each org file has its independent tree of headings for designating the sections)
+
+* Introduction - The inner workings of this literate configuration
+
+Since I want to be able to treat my code in as modular a way as possible, I am separating the modules of my configuration to different org mode files, which will be later tangled to their respective Emacs Lisp modules. This also includes the possibility for the future to tangle to different Emacs Lisp documents, as for now, everything is centralised into a single =init.el= file.
+
+This will allow much simpler debugging when another package is starting to go haywire and will allow writing down personal Lisp modules more easily.
+
+The main file only contains the very basic bootstrapping commands for the package manager. Everything else will be managed in separate files.
+
+This file also serves as a design document for how the documents are also laid out. For more detail into each function, there will be a link added to the relevant =org-mode= configuration module.
+
+Thus, ths entire configuration is built in the style of a README, and more relevant points are to be found in different documents.
+
+The rationale for this configuration is also further explained in "[[file:docs/why-this-literate.org][Why this form of literate configuration?]]".
+
+* Functionality of the literate configuration
+
+If you want a literate configuration that works on smaller files, you need to properly set up the main configuration file (in this case =main.org=). This is the file from which we'll be doing all tasks of transforming the org documents into Emacs Lisp documents.
+
+The process goes as follows:
+
+1. Write the configuration in the main file (=main.org=) or the respective submodules
+2. Export the =main.org= file (which has all of the =#+INCLUDE:= directives to =temp.org=
+3. From =temp.org=, execute all of the code blocks with =org-babel-execute-buffer=
+4. After executing the entire buffer, tangle with the normal =org-babel-tangle=
+
+The =temp.org= file also has to be be evaluated with =C-c C-v C-t=. This will export everything to the proper Emacs Lisp files.
+
+The configuration files (e.g. =init.el= and the modules) will be created upon acting on the =org-babel-tangle= function.
+
+These files can either be "manually" copied to the =~/.emacs.d= directory, or through =Chemacs2=, the literate config can be added as an alternative profile
+
+See also =org-babel-execute-subtree= for the process in which =org-babel= actually works.
+
+** Preparing files for the configuration
+
+When including submodules into the main configuration, they have to be declared as such: =#+INCLUDE: path/to/file.org src org=.
+
+This can also be relative, you don't have to give the full path to the system directory. It can be relative to the directory in which you find =config.org=.
+
+** Being careful while editing the literate configuration
+
+If you don't want to overwrite your changes, you need to make all of the changes directly into the =main.org= file. Then use =C-c C-v C-t= (=M-x org-babel-tangle=) if you want to propagate the changes to the files. The "direction" where each file will be sent is thankfully part of the org source block syntax.
+
+For example, when writing changes to my =early-init.el= file, the source block will be written as such
+
+* Configuring =org-babel= for tangling org files as well
+
+This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (org . t)
+     (R . t))
+)
+#+end_src
+
+* Protocol for replicating the configuration across machines
+
+Since I have to frequently make use of different computers running different flavors of Arch Linux (and hopefully, in the future, running NixOS or even GNU Guix), I need to have a process for getting these exported configuration files on the other computer as well.
+
+There also needs to be a dependable process for getting any changes while changing between machines.
+
+My current process for dealing with dotfiles is through =chezmoi=, which I prefer to GNU Stow because of its declarative nature and the fact that it doesn't create symlinks. I unfortunately *have* encountered issues with GNU Stow, though I may try again soon (as I don't like how the Git repo for my dotfiles looks like).
+
+** A sample for how to replicate on a different machine using GNU Stow
+
+This is taken directly from Protesilaos.
+
+On a new computer, I put all my Emacs files where they are meant to be (inside the ~/.emacs.d directory) with this command, which uses the stow system package (all my dotfiles are stowed in place with this program):
+
+#+begin_src sh :tangle no :eval never
+  ~/Git/Projects/dotfiles $ stow -t $HOME emacs
+#+end_src
+
+If I ever add/remove files, I do this instead:
+
+#+begin_src sh :tangle no :eval never
+  ~/Git/Projects/dotfiles $ stow -t $HOME -R emacs
+#+end_src
+
+* The submodules and their explanations
+
+The files are included based on the order in which they should be loaded.
+
+** Bootstrap
+#+INCLUDE: ~/.config/emacs-include/org-modules/bootstrap.org src org
+
+Deals with the early packages as well as =early-init.el= in just one file. The early init is mostly used for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
+
+*It might actually be a good idea to have the early init in a separate file, but I would like to use the model used by howardism in his own repository.*
+
+** Utility functions for Emacs as a whole
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/utility-functions.org src org
+
+Mostly contains patchwork over the basic Emacs experience. It's pretty necessary for good functioning.
+
+** Search structure and completion layer
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/search.org src org
+
+Contains configuration for the completion packages as well as any search framework over the data, like =org-ql= or the implementation of =Xapian=. This means that it also has =vertico= and all of the other modern Emacs completion packages.
+
+** Keybindings
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/keybindings.org src org
+
+For avoiding RSI and developing a system which works across the entire operating system. It's particularly important if you're able to call up =org-protocol=, =org-capture= or Joshua Blais' =universal-launcher= from anywhere on the system.
+
+** File management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/file-management.org src org
+
+Mostly settings for =dired=, and moving files around more efficiently. [[file:org-modules/file-management.org][(see here)]]
+
+** File back up settings
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/backup-settings.org src org
+
+This is mostly for the native backup functionality that is provided by Emacs.
+
+** The =org-mode= layer
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/org-config.org src org
+
+This is basic org-mode functionality that is loaded as org itself is being loaded. Defering is useful (and default), and it's the reason why I prefer to tangle my files first instead of including them into an =.el= file.
+
+** Task management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/task.org src org
+
+This is the configuration for =org-agenda= and the way that the information is displayed across the system.
+
+** Note-taking layer (and everything pertaining to text manipulation in my day-to-day work
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/zettelkasten.org src org
+
+This will enable all of the notetaking packages. At first glance, the scope of this package is to enable functionality that is very close to Obsidian and the way I do my Zettelkasten notes.
+
+This entire package also depends a lot on functionality that I have set up specifically for =org-mode=.
+
+The basic =org-mode= configuration has been moved to a separate file which I currently prefer to be loaded separately instead of with all the note-taking packages. This is also because org-mode is really large when it comes to bootstrapping and I prefer doing it properly, rather than fragmenting my configuration elsewhere. All of the notetaking packages should depend on the proper functioning of org-mode anyway.
+
+** Bibliography management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/bibliography.org src org
+
+The module contains a lot of functions for bringing the experience of bibliography management as close as possible to using a GUI editor.
+
+This module absolutely has to be loaded before =typesetting.org= and everything that has anything to do with exporting files, because the entire framework for pulling citations rests on this file.
+
+** Document management system
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/dms.org src org
+
+This is far from being a workable environment yet, but I want to be able to manage all of my documents through =org-attach= and have them accesible through an =org-mode= interface, as much as possible.
+
+** Document annotation (and other ways to handle)
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/reading.org src org
+
+This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
+
+** Building manuscripts and typesetting
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/typesetting.org src org
+
+Settings for the way org documents are exported to LaTeX or Typst, or even editing Typst directly from within Emacs. Any kind of templates and proper fitting into the page goes here.
+
+** Making presentations in =org-mode=
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/presentation.org src org
+
+This will need the export settings that have been set up previously in [[file:org-modules/typesetting.org][Export and typesetting]].
+
+** Making documentation readily available
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/manuals.org src org
+
+Stuff like GNU Info and man pages. This should also enable getting definitions for the code I'm actively working with.
+
+** Learning environment
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/interleaving.org src org
+
+This configuration is all about spaced repetition, interleaving and testing myself to manage to surface the information I'm working with. Of course, since this entire setup is created to be as searchable as possible, it becomes pretty redundant to practice memory, but this is important especially for *language learning* and *instrument/musical practice*. I need to develop a bunch of _functional cards that I can use for information_, all of which is dynamically surfaced when needed.
+
+The file is called =interleaving.el= because the whole purpose is to integrate this learning environment to the entire computing environment, meaning the creation of learning prompts becomes automatic through curation of content on the system, instead of relying on something like AI.
+
+This is bootstrapped at this point because it needs components from [[file:org-modules/zettelkasten.org][the notetaking system]], [[file:org-modules/manuals.org][the complex documentation system]] (which makes definitions available at point) and _everything_ regarding bibliography management, because I might need to retrieve information from those files as well.
+
+** Web browser integration
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/browser.org src org
+
+One way to make the experience of using the computer more focused would be through moving most of my browsing needs also in Emacs, as it enables more control over buffers, and eliminates the creation of too many tabs at once. It would enable more focus.
+
+** RSS reader and other input collection methods
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/inputs.org src org
+
+For dealing with incoming source material that I have to parse out into something useful for my day-to-day knowlege work.
+
+** Email management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/email.org src org
+
+This is something that has to be done soon in the future, as it would allow more communication in general (and drafting emails would be a lot cooler). But there's a lot to consider in terms of security with this one.
+
+** Version control through =magit=
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/vc.org src org
+
+Settings for version control done through =magit=. This should also contain configuration for running =git-annex= effectively in Emacs.
+
+** Appearance of the editor itself
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/appearance.org src org
+
+This also means several graphical improvements.
+
+** Window management within and outside of Emacs
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/wm.org src org
+
+This configures the functionality of window management both within and external to Emacs. I plan to use the SwayWM for managing my Emacs windows.
+
+** Multimedia functionality
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/multimedia.org src org
+
+Mostly for playing back music files, in this case.
+
+** Configuring =eshell=
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/shell.org src org
+
+This is part of interfacing with the larger system through my computer.
+
+** TODO Managing external devices with Emacs
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/devices.org src org
+
+My dream would be to be able to manage my entire downloaded music library directly from Emacs, so that I could keep it in a close relationship to my Annotated Music Library (which is where I integrate a lot of functionality of =last.fm= and even =rateyourmusic= for gathering information on the music that I love.
+
+I also want to be able to work with calibre to manage my KoReader, to manage my phone that's running a custom ROM and to manage my iPod. That would basically make Emacs the replacement to my entire system.
+
+** Programming functionality
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/programming.org src org
+
+Any kind of LSP I may need to use, and goodies specifically for editing code.
+
+** Composing Music directly with Emacs
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/composition.org src org
+
+This is for live-coding, working with Lilypond or for working with interfaces like Lisp for Music and OpusModus. Big things happening here.
+
+This should also include the drafting part of making DJ playlists, meaning the ideation, and combining information that I may need together into a coherent performance that I'm ready to put out.
+
+* Parts that aren't in active use
+
+This is the part that documents where I need to do more work on the configuration.
+
+** Incipient projects
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/in-progress.org src org
+
+These are enhancements that I want to be making to my configuration that are not yet finished and are just in the ideation phase. This is mostly treating things that I want to be patching up together by myself. Packages which are currently retired or I have yet to properly try them out (or perhaps I want to be trying them out again in the future) belong in the =retired.org= file.
+
+This file is also different from the [[file:config-tasks.org][improvement tasks file]] that I use as more of a changelog. This file is a scratchpad from where new ideas can bloom and be developed into different modules.
+
+** Retired packages
+
+=#+INCLUDE: ~/.config/emacs-include/org-modules/retired.org src org=
+
+This one is actually commented out, since it contains packages which have been retired (though I might change this to an org archive instead, which would make the system of changing the configuration around a little easier.
+
+Keeping these configurations for the posterity, mostly.
+
+* The files that get created
+
+Ideally, not everything will live in the =init.el= file, so that Emacs Lisp modules may also be evaluated separately for the purposes of debugging or perhaps keeping the installation leaner. Or even for using the same declarative starting point for a configuration even when I'm using Emacs on the Nokia N900 through postmarketOS, where resources are a lot more scarce.
+
+The Emacs Lisp files are organised as such:
+
+- =early-init.el= :: Optimisations for starting up Emacs
+
+- =init.el= :: Contains only the foundations for the functioning of our config. Also, it contains Lisp macros. It will load the different configuration modules that we've defined.
+
+- =sia-modules/= directory :: These are the configuration modules. They don't introduce new bits of Emacs Lisp code, instead they just tweak some configuration for packages.
+
+- =sia-lisp/= directory :: This actually loads custom Emacs Lisp code.
+
+- =sia-ews-functions.el= :: temporary file from where I load helped functions inspired by Emacs Writing Studio.
+
+- =literate-config.org= :: is the current file, which describes the entire architecture.
+* TODO Exporting this configuration to HTML as well
+
+One advantage of the fact that I did my configuration in only one org file which would get tangled to only one =init.el= and no other modules was that it was easy to export the org file as HTML as well for easy previewing of the contents.
+
+The easiest thing that I can do right now for this purpose is to simply use the rendering in GitHub for seeing the sections of my org document, but this isn't too fortunate.
+
+I would like to be able to export this file as a multi-page HTML document that corresponds with the different org modules that I have set up.

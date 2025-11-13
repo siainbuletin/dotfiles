@@ -1,0 +1,194 @@
+#+TITLE: Functional org mode configuration
+
+This does not include packages which are used for different workflows. It's just the base functionality of org-mode (vanilla, as it is distributed), which is altered for my own usecase.
+
+* Appearance of the emacs buffer
+** Configuring =mixed-pitch= mode
+
+Mixed pitch (variable pitch) for org buffers means that written prose is displayed in variable pitch, while metadata, code and other items are in fixed pitch. A hook is a construction in Emacs that associates modes with each other. In this case, variable pitch text is enabled for all text mode buffers.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package mixed-pitch
+    :hook
+    (org-mode . mixed-pitch-mode))
+#+end_src
+
+** DONE Always enable the visual-line-mode when reading in a normal org buffer
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (visual-line-mode)
+  ; is this actually enabled just for org buffers or is it enabled globally?
+#+end_src
+
+I also had this other snippet for enabling visual line mode by default and I don't know which one of them is the one that actually does the trick.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+#+end_src
+
+I don't really know how to deal with this bit about =with-eval-after-load=.
+
+** TODO Wrapping the text with =visual-fill-column=
+
+*I still don't really know what is the use of this package.*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    ;; visual-fill-column for a nice soft wrap
+    (use-package visual-fill-column
+      :commands visual-fill-column-mode
+
+      :custom
+      (fill-column-enable-sensible-window-split t)
+
+      :bind
+      (("C-x p" . 'visual-fill-column-mode)))
+#+end_src
+
+** TODO Show hidden emphasis markers
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
+#+end_src
+
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds.
+
+** Other appearance settings
+
+This is taken directly from Emacs Writing Studio.
+
+I disabled =org-image-actual-width= because I'm getting the =Org width must be 8, not 4= error.
+
+=org-pretty-entities= allows us to insert special characters LaTeX-style by using a leading backslash (e.g., =\alpha= to write the greek letter alpha).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-hide-emphasis-markers t)
+  (setq org-hide-leading-stars t)
+  (setq org-startup-with-inline-images t)
+  ;; (setq org-image-actual-width '(450))
+  (setq org-pretty-entities t) ; What makes them pretty?
+#+end_src
+
+* Text editing functions
+** DONE Global shift-select support in =org-mode= buffers
+
+This will bypass other =SHIFT= bindings.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-support-shift-select t)
+#+end_src
+
+** Keybinding for joining two lines
+
+This makes the symbol to appear as void, so I'm not setting it properly. For now, to join lines, it's easier to just call =M-x jo=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (keymap-global-set "C-x j" join-line)
+#+end_src
+
+** TODO Configuring =text-mode=
+
+Text mode allows replacing text when you start typing. _This is taken directly from Emacs Writing Studio_.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package text-mode
+    :ensure nil
+    ;; :hook
+    ;; (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+    :init
+    (delete-selection-mode t)
+    :custom
+    (sentence-end-double-space nil)
+    (scroll-error-top-bottom t)
+    (save-interprogram-paste-before-kill t))
+#+end_src
+
+This section also redefines the way Emacs defines a sentence (refer to section #sec-count in Emacs Writing Studio).
+
+=save-interprogram-paste-before-kil= saves any existing clipboard text into the kill ring for better operability between the operating system's clipboard and Emacs's kill ring.
+
+** TODO Enable org-mode dynamic headline numbering
+
+Trying to turn this on by switching the =org-num-mode= minor mode globally doesn't work with =(setq org-num-mode t)=. I need to learn about hooking into minor modes better. For now, =add-hook= works better.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-hook 'org-mode-hook #'org-num-mode)
+#+end_src
+
+*** TODO Coloring the numbering from dynamic numbering
+
+To make the numbers stand out a little more,
+
+** DONE Turning off auto-indentation (through =electric-indent-mode=)
+
+It worked at first, but now it seems like it can get thrown off quite easily. I don't know what it is about my org settings that is making this happen.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (electric-indent-mode 0)
+#+end_src
+
+Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
+
+** TODO Enabling CUA mode automatically on startup
+
+Something that's completely upsetting about Emacs is that it doesn't come installed with CUA mode and I always have to turn it on when I'm first booting into Emacs when booting the computer itself. I haven't yet found a way to enable CUA mode automatically when logging in to Emacs.
+
+CUA mode only affects the shortcuts when the region is active (meaning that the text is selected).
+
+For now, I can get it to work by just firing up =M-x cua-mode= whenever I need it.
+
+** TODO Introduce something like regular linting functionality that you have in Obsidian
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (add-hook 'before-save-hook
+            'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+#+end_src
+** TODO Spellchecking support
+
+The Flyspell package interfaces with the Hunspell software and the relevant dictionary to check spelling on the fly.
+
+Flyspell is built-in, so you have to change the way that it is called from =elpaca=.
+
+*I currently can't get this one to work because I can't make =elpaca= not try to install it, despite it being actually built in.*
+
+You must change the standard dictionary to your local variety by customising  the ~ews-hunspell-dictionaries~  variable. EWS uses this particular variable because the dictionaries are set in two places to enable multilingual spelling. You can set multiple dictionaries for the same buffer. In my configuration I use ="en_AU,nl_NL"= so I can write in either the Australian variant of English or Dutch without having to change dictionaries. Section #sec-spelling in Emacs Writing Studio explains how to use this package.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package flyspell
+    :custom
+    (ispell-program-name "hunspell")
+    (ispell-dictionary ews-hunspell-dictionaries)
+    (flyspell-mark-duplications-flag nil) ;; Writegood mode does this
+    (org-fold-core-style 'overlays) ;; Fix Org mode bug
+    :config
+    (ispell-set-spellchecker-params)
+    (ispell-hunspell-add-multi-dic ews-hunspell-dictionaries)
+    :hook
+    (text-mode . flyspell-mode)
+    :bind
+    (("C-c w s s" . ispell)
+     ("C-;"       . flyspell-auto-correct-previous-word)))
+#+end_src
+
+* Code editing goodies
+** TODO Automatically closing parentheses properly
+
+So that you don't have to go back in and do =M-x check-parens=, you could oconfigure the codeblocks to properly close the parentheses for you.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+  (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+#+end_src
+
+* Organisation functions
+** Keep functionality of folding headings while keeping text editing smooth
+
+Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
+
+** How linking works between files
+* Minor modes to enable for =org-mode=
+* TODO =org-archive= settings
+** TODO Setting spaces for where to archive subtrees

@@ -1,0 +1,20 @@
+#+TITLE: Documentation setup for Emacs
+
+I still don't really know what this package does, so for now it will be disabled.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package help-fns+)
+#+end_src
+
+* TODO Improving the Help buffers with =helpful=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package helpful
+  :bind
+  (("C-h f" . helpful-function)
+   ("C-h x" . helpful-command)
+   ("C-h k" . helpful-key)
+   ("C-h v" . helpful-variable)))
+#+end_src
+
+* TODO Configuring my own annotations and modifications to man pages

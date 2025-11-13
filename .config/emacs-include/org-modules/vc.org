@@ -1,0 +1,10 @@
+#+TITLE: Version control modules for Emacs
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package cond-let)
+
+  (use-package transient)
+
+  (use-package magit
+    :after transient)
+#+end_src

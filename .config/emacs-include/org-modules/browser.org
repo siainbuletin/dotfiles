@@ -1,0 +1,86 @@
+#+TITLE: Browsing with the help Emacs
+
+One way to make the experience of using the computer more focused would be through moving most of my browsing needs also in Emacs, as it enables more control over buffers, and eliminates the creation of too many tabs at once. It would enable more focus.
+
+For getting information delivered as a newsfeed directly to Emacs, see [[file:inputs.org][Input management (for RSS and other sources)]].
+
+* TODO Configuration for =eww=
+* TODO Configuring =elpher=
+
+This package allows you to work with Gopher sites as well.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package elpher)
+#+end_src
+
+* TODO Making search more integrated with the research workflow
+
+Since you don't want to be distracted during the moment of ideation, but you also want to be able to find information promptly as you're developing ideas, you want to be able to integrate searching into the buffer workflow that you have in Emacs (as well as integrating all of the org-mode goodies).
+
+On the one hand, this can be done with =org-ref='s integration with =OpenAlex=, which makes it possible to search academic documents without actually leaving Emacs.
+
+* Everyting before the browser interface: searching to narrow which pages you want
+
+One way to improve focus would be to take away the part in which you look at potential search candidates in the normal Google search page. Instead, the options will be presented in the buffer (or maybe even within the =universal-launcher=. From there, you can manipulate the buffers as you want --- in any case, you always want to siphon data from the internet into your own boxes on which you can later act upon. This allows a task-based workflow and way of extracting information.
+
+Also, easier integration with search engines by bringing results directly from websites to the front allows you to differentiate between the quality of different sources: you can either get community results (Reddit), video content which is easier to consume (YouTube and alternatives), or you can read a research paper (Google Scholar and OpenAlex) --- in this case, the process of reading is a lot more complicated.
+
+Currently, the only easy implementation for this that I've seen is =consult-omni=, but I unfortunately haven't managed to configure it well, and I keep getting errors.
+
+** TODO Configuring =consult-omni=
+
+This package allows minibuffer completion for several queries.
+
+#+begin_src emacs-lisp :tangle no :eval never
+                (use-package consult-omni
+                  :ensure
+                  (consult-omni
+                   :host github
+                   :repo "armindarvish/consult-omni"))
+#+end_src
+
+While I've managed to get the =use-package= call to work, I unfortunately can't actually get the package to work because of a "function not defined" error with a bunch of things in this package. Remains to be seen for later on.
+
+Another error that I'm getting with =consult-omni= is "Args out of range". This has been reported to the author.
+
+*** Setting up =consult-omni= as an application launcher replacement
+
+What is the point of =universal-launcher=, then, if I have =consult-omni=?
+
+*** TODO Setting up the sources for =consult-omni=
+
+#+begin_src emacs-lisp :tangle no :eval never
+(consult-omni-define-source "Brave"
+                            :narrow-char ?b
+                            :type 'dynamic
+                            :require-match t
+                            :face 'consult-omni-engine-title-face
+                            :request #'consult-omni--brave-fetch-results
+                            :preview-key consult-omni-preview-key
+                            :search-hist 'consult-omni--search-history
+                            :select-hist 'consult-omni--selection-history
+                            :enabled (lambda () (bound-and-true-p consult-omni-brave-api-key))
+                            :group #'consult-omni--group-function
+                            :sort t
+                            :static 'both)
+#+end_src
+
+** Loading the sources from =consult-omni=
+
+#+begin_src emacs-lisp :tangle no :eval never
+(require 'consult-omni-sources)
+(consult-omni-sources-load-modules)
+#+end_src
+
+** TODO Making the queries from =consult-omni= show up in a different buffer
+
+For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "_Queries injected in editor buffers_".
+
+* Integrating Emacs with an external browser, instead of running it from Emacs itself
+** TODO Set up links to open in an external browser
+
+Since the EWW browser basically trusts any kind of link, it would generally be safer to simply query a search engine from inside Emacs, and then handle the task of _browsing_ and viewing the files themselves elsewhere.
+** TODO Integrating Emacs with Nyxt browser
+** Integrating Emacs with qutebrowser
+
+The big problem with =Nyxt= is that it seems to be mostly abandoned in development. =qutebrowser=, while it also has its problems, is more actively developed and has a nice configuration system in Python, even though it's not overall preferable, as _it doesn't have any good way to do adblocking_.

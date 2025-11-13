@@ -1,0 +1,24 @@
+#+TITLE: Improvements to make for the literate configuration
+
+This should also be managed through =org-agenda= and correlated with other needs of developing a personal functional environment.
+
+See also [[file:org-modules/in-progress.org][In-progress improvements and small ideas]].
+
+- [ ] Make it possible to automatically tangle the org file to the corresponding Emacs Lisp files on save from the Org buffer (this is possible through =org-auto-tangle=
+- [ ] Find a way to place the table of contents before this actual heading with the tasks
+
+Try to find a way to make access to the configuration file a little easier (like hitting a keyboard shortcut to actually get it to open.
+
+* TODO Move the deprecated configurations to different files through =org-archive=
+
+* TODO Replacing =pdf-tools= with =eaf-pdf=
+
+It's not particularly easy to control another PDF reader with Emacs, and since my goal is to have my annotations as integrated with my reading space as possible, I would like to not have to include another layer of complexity to the system.
+
+However, there are some issues with the PDF rendering in =pdf-tools= and would love to see whether =eaf-pdf= fares better in comparison
+
+The entire Emacs Application Framework is interesting because it seeks to modernize the graphical environment of Emacs. In the same way, the =eaf-browser= looks appealing, but I'm mostly concerned about potential security issues.
+
+Unfortunately, EAF has to be installed from source and doesn't work that well (from what I'm hearing). I would have to follow the development of this project pretty closely.
+
+EAF is supposed to render the PDF in a different program instead of doing everything within Emacs itself.

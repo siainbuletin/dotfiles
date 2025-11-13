@@ -1,0 +1,69 @@
+#+TITLE: Local document management system interfaced from Emacs
+
+* How would this work?
+
+In order to get this done, I have to get really good at the file system interaction with Emacs. Also, it might be good to add functions for =org-refile= to actually hook into =org-capture= so the PDFs that I'm using don't end up getting lost.
+
+* TODO Easy file picking for the PDFs
+
+Currently, one way to get at the PDF documents that I've stored is through =helm-bibtex= or =citar-open=, which can take the path that's declared directly in the BibTeX special field =file:=.
+
+To make things easier for myself (in finding the PDFs), they should be named exactly as the citekeys declared in BibTeX. For this, see [[#Rename PDF files from citekey]].
+
+This could also be configured universally through =universal-launcher= at some point.
+
+* TODO Rename PDF files from citekey
+
+One solution would be adapting the function =org-ref-pdf-to-bibtex= from =org-ref=, which will accept a PDF file, try to find the DOI, and then try to fetch the BibTeX entry from online. After that, it will add the PDF to the designated =.bib= file, and will also move the PDF to a designated directory and rename it accordingly.[fn:1]
+
+The problem with the =org-ref= solution is that a lot of the PDFs I'm using don't have a DOI, they're OCRd books.
+
+You can assign arbitrary PDF files to any BibTeX entry in =org-ref=. Just go to =C-c ]=, search your file and choose =Add PDF to library= helm action. The file will be assigned to your bibtex entry (no need to enter DOI or creaty new bibtex entry) and can be opened later from =C-c ]= interface.[fn:1]
+
+* TODO Enabling full-text search over non-plain text documents
+
+I already have a search framework set in place for Emacs in general, but I need to have something workable for looking across my PDF as well. Ideally, all of this information would show up in a side-buffer (perhaps could be configured with =org-sidebar=), where I could see my options for _starting to read something_ and using it in my thinking.
+
+You can search across a large number of plain text files by plugging =ripgrep= as a backend into =xref= (see [[#Adding ripgrep support for xref]]). But this is only useful if you have this text layer already on hand to begin with.
+
+If you don't, you need a different engine which is specialised in searching across any kind of document. For this, there are several options:
+
+- =Recoll= :: This also exists as a GUI client. It's based on Xapian. If plugged as is into Emacs, it needs =org-recoll=.
+
+- =Xapian= :: Has several other plugins that tap directly into the engine, like =xapian-lite= and =xeft=.
+
+There's also =pdfgrep= for getting textual information directly from the PDFs on the system.
+
+** Using =recoll= as the search engine
+
+From Rougier's literate emacs config, you have to define a PATH where the Recoll program is found.
+
+To be able to make use of the presence of Recoll on our system, we need to plug Recoll into =consult=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package consult-recoll)
+#+end_src
+
+The functionality of this package has to be tested with some good PDF files, and to _see where all of this data is actually getting syphoned into_.
+
+Defining the PATH here:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/Applications/recoll.app/Contents/MacOS"))
+  (setq exec-path (append exec-path '("/Users/rougier/Applications/recoll.app/Contents/MacOS")))
+
+  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/bin"))
+  (setq exec-path (append exec-path '("/Users/rougier/bin")))
+#+end_src
+
+** Creating an easily readable buffer for search results
+
+I want each entry to have a spot where the search string is highlighted.
+
+** Piping the results of the search into a different buffer
+
+What would be even cooler is if I could take the results of the search and inform my literature review with it. After all, that's one of the reasons why I download so many PDFs upon seeing them --- to search them more easily and see what I can take from them later on. I may never know where I can find new help for my work.
+
+* Footnotes
+
+[fn:1]  https://www.reddit.com/r/emacs/comments/hulj9i/renaming_pdfs_when_changing_cite_key/

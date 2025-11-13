@@ -1,0 +1,32 @@
+#+TITLE: Settings for Dired
+
+It would be nice if the settings also found a better alternative for a file picker as opposed to the arcane interface of =dired=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package dired
+      :ensure nil
+      :commands
+      (dired dired-jump)
+      :bind (("C-x C-j" . dired-jump))
+      :custom
+      (dired-listing-switches "-agho --group-directories-first")
+      (dired-dwim-target t)
+      (delete-by-moving-to-trash t)
+      :config
+      (evil-collection-define-key 'normal 'dired-mode-map
+        "h" 'dired-single-up-directory
+        "l" 'dired-single-buffer)
+      (put 'dired-find-alternate-file 'disabled nil)
+  )
+#+end_src
+
+* Cosmetic modifications to dired
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Set Dired listing switches for more minimalist output
+(setq dired-listing-switches "-aghov --group-directories-first")
+#+end_src
+
+* Add git status gutter to the dired buffer
+
+** TODO Enable cut/paste behaviour with files from dired

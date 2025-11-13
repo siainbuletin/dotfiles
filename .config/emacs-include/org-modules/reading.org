@@ -1,0 +1,107 @@
+#+TITLE: Reading and annotation workflow for Emacs
+
+* The vision for an integrated reading and task management environment
+
+This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
+
+The goal is being able to find the information again through _topical_ exploration. Tackling a particular problem could be done by first finding what I need through full-text search of the contents of the sources I have on my system as well. Sources can be PDFs, EPUBs, or even web articles that I have saved (and that I'm scared will be lost to time because of poor archival efforts).
+
+The way that I group information in Obsidian topically and _atomically_ is really important to my problem-solving process. As such, I want to be able to replicate my workflow for gathering links as closely as possible in this program. It's like an annex to the main file, full of things that I should read more and that would help improve the main problems tackled within an atomic file.
+
+As an improvement to my current Obsidian system, I wish I had a better way of marking links as already having been read and, so to say, /parsed/ for the most important information I could get out of them.
+
+These reading statuses should at some point be articulated in accordance to the task management system that I have set in place.
+
+Reading sources (like first getting information) is also treated in [[file:browser.org][Browsing from Emacs]] and [[file:inputs.org][RSS and Input Collection]].
+
+* Organising the setup in layers
+
+The reading setup is structured in different layers, based on the different modalities of the reading materials I have on hand. I want to make sure that everything is *as well integrated with the annotation framework used as possible*. The structure of support that I seek is as follows:
+
+- PDFs :: I need to be able to work on both well constructed and digitally-generated documents (with native OCR layers) and PDFs that weren't as well scanned, as those may be the only sources I have available in some cases.
+
+  For PDFs, the current solution I've adopted is =pdf-tools=, which is also the most common.
+
+- EPUBs :: Some books aren't distributed in any other format.
+
+  The good thing about the =nov-el= package is that it's also easy to integrate it with =calibredb=, which makes it possible to show all of the nice metadata about what I'm reading. The =calibredb= can also allow better portability for the system
+
+* Configuration for =pdf-tools=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package pdf-tools)
+#+end_src
+
+It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
+
+This function will tell =pdf-tools= to launch by default.
+
+** Setting keybindings for =pdf-tools=
+
+I keep getting an error that the symbol function is void, so fuck this.
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; (define-key pdf-view-mode-map (kbd "g") nil)
+;; (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
+(define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
+(define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
+;; (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
+;; (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
+(define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
+(define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
+(define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
+(define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
+(define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation)
+#+end_src
+
+** Continuous scrolling mode in the PDF
+
+This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= instead.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setopt pdf-view-continuous nil)
+#+end_src
+
+** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+
+** TODO Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+
+I need to find a way to call =pdf-view-install= globally without having to do it interactively with =M-x pdf-view-install=.
+
+
+* Bootstrapping the other document readers
+** Installing =nov-el=
+
+#+begin_src emacs-lisp :tangle no :eval never
+              (use-package nov
+                :ensure t
+                :config
+                (setq nov-variable-pitch nil
+                      nov-text-width 70)
+                :init
+                (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
+#+end_src
+
+The init section ensures that any file with an =epub= extension is associated with this package. An ePub file is essentially a compressed website, so you will need the Zip program to enable reading these files. Refer to section #sec-epub in _Emacs Writing Studio_ on how to read ePub files.
+
+** =calibredb= configuration
+
+=calibredb= is a good option for interfacing with a whole library of books that I can also make available to my Kindle (even if it's running KoReader). (see more about [[file:devices.org][Managing external devices through Emacs]])
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package calibredb
+    :defer t
+    :config
+    (setq calibredb-root-dir "~/Documents/calibre-library")
+    (setq calibredb-db-dir "~/Documents/calibre-library/metadata.db")
+    )
+#+end_src
+
+* Integrating the packages wih one another
+** TODO Integrating =calibredb= with =org-ref=
+
+This is apparently possible and it would make an academic reading workflow on e-ink a lot easier in the long run.
+
+* Proposed improvements
+
+I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].

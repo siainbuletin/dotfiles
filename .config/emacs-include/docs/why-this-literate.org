@@ -1,0 +1,106 @@
+#+TITLE: Explaining the methodology for choosing this type of configuration
+
+* Different methodologies for doing an Emacs literate configuration
+*** Loading the org configuration from =init.el= through =org-babel-load-file=
+
+This would be done by calling this block in your =init.el=, and then leaving the rest of the configuration to do its thing:
+
+#+begin_example emacs-lisp :tangle no
+(require 'org)
+(org-babel-load-file
+ (expand-file-name
+  "/path/to/config.org"))
+#+end_example
+
+The problem with this approach is that it introduces performance issues.[fn:1] Since =org-mode= is loaded *before* actually starting Emacs, the startup time will be impacted significantly. Emacs doesn't need most of the bloat the =org-mode= loads, and it would be much smarter to leave that for the after-=init.el= process.
+
+*** Tangling the org configuration with =org-babel-tangle=
+
+The more *optimal* solution, in this case, is to call =org-babel-tangle=, with the org configuration file open (meaning: the _current_ file, =literate-config.org=), which is *evaluated* through =C-c C-v C-t=. This command updates all of the files that are declared as *targets* through the =:tangle= flag. On the next startup --- or through using the =<F5>= [[*Make reloading the config easier][helper function]] that I designed for reloading the =init.el= file on the fly --- Emacs will have the updated configuration that was detailed in the literate config.
+
+*** TODO Making tangling a lot easier with =org-auto-tangle=
+
+If you want to automatically tangle the org file as you're saving it, you can opt to use =org-auto-tangle=. *This is currently disabled until I figure out the best way to make use of it.*
+
+#+begin_src emacs-lisp :tangle no
+  (use-package 'org-auto-tangle
+      :load-path "site-lisp/org-auto-tangle/"    ;; this line is necessary only if you cloned the repo in your site-lisp directory
+      :defer t
+      :org-auto-tangle-default t
+      :hook (org-src-mode . org-auto-tangle-mode)))
+#+end_src
+
+Auto tangle is configured for an org file through adding the =#+auto_tangle: t= property at the start of the file.
+
+One benefit is that the tangling process is happening asynchronously, so it doesn't block the Emacs session as you're saving.[fn:2]
+
+It's stil unclear whether I have properly called the function =org-auto-tangle-default= in here.
+
+** How do you exclude code blocks or send them to the appropriate part of the file?
+
+Since I want to include several examples for *why* I might be doing things a certain way in this configuration, I want to be able to use the normal =#+begin_src= syntax to show off code blocks as I'm writing. But when I use =org-babel= to compile the final file, I only want the actual configurations to show up.
+
+** How exactly does a literate configuration manage to be created?
+
+You have a few options for the way that you're going to create your =init.el= file. You can create it as an entire file (so it takes the entirety of =dotemacs.org=, for the case of this document), or it can tangle based on each heading in the org document structure. It can even go as granular as each source block that is declared.
+
+** How can =org-babel= support actual Emacs Lisp configuration?
+
+*This explanation here is for =org-babel-load-file= function, which is _not_ ideal for creating the configuration.*
+
+This works through the =org-babel-load-file= function. To enable the tangling for the files, you need to add this snipped to your =init.el=
+
+#+begin_src emacs-lisp :tangle no
+;; Load up Org Mode and (now included) Org Babel for elisp embedded in Org Mode files
+(setq dotfiles-dir (file-name-directory (or (buffer-file-name) load-file-name)))
+
+;; load up Org and Org-babel
+(require 'org)
+(require 'ob-tangle)
+
+;; load up all literate org-mode files in this directory
+(mapc #'org-babel-load-file (directory-files dotfiles-dir t "\\.org$"))
+#+end_src
+
+What this does is that it compiles each =config.org= file into a =config.el[c]= file. (Remember that the =[c]= in this case denotes that the termination of the file is actually =*.elc=, which denotes compiled Emacs Lisp code.
+
+See also the =load-file= function that is supported by default in Emacs Lisp.
+
+** TODO Settings for the tangle process that won't slow down Emacs loading
+
+You can set the tangle to trigger based on when the file was modified (meaning: through looking at the =modification-time=).[1]
+
+#+begin_src emacs-lisp :tangle no
+  (let* ((dotfile-dir (file-name-directory (or (buffer-file-name)
+    				     load-file-name)))
+       ;; disabled
+       ;; (etc-dir   (expand-file-name "etc" dotfile-dir))
+       ;; (etc-files (directory-files etc-dir t "\\.org$"))
+       (config-org  (expand-file-name "README.org" dotfile-dir))
+       (config-el   (expand-file-name "README.el"  dotfile-dir)))
+  (require 'org)
+  (require 'ob-tangle)
+
+  ;;tangle and load if newer than compiled
+  (if (or (not (file-exists-p config-el))
+          (file-newer-than-file-p config-org config-el))
+      (org-babel-load-file config-org t)
+    (load-file config-el)))
+#+end_src
+
+* Keeping the literate configuration clean
+
+Good strategies for making sure that you don't end up introducing bugs would be
+1. Always try to *evaluate* the code before you commit new changes :: this will make sure that the code properly compiles. You can't depend on an LSP in this case.
+
+Evaluating the code will also help with tracking the bugs.
+
+*How can you create a context in which you're alerted that you haven't closed your parentheses?*
+
+Some longer configurations would benefit just from being converted into separate Emacs packages. That would make the file for the compilation a lot easier to parse, as well as allowing individual literate programming in that case as well.
+
+You lose some of the helpers like company-mode, paredit-mode when you write code snippet, so naturally you wouldn't write long code.
+
+One of the most common errors that you can have if you're writing your =init.el= through org-mode is that you forget to close parentheses when you're writing between source code blocks. If you've forgotten some parentheses, this will produce the =End of file during parsing= error. This can be easily checked in the =init.el= file that was tangled using =M-x check-parens RET=.[fn:3]
+
+You can also enable =show-paren-mode=, which will help

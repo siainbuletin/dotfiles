@@ -1,0 +1,88 @@
+#+TITLE: Note-taking and zettelkasten interconnection system
+#+STARTUP: overview
+
+* Components necessary for making the system work
+
+My Zettelkasten system is highly personal and complex in the way that I have set it up to reflect my own thinking.
+
+- atomic files :: One note represent one singular idea and nothing more.
+
+- bi-directional linking :: This is crucial for making sure that no information is ever lost on the system. Should also include rendering a special backlink buffer which is relative to the buffer we're currently editing.
+
+- flexible naming :: Being able to name my notes as exactly what they represent within my mind system is essential to my writing workflow. Ideas may be more verbose, so they will be
+
+- tagging files as particular object types :: This allowed me to set up a sort of "pseudo-class" system for my files, which would differentiate their functionality in my knowledge management system. Trying to sketch out how this would work is detailed in [[#Creating an object system just from org-mode files]].
+
+- making the content available to a dynamic buffering a querying system :: This will be replicating the functionality from Dataview, and will be used for dynamic view cration. It can also be used, if needed, for generating backlink panes
+
+- note discoverability :: The bi-directional linking would be essential for building a usable graph of nodes. It's unclear what interface I want for these nodes yet. Mostly I want to work with local graphs. A good bi-directional link pane that is visible next to the note I'm editing can also be quite enough for exploration and finding information again.
+
+The bi-directional linking should also be supplemented by the rendering of a special backlink buffer either contained in the original note, or on the side. If it were within the original note, then it would take up less space on the screen, but it might introduce issues with the overall rendering of the content.
+
+* Packages and paradigms that I explicitily _avoid_
+
+Since there are a lot of options but I'm not particularly happy with any one of them, I will put my criteria for things that I want to specifically _avoid_.
+
+- enclosing the information in databases :: This is completely undesirable because it takes away the possibility for portability of the data. I want my connections to somehow be available even if the =org-roam= package gets deprecated.
+
+- creating an overly complicated cache :: This isn't as important as avoiding a database, but I want to make sure that the system runs as smoothly as it can, which means that everything will noticeably start to crawl at my already 30k-sized vault of notes. Of course, it might be hard to find a functioning system that doesn't cache the links somewhere. This would also allow updating the names across all of the files.
+
+Perhaps this can be remedied in Emacs through using the org ids, but I don't like the way that they litter my manuscript. They should get out of the way as much as possible. I would like to replicate the experience of typing =[[= in my manuscript and getting suggestions for what I want to add (and even to be able to add these new
+
+- imposes naming-schemes :: =denote= does this for the purposes of easier identification. Since I have already formed a workflow which is based on my own lack of naming schemes (but that allows everything to be findable either through title search or full-text search), naming is a big aspect of my workflow for writing overall.
+
+* Configuring individual packages
+
+** =denote=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;;; Define many keys in many key maps
+  (use-package denote
+    :ensure t
+    :bind
+    ( :map global-map
+      ("C-c n n" . denote)
+      ("C-c n r" . denote-rename-file)
+
+      :map text-mode-map
+      ("C-c n i" . denote-link) ; "insert" mnemonic
+      ("C-c n I" . denote-add-links)
+
+      :map dired-mode-map
+      ("C-c C-d C-i" . denote-link-dired-marked-notes)
+      ("C-c C-d C-r" . denote-dired-rename-marked-files)))
+#+end_src
+
+* Defining my own set of functions
+
+* Bi-directional linking support
+
+This is already a pretty spotty issue in Emacs, as packages used for Zettelkasten usually don't bother to set up this particular feature properly. But the smart bi-directional linking is what really makes Obsidian a tool for uninterrupted thought, and nothing can replace it in this way.
+
+The system in =howm=, which would show a different pane for incoming and outgoing links was pretty useful, but =howm= is pretty hard to setup properly, which is why I have given up on it.
+
+** TODO Dealing with unresolved links
+
+One of the best features of Obsidian was that it let you work and define new files as you were writing, that would later be filled in and end up showing all of the links that were previously defined to that file.
+
+I don't know if the way that Obsidian did this was through keeping a cache and managing to work with a really siloed environment, but I want to be able to deal with my links in the same way --- *as movable objects of knowledge that can be sent anywhere I want them*.
+
+A particular incarnation of this system would _precisely be the buffer system that Emacs uses_, that enables a way of looking at files in an object-oriented way --- everything can be taken and reused, because that's how the brain works as well.
+
+** TODO Visualising backlinks within a pane
+
+This could be done by configuring =org-sidebar=, or making buffers themselves more actionable. *Perhaps this could also be integrated with =embark= for more functionality
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-sidebar)
+#+end_src
+
+* TODO Creating an object system just from org-mode files
+
+ This is something I'm able to do in Obsidian with the help of =Metadata Menu= and =Supercharged Links=, as it allows me to define some pseudo-classes of text files that I work with. The icons provided by =Supercharged Links= allow me to quickly parse the content of my files for different placeholders --- ideas are differentiated from general concepts that I didn't personally come up with.
+
+This is explained further in Obsidian, in the _Assigning classes to different documents of the same format_ file.
+
+** Assigning the proper classes to org-mode files
+
+Maybe there should be a prompt in the file creation dialogue for whatever note-taking module I'm currently making.

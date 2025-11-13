@@ -1,3 +1,10 @@
+(org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (org . t)
+     (R . t))
+)
+
 ;; This file has been generated from an org-mode file (=literate-config.org=)
 ;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
 
@@ -148,8 +155,8 @@
 (call-interactively 'nano-refresh-theme)
 
 (set-face-attribute 'default t
-                    :family "Roboto Mono"
-                    :weight 'bold)
+                    :family "Adwaita Mono"
+                    :weight 'regular)
 
 (require 'nano-defaults) ; Nano default settings (optional)
 (require 'nano-session) ; Nano session saving (optional)
@@ -233,7 +240,7 @@
 (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
 ;; WINDOW FUNCTIONS
-(setq-default frame-title-format '("%b")) ;; Make the window title to be the buffer name
+(setq-default frame-title-format '("✨ %b 🌊")) ;; Make the window title to be the buffer name
 
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
@@ -314,6 +321,9 @@
 (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 
+;; Set Dired listing switches for more minimalist output
+(setq dired-listing-switches "-aghov --group-directories-first")
+
 (use-package company)
 
 (use-package vertico
@@ -350,6 +360,110 @@
 (use-package pdf-tools)
 
 (setopt pdf-view-continuous nil)
+
+(require 'org-id) ; for creating ids
+(require 'org-tempo) ; for template expansion
+
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+
+(setq org-hide-emphasis-markers t)
+  (setq org-hide-leading-stars t)
+  (setq org-startup-with-inline-images t)
+  ;; (setq org-image-actual-width '(450))
+  (setq org-pretty-entities t) ; What makes them pretty?
+  (setq org-use-sub-superscripts "{}")
+  (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
+  (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
+(setq org-ellipsis "  ·")
+
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
+
+(electric-indent-mode 0)
+
+(use-package org-modern
+  :config
+  (setq
+   org-auto-align-tags t
+   org-tags-column 0
+   org-fold-catch-invisible-edits 'show-and-error
+   org-special-ctrl-a/e t
+   org-insert-heading-respect-content t
+
+   ;; Don't style the following
+   org-modern-tag nil
+   org-modern-priority nil
+   org-modern-todo nil
+   org-modern-table nil
+
+   ;; Agenda styling
+   org-agenda-tags-column 0
+   org-agenda-block-separator ?─
+   org-agenda-time-grid
+   '((daily today require-timed)
+	 (800 1000 1200 1400 1600 1800 2000)
+	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+   org-agenda-current-time-string
+   "⭠ now ─────────────────────────────────────────────────")
+
+  (global-org-modern-mode))
+
+(use-package org-superstar
+  :config
+  (setq org-superstar-leading-bullet " ")
+  (setq org-superstar-special-todo-items t) ;; Makes TODO header bullets into boxes
+  (setq org-superstar-todo-bullet-alist '(("TODO" . 9744)
+                                          ("PROG" . 9744)
+                                          ("DONE" . 9744))))
+
+(dolist (face '((org-level-1 . 1.35)
+                (org-level-2 . 1.3)
+                (org-level-3 . 1.2)
+                (org-level-4 . 1.1)
+                (org-level-5 . 1.1)
+                (org-level-6 . 1.1)
+                (org-level-7 . 1.1)
+                (org-level-8 . 1.1)))
+  (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
+
+(set-face-attribute 'org-document-title nil
+:font "Roboto Mono"
+:weight 'bold
+:height 1.8)
+
+(require 'org-indent)
+(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+
+(set-face-attribute 'org-block nil
+                    :foreground nil
+                    :background "#ffdf00"
+                    :inherit 'fixed-pitch
+                    :height 0.85)
+
+(set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
+
+(set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
+fixed-pitch))
+
+(set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
+(set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
+
+(add-hook 'org-mode-hook 'variable-pitch-mode)
+
+(defun org-add-my-extra-markup ()
+  "Add highlight emphasis."
+  (add-to-list 'org-font-lock-extra-keywords
+               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
+                 (1 '(face highlight invisible nil)))))
+
+(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
 
 (use-package deft
   :bind
@@ -522,107 +636,6 @@
 (setq org-noter-auto-save-last-location t)
 
 (setq org-noter-highlight-selected-text t)
-
-(with-eval-after-load 'org
-  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
-  (add-hook 'org-mode-hook #'visual-line-mode))
-
-(setq org-hide-emphasis-markers t)
-  (setq org-hide-leading-stars t)
-  (setq org-startup-with-inline-images t)
-  ;; (setq org-image-actual-width '(450))
-  (setq org-pretty-entities t) ; What makes them pretty?
-  (setq org-use-sub-superscripts "{}")
-  (setq org-id-link-to-org-use-id t) ; What exactly does this do to the links?
-  (setq org-fold-catch-invisible-edits 'show) ; What exactly are invisible edits in org?
-(setq org-ellipsis "  ·")
-
-(use-package org-appear
-  :hook
-  (org-mode . org-appear-mode))
-
-(electric-indent-mode 0)
-
-(use-package org-modern
-  :config
-  (setq
-   org-auto-align-tags t
-   org-tags-column 0
-   org-fold-catch-invisible-edits 'show-and-error
-   org-special-ctrl-a/e t
-   org-insert-heading-respect-content t
-
-   ;; Don't style the following
-   org-modern-tag nil
-   org-modern-priority nil
-   org-modern-todo nil
-   org-modern-table nil
-
-   ;; Agenda styling
-   org-agenda-tags-column 0
-   org-agenda-block-separator ?─
-   org-agenda-time-grid
-   '((daily today require-timed)
-	 (800 1000 1200 1400 1600 1800 2000)
-	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
-   org-agenda-current-time-string
-   "⭠ now ─────────────────────────────────────────────────")
-
-  (global-org-modern-mode))
-
-(use-package org-superstar
-  :config
-  (setq org-superstar-leading-bullet " ")
-  (setq org-superstar-special-todo-items t) ;; Makes TODO header bullets into boxes
-  (setq org-superstar-todo-bullet-alist '(("TODO" . 9744)
-                                          ("PROG" . 9744)
-                                          ("DONE" . 9744))))
-
-(dolist (face '((org-level-1 . 1.5)
-                (org-level-2 . 1.4)
-                (org-level-3 . 1.3)
-                (org-level-4 . 1.1)
-                (org-level-5 . 1.1)
-                (org-level-6 . 1.1)
-                (org-level-7 . 1.1)
-                (org-level-8 . 1.1)))
-  (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
-
-(set-face-attribute 'org-document-title nil
-:font "Roboto Mono"
-:weight 'bold
-:height 1.8)
-
-(require 'org-indent)
-(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
-
-(set-face-attribute 'org-block nil
-                    :foreground nil
-                    :background "#ffdf00"
-                    :inherit 'fixed-pitch
-                    :height 0.85)
-
-(set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
-
-(set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
-
-(set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
-
-(set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
-fixed-pitch))
-
-(set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
-(set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
-
-(add-hook 'org-mode-hook 'variable-pitch-mode)
-
-(defun org-add-my-extra-markup ()
-  "Add highlight emphasis."
-  (add-to-list 'org-font-lock-extra-keywords
-               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
-                 (1 '(face highlight invisible nil)))))
-
-(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
 
 (use-package org-grapher
   :ensure (:type git :host github :repo "SenkiReign/org-grapher"))

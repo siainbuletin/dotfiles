@@ -1,0 +1,139 @@
+#+TITLE: Task management system mediated through org-mode
+
+* How it will be likened to Things 3
+
+- capture system :: through =org-capture=, I can actually define an inbox for where all the information comes in. This can later be sent to the relevant projects and be activated when I really need to be dealing with all of it.
+
+* TODO Customizing which TODOs I can actually use
+** Keyword setup for TODOs
+
+Setting up the keywords. These are taken from [[https://doc.norang.ca/org-mode.html][Organize your life in plain text]].
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq org-todo-keywords
+    (quote ((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
+            (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELLED(c@/!)"))))
+#+end_src
+
+I would prefer to have a framework in which I show tasks that I have already started.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
+#+end_src
+
+*But where exactly will you be able to see all of these new task statuses?*
+
+I currently can't have these special keywords be enabled, because it always brings up a special buffer which will ask me why I cancelled a task or why it's being defered. I need to actually see how to make use of this.
+
+** TODO TODO facess (how they show up in the buffer)
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (setq org-todo-keyword-faces
+      (quote (("TODO" :foreground "red" :weight bold)
+              ("NEXT" :foreground "blue" :weight bold)
+              ("DONE" :foreground "forest green" :weight bold)
+              ("WAITING" :foreground "orange" :weight bold)
+              ("HOLD" :foreground "magenta" :weight bold)
+              ("CANCELLED" :foreground "forest green" :weight bold)
+              ("MEETING" :foreground "forest green" :weight bold)
+              ("PHONE" :foreground "forest green" :weight bold))))
+
+  ;; I don't wan't the keywords in my exports by default
+  (setq-default org-export-with-todo-keywords nil)
+#+end_src
+
+* Setting up =org-agenda=
+
+Basic configuration and the files we pull information from
+
+** Configuring what gets added to =org-agenda=
+
+* =org-agenda= views
+
+This can also be considered kind of a cosmetic improvement.
+
+** TODO Daily agenda view
+
+This should show some deadlines that you absolutely have to deal with. As well as tasks that have been marked as being in progress.
+
+But this gets significantly more complicated when you have to deal with tasks that are still in "WAITING" status.
+
+** TODO Weekly agenda view
+
+What do you want out of this file?
+
+* Improving the functionality of =org-agenda=
+
+** TODO Calling =org-super-agenda=
+
+This is the =org-super-agenda= enhancement suite made for org-agenda and it's developed by Alphapa.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-super-agenda)
+#+end_src
+
+* Cosmetic improvements to =org-agenda=
+** Configuring icons for =org-agenda=
+
+This is taken from Colin McLear's config (the creator of Lambda Emacs).
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; https://florianwinkelbauer.com/posts/2020-07-13-org-agenda-icons/
+(defun cpm-agenda-icon-material (name)
+  "Returns an all-the-icons-material icon"
+  (list (all-the-icons-material name)))
+(defun cpm-agenda-icon-faicon (name)
+  "Returns an all-the-icons-faicon icon"
+  (list (all-the-icons-faicon name)))
+
+(setq org-agenda-category-icon-alist
+      `(("Birthday"    ,(cpm-agenda-icon-material "cake")            nil nil :ascent center)
+        ("Anniversary" ,(cpm-agenda-icon-material "favorite")        nil nil :ascent center)
+        ("Diary"       ,(cpm-agenda-icon-faicon   "book")            nil nil :ascent center)
+        ("Inbox"       ,(cpm-agenda-icon-material "inbox")           nil nil :ascent center)
+        ("Todo"        ,(cpm-agenda-icon-material "check_circle")    nil nil :ascent center)
+        ("Mail"        ,(cpm-agenda-icon-material "email")           nil nil :ascent center)
+        ("Reading"     ,(cpm-agenda-icon-material "library_books")   nil nil :ascent center)
+        ("Service"     ,(cpm-agenda-icon-faicon   "th-list")         nil nil :ascent center)
+        ("Teaching"    ,(cpm-agenda-icon-material "school")          nil nil :ascent center)
+        ("Writing"     ,(cpm-agenda-icon-faicon   "pencil-square-o") nil nil :ascent center)
+        ("Advising"    ,(cpm-agenda-icon-faicon   "users")           nil nil :ascent center)
+        ("Admin"       ,(cpm-agenda-icon-material "folder")          nil nil :ascent center)
+#+end_src
+
+* Dealing with projects that are already done
+** TODO Archiving tasks that are already done
+
+How can you still manage to find these tasks again when you'll need them?
+
+* Global task management
+
+Since I work a lot in writing projects that have to deal with a lot of open-ended questions, I find myself needing to just add a task to a paragraph, to signify that the information there is incomplete and needs to be greatly improved.
+
+One may argue that such tasks would be useless because you'd be cluttering up your agenda, but when your goal is to single in on particular subtrees (in this case defined as files, and not in the sense that org-mode uses the terminology), you can go there and see _especially_ all of the dependencies between your tasks (see [[#Dependencies between tasks]]. Everything can be formulated as a task after all, and fragmenting your workflow into such actionable chunks helps for the thinking process and being able to procrastinate a lot less.
+
+** TODO Recording tasks from inline
+
+I usually find myself wanting to deal with inline tasks, instead of cluttering up the org file with different headings (not everything is that big a deal to warrant an entire heading.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (require 'org-inlinetask)
+#+end_src
+
+Even if we declare tasks inline (even with something like checkboxes), there needs to be a way for org-agenda to detect the presence of these tasks without having to manually add the documents in order for them to be scanned
+
+* Integrating task views with the main dashboard
+** TODO Sending outstanding tasks to the Emacs Dashboard
+
+*Where should this dashboard show up? should it be on the splash page as you choose to log into Emacs?*
+
+This should tell you what you should be doing next up.
+
+** TODO Time tracking for the tasks you're working on
+
+*** TODO Selecting tasks that you're about to clock in on
+
+* Dependencies between tasks
+
+Taking care of the dependency relations between tasks is important for decing what you should be doing next, and what is potentially blocking your workflow in the moment.
