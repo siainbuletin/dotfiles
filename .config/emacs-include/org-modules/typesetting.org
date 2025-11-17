@@ -1,4 +1,5 @@
 #+TITLE: Typesetting settings for Emacs
+#+startup: overview
 
 LaTeX and Typst.
 
@@ -14,7 +15,7 @@ This is specifically concerning larger projects that have to be broken up in spe
 
 I currently don't know if I actually like this environment, but I have to enable it if I want to make use of the =sia-olivetti= function.
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package olivetti
       :ensure t
       :demand t
@@ -35,11 +36,14 @@ This can also refer to the points that you should be following through the pract
 
 ** TODO Structuring writing projects in multiple chapters with =binder=
 
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package binder)
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package binder
+    :ensure t)
 #+end_src
 
-How do you make it open up the proper project? It doesn't seem to want to open with the sidebar anymore.thes
+How do you make it open up the proper project? It doesn't seem to want to open with the sidebar anymore.
+
+This package isn't really maintained and doesn't have that many useful functions, so it should be removed.
 
 *** Customizing the binder sidebar for seeing the different files in there
 
@@ -48,47 +52,6 @@ Since =emacs-binder='s purpose is to emulate a Scrivener workflow,
 ** TODO Support a drafting workflow
 
 Iterative development for a text is also something that concerns project management, at its base.
-
-*** TODO Support adding comments that are a lot like Google Docs
-
-When you're editing a project, it's always useful to be able to annotate *over* the text so that you can see what you can do better in the next revisions. It might be an observation about the way I've written content, or maybe an observation that I need to add more information. In any case, it's a _lot_ easier to parse the information when you know that this is a layer that you can choose to turn off at any point you may need to. It's different from having your thoughts on a matter actually deeply _embedded_ into the text.
-
-For this reason, I've looked at =org-remark= to be able to emulate this functionality.
-
-This will be done with the =org-remark= package.
-
-It is recommended that =org-remark-global-tracking-mode= be enabled when Emacs initializes. You can set it in =after-init-hook=.
-
-=org-remark= is currently disabled because of an error with =org-remark-global-tracking= not being able to be pulled by =elpaca=. I can't figure out the reason why it doesn't work currently.
-
-#+begin_src emacs-lisp :tangle no
-  (use-package org-remark-global-tracking
-    :ensure t
-    :hook after-init
-    :config
-    ;; Selectively keep or comment out the following if you want to use
-    ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
-    (use-package org-remark-info :after info :config (org-remark-info-mode +1))
-    (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
-    (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
-#+end_src
-
-Now we're bootstrapping the real =org-remark= package.
-
-#+begin_src emacs-lisp :tangle no
-  (use-package org-remark
-    :bind (;; :bind keyword also implicitly defers org-remark itself.
-           ;; Keybindings before :map is set for global-map. Adjust the keybinds
-           ;; as you see fit.
-           ("C-c n m" . org-remark-mark)
-           ("C-c n l" . org-remark-mark-line)
-           :map org-remark-mode-map
-           ("C-c n o" . org-remark-open)
-           ("C-c n ]" . org-remark-view-next)
-           ("C-c n [" . org-remark-view-prev)
-           ("C-c n r" . org-remark-remove)
-           ("C-c n d" . org-remark-delete)))
-#+end_src
 
 *** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
 
@@ -103,13 +66,59 @@ The point while drafting a manuscript is to have quick and easy access to the PD
 *** TODO Exporting to multi-node HTML pages for easier navigation
 
 This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
+
 ** TODO Exporting documents to GNU Info mode for creating personal man pages
 
 Do you need to invoke the =WoMan= Emacs mode for this?
 
+** Exporting org-mode manuscripts to Typst for better typesetting
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package ox-typst
+  :after org)
+#+end_src
+
+This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:1]
 ** TODO Export org-mode manuscripts to Microsoft Word
 
 Is there any way to preserve the formatting?
+
+I might need to use =ox-pandoc= for this to work well. This version is good if you want to use the same formatting for the export all the time. There's also the option to pass options for pandoc compilation via the org header: https://github.com/emacsorphanage/ox-pandoc#passing-options-to-pandoc It could be easy to set up with YASnippet.[fn:2]
+
+You need to also set =pandoc= up to generate good looking DOCX files. For this, you need a template document. =pandoc= has to be set up properly with =pacman= in order to behave well. The best way to do a DOCX export with pandoc is to play by its rules. This means that you need to start from its own templates.
+
+To get a document formatted as this reference, you need to run this command in the shell:
+
+#+begin_src shell :eval never
+pandoc -o custom-reference.docx --print-default-data-file reference.docx
+#+end_src
+
+After this, you should open the ~.docx~ document in the word processor and edit the styles as needed.[fn:2]
+
+** Installing =ox-pandoc=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package ox-pandoc
+    :ensure t)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; default options for all output formats
+(setq org-pandoc-options '((standalone . t)))
+;; cancel above settings only for 'docx' format
+(setq org-pandoc-options-for-docx '((standalone . nil)))
+;; special settings for beamer-pdf and latex-pdf exporters
+(setq org-pandoc-options-for-beamer-pdf '((pdf-engine . "xelatex")))
+(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "pdflatex")))
+;; special extensions for markdown_github output
+(setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
+#+end_src
+
+** Enabling proper support for citations
+
+- https://arnesonium.com/2022/10/org-mode-to-docx-pipeline | An Org-mode to DOCX Pipeline | Erik L. Arneson — Writer and Software Developer
+- https://duckduckgo.com/?q=org+mode+to+docx&t=brave&ia=web | org mode to docx at DuckDuckGo
+- https://irreal.org/blog/?p=10911 | An Org-mode to DOCX Pipeline | Irreal
 
 ** TODO Reingesting Microsoft Word documents received from advisors
 
@@ -122,3 +131,8 @@ Would it be better to continue relying on =typst= for doing my documents, or wou
 =org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
 
 However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
+
+* Footnotes
+[fn:2] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline
+
+[fn:1] https://github.com/jmpunkt/ox-typst

@@ -3,7 +3,11 @@
 
 * Components necessary for making the system work
 
+My academic workflow is deeply entangled with my practice of writing complex notes that I should always have the possibility to fall back on if needed. This means that I need to have a robust backlinking system, like I managed to have it in Obsidian, and a really good completion framework. For this, see Quick switcher functionality for Emacs.
+
 My Zettelkasten system is highly personal and complex in the way that I have set it up to reflect my own thinking.
+
+These are the main idiosyncrasies that I want to stay true to as much as possible.
 
 - atomic files :: One note represent one singular idea and nothing more.
 
@@ -19,6 +23,10 @@ My Zettelkasten system is highly personal and complex in the way that I have set
 
 The bi-directional linking should also be supplemented by the rendering of a special backlink buffer either contained in the original note, or on the side. If it were within the original note, then it would take up less space on the screen, but it might introduce issues with the overall rendering of the content.
 
+Although =denote= is recommended a lot for atomic notes, I really don't like the fact that it imposes a strict structure for the naming. I want to define my own names and keep them as close to the titles, so I can reference them easily in other files. This is following the Obsidian scheme a lot, but I have found that it's the best way to organise my thoughts.
+
+For writing my personal thoughts, since I _don't want to lose anything_, I use a system that's very based in bidirectional linking. This also has to be easily discoverable through different panes, like emulating the backlink pane that's available at the bottom of a note from Obsidian.
+
 * Packages and paradigms that I explicitily _avoid_
 
 Since there are a lot of options but I'm not particularly happy with any one of them, I will put my criteria for things that I want to specifically _avoid_.
@@ -31,31 +39,137 @@ Perhaps this can be remedied in Emacs through using the org ids, but I don't lik
 
 - imposes naming-schemes :: =denote= does this for the purposes of easier identification. Since I have already formed a workflow which is based on my own lack of naming schemes (but that allows everything to be findable either through title search or full-text search), naming is a big aspect of my workflow for writing overall.
 
-* Configuring individual packages
+* Enabling =markdown-mode= for editing Obsidian files
 
-** =denote=
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  ;;; Define many keys in many key maps
-  (use-package denote
-    :ensure t
-    :bind
-    ( :map global-map
-      ("C-c n n" . denote)
-      ("C-c n r" . denote-rename-file)
-
-      :map text-mode-map
-      ("C-c n i" . denote-link) ; "insert" mnemonic
-      ("C-c n I" . denote-add-links)
-
-      :map dired-mode-map
-      ("C-c C-d C-i" . denote-link-dired-marked-notes)
-      ("C-c C-d C-r" . denote-dired-rename-marked-files)))
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package markdown-mode
+    :ensure t)
 #+end_src
 
-* Defining my own set of functions
+Enable the TOC for long markdown notes as well
 
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package markdown-toc
+    :ensure t
+    :after markdown-mode)
+#+end_src
+
+* Options for the workflow and the patchwork I have to do to make it work
+
+There's the option to either use =zetteldeft= in its own workflow, which allows custom file names but it's not that easy to operate with backlinks, or =denote=, which has an imposed file naming scheme. The title of the file would have to be dimmed in the configuration.
+
+It's pretty hard to change the naming in =denote=.
+
+But the advantage of =denote= is that it just kind of works properly out of the box.
+
+The two currently working packages that I have are
+- [[file:denote.org][denote]]: has better development than zetteldeft, is the package with the biggest community aside from =org-roam=
+- [[file:zetteldeft.org][zetteldeft]]: a lot closer to what I want out of a proper notetaking system.
+
+As retired systems, we have
+- [[file:howm.org][Howm]]
+- [[file:emacs-zk.org][=zk= package (which is different from =zetteldeft=)]]
+
+* TODO Searching through notes
+
+Consult Notes is a convenience package that builds on Consult. It provides access to Denote files and also lets you search through your notes.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package consult-notes
+    :ensure t
+    :after consult
+    :custom
+    (consult-notes-denote-display-keywords-indicator "_")
+    :bind
+    (("C-c w d f" . consult-notes)
+     ("C-c w d g" . consult-notes-search-in-all-notes))
+    :init
+    (consult-notes-denote-mode))
+#+end_src
+
+There's also the overall solution of using =grep= or =ripgrep=. The bigger specifics of this problem are articulated in [[denote:20251117T101810][Search structure over org-mode]].
+
+* Moving contents of files from one to another
+
+For more deliberation on how this should be done, see [[denote:20251115T122217][Extracting contents of an org file to another]].
+
+* Autosaving files if working with denote
+
+I got used to just having my notes autosave when editing a whole bunch of them with Obsidian. I don't want to lose progress and I also don't want to have to constantly hit =org-save-all-org-buffers=. However, I don't want to autosave changes regardless of the location, but specifically for notes in the =denote= directory (which is currently set as =~/Documents/notes=).
+
+For this, you can activate =real-auto-save-mode= in org buffers. (But you have to add a hook only for the directories you want to save the files in).
+
+Another thing that you can do is to trigger the autosave when you focus out of the Emacs window.
+
+Some helper threads for how to do this:
+- https://duckduckgo.com/?q=org+save+all+buffers+autosave&t=brave&ia=web | org save all buffers autosave at DuckDuckGo
+- https://github.com/ChillarAnand/real-auto-save | ChillarAnand/real-auto-save: Automatically save your all your buffers/files at regular intervals in Emacs!
+- https://doc.endlessparentheses.com/Fun/org-save-all-org-buffers.html | Emacs Online Documentation
+- https://emacs.stackexchange.com/questions/74516/how-can-i-save-all-buffers-on-auto-save-except-the-ones-have-specifc-mode | hooks - How can I save all buffers on auto-save except the ones have specifc mode? - Emacs Stack Exchange
+- https://www.reddit.com/r/emacs/comments/9e5h4f/is_there_a_way_to_autosave_org_note_buffers/ | Is there a way to autosave Org Note buffers? : r/emacs
+
+* Facilitating the migration from Obsidian
+
+The only way to make the migration from Obsidian easier is to bring the entire Obsidian vault with its backlinks into Emacs through the =obsidian-el= package, and try to navigate it from there as I start moving files to org-mode instead. I can also just continue writing in my Markdown notes, provided I don't forget to update them or actually delete them once I've moved them to the org-mode equivalent.
+
+Converting links in Markdown files to =denote= links actually works, but I would still have to do a full conversion of Markdown to =org-mode= to make it work. While I could theoretically keep on using Markdown, as the links to the denote vault still work, I fear that I would be losing all of the functionality from org-mode itself. Besides, while writing my academic notes, I want to have the more advanced functionality that a package like [[denote:20251117T173553][org-ref]] brings (or even something like [[denote:20251117T213726][org-cite]], which is just built into Emacs.
+
+This would mean finding a way to index the notes from Obsidian, which would have to take care of all the =[[wikilinks]]= that I have peppered in throughout. I want to avoid having to use the =obsidian-el= package, as the indexing on that is way too slow.
+
+** TODO Installing =obsidian-el=
+
+What exactly does =global-obsidian-mode= do?
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package obsidian
+    :config
+    (global-obsidian-mode t)
+    (obsidian-backlinks-mode t)
+
+    :custom
+    (obsidian-directory "~/Documents/vault")
+    ;; Default location for new notes from `obsidian-capture'
+    (obsidian-inbox-directory "Inbox")
+    ;; Useful if you're going to be using wiki links
+    ;; is this setting taken from markdown-mode?
+    (markdown-enable-wiki-links t)
+
+    :bind (:map obsidian-mode-map
+                ;; Create note
+                ("C-c C-n" . obsidian-capture)
+                ;; If you prefer you can use `obsidian-insert-wikilink'
+                ("C-c C-l" . obsidian-insert-link)
+                ;; Open file pointed to by link at point
+                ("C-c C-o" . obsidian-follow-link-at-point)
+                ;; Open a note note from vault
+                ("C-c C-p" . obsidian-jump)
+                ;; Follow a backlink for the current file
+                ("C-c C-b" . obsidian-backlink-jump)
+                )
+    )
+#+end_src
+
+Adding a persistent cache across sessions of Emacs
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package obsidian-pcache
+    :ensure (obsidian-pcache :host github :repo "knu/obsidian-pcache.el"))
+#+end_src
+
+** Specific text editing functions to emulate
+
+While using Obsidian, I used the "Note Composer" plugin quite a lot. This allowed me to split files by sending their contents across (see [[denote:20251115T122217][Extracting contents of an org file to another]] for wanting to emulate this in Emacs) and to merge them together when their contents were similar enough.
+
+I would need this merging feature to actually be natively supported within =denote=. I don't know if I could just use [[denote:20251117T173722][org-refile]] like you usually can with something like [[denote:20251117T214125][org-capture]]
+
+** Automatic saving for buffers
+
+This is probably actually configured in [[file:org-config.org][org-mode literate configuration]]
+
+This is really useful as Obsidian helped be quickly jump between different files without worrying about saving them properly. Emacs doesn't do this by default because you might also be saving more sensitive files and it's undesirable to basically "commit" all of those changes immediately.
 * Bi-directional linking support
+
+There's support for seeing backlinks in Emacs through the [[denote:20251115T114845][denote]] package. It has the function =denote-backlinks=, which creates a buffer which actually shows all of the backlinks in context. This is really useful.
 
 This is already a pretty spotty issue in Emacs, as packages used for Zettelkasten usually don't bother to set up this particular feature properly. But the smart bi-directional linking is what really makes Obsidian a tool for uninterrupted thought, and nothing can replace it in this way.
 
@@ -74,7 +188,8 @@ A particular incarnation of this system would _precisely be the buffer system th
 This could be done by configuring =org-sidebar=, or making buffers themselves more actionable. *Perhaps this could also be integrated with =embark= for more functionality
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package org-sidebar)
+    (use-package org-sidebar
+      :ensure t)
 #+end_src
 
 * TODO Creating an object system just from org-mode files
@@ -86,3 +201,69 @@ This is explained further in Obsidian, in the _Assigning classes to different do
 ** Assigning the proper classes to org-mode files
 
 Maybe there should be a prompt in the file creation dialogue for whatever note-taking module I'm currently making.
+
+** Changing the display of an org link depending on the type of link it is
+
+Currently, you can change the coloring at least based on the type of org link created. For example, you can differentiate between a generic =file:= link that you may use in =org-mode= and a =denote:= link, which specifically supports the structure of denote.
+
+For example, you can make the link type in =org-ref= (for displaying a citation) to actually display differently.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun org-ref-make-org-link-cite-key-visible (&rest _)
+  "Make the org-ref cite link visible in descriptive links."
+
+  (save-match-data
+    (let ((s (match-string 1))
+      (beg (match-beginning 0))
+      (end (match-end 0))
+      (cite-re (format "^\\(%s:\\)"
+               (regexp-opt (-sort
+                    (lambda (a b)
+                      (> (length a) (length b)))
+                    org-ref-cite-types))))
+      cite-type)
+
+      (when (and s (string-match cite-re s))
+    (setq cite-type (match-string 1 s))
+    (remove-text-properties beg end
+                '(invisible))
+    (add-text-properties
+     beg end
+     `(face (:foreground ,org-ref-cite-color)))))))
+
+(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
+#+end_src
+
+This solution is written directly by John Kitchin.[fn:2]
+
+* TODO Dynamic views for the data on the computer
+
+It's like saving a buffer from the result of ripgrep. It kind of functions like a computational notebook. I want to make the type of queries that I had in Obsidian through Dataview as dynamic and embeddable as possible (this could maybe be done through =org-babel= as well).
+
+Although I want to install =orger=, the problem with it is that it's a Python tool for which I have to maintain environment variables.
+
+I also need to configure where the data comes from.
+
+It might be easier to just work with a search framework at first, if I don't even have databases from which to pull information.
+
+See [[#Search and navigation packages]] first and foremost.
+
+There's an option to get a [[denote:20251117T213411][Queries injected into Text Editor buffers]] through the =denote= package if I use the denote links as queries functionality. There's also the option to have [[denote:20251115T120100][the dynamic blocks from org-mode]], which are also natively supported by [[denote:20251115T114845][denote]], which would show a dynamic view of the relevant data (like an author's works).
+
+** Configuring =org-ql=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package org-ql
+        :ensure t)
+#+end_src
+
+** TODO Configuring =org-supertag=
+
+=org-supertag= still is a pretty young package. It's also unclear how it will be useful for my system.
+
+* Defining my own set of functions for better operation on the files
+
+* Footnotes
+[fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display
+
+[fn:1] Emacs Writing Studio literate configuration

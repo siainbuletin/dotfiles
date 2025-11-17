@@ -101,6 +101,11 @@
 
 (use-package counsel)
 
+(defun jcs-execute-all-buffers ()
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil))
+    (org-babel-execute-buffer)))
+
 (elpaca-wait)
 
 (when (display-graphic-p)
@@ -430,9 +435,9 @@
   (set-face-attribute (car face) nil :font "Gill Sans" :weight 'bold :height (cdr face)))
 
 (set-face-attribute 'org-document-title nil
-:font "Roboto Mono"
+:font "Recursive"
 :weight 'bold
-:height 1.8)
+:height 1.5)
 
 (require 'org-indent)
 (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
@@ -469,54 +474,6 @@ fixed-pitch))
   :bind
   (("C-c d" . deft)))
 
-(setq deft-directory
-      (file-truename "~/Documents/notes"))
-(setq deft-extensions
-      '("md" "org" "txt"))
-(setq deft-default-extension "org")
-(setq deft-recursive t)
-
-(defun efls/deft-open-other ()
- (interactive)
- (deft-open-file-other-window t))
-
-(defun efls/deft-open-preview ()
- (interactive)
- (deft-open-file-other-window))
-
-(use-package zetteldeft
-  :after deft
-  :config
-  (defun sodaware/dteft-open-preview ()
-    (interactive)
-    (deft-open-file-other-window))
-  (zetteldeft-set-classic-keybindings)
-
-(font-lock-add-keywords
- 'org-mode
- `((,zetteldeft-id-regex  . fontt-lock-warning-face)
-   (,zetteldeft-tag-regex . font-lock-warning-face))))
-
-;; Add custom `zdlink` to handle zettledeft links.
-(eval-after-load 'org
-  (lambda ()
-    (require 'zetteldeft)
-    (org-link-set-parameters
-     "zdlink"
-     :follow
-     (lambda (str) (zetteldeft--search-filename
-		    (zetteldeft--lift-id str)))
-     :complete  #'sodaware/zd-complete-link
-     :help-echo "Searches provided ID in Zetteldeft")))
-
-(defun sodaware/zd-complete-link ()
-  "Link completion for `zdlink' type links."
-  (let* ((file (completing-read "File to link to: "
-				(deft-find-all-files-no-prefix)))
-	 (link (zetteldeft--lift-id file)))
-    (unless link (user-error "No file selected"))
-    (concat "zdlink:" link)))
-
 ;; Default recent to sorting by mtime
 (advice-add 'howm-list-recent :after #'howm-view-sort-by-mtime)
 ;; Default all to sorting by creation, newest first
@@ -537,6 +494,13 @@ fixed-pitch))
     :map dired-mode-map
     ("C-c C-d C-i" . denote-link-dired-marked-notes)
     ("C-c C-d C-r" . denote-dired-rename-marked-files)))
+
+(setq denote-infer-keywords t)
+
+(setq denote-known-keywords
+     (list "academic-journal" "book" "book-section" "concept" "course" "educational-program" "journal-article" "music"))
+
+(setq denote-generate-identifier-automatically nil)
 
 (use-package denote-journal)
 
@@ -897,22 +861,21 @@ fixed-pitch))
    (plist-put org-format-latex-options :foreground 'auto)
    (plist-put org-format-latex-options :background 'auto)))
 
-;; Optional: ag is nice alternative to using grep with Projectile
-(use-package ag
-  :ensure t)
-
 (use-package projectile
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/writing-prokects/"
-          "~/work/"
+        '("~/writing/"
+          "~/.config/"
           "~/playground"))
   :config
   ;; These are the configurations to use on Linux for projectile
   (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
   (global-set-key (kbd "C-c p") 'projectile-command-map)
   (projectile-mode +1))
+
+(use-package ag
+  :ensure t)
 
 (use-package elpher)
 

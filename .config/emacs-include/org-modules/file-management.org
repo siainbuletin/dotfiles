@@ -1,23 +1,27 @@
-#+TITLE: Settings for Dired
+#+title: Settings for Dired
+#+startup: overview
 
 It would be nice if the settings also found a better alternative for a file picker as opposed to the arcane interface of =dired=.
 
+These settings are partly taken from the _Emacs Writing Studio_ config.
+
 #+begin_src emacs-lisp :tangle no :eval never
-    (use-package dired
-      :ensure nil
-      :commands
-      (dired dired-jump)
-      :bind (("C-x C-j" . dired-jump))
-      :custom
-      (dired-listing-switches "-agho --group-directories-first")
-      (dired-dwim-target t)
-      (delete-by-moving-to-trash t)
-      :config
-      (evil-collection-define-key 'normal 'dired-mode-map
-        "h" 'dired-single-up-directory
-        "l" 'dired-single-buffer)
-      (put 'dired-find-alternate-file 'disabled nil)
-  )
+      (use-package dired
+        :ensure nil ; this is because dired is already included with the installation of Emacs
+        :commands
+        (dired dired-jump)
+        :bind
+        (("C-x C-j" . dired-jump))
+        :custom
+        (dired-listing-switches "-agho --group-directories-first --time-style=long-iso")
+        (dired-dwim-target t) ; do what I mean
+        (delete-by-moving-to-trash t) ; instead of actually running rm
+        :config
+        (evil-collection-define-key 'normal 'dired-mode-map
+          "h" 'dired-single-up-directory
+          "l" 'dired-single-buffer)
+        (put 'dired-find-alternate-file 'disabled nil)
+    )
 #+end_src
 
 * Cosmetic modifications to dired
@@ -30,3 +34,26 @@ It would be nice if the settings also found a better alternative for a file pick
 * Add git status gutter to the dired buffer
 
 ** TODO Enable cut/paste behaviour with files from dired
+
+* Recent files and bookmarks
+
+The recent files minor mode (recentf-mode) provides a transient list of the files you most recently opened. This minor mode saves the most recent opened files when you exit Emacs to a file in your configuration folder. However, it might be more useful to save the recent files regularly to ensure it is saved. The =run-at-time= function runs a function at a regular interval, in this case every five minutes. The =recentf-edit-list= function opens the file with your recent acquisitions and lets you delete selected files.[fn:1]
+
+By default, the recent files mode stores the last twenty opened files, which you can change by modifying the recentf-max-saved-items variable.
+
+  #+begin_src emacs-lisp :tangle "init.el" :eval never
+    ;;; Recent files
+      (use-package recentf
+        :ensure nil
+        :config
+        (recentf-mode t)
+        (run-at-time nil (* 5 60) 'recentf-save-list)
+        :custom
+        (recentf-max-saved-items 50))
+  #+end_src
+
+If you want a more permanent list of items to store, then you should look at the [[file:bookmark-management.org][bookmarks]].
+
+* Footnotes
+
+[fn:1] https://lucidmanager.org/productivity/manage-files-with-emacs/

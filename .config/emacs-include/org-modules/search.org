@@ -1,4 +1,5 @@
 #+TITLE: Emacs completion packages (and searching structure in the files)
+#+startup: overview
 
 The completion packages and the search framework is lumped together in this case, as it does the job of finding your way around a really big code base (and a large number of files that you're dealing with).
 
@@ -145,8 +146,30 @@ Enabling =corg= in the current org buffer automatically, you need to add a hook:
 * TODO Acting upon buffers with =embark=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package embark)
-  (use-package embark-consult)
+  (use-package embark
+    :ensure t
+    :bind
+    (("C-." . embark-act)
+     ("M-." . embark-dwim)
+     ("C-h B" . embark-bindings))
+
+    :init
+    (setq prefix-help-command #'embark-prefix-help-command))
+#+end_src
+
+** The =consult= interface
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package embark-consult
+    :ensure t)
+#+end_src
+
+** Integrating with =ace-window=
+
+See [[file:wm.org][Window management in Emacs]]. This is taken from the livestream on Embark done by System Crafters.[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+
 #+end_src
 
 * TODO Other completion packages that I still don't know the functionality of
@@ -170,5 +193,6 @@ Enabling =corg= in the current org buffer automatically, you need to add a hook:
 
 
 * Footnotes
+[fn:2] https://www.youtube.com/watch?v=qk2Is_sC8Lk
 
 [fn:1] https://github.com/minad/marginalia

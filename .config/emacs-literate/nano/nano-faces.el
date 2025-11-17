@@ -22,7 +22,7 @@ if the family does not have sufficient bold/light etc faces."
   :group 'nano
   :type 'string)
 
-(defcustom nano-font-family-proportional "Adobe Caslon Pro"
+(defcustom nano-font-family-proportional "iA Writer Quattro"
   "Font to use for variable pitch faces.
 Setting this allows nano to display variable pitch faces when,
 for instance, 'variable-pitch-mode' or 'mixed-pitch-mode' is active in a buffer.

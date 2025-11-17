@@ -1,10 +1,86 @@
 #+TITLE: Version control modules for Emacs
 
+* Bootstrapping the packages
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package cond-let)
 
   (use-package transient)
 
   (use-package magit
+    :ensure t
     :after transient)
 #+end_src
+
+* Interfacing with github and gitlab
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package magit-forge
+      :ensure t
+      :after magit)
+#+end_src
+
+* Creating and amending commits
+
+* =magit-status= for seeing which files I have to deal with
+
+* Making magit work with =yadm=
+
+Since =yadm= works as a bare git repository, it won't be possible to actually manage it directly with Magit. Instead, it can be accessed with =tramp=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package tramp
+  :config
+  (add-to-list 'tramp-methods
+               '("yadm"
+                 (tramp-login-program "yadm")
+                 (tramp-login-args (("enter")))
+                 (tramp-login-env (("SHELL") ("/bin/sh")))
+                 (tramp-remote-shell "/bin/sh")
+                 (tramp-remote-shell-args ("-c")))))
+
+(defun yadm ()
+  (interactive)
+  (magit-status "/yadm::"))
+#+end_src
+
+https://duckduckgo.com/?q=dotfiles+with+emacs+magit&t=brave&ia=web | dotfiles with emacs magit at DuckDuckGo
+https://emacs.stackexchange.com/questions/30602/use-nonstandard-git-directory-with-magit | use nonstandard `.git` directory with magit - Emacs Stack Exchange
+
+I don't really know how I'm supposed to be using =tramp= to access a =magit= repository and it seems that I need to go through an SSH connection for it. It's a pretty hacky fix.
+- https://duckduckgo.com/?q=tramp+magit+emacs&t=brave&ia=web | tramp magit emacs at DuckDuckGo
+- https://github.com/magit/magit/issues/5109 | Non-existing tramp function advised in magit-process.el · Issue #5109 · magit/magit
+- https://discourse.doomemacs.org/t/magit-wip-mode-not-working-over-tramp/4019 | Magit-wip mode not working over TRAMP - User Support / Upstream - Doom Emacs Discourse
+- https://stackoverflow.com/questions/56105716/magit-over-tramp-re-use-ssh-connection | emacs - magit over tramp: re-use ssh connection - Stack Overflow
+
+One way to fix this would be through migrating to using dotfiles with GNU Stow, which would be complicated to set up again. In any case, it would be better than =chezmoi=, which didn't let me change the files from anywhere else except the actual repository in chezmoi. This made editing too difficult. I should be able to call my files from anywhere around the system, just like you can with normal files that you may be editing.
+
+There's also the option to find solutions for lazygit on the terminal with a bare git repository. I've seen reports that it doesn't work well with bare repositories.
+- https://duckduckgo.com/?q=yadm+with+lazygit&t=brave&ia=web | yadm with lazygit at DuckDuckGo
+- https://www.reddit.com/r/dotfiles/comments/ubgacd/how_to_use_lazy_git_with_yadm/ | how to use lazy git with yadm? : r/dotfiles
+- https://github.com/LazyVim/LazyVim/discussions/917 | lazygit with yadm · LazyVim/LazyVim · Discussion #917
+- https://duckduckgo.com/?q=lazygit+with+bare+git+repository+dotfiles&t=brave&ia=web | lazygit with bare git repository dotfiles at DuckDuckGo
+- https://git-how.com/lazygit/misc/worktrees | worktrees
+- https://github.com/jesseduffield/lazygit/issues/4330 | Allow opening a bare repo without any worktrees defined. · Issue #4330 · jesseduffield/lazygit
+- https://github.com/jesseduffield/lazygit/discussions/1201 | Is there a way to interact with bare git repos, say for a dotfiles repo? · jesseduffield/lazygit · Discussion #1201
+
+I see that for lazygit, it has something to do with the way that the worktree is defined which might upset a classic git client like =magit=.
+
+Here's some resources to look into:
+- https://philjackson.github.io/yadm/emacs/magit/2021/07/25/using-yadm-via-magit/ | Using yadm via magit | Snippets and other bits
+- https://duckduckgo.com/?q=bare+git+repository+%22magit%22&t=brave&ia=web | bare git repository "magit" at DuckDuckGo
+- https://www.mslinn.com/git/150-bare-git.html | Bare Git Repositories
+- https://github.com/magit/magit/issues/5100 | Magit should always specify --git-dir or GIT_DIR when cd-ing to a gitdir to run some Git subcommand. · Issue #5100 · magit/magit
+
+https://www.reddit.com/r/emacs/comments/gjukb3/deleted_by_user/ | [deleted by user] : r/emacs
+
+It might be worth reading more into how to manage bare git repositories.
+
+https://www.reddit.com/r/emacs/comments/1fjudmy/eglot_slow_when_editing_dotfile_managed_by_yadm/ | eglot slow when editing dotfile managed by `yadm` in external bare repo : r/emacs
+
+* Managing dotfiles with GNU Stow
+
+
+https://duckduckgo.com/?q=gnu+stow+%22magit%22&t=brave&ia=web | gnu stow "magit" at DuckDuckGo
+https://www.jameslingford.com/blog/stow-dotfiles/ | Saving dotfiles with GNU Stow and Git | James Lingford
+https://dev.to/luxcih/dotfiles-managing-with-gnu-stow-and-git-5100 | Organize your Dotfiles - with GNU Stow and Git - DEV Community
+https://blog.pilosus.org/posts/2023/09/11/gnu-stow-repo-with-git-submodules/ | GNU Stow repo with git submodules

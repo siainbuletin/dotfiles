@@ -128,7 +128,7 @@ One of the most common errors that you can have if you're writing your =init.el=
 
 You can also enable =show-paren-mode=, which will help
 
-* Structure of the Emacs config
+* Structure of the Emacs onfig
 
 - =early-init.el= :: Optimisations for starting up Emacs
 
@@ -758,6 +758,14 @@ Mixed pitch (variable pitch) for org buffers means that written prose is display
 
 #+begin_src emacs-lisp :tangle "init.el"
   (use-package counsel)
+#+end_src
+
+** Make babel work faster (with a modular configuration)
+#+begin_src emacs-lisp :tangle "init.el"
+(defun jcs-execute-all-buffers ()
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil))
+    (org-babel-execute-buffer)))
 #+end_src
 
 * DONE Good helper function for elpaca
@@ -2009,7 +2017,7 @@ Many people sell the folding headings from org-mode as terrific for organisation
 
 *** TODO de ce nu merge org-superstar? it looks the same
 
-** TODO Configuring some frawme dividers
+** TODO Configuring some frame dividers
 
 *What exactly was this for?*
 
@@ -2047,9 +2055,9 @@ You can resize the headings based on the level.
 
 #+begin_src emacs-lisp :tangle "init.el"
 (set-face-attribute 'org-document-title nil
-:font "Roboto Mono"
+:font "Recursive"
 :weight 'bold
-:height 1.8)
+:height 1.5)
 #+end_src
 
 ** Making sure fixed pitched is turned on for some modes
@@ -2141,7 +2149,7 @@ Theoretically, =deft= should be able to work with Markdown and org-mode at the s
 
 Set deft path to full path so that zetteldeft works.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
             (setq deft-directory
                   (file-truename "~/Documents/notes"))
             (setq deft-extensions
@@ -2154,7 +2162,7 @@ Set deft path to full path so that zetteldeft works.
 
 A small function to open a file in the other window and shifting focus to it. That final part is what the t argument does.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
 (defun efls/deft-open-other ()
  (interactive)
  (deft-open-file-other-window t))
@@ -2162,7 +2170,7 @@ A small function to open a file in the other window and shifting focus to it. Th
 
 Let’s add another function, to simply preview in the other window, i.e. not switch focus to it.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
 (defun efls/deft-open-preview ()
  (interactive)
  (deft-open-file-other-window))
@@ -2172,7 +2180,7 @@ Let’s add another function, to simply preview in the other window, i.e. not sw
 
 =deft= is a dependency on =zetteldeft=, so we have installed that first. =zetteldeft= adds support for linking syntax on top of =deft=
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
   (use-package zetteldeft
     :after deft
     :config
@@ -2195,7 +2203,7 @@ This is one of my favourite changes - it adds a new org-mode protocol, zdlink, w
 
 This isn't very useful if you're using markdown, but for pure org it makes linking and navigating much easier.
 
-#+begin_src emacs-lisp :tangle "init.el"
+#+begin_src emacs-lisp :tangle no
 ;; Add custom `zdlink` to handle zettledeft links.
 (eval-after-load 'org
   (lambda ()
@@ -2538,6 +2546,25 @@ This block is taken from Prot's video on =use-package=.
       ("C-c C-d C-i" . denote-link-dired-marked-notes)
       ("C-c C-d C-r" . denote-dired-rename-marked-files)))
 
+#+end_src
+
+*** Configuring the keywords in denote
+
+This will also make it possible that you get keywords from files on the fly.
+
+Can these keywords be configured to basically create the object class system that I've been waiting for?
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq denote-infer-keywords t)
+
+  (setq denote-known-keywords
+       (list "academic-journal" "book" "book-section" "concept" "course" "educational-program" "journal-article" "music"))
+#+end_src
+
+*** Inhibit the creation of identifiers in denote
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq denote-generate-identifier-automatically nil)
 #+end_src
 
 *** =denote= extension packages
@@ -3732,10 +3759,32 @@ Can't this just be kind of resolved through =org-babel=?
 
 * Project management
 
+This is mostly for working with multi-file code projects. But it should be extended to writing project as well when that becomes relevant.
+
 ** TODO Configuring =projectile=
 
+#+begin_src emacs-lisp "init.el"
+  (use-package rg)
+#+end_src
+
+=ag= is nice alternative to using grep with Projectile.
+
 #+begin_src emacs-lisp :tangle "init.el"
-  ;; Optional: ag is nice alternative to using grep with Projectile
+  (use-package projectile
+    :ensure t
+    :init
+    (setq projectile-project-search-path
+          '("~/writing/"
+            "~/.config/"
+            "~/playground"))
+    :config
+    ;; These are the configurations to use on Linux for projectile
+    (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
+    (global-set-key (kbd "C-c p") 'projectile-command-map)
+    (projectile-mode +1))
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el"
   (use-package ag
     :ensure t)
 #+end_src
@@ -3753,20 +3802,7 @@ This block for vertico isn't actually necessary as I have already instantiated i
            'vertico-sort-history-alpha))
 #+end_src
 
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package projectile
-    :ensure t
-    :init
-    (setq projectile-project-search-path
-          '("~/writing-prokects/"
-            "~/work/"
-            "~/playground"))
-    :config
-    ;; These are the configurations to use on Linux for projectile
-    (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
-    (global-set-key (kbd "C-c p") 'projectile-command-map)
-    (projectile-mode +1))
-#+end_src
+
 
 * TODO Browsing the internet in Emacs
 ** TODO Configuration for =eww=

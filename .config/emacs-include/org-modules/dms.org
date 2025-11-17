@@ -1,8 +1,25 @@
-#+TITLE: Local document management system interfaced from Emacs
+#+title: Local document management system interfaced from Emacs
+#+startup: oveview
 
 * How would this work?
 
 In order to get this done, I have to get really good at the file system interaction with Emacs. Also, it might be good to add functions for =org-refile= to actually hook into =org-capture= so the PDFs that I'm using don't end up getting lost.
+
+* TODO Choosing where files get attached
+
+Ideally, all of the files live in a flat directory, and they're picked out based on the metadata. It would be nice if I had bibliographic records made in org specifically for all of the attached files, but I need to see how to configure =org-attach= to work for this.
+
+* TODO Configuring links across documents on the entire system
+
+My goal in using Emacs is trying to get a more direct access to my entire file system. This means that links shouldn't just live within the one silo I have assigned to my Zettelkasten, but there should be an option to easily link across to my =org-agenda= as well, or to any coding process, while still keeping a degree of separation between my separate types of documents.
+
+At the same time, especially when I want to write, I'm interested in following along a series of questions that I may have about the content that I'm tackling. After all, that makes up about most of the tasks that I usually have, because they're tied to understanding and deep research. For this, I need a deep interconnection with my task management workplace.
+
+This can also be enhanced if I enable links to my magit commits, for the projects that I'm actually working on moving along through different commits. This is the version control part that's more complicated.
+
+* TODO Porting the binary links to files from BibDesk
+
+It's obviously not going to work to effectively _port_ the file links that I had created through BibDesk, so they would somehow have to be matched based on the file name, which corresponds to the citekey. Otherwise, trying to reassociate all of the files will end up being a great pain in the ass.
 
 * TODO Easy file picking for the PDFs
 
@@ -20,7 +37,7 @@ The problem with the =org-ref= solution is that a lot of the PDFs I'm using don'
 
 You can assign arbitrary PDF files to any BibTeX entry in =org-ref=. Just go to =C-c ]=, search your file and choose =Add PDF to library= helm action. The file will be assigned to your bibtex entry (no need to enter DOI or creaty new bibtex entry) and can be opened later from =C-c ]= interface.[fn:1]
 
-* TODO Enabling full-text search over non-plain text documents
+* PROG Enabling full-text search over non-plain text documents
 
 I already have a search framework set in place for Emacs in general, but I need to have something workable for looking across my PDF as well. Ideally, all of this information would show up in a side-buffer (perhaps could be configured with =org-sidebar=), where I could see my options for _starting to read something_ and using it in my thinking.
 

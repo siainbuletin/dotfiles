@@ -26,38 +26,145 @@ This has to be tested.
     (balanced-windows-mode))
 #+end_src
 
-** TODO Highlighting the active window with =dimmer=
+* Showing a divider between windows
 
-To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:16]
+This is taken from Howardism config. "The following adds frame borders and window dividers to give space between window buffers." [fn:1]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package dimmer
-  :custom
-  (dimmer-adjustment-mode :foreground)
+(modify-all-frames-parameters
+ '((right-divider-width . 2)
+   (internal-border-width . 10)))
 
-  :config
-  (dimmer-configure-which-key)    ; Do not dim these special windows
-  (dimmer-configure-hydra)
-  (dimmer-configure-magit)
+(dolist (face '(window-divider
+                window-divider-first-pixel
+                window-divider-last-pixel))
+  (face-spec-reset-face face)
+  (set-face-foreground face (face-attribute 'default :background)))
 
-  (dimmer-mode t))
+(set-face-background 'fringe (face-attribute 'default :background))
 #+end_src
 
-As an interesting alternative, check out the =selected-window-accent= project.
+* What happens when you want to open a new file?
+
+When clicking on links like the ~denote:~ type, I want to be able to simply open in place, instead of spawning another window there.
+
+The behaviour for opening files is set up with =org-link-frame-setup=.[fn:2] You can set different behaviour depending on the link type that you're following. This is defined here:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-link-frame-setup
+     '((denote . find-file)
+       (vm . vm-visit-folder-other-frame)
+       (vm-imap . vm-visit-imap-folder-other-frame)
+       (gnus . org-gnus-no-new-news)
+       (file . find-file)
+       (wl . wl-other-frame)))
+#+end_src
+
+helpful threads:
+- https://duckduckgo.com/?q=emacs+org+mode+don%27t+create+new+window+by+following+link&t=brave&ia=web | emacs org mode don't create new window by following link at DuckDuckGo
+- https://duckduckgo.com/?q=emacs+org+mode+follow+link+in+same+buffer&t=brave&ia=web | emacs org mode follow link in same buffer at DuckDuckGo
+- https://emacs.stackexchange.com/questions/62720/open-org-link-in-the-same-window | org mode - Open org link in the same window - Emacs Stack Exchange
+- https://stackoverflow.com/questions/17590784/how-to-let-org-mode-open-a-link-like-file-file-org-in-current-window-inste | emacs - How to let Org-mode open a link like [[file://file.org]] in current window instead of default in other window? - Stack Overflow
+- https://github.com/org-roam/org-roam/issues/1340 | respect org-link-frame-setup when opening links · Issue #1340 · org-roam/org-roam
+- https://www.reddit.com/r/orgmode/comments/em7k45/can_i_make_orgwiki_links_open_in_another_frame/ | Can I make org-wiki links open in another frame? : r/orgmode
 
 * TODO Buffer management
 
 The built-in buffer management option mostly just provides a list of buffers that I could switch to
 
+** TODO Configuring =ibuffer=
+
+This controls the buffer list. It provides more information about the buffers. =ibuffer= can also be used for buffer grouping.
+
+*** Basic configuration
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package ibuffer
+      :ensure nil
+      :config
+      (setq ibuffer-expert t)
+      (setq ibuffer-display-summary nil)
+      (setq ibuffer-use-other-window nil)
+      (setq ibuffer-show-empty-filter-groups nil)
+      (setq ibuffer-default-sorting-mode 'filename/process)
+      (setq ibuffer-title-face 'font-lock-doc-face)
+      (setq ibuffer-use-header-line t)
+      (setq ibuffer-default-shrink-to-minimum-size nil)
+      (setq ibuffer-formats
+            '((mark modified read-only locked " "
+                    (name 30 30 :left :elide)
+                    " "
+                    (size 9 -1 :right)
+                    " "
+                    (mode 16 16 :left :elide)
+                    " " filename-and-process)
+              (mark " "
+                    (name 16 -1)
+                    " " filename))))
+#+end_src
+
+*** Defining the groups of buffers
+
+This seems to be throwing errors when loading the configuration.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq ibuffer-saved-filter-groups
+        '(("Main"
+           ("Directories" (mode . dired-mode))
+           ("Scripts" (or
+                       (mode . shell-script-mode)
+                       (mode . shell-mode)
+                       (mode . sh-mode)
+                       (mode . lua-mode)
+                       (mode . bat-mode)))
+           ("Markup" (or
+                      (mode . markdown-mode)
+                      (mode . adoc-mode)))
+           ("Org" (mode . org-mode))
+           ("Emacs Internals" (or
+                     (mode . emacs-lisp-mode)
+                     (name . "^\\*Help\\*$")
+                     (name . "^\\*Custom.*")
+                     (name . "^\\*Org Agenda\\*$")
+                     (name . "^\\*info\\*$")
+                     (name . "^\\*scratch\\*$")
+                     (name . "^\\*Backtrace\\*$")
+                     (name . "^\\*Messages\\*$")))))
+           )
+#+end_src
+
+*** Making the buffer list better to look at
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package all-the-icons-ibuffer :ensure t
+  :hook (ibuffer-mode . all-the-icons-ibuffer-mode))
+#+end_src
+
+*** Binding for quick access
+
+I need to change this to something that isn't F5 so I don't override reloading my configuration.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(global-set-key [(f5)]  #'ibuffer)
+#+end_src
+
 ** TODO Enabling =perspective-el=
 
-This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=
+This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=. The package is mostly concerned with the workspace concept.
+
+Works pretty well with EXWM.[fn:3]
+
+Perspectives are also attached to different frames. If you have multiple frames, each of them will have their own set of buffers. So it would be a lot better if it could be integrated with a tiling window manager (see [[id:5cfcd933-68fe-4f6e-9836-8a4fa5c6d064][Integrating Emacs with a tiling window manager]]).
+
+Perspective can also be used for [[id:958d938a-39bf-4c82-b7c5-d9743925ea49][Session management]].
+
+Perspective creation can also be automated through Emacs Lisp.[fn:3]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package perspective
-    :ensure t  ; use `:straight t` if using straight.el!
+    :ensure t
     :bind
-    ("C-x k" . persp-kill-buffer*)
+    ("C-x k" . persp-kill-buffer*) ; this basically replaces the built-in kill buffer command
     :custom
     (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
     :init
@@ -75,7 +182,8 @@ Replace the binding for C-x C-b, the default Emacs buffer switcher, with one of 
 Note that =ace-window= is quite outdated at this point, and should be replaced with a more modern framework instead.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package ace-window)
+  (use-package ace-window
+    :ensure t)
 #+end_src
 
 Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
@@ -88,10 +196,73 @@ This is also a big part of [[#Buffer management]].
 
 This can also be used for Obsidian quick switcher functionality. This is described in [[file:search.org][The search structure used for the Emacs program]].
 
+* Session management
+:PROPERTIES:
+:ID:       958d938a-39bf-4c82-b7c5-d9743925ea49
+:END:
+
+If the point is to persist the session across Emacs restarts (for instance when you need to reload the config file)
+
+What I want it to be able to open up Emacs and actually get some essential buffers already on the screen without having to go hunting for them too much. Switching the sessions can be done without affecting the frame geometry.[fn:4]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package easysession
+  :ensure t
+
+  :custom
+  (easysession-save-interval (* 10 60))  ; Save every 10 minutes
+
+  ;; Display the active session name in the mode-line lighter.
+  (easysession-save-mode-lighter-show-session-name t)
+
+  ;; Optionally, the session name can be shown in the modeline info area:
+  ;; (easysession-mode-line-misc-info t)
+
+  :init
+  ;; Automatically load the session at startup and restore frame size and
+  ;; position (geometry)
+  (add-hook 'emacs-startup-hook #'easysession-load-including-geometry 102)
+
+  ;; Automatically save the current session every `easysession-save-interval'
+  ;; seconds (default: 10 minutes)
+  (add-hook 'emacs-startup-hook #'easysession-save-mode 103))
+#+end_src
+
+It is recommended to use the following functions:
+
+easysession-switch-to to switch to another session or easysession-load to reload the current one,
+easysession-save-as to save the current session as the current name or another name.
+To facilitate session management, consider using the following key mappings:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Main keybindings
+(global-set-key (kbd "C-c sl") 'easysession-switch-to)  ; Load
+(global-set-key (kbd "C-c ss") 'easysession-save-as)  ; Save
+
+;; Other keybindings
+(global-set-key (kbd "C-c sL") 'easysession-switch-to-and-restore-geometry)
+(global-set-key (kbd "C-c sd") 'easysession-delete)
+(global-set-key (kbd "C-c sr") 'easysession-rename)
+(global-set-key (kbd "C-c sR") 'easysession-reset)
+#+end_src
+
 * Integrating Emacs with a tiling window manager
+:PROPERTIES:
+:ID:       5cfcd933-68fe-4f6e-9836-8a4fa5c6d064
+:END:
 
 Having the [[#Making buffers available globally][buffers available globally]] would be integral to making switching around the buffers as easy as possible.
 
 This has to be developed depending on the display manager that you're using. Under X11, I will be using i3 until I can learn how to use StumpWM. Under Wayland, Sway seems like the best candidate.
 
 ** TODO The possibility of window management through Emacs (for the entire system)
+
+* Footnotes
+
+[fn:1]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
+
+[fn:2] https://emacs.stackexchange.com/questions/62720/open-org-link-in-the-same-window
+
+[fn:3] https://www.youtube.com/watch?v=uyMdDzjQFMU
+
+[fn:4]  https://github.com/jamescherti/easysession.el?tab=readme-ov-file#easysessionel---easily-persist-and-restore-your-emacs-editing-sessions

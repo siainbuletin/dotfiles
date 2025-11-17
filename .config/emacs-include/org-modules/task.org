@@ -26,7 +26,7 @@ I would prefer to have a framework in which I show tasks that I have already sta
 
 I currently can't have these special keywords be enabled, because it always brings up a special buffer which will ask me why I cancelled a task or why it's being defered. I need to actually see how to make use of this.
 
-** TODO TODO facess (how they show up in the buffer)
+** TODO TODO faces (how they show up in the buffer)
 
 #+begin_src emacs-lisp :tangle no :eval never
     (setq org-todo-keyword-faces
@@ -48,6 +48,12 @@ I currently can't have these special keywords be enabled, because it always brin
 Basic configuration and the files we pull information from
 
 ** Configuring what gets added to =org-agenda=
+
+I have defined a special directory which is meant to collect files that I'm actively tracking (like a task org-capture index or particular projects). This is a file that I will be linking to from other projects.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-agenda-files (quote ("~/Documents/tracking")))
+#+end_src
 
 * =org-agenda= views
 

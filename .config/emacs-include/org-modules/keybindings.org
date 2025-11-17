@@ -7,24 +7,26 @@ This is _overall_ completely unfinished
 This allows us to improve the discoverability for commands in Emacs.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-        (use-package which-key
-          :ensure t
-          :config
-          (which-key-mode)
-          :custom
-          (which-key-max-description-length 40)
-          (which-key-lighter nil)
-          (which-key-sort-order 'which-key-description-order)
-          (which-key-mode +1)
-          :init
-          (which-key-add-key-based-replacements
-  	  "C-c w"   "Emacs Writing Studio"
-          "C-c w b" "Bibliographic"
-          "C-c w d" "Denote"
-          "C-c w m" "Multimedia"
-          "C-c w s" "Spelling and Grammar"
-          "C-c w t" "Themes"
-          "C-c w x" "Explore"))
+            (use-package which-key
+              :ensure t
+
+              :config
+              (which-key-mode)
+
+              :custom
+              (which-key-max-description-length 40)
+              (which-key-lighter nil)
+              (which-key-sort-order 'which-key-description-order)
+              (which-key-mode +1)
+              :init
+              (which-key-add-key-based-replacements
+      	  "C-c w"   "Emacs Writing Studio"
+              "C-c w b" "Bibliographic"
+              "C-c w d" "Denote"
+              "C-c w m" "Multimedia"
+              "C-c w s" "Spelling and Grammar"
+              "C-c w t" "Themes"
+              "C-c w x" "Explore"))
 #+end_src
 
 =which-key= is apparently a really useful package for bindings for =projectile= (see notes in EWS)

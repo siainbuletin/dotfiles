@@ -23,7 +23,7 @@ This repository is not actively maintained. For beginning Emacs users, the confi
 The first part of the configuration sets the basic principles of the EWS configuration, such as package management, the user interface look and feel, the minibuffer completion system and basic settings to enable writing for humans.
 
 ** Basic configuration
-The first part of the configuration checks if the latest version of Emacs is running. EWS leverages some of the newest functionality, so you must install this version. Note that the expression or higher ~(< emacs-major-version 29)~ is in Polish notation. In Lisp, the operator is placed before the operands, unlike the more common infix notation, which places the operator between the operands, e.g. ~emacs-major-version < 29~. 
+The first part of the configuration checks if the latest version of Emacs is running. EWS leverages some of the newest functionality, so you must install this version. Note that the expression or higher ~(< emacs-major-version 29)~ is in Polish notation. In Lisp, the operator is placed before the operands, unlike the more common infix notation, which places the operator between the operands, e.g. ~emacs-major-version < 29~.
 
 #+begin_src elisp :exports none
   ;; Emacs 29 available?
@@ -92,7 +92,7 @@ This function checks whether all these packages are available on your system. Fo
        "zip"
        "ddjvu"
        "curl"
-       ("mpg321" "ogg123" "mplayer" "mpv" "vlc") 
+       ("mpg321" "ogg123" "mplayer" "mpv" "vlc")
        ("grep" "ripgrep")
        ("convert" "gm")
        "dvipng"
@@ -259,7 +259,7 @@ EWS uses the Vertico-Orderless-Marginalia stack of minibuffer completion package
 ** Keyboard shortcuts menu
 The Which-Key package improves the discoverability of keyboard shortcuts with a popup in the minibuffer.
 
-Due to the naming conventions in Emacs, most functions start with the package name, so some can be long. The problem is that the most interesting part of a function name is at the end of the string, so we don't want that to be hidden. This configuration widens the columns a bit to prevent truncated function names. This configuration also instructs Which-Key to order the list by function name rather than by key. 
+Due to the naming conventions in Emacs, most functions start with the package name, so some can be long. The problem is that the most interesting part of a function name is at the end of the string, so we don't want that to be hidden. This configuration widens the columns a bit to prevent truncated function names. This configuration also instructs Which-Key to order the list by function name rather than by key.
 
 #+begin_src elisp :exports none
   ;; Improve keyboard shortcut discoverability
@@ -367,7 +367,7 @@ Org has a plethora of variables to change its interface. You can add other varia
 
 #+begin_src elisp :exports none
   ;;; Ricing Org mode
-#+end_src  
+#+end_src
 #+begin_src elisp
   (use-package org
     :custom
@@ -386,7 +386,7 @@ The above code snippet hides emphasis markers from view for an uncluttered scree
 #+begin_src elisp :exports none
   ;; Show hidden emphasis markers
 #+end_src
-#+begin_src elisp  
+#+begin_src elisp
   (use-package org-appear
     :hook
     (org-mode . org-appear-mode))
@@ -414,7 +414,7 @@ Automated LaTeX previews are disabled because they can delay loading a page and 
      (plist-put org-format-latex-options :background 'auto)))
 #+end_src
 
-The last package to modify Org buffers is Org Modern. However, most of the features have been switched off because it might be better for beginning users not to hide semantic symbols. You can experiment with changing these settings to change the look and feel of Org buffers. 
+The last package to modify Org buffers is Org Modern. However, most of the features have been switched off because it might be better for beginning users not to hide semantic symbols. You can experiment with changing these settings to change the look and feel of Org buffers.
 
 #+begin_src elisp :exports none
   ;; Org modern: Most features are disabled for beginning users
@@ -553,7 +553,7 @@ The Org-Webtools package makes it easy to insert hyperlinks by converting the co
 #+end_src
 
 ** Playing multimedia files
-The EMMS (Emacs MultiMedia System) package provides an interface to various multimedia players. You need one of these programs installed: =mpg321=, =ogg123= (vorbis-tools), =mplayer=, =mpv=, or VLC. 
+The EMMS (Emacs MultiMedia System) package provides an interface to various multimedia players. You need one of these programs installed: =mpg321=, =ogg123= (vorbis-tools), =mplayer=, =mpv=, or VLC.
 
 #+begin_src elisp :exports none
   ;; Emacs Multimedia System
@@ -622,7 +622,7 @@ The possibilities for capture templates are extensive and depend on your use cas
         (file+headline org-default-notes-file "Tasks")
         "* TODO %i%?"))))
 #+end_src
-    
+
 ** Denote
 Denote is a flexible note-taking and file management package. Refer to [[#sec-denote]] or the extensive Denote manual with =C-h R denote=. At a minimum, you need to configure the ~denote-directory~ variable to indicate the location of your notes.
 
@@ -668,7 +668,7 @@ The Denote developers provide an ecosystem of packages that enhance functionalit
   (use-package denote-sequence)
 #+end_src
 
-The Consult package provides some convenience functionality to make life in Emacs easier in many ways. The ~consult-grep~ function lets you search through files in the current directory. The search functionality requires access to the Grep software. The ~consult-org-heading~ command provides a table of contents of the Org mode file to quickly move around a large file. 
+The Consult package provides some convenience functionality to make life in Emacs easier in many ways. The ~consult-grep~ function lets you search through files in the current directory. The search functionality requires access to the Grep software. The ~consult-org-heading~ command provides a table of contents of the Org mode file to quickly move around a large file.
 
 Consult has a lot more functionality that replaces some base Emacs commands with more convenient version. Most of these have not been enabled to ensure we stay as close as possible to vanilla Emacs. The Consult documentation provides detailed descriptions of these enhanced commands.
 
@@ -834,7 +834,7 @@ The Writegood package helps to detect weasel words, passive writing, and repeate
     (text-mode . writegood-mode))
 #+end_src
 
-The TitleCase package strives for the most accurate title-casing of sentences, lines, and regions of text in English prose. You can customise the ~titlecase-style~ variable 
+The TitleCase package strives for the most accurate title-casing of sentences, lines, and regions of text in English prose. You can customise the ~titlecase-style~ variable
 
 The EWS convenience function can do this for all headings in an Org file to ensure consistency (section [[#sec-titlecase]]).
 
@@ -858,7 +858,7 @@ Abbrev mode is a built-in program that helps you speed up your writing by defini
   (add-hook 'text-mode-hook 'abbrev-mode)
 #+end_src
 
-The Lorem Ipsum generator can be helpful when designing a document's layout. This package inserts dummy Latin text into a buffer. 
+The Lorem Ipsum generator can be helpful when designing a document's layout. This package inserts dummy Latin text into a buffer.
 
 #+begin_src elisp :exports none
   ;; Lorem Ipsum generator
@@ -925,7 +925,7 @@ This snippet sets some basic export settings for org mode. You can either set  t
 #+end_src
 
 ** Epub
-The ox-ePub package exports Org files to the most common e-book format. The ~ox-org~  code negates some issues with the table of contents (section [[#sec-ox-epub]]). 
+The ox-ePub package exports Org files to the most common e-book format. The ~ox-org~  code negates some issues with the table of contents (section [[#sec-ox-epub]]).
 
 #+begin_src elisp :exports none
   ;; epub export
@@ -975,7 +975,7 @@ The next section defines the EWS document class, which is used to produce the pa
          "\\documentclass[11pt, twoside, hidelinks]{memoir}
             \\setstocksize{9.25in}{7.5in}
             \\settrimmedsize{\\stockheight}{\\stockwidth}{*}
-            \\setlrmarginsandblock{1.5in}{1in}{*} 
+            \\setlrmarginsandblock{1.5in}{1in}{*}
             \\setulmarginsandblock{1in}{1.5in}{*}
             \\checkandfixthelayout
             \\layout
@@ -1135,7 +1135,7 @@ Using =C-<ret>= opens an image in the Dired buffer in your favourite editor. The
            ("C-<return>" . image-dired-dired-display-external))))
 #+end_src
 
-The built-in Image-Dired package can generate thumbnails from within a Dired buffer and let you work on images from there. 
+The built-in Image-Dired package can generate thumbnails from within a Dired buffer and let you work on images from there.
 
 #+begin_src elisp
   (use-package image-dired
@@ -1160,7 +1160,7 @@ Any changes made by the Emacs customisation system in EWS are stored in =custom.
 
 #+begin_src elisp :exports none
   ;; Custom settings in a separate file and load the custom settings
-#+end_src  
+#+end_src
 #+begin_src elisp
   (setq-default custom-file (expand-file-name
   			     "custom.el"
@@ -1177,7 +1177,7 @@ Any changes made by the Emacs customisation system in EWS are stored in =custom.
 * Advanced export settings for EWS book                            :noexport:
 This part of the configuration provides functionality to export Graphviz diagrams. Graphviz is a visualisation tool for representing structural information as diagrams. Creating diagrams with Graphviz is outside the scope of EWS.
 
-This part of the configuration code is only required to generate the EWS book from the source code. 
+This part of the configuration code is only required to generate the EWS book from the source code.
 
 #+begin_src elisp
   ;; ADVANCED UNDOCUMENTED EXPORT SETTINGS FOR EWS

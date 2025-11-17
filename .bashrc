@@ -8,3 +8,5 @@ export EDITOR='nvim'
 export PATH="$PATH:/home/siainbuletin/.local/bin"
 
 exec fish
+
+. "$HOME/.local/bin/env"

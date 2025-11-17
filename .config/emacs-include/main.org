@@ -15,6 +15,8 @@ On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to usi
 
 On <2025-11-12 Wed>, I converted the configuration to a multi-file org setup, which will later compile to multiple Emacs Lisp files.
 
+On <2025-11-15 Sat>, I settled on using =denote= for my notetaking system and started bringing in more notes from that setup. I also changed the theme system to modus themes, as it is a lot easier to configure overall.
+
 See [[file:config-tasks.org][Open tasks and next improvements for the configuration]] for what should be done next.
 
 - [ ] This also needs a table of contents to facilitate easier navigation between the modules (even if each org file has its independent tree of headings for designating the sections)
@@ -64,7 +66,7 @@ If you don't want to overwrite your changes, you need to make all of the changes
 
 For example, when writing changes to my =early-init.el= file, the source block will be written as such
 
-* Configuring =org-babel= for tangling org files as well
+
 
 This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
 
@@ -117,7 +119,14 @@ Deals with the early packages as well as =early-init.el= in just one file. The e
 #+INCLUDE: ~/.config/emacs-include/org-modules/utility-functions.org src org
 
 Mostly contains patchwork over the basic Emacs experience. It's pretty necessary for good functioning.
+** Bootstrapping =casual= suite
 
+As this is an enhacement useful for all of the other layers in this configuration, I'll call it within the main file
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package casual
+      :ensure t)
+#+end_src
 ** Search structure and completion layer
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/search.org src org
@@ -142,6 +151,12 @@ Mostly settings for =dired=, and moving files around more efficiently. [[file:or
 
 This is mostly for the native backup functionality that is provided by Emacs.
 
+** Bookmark management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/bookmark-management.org src org
+
+This is for files that have been saved as bookmarks but it can be extended to more files like web pages which I would like to have readily available.
+
 ** The =org-mode= layer
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/org-config.org src org
@@ -154,15 +169,31 @@ This is basic org-mode functionality that is loaded as org itself is being loade
 
 This is the configuration for =org-agenda= and the way that the information is displayed across the system.
 
-** Note-taking layer (and everything pertaining to text manipulation in my day-to-day work
+** Defining the dashboard
 
+#+INCLUDE: ~/.config/emacs-include/org-modules/dashboard.org src org
+
+This is for the current usage of =emacs-dashboard= and ways to customize it to show different buffers in different situations, according to needs.
+
+** Note-taking layer (and everything pertaining to text manipulation in my day-to-day work)
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/denote.org src org
+disabled: ~/.config/emacs-include/org-modules/zetteldeft.org src org
+disabled: ~/.config/emacs-include/org-modules/emacs-zk.org src org
+disabled: ~/.config/emacs-include/org-modules/howm.org src org
 #+INCLUDE: ~/.config/emacs-include/org-modules/zettelkasten.org src org
 
-This will enable all of the notetaking packages. At first glance, the scope of this package is to enable functionality that is very close to Obsidian and the way I do my Zettelkasten notes.
+#+begin_quote
+[!NOTE]
 
-This entire package also depends a lot on functionality that I have set up specifically for =org-mode=.
+The zetteldeft module is currently disabled as it creates issues with =(require)=.
+#+end_quote
 
-The basic =org-mode= configuration has been moved to a separate file which I currently prefer to be loaded separately instead of with all the note-taking packages. This is also because org-mode is really large when it comes to bootstrapping and I prefer doing it properly, rather than fragmenting my configuration elsewhere. All of the notetaking packages should depend on the proper functioning of org-mode anyway.
+The initial =zettelkasten.org= file doesn't actually enable any external package, because I'm still trying out to see which system works best for me. The file, instead, describes the workflow and may provide some helper functions. As such, it is loaded after the packages themselves (for now). At first glance, the scope of these packages is to enable functionality that is very close to Obsidian and the way I do my Zettelkasten notes.
+
+Before enabling the =zettelkasten.org= file, I need all of the custom functionality that I have also set up specifically for =org-mode=. I strive to have all of my notes in this one format, to facilitate easier communication. The basic =org-mode= configuration has been moved to a separate file which I currently prefer to be loaded separately instead of with all the note-taking packages. This is also because org-mode is really large when it comes to bootstrapping and I prefer doing it properly, rather than fragmenting my configuration elsewhere. All of the notetaking packages should depend on the proper functioning of org-mode anyway.
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/zettelkasten.org src org
 
 ** Bibliography management
 
@@ -183,6 +214,12 @@ This is far from being a workable environment yet, but I want to be able to mana
 #+INCLUDE: ~/.config/emacs-include/org-modules/reading.org src org
 
 This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
+
+** Project management
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/project.org src org
+
+Project management through =projectile=. Depends on the existence of =ripgrep= on the system (wide, not just in Emacs itself).
 
 ** Building manuscripts and typesetting
 
