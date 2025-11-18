@@ -1,0 +1,125 @@
+#+title: Zetteldeft configuration
+#+startup: overview
+
+* Installing =deft=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package deft
+        :bind
+        (("C-c d" . deft)))
+#+end_src
+
+Theoretically, =deft= should be able to work with Markdown and org-mode at the same time.
+
+** Settings for =deft=
+
+Set deft path to full path so that zetteldeft works.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+            (setq deft-directory
+                  (file-truename "~/Documents/notes"))
+            (setq deft-extensions
+                  '("md" "org" "txt"))
+            (setq deft-default-extension "org")
+            (setq deft-recursive t)
+#+end_src
+
+** Open the file in another window
+
+A small function to open a file in the other window and shifting focus to it. That final part is what the t argument does.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun efls/deft-open-other ()
+ (interactive)
+ (deft-open-file-other-window t))
+#+end_src
+
+Let’s add another function, to simply preview in the other window, i.e. not switch focus to it.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun efls/deft-open-preview ()
+ (interactive)
+ (deft-open-file-other-window))
+#+end_src
+
+* Installing =zetteldeft=
+
+=deft= is a dependency on =zetteldeft=, so we have installed that first. =zetteldeft= adds support for linking syntax on top of =deft=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package zetteldeft
+    :after deft
+    :config
+    (defun sodaware/dteft-open-preview ()
+      (interactive)
+      (deft-open-file-other-window))
+    (zetteldeft-set-classic-keybindings)
+
+  (font-lock-add-keywords
+   'org-mode
+   `((,zetteldeft-id-regex  . fontt-lock-warning-face)
+     (,zetteldeft-tag-regex . font-lock-warning-face))))
+#+end_src
+
+Custom keybindings don't currently work because they conflict with the way that the configuration for emacs ends up compiling.w
+
+* DONE Configuring the =zdlink= protocol for native linking within =org-mode=
+
+This is one of my favourite changes - it adds a new org-mode protocol, zdlink, which allows me to insert an org-style link to any note via C-c C-l. These links can be opened like any other org-mode link, and because they only include the note name (not the full path) they work across machines.
+
+This isn't very useful if you're using markdown, but for pure org it makes linking and navigating much easier.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Add custom `zdlink` to handle zettledeft links.
+(eval-after-load 'org
+  (lambda ()
+    (require 'zetteldeft)
+    (org-link-set-parameters
+     "zdlink"
+     :follow
+     (lambda (str) (zetteldeft--search-filename
+		    (zetteldeft--lift-id str)))
+     :complete  #'sodaware/zd-complete-link
+     :help-echo "Searches provided ID in Zetteldeft")))
+
+(defun sodaware/zd-complete-link ()
+  "Link completion for `zdlink' type links."
+  (let* ((file (completing-read "File to link to: "
+				(deft-find-all-files-no-prefix)))
+	 (link (zetteldeft--lift-id file)))
+    (unless link (user-error "No file selected"))
+    (concat "zdlink:" link)))
+#+end_src
+
+* TODO Making a home page for zetteldeft
+
+This would help with navigation. But the solutions I have so far seen for this are mostly like patchwork.
+
+** From the github repository (doesn't work)
+Configuring a base note for zetteldeft
+
+Let’s first store the availability to store an ID.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defvar zetteldeft-home-id nil
+  "String with ID of home note, used by `zetteldeft-go-home'.")
+#+end_src
+
+A function to open up this note is trivial.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun zetteldeft-go-home ()
+  "Move to a designated home note.
+Set `zetteldeft-home-id' to an ID string of your home note."
+  (interactive)
+  (if (stringp zetteldeft-home-id)
+      (zetteldeft-find-file
+        (zetteldeft--id-to-full-path zetteldeft-home-id))
+    (message "No home set. Provide a string to zetteldeft-home-id.")))
+#+end_src
+
+* Getting a backlink pane working for =zetteldeft=
+
+There should be a way to show the backlinks in =org-sidebar= considering that there's support for special =zdlink= for org-mode.
+
+But this has to be investigated more seriously.

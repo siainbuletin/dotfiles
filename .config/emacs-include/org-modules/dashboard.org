@@ -1,0 +1,173 @@
+#+TITLE: Functional information to include in a dashboard
+
+There's also other frameworks than just =emacs-dashboard= for making this, but this was currently the handiest solution I had.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package dashboard
+  :ensure t
+  :config
+  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
+  (dashboard-setup-startup-hook))
+#+end_src
+
+* General cosmetic settings
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-banner-logo-title "Welcome to Emacs Dashboard")
+(setq dashboard-startup-banner '3)
+(setq dashboard-center-content t)
+(setq dashboard-vertically-center-content t)
+(setq dashboard-show-shortcuts t)
+#+end_src
+
+The banner has the following customization options:
+;; Value can be:
+;;  - ='official= which displays the official emacs logo.
+;;  - ='logo= which displays an alternative emacs logo.
+;;  - an integer which displays one of the text banners
+;;    (see dashboard-banners-directory files).
+;;  - a string that specifies a path for a custom banner
+;;    currently supported types are gif/image/text/xbm.
+;;  - a cons of 2 strings which specifies the path of an image to use
+;;    and other path of a text file to use if image isn't supported.
+;;    (cons "path/to/image/file/image.png" "path/to/text/file/text.txt").
+;;  - a list that can display an random banner,
+;;    supported values are: string (filepath), 'official, 'logo and integers.
+
+* Customizing the items that are displayed
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-items '((recents   . 5)
+                        (bookmarks . 5)
+                        (projects  . 5)
+                        (agenda    . 5)
+                        (registers . 5)))
+#+end_src
+
+** Order of the items to show in the dashboard
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-startupify-list '(dashboard-insert-banner
+                                  dashboard-insert-newline
+                                  dashboard-insert-banner-title
+                                  dashboard-insert-newline
+                                  dashboard-insert-navigator
+                                  dashboard-insert-newline
+                                  dashboard-insert-init-info
+                                  dashboard-insert-items
+                                  dashboard-insert-newline
+                                  dashboard-insert-footer))
+#+end_src
+
+** Customizing the item shortcuts
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-item-shortcuts '((recents   . "r")
+                                 (bookmarks . "m")
+                                 (projects  . "p")
+                                 (agenda    . "a")
+                                 (registers . "e")))
+#+end_src
+
+* TODO Working with icons in the dashboard
+
+Setting up the dashboard with icons depends on declaring the icons modules earlier in the initialization process. In this case, icons are declared in =appearance.org=.
+
+** Using =all-the-icons=
+
+I'm currently using =all-the-icons= so I can use it with =universal-launcher=. For loading the =all-the-icons= package:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+#+end_src
+
+To add icons to the widget headings and their items:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+#+end_src
+
+To modify heading icons with another icon from all-the-icons octicons:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(dashboard-modify-heading-icons '((recents   . "file-text")
+                                  (bookmarks . "book")))
+#+end_src
+
+**** (CURRENTLY DISABLED) For using the =nerd-icons= packageC
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
+(setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+#+end_src
+
+To add icons to the widget headings and their items:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+#+end_src
+
+To modify heading icons with another icon from nerd-icons octicons:
+
+#+begin_src emacs-lisp :tangle no
+(dashboard-modify-heading-icons '((recents   . "nf-oct-file_text")
+                                  (bookmarks . "nf-oct-book")))
+#+end_src
+
+To modify the icon height or vertical adjust:
+
+#+begin_src emacs-lisp :tangle no
+(setq dashboard-icon-file-height 1.75)
+(setq dashboard-icon-file-v-adjust -0.125)
+(setq dashboard-heading-icon-height 1.75)
+(setq dashboard-heading-icon-v-adjust -0.125)
+#+end_src
+* Integrating with =org-agenda=
+
+To display today’s agenda items on the dashboard, add agenda to dashboard-items:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-to-list 'dashboard-items '(agenda) t)
+#+end_src
+
+To show agenda for the upcoming seven days set the variable dashboard-week-agenda to t.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq dashboard-week-agenda t)
+#+end_src
+
+By default org-agenda entries are filter by time, only showing those task with DEADLINE, SCHEDULE-TIME or TIMESTAMP . To show all agenda entries (except DONE)
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq dashboard-filter-agenda-entry 'dashboard-no-filter-agenda)
+#+end_src
+
+To have an extra filter, MATCH parameter is exposed as dashboard-match-agenda-entry variable, by default is nil
+
+‘MATCH’ is a tags/property/TODO match. Org iterates only matched headlines. Org iterates over all headlines when MATCH is nil or t.
+
+See Org Manual for more information.
+
+Once the agenda appears in the dashboard, org-agenda-files stay open. With (setq dashboard-agenda-release-buffers t) the org files are close. Note that this could slow down the dashboard buffer refreshment.
+
+** Customizing how sorting is done
+Agenda is now sorted with dashboard-agenda-sort-strategy following the idea of org-agenda-sorting-strategy. Suported strategies are priority-up, priority-down, time-up, time-down, todo-state-up and todo-state-down
+
+** Change the aspect of agenda entries
+To personalize the aspect of each entry, there is dashboard-agenda-prefix-format which initial value is " %i %-12:c %-10s " where %i is the icon category of the item (see org-agenda-category-icon-alist), %-12:c gives the category a 12 chars wide field and append a colon to the category. A similar padding but for a 10 wide field is %-10s that is for the scheduling or deadline information. For more information see org-agenda-prefix-format.
+
+Deadline or Scheduling time will be formatted using dashboard-agenda-time-string-format and the keywords (TODO, DONE) respect org-agenda-todo-keyword-format.
+
+** Customizing the format of the tags
+
+To customize the tags format there is a variable dashboard-agenda-tags-format. This variable could be any (setq dashboard-filter-agenda-entry 'dashboard-no-filter-agenda)function that receives the tags directly from org-get-tags. By default dashboard-agenda-tags-format is set to identity. To hide the tags set the variable to ignore: (setq dashboard-agenda-tags-format 'ignore) or to nil.
+
+* Integrating with projects I'm working on through =projectile=
+
+Integration with =projectile= can be done either through =counsel-projectile= or =persp-projectile=.
+
+* TODO Integrating with =perspective-el= for buffer management
+
+As of <2025-11-06 Thu>, support for =perspective-el= hasn't yet been implemented for =emacs-dashboard=

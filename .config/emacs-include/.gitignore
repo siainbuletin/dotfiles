@@ -2,3 +2,6 @@ eln-cache/
 elpaca/
 transient/
 
+# files created by emacs
+tramp
+elgrep-data.el

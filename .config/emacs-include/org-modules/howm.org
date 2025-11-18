@@ -1,0 +1,158 @@
+#+title: Howm configuration
+#+startup: overview
+
+=howm= seems to be the only package that actually supports using backlinks between files. The only thing that I don't like about it is that it insists on having backlinks have its own line.
+
+But what's good is that it actually supports a kind of backlinking pane.
+
+Also, what I appreciate with =howm= is that it insists on the principle of atomic notes.
+
+Howm is currently completely uninstalled because of issues with the prefix. Besides, the linking syntax doesn't work the way I would want it to.
+
+* How does it manage to do the backlinks?
+
+The links basically perform a full-text search on the base of notes, instead of being _links_ in the very serious sense.[fn:9]
+
+When created, filenames include the current timestamp. This helps with unique note identifiers. But it's possible to create explicitly named note files _if you need to_.[fn:10]
+
+* Installing with =use-package=
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package howm
+    :ensure t
+    :init
+    ;; (require 'howm-markdown) ;; Write notes in markdown-mode.
+    (require 'howm-org) ;; Write notes in Org-mode.
+    (setq howm-directory "~/Documents/org") ; Setting the directory for where the files will be
+    (setq howm-home-directory howm-directory)
+    ;; (setq howm-follow-theme t) ; Uses the theme colors used by org-mode
+
+    ;; Formatting for the files
+    (setq howm-file-name-format "%Y-%m-%d-%H%M.org")
+    (setq howm-view-title-header "#+TITLE:")
+
+    ;; Avoiding conflicts with org-mode by changing the prefix from 'C-c ,'
+    ;; (setq howm-prefix (kbd "C-c ;"))
+    )
+#+end_src
+
+If you're using =markdown-mode= and =org-mode=, then the wiki link =[[...]]= will be disabled for syntax compatibility.
+
+You can't choose both =howm-markdown= and =howm-org= (which is really a shame because it would've been great to link my older Markdown notes in this manner).
+
+For operating =howm= in =org-mode=, just replace C-c , with C-c ; in Howm's documentation, including that C-c ; ; opens the menu.
+
+For =howm-theme= to work, you need to either use a theme that defines the org faces, or that the =init.el= loads org itself.
+
+Howm needs to cache the menu state so that opening the menu will be fast enough.
+- it regenerates the menu if either
+- (i) it's been more than 1 hour (the "expiry hours") since last menu update, or
+- (ii) you saved a file that belongs to Howm (howm-mode was active in the buffer).
+
+Howm doesn't regenerate the menu if you save a file either, only if it's been more than 1 hour since the last menu update. If you want to update it more frequently, you have to manually refresh it (keybinding R).
+
+* Improving performance for =howm=
+
+This should speed up the caching for all the files. It will use =ripgrep= as a backend instead of =grep=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq howm-view-use-grep t)
+(setq howm-view-grep-command "rg")
+(setq howm-view-grep-option "-nH --no-heading --color never")
+(setq howm-view-grep-extended-option nil)
+(setq howm-view-grep-fixed-option "-F")
+(setq howm-view-grep-expr-option nil)
+(setq howm-view-grep-file-stdin-option nil)
+#+end_src
+
+Other performance functions for howm here:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq howm-menu-expiry-hours 1) ;; Cache menu N hours.
+  (setq howm-menu-refresh-after-save nil) ;; Speed up note saving. (*5)
+  (setq howm-menu-file "howm-menu.txt")  ;; don't *search*
+#+end_src
+
+*** Configuring interactive search for =howm= through =counsel-rg=
+
+ I used counsel-rg as an inspiration for this, and we turn the ripgrep matches into a regular howm summary buffer for further consumption.[fn:11] There's no need to bootstrap =counsel-rg= through =use-package=, as it is already installed.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun howm-list--counsel-rg (match)
+  (if (string= match "")
+  (howm-list-all)
+(if (or (null ivy--old-cands)
+	(equal ivy--old-cands '("No matches found")))
+        (message "No match")
+  (let ((howm-view-use-grep
+	 #'(lambda (str file-list &optional fixed-p force-case-fold)
+                 (mapcar
+                  (lambda (cand)
+		(if (string-match "\\`\\(.*\\):\\([0-9]+\\):\\(.*\\)\\'" cand)
+                        (let ((file (match-string-no-properties 1 cand))
+			  (line (match-string-no-properties 2 cand))
+			  (match-line (match-string-no-properties 3 cand)))
+                          (list (expand-file-name file howm-directory)
+                                (string-to-number line)
+                                match-line))))
+                  ivy--old-cands))))
+        (howm-search ivy--old-re t)
+        (riffle-set-place
+     (1+ (cl-position match ivy--old-cands :test 'string=)))))))
+
+(defun howm-counsel-rg ()
+  "Interactively grep for a string in your howm notes using rg."
+  (interactive)
+  (let ((default-directory howm-directory)
+        (counsel-ag-base-command counsel-rg-base-command)
+        (counsel-ag-command (counsel--format-ag-command "--glob=!*~" "%s")))
+    (ivy-read "Search all (rg): "
+	      #'counsel-ag-function
+	      :dynamic-collection t
+	      :keymap counsel-ag-map
+	      :action #'howm-list--counsel-rg
+	      :require-match t
+	      :caller 'counsel-rg)))
+
+(define-key global-map (concat howm-prefix "r") 'howm-counsel-rg)
+#+end_src
+
+* Tweaking the sorting settings
+
+Next, I tweak some sorting settings. I want the “recent” view to list files by mtime (so that recently edited files appear on top), but the “all” view should be sorted by creation date.
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; Default recent to sorting by mtime
+(advice-add 'howm-list-recent :after #'howm-view-sort-by-mtime)
+;; Default all to sorting by creation, newest first
+(advice-add 'howm-list-all :after #'(lambda () (howm-view-sort-by-date t)))
+#+end_src
+
+* Renaming buffers to show as their title for =howm=
+
+A great usability enhancement is buffer renaming: since howm file names are a bit unwieldy (like =~/prj/howm/2022/03/2022-03-25-162227.md=) you can use these two lines to rename note buffers according to their title, which makes switching between multiple notes more convenient.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(add-hook 'howm-mode-hook 'howm-mode-set-buffer-name)
+(add-hook 'after-save-hook 'howm-mode-set-buffer-name)
+#+end_src
+
+* TODO  Making wikilinks point directly to the first page with that title
+
+Generally, if you want to have links in howm, you have to do them on their own separate file. But it's also possible to use the inline wikilink syntax of =[[...]]= for making the links appear on a line.
+
+Finally, as mentioned above, this is how to make [[...]] wiki-links directly point to the first page with that title, skipping the summary buffer:
+
+*I currently don't know how I'm supposed to enable this and whether it's a good idea.* It's taken from https://leahneukirchen.org/blog/archive/2022/03/note-taking-in-emacs-with-howm.html
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; make wiki-links jump to single title hit if possible
+(add-to-list 'action-lock-default-rules
+             (list howm-wiki-regexp
+                   (lambda (&optional dummy)
+                     (let ((s (match-string-no-properties howm-wiki-regexp-pos)))
+                       ;; letting create-p be nil here, howm-keyword-search-subr
+                       ;; should check create-p after open-unique-p
+                       (howm-keyword-search (concat "= " s) nil t)))
+                   howm-wiki-regexp-hilit-pos))
+#+end_src

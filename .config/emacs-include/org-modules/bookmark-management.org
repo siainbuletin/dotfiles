@@ -1,0 +1,25 @@
+#+title: Bookmark management
+
+This is better than relying on [[file:file-management.org][recent files (see file management configuration).]]
+
+You can store a file as a bookmark with C-x r m (bookmark-set). The bookmark will also store the location of the cursor, so you can maintain multiple bookmarks for a file. The default name for the bookmark is the name of the file. You can also enter a bespoke name in the minibuffer before hitting ENTER.
+
+To view a list of all bookmarks in the minibuffer and select the one you like to open, use C-x r b (bookmark-jump).
+
+Bookmarks are saved in the bookmarks file in your configuration folder every time a new bookmark is created. The bookmark-save-flag is set to one so that the bookmarks file is saved every time you add a new one. The default value only saves it when you exit Emacs, which mean you could loose bookmarks in the unlikely event of an Emacs or system crash.
+
+If you like to remove bookmark no longer required then use the bookmark-delete function, which has no default keybinding but is bound to C-x r D in the Emacs Writing Studio configuration.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;;; Bookmarks
+    (use-package bookmark
+      :ensure nil
+      :custom
+      (bookmark-save-flag 1)
+      :bind
+      ("C-x r D" . bookmark-delete))
+#+end_src
+
+* Footnotes
+
+[fn:1] https://lucidmanager.org/productivity/manage-files-with-emacs/

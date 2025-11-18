@@ -1,0 +1,56 @@
+#    -*- mode: org -*-
+
+
+Archived entries from file /home/siainbuletin/.config/emacs-include/org-modules/typesetting.org
+
+
+* TODO Support adding comments that are a lot like Google Docs
+:PROPERTIES:
+:ARCHIVE_TIME: 2025-11-15 Sat 20:18
+:ARCHIVE_FILE: ~/.config/emacs-include/org-modules/typesetting.org
+:ARCHIVE_OLPATH: Working with projects that are nested within chapters/Support a drafting workflow
+:ARCHIVE_CATEGORY: typesetting
+:ARCHIVE_TODO: TODO
+:END:
+
+When you're editing a project, it's always useful to be able to annotate *over* the text so that you can see what you can do better in the next revisions. It might be an observation about the way I've written content, or maybe an observation that I need to add more information. In any case, it's a _lot_ easier to parse the information when you know that this is a layer that you can choose to turn off at any point you may need to. It's different from having your thoughts on a matter actually deeply _embedded_ into the text.
+
+For this reason, I've looked at =org-remark= to be able to emulate this functionality.
+
+This will be done with the =org-remark= package.
+
+It is recommended that =org-remark-global-tracking-mode= be enabled when Emacs initializes. You can set it in =after-init-hook=.
+
+=org-remark= is currently disabled because of an error with =org-remark-global-tracking= not being able to be pulled by =elpaca=. I can't figure out the reason why it doesn't work currently.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-remark-global-tracking
+    :ensure t
+    :defer t
+    :hook after-init
+    :config
+    ;; Selectively keep or comment out the following if you want to use
+    ;; extensions for Info-mode, EWW, and NOV.el (EPUB) respectively.
+    (use-package org-remark-info :after info :config (org-remark-info-mode +1))
+    (use-package org-remark-eww  :after eww  :config (org-remark-eww-mode +1))
+    (use-package org-remark-nov  :after nov  :config (org-remark-nov-mode +1)))
+#+end_src
+
+Now we're bootstrapping the real =org-remark= package.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-remark
+    :ensure t
+    :defer t
+    :bind (;; :bind keyword also implicitly defers org-remark itself.
+           ;; Keybindings before :map is set for global-map. Adjust the keybinds
+           ;; as you see fit.
+           ("C-c n m" . org-remark-mark)
+           ("C-c n l" . org-remark-mark-line)
+           :map org-remark-mode-map
+           ("C-c n o" . org-remark-open)
+           ("C-c n ]" . org-remark-view-next)
+           ("C-c n [" . org-remark-view-prev)
+           ("C-c n r" . org-remark-remove)
+           ("C-c n d" . org-remark-delete)))
+#+end_src

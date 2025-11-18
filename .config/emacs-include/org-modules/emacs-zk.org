@@ -1,0 +1,84 @@
+#+title: zk package
+
+This one creates a different kind of link within the files.
+
+This would probably have to be removed at some point once it isn't maintained anymore (as it doesn't seem to have that big of a following as compared to =denote=)
+
+For now, it is configured to function only with Markdown, as I can't get the follow link function to work properly.Hegel's end-of-art-thesis [[202511092054]]
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package zk
+    :ensure (:files (:defaults "zk-consult.el"))
+    :custom
+    (zk-directory "~/Documents/zk")
+    (zk-file-extension "md")
+    :config
+    (zk-setup-auto-link-buttons)
+    (zk-setup-embark)
+    (setq zk-tag-grep-function #'zk-consult-grep-tag-search
+          zk-grep-function #'zk-consult-grep))
+#+end_src
+
+Will this work with opening separate files as needed?
+
+The =zk= package can also use interactive buttons, but these have to be configured.
+
+* Making =zk= work properly within =org-mode=
+
+If we want org-mode to treat zk links as zk links (meaning that they open a different file), we can define a different function for that. The way that the function is defined means that it can still open a link as a heading within the same org document, but if that doesn't work, it will get rerouted externally.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun zk-org-try-to-follow-link (fn &optional arg)
+  "When 'org-open-at-point' FN fails, try 'zk-follow-link-at-point'.
+Optional ARG."
+  (let ((org-link-search-must-match-exact-headline t))
+    (condition-case nil
+	(apply fn arg)
+      (error (zk-follow-link-at-point)))))
+
+(advice-add 'org-open-at-point :around #'zk-org-try-to-follow-link)
+#+end_src
+
+Briefly, this function instructs org-open-at-point to try calling zk-follow-link-at-point when a link is not an internal link.
+
+* The better solution: creating =[[zk:]]= links
+
+The companion package =zk-org-link.el= provides a custom Org-link type called zk, such that links will be styled =[[zk:201812101245]]= instead of =[[201812101245]]=. Using Org-links allows notes to be followed as expected, as well as exported to various formats via org-export, stored via org-store-link, and completed via org-insert-link.
+
+The link styles cannot be combined — they are not mutually compatible. Use one style or the other. That is, either use zk-org-link.el or don’t. (I do not, but here it is anyway.)
+
+To use org-links, include the following in your init.el:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(with-eval-after-load 'org
+  (with-eval-after-load 'zk
+    (require 'zk-org-link)))
+#+end_src
+
+This will set create the zk Org-link type and set necessary values for several variables. Be sure to load zk-org-link.el after zk, as the above code snippet does.
+
+NOTE: zk-completion-at-point functionality is not available when using zk-org-link.el.
+
+* Adding =link-hint.el= to =zk-links=
+
+To allow link-hint.el to find zk-links, it is necessary to add a new link type, as follows:
+
+#+begin_src emacs-lisp :tangle no
+(defun zk-link-hint--zk-link-at-point-p ()
+  "Return the id of the zk-link at point or nil."
+  (thing-at-point-looking-at (zk-link-regexp)))
+
+(defun zk-link-hint--next-zk-link (&optional bound)
+  "Find the next zk-link.
+Only search the range between just after the point and BOUND."
+  (link-hint--next-regexp zk-id-regexp bound))
+
+(eval-when-compile
+  (link-hint-define-type 'zk-link
+    :next #'zk-link-hint--next-zk-link
+    :at-point-p #'zk-link-hint--zk-link-at-point-p
+    :open #'zk-follow-link-at-point
+    :copy #'kill-new))
+
+(push 'link-hint-zk-link link-hint-types)
+#+end_src
