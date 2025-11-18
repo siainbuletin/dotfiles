@@ -10,16 +10,20 @@
     :defer t
 
     :config
+    (denote-rename-buffer-mode)
     (setq denote-file-type 'org) ; default is org
+    (setq denote-history-completion-in-prompts nil)
+    (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+    (setq denote-sort-keywords t)
     (setq denote-known-keywords
   	  '("academic-journal"
   	    "blog-post"
   	    "book"
-  	    "book-section"
+  	    "booksection"
   	    "concept"
   	    "course"
+  	    "current"
   	    "docs"
-  	    "educational-program"
   	    "group"
   	    "institution"
   	    "journal-article"
@@ -29,12 +33,10 @@
   	    "package"
   	    "person"
   	    "process"
+  	    "studyplace"
   	    "thesis"
+  	    "workflow"
   	    "zettel"))
-    (setq denote-history-completion-in-prompts nil)
-    (setq denote-rename-confirmations '(modify-file-name add-front-matter))
-    (setq denote-sort-keywords t)
-    (setq denote-rename-buffer-mode 1)
     ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
 
     :hook
@@ -127,6 +129,10 @@ The user option denote-save-buffers controls whether commands that create new no
 (setq denote-save-buffers t)
 #+end_src
 
+* Have a handy navigation menu for Denote
+
+This is taken from this configuration: https://lambdaland.org/posts/2025-07-11_research_notes/ It's actually configured in the =transient= package, which is found [[file:vc.org][here]].
+
 * TODO Automatically rename denote file buffers
 
 The minor mode denote-rename-buffer-mode provides the means to automatically rename the buffer of a Denote file upon visiting the file. This applies both to existing Denote files as well as new ones (Points of entry). Enable the mode thus:
@@ -152,7 +158,15 @@ There's a bunch of issues documented here:
 #+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package denote-org
       :ensure t
-      :after denote)
+      :after denote
+
+      :custom
+      ;; `denote-org-link-to-heading' controls the behavior of
+      ;; `org-store-link': setting to id makes it insert an ID in the
+      ;; PROPERTIES drawer
+      ;;
+      ;; (denote-org-store-link-to-heading 'context)
+      (denote-org-store-link-to-heading 'id))
 #+end_src
 
 This extends denote to support org dynamic blocks, links to headings and splitting an org subtree into its own standalone file (through =org-refile=). This is important for quickly sorting information away when it's no longer needed.
@@ -214,7 +228,13 @@ This package was created by Peter Prevos for Emacs Writing Studio.
 This can be used as a kind of counterpart for =org-journal=.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package denote-journal)
+  (use-package denote-journal
+    :after denote
+    :custom
+    (denote-journal-keyword "log")
+    (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
+    (denote-journal-title-format 'day-date-month-year)
+  			    )
 #+end_src
 
 ** =denote-sequence=: folgezettel-style breadcrumbs in the notes
@@ -238,6 +258,53 @@ This could be used for filtering literature notes written through =citar-denote=
 I think it might be default Emacs functionality to open links in a new buffer, instead of opening them in place. This is a lot better if you're breadcrumbing across files while you're writing.
 
 TODO document this
+
+* TODO Figuring out how merge notes together
+
+You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
+
+Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
+
+This has to be tested.
+
+This doesn't actually work becase the function =denote-org-extras--increase-headings-depth= hasn't actually been replicated again in =denote=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defvar denote-org-extras-not-ask-merge-delete t
+  "If non-nil, `denote-org-extras-merge-note-to-another' deletes
+without prompting. Otherwise, prompt for confirmation before
+deletion.")
+
+(defun denote-org-extras-merge-note-to-another (file)
+  "Merge the current note into another one"
+  (interactive (list (denote-file-prompt "\\.org\\'")))
+  (if (derived-mode-p 'org-mode)
+      (let* ((current-note buffer-file-name)
+             (current-note-title (denote-retrieve-front-matter-title-value current-note 'org))
+             (current-note-keywords (denote-extract-keywords-from-path current-note))
+             (current-note-content (condition-case nil ;; handling case when current note is empty
+                                       (denote-org-dblock--get-file-contents current-note t)
+                                     (error "")))
+             (current-note-as-subtree (format "\n* %s\n%s" current-note-title (denote-org-extras--increase-headings-depth current-note-content)))
+             (other-note-keywords (denote-extract-keywords-from-path file))
+             (other-note-buffer (find-file-noselect file))
+             (other-note-title (denote-retrieve-front-matter-title-value file 'org))
+             (all-keywords (delete-dups (append current-note-keywords other-note-keywords))))
+        (with-current-buffer other-note-buffer
+          (goto-char (point-max))
+          (insert current-note-as-subtree))
+        (denote-org-extras--delete-note current-note)
+        (switch-to-buffer other-note-buffer)
+        (denote-rewrite-keywords file all-keywords 'org)
+        (denote-rename-file file other-note-title all-keywords nil nil) ;; FIXME: denote-slug-put-equals: Wrong type argument: arrayp, nil
+        (message "Merged current note into %s" (file-name-nondirectory file)))
+    (user-error "The current note is not an Org file")))
+#+end_src
+
+Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
+
+https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
+https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
 * TODO Integrating with bibliography management
 

@@ -1,8 +1,31 @@
 #+TITLE: Window management setup
+#+startup: overview
 
 Emacs is quite complicated when it comes to deciding where to send the windows around.
 
 [[#Making buffers available globally]] is something that I still have to research into doing properly.
+
+* Making the minibuffer big enough for reading
+
+This is taken from XahLee: http://xahlee.info/emacs/emacs/emacs_minibuffer_font_size.html
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-setup-minibuffer ()
+  "make minibuffer use larger font size."
+  (text-scale-increase 3))
+
+(add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
+#+end_src
+
+You can also change the global text scale for the current session with =text-scale-increase=. Maybe I could add a hook for any kind of text-mode hook.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-setup-text-buffer ()
+  "Make the font in the text buffer generally larger."
+  (text-scale-increase 4))
+
+(add-hook 'text-mode-hook 'sia-setup-text-buffer)
+#+end_src
 
 * TODO Emacs's internal window management
 ** TODO Configuring internal windows to split vertically instead of horizontally
@@ -26,13 +49,13 @@ This has to be tested.
     (balanced-windows-mode))
 #+end_src
 
-* Showing a divider between windows
+* Showing a divider between  windows
 
 This is taken from Howardism config. "The following adds frame borders and window dividers to give space between window buffers." [fn:1]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (modify-all-frames-parameters
- '((right-divider-width . 2)
+ '((right-divider-width . 10)
    (internal-border-width . 10)))
 
 (dolist (face '(window-divider

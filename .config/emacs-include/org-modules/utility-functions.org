@@ -97,7 +97,36 @@ If you want to use prettier Unicode characters to draw the tree:
 #+begin_src emacs-lisp :tangle no :eval never
 (setq vundo-glyph-alist vundo-unicode-symbols)
 #+end_src
+* Showing matches in a file
 
+I'm going to install =anzu=, which is basically a port from Neovim. It has an integration with =doom-modeline= which will show the matches on the side (see [[file:appearance.org][appearance config]]).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+          (use-package anzu
+            :ensure t
+
+            :config
+    	; (anzu-mode) ; would this even work?
+  	)
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (anzu-mode +1)
+#+end_src
+
+By making anzu mode global it will show up no matter what and it also won't clutter up the =doom-modeline=. But global-anzu-mode produces an error
+
+I actually can't get anzu to work properly, so it's disabled from loading on the emacs init currently.
+
+* Autoclosing pairs when doing text editing
+
+See also [[file:org-config.org][the org-mode configuration]] for more tweaks to [[denote:20251117T173819][Text editing experience within Emacs]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(electric-pair-mode 1)
+#+end_src
+
+Does this mean that the mode is enabled globally?
 
 * TODO Make reloading the modular Emacs literate configuration from just one function
 

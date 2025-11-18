@@ -1,4 +1,4 @@
-# Created 2025-11-17 Mon 23:12
+# Created 2025-11-18 Tue 21:59
 #+options: ':t author:t
 #+title: Emacs configuration with org submodules
 #+author: Sia Piperea
@@ -8,7 +8,7 @@
 #+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
 #+macro: word-count (eval  (count-words (point-min) (point-max)))
 
-[ Last revised and exported on *2025-11-17 23:12:42 +0200*, with a word count of *40411*. ]
+[ Last revised and exported on *2025-11-18 21:59:08 +0200*, with a word count of *43390*. ]
 * Changelog
 
 On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
@@ -1208,7 +1208,36 @@ Deals with the early packages as well as =early-init.el= in just one file. The e
   ,#+begin_src emacs-lisp :tangle no :eval never
   (setq vundo-glyph-alist vundo-unicode-symbols)
   ,#+end_src
+  ,* Showing matches in a file
 
+  I'm going to install =anzu=, which is basically a port from Neovim. It has an integration with =doom-modeline= which will show the matches on the side (see [[file:appearance.org][appearance config]]).
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+            (use-package anzu
+              :ensure t
+
+              :config
+          ; (anzu-mode) ; would this even work?
+          )
+  ,#+end_src
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+    (anzu-mode +1)
+  ,#+end_src
+
+  By making anzu mode global it will show up no matter what and it also won't clutter up the =doom-modeline=. But global-anzu-mode produces an error
+
+  I actually can't get anzu to work properly, so it's disabled from loading on the emacs init currently.
+
+  ,* Autoclosing pairs when doing text editing
+
+  See also [[file:org-config.org][the org-mode configuration]] for more tweaks to [[denote:20251117T173819][Text editing experience within Emacs]].
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (electric-pair-mode 1)
+  ,#+end_src
+
+  Does this mean that the mode is enabled globally?
 
   ,* TODO Make reloading the modular Emacs literate configuration from just one function
 
@@ -1381,7 +1410,36 @@ If you want to use prettier Unicode characters to draw the tree:
 #+begin_src emacs-lisp :tangle no :eval never
 (setq vundo-glyph-alist vundo-unicode-symbols)
 #+end_src
+* Showing matches in a file
 
+I'm going to install =anzu=, which is basically a port from Neovim. It has an integration with =doom-modeline= which will show the matches on the side (see [[file:appearance.org][appearance config]]).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+          (use-package anzu
+            :ensure t
+
+            :config
+        ; (anzu-mode) ; would this even work?
+        )
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (anzu-mode +1)
+#+end_src
+
+By making anzu mode global it will show up no matter what and it also won't clutter up the =doom-modeline=. But global-anzu-mode produces an error
+
+I actually can't get anzu to work properly, so it's disabled from loading on the emacs init currently.
+
+* Autoclosing pairs when doing text editing
+
+See also [[file:org-config.org][the org-mode configuration]] for more tweaks to [[denote:20251117T173819][Text editing experience within Emacs]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(electric-pair-mode 1)
+#+end_src
+
+Does this mean that the mode is enabled globally?
 
 * TODO Make reloading the modular Emacs literate configuration from just one function
 
@@ -2691,6 +2749,45 @@ This is for files that have been saved as bookmarks but it can be extended to mo
   Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
 
   ,** How linking works between files
+  ,** Making searching for headings across other files possible
+
+  By default, Emacs has the setting =org-link-search-must-match-exact-headline= set to =t=. This makes it so that even if you have an ID setup for your heading (even if it's alphanumeric)
+
+  If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:3]
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-link-search-must-match-exact-headline nil)
+  ,#+end_src
+
+  ,** Working with both unique ID values and =CUSTOM_ID=
+  Glonal IDs aren't automatically generated through the =org-id= extension.[fn:4] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
+
+  It is possible to generate the links automatically with this:[fn:4]
+
+  If you use =org-capture= to add all of your items then org-capture-prepare-finalize-hook is a logical place to put the code:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+    (add-hook 'org-capture-prepare-finalize-hook 'org-id-get-create)
+  ,#+end_src
+
+  Alternately you could do as Stuart suggested and add a save hook for org-mode files. I think the most idiomatic way to process all of the headlines in the file would be to use the mapping API:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+    (defun my/org-add-ids-to-headlines-in-file ()
+      "Add ID properties to all headlines in the current file which
+    do not already have one."
+      (interactive)
+      (org-map-entries 'org-id-get-create))
+  ,#+end_src
+
+  Finally we just need to add a before-save-hook which only runs in org-mode:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (add-hook 'before-save-hook 'my/org-add-ids-to-headlines-in-file nil 'local)))
+  ,#+end_src
+
   ,** Managing links between headings with =counsel-org-link=
 
   It can show a searchable list of all the headings in the current document, and allows selecting one, automatically creating a link to it. =counsel-outline-display-style= is configured so that only the headline title is inserted into the link, instead of its full path within the document.
@@ -2701,7 +2798,7 @@ This is for files that have been saved as bookmarks but it can be extended to mo
 
   counsel-org-link uses org-id as its backend, which generates IDs using UUIDs and stores them in the ID property. I prefer using human-readable IDs stored in the CUSTOM_ID property of each heading, so we need to make some changes.
 
-  First, configure org-id to use CUSTOM_ID if it exists. This instructs org-id to grab those IDs when using the org-store-link function (funny that org-id knows how to recognize and use CUSTOM_ID, but not how to generate them). This tells org-id to not create an ID if CUSTOM_ID already exists
+  First, configure org-id to use CUSTOM_ID if it exists. This instructs org-id to grab those IDs when using the org-store-link function (funny that org-id knows how to recognize and use =CUSTOM_ID=, but not how to generate them). This tells org-id to not create an ID if CUSTOM_ID already exists
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
@@ -2752,6 +2849,15 @@ This is for files that have been saved as bookmarks but it can be extended to mo
   Ta-da! Now using counsel-org-link inserts nice, human-readable links.
 
   You can also overall automate the creation of custom IDs with this: https://writequit.org/articles/emacs-org-mode-generate-ids.html
+  ,** Maintaining emacs links so that they don't actually rot
+
+  When changing the file name of a file, what happens if the links are dead?
+
+  Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:5]
+
+  A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
+
+  However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
 
   ,* Minor modes to enable for =org-mode=
   ,* Make rendering better within org-mode
@@ -2766,7 +2872,7 @@ This is for files that have been saved as bookmarks but it can be extended to mo
   ,,* an org heading
   ,#+end_src
 
-  You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:3]
+  You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:6]
 
   ,* TODO Choosing the modes for which =mixed-pitch= is enabled
 
@@ -2841,13 +2947,19 @@ This is for files that have been saved as bookmarks but it can be extended to mo
 
   ,* Configuring how =CUSTOM_ID= is created
 
-
   ,* Footnotes
-  [fn:3]  https://www.danliden.com/posts/20220208-org-source.html
 
   [fn:1]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
 
   [fn:2] https://github.com/minad/goggles
+
+  [fn:3]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
+
+  [fn:4]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
+
+  [fn:5] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+
+  [fn:6]  https://www.danliden.com/posts/20220208-org-source.html
 #+end_src
 
 #+RESULTS:
@@ -3196,6 +3308,45 @@ So that you don't have to go back in and do =M-x check-parens=, you could oconfi
 Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
 
 ** How linking works between files
+** Making searching for headings across other files possible
+
+By default, Emacs has the setting =org-link-search-must-match-exact-headline= set to =t=. This makes it so that even if you have an ID setup for your heading (even if it's alphanumeric)
+
+If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-link-search-must-match-exact-headline nil)
+#+end_src
+
+** Working with both unique ID values and =CUSTOM_ID=
+Glonal IDs aren't automatically generated through the =org-id= extension.[fn:4] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
+
+It is possible to generate the links automatically with this:[fn:4]
+
+If you use =org-capture= to add all of your items then org-capture-prepare-finalize-hook is a logical place to put the code:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-capture-prepare-finalize-hook 'org-id-get-create)
+#+end_src
+
+Alternately you could do as Stuart suggested and add a save hook for org-mode files. I think the most idiomatic way to process all of the headlines in the file would be to use the mapping API:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defun my/org-add-ids-to-headlines-in-file ()
+    "Add ID properties to all headlines in the current file which
+  do not already have one."
+    (interactive)
+    (org-map-entries 'org-id-get-create))
+#+end_src
+
+Finally we just need to add a before-save-hook which only runs in org-mode:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'before-save-hook 'my/org-add-ids-to-headlines-in-file nil 'local)))
+#+end_src
+
 ** Managing links between headings with =counsel-org-link=
 
 It can show a searchable list of all the headings in the current document, and allows selecting one, automatically creating a link to it. =counsel-outline-display-style= is configured so that only the headline title is inserted into the link, instead of its full path within the document.
@@ -3206,7 +3357,7 @@ It can show a searchable list of all the headings in the current document, and a
 
 counsel-org-link uses org-id as its backend, which generates IDs using UUIDs and stores them in the ID property. I prefer using human-readable IDs stored in the CUSTOM_ID property of each heading, so we need to make some changes.
 
-First, configure org-id to use CUSTOM_ID if it exists. This instructs org-id to grab those IDs when using the org-store-link function (funny that org-id knows how to recognize and use CUSTOM_ID, but not how to generate them). This tells org-id to not create an ID if CUSTOM_ID already exists
+First, configure org-id to use CUSTOM_ID if it exists. This instructs org-id to grab those IDs when using the org-store-link function (funny that org-id knows how to recognize and use =CUSTOM_ID=, but not how to generate them). This tells org-id to not create an ID if CUSTOM_ID already exists
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
@@ -3257,6 +3408,15 @@ title."
 Ta-da! Now using counsel-org-link inserts nice, human-readable links.
 
 You can also overall automate the creation of custom IDs with this: https://writequit.org/articles/emacs-org-mode-generate-ids.html
+** Maintaining emacs links so that they don't actually rot
+
+When changing the file name of a file, what happens if the links are dead?
+
+Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:5]
+
+A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
+
+However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
 
 * Minor modes to enable for =org-mode=
 * Make rendering better within org-mode
@@ -3271,7 +3431,7 @@ This can be avoided by adding a comma before the org heading. Thus you'd do some
 * an org heading
 #+end_src
 
-You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:3]
+You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:6]
 
 * TODO Choosing the modes for which =mixed-pitch= is enabled
 
@@ -3346,13 +3506,19 @@ The elisp regular expression isn’t the easiest to understand, but this is what
 
 * Configuring how =CUSTOM_ID= is created
 
-
 * Footnotes
-[fn:3]  https://www.danliden.com/posts/20220208-org-source.html
 
 [fn:1]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
 
 [fn:2] https://github.com/minad/goggles
+
+[fn:3]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
+
+[fn:4]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
+
+[fn:5] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+
+[fn:6]  https://www.danliden.com/posts/20220208-org-source.html
 :end:
 
 This is basic org-mode functionality that is loaded as org itself is being loaded. Defering is useful (and default), and it's the reason why I prefer to tangle my files first instead of including them into an =.el= file.
@@ -3415,6 +3581,99 @@ This is basic org-mode functionality that is loaded as org itself is being loade
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
   (setq org-agenda-files (quote ("~/Documents/tracking")))
   ,#+end_src
+
+  ,** Pulling info for org-agenda from daily task files as well as org capture
+
+  this is taken from this post: https://lambdaland.org/posts/2025-07-11_research_notes/#h:0FC5EE29-259F-47C1-9502-5C51F326E6A3
+
+  Currently disabled until I figure out how integrate it into my own work.
+
+  I have some utilities to go through all of my files tagged labnotes or tasks and produce an org-agenda view. Note: generating the agenda takes on the order of several seconds as it looks through a lot of notes. Below is roughly how I do it:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org
+    :init
+    (defun aw/set-update-agenda ()
+      "Set or update the agenda list.
+
+  Useful for when some files that should be on the agenda list are created
+  after org initialization."
+      (interactive)
+      ;; important: setq and not setopt
+      (setq org-agenda-custom-commands
+            '(("n" "Agenda and All Todos"
+               ((agenda)
+                (todo)))
+              ("w" "Work and research"
+               ((agenda)
+                (tags-todo "+research")
+                (tags-todo "+paper")
+                (tags-todo "+reading")
+                (tags-todo "+school")
+                (tags-todo "+homework")
+                (tags-todo "+labnotes-homework"))
+               ((org-agenda-tag-filter-preset '("-home"))
+                (org-agenda-files
+                 (append (aw/org-files-with-tag denote-directory "labnotes" 60)
+                         (aw/org-files-with-tag denote-directory "tasks" 60)
+                         org-agenda-files)))))))
+    :config
+    (setopt org-latex-pdf-process
+            '("lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+              "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+              "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"))
+
+    (setopt org-export-with-smart-quotes t)
+
+    (setopt org-log-done 'time)               ; Instead of `'time`, also try `'note`
+    (setopt org-log-into-drawer t)            ; Move log notes into a drawer
+
+    ;; Semantics:
+    ;;  - TODO: open task, ready to do
+    ;;  - WAITING: Blocked on something; notes should include what the blocker is
+    ;;  - STARTED: Task in-progress
+    ;;  - DONE: Task complete; no further action
+    ;;  - OBSOLETE: Task not complete, won't fix
+    ;;  - MOVED: Task moved to different location;
+    ;;    this one kept as record; note indicates where moved
+    (setopt org-todo-keywords
+            '((sequence "TODO(t)" "WAITING(w@/!)" "STARTED(s!)"
+                        "|" "DONE(d!)" "OBSOLETE(o@)" "MOVED(m!/@)")))
+
+    (setopt org-done-keywords '("DONE" "OBSOLETE" "MOVED"))
+
+    (aw/set-update-agenda))
+
+  (defun aw/org-files-with-tag (dir tag &optional days-past)
+    "Return list of files with filetag `tag' in `dir', optionally filtering to `days-past'"
+    (let* ((my-buffer (generate-new-buffer "gather_tags"))
+           (process
+            (make-process
+             :name "gather_tags"
+             :buffer my-buffer
+             :stderr nil
+             :command `("rg"
+                        "--files-with-matches"
+                        ,(format "^#\\+filetags:.*?:%s:" tag)
+                        "--"
+                        ,(expand-file-name dir)))))
+      (while (accept-process-output process)) ; Flush process output to buffer
+      (with-current-buffer my-buffer
+        (cl-remove-if-not (lambda (filename)
+                            (and (file-exists-p filename)
+                                 (not (string= filename ""))
+                                 (or (not days-past)
+                                     (time-less-p (time-subtract
+                                                   (current-time)
+                                                   (days-to-time days-past))
+                                                  (file-attribute-modification-time
+                                                   (file-attributes filename))))))
+                          (split-string
+                           (buffer-substring-no-properties (point-min) (point-max))
+                           "\n")))))
+  ,#+end_src
+
+  The =aw/org-files-with-tag= uses =ripgrep= to find files with the desired tags in the #+filetags: portion of a file. Note that my configuration for =denote-journal= automatically includes the tag =labnotes= for any journal entry I create.
 
   ,* =org-agenda= views
 
@@ -3564,6 +3823,99 @@ I have defined a special directory which is meant to collect files that I'm acti
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq org-agenda-files (quote ("~/Documents/tracking")))
 #+end_src
+
+** Pulling info for org-agenda from daily task files as well as org capture
+
+this is taken from this post: https://lambdaland.org/posts/2025-07-11_research_notes/#h:0FC5EE29-259F-47C1-9502-5C51F326E6A3
+
+Currently disabled until I figure out how integrate it into my own work.
+
+I have some utilities to go through all of my files tagged labnotes or tasks and produce an org-agenda view. Note: generating the agenda takes on the order of several seconds as it looks through a lot of notes. Below is roughly how I do it:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package org
+  :init
+  (defun aw/set-update-agenda ()
+    "Set or update the agenda list.
+
+Useful for when some files that should be on the agenda list are created
+after org initialization."
+    (interactive)
+    ;; important: setq and not setopt
+    (setq org-agenda-custom-commands
+          '(("n" "Agenda and All Todos"
+             ((agenda)
+              (todo)))
+            ("w" "Work and research"
+             ((agenda)
+              (tags-todo "+research")
+              (tags-todo "+paper")
+              (tags-todo "+reading")
+              (tags-todo "+school")
+              (tags-todo "+homework")
+              (tags-todo "+labnotes-homework"))
+             ((org-agenda-tag-filter-preset '("-home"))
+              (org-agenda-files
+               (append (aw/org-files-with-tag denote-directory "labnotes" 60)
+                       (aw/org-files-with-tag denote-directory "tasks" 60)
+                       org-agenda-files)))))))
+  :config
+  (setopt org-latex-pdf-process
+          '("lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+            "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+            "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"))
+
+  (setopt org-export-with-smart-quotes t)
+
+  (setopt org-log-done 'time)               ; Instead of `'time`, also try `'note`
+  (setopt org-log-into-drawer t)            ; Move log notes into a drawer
+
+  ;; Semantics:
+  ;;  - TODO: open task, ready to do
+  ;;  - WAITING: Blocked on something; notes should include what the blocker is
+  ;;  - STARTED: Task in-progress
+  ;;  - DONE: Task complete; no further action
+  ;;  - OBSOLETE: Task not complete, won't fix
+  ;;  - MOVED: Task moved to different location;
+  ;;    this one kept as record; note indicates where moved
+  (setopt org-todo-keywords
+          '((sequence "TODO(t)" "WAITING(w@/!)" "STARTED(s!)"
+                      "|" "DONE(d!)" "OBSOLETE(o@)" "MOVED(m!/@)")))
+
+  (setopt org-done-keywords '("DONE" "OBSOLETE" "MOVED"))
+
+  (aw/set-update-agenda))
+
+(defun aw/org-files-with-tag (dir tag &optional days-past)
+  "Return list of files with filetag `tag' in `dir', optionally filtering to `days-past'"
+  (let* ((my-buffer (generate-new-buffer "gather_tags"))
+         (process
+          (make-process
+           :name "gather_tags"
+           :buffer my-buffer
+           :stderr nil
+           :command `("rg"
+                      "--files-with-matches"
+                      ,(format "^#\\+filetags:.*?:%s:" tag)
+                      "--"
+                      ,(expand-file-name dir)))))
+    (while (accept-process-output process)) ; Flush process output to buffer
+    (with-current-buffer my-buffer
+      (cl-remove-if-not (lambda (filename)
+                          (and (file-exists-p filename)
+                               (not (string= filename ""))
+                               (or (not days-past)
+                                   (time-less-p (time-subtract
+                                                 (current-time)
+                                                 (days-to-time days-past))
+                                                (file-attribute-modification-time
+                                                 (file-attributes filename))))))
+                        (split-string
+                         (buffer-substring-no-properties (point-min) (point-max))
+                         "\n")))))
+#+end_src
+
+The =aw/org-files-with-tag= uses =ripgrep= to find files with the desired tags in the #+filetags: portion of a file. Note that my configuration for =denote-journal= automatically includes the tag =labnotes= for any journal entry I create.
 
 * =org-agenda= views
 
@@ -4027,16 +4379,20 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
       :defer t
 
       :config
+      (denote-rename-buffer-mode)
       (setq denote-file-type 'org) ; default is org
+      (setq denote-history-completion-in-prompts nil)
+      (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+      (setq denote-sort-keywords t)
       (setq denote-known-keywords
             '("academic-journal"
               "blog-post"
               "book"
-              "book-section"
+              "booksection"
               "concept"
               "course"
+              "current"
               "docs"
-              "educational-program"
               "group"
               "institution"
               "journal-article"
@@ -4046,12 +4402,10 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
               "package"
               "person"
               "process"
+              "studyplace"
               "thesis"
+              "workflow"
               "zettel"))
-      (setq denote-history-completion-in-prompts nil)
-      (setq denote-rename-confirmations '(modify-file-name add-front-matter))
-      (setq denote-sort-keywords t)
-      (setq denote-rename-buffer-mode 1)
       ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
 
       :hook
@@ -4144,6 +4498,10 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
   (setq denote-save-buffers t)
   ,#+end_src
 
+  ,* Have a handy navigation menu for Denote
+
+  This is taken from this configuration: https://lambdaland.org/posts/2025-07-11_research_notes/ It's actually configured in the =transient= package, which is found [[file:vc.org][here]].
+
   ,* TODO Automatically rename denote file buffers
 
   The minor mode denote-rename-buffer-mode provides the means to automatically rename the buffer of a Denote file upon visiting the file. This applies both to existing Denote files as well as new ones (Points of entry). Enable the mode thus:
@@ -4169,7 +4527,15 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
       (use-package denote-org
         :ensure t
-        :after denote)
+        :after denote
+
+        :custom
+        ;; `denote-org-link-to-heading' controls the behavior of
+        ;; `org-store-link': setting to id makes it insert an ID in the
+        ;; PROPERTIES drawer
+        ;;
+        ;; (denote-org-store-link-to-heading 'context)
+        (denote-org-store-link-to-heading 'id))
   ,#+end_src
 
   This extends denote to support org dynamic blocks, links to headings and splitting an org subtree into its own standalone file (through =org-refile=). This is important for quickly sorting information away when it's no longer needed.
@@ -4231,7 +4597,13 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
   This can be used as a kind of counterpart for =org-journal=.
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package denote-journal)
+    (use-package denote-journal
+      :after denote
+      :custom
+      (denote-journal-keyword "log")
+      (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
+      (denote-journal-title-format 'day-date-month-year)
+                              )
   ,#+end_src
 
   ,** =denote-sequence=: folgezettel-style breadcrumbs in the notes
@@ -4255,6 +4627,53 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
   I think it might be default Emacs functionality to open links in a new buffer, instead of opening them in place. This is a lot better if you're breadcrumbing across files while you're writing.
 
   TODO document this
+
+  ,* TODO Figuring out how merge notes together
+
+  You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
+
+  Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
+
+  This has to be tested.
+
+  This doesn't actually work becase the function =denote-org-extras--increase-headings-depth= hasn't actually been replicated again in =denote=.
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+  (defvar denote-org-extras-not-ask-merge-delete t
+    "If non-nil, `denote-org-extras-merge-note-to-another' deletes
+  without prompting. Otherwise, prompt for confirmation before
+  deletion.")
+
+  (defun denote-org-extras-merge-note-to-another (file)
+    "Merge the current note into another one"
+    (interactive (list (denote-file-prompt "\\.org\\'")))
+    (if (derived-mode-p 'org-mode)
+        (let* ((current-note buffer-file-name)
+               (current-note-title (denote-retrieve-front-matter-title-value current-note 'org))
+               (current-note-keywords (denote-extract-keywords-from-path current-note))
+               (current-note-content (condition-case nil ;; handling case when current note is empty
+                                         (denote-org-dblock--get-file-contents current-note t)
+                                       (error "")))
+               (current-note-as-subtree (format "\n* %s\n%s" current-note-title (denote-org-extras--increase-headings-depth current-note-content)))
+               (other-note-keywords (denote-extract-keywords-from-path file))
+               (other-note-buffer (find-file-noselect file))
+               (other-note-title (denote-retrieve-front-matter-title-value file 'org))
+               (all-keywords (delete-dups (append current-note-keywords other-note-keywords))))
+          (with-current-buffer other-note-buffer
+            (goto-char (point-max))
+            (insert current-note-as-subtree))
+          (denote-org-extras--delete-note current-note)
+          (switch-to-buffer other-note-buffer)
+          (denote-rewrite-keywords file all-keywords 'org)
+          (denote-rename-file file other-note-title all-keywords nil nil) ;; FIXME: denote-slug-put-equals: Wrong type argument: arrayp, nil
+          (message "Merged current note into %s" (file-name-nondirectory file)))
+      (user-error "The current note is not an Org file")))
+  ,#+end_src
+
+  Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
+
+  https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
+  https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
   ,* TODO Integrating with bibliography management
 
@@ -4330,16 +4749,20 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
     :defer t
 
     :config
+    (denote-rename-buffer-mode)
     (setq denote-file-type 'org) ; default is org
+    (setq denote-history-completion-in-prompts nil)
+    (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+    (setq denote-sort-keywords t)
     (setq denote-known-keywords
           '("academic-journal"
             "blog-post"
             "book"
-            "book-section"
+            "booksection"
             "concept"
             "course"
+            "current"
             "docs"
-            "educational-program"
             "group"
             "institution"
             "journal-article"
@@ -4349,12 +4772,10 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
             "package"
             "person"
             "process"
+            "studyplace"
             "thesis"
+            "workflow"
             "zettel"))
-    (setq denote-history-completion-in-prompts nil)
-    (setq denote-rename-confirmations '(modify-file-name add-front-matter))
-    (setq denote-sort-keywords t)
-    (setq denote-rename-buffer-mode 1)
     ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
 
     :hook
@@ -4447,6 +4868,10 @@ The user option denote-save-buffers controls whether commands that create new no
 (setq denote-save-buffers t)
 #+end_src
 
+* Have a handy navigation menu for Denote
+
+This is taken from this configuration: https://lambdaland.org/posts/2025-07-11_research_notes/ It's actually configured in the =transient= package, which is found [[file:vc.org][here]].
+
 * TODO Automatically rename denote file buffers
 
 The minor mode denote-rename-buffer-mode provides the means to automatically rename the buffer of a Denote file upon visiting the file. This applies both to existing Denote files as well as new ones (Points of entry). Enable the mode thus:
@@ -4472,7 +4897,15 @@ There's a bunch of issues documented here:
 #+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package denote-org
       :ensure t
-      :after denote)
+      :after denote
+
+      :custom
+      ;; `denote-org-link-to-heading' controls the behavior of
+      ;; `org-store-link': setting to id makes it insert an ID in the
+      ;; PROPERTIES drawer
+      ;;
+      ;; (denote-org-store-link-to-heading 'context)
+      (denote-org-store-link-to-heading 'id))
 #+end_src
 
 This extends denote to support org dynamic blocks, links to headings and splitting an org subtree into its own standalone file (through =org-refile=). This is important for quickly sorting information away when it's no longer needed.
@@ -4534,7 +4967,13 @@ This package was created by Peter Prevos for Emacs Writing Studio.
 This can be used as a kind of counterpart for =org-journal=.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package denote-journal)
+  (use-package denote-journal
+    :after denote
+    :custom
+    (denote-journal-keyword "log")
+    (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
+    (denote-journal-title-format 'day-date-month-year)
+                            )
 #+end_src
 
 ** =denote-sequence=: folgezettel-style breadcrumbs in the notes
@@ -4558,6 +4997,53 @@ This could be used for filtering literature notes written through =citar-denote=
 I think it might be default Emacs functionality to open links in a new buffer, instead of opening them in place. This is a lot better if you're breadcrumbing across files while you're writing.
 
 TODO document this
+
+* TODO Figuring out how merge notes together
+
+You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
+
+Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
+
+This has to be tested.
+
+This doesn't actually work becase the function =denote-org-extras--increase-headings-depth= hasn't actually been replicated again in =denote=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defvar denote-org-extras-not-ask-merge-delete t
+  "If non-nil, `denote-org-extras-merge-note-to-another' deletes
+without prompting. Otherwise, prompt for confirmation before
+deletion.")
+
+(defun denote-org-extras-merge-note-to-another (file)
+  "Merge the current note into another one"
+  (interactive (list (denote-file-prompt "\\.org\\'")))
+  (if (derived-mode-p 'org-mode)
+      (let* ((current-note buffer-file-name)
+             (current-note-title (denote-retrieve-front-matter-title-value current-note 'org))
+             (current-note-keywords (denote-extract-keywords-from-path current-note))
+             (current-note-content (condition-case nil ;; handling case when current note is empty
+                                       (denote-org-dblock--get-file-contents current-note t)
+                                     (error "")))
+             (current-note-as-subtree (format "\n* %s\n%s" current-note-title (denote-org-extras--increase-headings-depth current-note-content)))
+             (other-note-keywords (denote-extract-keywords-from-path file))
+             (other-note-buffer (find-file-noselect file))
+             (other-note-title (denote-retrieve-front-matter-title-value file 'org))
+             (all-keywords (delete-dups (append current-note-keywords other-note-keywords))))
+        (with-current-buffer other-note-buffer
+          (goto-char (point-max))
+          (insert current-note-as-subtree))
+        (denote-org-extras--delete-note current-note)
+        (switch-to-buffer other-note-buffer)
+        (denote-rewrite-keywords file all-keywords 'org)
+        (denote-rename-file file other-note-title all-keywords nil nil) ;; FIXME: denote-slug-put-equals: Wrong type argument: arrayp, nil
+        (message "Merged current note into %s" (file-name-nondirectory file)))
+    (user-error "The current note is not an Org file")))
+#+end_src
+
+Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
+
+https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
+https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
 * TODO Integrating with bibliography management
 
@@ -5500,7 +5986,7 @@ Perhaps this can be remedied in Emacs through using the org ids, but I don't lik
 #+end_src
 
 #+RESULTS:
-: [nil 26907 36831 446958 nil elpaca-process-queues nil nil 338000 nil]
+: [nil 26908 53267 40511 nil elpaca-process-queues nil nil 922000 nil]
 
 Enable the TOC for long markdown notes as well
 
@@ -5511,7 +5997,7 @@ Enable the TOC for long markdown notes as well
 #+end_src
 
 #+RESULTS:
-: [nil 26907 36831 449094 nil elpaca-process-queues nil nil 43000 nil]
+: [nil 26908 53267 43675 nil elpaca-process-queues nil nil 224000 nil]
 
 * Options for the workflow and the patchwork I have to do to make it work
 
@@ -8315,14 +8801,61 @@ This is something that has to be done soon in the future, as it would allow more
   ,* Bootstrapping the packages
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package cond-let)
+  ,#+end_src
 
-    (use-package transient)
+  The transient package also has configuration for creating a menu of notes within =denote=. For the main configuration of =denote=, go [[file:denote.org][here]].
 
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package transient
+      :ensure t
+      :bind
+      (:map global-map
+          ("M-s-d" . denote-transient))
+
+      :config
+      (transient-define-prefix denote-transient () "Denote dispatch"
+        [["Note creation (d)"
+          ("dd" "new note" denote)
+          ("dj" "new or existing journal entry" denote-journal-new-or-existing-entry)
+          ("dn" "open or new" denote-open-or-create)
+          ("dt" "new specifying date and time" denote-date)
+          ("ds" "create in subdirectory " denote-subdirectory)]
+         ["Reviewing (r)"
+          ("rd" "notes this day" aw/notes-this-day)]
+         ["Folgezettel (f)"
+          ("fc" "create parent/child/sibling" denote-sequence)
+          ("ff" "find parent/child/sibling notes" denote-sequence-find)
+          ("fr" "reparent (adopt) current note into another sequence" denote-sequence-reparent)
+          ("fp" "find previous sibling" denote-sequence-find-previous-sibling :transient t)
+          ("fn" "find next sibling" denote-sequence-find-next-sibling :transient t)]]
+
+        [["Bookkeeping (b)"
+          ("br" "prompt and rename" denote-rename-file)
+          ("bf" "rename with frontmatter" denote-rename-file-using-front-matter)
+          ("bk" "modify keywords" denote-rename-file-keywords)]
+         ["Linking (l)"
+          ("li" "insert link" denote-link)
+          ("lh" "insert link to org heading" denote-org-link-to-heading)
+          ("lb" "show backlinks" denote-backlinks)
+          ("lg" "visit backlink" denote-find-backlink)
+          ("lo" "org backlink block" denote-org-dblock-insert-backlinks)]]
+
+        [["Searching (s)"
+          ("sd" "deft" deft)
+          ("sn" "consult-notes" consult-notes)
+          ("ss" "consult-notes search" consult-notes-search-in-all-notes)]]))
+  ,#+end_src
+
+  ,* Bootstrapping magit itself
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package magit
       :ensure t
       :after transient)
   ,#+end_src
 
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+
+  ,#+end_src
   ,* Interfacing with github and gitlab
 
   ,#+begin_src emacs-lisp :tangle no :eval never
@@ -8405,14 +8938,61 @@ This is something that has to be done soon in the future, as it would allow more
 * Bootstrapping the packages
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package cond-let)
+#+end_src
 
-  (use-package transient)
+The transient package also has configuration for creating a menu of notes within =denote=. For the main configuration of =denote=, go [[file:denote.org][here]].
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package transient
+    :ensure t
+    :bind
+    (:map global-map
+        ("M-s-d" . denote-transient))
+
+    :config
+    (transient-define-prefix denote-transient () "Denote dispatch"
+      [["Note creation (d)"
+        ("dd" "new note" denote)
+        ("dj" "new or existing journal entry" denote-journal-new-or-existing-entry)
+        ("dn" "open or new" denote-open-or-create)
+        ("dt" "new specifying date and time" denote-date)
+        ("ds" "create in subdirectory " denote-subdirectory)]
+       ["Reviewing (r)"
+        ("rd" "notes this day" aw/notes-this-day)]
+       ["Folgezettel (f)"
+        ("fc" "create parent/child/sibling" denote-sequence)
+        ("ff" "find parent/child/sibling notes" denote-sequence-find)
+        ("fr" "reparent (adopt) current note into another sequence" denote-sequence-reparent)
+        ("fp" "find previous sibling" denote-sequence-find-previous-sibling :transient t)
+        ("fn" "find next sibling" denote-sequence-find-next-sibling :transient t)]]
+
+      [["Bookkeeping (b)"
+        ("br" "prompt and rename" denote-rename-file)
+        ("bf" "rename with frontmatter" denote-rename-file-using-front-matter)
+        ("bk" "modify keywords" denote-rename-file-keywords)]
+       ["Linking (l)"
+        ("li" "insert link" denote-link)
+        ("lh" "insert link to org heading" denote-org-link-to-heading)
+        ("lb" "show backlinks" denote-backlinks)
+        ("lg" "visit backlink" denote-find-backlink)
+        ("lo" "org backlink block" denote-org-dblock-insert-backlinks)]]
+
+      [["Searching (s)"
+        ("sd" "deft" deft)
+        ("sn" "consult-notes" consult-notes)
+        ("ss" "consult-notes search" consult-notes-search-in-all-notes)]]))
+#+end_src
+
+* Bootstrapping magit itself
+#+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package magit
     :ensure t
     :after transient)
 #+end_src
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+
+#+end_src
 * Interfacing with github and gitlab
 
 #+begin_src emacs-lisp :tangle no :eval never
@@ -8527,22 +9107,71 @@ Settings for version control done through =magit=. This should also contain conf
   ,#+end_src
 
   ,* Setting up the modeline
+  ,** Doom Emacs modeline
+  :PROPERTIES:
+  :CUSTOM_ID: doom-emacs-modeline
+  :ID:       01a43255-477f-4799-b2fd-4edb83388332
+  :END:
 
-  This is taken from the Doom Emacs project
+  This is taken from the Doom Emacs project. *Whose configuration did I rip this from when setting up Emacs?*
+
+  It has a match count panel (for anzu, visual-replace, iedit, multiple-cursors, symbol-overlay, and evil-search, etc.)[fn:8] *See how exactly this could be used.*
+
+  It also has an indicator for recording a macro
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package doom-modeline
-    :init
-    (setq doom-modeline-minor-modes nil
-          doom-modeline-buffer-encoding nil
-          doom-modeline-major-mode-color-icon t
-          doom-modeline-buffer-state-icon t
-          doom-modeline-buffer-modification-icon t
-          doom-modeline-modal 'evil
-          doom-modeline-lsp-icon t
-          doom-modeline-percent-position nil)
-    (doom-modeline-mode 1))
+    (use-package doom-modeline
+       :init
+       (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+
+           ;; identifying the modes we're in
+             doom-modeline-major-mode-color-icon t
+           doom-modeline-minor-modes t ; keep identification to the current modes
+
+           ;; this works on the buffer state
+             doom-modeline-buffer-state-icon t
+             doom-modeline-buffer-modification-icon t
+           doom-modeline-file-name-style 'auto
+
+           ;; size and rendering of the modeline
+           doom-modeline-height 25
+           doom-modeline-bar-width 8
+           doom-modeline-window-width-limit 85
+
+           ;; navigating the file
+           doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+           doom-modeline-support-imenu t
+           doom-modeline-percent-position nil
+
+           ;; integrating with project management
+           doom-modeline-project-detection 'auto
+
+           ;; other
+             doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+       (doom-modeline-mode 1))
   ,#+end_src
+
+  How the doom modeline shows the relevant information
+
+  How do I show all of the enabled minor modes within the modeline?
+
+  Can it also show the word count when working with org mode?
+
+  There's also a different modeline for GNU Info buffers
+
+  ,*** Navigation for a code project with the help of =doom-modeline=
+
+  Since it has an integration with =imenu=, you can jump between definitions. This is found in the =use-package= declaration.
+
+  ,*** Integration with academic modes
+  Also it integrates the PDF page number for =pdf-tools=. See [[file:reading.org][Reading and annotation setup]].
+
+  ,*** Proper configuration for the doom modeline and nerd-icons
+
+  This can also display packages through the =nerd-icons= package. See [[#installing-nerd-icons--currently-doesn-t-work-][nerd-icons configuration]].
+
+
+  ,** Personal customization to the modeline
 
   ,* Dimming windows when unfocused
 
@@ -8929,6 +9558,13 @@ Settings for version control done through =magit=. This should also contain conf
   ,#+end_src
 
   ,** Installing nerd-icons (currently doesn't work)
+  :PROPERTIES:
+  :ID:       c94f8620-cf2e-4283-b641-193570821772
+  :CUSTOM_ID: installing-nerd-icons--currently-doesn-t-work-
+  :END:
+
+  It does actually work for the =doom-modeline= which is configured [[#doom-emacs-modeline][here]].
+
   The nerd-icons project integrates the icons associated with Nerd Fonts with specific use cases to make Emacs look more like a fancy IDE. For instance:
   - =nerd-icons-icon-for-file= returns  for Emacs files
   - =nerd-icons-icon-for-mode= returns  for the symbol, python-mode
@@ -9026,6 +9662,60 @@ Settings for version control done through =magit=. This should also contain conf
   (global-set-key (kbd "s-=") 'font-size-increase)
   (global-set-key (kbd "s--") 'font-size-decrease)
   ,#+end_src
+
+  ,* Highlighting the active line while editing
+
+  Emacs has a mode for highlighting the current line called =hl-line-mode=.
+
+  Prot's package optimises =hl-line-mode= to buffers whose major modes depend on line selection as a mode of interaction (for example for something like =org-mode=.
+
+  The idea is that hl-line-mode cannot work equally well for contexts with competing priorities: (i) line selection, or (ii) simple line highlight.[fn:7]
+
+  the =lin-face= in Prot's =lin= package can be configured independently and it will stand out as a different highlight when working with selection.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package lin
+      :ensure t)
+
+    (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+
+    ;; You can use this to live update the face:
+    ;;
+    ;; (customize-set-variable 'lin-face 'lin-green)
+
+    (setq lin-mode-hooks
+          '(bongo-mode-hook
+            dired-mode-hook
+            elfeed-search-mode-hook
+            git-rebase-mode-hook
+            grep-mode-hook
+            ibuffer-mode-hook
+            ilist-mode-hook
+            ledger-report-mode-hook
+            log-view-mode-hook
+            magit-log-mode-hook
+            mu4e-headers-mode-hook
+            notmuch-search-mode-hook
+            notmuch-tree-mode-hook
+            occur-mode-hook
+            org-agenda-mode-hook
+            pdf-outline-buffer-mode-hook
+            proced-mode-hook
+            tabulated-list-mode-hook))
+  ,#+end_src
+
+  =lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
+
+
+  https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
+  https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
+  https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
+  https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
+  https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
+  https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
+  https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
+  https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
+  https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
 
   ,* Highlighting task labels
 
@@ -9218,6 +9908,9 @@ Settings for version control done through =magit=. This should also contain conf
 
   ,* Footnotes
 
+  [fn:8]  https://github.com/seagle0128/doom-modeline
+  [fn:7] https://protesilaos.com/emacs/lin
+
   [fn:1] https://howardabrams.com/hamacs/ha-display.html
 
   [fn:2] https://www.youtube.com/watch?v=qR8JRYr4BKE
@@ -9268,22 +9961,71 @@ Why is this configuration so high up in the org file? Apparently I can't make th
 #+end_src
 
 * Setting up the modeline
+** Doom Emacs modeline
+:PROPERTIES:
+:CUSTOM_ID: doom-emacs-modeline
+:ID:       01a43255-477f-4799-b2fd-4edb83388332
+:END:
 
-This is taken from the Doom Emacs project
+This is taken from the Doom Emacs project. *Whose configuration did I rip this from when setting up Emacs?*
+
+It has a match count panel (for anzu, visual-replace, iedit, multiple-cursors, symbol-overlay, and evil-search, etc.)[fn:8] *See how exactly this could be used.*
+
+It also has an indicator for recording a macro
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package doom-modeline
-  :init
-  (setq doom-modeline-minor-modes nil
-        doom-modeline-buffer-encoding nil
-        doom-modeline-major-mode-color-icon t
-        doom-modeline-buffer-state-icon t
-        doom-modeline-buffer-modification-icon t
-        doom-modeline-modal 'evil
-        doom-modeline-lsp-icon t
-        doom-modeline-percent-position nil)
-  (doom-modeline-mode 1))
+  (use-package doom-modeline
+     :init
+     (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+
+         ;; identifying the modes we're in
+           doom-modeline-major-mode-color-icon t
+         doom-modeline-minor-modes t ; keep identification to the current modes
+
+         ;; this works on the buffer state
+           doom-modeline-buffer-state-icon t
+           doom-modeline-buffer-modification-icon t
+         doom-modeline-file-name-style 'auto
+
+         ;; size and rendering of the modeline
+         doom-modeline-height 25
+         doom-modeline-bar-width 8
+         doom-modeline-window-width-limit 85
+
+         ;; navigating the file
+         doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+         doom-modeline-support-imenu t
+         doom-modeline-percent-position nil
+
+         ;; integrating with project management
+         doom-modeline-project-detection 'auto
+
+         ;; other
+           doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+     (doom-modeline-mode 1))
 #+end_src
+
+How the doom modeline shows the relevant information
+
+How do I show all of the enabled minor modes within the modeline?
+
+Can it also show the word count when working with org mode?
+
+There's also a different modeline for GNU Info buffers
+
+*** Navigation for a code project with the help of =doom-modeline=
+
+Since it has an integration with =imenu=, you can jump between definitions. This is found in the =use-package= declaration.
+
+*** Integration with academic modes
+Also it integrates the PDF page number for =pdf-tools=. See [[file:reading.org][Reading and annotation setup]].
+
+*** Proper configuration for the doom modeline and nerd-icons
+
+This can also display packages through the =nerd-icons= package. See [[#installing-nerd-icons--currently-doesn-t-work-][nerd-icons configuration]].
+
+
+** Personal customization to the modeline
 
 * Dimming windows when unfocused
 
@@ -9670,6 +10412,13 @@ Also note that adding a little extra space between lines makes text files easier
 #+end_src
 
 ** Installing nerd-icons (currently doesn't work)
+:PROPERTIES:
+:ID:       c94f8620-cf2e-4283-b641-193570821772
+:CUSTOM_ID: installing-nerd-icons--currently-doesn-t-work-
+:END:
+
+It does actually work for the =doom-modeline= which is configured [[#doom-emacs-modeline][here]].
+
 The nerd-icons project integrates the icons associated with Nerd Fonts with specific use cases to make Emacs look more like a fancy IDE. For instance:
 - =nerd-icons-icon-for-file= returns  for Emacs files
 - =nerd-icons-icon-for-mode= returns  for the symbol, python-mode
@@ -9767,6 +10516,60 @@ And some keybindings to call them:
 (global-set-key (kbd "s-=") 'font-size-increase)
 (global-set-key (kbd "s--") 'font-size-decrease)
 #+end_src
+
+* Highlighting the active line while editing
+
+Emacs has a mode for highlighting the current line called =hl-line-mode=.
+
+Prot's package optimises =hl-line-mode= to buffers whose major modes depend on line selection as a mode of interaction (for example for something like =org-mode=.
+
+The idea is that hl-line-mode cannot work equally well for contexts with competing priorities: (i) line selection, or (ii) simple line highlight.[fn:7]
+
+the =lin-face= in Prot's =lin= package can be configured independently and it will stand out as a different highlight when working with selection.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lin
+    :ensure t)
+
+  (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+
+  ;; You can use this to live update the face:
+  ;;
+  ;; (customize-set-variable 'lin-face 'lin-green)
+
+  (setq lin-mode-hooks
+        '(bongo-mode-hook
+          dired-mode-hook
+          elfeed-search-mode-hook
+          git-rebase-mode-hook
+          grep-mode-hook
+          ibuffer-mode-hook
+          ilist-mode-hook
+          ledger-report-mode-hook
+          log-view-mode-hook
+          magit-log-mode-hook
+          mu4e-headers-mode-hook
+          notmuch-search-mode-hook
+          notmuch-tree-mode-hook
+          occur-mode-hook
+          org-agenda-mode-hook
+          pdf-outline-buffer-mode-hook
+          proced-mode-hook
+          tabulated-list-mode-hook))
+#+end_src
+
+=lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
+
+
+https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
+https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
+https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
+https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
+https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
+https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
+https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
+https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
+https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
 
 * Highlighting task labels
 
@@ -9959,6 +10762,9 @@ before all other modules of my setup."
 
 * Footnotes
 
+[fn:8]  https://github.com/seagle0128/doom-modeline
+[fn:7] https://protesilaos.com/emacs/lin
+
 [fn:1] https://howardabrams.com/hamacs/ha-display.html
 
 [fn:2] https://www.youtube.com/watch?v=qR8JRYr4BKE
@@ -9977,10 +10783,33 @@ This also means several graphical improvements.
 
 #+begin_src org
   ,#+TITLE: Window management setup
+  ,#+startup: overview
 
   Emacs is quite complicated when it comes to deciding where to send the windows around.
 
   [[#Making buffers available globally]] is something that I still have to research into doing properly.
+
+  ,* Making the minibuffer big enough for reading
+
+  This is taken from XahLee: http://xahlee.info/emacs/emacs/emacs_minibuffer_font_size.html
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun sia-setup-minibuffer ()
+    "make minibuffer use larger font size."
+    (text-scale-increase 3))
+
+  (add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
+  ,#+end_src
+
+  You can also change the global text scale for the current session with =text-scale-increase=. Maybe I could add a hook for any kind of text-mode hook.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun sia-setup-text-buffer ()
+    "Make the font in the text buffer generally larger."
+    (text-scale-increase 4))
+
+  (add-hook 'text-mode-hook 'sia-setup-text-buffer)
+  ,#+end_src
 
   ,* TODO Emacs's internal window management
   ,** TODO Configuring internal windows to split vertically instead of horizontally
@@ -10004,13 +10833,13 @@ This also means several graphical improvements.
       (balanced-windows-mode))
   ,#+end_src
 
-  ,* Showing a divider between windows
+  ,* Showing a divider between  windows
 
   This is taken from Howardism config. "The following adds frame borders and window dividers to give space between window buffers." [fn:1]
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
   (modify-all-frames-parameters
-   '((right-divider-width . 2)
+   '((right-divider-width . 10)
      (internal-border-width . 10)))
 
   (dolist (face '(window-divider
@@ -10249,10 +11078,33 @@ This also means several graphical improvements.
 #+RESULTS:
 :results:
 #+TITLE: Window management setup
+#+startup: overview
 
 Emacs is quite complicated when it comes to deciding where to send the windows around.
 
 [[#Making buffers available globally]] is something that I still have to research into doing properly.
+
+* Making the minibuffer big enough for reading
+
+This is taken from XahLee: http://xahlee.info/emacs/emacs/emacs_minibuffer_font_size.html
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-setup-minibuffer ()
+  "make minibuffer use larger font size."
+  (text-scale-increase 3))
+
+(add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
+#+end_src
+
+You can also change the global text scale for the current session with =text-scale-increase=. Maybe I could add a hook for any kind of text-mode hook.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-setup-text-buffer ()
+  "Make the font in the text buffer generally larger."
+  (text-scale-increase 4))
+
+(add-hook 'text-mode-hook 'sia-setup-text-buffer)
+#+end_src
 
 * TODO Emacs's internal window management
 ** TODO Configuring internal windows to split vertically instead of horizontally
@@ -10276,13 +11128,13 @@ This has to be tested.
     (balanced-windows-mode))
 #+end_src
 
-* Showing a divider between windows
+* Showing a divider between  windows
 
 This is taken from Howardism config. "The following adds frame borders and window dividers to give space between window buffers." [fn:1]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (modify-all-frames-parameters
- '((right-divider-width . 2)
+ '((right-divider-width . 10)
    (internal-border-width . 10)))
 
 (dolist (face '(window-divider

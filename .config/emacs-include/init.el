@@ -119,6 +119,15 @@
 (use-package vundo
   :ensure t)
 
+(use-package anzu
+    :ensure t
+
+    :config
+; (anzu-mode) ; would this even work?
+)
+
+(electric-pair-mode 1)
+
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
 
@@ -353,6 +362,8 @@
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
+(setq org-link-search-must-match-exact-headline nil)
+
 (setq counsel-outline-display-style 'title)
 
 (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
@@ -452,16 +463,20 @@ title."
   :defer t
 
   :config
+  (denote-rename-buffer-mode)
   (setq denote-file-type 'org) ; default is org
+  (setq denote-history-completion-in-prompts nil)
+  (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+  (setq denote-sort-keywords t)
   (setq denote-known-keywords
         '("academic-journal"
           "blog-post"
           "book"
-          "book-section"
+          "booksection"
           "concept"
           "course"
+          "current"
           "docs"
-          "educational-program"
           "group"
           "institution"
           "journal-article"
@@ -471,12 +486,10 @@ title."
           "package"
           "person"
           "process"
+          "studyplace"
           "thesis"
+          "workflow"
           "zettel"))
-  (setq denote-history-completion-in-prompts nil)
-  (setq denote-rename-confirmations '(modify-file-name add-front-matter))
-  (setq denote-sort-keywords t)
-  (setq denote-rename-buffer-mode 1)
   ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
 
   :hook
@@ -510,7 +523,15 @@ title."
 
 (use-package denote-org
   :ensure t
-  :after denote)
+  :after denote
+
+  :custom
+  ;; `denote-org-link-to-heading' controls the behavior of
+  ;; `org-store-link': setting to id makes it insert an ID in the
+  ;; PROPERTIES drawer
+  ;;
+  ;; (denote-org-store-link-to-heading 'context)
+  (denote-org-store-link-to-heading 'id))
 
 (use-package denote-markdown
   :ensure t
@@ -539,7 +560,13 @@ title."
    ("C-c w x v" . denote-explore-network-regenerate)
    ("C-c w x D" . denote-explore-barchart-degree)))
 
-(use-package denote-journal)
+(use-package denote-journal
+  :after denote
+  :custom
+  (denote-journal-keyword "log")
+  (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
+  (denote-journal-title-format 'day-date-month-year)
+                          )
 
 (use-package denote-sequence
   :ensure t)
@@ -1009,11 +1036,50 @@ agenda."
 
 (use-package cond-let)
 
-(use-package transient)
+(use-package transient
+  :ensure t
+  :bind
+  (:map global-map
+      ("M-s-d" . denote-transient))
+
+  :config
+  (transient-define-prefix denote-transient () "Denote dispatch"
+    [["Note creation (d)"
+      ("dd" "new note" denote)
+      ("dj" "new or existing journal entry" denote-journal-new-or-existing-entry)
+      ("dn" "open or new" denote-open-or-create)
+      ("dt" "new specifying date and time" denote-date)
+      ("ds" "create in subdirectory " denote-subdirectory)]
+     ["Reviewing (r)"
+      ("rd" "notes this day" aw/notes-this-day)]
+     ["Folgezettel (f)"
+      ("fc" "create parent/child/sibling" denote-sequence)
+      ("ff" "find parent/child/sibling notes" denote-sequence-find)
+      ("fr" "reparent (adopt) current note into another sequence" denote-sequence-reparent)
+      ("fp" "find previous sibling" denote-sequence-find-previous-sibling :transient t)
+      ("fn" "find next sibling" denote-sequence-find-next-sibling :transient t)]]
+
+    [["Bookkeeping (b)"
+      ("br" "prompt and rename" denote-rename-file)
+      ("bf" "rename with frontmatter" denote-rename-file-using-front-matter)
+      ("bk" "modify keywords" denote-rename-file-keywords)]
+     ["Linking (l)"
+      ("li" "insert link" denote-link)
+      ("lh" "insert link to org heading" denote-org-link-to-heading)
+      ("lb" "show backlinks" denote-backlinks)
+      ("lg" "visit backlink" denote-find-backlink)
+      ("lo" "org backlink block" denote-org-dblock-insert-backlinks)]]
+
+    [["Searching (s)"
+      ("sd" "deft" deft)
+      ("sn" "consult-notes" consult-notes)
+      ("ss" "consult-notes search" consult-notes-search-in-all-notes)]]))
 
 (use-package magit
   :ensure t
   :after transient)
+
+
 
 (use-package tramp
   :config
@@ -1038,16 +1104,34 @@ agenda."
         frame-inhibit-implied-resize t))
 
 (use-package doom-modeline
-  :init
-  (setq doom-modeline-minor-modes nil
-        doom-modeline-buffer-encoding nil
-        doom-modeline-major-mode-color-icon t
-        doom-modeline-buffer-state-icon t
-        doom-modeline-buffer-modification-icon t
-        doom-modeline-modal 'evil
-        doom-modeline-lsp-icon t
-        doom-modeline-percent-position nil)
-  (doom-modeline-mode 1))
+   :init
+   (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+
+       ;; identifying the modes we're in
+         doom-modeline-major-mode-color-icon t
+       doom-modeline-minor-modes t ; keep identification to the current modes
+
+       ;; this works on the buffer state
+         doom-modeline-buffer-state-icon t
+         doom-modeline-buffer-modification-icon t
+       doom-modeline-file-name-style 'auto
+
+       ;; size and rendering of the modeline
+       doom-modeline-height 25
+       doom-modeline-bar-width 8
+       doom-modeline-window-width-limit 85
+
+       ;; navigating the file
+       doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+       doom-modeline-support-imenu t
+       doom-modeline-percent-position nil
+
+       ;; integrating with project management
+       doom-modeline-project-detection 'auto
+
+       ;; other
+         doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+   (doom-modeline-mode 1))
 
 (use-package pulsar
   :ensure t
@@ -1292,6 +1376,35 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "s-=") 'font-size-increase)
 (global-set-key (kbd "s--") 'font-size-decrease)
 
+(use-package lin
+  :ensure t)
+
+(setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+
+;; You can use this to live update the face:
+;;
+;; (customize-set-variable 'lin-face 'lin-green)
+
+(setq lin-mode-hooks
+      '(bongo-mode-hook
+        dired-mode-hook
+        elfeed-search-mode-hook
+        git-rebase-mode-hook
+        grep-mode-hook
+        ibuffer-mode-hook
+        ilist-mode-hook
+        ledger-report-mode-hook
+        log-view-mode-hook
+        magit-log-mode-hook
+        mu4e-headers-mode-hook
+        notmuch-search-mode-hook
+        notmuch-tree-mode-hook
+        occur-mode-hook
+        org-agenda-mode-hook
+        pdf-outline-buffer-mode-hook
+        proced-mode-hook
+        tabulated-list-mode-hook))
+
 (use-package hl-todo
   :ensure t
   :config
@@ -1382,6 +1495,18 @@ DELTA would be something like 1 or -1."
         (agenda-structure . (variable-pitch light 1.8))
         (t . (1.1))))
 
+(defun sia-setup-minibuffer ()
+  "make minibuffer use larger font size."
+  (text-scale-increase 3))
+
+(add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
+
+(defun sia-setup-text-buffer ()
+  "Make the font in the text buffer generally larger."
+  (text-scale-increase 4))
+
+(add-hook 'text-mode-hook 'sia-setup-text-buffer)
+
 (setq split-width-threshold 120
       split-height-threshold nil)
 
@@ -1390,7 +1515,7 @@ DELTA would be something like 1 or -1."
   (balanced-windows-mode))
 
 (modify-all-frames-parameters
- '((right-divider-width . 2)
+ '((right-divider-width . 10)
    (internal-border-width . 10)))
 
 (dolist (face '(window-divider

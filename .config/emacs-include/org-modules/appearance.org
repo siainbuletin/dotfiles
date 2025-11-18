@@ -36,6 +36,7 @@ Why is this configuration so high up in the org file? Apparently I can't make th
 ** Doom Emacs modeline
 :PROPERTIES:
 :CUSTOM_ID: doom-emacs-modeline
+:ID:       01a43255-477f-4799-b2fd-4edb83388332
 :END:
 
 This is taken from the Doom Emacs project. *Whose configuration did I rip this from when setting up Emacs?*
@@ -45,17 +46,35 @@ It has a match count panel (for anzu, visual-replace, iedit, multiple-cursors, s
 It also has an indicator for recording a macro
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package doom-modeline
-  :init
-  (setq doom-modeline-minor-modes t
-        doom-modeline-buffer-encoding nil
-        doom-modeline-major-mode-color-icon t
-        doom-modeline-buffer-state-icon t
-        doom-modeline-buffer-modification-icon t
-        doom-modeline-modal 'evil
-        doom-modeline-lsp-icon t
-        doom-modeline-percent-position t) ; is this for the percentage of the position within the file?
-  (doom-modeline-mode 1))
+  (use-package doom-modeline
+     :init
+     (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+
+  	 ;; identifying the modes we're in
+           doom-modeline-major-mode-color-icon t
+  	 doom-modeline-minor-modes t ; keep identification to the current modes
+
+  	 ;; this works on the buffer state
+           doom-modeline-buffer-state-icon t
+           doom-modeline-buffer-modification-icon t
+  	 doom-modeline-file-name-style 'auto
+
+  	 ;; size and rendering of the modeline
+    	 doom-modeline-height 25
+    	 doom-modeline-bar-width 8
+    	 doom-modeline-window-width-limit 85
+
+  	 ;; navigating the file
+    	 doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+    	 doom-modeline-support-imenu t
+  	 doom-modeline-percent-position nil
+
+  	 ;; integrating with project management
+    	 doom-modeline-project-detection 'auto
+
+  	 ;; other
+           doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+     (doom-modeline-mode 1))
 #+end_src
 
 How the doom modeline shows the relevant information
@@ -66,9 +85,17 @@ Can it also show the word count when working with org mode?
 
 There's also a different modeline for GNU Info buffers
 
+*** Navigation for a code project with the help of =doom-modeline=
+
+Since it has an integration with =imenu=, you can jump between definitions. This is found in the =use-package= declaration.
+
+*** Integration with academic modes
 Also it integrates the PDF page number for =pdf-tools=. See [[file:reading.org][Reading and annotation setup]].
 
+*** Proper configuration for the doom modeline and nerd-icons
+
 This can also display packages through the =nerd-icons= package. See [[#installing-nerd-icons--currently-doesn-t-work-][nerd-icons configuration]].
+
 
 ** Personal customization to the modeline
 

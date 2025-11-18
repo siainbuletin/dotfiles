@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("Bachelor's Thesis"
+(("Notes folder"
+ (filename . "~/Documents/notes/")
+ (front-context-string . ".stfolder\n  drwx")
+ (rear-context-string . "54 Nov 11 12:30 ")
+ (position . 143)
+ (last-modified 26908 37371 300088 501000))
+("Bachelor's Thesis"
  (filename . "~/Documents/writing/thesis/")
  (front-context-string . "admin-notes\n  dr")
  (rear-context-string . " 0 Nov  6 13:14 ")

@@ -55,6 +55,99 @@ I have defined a special directory which is meant to collect files that I'm acti
 (setq org-agenda-files (quote ("~/Documents/tracking")))
 #+end_src
 
+** Pulling info for org-agenda from daily task files as well as org capture
+
+this is taken from this post: https://lambdaland.org/posts/2025-07-11_research_notes/#h:0FC5EE29-259F-47C1-9502-5C51F326E6A3
+
+Currently disabled until I figure out how integrate it into my own work.
+
+I have some utilities to go through all of my files tagged labnotes or tasks and produce an org-agenda view. Note: generating the agenda takes on the order of several seconds as it looks through a lot of notes. Below is roughly how I do it:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package org
+  :init
+  (defun aw/set-update-agenda ()
+    "Set or update the agenda list.
+
+Useful for when some files that should be on the agenda list are created
+after org initialization."
+    (interactive)
+    ;; important: setq and not setopt
+    (setq org-agenda-custom-commands
+          '(("n" "Agenda and All Todos"
+             ((agenda)
+              (todo)))
+            ("w" "Work and research"
+             ((agenda)
+              (tags-todo "+research")
+              (tags-todo "+paper")
+              (tags-todo "+reading")
+              (tags-todo "+school")
+              (tags-todo "+homework")
+              (tags-todo "+labnotes-homework"))
+             ((org-agenda-tag-filter-preset '("-home"))
+              (org-agenda-files
+               (append (aw/org-files-with-tag denote-directory "labnotes" 60)
+                       (aw/org-files-with-tag denote-directory "tasks" 60)
+                       org-agenda-files)))))))
+  :config
+  (setopt org-latex-pdf-process
+          '("lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+            "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"
+            "lualatex -shell-escape -interaction nonstopmode -output-directory %o %f"))
+
+  (setopt org-export-with-smart-quotes t)
+
+  (setopt org-log-done 'time)               ; Instead of `'time`, also try `'note`
+  (setopt org-log-into-drawer t)            ; Move log notes into a drawer
+
+  ;; Semantics:
+  ;;  - TODO: open task, ready to do
+  ;;  - WAITING: Blocked on something; notes should include what the blocker is
+  ;;  - STARTED: Task in-progress
+  ;;  - DONE: Task complete; no further action
+  ;;  - OBSOLETE: Task not complete, won't fix
+  ;;  - MOVED: Task moved to different location;
+  ;;    this one kept as record; note indicates where moved
+  (setopt org-todo-keywords
+          '((sequence "TODO(t)" "WAITING(w@/!)" "STARTED(s!)"
+                      "|" "DONE(d!)" "OBSOLETE(o@)" "MOVED(m!/@)")))
+
+  (setopt org-done-keywords '("DONE" "OBSOLETE" "MOVED"))
+
+  (aw/set-update-agenda))
+
+(defun aw/org-files-with-tag (dir tag &optional days-past)
+  "Return list of files with filetag `tag' in `dir', optionally filtering to `days-past'"
+  (let* ((my-buffer (generate-new-buffer "gather_tags"))
+         (process
+          (make-process
+           :name "gather_tags"
+           :buffer my-buffer
+           :stderr nil
+           :command `("rg"
+                      "--files-with-matches"
+                      ,(format "^#\\+filetags:.*?:%s:" tag)
+                      "--"
+                      ,(expand-file-name dir)))))
+    (while (accept-process-output process)) ; Flush process output to buffer
+    (with-current-buffer my-buffer
+      (cl-remove-if-not (lambda (filename)
+                          (and (file-exists-p filename)
+                               (not (string= filename ""))
+                               (or (not days-past)
+                                   (time-less-p (time-subtract
+                                                 (current-time)
+                                                 (days-to-time days-past))
+                                                (file-attribute-modification-time
+                                                 (file-attributes filename))))))
+                        (split-string
+                         (buffer-substring-no-properties (point-min) (point-max))
+                         "\n")))))
+#+end_src
+
+The =aw/org-files-with-tag= uses =ripgrep= to find files with the desired tags in the #+filetags: portion of a file. Note that my configuration for =denote-journal= automatically includes the tag =labnotes= for any journal entry I create.
+
 * =org-agenda= views
 
 This can also be considered kind of a cosmetic improvement.
