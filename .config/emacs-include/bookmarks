@@ -1,0 +1,29 @@
+;;;; Emacs Bookmark Format Version 1;;;; -*- coding: utf-8-emacs; mode: lisp-data -*-
+;;; This format is meant to be slightly human-readable;
+;;; nevertheless, you probably don't want to edit it.
+;;; -*- End Of Bookmark File Format Version Stamp -*-
+(("Bachelor's Thesis"
+ (filename . "~/Documents/writing/thesis/")
+ (front-context-string . "admin-notes\n  dr")
+ (rear-context-string . " 0 Nov  6 13:14 ")
+ (position . 152)
+ (last-modified 26904 42233 892276 495000))
+("Configuration folder (dired)"
+ (filename . "~/.config/emacs-include/")
+ (front-context-string . "backups\n  drwxr-")
+ (rear-context-string . "2K Nov 15 17:54 ")
+ (position . 149)
+ (last-modified 26904 42204 347307 842000))
+("org-capture-last-stored"
+ (filename . "~/.notes")
+ (front-context-string . "** TODO Don't re")
+ (rear-context-string . "tween notes).]]\n")
+ (position . 345)
+ (last-modified 26904 27707 858622 977000))
+("org-refile-last-stored"
+ (filename . "~/Documents/notes/20251114T223213--eshell__software.org")
+ (front-context-string . "** this is a sma")
+ (rear-context-string . "s is a heading\n\n")
+ (position . 171)
+ (last-modified 26903 38732 579618 541000))
+)
