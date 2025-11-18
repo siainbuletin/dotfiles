@@ -1,6 +1,7 @@
 eln-cache/
 elpaca/
 transient/
+backups/
 
 # files created by emacs
 tramp
