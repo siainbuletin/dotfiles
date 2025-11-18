@@ -33,22 +33,44 @@ Why is this configuration so high up in the org file? Apparently I can't make th
 #+end_src
 
 * Setting up the modeline
+** Doom Emacs modeline
+:PROPERTIES:
+:CUSTOM_ID: doom-emacs-modeline
+:END:
 
-This is taken from the Doom Emacs project
+This is taken from the Doom Emacs project. *Whose configuration did I rip this from when setting up Emacs?*
+
+It has a match count panel (for anzu, visual-replace, iedit, multiple-cursors, symbol-overlay, and evil-search, etc.)[fn:8] *See how exactly this could be used.*
+
+It also has an indicator for recording a macro
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package doom-modeline
   :init
-  (setq doom-modeline-minor-modes nil
+  (setq doom-modeline-minor-modes t
         doom-modeline-buffer-encoding nil
         doom-modeline-major-mode-color-icon t
         doom-modeline-buffer-state-icon t
         doom-modeline-buffer-modification-icon t
         doom-modeline-modal 'evil
         doom-modeline-lsp-icon t
-        doom-modeline-percent-position nil)
+        doom-modeline-percent-position t) ; is this for the percentage of the position within the file?
   (doom-modeline-mode 1))
 #+end_src
+
+How the doom modeline shows the relevant information
+
+How do I show all of the enabled minor modes within the modeline?
+
+Can it also show the word count when working with org mode?
+
+There's also a different modeline for GNU Info buffers
+
+Also it integrates the PDF page number for =pdf-tools=. See [[file:reading.org][Reading and annotation setup]].
+
+This can also display packages through the =nerd-icons= package. See [[#installing-nerd-icons--currently-doesn-t-work-][nerd-icons configuration]].
+
+** Personal customization to the modeline
 
 * Dimming windows when unfocused
 
@@ -435,6 +457,13 @@ Also note that adding a little extra space between lines makes text files easier
 #+end_src
 
 ** Installing nerd-icons (currently doesn't work)
+:PROPERTIES:
+:ID:       c94f8620-cf2e-4283-b641-193570821772
+:CUSTOM_ID: installing-nerd-icons--currently-doesn-t-work-
+:END:
+
+It does actually work for the =doom-modeline= which is configured [[#doom-emacs-modeline][here]].
+
 The nerd-icons project integrates the icons associated with Nerd Fonts with specific use cases to make Emacs look more like a fancy IDE. For instance:
 - =nerd-icons-icon-for-file= returns  for Emacs files
 - =nerd-icons-icon-for-mode= returns  for the symbol, python-mode
@@ -532,6 +561,60 @@ And some keybindings to call them:
 (global-set-key (kbd "s-=") 'font-size-increase)
 (global-set-key (kbd "s--") 'font-size-decrease)
 #+end_src
+
+* Highlighting the active line while editing
+
+Emacs has a mode for highlighting the current line called =hl-line-mode=.
+
+Prot's package optimises =hl-line-mode= to buffers whose major modes depend on line selection as a mode of interaction (for example for something like =org-mode=.
+
+The idea is that hl-line-mode cannot work equally well for contexts with competing priorities: (i) line selection, or (ii) simple line highlight.[fn:7]
+
+the =lin-face= in Prot's =lin= package can be configured independently and it will stand out as a different highlight when working with selection.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lin
+    :ensure t)
+
+  (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+
+  ;; You can use this to live update the face:
+  ;;
+  ;; (customize-set-variable 'lin-face 'lin-green)
+
+  (setq lin-mode-hooks
+        '(bongo-mode-hook
+          dired-mode-hook
+          elfeed-search-mode-hook
+          git-rebase-mode-hook
+          grep-mode-hook
+          ibuffer-mode-hook
+          ilist-mode-hook
+          ledger-report-mode-hook
+          log-view-mode-hook
+          magit-log-mode-hook
+          mu4e-headers-mode-hook
+          notmuch-search-mode-hook
+          notmuch-tree-mode-hook
+          occur-mode-hook
+          org-agenda-mode-hook
+          pdf-outline-buffer-mode-hook
+          proced-mode-hook
+          tabulated-list-mode-hook))
+#+end_src
+
+=lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
+
+
+https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
+https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
+https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
+https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
+https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
+https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
+https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
+https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
+https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
 
 * Highlighting task labels
 
@@ -723,6 +806,9 @@ before all other modules of my setup."
 #+end_src
 
 * Footnotes
+
+[fn:8]  https://github.com/seagle0128/doom-modeline
+[fn:7] https://protesilaos.com/emacs/lin
 
 [fn:1] https://howardabrams.com/hamacs/ha-display.html
 
