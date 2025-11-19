@@ -18,3 +18,25 @@ I still don't really know what this package does, so for now it will be disabled
 #+end_src
 
 * TODO Configuring my own annotations and modifications to man pages
+
+* Configuring dictionary support
+
+Basically like the MacOS version of looking up words. It helps to know better what you're writing and what you're writing with.
+
+The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
+
+In order to recognise format one of the supported dictionaries, Lexic matches the bookname= parameter from the StarDict .ifo file against the entries in lexic-dictionary-specs. Lexic needs to do this, because formatting is inconsistent, and so must be implemented on a per-dictionary basis.
+
+For example, if I downloaded a copy of Soule’s English Synonyms, I’d need to make sure that the SoulesSynonymns.ifo file contains the line bookname=Soule's
+  Dictionary of English Synonyms. Check the value of lexic-dictionary-specs to see what it expects for other dictionaries supported by default.
+
+Then, if I open a new Emacs session, and look for a synonym I should see it formatted nicely.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lexic
+    :ensure t)
+#+end_src
+
+* Footnotes
+
+[fn:1] https://github.com/tecosaur/lexic?tab=readme-ov-file
