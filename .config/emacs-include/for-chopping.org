@@ -254,103 +254,11 @@ First bootstrapping =org-capture=. The block is modified from the version in _Em
 After jotting down some really quick ideas, I need to have a way to actually refile them and make them usable later. For this, I need an org-refile setup
 
 *** TODO Setting up =remember-mode=
-** Configuring Obsidian mode
-
-I might need to actually remove Obsidian mode, as the indexing it chooses to do for all of the backlinks takes way too long to be acceptable.
-
-** Annotation packages
-
-=org-remark= is being used for adding comments in the [[#Support a drafting workflow][drafting workflow with Google Docs-like comments]] that I will further annotated below.
-
-How exactly would =marginalia= be used for this purpose, since it's normally a completion package (see ?
-
-*** Creating an integrated annotation environment with =org-noter=
-
-#+begin_src emacs-lisp :tangle "init.el"
-        (use-package org-noter
-          :after (org pdf-view)
-          :bind (:map org-noter-notes-mode-map
-                      ("C-M-i" . org-noter-insert-dynamic-block))
-          :custom
-          (org-noter-notes-search-path (list org-directory))
-          (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
-          (org-noter-separate-notes-from-heading t)
-          :config
-          (require 'pdf-macs)
-          ;; (defun org-noter-pdf--show-arrow ())
-  )
-
-        (use-package djvu) ; apparently needed for org-noter
-#+end_src
-
-This function will autosave your last position when reading a PDF in Emacs.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(setq org-noter-auto-save-last-location t)
-#+end_src
-
-Configuring =org-noter= to actually show annotated text on the PDF.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(setq org-noter-highlight-selected-text t)
-#+end_src
-
-*Does this mean that it will also become embedded into the PDF?*
-
-*** TODO =org-remark= setup
-
-When trying to install this snippet, I get an error that =org-remark-global-tracking-mode= "Symbol's function definition is void"
-
-#+begin_src emacs-lisp :tangle no
-  (org-remark-global-tracking-mode +1)
-
-  ;; Optional if you would like to highlight websites via eww-mode
-  (with-eval-after-load 'eww
-    (org-remark-eww-mode +1))
-
-  ;; Optional if you would like to highlight EPUB books via nov.el
-  (with-eval-after-load 'nov
-    (org-remark-nov-mode +1))
-
-  ;; Optional if you would like to highlight Info documentation via Info-mode
-  (with-eval-after-load 'info
-    (org-remark-info-mode +1))
-#+end_src
-
-* TODO Creating a usable graph for =org-mode= notes
-
-Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-grapher
-  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
-#+end_src
-
-Setting the org file directory:
-
-#+begin_src emacs-lisp :tangle "init.el"
-    (setq org-grapher-notes-directory "~/Documents/org"
-          org-grapher-recursive t
-          org-grapher-output-file "~/.cache/org-graph.html")
-#+end_src
-
-Customizing the colors of the nodes:
-
-#+begin_src emacs-lisp :tangle "init.el"
-(setq org-grapher--tag-colors
-  '("emacs" "#d65d0e"
-    "work" "#458588"
-    "personal" "#98971a"))
-#+end_src
-
 * TODO Theorising a literature review as a form of project management
 
 This is detailed in Obsidian with the note on _Research as a task_.
 
 * TODO Integrating bibliography with writing and ideation
-
-
-
 ** TODO Recognising other cross-references within a PDF
 
 One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.

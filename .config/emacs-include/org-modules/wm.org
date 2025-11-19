@@ -12,7 +12,7 @@ This is taken from XahLee: http://xahlee.info/emacs/emacs/emacs_minibuffer_font_
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (defun sia-setup-minibuffer ()
   "make minibuffer use larger font size."
-  (text-scale-increase 3))
+  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
 
 (add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
 #+end_src

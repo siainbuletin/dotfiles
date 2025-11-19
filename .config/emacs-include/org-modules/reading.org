@@ -29,12 +29,13 @@ The reading setup is structured in different layers, based on the different moda
 * Configuration for =pdf-tools=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package pdf-tools)
+  (use-package pdf-tools
+    :ensure t
+    :init
+    (pdf-tools-install))
 #+end_src
 
-It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
-
-This function will tell =pdf-tools= to launch by default.
+By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf-tools= instead of =docview-mode=. =pdf-tools-install= is actually configuring a server component.[fn:1]
 
 ** Setting keybindings for =pdf-tools=
 
@@ -63,11 +64,110 @@ This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= 
 #+end_src
 
 ** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+** Virtual buffers
 
-** TODO Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+This  will take several PDFs and display them within a singular buffer.[fn:2]
 
-I need to find a way to call =pdf-view-install= globally without having to do it interactively with =M-x pdf-view-install=.
+=M-x pdf-virtual-buffer-create=
 
+* Getting the annotation mode going
+
+By itself, =pdf-tools= already has a way to annotating the file. But I want to make an integrated environment for reading, so I want to be using either =org-noter= or =org-pdf-tools=.
+
+** Configuring =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter
+    :after (org pdf-view)
+    :bind (:map org-noter-notes-mode-map
+                ("C-M-i" . org-noter-insert-dynamic-block))
+    :custom
+    (org-noter-notes-search-path (list org-directory))
+    (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+    (org-noter-separate-notes-from-heading t)
+    :config
+    (require 'pdf-macs)
+    ;; (defun org-noter-pdf--show-arrow ())
+    )
+
+  (use-package djvu) ; apparently needed for org-noter
+#+end_src
+
+This function will autosave your last position when reading a PDF in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-auto-save-last-location t)
+#+end_src
+
+Configuring =org-noter= to actually show annotated text on the PDF.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-highlight-selected-text t)
+#+end_src
+
+*Does this mean that it will also become embedded into the PDF?*
+
+*How do I make sure if the text I highlighted is actually embedded into the PDF?*
+
+** Configuring =org-pdftools=
+
+=org-pdftools= adds a special org link type (see [[denote:20251115T113306][Custom link creation in org mode]]) for a precise PDF link location.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pdftools
+    :hook (org-mode . org-pdftools-setup-link))
+#+end_src
+
+=org-pdftools= actually works in tandem with =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter-pdftools
+    :after org-noter
+    :config
+    ;; Add a function to ensure precise note is inserted
+    (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+                                                     (not org-noter-insert-note-no-questions)
+                                                   org-noter-insert-note-no-questions))
+             (org-pdftools-use-isearch-link t)
+             (org-pdftools-use-freepointer-annot t))
+         (org-noter-insert-note (org-noter--get-precise-info)))))
+
+    ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+    (defun org-noter-set-start-location (&optional arg)
+      "When opening a session with this document, go to the current clocation.
+  With a prefix ARG, remove start location."
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((inhibit-read-only t)
+             (ast (org-noter--parse-root))
+             (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+         (with-current-buffer (org-noter--session-notes-buffer session)
+           (org-with-wide-buffer
+            (goto-char (org-element-property :begin ast))
+            (if arg
+                (org-entry-delete nil org-noter-property-note-location)
+              (org-entry-put nil org-noter-property-note-location
+                             (org-noter--pretty-print-location location))))))))
+    (with-eval-after-load 'pdf-annot
+      (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+#+end_src
+
+There's also:
+
+#+begin_quote
+Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+#+end_quote
+
+In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
+
+=[[pdf:~/file.pdf::3][Link to page 3]]=
+
+When browsing a pdftools-buffer you can use org-store-link (by default C-c l) to get a link to this location withing the pdf – even while marking some content in the =.pdf=. Then use org-insert-link (by default =C-c C-l=) to create a link to this page and this place on the page:
+
+=[[pdf:~/file.pdf::5++0.00;;annot-5-0][file.pdf: Page 5; Quoting: some text]]=
 
 * Bootstrapping the other document readers
 ** Installing =nov-el=
@@ -105,3 +205,10 @@ This is apparently possible and it would make an academic reading workflow on e-
 * Proposed improvements
 
 I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
+
+* Footnotes
+
+[fn:3]  https://github.com/fuxialexander/org-pdftools
+[fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
+
+[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/

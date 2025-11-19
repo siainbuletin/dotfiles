@@ -1,4 +1,4 @@
-# Created 2025-11-18 Tue 21:59
+# Created 2025-11-19 Wed 10:57
 #+options: ':t author:t
 #+title: Emacs configuration with org submodules
 #+author: Sia Piperea
@@ -8,7 +8,7 @@
 #+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
 #+macro: word-count (eval  (count-words (point-min) (point-max)))
 
-[ Last revised and exported on *2025-11-18 21:59:08 +0200*, with a word count of *43390*. ]
+[ Last revised and exported on *2025-11-19 10:57:06 +0200*, with a word count of *45139*. ]
 * Changelog
 
 On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
@@ -1573,7 +1573,6 @@ As this is an enhacement useful for all of the other layers in this configuratio
 
   ,*** Adding =ripgrep= support for =xref=
 
-
   ,*** TODO Configuring =deadgrep=
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -1583,6 +1582,18 @@ As this is an enhacement useful for all of the other layers in this configuratio
   ,*** TODO Is it worth it to look into =rg.el=?
 
   It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
+
+  ,** Finding files recursively in subdirectories with =counsel-fd=
+
+  This would solve the [[denote:20251119T095050][Finding files recursively through Emacs]] issue.
+
+  This package actually hasn't been updated in 3 years: https://github.com/CsBigDataHub/counsel-fd
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package counsel-fd
+        :ensure t
+        :after counsel)
+  ,#+end_src
 
   ,* Minibuffer completion packages
   ,** =vertico=: minibuffer completion candidates
@@ -1697,6 +1708,17 @@ As this is an enhacement useful for all of the other layers in this configuratio
 
   ,#+end_src
 
+  ,* TODO Configuring =psearch=
+
+  [[denote:20251119T094138][psearch]] strives to be a search engine for all of the notes inside Emacs itself (and all documents on the device) that uses =ripgrep= under the hood. It would be among the likes of =recoll= and =xapian=, although I don't know whether it can do PDF full-text search as well.
+
+  See also a comparison to =consult-omni= (if it can do searches on the web): [[denote:20251119T094054][consult-omni]]
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package p-search
+      :ensure (:host github :repo "zkry/p-search"))
+  ,#+end_src
+
   ,* TODO Other completion packages that I still don't know the functionality of
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -1775,7 +1797,6 @@ This is especially useful if you want to make searching across multiple notes fa
 
 *** Adding =ripgrep= support for =xref=
 
-
 *** TODO Configuring =deadgrep=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -1785,6 +1806,18 @@ This is especially useful if you want to make searching across multiple notes fa
 *** TODO Is it worth it to look into =rg.el=?
 
 It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
+
+** Finding files recursively in subdirectories with =counsel-fd=
+
+This would solve the [[denote:20251119T095050][Finding files recursively through Emacs]] issue.
+
+This package actually hasn't been updated in 3 years: https://github.com/CsBigDataHub/counsel-fd
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package counsel-fd
+      :ensure t
+      :after counsel)
+#+end_src
 
 * Minibuffer completion packages
 ** =vertico=: minibuffer completion candidates
@@ -1899,6 +1932,17 @@ See [[file:wm.org][Window management in Emacs]]. This is taken from the livestre
 
 #+end_src
 
+* TODO Configuring =psearch=
+
+[[denote:20251119T094138][psearch]] strives to be a search engine for all of the notes inside Emacs itself (and all documents on the device) that uses =ripgrep= under the hood. It would be among the likes of =recoll= and =xapian=, although I don't know whether it can do PDF full-text search as well.
+
+See also a comparison to =consult-omni= (if it can do searches on the web): [[denote:20251119T094054][consult-omni]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package p-search
+    :ensure (:host github :repo "zkry/p-search"))
+#+end_src
+
 * TODO Other completion packages that I still don't know the functionality of
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -1930,6 +1974,7 @@ Contains configuration for the completion packages as well as any search framewo
 
 #+begin_src org
   ,#+TITLE: Sorting out the keybindings
+  ,#+startup: overview
 
   This is _overall_ completely unfinished
 
@@ -2013,7 +2058,7 @@ Contains configuration for the completion packages as well as any search framewo
 
   Hydra is a package that simplifies the creation of keybinding combinations using a shared prefix. As a bonus, it also generates a menu displaying all potential commands:
 
-  ,#+begin_src emacs-lisp :tangle no :eval never
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package hydra
     :ensure t)
 
@@ -2025,6 +2070,7 @@ Contains configuration for the completion packages as well as any search framewo
 #+RESULTS:
 :results:
 #+TITLE: Sorting out the keybindings
+#+startup: overview
 
 This is _overall_ completely unfinished
 
@@ -2108,7 +2154,7 @@ Here is an example of using :bind with a list of conses:
 
 Hydra is a package that simplifies the creation of keybinding combinations using a shared prefix. As a bonus, it also generates a menu displaying all potential commands:
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package hydra
   :ensure t)
 
@@ -4632,6 +4678,7 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
 
   You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
 
+  ,** The older solution
   Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
 
   This has to be tested.
@@ -4672,6 +4719,64 @@ This is for the current usage of =emacs-dashboard= and ways to customize it to s
 
   Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
 
+  ,** Prot's new solution
+
+  I asked on GitHub for a similar feature for this. Prot wrote a version that aborts the merge between two denote notes if the =OTHER_FILE= has backlinks to it. *Is there really no way to deal with all of the identifiers?*
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun denote-org--merge-get-file-data-without-front-matter (file)
+    "Return data of FILE without its front matter.
+  Data is of the form (TITLE FILETAGS CONTENTS), all of which are strings.
+
+  Assume that front matter is a contiguous region of lines starting with
+  ,#+ from the beginning of the buffer and ending in an empty line."
+    (with-temp-buffer
+      (insert-file-contents file)
+      (org-mode)
+      (goto-char (point-min))
+      (let ((title (org-get-title))
+            (tags (org-get-tags))
+            (contents (progn
+                        (when-let* ((beginning (when (re-search-forward "^#\\+" nil t)
+                                                 (line-beginning-position)))
+                                    (end (re-search-forward "^$" nil t)))
+                          (delete-region beginning end))
+                        (string-trim (buffer-string)))))
+        (list title tags contents))))
+
+  ;;;###autoload
+  (defun denote-org-merge-notes (target-file other-file)
+    "Append OTHER-FILE to TARGET-FILE and delete OTHER-FILE.
+  When called interactively TARGET-FILE is the current file.
+  TARGET-FILE and OTHER-FILE are both derived from `org-mode'.
+
+  Abort the operation if OTHER-FILE has backlinks."
+    (interactive
+     (list
+      buffer-file-name
+      (denote-file-prompt
+       "\\.org"
+       (format "FILE to merge into `%s'" (propertize buffer-file-name 'face 'denote-faces-prompt-current-name)))))
+    (dolist (file (list target-file other-file))
+      (with-current-buffer (find-file-noselect file)
+        (unless (derived-mode-p 'org-mode)
+          (error "The file `%s' is not using `org-mode'" file))))
+    (pcase-let ((`(,title ,tags ,contents) (denote-org--merge-get-file-data-without-front-matter other-file)))
+      (if (denote--file-has-backlinks-p other-file)
+          (error "The other file `%s' has backlinks; aborting the merge" other-file)
+        (with-current-buffer (find-file-noselect target-file)
+          (goto-char (point-max))
+          (unless (looking-at "^$")
+            (insert "\n\n"))
+          (insert (format "* MERGED: %s :%s:" title (string-join tags ":")))
+          (insert "\n\n")
+          (insert contents))
+        (when (y-or-n-p (format "Merged `%s'; now DELETE it and its buffer? " (propertize other-file 'face 'denote-faces-prompt-current-name)))
+          (kill-buffer (get-file-buffer other-file))
+          (delete-file other-file)))))
+  ,#+end_src
+
+  ,** Other sources
   https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
   https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
@@ -5002,6 +5107,7 @@ TODO document this
 
 You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
 
+** The older solution
 Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
 
 This has to be tested.
@@ -5042,6 +5148,64 @@ deletion.")
 
 Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
 
+** Prot's new solution
+
+I asked on GitHub for a similar feature for this. Prot wrote a version that aborts the merge between two denote notes if the =OTHER_FILE= has backlinks to it. *Is there really no way to deal with all of the identifiers?*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun denote-org--merge-get-file-data-without-front-matter (file)
+  "Return data of FILE without its front matter.
+Data is of the form (TITLE FILETAGS CONTENTS), all of which are strings.
+
+Assume that front matter is a contiguous region of lines starting with
+#+ from the beginning of the buffer and ending in an empty line."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (goto-char (point-min))
+    (let ((title (org-get-title))
+          (tags (org-get-tags))
+          (contents (progn
+                      (when-let* ((beginning (when (re-search-forward "^#\\+" nil t)
+                                               (line-beginning-position)))
+                                  (end (re-search-forward "^$" nil t)))
+                        (delete-region beginning end))
+                      (string-trim (buffer-string)))))
+      (list title tags contents))))
+
+;;;###autoload
+(defun denote-org-merge-notes (target-file other-file)
+  "Append OTHER-FILE to TARGET-FILE and delete OTHER-FILE.
+When called interactively TARGET-FILE is the current file.
+TARGET-FILE and OTHER-FILE are both derived from `org-mode'.
+
+Abort the operation if OTHER-FILE has backlinks."
+  (interactive
+   (list
+    buffer-file-name
+    (denote-file-prompt
+     "\\.org"
+     (format "FILE to merge into `%s'" (propertize buffer-file-name 'face 'denote-faces-prompt-current-name)))))
+  (dolist (file (list target-file other-file))
+    (with-current-buffer (find-file-noselect file)
+      (unless (derived-mode-p 'org-mode)
+        (error "The file `%s' is not using `org-mode'" file))))
+  (pcase-let ((`(,title ,tags ,contents) (denote-org--merge-get-file-data-without-front-matter other-file)))
+    (if (denote--file-has-backlinks-p other-file)
+        (error "The other file `%s' has backlinks; aborting the merge" other-file)
+      (with-current-buffer (find-file-noselect target-file)
+        (goto-char (point-max))
+        (unless (looking-at "^$")
+          (insert "\n\n"))
+        (insert (format "* MERGED: %s :%s:" title (string-join tags ":")))
+        (insert "\n\n")
+        (insert contents))
+      (when (y-or-n-p (format "Merged `%s'; now DELETE it and its buffer? " (propertize other-file 'face 'denote-faces-prompt-current-name)))
+        (kill-buffer (get-file-buffer other-file))
+        (delete-file other-file)))))
+#+end_src
+
+** Other sources
 https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
 https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
@@ -5986,7 +6150,7 @@ Perhaps this can be remedied in Emacs through using the org ids, but I don't lik
 #+end_src
 
 #+RESULTS:
-: [nil 26908 53267 40511 nil elpaca-process-queues nil nil 922000 nil]
+: [nil 26909 34413 414134 nil elpaca-process-queues nil nil 250000 nil]
 
 Enable the TOC for long markdown notes as well
 
@@ -5997,7 +6161,7 @@ Enable the TOC for long markdown notes as well
 #+end_src
 
 #+RESULTS:
-: [nil 26908 53267 43675 nil elpaca-process-queues nil nil 224000 nil]
+: [nil 26909 34413 418672 nil elpaca-process-queues nil nil 644000 nil]
 
 * Options for the workflow and the patchwork I have to do to make it work
 
@@ -6219,7 +6383,6 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
 #+begin_src org
   ,#+title: Bibliography management within Emacs
   ,#+startup: overview
-  ,#+export: broken-links:mark
 
   ,* What exactly are you trying to replace
 
@@ -6693,7 +6856,6 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
           org-cite-activate-processor 'citar)
   ,#+end_src
 
-
   ,* TODO Managing reading resources (bibliography)
   ,* TODO Configuring the =biblio= package
 
@@ -6897,6 +7059,50 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
 
   ,* Exploring the references through a network graph
 
+  see the setup for =org-grapher=. I need to find a way to make this work with [[file:denote.org][Denote (see the configuration)]]. Otherwise the link recognition would genuinely be botched
+
+  Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-grapher
+    :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+  ,#+end_src
+
+  Setting the org file directory:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+      (setq org-grapher-notes-directory "~/Documents/notes"
+            org-grapher-recursive t
+            org-grapher-output-file "~/.cache/org-graph.html")
+  ,#+end_src
+
+  Customizing the colors of the nodes:
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+  (setq org-grapher--tag-colors
+    '("emacs" "#d65d0e"
+      "work" "#458588"
+      "personal" "#98971a"))
+  ,#+end_src
+  ,* TODO Recognising cross-references immediately in a PDF
+
+  One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
+
+  The manual workflow that I have outside of Emacs is that I copy-paste the name of the referenced article into my search bar (it's a little faster if I also have a search bang setup in that browser or if I'm using the extension for Alfred to open the query directly in Google Scholar), and then try to fetch the article from there. If I can't download it directly from Google Scholar, then I try to go to Sci-Hub where I can ask for the DOI. At any point, for either Google Scholar or Sci-Hub I may end up having a rate limit, or being hit with a CAPTCHA because I'm trying to download the files directly from Emacs. This isn't really ideal especially when I'm researching and I just want to have a big schema down that I can later traverse.
+
+  As I don't actually end up reading the articles that quickly, I want to have a very quick way to chart out the references so at least when I _choose_ to go out and manually download that source, I at least know for sure what it is that I'm getting into.
+
+  For this reason, I should at least be able to make a DOI into a usable BibTeX record that can be used in plotting out a reference network (or at least organise everything based on some kind of tag). This would speed up the workflow and minimise the interruptions.
+
+  It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
+
+  This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
+
+  ,** Fetching the DOI in the case of papers that already have a DOI specified in the article
+
+  there should be a way to open the link under the point, and then directly format that DOI into an entry.
+
+  ,*Should this entry be formatted in the annotated bibliography format?*
   ,* Footnotes
 
   [fn:1] https://ogbe.net/emacs/references
@@ -6910,7 +7116,6 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
 :results:
 #+title: Bibliography management within Emacs
 #+startup: overview
-#+export: broken-links:mark
 
 * What exactly are you trying to replace
 
@@ -7384,7 +7589,6 @@ This configuration sets the global bibliography equal to the =sia-bibtex-files= 
         org-cite-activate-processor 'citar)
 #+end_src
 
-
 * TODO Managing reading resources (bibliography)
 * TODO Configuring the =biblio= package
 
@@ -7588,6 +7792,50 @@ I'm currently not tangling this because I can't get the =sia-bibtex-files= varia
 
 * Exploring the references through a network graph
 
+see the setup for =org-grapher=. I need to find a way to make this work with [[file:denote.org][Denote (see the configuration)]]. Otherwise the link recognition would genuinely be botched
+
+Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package org-grapher
+  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+#+end_src
+
+Setting the org file directory:
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (setq org-grapher-notes-directory "~/Documents/notes"
+          org-grapher-recursive t
+          org-grapher-output-file "~/.cache/org-graph.html")
+#+end_src
+
+Customizing the colors of the nodes:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq org-grapher--tag-colors
+  '("emacs" "#d65d0e"
+    "work" "#458588"
+    "personal" "#98971a"))
+#+end_src
+* TODO Recognising cross-references immediately in a PDF
+
+One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
+
+The manual workflow that I have outside of Emacs is that I copy-paste the name of the referenced article into my search bar (it's a little faster if I also have a search bang setup in that browser or if I'm using the extension for Alfred to open the query directly in Google Scholar), and then try to fetch the article from there. If I can't download it directly from Google Scholar, then I try to go to Sci-Hub where I can ask for the DOI. At any point, for either Google Scholar or Sci-Hub I may end up having a rate limit, or being hit with a CAPTCHA because I'm trying to download the files directly from Emacs. This isn't really ideal especially when I'm researching and I just want to have a big schema down that I can later traverse.
+
+As I don't actually end up reading the articles that quickly, I want to have a very quick way to chart out the references so at least when I _choose_ to go out and manually download that source, I at least know for sure what it is that I'm getting into.
+
+For this reason, I should at least be able to make a DOI into a usable BibTeX record that can be used in plotting out a reference network (or at least organise everything based on some kind of tag). This would speed up the workflow and minimise the interruptions.
+
+It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
+
+This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
+
+** Fetching the DOI in the case of papers that already have a DOI specified in the article
+
+there should be a way to open the link under the point, and then directly format that DOI into an entry.
+
+*Should this entry be formatted in the annotated bibliography format?*
 * Footnotes
 
 [fn:1] https://ogbe.net/emacs/references
@@ -7816,12 +8064,13 @@ This is far from being a workable environment yet, but I want to be able to mana
   ,* Configuration for =pdf-tools=
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
-      (use-package pdf-tools)
+    (use-package pdf-tools
+      :ensure t
+      :init
+      (pdf-tools-install))
   ,#+end_src
 
-  It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
-
-  This function will tell =pdf-tools= to launch by default.
+  By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf-tools= instead of =docview-mode=. =pdf-tools-install= is actually configuring a server component.[fn:1]
 
   ,** Setting keybindings for =pdf-tools=
 
@@ -7850,11 +8099,110 @@ This is far from being a workable environment yet, but I want to be able to mana
   ,#+end_src
 
   ,** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+  ,** Virtual buffers
 
-  ,** TODO Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+  This  will take several PDFs and display them within a singular buffer.[fn:2]
 
-  I need to find a way to call =pdf-view-install= globally without having to do it interactively with =M-x pdf-view-install=.
+  =M-x pdf-virtual-buffer-create=
 
+  ,* Getting the annotation mode going
+
+  By itself, =pdf-tools= already has a way to annotating the file. But I want to make an integrated environment for reading, so I want to be using either =org-noter= or =org-pdf-tools=.
+
+  ,** Configuring =org-noter=
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-noter
+      :after (org pdf-view)
+      :bind (:map org-noter-notes-mode-map
+                  ("C-M-i" . org-noter-insert-dynamic-block))
+      :custom
+      (org-noter-notes-search-path (list org-directory))
+      (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+      (org-noter-separate-notes-from-heading t)
+      :config
+      (require 'pdf-macs)
+      ;; (defun org-noter-pdf--show-arrow ())
+      )
+
+    (use-package djvu) ; apparently needed for org-noter
+  ,#+end_src
+
+  This function will autosave your last position when reading a PDF in Emacs.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (setq org-noter-auto-save-last-location t)
+  ,#+end_src
+
+  Configuring =org-noter= to actually show annotated text on the PDF.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (setq org-noter-highlight-selected-text t)
+  ,#+end_src
+
+  ,*Does this mean that it will also become embedded into the PDF?*
+
+  ,*How do I make sure if the text I highlighted is actually embedded into the PDF?*
+
+  ,** Configuring =org-pdftools=
+
+  =org-pdftools= adds a special org link type (see [[denote:20251115T113306][Custom link creation in org mode]]) for a precise PDF link location.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-pdftools
+      :hook (org-mode . org-pdftools-setup-link))
+  ,#+end_src
+
+  =org-pdftools= actually works in tandem with =org-noter=
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-noter-pdftools
+      :after org-noter
+      :config
+      ;; Add a function to ensure precise note is inserted
+      (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+        (interactive "P")
+        (org-noter--with-valid-session
+         (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+                                                       (not org-noter-insert-note-no-questions)
+                                                     org-noter-insert-note-no-questions))
+               (org-pdftools-use-isearch-link t)
+               (org-pdftools-use-freepointer-annot t))
+           (org-noter-insert-note (org-noter--get-precise-info)))))
+
+      ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+      (defun org-noter-set-start-location (&optional arg)
+        "When opening a session with this document, go to the current clocation.
+    With a prefix ARG, remove start location."
+        (interactive "P")
+        (org-noter--with-valid-session
+         (let ((inhibit-read-only t)
+               (ast (org-noter--parse-root))
+               (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+           (with-current-buffer (org-noter--session-notes-buffer session)
+             (org-with-wide-buffer
+              (goto-char (org-element-property :begin ast))
+              (if arg
+                  (org-entry-delete nil org-noter-property-note-location)
+                (org-entry-put nil org-noter-property-note-location
+                               (org-noter--pretty-print-location location))))))))
+      (with-eval-after-load 'pdf-annot
+        (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+  ,#+end_src
+
+  There's also:
+
+  ,#+begin_quote
+  Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+  ,#+end_quote
+
+  In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
+
+  =[[pdf:~/file.pdf::3][Link to page 3]]=
+
+  When browsing a pdftools-buffer you can use org-store-link (by default C-c l) to get a link to this location withing the pdf – even while marking some content in the =.pdf=. Then use org-insert-link (by default =C-c C-l=) to create a link to this page and this place on the page:
+
+  =[[pdf:~/file.pdf::5++0.00;;annot-5-0][file.pdf: Page 5; Quoting: some text]]=
 
   ,* Bootstrapping the other document readers
   ,** Installing =nov-el=
@@ -7892,6 +8240,13 @@ This is far from being a workable environment yet, but I want to be able to mana
   ,* Proposed improvements
 
   I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
+
+  ,* Footnotes
+
+  [fn:3]  https://github.com/fuxialexander/org-pdftools
+  [fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
+
+  [fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
 #+end_src
 
 #+RESULTS:
@@ -7927,12 +8282,13 @@ The reading setup is structured in different layers, based on the different moda
 * Configuration for =pdf-tools=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package pdf-tools)
+  (use-package pdf-tools
+    :ensure t
+    :init
+    (pdf-tools-install))
 #+end_src
 
-It seems that when I try to open a PDF through Emacs, it opens in docview mode, which is far inferior to =pdf-tools.=
-
-This function will tell =pdf-tools= to launch by default.
+By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf-tools= instead of =docview-mode=. =pdf-tools-install= is actually configuring a server component.[fn:1]
 
 ** Setting keybindings for =pdf-tools=
 
@@ -7961,11 +8317,110 @@ This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= 
 #+end_src
 
 ** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+** Virtual buffers
 
-** TODO Making =pdf-tools= actually open PDFs automatically instead of =docview-mode=
+This  will take several PDFs and display them within a singular buffer.[fn:2]
 
-I need to find a way to call =pdf-view-install= globally without having to do it interactively with =M-x pdf-view-install=.
+=M-x pdf-virtual-buffer-create=
 
+* Getting the annotation mode going
+
+By itself, =pdf-tools= already has a way to annotating the file. But I want to make an integrated environment for reading, so I want to be using either =org-noter= or =org-pdf-tools=.
+
+** Configuring =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter
+    :after (org pdf-view)
+    :bind (:map org-noter-notes-mode-map
+                ("C-M-i" . org-noter-insert-dynamic-block))
+    :custom
+    (org-noter-notes-search-path (list org-directory))
+    (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+    (org-noter-separate-notes-from-heading t)
+    :config
+    (require 'pdf-macs)
+    ;; (defun org-noter-pdf--show-arrow ())
+    )
+
+  (use-package djvu) ; apparently needed for org-noter
+#+end_src
+
+This function will autosave your last position when reading a PDF in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-auto-save-last-location t)
+#+end_src
+
+Configuring =org-noter= to actually show annotated text on the PDF.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-highlight-selected-text t)
+#+end_src
+
+*Does this mean that it will also become embedded into the PDF?*
+
+*How do I make sure if the text I highlighted is actually embedded into the PDF?*
+
+** Configuring =org-pdftools=
+
+=org-pdftools= adds a special org link type (see [[denote:20251115T113306][Custom link creation in org mode]]) for a precise PDF link location.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pdftools
+    :hook (org-mode . org-pdftools-setup-link))
+#+end_src
+
+=org-pdftools= actually works in tandem with =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter-pdftools
+    :after org-noter
+    :config
+    ;; Add a function to ensure precise note is inserted
+    (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+                                                     (not org-noter-insert-note-no-questions)
+                                                   org-noter-insert-note-no-questions))
+             (org-pdftools-use-isearch-link t)
+             (org-pdftools-use-freepointer-annot t))
+         (org-noter-insert-note (org-noter--get-precise-info)))))
+
+    ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+    (defun org-noter-set-start-location (&optional arg)
+      "When opening a session with this document, go to the current clocation.
+  With a prefix ARG, remove start location."
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((inhibit-read-only t)
+             (ast (org-noter--parse-root))
+             (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+         (with-current-buffer (org-noter--session-notes-buffer session)
+           (org-with-wide-buffer
+            (goto-char (org-element-property :begin ast))
+            (if arg
+                (org-entry-delete nil org-noter-property-note-location)
+              (org-entry-put nil org-noter-property-note-location
+                             (org-noter--pretty-print-location location))))))))
+    (with-eval-after-load 'pdf-annot
+      (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+#+end_src
+
+There's also:
+
+#+begin_quote
+Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+#+end_quote
+
+In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
+
+=[[pdf:~/file.pdf::3][Link to page 3]]=
+
+When browsing a pdftools-buffer you can use org-store-link (by default C-c l) to get a link to this location withing the pdf – even while marking some content in the =.pdf=. Then use org-insert-link (by default =C-c C-l=) to create a link to this page and this place on the page:
+
+=[[pdf:~/file.pdf::5++0.00;;annot-5-0][file.pdf: Page 5; Quoting: some text]]=
 
 * Bootstrapping the other document readers
 ** Installing =nov-el=
@@ -8003,6 +8458,13 @@ This is apparently possible and it would make an academic reading workflow on e-
 * Proposed improvements
 
 I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
+
+* Footnotes
+
+[fn:3]  https://github.com/fuxialexander/org-pdftools
+[fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
+
+[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
 :end:
 
 This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
@@ -10796,7 +11258,7 @@ This also means several graphical improvements.
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
   (defun sia-setup-minibuffer ()
     "make minibuffer use larger font size."
-    (text-scale-increase 3))
+    (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
 
   (add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
   ,#+end_src
@@ -11091,7 +11553,7 @@ This is taken from XahLee: http://xahlee.info/emacs/emacs/emacs_minibuffer_font_
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (defun sia-setup-minibuffer ()
   "make minibuffer use larger font size."
-  (text-scale-increase 3))
+  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
 
 (add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
 #+end_src

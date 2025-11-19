@@ -1,6 +1,5 @@
 #+title: Bibliography management within Emacs
 #+startup: overview
-#+export: broken-links:mark
 
 * What exactly are you trying to replace
 
@@ -474,7 +473,6 @@ This configuration sets the global bibliography equal to the =sia-bibtex-files= 
         org-cite-activate-processor 'citar)
 #+end_src
 
-
 * TODO Managing reading resources (bibliography)
 * TODO Configuring the =biblio= package
 
@@ -678,6 +676,50 @@ I'm currently not tangling this because I can't get the =sia-bibtex-files= varia
 
 * Exploring the references through a network graph
 
+see the setup for =org-grapher=. I need to find a way to make this work with [[file:denote.org][Denote (see the configuration)]]. Otherwise the link recognition would genuinely be botched
+
+Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package org-grapher
+  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+#+end_src
+
+Setting the org file directory:
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (setq org-grapher-notes-directory "~/Documents/notes"
+          org-grapher-recursive t
+          org-grapher-output-file "~/.cache/org-graph.html")
+#+end_src
+
+Customizing the colors of the nodes:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq org-grapher--tag-colors
+  '("emacs" "#d65d0e"
+    "work" "#458588"
+    "personal" "#98971a"))
+#+end_src
+* TODO Recognising cross-references immediately in a PDF
+
+One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
+
+The manual workflow that I have outside of Emacs is that I copy-paste the name of the referenced article into my search bar (it's a little faster if I also have a search bang setup in that browser or if I'm using the extension for Alfred to open the query directly in Google Scholar), and then try to fetch the article from there. If I can't download it directly from Google Scholar, then I try to go to Sci-Hub where I can ask for the DOI. At any point, for either Google Scholar or Sci-Hub I may end up having a rate limit, or being hit with a CAPTCHA because I'm trying to download the files directly from Emacs. This isn't really ideal especially when I'm researching and I just want to have a big schema down that I can later traverse.
+
+As I don't actually end up reading the articles that quickly, I want to have a very quick way to chart out the references so at least when I _choose_ to go out and manually download that source, I at least know for sure what it is that I'm getting into.
+
+For this reason, I should at least be able to make a DOI into a usable BibTeX record that can be used in plotting out a reference network (or at least organise everything based on some kind of tag). This would speed up the workflow and minimise the interruptions.
+
+It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
+
+This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
+
+** Fetching the DOI in the case of papers that already have a DOI specified in the article
+
+there should be a way to open the link under the point, and then directly format that DOI into an entry.
+
+*Should this entry be formatted in the annotated bibliography format?*
 * Footnotes
 
 [fn:1] https://ogbe.net/emacs/references

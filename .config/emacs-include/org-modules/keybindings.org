@@ -1,4 +1,5 @@
 #+TITLE: Sorting out the keybindings
+#+startup: overview
 
 This is _overall_ completely unfinished
 
@@ -82,7 +83,7 @@ Here is an example of using :bind with a list of conses:
 
 Hydra is a package that simplifies the creation of keybinding combinations using a shared prefix. As a bonus, it also generates a menu displaying all potential commands:
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package hydra
   :ensure t)
 

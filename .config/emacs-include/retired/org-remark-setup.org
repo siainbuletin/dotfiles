@@ -54,3 +54,22 @@ Now we're bootstrapping the real =org-remark= package.
            ("C-c n r" . org-remark-remove)
            ("C-c n d" . org-remark-delete)))
 #+end_src
+
+
+When trying to install this snippet, I get an error that =org-remark-global-tracking-mode= "Symbol's function definition is void"
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (org-remark-global-tracking-mode +1)
+
+  ;; Optional if you would like to highlight websites via eww-mode
+  (with-eval-after-load 'eww
+    (org-remark-eww-mode +1))
+
+  ;; Optional if you would like to highlight EPUB books via nov.el
+  (with-eval-after-load 'nov
+    (org-remark-nov-mode +1))
+
+  ;; Optional if you would like to highlight Info documentation via Info-mode
+  (with-eval-after-load 'info
+    (org-remark-info-mode +1))
+#+end_src

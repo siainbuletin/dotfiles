@@ -143,6 +143,10 @@
 
 (use-package deadgrep)
 
+(use-package counsel-fd
+  :ensure t
+  :after counsel)
+
 (use-package vertico
   :demand t
   :custom
@@ -184,6 +188,9 @@
 
 
 
+(use-package p-search
+  :ensure (:host github :repo "zkry/p-search"))
+
 ;; (use-package avy) ;; is this still useful for anything?
 (use-package helm)
 ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
@@ -219,6 +226,12 @@
 
 (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
+
+(use-package hydra
+  :ensure t)
+
+(use-package use-package-hydra
+  :ensure t)
 
 ;; Set Dired listing switches for more minimalist output
 (setq dired-listing-switches "-aghov --group-directories-first")
@@ -573,6 +586,57 @@ title."
 
 (use-package denote-menu
   :ensure t)
+
+(defun denote-org--merge-get-file-data-without-front-matter (file)
+  "Return data of FILE without its front matter.
+Data is of the form (TITLE FILETAGS CONTENTS), all of which are strings.
+
+Assume that front matter is a contiguous region of lines starting with
+#+ from the beginning of the buffer and ending in an empty line."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (goto-char (point-min))
+    (let ((title (org-get-title))
+          (tags (org-get-tags))
+          (contents (progn
+                      (when-let* ((beginning (when (re-search-forward "^#\\+" nil t)
+                                               (line-beginning-position)))
+                                  (end (re-search-forward "^$" nil t)))
+                        (delete-region beginning end))
+                      (string-trim (buffer-string)))))
+      (list title tags contents))))
+
+;;;###autoload
+(defun denote-org-merge-notes (target-file other-file)
+  "Append OTHER-FILE to TARGET-FILE and delete OTHER-FILE.
+When called interactively TARGET-FILE is the current file.
+TARGET-FILE and OTHER-FILE are both derived from `org-mode'.
+
+Abort the operation if OTHER-FILE has backlinks."
+  (interactive
+   (list
+    buffer-file-name
+    (denote-file-prompt
+     "\\.org"
+     (format "FILE to merge into `%s'" (propertize buffer-file-name 'face 'denote-faces-prompt-current-name)))))
+  (dolist (file (list target-file other-file))
+    (with-current-buffer (find-file-noselect file)
+      (unless (derived-mode-p 'org-mode)
+        (error "The file `%s' is not using `org-mode'" file))))
+  (pcase-let ((`(,title ,tags ,contents) (denote-org--merge-get-file-data-without-front-matter other-file)))
+    (if (denote--file-has-backlinks-p other-file)
+        (error "The other file `%s' has backlinks; aborting the merge" other-file)
+      (with-current-buffer (find-file-noselect target-file)
+        (goto-char (point-max))
+        (unless (looking-at "^$")
+          (insert "\n\n"))
+        (insert (format "* MERGED: %s :%s:" title (string-join tags ":")))
+        (insert "\n\n")
+        (insert contents))
+      (when (y-or-n-p (format "Merged `%s'; now DELETE it and its buffer? " (propertize other-file 'face 'denote-faces-prompt-current-name)))
+        (kill-buffer (get-file-buffer other-file))
+        (delete-file other-file)))))
 
 (defvar my-denote-to-agenda-regexp "_project"
   "Denote file names that are added to the agenda.
@@ -965,9 +1029,67 @@ agenda."
 
 (use-package consult-recoll)
 
-(use-package pdf-tools)
+(use-package pdf-tools
+  :ensure t
+  :init
+  (pdf-tools-install))
 
 (setopt pdf-view-continuous nil)
+
+(use-package org-noter
+  :after (org pdf-view)
+  :bind (:map org-noter-notes-mode-map
+              ("C-M-i" . org-noter-insert-dynamic-block))
+  :custom
+  (org-noter-notes-search-path (list org-directory))
+  (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+  (org-noter-separate-notes-from-heading t)
+  :config
+  (require 'pdf-macs)
+  ;; (defun org-noter-pdf--show-arrow ())
+  )
+
+(use-package djvu) ; apparently needed for org-noter
+
+(setq org-noter-auto-save-last-location t)
+
+(setq org-noter-highlight-selected-text t)
+
+(use-package org-pdftools
+  :hook (org-mode . org-pdftools-setup-link))
+
+(use-package org-noter-pdftools
+  :after org-noter
+  :config
+  ;; Add a function to ensure precise note is inserted
+  (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+    (interactive "P")
+    (org-noter--with-valid-session
+     (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+                                                   (not org-noter-insert-note-no-questions)
+                                                 org-noter-insert-note-no-questions))
+           (org-pdftools-use-isearch-link t)
+           (org-pdftools-use-freepointer-annot t))
+       (org-noter-insert-note (org-noter--get-precise-info)))))
+
+  ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+  (defun org-noter-set-start-location (&optional arg)
+    "When opening a session with this document, go to the current clocation.
+With a prefix ARG, remove start location."
+    (interactive "P")
+    (org-noter--with-valid-session
+     (let ((inhibit-read-only t)
+           (ast (org-noter--parse-root))
+           (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+       (with-current-buffer (org-noter--session-notes-buffer session)
+         (org-with-wide-buffer
+          (goto-char (org-element-property :begin ast))
+          (if arg
+              (org-entry-delete nil org-noter-property-note-location)
+            (org-entry-put nil org-noter-property-note-location
+                           (org-noter--pretty-print-location location))))))))
+  (with-eval-after-load 'pdf-annot
+    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
 (use-package calibredb
   :defer t
@@ -1497,7 +1619,7 @@ DELTA would be something like 1 or -1."
 
 (defun sia-setup-minibuffer ()
   "make minibuffer use larger font size."
-  (text-scale-increase 3))
+  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
 
 (add-hook 'minibuffer-mode-hook 'sia-setup-minibuffer)
 

@@ -48,7 +48,6 @@ This is especially useful if you want to make searching across multiple notes fa
 
 *** Adding =ripgrep= support for =xref=
 
-
 *** TODO Configuring =deadgrep=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -58,6 +57,18 @@ This is especially useful if you want to make searching across multiple notes fa
 *** TODO Is it worth it to look into =rg.el=?
 
 It would only seem to be worth it if I could enable full-text search even for documents like PDFs. But for that I'd need the =ripgrep-all= software, and a way to plug it somehow into =rg.el=. I don't think anyone has actually written about a way that I could do that. I don't feel particularly comfortable with it.
+
+** Finding files recursively in subdirectories with =counsel-fd=
+
+This would solve the [[denote:20251119T095050][Finding files recursively through Emacs]] issue.
+
+This package actually hasn't been updated in 3 years: https://github.com/CsBigDataHub/counsel-fd
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package counsel-fd
+      :ensure t
+      :after counsel)
+#+end_src
 
 * Minibuffer completion packages
 ** =vertico=: minibuffer completion candidates
@@ -170,6 +181,17 @@ See [[file:wm.org][Window management in Emacs]]. This is taken from the livestre
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 
+#+end_src
+
+* TODO Configuring =psearch=
+
+[[denote:20251119T094138][psearch]] strives to be a search engine for all of the notes inside Emacs itself (and all documents on the device) that uses =ripgrep= under the hood. It would be among the likes of =recoll= and =xapian=, although I don't know whether it can do PDF full-text search as well.
+
+See also a comparison to =consult-omni= (if it can do searches on the web): [[denote:20251119T094054][consult-omni]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package p-search
+    :ensure (:host github :repo "zkry/p-search"))
 #+end_src
 
 * TODO Other completion packages that I still don't know the functionality of

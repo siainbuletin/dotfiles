@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("Notes folder"
+(("literature"
+ (filename . "~/Documents/literature/")
+ (front-context-string . ".stfolder\n  drwx")
+ (rear-context-string . "54 Nov  3 08:50 ")
+ (position . 148)
+ (last-modified 26909 29574 542366 339000))
+("Notes folder"
  (filename . "~/Documents/notes/")
  (front-context-string . ".stfolder\n  drwx")
  (rear-context-string . "54 Nov 11 12:30 ")
@@ -22,10 +28,10 @@
  (last-modified 26904 42204 347307 842000))
 ("org-capture-last-stored"
  (filename . "~/.notes")
- (front-context-string . "** TODO Don't re")
- (rear-context-string . "tween notes).]]\n")
- (position . 345)
- (last-modified 26904 27707 858622 977000))
+ (front-context-string . "** TODO Find a w")
+ (rear-context-string . "=org-sidebar=).\n")
+ (position . 1005)
+ (last-modified 26908 55335 86844 670000))
 ("org-refile-last-stored"
  (filename . "~/Documents/notes/20251114T223213--eshell__software.org")
  (front-context-string . "** this is a sma")
