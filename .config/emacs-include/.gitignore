@@ -6,3 +6,5 @@ backups/
 # files created by emacs
 tramp
 elgrep-data.el
+recentf
+never
