@@ -8,3 +8,6 @@ tramp
 elgrep-data.el
 recentf
 never
+
+# backups of configuration files
+*.org#
