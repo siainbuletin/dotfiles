@@ -1,0 +1,555 @@
+#+TITLE: Functional org mode configuration
+#+STARTUP: overview
+
+This does not include packages which are used for different workflows. It's just the base functionality of org-mode (vanilla, as it is distributed), which is altered for my own usecase.
+
+This is also for making the org buffer overall more readable, basically turning Emacs into a word processor.
+
+* Appearance of the org buffer in Emacs
+** TODO Always enable the visual-line-mode when reading in a normal org buffer
+
+I also had this other snippet for enabling visual line mode by default and I don't know which one of them is the one that actually does the trick.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(with-eval-after-load 'org
+  (setq org-startup-indented t) ; Enable `org-indent-mode' by default
+  (add-hook 'org-mode-hook #'visual-line-mode))
+#+end_src
+
+I don't really know how to deal with this bit about =with-eval-after-load=.
+
+** TODO Wrapping the text with =visual-fill-column=
+
+*I still don't really know what is the use of this package.*
+
+#+begin_src emacs-lisp :tangle no :eval never
+    ;; visual-fill-column for a nice soft wrap
+    (use-package visual-fill-column
+      :commands visual-fill-column-mode
+
+      :custom
+      (fill-column-enable-sensible-window-split t)
+
+      :bind
+      (("C-x p" . 'visual-fill-column-mode)))
+#+end_src
+
+** TODO Hide the asterisks at the start of an org heading
+
+Maybe the best way to do this is through =org-modern=.
+
+** Other appearance settings
+
+This is taken directly from Emacs Writing Studio.
+
+I disabled =org-image-actual-width= because I'm getting the =Org width must be 8, not 4= error.
+
+=org-pretty-entities= allows us to insert special characters LaTeX-style by using a leading backslash (e.g., =\alpha= to write the greek letter alpha).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-hide-emphasis-markers t)
+  (setq org-hide-leading-stars t)
+  (setq org-startup-with-inline-images t)
+  ;; (setq org-image-actual-width '(450))
+  (setq org-pretty-entities t) ; What makes them pretty?\
+  (setq org-auto-align-tags nil)
+  ; (setq org-tags-column 0) ; What exactly does this do? Wouldn't it be more correct to set it as nil instead of 0?
+  (setq org-src-fontify-natively t)
+#+end_src
+
+Changes in the way =org-agenda= shows up
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-agenda-breadcrumbs-separator " ) ")
+#+end_src
+
+I would like Quote and Verse blocks special, that is, in italics. This means, we first need to allow them to be different, and then I can alter my theme to make quotes italics:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-fontify-quote-and-verse-blocks t)
+#+end_src
+
+** TODO Show hidden emphasis markers at point
+
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds. By default =org-hide-emphasis-markers=, is key to pretending that Emacs can be a word processor, however, since the org markup controls aren’t viewable, I find it challenging at times, to change that. The org-appear project seeks to fix this by showing the markup when the point is nearby.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package org-appear
+  :hook
+  (org-mode . org-appear-mode))
+#+end_src
+
+For evil mode, you can add this bit to the ~use-package~ declaration to ony make the emphasis markers appear in the insert mode in Evil.
+
+#+begin_src emacs-lisp :tangle no :eval never
+:hook
+  ((org-mode . (lambda ()
+                  (add-hook 'evil-insert-state-entry-hook
+                            #'org-appear-manual-start nil t)
+                  (add-hook 'evil-insert-state-exit-hook
+                            #'org-appear-manual-stop nil t)))
+#+end_src
+
+** The org-modern package
+*** Proper settings
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-modern
+      :after org
+      :hook ((org-mode . org-modern-mode)
+             (org-agenda-finalize . org-modern-agenda))
+      :config
+      (setq
+       org-auto-align-tags t
+       org-tags-column 0
+       org-fold-catch-invisible-edits 'show-and-error
+       org-special-ctrl-a/e t
+       org-insert-heading-respect-content t
+
+       ;; Don't style the following
+       org-modern-tag nil
+       org-modern-priority nil
+       org-modern-todo nil
+       org-modern-table nil
+
+       ;; Agenda styling
+       org-agenda-tags-column 0
+       org-agenda-block-separator ?─
+       org-agenda-time-grid
+       '((daily today require-timed)
+    	 (800 1000 1200 1400 1600 1800 2000)
+    	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+       org-agenda-current-time-string
+       "⭠ now ─────────────────────────────────────────────────"))
+#+end_src
+
+I don't think that =global-org-modern-mode= actually works.
+
+** Prettifying checkboxes
+
+To make completed tasks more distinguishable, he changed the colors:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defface org-checkbox-done-text
+  '((t (:foreground "#71696A" :strike-through t)))
+  "Face for the text part of a checked org-mode checkbox.")
+
+(font-lock-add-keywords
+ 'org-mode
+ `(("^[ \t]*\\(?:[-+*]\\|[0-9]+[).]\\)[ \t]+\\(\\(?:\\[@\\(?:start:\\)?[0-9]+\\][ \t]*\\)?\\[\\(?:X\\|\\([0-9]+\\)/\\2\\)\\][^\n]*\n\\)"
+    1 'org-checkbox-done-text prepend))
+ 'append)
+#+end_src
+
+** Adding padding around the headers and blocks in org-mode
+
+This is basically like leading space in normal text formatting. We'll be using the =spacious-padding= package from Prot.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package spacious-padding
+    :ensure t)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; These are the default values, but I keep them here for visibility.
+  (setq spacious-padding-widths
+        '( :internal-border-width 15
+           :header-line-width 4
+           :mode-line-width 6
+           :tab-width 4
+           :right-divider-width 30
+           :scroll-bar-width 8
+           :fringe-width 8))
+#+end_src
+
+ Read the doc string of `spacious-padding-subtle-mode-line' as it is very flexible and provides several examples.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq spacious-padding-subtle-frame-lines
+        `( :mode-line-active 'default
+           :mode-line-inactive vertical-border))
+
+  ;; (spacious-padding-mode 1)
+
+  ;; Set a key binding if you need to toggle spacious padding.
+  (define-key global-map (kbd "<f8>") #'spacious-padding-mode)
+#+end_src
+
+For some reason I'm getting spacious padding function is void, so I had to comment it out.
+
+** Changing the appearance of each heading level
+
+You can resize the headings based on the level.
+
+** TODO Move the atkison fonts to the proper appearance configuration with fontaine
+This was creating a lot of issues with the settings for fontaine (which are defined in [[file:appearance.org][Appearance configuration]]). I need to move the Atkinson fonts to the big setq block that I have created for fontaine.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (dolist (face '((org-level-1 . 1.5)
+                  (org-level-2 . 1.4)
+                  (org-level-3 . 1.3)
+                  (org-level-4 . 1.1)
+                  (org-level-5 . 1.1)
+                  (org-level-6 . 1.1)
+                  (org-level-7 . 1.1)
+                  (org-level-8 . 1.1)))
+    (set-face-attribute (car face) nil
+                        :font "Atkinson Hyperlegible"
+                        :weight 'bold
+                        :height (cdr face)))
+#+end_src
+
+** Making the title of the document a bit bigger
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (set-face-attribute 'org-document-title nil
+                      :font "Atkinson Hyperlegible"
+                      :weight 'bold
+                      :height 1.8)
+#+end_src
+
+* Text editing functions
+** DONE Global shift-select support in =org-mode= buffers
+
+This will bypass other =SHIFT= bindings.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-support-shift-select t)
+#+end_src
+
+** Keybinding for joining two lines
+
+This makes the symbol to appear as void, so I'm not setting it properly. For now, to join lines, it's easier to just call =M-x jo=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (keymap-global-set "C-x j" join-line)
+#+end_src
+
+** TODO Configuring =text-mode=
+
+Text mode allows replacing text when you start typing. _This is taken directly from Emacs Writing Studio_.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package text-mode
+    :ensure nil
+    :hook
+    (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+    :init
+    (delete-selection-mode t)
+    :custom
+    (sentence-end-double-space nil)
+    (scroll-error-top-bottom t)
+    (save-interprogram-paste-before-kill t))
+#+end_src
+
+This section also redefines the way Emacs defines a sentence (refer to section #sec-count in Emacs Writing Studio).
+
+=save-interprogram-paste-before-kil= saves any existing clipboard text into the kill ring for better operability between the operating system's clipboard and Emacs's kill ring.
+
+** TODO Enable org-mode dynamic headline numbering
+
+Trying to turn this on by switching the =org-num-mode= minor mode globally doesn't work with =(setq org-num-mode t)=. I need to learn about hooking into minor modes better. For now, =add-hook= works better.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-hook 'org-mode-hook #'org-num-mode)
+#+end_src
+
+*** TODO Coloring the numbering from dynamic numbering
+
+To make the numbers stand out a little more,
+
+** DONE Turning off auto-indentation (through =electric-indent-mode=)
+
+It worked at first, but now it seems like it can get thrown off quite easily. I don't know what it is about my org settings that is making this happen.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (electric-indent-mode 0)
+#+end_src
+
+Taken from here: https://emacs.stackexchange.com/questions/14297/completely-disable-all-auto-indentation
+
+** TODO Enabling CUA mode automatically on startup
+
+Something that's completely upsetting about Emacs is that it doesn't come installed with CUA mode and I always have to turn it on when I'm first booting into Emacs when booting the computer itself. I haven't yet found a way to enable CUA mode automatically when logging in to Emacs.
+
+CUA mode only affects the shortcuts when the region is active (meaning that the text is selected).
+
+For now, I can get it to work by just firing up =M-x cua-mode= whenever I need it.
+
+** TODO Introduce something like regular linting functionality that you have in Obsidian
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (add-hook 'before-save-hook
+            'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+#+end_src
+** TODO Spellchecking support
+
+The Flyspell package interfaces with the Hunspell software and the relevant dictionary to check spelling on the fly.
+
+Flyspell is built-in, so you have to change the way that it is called from =elpaca=.
+
+*I currently can't get this one to work because I can't make =elpaca= not try to install it, despite it being actually built in.*
+
+You must change the standard dictionary to your local variety by customising  the ~ews-hunspell-dictionaries~  variable. EWS uses this particular variable because the dictionaries are set in two places to enable multilingual spelling. You can set multiple dictionaries for the same buffer. In my configuration I use ="en_AU,nl_NL"= so I can write in either the Australian variant of English or Dutch without having to change dictionaries. Section #sec-spelling in Emacs Writing Studio explains how to use this package.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package flyspell
+    :custom
+    (ispell-program-name "hunspell")
+    (ispell-dictionary ews-hunspell-dictionaries)
+    (flyspell-mark-duplications-flag nil) ;; Writegood mode does this
+    (org-fold-core-style 'overlays) ;; Fix Org mode bug
+    :config
+    (ispell-set-spellchecker-params)
+    (ispell-hunspell-add-multi-dic ews-hunspell-dictionaries)
+    :hook
+    (text-mode . flyspell-mode)
+    :bind
+    (("C-c w s s" . ispell)
+     ("C-;"       . flyspell-auto-correct-previous-word)))
+#+end_src
+
+** Pulse the selected region with =goggles=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package goggles
+    :hook
+    ((prog-mode text-mode) . goggles-mode)
+    :config
+    (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
+#+end_src
+
+Goggles is mainly meant as a replacement for the popular volatile-highlights (vhl).[fn:2]
+
+vhl does not support pulse. The request to use pulse for modification highlighting has come up a few times (e.g. recently on reddit).
+vhl is unmaintained and contains obsolete code (e.g. cl instead of cl-lib).
+vhl is unnecessarily complicated, with its extension mechanism. The extension mechanism seems to require bytecode compilation at startup.
+Since improving volatile-highlights would require a rewrite, I decided to create another package. This way breakage for volatile-highlights users is avoided.
+
+* Code editing goodies
+** TODO Automatically closing parentheses properly
+
+So that you don't have to go back in and do =M-x check-parens=, you could oconfigure the codeblocks to properly close the parentheses for you.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+  (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+#+end_src
+
+* Organisation functions
+** Keep functionality of folding headings while keeping text editing smooth
+
+Many people sell the folding headings from org-mode as terrific for organisation, and that might be case if you have massive documents, but it becomes messy if you want to find information based, maybe, on tags. Or maybe you want to be able to see your notes all organised in a graph or a reference network. (for a reference network, see [[*Creating a usable graph for org-mode notes]]
+
+** How linking works between files
+** Making searching for headings across other files possible
+
+By default, Emacs has the setting =org-link-search-must-match-exact-headline= set to =t=. This makes it so that even if you have an ID setup for your heading (even if it's alphanumeric)
+
+If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-link-search-must-match-exact-headline nil)
+#+end_src
+
+** Working with both unique ID values and =CUSTOM_ID=
+Glonal IDs aren't automatically generated through the =org-id= extension.[fn:4] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
+
+It is possible to generate the links automatically with this:[fn:4]
+
+If you use =org-capture= to add all of your items then org-capture-prepare-finalize-hook is a logical place to put the code:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-capture-prepare-finalize-hook 'org-id-get-create)
+#+end_src
+
+Alternately you could do as Stuart suggested and add a save hook for org-mode files. I think the most idiomatic way to process all of the headlines in the file would be to use the mapping API:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defun my/org-add-ids-to-headlines-in-file ()
+    "Add ID properties to all headlines in the current file which
+  do not already have one."
+    (interactive)
+    (org-map-entries 'org-id-get-create))
+#+end_src
+
+Finally we just need to add a before-save-hook which only runs in org-mode:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'before-save-hook 'my/org-add-ids-to-headlines-in-file nil 'local)))
+#+end_src
+
+** Managing links between headings with =counsel-org-link=
+
+It can show a searchable list of all the headings in the current document, and allows selecting one, automatically creating a link to it. =counsel-outline-display-style= is configured so that only the headline title is inserted into the link, instead of its full path within the document.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq counsel-outline-display-style 'title)
+#+end_src
+
+counsel-org-link uses org-id as its backend, which generates IDs using UUIDs and stores them in the ID property. I prefer using human-readable IDs stored in the CUSTOM_ID property of each heading, so we need to make some changes.
+
+First, configure org-id to use CUSTOM_ID if it exists. This instructs org-id to grab those IDs when using the org-store-link function (funny that org-id knows how to recognize and use =CUSTOM_ID=, but not how to generate them). This tells org-id to not create an ID if CUSTOM_ID already exists
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+#+end_src
+
+Second, I override counsel-org-link-action, which is the function that actually generates and inserts the link, with a custom function that computes and inserts human-readable CUSTOM_ID links. This is supported by a few auxiliary functions for generating and storing the CUSTOM_ID.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun zz/make-id-for-title (title)
+  "Return an ID based on TITLE."
+  (let* ((new-id (replace-regexp-in-string "[^[:alnum:]]" "-" (downcase title))))
+    new-id))
+
+(defun zz/org-custom-id-create ()
+  "Create and store CUSTOM_ID for current heading."
+  (let* ((title (or (nth 4 (org-heading-components)) ""))
+         (new-id (zz/make-id-for-title title)))
+    (org-entry-put nil "CUSTOM_ID" new-id)
+    (org-id-add-location new-id (buffer-file-name (buffer-base-buffer)))
+    new-id))
+
+(defun zz/org-custom-id-get-create (&optional where force)
+  "Get or create CUSTOM_ID for heading at WHERE.
+
+If FORCE is t, always recreate the property."
+  (org-with-point-at where
+    (let ((old-id (org-entry-get nil "CUSTOM_ID")))
+      ;; If CUSTOM_ID exists and FORCE is false, return it
+      (if (and (not force) old-id (stringp old-id))
+          old-id
+        ;; otherwise, create it
+        (zz/org-custom-id-create)))))
+
+;; Now override counsel-org-link-action
+  (defun counsel-org-link-action (x)
+    "Insert a link to X.
+
+X is expected to be a cons of the form (title . point), as passed
+by `counsel-org-link'.
+
+If X does not have a CUSTOM_ID, create it based on the headline
+title."
+    (let* ((id (zz/org-custom-id-get-create (cdr x))))
+      (org-insert-link nil (concat "#" id) (car x))))
+#+end_src
+
+
+Ta-da! Now using counsel-org-link inserts nice, human-readable links.
+
+You can also overall automate the creation of custom IDs with this: https://writequit.org/articles/emacs-org-mode-generate-ids.html
+** Maintaining emacs links so that they don't actually rot
+
+When changing the file name of a file, what happens if the links are dead?
+
+Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:5]
+
+A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
+
+However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
+
+* Minor modes to enable for =org-mode=
+* Make rendering better within org-mode
+
+One annoying thing in org-mode is that you can't actually write a source code block that's using org-mode syntax, because that will immediately actually get rendered. It doesn't get recognised the same way that verbatim syntax is (which is inline, like this: =#+INCLUDE:=).
+
+This can be avoided by adding a comma before the org heading. Thus you'd do something like this:
+
+#+begin_src org
+,#+title: my org file
+
+,* an org heading
+#+end_src
+
+You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:6]
+
+* TODO Choosing the modes for which =mixed-pitch= is enabled
+
+*I'm not currently sure why I'm doing this and how it helps the overall system.*
+
+In order to avoid line spacing issues when a line of text contains both variable- and fixed-pitch text, we need to make sure that the org-indent face inherits from fixed-pitch.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(require 'org-indent)
+(set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+#+end_src
+
+And then, we want to make sure that some parts of the Org document always use fixed-pitch even when variable-pitch-mode is on.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (set-face-attribute 'org-block nil
+                      :foreground nil
+                      :background "#ffdf00"
+                      :inherit 'fixed-pitch
+                      :height 0.85)
+
+  (set-face-attribute 'org-code nil             :inherit '(shadow fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-indent nil           :inherit '(org-hide fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-verbatim nil         :inherit '(shadow fixed-pitch) :height 0.85)
+
+  (set-face-attribute 'org-special-keyword nil  :inherit '(font-lock-comment-face
+  fixed-pitch))
+
+  (set-face-attribute 'org-meta-line nil        :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-checkbox nil         :inherit 'fixed-pitch)
+#+end_src
+
+For this all to come together, we need to make sure that variable-pitch-mode is always active in Org buffers.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(add-hook 'org-mode-hook 'variable-pitch-mode)
+#+end_src
+
+* TODO Add custom syntax to achieve in-text highlighting
+
+There's a bunch of possible solutions for this
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun org-add-my-extra-markup ()
+  "Add highlight emphasis."
+  (add-to-list 'org-font-lock-extra-keywords
+               '("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]"
+                 (1 '(face highlight invisible nil)))))
+
+(add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
+#+end_src
+
+:here's highlight: (doesn't currently work)
+
+The elisp regular expression isn’t the easiest to understand, but this is what it matches:
+
+| Regex      | Explanation                                                             |
+|------------+-------------------------------------------------------------------------|
+| [^\\w]     | something that’s not a word                                             |
+| \\(        | start of a capture group (not matching)                                 |
+| :          | a colon                                                                 |
+| [^\n\r\t]+ | a string of 1 or more characters that doesn’t contain new-lines or tabs |
+| :          | a colon                                                                 |
+| \\)        | end of the capture group (not matching)                                 |
+| [^\\w]     | something that’s not a word                                             |
+
+* TODO =org-archive= settings
+** TODO Setting spaces for where to archive subtrees
+
+
+* Configuring how =CUSTOM_ID= is created
+
+* Footnotes
+
+[fn:1]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
+
+[fn:2] https://github.com/minad/goggles
+
+[fn:3]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
+
+[fn:4]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
+
+[fn:5] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+
+[fn:6]  https://www.danliden.com/posts/20220208-org-source.html

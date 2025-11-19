@@ -71,6 +71,19 @@ This would basically mirror the style of the manual that GNU Emacs uses, with th
 
 Do you need to invoke the =WoMan= Emacs mode for this?
 
+** Configuring =org-pandoc-import= for universal =org-mode= usage
+
+This could also be good for [[id:767b476c-ef48-4b15-a719-f65c1d035dc2][Export org-mode manuscripts to Microsoft Word]]. It would be good for converting a whole bunch of Markdown files to be used in Emacs (instead of trying to use =obsidian-el= module, which is quite abysmally slow when it comes to doing anything with the cache). See [[denote:20251119T212807][Batch convert markdown to org-mode]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pandoc-import
+    :ensure (:host github
+  		 :repo "tecosaur/org-pandoc-import"
+  		 :files ("*.el" "filters" "preprocessors")))
+#+end_src
+
+This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as they can help with exporting through =org-pandoc-import-transient-mode=.[fn:3]
+
 ** Exporting org-mode manuscripts to Typst for better typesetting
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -80,6 +93,9 @@ Do you need to invoke the =WoMan= Emacs mode for this?
 
 This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:1]
 ** TODO Export org-mode manuscripts to Microsoft Word
+:PROPERTIES:
+:ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
+:END:
 
 Is there any way to preserve the formatting?
 
@@ -133,6 +149,8 @@ Would it be better to continue relying on =typst= for doing my documents, or wou
 However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
 * Footnotes
+
+[fn:3] https://github.com/tecosaur/org-pandoc-import
 [fn:2] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline
 
 [fn:1] https://github.com/jmpunkt/ox-typst
