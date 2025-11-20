@@ -248,8 +248,18 @@ This can be used as a kind of counterpart for =org-journal=.
 ** =denote-menu=: see denote files in a tabulated list
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package denote-menu
-    :ensure t)
+    (use-package denote-menu
+      :ensure t)
+
+    (setq denote-menu-show-file-type nil)
+
+  (global-set-key (kbd "C-c z") #'list-denotes)
+
+  (define-key denote-menu-mode-map (kbd "c") #'denote-menu-clear-filters)
+  (define-key denote-menu-mode-map (kbd "/ r") #'denote-menu-filter)
+  (define-key denote-menu-mode-map (kbd "/ k") #'denote-menu-filter-by-keyword)
+  (define-key denote-menu-mode-map (kbd "/ o") #'denote-menu-filter-out-keyword)
+  (define-key denote-menu-mode-map (kbd "e") #'denote-menu-export-to-dired)
 #+end_src
 
 This could be used for filtering literature notes written through =citar-denote=.

@@ -65,6 +65,11 @@ You can also limit which parts of the org-cite libraries will load.
   - it doesn't make use of =org-ref=
   - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
 
+* Configuring basic =bibtex-mode=
+
+At its core, =ebib= isn't actually all that useful on top of the already useful integrated =bibtex-mode= within Emacs itself.
+
+
 * Preparing the environment for bibliography management
 
 Before we can bring in the actual management packages, we need the =org-mode= backend that can handle everything.
@@ -112,11 +117,170 @@ But how do you tell =org-ref= where to find these fles?
 
 - replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
 
+** Preliminary: Installing =org-protocol=
+
+This is necessary for [[id:2f21897e-675d-4238-a980-7bf10e31f40d][Ingesting from the browser (with =org-capture-ref=)]].
+
+This is from a guide for Firefox, which would work generally.
+
+** TODO Configuring the =biblio= package
+
+The Biblio package enables you to extract literature from various databases.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package biblio
+    :ensure t
+    :bind
+    (("C-c w b b" . sia-bibtex-biblio-lookup)))
+#+end_src
+
+*** Extension of =biblio= which pulls packages from [[denote:20251120T214608][Google Scholar]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package biblio-gscholar
+        :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar"))
+#+end_src
+
+*** Custom BibTeX filters for =biblio=
+
+By default biblio.el performs only minor cleanups on the BibTeX entries that it downloads from the web. To customize the clean-up phase, add functions to biblio-cleanup-bibtex-function (each such function should take one argument, autokey, indicated whether to generate a new BibTeX key; see biblio-format-bibtex).
+
+Add custom field ‘creationdate’ recording the date when the item was added.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun ~biblio-record-creation-date (_autokey)
+    (save-excursion
+      (bibtex-make-field "creationdate" t t)
+      (insert (format-time-string "%Y-%m-%d"))))
+
+  (add-function
+   :before biblio-cleanup-bibtex-function
+   #'~biblio-record-creation-date)
+#+end_src
+
+Prevent ‘bibtex-mode’ from inserting tabs.[fn:4] *But aren't tabs actually good?*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun ~biblio-with-spaces-not-tabs (oldfun &rest args)
+    (let ((indent-tabs-mode nil))
+      (when oldfun
+        (apply oldfun args))))
+
+  (add-function
+   :around biblio-cleanup-bibtex-function
+   #'~biblio-with-spaces-not-tabs)
+#+end_src
+
 ** =pdf-drop-=mode=: Dragging and dropping a PDF in the database
 
 There's the option to use Rougier's =pdf-drop-mode=, which can just make it possible drag and drop a PDF and eventually fetch the DOI automatically. It adds support for simply dragging and dropping PDFs to add them to the BibTeX file.
 
 But does =pdf-drop-mode= also format the entry?
+
+** Ingesting from the browser (with =org-capture-ref=)
+:PROPERTIES:
+:ID:       2f21897e-675d-4238-a980-7bf10e31f40d
+:END:
+
+=org-capture-ref= depends on =org-protocol= in order to collaborate with the browser
+
+This will create a different org file that will have a BibTeX block inserted into the body of the file. This can be used for quickly creating literature notes that exists by themselves (see [[id:1ad2bbe5-867c-4add-a3d6-6c3375bb770e][Creating annotated bibliography records (with literature notes)]])
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-capture-ref
+      :ensure (:type git :host github :repo "yantar92/org-capture-ref")
+      :after org-ref)
+#+end_src
+
+*** Setting up =org-capture= to actually work for this
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package
+        :ensure (asoc.el :type git :host github :repo "troyp/asoc.el"))
+
+    (use-package s
+      :ensure t)
+
+    (use-package doct
+      :ensure t)
+#+end_src
+
+*** TODO Setting up the relevant org capture templates
+
+Do I really need to use =(require)= templates in here? Isn't it bound to lexical binding
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(require 'org-capture)
+(require 'asoc)
+(require 'doct)
+(require 'org-capture-ref)
+(let ((templates (doct '( :group "Browser link"
+ 			  :type entry
+ 			  :file "~/notes/inbox/bib-capture.org"
+ 			  :fetch-bibtex (lambda () (org-capture-ref-process-capture)) ; this must run first
+                          :link-type (lambda () (org-capture-ref-get-bibtex-field :type))
+                          :extra (lambda () (if (org-capture-ref-get-bibtex-field :journal)
+					   (s-join "\n"
+                                                   '("- [ ] download and attach pdf"
+						     "- [ ] [[elisp:org-attach-open][read paper capturing interesting references]]"
+						     "- [ ] [[elisp:(browse-url (url-encode-url (format \"https://www.semanticscholar.org/search?q=%s\" (org-entry-get nil \"TITLE\"))))][check citing articles]]"
+						     "- [ ] [[elisp:(browse-url (url-encode-url (format \"https://www.connectedpapers.com/search?q=%s\" (org-entry-get nil \"TITLE\"))))][check related articles]]"
+                                                     "- [ ] check if bibtex entry has missing fields"))
+                                         ""))
+                          :org-entry (lambda () (org-capture-ref-get-org-entry))
+			  :template
+                          ("%{fetch-bibtex}* TODO %?%{space}%{org-entry}"
+                           "%{extra}"
+                           "- Keywords: #%{link-type}")
+			  :children (("Interactive link"
+				      :keys "b"
+				      :clock-in t
+                                      :space " "
+				      :clock-resume t
+				      )
+				     ("Silent link"
+				      :keys "B"
+                                      :space ""
+				      :immediate-finish t))))))
+  (dolist (template templates)
+    (asoc-put! org-capture-templates
+	       (car template)
+	       (cdr  template)
+	       'replace)))
+#+end_src
+
+TL;DR how the above code works: Call org-capture-ref-process-capture at the beginning to scrape BiBTeX from the link. Then use org-capture-ref-get-org-entry to format the heading (according to org-capture-ref-headline-format). Alternatively it is possible to use org-capture-ref-get-bibtex-field to get metadata directly (:bibtex-string field will contain formatted BiBTeX entry).
+
+org-protocol has to be integrated specifically with =qutebrowser=
+
+*** How does =org-ref= find the references in individual annotated bibliography files?
+
+The records have to exported to the manuscript file that you're working with (meaning the associated BibTeX file
+
+*** Integration with elfeed
+
+This allows us to capture RSS links that are coming through =elfeed=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun yant/elfeed-capture-entry ()
+  "Capture selected entries into inbox."
+  (interactive)
+  (elfeed-search-tag-all 'opened)
+  (previous-logical-line)
+  (let ((entries (elfeed-search-selected)))
+    (cl-loop for entry in entries
+	     do (elfeed-untag entry 'unread)
+	     when (elfeed-entry-link entry)
+	     do (flet ((raise-frame nil nil))
+		  (org-protocol-capture (list :template "B"
+					      :url it
+					      :title (format "%s: %s"
+							     (elfeed-feed-title (elfeed-entry-feed entry))
+							     (elfeed-entry-title entry))
+                                              :elfeed-data entry))))
+    (mapc #'elfeed-search-update-entry entries)
+    (unless (use-region-p) (forward-line))))
+#+end_src
 
 ** TODO Templates for =org-capture= for bringing in new bibliography
 
@@ -125,6 +289,10 @@ This could also be done through something like =org-protocol= or =emacs-anywhere
 ** TODO Getting =OpenAlex= to work for fetching more bibliography
 
 =OpenAlex= is a part of =org-ref=, so first and foremost that has to be configured separately.
+
+** Regular copy pasting of the reference into the BibTeX file
+
+Would it be easy to do with =citar=?
 
 * Managing the actual database itself
 
@@ -318,6 +486,9 @@ Unfortunately, =citar-indicator-files= gives the function as if it's void, so I'
 #+end_src
 
 * Creating annotated bibliography records (with literature notes)
+:PROPERTIES:
+:ID:       1ad2bbe5-867c-4add-a3d6-6c3375bb770e
+:END:
 
 This could be tangled into the actual BibTeX record. And you could keep the literature notes in basically the same place. But it would essentially bypass any kind of bibliography management mode like =org-ref=.
 
@@ -474,15 +645,6 @@ This configuration sets the global bibliography equal to the =sia-bibtex-files= 
 #+end_src
 
 * TODO Managing reading resources (bibliography)
-* TODO Configuring the =biblio= package
-
-The Biblio package enables you to extract literature from various databases.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package biblio
-    :bind
-    (("C-c w b b" . sia-bibtex-biblio-lookup)))
-#+end_src
 
 * TODO Calling the necessary packages
 
@@ -721,6 +883,7 @@ there should be a way to open the link under the point, and then directly format
 
 *Should this entry be formatted in the annotated bibliography format?*
 * Footnotes
+[fn:4]  https://github.com/cpitclaudel/biblio.el
 
 [fn:1] https://ogbe.net/emacs/references
 

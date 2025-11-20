@@ -1,1 +1,1 @@
-("~/Documents/writing/academic/a2s1-modernitate/descartes-music/")
+("~/Documents/bibliography/" "~/.config/emacs-include/elpaca/repos/org-ref/" "~/Documents/writing/academic/a2s1-modernitate/descartes-music/")

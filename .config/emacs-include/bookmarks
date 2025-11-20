@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("literature"
+(("BibTeX files"
+ (filename . "~/Documents/bibliography/")
+ (front-context-string . ".git\n  drwxr-xr-")
+ (rear-context-string . "0K nov 20 13:46 ")
+ (position . 150)
+ (last-modified 26911 27481 618803 883000))
+("literature"
  (filename . "~/Documents/literature/")
  (front-context-string . ".stfolder\n  drwx")
  (rear-context-string . "54 Nov  3 08:50 ")

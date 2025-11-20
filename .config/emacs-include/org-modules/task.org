@@ -67,8 +67,8 @@ I currently can't have these special keywords be enabled, because it always brin
 
   	;; Effort estimate
   	("deep" . ?d)
-  	("shallow" . ?sh)
-  	("time-eater" . ?t))
+  	("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol 
+  	("time-eater" . ?t)))
 #+end_src
 
 this ~?H~ is for easy access in the org dispatch
@@ -411,15 +411,15 @@ This should tell you what you should be doing next up.
 
 *** TODO Selecting tasks that you're about to clock in on
 
-* Dependencies between tasks
+* Dependencies between tasks with =org-edna=
 
 Taking care of the dependency relations between tasks is important for decing what you should be doing next, and what is potentially blocking your workflow in the moment.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package org-edna
-    :ensure t)
-
-  (org-edna-mode)
+    :ensure t
+    :config
+    (org-edna-mode))
 #+end_src
 
 Blocker in files "indicates conditions which must be met in order for a heading to be marked as DONE. Typically, this will be a list of headings that must be marked as DONE."[fn:1]

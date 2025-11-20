@@ -128,6 +128,14 @@
 
 (electric-pair-mode 1)
 
+(use-package dwim-shell-command
+  :ensure t
+  :bind (([remap shell-command] . dwim-shell-command)
+         :map dired-mode-map
+         ([remap dired-do-async-shell-command] . dwim-shell-command)
+         ([remap dired-do-shell-command] . dwim-shell-command)
+         ([remap dired-smart-shell-command] . dwim-shell-command)))
+
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
 
@@ -421,11 +429,120 @@ title."
 (setq org-todo-keywords
       '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
 
+(setq org-tag-alist
+      '(;; Circumstances
+        ("@home" . ?H)
+        ("@uni" . ?U)
+      ("@waiting" . ?W)
+
+        ;; Devices
+        ("@computer" . ?C)
+        ("@phone" . ?P)
+
+        ;; Activities
+        ("@planning" . ?p)
+        ("@configuration" . ?c)
+        ("@writing" . ?w)
+        ("@reading" . ?s)
+        ("@music" . ?m)
+        ("@research" . ?r)
+        ("@errands" . ?e)
+
+      ;; Effort estimate
+      ("deep" . ?d)
+      ; ("shallow" . ?h)
+      ("time-eater" . ?t)))
+
 (setq org-agenda-files (quote ("~/Documents/tracking")))
 
-(use-package org-super-agenda)
+(global-set-key (kbd "C-c o a") #'org-agenda)
+
+(setq org-log-done 'time
+      org-log-redeadline 'time
+      org-log-reschedule 'time)
+
+(setq org-priority-highest 1
+      org-priority-lowest 5
+      org-priority-default 4)
+
+(use-package org-super-agenda
+:after org
+:init
+(setq org-super-agenda-date-format "%A (%e)"
+      org-super-agenda-groups
+      '((:name "Accomplishments"
+         :todo ("DONE" "CANCELED")
+         :order 4)
+        (:name "End of Day"
+         :habit t
+         :order 2)
+        (:name "Uncompleted Work"
+         :todo "DOING"
+         :scheduled past
+         :order 0)
+        (:name "Today's Tasks"
+         :date today
+         :order 1)
+        (:name "Today's Tasks"
+         :scheduled today
+         :order 1)
+        (:name "Future Work"
+         :todo "TODO"
+         :scheduled future
+         :order 3))))
+
+(setq org-agenda-custom-commands
+      '(("p" "Planning"
+             ((tags-todo "+@planning"
+                         ((org-agenda-overriding-header "Planning Tasks")))
+              (tags-todo "-{.*}"
+                         ((org-agenda-overriding-header "Untagged Tasks")))
+              (todo ".*" ((org-agenda-files '("~/Notes/Inbox.org"))
+                          (org-agenda-overriding-header "Unprocessed Inbox Items")))))
+
+        ("d" "Daily Agenda"
+         ((agenda "" ((org-agenda-span 'day)
+                      (org-deadline-warning-days 7)))
+          (tags-todo "+PRIORITY=\"A\""
+                     ((org-agenda-overriding-header "High Priority Tasks")))))
+
+        ("w" "Weekly Review"
+         ((agenda ""
+                  ((org-agenda-overriding-header "Completed Tasks")
+                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
+                   (org-agenda-span 'week)))
+
+          (agenda ""
+                  ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
+                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-span 'week)))))))
+
+(setq org-agenda-custom-commands
+      '(("r" "Research and university" tags-todo "+@research @reading @uni")))
+
+(setq org-agenda-custom-commands
+      '(("u" "Untagged Tasks" tags-todo "-{.*}")))
+
+(setq org-agenda-custom-commands
+    '(("p" "Planning"
+       ((tags-todo "+@planning"
+                    ((org-agenda-overriding-header "Planning Tasks")))
+        (tags-todo "-{.*}"
+                    ((org-agenda-overriding-header "Untagged Tasks")))))))
+
+(setq org-agenda-custom-commands
+      '(("d" "Daily Agenda"
+         ((agenda "" ((org-agenda-span 'day)
+                      (org-deadline-warning-days 7)))
+          (tags-todo "+PRIORITY=\"A\""
+                     ((org-agenda-overriding-header "High Priority Tasks")))))))
 
 (require 'org-inlinetask)
+
+(use-package org-edna
+  :ensure t)
+
+; (org-edna-mode) ; this shows up as symbol's function is void
 
 (use-package dashboard
   :ensure t
@@ -511,12 +628,13 @@ title."
   :bind
   ( ;; this block here is taken from Prot's video on use-package
    :map global-map
-    ("C-c n n" . denote)
+    ; ("C-c n n" . denote) ; I prefer using denote-open-or-create instead
+    ("C-c n o" . denote-open-or-create)
     ("C-c n r" . denote-rename-file)
     ("C-c n f" . denote-rename-file-using-front-matter)
 
     :map text-mode-map
-    ("C-c n i" . denote-link) ; "insert" mnemonic
+    ("C-c n i" . denote-link-or-create) ; "insert" mnemonic
     ("C-c n I" . denote-add-links)
 
     :map dired-mode-map
