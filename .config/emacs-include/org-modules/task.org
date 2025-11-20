@@ -1,5 +1,5 @@
-#+TITLE: Task management system mediated through org-mode
-
+#+title: Task management system mediated through org-mode
+#+startup: overview
 * How it will be likened to Things 3
 
 - capture system :: through =org-capture=, I can actually define an inbox for where all the information comes in. This can later be sent to the relevant projects and be activated when I really need to be dealing with all of it.
@@ -42,6 +42,36 @@ I currently can't have these special keywords be enabled, because it always brin
   ;; I don't wan't the keywords in my exports by default
   (setq-default org-export-with-todo-keywords nil)
 #+end_src
+
+** Tags for different contexts of my tasks
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-tag-alist
+        '(;; Circumstances
+          ("@home" . ?H)
+          ("@uni" . ?U)
+  	("@waiting" . ?W)
+
+          ;; Devices
+          ("@computer" . ?C)
+          ("@phone" . ?P)
+
+          ;; Activities
+          ("@planning" . ?p)
+          ("@configuration" . ?c)
+          ("@writing" . ?w)
+          ("@reading" . ?s)
+          ("@music" . ?m)
+          ("@research" . ?r)
+          ("@errands" . ?e)
+
+  	;; Effort estimate
+  	("deep" . ?d)
+  	("shallow" . ?sh)
+  	("time-eater" . ?t))
+#+end_src
+
+this ~?H~ is for easy access in the org dispatch
 
 * Setting up =org-agenda=
 
@@ -148,9 +178,158 @@ after org initialization."
 
 The =aw/org-files-with-tag= uses =ripgrep= to find files with the desired tags in the #+filetags: portion of a file. Note that my configuration for =denote-journal= automatically includes the tag =labnotes= for any journal entry I create.
 
+** Hotkey for pulling up the agenda
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "C-c o a") #'org-agenda)
+#+end_src
+
+** Configuring org-refile to send the tags to org-agenda
+
+** Logging the tags
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-log-done 'time
+        org-log-redeadline 'time
+        org-log-reschedule 'time)
+#+end_src
+
+** Priority configuration
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-priority-highest 1
+        org-priority-lowest 5
+        org-priority-default 4)
+#+end_src
+
+* Improving the setup with =org-super-agenda=
+
+This is the =org-super-agenda= enhancement suite made for org-agenda and it's developed by Alphapa. Typical agendas have an order to them, but the org-super-agenda project allows you to get specific as well as group them under headings.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-super-agenda
+  :after org
+  :init
+  (setq org-super-agenda-date-format "%A (%e)"
+        org-super-agenda-groups
+        '((:name "Accomplishments"
+           :todo ("DONE" "CANCELED")
+           :order 4)
+          (:name "End of Day"
+           :habit t
+           :order 2)
+          (:name "Uncompleted Work"
+           :todo "DOING"
+           :scheduled past
+           :order 0)
+          (:name "Today's Tasks"
+           :date today
+           :order 1)
+          (:name "Today's Tasks"
+           :scheduled today
+           :order 1)
+          (:name "Future Work"
+           :todo "TODO"
+           :scheduled future
+           :order 3))))
+#+end_src
+
+* Importing the older tasks from Things 3
+
+Processing the export for the tasks.
+
+** Importing everything as plain text
+
+** Formatting the tasks to be headings with the =TODO= keyword
+
+I think this can be done with a pretty simple usage of [[denote:20251119T095409][Regular Expression]]s.
+
 * =org-agenda= views
 
 This can also be considered kind of a cosmetic improvement.
+
+These are some saved views for org-agenda information that make it easier to follow progress.
+
+You can create a schedule associated with a particular part of your day, so you can focus only on that for working.
+
+These custom agenda views are like queries for what you want to see in that moment
+
+** The actual configuration
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-agenda-custom-commands
+      '(("p" "Planning"
+             ((tags-todo "+@planning"
+                         ((org-agenda-overriding-header "Planning Tasks")))
+              (tags-todo "-{.*}"
+                         ((org-agenda-overriding-header "Untagged Tasks")))
+              (todo ".*" ((org-agenda-files '("~/Notes/Inbox.org"))
+                          (org-agenda-overriding-header "Unprocessed Inbox Items")))))
+
+        ("d" "Daily Agenda"
+         ((agenda "" ((org-agenda-span 'day)
+                      (org-deadline-warning-days 7)))
+          (tags-todo "+PRIORITY=\"A\""
+                     ((org-agenda-overriding-header "High Priority Tasks")))))
+
+        ("w" "Weekly Review"
+         ((agenda ""
+                  ((org-agenda-overriding-header "Completed Tasks")
+                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
+                   (org-agenda-span 'week)))
+
+          (agenda ""
+                  ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
+                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-span 'week)))))))
+#+end_src
+
+** Explaining the different views
+*** See tasks that are scheduled for morning, noon and evening
+
+It might differ based on the moment of the day and the urgency (and your energy level) what you actually want to work on (as a batched set of tasks; see note on [[denote:20251119T230952][Batched work]])
+
+*** Gathering all of the tasks for university and research
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-agenda-custom-commands
+        '(("r" "Research and university" tags-todo "+@research @reading @uni")))
+#+end_src
+
+*** "Untagged Tasks": Finding all of the tasks that aren't yet tagged
+
+It's taken from System Crafter's tutorial.[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-agenda-custom-commands
+        '(("u" "Untagged Tasks" tags-todo "-{.*}")))
+#+end_src
+
+*** A planning view
+
+This should also gather the untagged tasks you have until now[fn:2] (to mimick the inboxing workflow from Things 3).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-agenda-custom-commands
+      '(("p" "Planning"
+         ((tags-todo "+@planning"
+                      ((org-agenda-overriding-header "Planning Tasks")))
+          (tags-todo "-{.*}"
+                      ((org-agenda-overriding-header "Untagged Tasks")))))))
+#+end_src
+
+=org-agenda-overriding-header= is basically a way to set a custom header inside of a custom agenda view.
+
+** Organising the TODOs based on the priority
+
+Copied from the DTOS video.
+
+#+begin_src emacs-lisp :tangle no :eval never
+      (setq org-agenda-custom-commands
+            '(("o" "Priority view"
+    	   ((tags "PRIORITY=\"A\""
+  		  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))))))))
+#+end_src
 
 ** TODO Daily agenda view
 
@@ -158,19 +337,18 @@ This should show some deadlines that you absolutely have to deal with. As well a
 
 But this gets significantly more complicated when you have to deal with tasks that are still in "WAITING" status.
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-agenda-custom-commands
+      '(("d" "Daily Agenda"
+         ((agenda "" ((org-agenda-span 'day)
+                      (org-deadline-warning-days 7)))
+          (tags-todo "+PRIORITY=\"A\""
+                     ((org-agenda-overriding-header "High Priority Tasks")))))))
+#+end_src
+
 ** TODO Weekly agenda view
 
 What do you want out of this file?
-
-* Improving the functionality of =org-agenda=
-
-** TODO Calling =org-super-agenda=
-
-This is the =org-super-agenda= enhancement suite made for org-agenda and it's developed by Alphapa.
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package org-super-agenda)
-#+end_src
 
 * Cosmetic improvements to =org-agenda=
 ** Configuring icons for =org-agenda=
@@ -236,3 +414,17 @@ This should tell you what you should be doing next up.
 * Dependencies between tasks
 
 Taking care of the dependency relations between tasks is important for decing what you should be doing next, and what is potentially blocking your workflow in the moment.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-edna
+    :ensure t)
+
+  (org-edna-mode)
+#+end_src
+
+Blocker in files "indicates conditions which must be met in order for a heading to be marked as DONE. Typically, this will be a list of headings that must be marked as DONE."[fn:1]
+
+* Footnotes
+[fn:2]  https://www.youtube.com/watch?v=-9rpQA6O3aM&t=1863s
+
+[fn:1]  https://www.nongnu.org/org-edna-el/

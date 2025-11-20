@@ -25,6 +25,8 @@ Basically like the MacOS version of looking up words. It helps to know better wh
 
 The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
 
+=lexic= makes use of [[denote:20251119T221634][StarDict]].
+
 In order to recognise format one of the supported dictionaries, Lexic matches the bookname= parameter from the StarDict .ifo file against the entries in lexic-dictionary-specs. Lexic needs to do this, because formatting is inconsistent, and so must be implemented on a per-dictionary basis.
 
 For example, if I downloaded a copy of Soule’s English Synonyms, I’d need to make sure that the SoulesSynonymns.ifo file contains the line bookname=Soule's
@@ -35,6 +37,25 @@ Then, if I open a new Emacs session, and look for a synonym I should see it form
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package lexic
     :ensure t)
+#+end_src
+
+To get =lexic= working, you also need to download the dictionaries themselves.
+
+Note that this mode only works for english.
+
+Add a dictionary to sdcv (Stardic’s cli)
+Download a dictionary file from:
+
+https://web.archive.org/web/20140917131745/http://abloz.com/huzheng/stardict-dic/
+
+Create the directory where sdcv looks for dictionaries: =sudo mkdir -p /usr/share/stardict/dic/=
+
+Download the programmes you will need to extract dictionary files: =sudo pacman -S tar unzip=
+
+The next command depends on whether the downloaded file is a .gz file or a .bz2 file.
+
+#+begin_src shell
+sudo tar -xvjf downloaded.tar.<other-extension> -C /usr/share/stardict/dic
 #+end_src
 
 * Footnotes

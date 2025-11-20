@@ -45,12 +45,13 @@
     :bind
     ( ;; this block here is taken from Prot's video on use-package
      :map global-map
-      ("C-c n n" . denote)
+      ; ("C-c n n" . denote) ; I prefer using denote-open-or-create instead
+      ("C-c n o" . denote-open-or-create)
       ("C-c n r" . denote-rename-file)
       ("C-c n f" . denote-rename-file-using-front-matter)
 
       :map text-mode-map
-      ("C-c n i" . denote-link) ; "insert" mnemonic
+      ("C-c n i" . denote-link-or-create) ; "insert" mnemonic
       ("C-c n I" . denote-add-links)
 
       :map dired-mode-map

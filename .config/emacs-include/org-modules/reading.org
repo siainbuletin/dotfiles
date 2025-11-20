@@ -1,5 +1,5 @@
-#+TITLE: Reading and annotation workflow for Emacs
-
+#+title: Reading and annotation workflow for Emacs
+#+startup: overview
 * The vision for an integrated reading and task management environment
 
 This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
@@ -69,6 +69,17 @@ This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= 
 This  will take several PDFs and display them within a singular buffer.[fn:2]
 
 =M-x pdf-virtual-buffer-create=
+
+** Adding a text layer to PDF
+
+Instead of being limited to the search tools provided by =pdf-tools=, we could instead treat the PDF buffer as if it were a text buffer. This also helps if you're [[denote:20251119T215556][using Emacs in the terminal]] or through SSH, as it helps you take a peek at a PDF without actually leaving Emacs.
+
+=pdftotext= is system program, and =pdftotext.el= is a wrapper mode which works for Emacs. =fmt= is also needed for line wrapping.[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package pdftotext
+    :ensure (:host github :repo "tecosaur/pdftotext.el"))
+#+end_src
 
 * Getting the annotation mode going
 
@@ -158,7 +169,7 @@ Configuring =org-noter= to actually show annotated text on the PDF.
 There's also:
 
 #+begin_quote
-Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:4]
 #+end_quote
 
 In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
@@ -208,7 +219,10 @@ I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[
 
 * Footnotes
 
-[fn:3]  https://github.com/fuxialexander/org-pdftools
+[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+
 [fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
 
-[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+[fn:3]  https://github.com/tecosaur/pdftotext.el
+
+[fn:4]  https://github.com/fuxialexander/org-pdftools

@@ -181,6 +181,30 @@ But how exactly can you move between files while running the same function? how 
 (global-set-key (kbd "C-c a b c") 'sia-modular-tangle)
 #+end_src
 
+* Configuring integration with shell tools
+
+See notes on [[denote:20251119T222358][dwim-shell-command]] and the more general [[denote:20251119T222058][Interfacing with Emacs from outside of it]].
+
+#+begin_quote
+Alternatively, can also install via use-package, define your own commands and remap to shell-command’s existing binding.
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package dwim-shell-command
+  :ensure t
+  :bind (([remap shell-command] . dwim-shell-command)
+         :map dired-mode-map
+         ([remap dired-do-async-shell-command] . dwim-shell-command)
+         ([remap dired-do-shell-command] . dwim-shell-command)
+         ([remap dired-smart-shell-command] . dwim-shell-command)))
+#+end_src
+
+There's also the optional package included in the directory which provides pre-written functions. It's called =dwim-shell-commands=, with the =s= at the end.
+
+** Convering shell commands into dwim commands
+
+You can use a template to reconstruct different commands into =dwim-shell-command= format.
+
 * Other
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never

@@ -1,4 +1,4 @@
-# Created 2025-11-19 Wed 10:57
+# Created 2025-11-19 Wed 21:59
 #+options: ':t author:t
 #+title: Emacs configuration with org submodules
 #+author: Sia Piperea
@@ -8,7 +8,7 @@
 #+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
 #+macro: word-count (eval  (count-words (point-min) (point-max)))
 
-[ Last revised and exported on *2025-11-19 10:57:06 +0200*, with a word count of *45139*. ]
+[ Last revised and exported on *2025-11-19 21:59:54 +0200*, with a word count of *45624*. ]
 * Changelog
 
 On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
@@ -6150,7 +6150,7 @@ Perhaps this can be remedied in Emacs through using the org ids, but I don't lik
 #+end_src
 
 #+RESULTS:
-: [nil 26909 34413 414134 nil elpaca-process-queues nil nil 250000 nil]
+: [nil 26910 8641 86133 nil elpaca-process-queues nil nil 858000 nil]
 
 Enable the TOC for long markdown notes as well
 
@@ -6161,7 +6161,7 @@ Enable the TOC for long markdown notes as well
 #+end_src
 
 #+RESULTS:
-: [nil 26909 34413 418672 nil elpaca-process-queues nil nil 644000 nil]
+: [nil 26910 8641 89826 nil elpaca-process-queues nil nil 923000 nil]
 
 * Options for the workflow and the patchwork I have to do to make it work
 
@@ -8033,8 +8033,8 @@ This is far from being a workable environment yet, but I want to be able to mana
 ** Document annotation (and other ways to handle)
 
 #+begin_src org
-  ,#+TITLE: Reading and annotation workflow for Emacs
-
+  ,#+title: Reading and annotation workflow for Emacs
+  ,#+startup: overview
   ,* The vision for an integrated reading and task management environment
 
   This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
@@ -8104,6 +8104,17 @@ This is far from being a workable environment yet, but I want to be able to mana
   This  will take several PDFs and display them within a singular buffer.[fn:2]
 
   =M-x pdf-virtual-buffer-create=
+
+  ,** Adding a text layer to PDF
+
+  Instead of being limited to the search tools provided by =pdf-tools=, we could instead treat the PDF buffer as if it were a text buffer. This also helps if you're [[denote:20251119T215556][using Emacs in the terminal]] or through SSH, as it helps you take a peek at a PDF without actually leaving Emacs.
+
+  =pdftotext= is system program, and =pdftotext.el= is a wrapper mode which works for Emacs. =fmt= is also needed for line wrapping.[fn:3]
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package pdftotext
+      :ensure (:host github :repo "tecosaur/pdftotext.el"))
+  ,#+end_src
 
   ,* Getting the annotation mode going
 
@@ -8193,7 +8204,7 @@ This is far from being a workable environment yet, but I want to be able to mana
   There's also:
 
   ,#+begin_quote
-  Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+  Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:4]
   ,#+end_quote
 
   In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
@@ -8243,16 +8254,19 @@ This is far from being a workable environment yet, but I want to be able to mana
 
   ,* Footnotes
 
-  [fn:3]  https://github.com/fuxialexander/org-pdftools
+  [fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+
   [fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
 
-  [fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+  [fn:3]  https://github.com/tecosaur/pdftotext.el
+
+  [fn:4]  https://github.com/fuxialexander/org-pdftools
 #+end_src
 
 #+RESULTS:
 :results:
-#+TITLE: Reading and annotation workflow for Emacs
-
+#+title: Reading and annotation workflow for Emacs
+#+startup: overview
 * The vision for an integrated reading and task management environment
 
 This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
@@ -8322,6 +8336,17 @@ This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= 
 This  will take several PDFs and display them within a singular buffer.[fn:2]
 
 =M-x pdf-virtual-buffer-create=
+
+** Adding a text layer to PDF
+
+Instead of being limited to the search tools provided by =pdf-tools=, we could instead treat the PDF buffer as if it were a text buffer. This also helps if you're [[denote:20251119T215556][using Emacs in the terminal]] or through SSH, as it helps you take a peek at a PDF without actually leaving Emacs.
+
+=pdftotext= is system program, and =pdftotext.el= is a wrapper mode which works for Emacs. =fmt= is also needed for line wrapping.[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package pdftotext
+    :ensure (:host github :repo "tecosaur/pdftotext.el"))
+#+end_src
 
 * Getting the annotation mode going
 
@@ -8411,7 +8436,7 @@ Configuring =org-noter= to actually show annotated text on the PDF.
 There's also:
 
 #+begin_quote
-Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:3]
+Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:4]
 #+end_quote
 
 In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
@@ -8461,10 +8486,13 @@ I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[
 
 * Footnotes
 
-[fn:3]  https://github.com/fuxialexander/org-pdftools
+[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+
 [fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
 
-[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+[fn:3]  https://github.com/tecosaur/pdftotext.el
+
+[fn:4]  https://github.com/fuxialexander/org-pdftools
 :end:
 
 This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
@@ -8656,6 +8684,19 @@ Project management through =projectile=. Depends on the existence of =ripgrep= o
 
   Do you need to invoke the =WoMan= Emacs mode for this?
 
+  ,** Configuring =org-pandoc-import= for universal =org-mode= usage
+
+  This could also be good for [[id:767b476c-ef48-4b15-a719-f65c1d035dc2][Export org-mode manuscripts to Microsoft Word]]. It would be good for converting a whole bunch of Markdown files to be used in Emacs (instead of trying to use =obsidian-el= module, which is quite abysmally slow when it comes to doing anything with the cache). See [[denote:20251119T212807][Batch convert markdown to org-mode]]
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-pandoc-import
+      :ensure (:host github
+                   :repo "tecosaur/org-pandoc-import"
+                   :files ("*.el" "filters" "preprocessors")))
+  ,#+end_src
+
+  This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as they can help with exporting through =org-pandoc-import-transient-mode=.[fn:3]
+
   ,** Exporting org-mode manuscripts to Typst for better typesetting
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -8665,6 +8706,9 @@ Project management through =projectile=. Depends on the existence of =ripgrep= o
 
   This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:1]
   ,** TODO Export org-mode manuscripts to Microsoft Word
+  :PROPERTIES:
+  :ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
+  :END:
 
   Is there any way to preserve the formatting?
 
@@ -8718,6 +8762,8 @@ Project management through =projectile=. Depends on the existence of =ripgrep= o
   However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
   ,* Footnotes
+
+  [fn:3] https://github.com/tecosaur/org-pandoc-import
   [fn:2] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline
 
   [fn:1] https://github.com/jmpunkt/ox-typst
@@ -8798,6 +8844,19 @@ This would basically mirror the style of the manual that GNU Emacs uses, with th
 
 Do you need to invoke the =WoMan= Emacs mode for this?
 
+** Configuring =org-pandoc-import= for universal =org-mode= usage
+
+This could also be good for [[id:767b476c-ef48-4b15-a719-f65c1d035dc2][Export org-mode manuscripts to Microsoft Word]]. It would be good for converting a whole bunch of Markdown files to be used in Emacs (instead of trying to use =obsidian-el= module, which is quite abysmally slow when it comes to doing anything with the cache). See [[denote:20251119T212807][Batch convert markdown to org-mode]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pandoc-import
+    :ensure (:host github
+                 :repo "tecosaur/org-pandoc-import"
+                 :files ("*.el" "filters" "preprocessors")))
+#+end_src
+
+This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as they can help with exporting through =org-pandoc-import-transient-mode=.[fn:3]
+
 ** Exporting org-mode manuscripts to Typst for better typesetting
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -8807,6 +8866,9 @@ Do you need to invoke the =WoMan= Emacs mode for this?
 
 This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:1]
 ** TODO Export org-mode manuscripts to Microsoft Word
+:PROPERTIES:
+:ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
+:END:
 
 Is there any way to preserve the formatting?
 
@@ -8860,6 +8922,8 @@ Would it be better to continue relying on =typst= for doing my documents, or wou
 However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
 * Footnotes
+
+[fn:3] https://github.com/tecosaur/org-pandoc-import
 [fn:2] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline
 
 [fn:1] https://github.com/jmpunkt/ox-typst
@@ -8913,6 +8977,28 @@ This will need the export settings that have been set up previously in [[file:or
   ,#+end_src
 
   ,* TODO Configuring my own annotations and modifications to man pages
+
+  ,* Configuring dictionary support
+
+  Basically like the MacOS version of looking up words. It helps to know better what you're writing and what you're writing with.
+
+  The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
+
+  In order to recognise format one of the supported dictionaries, Lexic matches the bookname= parameter from the StarDict .ifo file against the entries in lexic-dictionary-specs. Lexic needs to do this, because formatting is inconsistent, and so must be implemented on a per-dictionary basis.
+
+  For example, if I downloaded a copy of Soule’s English Synonyms, I’d need to make sure that the SoulesSynonymns.ifo file contains the line bookname=Soule's
+    Dictionary of English Synonyms. Check the value of lexic-dictionary-specs to see what it expects for other dictionaries supported by default.
+
+  Then, if I open a new Emacs session, and look for a synonym I should see it formatted nicely.[fn:1]
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package lexic
+      :ensure t)
+  ,#+end_src
+
+  ,* Footnotes
+
+  [fn:1] https://github.com/tecosaur/lexic?tab=readme-ov-file
 #+end_src
 
 #+RESULTS:
@@ -8937,6 +9023,28 @@ I still don't really know what this package does, so for now it will be disabled
 #+end_src
 
 * TODO Configuring my own annotations and modifications to man pages
+
+* Configuring dictionary support
+
+Basically like the MacOS version of looking up words. It helps to know better what you're writing and what you're writing with.
+
+The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
+
+In order to recognise format one of the supported dictionaries, Lexic matches the bookname= parameter from the StarDict .ifo file against the entries in lexic-dictionary-specs. Lexic needs to do this, because formatting is inconsistent, and so must be implemented on a per-dictionary basis.
+
+For example, if I downloaded a copy of Soule’s English Synonyms, I’d need to make sure that the SoulesSynonymns.ifo file contains the line bookname=Soule's
+  Dictionary of English Synonyms. Check the value of lexic-dictionary-specs to see what it expects for other dictionaries supported by default.
+
+Then, if I open a new Emacs session, and look for a synonym I should see it formatted nicely.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lexic
+    :ensure t)
+#+end_src
+
+* Footnotes
+
+[fn:1] https://github.com/tecosaur/lexic?tab=readme-ov-file
 :end:
 
 Stuff like GNU Info and man pages. This should also enable getting definitions for the code I'm actively working with.

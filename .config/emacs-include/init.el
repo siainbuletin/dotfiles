@@ -1036,6 +1036,9 @@ agenda."
 
 (setopt pdf-view-continuous nil)
 
+(use-package pdftotext
+  :ensure (:host github :repo "tecosaur/pdftotext.el"))
+
 (use-package org-noter
   :after (org pdf-view)
   :bind (:map org-noter-notes-mode-map
@@ -1123,6 +1126,11 @@ With a prefix ARG, remove start location."
 (use-package binder
   :ensure t)
 
+(use-package org-pandoc-import
+  :ensure (:host github
+               :repo "tecosaur/org-pandoc-import"
+               :files ("*.el" "filters" "preprocessors")))
+
 (use-package ox-typst
   :after org)
 
@@ -1145,6 +1153,9 @@ With a prefix ARG, remove start location."
    ("C-h x" . helpful-command)
    ("C-h k" . helpful-key)
    ("C-h v" . helpful-variable)))
+
+(use-package lexic
+  :ensure t)
 
 (use-package elpher)
 
