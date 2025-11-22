@@ -12,18 +12,6 @@ Taken from Emacs Writing Studio.
   (openwith-associations nil))
 #+end_src
 
-* TODO Version control
-
-Before installing =magit=, the version that's available on =elpaca= requires that I use =transient= ver. 0.10. So before all this, I have to call for the installation of transient.
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package cond-let)
-
-  (use-package transient)
-
-  (use-package magit
-    :after transient)
-#+end_src
 
 ** TODO Enabling =git-annex= support from within =magit=
 ** TODO Enabling git gutter within Emacs
@@ -430,26 +418,6 @@ Sysadmin work from Emacs
 * TODO Communicating from Emacs
 ** Configuring the IRC client
 ** Browsing Reddit from Emacs
-** TODO Setting up Email
-*** Choosing the proper email client for this
-
-*** TODO Storing the email in a local directory
-
-*** TODO Keeping an address book of names
-
-Isn't this basically done with =org-contacts=? Or with the Big Brother Database (BBDB).
-
-*** TODO Making sure that you don't send out bogus emails
-
-*** TODO Enabling encryption for email
-
-Since my goal is to be private, there has to be a way to plug into GnuPG somehow and encrypt my files.
-
-*** Making disroot work with Emacs.
-
-Since this is an anonymous server, I believe it might work a little differently.
-
-Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
 
 * Footnotes
 

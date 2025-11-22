@@ -1,9 +1,9 @@
-#+TITLE: Emacs configuration with org submodules
-#+AUTHOR: Sia Piperea
-#+OPTIONS: ':t author:t
-#+STARTUP: overview
+#+title: Emacs configuration with org submodules
+#+author: Sia Piperea
+#+options: ':t author:t
+#+startup: overview
 #+EXPORT_FILE_NAME: temp.org
-#+PROPERTY: header-args:org :results drawer replace
+#+property: header-args:org :results drawer replace
 #+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
 #+macro: word-count (eval  (count-words (point-min) (point-max)))
 
@@ -121,12 +121,10 @@ Deals with the early packages as well as =early-init.el= in just one file. The e
 Mostly contains patchwork over the basic Emacs experience. It's pretty necessary for good functioning.
 ** Bootstrapping =casual= suite
 
-As this is an enhacement useful for all of the other layers in this configuration, I'll call it within the main file
+~/.config/emacs-include/org-modules/casual.org src org
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package casual
-      :ensure t)
-#+end_src
+Not actually included anymore because it's really annoying.
+
 ** Search structure and completion layer
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/search.org src org
@@ -272,6 +270,12 @@ This is something that has to be done soon in the future, as it would allow more
 #+INCLUDE: ~/.config/emacs-include/org-modules/vc.org src org
 
 Settings for version control done through =magit=. This should also contain configuration for running =git-annex= effectively in Emacs.
+
+** Configuring the modeline
+
+#+INCLUDE: ~/.config/emacs-include/org-modules/modeline.org src org
+
+It currently only contains configuration for the Doom Modeline, but I plan to make my very own custom modeline in the future (with elements from both Doom and Prot's config).
 
 ** Appearance of the editor itself
 

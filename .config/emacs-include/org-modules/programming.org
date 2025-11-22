@@ -1,4 +1,13 @@
-#+TITLE: Programming setup
+#+title: Programming setup
+#+startup: overview
+
+* Global useful keybindings
+
+Making =eval-buffer= more accessible when working with the [[denote:20251121T211226][Emacs scratch buffer]]:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "C-c e b b") 'eval-buffer)
+#+end_src
 
 * TODO Show line numbers in programming modes
 
@@ -22,3 +31,24 @@
 I untangled the entire code block instead of simply commenting out the =global-display-line-numbers-mode= because apparently it's still incompatible with =pdf-tools=.
 
 Is =global-display-line-numbers-mode= the function that's actually creating this entire mess?
+
+* Terminal views
+
+Taken from here: https://github.com/themkat/.emacs.d
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Does not work on Windows, but we can just avoid compiling dependencies and using it
+;; (if I'm ever forced to use Windows again for work or similar)
+(use-package vterm
+  :commands vterm
+  :custom
+  (vterm-always-compile-module t)
+  :hook
+  (vterm-mode . (lambda ()
+                  ;; Settings to mimic dracula I use for zsh.
+                  (setq-local buffer-face-mode-face '(:background "#000000" :foreground "#FFFFFF"))
+                  (buffer-face-mode 1)
+                  (text-scale-adjust 2)))
+  :bind
+  ("<f7>" . vterm))
+#+end_src

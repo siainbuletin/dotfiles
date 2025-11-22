@@ -32,6 +32,15 @@ This allows us to improve the discoverability for commands in Emacs.
 
 =which-key= is apparently a really useful package for bindings for =projectile= (see notes in EWS)
 
+* Finding keybindigs more easily
+
+=guide-key= as a package isn't maintained anymore, unfortunately.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package helm-descbinds
+    :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
+#+end_src
+
 * Specific proper settings for keybindings
 
 These should go in the =sia-keybindings.el= file. *They shall be moved in the future, once I figure out how to do a modular Emacs Lisp setup.*
@@ -57,8 +66,8 @@ For now, the default keybinding for this mode is =C-c C-t v=.
 * TODO Indentation control
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
-  (keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
+  (keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
+  (keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 #+end_src
 
 I actually haven't tested whether this works or not.

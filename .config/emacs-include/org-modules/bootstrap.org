@@ -11,7 +11,11 @@ The =init.el= file is created for the fundamental configuration of Emacs and mak
 * The =early-init.el= file
 ** Header
 
+This has [[denote:20251120T222251][Emacs Lexical Binding]] added to it.
+
 #+begin_src emacs-lisp :tangle "early-init.el" :eval never
+;;; ...  -*- lexical-binding: t -*-
+
 ;; Most of this configuration is taken from the Lambda Emacs repository.
 ;; This is published to GitHub solely for my own usage and for ease of
 ;; synchronisation between different machines.
@@ -278,7 +282,12 @@ This is taking inspiration from Prot's =early-init.el= configuration in which he
 #+end_src
 
 * Header for the =init.el=
+
+Also has [[denote:20251120T222251][Emacs Lexical Binding]] enabled.
+
 #+begin_src emacs-lisp :tangle "init.el" :eval never
+;;; ...  -*- lexical-binding: t -*-
+
 ;; This file has been generated from an org-mode file (=main.org=)
 ;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
 #+end_src

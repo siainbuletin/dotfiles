@@ -1,3 +1,5 @@
+;;; ...  -*- lexical-binding: t -*-
+
 ;; Most of this configuration is taken from the Lambda Emacs repository.
 ;; This is published to GitHub solely for my own usage and for ease of
 ;; synchronisation between different machines.

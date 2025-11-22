@@ -67,7 +67,7 @@ I currently can't have these special keywords be enabled, because it always brin
 
   	;; Effort estimate
   	("deep" . ?d)
-  	("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol 
+  	("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
   	("time-eater" . ?t)))
 #+end_src
 
@@ -181,7 +181,7 @@ The =aw/org-files-with-tag= uses =ripgrep= to find files with the desired tags i
 ** Hotkey for pulling up the agenda
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(global-set-key (kbd "C-c o a") #'org-agenda)
+(global-set-key (kbd "C-c o a") 'org-agenda)
 #+end_src
 
 ** Configuring org-refile to send the tags to org-agenda

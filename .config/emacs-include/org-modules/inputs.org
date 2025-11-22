@@ -10,7 +10,7 @@ Would it be easier if I used =gnus= instead of =elfeed=?
 
 Taken directly from Emacs Writing Studio.
 
-#+begin_src emacs-lisp :tangle "init.el" :tangle never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package elfeed
     :custom
     (elfeed-db-directory

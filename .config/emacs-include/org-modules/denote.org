@@ -4,16 +4,17 @@
 * Bootstrapping the main package
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  ;;; Define many keys in many key maps
   (use-package denote
     :ensure t
     :defer t
+    :demand t
 
     :config
     (denote-rename-buffer-mode)
     (setq denote-file-type 'org) ; default is org
     (setq denote-history-completion-in-prompts nil)
     (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+    (setq denote-kill-buffers nil)
     (setq denote-sort-keywords t)
     (setq denote-known-keywords
   	  '("academic-journal"
@@ -43,28 +44,28 @@
     (dired-mode . denote-dired-mode)
 
     :bind
-    ( ;; this block here is taken from Prot's video on use-package
-     :map global-map
-      ; ("C-c n n" . denote) ; I prefer using denote-open-or-create instead
-      ("C-c n o" . denote-open-or-create)
-      ("C-c n r" . denote-rename-file)
-      ("C-c n f" . denote-rename-file-using-front-matter)
+    (:map global-map
+  	("M-n o" . denote-open-or-create)
+  	("M-n r" . denote-rename-file)
+  	("M-n f" . denote-rename-file-using-front-matter)
 
-      :map text-mode-map
-      ("C-c n i" . denote-link-or-create) ; "insert" mnemonic
-      ("C-c n I" . denote-add-links)
+  	:map text-mode-map
+  	("M-n i" . denote-link-or-create) ; "insert" mnemonic
+  	("M-n I" . denote-add-links)
 
-      :map dired-mode-map
-      ("C-c C-d C-i" . denote-link-dired-marked-notes)
-      ("C-c C-d C-r" . denote-dired-rename-marked-files)
+  	:map dired-mode-map
+  	("C-c C-d C-i" . denote-link-dired-marked-notes)
+  	("C-c C-d C-r" . denote-dired-rename-marked-files)
 
-      ;; these are copied directly from the Emacs Writing Studio configuration
-      ("C-c w d b" . denote-find-backlink)
-      ("C-c w d d" . denote-date)
-      ("C-c w d l" . denote-find-link)
-      ("C-c w d i" . denote-link-or-create)
-      ("C-c w d k" . denote-rename-file-keywords)))
+  	;; these are copied directly from the Emacs Writing Studio configuration
+  	("C-c w d b" . denote-find-backlink)
+  	("C-c w d d" . denote-date)
+  	("C-c w d l" . denote-find-link)
+  	("C-c w d i" . denote-link-or-create)
+  	("C-c w d k" . denote-rename-file-keywords)))
 #+end_src
+
+I will I could change =(setq denote-kill-buffers nil)= to =(setq denote-kill-buffers 'on-creation)=, but otherwise, when creating a note with =citar-denote=, it won't insert the citekey as ~#+reference:~ in the frontmatter. So it breaks the entire package.
 
 * How =denote= functions internally
 ** How =denote= ignores files that aren't notes
@@ -194,6 +195,35 @@ The command denote-markdown-convert-links-to-obsidian-type changes links from ~[
       :ensure t
       :after denote)
 #+end_src
+** =denote-merge=: Merging and splitting files together
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package denote-merge
+      :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
+      :bind
+      ("M-n m f" . denote-merge-file)
+      ("M-n m r" . denote-merge-region))
+#+end_src
+
+*** Setting user options for =denote-merge=
+
+Automatically save the buffers before attempting to merge them:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq denote-merge-save-buffers t)
+#+end_src
+
+When merging an entire file, I prefer to show in the heading that the new part of the note actually came from somewhere else, but I don't want it to be at the very beginning of the heading of the merged region. *For now it isn't configured like I want it to because I don't know to add it to the end of the file name that's used as an org heading. For now this just makes it stand out a little more.*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq denote-merge-annotate-file "(MERGED FILE)")
+#+end_src
+
+I don't want =denote-merge= to show that the region I've moved over actually comes from somewhere. This is because in my inbox, I just want to see what my browsing efforts have amounted to. And since I'm usually restraining the scope of what I'm working on within a single file, I want the FROM file to contain a link to the "subchildren", which are the TO files.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq denote-merge-annotate-region nil)
+#+end_src
 
 ** =denote-explore=: exploring notes holistically
 
@@ -248,13 +278,17 @@ This can be used as a kind of counterpart for =org-journal=.
 ** =denote-menu=: see denote files in a tabulated list
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package denote-menu
-      :ensure t)
+  (use-package denote-menu
+    :ensure t)
 
-    (setq denote-menu-show-file-type nil)
+  (setq denote-menu-show-file-type nil)
 
   (global-set-key (kbd "C-c z") #'list-denotes)
+#+end_src
 
+I'm getting a symbol's value as variable is void with this one:
+
+#+begin_src emacs-lisp :tangle no :eval never
   (define-key denote-menu-mode-map (kbd "c") #'denote-menu-clear-filters)
   (define-key denote-menu-mode-map (kbd "/ r") #'denote-menu-filter)
   (define-key denote-menu-mode-map (kbd "/ k") #'denote-menu-filter-by-keyword)
@@ -270,111 +304,6 @@ I think it might be default Emacs functionality to open links in a new buffer, i
 
 TODO document this
 
-* TODO Figuring out how merge notes together
-
-You could just use =insert-file= for a regular file when you want to merge, or =org-refile= if you want to preserve existing links to headings (although I don't know how the =file:= links would get resolved in that case), but for =denote=, you have to find a way that would also update the links with the corresponding identifier. Otherwise all of the links would end up completely broken.
-
-** The older solution
-Someone asked for such a function on GitHub, but it never got implemented into the base package. The same person also tried writing a function that would take care of this outside of package.
-
-This has to be tested.
-
-This doesn't actually work becase the function =denote-org-extras--increase-headings-depth= hasn't actually been replicated again in =denote=.
-
-#+begin_src emacs-lisp :tangle no :eval never
-(defvar denote-org-extras-not-ask-merge-delete t
-  "If non-nil, `denote-org-extras-merge-note-to-another' deletes
-without prompting. Otherwise, prompt for confirmation before
-deletion.")
-
-(defun denote-org-extras-merge-note-to-another (file)
-  "Merge the current note into another one"
-  (interactive (list (denote-file-prompt "\\.org\\'")))
-  (if (derived-mode-p 'org-mode)
-      (let* ((current-note buffer-file-name)
-             (current-note-title (denote-retrieve-front-matter-title-value current-note 'org))
-             (current-note-keywords (denote-extract-keywords-from-path current-note))
-             (current-note-content (condition-case nil ;; handling case when current note is empty
-                                       (denote-org-dblock--get-file-contents current-note t)
-                                     (error "")))
-             (current-note-as-subtree (format "\n* %s\n%s" current-note-title (denote-org-extras--increase-headings-depth current-note-content)))
-             (other-note-keywords (denote-extract-keywords-from-path file))
-             (other-note-buffer (find-file-noselect file))
-             (other-note-title (denote-retrieve-front-matter-title-value file 'org))
-             (all-keywords (delete-dups (append current-note-keywords other-note-keywords))))
-        (with-current-buffer other-note-buffer
-          (goto-char (point-max))
-          (insert current-note-as-subtree))
-        (denote-org-extras--delete-note current-note)
-        (switch-to-buffer other-note-buffer)
-        (denote-rewrite-keywords file all-keywords 'org)
-        (denote-rename-file file other-note-title all-keywords nil nil) ;; FIXME: denote-slug-put-equals: Wrong type argument: arrayp, nil
-        (message "Merged current note into %s" (file-name-nondirectory file)))
-    (user-error "The current note is not an Org file")))
-#+end_src
-
-Some of the function names were adapted so that they're actually present in =denote-org= (otherwise it would error out as =Symbol's function is void=).
-
-** Prot's new solution
-
-I asked on GitHub for a similar feature for this. Prot wrote a version that aborts the merge between two denote notes if the =OTHER_FILE= has backlinks to it. *Is there really no way to deal with all of the identifiers?*
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(defun denote-org--merge-get-file-data-without-front-matter (file)
-  "Return data of FILE without its front matter.
-Data is of the form (TITLE FILETAGS CONTENTS), all of which are strings.
-
-Assume that front matter is a contiguous region of lines starting with
-#+ from the beginning of the buffer and ending in an empty line."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
-    (goto-char (point-min))
-    (let ((title (org-get-title))
-          (tags (org-get-tags))
-          (contents (progn
-                      (when-let* ((beginning (when (re-search-forward "^#\\+" nil t)
-                                               (line-beginning-position)))
-                                  (end (re-search-forward "^$" nil t)))
-                        (delete-region beginning end))
-                      (string-trim (buffer-string)))))
-      (list title tags contents))))
-
-;;;###autoload
-(defun denote-org-merge-notes (target-file other-file)
-  "Append OTHER-FILE to TARGET-FILE and delete OTHER-FILE.
-When called interactively TARGET-FILE is the current file.
-TARGET-FILE and OTHER-FILE are both derived from `org-mode'.
-
-Abort the operation if OTHER-FILE has backlinks."
-  (interactive
-   (list
-    buffer-file-name
-    (denote-file-prompt
-     "\\.org"
-     (format "FILE to merge into `%s'" (propertize buffer-file-name 'face 'denote-faces-prompt-current-name)))))
-  (dolist (file (list target-file other-file))
-    (with-current-buffer (find-file-noselect file)
-      (unless (derived-mode-p 'org-mode)
-        (error "The file `%s' is not using `org-mode'" file))))
-  (pcase-let ((`(,title ,tags ,contents) (denote-org--merge-get-file-data-without-front-matter other-file)))
-    (if (denote--file-has-backlinks-p other-file)
-        (error "The other file `%s' has backlinks; aborting the merge" other-file)
-      (with-current-buffer (find-file-noselect target-file)
-        (goto-char (point-max))
-        (unless (looking-at "^$")
-          (insert "\n\n"))
-        (insert (format "* MERGED: %s :%s:" title (string-join tags ":")))
-        (insert "\n\n")
-        (insert contents))
-      (when (y-or-n-p (format "Merged `%s'; now DELETE it and its buffer? " (propertize other-file 'face 'denote-faces-prompt-current-name)))
-        (kill-buffer (get-file-buffer other-file))
-        (delete-file other-file)))))
-#+end_src
-
-** Other sources
-https://github.com/protesilaos/denote/issues/382 | Merging 2 notes into 1 · Issue #382 · protesilaos/denote
-https://github.com/protesilaos/denote/pull/488/commits/9928e3c01db3a4295e6630adcc050b9a46c7f3ee | Merge 2 notes into one by zadca123 · Pull Request #488 · protesilaos/denote
 
 * TODO Integrating with bibliography management
 

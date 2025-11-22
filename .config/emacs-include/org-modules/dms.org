@@ -57,21 +57,6 @@ From Rougier's literate emacs config, you have to define a PATH where the Recoll
 
 To be able to make use of the presence of Recoll on our system, we need to plug Recoll into =consult=.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package consult-recoll)
-#+end_src
-
-The functionality of this package has to be tested with some good PDF files, and to _see where all of this data is actually getting syphoned into_.
-
-Defining the PATH here:
-
-#+begin_src emacs-lisp :tangle no :eval never
-  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/Applications/recoll.app/Contents/MacOS"))
-  (setq exec-path (append exec-path '("/Users/rougier/Applications/recoll.app/Contents/MacOS")))
-
-  (setenv "PATH" (concat (getenv "PATH") ":" "/Users/rougier/bin"))
-  (setq exec-path (append exec-path '("/Users/rougier/bin")))
-#+end_src
 
 ** Creating an easily readable buffer for search results
 

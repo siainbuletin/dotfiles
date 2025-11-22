@@ -5,6 +5,8 @@
      (R . t))
 )
 
+;;; ...  -*- lexical-binding: t -*-
+
 ;; This file has been generated from an org-mode file (=main.org=)
 ;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
 
@@ -51,7 +53,7 @@
 
 ;;; Configure elpaca use-package support
 (elpaca elpaca-use-package
-        ;; Enable use-package :ensure support for Elpaca.
+        ;; Enable use-package :ensure support for Elpaca.x
         (elpaca-use-package-mode)
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
@@ -103,10 +105,13 @@
 ;; set shortcut for the reloading
 (keymap-global-set "<f5>" 'reload-init-file)
 
-(defun jcs-execute-all-buffers ()
+(defun sia-execute-all-buffers ()
   (interactive)
   (let ((org-confirm-babel-evaluate nil))
     (org-babel-execute-buffer)))
+
+(global-set-key (kbd "C-c o o") 'org-org-export-to-org)
+(global-set-key (kbd "C-c e c") 'sia-execute-all-buffers)
 
 (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
@@ -115,6 +120,14 @@
 
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
+
+(use-package undo-tree
+  :config
+  (add-to-list 'undo-tree-incompatible-major-modes #'nxml-mode)
+  (global-undo-tree-mode)
+
+  :custom
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
 
 (use-package vundo
   :ensure t)
@@ -126,6 +139,8 @@
 ; (anzu-mode) ; would this even work?
 )
 
+(keymap-global-set "C-c j j" #'join-line)
+
 (electric-pair-mode 1)
 
 (use-package dwim-shell-command
@@ -136,18 +151,35 @@
          ([remap dired-do-shell-command] . dwim-shell-command)
          ([remap dired-smart-shell-command] . dwim-shell-command)))
 
+(use-package try
+  :ensure t)
+
+(use-package yasnippet
+  :demand t
+
+  :config
+  (yas-reload-all)
+
+  :hook
+  (sh-mode . yas-minor-mode))
+
+;; install useful snippets
+(use-package yasnippet-snippets
+  :after yasnippet)
+
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
 
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
-(use-package casual
-  :ensure t)
-
 (use-package counsel)
 
-(use-package consult)
+(use-package consult
+  :ensure t)
+
+(keymap-global-set "C-c s l" #'consult-line)
+(keymap-global-set "C-c s r" #'consult-ripgrep)
 
 (use-package deadgrep)
 
@@ -196,6 +228,132 @@
 
 
 
+(use-package consult-recoll
+  :ensure t)
+
+(defun sia-recoll-format (title url mime-type)
+  ;; remove from url the common prefixes /home/siainbuletin/{org/doc,doc,...}
+  (let* ((u (replace-regexp-in-string "/home/siainbuletin/" "" url))
+         (u (replace-regexp-in-string
+             "\\(doc\\|org/doc\\|.emacs.d/gnus/Mail\\|var/mail\\)/" "" u)))
+    (format "%s (%s, %s)"
+            (propertize title 'face 'consult-recoll-title-face)
+            (propertize u 'face 'consult-recoll-url-face)
+            (propertize mime-type 'face 'consult-recoll-mime-face))))
+
+(setq consult-recoll-format-candidate #'sia-recoll-format)
+
+(defun counsel-recoll-function (string &rest _unused)
+  "Issue recallq for STRING."
+  (if (< (length string) 3)
+      (counsel-more-chars 3)
+    (counsel--async-command
+     (format "recollq -b '%s'" string))
+    nil))
+
+(defun counsel-recoll (&optional initial-input)
+  "Search for a string in the recoll database.
+You'll be given a list of files that match.
+Selecting a file will launch `swiper' for that file.
+INITIAL-INPUT can be given as the initial minibuffer input."
+  (interactive)
+  (ivy-read "recoll: " 'counsel-recoll-function
+            :initial-input initial-input
+            :dynamic-collection t
+            :history 'counsel-git-grep-history
+            :action (lambda (x)
+                      (when (string-match "file://\\(.*\\)\\'" x)
+                        (let ((file-name (match-string 1 x)))
+                          (find-file file-name)
+                          (unless (string-match "pdf$" x)
+                            (swiper ivy-text)))))))
+
+(use-package xeft
+  :ensure t
+  :defer t
+  :config
+  (setq xeft-extensions '("md" "org"))
+  (setq xeft-ignore-extension '("png" "jpg" "jpeg")) ; there's no way to get text out of these anyway
+  (setq xeft-recursive 'follow-symlinks)
+  (setq xeft-title-function #'file-name-nondirectory))
+
+;; Define directory configurations
+(defvar sia-xeft-configs
+  '((:name "ObsidianVault"
+         :directory "~/Documents/vault/"
+         :database "~/Documents/vault/.xeft-db")
+    (:name "DenoteNotes"
+         :directory "~/Documents/notes/"
+         :database "~/Documents/notes/.xeft-db")
+    (:name "Literature"
+         :directory "~/Documents/literature/"
+         :database "~/Documents/literature/.xeft-db")))
+
+;; Function to search in a specific configuration
+(defun sia-xeft-search (config)
+  (when (get-buffer "*xeft*")
+    (kill-buffer "*xeft*"))
+  "Open xeft with the given CONFIG plist."
+  (let ((xeft-directory (plist-get config :directory))
+        (xeft-database (plist-get config :database)))
+    (xeft)))
+
+(defun sia-xeft-vault ()
+  "Search in ObsidianVault directory."
+  (interactive)
+  (sia-xeft-search (nth 0 sia-xeft-configs)))
+
+(defun sia-xeft-denote ()
+  "Search in DenoteNotes directory."
+  (interactive)
+  (sia-xeft-search (nth 1 sia-xeft-configs)))
+
+(defun sia-xeft-literature ()
+  "Search in Literature (academic) directory."
+  (interactive)
+  (sia-xeft-search (nth 2 sia-xeft-configs)))
+
+(use-package cond-let)
+
+(use-package transient
+  :ensure t)
+
+(defvar-local xeft--displayed-by-xeft-p nil)
+
+(defun xeft--eager-preview()
+  (when-let* ((button (button-at (point)))
+              (path (button-get button 'path)))
+    ;; Kill previously displayed buffer.
+    (when (window-live-p xeft--preview-window)
+      (with-selected-window xeft--preview-window
+        (when xeft--displayed-by-xeft-p
+          (kill-buffer))))
+    ;; Show preview of current selection.
+    (xeft--preview-file path)))
+
+(add-hook 'xeft-find-file-hook
+          (lambda () (setq xeft--displayed-by-xeft-p t)))
+
+(advice-add 'xeft-next :after #'xeft--eager-preview)
+(advice-add 'xeft-previous :after #'xeft--eager-preview)
+
+(use-package notdeft
+  :ensure (notdeft
+            :type git :host github :repo "hasu/notdeft"
+            :files ("notdeft*.el" "xapian"))
+  :defer t
+  :init
+  (require 'notdeft-global) ;; for `notdeft-global-map'
+  (global-set-key [f7] 'notdeft-global-map) ;; choose a prefix key
+  (setq notdeft-open-query-function 'notdeft-mode-open-query)
+  (eval-after-load 'org ;; only if using Org format notes
+    (lambda ()
+      (require 'notdeft-org9) ;; for "deft:" and "notdeft:" link schemes
+      (add-hook 'org-mode-hook 'notdeft-note-mode-enable)))
+
+  :config
+  (notdeft-xapian-make-program-when-uncurrent))
+
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
 
@@ -230,16 +388,32 @@
     "C-c w t" "Themes"
     "C-c w x" "Explore"))
 
+(use-package helm-descbinds
+  :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
+
 (global-unset-key (kbd "C-z"))
 
-(keymap-global-set "C->" 'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
-(keymap-global-set "C-<" 'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
+(keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
+(keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 
 (use-package hydra
   :ensure t)
 
 (use-package use-package-hydra
   :ensure t)
+
+(defun sia-dired-sort ()
+  "Sort dired dir listing in different ways.
+Prompt for a choice.
+Works in linux, MacOS, Microsoft Windows."
+  (interactive)
+  (let ((xmenu '(("date" . "-Al -t")
+                 ("size" . "-Al -S")
+                 ("name" . "-Al ")
+                 ("dir" . "-Al --group-directories-first")))
+        xsortBy)
+    (setq xsortBy (completing-read "Sort by (default date):" xmenu nil t nil nil (caar xmenu)))
+    (dired-sort-other (cdr (assoc xsortBy xmenu)))))
 
 ;; Set Dired listing switches for more minimalist output
 (setq dired-listing-switches "-aghov --group-directories-first")
@@ -290,37 +464,26 @@
 
 (setq org-fontify-quote-and-verse-blocks t)
 
+(setq org-highlight-latex-and-related '(latex))
+
+(use-package company-math
+  :after (org company)
+  :hook
+  (org-mode . (lambda ()
+                (setq-local company-backends (append '((company-math-symbols-latex))
+                                                     company-backends)))))
+
+(use-package math-preview)
+
 (use-package org-appear
   :hook
   (org-mode . org-appear-mode))
 
-(use-package org-modern
-  :after org
-  :hook ((org-mode . org-modern-mode)
-         (org-agenda-finalize . org-modern-agenda))
-  :config
-  (setq
-   org-auto-align-tags t
-   org-tags-column 0
-   org-fold-catch-invisible-edits 'show-and-error
-   org-special-ctrl-a/e t
-   org-insert-heading-respect-content t
-
-   ;; Don't style the following
-   org-modern-tag nil
-   org-modern-priority nil
-   org-modern-todo nil
-   org-modern-table nil
-
-   ;; Agenda styling
-   org-agenda-tags-column 0
-   org-agenda-block-separator ?─
-   org-agenda-time-grid
-   '((daily today require-timed)
-     (800 1000 1200 1400 1600 1800 2000)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
-   org-agenda-current-time-string
-   "⭠ now ─────────────────────────────────────────────────"))
+(use-package org-bulletproof
+  :ensure t
+  :after (org org-modern)
+  :init
+(global-org-bulletproof-mode))
 
 (defface org-checkbox-done-text
   '((t (:foreground "#71696A" :strike-through t)))
@@ -333,28 +496,40 @@
  'append)
 
 (use-package spacious-padding
-  :ensure t)
+  :ensure t
+  :init
+  (spacious-padding-mode))
 
-;; These are the default values, but I keep them here for visibility.
 (setq spacious-padding-widths
-      '( :internal-border-width 15
+      '( :internal-border-width 25
          :header-line-width 4
-         :mode-line-width 6
-         :tab-width 4
+         :mode-line-width 10
+         :tab-width 7
          :right-divider-width 30
          :scroll-bar-width 8
          :fringe-width 8))
 
 (setq spacious-padding-subtle-frame-lines
-      `( :mode-line-active 'default
-         :mode-line-inactive vertical-border))
+      `( :mode-line-active default
+         :mode-line-inactive shadow))
 
-;; (spacious-padding-mode 1)
-
-;; Set a key binding if you need to toggle spacious padding.
-(define-key global-map (kbd "<f8>") #'spacious-padding-mode)
+(set-face-attribute 'org-document-title nil
+                    :font "Atkinson Hyperlegible"
+                    :weight 'bold
+                    :height 1.8)
 
 (setq org-support-shift-select t)
+
+(use-package org
+  :ensure nil
+  :bind
+  ;; editing my regular zettels
+  ("C-c f n" . org-footnote-new)
+  ("C-c f q" . org-footnote-normalize)
+  ("C-c l d" . org-toggle-link-display)
+
+  ;; safety nets
+  ("C-c s a" . org-save-all-org-buffers))
 
 (use-package text-mode
   :ensure nil
@@ -426,6 +601,34 @@ title."
     (let* ((id (zz/org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
 
+(use-package org-special-block-extras
+  :ensure t)
+
+(load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
+
+(custom-set-faces
+ '(org-default ((t (
+                    :background "#F0B609"
+                    :inherit default
+                    ))))
+ '(org-extra-emphasis ((t (
+                           :background "#F0B609"
+                           :height 1.0
+                           :inherit default
+                           :weight bold
+                           :width normal
+                           ))))
+ '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              ))))
+ '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+			      :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              )))))
+
 (setq org-todo-keywords
       '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
 
@@ -450,12 +653,12 @@ title."
 
       ;; Effort estimate
       ("deep" . ?d)
-      ; ("shallow" . ?h)
+      ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
       ("time-eater" . ?t)))
 
 (setq org-agenda-files (quote ("~/Documents/tracking")))
 
-(global-set-key (kbd "C-c o a") #'org-agenda)
+(global-set-key (kbd "C-c o a") 'org-agenda)
 
 (setq org-log-done 'time
       org-log-redeadline 'time
@@ -540,16 +743,18 @@ title."
 (require 'org-inlinetask)
 
 (use-package org-edna
-  :ensure t)
-
-; (org-edna-mode) ; this shows up as symbol's function is void
+  :ensure t
+  :config
+  (org-edna-mode))
 
 (use-package dashboard
   :ensure t
-  :config
+  :init
   (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
   (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
-  (dashboard-setup-startup-hook))
+  (dashboard-setup-startup-hook)
+  :bind
+  ("C-c d d" . dashboard-open))
 
 (setq dashboard-banner-logo-title "Welcome to Emacs Dashboard")
 (setq dashboard-startup-banner '3)
@@ -560,7 +765,7 @@ title."
 (setq dashboard-items '((recents   . 5)
                         (bookmarks . 5)
                         (projects  . 5)
-                        (agenda    . 5)
+                        (agenda    . 7)
                         (registers . 5)))
 
 (setq dashboard-startupify-list '(dashboard-insert-banner
@@ -575,7 +780,7 @@ title."
                                   dashboard-insert-footer))
 
 (setq dashboard-item-shortcuts '((recents   . "r")
-                                 (bookmarks . "m")
+                                 (bookmarks . "b")
                                  (projects  . "p")
                                  (agenda    . "a")
                                  (registers . "e")))
@@ -587,16 +792,17 @@ title."
 
 (add-to-list 'dashboard-items '(agenda) t)
 
-;;; Define many keys in many key maps
 (use-package denote
   :ensure t
   :defer t
+  :demand t
 
   :config
   (denote-rename-buffer-mode)
   (setq denote-file-type 'org) ; default is org
   (setq denote-history-completion-in-prompts nil)
   (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+  (setq denote-kill-buffers nil)
   (setq denote-sort-keywords t)
   (setq denote-known-keywords
         '("academic-journal"
@@ -626,27 +832,25 @@ title."
   (dired-mode . denote-dired-mode)
 
   :bind
-  ( ;; this block here is taken from Prot's video on use-package
-   :map global-map
-    ; ("C-c n n" . denote) ; I prefer using denote-open-or-create instead
-    ("C-c n o" . denote-open-or-create)
-    ("C-c n r" . denote-rename-file)
-    ("C-c n f" . denote-rename-file-using-front-matter)
+  (:map global-map
+      ("M-n o" . denote-open-or-create)
+      ("M-n r" . denote-rename-file)
+      ("M-n f" . denote-rename-file-using-front-matter)
 
-    :map text-mode-map
-    ("C-c n i" . denote-link-or-create) ; "insert" mnemonic
-    ("C-c n I" . denote-add-links)
+      :map text-mode-map
+      ("M-n i" . denote-link-or-create) ; "insert" mnemonic
+      ("M-n I" . denote-add-links)
 
-    :map dired-mode-map
-    ("C-c C-d C-i" . denote-link-dired-marked-notes)
-    ("C-c C-d C-r" . denote-dired-rename-marked-files)
+      :map dired-mode-map
+      ("C-c C-d C-i" . denote-link-dired-marked-notes)
+      ("C-c C-d C-r" . denote-dired-rename-marked-files)
 
-    ;; these are copied directly from the Emacs Writing Studio configuration
-    ("C-c w d b" . denote-find-backlink)
-    ("C-c w d d" . denote-date)
-    ("C-c w d l" . denote-find-link)
-    ("C-c w d i" . denote-link-or-create)
-    ("C-c w d k" . denote-rename-file-keywords)))
+      ;; these are copied directly from the Emacs Writing Studio configuration
+      ("C-c w d b" . denote-find-backlink)
+      ("C-c w d d" . denote-date)
+      ("C-c w d l" . denote-find-link)
+      ("C-c w d i" . denote-link-or-create)
+      ("C-c w d k" . denote-rename-file-keywords)))
 
 (add-hook 'dired-mode-hook #'denote-dired-mode-in-directories)
 
@@ -667,6 +871,18 @@ title."
 (use-package denote-markdown
   :ensure t
   :after denote)
+
+(use-package denote-merge
+  :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
+  :bind
+  ("M-n m f" . denote-merge-file)
+  ("M-n m r" . denote-merge-region))
+
+(setq denote-merge-save-buffers t)
+
+(setq denote-merge-annotate-file "(MERGED FILE)")
+
+(setq denote-merge-annotate-region nil)
 
 (use-package denote-explore
   :bind
@@ -705,56 +921,9 @@ title."
 (use-package denote-menu
   :ensure t)
 
-(defun denote-org--merge-get-file-data-without-front-matter (file)
-  "Return data of FILE without its front matter.
-Data is of the form (TITLE FILETAGS CONTENTS), all of which are strings.
+(setq denote-menu-show-file-type nil)
 
-Assume that front matter is a contiguous region of lines starting with
-#+ from the beginning of the buffer and ending in an empty line."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
-    (goto-char (point-min))
-    (let ((title (org-get-title))
-          (tags (org-get-tags))
-          (contents (progn
-                      (when-let* ((beginning (when (re-search-forward "^#\\+" nil t)
-                                               (line-beginning-position)))
-                                  (end (re-search-forward "^$" nil t)))
-                        (delete-region beginning end))
-                      (string-trim (buffer-string)))))
-      (list title tags contents))))
-
-;;;###autoload
-(defun denote-org-merge-notes (target-file other-file)
-  "Append OTHER-FILE to TARGET-FILE and delete OTHER-FILE.
-When called interactively TARGET-FILE is the current file.
-TARGET-FILE and OTHER-FILE are both derived from `org-mode'.
-
-Abort the operation if OTHER-FILE has backlinks."
-  (interactive
-   (list
-    buffer-file-name
-    (denote-file-prompt
-     "\\.org"
-     (format "FILE to merge into `%s'" (propertize buffer-file-name 'face 'denote-faces-prompt-current-name)))))
-  (dolist (file (list target-file other-file))
-    (with-current-buffer (find-file-noselect file)
-      (unless (derived-mode-p 'org-mode)
-        (error "The file `%s' is not using `org-mode'" file))))
-  (pcase-let ((`(,title ,tags ,contents) (denote-org--merge-get-file-data-without-front-matter other-file)))
-    (if (denote--file-has-backlinks-p other-file)
-        (error "The other file `%s' has backlinks; aborting the merge" other-file)
-      (with-current-buffer (find-file-noselect target-file)
-        (goto-char (point-max))
-        (unless (looking-at "^$")
-          (insert "\n\n"))
-        (insert (format "* MERGED: %s :%s:" title (string-join tags ":")))
-        (insert "\n\n")
-        (insert contents))
-      (when (y-or-n-p (format "Merged `%s'; now DELETE it and its buffer? " (propertize other-file 'face 'denote-faces-prompt-current-name)))
-        (kill-buffer (get-file-buffer other-file))
-        (delete-file other-file)))))
+(global-set-key (kbd "C-c z") #'list-denotes)
 
 (defvar my-denote-to-agenda-regexp "_project"
   "Denote file names that are added to the agenda.
@@ -939,9 +1108,17 @@ agenda."
 (use-package org-ql
   :ensure t)
 
+(setq bibtex-autokey-name-separator nil
+      bibtex-autokey-name-year-separator nil
+      bibtex-autokey-year-length 4
+      bibtex-autokey-names 1
+      bibtex-autokey-names-stretch 1
+      bibtex-autokey-titlewords 0)
+
 (use-package bibtex
   :ensure nil
   :custom
+  (bibtex-dialect 'biblatex)
   (bibtex-user-optional-fields
    '(("keywords" "Keywords to describe the entry" "")
      ("file"     "Relative or absolute path to attachments" "" )))
@@ -952,7 +1129,41 @@ agenda."
   (("C-c w b r" . sia-bibtex-register))
 )
 
-(use-package ebib)
+(use-package biblio
+  :ensure t
+  :bind
+  (("C-c w b b" . sia-bibtex-biblio-lookup)))
+
+(use-package biblio-gscholar
+  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+
+(use-package asoc
+    :ensure (:type git :host github :repo "troyp/asoc.el"))
+
+(use-package s
+  :ensure t)
+
+(use-package doct
+  :ensure t)
+
+(defun yant/elfeed-capture-entry ()
+  "Capture selected entries into inbox."
+  (interactive)
+  (elfeed-search-tag-all 'opened)
+  (previous-logical-line)
+  (let ((entries (elfeed-search-selected)))
+    (cl-loop for entry in entries
+             do (elfeed-untag entry 'unread)
+             when (elfeed-entry-link entry)
+             do (flet ((raise-frame nil nil))
+                  (org-protocol-capture (list :template "B"
+                                              :url it
+                                              :title (format "%s: %s"
+                                                             (elfeed-feed-title (elfeed-entry-feed entry))
+                                                             (elfeed-entry-title entry))
+                                              :elfeed-data entry))))
+    (mapc #'elfeed-search-update-entry entries)
+    (unless (use-region-p) (forward-line))))
 
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
@@ -1040,22 +1251,37 @@ agenda."
         (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
 
 (use-package citar
-  :ensure t
-  :defer t ; what's the point of defering in this case?
-  :custom
-  (org-cite-global-bibliography sia-bibtex-files)
-  (org-cite-insert-processor 'citar)
-  (org-cite-follow-processor 'citar)
-  (org-cite-activate-processor 'citar)
-  (citar-bibliography sia-bibtex-files)
+         :ensure t
+         :defer t ; what's the point of defering in this case?
+         :custom
+         (org-cite-global-bibliography sia-bibtex-files)
+         (org-cite-insert-processor 'citar)
+         (org-cite-follow-processor 'citar)
+         (org-cite-activate-processor 'citar)
+         (citar-bibliography sia-bibtex-files)
 
-  :bind
-  (("C-c w b o" . citar-open))
-  (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
-  :hook
-  (LaTeX-mode . citar-capf-setup)
-  (org-mode . citar-capf-setup)
-  (markdown-mode . citar-capf-setup))
+         (citar-templates
+'((main . "${author editor:30}   ${date year issued:4}    ${title:110}")
+  (suffix . "     ${=type=:20}    ${tags keywords keywords:*}")
+  (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
+  (note . "#+title: Notes on ${author editor}, ${title}") ; For new notes
+  ))
+       (citar-symbols
+        `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
+                ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
+          (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
+                ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
+          (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
+                ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
+       (citar-symbol-separator "  ")
+
+         :bind
+         (("C-c w b o" . citar-open))
+         (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+         :hook
+         (LaTeX-mode . citar-capf-setup)
+         (org-mode . citar-capf-setup)
+         (markdown-mode . citar-capf-setup))
 
 (use-package citar-embark
   :ensure t
@@ -1098,6 +1324,37 @@ agenda."
                          "* Related bibliography"
                          "insert an org dynamic block here"))))
 
+(defun sia-search-pdf-contents (keys-entries &optional str)
+  "Search pdfs."
+  (interactive (list (citar-select-refs)))
+  (let ((files (citar-file--files-for-multiple-entries
+                (citar--ensure-entries keys-entries)
+                citar-library-paths
+                '("pdf")))
+        (search-str (or str (read-string "Search string: "))))
+    (pdf-occur-search files search-str t)))
+
+(defvar sia-citar-library-backup-path "~/Documents/literature/backup")
+
+(defun sia-citar-update-pdf-metadata (citekey)
+  (interactive (list (citar-select-ref)))
+  (citar--check-configuration 'citar-library-paths)
+  (unless citar-library-paths
+    (user-error "Make sure `citar-library-paths' is non-nil"))
+  (let* ((files (gethash cite-key (citar-get-files cite-key))))
+    (unless files
+      (user-error (format "There are no PDF files associated with %s" citekey)))
+    (let ((file (or (unless (cdr files) (car files)) (completing-read "Please select a PDF file: " files)))
+          (title (citar-get-value 'title citekey))
+          (author (cond ((citar-get-value 'author citekey)
+                         (citar-get-value 'author citekey))
+                        ((citar-get-value 'editor citekey)
+                         (concat (citar-get-value 'editor citekey) " (ed.)")))))
+      (progn
+        (copy-file file sia-citar-library-backup-path 1)
+        (call-process-shell-command
+         (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
+
 (require 'oc-natbib)
 (require 'oc-csl)
 
@@ -1106,19 +1363,23 @@ agenda."
       org-cite-follow-processor 'citar
       org-cite-activate-processor 'citar)
 
-(use-package biblio
-  :bind
-  (("C-c w b b" . sia-bibtex-biblio-lookup)))
-
-(use-package org-ref)
+(use-package org-ref
+  :ensure t)
   ;;(advice-add #'completing-read-multiple :override #'consult-completing-read-multiple)
   ;;(require 'org-ref)
   ;;(require 'doi-utils) ; this was taken from a different config
 
-(use-package helm-bibtex)
+(use-package helm-bibtex
+  :ensure t)
 
 (setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
       org-ref-pdf-directory "~/Documents/literature/")
+
+;; (setq citar-library-paths "~/Documents/literature")
+;; this has to be a list of directories in order to work
+
+(setq citar-library-file-extensions (list "pdf" "jpg")
+      citar-file-additional-files-separator "-")
 
 (setq bibtex-completion-bibliography
       '("~/Documents/bibliography/master.bib"
@@ -1145,12 +1406,32 @@ agenda."
 
 (define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
 
-(use-package consult-recoll)
-
 (use-package pdf-tools
   :ensure t
   :init
-  (pdf-tools-install))
+  (pdf-tools-install)
+  (pdf-loader-install)
+  (setq-default pdf-view-display-size 'fit-width))
+
+(with-eval-after-load "pdf-tools"
+  (define-key pdf-view-mode-map (kbd "g") nil)
+  (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
+  (define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
+  (define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
+  (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
+  (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
+  (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
+  (define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
+  (define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
+  (define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
+  (define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation))
+
+(setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+      TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
+      TeX-source-correlate-start-server t)
+
+(add-hook 'TeX-after-compilation-finished-functions
+        #'TeX-revert-document-buffer)
 
 (setopt pdf-view-continuous nil)
 
@@ -1238,8 +1519,14 @@ With a prefix ARG, remove start location."
 (use-package olivetti
   :ensure t
   :demand t
+  :after org
+  :custom
+  (olivetti-minimum-body 100)
+  (olivetti-body-width 0.8)
   :bind
-  (("C-c w o" . sia-olivetti)))
+  (("C-c w o" . sia-olivetti))
+  :hook
+  (org-mode . olivetti-mode))
 
 (use-package binder
   :ensure t)
@@ -1265,17 +1552,82 @@ With a prefix ARG, remove start location."
 ;; special extensions for markdown_github output
 (setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
 
+;; animated gif support to spruce things up
+(use-package org-inline-anim
+  :custom
+  (org-inline-anim-loop t))
+
+(use-package org-present
+  :ensure t
+  :after org-inline-anim
+  :hook
+  ((org-present-mode . (lambda ()
+                         (org-present-big)
+                         (org-display-inline-images)
+                         (org-present-read-only)
+                         (centaur-tabs-local-mode)
+                         (org-inline-anim-mode)
+                         (org-inline-anim-animate-all)))
+   (org-present-mode-quit . (lambda ()
+                              ;; TODO: actually turn on centaur tabs again.
+                              ;;       Nothing works that I've tried so far
+                              (org-present-small)
+                              (org-present-read-write)
+                              (org-present-show-cursor)))))
+
+(use-package tldr)
+
+(use-package devdocs)
+
 (use-package helpful
+  :ensure t
   :bind
   (("C-h f" . helpful-function)
    ("C-h x" . helpful-command)
    ("C-h k" . helpful-key)
    ("C-h v" . helpful-variable)))
 
+;; Note that the built-in `describe-function' includes both functions
+;; and macros. `helpful-function' is functions only, so we provide
+;; `helpful-callable' as a drop-in replacement.
+(global-set-key (kbd "C-h f") #'helpful-callable)
+
+(global-set-key (kbd "C-h v") #'helpful-variable)
+(global-set-key (kbd "C-h k") #'helpful-key)
+(global-set-key (kbd "C-h x") #'helpful-command)
+
+;; Lookup the current symbol at point. C-c C-d is a common keybinding
+;; for this in lisp modes.
+(global-set-key (kbd "C-c C-d") #'helpful-at-point)
+
+;; Look up *F*unctions (excludes macros).
+;;
+;; By default, C-h F is bound to `Info-goto-emacs-command-node'. Helpful
+;; already links to the manual, if a function is referenced there.
+(global-set-key (kbd "C-h F") #'helpful-function)
+
 (use-package lexic
   :ensure t)
 
-(use-package elpher)
+(use-package elpher
+  :ensure t)
+
+;; AutoSuggest at point
+(defun consult-omni-autosuggest-at-point ()
+  (interactive)
+  (let ((input (or (thing-at-point 'url) (thing-at-point 'filename) (thing-at-point 'symbol) (thing-at-point 'sexp) (thing-at-point 'word))))
+    (when (and (minibuffer-window-active-p (selected-window))
+               (equal (substring input 0 1) (consult--async-split-initial nil)))
+      (setq input (substring input 1)))
+    (consult-omni-brave-autosuggest input)))
+
+(use-package elfeed
+  :custom
+  (elfeed-db-directory
+   (expand-file-name "elfeed" user-emacs-directory))
+  (elfeed-show-entry-switch 'display-buffer)
+  :bind
+  ("C-c w e" . elfeed))
 
 (use-package elfeed-org
   :config
@@ -1285,52 +1637,9 @@ With a prefix ARG, remove start location."
    (list (concat (file-name-as-directory (getenv "HOME"))
                        "elfeed.org"))))
 
-(use-package cond-let)
-
-(use-package transient
-  :ensure t
-  :bind
-  (:map global-map
-      ("M-s-d" . denote-transient))
-
-  :config
-  (transient-define-prefix denote-transient () "Denote dispatch"
-    [["Note creation (d)"
-      ("dd" "new note" denote)
-      ("dj" "new or existing journal entry" denote-journal-new-or-existing-entry)
-      ("dn" "open or new" denote-open-or-create)
-      ("dt" "new specifying date and time" denote-date)
-      ("ds" "create in subdirectory " denote-subdirectory)]
-     ["Reviewing (r)"
-      ("rd" "notes this day" aw/notes-this-day)]
-     ["Folgezettel (f)"
-      ("fc" "create parent/child/sibling" denote-sequence)
-      ("ff" "find parent/child/sibling notes" denote-sequence-find)
-      ("fr" "reparent (adopt) current note into another sequence" denote-sequence-reparent)
-      ("fp" "find previous sibling" denote-sequence-find-previous-sibling :transient t)
-      ("fn" "find next sibling" denote-sequence-find-next-sibling :transient t)]]
-
-    [["Bookkeeping (b)"
-      ("br" "prompt and rename" denote-rename-file)
-      ("bf" "rename with frontmatter" denote-rename-file-using-front-matter)
-      ("bk" "modify keywords" denote-rename-file-keywords)]
-     ["Linking (l)"
-      ("li" "insert link" denote-link)
-      ("lh" "insert link to org heading" denote-org-link-to-heading)
-      ("lb" "show backlinks" denote-backlinks)
-      ("lg" "visit backlink" denote-find-backlink)
-      ("lo" "org backlink block" denote-org-dblock-insert-backlinks)]]
-
-    [["Searching (s)"
-      ("sd" "deft" deft)
-      ("sn" "consult-notes" consult-notes)
-      ("ss" "consult-notes search" consult-notes-search-in-all-notes)]]))
-
 (use-package magit
   :ensure t
   :after transient)
-
-
 
 (use-package tramp
   :config
@@ -1346,21 +1655,13 @@ With a prefix ARG, remove start location."
   (interactive)
   (magit-status "/yadm::"))
 
-(when (display-graphic-p)
-  (context-menu-mode 1)
-  (tool-bar-mode -1)
-  (scroll-bar-mode -1)
-  (horizontal-scroll-bar-mode -1)
-  (setq visible-bell 1
-        frame-inhibit-implied-resize t))
-
 (use-package doom-modeline
    :init
    (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
 
        ;; identifying the modes we're in
          doom-modeline-major-mode-color-icon t
-       doom-modeline-minor-modes t ; keep identification to the current modes
+       doom-modeline-minor-modes nil ; keep identification to the current modes
 
        ;; this works on the buffer state
          doom-modeline-buffer-state-icon t
@@ -1383,6 +1684,14 @@ With a prefix ARG, remove start location."
        ;; other
          doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
    (doom-modeline-mode 1))
+
+(when (display-graphic-p)
+  (context-menu-mode 1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (horizontal-scroll-bar-mode -1)
+  (setq visible-bell 1
+        frame-inhibit-implied-resize t))
 
 (use-package pulsar
   :ensure t
@@ -1501,6 +1810,14 @@ With a prefix ARG, remove start location."
                         :height 'unspecified)
     (set-face-attribute 'variable-pitch nil :font prop-font :inherit 'default
                         :height 'unspecified)))
+
+(set-face-attribute 'default nil
+                  :family "Aporetic Serif Mono"
+                  :height 100)
+
+(set-face-attribute 'link nil
+                  :family "IntoneMono Nerd Font"
+                  :height 100)
 
 (use-package fontaine
   :ensure t
@@ -1706,7 +2023,7 @@ DELTA would be something like 1 or -1."
   ;; Finally, load your theme of choice (or a random one with
   ;; `modus-themes-load-random', `modus-themes-load-random-dark',
   ;; `modus-themes-load-random-light').
-  (modus-themes-load-theme 'ef-light))
+  (modus-themes-load-theme 'ef-melissa-light))
 
 ;; In all of the following, WEIGHT is a symbol such as `semibold',
 ;; `light', `bold', or anything mentioned in `modus-themes-weights'.
@@ -1785,6 +2102,13 @@ DELTA would be something like 1 or -1."
      (file . find-file)
      (wl . wl-other-frame)))
 
+(setq tab-bar-new-tab-choice "*dashboard*")
+(setq tab-bar-new-tab-to 'right)
+
+(setq tab-bar-new-button-show nil) ; I want to only create tabs from the modeline or through a keybinding
+
+(setq tab-bar-show nil)
+
 (use-package ibuffer
   :ensure nil
   :config
@@ -1844,26 +2168,19 @@ DELTA would be something like 1 or -1."
 (use-package ace-window
   :ensure t)
 
-(use-package easysession
-  :ensure t
+(defun transpose-buffers (arg)
+  "Transpose the buffers shown in two windows."
+  (interactive "p")
+  (let ((selector (if (>= arg 0) 'next-window 'previous-window)))
+    (while (/= arg 0)
+      (let ((this-win (window-buffer))
+            (next-win (window-buffer (funcall selector))))
+        (set-window-buffer (selected-window) next-win)
+        (set-window-buffer (funcall selector) this-win)
+        (select-window (funcall selector)))
+      (setq arg (if (plusp arg) (1- arg) (1+ arg))))))
 
-  :custom
-  (easysession-save-interval (* 10 60))  ; Save every 10 minutes
-
-  ;; Display the active session name in the mode-line lighter.
-  (easysession-save-mode-lighter-show-session-name t)
-
-  ;; Optionally, the session name can be shown in the modeline info area:
-  ;; (easysession-mode-line-misc-info t)
-
-  :init
-  ;; Automatically load the session at startup and restore frame size and
-  ;; position (geometry)
-  (add-hook 'emacs-startup-hook #'easysession-load-including-geometry 102)
-
-  ;; Automatically save the current session every `easysession-save-interval'
-  ;; seconds (default: 10 minutes)
-  (add-hook 'emacs-startup-hook #'easysession-save-mode 103))
+(global-set-key (kbd "C-x t b") 'transpose-buffers)
 
 ;; Main keybindings
 (global-set-key (kbd "C-c sl") 'easysession-switch-to)  ; Load
@@ -1874,3 +2191,20 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "C-c sd") 'easysession-delete)
 (global-set-key (kbd "C-c sr") 'easysession-rename)
 (global-set-key (kbd "C-c sR") 'easysession-reset)
+
+(global-set-key (kbd "C-c e b b") 'eval-buffer)
+
+;; Does not work on Windows, but we can just avoid compiling dependencies and using it
+;; (if I'm ever forced to use Windows again for work or similar)
+(use-package vterm
+  :commands vterm
+  :custom
+  (vterm-always-compile-module t)
+  :hook
+  (vterm-mode . (lambda ()
+                  ;; Settings to mimic dracula I use for zsh.
+                  (setq-local buffer-face-mode-face '(:background "#000000" :foreground "#FFFFFF"))
+                  (buffer-face-mode 1)
+                  (text-scale-adjust 2)))
+  :bind
+  ("<f7>" . vterm))

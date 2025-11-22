@@ -17,13 +17,21 @@ Unfortunately, the reloading won't function like a silverbullet for anything. Yo
   ;; set shortcut for the reloading
   (keymap-global-set "<f5>" 'reload-init-file)
 #+end_src
-* Make =org-babel-execute-buffer= cycle through the confirmations automatically
+* Quickly deploying the new literate configuration
+** Make =org-babel-execute-buffer= cycle through the confirmations automatically
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(defun jcs-execute-all-buffers ()
+(defun sia-execute-all-buffers ()
   (interactive)
   (let ((org-confirm-babel-evaluate nil))
     (org-babel-execute-buffer)))
+#+end_src
+
+** Keybindings for efficiency
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "C-c o o") 'org-org-export-to-org)
+(global-set-key (kbd "C-c e c") 'sia-execute-all-buffers)
 #+end_src
 
 * Getting rid of customization via =M-x= menu
@@ -74,8 +82,14 @@ By default, the Emacs undo tree doesn't support redo, which is absolutely despic
 
 The =undo-tree= has been merged into master, so all you have to do to get it to work now is declare it as such:
 
-#+begin_src emacs-lisp :tangle no :eval never
-  (global-undo-tree-mode)
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package undo-tree
+    :config
+    (add-to-list 'undo-tree-incompatible-major-modes #'nxml-mode)
+    (global-undo-tree-mode)
+
+    :custom
+    (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
 #+end_src
 
 And for saving the history of those undos.
@@ -118,7 +132,14 @@ By making anzu mode global it will show up no matter what and it also won't clut
 
 I actually can't get anzu to work properly, so it's disabled from loading on the emacs init currently.
 
-* Autoclosing pairs when doing text editing
+* Text editing
+** Joining lines with a keybinding
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(keymap-global-set "C-c j j" #'join-line)
+#+end_src
+
+** Autoclosing pairs when doing text editing
 
 See also [[file:org-config.org][the org-mode configuration]] for more tweaks to [[denote:20251117T173819][Text editing experience within Emacs]].
 
@@ -205,6 +226,34 @@ There's also the optional package included in the directory which provides pre-w
 
 You can use a template to reconstruct different commands into =dwim-shell-command= format.
 
+* Trying packages before actually installing them
+
+This will undo the installation once Emacs is closed.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package try
+    :ensure t)
+#+end_src
+
+* Templating
+
+Yasnippet makes boiler plate and other code snippets much faster to write with snippets that activates with small keywords. Just type the keyword and TAB, and yasnippet will fill in the snippet :) (you may have to fill in some names like class name or parameter names after TAB off course…).[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package yasnippet
+  :demand t
+
+  :config
+  (yas-reload-all)
+
+  :hook
+  (sh-mode . yas-minor-mode))
+
+;; install useful snippets
+(use-package yasnippet-snippets
+  :after yasnippet)
+#+end_src
+
 * Other
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -218,5 +267,6 @@ You can use a template to reconstruct different commands into =dwim-shell-comman
 #+end_src
 
 * Footnotes
+[fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
 
 [fn:1] https://protesilaos.com/emacs/dotemacs#h:f2ffe0e9-a58d-4bba-9831-cc35940ea83f

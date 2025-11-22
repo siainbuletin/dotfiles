@@ -16,13 +16,20 @@ This is specifically concerning larger projects that have to be broken up in spe
 I currently don't know if I actually like this environment, but I have to enable it if I want to make use of the =sia-olivetti= function.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package olivetti
-      :ensure t
-      :demand t
-      :bind
-      (("C-c w o" . sia-olivetti)))
+      (use-package olivetti
+        :ensure t
+        :demand t
+        :after org
+        :custom
+        (olivetti-minimum-body 100)
+        (olivetti-body-width 0.8)
+        :bind
+        (("C-c w o" . sia-olivetti))
+        :hook
+        (org-mode . olivetti-mode))
 #+end_src
 
+The hook will turn on =olivetti-mode= by default in an org-mode buffer
 
 ** TODO Tangling the different parts of the manuscript together
 

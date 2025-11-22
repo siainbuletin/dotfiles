@@ -1,6 +1,8 @@
 #+TITLE: Functional org mode configuration
 #+STARTUP: overview
 
+!@Test emphasis!@
+
 This does not include packages which are used for different workflows. It's just the base functionality of org-mode (vanilla, as it is distributed), which is altered for my own usecase.
 
 This is also for making the org buffer overall more readable, basically turning Emacs into a word processor.
@@ -69,9 +71,50 @@ I would like Quote and Verse blocks special, that is, in italics. This means, we
 (setq org-fontify-quote-and-verse-blocks t)
 #+end_src
 
+** Inline LaTeX settings
+
+See also [[file:typesetting.org][Typesetting from Emacs (literate configuration)]]
+
+This will use a separate face for inline LaTeX.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-highlight-latex-and-related '(latex))
+#+end_src
+
+Source blocks for LaTeX[fn:1] *(have to see how much I actually like them)*.
+
+Minted is a package that I actually have to download separately if I want to make things work.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; Minted is the only latex source code blocks I enjoy working with
+  (org-latex-src-block-backend 'minted)
+  (org-latex-minted-options '(("frame" "lines") ("linenos=true") ("breaklines"))))
+#+end_src
+
+*** Completion for typing out LaTeX within an org document
+
+=company-math= does autocompletion for writing out math formulas.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package company-math
+    :after (org company)
+    :hook
+    (org-mode . (lambda ()
+                  (setq-local company-backends (append '((company-math-symbols-latex))
+                                                       company-backends)))))
+#+end_src
+
+*** Previewing LaTeX
+
+I’ve tried many LaTeX math preview solutions over the years, but they all have drawbacks. Some generate images that I can’t zoom with the rest of the text, while others require elaborate workflows and package installs. math-preview is a breath of fresh air, as it only requires one external package (npm install -g git+https://gitlab.com/matsievskiysv/math-preview). It can also zoom flawlessly! Have used it with try for a while, so time to add it:[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package math-preview)
+#+end_src
+
 ** TODO Show hidden emphasis markers at point
 
-The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds. By default =org-hide-emphasis-markers=, is key to pretending that Emacs can be a word processor, however, since the org markup controls aren’t viewable, I find it challenging at times, to change that. The org-appear project seeks to fix this by showing the markup when the point is nearby.[fn:1]
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds. By default =org-hide-emphasis-markers=, is key to pretending that Emacs can be a word processor, however, since the org markup controls aren’t viewable, I find it challenging at times, to change that. The org-appear project seeks to fix this by showing the markup when the point is nearby.[fn:2]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package org-appear
@@ -91,39 +134,49 @@ For evil mode, you can add this bit to the ~use-package~ declaration to ony make
 #+end_src
 
 ** The org-modern package
-*** Proper settings
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-    (use-package org-modern
-      :after org
-      :hook ((org-mode . org-modern-mode)
-             (org-agenda-finalize . org-modern-agenda))
-      :config
-      (setq
-       org-auto-align-tags t
-       org-tags-column 0
-       org-fold-catch-invisible-edits 'show-and-error
-       org-special-ctrl-a/e t
-       org-insert-heading-respect-content t
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-modern
+    :after org
+    :hook ((org-mode . org-modern-mode)
+           (org-agenda-finalize . org-modern-agenda))
+    :config
+    (setq
+     org-auto-align-tags t
+     org-tags-column 0
+     org-fold-catch-invisible-edits 'show-and-error
+     org-special-ctrl-a/e t
+     org-insert-heading-respect-content t
 
-       ;; Don't style the following
-       org-modern-tag nil
-       org-modern-priority nil
-       org-modern-todo nil
-       org-modern-table nil
+     ;; Don't style the following
+     org-modern-tag nil ; looks quite ugly
+     org-modern-priority t
+     org-modern-todo nil ; looks quite ugly currently and merges into the heading
+     org-modern-table t
+     org-modern-list nil
 
-       ;; Agenda styling
-       org-agenda-tags-column 0
-       org-agenda-block-separator ?─
-       org-agenda-time-grid
-       '((daily today require-timed)
-    	 (800 1000 1200 1400 1600 1800 2000)
-    	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
-       org-agenda-current-time-string
-       "⭠ now ─────────────────────────────────────────────────"))
+     ;; Agenda styling
+     org-agenda-tags-column 0
+     org-agenda-block-separator ?─
+     org-agenda-time-grid
+     '((daily today require-timed)
+  	 (800 1000 1200 1400 1600 1800 2000)
+  	 " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+     org-agenda-current-time-string
+     "⭠ now ─────────────────────────────────────────────────"))
 #+end_src
 
 I don't think that =global-org-modern-mode= actually works.
+
+** Cycling through org plain list bullet types
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+        (use-package org-bulletproof
+          :ensure t
+          :after (org org-modern)
+          :init
+  	(global-org-bulletproof-mode))
+#+end_src
 
 ** Prettifying checkboxes
 
@@ -147,35 +200,29 @@ This is basically like leading space in normal text formatting. We'll be using t
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package spacious-padding
-    :ensure t)
+    :ensure t
+    :init
+    (spacious-padding-mode))
 #+end_src
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  ;; These are the default values, but I keep them here for visibility.
   (setq spacious-padding-widths
-        '( :internal-border-width 15
+        '( :internal-border-width 25
            :header-line-width 4
-           :mode-line-width 6
-           :tab-width 4
+           :mode-line-width 10
+           :tab-width 7
            :right-divider-width 30
            :scroll-bar-width 8
            :fringe-width 8))
 #+end_src
 
- Read the doc string of `spacious-padding-subtle-mode-line' as it is very flexible and provides several examples.
+Read the doc string of `spacious-padding-subtle-mode-line' as it is very flexible and provides several examples.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (setq spacious-padding-subtle-frame-lines
-        `( :mode-line-active 'default
-           :mode-line-inactive vertical-border))
-
-  ;; (spacious-padding-mode 1)
-
-  ;; Set a key binding if you need to toggle spacious padding.
-  (define-key global-map (kbd "<f8>") #'spacious-padding-mode)
+        `( :mode-line-active default
+           :mode-line-inactive shadow))
 #+end_src
-
-For some reason I'm getting spacious padding function is void, so I had to comment it out.
 
 ** Changing the appearance of each heading level
 
@@ -201,7 +248,7 @@ This was creating a lot of issues with the settings for fontaine (which are defi
 
 ** Making the title of the document a bit bigger
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
   (set-face-attribute 'org-document-title nil
                       :font "Atkinson Hyperlegible"
                       :weight 'bold
@@ -215,6 +262,21 @@ This will bypass other =SHIFT= bindings.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq org-support-shift-select t)
+#+end_src
+
+** Binding some common text editing in org-mode
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+        (use-package org
+          :ensure nil
+          :bind
+          ;; editing my regular zettels
+          ("C-c f n" . org-footnote-new)
+          ("C-c f q" . org-footnote-normalize)
+          ("C-c l d" . org-toggle-link-display)
+
+          ;; safety nets
+          ("C-c s a" . org-save-all-org-buffers))
 #+end_src
 
 ** Keybinding for joining two lines
@@ -319,7 +381,7 @@ You must change the standard dictionary to your local variety by customising  th
     (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
 #+end_src
 
-Goggles is mainly meant as a replacement for the popular volatile-highlights (vhl).[fn:2]
+Goggles is mainly meant as a replacement for the popular volatile-highlights (vhl).[fn:3]
 
 vhl does not support pulse. The request to use pulse for modification highlighting has come up a few times (e.g. recently on reddit).
 vhl is unmaintained and contains obsolete code (e.g. cl instead of cl-lib).
@@ -346,16 +408,16 @@ Many people sell the folding headings from org-mode as terrific for organisation
 
 By default, Emacs has the setting =org-link-search-must-match-exact-headline= set to =t=. This makes it so that even if you have an ID setup for your heading (even if it's alphanumeric)
 
-If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:3]
+If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:4]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq org-link-search-must-match-exact-headline nil)
 #+end_src
 
 ** Working with both unique ID values and =CUSTOM_ID=
-Glonal IDs aren't automatically generated through the =org-id= extension.[fn:4] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
+Glonal IDs aren't automatically generated through the =org-id= extension.[fn:5] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
 
-It is possible to generate the links automatically with this:[fn:4]
+It is possible to generate the links automatically with this:[fn:5]
 
 If you use =org-capture= to add all of your items then org-capture-prepare-finalize-hook is a logical place to put the code:
 
@@ -446,14 +508,15 @@ You can also overall automate the creation of custom IDs with this: https://writ
 
 When changing the file name of a file, what happens if the links are dead?
 
-Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:5]
+Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:6]
 
 A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
 
 However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
 
 * Minor modes to enable for =org-mode=
-* Make rendering better within org-mode
+* Org block settings
+** Make it possible to render org-mode in a source block
 
 One annoying thing in org-mode is that you can't actually write a source code block that's using org-mode syntax, because that will immediately actually get rendered. It doesn't get recognised the same way that verbatim syntax is (which is inline, like this: =#+INCLUDE:=).
 
@@ -465,7 +528,34 @@ This can be avoided by adding a comma before the org heading. Thus you'd do some
 ,* an org heading
 #+end_src
 
-You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:6]
+You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:7]
+
+** Adding custom blocks in org-mode
+
+These are called special blocks. These are usually the ones that you can export to LaTeX or HTML if you use the org export dispatcher.
+
+#+begin_export latex
+(\exists x) A \rightarrow B
+#+end_export
+
+But what I want is to add a custom block for highlighting several questions I might have.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-special-block-extras
+    :ensure t)
+#+end_src
+* Inserting images
+
+It's easier to just add new images through =org-download=. But apparently it's not necessary after Emacs 30, as you have the option for =yank-media=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+      (use-package org-download
+        :ensure t
+        :defer t
+        :commands )
+#+end_src
+
+Configuring how the images are saved next to the documents for emacs:
 
 * TODO Choosing the modes for which =mixed-pitch= is enabled
 
@@ -524,15 +614,70 @@ There's a bunch of possible solutions for this
 
 The elisp regular expression isn’t the easiest to understand, but this is what it matches:
 
-| Regex      | Explanation                                                             |
-|------------+-------------------------------------------------------------------------|
+| Regex     | Explanation                                                             |
+|-----------+-------------------------------------------------------------------------|
 | [^\\w]     | something that’s not a word                                             |
-| \\(        | start of a capture group (not matching)                                 |
-| :          | a colon                                                                 |
+| \\(       | start of a capture group (not matching)                                 |
+| :         | a colon                                                                 |
 | [^\n\r\t]+ | a string of 1 or more characters that doesn’t contain new-lines or tabs |
-| :          | a colon                                                                 |
-| \\)        | end of the capture group (not matching)                                 |
+| :         | a colon                                                                 |
+| \\)       | end of the capture group (not matching)                                 |
 | [^\\w]     | something that’s not a word                                             |
+
+* Adding extra emphasis for the highlights
+
+This should work even better than the =org-special-block-extras= package, because it allows me to have inline commentary. =org-extra-emphasis= can even work in [[denote:20251122T232615][HTML]], ODT and [[denote:20251117T100735][LaTeX]] exports.
+
+** Trying to install with use-package (failed)
+
+The package requires =ox-odt= installed, but this has to be forked in order to work.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package ox-odt
+    :ensure (ox-odt
+      :type git :host github
+      :repo "kjambunathan/ox-odt"
+      :file ("lisp/ox-odt.el"
+                           "lisp/ox-ods.el"
+                           "lisp/odt.el"
+                           "etc"
+                           "docs"
+                           "contrib/odt/LibreOffice")))
+
+  (use-package org-extra-emphasis
+    :ensure (org-extra-emphasis :type git :host github :repo "QiangF/org-extra-emphasis"))
+#+end_src
+
+** Manual installation
+
+This should work better than trying to do it with =use-package=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
+
+(custom-set-faces
+ '(org-default ((t (
+                    :background "#F0B609"
+                    :inherit default
+                    ))))
+ '(org-extra-emphasis ((t (
+                           :background "#F0B609"
+                           :height 1.0
+                           :inherit default
+                           :weight bold
+                           :width normal
+                           ))))
+ '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              ))))
+ '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+			      :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              )))))
+#+end_src
 
 * TODO =org-archive= settings
 ** TODO Setting spaces for where to archive subtrees
@@ -542,14 +687,16 @@ The elisp regular expression isn’t the easiest to understand, but this is what
 
 * Footnotes
 
-[fn:1]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
+[fn:1]  https://github.com/themkat/.emacs.d
 
-[fn:2] https://github.com/minad/goggles
+[fn:2]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
 
-[fn:3]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
+[fn:3] https://github.com/minad/goggles
 
-[fn:4]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
+[fn:4]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
 
-[fn:5] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+[fn:5]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
 
-[fn:6]  https://www.danliden.com/posts/20220208-org-source.html
+[fn:6] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+
+[fn:7]  https://www.danliden.com/posts/20220208-org-source.html

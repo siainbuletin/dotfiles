@@ -49,7 +49,7 @@ This has to be tested.
     (balanced-windows-mode))
 #+end_src
 
-* Showing a divider between  windows
+* Showing a divider between windows
 
 This is taken from Howardism config. "The following adds frame borders and window dividers to give space between window buffers." [fn:1]
 
@@ -90,6 +90,126 @@ helpful threads:
 - https://stackoverflow.com/questions/17590784/how-to-let-org-mode-open-a-link-like-file-file-org-in-current-window-inste | emacs - How to let Org-mode open a link like [[file://file.org]] in current window instead of default in other window? - Stack Overflow
 - https://github.com/org-roam/org-roam/issues/1340 | respect org-link-frame-setup when opening links · Issue #1340 · org-roam/org-roam
 - https://www.reddit.com/r/orgmode/comments/em7k45/can_i_make_orgwiki_links_open_in_another_frame/ | Can I make org-wiki links open in another frame? : r/orgmode
+
+* Configuring tab management
+
+What's really good about =tab-bar-mode= in Emacs is that it allows more than one buffer per tab (and you can switch between them), and you can even have a window split set up for each tab. So they're "higher level" than your average tab bar, in reality. A window can be split in multiple ways, and then be given a name to switch to (which is more ergonomic, overall).
+
+I want each new tab that I open to actually open in the [[file:dashboard.org][Dashboard mode]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq tab-bar-new-tab-choice "*dashboard*")
+(setq tab-bar-new-tab-to 'right)
+#+end_src
+
+** TODO Saving a set of different tabs
+
+I want to have the org-agenda views open by default into another tab. Or to at least have a way to send it somewhere else through window management.
+
+** Tab bar appearance
+
+#+begin_src emacs-lisp :tangle "init.el" :eval
+(setq tab-bar-new-button-show nil) ; I want to only create tabs from the modeline or through a keybinding
+#+end_src
+
+Changing the tab bar face ... (TODO)
+
+More configuration is done in [[id:85939ed0-119f-4213-bc18-ca4fb0b58aa7][Configuring centaur-tabs]].
+
+** Turning off displaying tab bar mode
+
+Since the Doom modeline can actually show the name of the tab in the bar as you're working, you can just rely on switching the tabs in the minibuffer, and have the display name of that tab in the modeline. So for this, we'll be setting...
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq tab-bar-show nil)
+#+end_src
+
+** Declaratively switching to the relevant tab when typing something
+
+Perhaps I want to switch to the relevant bibliography tab (like a little workspace) when I insert something new in [[denote:20251120T232656][BibTeX]]. Or always keep =denote-menu= open to browse the available notes that I have (especially if they're [[denote:20251117T105322][Literature notes]]).
+
+** Configuring =centaur-tabs=
+:PROPERTIES:
+:ID:       85939ed0-119f-4213-bc18-ca4fb0b58aa7
+:END:
+
+*I currently don't like how centaur-tabs is cluttering up the screen, so it's fully disabled.*
+
+This would beautify the tab bar significantly.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package centaur-tabs
+    :ensure t
+    :demand
+    :config
+    (centaur-tabs-mode t)
+    :bind
+    ("C-<prior>" . centaur-tabs-backward)
+    ("C-<next>" . centaur-tabs-forward))
+#+end_src
+
+Style settings:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq centaur-tabs-style "wave")
+  (setq centaur-tabs-height 32)
+  (setq centaur-tabs-set-icons t)
+  (setq centaur-tabs-icon-type 'nerd-icons)
+  (setq centaur-tabs-gray-out-icons 'buffer) ; gray out icons for the unselected tabs
+  (setq centaur-tabs-set-bar 'over)
+  (setq centaur-tabs-set-modified-marker t)
+  (setq centaur-tabs-modified-marker "*")
+  (setq centaur-tabs-label-fixed-length 8) ; this will keep all of the tabs as little boxes
+#+end_src
+
+Keybinding support:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq centaur-tabs-enable-key-bindings t)
+#+end_src
+
+Configuring buffer groups with the tab bar
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun centaur-tabs-buffer-groups ()
+  "`centaur-tabs-buffer-groups' control buffers' group rules.
+
+Group centaur-tabs with mode if buffer is derived from `eshell-mode' `emacs-lisp-mode' `dired-mode' `org-mode' `magit-mode'.
+All buffer name start with * will group to \"Emacs\".
+Other buffer group by `centaur-tabs-get-group-name' with project name."
+  (list
+   (cond
+    ((or (string-equal "*" (substring (buffer-name) 0 1))
+         (memq major-mode '(magit-process-mode
+                            magit-status-mode
+                            magit-diff-mode
+                            magit-log-mode
+                            magit-file-mode
+                            magit-blob-mode
+                            magit-blame-mode
+                            )))
+     "Emacs")
+    ((derived-mode-p 'prog-mode)
+     "Editing")
+    ((derived-mode-p 'dired-mode)
+     "Dired")
+    ((memq major-mode '(helpful-mode
+                        help-mode))
+     "Help")
+    ((memq major-mode '(org-mode
+                        org-agenda-clockreport-mode
+                        org-src-mode
+                        org-agenda-mode
+                        org-beamer-mode
+                        org-indent-mode
+                        org-bullets-mode
+                        org-cdlatex-mode
+                        org-agenda-log-mode
+                        diary-mode))
+     "Org")
+    (t
+     (centaur-tabs-get-group-name (current-buffer))))))
+#+end_src
 
 * TODO Buffer management
 
@@ -211,13 +331,31 @@ Note that =ace-window= is quite outdated at this point, and should be replaced w
 
 Another problem with =ace-window= is that it doesn't have a GNU Info entry that I can easily skim.
 
-* TODO Making buffers available globally
+** TODO Making buffers available globally
 
 One thing that I wish I could do is to persist the list of buffers that you can access across all of the frames that I spawn of Emacs, instead of having a separate list of buffers for each window. This would also make workflows with tiling window managers a lot more ergonomic in the long run.
 
 This is also a big part of [[#Buffer management]].
 
 This can also be used for Obsidian quick switcher functionality. This is described in [[file:search.org][The search structure used for the Emacs program]].
+
+** Switching buffers across a window split in Emacs
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun transpose-buffers (arg)
+  "Transpose the buffers shown in two windows."
+  (interactive "p")
+  (let ((selector (if (>= arg 0) 'next-window 'previous-window)))
+    (while (/= arg 0)
+      (let ((this-win (window-buffer))
+            (next-win (window-buffer (funcall selector))))
+        (set-window-buffer (selected-window) next-win)
+        (set-window-buffer (funcall selector) this-win)
+        (select-window (funcall selector)))
+      (setq arg (if (plusp arg) (1- arg) (1+ arg))))))
+
+(global-set-key (kbd "C-x t b") 'transpose-buffers)
+#+end_src
 
 * Session management
 :PROPERTIES:
@@ -228,7 +366,9 @@ If the point is to persist the session across Emacs restarts (for instance when 
 
 What I want it to be able to open up Emacs and actually get some essential buffers already on the screen without having to go hunting for them too much. Switching the sessions can be done without affecting the frame geometry.[fn:4]
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+Currently disabled as I don't like all of the errors that are popping up.
+
+#+begin_src emacs-lisp :tangle no :eval never
 (use-package easysession
   :ensure t
 

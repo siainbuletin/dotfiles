@@ -32,7 +32,9 @@ The reading setup is structured in different layers, based on the different moda
   (use-package pdf-tools
     :ensure t
     :init
-    (pdf-tools-install))
+    (pdf-tools-install)
+    (pdf-loader-install)
+    (setq-default pdf-view-display-size 'fit-width))
 #+end_src
 
 By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf-tools= instead of =docview-mode=. =pdf-tools-install= is actually configuring a server component.[fn:1]
@@ -41,18 +43,30 @@ By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf
 
 I keep getting an error that the symbol function is void, so fuck this.
 
-#+begin_src emacs-lisp :tangle no :eval never
-;; (define-key pdf-view-mode-map (kbd "g") nil)
-;; (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
-(define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
-(define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
-;; (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
-;; (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
-(define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
-(define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
-(define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
-(define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
-(define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation)
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (with-eval-after-load "pdf-tools"
+    (define-key pdf-view-mode-map (kbd "g") nil)
+    (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
+    (define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
+    (define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
+    (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
+    (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
+    (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
+    (define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation))
+#+end_src
+
+** Making =pdf-tools= default for TeX export (with proper reverting buffers)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+        TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
+        TeX-source-correlate-start-server t)
+
+  (add-hook 'TeX-after-compilation-finished-functions
+  	  #'TeX-revert-document-buffer)
 #+end_src
 
 ** Continuous scrolling mode in the PDF

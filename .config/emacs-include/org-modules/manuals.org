@@ -6,15 +6,65 @@ I still don't really know what this package does, so for now it will be disabled
   (use-package help-fns+)
 #+end_src
 
-* TODO Improving the Help buffers with =helpful=
+* Man pages and other
+
+man-pages are good, but sometimes I need a shorter version For that, tldr is great![fn:2]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package helpful
-  :bind
-  (("C-h f" . helpful-function)
-   ("C-h x" . helpful-command)
-   ("C-h k" . helpful-key)
-   ("C-h v" . helpful-variable)))
+  (use-package tldr)
+#+end_src
+
+devdocs are also pretty handy to have, especially pre-downloaded entries I can read directly in Emacs:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package devdocs)
+#+end_src
+
+NOTE: Remember to download documentation with devdocs-install before intended use.
+
+Usage:
+- devdocs-peruse opens a specific documentation (e.g, kotlin-1.9, rust book, Spring Boot etc.)
+- devdocs-lookup lets me see a list of the topics in that specific doc.
+
+* TODO Improving the Help buffers with =helpful=
+
+This is a lot better than the default GNU Help buffer, as it provides more contextual information
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package helpful
+    :ensure t
+    :bind
+    (("C-h f" . helpful-function)
+     ("C-h x" . helpful-command)
+     ("C-h k" . helpful-key)
+     ("C-h v" . helpful-variable)))
+#+end_src
+
+Replacing default GNU Help, it's done with this:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Note that the built-in `describe-function' includes both functions
+  ;; and macros. `helpful-function' is functions only, so we provide
+  ;; `helpful-callable' as a drop-in replacement.
+  (global-set-key (kbd "C-h f") #'helpful-callable)
+
+  (global-set-key (kbd "C-h v") #'helpful-variable)
+  (global-set-key (kbd "C-h k") #'helpful-key)
+  (global-set-key (kbd "C-h x") #'helpful-command)
+#+end_src
+
+This will make helpful even more present.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Lookup the current symbol at point. C-c C-d is a common keybinding
+  ;; for this in lisp modes.
+  (global-set-key (kbd "C-c C-d") #'helpful-at-point)
+
+  ;; Look up *F*unctions (excludes macros).
+  ;;
+  ;; By default, C-h F is bound to `Info-goto-emacs-command-node'. Helpful
+  ;; already links to the manual, if a function is referenced there.
+  (global-set-key (kbd "C-h F") #'helpful-function)
 #+end_src
 
 * TODO Configuring my own annotations and modifications to man pages
@@ -59,5 +109,6 @@ sudo tar -xvjf downloaded.tar.<other-extension> -C /usr/share/stardict/dic
 #+end_src
 
 * Footnotes
+[fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
 
 [fn:1] https://github.com/tecosaur/lexic?tab=readme-ov-file

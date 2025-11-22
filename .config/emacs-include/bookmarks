@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("BibTeX files"
+(("org-capture-last-stored-marker"
+ (filename . "~/.notes")
+ (front-context-string . "** TODO Find a w")
+ (rear-context-string . "n_litnote.org]]\n")
+ (position . 2133)
+ (last-modified 26912 27411 361993 19000))
+("BibTeX files"
  (filename . "~/Documents/bibliography/")
  (front-context-string . ".git\n  drwxr-xr-")
  (rear-context-string . "0K nov 20 13:46 ")
@@ -34,14 +40,14 @@
  (last-modified 26904 42204 347307 842000))
 ("org-capture-last-stored"
  (filename . "~/.notes")
- (front-context-string . "** TODO Find a w")
- (rear-context-string . "=org-sidebar=).\n")
- (position . 1005)
- (last-modified 26908 55335 86844 670000))
+ (front-context-string . "** TODO find a w")
+ (rear-context-string . "n_litnote.org]]\n")
+ (position . 2133)
+ (last-modified 26913 35328 889510 153000))
 ("org-refile-last-stored"
- (filename . "~/Documents/notes/20251114T223213--eshell__software.org")
- (front-context-string . "** this is a sma")
- (rear-context-string . "s is a heading\n\n")
- (position . 171)
- (last-modified 26903 38732 579618 541000))
+ (filename . "~/.notes")
+ (front-context-string . "** TODO Find a w")
+ (rear-context-string . "n_litnote.org]]\n")
+ (position . 2133)
+ (last-modified 26912 27411 355040 110000))
 )

@@ -1,4 +1,4 @@
-#+TITLE: GUI Settings for Emacs
+#+title: GUI Settings for Emacs
 #+startup: overview
 
 This is a reconfiguration of the GUI I want in Emacs without depending on the NANO module (since it's too complicated right now for me to understand).
@@ -31,73 +31,6 @@ Why is this configuration so high up in the org file? Apparently I can't make th
   (setq visible-bell 1
         frame-inhibit-implied-resize t))
 #+end_src
-
-* Setting up the modeline
-** Doom Emacs modeline
-:PROPERTIES:
-:CUSTOM_ID: doom-emacs-modeline
-:ID:       01a43255-477f-4799-b2fd-4edb83388332
-:END:
-
-This is taken from the Doom Emacs project. *Whose configuration did I rip this from when setting up Emacs?*
-
-It has a match count panel (for anzu, visual-replace, iedit, multiple-cursors, symbol-overlay, and evil-search, etc.)[fn:8] *See how exactly this could be used.*
-
-It also has an indicator for recording a macro
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package doom-modeline
-     :init
-     (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
-
-  	 ;; identifying the modes we're in
-           doom-modeline-major-mode-color-icon t
-  	 doom-modeline-minor-modes t ; keep identification to the current modes
-
-  	 ;; this works on the buffer state
-           doom-modeline-buffer-state-icon t
-           doom-modeline-buffer-modification-icon t
-  	 doom-modeline-file-name-style 'auto
-
-  	 ;; size and rendering of the modeline
-    	 doom-modeline-height 25
-    	 doom-modeline-bar-width 8
-    	 doom-modeline-window-width-limit 85
-
-  	 ;; navigating the file
-    	 doom-modeline-percent-position t ; is this for the percentage of the position within the file?
-    	 doom-modeline-support-imenu t
-  	 doom-modeline-percent-position nil
-
-  	 ;; integrating with project management
-    	 doom-modeline-project-detection 'auto
-
-  	 ;; other
-           doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
-     (doom-modeline-mode 1))
-#+end_src
-
-How the doom modeline shows the relevant information
-
-How do I show all of the enabled minor modes within the modeline?
-
-Can it also show the word count when working with org mode?
-
-There's also a different modeline for GNU Info buffers
-
-*** Navigation for a code project with the help of =doom-modeline=
-
-Since it has an integration with =imenu=, you can jump between definitions. This is found in the =use-package= declaration.
-
-*** Integration with academic modes
-Also it integrates the PDF page number for =pdf-tools=. See [[file:reading.org][Reading and annotation setup]].
-
-*** Proper configuration for the doom modeline and nerd-icons
-
-This can also display packages through the =nerd-icons= package. See [[#installing-nerd-icons--currently-doesn-t-work-][nerd-icons configuration]].
-
-
-** Personal customization to the modeline
 
 * Dimming windows when unfocused
 
@@ -201,7 +134,7 @@ By using =:hook (text-mode . mixed-pitch-mode)=, I essentially only enable the v
 My issue is that it does something with the variable-pitch font that doesn’t allow it to scale to different resolutions.[fn:3]
 #+end_quote
 
-** Choosing between fonts
+** Choosing between fonts defined as options
 
 This is a variable which lets me choose which font I want on the fly. This particular block is for monospaced fonts
 
@@ -325,16 +258,39 @@ Which font to choose out of these options that were given?
     (ha-mac-laptop-fontsize)))
 #+end_src
 
-** Simplistic font size setting
+** Imperative font settings
 
 This is because I'm having quite a few issues with =fontaine= currently.
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
   (set-face-attribute 'default nil
-  		    :family "Roboto Mono"
-  		    :height 100 ; this refers to the point size for the font
-  		    )
+  		    :family "Aporetic Serif Mono"
+  		    :height 100)
 #+end_src
+
+Changing the fontification of links in org mode.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'link nil
+  		    :family "IntoneMono Nerd Font"
+  		    :height 100)
+#+end_src
+
+*** Making the title of the document a bit bigger
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (set-face-attribute 'org-document-title nil
+  		    :font "Aporetic Serif Mono"
+  		    :weight 'bold
+  		    :height 1.6)
+#+end_src
+
+*** Changing the appearance of each heading level
+
+You can resize the headings based on the level.
+
+*** TODO Move the atkison fonts to the proper appearance configuration with fontaine
+This was creating a lot of issues with the settings for fontaine (which are defined in [[file:appearance.org][Appearance configuration]]). I need to move the Atkinson fonts to the big setq block that I have created for fontaine.
 
 #+begin_src emacs-lisp :tangle no :eval never
   (dolist (face '((org-level-1 . 1.5)
@@ -346,18 +302,9 @@ This is because I'm having quite a few issues with =fontaine= currently.
                   (org-level-7 . 1.1)
                   (org-level-8 . 1.1)))
     (set-face-attribute (car face) nil
-                        :font "Aporetic Serif Mono"
+                        :font "Atkinson Hyperlegible"
                         :weight 'bold
                         :height (cdr face)))
-#+end_src
-
-*** Making the title of the document a bit bigger
-
-#+begin_src emacs-lisp :tangle no :eval never
-(set-face-attribute 'org-document-title nil
-	      :font "Aporetic Serif Mono"
-	      :weight 'bold
-	      :height 1.4)
 #+end_src
 
 
@@ -729,7 +676,7 @@ For now, I'm only using themes created by Prot since they're the most flexible.
     ;; Finally, load your theme of choice (or a random one with
     ;; `modus-themes-load-random', `modus-themes-load-random-dark',
     ;; `modus-themes-load-random-light').
-    (modus-themes-load-theme 'ef-light))
+    (modus-themes-load-theme 'ef-melissa-light))
 #+end_src
 
 ** Configuring modus themes

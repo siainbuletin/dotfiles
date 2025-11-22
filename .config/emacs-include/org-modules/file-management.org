@@ -6,22 +6,59 @@ It would be nice if the settings also found a better alternative for a file pick
 These settings are partly taken from the _Emacs Writing Studio_ config.
 
 #+begin_src emacs-lisp :tangle no :eval never
-      (use-package dired
-        :ensure nil ; this is because dired is already included with the installation of Emacs
-        :commands
-        (dired dired-jump)
-        :bind
-        (("C-x C-j" . dired-jump))
-        :custom
-        (dired-listing-switches "-agho --group-directories-first --time-style=long-iso")
-        (dired-dwim-target t) ; do what I mean
-        (delete-by-moving-to-trash t) ; instead of actually running rm
-        :config
-        (evil-collection-define-key 'normal 'dired-mode-map
-          "h" 'dired-single-up-directory
-          "l" 'dired-single-buffer)
-        (put 'dired-find-alternate-file 'disabled nil)
-    )
+    (use-package dired
+      :ensure nil ; this is because dired is already included with the installation of Emacs
+
+      :commands
+      (dired dired-jump)
+
+      :bind
+      (("C-x C-j" . dired-jump))
+
+      :custom
+      (dired-listing-switches "-agho --group-directories-first --time-style=long-iso")
+      (dired-dwim-target t) ; do what I mean
+      (delete-by-moving-to-trash t) ; instead of actually running rm
+
+      :hook
+      ; (dired-mode . dired-hide-details-mode) ; I don't this is that good and I'd rather use neotree for this particular situation
+
+      :config
+      (setq dired-recursive-copies 'always) ;; Don't ask when making copies
+      (setq dired-make-directory-clickable t)
+      (evil-collection-define-key 'normal 'dired-mode-map
+        "h" 'dired-single-up-directory
+        "l" 'dired-single-buffer)
+      (put 'dired-find-alternate-file 'disabled nil)
+  )
+#+end_src
+
+* Adding more options for sorting
+
+URL `http://xahlee.info/emacs/emacs/dired_sort.html'
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-dired-sort ()
+  "Sort dired dir listing in different ways.
+Prompt for a choice.
+Works in linux, MacOS, Microsoft Windows."
+  (interactive)
+  (let ((xmenu '(("date" . "-Al -t")
+                 ("size" . "-Al -S")
+                 ("name" . "-Al ")
+                 ("dir" . "-Al --group-directories-first")))
+        xsortBy)
+    (setq xsortBy (completing-read "Sort by (default date):" xmenu nil t nil nil (caar xmenu)))
+    (dired-sort-other (cdr (assoc xsortBy xmenu)))))
+#+end_src
+
+* Bringing midnight commander style to dired
+
+This currently has issues when trying to pull with =use-package=. Maybe it isn't really adapted to the newest versions of Emacs yet.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package diredc
+      :ensure t)
 #+end_src
 
 * Cosmetic modifications to dired
