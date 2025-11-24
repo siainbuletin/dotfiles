@@ -53,7 +53,7 @@
 
 ;;; Configure elpaca use-package support
 (elpaca elpaca-use-package
-        ;; Enable use-package :ensure support for Elpaca.x
+        ;; Enable use-package :ensure support for Elpaca.
         (elpaca-use-package-mode)
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
@@ -624,7 +624,7 @@ title."
                               :underline t
                               ))))
  '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
-			      :foreground "#003F66"
+                              :foreground "#003F66"
                               :inherit org-extra-emphasis
                               :underline t
                               )))))
@@ -1522,7 +1522,7 @@ With a prefix ARG, remove start location."
   :after org
   :custom
   (olivetti-minimum-body 100)
-  (olivetti-body-width 0.8)
+  (olivetti-body-width 80)
   :bind
   (("C-c w o" . sia-olivetti))
   :hook
@@ -1656,33 +1656,34 @@ With a prefix ARG, remove start location."
   (magit-status "/yadm::"))
 
 (use-package doom-modeline
-   :init
-   (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+  :init
+  (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
 
-       ;; identifying the modes we're in
-         doom-modeline-major-mode-color-icon t
-       doom-modeline-minor-modes nil ; keep identification to the current modes
+      ;; identifying the modes we're in
+        doom-modeline-major-mode-color-icon t
+      doom-modeline-minor-modes nil ; keep identification to the current modes
 
-       ;; this works on the buffer state
-         doom-modeline-buffer-state-icon t
-         doom-modeline-buffer-modification-icon t
-       doom-modeline-file-name-style 'auto
+      ;; this works on the buffer state
+        doom-modeline-buffer-state-icon t
+        doom-modeline-buffer-modification-icon t
+      doom-modeline-file-name-style 'auto
 
-       ;; size and rendering of the modeline
-       doom-modeline-height 25
-       doom-modeline-bar-width 8
-       doom-modeline-window-width-limit 85
+      ;; size and rendering of the modeline
+      doom-modeline-height 25
+      doom-modeline-bar-width 8
+      doom-modeline-window-width-limit 85
 
-       ;; navigating the file
-       doom-modeline-percent-position t ; is this for the percentage of the position within the file?
-       doom-modeline-support-imenu t
-       doom-modeline-percent-position nil
+      ;; navigating the file
+      doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+      doom-modeline-support-imenu t
+      doom-modeline-percent-position nil
 
-       ;; integrating with project management
-       doom-modeline-project-detection 'auto
+      ;; integrating with project management
+      doom-modeline-project-detection 'auto
 
-       ;; other
-         doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+      ;; other
+        doom-modeline-lsp-icon t ; this doesn't currently work as I'm not working with code projects
+      doom-modeline-enable-word-count t)
    (doom-modeline-mode 1))
 
 (when (display-graphic-p)

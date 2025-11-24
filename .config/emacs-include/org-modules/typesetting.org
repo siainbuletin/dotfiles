@@ -22,14 +22,16 @@ I currently don't know if I actually like this environment, but I have to enable
         :after org
         :custom
         (olivetti-minimum-body 100)
-        (olivetti-body-width 0.8)
+        (olivetti-body-width 80)
         :bind
         (("C-c w o" . sia-olivetti))
         :hook
         (org-mode . olivetti-mode))
 #+end_src
 
-The hook will turn on =olivetti-mode= by default in an org-mode buffer
+The hook will turn on =olivetti-mode= by default in an org-mode buffer.
+
+If you define ~olivetti-body-width~ as a number (in this case ~80~), then you won't actually have adaptive reflow for the text when you change from a wider frame to a more narrow one. If you set ~olivetti-body-width~ as a fraction (what I had before, ~0.8~), then it will resize, but when using a wider frame, it will make the text a little bit to spread out to have it be easily readable.
 
 ** TODO Tangling the different parts of the manuscript together
 

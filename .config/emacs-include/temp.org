@@ -1,4 +1,4 @@
-# Created 2025-11-22 Sat 23:28
+# Created 2025-11-23 Sun 11:22
 #+options: ':t author:t
 #+title: Emacs configuration with org submodules
 #+author: Sia Piperea
@@ -8,7 +8,7 @@
 #+macro: latest-export-date (eval (format-time-string "%F %T %z"))\
 #+macro: word-count (eval  (count-words (point-min) (point-max)))
 
-[ Last revised and exported on *2025-11-22 23:28:49 +0200*, with a word count of *53918*. ]
+[ Last revised and exported on *2025-11-23 11:22:01 +0200*, with a word count of *54155*. ]
 * Changelog
 
 On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
@@ -3429,6 +3429,8 @@ This is for files that have been saved as bookmarks but it can be extended to mo
   ,#+TITLE: Functional org mode configuration
   ,#+STARTUP: overview
 
+  !@Test emphasis!@
+
   This does not include packages which are used for different workflows. It's just the base functionality of org-mode (vanilla, as it is distributed), which is altered for my own usecase.
 
   This is also for making the org buffer overall more readable, basically turning Emacs into a word processor.
@@ -4050,13 +4052,59 @@ This is for files that have been saved as bookmarks but it can be extended to mo
   | \\)       | end of the capture group (not matching)                                 |
   | [^\\w]     | something that’s not a word                                             |
 
-  ,* Addign extra emphasis for the highlights
+  ,* Adding extra emphasis for the highlights
 
   This should work even better than the =org-special-block-extras= package, because it allows me to have inline commentary. =org-extra-emphasis= can even work in [[denote:20251122T232615][HTML]], ODT and [[denote:20251117T100735][LaTeX]] exports.
 
-  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ,** Trying to install with use-package (failed)
+
+  The package requires =ox-odt= installed, but this has to be forked in order to work.
+
+  ,#+begin_src emacs-lisp :tangle no :eval never
+    (use-package ox-odt
+      :ensure (ox-odt
+        :type git :host github
+        :repo "kjambunathan/ox-odt"
+        :file ("lisp/ox-odt.el"
+                             "lisp/ox-ods.el"
+                             "lisp/odt.el"
+                             "etc"
+                             "docs"
+                             "contrib/odt/LibreOffice")))
+
     (use-package org-extra-emphasis
       :ensure (org-extra-emphasis :type git :host github :repo "QiangF/org-extra-emphasis"))
+  ,#+end_src
+
+  ,** Manual installation
+
+  This should work better than trying to do it with =use-package=.
+
+  ,#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
+
+  (custom-set-faces
+   '(org-default ((t (
+                      :background "#F0B609"
+                      :inherit default
+                      ))))
+   '(org-extra-emphasis ((t (
+                             :background "#F0B609"
+                             :height 1.0
+                             :inherit default
+                             :weight bold
+                             :width normal
+                             ))))
+   '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                                :foreground "#003F66"
+                                :inherit org-extra-emphasis
+                                :underline t
+                                ))))
+   '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+                                :foreground "#003F66"
+                                :inherit org-extra-emphasis
+                                :underline t
+                                )))))
   ,#+end_src
 
   ,* TODO =org-archive= settings
@@ -4086,6 +4134,8 @@ This is for files that have been saved as bookmarks but it can be extended to mo
 :results:
 #+TITLE: Functional org mode configuration
 #+STARTUP: overview
+
+!@Test emphasis!@
 
 This does not include packages which are used for different workflows. It's just the base functionality of org-mode (vanilla, as it is distributed), which is altered for my own usecase.
 
@@ -4708,13 +4758,59 @@ The elisp regular expression isn’t the easiest to understand, but this is what
 | \\)       | end of the capture group (not matching)                                 |
 | [^\\w]     | something that’s not a word                                             |
 
-* Addign extra emphasis for the highlights
+* Adding extra emphasis for the highlights
 
 This should work even better than the =org-special-block-extras= package, because it allows me to have inline commentary. =org-extra-emphasis= can even work in [[denote:20251122T232615][HTML]], ODT and [[denote:20251117T100735][LaTeX]] exports.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+** Trying to install with use-package (failed)
+
+The package requires =ox-odt= installed, but this has to be forked in order to work.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package ox-odt
+    :ensure (ox-odt
+      :type git :host github
+      :repo "kjambunathan/ox-odt"
+      :file ("lisp/ox-odt.el"
+                           "lisp/ox-ods.el"
+                           "lisp/odt.el"
+                           "etc"
+                           "docs"
+                           "contrib/odt/LibreOffice")))
+
   (use-package org-extra-emphasis
     :ensure (org-extra-emphasis :type git :host github :repo "QiangF/org-extra-emphasis"))
+#+end_src
+
+** Manual installation
+
+This should work better than trying to do it with =use-package=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
+
+(custom-set-faces
+ '(org-default ((t (
+                    :background "#F0B609"
+                    :inherit default
+                    ))))
+ '(org-extra-emphasis ((t (
+                           :background "#F0B609"
+                           :height 1.0
+                           :inherit default
+                           :weight bold
+                           :width normal
+                           ))))
+ '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              ))))
+ '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              )))))
 #+end_src
 
 * TODO =org-archive= settings
@@ -7593,7 +7689,7 @@ Perhaps this can be remedied in Emacs through using the org ids, but I don't lik
 #+end_src
 
 #+RESULTS:
-: [nil 26914 11030 301845 nil elpaca-process-queues nil nil 107000 nil]
+: [nil 26914 53822 880942 nil elpaca-process-queues nil nil 557000 nil]
 
 Enable the TOC for long markdown notes as well
 
@@ -7604,7 +7700,7 @@ Enable the TOC for long markdown notes as well
 #+end_src
 
 #+RESULTS:
-: [nil 26914 11030 304633 nil elpaca-process-queues nil nil 917000 nil]
+: [nil 26914 53822 884142 nil elpaca-process-queues nil nil 989000 nil]
 
 * Options for the workflow and the patchwork I have to do to make it work
 
@@ -10628,14 +10724,16 @@ Project management through =projectile=. Depends on the existence of =ripgrep= o
           :after org
           :custom
           (olivetti-minimum-body 100)
-          (olivetti-body-width 0.8)
+          (olivetti-body-width 80)
           :bind
           (("C-c w o" . sia-olivetti))
           :hook
           (org-mode . olivetti-mode))
   ,#+end_src
 
-  The hook will turn on =olivetti-mode= by default in an org-mode buffer
+  The hook will turn on =olivetti-mode= by default in an org-mode buffer.
+
+  If you define ~olivetti-body-width~ as a number (in this case ~80~), then you won't actually have adaptive reflow for the text when you change from a wider frame to a more narrow one. If you set ~olivetti-body-width~ as a fraction (what I had before, ~0.8~), then it will resize, but when using a wider frame, it will make the text a little bit to spread out to have it be easily readable.
 
   ,** TODO Tangling the different parts of the manuscript together
 
@@ -10795,14 +10893,16 @@ I currently don't know if I actually like this environment, but I have to enable
         :after org
         :custom
         (olivetti-minimum-body 100)
-        (olivetti-body-width 0.8)
+        (olivetti-body-width 80)
         :bind
         (("C-c w o" . sia-olivetti))
         :hook
         (org-mode . olivetti-mode))
 #+end_src
 
-The hook will turn on =olivetti-mode= by default in an org-mode buffer
+The hook will turn on =olivetti-mode= by default in an org-mode buffer.
+
+If you define ~olivetti-body-width~ as a number (in this case ~80~), then you won't actually have adaptive reflow for the text when you change from a wider frame to a more narrow one. If you set ~olivetti-body-width~ as a fraction (what I had before, ~0.8~), then it will resize, but when using a wider frame, it will make the text a little bit to spread out to have it be easily readable.
 
 ** TODO Tangling the different parts of the manuscript together
 
@@ -12224,33 +12324,34 @@ Settings for version control done through =magit=. This should also contain conf
 
   ,#+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package doom-modeline
-       :init
-       (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+      :init
+      (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
 
-           ;; identifying the modes we're in
-             doom-modeline-major-mode-color-icon t
-           doom-modeline-minor-modes nil ; keep identification to the current modes
+          ;; identifying the modes we're in
+            doom-modeline-major-mode-color-icon t
+          doom-modeline-minor-modes nil ; keep identification to the current modes
 
-           ;; this works on the buffer state
-             doom-modeline-buffer-state-icon t
-             doom-modeline-buffer-modification-icon t
-           doom-modeline-file-name-style 'auto
+          ;; this works on the buffer state
+            doom-modeline-buffer-state-icon t
+            doom-modeline-buffer-modification-icon t
+          doom-modeline-file-name-style 'auto
 
-           ;; size and rendering of the modeline
-           doom-modeline-height 25
-           doom-modeline-bar-width 8
-           doom-modeline-window-width-limit 85
+          ;; size and rendering of the modeline
+          doom-modeline-height 25
+          doom-modeline-bar-width 8
+          doom-modeline-window-width-limit 85
 
-           ;; navigating the file
-           doom-modeline-percent-position t ; is this for the percentage of the position within the file?
-           doom-modeline-support-imenu t
-           doom-modeline-percent-position nil
+          ;; navigating the file
+          doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+          doom-modeline-support-imenu t
+          doom-modeline-percent-position nil
 
-           ;; integrating with project management
-           doom-modeline-project-detection 'auto
+          ;; integrating with project management
+          doom-modeline-project-detection 'auto
 
-           ;; other
-             doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+          ;; other
+            doom-modeline-lsp-icon t ; this doesn't currently work as I'm not working with code projects
+          doom-modeline-enable-word-count t)
        (doom-modeline-mode 1))
   ,#+end_src
 
@@ -12296,33 +12397,34 @@ It also has an indicator for recording a macro
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package doom-modeline
-     :init
-     (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+    :init
+    (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
 
-         ;; identifying the modes we're in
-           doom-modeline-major-mode-color-icon t
-         doom-modeline-minor-modes nil ; keep identification to the current modes
+        ;; identifying the modes we're in
+          doom-modeline-major-mode-color-icon t
+        doom-modeline-minor-modes nil ; keep identification to the current modes
 
-         ;; this works on the buffer state
-           doom-modeline-buffer-state-icon t
-           doom-modeline-buffer-modification-icon t
-         doom-modeline-file-name-style 'auto
+        ;; this works on the buffer state
+          doom-modeline-buffer-state-icon t
+          doom-modeline-buffer-modification-icon t
+        doom-modeline-file-name-style 'auto
 
-         ;; size and rendering of the modeline
-         doom-modeline-height 25
-         doom-modeline-bar-width 8
-         doom-modeline-window-width-limit 85
+        ;; size and rendering of the modeline
+        doom-modeline-height 25
+        doom-modeline-bar-width 8
+        doom-modeline-window-width-limit 85
 
-         ;; navigating the file
-         doom-modeline-percent-position t ; is this for the percentage of the position within the file?
-         doom-modeline-support-imenu t
-         doom-modeline-percent-position nil
+        ;; navigating the file
+        doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+        doom-modeline-support-imenu t
+        doom-modeline-percent-position nil
 
-         ;; integrating with project management
-         doom-modeline-project-detection 'auto
+        ;; integrating with project management
+        doom-modeline-project-detection 'auto
 
-         ;; other
-           doom-modeline-lsp-icon t) ; this doesn't currently work as I'm not working with code projects
+        ;; other
+          doom-modeline-lsp-icon t ; this doesn't currently work as I'm not working with code projects
+        doom-modeline-enable-word-count t)
      (doom-modeline-mode 1))
 #+end_src
 
