@@ -1,0 +1,26 @@
+# the git config of the bare git repository (for yadm to work properly)
+home/siainbuletin/.local/share/yadm/repo.git/**
+~/.local/share/yadm/repo.git/objects/**
+~/.local/share/yadm/repo.git/refs/**
+
+# everything in the home directory, basically
+.mozilla/**
+.npm/**
+.pki/**
+.recoll/**
+.ssh/**
+.stumpwm.d/**
+.var/**
+.zotero/**
+Desktop/**
+Documents/**
+Downloads/**
+paru/**
+Pictures/**
+state/
+Zotero/**
+
+# other created files
+.nano-recentf
+.nano-savehist
+.zcompdump
