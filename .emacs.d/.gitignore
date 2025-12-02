@@ -2,3 +2,10 @@ eln-cache
 .cask
 elpa
 auto-save-list
+
+# directories
+undo/**
+
+# automatically generated files
+elgrep-data.el
+org-d3.js

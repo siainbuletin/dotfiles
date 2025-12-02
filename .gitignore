@@ -1,26 +1,71 @@
 # the git config of the bare git repository (for yadm to work properly)
-home/siainbuletin/.local/share/yadm/repo.git/**
+/home/siainbuletin/.local/share/yadm/repo.git/**
 ~/.local/share/yadm/repo.git/objects/**
 ~/.local/share/yadm/repo.git/refs/**
 
 # everything in the home directory, basically
+.backups/**
+.cache/**
+.cargo/**
+.deft/**
+.elfeed/**
+.gnupg/**
+.gphoto/**
+.icons/**
+.java/**
+.local/**
 .mozilla/**
 .npm/**
+.openjfx/**
+.org.jabref.gui.JabRefGUI/**
 .pki/**
 .recoll/**
+.rustup/**
 .ssh/**
+.stardict/**
 .stumpwm.d/**
 .var/**
+.venv/**
+.vscode-oss/**
+.winboat/**
 .zotero/**
 Desktop/**
 Documents/**
 Downloads/**
+mtkclient/
+mtkclient/**
 paru/**
 Pictures/**
-state/
+state/**
 Zotero/**
+winboat/**
 
 # other created files
+.bash_history
+.bash_logout
+.gitignore
+.gtkrc-2.0
+.histfile
+.lesshst
+.nano-bookmark
 .nano-recentf
 .nano-savehist
 .zcompdump
+.viminfo
+.zshrc.zni
+
+# Font configuration stuff (that I would like to actually move in real dotfiles at some point)
+.fonts.conf
+
+# Ignore org capture file created by Emacs (I need to change this as soon as possible)
+.notes
+
+# Files created by pandoc
+custom-reference.docx
+
+# Actual files created by git
+.gitconfig
+
+# Eliminate any backup files that are created by Emacs for this
+# this doesn't actually work, writing it normally creates a comment instead
+"#.*"

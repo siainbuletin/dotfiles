@@ -6,6 +6,8 @@ bookmarks
 history
 recentf
 
+documents/#**
+
 # directories of binary files
 transient/
 eln-cache/
