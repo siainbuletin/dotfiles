@@ -1,0 +1,40 @@
+#+title: Casual suite configuration
+
+As this is an enhacement useful for all of the other layers in this configuration, I'll call it within the main file.
+emas
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package casual
+    :ensure t)
+
+  ;; unset C-o so we can use it for casual functions
+  (global-unset-key (kbd "C-o"))
+#+end_src
+
+This gives symbol's function definiion is void for =transient--set-layout= as if the casual suite isn't actually installed already.
+
+Casual is actually quite annoying and gets in the way a lot, so now it's disabled. I want to be able to see the full image without this big menu always visible.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; configure image-mode to have casual bindings
+  (use-package image-mode
+    :ensure nil
+    :after casual
+    :config
+    (require 'casual-image)
+
+    :hook
+    (image-mode . casual-image-tmenu)
+
+    :bind
+    (:map image-mode-map
+          ("C-o" . casual-image-tmenu)))
+
+  ;; Configure dired to have casual bindings
+  (use-package dired
+    :ensure nil
+    :after casual
+
+    :bind
+    (:map dired-mode-map
+          ("C-o" . casual-dired-tmenu)))
+#+end_src

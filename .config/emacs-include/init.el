@@ -1165,6 +1165,11 @@ agenda."
     (mapc #'elfeed-search-update-entry entries)
     (unless (use-region-p) (forward-line))))
 
+(use-package zotra
+  :ensure t)
+
+; (setq zotra-backend 'zotra-server) ; doesn't work because zotra-server isn't updated
+
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
 
