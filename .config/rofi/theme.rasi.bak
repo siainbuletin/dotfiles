@@ -1,0 +1,16 @@
+// GENERAL CONFIGURATION
+configuration {
+	hover-select: true;
+}
+
+// @theme "gruvbox-light"
+
+// SOME GLOBAL PROPERTIES
+@import "colors.rasi"
+@import "fonts.rasi"
+
+element {
+	orientation: horizontal;
+	children: [ element-text, element-icon ];
+	spacing: 5px;
+}
