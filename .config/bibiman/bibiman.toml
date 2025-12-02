@@ -1,0 +1,104 @@
+[general]
+## Default files/dirs which are loaded on startup
+## Use absolute paths (~ for HOME works). Otherwise, loading might not work.
+bibfiles = [ "~/Documents/bibliography/" ]
+
+## Default editor to use when editing files. It can be set as plain string
+## only representing the command, or with arguments array.
+# editor = { command = "vim", args = [ "-y", "-R" ] }
+# OR
+editor = "emacs"
+
+## Default app to open PDFs/Epubs
+pdf_opener = "xdg-open"
+
+## Default app to open URLs/DOIs
+url_opener = "xdg-open"
+
+## Prefix which is prepended to the filepath from the `file` field
+## Use absolute paths (~ for HOME works). Otherwise, loading might not work.
+file_prefix = "~/Documents/literature"
+
+## Path to folder (with subfolders) containing PDF files with the basename
+## of the format "citekey.pdf". Other PDF basenames are not accepted.
+## Use absolute paths (~ for HOME works). Otherwise, loading might not work.
+pdf_path = "~/Documents/literature"
+
+## Path to folder (with subfolders) containing note files with the basename of
+## the format "citekey.extension". Other basenames are not accepted. The possible
+## extensions can be set through the "note_extensions" array.
+note_path = "~/Documents/notes/litnotes/bibiman"
+note_extensions = [ "md", "org" ]
+
+## Symbols/chars to show if not has specific attachement
+note_symbol = "N"
+file_symbol = "F"
+link_symbol = "L"
+
+## Select a custom column beside standard "author", "title" and "year"
+## Possible values are "journaltitle", "organization", "instituion", "publisher"
+## and "pubtype" (which is the default)
+# custom_column = "pubtype"
+
+## Define a custom formatter to format entries added via DOI. The formatter command
+## must be able to read from stdin and print to stdout. Check the docs of
+## your preffered formatter if specific options are needed to accomplish that.
+formatter = { command = "tex-fmt", args = ["--stdin", "--tabsize=8", "--wraplen=30"] }
+
+[colors]
+## Default values for dark-themed terminal
+## Possible values are:
+## ANSI color names. E.g. "bright-black"
+## 256-colors indices. E.g. "250"
+## Hex color codes. E.g. "#3a3a3a"
+main_text_color = "250"
+highlight_text_color = "254"
+entry_color = "36"
+keyword_color = "101"
+info_color = "99"
+confirm_color = "47"
+warn_color = "124"
+bar_bg_color = "234"
+popup_fg_color = "43"
+popup_bg_color = "234"
+selected_row_bg_color = "237"
+note_color = "123"
+file_color = "209"
+link_color = "39"
+author_color = "38"
+title_color = "37"
+year_color = "135"
+
+[citekey_formatter]
+## Define the patterns for creating citekeys. Every item of the array consists of
+## five components separated by semicolons. Despite the field name every component
+## can be left blank:
+## - name of the biblatex field ("author", "title"...)
+## - number of max words from the given field
+## - number of chars used from each word
+## - delimiter to separate words of the same field
+## - trailing delimiter separating the current field from the following
+fields = [ "author;2;;-;_", "year", "title;3;6;_;_"  ]
+case = "lowercase"
+ascii_only = true
+
+## List of words that'll be ignored when building citekeys.
+## A custom list will overwrite the default list. Thus, to add to the list,
+## uncomment it and add the additional words.
+ignored_words = [
+   "the",
+   "a",
+   "an",
+   "of",
+   "for",
+   "in",
+   "at",
+   "to",
+   "and",
+   "him",
+   "her",
+   "his",
+   "he",
+   "she",
+   "it",
+   "hers"]
