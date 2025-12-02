@@ -29,12 +29,16 @@
 .vscode-oss/**
 .winboat/**
 .zotero/**
+cloned-utils/**
 Desktop/**
 Documents/**
 Downloads/**
 mtkclient/
 mtkclient/**
 paru/**
+/paru/**
+~/paru/**
+~/paru/
 Pictures/**
 state/**
 Zotero/**
@@ -53,6 +57,11 @@ winboat/**
 .viminfo
 .zshrc.zni
 
+# Logs and results of those logs
+nohup.*
+# or...
+nohup.out
+
 # Font configuration stuff (that I would like to actually move in real dotfiles at some point)
 .fonts.conf
 
@@ -68,3 +77,7 @@ custom-reference.docx
 # Eliminate any backup files that are created by Emacs for this
 # this doesn't actually work, writing it normally creates a comment instead
 "#.*"
+
+# Special files based on the system itself
+## EndeavourOS files
+.eos-*
