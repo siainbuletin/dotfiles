@@ -1,0 +1,32 @@
+* Sia's Arch Linux dotfiles
+
+These are meant to possibly be replicated across different flavours of Arch Linux.
+
+** Future possinle improvements
+We'll see in the future if they can be subject to a move towards NixOS or even GNU Guix in the future.
+
+** Required software to install
+
+All names for the software are listed as they can be found either in the official Arch Linux repository or in the AUR. All may be downloadable through =pacman= or =paru= (prefered AUR helper in this case).
+
+More necessary software to install will probably be self explanatory from the directories that exist in these dotfiles
+
+*** Necessary for functioning
+- git
+- github-cli
+- paru
+
+*** General applications
+- alacritty
+- emacs (could be running in both the native Wayland version or Xwayland, depending on the case)
+- recoll
+- qutebrowser
+
+*** Window manager configurations
+- i3-wm
+- stumpwm
+- swaywm
+
+Most of the configurations done for KDE Plasma actually live in .gitignore, as I don't yet know how to properly manage all of this without creating some really big conflicts.
+
+** Installation instructions
