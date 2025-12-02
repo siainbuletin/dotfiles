@@ -3,6 +3,10 @@
 # You can also use the lisp evaluation environment to test things out (within Emacs itself, with the scratch buffer)
 emacs-debug/*
 
+# Don't make .local/share folders in the .config folder
+# WHY does this even happen?
+.local/share/**
+
 # these directories are rather littering in here and I can't directly affect the configuration
 autostart/recollindex.desktop
 BraveSoftware/**
@@ -35,8 +39,12 @@ ibus/**
 
 # KDE configurations (these should be done based on the machine)
 kate/**
+kdeconnect/**
 kdedefaults/**
 KDE/**
+
+# Email settings
+emaildefaults/**
 
 # Specifically KDE Plasma configurations
 plasma**
@@ -68,16 +76,30 @@ kdeglobals
 kfontinstuirc
 kglobalshortcutsrc
 kiorc
+konsolerc
+konsolesshconfig
+kontactrc
+krunnerrc
+kservicemenurc
+ksplashrc
 ksmserverrc
 ktimezonedrc
+ktrashrc
 kwalletrc
 kwinrc
 kwinoutputconfig.json
 kwriterc
 kxkbrc
+
+okularpartrc
+okularrc
+
 powerdevilrc
 spectaclerc
 trashrc
+
+# Settings for Arch Linux
+reflector-simple-free-params.txt
 
 # I have no idea what this is for
 bluedevilglobalrc
@@ -93,6 +115,9 @@ Trolltech.conf
 
 # Font configurati0on stuff
 fontconfig/**
+
+# Specific files for Thinkpad E14 (on EndeavourOS installation)
+welcome.conf
 
 # this is specifically for the Legion laptop (I think)
 mimeapps.list
