@@ -1,0 +1,100 @@
+# Ignore the temporary testing environment for emacs
+# This only works if you've got chemacs installed, so you can test which parts of your config don't work
+# You can also use the lisp evaluation environment to test things out (within Emacs itself, with the scratch buffer)
+emacs-debug/*
+
+# these directories are rather littering in here and I can't directly affect the configuration
+autostart/recollindex.desktop
+BraveSoftware/**
+cl-electron-server/**
+dconf/**
+deluge/**
+discord/**
+Electron/**
+evolution/**
+gh/**
+google-chrome/**
+grsync/**
+libaccounts-glib/**
+libreoffice/**
+mozilla/**
+obsidian/**
+pulse/**
+Recoll/**
+Recoll.org/**
+session/**
+Signal/**
+VSCodium/**
+winboat/**
+
+# regular system utilities
+gtk-2.0/**
+gtk-3.0/**
+gtk-4.0/**
+ibus/**
+
+# KDE configurations (these should be done based on the machine)
+kate/**
+kdedefaults/**
+KDE/**
+
+# Specifically KDE Plasma configurations
+plasma**
+
+# Other global settings (like Qt)
+QtProject.conf
+gtkrc
+gtkrc-2.0
+
+gwenviewrc
+
+# Individual software from KDE git ignore
+arkrc
+baloofileinformationrc
+baloofilerc
+discoverrc
+dolphinrc
+drkonqirc
+kactivitymanagerd-statsrc
+kactivitymanagerdrc
+kate-externaltoolspluginrc
+katerc
+katevirc
+kbibtexrc
+kcminputrc
+kconf_updaterc
+kded5rc
+kdeglobals
+kfontinstuirc
+kglobalshortcutsrc
+kiorc
+ksmserverrc
+ktimezonedrc
+kwalletrc
+kwinrc
+kwinoutputconfig.json
+kwriterc
+kxkbrc
+powerdevilrc
+spectaclerc
+trashrc
+
+# I have no idea what this is for
+bluedevilglobalrc
+filetypesrc
+user-dirs.dirs
+user-dirs.locale
+
+xdg-desktop-portal-kderc
+
+.gsd-keyboard.settings-ported
+
+Trolltech.conf
+
+# Font configurati0on stuff
+fontconfig/**
+
+# this is specifically for the Legion laptop (I think)
+mimeapps.list
+monitors.xml
+powermanagementprofilesrc
