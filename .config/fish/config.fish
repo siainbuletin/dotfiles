@@ -39,6 +39,8 @@ function backup --argument filename
     cp $filename $filename.bak
 end
 
+set -gx EDITOR nvim
+
 #################
 ## KEYBINDINGS ##
 #################
@@ -50,8 +52,6 @@ if type -q zoxide
     zoxide init fish --cmd cd | source # removes the mapping <C-t> which is being used to close the terminal in NeoVim
 end
 
-
-
 ####################
 ## EXIT FUNCTIONS ##
 ####################
@@ -59,3 +59,6 @@ end
 function on_exit --on-event fish_exit
 	echo fish is now exiting
 end
+
+set PATH $PATH /home/siainbuletin/.local/bin
+set -x PATH /home/siainbuletin/.cargo/bin $PATH

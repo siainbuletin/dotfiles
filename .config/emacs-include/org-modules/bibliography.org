@@ -323,9 +323,18 @@ This could also be done through something like =org-protocol= or =emacs-anywhere
 
 =OpenAlex= is a part of =org-ref=, so first and foremost that has to be configured separately.
 
-** Regular copy pasting of the reference into the BibTeX file
+** TODO Regular copy pasting of the reference into the BibTeX file
 
 Would it be easy to do with =citar=?
+
+** TODO using the zotero translators for this job
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package zotra
+    :ensure t)
+
+  ; (setq zotra-backend 'zotra-server) ; doesn't work because zotra-server isn't updated
+#+end_src
 
 * Managing the actual database itself
 
