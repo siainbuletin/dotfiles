@@ -43,7 +43,6 @@ winboat/**
 # other created files
 .bash_history
 .bash_logout
-.gitignore
 .gtkrc-2.0
 .histfile
 .lesshst
