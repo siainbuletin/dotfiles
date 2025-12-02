@@ -44,7 +44,7 @@ kdedefaults/**
 KDE/**
 
 # Email settings
-emaildefaults/**
+emaildefaults
 
 # Specifically KDE Plasma configurations
 plasma**
@@ -72,10 +72,12 @@ kbibtexrc
 kcminputrc
 kconf_updaterc
 kded5rc
+kded6rc
 kdeglobals
 kfontinstuirc
 kglobalshortcutsrc
 kiorc
+knfsshare
 konsolerc
 konsolesshconfig
 kontactrc
@@ -117,6 +119,7 @@ Trolltech.conf
 fontconfig/**
 
 # Specific files for Thinkpad E14 (on EndeavourOS installation)
+EOS-greeter.conf
 welcome.conf
 
 # this is specifically for the Legion laptop (I think)

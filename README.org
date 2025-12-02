@@ -21,7 +21,13 @@ More necessary software to install will probably be self explanatory from the di
 *** Necessary for functioning
 - git
 - github-cli
-- paru
+- paru (my prefered AUR helper)
+
+Copy paste this command if you want to make the installation faster for all of these dependencies.
+
+#+BEGIN_SRC
+sudo pacman -S git github-cli paru
+#+END_SRC
 
 *** General applications
 - alacritty
@@ -37,3 +43,24 @@ More necessary software to install will probably be self explanatory from the di
 Most of the configurations done for KDE Plasma actually live in .gitignore, as I don't yet know how to properly manage all of this without creating some really big conflicts.
 
 ** Installation instructions
+
+*** ARCHVED: Installing via GNU Stow
+
+Clone the directory of dotfiles into the $HOME directory with git. (I usually prefer to use GitHub through the CLI for authentication when setting the remote origin). Then, authenticate using HTTPS:
+
+#+BEGIN_SRC
+git clone https://github.com/siainbuletin/dotfiles.git
+cd dotfiles
+#+END_SRC
+
+Then, in order to create symlinks, you need to use GNU Stow.
+
+#BEGIN_SRC
+stow .
+#END_SRC
+
+If you happen to be creating a symlink for a directory that already exists, you can choose to overwrite the existing repository by using the =--adopt= flag. This will tell Stow to move any of the conflicting files into the dotfiles directory.
+
+#BEGIN_SRC shell
+stow --adopt .
+#END_SRC

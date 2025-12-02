@@ -7,5 +7,5 @@ auto-save-list
 undo/**
 
 # automatically generated files
-elgrep-data.el
+elgrep-data.el*
 org-d3.js
