@@ -6,6 +6,50 @@ One way to make the experience of using the computer more focused would be throu
 For getting information delivered as a newsfeed directly to Emacs, see [[file:inputs.org][Input management (for RSS and other sources)]].
 
 * TODO Configuration for =eww=
+
+** Opening a link either in =eww= or externally
+
+This will prompt for an interactive choice in the [[denote:20251119T100647][Emacs Minibuffer]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Open link in eww or browser
+  (defun open-link-at-point-or-minibuffer-with-choice ()
+    "Use `consult` to select a link at point, in the buffer, from `consult-omni` results, or prompt for a URL.
+    Then choose to open it in macOS default browser or eww.
+    If 'eww' is chosen, the link is opened in a window that occupies 80% of the frame height below the current one."
+    (interactive)
+    (let* ((url (or (thing-at-point 'url)                             ;; Check if there's a URL at point
+  		  (consult--read (thing-at-point--list 'url))       ;; Use consult to select a URL from the buffer
+  		  (consult-omni)                                    ;; Use consult-omni results to select a link
+  		  (read-string "Enter URL: "))))                    ;; Fall back to manual URL entry
+      (if url
+  	(let ((choice (completing-read "Open link in: " '("macOS Browser" "eww"))))
+  	  (cond
+  	   ((string-equal choice "macOS Browser")
+  	    (shell-command (concat "open " (shell-quote-argument url))))
+  	   ((string-equal choice "eww")
+  	    ;; Calculate the height for the top window (20% of the frame height)
+  	    (let ((window (selected-window))
+  		  (top-window-height (floor (* 0.2 (window-total-height)))))
+  	      ;; Split window with 20% height on top and 80% height for eww on the bottom
+  	      (select-window (split-window window top-window-height))
+  	      (eww url)))))
+        (message "No URL provided."))))
+#+end_src
+
+** Closing =eww= buffers that are left hanging aroung
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; close buffer and window
+  (defun close-buffer-and-window ()
+    "Close the current buffer and the window it's in."
+    (interactive)
+    (let ((window (selected-window)))
+      (kill-buffer)               ;; Kill the current buffer
+      (when (window-live-p window) ;; Check if the window is still live
+        (delete-window))))         ;; Delete the window if it exists
+#+end_src
+
 * TODO Configuring =elpher=
 
 This package allows you to work with Gopher sites as well.

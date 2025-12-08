@@ -2,9 +2,13 @@
  (casual-image-tmenu nil)
  (org-ref-bibtex-entry-menu nil)
  (org-ref-bibtex-file-menu nil)
+ (p-search-infix-directory "/home/siainbuletin/Documents/notes/")
  (p-search-transient-dispatcher
+  ((base-directory . "~/Documents/literature/")
+   (filename-regexp . ".*")
+   (search-tool . :rg)
+   (use-git-ignore . on))
   ((query-string . "tragicul dezirabil")
    (importance . medium))
-  nil
   ((query-string . "techne")
    (importance . medium))))

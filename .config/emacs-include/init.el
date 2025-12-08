@@ -1271,14 +1271,14 @@ agenda."
   (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
   (note . "#+title: Notes on ${author editor}, ${title}") ; For new notes
   ))
-       (citar-symbols
-        `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
-                ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
-          (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
-                ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
-          (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
-                ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
-       (citar-symbol-separator "  ")
+      (citar-symbols
+       `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
+               ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
+         (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
+               ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
+         (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
+               ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
+      (citar-symbol-separator "  ")
 
          :bind
          (("C-c w b o" . citar-open))
@@ -1287,6 +1287,8 @@ agenda."
          (LaTeX-mode . citar-capf-setup)
          (org-mode . citar-capf-setup)
          (markdown-mode . citar-capf-setup))
+
+(setq citar-library-file-extensions nil)
 
 (use-package citar-embark
   :ensure t
@@ -1498,6 +1500,14 @@ With a prefix ARG, remove start location."
   (with-eval-after-load 'pdf-annot
     (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
+(use-package nov
+  :ensure t
+  :config
+  (setq nov-variable-pitch nil
+        nov-text-width 70)
+  :init
+  (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
+
 (use-package calibredb
   :defer t
   :config
@@ -1613,6 +1623,39 @@ With a prefix ARG, remove start location."
 
 (use-package lexic
   :ensure t)
+
+;; Open link in eww or browser
+(defun open-link-at-point-or-minibuffer-with-choice ()
+  "Use `consult` to select a link at point, in the buffer, from `consult-omni` results, or prompt for a URL.
+  Then choose to open it in macOS default browser or eww.
+  If 'eww' is chosen, the link is opened in a window that occupies 80% of the frame height below the current one."
+  (interactive)
+  (let* ((url (or (thing-at-point 'url)                             ;; Check if there's a URL at point
+                (consult--read (thing-at-point--list 'url))       ;; Use consult to select a URL from the buffer
+                (consult-omni)                                    ;; Use consult-omni results to select a link
+                (read-string "Enter URL: "))))                    ;; Fall back to manual URL entry
+    (if url
+      (let ((choice (completing-read "Open link in: " '("macOS Browser" "eww"))))
+        (cond
+         ((string-equal choice "macOS Browser")
+          (shell-command (concat "open " (shell-quote-argument url))))
+         ((string-equal choice "eww")
+          ;; Calculate the height for the top window (20% of the frame height)
+          (let ((window (selected-window))
+                (top-window-height (floor (* 0.2 (window-total-height)))))
+            ;; Split window with 20% height on top and 80% height for eww on the bottom
+            (select-window (split-window window top-window-height))
+            (eww url)))))
+      (message "No URL provided."))))
+
+;; close buffer and window
+(defun close-buffer-and-window ()
+  "Close the current buffer and the window it's in."
+  (interactive)
+  (let ((window (selected-window)))
+    (kill-buffer)               ;; Kill the current buffer
+    (when (window-live-p window) ;; Check if the window is still live
+      (delete-window))))         ;; Delete the window if it exists
 
 (use-package elpher
   :ensure t)
@@ -2068,6 +2111,9 @@ DELTA would be something like 1 or -1."
         (agenda-date . (1.3))
         (agenda-structure . (variable-pitch light 1.8))
         (t . (1.1))))
+
+(set-face-attribute 'default nil
+                  :family "0xProto Nerd Font")
 
 (defun sia-setup-minibuffer ()
   "make minibuffer use larger font size."

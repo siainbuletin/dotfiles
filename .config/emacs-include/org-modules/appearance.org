@@ -739,8 +739,9 @@ This isn't actually necessary if we're using =modus-themes-load-theme=, which wo
 
 This doesn't actually work because it can't find the 'default variable.
 
+
+
 #+begin_src emacs-lisp :tangle no :eval never
-(set-face-attribute ‘default nil :font "Hack")
 (set-face-attribute ‘variable-pitch nil :font "Roboto Mono" :height 140)
 #+end_src
 
@@ -777,6 +778,13 @@ before all other modules of my setup."
                  (const :tag "The `modus-themes' module" modus)
                  (const :tag "The `standard-themes' module" standard)
                  (const :tag "Do not load a theme module" nil)))
+#+end_src
+
+* Modifying the default face for Emacs overall
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'default nil
+  		    :family "0xProto Nerd Font")
 #+end_src
 
 * Footnotes

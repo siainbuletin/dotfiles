@@ -2,7 +2,14 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("org-capture-last-stored-marker"
+(("creative industries"
+ (front-context-string . "ness in exchange")
+ (rear-context-string . "on of\nproductive")
+ (position . 14309)
+ (last-modified 26931 14299 188807 99000)
+ (location . "https://www.triple-c.at/index.php/tripleC/article/download/639/720/2735?inline=1")
+ (handler . eww-bookmark-jump))
+("org-capture-last-stored-marker"
  (filename . "~/.notes")
  (front-context-string . "** TODO Find a w")
  (rear-context-string . "n_litnote.org]]\n")

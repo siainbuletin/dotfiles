@@ -197,14 +197,14 @@ When browsing a pdftools-buffer you can use org-store-link (by default C-c l) to
 * Bootstrapping the other document readers
 ** Installing =nov-el=
 
-#+begin_src emacs-lisp :tangle no :eval never
-              (use-package nov
-                :ensure t
-                :config
-                (setq nov-variable-pitch nil
-                      nov-text-width 70)
-                :init
-                (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package nov
+    :ensure t
+    :config
+    (setq nov-variable-pitch nil
+          nov-text-width 70)
+    :init
+    (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
 #+end_src
 
 The init section ensures that any file with an =epub= extension is associated with this package. An ePub file is essentially a compressed website, so you will need the Zip program to enable reading these files. Refer to section #sec-epub in _Emacs Writing Studio_ on how to read ePub files.
