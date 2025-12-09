@@ -20,6 +20,12 @@ I also had this other snippet for enabling visual line mode by default and I don
 
 I don't really know how to deal with this bit about =with-eval-after-load=.
 
+** Always enable the =org-indent-mode= for different headings
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-hook 'org-mode-hook #'org-indent-mode)
+#+end_src
+
 ** TODO Wrapping the text with =visual-fill-column=
 
 *I still don't really know what is the use of this package.*
@@ -267,25 +273,29 @@ This will bypass other =SHIFT= bindings.
 ** Binding some common text editing in org-mode
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-        (use-package org
-          :ensure nil
-          :bind
-          ;; editing my regular zettels
-          ("C-c f n" . org-footnote-new)
-          ("C-c f q" . org-footnote-normalize)
-          ("C-c l d" . org-toggle-link-display)
+    (use-package org
+      :ensure nil
+      :bind
+      ;; editing my regular zettels
+      ("C-c f n" . org-footnote-new)
+      ("C-c f q" . org-footnote-normalize)
+      ("C-c l d" . org-toggle-link-display)
 
-          ;; safety nets
-          ("C-c s a" . org-save-all-org-buffers))
+      ;; safety nets
+      ("C-c s a" . org-save-all-org-buffers)
+
+      ;; working with items (lists)
+      ("M-S-b" . org-toggle-item)
+
+      ;; sorting elements
+      ("C-c s i" . org-sort-list)
+
+      ;; task-management bindings
+      ("C-x t d" . org-do-demote)
+  )
 #+end_src
 
-** Keybinding for joining two lines
-
-This makes the symbol to appear as void, so I'm not setting it properly. For now, to join lines, it's easier to just call =M-x jo=.
-
-#+begin_src emacs-lisp :tangle no :eval never
-  (keymap-global-set "C-x j" join-line)
-#+end_src
+See [[file:task.org][task management setup]] for more on the specifics of the keybindings used here.
 
 ** TODO Configuring =text-mode=
 

@@ -451,6 +451,8 @@ Works in linux, MacOS, Microsoft Windows."
     :bind
     ("C-x r D" . bookmark-delete))
 
+(add-hook 'org-mode-hook #'org-indent-mode)
+
 (setq org-hide-emphasis-markers t)
 (setq org-hide-leading-stars t)
 (setq org-startup-with-inline-images t)
@@ -521,15 +523,22 @@ Works in linux, MacOS, Microsoft Windows."
 (setq org-support-shift-select t)
 
 (use-package org
-  :ensure nil
-  :bind
-  ;; editing my regular zettels
-  ("C-c f n" . org-footnote-new)
-  ("C-c f q" . org-footnote-normalize)
-  ("C-c l d" . org-toggle-link-display)
+    :ensure nil
+    :bind
+    ;; editing my regular zettels
+    ("C-c f n" . org-footnote-new)
+    ("C-c f q" . org-footnote-normalize)
+    ("C-c l d" . org-toggle-link-display)
 
-  ;; safety nets
-  ("C-c s a" . org-save-all-org-buffers))
+    ;; safety nets
+    ("C-c s a" . org-save-all-org-buffers)
+
+    ;; working with items (lists)
+    ("M-S-b" . org-toggle-item)
+
+    ;; sorting elements
+    ("C-c s i" . org-sort-list)
+)
 
 (use-package text-mode
   :ensure nil

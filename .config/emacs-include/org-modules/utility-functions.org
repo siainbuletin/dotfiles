@@ -266,6 +266,17 @@ Yasnippet makes boiler plate and other code snippets much faster to write with s
   (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 #+end_src
 
+* Seeing what are the keys in use: =keycast=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package keycast
+  :ensure t)
+#+end_src
+
+** TODO Figure out how to make the keycast work with [[file:modeline.org][the Doom Modeline]]
+
+You need to set up a custom variable for it to work well.
+
 * Footnotes
 [fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
 
