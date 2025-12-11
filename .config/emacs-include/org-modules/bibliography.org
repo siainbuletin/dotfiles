@@ -327,14 +327,33 @@ This could also be done through something like =org-protocol= or =emacs-anywhere
 
 Would it be easy to do with =citar=?
 
-** TODO using the zotero translators for this job
+** TODO =zotra=: Bringing Zotero translators into Emacs
+
+It can mostly use the title search to look for the proper articles/books and their DOIs, if you don't already have them on hand. It might actually work better than the =doi-utils= package.
+
+Unfortunately, because of installation errors, I have to actually package this as a module in itself (I don't yet know how to create a git submodule, but =zotra= hasn't really been updated in a while anyway).
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
+  (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
+  (require 'zotra)
+
+  (setq zotra-backend 'translation-server)
+  (setq zotra-local-server-directory "~/cloned-utilities/zotero-translation-server")
+  (setq zotra-default-bibliography "~/Documents/bibliography/zotra-inbox.bib"
+        )
+  (setq zotra-download-attachment-default-directory "~/Documents/literature/zotra-dwnld")
+#+end_src
+
+The original call with =use-package= (might be an error with MELPA, because it can't pull any kind of information).
+
+#+begin_src emacs-lisp :tangle no :eval never
   (use-package zotra
     :ensure t)
 
   ; (setq zotra-backend 'zotra-server) ; doesn't work because zotra-server isn't updated
 #+end_src
+
+See the documentation for [[denote:20251211T093333][zotra]] for why it doesn't really work as it should.
 
 * Managing the actual database itself
 

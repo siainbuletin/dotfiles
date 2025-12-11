@@ -374,7 +374,7 @@ This would be good for searching in PDFs themselves.
 
 =xeft= is better for searching across an Obsidian vault, rather (see [[file:zettelkasten.org][zettelkasten configuration]] for the issues with that).
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (use-package xeft
     :ensure t
     :defer t
@@ -387,7 +387,7 @@ This would be good for searching in PDFs themselves.
 
 *** Define multiple directories for =xeft=:[fn:6]
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   ;; Define directory configurations
   (defvar sia-xeft-configs
     '((:name "ObsidianVault"
@@ -412,7 +412,7 @@ This would be good for searching in PDFs themselves.
 
 Create interactive functions for each individual directory that is defined:
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (defun sia-xeft-vault ()
     "Search in ObsidianVault directory."
     (interactive)
@@ -493,7 +493,7 @@ This denote dispatch was actually contained in the =use-package= for transient, 
 
 How to make the preview pane to show up automatically?
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (defvar-local xeft--displayed-by-xeft-p nil)
 
   (defun xeft--eager-preview()
@@ -516,7 +516,7 @@ How to make the preview pane to show up automatically?
 
 ** For faster note file searches: =notdeft=
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (use-package notdeft
     :ensure (notdeft
   	      :type git :host github :repo "hasu/notdeft"

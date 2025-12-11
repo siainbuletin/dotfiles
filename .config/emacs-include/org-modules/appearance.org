@@ -427,7 +427,7 @@ Also note that adding a little extra space between lines makes text files easier
 I want the quote to actually be different, so it's easier to read for me
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (set-face-attribute org-quote nil
+  (set-face-attribute 'org-quote nil
   		    :family "Aporetic Serif Mono")
 #+end_src
 *  Font icons

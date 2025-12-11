@@ -173,6 +173,9 @@
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
+(use-package keycast
+  :ensure t)
+
 (use-package counsel)
 
 (use-package consult
@@ -268,91 +271,10 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                           (unless (string-match "pdf$" x)
                             (swiper ivy-text)))))))
 
-(use-package xeft
-  :ensure t
-  :defer t
-  :config
-  (setq xeft-extensions '("md" "org"))
-  (setq xeft-ignore-extension '("png" "jpg" "jpeg")) ; there's no way to get text out of these anyway
-  (setq xeft-recursive 'follow-symlinks)
-  (setq xeft-title-function #'file-name-nondirectory))
-
-;; Define directory configurations
-(defvar sia-xeft-configs
-  '((:name "ObsidianVault"
-         :directory "~/Documents/vault/"
-         :database "~/Documents/vault/.xeft-db")
-    (:name "DenoteNotes"
-         :directory "~/Documents/notes/"
-         :database "~/Documents/notes/.xeft-db")
-    (:name "Literature"
-         :directory "~/Documents/literature/"
-         :database "~/Documents/literature/.xeft-db")))
-
-;; Function to search in a specific configuration
-(defun sia-xeft-search (config)
-  (when (get-buffer "*xeft*")
-    (kill-buffer "*xeft*"))
-  "Open xeft with the given CONFIG plist."
-  (let ((xeft-directory (plist-get config :directory))
-        (xeft-database (plist-get config :database)))
-    (xeft)))
-
-(defun sia-xeft-vault ()
-  "Search in ObsidianVault directory."
-  (interactive)
-  (sia-xeft-search (nth 0 sia-xeft-configs)))
-
-(defun sia-xeft-denote ()
-  "Search in DenoteNotes directory."
-  (interactive)
-  (sia-xeft-search (nth 1 sia-xeft-configs)))
-
-(defun sia-xeft-literature ()
-  "Search in Literature (academic) directory."
-  (interactive)
-  (sia-xeft-search (nth 2 sia-xeft-configs)))
-
 (use-package cond-let)
 
 (use-package transient
   :ensure t)
-
-(defvar-local xeft--displayed-by-xeft-p nil)
-
-(defun xeft--eager-preview()
-  (when-let* ((button (button-at (point)))
-              (path (button-get button 'path)))
-    ;; Kill previously displayed buffer.
-    (when (window-live-p xeft--preview-window)
-      (with-selected-window xeft--preview-window
-        (when xeft--displayed-by-xeft-p
-          (kill-buffer))))
-    ;; Show preview of current selection.
-    (xeft--preview-file path)))
-
-(add-hook 'xeft-find-file-hook
-          (lambda () (setq xeft--displayed-by-xeft-p t)))
-
-(advice-add 'xeft-next :after #'xeft--eager-preview)
-(advice-add 'xeft-previous :after #'xeft--eager-preview)
-
-(use-package notdeft
-  :ensure (notdeft
-            :type git :host github :repo "hasu/notdeft"
-            :files ("notdeft*.el" "xapian"))
-  :defer t
-  :init
-  (require 'notdeft-global) ;; for `notdeft-global-map'
-  (global-set-key [f7] 'notdeft-global-map) ;; choose a prefix key
-  (setq notdeft-open-query-function 'notdeft-mode-open-query)
-  (eval-after-load 'org ;; only if using Org format notes
-    (lambda ()
-      (require 'notdeft-org9) ;; for "deft:" and "notdeft:" link schemes
-      (add-hook 'org-mode-hook 'notdeft-note-mode-enable)))
-
-  :config
-  (notdeft-xapian-make-program-when-uncurrent))
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
@@ -401,6 +323,9 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 
 (use-package use-package-hydra
   :ensure t)
+
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
+(require 'zotra)
 
 (defun sia-dired-sort ()
   "Sort dired dir listing in different ways.
@@ -538,6 +463,9 @@ Works in linux, MacOS, Microsoft Windows."
 
     ;; sorting elements
     ("C-c s i" . org-sort-list)
+
+    ;; task-management bindings
+    ("C-x t d" . org-do-demote)
 )
 
 (use-package text-mode
@@ -1963,6 +1891,9 @@ With a prefix ARG, remove start location."
 (prettify-symbols-mode +1)
 
 (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
+
+(set-face-attribute 'org-quote nil
+                  :family "Aporetic Serif Mono")
 
 (use-package all-the-icons
   :if (display-graphic-p))
