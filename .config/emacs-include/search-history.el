@@ -1,0 +1,1 @@
+((:query "devalorizarea" :count 1 :last-used (26941 51579 932109 856000)))

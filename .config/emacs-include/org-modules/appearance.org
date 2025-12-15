@@ -430,6 +430,7 @@ I want the quote to actually be different, so it's easier to read for me
   (set-face-attribute 'org-quote nil
   		    :family "Aporetic Serif Mono")
 #+end_src
+
 *  Font icons
 ** Installing all-the-icons
 

@@ -285,7 +285,7 @@ This will bypass other =SHIFT= bindings.
       ("C-c s a" . org-save-all-org-buffers)
 
       ;; working with items (lists)
-      ("M-S-b" . org-toggle-item)
+      ("C-c t i" . org-toggle-item)
 
       ;; sorting elements
       ("C-c s i" . org-sort-list)

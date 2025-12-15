@@ -116,47 +116,7 @@ Converting links in Markdown files to =denote= links actually works, but I would
 
 This would mean finding a way to index the notes from Obsidian, which would have to take care of all the =[[wikilinks]]= that I have peppered in throughout. I want to avoid having to use the =obsidian-el= package, as the indexing on that is way too slow.
 
-** TODO Installing =obsidian-el=
-
-What exactly does =global-obsidian-mode= do?
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package obsidian
-    :config
-    (global-obsidian-mode t)
-    (obsidian-backlinks-mode t)
-
-    :custom
-    (obsidian-directory "~/Documents/vault")
-    ;; Default location for new notes from `obsidian-capture'
-    (obsidian-inbox-directory "Inbox")
-    ;; Useful if you're going to be using wiki links
-    ;; is this setting taken from markdown-mode?
-    (markdown-enable-wiki-links t)
-
-    :bind (:map obsidian-mode-map
-                ;; Create note
-                ("C-c C-n" . obsidian-capture)
-                ;; If you prefer you can use `obsidian-insert-wikilink'
-                ("C-c C-l" . obsidian-insert-link)
-                ;; Open file pointed to by link at point
-                ("C-c C-o" . obsidian-follow-link-at-point)
-                ;; Open a note note from vault
-                ("C-c C-p" . obsidian-jump)
-                ;; Follow a backlink for the current file
-                ("C-c C-b" . obsidian-backlink-jump)
-                )
-    )
-#+end_src
-
-Adding a persistent cache across sessions of Emacs
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package obsidian-pcache
-    :ensure (obsidian-pcache :host github :repo "knu/obsidian-pcache.el"))
-#+end_src
-
-** Specific text editing functions to emulate
+** Specific text editing functions to emulate from Obsidian
 
 While using Obsidian, I used the "Note Composer" plugin quite a lot. This allowed me to split files by sending their contents across (see [[denote:20251115T122217][Extracting contents of an org file to another]] for wanting to emulate this in Emacs) and to merge them together when their contents were similar enough.
 
@@ -262,6 +222,16 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
 =org-supertag= still is a pretty young package. It's also unclear how it will be useful for my system.
 
 * Defining my own set of functions for better operation on the files
+
+* Getting the [[denote:20251117T213411][Queries injected into Text Editor buffers]] to work
+** Trying out [[denote:20251213T220500][org-supertag]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-supertag
+    :ensure (org-supertag :host github :repo "yibie/org-supertag"))
+
+  (setq org-supertag-sync-directories '("~/Documents/notes/"))
+#+end_src
 
 * Footnotes
 [fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display

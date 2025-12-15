@@ -324,9 +324,6 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (use-package use-package-hydra
   :ensure t)
 
-(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
-(require 'zotra)
-
 (defun sia-dired-sort ()
   "Sort dired dir listing in different ways.
 Prompt for a choice.
@@ -459,7 +456,7 @@ Works in linux, MacOS, Microsoft Windows."
     ("C-c s a" . org-save-all-org-buffers)
 
     ;; working with items (lists)
-    ("M-S-b" . org-toggle-item)
+    ("C-c t i" . org-toggle-item)
 
     ;; sorting elements
     ("C-c s i" . org-sort-list)
@@ -907,36 +904,6 @@ agenda."
   :init
   (consult-notes-denote-mode))
 
-(use-package obsidian
-  :config
-  (global-obsidian-mode t)
-  (obsidian-backlinks-mode t)
-
-  :custom
-  (obsidian-directory "~/Documents/vault")
-  ;; Default location for new notes from `obsidian-capture'
-  (obsidian-inbox-directory "Inbox")
-  ;; Useful if you're going to be using wiki links
-  ;; is this setting taken from markdown-mode?
-  (markdown-enable-wiki-links t)
-
-  :bind (:map obsidian-mode-map
-              ;; Create note
-              ("C-c C-n" . obsidian-capture)
-              ;; If you prefer you can use `obsidian-insert-wikilink'
-              ("C-c C-l" . obsidian-insert-link)
-              ;; Open file pointed to by link at point
-              ("C-c C-o" . obsidian-follow-link-at-point)
-              ;; Open a note note from vault
-              ("C-c C-p" . obsidian-jump)
-              ;; Follow a backlink for the current file
-              ("C-c C-b" . obsidian-backlink-jump)
-              )
-  )
-
-(use-package obsidian-pcache
-  :ensure (obsidian-pcache :host github :repo "knu/obsidian-pcache.el"))
-
 (use-package org-sidebar
   :ensure t)
 
@@ -966,6 +933,11 @@ agenda."
 
 (use-package org-ql
   :ensure t)
+
+(use-package org-supertag
+  :ensure (org-supertag :host github :repo "yibie/org-supertag"))
+
+(setq org-supertag-sync-directories '("~/Documents/notes/"))
 
 (use-package markdown-mode
   :ensure t)
@@ -985,36 +957,6 @@ agenda."
   :init
   (consult-notes-denote-mode))
 
-(use-package obsidian
-  :config
-  (global-obsidian-mode t)
-  (obsidian-backlinks-mode t)
-
-  :custom
-  (obsidian-directory "~/Documents/vault")
-  ;; Default location for new notes from `obsidian-capture'
-  (obsidian-inbox-directory "Inbox")
-  ;; Useful if you're going to be using wiki links
-  ;; is this setting taken from markdown-mode?
-  (markdown-enable-wiki-links t)
-
-  :bind (:map obsidian-mode-map
-              ;; Create note
-              ("C-c C-n" . obsidian-capture)
-              ;; If you prefer you can use `obsidian-insert-wikilink'
-              ("C-c C-l" . obsidian-insert-link)
-              ;; Open file pointed to by link at point
-              ("C-c C-o" . obsidian-follow-link-at-point)
-              ;; Open a note note from vault
-              ("C-c C-p" . obsidian-jump)
-              ;; Follow a backlink for the current file
-              ("C-c C-b" . obsidian-backlink-jump)
-              )
-  )
-
-(use-package obsidian-pcache
-  :ensure (obsidian-pcache :host github :repo "knu/obsidian-pcache.el"))
-
 (use-package org-sidebar
   :ensure t)
 
@@ -1044,6 +986,11 @@ agenda."
 
 (use-package org-ql
   :ensure t)
+
+(use-package org-supertag
+  :ensure (org-supertag :host github :repo "yibie/org-supertag"))
+
+(setq org-supertag-sync-directories '("~/Documents/notes/"))
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
@@ -1102,10 +1049,14 @@ agenda."
     (mapc #'elfeed-search-update-entry entries)
     (unless (use-region-p) (forward-line))))
 
-(use-package zotra
-  :ensure t)
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
+(require 'zotra)
 
-; (setq zotra-backend 'zotra-server) ; doesn't work because zotra-server isn't updated
+(setq zotra-backend 'translation-server)
+(setq zotra-local-server-directory "~/cloned-utilities/zotero-translation-server")
+(setq zotra-default-bibliography "~/Documents/bibliography/zotra-inbox.bib"
+      )
+(setq zotra-download-attachment-default-directory "~/Documents/literature/zotra-dwnld")
 
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
