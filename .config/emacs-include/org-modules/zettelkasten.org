@@ -233,6 +233,41 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
   (setq org-supertag-sync-directories '("~/Documents/notes/"))
 #+end_src
 
+* Improving the backlinking structure with =org-node=
+
+As an alternative (or rather, an enhancement) of my system which is currently based on [[denote:20251115T114845][denote]], I want to see what I could do if I had =org-node=, which is more similar to =org-roam=. I want to avoid =org-roam= since it's really slow, but it does seem to have better capacities for, for example, taking care of [[denote:20251117T105322][Literature notes]] and how they show up when you search for them.
+
+Also, the [[denote:20251207T151311][backlink pane]] is really subpar in [[denote:20251115T114845][denote]]. Renaming files and merging is also pretty fickle right now, as the =denote-merge= package still has issues. Searching to the really granular heading in my notes isn't easily done. I want to be able to declaratively structure and destructure my notes as needed, instead of forcing atomic notes across the board --- this may not work for manuscripts or for [[denote:20251203T115137][Generating comparison tables from queries]] (as you need to do something about the [[denote:20251117T103002][Detail-in-context problem]]).
+
+[[denote:20251216T102815][org-node]] also benefits from having a "related" section, which aids in knowledge discovery.
+
+The cache created by =org-node= can be queried, like the one in [[denote:20251116T141307][org-roam]]. This isn't possible, for example, in [[denote:20251213T215223][org-super-links]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-mem
+    :defer
+    :config
+    ;; At least one of these two is needed
+    (setq org-mem-do-sync-with-org-id t)
+    (setq org-mem-watch-dirs
+          (list "~/Documents/notes/")) ;; Configure me
+    (org-mem-updater-mode))
+#+end_src
+
+What is the directory that I should have configured in here? Should I try directly with my [[denote:20251115T114845][denote]] directory? Would that create any kind of issue with my already existing notes?
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-node
+    :init
+    ;; Optional key bindings
+    ;; Tip: Try changing these to just "M-o"!
+    (keymap-global-set "M-o n" org-node-global-prefix-map)
+    (with-eval-after-load 'org
+      (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
+    :config
+    (org-node-cache-mode))
+#+end_src
+
 * Footnotes
 [fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display
 
