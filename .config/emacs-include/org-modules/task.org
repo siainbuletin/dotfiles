@@ -424,6 +424,28 @@ Taking care of the dependency relations between tasks is important for decing wh
 
 Blocker in files "indicates conditions which must be met in order for a heading to be marked as DONE. Typically, this will be a list of headings that must be marked as DONE."[fn:1]
 
+* Declaratively including =org-agenda= files
+
+Since you want to have [[denote:20251207T001521][Task management in org-mode using individual files as projects]] (and [[denote:20251117T160008][Collecting tasks from a writing project into org-agenda]]) and be able to have [[denote:20251214T102352][Project management for writing]] as something more integrated into Emacs and your notes, then you want to be able to just quickly declare different questions (see [[denote:20251117T160121][Further research markers in org-mode documents]]) that you may have on a subject directly in the [[denote:20251117T105346][Zettelkasten]] that you're working on.
+
+One way to get this to work is through [[denote:20251216T173055][org-mem]], which has a faster database than was available until now. It also has the option to parse through the headings that actually have a TODO attached to them and they will provide you with the relevant TODOs in the [[denote:20251117T103026][org-agenda]] views.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "archive" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+#+end_src
+
+
 * Footnotes
 [fn:2]  https://www.youtube.com/watch?v=-9rpQA6O3aM&t=1863s
 

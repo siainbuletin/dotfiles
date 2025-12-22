@@ -1,5 +1,6 @@
 ((casual-ibuffer-tmenu nil)
  (casual-image-tmenu nil)
+ (listen-menu nil)
  (magit-merge nil)
  (magit-push nil)
  (org-ref-bibtex-entry-menu nil)

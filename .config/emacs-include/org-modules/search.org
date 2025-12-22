@@ -226,7 +226,17 @@ Defining the PATH here:
   (setq exec-path (append exec-path '("/Users/rougier/bin")))
 #+end_src
 
-**** Opening the search results in =consult-recoll=
+**** TODO Configuring proper search narrowing
+
+Right now, I don't understand what I could do to actually get the results that I'm looking for without getting a lot of garbage in the way as well.
+
+**** Configuring live preview for the results in =consult-recoll=
+
+By default, you can only click on the results that you're bringing up. But I'd rather see a preview of the results in the file without having to open a whole new Emacs window for it.
+
+How can I suppress this window?
+
+**** TODO Opening the search results in =consult-recoll=
 
 When a search result candidate is selected, its MIME type is used to look up a function to open its associated file in the customizable variable consult-recoll-open-fns. If no entry is found, consult-recoll uses the value of consult-open-fn as a default. If the latter is not set, eww-open-file is used for HTML files and find-file for the rest, moving to the result's page number if the major mode of the opened file is either doc-view-mode or pdf-view-mode.
 
@@ -238,7 +248,7 @@ See also Integration with embark-collect for an alternative way of listing and o
 
 One thing you can do is open emails that are received in =notmuch=. Refer to [[file:email.org][Email configuration]] for this snippet.
 
-**** Formatting the search results list in the minibuffer
+**** TODO Formatting the search results list in the minibuffer
 
 One can use =consult-recoll-format-candidate= to customize how search results are shown in the [[denote:20251119T100647][minibufer]]. For instance, i like to shorten paths removing common prefixes and to show [[denote:20251122T223104][MIME types]], so i use a formatter similar to this one:[fn:3]
 
@@ -256,11 +266,11 @@ One can use =consult-recoll-format-candidate= to customize how search results ar
   (setq consult-recoll-format-candidate #'sia-recoll-format)
 #+end_src
 
-**** Integrating =counsel-recoll= with =embark-collect=
+**** TODO Integrating =counsel-recoll= with =embark-collect=
 
 If you use embark, you can use embark-collect to export the list of search results in the minibuffer to an Embark collect buffer. To allow opening buffer in that buffer as if they had been selected in the minibuffer, enable integration with embark adding this call to your init file:
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (consult-recoll-embark-setup)
 #+end_src
 

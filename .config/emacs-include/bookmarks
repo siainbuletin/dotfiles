@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("creative industries"
+(("org-agenda files"
+ (filename . "~/Documents/tracking/")
+ (front-context-string . ".stfolder\n  -rw-")
+ (rear-context-string . "54 Nov 18 17:21 ")
+ (position . 146)
+ (last-modified 26947 53668 727945 723000))
+("creative industries"
  (front-context-string . "ness in exchange")
  (rear-context-string . "on of\nproductive")
  (position . 14309)

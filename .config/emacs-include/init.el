@@ -53,7 +53,7 @@
 
 ;;; Configure elpaca use-package support
 (elpaca elpaca-use-package
-        ;; Enable use-package :ensure support for Elpaca.
+;;         ;; Enable use-package :ensure support for Elpaca.
         (elpaca-use-package-mode)
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
@@ -541,27 +541,14 @@ title."
 (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
- '(org-default ((t (
-                    :background "#F0B609"
-                    :inherit default
-                    ))))
- '(org-extra-emphasis ((t (
-                           :background "#F0B609"
-                           :height 1.0
-                           :inherit default
-                           :weight bold
-                           :width normal
-                           ))))
- '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              ))))
- '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              )))))
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(org-default ((t (:background "#F0B609" :inherit default))))
+ '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
+ '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
+ '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
 
 (setq org-todo-keywords
       '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
@@ -945,8 +932,13 @@ agenda."
   ;; At least one of these two is needed
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
-        (list "~/Documents/notes/")) ;; Configure me
+        (list "~/Documents/notes/"))
+  ;; To also detect "denote:abcdefg" links without [[enclosing brackets]]
+  (add-to-list 'org-mem-seek-link-types "denote")
   (org-mem-updater-mode))
+
+(use-package inspector
+  :ensure t)
 
 (use-package org-node
   :init
@@ -958,77 +950,18 @@ agenda."
   :config
   (org-node-cache-mode))
 
-(use-package markdown-mode
-  :ensure t)
-
-(use-package markdown-toc
-  :ensure t
-  :after markdown-mode)
-
-(use-package consult-notes
-  :ensure t
-  :after consult
-  :custom
-  (consult-notes-denote-display-keywords-indicator "_")
-  :bind
-  (("C-c w d f" . consult-notes)
-   ("C-c w d g" . consult-notes-search-in-all-notes))
-  :init
-  (consult-notes-denote-mode))
-
-(use-package org-sidebar
-  :ensure t)
-
-(defun org-ref-make-org-link-cite-key-visible (&rest _)
-  "Make the org-ref cite link visible in descriptive links."
-
-  (save-match-data
-    (let ((s (match-string 1))
-      (beg (match-beginning 0))
-      (end (match-end 0))
-      (cite-re (format "^\\(%s:\\)"
-               (regexp-opt (-sort
-                    (lambda (a b)
-                      (> (length a) (length b)))
-                    org-ref-cite-types))))
-      cite-type)
-
-      (when (and s (string-match cite-re s))
-    (setq cite-type (match-string 1 s))
-    (remove-text-properties beg end
-                '(invisible))
-    (add-text-properties
-     beg end
-     `(face (:foreground ,org-ref-cite-color)))))))
-
-(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
-
-(use-package org-ql
-  :ensure t)
-
-(use-package org-supertag
-  :ensure (org-supertag :host github :repo "yibie/org-supertag"))
-
-(setq org-supertag-sync-directories '("~/Documents/notes/"))
-
-(use-package org-mem
-  :defer
-  :config
-  ;; At least one of these two is needed
-  (setq org-mem-do-sync-with-org-id t)
-  (setq org-mem-watch-dirs
-        (list "~/Documents/notes/")) ;; Configure me
-  (org-mem-updater-mode))
-
-(use-package org-node
-  :init
-  ;; Optional key bindings
-  ;; Tip: Try changing these to just "M-o"!
-  (keymap-global-set "M-o n" org-node-global-prefix-map)
-  (with-eval-after-load 'org
-    (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
-  :config
-  (org-node-cache-mode))
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "archive" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
@@ -1389,6 +1322,8 @@ agenda."
 (setq org-noter-auto-save-last-location t)
 
 (setq org-noter-highlight-selected-text t)
+
+(setq org-noter-always-create-frame nil)
 
 (use-package org-pdftools
   :hook (org-mode . org-pdftools-setup-link))
@@ -2173,6 +2108,32 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "C-c sr") 'easysession-rename)
 (global-set-key (kbd "C-c sR") 'easysession-reset)
 
+(use-package vuiet
+  :ensure t)
+
+(use-package lastfm
+  :ensure t)
+
+(use-package ready-player
+  :ensure t
+  :init
+  (ready-player-mode 1)
+  :custom
+  (ready-player-thumbnail-max-pixel-height 200)
+  (ready-player-autoplay nil)
+  (ready-player-repeat t)
+  (ready-player-shuffle t)
+  (ready-player-open-playback-commands
+   '(
+     ("mpv" "--audio-display=no")
+     ("mplayer")
+     ("ffplay")
+     ("vlc")
+     )))
+
+(use-package listen
+  :ensure t)
+
 (global-set-key (kbd "C-c e b b") 'eval-buffer)
 
 ;; Does not work on Windows, but we can just avoid compiling dependencies and using it
@@ -2189,3 +2150,13 @@ DELTA would be something like 1 or -1."
                   (text-scale-adjust 2)))
   :bind
   ("<f7>" . vterm))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(citar-denote-title-format 'full)
+ '(package-selected-packages '(citar-org-node))
+ '(package-vc-selected-packages
+   '((citar-org-node :url
+		     "https://github.com/krisbalintona/citar-org-node.git"))))

@@ -134,6 +134,55 @@ Configuring =org-noter= to actually show annotated text on the PDF.
 
 *How do I make sure if the text I highlighted is actually embedded into the PDF?*
 
+*** Configuring =org-noter= to open the notes in the current window and bring the PDF on the other side
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-always-create-frame nil)
+#+end_src
+
+This is taken from https://github.com/Vidianos-Giannitsis/Dotfiles/tree/master/emacs/.emacs.d#org-noter
+
+*** Hiding the property drawer that is created by =org-noter=
+
+#+begin_src emacs-lisp
+(defun org-cycle-hide-drawers (state)
+     "Hide all the :PROPERTIES: drawers when called with the 'all argument. Mainly for hiding them in crammed org-noter files"
+     (interactive "MEnter 'all for hiding :PROPERTIES: drawers in an org buffer: ")
+     (when (and (derived-mode-p 'org-mode)
+		  (not (memq state '(overview folded contents))))
+	 (save-excursion
+	   (let* ((globalp (memq state '(contents all)))
+		  (beg (if globalp
+			 (point-min)
+			 (point)))
+		  (end (if globalp
+			 (point-max)
+			 (if (eq state 'children)
+			   (save-excursion
+			     (outline-next-heading)
+			     (point))
+			   (org-end-of-subtree t)))))
+	     (goto-char beg)
+	     (while (re-search-forward org-drawer-regexp end t)
+	       (save-excursion
+		 (beginning-of-line 1)
+		 (when (looking-at org-drawer-regexp)
+		   (let* ((start (1- (match-beginning 0)))
+			  (limit
+			    (save-excursion
+			      (outline-next-heading)
+				(point)))
+			  (msg (format
+				 (concat
+				   "org-cycle-hide-drawers:  "
+				   "`:END:`"
+				   " line missing at position %s")
+				 (1+ start))))
+		     (if (re-search-forward "^[ \t]*:END:" limit t)
+		       (outline-flag-region start (point-at-eol) t)
+		       (user-error msg))))))))))
+#+end_src
+
 ** Configuring =org-pdftools=
 
 =org-pdftools= adds a special org link type (see [[denote:20251115T113306][Custom link creation in org mode]]) for a precise PDF link location.
@@ -230,6 +279,23 @@ This is apparently possible and it would make an academic reading workflow on e-
 * Proposed improvements
 
 I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
+
+* Bringing a better reader into Emacs, for all formats: =emacs-reader=
+* Creating a reading list
+
+See [[denote:20251213T184505][Reading list in Emacs]] (it's really important to organise academic resources in a table that's easy to navigate)
+
+** Using ~tabulated-list-mode~ to create a table to choose reading materials from
+
+To make it easier to look through your possible reading materials (and where they're said to be relevant for reading), then you should create a table with the available materials and their properties.
+
+This is already possible in [[denote:20251116T141328][Obsidian]] through the (now deprecated) [[denote:20251216T231240][obsidian-projects]] plugin and the newer [[denote:20251203T025436][obsidian-bases]], which seems to work somewhat better right now.
+
+But I want to be able to use the built-in [[denote:20251114T230911][task management]] features to see the priority of what I have to read and how far along I already am with the progress. See also the talk given by Vidianos at EmacsConf 2025, by creating a reading list system with [[denote:20251209T185022][ebib]] and [[denote:20251116T141307][org-roam]].
+
+One way to make a filtered view that you can then feed into ~tabulated-list-mode~
+
+If you want to go further than that, you can develop some custom filters for [[denote:20251216T232038][denote-menu]], which already uses ~tabulated-list-mode~. See
 
 * Footnotes
 

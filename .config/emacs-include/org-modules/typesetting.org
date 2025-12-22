@@ -66,9 +66,91 @@ Iterative development for a text is also something that concerns project managem
 
 ** Writing integrated notes
 
-The point while drafting a manuscript is to have quick and easy access to the PDFs that I'm taking references from, as well as be able to connect the annotation content to what I'm reading. This is later materialised in the Zettelkasten notes that I use for actual writing of the manuscript.
+The point while drafting a manuscript is to have quick and easy access to the PDFs that I'm taking references from, as well as be able to connect the annotation content to what I'm reading. This is later materialised in the [[id:7e9d8466-d1ff-491a-82c8-d3c937c9575a][Zettelkasten]] notes that I use for actual writing of the manuscript.
 
-=org-noter= seems to be best suited package for this scope.
+[[id:bc1a5a70-e215-4e81-9e9d-32648989fe6a][org-noter]] seems to be best suited package for this scope.
+
+* Exporting plain LaTeX
+
+For actual notes on how to do this, see [[id:05e98dbc-85f4-4b61-bc1e-10ac69fad67a][Compiling LaTeX from org]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(require 'ox-latex)
+(unless (boundp 'org-latex-classes)
+  (setq org-latex-classes nil))
+#+end_src
+
+This snippet is given by this article in worg[fn:1]
+
+** Defining my own plain LaTeX class
+
+#+begin_quote
+This will give us a class that won’t include all the default packages in the generated LaTeX file. Put this in your init file. You can then use it with #+LATEX_CLASS: org-plain-latex.[fn:2]
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (with-eval-after-load 'ox-latex
+  (add-to-list 'org-latex-classes
+  	     '("article"
+                 "\\documentclass{article}"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+
+               '("org-plain-latex"
+                 "\\documentclass{article}
+             [NO-DEFAULT-PACKAGES]
+             [PACKAGES]
+             [EXTRA]"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+#+end_src
+
+** Creating the necessary ~SETUPFILE~
+
+A SETUPFILE is simply a file that contains some sort of org mode configuration. For example, the #+LATEX_CLASS: we saw earlier. Or, maybe #+LATEX_HEADER:. It could even be as simple as #+TITLE:. In this SETUPFILE we can place all of our lines of LaTeX code we want included in the final generated document. This is a very powerful and easy method of perfectly customizing our export.
+
+Linking to a SETUPFILE is done like this
+
+~#+SETUPFILE: ~/Dropbox/Mackup/emacs-stuff/org/jake-standard-latex-export.org~
+
+*** Structuring the ~SETUPFILE~
+
+Now, in that SETUPFILE, we place the LaTeX lines we normally would put in a .tex file. For example, \usepackage{amsmath}. Hopefully you have your own favorite .tex file setup, but if not I suggest learning LaTeX and/or finding a template online.
+
+I suggest using a macro to add #+LATEX_CLASS: to each line, rather than typing it manually of course! Notice the LaTeX_CLASS: - the custom one we just created.
+
+#+begin_src org
+,#+LaTeX_CLASS: org-plain-latex
+,#+LaTeX_CLASS_OPTIONS: [letter]
+,#+LATEX_HEADER: \usepackage{lmodern} % Ensures we have the right font
+
+,#+LATEX_HEADER: \usepackage[AUTO]{inputenc}
+,#+LATEX_HEADER: \usepackage{graphicx}
+,#+LATEX_HEADER: \usepackage{amsmath, amsthm, amssymb}
+,#+LATEX_HEADER: \usepackage[table, xcdraw]{xcolor}
+
+% and so on...
+#+end_src
+
+** Enabling code highlighting in a LaTeX export[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-latex-listings 't)
+#+end_src
+
+This means that you need to add this to the ~SETUPFILE~:
+
+#+begin_src org
+,#+LATEX_HEADER: \usepackage{listings}
+#+end_src
+
+If you enable org-latex-listings but don’t include the listings package in your TeX file, it will likely not compile (if you are exporting an org file with code blocks).
 
 * TODO Document compilation/export workflow for org-mode manuscripts
 ** TODO Exporting to HTML for creating websites
@@ -100,7 +182,7 @@ This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as th
   :after org)
 #+end_src
 
-This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:1]
+This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:4]
 ** TODO Export org-mode manuscripts to Microsoft Word
 :PROPERTIES:
 :ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
@@ -108,7 +190,7 @@ This will make Typst available through the =org-export-dispatch= dialogue menu.[
 
 Is there any way to preserve the formatting?
 
-I might need to use =ox-pandoc= for this to work well. This version is good if you want to use the same formatting for the export all the time. There's also the option to pass options for pandoc compilation via the org header: https://github.com/emacsorphanage/ox-pandoc#passing-options-to-pandoc It could be easy to set up with YASnippet.[fn:2]
+I might need to use =ox-pandoc= for this to work well. This version is good if you want to use the same formatting for the export all the time. There's also the option to pass options for pandoc compilation via the org header: https://github.com/emacsorphanage/ox-pandoc#passing-options-to-pandoc It could be easy to set up with YASnippet.[fn:5]
 
 You need to also set =pandoc= up to generate good looking DOCX files. For this, you need a template document. =pandoc= has to be set up properly with =pacman= in order to behave well. The best way to do a DOCX export with pandoc is to play by its rules. This means that you need to start from its own templates.
 
@@ -118,7 +200,7 @@ To get a document formatted as this reference, you need to run this command in t
 pandoc -o custom-reference.docx --print-default-data-file reference.docx
 #+end_src
 
-After this, you should open the ~.docx~ document in the word processor and edit the styles as needed.[fn:2]
+After this, you should open the ~.docx~ document in the word processor and edit the styles as needed.[fn:5]
 
 ** Installing =ox-pandoc=
 
@@ -159,7 +241,12 @@ However, I tend to like the =typst= workflow more simply because it is running o
 
 * Footnotes
 
-[fn:3] https://github.com/tecosaur/org-pandoc-import
-[fn:2] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline
+[fn:1]  https://orgmode.org/worg/org-tutorials/org-latex-export.html
 
-[fn:1] https://github.com/jmpunkt/ox-typst
+[fn:2]  https://jakebox.github.io/posts/2021-03-20-org_latex
+
+[fn:3] https://github.com/tecosaur/org-pandoc-import
+
+[fn:4] https://github.com/jmpunkt/ox-typst
+
+[fn:5] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline

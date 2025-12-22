@@ -569,6 +569,9 @@ Unfortunately, =citar-indicator-files= gives the function as if it's void, so I'
 :PROPERTIES:
 :ID:       1ad2bbe5-867c-4add-a3d6-6c3375bb770e
 :END:
+:BACKLINKS:
+[2025-12-19 Fri 01:03] <- [[id:2f21897e-675d-4238-a980-7bf10e31f40d][Ingesting from the browser (with =org-capture-ref=)]]
+:END:
 
 This could be tangled into the actual BibTeX record. And you could keep the literature notes in basically the same place. But it would essentially bypass any kind of bibliography management mode like =org-ref=.
 
@@ -697,6 +700,48 @@ The package regenerates this cache after you edit a bibliography file or call an
 
 Each bibliographic note is marked with the configurable bib file tag (=citar-denote-keyword=). This tag reduces the search space to generate the cache.
 
+** Keeping a [[denote:20251213T184505][reading list]] with [[denote:20251203T121324][org-bib-mode]]
+
+This is currently disabled because org-bib-mode is based on an old library for citeproc. I could theoretically modify it to work for my own needs, by removing citeproc and enabling native =org-cite= support. Maybe there's a different way I could see all of the component bibliography for my writing if I just use org column view and use the original CachesToCaches template for annotated bibliography. It's too hard to get this working properly, unfortunately.
+
+This will allow [[denote:20251203T121052][Research as a task]], because you can list out the things that you're looking for with the bibliography from those files.
+
+This is a minor mode created by [[denote:20251217T105353][Nicolas P. Rougier]]. It depends on =org-imenu= and =pdf-drop-mode=.
+
+=org-bib-mode= also requires =citeproc.el=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package pdf-drop-mode
+      :ensure (pdf-drop-mode :type git
+    			 :host github
+    			 :repo "rougier/pdf-drop-mode"))
+
+    (use-package citeproc
+      :ensure t)
+
+    (use-package citeproc-org
+      :ensure t)
+#+end_src
+
+=org-imenu= doesn't work if I don't load it manually. It depends on =imenu-list=, which I won't try to install from ELPA, since it doesn't appear to be listed. They're all pretty old packages.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (load "~/.config/emacs-include/imenu-list.el")
+  (load "~/.config/emacs-include/org-imenu.el")
+#+end_src
+
+=org-bib-mode= has to be loaded separately as an Elisp module.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (load "~/.config/emacs-include/rougier-org-bib.el")
+#+end_src
+
+*** TODO Pulling tasks from the linked files into the "Reading list file"
+
+It would be a good idea to somehow scan only the [[denote:20251115T114845][denote]] files (created with [[denote:20251115T114734][citar-denote]]) and fetch the [[denote:20251217T104019][citekeys]] that are put in ~#+reference:~ frontmatter field that match what is outlined in the Rea  (require 'org-bib)ding list file, which has completed references from the [[denote:20251206T173825][citar]] package, with which you can just /insert/ stuff.
+
+This could be made even better if I could also transclude the content of /blocks/ that contain [[denote:20251120T232656][BibTeX]] information in them, so I could use [[denote:20251206T160309][org-babel]] to tangle all of that content to the relevant [[denote:20251120T232656][BibTeX]] file that I actually use for my writing projects, since all of the cruft has actually been filtered out. In this case, a [[denote:20251120T232656][BibTeX]] file that I have in my ~~/Documents/bibliography~ directory is actually just a collection point for bibliography (see [[denote:20251214T160922][Capturing bibliography]]).
+
 * Integrating citar with =pdf-tools=
 
 See also [[#configuring-how-files-are-attached-through--citar-][Configuring how files are attached through =citar=]] for adding PDFs to the files.
@@ -821,27 +866,6 @@ As opposed to =citar-denote=, which creates an extremely verbose filename for my
 The citation search mechanism in =citar-denote= uses =xref= at its base. This can be improved if you use =ripgrep= instead. You just have to set =xref-search-program= to =ripgrep=, which I have done above.
 
 *** Adding a bibliographic note in a silo
-
-** TODO Rougier's =org-bib= minor mode
-
-This is Rougier's org-bib-mode (minor mode), but I can't currently get it to work well.
-
-It depends on =org-imenu= and =pdf-drop-mode=. The former is added earlier on in this file.
-
-#+begin_src emacs-lisp :tangle no :eval never
-              (use-package
-               '(org-imenu
-                 :type git
-                 :host github
-                 :repo "rougier/org-imenu"))
-
-              (use-package
-              '(pdf-drop-mode
-                :type git
-                :host github
-                :repo "rougier/pdf-drop-mode"))
-#+end_src
-
 * TODO Configuring the attachment framework
 
 Since org-attach doesn't allow a flat directory structure, I will be using a different framework for storing the fields.
@@ -1029,6 +1053,18 @@ This would either mean that it's an overlay, or it's in the special org file tha
 there should be a way to open the link under the point, and then directly format that DOI into an entry.
 
 *Should this entry be formatted in the annotated bibliography format?*
+* Integrating [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]] with bibliography management
+
+The only current package that I have right now is =citar-org-node=, but it's a pretty barebones development (and it's not even on MELPA).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package citar-org-node
+  :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
+        :rev :newest))
+#+end_src
+
+This will basically use the functionality of ~ROAM_REFS~.
+
 * Footnotes
 [fn:4]  https://github.com/cpitclaudel/biblio.el
 

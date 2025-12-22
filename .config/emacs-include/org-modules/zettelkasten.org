@@ -250,11 +250,31 @@ The cache created by =org-node= can be queried, like the one in [[denote:2025111
     ;; At least one of these two is needed
     (setq org-mem-do-sync-with-org-id t)
     (setq org-mem-watch-dirs
-          (list "~/Documents/notes/")) ;; Configure me
+          (list "~/Documents/notes/"))
+    ;; To also detect "denote:abcdefg" links without [[enclosing brackets]]
+    (add-to-list 'org-mem-seek-link-types "denote")
     (org-mem-updater-mode))
 #+end_src
 
-What is the directory that I should have configured in here? Should I try directly with my [[denote:20251115T114845][denote]] directory? Would that create any kind of issue with my already existing notes?
+
+The part about detecting without enclosing brackets is taken from the github discussion with =meedstrom= on bringing [[denote:20251216T102815][org-node]] closer to [[denote:20251115T114845][denote]].[fn:3]
+
+!@What is the directory that I should have configured in here? Should I try directly with my [[denote:20251115T114845][denote]] directory? Would that create any kind of issue with my already existing notes?!@
+
+!@What is the ~org-mem-updater-mode~?!@
+
+This would make sure that the nodes are kept updated (and the database that tracks all of that information).
+
+The files in the ~org-mem-watch-dirs~ will be checked recursively.[fn:4] If you want, it can also check files mentioned in ~org-id-locations~ and ~org-id-extra-files~.
+
+=org-node= depends on the =inspector= package, so we'll install that first.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package inspector
+    :ensure t)
+#+end_src
+
+And now we can get to actual =org-node=.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package org-node
@@ -268,7 +288,20 @@ What is the directory that I should have configured in here? Should I try direct
     (org-node-cache-mode))
 #+end_src
 
+** Making =org-node= recognise =denote= links
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq all-my-denote-links
+      (seq-filter (##equal "denote" (org-mem-link-type %))
+                  (org-mem-all-links)))
+#+end_src
+
 * Footnotes
-[fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display
 
 [fn:1] Emacs Writing Studio literate configuration
+
+[fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display
+
+[fn:3]  https://github.com/meedstrom/org-node/issues/161
+
+[fn:4]  https://github.com/meedstrom/org-mem?tab=readme-ov-file
