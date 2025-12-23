@@ -290,10 +290,26 @@ And now we can get to actual =org-node=.
 
 ** Making =org-node= recognise =denote= links
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
 (setq all-my-denote-links
       (seq-filter (##equal "denote" (org-mem-link-type %))
                   (org-mem-all-links)))
+#+end_src
+
+This currently doesn't work because I need to have another package installed. Refer to the relevant issue on GitHub.
+
+* GNU Hyperbole configuration
+
+[[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]] is much more powerful than I had initially thought, especially it could help with [[id:87ad43a1-c6e2-47b8-b412-68df72ed01e9][Music collection management]] because of the way that it manages records. It's worth investigating, though look at principles of [[id:728fbe87-c731-41f3-a96a-017ba7ebc8f5][flat file database]] (and [[id:287b6dfe-8e7c-46c7-a105-b11ca750bfe9][Collecting org files into a flat database]]) to better understand if it works like this or if I should use [[id:9148c391-f6e0-43b9-9d5d-e7472dcb6fe2][GNU Recutils]] instead.
+
+** TODO Initial installation with =use-package=
+
+I need to actually find a way to do the installation through =use-package=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package hyperbole
+        :ensure t
+        :config (hyperbole-mode 1))
 #+end_src
 
 * Footnotes
