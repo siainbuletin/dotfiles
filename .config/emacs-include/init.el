@@ -53,7 +53,7 @@
 
 ;;; Configure elpaca use-package support
 (elpaca elpaca-use-package
-;;         ;; Enable use-package :ensure support for Elpaca.
+        ;; Enable use-package :ensure support for Elpaca.
         (elpaca-use-package-mode)
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
@@ -288,6 +288,8 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (use-package ivy-prescient)
 (use-package selectrum-prescient)
 (use-package vertico-prescient)
+
+
 
 (use-package which-key
     :ensure t
@@ -541,14 +543,27 @@ title."
 (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(org-default ((t (:background "#F0B609" :inherit default))))
- '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
- '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
- '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
+ '(org-default ((t (
+                    :background "#F0B609"
+                    :inherit default
+                    ))))
+ '(org-extra-emphasis ((t (
+                           :background "#F0B609"
+                           :height 1.0
+                           :inherit default
+                           :weight bold
+                           :width normal
+                           ))))
+ '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              ))))
+ '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              )))))
 
 (setq org-todo-keywords
       '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
@@ -667,6 +682,19 @@ title."
   :ensure t
   :config
   (org-edna-mode))
+
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "archive" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 
 (use-package dashboard
   :ensure t
@@ -793,18 +821,6 @@ title."
   :ensure t
   :after denote)
 
-(use-package denote-merge
-  :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
-  :bind
-  ("M-n m f" . denote-merge-file)
-  ("M-n m r" . denote-merge-region))
-
-(setq denote-merge-save-buffers t)
-
-(setq denote-merge-annotate-file "(MERGED FILE)")
-
-(setq denote-merge-annotate-region nil)
-
 (use-package denote-explore
   :bind
   (;; Statistics
@@ -921,11 +937,6 @@ agenda."
 (use-package org-ql
   :ensure t)
 
-(use-package org-supertag
-  :ensure (org-supertag :host github :repo "yibie/org-supertag"))
-
-(setq org-supertag-sync-directories '("~/Documents/notes/"))
-
 (use-package org-mem
   :defer
   :config
@@ -950,18 +961,9 @@ agenda."
   :config
   (org-node-cache-mode))
 
-(defun my-set-agenda-files (&rest _)
-  (setq org-agenda-files
-        (cl-loop for file in (org-mem-all-files)
-                 unless (string-search "archive" file)
-                 as entries = (org-mem-entries-in-file file)
-                 when (seq-find (##or (org-mem-entry-active-timestamps %)
-                                      (org-mem-entry-todo-state %)
-                                      (org-mem-entry-scheduled %)
-                                      (org-mem-entry-deadline %))
-                                entries)
-                 collect file)))
-(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+(use-package hyperbole
+  :ensure t
+  :config (hyperbole-mode 1))
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
@@ -1019,15 +1021,6 @@ agenda."
                                               :elfeed-data entry))))
     (mapc #'elfeed-search-update-entry entries)
     (unless (use-region-p) (forward-line))))
-
-(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
-(require 'zotra)
-
-(setq zotra-backend 'translation-server)
-(setq zotra-local-server-directory "~/cloned-utilities/zotero-translation-server")
-(setq zotra-default-bibliography "~/Documents/bibliography/zotra-inbox.bib"
-      )
-(setq zotra-download-attachment-default-directory "~/Documents/literature/zotra-dwnld")
 
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
@@ -1272,6 +1265,10 @@ agenda."
 
 (define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
 
+(use-package citar-org-node
+  :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
+        :rev :newest))
+
 (use-package pdf-tools
   :ensure t
   :init
@@ -1406,6 +1403,33 @@ With a prefix ARG, remove start location."
 
 (use-package binder
   :ensure t)
+
+(require 'ox-latex)
+(unless (boundp 'org-latex-classes)
+  (setq org-latex-classes nil))
+
+(with-eval-after-load 'ox-latex
+(add-to-list 'org-latex-classes
+           '("article"
+               "\\documentclass{article}"
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+
+             '("org-plain-latex"
+               "\\documentclass{article}
+           [NO-DEFAULT-PACKAGES]
+           [PACKAGES]
+           [EXTRA]"
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
+(setq org-latex-listings 't)
 
 (use-package org-pandoc-import
   :ensure (:host github
@@ -2150,13 +2174,3 @@ DELTA would be something like 1 or -1."
                   (text-scale-adjust 2)))
   :bind
   ("<f7>" . vterm))
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(citar-denote-title-format 'full)
- '(package-selected-packages '(citar-org-node))
- '(package-vc-selected-packages
-   '((citar-org-node :url
-		     "https://github.com/krisbalintona/citar-org-node.git"))))
