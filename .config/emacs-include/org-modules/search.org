@@ -575,6 +575,18 @@ See also a comparison to =consult-omni= (if it can do searches on the web): [[de
   (use-package vertico-prescient)
 #+end_src
 
+* Integrating views of data in Emacs
+
+See [[id:bfcaea71-4efe-41a0-9d63-55b863a4d82d][Queries injected into Text Editor buffers]]
+
+** Installing =org-plot=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+end_src
+
+** Setting up org templates for capturing information about how you're feeling
+
+** What are the sources of data that you're working with?
 * Footnotes
 
 [fn:1] https://github.com/minad/marginalia
