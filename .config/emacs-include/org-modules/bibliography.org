@@ -327,13 +327,16 @@ This could also be done through something like =org-protocol= or =emacs-anywhere
 
 Would it be easy to do with =citar=?
 
-** TODO =zotra=: Bringing Zotero translators into Emacs
+** DONE =zotra=: Bringing Zotero translators into Emacs
+CLOSED: [2025-12-23 Tue 20:39]
+
+!@Zotra is removed for the time being, because the translation done for articles isn't that much different from doi-utils. Zotra still only deals with DOIs, which is not what I need, considering that I need more complex bibliography management (and more idiosyncratic material that I'm working with).!@
 
 It can mostly use the title search to look for the proper articles/books and their DOIs, if you don't already have them on hand. It might actually work better than the =doi-utils= package.
 
 Unfortunately, because of installation errors, I have to actually package this as a module in itself (I don't yet know how to create a git submodule, but =zotra= hasn't really been updated in a while anyway).
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
   (require 'zotra)
 
