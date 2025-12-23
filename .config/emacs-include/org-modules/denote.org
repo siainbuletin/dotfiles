@@ -195,9 +195,11 @@ The command denote-markdown-convert-links-to-obsidian-type changes links from ~[
       :ensure t
       :after denote)
 #+end_src
-** =denote-merge=: Merging and splitting files together
+** REMOVED <2025-12-23 Tue> =denote-merge=: Merging and splitting files together
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+!@Currently removed until it is added to (M)ELPA and it solves the issue of replacing denote links improperly. Also, I don't have much use for it now that I'm using [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]].!@
+
+#+begin_src emacs-lisp :tangle no :eval never
     (use-package denote-merge
       :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
       :bind
@@ -209,19 +211,19 @@ The command denote-markdown-convert-links-to-obsidian-type changes links from ~[
 
 Automatically save the buffers before attempting to merge them:
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
 (setq denote-merge-save-buffers t)
 #+end_src
 
 When merging an entire file, I prefer to show in the heading that the new part of the note actually came from somewhere else, but I don't want it to be at the very beginning of the heading of the merged region. *For now it isn't configured like I want it to because I don't know to add it to the end of the file name that's used as an org heading. For now this just makes it stand out a little more.*
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
 (setq denote-merge-annotate-file "(MERGED FILE)")
 #+end_src
 
 I don't want =denote-merge= to show that the region I've moved over actually comes from somewhere. This is because in my inbox, I just want to see what my browsing efforts have amounted to. And since I'm usually restraining the scope of what I'm working on within a single file, I want the FROM file to contain a link to the "subchildren", which are the TO files.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
 (setq denote-merge-annotate-region nil)
 #+end_src
 

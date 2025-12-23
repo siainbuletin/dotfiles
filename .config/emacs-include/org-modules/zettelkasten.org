@@ -93,7 +93,7 @@ There's also the overall solution of using =grep= or =ripgrep=. The bigger speci
 
 For more deliberation on how this should be done, see [[denote:20251115T122217][Extracting contents of an org file to another]].
 
-* Autosaving files if working with denote
+* TODO Autosaving files if working with denote
 
 I got used to just having my notes autosave when editing a whole bunch of them with Obsidian. I don't want to lose progress and I also don't want to have to constantly hit =org-save-all-org-buffers=. However, I don't want to autosave changes regardless of the location, but specifically for notes in the =denote= directory (which is currently set as =~/Documents/notes=).
 
