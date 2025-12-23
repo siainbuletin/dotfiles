@@ -270,7 +270,9 @@ One can use =consult-recoll-format-candidate= to customize how search results ar
 
 If you use embark, you can use embark-collect to export the list of search results in the minibuffer to an Embark collect buffer. To allow opening buffer in that buffer as if they had been selected in the minibuffer, enable integration with embark adding this call to your init file:
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+!@This actually gives me symbol's function is undefined/void, so it's disabled for now. I don't yet understand the internal mechanics of this.!@
+
+#+begin_src emacs-lisp :tangle no :eval never
 (consult-recoll-embark-setup)
 #+end_src
 
