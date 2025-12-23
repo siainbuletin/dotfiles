@@ -196,7 +196,9 @@ For example, you can make the link type in =org-ref= (for displaying a citation)
 
 This solution is written directly by John Kitchin.[fn:2]
 
-* TODO Dynamic views for the data on the computer
+* Defining my own set of functions for better operation on the files
+
+* Getting the [[denote:20251117T213411][Queries injected into Text Editor buffers]] to work
 
 It's like saving a buffer from the result of ripgrep. It kind of functions like a computational notebook. I want to make the type of queries that I had in Obsidian through Dataview as dynamic and embeddable as possible (this could maybe be done through =org-babel= as well).
 
@@ -217,16 +219,14 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
         :ensure t)
 #+end_src
 
-** TODO Configuring =org-supertag=
+
+** Trying out [[denote:20251213T220500][org-supertag]]
 
 =org-supertag= still is a pretty young package. It's also unclear how it will be useful for my system.
 
-* Defining my own set of functions for better operation on the files
+Currently disabled because it kind of sucks in the way it deals with data.
 
-* Getting the [[denote:20251117T213411][Queries injected into Text Editor buffers]] to work
-** Trying out [[denote:20251213T220500][org-supertag]]
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
   (use-package org-supertag
     :ensure (org-supertag :host github :repo "yibie/org-supertag"))
 
