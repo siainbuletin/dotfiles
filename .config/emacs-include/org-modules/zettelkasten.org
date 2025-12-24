@@ -158,6 +158,8 @@ This could be done by configuring =org-sidebar=, or making buffers themselves mo
 
 This is explained further in Obsidian, in the _Assigning classes to different documents of the same format_ file.
 
+<2025-12-24 Wed>: I think this could actually be done with [[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]], especially [[id:c233f0c2-9549-4afc-ad10-52371833325c][HyRolo]], if only I can actually get it to work... (see [[id:fb1ac70c-2e3f-41b6-83d8-ae05043c4517][GNU Hyperbole configuration]])
+
 ** Assigning the proper classes to org-mode files
 
 Maybe there should be a prompt in the file creation dialogue for whatever note-taking module I'm currently making.
@@ -195,6 +197,23 @@ For example, you can make the link type in =org-ref= (for displaying a citation)
 #+end_src
 
 This solution is written directly by John Kitchin.[fn:2]
+
+* Generating an [[id:17454c85-0e55-430a-b9cd-0f964225ece1][argument map]] from different notes
+
+This is important for keeping track of different debates while I'm writing and can help with the visualisation of research. It can make sure that you have founded arguments for each part. It also seems similar to what [[id:fb234918-643f-4285-a0bb-4ab30108c5e7][Hypernomicon]] is doing with indexing debates. This is possible with the new (as of <2025-12-24 Wed>) package, =discourse-graphs=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package discourse-graphs
+    :ensure (discourse-graphs :type git
+  			      :host github
+  			      :repo "LuciusChen/discourse-graphs"
+  			      :files ("*.el"
+  			      "discourse-graphs-ui/out/*.html"
+  			      "discourse-graphs-ui/out/assets/*"))
+    :config
+    (setq dg-directories '("~/Documents/notes/"))
+  (discourse-graphs-mode 1))
+#+end_src
 
 * Defining my own set of functions for better operation on the files
 
@@ -256,7 +275,6 @@ The cache created by =org-node= can be queried, like the one in [[denote:2025111
     (org-mem-updater-mode))
 #+end_src
 
-
 The part about detecting without enclosing brackets is taken from the github discussion with =meedstrom= on bringing [[denote:20251216T102815][org-node]] closer to [[denote:20251115T114845][denote]].[fn:3]
 
 !@What is the directory that I should have configured in here? Should I try directly with my [[denote:20251115T114845][denote]] directory? Would that create any kind of issue with my already existing notes?!@
@@ -281,11 +299,21 @@ And now we can get to actual =org-node=.
     :init
     ;; Optional key bindings
     ;; Tip: Try changing these to just "M-o"!
-    (keymap-global-set "M-o n" org-node-global-prefix-map)
+    (keymap-global-set "M-o" org-node-global-prefix-map)
     (with-eval-after-load 'org
       (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
     :config
     (org-node-cache-mode))
+#+end_src
+
+** Always updating the backlink drawer under nodes
+
+This makes it possible to see that a node is being linked to from elsewhere if you don't want to bring up the context buffer outright. But it might be better if I just found a way to transclude the context buffer or have it pop up like a [[id:16fb2c0e-306d-4fb0-aedf-b960e1974a02][tooltip]].
+
+This function will create a *multi-line* backlink drawer, instead of putting everything on one line.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-node-backlink-do-drawers t)
 #+end_src
 
 ** Making =org-node= recognise =denote= links
@@ -299,6 +327,9 @@ And now we can get to actual =org-node=.
 This currently doesn't work because I need to have another package installed. Refer to the relevant issue on GitHub.
 
 * GNU Hyperbole configuration
+:PROPERTIES:
+:ID:       fb1ac70c-2e3f-41b6-83d8-ae05043c4517
+:END:
 
 [[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]] is much more powerful than I had initially thought, especially it could help with [[id:87ad43a1-c6e2-47b8-b412-68df72ed01e9][Music collection management]] because of the way that it manages records. It's worth investigating, though look at principles of [[id:728fbe87-c731-41f3-a96a-017ba7ebc8f5][flat file database]] (and [[id:287b6dfe-8e7c-46c7-a105-b11ca750bfe9][Collecting org files into a flat database]]) to better understand if it works like this or if I should use [[id:9148c391-f6e0-43b9-9d5d-e7472dcb6fe2][GNU Recutils]] instead.
 
@@ -306,11 +337,52 @@ This currently doesn't work because I need to have another package installed. Re
 
 I need to actually find a way to do the installation through =use-package=.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
       (use-package hyperbole
         :ensure t
         :config (hyperbole-mode 1))
 #+end_src
+
+This has been removed because I can't modify the action key to not collide with the rest of the commands. The documentation feels way too obscure.
+
+** Changing the hyperbole major keybindings so that it doesn't interfere with other modes
+
+Right now it's specifically interfering with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]], so I have to modify the very specific Hyperbole keys. They don't work with normal ~global-set-key~ syntax, which is really annoying, because it deviates quite a lot from the Emacs way of doing things.
+
+*** This doesn't work
+
+#+begin_src emacs-lisp :tangle no :eval never
+(hkey-set-key "M-p" 'hkey-either)
+(hkey-set-key "" 'hkey-operate)
+#+end_src
+
+The binding that actually interrupts org-node is ~hkey-operate~ (which I'm not really sure what it's for).
+
+Is it possible to just turn off ~hkey-operate~? It basically just keeps the key pressed while you're working on a buffer, so I don't want it to disturb me right now.
+
+*** Disabling all of the default keybindings for Hyperbole
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq hkey-init nil)
+#+end_src
+
+** Rebinding the keys
+
+The action key is still going to be ~M-RET~, but now all the other keys aren't interfering with the rest of my workflow.
+
+!@This doesn't work, it seems that if you want to actually rebind the action keys, you have to change the entirety of the Lisp code. So the ~hkey-init~ solution isn't actually the solution to this problem!@.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(keymap-global-set "C-h y" hyperbole-menu-key)
+
+(keymap-global-set "M-o" org-node-global-prefix-map)
+
+(global-key-set "C-h y" 'hyperbole-menu-key)
+
+(hkey-set-key "M-s s" 'hkey-either)
+#+end_src
+
+This package is absolutely insufferable in how hard it is to actually set it up with your own configuration. You can't even test out different keybindings, it changes the configuration of Emacs so much that you can barely act with the same keys anymore. So it's pretty much unusable for me right now.
 
 * Footnotes
 

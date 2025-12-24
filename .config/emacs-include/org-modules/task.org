@@ -82,7 +82,8 @@ Basic configuration and the files we pull information from
 I have defined a special directory which is meant to collect files that I'm actively tracking (like a task org-capture index or particular projects). This is a file that I will be linking to from other projects.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-(setq org-agenda-files (quote ("~/Documents/tracking")))
+    (setq org-agenda-files
+  	(quote ("~/Documents/tracking")))
 #+end_src
 
 ** Pulling info for org-agenda from daily task files as well as org capture

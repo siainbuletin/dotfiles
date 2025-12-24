@@ -592,7 +592,8 @@ title."
       ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
       ("time-eater" . ?t)))
 
-(setq org-agenda-files (quote ("~/Documents/tracking")))
+(setq org-agenda-files
+    (quote ("~/Documents/tracking")))
 
 (global-set-key (kbd "C-c o a") 'org-agenda)
 
@@ -934,6 +935,17 @@ agenda."
 
 (advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
 
+(use-package discourse-graphs
+  :ensure (discourse-graphs :type git
+                            :host github
+                            :repo "LuciusChen/discourse-graphs"
+                            :files ("*.el"
+                            "discourse-graphs-ui/out/*.html"
+                            "discourse-graphs-ui/out/assets/*"))
+  :config
+  (setq dg-directories '("~/Documents/notes/"))
+(discourse-graphs-mode 1))
+
 (use-package org-ql
   :ensure t)
 
@@ -955,15 +967,13 @@ agenda."
   :init
   ;; Optional key bindings
   ;; Tip: Try changing these to just "M-o"!
-  (keymap-global-set "M-o n" org-node-global-prefix-map)
+  (keymap-global-set "M-o" org-node-global-prefix-map)
   (with-eval-after-load 'org
     (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
   :config
   (org-node-cache-mode))
 
-(use-package hyperbole
-  :ensure t
-  :config (hyperbole-mode 1))
+(setq org-node-backlink-do-drawers t)
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
