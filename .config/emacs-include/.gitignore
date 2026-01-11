@@ -14,6 +14,9 @@ elgrep-data.el
 recentf
 never
 
+# files needed for the note-taking process
+.org-id-locations
+
 # files created during the tangling process
 temp.org
 
