@@ -1092,12 +1092,6 @@ selected instead of creating a new buffer."
   :ensure t
   :after denote)
 
-(use-package denote-merge
-  :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
-  :bind
-  ("M-n m f" . denote-merge-file)
-  ("M-n m r" . denote-merge-region))
-
 (use-package denote-explore
   :bind
   (;; Statistics
