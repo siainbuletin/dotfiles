@@ -11,6 +11,51 @@ See [[denote:20251203T030812][Multimedia Management in Emacs]]
 [[denote:20251203T030250][Listening list system]] should help me discover more music and more systematically. Keep and org file for each independent album that I want to listen to and then contextualise it within a genre. There should be a way to pull up information about different sonorities in Emacs. It's like keeping an annotated corpus (see [[denote:20251203T025928][Music corpus analysis]])
 * Configuring =emms=
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package emms
+    :ensure t)
+#+end_src
+
+First, EMMS exposes a handy function that loads all the stable EMMS features. You can take a look at its source and pick the features you need or load everything like this:[fn:3]
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (require 'emms-setup)
+  (emms-all)
+#+end_src
+
+Then we need to set up a directory for EMMS files and the required parameters for ~emms-player-mpd~. Note that ~emms-player-mpd-music-directory~ should be set to the same value as ~music_directory~ in ~mpd.conf~.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq emms-source-file-default-directory (expand-file-name "~/Music/"))
+
+  (setq emms-player-mpd-server-name "localhost")
+  (setq emms-player-mpd-server-port "6600")
+  (setq emms-player-mpd-music-directory "~/Music")
+#+end_src
+
+Add the required functions to EMMS lists:
+
+!@I get symbol's function is void for these functions, so I'll have to see how to set everything up a little later!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-to-list 'emms-info-functions 'emms-info-mpd)
+  (add-to-list 'emms-player-list 'emms-player-mpd)
+#+end_src
+
+Now we can connect EMMS to MPD. For some reason, executing this function stops the MPD playback, but it is not a big issue because it has to be executed only once.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (emms-player-mpd-connect)
+#+end_src
+
+The last thing we may want is to link EMMS playlist clearing to MPD playlist clearing. I’m not sure how this interacts with MPD’s own playlists because I don’t use them, so you may need to watch out here if you do.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'emms-playlist-cleared-hook 'emms-player-mpd-clear)
+#+end_src
+
+** Configuring integration with [[id:74f47ff8-5608-41f0-8240-dde8629119e6][MPD]]
+
 * Configuring =vuiet.el=
 
 It needs =yt-dl= in order to work
@@ -58,7 +103,6 @@ To obtain the SK, eval (lastfm-generate-session-key) in Emacs. Your browser will
 ready-player is well integrated with dired, so opening an audio file, for example, will kickstart the listening process for me. I like to have shuffle on (ready-player-shuffle), and with ready-player-repeat if there is more media to play in the current directory then it will enter a continuous play mode.[fn:2]
 #+end_quote
 
-
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package ready-player
     :ensure t
@@ -79,8 +123,6 @@ ready-player is well integrated with dired, so opening an audio file, for exampl
 #+end_src
 
 ** Making sure that the backend gives me continuous playback
-
-
 
 * Configuring the more modern =listen.el=
 
@@ -104,6 +146,8 @@ Perhaps this would be easier to manage if it had to deal with a [[denote:2025121
 See also the configuration files for remote work.
 
 * Footnotes
+
+[fn:3]  https://sqrtminusone.xyz/posts/2021-09-07-emms/
 [fn:2]  https://www.dyerdwelling.family/emacs/20240810072449-emacs--ready-player-mode-tweak/
 
 [fn:1]  https://github.com/mihaiolteanu/lastfm.el

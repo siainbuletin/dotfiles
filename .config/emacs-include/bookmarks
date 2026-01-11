@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("org-agenda files"
+(("inbox notes"
+ (filename . "~/Documents/notes/inbox/")
+ (front-context-string . "2510 inbox.md\n  ")
+ (rear-context-string . "2K Oct 17 17:42 ")
+ (position . 149)
+ (last-modified 26971 56912 35612 147000))
+("org-agenda files"
  (filename . "~/Documents/tracking/")
  (front-context-string . ".stfolder\n  -rw-")
  (rear-context-string . "54 Nov 18 17:21 ")
@@ -52,15 +58,15 @@
  (position . 149)
  (last-modified 26904 42204 347307 842000))
 ("org-capture-last-stored"
- (filename . "~/.notes")
- (front-context-string . "** TODO find a w")
- (rear-context-string . "n_litnote.org]]\n")
- (position . 2133)
- (last-modified 26913 35328 889510 153000))
+ (filename . "~/Documents/notes/inbox/thoughts-capture.org")
+ (front-context-string)
+ (rear-context-string . "often.\n* \n* \n* \n")
+ (position . 583)
+ (last-modified 26978 52216 373925 795000))
 ("org-refile-last-stored"
- (filename . "~/Documents/notes/20251209T203344--gnu-hyperbole__software.org")
- (front-context-string . "** Comparison wi")
- (rear-context-string . "dows you want.\n\n")
- (position . 18712)
- (last-modified 26954 51719 706676 570000))
+ (filename . "~/Documents/notes/20251213T151441--nietzsche-on-the-valuation-of-the-present__zettel.org")
+ (front-context-string . "** See also\n\n[[i")
+ (rear-context-string . "997nietzsche-]\n\n")
+ (position . 3576)
+ (last-modified 26972 1101 254383 735000))
 )

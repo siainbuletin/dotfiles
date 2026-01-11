@@ -1,5 +1,5 @@
 #+title: Task management system mediated through org-mode
-#+startup: overview
+
 * How it will be likened to Things 3
 
 - capture system :: through =org-capture=, I can actually define an inbox for where all the information comes in. This can later be sent to the relevant projects and be activated when I really need to be dealing with all of it.
@@ -82,8 +82,11 @@ Basic configuration and the files we pull information from
 I have defined a special directory which is meant to collect files that I'm actively tracking (like a task org-capture index or particular projects). This is a file that I will be linking to from other projects.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-    (setq org-agenda-files
-  	(quote ("~/Documents/tracking")))
+  (setq org-agenda-files
+  	(list
+  	 "~/Documents/tracking"
+  	 "~/Documents/notes/inbox/" ; this is for tasks that I never actually got to deal with
+))
 #+end_src
 
 ** Pulling info for org-agenda from daily task files as well as org capture
@@ -351,6 +354,70 @@ But this gets significantly more complicated when you have to deal with tasks th
 
 What do you want out of this file?
 
+** Creating a calendar view of tasks (in the web) with [[id:822fbb1c-65f1-41cf-b691-b47f4d0a79b7][org-hyperscheduler]]
+
+** =elegant-agenda-mode=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package elegant-agenda-mode
+    :ensure t)
+#+end_src
+
+elegant-agenda-mode works well with custom agenda commands. For example with a command labeled as today, it will apply spacing based on category and use the agenda label as a header for the view.
+
+** Making org-agenda view more readable by making it aligned :archive:
+
+This code snippet is taken from Reddit and should look like this:
+
+#+begin_src emacs-lisp
+(defun org-agenda-highlight-todo (x)
+    (let ((org-done-keywords org-done-keywords-for-agenda)
+          (case-fold-search nil) (level nil) (position nil) re)
+      (if (eq x 'line)
+          (save-excursion
+            (beginning-of-line 1)
+            (setq re (org-get-at-bol 'org-todo-regexp))
+            (setq position (or (text-property-any (point-at-bol) (point-at-eol) 'org-heading t) (point)))
+            (goto-char position)
+            (setq level (get-text-property position 'level))
+            (when (looking-at (concat "[ \t]*\\.*\\(" re "\\) +"))
+              (add-text-properties (match-beginning 0) (match-end 1)
+                                   (list 'face (org-get-todo-face 1)))
+              (let* ((s (buffer-substring (match-beginning 1) (match-end 1)))
+                     (data (buffer-substring (match-end 1) (line-end-position)))
+                     (formated_s (format org-agenda-todo-keyword-format s)))
+                (delete-region (match-beginning 1) (point-at-eol))
+                (goto-char (match-beginning 1))
+                (insert (concat "⎥ " formated_s " ⎥ "
+                                (if (string-match "\\(.+\\)\\(\\[#[A-Z]?\\]\\) \\(.+\\)" data)
+                                    (concat (string-trim (match-string 2 data))
+                                            " ⎥" level (remove-headline-tags (match-string 3 data)))
+                                  (concat "     ⎥" level (remove-headline-tags (string-trim data)))))))))
+        (let ((pl (text-property-any 0 (length x) 'org-heading t x)))
+          (setq re (get-text-property 0 'org-todo-regexp x))
+          (when (and re pl (equal (string-match (concat "\\(\\.*\\)" re "\\( +\\)") x pl)
+                                  pl))
+            (add-text-properties
+             (or (match-end 1) (match-end 0)) (match-end 0)
+             (list 'face (org-get-todo-face (match-string 2 x)))
+             x)
+            (when (match-end 1)
+              (setq x (concat (substring x 0 (match-end 1)) "⎥ "
+                              (format org-agenda-todo-keyword-format (match-string 2 x)) " ⎥ "
+                              (let ((data  (substring x (match-end 3))))
+                                (if (string-match "\\(.*\\)\\(\\[#[A-Z]?\\]\\) \\(.*\\)" data)
+                                    (concat (match-string 2 data) " ⎥"
+                                            (or level (get-text-property 0 'level x))
+                                            (match-string 1 data)
+                                            (remove-headline-tags (match-string 3 data)))
+                                  (concat "     ⎥"
+                                          (or level (get-text-property 0 'level x))
+                                          (remove-headline-tags data))))
+                              (org-add-props " " (text-properties-at 0 x))
+                              )))))
+        x)))
+#+end_src
+
 * Cosmetic improvements to =org-agenda=
 ** Configuring icons for =org-agenda=
 
@@ -380,6 +447,46 @@ This is taken from Colin McLear's config (the creator of Lambda Emacs).
         ("Admin"       ,(cpm-agenda-icon-material "folder")          nil nil :ascent center)
 #+end_src
 
+* Project management
+
+See [[id:d768d356-1a6f-40d7-a488-9b04576e10d8][Project management in Emacs]]
+
+As was explained by [[id:f0ecfc03-c855-4bbe-9cff-054527e7bf70][Karl Voit]] in [[https://karl-voit.at/2019/11/03/org-projects/][his post]], it's a little hard to have org-mode properly recognise all of the projects (see what I outlined in for the issues). Voit defined a custom function for marking projects with both process cookies from org-mode *and* tagging the headings as ~:project:~.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun my-mark-as-project ()
+"This function makes sure that the current heading has
+(1) the tag :project:
+(2) has property COOKIE_DATA set to \"todo recursive\"
+(3) has any TODO keyword and
+(4) a leading progress indicator"
+    (interactive)
+    (org-toggle-tag "project" 'on)
+    (org-set-property "COOKIE_DATA" "todo recursive")
+    (org-back-to-heading t)
+    (let* ((title (nth 4 (org-heading-components)))
+           (keyword (nth 2 (org-heading-components))))
+       (when (and (bound-and-true-p keyword) (string-prefix-p "[" title))
+           (message "TODO keyword and progress indicator found")
+           )
+       (when (and (not (bound-and-true-p keyword)) (string-prefix-p "[" title))
+           (message "no TODO keyword but progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT ")
+           )
+       (when (and (not (bound-and-true-p keyword)) (not (string-prefix-p "[" title)))
+           (message "no TODO keyword and no progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT [/] ")
+           )
+       (when (and (bound-and-true-p keyword) (not (string-prefix-p "[" title)))
+           (message "TODO keyword but no progress indicator found")
+           (forward-whitespace 2)
+           (insert "[/] ")
+           )
+       )
+)
+#+end_src
 * Dealing with projects that are already done
 ** TODO Archiving tasks that are already done
 
@@ -446,8 +553,76 @@ One way to get this to work is through [[denote:20251216T173055][org-mem]], whic
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 #+end_src
 
+* ~org-gtd~: enhacement over normal [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]]
+
+See [[id:56df0eee-4393-4e46-8c48-1c540977b88d][org-gtd]] for details on how this package actually works.
+
+The ~org-gtd-directory~, by default, is different than the one for [[id:65222ab0-1f97-40e8-bae7-ec409da87eb2][org-agenda]]. !@I don't really know what are the advantages of doing that.!@
+
+It also requires [[id:a49f4f3a-db34-4182-ad63-6ee6cea92fb4][org-edna]] for doing [[id:5622796b-1137-40d4-bde5-064c83069b21][task/project dependencies]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-gtd
+    :ensure t
+    :after org
+    :demand t
+    :init
+    ;; Suppress upgrade warnings (must be set before package loads)
+    (setq org-gtd-update-ack "4.0.0")
+    :custom
+    ;; Where org-gtd will keep its files (defaults to ~/gtd/)
+    (org-gtd-directory "~/Documents/tracking/org-gtd/")
+
+    ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
+    (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
+
+    ;; Map GTD semantic states to your keywords
+    (org-gtd-keyword-mapping '((todo . "TODO")
+                               (next . "NEXT")
+                               (wait . "WAIT")
+                               (canceled . "CNCL")))
+
+    ;; Add org-gtd files to your agenda
+    (org-agenda-files (list org-gtd-directory))
+
+    :config
+    ;; REQUIRED: Enable org-edna for project dependencies
+    (org-edna-mode 1)
+
+    :bind
+    ;; Global keybindings (work anywhere in Emacs)
+    (("C-c d c" . org-gtd-capture)
+     ("C-c d e" . org-gtd-engage)
+     ("C-c d p" . org-gtd-process-inbox)
+     ("C-c d n" . org-gtd-show-all-next)
+     ("C-c d s" . org-gtd-reflect-stuck-projects)
+
+     ;; Keybinding for organizing items (only works in clarify buffers)
+     :map org-gtd-clarify-mode-map
+     ("C-c c" . org-gtd-organize)
+
+     ;; Quick actions on tasks in agenda views (optional but recommended)
+     :map org-agenda-mode-map
+     ("C-c ." . org-gtd-agenda-transient)))
+#+end_src
+
+#+begin_quote
+Existing org-mode users: If you already have org-todo-keywords configured, add a separate sequence for GTD keywords rather than mixing them into existing sequences. See the full documentation for details.[fn:3]
+#+end_quote
+
+* Showing progress cookies recursively
+
+[2026-01-04 Sun] So you can get a better view at your projects (see [[id:b5272cba-ba6a-4ab0-a83e-c776085d2700][Project management]]).
+
+I learned how to do this from https://karl-voit.at/2019/11/03/org-projects/
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-hierarchical-todo-statistics nil)
+#+end_src
 
 * Footnotes
+
+[fn:3]  https://github.com/Trevoke/org-gtd.el
 [fn:2]  https://www.youtube.com/watch?v=-9rpQA6O3aM&t=1863s
 
 [fn:1]  https://www.nongnu.org/org-edna-el/

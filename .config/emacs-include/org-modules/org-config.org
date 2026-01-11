@@ -46,6 +46,14 @@ I don't really know how to deal with this bit about =with-eval-after-load=.
 
 Maybe the best way to do this is through =org-modern=.
 
+** Always start org-mode in "TOC" settings (~#+startup: content~)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-startup-folded 'content)
+#+end_src
+
+This is related to the visibility settings in [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]]
+
 ** Other appearance settings
 
 This is taken directly from Emacs Writing Studio.
@@ -118,9 +126,19 @@ I’ve tried many LaTeX math preview solutions over the years, but they all have
   (use-package math-preview)
 #+end_src
 
+*** Automatically go into editing the LaTeX fragment when point is on the preview
+
+#+begin_quote
+Org mode supports inline image previews of LaTeX fragments. These can be toggled with C-c C-x C-l. org-fragtog automates this, so fragment previews are disabled for editing when your cursor steps onto them, and re-enabled when the cursor leaves.[fn:2]
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-fragtog
+    :ensure t)
+#+end_src
 ** TODO Show hidden emphasis markers at point
 
-The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds. By default =org-hide-emphasis-markers=, is key to pretending that Emacs can be a word processor, however, since the org markup controls aren’t viewable, I find it challenging at times, to change that. The org-appear project seeks to fix this by showing the markup when the point is nearby.[fn:2]
+The Org Appear package by Alice P. Hacker shows hidden markers in Org buffers when the cursor is used for an emphasised word, giving us the best of both worlds. By default =org-hide-emphasis-markers=, is key to pretending that Emacs can be a word processor, however, since the org markup controls aren’t viewable, I find it challenging at times, to change that. The org-appear project seeks to fix this by showing the markup when the point is nearby.[fn:3]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package org-appear
@@ -391,12 +409,21 @@ You must change the standard dictionary to your local variety by customising  th
     (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
 #+end_src
 
-Goggles is mainly meant as a replacement for the popular volatile-highlights (vhl).[fn:3]
+Goggles is mainly meant as a replacement for the popular volatile-highlights (vhl).[fn:4]
 
 vhl does not support pulse. The request to use pulse for modification highlighting has come up a few times (e.g. recently on reddit).
 vhl is unmaintained and contains obsolete code (e.g. cl instead of cl-lib).
 vhl is unnecessarily complicated, with its extension mechanism. The extension mechanism seems to require bytecode compilation at startup.
 Since improving volatile-highlights would require a rewrite, I decided to create another package. This way breakage for volatile-highlights users is avoided.
+
+** Make editing list items a little easier
+
+[2026-01-10 Sat]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-autolist
+    :ensure t)
+#+end_src
 
 * Code editing goodies
 ** TODO Automatically closing parentheses properly
@@ -418,16 +445,16 @@ Many people sell the folding headings from org-mode as terrific for organisation
 
 By default, Emacs has the setting =org-link-search-must-match-exact-headline= set to =t=. This makes it so that even if you have an ID setup for your heading (even if it's alphanumeric)
 
-If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:4]
+If you set =org-link-search-must-match-exact-headline= to =nil=, then "That makes the third type of link above =[[file:path/to/another-file.org::d89ba6bd-7c9a-4559-9965-7a6541f1a7c5][ref]]= do a fuzzy text search, whereas the other values (t and the default query-to-create) are biased towards headlines when the target file is an Org mode file."[fn:5]
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq org-link-search-must-match-exact-headline nil)
 #+end_src
 
 ** Working with both unique ID values and =CUSTOM_ID=
-Glonal IDs aren't automatically generated through the =org-id= extension.[fn:5] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
+Glonal IDs aren't automatically generated through the =org-id= extension.[fn:6] By hovering over a heading at point, =org-id-get-create= will generate a global unique ID. This can actually coexist with the =:CUSTOM_ID:= setting.
 
-It is possible to generate the links automatically with this:[fn:5]
+It is possible to generate the links automatically with this:[fn:6]
 
 If you use =org-capture= to add all of your items then org-capture-prepare-finalize-hook is a logical place to put the code:
 
@@ -510,7 +537,6 @@ title."
       (org-insert-link nil (concat "#" id) (car x))))
 #+end_src
 
-
 Ta-da! Now using counsel-org-link inserts nice, human-readable links.
 
 You can also overall automate the creation of custom IDs with this: https://writequit.org/articles/emacs-org-mode-generate-ids.html
@@ -518,11 +544,17 @@ You can also overall automate the creation of custom IDs with this: https://writ
 
 When changing the file name of a file, what happens if the links are dead?
 
-Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:6]
+Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:7]
 
 A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
 
 However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
+
+* Variables for org-mode
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-directory "~/Documents/notes")
+#+end_src
 
 * Minor modes to enable for =org-mode=
 * Org block settings
@@ -538,7 +570,7 @@ This can be avoided by adding a comma before the org heading. Thus you'd do some
 ,* an org heading
 #+end_src
 
-You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:7]
+You can open the block into a special editing buffer with =org-edit-special= if you want, which will obfuscate the weird syntax while writing, but the code block will contain the commas which will allow the block rendering.[fn:8]
 
 ** Adding custom blocks in org-mode
 
@@ -688,25 +720,228 @@ This should work better than trying to do it with =use-package=.
                               :underline t
                               )))))
 #+end_src
+* Org refile settings
+** Make it possible to refile to any of the open buffers + to any level-heading
+:PROPERTIES:
+:CREATED: <2025-12-30 Tue>
+:END:
+
+This makes moving the headings across files a lot easier.
+
+This is taken from https://yiming.dev/blog/2018/03/02/my-org-refile-workflow/
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun +org/opened-buffer-files ()
+  "Return the list of files currently opened in emacs"
+  (delq nil
+        (mapcar (lambda (x)
+                  (if (and (buffer-file-name x)
+                           (string-match "\\.org$"
+                                         (buffer-file-name x)))
+                      (buffer-file-name x)))
+                (buffer-list))))
+
+(setq org-refile-targets '((+org/opened-buffer-files :maxlevel . 9)))
+#+end_src
+
+** Enabling caching of the headings to find them faster
+
+When you have so many org-mode headings (e.g. I have more than 10,000 headings), it's really slow for org-refile to fetch all the headings every time. So I enabled caching for org-refile as well.[fn:9]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-refile-use-cache t)
+#+end_src
+
+But then comes the hardest problem with caches: when to invalidate them.
+
+I set a timer to regenerate this cache automatically every time my Emacs has been idled for 5 mins:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(run-with-idle-timer 300 t (lambda ()
+                            (org-refile-cache-clear)
+                            (org-refile-get-targets)))
+#+end_src
+
+It's been working pretty well for some time. The only drawbacks are:
+
+The cache is not always up-to-date. But it's acceptable since I mostly only jump/refile to old headings.
+Emacs may hang for several seconds when I switch back to it because it's regenerating the cache.[fn:9]
 
 * TODO =org-archive= settings
 ** TODO Setting spaces for where to archive subtrees
+* Quality of life improvements and cosmetics
+** Souping up [[id:aa223046-9048-4502-8053-cc28e35006eb][indirect buffers]]
 
+[2026-01-05 Mon] This is taken from [[id:f0ecfc03-c855-4bbe-9cff-054527e7bf70][Karl Voit]]'s configuration and it's meant to help with better concentration while working in [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]].
 
-* Configuring how =CUSTOM_ID= is created
+The snippet is created by [[https://www.reddit.com/user/github-alphapapa/][alphapa]] and taken from [[https://www.reddit.com/r/orgmode/comments/dbsngi/comment/f26qpzr/][here]] on Reddit.
+
+Its purpose is to provide more than one indirect buffer when using org-tree-to-indirect-buffer() (via C-c C-x b). Further more, it has a different way of naming these buffers.
+
+Using an advice, the original function gets overwritten.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun my-org-tree-to-indirect-buffer (&optional arg)
+  "Create indirect buffer and narrow it to current subtree.
+The buffer is named after the subtree heading, with the filename
+appended.  If a buffer by that name already exists, it is
+selected instead of creating a new buffer."
+  (interactive "P")
+  (let* ((new-buffer-p)
+         (pos (point))
+         (buffer-name (let* ((heading (org-get-heading t t))
+                             (level (org-outline-level))
+                             (face (intern (concat "outline-" (number-to-string level))))
+                             (heading-string (propertize (org-link-display-format heading)
+                                                         'face face)))
+                        (concat heading-string "::" (buffer-name))))
+         (new-buffer (or (get-buffer buffer-name)
+                         (prog1 (condition-case nil
+                                    (make-indirect-buffer (current-buffer) buffer-name 'clone)
+                                  (error (make-indirect-buffer (current-buffer) buffer-name)))
+                           (setq new-buffer-p t)))))
+    (switch-to-buffer new-buffer)
+    (when new-buffer-p
+      ;; I don't understand why setting the point again is necessary, but it is.
+      (goto-char pos)
+      (rename-buffer buffer-name)
+      (org-narrow-to-subtree))))
+#+end_src
+
+(advice-add 'org-tree-to-indirect-buffer :override 'my-org-tree-to-indirect-buffer)
+
+** Pretty org table renders with [[id:d699256b-cf8f-488b-a37c-9c71fa1a69f5][LaTeX]]
+:PROPERTIES:
+:ID:       a33a66d0-0b44-4852-b73d-c2702fa4087f
+:CREATED:  [2025-12-27 Sat 19:02]
+:END:
+
+<2025-12-27 Sat>
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun my-render-org-table-at-point ()
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (if (overlays-at (point))
+        ;; this is a rough solution, because there can
+        ;; be other overlays at point
+        (delete-overlay (car (overlays-at (point))))
+
+      (let* ((element-type (org-element-type (org-element-at-point))))
+        (if (and (not (eq element-type 'table))
+                 (not (eq element-type 'table-row)))
+            (error "not at an org table")
+
+          (while (not (eq 'table (org-element-type (org-element-at-point))))
+            (forward-line -1))
+
+          (my-render-org-table (org-element-at-point)))))))
+
+(defun my-render-org-table (table)
+  (interactive)
+  (let* ((begin (org-element-property :begin table))
+         (end (let ((pos (org-element-property :end table)))
+                (goto-char pos)
+                (beginning-of-line)
+                ;; skip possible space after table
+                (while (not (looking-at " *[|#]"))
+                  (setq pos (point))
+                  (forward-line -1))
+                pos))
+         (tabletxt (buffer-substring-no-properties begin end))
+         (img (with-temp-buffer
+                (insert tabletxt)
+                (mark-whole-buffer)
+                (org-latex-convert-region-to-latex)
+                (org-preview-latex-fragment)
+                (goto-char (point-min))
+                (overlay-get  (car (overlays-at (point))) 'display)))
+         (overlay (make-overlay begin end)))
+    (overlay-put overlay 'display img)
+    (forward-line -1)))
+
+(defun my-render-org-tables-in-buffer ()
+  (save-excursion
+    (org-element-map (org-element-parse-buffer) 'table 'my-render-org-table)))
+#+end_src
+
+This is taken from this post: https://www.reddit.com/r/emacs/comments/d3a8or/pretty_org_tables_in_the_buffer_chapter_2_it/
+
+This, basically, is based on overlays from [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]].
+
+*** Modifying the size of the table, since it's too small
+
+I have to customize a variable in org-mode, ~org-preview-latex-process-alist~.
+* Org capture
+** The templates
+
+Last modified: [2026-01-10 Sat]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-capture-templates
+        '(
+	  ("l" "Listening log" entry
+	   (file+datetree "~/Documents/notes/inbox/listening-log.org")
+	   "* %U\n %i\n %a")
+
+	  ("t" "Task to the inbox" entry
+	   (file "~/Documents/notes/inbox/inbox-capture.org")
+	   "* TODO %?\n %i\n %a")
+
+	  ("i" "Idea or quick thought to take care of" entry
+	   (file "~/Documents/notes/inbox/thoughts-capture.org"))
+))
+#+end_src
+
+** Binding the templates to different keybindings
+
+[2026-01-10 Sat]
+
+I used a bit of the instructions here: https://emacs.stackexchange.com/questions/73819/how-to-remap-org-capture-templates-keybindings
+
+Trying to make use of ~use-package~ bindings doesn't work here because I want org-capture to work globally, /whenever i may have an idea/.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "C-c c") #'org-capture)
+
+(global-set-key (kbd "C-x t l")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "l")))
+
+(global-set-key (kbd "C-x t a")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "t")))
+
+(global-set-key (kbd "C-x t i")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "i")))
+#+end_src
+* Ideas I've archived
+
+1. Configuring how =CUSTOM_ID= is created
+
+<2025-12-27 Sat> I don't really think this is necessary anymore. I already have [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]], which generates all of the IDs that I need. I don't want to manage any custom IDs by myself.
 
 * Footnotes
 
 [fn:1]  https://github.com/themkat/.emacs.d
 
-[fn:2]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
+[fn:2]  https://github.com/io12/org-fragtog
 
-[fn:3] https://github.com/minad/goggles
+[fn:3]  https://github.com/howardabrams/hamacs/blob/main/ha-org-word-processor.org
 
-[fn:4]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
+[fn:4] https://github.com/minad/goggles
 
-[fn:5]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
+[fn:5]  https://stackoverflow.com/questions/64798210/org-mode-file-link-to-a-file-with-specific-properties-id
 
-[fn:6] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+[fn:6]  https://stackoverflow.com/questions/13340616/assign-ids-to-every-entry-in-org-mode
 
-[fn:7]  https://www.danliden.com/posts/20220208-org-source.html
+[fn:7] https://emacs.stackexchange.com/questions/5389/correcting-and-maintaining-org-mode-hyperlinks
+
+[fn:8]  https://www.danliden.com/posts/20220208-org-source.html
+
+[fn:9]  https://yiming.dev/blog/2018/03/02/my-org-refile-workflow/

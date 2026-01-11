@@ -1,5 +1,6 @@
 ((casual-ibuffer-tmenu nil)
  (casual-image-tmenu nil)
+ (dg-menu nil)
  (listen-menu nil)
  (magit-merge nil)
  (magit-push nil)
@@ -18,4 +19,5 @@
   ((query-string . "tragicul dezirabil")
    (importance . medium))
   ((query-string . "techne")
-   (importance . medium))))
+   (importance . medium)))
+ (ready-player-menu nil))

@@ -167,14 +167,46 @@
 (use-package yasnippet-snippets
   :after yasnippet)
 
+(defun sia-clean-whitespace (&optional Begin End)
+  "Delete trailing whitespace, and replace repeated blank lines to just 1.
+Only space and tab is considered whitespace here.
+Works on whole buffer or selection, respects `narrow-to-region'.
+
+URL `http://xahlee.info/emacs/emacs/elisp_compact_empty_lines.html'
+Created: 2017-09-22
+Version: 2025-05-04"
+  (interactive)
+  (let (xbeg xend)
+    (seq-setq (xbeg xend)
+              (if (and Begin End)
+                  (list Begin End)
+                (if (region-active-p)
+                    (list (region-beginning) (region-end))
+                  (list (point-min) (point-max)))))
+    (save-excursion
+      (save-restriction
+        (narrow-to-region xbeg xend)
+        (progn
+          (goto-char (point-min))
+          (while (re-search-forward "[ \t]+\n" nil t) (replace-match "\n")))
+        (progn
+          (goto-char (point-min))
+          (while (re-search-forward "\n\n\n+" nil t) (replace-match "\n\n")))
+        (progn
+          (goto-char (point-max))
+          (while (eq (char-before) 32) (delete-char -1))))))
+  (message "done xah-clean-whitespace"))
+
+(add-hook 'before-save-hook 'sia-clean-whitespace)
+
+(use-package keycast
+  :ensure t)
+
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
 
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
-
-(use-package keycast
-  :ensure t)
 
 (use-package counsel)
 
@@ -279,6 +311,21 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
 
+(use-package websocket :ensure t)
+
+(use-package consult-snapfile
+  :load-path "~/cloned-utilities/consult-snapfile/emacs"
+  :after (consult websocket)
+  ;; Optional: bind to your preferred key
+  :bind ("C-c s f" . consult-snapfile))
+
+;; Server settings
+(setq consult-snapfile-server-port 9876)
+(setq consult-snapfile-server-host "127.0.0.1")
+
+;; Max results to return
+(setq consult-snapfile-max-results 100)
+
 ;; (use-package avy) ;; is this still useful for anything?
 (use-package helm)
 ;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
@@ -289,7 +336,15 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (use-package selectrum-prescient)
 (use-package vertico-prescient)
 
+(use-package ess
+  :ensure t)
 
+
+
+(use-package org-ranker
+  :ensure (org-ranker :type git
+                    :host github
+                    :repo "CSJ7701/org-ranker"))
 
 (use-package which-key
     :ensure t
@@ -377,6 +432,8 @@ Works in linux, MacOS, Microsoft Windows."
 
 (add-hook 'org-mode-hook #'org-indent-mode)
 
+(setq org-startup-folded 'content)
+
 (setq org-hide-emphasis-markers t)
 (setq org-hide-leading-stars t)
 (setq org-startup-with-inline-images t)
@@ -400,6 +457,9 @@ Works in linux, MacOS, Microsoft Windows."
                                                      company-backends)))))
 
 (use-package math-preview)
+
+(use-package org-fragtog
+  :ensure t)
 
 (use-package org-appear
   :hook
@@ -491,6 +551,9 @@ Works in linux, MacOS, Microsoft Windows."
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
 
+(use-package org-autolist
+  :ensure t)
+
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
@@ -537,6 +600,8 @@ title."
     (let* ((id (zz/org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
 
+(setq org-directory "~/Documents/notes")
+
 (use-package org-special-block-extras
   :ensure t)
 
@@ -564,6 +629,127 @@ title."
                               :inherit org-extra-emphasis
                               :underline t
                               )))))
+
+(defun +org/opened-buffer-files ()
+  "Return the list of files currently opened in emacs"
+  (delq nil
+        (mapcar (lambda (x)
+                  (if (and (buffer-file-name x)
+                           (string-match "\\.org$"
+                                         (buffer-file-name x)))
+                      (buffer-file-name x)))
+                (buffer-list))))
+
+(setq org-refile-targets '((+org/opened-buffer-files :maxlevel . 9)))
+
+(setq org-refile-use-cache t)
+
+(run-with-idle-timer 300 t (lambda ()
+                            (org-refile-cache-clear)
+                            (org-refile-get-targets)))
+
+(defun my-org-tree-to-indirect-buffer (&optional arg)
+  "Create indirect buffer and narrow it to current subtree.
+The buffer is named after the subtree heading, with the filename
+appended.  If a buffer by that name already exists, it is
+selected instead of creating a new buffer."
+  (interactive "P")
+  (let* ((new-buffer-p)
+         (pos (point))
+         (buffer-name (let* ((heading (org-get-heading t t))
+                             (level (org-outline-level))
+                             (face (intern (concat "outline-" (number-to-string level))))
+                             (heading-string (propertize (org-link-display-format heading)
+                                                         'face face)))
+                        (concat heading-string "::" (buffer-name))))
+         (new-buffer (or (get-buffer buffer-name)
+                         (prog1 (condition-case nil
+                                    (make-indirect-buffer (current-buffer) buffer-name 'clone)
+                                  (error (make-indirect-buffer (current-buffer) buffer-name)))
+                           (setq new-buffer-p t)))))
+    (switch-to-buffer new-buffer)
+    (when new-buffer-p
+      ;; I don't understand why setting the point again is necessary, but it is.
+      (goto-char pos)
+      (rename-buffer buffer-name)
+      (org-narrow-to-subtree))))
+
+(defun my-render-org-table-at-point ()
+  (interactive)
+  (save-excursion
+    (beginning-of-line)
+    (if (overlays-at (point))
+        ;; this is a rough solution, because there can
+        ;; be other overlays at point
+        (delete-overlay (car (overlays-at (point))))
+
+      (let* ((element-type (org-element-type (org-element-at-point))))
+        (if (and (not (eq element-type 'table))
+                 (not (eq element-type 'table-row)))
+            (error "not at an org table")
+
+          (while (not (eq 'table (org-element-type (org-element-at-point))))
+            (forward-line -1))
+
+          (my-render-org-table (org-element-at-point)))))))
+
+(defun my-render-org-table (table)
+  (interactive)
+  (let* ((begin (org-element-property :begin table))
+         (end (let ((pos (org-element-property :end table)))
+                (goto-char pos)
+                (beginning-of-line)
+                ;; skip possible space after table
+                (while (not (looking-at " *[|#]"))
+                  (setq pos (point))
+                  (forward-line -1))
+                pos))
+         (tabletxt (buffer-substring-no-properties begin end))
+         (img (with-temp-buffer
+                (insert tabletxt)
+                (mark-whole-buffer)
+                (org-latex-convert-region-to-latex)
+                (org-preview-latex-fragment)
+                (goto-char (point-min))
+                (overlay-get  (car (overlays-at (point))) 'display)))
+         (overlay (make-overlay begin end)))
+    (overlay-put overlay 'display img)
+    (forward-line -1)))
+
+(defun my-render-org-tables-in-buffer ()
+  (save-excursion
+    (org-element-map (org-element-parse-buffer) 'table 'my-render-org-table)))
+
+(setq org-capture-templates
+        '(
+          ("l" "Listening log" entry
+           (file+datetree "~/Documents/notes/inbox/listening-log.org")
+           "* %U\n %i\n %a")
+
+          ("t" "Task to the inbox" entry
+           (file "~/Documents/notes/inbox/inbox-capture.org")
+           "* TODO %?\n %i\n %a")
+
+          ("i" "Idea or quick thought to take care of" entry
+           (file "~/Documents/notes/inbox/thoughts-capture.org"))
+))
+
+(global-set-key (kbd "C-c c") #'org-capture)
+
+(global-set-key (kbd "C-x t l")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "l")))
+
+(global-set-key (kbd "C-x t a")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "t")))
+
+(global-set-key (kbd "C-x t i")
+                (lambda () "Open inbox capture window"
+                    (interactive)
+                    (org-capture nil "i")))
 
 (setq org-todo-keywords
       '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
@@ -593,7 +779,10 @@ title."
       ("time-eater" . ?t)))
 
 (setq org-agenda-files
-    (quote ("~/Documents/tracking")))
+        (list
+         "~/Documents/tracking"
+         "~/Documents/notes/inbox/" ; this is for tasks that I never actually got to deal with
+))
 
 (global-set-key (kbd "C-c o a") 'org-agenda)
 
@@ -677,6 +866,42 @@ title."
           (tags-todo "+PRIORITY=\"A\""
                      ((org-agenda-overriding-header "High Priority Tasks")))))))
 
+(use-package elegant-agenda-mode
+  :ensure t)
+
+(defun my-mark-as-project ()
+"This function makes sure that the current heading has
+(1) the tag :project:
+(2) has property COOKIE_DATA set to \"todo recursive\"
+(3) has any TODO keyword and
+(4) a leading progress indicator"
+    (interactive)
+    (org-toggle-tag "project" 'on)
+    (org-set-property "COOKIE_DATA" "todo recursive")
+    (org-back-to-heading t)
+    (let* ((title (nth 4 (org-heading-components)))
+           (keyword (nth 2 (org-heading-components))))
+       (when (and (bound-and-true-p keyword) (string-prefix-p "[" title))
+           (message "TODO keyword and progress indicator found")
+           )
+       (when (and (not (bound-and-true-p keyword)) (string-prefix-p "[" title))
+           (message "no TODO keyword but progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT ")
+           )
+       (when (and (not (bound-and-true-p keyword)) (not (string-prefix-p "[" title)))
+           (message "no TODO keyword and no progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT [/] ")
+           )
+       (when (and (bound-and-true-p keyword) (not (string-prefix-p "[" title)))
+           (message "TODO keyword but no progress indicator found")
+           (forward-whitespace 2)
+           (insert "[/] ")
+           )
+       )
+)
+
 (require 'org-inlinetask)
 
 (use-package org-edna
@@ -696,6 +921,51 @@ title."
                                 entries)
                  collect file)))
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+
+(use-package org-gtd
+  :ensure t
+  :after org
+  :demand t
+  :init
+  ;; Suppress upgrade warnings (must be set before package loads)
+  (setq org-gtd-update-ack "4.0.0")
+  :custom
+  ;; Where org-gtd will keep its files (defaults to ~/gtd/)
+  (org-gtd-directory "~/Documents/tracking/org-gtd/")
+
+  ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
+  (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
+
+  ;; Map GTD semantic states to your keywords
+  (org-gtd-keyword-mapping '((todo . "TODO")
+                             (next . "NEXT")
+                             (wait . "WAIT")
+                             (canceled . "CNCL")))
+
+  ;; Add org-gtd files to your agenda
+  (org-agenda-files (list org-gtd-directory))
+
+  :config
+  ;; REQUIRED: Enable org-edna for project dependencies
+  (org-edna-mode 1)
+
+  :bind
+  ;; Global keybindings (work anywhere in Emacs)
+  (("C-c d c" . org-gtd-capture)
+   ("C-c d e" . org-gtd-engage)
+   ("C-c d p" . org-gtd-process-inbox)
+   ("C-c d n" . org-gtd-show-all-next)
+   ("C-c d s" . org-gtd-reflect-stuck-projects)
+
+   ;; Keybinding for organizing items (only works in clarify buffers)
+   :map org-gtd-clarify-mode-map
+   ("C-c c" . org-gtd-organize)
+
+   ;; Quick actions on tasks in agenda views (optional but recommended)
+   :map org-agenda-mode-map
+   ("C-c ." . org-gtd-agenda-transient)))
+
+(setq org-hierarchical-todo-statistics nil)
 
 (use-package dashboard
   :ensure t
@@ -821,6 +1091,12 @@ title."
 (use-package denote-markdown
   :ensure t
   :after denote)
+
+(use-package denote-merge
+  :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
+  :bind
+  ("M-n m f" . denote-merge-file)
+  ("M-n m r" . denote-merge-region))
 
 (use-package denote-explore
   :bind
@@ -974,6 +1250,23 @@ agenda."
   (org-node-cache-mode))
 
 (setq org-node-backlink-do-drawers t)
+
+(setq org-node-alter-candidates t)
+
+(use-package org-roam
+    :ensure t)
+
+(use-package org-roam-ql
+  :ensure t
+  :after org-roam
+  :bind ((:map org-roam-mode-map
+               ;; Have org-roam-ql's transient available in org-roam-mode buffers
+               ("v" . org-roam-ql-buffer-dispatch)
+               :map minibuffer-mode-map
+               ;; Be able to add titles in queries while in minibuffer.
+               ;; This is similar to `org-roam-node-insert', but adds
+               ;; only title as a string.
+               ("C-c n i" . org-roam-ql-insert-node-title))))
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
@@ -1695,6 +1988,10 @@ With a prefix ARG, remove start location."
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'font-lock-comment-face)
   :hook (text-mode . mixed-pitch-mode))
 
+(set-face-attribute 'default nil
+                  :family "PT Mono"
+                  :height 100)
+
 (defvar ha-fixed-font
   (when window-system
     (or
@@ -1756,7 +2053,7 @@ With a prefix ARG, remove start location."
                         :height 'unspecified)))
 
 (set-face-attribute 'default nil
-                  :family "Aporetic Serif Mono"
+                  :family "Aporetic Sans Mono"
                   :height 100)
 
 (set-face-attribute 'link nil
@@ -1852,6 +2149,8 @@ With a prefix ARG, remove start location."
 
 (set-face-attribute 'org-quote nil
                   :family "Aporetic Serif Mono")
+
+(setq org-ellipsis " [+]")
 
 (use-package all-the-icons
   :if (display-graphic-p))
@@ -2141,6 +2440,9 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "C-c sd") 'easysession-delete)
 (global-set-key (kbd "C-c sr") 'easysession-rename)
 (global-set-key (kbd "C-c sR") 'easysession-reset)
+
+(use-package emms
+  :ensure t)
 
 (use-package vuiet
   :ensure t)

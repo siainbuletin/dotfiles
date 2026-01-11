@@ -134,6 +134,14 @@ By using =:hook (text-mode . mixed-pitch-mode)=, I essentially only enable the v
 My issue is that it does something with the variable-pitch font that doesn’t allow it to scale to different resolutions.[fn:3]
 #+end_quote
 
+** The default font used in Emacs
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'default nil
+    		    :family "PT Mono"
+    		    :height 100)
+#+end_src
+
 ** Choosing between fonts defined as options
 
 This is a variable which lets me choose which font I want on the fly. This particular block is for monospaced fonts
@@ -264,7 +272,7 @@ This is because I'm having quite a few issues with =fontaine= currently.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (set-face-attribute 'default nil
-  		    :family "Aporetic Serif Mono"
+  		    :family "Aporetic Sans Mono"
   		    :height 100)
 #+end_src
 
@@ -306,7 +314,6 @@ This was creating a lot of issues with the settings for fontaine (which are defi
                         :weight 'bold
                         :height (cdr face)))
 #+end_src
-
 
 ** Working with a better font management system in =fontaine=
 
@@ -428,7 +435,13 @@ I want the quote to actually be different, so it's easier to read for me
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (set-face-attribute 'org-quote nil
-  		    :family "Aporetic Serif Mono")
+    		    :family "Aporetic Serif Mono")
+#+end_src
+
+*** Setting the ellipsis for org-mode to look proper
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-ellipsis " [+]")
 #+end_src
 
 *  Font icons
@@ -588,7 +601,6 @@ the =lin-face= in Prot's =lin= package can be configured independently and it wi
 
 =lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
 
-
 https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
 https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
 https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
@@ -747,8 +759,6 @@ This isn't actually necessary if we're using =modus-themes-load-theme=, which wo
 ** Modifying base settings for the themes
 
 This doesn't actually work because it can't find the 'default variable.
-
-
 
 #+begin_src emacs-lisp :tangle no :eval never
 (set-face-attribute ‘variable-pitch nil :font "Roboto Mono" :height 140)

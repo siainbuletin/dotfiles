@@ -281,6 +281,21 @@ This is apparently possible and it would make an academic reading workflow on e-
 I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
 
 * Bringing a better reader into Emacs, for all formats: =emacs-reader=
+
+This currently has to be installed directly from the source.
+
+[2026-01-05 Mon] It doesn't support annotations.
+
+[2026-01-08 Thu] Disabled, as it doesn't actually do anything.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package reader
+    :ensure (reader :type git
+  		  :host codeberg
+  		  :repo "divyaranjan/emacs-reader"
+  		  :files ("*.el" "render-core.so")
+  		  :pre-build ("make" "all")))
+#+end_src
 * Creating a reading list
 
 See [[denote:20251213T184505][Reading list in Emacs]] (it's really important to organise academic resources in a table that's easy to navigate)

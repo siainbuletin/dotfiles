@@ -1,5 +1,4 @@
 #+TITLE: Utility functions for editing in Emacs
-#+startup: overview
 
 This includes any kind of utility function that enhances the functionality of base Emacs. This doesn't make use of any kind of package (as much as possible). It's mostly composed of quick patches that I added on the go. Each function is explained as needed.
 
@@ -253,6 +252,70 @@ Yasnippet makes boiler plate and other code snippets much faster to write with s
 (use-package yasnippet-snippets
   :after yasnippet)
 #+end_src
+* Remove redundant whitespace
+:PROPERTIES:
+:CREATED: [2026-01-06 Tue]
+:END:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun sia-clean-whitespace (&optional Begin End)
+    "Delete trailing whitespace, and replace repeated blank lines to just 1.
+  Only space and tab is considered whitespace here.
+  Works on whole buffer or selection, respects `narrow-to-region'.
+
+  URL `http://xahlee.info/emacs/emacs/elisp_compact_empty_lines.html'
+  Created: 2017-09-22
+  Version: 2025-05-04"
+    (interactive)
+    (let (xbeg xend)
+      (seq-setq (xbeg xend)
+                (if (and Begin End)
+                    (list Begin End)
+                  (if (region-active-p)
+                      (list (region-beginning) (region-end))
+                    (list (point-min) (point-max)))))
+      (save-excursion
+        (save-restriction
+          (narrow-to-region xbeg xend)
+          (progn
+            (goto-char (point-min))
+            (while (re-search-forward "[ \t]+\n" nil t) (replace-match "\n")))
+          (progn
+            (goto-char (point-min))
+            (while (re-search-forward "\n\n\n+" nil t) (replace-match "\n\n")))
+          (progn
+            (goto-char (point-max))
+            (while (eq (char-before) 32) (delete-char -1))))))
+    (message "done xah-clean-whitespace"))
+#+end_src
+
+This will add a hook to always clean the whitespace after a save
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (add-hook 'before-save-hook 'sia-clean-whitespace)
+#+end_src
+
+* Seeing what are the keys in use: =keycast=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package keycast
+  :ensure t)
+#+end_src
+
+** Starting Emacs always with keycast in header more
+:PROPERTIES:
+:CREATED:  [2026-01-06 Tue]
+:END:
+
+!@Fix this, it doesn't work!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+(keycast-header-line-mode)
+#+end_src
+
+** TODO Figure out how to make the keycast work with [[file:modeline.org][the Doom Modeline]]
+
+You need to set up a custom variable for it to work well.
 
 * Other
 
@@ -265,18 +328,6 @@ Yasnippet makes boiler plate and other code snippets much faster to write with s
   ;; BUFFER FUNCTIONS
   (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 #+end_src
-
-* Seeing what are the keys in use: =keycast=
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(use-package keycast
-  :ensure t)
-#+end_src
-
-** TODO Figure out how to make the keycast work with [[file:modeline.org][the Doom Modeline]]
-
-You need to set up a custom variable for it to work well.
-
 * Footnotes
 [fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
 

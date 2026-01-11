@@ -199,13 +199,15 @@ The command denote-markdown-convert-links-to-obsidian-type changes links from ~[
 
 !@Currently removed until it is added to (M)ELPA and it solves the issue of replacing denote links improperly. Also, I don't have much use for it now that I'm using [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]].!@
 
-#+begin_src emacs-lisp :tangle no :eval never
+#+begin_src emacs-lisp :tangle "init.el" :eval never
     (use-package denote-merge
       :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
       :bind
       ("M-n m f" . denote-merge-file)
       ("M-n m r" . denote-merge-region))
 #+end_src
+
+<2026-01-03 Sat> I don't currently use the ~denote-merge-file~ option anymore, because it creates issues with the identifier. I also am not really looking to leave a little link behind, but I want to be able to easily send text around when I need to.
 
 *** Setting user options for =denote-merge=
 

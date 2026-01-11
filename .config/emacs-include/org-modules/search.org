@@ -558,6 +558,55 @@ See also a comparison to =consult-omni= (if it can do searches on the web): [[de
     :ensure (:host github :repo "zkry/p-search"))
 #+end_src
 
+* Improving the file search: =consult-snapfile=
+
+This one is added on <2025-12-28 Sun>.
+
+It depends on an external Rust binary which has been cloned separately.
+
+** Installing the Rust binary separately
+
+#+begin_src shell
+git clone https://github.com/nohzafk/consult-snapfile ~/cloned-utilities/
+cd cloned-utilities/consult-snapfile
+./build.sh
+#+end_src
+
+** Configuring the installation
+
+Websocket dependency
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package websocket :ensure t)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package consult-snapfile
+    :load-path "~/cloned-utilities/consult-snapfile/emacs"
+    :after (consult websocket)
+    ;; Optional: bind to your preferred key
+    :bind ("C-c s f" . consult-snapfile))
+#+end_src
+
+** Usage
+
+The server auto-starts on first use. It looks for the binary in:[fn:7]
+
+Your PATH
+target/release/ (relative to the repo)
+target/debug/ (for development)
+
+** Server settings
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Server settings
+(setq consult-snapfile-server-port 9876)
+(setq consult-snapfile-server-host "127.0.0.1")
+
+;; Max results to return
+(setq consult-snapfile-max-results 100)
+#+end_src
+
 * TODO Other completion packages that I still don't know the functionality of
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -581,6 +630,15 @@ See also a comparison to =consult-omni= (if it can do searches on the web): [[de
 
 See [[id:bfcaea71-4efe-41a0-9d63-55b863a4d82d][Queries injected into Text Editor buffers]]
 
+This kind of also means that you're working with packages that were made for R. It's important to be able to visualise your data in this way.
+
+** Installing Emacs Speaks Statistics (ESS)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package ess
+    :ensure t)
+#+end_src
+
 ** Installing =org-plot=
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
@@ -589,6 +647,15 @@ See [[id:bfcaea71-4efe-41a0-9d63-55b863a4d82d][Queries injected into Text Editor
 ** Setting up org templates for capturing information about how you're feeling
 
 ** What are the sources of data that you're working with?
+
+* Ranking search results
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-ranker
+    :ensure (org-ranker :type git
+  		      :host github
+  		      :repo "CSJ7701/org-ranker"))
+#+end_src
 * Footnotes
 
 [fn:1] https://github.com/minad/marginalia
@@ -602,3 +669,5 @@ See [[id:bfcaea71-4efe-41a0-9d63-55b863a4d82d][Queries injected into Text Editor
 [fn:5]  https://github.com/xavierr/org-recoll?tab=readme-ov-file
 
 [fn:6] https://gitlab.com/-/snippets/4872712
+
+[fn:7]  https://github.com/nohzafk/consult-snapfile

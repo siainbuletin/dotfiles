@@ -135,6 +135,8 @@ This is already a pretty spotty issue in Emacs, as packages used for Zettelkaste
 
 The system in =howm=, which would show a different pane for incoming and outgoing links was pretty useful, but =howm= is pretty hard to setup properly, which is why I have given up on it.
 
+<2025-12-30 Tue> A lot of this can be solved with [[id:c6682b9f-07db-448e-800a-00b75345492b][org-super-links]], which is configured below, with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]].
+
 ** TODO Dealing with unresolved links
 
 One of the best features of Obsidian was that it let you work and define new files as you were writing, that would later be filled in and end up showing all of the links that were previously defined to that file.
@@ -238,6 +240,8 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
         :ensure t)
 #+end_src
 
+Since this needs to access files in ~org-directory~, see [[file:org-config.org][Org-mode configuration]].
+
 
 ** Trying out [[denote:20251213T220500][org-supertag]]
 
@@ -326,6 +330,53 @@ This function will create a *multi-line* backlink drawer, instead of putting eve
 
 This currently doesn't work because I need to have another package installed. Refer to the relevant issue on GitHub.
 
+** Avoid conflict in minibuffer completion (if you have two nodes of the same name)
+
+If two ID-nodes exist with the same title, one of them disappears from minibuffer completions.
+
+That’s just the nature of completion. Much can be said for embracing the uniqueness constraint, and org-node will print messages about collisions.
+
+Anyway… there’s a workaround. Assuming you leave org-node-affixation-fn at its default setting, adding this to initfiles tends to do the trick:[fn:5]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-node-alter-candidates t)
+#+end_src
+
+** Replacing the backlink creation system with [[id:c6682b9f-07db-448e-800a-00b75345492b][org-super-links]]
+:PROPERTIES:
+:CREATED: <2025-12-30 Tue>
+:END:
+
+!@Currently disabled because it introduces an ~org-store-link~ dialogue that fires up every time I want to create a heading with org-node. I'll fix this when it's relevant again.!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-super-links
+    :ensure (org-super-links :type git
+  			   :host github
+  			   :repo "toshism/org-super-links"))
+#+end_src
+
+To make sure that it works well with org-node, you have to make sure that you never enable ~org-node-backlink-mode~ and then you just let =org-super-links= hoot into ~org-node-insert-link-hook~. This will convert to super-link style backlinks.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-node-insert-link-hook
+            #'org-super-links-convert-link-to-super)
+#+end_src
+
+This will create a multi-line ~:BACKLINKS:~ drawer that will be auto-updated/pre-populated.
+
+You should run ~org-node-backlink-mass-update-drawers~ to update all of the missing backlinks in bulk. This is useful if you've never used =org-super-links= before using =org-node=.[fn:5]
+
+** Configuration for =org-super-links=
+
+!@How do you actually make it show up the backlinks immediately after saving an org buffer? Should you make an ~after-save~ hook for it to work properly?!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq org-super-links-backlink-into-drawer t)
+
+(setq org-super-links-backlink-prefix "<- ")
+#+end_src
+
 * GNU Hyperbole configuration
 :PROPERTIES:
 :ID:       fb1ac70c-2e3f-41b6-83d8-ae05043c4517
@@ -384,7 +435,37 @@ The action key is still going to be ~M-RET~, but now all the other keys aren't i
 
 This package is absolutely insufferable in how hard it is to actually set it up with your own configuration. You can't even test out different keybindings, it changes the configuration of Emacs so much that you can barely act with the same keys anymore. So it's pretty much unusable for me right now.
 
+* Testing out =org-roam-ql= to be able to query files with IDs in the zeroth section as well
+:PROPERTIES:
+:CREATED: [2026-01-05 Mon]
+:END:
+
+If this works as intended with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]], then it would fill some space in the functioning of [[id:ac711f84-6b85-4294-8427-a2d0c5985b69][org-ql]] so I could, for example, query for files that backlink from a project file. See the idea with ~:bib-project:~ in the zeroth section.
+
+[[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]] can generally interoperate with [[id:9ff75a0e-1c6f-41d8-a94f-9e0f329f69ea][org-roam]], although the database structure is different. I don't know if =org-roam-ql= is working based on the ~:ID:~ of each entry (or, rather, each property drawer) or if it relies on the SQL used by [[id:9ff75a0e-1c6f-41d8-a94f-9e0f329f69ea][org-roam]].
+
+For this I will also need to install org-roam
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-roam
+      :ensure t)
+
+  (use-package org-roam-ql
+    :ensure t
+    :after org-roam
+    :bind ((:map org-roam-mode-map
+                 ;; Have org-roam-ql's transient available in org-roam-mode buffers
+                 ("v" . org-roam-ql-buffer-dispatch)
+                 :map minibuffer-mode-map
+                 ;; Be able to add titles in queries while in minibuffer.
+                 ;; This is similar to `org-roam-node-insert', but adds
+                 ;; only title as a string.
+                 ("C-c n i" . org-roam-ql-insert-node-title))))
+#+end_src
+
 * Footnotes
+
+[fn:5]  https://github.com/meedstrom/org-node
 
 [fn:1] Emacs Writing Studio literate configuration
 
