@@ -242,7 +242,6 @@ There's an option to get a [[denote:20251117T213411][Queries injected into Text 
 
 Since this needs to access files in ~org-directory~, see [[file:org-config.org][Org-mode configuration]].
 
-
 ** Trying out [[denote:20251213T220500][org-supertag]]
 
 =org-supertag= still is a pretty young package. It's also unclear how it will be useful for my system.
@@ -461,6 +460,18 @@ For this I will also need to install org-roam
                  ;; This is similar to `org-roam-node-insert', but adds
                  ;; only title as a string.
                  ("C-c n i" . org-roam-ql-insert-node-title))))
+#+end_src
+
+* ekg: Creating a knowledge graph based on the ID properties of the notes
+
+[2026-02-05 Thu]
+
+[[id:b27e568b-97e8-4565-bdbe-0ac8ea427981][ekg]]
+
+This also requires the triples package
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+
 #+end_src
 
 * Footnotes

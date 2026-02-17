@@ -8,6 +8,9 @@
  (org-ref-bibtex-file-menu nil)
  (p-search-infix-directory "/home/siainbuletin/Documents/notes/")
  (p-search-transient-dispatcher
+  ((query-string . "essentia")
+   (importance . medium))
+  nil
   ((base-directory . "~/Documents/literature/")
    (filename-regexp . ".*")
    (search-tool . :rg)

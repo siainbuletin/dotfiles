@@ -656,6 +656,16 @@ This kind of also means that you're working with packages that were made for R. 
   		      :host github
   		      :repo "CSJ7701/org-ranker"))
 #+end_src
+
+* Cloned dataview clone: =org-dataview=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-dataview")
+(require 'org-dataview)
+
+(setq org-id-locations-file "~/.config/emacs-include/.org-id-locations")
+#+end_src
+
 * Footnotes
 
 [fn:1] https://github.com/minad/marginalia

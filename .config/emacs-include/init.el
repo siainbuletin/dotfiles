@@ -346,6 +346,11 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                     :host github
                     :repo "CSJ7701/org-ranker"))
 
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-dataview")
+(require 'org-dataview)
+
+(setq org-id-locations-file "~/.config/emacs-include/.org-id-locations")
+
 (use-package which-key
     :ensure t
 
@@ -1262,6 +1267,8 @@ agenda."
                ;; only title as a string.
                ("C-c n i" . org-roam-ql-insert-node-title))))
 
+
+
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
       bibtex-autokey-year-length 4
@@ -1701,20 +1708,33 @@ With a prefix ARG, remove start location."
 (use-package binder
   :ensure t)
 
+(setq org-latex-compiler "xelatex")
+(setq org-latex-pdf-process
+      (list (concat "latexmk -"
+                    org-latex-compiler
+                    " -recorder -synctex=1 -bibtex-cond %b")))
+
+(setq org-latex-listings t)
+
+(setq org-latex-default-packages-alist
+      '(("" "graphicx" t)
+        ("" "grffile" t)
+        ("" "longtable" nil)
+        ("" "wrapfig" nil)
+        ("" "rotating" nil)
+        ("normalem" "ulem" t)
+        ("" "amsmath" t)
+        ("" "textcomp" t)
+        ("" "amssymb" t)
+        ("" "capt-of" nil)
+        ("" "hyperref" nil)))
+
 (require 'ox-latex)
 (unless (boundp 'org-latex-classes)
   (setq org-latex-classes nil))
 
 (with-eval-after-load 'ox-latex
 (add-to-list 'org-latex-classes
-           '("article"
-               "\\documentclass{article}"
-               ("\\section{%s}" . "\\section*{%s}")
-               ("\\subsection{%s}" . "\\subsection*{%s}")
-               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-               ("\\paragraph{%s}" . "\\paragraph*{%s}")
-               ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
-
              '("org-plain-latex"
                "\\documentclass{article}
            [NO-DEFAULT-PACKAGES]
@@ -1745,7 +1765,7 @@ With a prefix ARG, remove start location."
 (setq org-pandoc-options-for-docx '((standalone . nil)))
 ;; special settings for beamer-pdf and latex-pdf exporters
 (setq org-pandoc-options-for-beamer-pdf '((pdf-engine . "xelatex")))
-(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "pdflatex")))
+(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "xelatex")))
 ;; special extensions for markdown_github output
 (setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
 
@@ -1858,6 +1878,70 @@ With a prefix ARG, remove start location."
   (elfeed-show-entry-switch 'display-buffer)
   :bind
   ("C-c w e" . elfeed))
+
+(setq elfeed-feeds
+ '(
+   ;; essays
+   ("https://aeon.co/feed.rss" essays pop-philosophy)
+   ("https://www.reddit.com/r/philosophy.rss" forum pop-philosophy)
+   ("https://www.reddit.com/r/hegel.rss" forum pop-philosophy)
+
+   ;; politics
+   ("https://groups.io/g/marxmail/rss" news world marxism)
+   ("https://www.theguardian.com/world/rss" news world centrist)
+   ("https://recorder.ro/feed/" news romania centrist)
+
+   ("https://www.reddit.com/r/AcademicMarxism.rss" forum marxism)
+
+   ;; economy
+   ("https://www.morningbrew.com/feed.xml" economy digest)
+
+   ;; music review and news
+   ("https://thequietus.com/opinion-essays/feed/" essays listening)
+
+   ;; individual substack
+   ;;; music related
+   ("https://deepcutswrites.substack.com/feed" listening blog)
+   ("https://loudandquiet.substack.com/feed" listening blog)
+   ;;; other art
+   ;;; politics
+   ("https://slavoj.substack.com/feed" blog politics)
+   ;;; misc
+   ("https://post.substack.com/" blog cruft)
+
+   ;; technology
+   ("https://forum.typst.app/posts.rss" tech forum)
+   ("https://protesilaos.com/keeb.xml" tech hardware)
+
+   ;;; hardware tinkering
+   ;;;; iPod
+   ("https://www.reddit.com/r/ipod.rss")
+
+   ;;; emacs
+   ("https://www.reddit.com/r/orgmode.rss" tech emacs forum)
+
+   ;;; blogs
+   ("https://christiantietze.de/feed.atom" blog emacs)
+   ("https://sachachua.com/blog/feed/" blog emacs)
+   ("https://protesilaos.com/codelog.xml" blog emacs)
+   ("https://protesilaos.com/news.xml" blog)
+
+   ;; microblogs
+   ("https://mastodon.social/users/ctietze.rss" microblog) ;; does zettelkasten and Emacs
+
+   ;; music forums
+   ("https://llllllll.co/posts.rss" music electronic forum)
+   ()
+
+   ;; digital minimalism
+   ("https://www.reddit.com/r/digitalminimalism.rss" dumb forum)
+   ("")
+
+   ;; PKM
+   ("https://zettelkasten.de/feed" zk pkm notes blog)
+
+   ;; academic subscriptions
+   ("https://old.reddit.com/r/f1technical.rss" tech f1)))
 
 (use-package elfeed-org
   :config

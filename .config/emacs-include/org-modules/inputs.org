@@ -20,16 +20,19 @@ Taken directly from Emacs Writing Studio.
     ("C-c w e" . elfeed))
 #+end_src
 
+** Subscriptions
+
+moved to org mode file
+
 * Configuring =elfeed= to be integrated with =org-mode=
 
 Taken directly from Emacs Writing Studio.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package elfeed-org
-    :config
-    (elfeed-org)
-    :custom
-    (rmh-elfeed-org-files
-     (list (concat (file-name-as-directory (getenv "HOME"))
-  		         "elfeed.org"))))
+    (use-package elfeed-org
+      :ensure t
+      :config
+      (elfeed-org)
+      :custom
+      (setq sia-elfeed-org-files (list "~/Documents/elfeed.org")))
 #+end_src

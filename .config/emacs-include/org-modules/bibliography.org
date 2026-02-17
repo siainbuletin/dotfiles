@@ -1,3 +1,5 @@
+
+
 #+title: Bibliography management within Emacs
 #+startup: overview
 
@@ -468,8 +470,6 @@ Auto-generating the citekeys through =ebib= (with the help of the built-in BibTe
             (message "[Ebib] [Dennis] Imported %s for %s" fpath bibkey))
         (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
 #+end_src
-
-
 
 ** TODO Cleaning the incoming records into the BibTeX database
 * TODO Picking out citations from the minibuffer
@@ -986,14 +986,11 @@ This needs to be tested to see if it really works.
   (require 'org-ref-helm)
 #+end_src
 
-
-
 ** TODO Get the hang of using =org-ref= for managing all references
 
 How do you load multiple bibliography files?
 
 They have to be loaded manually in a list. You can also figure out how to load them as the variable =sia-bibtex-files=.
-
 
 ** TODO Exporting special =.bib= file for the exported article
 

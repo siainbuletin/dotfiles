@@ -70,6 +70,109 @@ The point while drafting a manuscript is to have quick and easy access to the PD
 
 [[id:bc1a5a70-e215-4e81-9e9d-32648989fe6a][org-noter]] seems to be best suited package for this scope.
 
+* Basic LaTeX settings
+
+[2026-01-18 Sun]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-latex-compiler "xelatex")
+(setq org-latex-pdf-process
+      (list (concat "latexmk -"
+                    org-latex-compiler
+                    " -recorder -synctex=1 -bibtex-cond %b")))
+
+(setq org-latex-listings t)
+
+(setq org-latex-default-packages-alist
+      '(("" "graphicx" t)
+        ("" "grffile" t)
+        ("" "longtable" nil)
+        ("" "wrapfig" nil)
+        ("" "rotating" nil)
+        ("normalem" "ulem" t)
+        ("" "amsmath" t)
+        ("" "textcomp" t)
+        ("" "amssymb" t)
+        ("" "capt-of" nil)
+        ("" "hyperref" nil)))
+#+end_src
+
+* CNCL The default builder for LaTeX files
+CLOSED: [2026-01-18 Sun 02:05]
+
+[2026-01-18 Sun]
+
+#+begin_src emacs-lisp :tangle no :eval never
+(latex :variables
+       latex-build-command "LatexMk"
+       latex-enable-auto-fill t)
+#+end_src
+
+LaTeXMK is supposed to be easier to work with.[fn:6]
+
+Next, the idea is that I place ~#+LATEX_CMD:~ processor in an .org file, and during the export Org-mode should pick up the right processor. I also wanted to chose between pdflatex and xelatex, so I’ve created this:
+
+** Choosing between the LaTeX backend exporters
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; Default packages included in every tex file, pdflatex or xelatex
+(setq org-latex-packages-alist
+      '(("" "graphicx" t)
+        ("" "longtable" nil)
+        ("" "float" nil)))
+
+;; source: https://lists.gnu.org/archive/html/emacs-orgmode/2013-06/msg00240.html
+(defun my-auto-tex-cmd (backend)
+  "When exporting from .org with latex,
+  automatically run latex, pdflatex, or xelatex as appropriate,
+  using latexmk."
+  (let ((texcmd))
+    (setq texcmd "latexmk -pdf %f")
+    (if (string-match "LATEX_CMD: pdflatex" (buffer-string))
+        (progn
+          (setq texcmd "latexmk -pdf -pdflatex='pdflatex -file-line-error --shell-escape -synctex=1' %f")
+          (setq org-latex-default-packages-alist
+                '(("AUTO" "inputenc" t)
+                  ("T1"   "fontenc"   t)
+                  (""     "fixltx2e"  nil)
+                  (""     "wrapfig"   nil)
+                  (""     "soul"      t)
+                  (""     "textcomp"  t)
+                  (""     "marvosym"  t)
+                  (""     "wasysym"   t)
+                  (""     "latexsym"  t)
+                  (""     "amssymb"   t)
+                  (""     "hyperref"  nil)))))
+    (if (string-match "LATEX_CMD: xelatex" (buffer-string))
+        (progn
+          (setq texcmd "latexmk -pdflatex='xelatex -file-line-error --shell-escape -synctex=1' -pdf %f")
+          (setq org-latex-default-packages-alist
+                '(("" "fontspec" t)
+                  ("" "xunicode" t)
+                  ("" "url" t)
+                  ;; ("" "rotating" t)
+                  ;; ("" "memoir-article-styles" t)
+                  ;; ("american" "babel" t)
+                  ;; ("babel" "csquotes" t)
+                  ;; ("" "listings" nil)
+                  ("svgnames" "xcolor" t)
+                  ("" "soul" t)
+                  ("xetex, colorlinks=true, urlcolor=FireBrick, plainpages=false, pdfpagelabels, bookmarksnumbered" "hyperref" nil)
+                  ))
+          (setq org-latex-classes
+                (cons '("memarticle"
+                        "\\documentclass[11pt,oneside,article]{memoir}"
+                        ("\\section{%s}" . "\\section*{%s}")
+                        ("\\subsection{%s}" . "\\subsection*{%s}")
+                        ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                        ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                        ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+                      org-latex-classes))))
+
+    (setq org-latex-pdf-process (list texcmd))))
+(add-hook 'org-export-before-parsing-hook 'my-auto-tex-cmd)
+#+end_src
+
 * Exporting plain LaTeX
 
 For actual notes on how to do this, see [[id:05e98dbc-85f4-4b61-bc1e-10ac69fad67a][Compiling LaTeX from org]]
@@ -85,20 +188,12 @@ This snippet is given by this article in worg[fn:1]
 ** Defining my own plain LaTeX class
 
 #+begin_quote
-This will give us a class that won’t include all the default packages in the generated LaTeX file. Put this in your init file. You can then use it with #+LATEX_CLASS: org-plain-latex.[fn:2]
+This will give us a class that won’t include all the default packages in the generated LaTeX file. Put this in your init file. You can then use it with ~#+LATEX_CLASS: org-plain-latex.~[fn:2]
 #+end_quote
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (with-eval-after-load 'ox-latex
   (add-to-list 'org-latex-classes
-  	     '("article"
-                 "\\documentclass{article}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
-                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
-
                '("org-plain-latex"
                  "\\documentclass{article}
              [NO-DEFAULT-PACKAGES]
@@ -183,24 +278,14 @@ This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as th
 #+end_src
 
 This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:4]
+
 ** TODO Export org-mode manuscripts to Microsoft Word
 :PROPERTIES:
 :ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
 :END:
-
-Is there any way to preserve the formatting?
-
-I might need to use =ox-pandoc= for this to work well. This version is good if you want to use the same formatting for the export all the time. There's also the option to pass options for pandoc compilation via the org header: https://github.com/emacsorphanage/ox-pandoc#passing-options-to-pandoc It could be easy to set up with YASnippet.[fn:5]
-
-You need to also set =pandoc= up to generate good looking DOCX files. For this, you need a template document. =pandoc= has to be set up properly with =pacman= in order to behave well. The best way to do a DOCX export with pandoc is to play by its rules. This means that you need to start from its own templates.
-
-To get a document formatted as this reference, you need to run this command in the shell:
-
-#+begin_src shell :eval never
-pandoc -o custom-reference.docx --print-default-data-file reference.docx
-#+end_src
-
-After this, you should open the ~.docx~ document in the word processor and edit the styles as needed.[fn:5]
+:BACKLINKS:
+[2026-02-05 Thu 13:49] <- [[id:7e34dee4-5f4a-4d0c-86e9-8d11076596fd][Compiling Word documents from org-mode]]
+:END:
 
 ** Installing =ox-pandoc=
 
@@ -216,7 +301,7 @@ After this, you should open the ~.docx~ document in the word processor and edit 
 (setq org-pandoc-options-for-docx '((standalone . nil)))
 ;; special settings for beamer-pdf and latex-pdf exporters
 (setq org-pandoc-options-for-beamer-pdf '((pdf-engine . "xelatex")))
-(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "pdflatex")))
+(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "xelatex")))
 ;; special extensions for markdown_github output
 (setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
 #+end_src
@@ -240,6 +325,7 @@ Would it be better to continue relying on =typst= for doing my documents, or wou
 However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
 * Footnotes
+[fn:6]  https://knezevic.ch/posts/xelatex-orgmode-love/
 
 [fn:1]  https://orgmode.org/worg/org-tutorials/org-latex-export.html
 
