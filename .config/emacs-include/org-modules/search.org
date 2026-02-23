@@ -648,6 +648,19 @@ This kind of also means that you're working with packages that were made for R. 
 
 ** What are the sources of data that you're working with?
 
+* Creating a taxonomy of data objects
+
+You should also look at [[id:a64b16c8-1e8a-422b-b69a-6d70fc272755][triples]] for this.
+
+** Installing taxy.el
+
+[[id:b731b0af-6f59-43c9-9410-c18ce3d4d0da][taxy.el]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package taxy
+    :ensure t)
+#+end_src
+
 * Ranking search results
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never

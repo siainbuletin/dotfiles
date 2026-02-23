@@ -261,8 +261,6 @@ Version: 2025-05-04"
 (use-package embark-consult
   :ensure t)
 
-
-
 (use-package consult-recoll
   :ensure t)
 
@@ -338,8 +336,6 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 
 (use-package ess
   :ensure t)
-
-
 
 (use-package org-ranker
   :ensure (org-ranker :type git
@@ -613,27 +609,14 @@ title."
 (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
- '(org-default ((t (
-                    :background "#F0B609"
-                    :inherit default
-                    ))))
- '(org-extra-emphasis ((t (
-                           :background "#F0B609"
-                           :height 1.0
-                           :inherit default
-                           :weight bold
-                           :width normal
-                           ))))
- '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              ))))
- '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              )))))
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(org-default ((t (:background "#F0B609" :inherit default))))
+ '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
+ '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
+ '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
 
 (defun +org/opened-buffer-files ()
   "Return the list of files currently opened in emacs"
@@ -1266,8 +1249,6 @@ agenda."
                ;; This is similar to `org-roam-node-insert', but adds
                ;; only title as a string.
                ("C-c n i" . org-roam-ql-insert-node-title))))
-
-
 
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
@@ -2564,3 +2545,13 @@ DELTA would be something like 1 or -1."
                   (text-scale-adjust 2)))
   :bind
   ("<f7>" . vterm))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(custom-safe-themes
+   '("8fe2533b2afef6e78421aee5fc664e9aa1346f44494117a1346209a04938cdc2"
+     "9293e74ccd69dcd202c069a84e90ef1f21176a09dcbfd59e75a5d8c0d1f1214f"
+     "bf4ab01ac7cbd5bff3d3f43d9988b77f8adcbfae0c7a2fd7db5800649ac10210"
+     default)))
