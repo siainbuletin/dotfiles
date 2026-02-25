@@ -2551,7 +2551,14 @@ DELTA would be something like 1 or -1."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(custom-safe-themes
-   '("8fe2533b2afef6e78421aee5fc664e9aa1346f44494117a1346209a04938cdc2"
+   '("f1e8339b04aef8f145dd4782d03499d9d716fdc0361319411ac2efc603249326"
+     "f4bef5a6d77ac9c9ab34382f380aba922dd91901d0d43886a5f99106041bb8e0"
+     "0d9d71c926669c744b623f13a89427e242e74e470d05dfa20dd7b6a3690fcf61"
+     "ace9f12e0c00f983068910d9025eefeb5ea7a711e774ee8bb2af5f7376018ad2"
+     "1bfcfbf99dcdeaef693b9281eabf23cfb47d27e7a102995facb344e42f0665cd"
+     "a1d2c03d65d78a953db751bbbcd0094cac5f59dfe391c1f4b6e0ae8031937d49"
+     "ebb5118922a5ecbcafcdf65c37b87fa88bd1786615c249e137d7f168795b75ae"
+     "8fe2533b2afef6e78421aee5fc664e9aa1346f44494117a1346209a04938cdc2"
      "9293e74ccd69dcd202c069a84e90ef1f21176a09dcbfd59e75a5d8c0d1f1214f"
      "bf4ab01ac7cbd5bff3d3f43d9988b77f8adcbfae0c7a2fd7db5800649ac10210"
      default)))
