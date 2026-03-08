@@ -1,3 +1,5 @@
+;;; ...  -*- lexical-binding: t -*-
+
 (org-babel-do-load-languages
    'org-babel-load-languages
    '((emacs-lisp . t)
@@ -5,22 +7,19 @@
      (R . t))
 )
 
-;;; ...  -*- lexical-binding: t -*-
-
 ;; This file has been generated from an org-mode file (=main.org=)
 ;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
 
 ;; Installing elpaca
-(defvar elpaca-installer-version 0.11)
+(defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
 (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
                               :ref nil :depth 1 :inherit ignore
                               :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca--activate-package)))
-
-(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
+                              :build (:not elpaca-activate)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
        (build (expand-file-name "elpaca/" elpaca-builds-directory))
        (order (cdr elpaca-order))
        (default-directory repo))
@@ -57,6 +56,8 @@
         (elpaca-use-package-mode)
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
+
+(setq use-package-always-ensure t)
 
 ;;When installing a package used in the init file itself,
 ;;e.g. a package which adds a use-package key word,
