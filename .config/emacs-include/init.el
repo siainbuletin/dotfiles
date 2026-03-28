@@ -1839,10 +1839,7 @@ With a prefix ARG, remove start location."
   (let ((window (selected-window)))
     (kill-buffer)               ;; Kill the current buffer
     (when (window-live-p window) ;; Check if the window is still live
-      (delete-window))))         ;; Delete the window if it exists
-
-(use-package elpher
-  :ensure t)
+;;       (delete-window))))         ;; Delete the window if it exists
 
 ;; AutoSuggest at point
 (defun consult-omni-autosuggest-at-point ()
