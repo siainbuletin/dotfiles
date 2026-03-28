@@ -2636,3 +2636,11 @@ DELTA would be something like 1 or -1."
        :utils "kill"
        :error-autofocus t
        :silent-success t))))
+
+; Source - https://stackoverflow.com/a/4083987
+; Posted by hatmatrix
+; Retrieved 2026-03-29, License - CC BY-SA 2.5
+
+(when (eq system-type 'darwin)
+  (require 'ls-lisp)
+  (setq ls-lisp-use-insert-directory-program nil))

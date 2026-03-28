@@ -1,30 +1,32 @@
+#+title: MacOS configuration
+
 This one isn't organised yet, as I cannot get the directory control for Emacs on MacOS to work
 
-;;; MACOS settings
+* Changing the modifier key
 
-;; This is so that I can actually use the CMD key as my Meta key.
+This is so that I can actually use the CMD key as my Meta key.
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq mac-command-modifier 'meta)
 
 (setq mac-option-modifier 'none)
+#+end_src
 
-;; using existing frames a little more
+* Integrating into the appearance of MacOS
+** Make more use of the existing frames
 
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (setq ns-pop-up-frames nil)
+#+end_src
 
 ;; eyecandy for macos
 
 (setq ns-use-srgb-colorspace nil)
 
-This creates a transparent title bar.
+* Interfacing with the rest of the system
+** Open with a specific MacOS app
 
-But I'm not too clear on how useful this really is
-
-(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
-(add-to-list 'default-frame-alist '(ns-appearance . dark))
-
-;; Open with a specific MacOS app
-
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (defun dwim-shell-commands-macos-open-with ()
   "Convert all marked images to jpg(s)."
   (interactive)
@@ -47,9 +49,13 @@ But I'm not too clear on how useful this really is
      :silent-success t
      :no-progress t
      :utils "open")))
+#+end_src
 
-;; kill macos processes right from emacs
+** Kill MacOS processes right from Emacs
 
+Added on [2026-03-29 Sun]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
 (require 'dwim-shell-command)
 (require 'map)
 (require 'proced)
@@ -97,4 +103,4 @@ But I'm not too clear on how useful this really is
        :utils "kill"
        :error-autofocus t
        :silent-success t))))
-
+#+end_src
