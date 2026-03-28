@@ -2562,4 +2562,5 @@ DELTA would be something like 1 or -1."
      "8fe2533b2afef6e78421aee5fc664e9aa1346f44494117a1346209a04938cdc2"
      "9293e74ccd69dcd202c069a84e90ef1f21176a09dcbfd59e75a5d8c0d1f1214f"
      "bf4ab01ac7cbd5bff3d3f43d9988b77f8adcbfae0c7a2fd7db5800649ac10210"
-     default)))
+     default))
+ '(warning-suppress-types '((emacs))))
