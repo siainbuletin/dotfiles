@@ -1,0 +1,49 @@
+This one isn't organised yet, as I cannot get the directory control for Emacs on MacOS to work
+
+;;; MACOS settings
+
+;; This is so that I can actually use the CMD key as my Meta key.
+
+(setq mac-command-modifier 'meta)
+
+(setq mac-option-modifier 'none)
+
+;; using existing frames a little more
+
+(setq ns-pop-up-frames nil)
+
+;; eyecandy for macos
+
+(setq ns-use-srgb-colorspace nil)
+
+This creates a transparent title bar.
+
+But I'm not too clear on how useful this really is
+
+(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+(add-to-list 'default-frame-alist '(ns-appearance . dark))
+
+;; Open with a specific MacOS app
+
+(defun dwim-shell-commands-macos-open-with ()
+  "Convert all marked images to jpg(s)."
+  (interactive)
+  (let* ((apps (seq-sort
+                #'string-lessp
+                (seq-mapcat (lambda (paths)
+                              (directory-files-recursively
+                               paths "\\.app$" t (lambda (path)
+                                                  (not (string-suffix-p ".app" path)))))
+                            '("/Applications" "~/Applications" "/System/Applications"))))
+         (selection (progn
+                      (cl-assert apps nil "No apps found")
+                      (completing-read "Open with: "
+                                       (mapcar (lambda (path)
+                                                 (propertize (file-name-base path) 'path path))
+                                               apps)))))
+    (dwim-shell-command-on-marked-files
+     "Open with"
+     (format "open -a '%s' '<<*>>'" (get-text-property 0 'path selection))
+     :silent-success t
+     :no-progress t
+     :utils "open")))

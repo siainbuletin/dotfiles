@@ -1832,15 +1832,6 @@ With a prefix ARG, remove start location."
             (eww url)))))
       (message "No URL provided."))))
 
-;; close buffer and window
-(defun close-buffer-and-window ()
-  "Close the current buffer and the window it's in."
-  (interactive)
-  (let ((window (selected-window)))
-    (kill-buffer)               ;; Kill the current buffer
-    (when (window-live-p window) ;; Check if the window is still live
-;;       (delete-window))))         ;; Delete the window if it exists
-
 ;; AutoSuggest at point
 (defun consult-omni-autosuggest-at-point ()
   (interactive)
@@ -2561,3 +2552,36 @@ DELTA would be something like 1 or -1."
      "bf4ab01ac7cbd5bff3d3f43d9988b77f8adcbfae0c7a2fd7db5800649ac10210"
      default))
  '(warning-suppress-types '((emacs))))
+
+;;; MACOS settings
+
+;; This is so that I can actually use the CMD key as my Meta key.
+
+(setq mac-command-modifier 'meta)
+
+(setq mac-option-modifier 'none)
+
+;; Open with a specific MacOS app
+
+(defun dwim-shell-commands-macos-open-with ()
+  "Convert all marked images to jpg(s)."
+  (interactive)
+  (let* ((apps (seq-sort
+                #'string-lessp
+                (seq-mapcat (lambda (paths)
+                              (directory-files-recursively
+                               paths "\\.app$" t (lambda (path)
+                                                  (not (string-suffix-p ".app" path)))))
+                            '("/Applications" "~/Applications" "/System/Applications"))))
+         (selection (progn
+                      (cl-assert apps nil "No apps found")
+                      (completing-read "Open with: "
+                                       (mapcar (lambda (path)
+                                                 (propertize (file-name-base path) 'path path))
+                                               apps)))))
+    (dwim-shell-command-on-marked-files
+     "Open with"
+     (format "open -a '%s' '<<*>>'" (get-text-property 0 'path selection))
+     :silent-success t
+     :no-progress t
+     :utils "open")))
