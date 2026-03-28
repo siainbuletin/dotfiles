@@ -1,0 +1,58 @@
+[manager]
+ratio = [1, 4, 3]
+show_symlink = true
+show_hidden = true
+linemode = "none"
+
+# sorting settings
+sort_by = "natural"
+sort_dir_first = true
+sort_translit = true
+
+# terminal rendering
+title_format = "{cwd}"
+wrap = "yes"
+
+[opener]
+text = [
+	{ run = '$EDITOR "$@"', block = true},
+]
+open = [
+	{ run = 'xdg-open "$@"', desc = "Open" },
+]
+play = [
+    { run = "mpv \"$@\"", orphan = true, for = "unix" },
+    { run = "mpv \"%1\"", orphan = true, for = "windows" },
+    { run = "mediainfo \"$1\"; echo \"Press enter to exit\"; read", block = true, desc = "Show media info", for = "unix" }
+]
+
+[open_rules]
+rules = [
+    { name = "*/", use = ["edit", "open", "reveal"] },
+    { mime = "text/*", use = ["text", "reveal"] },
+    { mime = "image/*", use = ["open", "reveal"] },
+    { mime = "video/*", use = ["play", "reveal"] },
+    { mime = "audio/*", use = ["play", "reveal"] },
+    { mime = "application/zip", use = ["extract", "reveal"] },
+    { mime = "application/gzip", use = ["extract", "reveal"] },
+    { mime = "application/x-tar", use = ["extract", "reveal"] },
+    { mime = "application/x-bzip", use = ["extract", "reveal"] },
+    { mime = "application/x-bzip2", use = ["extract", "reveal"] },
+    { mime = "application/x-7z-compressed", use = ["extract", "reveal"] },
+    { mime = "application/x-rar", use = ["extract", "reveal"] },
+    { mime = "*", use = ["open", "reveal"] },
+    { name = "*.html", use = [ "open", "edit" ] }
+]
+
+[plugin]
+prepend_previewers = [
+  { name = "*.md", run = "glow" },
+  { mime = "{image,audio,video}/*", run = "mediainfo"},
+  { mime = "application/subrip", run = "mediainfo"},
+]
+
+[[plugin.prepend_fetchers]]
+id   = "git"
+name = "*"
+run  = "git"
+

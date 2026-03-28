@@ -1,0 +1,5 @@
+[plugin]
+deps = [{ use = "Reledia/glow", rev = "388e847" }, { use = "yazi-rs/plugins:git", rev = "a53d544" }, { use = "imsi32/yatline-githead", rev = "a6377a8" }, { use = "yazi-rs/plugins:full-border", rev = "7afba3a" }, { use = "Ape/open-with-cmd", rev = "a80d1cf" }, { use = "boydaihungst/mediainfo", rev = "ddfd5ec" }, { use = "lpanebr/yazi-plugins:yatline-symlink", rev = "ca18a2c" }]
+
+[flavor]
+deps = [{ use = "yazi-rs/flavors:catppuccin-frappe", rev = "4a3082f" }]
