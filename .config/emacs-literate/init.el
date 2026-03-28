@@ -960,3 +960,5 @@ fixed-pitch))
   :ensure t)
 
 (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+
+
