@@ -54,10 +54,12 @@ This will prompt for an interactive choice in the [[denote:20251119T100647][Emac
 
 This package allows you to work with Gopher sites as well.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
+#+begin_src emacs-lisp :tangle no :eval never
     (use-package elpher
       :ensure t)
 #+end_src
+
+<2026-03-28> this is currently disabled, since I'm having troubles with launching Emacs from MacOS with it. When I'll overhaul the entire configuration, this will be coming back.
 
 * TODO Making search more integrated with the research workflow
 
