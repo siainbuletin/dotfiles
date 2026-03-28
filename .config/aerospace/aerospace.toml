@@ -108,8 +108,6 @@ alt-d = 'workspace D' # Discord , etc.)
 alt-e = 'workspace E' # Email
 alt-i = 'workspace I' # Instant Messenger
 alt-m = 'workspace M' # Music
-alt-o = 'workspace O' # Obsidian and reading space (with stacking PDFs)
-alt-s = 'workspace S' # Scrivener
 alt-t = 'workspace T' # Things3 / other task management
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
