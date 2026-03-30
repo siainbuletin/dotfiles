@@ -142,7 +142,7 @@ My issue is that it does something with the variable-pitch font that doesn’t a
     		    :height 100)
 #+end_src
 
-** Choosing between fonts defined as options
+** Choosing between fonts definrbd as options
 
 This is a variable which lets me choose which font I want on the fly. This particular block is for monospaced fonts
 
@@ -281,7 +281,7 @@ Changing the fontification of links in org mode.
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (set-face-attribute 'link nil
   		    :family "IntoneMono Nerd Font"
-  		    :height 100)
+  		    :Height 100)
 #+end_src
 
 *** Making the title of the document a bit bigger

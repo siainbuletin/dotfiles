@@ -2,6 +2,21 @@
 
 This one isn't organised yet, as I cannot get the directory control for Emacs on MacOS to work
 
+* Making MacOS behave well
+** Making sure that dired works
+
+If this isn't set up properly, then I can't have Full Disk Access.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(when (eq system-type 'darwin)
+  (require 'ls-lisp)
+  (setq ls-lisp-use-insert-directory-program nil))
+#+end_src
+
+This solution is from 2010: https://stackoverflow.com/questions/4076360/error-in-dired-sorting-on-os-x
+
+I really hope that it won't randomly start working pretty soon.
+
 * Changing the modifier key
 
 This is so that I can actually use the CMD key as my Meta key.
