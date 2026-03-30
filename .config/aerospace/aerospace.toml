@@ -93,8 +93,8 @@ alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-alt-1 = 'workspace 1' # general editors
-alt-2 = 'workspace 2'
+alt-1 = 'workspace 1' # general editors plus reading PDFs
+alt-2 = 'workspace 2' # browser (full-screen)
 alt-3 = 'workspace 3'
 alt-4 = 'workspace 4'
 alt-5 = 'workspace 5'
@@ -102,13 +102,14 @@ alt-6 = 'workspace 6'
 alt-7 = 'workspace 7'
 alt-8 = 'workspace 8'
 alt-9 = 'workspace 9'
-alt-a = 'workspace A' # Alfred
+alt-a = 'workspace A' # Alfred settings
 alt-b = 'workspace B' # Bibliography management
 alt-d = 'workspace D' # Discord , etc.)
 alt-e = 'workspace E' # Email
-alt-i = 'workspace I' # Instant Messenger
 alt-m = 'workspace M' # Music
 alt-t = 'workspace T' # Things3 / other task management
+alt-w = 'workspace W' # Whatsapp
+
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
 alt-shift-1 = 'move-node-to-workspace 1'
@@ -124,10 +125,10 @@ alt-shift-a = 'move-node-to-workspace A'
 alt-shift-b = 'move-node-to-workspace B'
 alt-shift-d = 'move-node-to-workspace D'
 alt-shift-e = 'move-node-to-workspace E'
-alt-shift-i = 'move-node-to-workspace I'
 alt-shift-m = 'move-node-to-workspace M'
 alt-shift-o = 'move-node-to-workspace O'
 alt-shift-t = 'move-node-to-workspace T'
+alt-shift-w = 'move-node-to-workspace W'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
 alt-tab = 'workspace-back-and-forth'
