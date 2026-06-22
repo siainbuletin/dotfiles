@@ -204,6 +204,8 @@ This solution is written directly by John Kitchin.[fn:2]
 
 This is important for keeping track of different debates while I'm writing and can help with the visualisation of research. It can make sure that you have founded arguments for each part. It also seems similar to what [[id:fb234918-643f-4285-a0bb-4ab30108c5e7][Hypernomicon]] is doing with indexing debates. This is possible with the new (as of <2025-12-24 Wed>) package, =discourse-graphs=.
 
+** Initial configuration
+
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (use-package discourse-graphs
     :ensure (discourse-graphs :type git
@@ -213,9 +215,51 @@ This is important for keeping track of different debates while I'm writing and c
   			      "discourse-graphs-ui/out/*.html"
   			      "discourse-graphs-ui/out/assets/*"))
     :config
-    (setq dg-directories '("~/Documents/notes/"))
-  (discourse-graphs-mode 1))
+    (setq dg-directories ;; This is where we scan for nodes
+    '("~/Documents/notes/")
+    )
+    (setq dg-recursive t)
+    (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+
+  (discourse-graphs-mode 1)
+  )
 #+end_src
+
+*** Adding functionality for denote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Use with denote
+(setq dg-use-denote t)
+#+end_src
+
+See also [[file:denote.org][Denote]] for the configuration (relevant in that case)
+
+** Configuring the context panel
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dg-context-window-width 0.3)
+
+;; Auto-update context when moving between nodes
+(setq dg-context-auto-update t)
+
+;; Maximum lines to display per node in context panel (nil for unlimited)
+(setq dg-context-max-lines 30)
+#+end_src
+
+** Heading configuration in the org buffer
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Show overlays on headings
+(setq dg-overlay-enable t)
+#+end_src
+
+** Synthesis dashboard
+
+#+begin_quote
+
+#+end_quote
+
+** Defining new types of relationships
 
 * Defining my own set of functions for better operation on the files
 
