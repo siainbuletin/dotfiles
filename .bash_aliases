@@ -1,5 +1,6 @@
-alias e='emacsclient -c' # start emacs in GUI mode
-alias et='emacsclient -t' # start emacs in terminal
+# commented out on 2026-06-26 (not using linux right now)
+# alias e='emacsclient -c' # start emacs in GUI mode
+# alias et='emacsclient -t' # start emacs in terminal
 
 alias grep='grep --color=auto'
 
