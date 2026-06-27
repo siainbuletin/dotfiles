@@ -255,11 +255,112 @@ See also [[file:denote.org][Denote]] for the configuration (relevant in that cas
 
 ** Synthesis dashboard
 
-#+begin_quote
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Synthesis dashboard file location
+(setq dg-synthesis-file "~/Documents/notes/dg-synthesis.org")
+#+end_src
 
-#+end_quote
+[2026-06-22 Mon] This should basically be the board for the literature review.
+- Customizing it should come in a better format, a little later, when I figure out how to arrange the layout and really use the features
 
-** Defining new types of relationships
+** Customizing how the attributes on headings are computed
+
+~discourse-graphs.el~ will show an overlay for org headings, which will show the way that an idea is treated across the literature.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-discourse-attributes
+        '(
+          (claim
+           . (
+  	      (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+              (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+              (overlay . evidence-score)
+  		  )
+  	     )
+
+          (question
+           . (
+  	    (answer-count . "{count:Answered By:claim}")
+              (overlay . answer-count)
+  		)
+  	   )
+          ;; ... more types
+          )
+  )
+#+end_src
+
+** Defining my new types for the system
+*** Understanding the canonical designations
+*** Node types
+
+Node types are basically the types of semantic units that you can make use of.[fn:6]
+- and what exists
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-node-types
+        '(
+          (question . (:short "QUE"
+              		    :color "lightblue"
+              		    :desc "Research question"))
+          (claim    . (:short "CLM"
+              		    :color "lightyellow"
+              		    :desc "Assertion, thesis or position in a debate"))
+          (evidence . (:short "EVD"
+              		    :color "lightgreen"
+              		    :desc "Argument, proof, or supporting empirical data"))
+          (source   . (:short "SRC"
+              		    :color "lightgray"
+            		    :desc "Reference material / Philosophical text"))
+          (theory   . (:short "THY"
+        			    :color "lightcoral"
+      			    :desc "Theoretical framework"))
+          ))
+#+end_src
+
+*** Relation types
+
+This describes the way in which nodes can be connected.
+
+Since the connection type for nodes will affect the way that they show up in ~discourse-graphs.el~ web UI, it's important to define them properly.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-relation-types
+        '(
+  	(supports  . (:inverse "Supported By"
+  			       :color "green"
+  			       :style "solid"))
+  	(opposes   . (:inverse "Opposed By"
+  			       :color "red"
+  			       :style "dashed"))
+   	(informs   . (:inverse "Informed By"
+  			       :color "blue"
+  			       :style "solid"))
+   	(answers   . (:inverse "Answered By"
+  			       :color "purple"
+  			       :style "solid"))
+  	)
+        )
+#+end_src
+
+Relation patterns: which source→target combinations are "canonical"[fn:6 ]
+
+Non-canonical relations are allowed but flagged for review.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-relation-patterns
+        '((supports . (:source (evidence)
+  			     :target (claim)))
+  	(opposes  . (:source (evidence)
+  			     :target (claim)))
+  	(informs  . (:source (source)
+  			     :target (evidence)))
+  	(answers  . (:source (claim)
+  			     :target (question)))
+  	)
+  	  )
+#+end_src
+
+*** Defining a literature review board
 
 * Defining my own set of functions for better operation on the files
 
@@ -508,7 +609,7 @@ For this I will also need to install org-roam
 
 * ekg: Creating a knowledge graph based on the ID properties of the notes
 
-[2026-02-05 Thu]
+It was first proposed on [2026-02-05 Thu], but the I actually installed the package, barely, on [2026-06-24 Wed] (got caught up with other things)
 
 [[id:b27e568b-97e8-4565-bdbe-0ac8ea427981][ekg]]
 
@@ -518,7 +619,30 @@ This also requires the triples package
 
 #+end_src
 
+* vulpea installation
+
+[2026-06-24 Wed]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package vulpea)
+#+end_src
+
+** Configuring the directory
+
+Theoretically, this shouldn't be necessary, since it falls back to the ~org-directory~, but I need to do some refactoring on this, before anything.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq vulpea-db-sync-directories '("~/Documents/notes/"))
+#+end_src
+
+** Enabling autosync for vulpea
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(vulpea-db-autosync-mode +1)
+#+end_src
+
 * Footnotes
+[fn:6] https://github.com/LuciusChen/discourse-graphs
 
 [fn:5]  https://github.com/meedstrom/org-node
 

@@ -1,20 +1,6 @@
 ;; Emacs Writing Studio Customisation
 
-(defgroup ews ()
-  "Emacs Writing Studio."
-  :group 'files
-  :link '(url-link :tag "Homepage" "https://lucidmanager.org/tags/emacs/"))
 
-(defcustom sia-bibtex-directory
-  (concat (file-name-as-directory (getenv "HOME")) "/Documents/bibliography/")
-  "Location of BibTeX files and attachments."
-  :group 'ews
-  :type 'directory)
-
-(defcustom sia-hunspell-dictionaries "en_US"
-  "Comma-separated list of Hunspell dictionaries."
-  :group 'ews
-  :type 'list)
 
 (defcustom sia-org-heading-level-capitalise nil
   "Minimum level of Org headings to be capitalised

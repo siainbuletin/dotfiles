@@ -230,11 +230,8 @@ I'm actually having issues with getting these 3 packages to work. I get errors w
     (use-package asoc
       :ensure (:type git :host github :repo "troyp/asoc.el"))
 
-  (use-package s
-    :ensure t)
-
-  (use-package doct
-    :ensure t)
+      (use-package doct
+        :ensure t)
 #+end_src
 
 *** TODO Setting up the relevant org capture templates

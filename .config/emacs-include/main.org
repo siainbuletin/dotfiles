@@ -66,7 +66,7 @@ If you don't want to overwrite your changes, you need to make all of the changes
 
 For example, when writing changes to my =early-init.el= file, the source block will be written as such
 
-This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
+This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be ootangling from multiple org-mode documents at once.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (org-babel-do-load-languages

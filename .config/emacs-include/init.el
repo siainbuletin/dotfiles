@@ -1,16 +1,5 @@
 ;;; ...  -*- lexical-binding: t -*-
 
-(org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (org . t)
-     (R . t))
-)
-
-;; This file has been generated from an org-mode file (=main.org=)
-;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
-
-;; Installing elpaca
 (defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -57,8 +46,6 @@
         ;; Assume :elpaca t unless otherwise specified.
         (setq elpaca-use-package-by-default t))
 
-(setq use-package-always-ensure t)
-
 ;;When installing a package used in the init file itself,
 ;;e.g. a package which adds a use-package key word,
 ;;use the :wait recipe keyword to block until that package is installed/configured.
@@ -68,30 +55,13 @@
 (elpaca-wait)
 
 (setq initial-major-mode 'org-mode)
-      ; initial-scratch-message (concat "#+title: Emacs Writing Studio\n"
-; "#+subtitle: Scratch Buffer\n\n"
-;					"The text in this buffer is not saved "
-;					"when exiting Emacs!\n\n"))
 
-(setq load-path (cons "~/.config/emacs-include/sia-modules" load-path))
-
-(load-file (concat (file-name-as-directory user-emacs-directory)
-                   "sia-ews-functions.el"))
-
-(sia-missing-executables
- '(("gs" "mutool")
-   "pdftotext"
-   "soffice"
-   "zip"
-   "ddjvu"
-   "curl"
-   ("mpg321" "ogg123" "mplayer" "mpv" "vlc")
-   ("grep" "ripgrep")
-   ("convert" "gm")
-   "dvipng"
-   "latex"
-   "hunspell"
-   "git"))
+(org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (org . t)
+     (R . t))
+)
 
 (set-default-coding-systems 'utf-8)     ; Default to utf-8 encoding
 (prefer-coding-system       'utf-8)     ; Add utf-8 at the front for automatic detection.
@@ -109,20 +79,25 @@
 (defun sia-execute-all-buffers ()
   (interactive)
   (let ((org-confirm-babel-evaluate nil))
-    (org-babel-execute-buffer)))
+    (org-babel-execute-buffer))
+)
 
 (global-set-key (kbd "C-c o o") 'org-org-export-to-org)
 (global-set-key (kbd "C-c e c") 'sia-execute-all-buffers)
 
 (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
+
+
+
 ;; WINDOW FUNCTIONS
-(setq-default frame-title-format '("✨ %b 🌊")) ;; Make the window title to be the buffer name
+(setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
 
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
 
 (use-package undo-tree
+  :ensure (:wait t)
   :config
   (add-to-list 'undo-tree-incompatible-major-modes #'nxml-mode)
   (global-undo-tree-mode)
@@ -131,14 +106,7 @@
   (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
 
 (use-package vundo
-  :ensure t)
-
-(use-package anzu
-    :ensure t
-
-    :config
-; (anzu-mode) ; would this even work?
-)
+  :ensure (:wait t))
 
 (keymap-global-set "C-c j j" #'join-line)
 
@@ -151,11 +119,13 @@
          ([remap dired-do-async-shell-command] . dwim-shell-command)
          ([remap dired-do-shell-command] . dwim-shell-command)
          ([remap dired-smart-shell-command] . dwim-shell-command)))
+         
 
 (use-package try
-  :ensure t)
+  :ensure (:wait t))
 
 (use-package yasnippet
+  :ensure (:wait t)
   :demand t
 
   :config
@@ -166,16 +136,13 @@
 
 ;; install useful snippets
 (use-package yasnippet-snippets
-  :after yasnippet)
+  :after yasnippet
+  :ensure (:wait t))
 
 (defun sia-clean-whitespace (&optional Begin End)
   "Delete trailing whitespace, and replace repeated blank lines to just 1.
 Only space and tab is considered whitespace here.
-Works on whole buffer or selection, respects `narrow-to-region'.
-
-URL `http://xahlee.info/emacs/emacs/elisp_compact_empty_lines.html'
-Created: 2017-09-22
-Version: 2025-05-04"
+Works on whole buffer or selection, respects `narrow-to-region'."
   (interactive)
   (let (xbeg xend)
     (seq-setq (xbeg xend)
@@ -196,12 +163,15 @@ Version: 2025-05-04"
         (progn
           (goto-char (point-max))
           (while (eq (char-before) 32) (delete-char -1))))))
-  (message "done xah-clean-whitespace"))
+  (message "done sia-clean-whitespace"))
 
 (add-hook 'before-save-hook 'sia-clean-whitespace)
 
+(use-package cond-let
+  :ensure (:wait t))
+
 (use-package keycast
-  :ensure t)
+  :ensure (:wait t))
 
 ;; SOUNDS
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
@@ -209,21 +179,31 @@ Version: 2025-05-04"
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
-(use-package counsel)
+(use-package counsel
+  :ensure (:wait t)
+)
+
+(use-package s
+  :ensure (:wait t)
+  )
 
 (use-package consult
-  :ensure t)
+  :ensure (:wait t)
+  )
 
 (keymap-global-set "C-c s l" #'consult-line)
 (keymap-global-set "C-c s r" #'consult-ripgrep)
 
-(use-package deadgrep)
+(use-package deadgrep
+  :ensure (:wait t)
+  )
 
 (use-package counsel-fd
   :ensure t
   :after counsel)
 
 (use-package vertico
+  :ensure (:wait t)
   :demand t
   :custom
   (vertico-count 13) ; Number of candidates to display
@@ -233,21 +213,48 @@ Version: 2025-05-04"
   (vertico-mode))
 
 (use-package marginalia
+  :ensure (:wait t)
   :init
   (marginalia-mode)
-  (setf (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
+  (setf
+    (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
 
 (use-package orderless
+  :ensure (:wait t)
   :custom
   (completion-styles '(orderless basic))
   (completion-category-defaults nil)
   (completion-category-overrides
    '((file (styles partial-completion)))))
 
-(use-package company)
+(use-package company
+  :ensure (:wait t))
 
-(use-package corfu)
-(use-package corfu-prescient)
+(use-package prescient
+    :ensure (:wait t)
+)
+
+(use-package company-prescient
+  :ensure (:wait t)
+)
+
+(use-package ivy-prescient
+  :ensure (:wait t)
+)
+
+(use-package selectrum-prescient
+  :ensure (:wait t)
+)
+
+(use-package vertico-prescient
+  :ensure (:wait t)
+)
+
+(use-package corfu
+  :ensure (:wait t))
+
+(use-package corfu-prescient
+  :ensure (:wait t))
 
 (use-package embark
   :ensure t
@@ -261,21 +268,6 @@ Version: 2025-05-04"
 
 (use-package embark-consult
   :ensure t)
-
-(use-package consult-recoll
-  :ensure t)
-
-(defun sia-recoll-format (title url mime-type)
-  ;; remove from url the common prefixes /home/siainbuletin/{org/doc,doc,...}
-  (let* ((u (replace-regexp-in-string "/home/siainbuletin/" "" url))
-         (u (replace-regexp-in-string
-             "\\(doc\\|org/doc\\|.emacs.d/gnus/Mail\\|var/mail\\)/" "" u)))
-    (format "%s (%s, %s)"
-            (propertize title 'face 'consult-recoll-title-face)
-            (propertize u 'face 'consult-recoll-url-face)
-            (propertize mime-type 'face 'consult-recoll-mime-face))))
-
-(setq consult-recoll-format-candidate #'sia-recoll-format)
 
 (defun counsel-recoll-function (string &rest _unused)
   "Issue recallq for STRING."
@@ -302,7 +294,7 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                           (unless (string-match "pdf$" x)
                             (swiper ivy-text)))))))
 
-(use-package cond-let)
+
 
 (use-package transient
   :ensure t)
@@ -310,7 +302,10 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
 
-(use-package websocket :ensure t)
+(use-package websocket 
+  :ensure (:wait t)
+)
+
 
 (use-package consult-snapfile
   :load-path "~/cloned-utilities/consult-snapfile/emacs"
@@ -325,17 +320,16 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 ;; Max results to return
 (setq consult-snapfile-max-results 100)
 
-;; (use-package avy) ;; is this still useful for anything?
-(use-package helm)
-;; (use-package ivy) (Deprecated, this package doesn't seem to be in usage anymore)
+(use-package helm
+    :ensure (:wait t))
 
-(use-package prescient)
-(use-package company-prescient)
-(use-package ivy-prescient)
-(use-package selectrum-prescient)
-(use-package vertico-prescient)
+
+
 
 (use-package ess
+  :ensure t)
+
+(use-package taxy
   :ensure t)
 
 (use-package org-ranker
@@ -378,10 +372,10 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 (keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 
 (use-package hydra
-  :ensure t)
+  :ensure (:wait t))
 
 (use-package use-package-hydra
-  :ensure t)
+  :ensure (:wait t))
 
 (defun sia-dired-sort ()
   "Sort dired dir listing in different ways.
@@ -399,16 +393,8 @@ Works in linux, MacOS, Microsoft Windows."
 ;; Set Dired listing switches for more minimalist output
 (setq dired-listing-switches "-aghov --group-directories-first")
 
-;;; Recent files
-  (use-package recentf
-    :ensure nil
-    :config
-    (recentf-mode t)
-    (run-at-time nil (* 5 60) 'recentf-save-list)
-    :custom
-    (recentf-max-saved-items 50))
-
-(use-package vc-backup)
+(use-package vc-backup
+  :ensure (:wait t))
 
 (setq-default backup-directory-alist
     `(("." . ,(expand-file-name "backups/" user-emacs-directory)))
@@ -452,23 +438,27 @@ Works in linux, MacOS, Microsoft Windows."
 (setq org-highlight-latex-and-related '(latex))
 
 (use-package company-math
+  :ensure (:wait t)
   :after (org company)
   :hook
   (org-mode . (lambda ()
                 (setq-local company-backends (append '((company-math-symbols-latex))
                                                      company-backends)))))
 
-(use-package math-preview)
+(use-package math-preview
+  :ensure (:wait t))
 
 (use-package org-fragtog
   :ensure t)
 
 (use-package org-appear
+  :after org
+  :ensure (:wait t)
   :hook
   (org-mode . org-appear-mode))
 
 (use-package org-bulletproof
-  :ensure t
+  :ensure (:wait t)
   :after (org org-modern)
   :init
 (global-org-bulletproof-mode))
@@ -540,18 +530,12 @@ Works in linux, MacOS, Microsoft Windows."
   (scroll-error-top-bottom t)
   (save-interprogram-paste-before-kill t))
 
-(add-hook 'org-mode-hook #'org-num-mode)
+  (add-hook 'org-mode-hook #'org-num-mode)
 
 (electric-indent-mode 0)
 
 (add-hook 'before-save-hook
           'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
-
-(use-package goggles
-  :hook
-  ((prog-mode text-mode) . goggles-mode)
-  :config
-  (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
 
 (use-package org-autolist
   :ensure t)
@@ -565,32 +549,31 @@ Works in linux, MacOS, Microsoft Windows."
 
 (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
 
-(defun zz/make-id-for-title (title)
+(defun sia-make-id-for-title (title)
   "Return an ID based on TITLE."
   (let* ((new-id (replace-regexp-in-string "[^[:alnum:]]" "-" (downcase title))))
     new-id))
 
-(defun zz/org-custom-id-create ()
+(defun sia-org-custom-id-create ()
   "Create and store CUSTOM_ID for current heading."
   (let* ((title (or (nth 4 (org-heading-components)) ""))
-         (new-id (zz/make-id-for-title title)))
+         (new-id (sia-make-id-for-title title)))
     (org-entry-put nil "CUSTOM_ID" new-id)
     (org-id-add-location new-id (buffer-file-name (buffer-base-buffer)))
     new-id))
 
-(defun zz/org-custom-id-get-create (&optional where force)
+(defun sia-org-custom-id-get-create (&optional where force)
   "Get or create CUSTOM_ID for heading at WHERE.
-
-If FORCE is t, always recreate the property."
+  If FORCE is t, always recreate the property."
   (org-with-point-at where
     (let ((old-id (org-entry-get nil "CUSTOM_ID")))
       ;; If CUSTOM_ID exists and FORCE is false, return it
       (if (and (not force) old-id (stringp old-id))
           old-id
         ;; otherwise, create it
-        (zz/org-custom-id-create)))))
+        (sia-org-custom-id-create)))))
 
-;; Now override counsel-org-link-action
+        ;; Now override counsel-org-link-action
   (defun counsel-org-link-action (x)
     "Insert a link to X.
 
@@ -599,7 +582,7 @@ by `counsel-org-link'.
 
 If X does not have a CUSTOM_ID, create it based on the headline
 title."
-    (let* ((id (zz/org-custom-id-get-create (cdr x))))
+    (let* ((id (sia-org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
 
 (setq org-directory "~/Documents/notes")
@@ -610,14 +593,27 @@ title."
 (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(org-default ((t (:background "#F0B609" :inherit default))))
- '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
- '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
- '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
+ '(org-default ((t (
+                    :background "#F0B609"
+                    :inherit default
+                    ))))
+ '(org-extra-emphasis ((t (
+                           :background "#F0B609"
+                           :height 1.0
+                           :inherit default
+                           :weight bold
+                           :width normal
+                           ))))
+ '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              ))))
+ '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
+                              :foreground "#003F66"
+                              :inherit org-extra-emphasis
+                              :underline t
+                              )))))
 
 (defun +org/opened-buffer-files ()
   "Return the list of files currently opened in emacs"
@@ -637,7 +633,7 @@ title."
                             (org-refile-cache-clear)
                             (org-refile-get-targets)))
 
-(defun my-org-tree-to-indirect-buffer (&optional arg)
+(defun sia-org-tree-to-indirect-buffer (&optional arg)
   "Create indirect buffer and narrow it to current subtree.
 The buffer is named after the subtree heading, with the filename
 appended.  If a buffer by that name already exists, it is
@@ -663,7 +659,7 @@ selected instead of creating a new buffer."
       (rename-buffer buffer-name)
       (org-narrow-to-subtree))))
 
-(defun my-render-org-table-at-point ()
+(defun sia-render-org-table-at-point ()
   (interactive)
   (save-excursion
     (beginning-of-line)
@@ -680,9 +676,9 @@ selected instead of creating a new buffer."
           (while (not (eq 'table (org-element-type (org-element-at-point))))
             (forward-line -1))
 
-          (my-render-org-table (org-element-at-point)))))))
+          (sia-render-org-table (org-element-at-point)))))))
 
-(defun my-render-org-table (table)
+(defun sia-render-org-table (table)
   (interactive)
   (let* ((begin (org-element-property :begin table))
          (end (let ((pos (org-element-property :end table)))
@@ -705,9 +701,10 @@ selected instead of creating a new buffer."
     (overlay-put overlay 'display img)
     (forward-line -1)))
 
-(defun my-render-org-tables-in-buffer ()
+(defun sia-render-org-tables-in-buffer ()
   (save-excursion
-    (org-element-map (org-element-parse-buffer) 'table 'my-render-org-table)))
+    (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
+
 
 (setq org-capture-templates
         '(
@@ -785,6 +782,7 @@ selected instead of creating a new buffer."
 
 (use-package org-super-agenda
 :after org
+  :ensure (:wait t)
 :init
 (setq org-super-agenda-date-format "%A (%e)"
       org-super-agenda-groups
@@ -994,7 +992,7 @@ selected instead of creating a new buffer."
                                  (agenda    . "a")
                                  (registers . "e")))
 
-(setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
+; (setq dashboard-icon-type 'all-the-icons)  ; use `all-the-icons' package
 
 (setq dashboard-set-heading-icons t)
 (setq dashboard-set-file-icons t)
@@ -1077,47 +1075,6 @@ selected instead of creating a new buffer."
   ;; (denote-org-store-link-to-heading 'context)
   (denote-org-store-link-to-heading 'id))
 
-(use-package denote-markdown
-  :ensure t
-  :after denote)
-
-(use-package denote-explore
-  :bind
-  (;; Statistics
-   ("C-c w x c" . denote-explore-count-notes)
-   ("C-c w x C" . denote-explore-count-keywords)
-   ("C-c w x b" . denote-explore-barchart-keywords)
-   ("C-c w x e" . denote-explore-barchart-filetypes)
-   ;; Random walks
-   ("C-c w x r" . denote-explore-random-note)
-   ("C-c w x l" . denote-explore-random-link)
-   ("C-c w x k" . denote-explore-random-keyword)
-   ("C-c w x x" . denote-explore-random-regex)
-   ;; Denote Janitor
-   ("C-c w x d" . denote-explore-identify-duplicate-notes)
-   ("C-c w x z" . denote-explore-zero-keywords)
-   ("C-c w x s" . denote-explore-single-keywords)
-   ("C-c w x o" . denote-explore-sort-keywords)
-   ("C-c w x w" . denote-explore-rename-keyword)
-   ;; Visualise denote
-   ("C-c w x n" . denote-explore-network)
-   ("C-c w x v" . denote-explore-network-regenerate)
-   ("C-c w x D" . denote-explore-barchart-degree)))
-
-(use-package denote-journal
-  :after denote
-  :custom
-  (denote-journal-keyword "log")
-  (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
-  (denote-journal-title-format 'day-date-month-year)
-                          )
-
-(use-package denote-sequence
-  :ensure t)
-
-(use-package denote-menu
-  :ensure t)
-
 (setq denote-menu-show-file-type nil)
 
 (global-set-key (kbd "C-c z") #'list-denotes)
@@ -1170,30 +1127,6 @@ agenda."
 (use-package org-sidebar
   :ensure t)
 
-(defun org-ref-make-org-link-cite-key-visible (&rest _)
-  "Make the org-ref cite link visible in descriptive links."
-
-  (save-match-data
-    (let ((s (match-string 1))
-      (beg (match-beginning 0))
-      (end (match-end 0))
-      (cite-re (format "^\\(%s:\\)"
-               (regexp-opt (-sort
-                    (lambda (a b)
-                      (> (length a) (length b)))
-                    org-ref-cite-types))))
-      cite-type)
-
-      (when (and s (string-match cite-re s))
-    (setq cite-type (match-string 1 s))
-    (remove-text-properties beg end
-                '(invisible))
-    (add-text-properties
-     beg end
-     `(face (:foreground ,org-ref-cite-color)))))))
-
-(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
-
 (use-package discourse-graphs
   :ensure (discourse-graphs :type git
                             :host github
@@ -1202,13 +1135,105 @@ agenda."
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
   :config
-  (setq dg-directories '("~/Documents/notes/"))
-(discourse-graphs-mode 1))
+  (setq dg-directories ;; This is where we scan for nodes
+  '("~/Documents/notes/")
+  )
+  (setq dg-recursive t)
+  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
 
-(use-package org-ql
-  :ensure t)
+(discourse-graphs-mode 1)
+)
+
+;; Use with denote
+(setq dg-use-denote t)
+
+(setq dg-context-window-width 0.3)
+
+;; Auto-update context when moving between nodes
+(setq dg-context-auto-update t)
+
+;; Maximum lines to display per node in context panel (nil for unlimited)
+(setq dg-context-max-lines 30)
+
+;; Show overlays on headings
+(setq dg-overlay-enable t)
+
+;; Synthesis dashboard file location
+(setq dg-synthesis-file "~/Documents/notes/dg-synthesis.org")
+
+(setq dg-discourse-attributes
+      '(
+        (claim
+         . (
+            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+            (overlay . evidence-score)
+                )
+           )
+
+        (question
+         . (
+          (answer-count . "{count:Answered By:claim}")
+            (overlay . answer-count)
+              )
+         )
+        ;; ... more types
+        )
+)
+
+(setq dg-node-types
+      '(
+        (question . (:short "QUE"
+                          :color "lightblue"
+                          :desc "Research question"))
+        (claim    . (:short "CLM"
+                          :color "lightyellow"
+                          :desc "Assertion, thesis or position in a debate"))
+        (evidence . (:short "EVD"
+                          :color "lightgreen"
+                          :desc "Argument, proof, or supporting empirical data"))
+        (source   . (:short "SRC"
+                          :color "lightgray"
+                          :desc "Reference material / Philosophical text"))
+        (theory   . (:short "THY"
+                                  :color "lightcoral"
+                          :desc "Theoretical framework"))
+        ))
+
+(setq dg-relation-types
+      '(
+      (supports  . (:inverse "Supported By"
+                             :color "green"
+                             :style "solid"))
+      (opposes   . (:inverse "Opposed By"
+                             :color "red"
+                             :style "dashed"))
+      (informs   . (:inverse "Informed By"
+                             :color "blue"
+                             :style "solid"))
+      (answers   . (:inverse "Answered By"
+                             :color "purple"
+                             :style "solid"))
+      )
+      )
+
+(setq dg-relation-patterns
+      '((supports . (:source (evidence)
+                           :target (claim)))
+      (opposes  . (:source (evidence)
+                           :target (claim)))
+      (informs  . (:source (source)
+                           :target (evidence)))
+      (answers  . (:source (claim)
+                           :target (question)))
+      )
+        )
+
+;; (use-package org-ql
+;;  :ensure t)
 
 (use-package org-mem
+  :ensure (:wait t)
   :defer
   :config
   ;; At least one of these two is needed
@@ -1220,9 +1245,11 @@ agenda."
   (org-mem-updater-mode))
 
 (use-package inspector
-  :ensure t)
+  :ensure (:wait t)
+  )
 
 (use-package org-node
+  :ensure (:wait t)
   :init
   ;; Optional key bindings
   ;; Tip: Try changing these to just "M-o"!
@@ -1236,21 +1263,57 @@ agenda."
 
 (setq org-node-alter-candidates t)
 
-(use-package org-roam
-    :ensure t)
+(use-package vulpea
+	:ensure t)
 
-(use-package org-roam-ql
-  :ensure t
-  :after org-roam
-  :bind ((:map org-roam-mode-map
-               ;; Have org-roam-ql's transient available in org-roam-mode buffers
-               ("v" . org-roam-ql-buffer-dispatch)
-               :map minibuffer-mode-map
-               ;; Be able to add titles in queries while in minibuffer.
-               ;; This is similar to `org-roam-node-insert', but adds
-               ;; only title as a string.
-               ("C-c n i" . org-roam-ql-insert-node-title))))
+(defgroup ews ()
+  "Emacs Writing Studio."
+  :group 'files
+  :link '(url-link :tag "Homepage" "https://lucidmanager.org/tags/emacs/"))
 
+(defcustom sia-bibtex-directory
+  (concat (file-name-as-directory (getenv "HOME")) "/Documents/bibliography/")
+  "Location of BibTeX files and attachments."
+  :group 'ews
+  :type 'directory)
+
+(defcustom sia-hunspell-dictionaries "en_US"
+  "Comma-separated list of Hunspell dictionaries."
+  :group 'ews
+  :type 'list)
+
+;;; BIBLIOGRAPHY
+(defvar sia-bibtex-files
+  (when (file-exists-p sia-bibtex-directory)
+    (directory-files sia-bibtex-directory t "^[A-Z|a-z|0-9].+.bib$"))
+  "List of BibTeX files. Use `sia-bibtex-register' to configure.")
+
+;;;###autoload
+(defun sia-bibtex-register ()
+  "Register the contents of the `sia-bibtex-directory' with `sia-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
+  (interactive)
+  (when (file-exists-p sia-bibtex-directory)
+    (let ((bib-files (directory-files sia-bibtex-directory t
+				      "^[A-Z|a-z|0-9].+.bib$")))
+      (setq sia-bibtex-files bib-files
+  	    org-cite-global-bibliography bib-files
+	    citar-bibliography bib-files)))
+  (message "Registered:\n%s" (mapconcat #'identity sia-bibtex-files "\n")))
+
+(defun sia--bibtex-combined-biblio-lookup ()
+  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
+  (require 'biblio)
+  (let* ((dbs (biblio--named-backends))
+         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
+         (db-selected (biblio-completing-read-alist
+                       "Backend:"
+                       db-list)))
+    (if (eq db-selected 'biblio-doi-backend)
+        (let ((doi (read-string "DOI: ")))
+          (biblio-doi-insert-bibtex doi))
+      (biblio-lookup db-selected))))
+       
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
       bibtex-autokey-year-length 4
@@ -1283,9 +1346,6 @@ agenda."
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))
 
-(use-package s
-  :ensure t)
-
 (use-package doct
   :ensure t)
 
@@ -1307,6 +1367,8 @@ agenda."
                                               :elfeed-data entry))))
     (mapc #'elfeed-search-update-entry entries)
     (unless (use-region-p) (forward-line))))
+  
+
 
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
@@ -1409,13 +1471,13 @@ agenda."
   (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
   (note . "#+title: Notes on ${author editor}, ${title}") ; For new notes
   ))
-      (citar-symbols
-       `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
-               ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
-         (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
-               ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
-         (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
-               ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
+;;      (citar-symbols
+;;       `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
+;;               ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
+;;         (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
+;;               ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
+;;         (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
+;;               ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
       (citar-symbol-separator "  ")
 
          :bind
@@ -1438,6 +1500,7 @@ agenda."
 (setq citar-at-point-function 'embark-act)
 
 (use-package citar-denote
+  :ensure (:wait t)
   :custom
   (citar-open-always-create-notes t)
   :init
@@ -1460,6 +1523,7 @@ agenda."
 
 (setq citar-denote-subdir "litnotes")
 
+
 (setq denote-templates
       '((report . "* Some heading\n\n* Another heading")
       (biblio . ,(concat "Creator: %^{author-or-editor}"
@@ -1468,16 +1532,6 @@ agenda."
                          "\n\n" ; this will add a new line
                          "* Related bibliography"
                          "insert an org dynamic block here"))))
-
-(defun sia-search-pdf-contents (keys-entries &optional str)
-  "Search pdfs."
-  (interactive (list (citar-select-refs)))
-  (let ((files (citar-file--files-for-multiple-entries
-                (citar--ensure-entries keys-entries)
-                citar-library-paths
-                '("pdf")))
-        (search-str (or str (read-string "Search string: "))))
-    (pdf-occur-search files search-str t)))
 
 (defvar sia-citar-library-backup-path "~/Documents/literature/backup")
 
@@ -1509,13 +1563,36 @@ agenda."
       org-cite-activate-processor 'citar)
 
 (use-package org-ref
-  :ensure t)
-  ;;(advice-add #'completing-read-multiple :override #'consult-completing-read-multiple)
-  ;;(require 'org-ref)
-  ;;(require 'doi-utils) ; this was taken from a different config
+  :ensure (:wait t)
+  :after (ox-pandoc)
+)
+
+(defun org-ref-make-org-link-cite-key-visible (&rest _)
+  "Make the org-ref cite link visible in descriptive links."
+
+  (save-match-data
+    (let ((s (match-string 1))
+      (beg (match-beginning 0))
+      (end (match-end 0))
+      (cite-re (format "^\\(%s:\\)"
+               (regexp-opt (-sort
+                    (lambda (a b)
+                      (> (length a) (length b)))
+                    org-ref-cite-types))))
+      cite-type)
+
+      (when (and s (string-match cite-re s))
+    (setq cite-type (match-string 1 s))
+    (remove-text-properties beg end
+                '(invisible))
+    (add-text-properties
+     beg end
+     `(face (:foreground ,org-ref-cite-color)))))))
+
+(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
 
 (use-package helm-bibtex
-  :ensure t)
+  :ensure (:wait t))
 
 (setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
       org-ref-pdf-directory "~/Documents/literature/")
@@ -1555,94 +1632,6 @@ agenda."
   :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
         :rev :newest))
 
-(use-package pdf-tools
-  :ensure t
-  :init
-  (pdf-tools-install)
-  (pdf-loader-install)
-  (setq-default pdf-view-display-size 'fit-width))
-
-(with-eval-after-load "pdf-tools"
-  (define-key pdf-view-mode-map (kbd "g") nil)
-  (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
-  (define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
-  (define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
-  (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
-  (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
-  (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
-  (define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
-  (define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
-  (define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
-  (define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation))
-
-(setq TeX-view-program-selection '((output-pdf "PDF Tools"))
-      TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
-      TeX-source-correlate-start-server t)
-
-(add-hook 'TeX-after-compilation-finished-functions
-        #'TeX-revert-document-buffer)
-
-(setopt pdf-view-continuous nil)
-
-(use-package pdftotext
-  :ensure (:host github :repo "tecosaur/pdftotext.el"))
-
-(use-package org-noter
-  :after (org pdf-view)
-  :bind (:map org-noter-notes-mode-map
-              ("C-M-i" . org-noter-insert-dynamic-block))
-  :custom
-  (org-noter-notes-search-path (list org-directory))
-  (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
-  (org-noter-separate-notes-from-heading t)
-  :config
-  (require 'pdf-macs)
-  ;; (defun org-noter-pdf--show-arrow ())
-  )
-
-(use-package djvu) ; apparently needed for org-noter
-
-(setq org-noter-auto-save-last-location t)
-
-(setq org-noter-highlight-selected-text t)
-
-(setq org-noter-always-create-frame nil)
-
-(use-package org-pdftools
-  :hook (org-mode . org-pdftools-setup-link))
-
-(use-package org-noter-pdftools
-  :after org-noter
-  :config
-  ;; Add a function to ensure precise note is inserted
-  (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
-    (interactive "P")
-    (org-noter--with-valid-session
-     (let ((org-noter-insert-note-no-questions (if toggle-no-questions
-                                                   (not org-noter-insert-note-no-questions)
-                                                 org-noter-insert-note-no-questions))
-           (org-pdftools-use-isearch-link t)
-           (org-pdftools-use-freepointer-annot t))
-       (org-noter-insert-note (org-noter--get-precise-info)))))
-
-  ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
-  (defun org-noter-set-start-location (&optional arg)
-    "When opening a session with this document, go to the current clocation.
-With a prefix ARG, remove start location."
-    (interactive "P")
-    (org-noter--with-valid-session
-     (let ((inhibit-read-only t)
-           (ast (org-noter--parse-root))
-           (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
-       (with-current-buffer (org-noter--session-notes-buffer session)
-         (org-with-wide-buffer
-          (goto-char (org-element-property :begin ast))
-          (if arg
-              (org-entry-delete nil org-noter-property-note-location)
-            (org-entry-put nil org-noter-property-note-location
-                           (org-noter--pretty-print-location location))))))))
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
 (use-package nov
   :ensure t
@@ -1673,7 +1662,7 @@ With a prefix ARG, remove start location."
   (projectile-mode +1))
 
 (use-package ag
-  :ensure t)
+  :ensure (:wait t))
 
 (use-package olivetti
   :ensure t
@@ -1728,6 +1717,7 @@ With a prefix ARG, remove start location."
                ("\\paragraph{%s}" . "\\paragraph*{%s}")
                ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
 
+
 (setq org-latex-listings 't)
 
 (use-package org-pandoc-import
@@ -1735,29 +1725,16 @@ With a prefix ARG, remove start location."
                :repo "tecosaur/org-pandoc-import"
                :files ("*.el" "filters" "preprocessors")))
 
-(use-package ox-typst
-  :after org)
 
-(use-package ox-pandoc
-  :ensure t)
-
-;; default options for all output formats
-(setq org-pandoc-options '((standalone . t)))
-;; cancel above settings only for 'docx' format
-(setq org-pandoc-options-for-docx '((standalone . nil)))
-;; special settings for beamer-pdf and latex-pdf exporters
-(setq org-pandoc-options-for-beamer-pdf '((pdf-engine . "xelatex")))
-(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "xelatex")))
-;; special extensions for markdown_github output
-(setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
 
 ;; animated gif support to spruce things up
 (use-package org-inline-anim
+  :ensure (:wait t)
   :custom
   (org-inline-anim-loop t))
 
 (use-package org-present
-  :ensure t
+  :ensure (:wait t)
   :after org-inline-anim
   :hook
   ((org-present-mode . (lambda ()
@@ -1774,9 +1751,12 @@ With a prefix ARG, remove start location."
                               (org-present-read-write)
                               (org-present-show-cursor)))))
 
-(use-package tldr)
+(use-package tldr
+    :ensure (:wait t))
 
-(use-package devdocs)
+(use-package devdocs
+    :ensure (:wait t))
+
 
 (use-package helpful
   :ensure t
@@ -1832,94 +1812,14 @@ With a prefix ARG, remove start location."
             (eww url)))))
       (message "No URL provided."))))
 
-;; AutoSuggest at point
-(defun consult-omni-autosuggest-at-point ()
+;; close buffer and window
+(defun close-buffer-and-window ()
+  "Close the current buffer and the window it's in."
   (interactive)
-  (let ((input (or (thing-at-point 'url) (thing-at-point 'filename) (thing-at-point 'symbol) (thing-at-point 'sexp) (thing-at-point 'word))))
-    (when (and (minibuffer-window-active-p (selected-window))
-               (equal (substring input 0 1) (consult--async-split-initial nil)))
-      (setq input (substring input 1)))
-    (consult-omni-brave-autosuggest input)))
-
-(use-package elfeed
-  :custom
-  (elfeed-db-directory
-   (expand-file-name "elfeed" user-emacs-directory))
-  (elfeed-show-entry-switch 'display-buffer)
-  :bind
-  ("C-c w e" . elfeed))
-
-(setq elfeed-feeds
- '(
-   ;; essays
-   ("https://aeon.co/feed.rss" essays pop-philosophy)
-   ("https://www.reddit.com/r/philosophy.rss" forum pop-philosophy)
-   ("https://www.reddit.com/r/hegel.rss" forum pop-philosophy)
-
-   ;; politics
-   ("https://groups.io/g/marxmail/rss" news world marxism)
-   ("https://www.theguardian.com/world/rss" news world centrist)
-   ("https://recorder.ro/feed/" news romania centrist)
-
-   ("https://www.reddit.com/r/AcademicMarxism.rss" forum marxism)
-
-   ;; economy
-   ("https://www.morningbrew.com/feed.xml" economy digest)
-
-   ;; music review and news
-   ("https://thequietus.com/opinion-essays/feed/" essays listening)
-
-   ;; individual substack
-   ;;; music related
-   ("https://deepcutswrites.substack.com/feed" listening blog)
-   ("https://loudandquiet.substack.com/feed" listening blog)
-   ;;; other art
-   ;;; politics
-   ("https://slavoj.substack.com/feed" blog politics)
-   ;;; misc
-   ("https://post.substack.com/" blog cruft)
-
-   ;; technology
-   ("https://forum.typst.app/posts.rss" tech forum)
-   ("https://protesilaos.com/keeb.xml" tech hardware)
-
-   ;;; hardware tinkering
-   ;;;; iPod
-   ("https://www.reddit.com/r/ipod.rss")
-
-   ;;; emacs
-   ("https://www.reddit.com/r/orgmode.rss" tech emacs forum)
-
-   ;;; blogs
-   ("https://christiantietze.de/feed.atom" blog emacs)
-   ("https://sachachua.com/blog/feed/" blog emacs)
-   ("https://protesilaos.com/codelog.xml" blog emacs)
-   ("https://protesilaos.com/news.xml" blog)
-
-   ;; microblogs
-   ("https://mastodon.social/users/ctietze.rss" microblog) ;; does zettelkasten and Emacs
-
-   ;; music forums
-   ("https://llllllll.co/posts.rss" music electronic forum)
-   ()
-
-   ;; digital minimalism
-   ("https://www.reddit.com/r/digitalminimalism.rss" dumb forum)
-   ("")
-
-   ;; PKM
-   ("https://zettelkasten.de/feed" zk pkm notes blog)
-
-   ;; academic subscriptions
-   ("https://old.reddit.com/r/f1technical.rss" tech f1)))
-
-(use-package elfeed-org
-  :config
-  (elfeed-org)
-  :custom
-  (rmh-elfeed-org-files
-   (list (concat (file-name-as-directory (getenv "HOME"))
-                       "elfeed.org"))))
+  (let ((window (selected-window)))
+    (kill-buffer)               ;; Kill the current buffer
+    (when (window-live-p window) ;; Check if the window is still live
+      (delete-window))))         ;; Delete the window if it exists
 
 (use-package magit
   :ensure t
@@ -1939,7 +1839,18 @@ With a prefix ARG, remove start location."
   (interactive)
   (magit-status "/yadm::"))
 
+(use-package nerd-icons
+  :ensure (:wait t)
+  :custom
+  ;; The Nerd Font you want to use in GUI defaults to fixed-font:
+  (nerd-icons-font-family "Symbols Nerd Font Mono"))
+
+(use-package nerd-icons-ibuffer
+  :ensure t
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+
 (use-package doom-modeline
+  :ensure (:wait t)
   :init
   (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
 
@@ -1968,7 +1879,23 @@ With a prefix ARG, remove start location."
       ;; other
         doom-modeline-lsp-icon t ; this doesn't currently work as I'm not working with code projects
       doom-modeline-enable-word-count t)
-   (doom-modeline-mode 1))
+   (doom-modeline-mode 1)
+)
+
+(use-package elfeed
+  :custom
+  (elfeed-db-directory
+   (expand-file-name "elfeed" user-emacs-directory))
+  (elfeed-show-entry-switch 'display-buffer)
+  :bind
+  ("C-c w e" . elfeed))
+
+(use-package elfeed-org
+  :ensure t
+  :config
+  (elfeed-org)
+  :custom
+  (setq sia-elfeed-org-files (list "~/Documents/elfeed.org")))
 
 (when (display-graphic-p)
   (context-menu-mode 1)
@@ -2030,6 +1957,7 @@ With a prefix ARG, remove start location."
   (pulsar-global-mode 1))
 
 (use-package mixed-pitch
+  :ensure (:wait t)
   :config
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-property-value)
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-special-keyword)
@@ -2109,84 +2037,11 @@ With a prefix ARG, remove start location."
                   :height 100)
 
 (use-package fontaine
-  :ensure t
+  :ensure (:wait t)
   :init
   (fontaine-mode))
 
-(setq fontaine-presets
-      '((regular)
 
-    (prose
-     :inherit regular
-     ; :line-spacing 1.5 ; I can't actually use this because it messes up all of the minibuffer and makes the lines way too large to be readable
-     )
-
-        (large
-     :inherit regular
-         :default-height 150
-         :fixed-pitch-height 1.0
-         :variable-pitch-height 1.05)
-
-        (presentation)
-
-        (t
-         ;; This is for fallback properties (the default value)
-         :default-family "Aporetic Serif Mono"
-         :default-weight regular
-         :default-height 200
-
-         :fixed-pitch-family "Fira Code"
-         :fixed-pitch-weight nil ; falls back to :default-weight
-         :fixed-pitch-height 1.05
-
-         :fixed-pitch-serif-family "Aporetic Serif Mono"
-         :fixed-pitch-serif-weight nil
-         :fixed-pitch-serif-slant nil
-         :fixed-pitch-serif-width nil
-         :fixed-pitch-serif-height 1.05
-
-         :variable-pitch-family "iA Writer Quattro"
-         :variable-pitch-weight nil
-         :variable-pitch-height 1.0
-
-         :mode-line-active-family nil
-         :mode-line-active-weight nil
-         :mode-line-active-slant nil
-         :mode-line-active-width nil
-         :mode-line-active-height 1.0
-
-         :header-line-family "Gill Sans"
-         :header-line-weight nil
-         :header-line-slant nil
-         :header-line-width nil
-         :header-line-height 1.0
-
-         :line-number-family nil
-         :line-number-weight nil
-         :line-number-slant nil
-         :line-number-width nil
-         :line-number-height 1.0
-
-         :tab-bar-family nil
-         :tab-bar-weight nil
-         :tab-bar-slant nil
-         :tab-bar-width nil
-         :tab-bar-height 1.0
-
-         :tab-line-family nil
-         :tab-line-weight nil
-         :tab-line-slant nil
-         :tab-line-width nil
-         :tab-line-height 1.0
-
-         :bold-family nil ; this will just use whatever the underlying face has
-         :bold-weight bold
-
-         :italic-family "Source Code Pro"
-         :italic-slant italic
-         :line-spacing 1)))
-
-(setq fontaine-set-preset 'regular)
 
 (setq prettify-symbols-unprettify-at-point 'right-edge)
 
@@ -2200,18 +2055,11 @@ With a prefix ARG, remove start location."
 
 (setq org-ellipsis " [+]")
 
-(use-package all-the-icons
-  :if (display-graphic-p))
+;; (use-package all-the-icons
+;;   :ensure (:wait t)
+;;   :if (display-graphic-p))
 
-(use-package nerd-icons
-  :ensure t
-  :custom
-  ;; The Nerd Font you want to use in GUI defaults to fixed-font:
-  (nerd-icons-font-family "Symbols Nerd Font Mono"))
 
-(use-package nerd-icons-ibuffer
-  :ensure t
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
 
 (defun font-size-adjust (delta)
   "Adjust the current frame's font size.
@@ -2240,6 +2088,9 @@ DELTA would be something like 1 or -1."
 
 (use-package lin
   :ensure t)
+
+
+
 
 (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
 
@@ -2275,6 +2126,9 @@ DELTA would be something like 1 or -1."
       ("FIXME"  . ,(face-foreground 'error))
       ("NOTE"   . ,(face-foreground 'success))))
   (global-hl-todo-mode 1))
+
+
+
 
 (use-package consult-todo
   :ensure t
@@ -2343,6 +2197,8 @@ DELTA would be something like 1 or -1."
       '((matches . (extrabold))
         (selection . (semibold italic text-also))))
 
+
+
 (setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
 
 ;; The `modus-themes-headings' is an alist: read the manual's
@@ -2376,8 +2232,10 @@ DELTA would be something like 1 or -1."
       split-height-threshold nil)
 
 (use-package balanced-windows
+  :ensure (:wait t)
   :config
-  (balanced-windows-mode))
+  (balanced-windows-mode)
+)
 
 (modify-all-frames-parameters
  '((right-divider-width . 10)
@@ -2534,24 +2392,6 @@ DELTA would be something like 1 or -1."
                   (text-scale-adjust 2)))
   :bind
   ("<f7>" . vterm))
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(custom-safe-themes
-   '("f1e8339b04aef8f145dd4782d03499d9d716fdc0361319411ac2efc603249326"
-     "f4bef5a6d77ac9c9ab34382f380aba922dd91901d0d43886a5f99106041bb8e0"
-     "0d9d71c926669c744b623f13a89427e242e74e470d05dfa20dd7b6a3690fcf61"
-     "ace9f12e0c00f983068910d9025eefeb5ea7a711e774ee8bb2af5f7376018ad2"
-     "1bfcfbf99dcdeaef693b9281eabf23cfb47d27e7a102995facb344e42f0665cd"
-     "a1d2c03d65d78a953db751bbbcd0094cac5f59dfe391c1f4b6e0ae8031937d49"
-     "ebb5118922a5ecbcafcdf65c37b87fa88bd1786615c249e137d7f168795b75ae"
-     "8fe2533b2afef6e78421aee5fc664e9aa1346f44494117a1346209a04938cdc2"
-     "9293e74ccd69dcd202c069a84e90ef1f21176a09dcbfd59e75a5d8c0d1f1214f"
-     "bf4ab01ac7cbd5bff3d3f43d9988b77f8adcbfae0c7a2fd7db5800649ac10210"
-     default))
- '(warning-suppress-types '((emacs))))
 
 ;;; MACOS settings
 
@@ -2586,7 +2426,7 @@ DELTA would be something like 1 or -1."
      :no-progress t
      :utils "open")))
 
-
+    
 ;; kill macos processes right from emacs
 
 (require 'dwim-shell-command)

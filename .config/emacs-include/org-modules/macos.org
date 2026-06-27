@@ -1,6 +1,43 @@
 #+title: MacOS configuration
 
-This one isn't organised yet, as I cannot get the directory control for Emacs on MacOS to work
+Last updated: June 26th, 2026
+
+This is for specific settings that make Emacs work well on MacOS.
+
+* Making Emacs available as an app entry in MacOS
+
+By default, the ~homebrew~ version of Emacs that I can install doesn't have a desktop entry (meaning one that lives in ~/Applications/Emacs.app~), which means that I can't easily open it from the MacOS dock or from Spotlight.
+
+To enable all of this, I need to install Emacs from a special location.
+
+However, this means that I won't be able to run commands through the command line (or even change the form of Emacs that I'm using --- this is through the Chemacs configuration).
+
+To create an alias for Emacs.app that will show up in the shell, I need to change the fish shell configuration.[fn:1]
+
+#+begin_src shell
+alias emacs="$(/Applications/Emacs.app/Contents/MacOS/Emacs -nw)"
+#+end_src
+
+However, if I add this to the fish configuration file, it makes the shell launch directly into Emacs, which is not what I want. And I don't particularly understand what is making Emacs launch like that.
+
+Also, trying to put the alias in the format for Bash shell (in the ~./.bashaliases~ file) also ends up creating an error.
+
+[2026-06-26 Fri] I really need to write a literate configuration for my shell.
+
+alias emacs="$(/Applications/Emacs.app/Contents/MacOS/Emacs "$@")"
+- this command simply doesn't work because of '$@'
+
+I don't really understand how I should be using the shebang, in this case.
+
+* Changing the modifier key
+
+This is so that I can actually use the CMD key as my Meta key.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq mac-command-modifier 'meta)
+
+(setq mac-option-modifier 'none)
+#+end_src
 
 * Making MacOS behave well
 ** Making sure that dired works
@@ -17,15 +54,7 @@ This solution is from 2010: https://stackoverflow.com/questions/4076360/error-in
 
 I really hope that it won't randomly start working pretty soon.
 
-* Changing the modifier key
 
-This is so that I can actually use the CMD key as my Meta key.
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(setq mac-command-modifier 'meta)
-
-(setq mac-option-modifier 'none)
-#+end_src
 
 * Integrating into the appearance of MacOS
 ** Make more use of the existing frames
@@ -69,6 +98,8 @@ This is so that I can actually use the CMD key as my Meta key.
 ** Kill MacOS processes right from Emacs
 
 Added on [2026-03-29 Sun]
+
+[2026-06-26 Fri] Make sure to read some more about how this works, in practice, for taking care of the processes.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (require 'dwim-shell-command)
@@ -119,3 +150,7 @@ Added on [2026-03-29 Sun]
        :error-autofocus t
        :silent-success t))))
 #+end_src
+
+* Footnotes
+
+[fn:1] This is already added in the actual file, it doesn't get tangled from the file, it's here for documentation purposes.
