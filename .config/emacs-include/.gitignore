@@ -16,6 +16,7 @@ never
 
 # files needed for the note-taking process
 .org-id-locations
+vulpea.db
 
 # files created during the tangling process
 temp.org
