@@ -87,9 +87,6 @@
 
 (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
-
-
-
 ;; WINDOW FUNCTIONS
 (setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
 
@@ -119,7 +116,6 @@
          ([remap dired-do-async-shell-command] . dwim-shell-command)
          ([remap dired-do-shell-command] . dwim-shell-command)
          ([remap dired-smart-shell-command] . dwim-shell-command)))
-         
 
 (use-package try
   :ensure (:wait t))
@@ -294,18 +290,15 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                           (unless (string-match "pdf$" x)
                             (swiper ivy-text)))))))
 
-
-
 (use-package transient
   :ensure t)
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
 
-(use-package websocket 
+(use-package websocket
   :ensure (:wait t)
 )
-
 
 (use-package consult-snapfile
   :load-path "~/cloned-utilities/consult-snapfile/emacs"
@@ -322,9 +315,6 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 
 (use-package helm
     :ensure (:wait t))
-
-
-
 
 (use-package ess
   :ensure t)
@@ -585,7 +575,7 @@ title."
     (let* ((id (sia-org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
 
-(setq org-directory "~/Documents/notes")
+(setq org-directory "~/notes")
 
 (use-package org-special-block-extras
   :ensure t)
@@ -705,19 +695,18 @@ selected instead of creating a new buffer."
   (save-excursion
     (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
 
-
 (setq org-capture-templates
         '(
           ("l" "Listening log" entry
-           (file+datetree "~/Documents/notes/inbox/listening-log.org")
+           (file+datetree "~/notes/inbox/listening-log.org")
            "* %U\n %i\n %a")
 
           ("t" "Task to the inbox" entry
-           (file "~/Documents/notes/inbox/inbox-capture.org")
+           (file "~/notes/inbox/inbox-capture.org")
            "* TODO %?\n %i\n %a")
 
           ("i" "Idea or quick thought to take care of" entry
-           (file "~/Documents/notes/inbox/thoughts-capture.org"))
+           (file "~/notes/inbox/thoughts-capture.org"))
 ))
 
 (global-set-key (kbd "C-c c") #'org-capture)
@@ -766,8 +755,8 @@ selected instead of creating a new buffer."
 
 (setq org-agenda-files
         (list
-         "~/Documents/tracking"
-         "~/Documents/notes/inbox/" ; this is for tasks that I never actually got to deal with
+         "~/tracking/"
+         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
 ))
 
 (global-set-key (kbd "C-c o a") 'org-agenda)
@@ -910,7 +899,7 @@ selected instead of creating a new buffer."
 (add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 
 (use-package org-gtd
-  :ensure t
+  :ensure (:wait t)
   :after org
   :demand t
   :init
@@ -918,7 +907,7 @@ selected instead of creating a new buffer."
   (setq org-gtd-update-ack "4.0.0")
   :custom
   ;; Where org-gtd will keep its files (defaults to ~/gtd/)
-  (org-gtd-directory "~/Documents/tracking/org-gtd/")
+  (org-gtd-directory "~/tracking/org-gtd/")
 
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
   (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
@@ -1075,7 +1064,12 @@ selected instead of creating a new buffer."
   ;; (denote-org-store-link-to-heading 'context)
   (denote-org-store-link-to-heading 'id))
 
-(setq denote-menu-show-file-type nil)
+
+(use-package denote-merge
+      :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
+      :bind
+      ("M-n m f" . denote-merge-file)
+      ("M-n m r" . denote-merge-region))
 
 (global-set-key (kbd "C-c z") #'list-denotes)
 
@@ -1125,7 +1119,7 @@ agenda."
   (consult-notes-denote-mode))
 
 (use-package org-sidebar
-  :ensure t)
+  :ensure (:wait t))
 
 (use-package discourse-graphs
   :ensure (discourse-graphs :type git
@@ -1136,7 +1130,7 @@ agenda."
                             "discourse-graphs-ui/out/assets/*"))
   :config
   (setq dg-directories ;; This is where we scan for nodes
-  '("~/Documents/notes/")
+  '("~/notes/")
   )
   (setq dg-recursive t)
   (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
@@ -1159,7 +1153,7 @@ agenda."
 (setq dg-overlay-enable t)
 
 ;; Synthesis dashboard file location
-(setq dg-synthesis-file "~/Documents/notes/dg-synthesis.org")
+(setq dg-synthesis-file "~/notes/dg-synthesis.org")
 
 (setq dg-discourse-attributes
       '(
@@ -1239,7 +1233,7 @@ agenda."
   ;; At least one of these two is needed
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
-        (list "~/Documents/notes/"))
+        (list "~/notes/"))
   ;; To also detect "denote:abcdefg" links without [[enclosing brackets]]
   (add-to-list 'org-mem-seek-link-types "denote")
   (org-mem-updater-mode))
@@ -1262,9 +1256,6 @@ agenda."
 (setq org-node-backlink-do-drawers t)
 
 (setq org-node-alter-candidates t)
-
-(use-package vulpea
-	:ensure t)
 
 (defgroup ews ()
   "Emacs Writing Studio."
@@ -1313,7 +1304,7 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
         (let ((doi (read-string "DOI: ")))
           (biblio-doi-insert-bibtex doi))
       (biblio-lookup db-selected))))
-       
+
 (setq bibtex-autokey-name-separator nil
       bibtex-autokey-name-year-separator nil
       bibtex-autokey-year-length 4
@@ -1367,8 +1358,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
                                               :elfeed-data entry))))
     (mapc #'elfeed-search-update-entry entries)
     (unless (use-region-p) (forward-line))))
-  
-
 
 (defvar do.refs/db-dirs nil
   "A list of paths to directories containing all my bibtex databases")
@@ -1405,10 +1394,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
     (setq reftex-default-bibliography db-list)
     (setq bibtex-completion-bibliography db-list)
     (setq ebib-preload-bib-files db-list)))
-
-(setq ebib-file-search-dirs sia-bibtex-files)
-;; (setq ebib-notes-directory "~/Documents/ebib-literature-notes")
-(setq ebib-preload-bib-files (do.refs/get-db-file-list))
 
 (setq bibtex-autokey-year-length 4)
   (setq bibtex-autokey-titleword-separator "-")
@@ -1523,7 +1508,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 
 (setq citar-denote-subdir "litnotes")
 
-
 (setq denote-templates
       '((report . "* Some heading\n\n* Another heading")
       (biblio . ,(concat "Creator: %^{author-or-editor}"
@@ -1612,7 +1596,7 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
         "~/Documents/bibliography/hegel-prezentare.bib"
         "~/Documents/bibliography/modernitate.bib")
         bibtex-completion-library-path '("~/Documents/literature/")
-        bibtex-completion-notes-path "~/Documents/org/"
+        bibtex-completion-notes-path "~/notes/"
         bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 
 ;; Automatically generating BibTeX keys
@@ -1631,7 +1615,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 (use-package citar-org-node
   :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
         :rev :newest))
-
 
 (use-package nov
   :ensure t
@@ -1717,15 +1700,12 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
                ("\\paragraph{%s}" . "\\paragraph*{%s}")
                ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
 
-
 (setq org-latex-listings 't)
 
 (use-package org-pandoc-import
   :ensure (:host github
                :repo "tecosaur/org-pandoc-import"
                :files ("*.el" "filters" "preprocessors")))
-
-
 
 ;; animated gif support to spruce things up
 (use-package org-inline-anim
@@ -1756,7 +1736,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 
 (use-package devdocs
     :ensure (:wait t))
-
 
 (use-package helpful
   :ensure t
@@ -2041,8 +2020,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
   :init
   (fontaine-mode))
 
-
-
 (setq prettify-symbols-unprettify-at-point 'right-edge)
 
 (global-prettify-symbols-mode +1)
@@ -2058,8 +2035,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 ;; (use-package all-the-icons
 ;;   :ensure (:wait t)
 ;;   :if (display-graphic-p))
-
-
 
 (defun font-size-adjust (delta)
   "Adjust the current frame's font size.
@@ -2088,9 +2063,6 @@ DELTA would be something like 1 or -1."
 
 (use-package lin
   :ensure t)
-
-
-
 
 (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
 
@@ -2126,9 +2098,6 @@ DELTA would be something like 1 or -1."
       ("FIXME"  . ,(face-foreground 'error))
       ("NOTE"   . ,(face-foreground 'success))))
   (global-hl-todo-mode 1))
-
-
-
 
 (use-package consult-todo
   :ensure t
@@ -2196,8 +2165,6 @@ DELTA would be something like 1 or -1."
       modus-themes-completions
       '((matches . (extrabold))
         (selection . (semibold italic text-also))))
-
-
 
 (setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
 
@@ -2426,7 +2393,6 @@ DELTA would be something like 1 or -1."
      :no-progress t
      :utils "open")))
 
-    
 ;; kill macos processes right from emacs
 
 (require 'dwim-shell-command)
@@ -2478,9 +2444,135 @@ DELTA would be something like 1 or -1."
        :silent-success t))))
 
 ; Source - https://stackoverflow.com/a/4083987
-; Posted by hatmatrix
-; Retrieved 2026-03-29, License - CC BY-SA 2.5
 
 (when (eq system-type 'darwin)
   (require 'ls-lisp)
   (setq ls-lisp-use-insert-directory-program nil))
+
+;; HTTP library
+
+(use-package plz
+  :ensure (:wait t))
+
+;; AI implementation
+
+(use-package gptel
+  :ensure (:wait t))
+
+;; org-db
+
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-db-v3/elisp/")
+(require 'org-db-v3)
+
+;; Bind the menu to a convenient key
+(global-set-key (kbd "H-v") 'org-db-menu)
+
+;; Auto-start server when Emacs starts (optional)
+;; (setq org-db-v3-auto-start-server t)
+
+;; Optional: Enable gptel integration for AI-powered search
+;; (when (featurep 'gptel)
+;;  (require 'org-db-v3-gptel-tools)
+;;  (org-db-v3-gptel-register-tools))
+
+
+(use-package vulpea
+  :ensure (:wait t)
+  )
+
+(setq vulpea-db-sync-directories '("~/notes/"))
+
+(setq vulpea-db-parse-method 'single-temp-buffer)
+
+(vulpea-db-autosync-mode +1) ;; this makes sure that the vault is being updated on each startup.
+
+(setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
+
+(vulpea-db-query-by-tags-every '("project" "active")) ;; Query all active projects
+
+;; Configuring the display of notes in the minibuffer
+;; "My Notes → Projects → Task"
+(setq vulpea-select-describe-fn #'vulpea-select-describe-outline-full)
+
+;; Default annotation: "(primary title) #tag1 #tag2"
+(setq vulpea-select-annotate-fn #'vulpea-select-annotate)
+
+;; Schema definition
+;; Schema for albums
+(vulpea-schema-define 'music
+  :predicate (lambda (note) (member "music" (vulpea-note-tags note)))
+  :fields
+  '(
+    (:key "creator" :type note   :required t :target-tags ("person"))
+    (:key "name"     :type string :required t)
+    (:key "genre"   :type note :required t :multiple t)
+    (:key "genre-influences" :type note :multiple t)
+    (:key "year"   :type number   :required t :multiple nil)
+))
+
+;; UI functions
+(use-package vulpea-ui
+  :ensure (:wait t)
+  :after vulpea)
+
+;; opening the vulpea sidebar
+(global-set-key (kbd "C-c v s") #'vulpea-ui-sidebar-toggle)
+
+;; Position: 'right (default), 'left, 'top, 'bottom
+(setq vulpea-ui-sidebar-position 'right)
+
+;; Size as fraction of frame (0.0-1.0)
+(setq vulpea-ui-sidebar-size 0.33)
+
+;; Maximum heading depth (nil = unlimited)
+(setq vulpea-ui-outline-max-depth 3)
+
+;; the backlinks widget
+
+;; Show/hide content previews
+(setq vulpea-ui-backlinks-show-preview t)
+
+;; Characters before/after link in prose previews
+(setq vulpea-ui-backlinks-prose-chars-before 30)
+(setq vulpea-ui-backlinks-prose-chars-after 50)
+
+;; Filter which notes appear in backlinks
+;; (function receiving vulpea-note, return non-nil to include)
+(setq vulpea-ui-backlinks-note-filter
+      (lambda (note)
+        (not (member "archive" (vulpea-note-tags note)))))
+
+;; Filter by context type
+;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
+(setq vulpea-ui-backlinks-context-types t)
+
+;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
+(setq vulpea-ui-backlinks-sort 'title-asc)
+
+;; JOURNALING
+(use-package vulpea-journal
+  :ensure (:wait t)
+  :after vulpea)
+
+;; Templating
+
+(setq vulpea-create-default-function
+      (lambda (title)
+        (list :file-name (format "%s_%s.org"
+                                 (format-time-string "%Y%m%d%H%M%S")
+                                 (vulpea-title-to-slug title))
+              :tags (if (string-match-p "TODO" title)
+                        '("task")
+                      '("note")))))
+
+;; Integration with other packages
+
+(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/embark-vulpea")
+(require 'embark-vulpea)
+
+(use-package consult-vulpea
+  :ensure (:wait t)
+  :after vulpea
+  :config
+  (consult-vulpea-mode 1)
+)
