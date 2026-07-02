@@ -327,8 +327,8 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                     :host github
                     :repo "CSJ7701/org-ranker"))
 
-(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-dataview")
-(require 'org-dataview)
+;; (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-dataview")
+;; (require 'org-dataview)
 
 (setq org-id-locations-file "~/.config/emacs-include/.org-id-locations")
 
@@ -2461,8 +2461,8 @@ DELTA would be something like 1 or -1."
 
 ;; org-db
 
-(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-db-v3/elisp/")
-(require 'org-db-v3)
+;; (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/org-db-v3/elisp/")
+;; (require 'org-db-v3)
 
 ;; Bind the menu to a convenient key
 (global-set-key (kbd "H-v") 'org-db-menu)
@@ -2567,8 +2567,8 @@ DELTA would be something like 1 or -1."
 
 ;; Integration with other packages
 
-(add-to-list 'load-path "~/.config/emacs-include/cloned-modules/embark-vulpea")
-(require 'embark-vulpea)
+;; (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/embark-vulpea")
+;; (require 'embark-vulpea)
 
 (use-package consult-vulpea
   :ensure (:wait t)
