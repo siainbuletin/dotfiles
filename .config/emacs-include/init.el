@@ -1064,7 +1064,6 @@ selected instead of creating a new buffer."
   ;; (denote-org-store-link-to-heading 'context)
   (denote-org-store-link-to-heading 'id))
 
-
 (use-package denote-merge
       :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
       :bind
@@ -2475,7 +2474,6 @@ DELTA would be something like 1 or -1."
 ;;  (require 'org-db-v3-gptel-tools)
 ;;  (org-db-v3-gptel-register-tools))
 
-
 (use-package vulpea
   :ensure (:wait t)
   )
@@ -2509,6 +2507,47 @@ DELTA would be something like 1 or -1."
     (:key "genre-influences" :type note :multiple t)
     (:key "year"   :type number   :required t :multiple nil)
 ))
+
+;; Schema for literature notes
+(vulpea-schema-define 'base-text
+		      :predicate (lambda (note) (member "text" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "pub-author" :type note :multiple t)
+			(:key "pub-year" :type number :required t)
+			(:key "pub-title" :type string :required t)
+			(:key "read-status" :type string :required t))
+)
+
+(vulpea-schema-define 'article
+		      :predicate (lambda (note) (member "journalarticle" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil))
+)
+
+(vulpea-schema-define 'booksection
+		      :predicate (lambda (note) (member "booksection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil)
+		      (:key "bib-parent" :type note :required t :target-tags ("book")))
+		      )
+
+(vulpea-schema-define 'collection
+		      :predicate (lambda (note) (member "collection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-editor" :type note :required t))
+)
+
+(vulpea-schema-define 'incollection
+		      :predicate (lambda (note) (member "incollection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil)
+		      (:key "bib-parent" :type note :required t :target-tags ("collection"))
+		      (:key "pub-author" :type note :required t))
+		      )
 
 ;; UI functions
 (use-package vulpea-ui
