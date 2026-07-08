@@ -2497,16 +2497,83 @@ DELTA would be something like 1 or -1."
 
 ;; Schema definition
 ;; Schema for albums
-(vulpea-schema-define 'music
-  :predicate (lambda (note) (member "music" (vulpea-note-tags note)))
+(vulpea-schema-define 'album
+  :predicate (lambda (note) (member "album" (vulpea-note-tags note)))
   :fields
   '(
-    (:key "creator" :type note   :required t :target-tags ("person"))
-    (:key "name"     :type string :required t)
-    (:key "genre"   :type note :required t :multiple t)
-    (:key "genre-influences" :type note :multiple t)
+    (:key "creator" :type note   :required t :target-tags ("musician" "person"))
+    (:key "name"     :type string :required nil)
+    (:key "genre"   :type note :required t :multiple t :target-tags ("genre"))
+    (:key "genre-influences" :type note :multiple t :target-tags ("genre"))
     (:key "year"   :type number   :required t :multiple nil)
 ))
+
+;; Schema for inquiries
+(vulpea-schema-define 'inquiry
+  :predicate (lambda (note) (member "inquiry" (vulpea-note-tags note)))
+  :fields
+  '(
+    (:key "q-status" :type string :required t :one-of (solved unsolved))
+))
+
+(vulpea-schema-define 'question
+		      :predicate (lambda (note) (member "question" (vulpea-note-tags note)))
+		      :include 'inquiry)
+
+(vulpea-schema-define 'error
+		      :predicate (lambda (note) (member "error" (vulpea-note-tags note)))
+		      :include 'inquiry)
+
+(vulpea-schema-define 'research-q
+		      :predicate (lambda (note) (member "research-q" (vulpea-note-tags note)))
+		      :include 'inquiry)
+
+(vulpea-schema-define 'exploratory ;; not as serious as a research question
+		      :predicate (lambda (note) (member "exploratory" (vulpea-note-tags note)))
+		      :include 'inquiry)
+
+;; Schema for people
+(vulpea-schema-define 'person
+		      :predicate (lambda (note) (member "person" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "DOB" :type number)
+			(:key "DOD" :type number))
+		      )
+
+(vulpea-schema-define 'musician
+		      :predicate (lambda (note) (member "musician" (vulpea-note-tags note)))
+		      :include 'person)
+
+;; Schema for groups
+(vulpea-schema-define 'group
+		      :predicate (lambda (note) (member "group" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "members" :type note :multiple t))
+		      )
+
+(vulpea-schema-define 'institution
+		      :predicate (lambda (note) (member "institution" (vulpea-note-tags note)))
+		      :include 'group
+		      )
+
+(vulpea-schema-define 'company
+		      :predicate (lambda (note) (member "company" (vulpea-note-tags note)))
+		      :include 'group
+		      )
+
+;; Schema for software-related stuff
+(vulpea-schema-define 'software
+		      :predicate (lambda (note) (member "software" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "source" :type string :required t :one-of (closed-source open-source))
+			(:key "languages" :type note :required nil :multiple t)
+			(:key "maintenance" :type string :required t :one-of (current abandoned spotty)))
+		      )
+
+(vulpea-schema-define 'package
+		      :predicate (lambda (note) (member "package" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "(m)elpa" :type string :required nil :one-of (yes no)))) ;; change this to boolean
 
 ;; Schema for literature notes
 (vulpea-schema-define 'base-text
@@ -2515,7 +2582,8 @@ DELTA would be something like 1 or -1."
 		      '((:key "pub-author" :type note :multiple t)
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
-			(:key "read-status" :type string :required t))
+			(:key "read-status" :type string :required t :one-of (current go review paused skimmed read-without-notes finished))
+			(:key "relevance" :type string :required nil))
 )
 
 (vulpea-schema-define 'article
@@ -2606,8 +2674,8 @@ DELTA would be something like 1 or -1."
 
 ;; Integration with other packages
 
-;; (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/embark-vulpea")
-;; (require 'embark-vulpea)
+(load-file "~/.config/emacs-include/cloned-modules/embark-vulpea.el")
+(require 'embark-vulpea)
 
 (use-package consult-vulpea
   :ensure (:wait t)

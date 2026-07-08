@@ -3,11 +3,11 @@
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
 (("inbox notes"
- (filename . "~/Documents/notes/inbox/")
+ (filename . "~/notes/")
  (front-context-string . "2510 inbox.md\n  ")
  (rear-context-string . "2K Oct 17 17:42 ")
  (position . 149)
- (last-modified 26971 56912 35612 147000))
+ (last-modified 27211 31732 760822 0))
 ("org-agenda files"
  (filename . "~/Documents/tracking/")
  (front-context-string . ".stfolder\n  -rw-")
