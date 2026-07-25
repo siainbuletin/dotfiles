@@ -163,6 +163,9 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 (add-hook 'before-save-hook 'sia-clean-whitespace)
 
+(use-package load-dir
+  :ensure (:wait t))
+
 (use-package cond-let
   :ensure (:wait t))
 
@@ -755,7 +758,7 @@ selected instead of creating a new buffer."
 
 (setq org-agenda-files
         (list
-         "~/tracking/"
+         "~/notes/areas/"
          "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
 ))
 
@@ -907,7 +910,7 @@ selected instead of creating a new buffer."
   (setq org-gtd-update-ack "4.0.0")
   :custom
   ;; Where org-gtd will keep its files (defaults to ~/gtd/)
-  (org-gtd-directory "~/tracking/org-gtd/")
+  (org-gtd-directory "~/notes/areas/org-gtd/")
 
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
   (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
@@ -2656,6 +2659,25 @@ DELTA would be something like 1 or -1."
 ;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
 (setq vulpea-ui-backlinks-sort 'title-asc)
 
+;; Collection views
+(setq vulpea-ui-collection-views
+      '(("bachelor" . (:filter (:tags-all ("book")
+					  :level 0 ;; this is what will bring file-level notes
+					  ;; :meta ("read-status" . t)
+)
+			       :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
+			       :sort ("Modified" . t)
+			       ))))
+
+;; the links property is showing the count of outgoing links
+
+;; Utility views
+
+(add-to-list 'vulpea-ui-collection-views
+'("orphans" .
+  (:filter (:source vulpea-db-query-orphan-notes)))
+)
+
 ;; JOURNALING
 (use-package vulpea-journal
   :ensure (:wait t)
@@ -2674,7 +2696,11 @@ DELTA would be something like 1 or -1."
 
 ;; Integration with other packages
 
-(load-file "~/.config/emacs-include/cloned-modules/embark-vulpea.el")
+(let ((dir "~/.config/emacs-include/cloned-modules/"))
+  (dolist (file (directory-files-recursively dir "\\.el\\'"))
+    (add-to-list 'load-path (file-name-directory file))
+    (load (file-name-sans-extension file))))
+
 (require 'embark-vulpea)
 
 (use-package consult-vulpea
@@ -2683,3 +2709,29 @@ DELTA would be something like 1 or -1."
   :config
   (consult-vulpea-mode 1)
 )
+
+(require 'vulpea-para)
+(vulpea-para-agenda-mode)
+
+(vulpea-para-setup-defaults)
+
+;; keep a cemetery (or anything) out of the agenda file list
+(setq vulpea-para-agenda-files-filter
+      (lambda (note)
+        (not (vulpea-note-tagged-any-p note "cemetery"))))
+
+;; Getting the custom agenda view for vulpea-para
+
+(setq org-agenda-custom-commands
+      `((" " "Agenda"
+         (,vulpea-para-agenda-cmd-refile
+          ,vulpea-para-agenda-cmd-today
+          ,vulpea-para-agenda-cmd-focus
+          ,vulpea-para-agenda-cmd-stuck-projects
+          ,vulpea-para-agenda-cmd-waiting
+          ,(vulpea-para-agenda-cmd-current-quarter)))))
+
+;; the Area > Project prefix in the agenda
+(setq org-agenda-prefix-format
+      '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
+        (todo   . " %(vulpea-para-agenda-category 36) ")))

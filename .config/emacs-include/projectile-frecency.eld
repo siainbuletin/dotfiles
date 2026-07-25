@@ -1,0 +1,1 @@
+(("/Users/siainbuletin/.config/emacs-include/cloned-modules/vulpea-para/" ("vulpea-para.el" 2 1784800500)))

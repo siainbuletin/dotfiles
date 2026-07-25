@@ -1,0 +1,47 @@
+#+title: vulpea-para changelog
+
+* Unreleased
+
+- =vulpea-para-agenda-mode= now tags files whose vault is reached through a symlink. =vulpea-para-vault-buffer-p= compared =expand-file-name= prefixes, which do not resolve symlinks, so a vault behind a link (a Termux storage link, an iCloud or Dropbox path) failed the scope check even though the database indexed it fine: files never picked up the =agenda= tag on save (#6). Both sides are resolved with =file-truename= now, so it matches whichever side carries the link. =vulpea-para-vault-buffer-p= delegates to =vulpea-db-sync-tracked-file-p= when the installed vulpea provides it (one source of truth, shared with vulpea's own cleanup and fswatch checks), and keeps the inline resolution as a fallback on older vulpea.
+
+- The agenda now tells you when it is missing files, and the new =vulpea-para-agenda-backfill= fixes it in one go. The =agenda= tag is maintained on save, so open work that predates =vulpea-para-agenda-mode= (or was last saved without it) never made it onto the agenda: TODOs showed in =vulpea-para-agenda-area= but not in the main views (#6). The first agenda build of a session now checks the database for such files (a fast query, no file visits) and points at the backfill command; =vulpea-para-agenda-warn-missing= turns the check off. The backfill visits only the affected files, re-runs the save-time open-work check there, and saves the ones that change, so a stale database row never mis-tags a file. =vulpea-para-agenda-missing-files= is the underlying query, and =vulpea-para-done-keywords= (with the open-note predicate) moved from the doctor into the agenda module, where both now use it.
+
+- Refile targets now complete by note *title* instead of file name: =vulpea-para-setup-defaults= sets =org-refile-use-outline-path= to ='title=, so a target reads as =Barberry Garden/Tasks= rather than =20240807084021-barberry_garden.org/Tasks=. File names drift away from what a note is called while titles keep up. Set it back to ='file= if you prefer file names.
+
+- Refile target lists are now instant on large vaults. Org builds them by visiting every candidate file, which with =vulpea-para-refile-files= across a real vault meant minutes of "Getting targets..."; the new =vulpea-para-refile-mode= answers =org-refile-get-targets= straight from the database (=vulpea-para-refile-target-table=) with no file visits, whenever =org-refile-targets= is the single =vulpea-para-refile-files= entry. Everything else (org-goto, restricted refiles, foreign specs) falls through to org's own scan. =vulpea-para-setup-defaults= turns the mode on. Note that targets are now the vault's notes: a heading vulpea does not index is not offered.
+
+- Refile now reaches the whole vault, not just the agenda files. The new =vulpea-para-refile-files= plugs into =org-refile-targets= (org accepts a function as the FILES part) and returns every live file-level note from the database, area files first; =vulpea-para-refile-files-filter= keeps unwanted notes out, and the new =vulpea-para-refile-verify-target= (for =org-refile-target-verify-function=) drops archived subtrees from the candidates. =vulpea-para-setup-defaults= wires all of it, including =org-refile-use-outline-path 'file= so a file itself is a valid target.
+
+- =vulpea-para-agenda-mode= now maintains the =agenda= tag only for files in your vault (under =vulpea-db-sync-directories=), so Org files you edit elsewhere are left alone. The scope is configurable through the new =vulpea-para-agenda-tag-scope=; set it to a function that always returns non-nil to tag every Org buffer as before.
+- =vulpea-para-setup-defaults= now names the main agenda buffer through the new =vulpea-para-agenda-main-buffer-name= (default ="*PARA agenda*"=) instead of leaving it as the shared ="*Org Agenda*"=. Set it before calling setup-defaults to use your own.
+- =vulpea-para-setup-defaults='s meeting capture template now clocks in (=:clock-in t :clock-resume t=), matching how a meeting is usually captured while it happens.
+- =vulpea-para-agenda-area= now stays restricted to the chosen area's file. With =vulpea-para-agenda-mode= on, its =org-agenda= advice reset =org-agenda-files= mid-command and the view listed every task; the refresh is now skipped while the new =vulpea-para-agenda-inhibit-files-update= variable is bound, which the command does.
+- Files can be pinned onto the agenda through the new =vulpea-para-open-work-files=. A file listed there always counts as open work, so it keeps the =agenda= tag even when empty or all-done and never drops off the agenda, handy for an inbox you always want in view. Entries are bare file names (matched by base name), absolute file names, or predicates of the buffer's file name.
+
+* v0.1.0
+
+The first working version, extracted from a personal PARA setup run since 2024 and rebuilt to be tested and explained.
+
+*The model*
+
+- Bucket predicates: =vulpea-para-area-p=, =vulpea-para-project-p=, =vulpea-para-resource-p=, =vulpea-para-archived-p=, and =vulpea-para-note-buckets=. Buckets are facets, not walls, so a note can be in more than one at once.
+
+*The read API*
+
+- =vulpea-para-areas=, =vulpea-para-projects=, =vulpea-para-resources=, =vulpea-para-area-of=, and =vulpea-para-projects-in-area=: fast, database-backed queries.
+
+*Capabilities*
+
+- Capture: =vulpea-para-capture-project= files a project into an area with an "Area > Project" category.
+- Agenda: =vulpea-para-agenda-mode= keeps an =agenda= tag in sync on save and builds =org-agenda-files= from a query, so the agenda stays fast and self-updating.
+- Find: =vulpea-para-find-area=, =vulpea-para-find-project=, and =vulpea-para-find-resource=.
+- Archive: =vulpea-para-archive-project= moves a finished project under its area's Archive, out of the active database.
+- Doctor: =vulpea-para-doctor= reports projects outside any area and stale agenda tags.
+- Agenda views: the heading-at-point predicates (=vulpea-para-agenda-project-p=, =-task-p=, =-project-subtree-p=), the skip functions, the =vulpea-para-agenda-cmd-*= command building blocks (refile/today/focus/stuck/projects/waiting/current-quarter), =-agenda-category= (the Area > Project prefix formatter), and the commands =vulpea-para-agenda-main=, =-person=, and =-area=. vulpea-para never sets =org-agenda-custom-commands=; you assemble these yourself (see the README).
+- Capture suite: =vulpea-para-capture-area=, the direct =vulpea-para-capture-project=, and the Org capture building blocks for tasks, projects, and meetings (=vulpea-para-capture-task-template=, =-project-target=, =-project-template=, =-meeting-target=, =-meeting-template=). Meetings file under the person they are about; a shared =vulpea-para-people-tag= marks person notes.
+- vulpea-para never sets an org variable; it ships the agenda command building blocks and capture functions and you assemble your own =org-agenda-custom-commands= and =org-capture-templates= (ADR 0006).
+- Open work now also counts force tags (=vulpea-para-open-work-tags=, default REFILE) and active timestamps, and the agenda file list takes a filter (=vulpea-para-agenda-files-filter=) for excluding notes.
+
+*Design*
+
+- 6 ADRs under =docs/adr/= record the load-bearing decisions; the README covers the architecture, roadmap, and open questions.
