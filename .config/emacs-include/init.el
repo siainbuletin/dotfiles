@@ -1,4 +1,5 @@
 ;;; ...  -*- lexical-binding: t -*-
+;; -*-no-byte-compile: t; -*-
 
 (defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
@@ -177,6 +178,9 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
+
+
+;; dired-x is necessary for making counsel-fd work
 
 (use-package counsel
   :ensure (:wait t)
@@ -1249,9 +1253,9 @@ agenda."
   :init
   ;; Optional key bindings
   ;; Tip: Try changing these to just "M-o"!
-  (keymap-global-set "M-o" org-node-global-prefix-map)
+  (keymap-global-set "M-n" org-node-global-prefix-map)
   (with-eval-after-load 'org
-    (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
+    (keymap-set org-mode-map "M-n n" org-node-org-prefix-map))
   :config
   (org-node-cache-mode))
 
@@ -1715,23 +1719,23 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
   :custom
   (org-inline-anim-loop t))
 
-(use-package org-present
-  :ensure (:wait t)
-  :after org-inline-anim
-  :hook
-  ((org-present-mode . (lambda ()
-                         (org-present-big)
-                         (org-display-inline-images)
-                         (org-present-read-only)
-                         (centaur-tabs-local-mode)
-                         (org-inline-anim-mode)
-                         (org-inline-anim-animate-all)))
-   (org-present-mode-quit . (lambda ()
-                              ;; TODO: actually turn on centaur tabs again.
-                              ;;       Nothing works that I've tried so far
-                              (org-present-small)
-                              (org-present-read-write)
-                              (org-present-show-cursor)))))
+;; (use-package org-present
+;;   :ensure (:wait t)
+;;   :after org-inline-anim
+;;   :hook
+;;   ((org-present-mode . (lambda ()
+;;                          (org-present-big)
+;;                          (org-display-inline-images)
+;;                          (org-present-read-only)
+;;                          (centaur-tabs-local-mode)
+;;                          (org-inline-anim-mode)
+;;                          (org-inline-anim-animate-all)))
+;;    (org-present-mode-quit . (lambda ()
+;;                               ;; TODO: actually turn on centaur tabs again.
+;;                               ;;       Nothing works that I've tried so far
+;;                               (org-present-small)
+;;                               (org-present-read-write)
+;;                               (org-present-show-cursor)))))
 
 (use-package tldr
     :ensure (:wait t))
@@ -2316,34 +2320,34 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "C-c sr") 'easysession-rename)
 (global-set-key (kbd "C-c sR") 'easysession-reset)
 
-(use-package emms
-  :ensure t)
+;; (use-package emms
+;;   :ensure t)
 
-(use-package vuiet
-  :ensure t)
+;; (use-package vuiet
+;;   :ensure t)
 
-(use-package lastfm
-  :ensure t)
+;; (use-package lastfm
+;;   :ensure t)
 
-(use-package ready-player
-  :ensure t
-  :init
-  (ready-player-mode 1)
-  :custom
-  (ready-player-thumbnail-max-pixel-height 200)
-  (ready-player-autoplay nil)
-  (ready-player-repeat t)
-  (ready-player-shuffle t)
-  (ready-player-open-playback-commands
-   '(
-     ("mpv" "--audio-display=no")
-     ("mplayer")
-     ("ffplay")
-     ("vlc")
-     )))
+;; (use-package ready-player
+;;   :ensure t
+;;   :init
+;;   (ready-player-mode 1)
+;;   :custom
+;;   (ready-player-thumbnail-max-pixel-height 200)
+;;   (ready-player-autoplay nil)
+;;   (ready-player-repeat t)
+;;   (ready-player-shuffle t)
+;;   (ready-player-open-playback-commands
+;;    '(
+;;      ("mpv" "--audio-display=no")
+;;      ("mplayer")
+;;      ("ffplay")
+;;      ("vlc")
+;;      )))
 
-(use-package listen
-  :ensure t)
+;; (use-package listen
+;;   :ensure t)
 
 (global-set-key (kbd "C-c e b b") 'eval-buffer)
 
@@ -2479,9 +2483,11 @@ DELTA would be something like 1 or -1."
 
 (use-package vulpea
   :ensure (:wait t)
-  )
+  :init
+  (keymap-global-set "M-o" vulpea-find)
+)
 
-(setq vulpea-db-sync-directories '("~/notes/"))
+(setq vulpea-db-sync-directories '("~/notes/" "~/Documents/notes"))
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
@@ -2568,9 +2574,9 @@ DELTA would be something like 1 or -1."
 (vulpea-schema-define 'software
 		      :predicate (lambda (note) (member "software" (vulpea-note-tags note)))
 		      :fields
-		      '((:key "source" :type string :required t :one-of (closed-source open-source))
+		      '((:key "source" :type string :required t :one-of ("closed-source" "open-source"))
 			(:key "languages" :type note :required nil :multiple t)
-			(:key "maintenance" :type string :required t :one-of (current abandoned spotty)))
+			(:key "maintenance" :type string :required t :one-of ("current" "abandoned" "spotty")))
 		      )
 
 (vulpea-schema-define 'package
@@ -2585,7 +2591,6 @@ DELTA would be something like 1 or -1."
 		      '((:key "pub-author" :type note :multiple t)
 			(:key "pub-year" :type number :required t)
 			(:key "pub-title" :type string :required t)
-			(:key "read-status" :type string :required t :one-of (current go review paused skimmed read-without-notes finished))
 			(:key "relevance" :type string :required nil))
 )
 
@@ -2735,3 +2740,19 @@ DELTA would be something like 1 or -1."
 (setq org-agenda-prefix-format
       '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
         (todo   . " %(vulpea-para-agenda-category 36) ")))
+
+;; Other modules for vulpea
+
+;; (use-package vulpea-capf
+;;   :ensure (:wait t)
+;;   :hook (org-mode . vulpea-capf-mode)
+;;   )
+
+;; (setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
+;; (setq vulpea-capf-in-brackets t)
+
+;; (setq vulpea-capf-annotate-function t)
+
+(use-package rg
+  :ensure (:wait t)
+  )
