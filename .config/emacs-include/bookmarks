@@ -2,12 +2,18 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("inbox notes"
+(("Inbox for notes (tabs and whatnot)"
+ (filename . "~/notes/inbox/")
+ (front-context-string)
+ (rear-context-string . "hts-capture.org\n")
+ (position . 499)
+ (last-modified 27239 11740 721878 0))
+("Notes folder"
  (filename . "~/notes/")
- (front-context-string . "2510 inbox.md\n  ")
- (rear-context-string . "2K Oct 17 17:42 ")
- (position . 149)
- (last-modified 27211 31732 760822 0))
+ (front-context-string . "area\n  drwxr-xr-")
+ (rear-context-string . ".5k 07-25 23:44 ")
+ (position . 201)
+ (last-modified 27239 11723 636225 0))
 ("org-agenda files"
  (filename . "~/Documents/tracking/")
  (front-context-string . ".stfolder\n  -rw-")
@@ -39,12 +45,6 @@
  (rear-context-string . "54 Nov  3 08:50 ")
  (position . 148)
  (last-modified 26909 29574 542366 339000))
-("Notes folder"
- (filename . "~/Documents/notes/")
- (front-context-string . ".stfolder\n  drwx")
- (rear-context-string . "54 Nov 11 12:30 ")
- (position . 143)
- (last-modified 26908 37371 300088 501000))
 ("Bachelor's Thesis"
  (filename . "~/Documents/writing/thesis/")
  (front-context-string . "admin-notes\n  dr")

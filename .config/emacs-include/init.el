@@ -758,7 +758,7 @@ selected instead of creating a new buffer."
 
 (setq org-agenda-files
         (list
-         "~/notes/areas/"
+         "~/notes/area/"
          "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
 ))
 
@@ -805,7 +805,7 @@ selected instead of creating a new buffer."
                          ((org-agenda-overriding-header "Planning Tasks")))
               (tags-todo "-{.*}"
                          ((org-agenda-overriding-header "Untagged Tasks")))
-              (todo ".*" ((org-agenda-files '("~/Notes/Inbox.org"))
+              (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
                           (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
         ("d" "Daily Agenda"
