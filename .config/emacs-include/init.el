@@ -2913,25 +2913,78 @@ end of the file instead of picking an existing one."
             (sia--create-heading-at-end file)
           (cons (cdr (assoc choice candidates)) choice))))))
 
+(defun sia--org-file-title ()
+  "Return the #+title: keyword of the current buffer.
+Falls back to the file name if no #+title: line is present."
+  (or (save-excursion
+        (goto-char (point-min))
+        (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
+          (string-trim (match-string 1))))
+      (file-name-nondirectory (or (buffer-file-name) ""))))
+
+(defun sia--org-file-id ()
+  "Return the file-level :ID: of the current buffer, creating one if needed.
+This lives in the file's own property drawer, before the first
+heading, and is what a whole-file id: link points at."
+  (save-excursion
+    (goto-char (point-min))
+    (org-id-get-create)))
+
+(defun sia--resources-heading-p (title)
+  "Non-nil if TITLE (a clean heading string, tags/TODO/priority stripped) is
+\"Resources\", regardless of case (so \"resources\", \"RESOURCES\",
+\"ReSoUrCeS\", etc. all match)."
+  (string-equal (downcase title) "resources"))
+
+(defun sia--link-target-at-point (path)
+  "Return (ID . DESCRIPTION) to link to for the heading at point.
+Normally this is the heading itself: an ID is created for it if
+needed (via `org-id-get-create'), and PATH (its outline path, or
+its title if newly created) is used as the description.
+
+But if the heading is called \"Resources\", in any case (see
+`sia--resources-heading-p'), it's treated as a generic bucket
+that shouldn't be linked to directly, and no ID is added to it
+at all:
+ - a level-1 \"Resources\" heading falls back to the file itself
+   (file-level ID and #+title:);
+ - a lower-level \"Resources\" heading falls back to its parent
+   heading (or, in the unusual case that it has no parent, to
+   the file itself)."
+  (let ((heading-title (org-get-heading t t t t)))
+    (if (sia--resources-heading-p heading-title)
+        (if (eql (org-current-level) 1)
+            (cons (sia--org-file-id) (sia--org-file-title))
+          (save-excursion
+            (if (org-up-heading-safe)
+                (cons (org-id-get-create) (org-get-heading t t t t))
+              (cons (sia--org-file-id) (sia--org-file-title)))))
+      (cons (org-id-get-create) path))))
+
 (defun sia-move-region-to-heading (start end target path)
   "Cut the region from START to END and insert it under the heading at TARGET.
 TARGET is a marker pointing at the chosen heading; PATH is its
-full outline path (or its title, if newly created), used as the
-description of the link left behind. Prompts for a target note
-via Vulpea's ID-based selection (so you search by title/ID
-rather than navigating directories); if nothing matches, offers
-to create a new Denote note on the spot. Then prompts for a
-heading within that note (with completion, disambiguated by full
-outline path, plus an option to create a new heading) -- or, if
-the note has no headings yet, skips straight to creating one.
+full outline path (or its title, if newly created). Prompts for
+a target note via Vulpea's ID-based selection (so you search by
+title/ID rather than navigating directories); if nothing
+matches, offers to create a new Denote note on the spot. Then
+prompts for a heading within that note (with completion,
+disambiguated by full outline path, plus an option to create a
+new heading) -- or, if the note has no headings yet, skips
+straight to creating one.
 
-The text is inserted as the last content of the target
+The text is always inserted as the last content of the TARGET
 heading's subtree -- after any existing body text or
 sub-headings, but before the next heading of equal or higher
-level. The target heading is given an ID (via `org-id-get-create',
-reusing one if it already has it), and an id: link to it,
-labelled with PATH, is inserted at point in the source buffer
-where the text used to be."
+level.
+
+The link left behind at point in the source buffer normally
+points to TARGET itself. The exception is a heading literally
+named \"Resources\" (see `sia--link-target-at-point'): no ID is
+added to it, and the link instead points to the file (for a
+level-1 \"Resources\" heading) or to its parent heading
+(otherwise) -- Resources sections are treated as a generic
+bucket, not something worth linking to directly."
   (interactive
    (let* ((start (region-beginning))
           (end (region-end))
@@ -2941,19 +2994,21 @@ where the text used to be."
           (path (cdr result)))
      (list start end target path)))
   (let ((text (buffer-substring-no-properties start end))
-        id)
+        id desc)
     (delete-region start end)
     (with-current-buffer (marker-buffer target)
       (save-excursion
         (goto-char target)
-        (setq id (org-id-get-create))
+        (pcase-let ((`(,link-id . ,link-desc) (sia--link-target-at-point path)))
+          (setq id link-id
+                desc link-desc))
         (goto-char target)
         (org-end-of-subtree t t)
         (unless (bolp) (insert "\n"))
         (insert text)
         (unless (string-suffix-p "\n" text) (insert "\n")))
       (save-buffer))
-    (insert (org-link-make-string (concat "id:" id) path))))
+    (insert (org-link-make-string (concat "id:" id) desc))))
 
 (keymap-global-set "M-o r h" #'sia-move-region-to-heading)
 
