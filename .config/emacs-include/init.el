@@ -2669,20 +2669,6 @@ DELTA would be something like 1 or -1."
 ;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
 (setq vulpea-ui-backlinks-sort 'title-asc)
 
-;; M-x vulpea-ui-backlink-count-mode annotates the notes of the current buffer, and its links, with the number of links pointing at them: the file-level note after its #+title: value, each ID-carrying heading after the heading text, and every link after its description.
-
-;; #+title: Sparkling wine³
-
-;; * Champagne⁷
-;; poured at [[id:tasting-2026][the March tasting]]¹ last week
-;; A count on a note says how connected that note is; a count on a link says the same about the thing you just mentioned. vulpea-ui-backlink-count-targets ((notes links) by default) drops either half.
-
-;; The counts are overlays, so the file on disk is untouched, and only notes something links to are annotated. Narrowing hides no counts.
-
-;; The mode is opt-in and off by default. Turn it on everywhere:
-
-(vulpea-ui-backlink-count-global-mode 1)
-
 ;; Collection views
 (setq vulpea-ui-collection-views
       '(
@@ -3010,7 +2996,14 @@ bucket, not something worth linking to directly."
       (save-buffer))
     (insert (org-link-make-string (concat "id:" id) desc))))
 
-(keymap-global-set "M-o r h" #'sia-move-region-to-heading)
+(keymap-global-set "C-S-o" #'sia-move-region-to-heading)
 
 (provide 'sia-move-region-to-heading)
 ;;; sia-move-region-to-heading.el ends here
+
+;; Suppress unnecessary warnings
+
+;; You can set minimum severity level for displaying the warning buffer to :error or :emergency:
+;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
+
+(setq warning-minimum-level :error)
