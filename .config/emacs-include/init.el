@@ -2821,21 +2821,57 @@ DELTA would be something like 1 or -1."
 
 (require 'vulpea)
 (require 'org-id)
+(require 'denote)
 
-(defun sia--vulpea-select-file ()
-  "Select a note via Vulpea's ID-based completion and return its file path.
-Uses the same note database and prompt UI as `vulpea-find', so
-you search by title/ID rather than navigating directories."
-  (let ((note (vulpea-select "Move region to note: ")))
-    (unless note
-      (user-error "No note selected"))
-    (vulpea-note-path note)))
+(defconst sia--new-heading-candidate "[+ Create new heading here]"
+  "Special entry in the heading-selection prompt.
+Choosing it creates a new top-level heading at the end of the
+file instead of picking one of the existing headings.")
+
+(defun sia--denote-create-and-get-path (title)
+  "Create a new Denote note titled TITLE and return its file path.
+The note is created with `denote' using default keywords/subdirectory/etc.
+(rename it afterwards with your usual `denote-rename-file' /
+`denote-rename-file-using-front-matter' bindings if needed). The
+creation buffer is not left on screen -- window layout is
+restored once the file path is captured."
+  (let (path)
+    (save-window-excursion
+      (denote title)
+      (setq path (buffer-file-name)))
+    path))
+
+(defun sia--vulpea-select-or-create-file ()
+  "Select an existing note via Vulpea, or create one with Denote.
+Uses the same note database and prompt UI as `vulpea-find'. If
+your input at the prompt doesn't match any existing note (i.e.
+nothing in the completion corresponds to an actual file), you're
+asked to confirm creating a new Denote note with that text as
+its title; the new note becomes the target file."
+  (let ((selection (vulpea-select "Move region to note: ")))
+    (cond
+     ;; An existing note was chosen.
+     ((and (vulpea-note-p selection) (vulpea-note-path selection))
+      (vulpea-note-path selection))
+     ;; Vulpea couldn't match anything -- it may hand back a stub
+     ;; note with no path, a plain string, or nil, depending on
+     ;; how the prompt was left. Offer to create a note either way.
+     (t
+      (let ((title (cond ((vulpea-note-p selection) (vulpea-note-title selection))
+                          ((stringp selection) selection)
+                          (t (read-string "Title for new note: ")))))
+        (unless (and title (not (string-empty-p title)))
+          (user-error "No target selected"))
+        (unless (y-or-n-p
+                 (format "No note found for \"%s\" -- create it with Denote? " title))
+          (user-error "No target selected"))
+        (sia--denote-create-and-get-path title))))))
 
 (defun sia--org-heading-candidates (file)
   "Return an alist of (OUTLINE-PATH . MARKER) for each heading in FILE.
 OUTLINE-PATH is the full ancestor chain joined with \" > \", so
 headings with the same text under different parents are shown
-distinctly."
+distinctly. Returns nil if FILE has no headings."
   (with-current-buffer (find-file-noselect file)
     (org-with-wide-buffer
      (org-map-entries
@@ -2846,23 +2882,48 @@ distinctly."
                           " > ")
               (point-marker)))))))
 
+(defun sia--create-heading-at-end (file)
+  "Prompt for a title and insert a new top-level heading at the end of FILE.
+Return a cons cell (MARKER . TITLE)."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (let ((title (read-string "New heading title: ")))
+        (insert "* " title "\n")
+        (cons (point-marker) title)))))
+
 (defun sia--read-org-heading (file)
   "Prompt for a heading in FILE with completion.
 Return a cons cell (MARKER . PATH), where PATH is the full
-outline path string as shown in the prompt (used later as the
-link description)."
-  (let* ((candidates (sia--org-heading-candidates file))
-         (choice (completing-read "Under heading: " candidates nil t)))
-    (cons (cdr (assoc choice candidates)) choice)))
+outline path string (used later as the link description).
+
+If FILE has no headings at all, the prompt is skipped entirely
+and a new top-level heading is created directly. Otherwise, the
+prompt includes an extra option to create a new heading at the
+end of the file instead of picking an existing one."
+  (let ((candidates (sia--org-heading-candidates file)))
+    (if (null candidates)
+        (sia--create-heading-at-end file)
+      (let ((choice (completing-read
+                     "Under heading: "
+                     (cons sia--new-heading-candidate candidates)
+                     nil t)))
+        (if (string= choice sia--new-heading-candidate)
+            (sia--create-heading-at-end file)
+          (cons (cdr (assoc choice candidates)) choice))))))
 
 (defun sia-move-region-to-heading (start end target path)
   "Cut the region from START to END and insert it under the heading at TARGET.
 TARGET is a marker pointing at the chosen heading; PATH is its
-full outline path, used as the description of the link left
-behind. Prompts for a target note via Vulpea's ID-based
-selection (so you search by title/ID rather than navigating
-directories), then for a heading within that note (with
-completion, disambiguated by full outline path).
+full outline path (or its title, if newly created), used as the
+description of the link left behind. Prompts for a target note
+via Vulpea's ID-based selection (so you search by title/ID
+rather than navigating directories); if nothing matches, offers
+to create a new Denote note on the spot. Then prompts for a
+heading within that note (with completion, disambiguated by full
+outline path, plus an option to create a new heading) -- or, if
+the note has no headings yet, skips straight to creating one.
 
 The text is inserted as the last content of the target
 heading's subtree -- after any existing body text or
@@ -2872,11 +2933,13 @@ reusing one if it already has it), and an id: link to it,
 labelled with PATH, is inserted at point in the source buffer
 where the text used to be."
   (interactive
-   (let* ((file (sia--vulpea-select-file))
+   (let* ((start (region-beginning))
+          (end (region-end))
+          (file (sia--vulpea-select-or-create-file))
           (result (sia--read-org-heading file))
           (target (car result))
           (path (cdr result)))
-     (list (region-beginning) (region-end) target path)))
+     (list start end target path)))
   (let ((text (buffer-substring-no-properties start end))
         id)
     (delete-region start end)
