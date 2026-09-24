@@ -179,7 +179,6 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
-
 ;; dired-x is necessary for making counsel-fd work
 
 (use-package counsel
@@ -590,27 +589,14 @@ title."
 (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
- '(org-default ((t (
-                    :background "#F0B609"
-                    :inherit default
-                    ))))
- '(org-extra-emphasis ((t (
-                           :background "#F0B609"
-                           :height 1.0
-                           :inherit default
-                           :weight bold
-                           :width normal
-                           ))))
- '(org-extra-emphasis-01 ((t ( ; this uses the !! markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              ))))
- '(org-extra-emphasis-02 ((t ( ; this uses the !@ markup
-                              :foreground "#003F66"
-                              :inherit org-extra-emphasis
-                              :underline t
-                              )))))
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(org-default ((t (:background "#F0B609" :inherit default))))
+ '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
+ '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
+ '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
 
 (defun +org/opened-buffer-files ()
   "Return the list of files currently opened in emacs"
@@ -1036,12 +1022,11 @@ selected instead of creating a new buffer."
 
   :bind
   (:map global-map
-      ("M-n o" . denote-open-or-create)
+      ("M-n c" . denote-open-or-create)
       ("M-n r" . denote-rename-file)
       ("M-n f" . denote-rename-file-using-front-matter)
 
       :map text-mode-map
-      ("M-n i" . denote-link-or-create) ; "insert" mnemonic
       ("M-n I" . denote-add-links)
 
       :map dired-mode-map
@@ -1054,6 +1039,8 @@ selected instead of creating a new buffer."
       ("C-c w d l" . denote-find-link)
       ("C-c w d i" . denote-link-or-create)
       ("C-c w d k" . denote-rename-file-keywords)))
+
+(setq denote-directory (expand-file-name "~/notes/"))
 
 (add-hook 'dired-mode-hook #'denote-dired-mode-in-directories)
 
@@ -1240,8 +1227,6 @@ agenda."
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
         (list "~/notes/"))
-  ;; To also detect "denote:abcdefg" links without [[enclosing brackets]]
-  (add-to-list 'org-mem-seek-link-types "denote")
   (org-mem-updater-mode))
 
 (use-package inspector
@@ -1253,13 +1238,13 @@ agenda."
   :init
   ;; Optional key bindings
   ;; Tip: Try changing these to just "M-o"!
-  (keymap-global-set "M-n" org-node-global-prefix-map)
-  (with-eval-after-load 'org
-    (keymap-set org-mode-map "M-n n" org-node-org-prefix-map))
+  (keymap-global-set "M-o n n" 'org-node-nodeify-entry)
+  (keymap-global-set "M-o n i" 'org-node-insert-link)
   :config
-  (org-node-cache-mode))
+  (org-node-cache-mode)
+  )
 
-(setq org-node-backlink-do-drawers t)
+(setq org-node-backlink-do-drawers nil)
 
 (setq org-node-alter-candidates t)
 
@@ -2475,7 +2460,6 @@ DELTA would be something like 1 or -1."
 
 ;; Auto-start server when Emacs starts (optional)
 ;; (setq org-db-v3-auto-start-server t)
-
 ;; Optional: Enable gptel integration for AI-powered search
 ;; (when (featurep 'gptel)
 ;;  (require 'org-db-v3-gptel-tools)
@@ -2484,10 +2468,11 @@ DELTA would be something like 1 or -1."
 (use-package vulpea
   :ensure (:wait t)
   :init
-  (keymap-global-set "M-o" vulpea-find)
+  (keymap-global-set "M-o f" 'vulpea-find)
+  (keymap-global-set "M-o n a" 'vulpea-buffer-alias-add)
 )
 
-(setq vulpea-db-sync-directories '("~/notes/" "~/Documents/notes"))
+(setq vulpea-db-sync-directories '("~/notes/"))
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
@@ -2510,11 +2495,12 @@ DELTA would be something like 1 or -1."
   :predicate (lambda (note) (member "album" (vulpea-note-tags note)))
   :fields
   '(
-    (:key "creator" :type note   :required t :target-tags ("musician" "person"))
+    (:key "creator" :type note   :required t :target-tags ("musician" "person" "group"))
     (:key "name"     :type string :required nil)
     (:key "genre"   :type note :required t :multiple t :target-tags ("genre"))
     (:key "genre-influences" :type note :multiple t :target-tags ("genre"))
     (:key "year"   :type number   :required t :multiple nil)
+    (:key "rating"   :type number   :required nil :multiple nil)
 ))
 
 ;; Schema for inquiries
@@ -2642,6 +2628,9 @@ DELTA would be something like 1 or -1."
 ;; Maximum heading depth (nil = unlimited)
 (setq vulpea-ui-outline-max-depth 3)
 
+;; Utility functions for vulpea-ui
+(setq vulpea-ui-auto-refresh t) ;; So you don't have to constantly do a manual refresh.
+
 ;; the backlinks widget
 
 ;; Show/hide content previews
@@ -2666,29 +2655,34 @@ DELTA would be something like 1 or -1."
 
 ;; Collection views
 (setq vulpea-ui-collection-views
-      '(("bachelor" . (:filter (:tags-all ("book")
-					  :level 0 ;; this is what will bring file-level notes
-					  ;; :meta ("read-status" . t)
-)
-			       :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
-			       :sort ("Modified" . t)
-			       ))))
-
-;; the links property is showing the count of outgoing links
-
-;; Utility views
-
-(add-to-list 'vulpea-ui-collection-views
-'("orphans" .
-  (:filter (:source vulpea-db-query-orphan-notes)))
-)
+      '(
+        ("bachelor-reading-list" . (:filter (:tags-all ("book")
+					                      :level 0 ;; this is what will bring file-level notes
+					                      :meta ("read-status" . t))
+			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
+			                :sort ("Modified" . t)))
+        ("open-questions" . (:filter (:tags-all ("question)
+                                      :level 1 ;; this will only bring up headings at first
+                                      )
+                             :columns (title (meta "q-status) links tags modified)
+                             :sort ("Modified" . t)
+        ))
+        ("music" . (:filter (:tags-all ("music")
+                            :level 0)
+                    :columns (title (meta "year") (meta "genre") tags modified)
+                    :sort ("title" . t)))
+        ("albums" . (:filter (:tags-all ("album")
+                              :level 0)
+                     :columns (title (meta "creator") (meta "year") (meta "genre") (meta "genre-influences") tags modified)
+                     :sort ("title" . t)))
+        ))
 
 ;; JOURNALING
 (use-package vulpea-journal
   :ensure (:wait t)
   :after vulpea)
 
-;; Templating
+;; Templating for Vulpea
 
 (setq vulpea-create-default-function
       (lambda (title)
@@ -2756,3 +2750,108 @@ DELTA would be something like 1 or -1."
 (use-package rg
   :ensure (:wait t)
   )
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(bibtex-aux-opt-alist
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
+ '(custom-safe-themes
+   '("acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
+     "f2f42f0b7c53736840fc3ff5751235e3b87cc535b04ddaf3423e2926548bfbb4"
+     default)))
+
+;; ENVIRONMENT VARIABLES
+
+(use-package exec-path-from-shell
+  :ensure (:wait t))
+
+(when (memq window-system '(mac ns x pgtk)) (exec-path-from-shell-initialize))
+
+(when (daemonp)
+  (exec-path-from-shell-initialize))
+
+;; EXTRACT FUNCTION
+
+;;; sia-move-region-to-heading.el --- Move a region under a heading in another file, leaving a link behind -*- lexical-binding: t; -*-
+
+(require 'vulpea)
+(require 'org-id)
+
+(defun sia--vulpea-select-file ()
+  "Select a note via Vulpea's ID-based completion and return its file path.
+Uses the same note database and prompt UI as `vulpea-find', so
+you search by title/ID rather than navigating directories."
+  (let ((note (vulpea-select "Move region to note: ")))
+    (unless note
+      (user-error "No note selected"))
+    (vulpea-note-path note)))
+
+(defun sia--org-heading-candidates (file)
+  "Return an alist of (OUTLINE-PATH . MARKER) for each heading in FILE.
+OUTLINE-PATH is the full ancestor chain joined with \" > \", so
+headings with the same text under different parents are shown
+distinctly."
+  (with-current-buffer (find-file-noselect file)
+    (org-with-wide-buffer
+     (org-map-entries
+      (lambda ()
+        (cons (mapconcat #'identity
+                          (append (org-get-outline-path)
+                                  (list (org-get-heading t t t t)))
+                          " > ")
+              (point-marker)))))))
+
+(defun sia--read-org-heading (file)
+  "Prompt for a heading in FILE with completion.
+Return a cons cell (MARKER . PATH), where PATH is the full
+outline path string as shown in the prompt (used later as the
+link description)."
+  (let* ((candidates (sia--org-heading-candidates file))
+         (choice (completing-read "Under heading: " candidates nil t)))
+    (cons (cdr (assoc choice candidates)) choice)))
+
+(defun sia-move-region-to-heading (start end target path)
+  "Cut the region from START to END and insert it under the heading at TARGET.
+TARGET is a marker pointing at the chosen heading; PATH is its
+full outline path, used as the description of the link left
+behind. Prompts for a target note via Vulpea's ID-based
+selection (so you search by title/ID rather than navigating
+directories), then for a heading within that note (with
+completion, disambiguated by full outline path).
+
+The text is inserted as the last content of the target
+heading's subtree -- after any existing body text or
+sub-headings, but before the next heading of equal or higher
+level. The target heading is given an ID (via `org-id-get-create',
+reusing one if it already has it), and an id: link to it,
+labelled with PATH, is inserted at point in the source buffer
+where the text used to be."
+  (interactive
+   (let* ((file (sia--vulpea-select-file))
+          (result (sia--read-org-heading file))
+          (target (car result))
+          (path (cdr result)))
+     (list (region-beginning) (region-end) target path)))
+  (let ((text (buffer-substring-no-properties start end))
+        id)
+    (delete-region start end)
+    (with-current-buffer (marker-buffer target)
+      (save-excursion
+        (goto-char target)
+        (setq id (org-id-get-create))
+        (goto-char target)
+        (org-end-of-subtree t t)
+        (unless (bolp) (insert "\n"))
+        (insert text)
+        (unless (string-suffix-p "\n" text) (insert "\n")))
+      (save-buffer))
+    (insert (org-link-make-string (concat "id:" id) path))))
+
+(keymap-global-set "C-c w m" #'sia-move-region-to-heading)
+
+(provide 'sia-move-region-to-heading)
+;;; sia-move-region-to-heading.el ends here

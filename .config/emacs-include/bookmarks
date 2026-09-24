@@ -3,11 +3,11 @@
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
 (("Inbox for notes (tabs and whatnot)"
- (filename . "~/notes/inbox/")
- (front-context-string)
- (rear-context-string . "hts-capture.org\n")
- (position . 499)
- (last-modified 27239 11740 721878 0))
+  (filename . "~/notes/inbox/")
+  (front-context-string)
+  (rear-context-string . "hts-capture.org\n")
+  (position . 499)
+  (last-modified 27239 11740 721878 0))
 ("Notes folder"
  (filename . "~/notes/")
  (front-context-string . "area\n  drwxr-xr-")
@@ -34,11 +34,11 @@
  (position . 2133)
  (last-modified 26912 27411 361993 19000))
 ("BibTeX files"
- (filename . "~/Documents/bibliography/")
+ (filename . "~/bibliography/")
  (front-context-string . ".git\n  drwxr-xr-")
  (rear-context-string . "0K nov 20 13:46 ")
  (position . 150)
- (last-modified 26911 27481 618803 883000))
+ (last-modified 1790148016238098000 . 1000000000))
 ("literature"
  (filename . "~/Documents/literature/")
  (front-context-string . ".stfolder\n  drwx")
