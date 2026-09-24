@@ -1254,7 +1254,7 @@ agenda."
   :link '(url-link :tag "Homepage" "https://lucidmanager.org/tags/emacs/"))
 
 (defcustom sia-bibtex-directory
-  (concat (file-name-as-directory (getenv "HOME")) "/Documents/bibliography/")
+  (concat (file-name-as-directory (getenv "HOME")) "/bibliography/")
   "Location of BibTeX files and attachments."
   :group 'ews
   :type 'directory)
@@ -1569,7 +1569,7 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 (use-package helm-bibtex
   :ensure (:wait t))
 
-(setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
+(setq org-ref-default-bibliography '("~/bibliography/master.bib")
       org-ref-pdf-directory "~/Documents/literature/")
 
 ;; (setq citar-library-paths "~/Documents/literature")
@@ -1579,13 +1579,13 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
       citar-file-additional-files-separator "-")
 
 (setq bibtex-completion-bibliography
-      '("~/Documents/bibliography/master.bib"
-        "~/Documents/bibliography/thesis.bib"
-        "~/Documents/bibliography/marx.bib"
-        "~/Documents/bibliography/hci.bib"
-        "~/Documents/bibliography/aesthetics.bib"
-        "~/Documents/bibliography/hegel-prezentare.bib"
-        "~/Documents/bibliography/modernitate.bib")
+      '("~/bibliography/master.bib"
+        "~/bibliography/thesis.bib"
+        "~/bibliography/marx.bib"
+        "~/bibliography/hci.bib"
+        "~/bibliography/aesthetics.bib"
+        "~/bibliography/hegel-prezentare.bib"
+        "~/bibliography/modernitate.bib")
         bibtex-completion-library-path '("~/Documents/literature/")
         bibtex-completion-notes-path "~/notes/"
         bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
@@ -2631,6 +2631,22 @@ DELTA would be something like 1 or -1."
 ;; Utility functions for vulpea-ui
 (setq vulpea-ui-auto-refresh t) ;; So you don't have to constantly do a manual refresh.
 
+;; Dealing with narrowed Org files
+
+;; Respect narrowing in the sidebar
+(setq vulpea-ui-respect-narrowing t)
+
+;; Emacs has no narrowing hook, so the sidebar notices a narrow or widen on the next idle
+;; refresh. If you want it instantly, refresh right after toggling:
+
+(defun my/org-toggle-narrow-and-sidebar ()
+  "Toggle subtree narrowing and refresh the sidebar immediately."
+  (interactive)
+  (org-toggle-narrow-to-subtree)
+  (vulpea-ui-sidebar-refresh))
+
+(define-key org-mode-map (kbd "M-<insert>") #'my/org-toggle-narrow-and-sidebar)
+
 ;; the backlinks widget
 
 ;; Show/hide content previews
@@ -2653,29 +2669,54 @@ DELTA would be something like 1 or -1."
 ;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
 (setq vulpea-ui-backlinks-sort 'title-asc)
 
+;; M-x vulpea-ui-backlink-count-mode annotates the notes of the current buffer, and its links, with the number of links pointing at them: the file-level note after its #+title: value, each ID-carrying heading after the heading text, and every link after its description.
+
+;; #+title: Sparkling wine³
+
+;; * Champagne⁷
+;; poured at [[id:tasting-2026][the March tasting]]¹ last week
+;; A count on a note says how connected that note is; a count on a link says the same about the thing you just mentioned. vulpea-ui-backlink-count-targets ((notes links) by default) drops either half.
+
+;; The counts are overlays, so the file on disk is untouched, and only notes something links to are annotated. Narrowing hides no counts.
+
+;; The mode is opt-in and off by default. Turn it on everywhere:
+
+(vulpea-ui-backlink-count-global-mode 1)
+
 ;; Collection views
 (setq vulpea-ui-collection-views
       '(
-        ("bachelor-reading-list" . (:filter (:tags-all ("book")
-					                      :level 0 ;; this is what will bring file-level notes
-					                      :meta ("read-status" . t))
+        ("thesis-reading-list" . (:filter (:tags-all ("book")
+					                          :level 0 ;; this is what will bring file-level notes
+					                          ;; :meta ("read-status" . t) ;; this one doesn't work yet for some reason
+                                    :meta ("bib-project" . "[[ID:806b08ac-3ed1-4338-a26e-3af9e0e9328c][Devalorizarea artei în capitalismul de platformă]]")
+                                    )
 			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
 			                :sort ("Modified" . t)))
+        
         ("open-questions" . (:filter (:tags-all ("question)
                                       :level 1 ;; this will only bring up headings at first
                                       )
                              :columns (title (meta "q-status) links tags modified)
                              :sort ("Modified" . t)
         ))
+        
         ("music" . (:filter (:tags-all ("music")
                             :level 0)
                     :columns (title (meta "year") (meta "genre") tags modified)
                     :sort ("title" . t)))
-        ("albums" . (:filter (:tags-all ("album")
-                              :level 0)
-                     :columns (title (meta "creator") (meta "year") (meta "genre") (meta "genre-influences") tags modified)
+        
+        ("albums" . (:filter (:tags-all ("album"))
+                     :columns (title
+                                (meta "creator" :width 60)
+                                (meta "year")
+                                (meta "genre")
+                                (meta "genre-influences")
+                                (meta "rating"
+                                (meta "review")
+                                context tags modified)
                      :sort ("title" . t)))
-        ))
+        )))
 
 ;; JOURNALING
 (use-package vulpea-journal
@@ -2851,7 +2892,7 @@ where the text used to be."
       (save-buffer))
     (insert (org-link-make-string (concat "id:" id) path))))
 
-(keymap-global-set "C-c w m" #'sia-move-region-to-heading)
+(keymap-global-set "M-o r h" #'sia-move-region-to-heading)
 
 (provide 'sia-move-region-to-heading)
 ;;; sia-move-region-to-heading.el ends here
