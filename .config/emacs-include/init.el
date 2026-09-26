@@ -3075,6 +3075,54 @@ links to that ID."
            (seq-contains-p (vulpea-note-meta-get-list note (or parent-prop "parents") 'link)
                             parent-of))))
 
+(defun sia-vulpea--note-tag-annotation (note)
+  "Return a tag annotation string for NOTE, or \"\" if it has none.
+`vulpea-note-tags' already reflects the right source depending on
+NOTE's level -- filetags for a file-level note, heading tags for
+a heading-level one -- so this shows the correct tags either way
+without needing to special-case it, mirroring the sort of
+tag-annotated candidates `org-node' shows in its completion."
+  (let ((tags (vulpea-note-tags note)))
+    (if tags
+        (propertize (format "  :%s:" (mapconcat #'identity tags ":"))
+                    'face 'org-tag)
+      "")))
+
+(defun sia-vulpea-select-note (prompt)
+  "Select a Vulpea note via completion, annotated with its tags.
+Built directly on `vulpea-db-query' and `completing-read' with a
+plain `:annotation-function' -- standard completion metadata that
+Vertico (and other UIs) already understand -- rather than
+`vulpea-select', since I couldn't confirm that function exposes
+a documented hook for customizing candidate display; this gets
+the same practical result (see PROMPT; tags shown per
+candidate) without depending on unconfirmed internals. Returns
+the selected `vulpea-note', or nil if PROMPT was aborted."
+  (let* ((notes (vulpea-db-query))
+         (cands (mapcar (lambda (n) (cons (vulpea-note-title n) n)) notes))
+         (completion-extra-properties
+          (list :annotation-function
+                (lambda (title) (sia-vulpea--note-tag-annotation (cdr (assoc title cands)))))))
+    (cdr (assoc (completing-read prompt cands nil t) cands))))
+
+(defun sia-vulpea-read-parent (&optional allow-self)
+  "Interactively choose a parent-of value, returning nil/\"self\"/an ID.
+Offers: no filtering, the current note itself (only if
+ALLOW-SELF), or `sia-vulpea-select-note' to pick any note (tags
+shown per candidate, to disambiguate same-titled notes). \"self\"
+is returned literally, unresolved -- callers that need it
+resolved immediately should still run it through
+`sia-vulpea--resolve-parent-of'."
+  (let* ((choices (append '("None")
+                           (when allow-self '("Current note (self)"))
+                           '("Choose a note...")))
+         (choice (completing-read "Filter to children of: " choices nil t)))
+    (cond
+     ((string= choice "None") nil)
+     ((string= choice "Current note (self)") "self")
+     (t (let ((note (sia-vulpea-select-note "Parent note: ")))
+          (and note (vulpea-note-id note)))))))
+
 (defun org-dblock-write:vulpea-table (params)
   "Write a Dataview-style table of Vulpea notes into the current dynamic block.
 Recognized PARAMS:
@@ -3182,7 +3230,7 @@ becomes a button rather than plain text."
   "Return a display label for COLUMN."
   (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
 
-(vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop)
+(vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
   "A live, clickable table of Vulpea notes.
 TAGS filters notes (must have all of them). COLUMNS is the
 ordered list of fields to show -- :title is always rendered as a
@@ -3193,7 +3241,9 @@ resolved literal note ID (resolve \"self\" with
 `sia-vulpea--resolve-parent-of' *before* constructing this
 component -- the component itself doesn't know which buffer it's
 mounted in, so it can't resolve \"self\" on its own); notes must
-then link to it via PARENT-PROP (default \"parents\")."
+then link to it via PARENT-PROP (default \"parents\").
+PARENT-TITLE, if given, is shown as a \"Parent: ...\" line purely
+for display -- it's not used for filtering."
   :render
   (let* ((notes (vulpea-db-query
                  (lambda (note)
@@ -3216,20 +3266,45 @@ then link to it via PARENT-PROP (default \"parents\")."
                    columns))
                 notes)))
     (vui-vstack
+     (when parent-title
+       (vui-text (format "Parent: %s" parent-title) :face 'bold))
      (vui-text (format "%d note%s" (length notes) (if (= (length notes) 1) "" "s"))
                 :face 'shadow)
      (vui-newline)
      (vui-table :columns vui-columns :rows rows :border :ascii))))
 
-(defun sia-vulpea-open-table (&optional tags columns sort-by parent-of parent-prop)
+(defun sia-vulpea--table-buffer-name (view-name parent-of)
+  "Return a buffer name for a live Vulpea table.
+VIEW-NAME, if given, names it directly (so each saved view gets
+its own persistent buffer instead of all views sharing one).
+Otherwise, if PARENT-OF is set, name it after that note's title
+so ad-hoc \"children of X\" queries are still distinguishable.
+Falls back to a generic name."
+  (cond
+   (view-name (format "*vulpea: %s*" view-name))
+   (parent-of
+    (let ((note (ignore-errors (vulpea-db-get-by-id parent-of))))
+      (format "*vulpea: children of %s*" (if note (vulpea-note-title note) parent-of))))
+   (t "*vulpea table*")))
+
+(defun sia-vulpea-open-table (&optional tags columns sort-by parent-of parent-prop view-name)
   "Open a live, clickable table of Vulpea notes in its own buffer.
 Prompts for TAGS/COLUMNS/SORT-BY/PARENT-OF/PARENT-PROP when
 called interactively (same shapes as the vulpea-table dblock --
-see `org-dblock-write:vulpea-table'). If PARENT-OF is \"self\",
-it's resolved against the buffer you called this from -- i.e.
-whichever note you were visiting -- *before* the new table
-buffer takes over, so \"self\" means what you'd expect even
+see `org-dblock-write:vulpea-table'). PARENT-OF is chosen via
+`sia-vulpea-read-parent' (pick \"self\", or any note through
+`sia-vulpea-select-note', tag-annotated); if it comes back as
+\"self\", it's resolved against the buffer you called this from
+-- i.e. whichever note you were visiting -- *before* the new
+table buffer takes over, so \"self\" means what you'd expect even
 though the table itself opens somewhere else.
+
+VIEW-NAME (only meaningful when called non-interactively, e.g.
+from `sia-vulpea-open-saved-table') gives the resulting buffer
+its own name, so different saved views stay in separate,
+independently reusable buffers rather than overwriting each
+other. The buffer also displays which parent note it's scoped
+to, when PARENT-OF is set.
 
 Click a title to open that note; press `g' in the resulting
 buffer to refresh against the current state of the Vulpea db."
@@ -3243,19 +3318,20 @@ buffer to refresh against the current state of the Vulpea db."
           (sort-by (let ((s (read-string "Sort by column (blank for none): ")))
                      (unless (string-empty-p s)
                        (if (string-prefix-p ":" s) (intern s) s))))
-          (parent-of (let ((s (read-string
-                                "Only children of note ID (blank for none, \"self\" for current note): ")))
-                       (unless (string-empty-p s) s)))
+          (parent-of (sia-vulpea-read-parent t))
           (parent-prop (let ((s (read-string "Parent meta property (blank for \"parents\"): ")))
                           (unless (string-empty-p s) s))))
      ;; Resolve "self" now, in the buffer this command was called
      ;; from -- by the time vui-mount switches buffers below, we'd
      ;; have lost that context.
      (list tags columns sort-by (sia-vulpea--resolve-parent-of parent-of) parent-prop)))
-  (vui-mount (vui-component 'sia-vulpea-table
-               :tags tags :columns columns :sort-by sort-by
-               :parent-of parent-of :parent-prop parent-prop)
-             "*vulpea table*"))
+  (let ((parent-title (and parent-of
+                            (let ((note (ignore-errors (vulpea-db-get-by-id parent-of))))
+                              (and note (vulpea-note-title note))))))
+    (vui-mount (vui-component 'sia-vulpea-table
+                 :tags tags :columns columns :sort-by sort-by
+                 :parent-of parent-of :parent-prop parent-prop :parent-title parent-title)
+               (sia-vulpea--table-buffer-name view-name parent-of))))
 
 (provide 'sia-vulpea-vui-table)
 ;;; sia-vulpea-vui-table.el ends here
@@ -3317,19 +3393,20 @@ buffer to refresh against the current state of the Vulpea db."
 
 (defun sia-vulpea-table-view-save (name tags columns sort-by parent-of parent-prop)
   "Save (or overwrite) a named Vulpea table view, persisted to disk.
-PARENT-OF is stored as-typed, including the literal \"self\" --
-it's resolved fresh each time the view is opened, not at save
-time, so a \"self\" view means \"children of whatever note I'm
-in right now\" wherever/whenever you invoke it."
+PARENT-OF is chosen via `sia-vulpea-read-parent' -- \"None\",
+\"Current note (self)\", or any note picked through
+`sia-vulpea-select-note' (candidates show their tags). A
+\"self\" choice is stored as-typed, not resolved now -- it's
+resolved fresh every time the view is opened, so a \"self\" view
+means \"children of whatever note I'm in right now\", wherever
+you invoke it from."
   (interactive
    (list (read-string "Save view as: ")
          (sia-vulpea--read-tags)
          (sia-vulpea--read-column-list
           "Columns (space-separated; :title/:tags/:id/:file or meta keys): ")
          (sia-vulpea--read-sort-by)
-         (let ((s (read-string
-                   "Only children of note ID (blank for none, \"self\" for current note): ")))
-           (unless (string-empty-p s) s))
+         (sia-vulpea-read-parent t)
          (let ((s (read-string "Parent meta property (blank for \"parents\"): ")))
            (unless (string-empty-p s) s))))
   (setf (alist-get name sia-vulpea-table-views nil nil #'string=)
@@ -3356,14 +3433,22 @@ still unresolved (may literally be \"self\")."
 
 (defun sia-vulpea-open-saved-table ()
   "Select a saved Vulpea table view (minibuffer completion) and open it live.
-A \"self\" parent-of in the view is resolved against the buffer
+Opens into a buffer named after the view (e.g. \"*vulpea:
+NAME*\"), so different saved views stay in their own separate,
+independently reusable buffers rather than sharing one. A
+\"self\" parent-of in the view is resolved against the buffer
 this command was called from, before the new table buffer takes
 over -- same reasoning as in `sia-vulpea-open-table'."
   (interactive)
-  (pcase-let ((`(,tags ,columns ,sort-by ,parent-of ,parent-prop) (sia-vulpea--select-view)))
-    (sia-vulpea-open-table tags columns sort-by
-                           (sia-vulpea--resolve-parent-of parent-of)
-                           parent-prop)))
+  (unless sia-vulpea-table-views
+    (user-error "No saved Vulpea table views yet -- use `sia-vulpea-table-view-save' first"))
+  (let* ((name (completing-read "View: " (mapcar #'car sia-vulpea-table-views) nil t))
+         (view (cdr (assoc name sia-vulpea-table-views))))
+    (pcase-let ((`(,tags ,columns ,sort-by ,parent-of ,parent-prop) view))
+      (sia-vulpea-open-table tags columns sort-by
+                             (sia-vulpea--resolve-parent-of parent-of)
+                             parent-prop
+                             name))))
 
 ;;; Inline mounting -------------------------------------------------------
 
@@ -3475,10 +3560,9 @@ was inserted from."
                               :sort-by sort-by :parent-of parent-of :parent-prop parent-prop))
     (org-update-dblock)))
 
-(keymap-global-set "M-v w t" #'sia-vulpea-inline-tables-toggle)
-(keymap-global-set "M-v w v" #'sia-vulpea-open-saved-table)
-(keymap-global-set "M-v w V" #'sia-vulpea-table-view-save)
+(keymap-global-set "C-c w t" #'sia-vulpea-inline-tables-toggle)
+(keymap-global-set "C-c w v" #'sia-vulpea-open-saved-table)
+(keymap-global-set "C-c w V" #'sia-vulpea-table-view-save)
 
 (provide 'sia-vulpea-table-views)
 ;;; sia-vulpea-table-views.el ends here
-
