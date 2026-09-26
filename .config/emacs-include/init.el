@@ -3211,6 +3211,69 @@ A quick way to get a starting block without hand-typing the
 (require 'vulpea)
 (require 'sia-vulpea-dblock) ; for sia-vulpea--resolve-parent-of / sia-vulpea--note-matches-p
 
+;;; Cross-buffer refresh broadcasting ----------------------------------
+
+(defvar sia-vulpea-table-refresh-functions nil
+  "Abnormal hook: functions called with no arguments to signal that
+open live Vulpea tables should refresh. Each mounted
+`sia-vulpea-table' instance subscribes to this while it's alive
+(via `vui-use-effect') and unsubscribes on unmount.")
+
+(defun sia-vulpea-refresh-all-tables ()
+  "Signal every open live Vulpea table to refresh itself."
+  (interactive)
+  (run-hook-with-args 'sia-vulpea-table-refresh-functions))
+
+(defvar sia-vulpea--refresh-after-save-timer nil)
+
+(defun sia-vulpea--schedule-refresh-after-save ()
+  "Debounced trigger for `sia-vulpea-refresh-all-tables' after a note is saved.
+There's no confirmed public \"Vulpea db sync completed\" hook to
+key off of directly, so this waits half a second after any Org
+save -- on the assumption your existing `vulpea-db-autosync'
+setup updates the db synchronously (or near enough) on save --
+before broadcasting the refresh. If tables sometimes reload with
+stale data, this delay is the first thing to lengthen."
+  (when (and buffer-file-name (derived-mode-p 'org-mode))
+    (when (timerp sia-vulpea--refresh-after-save-timer)
+      (cancel-timer sia-vulpea--refresh-after-save-timer))
+    (setq sia-vulpea--refresh-after-save-timer
+          (run-with-timer 0.5 nil #'sia-vulpea-refresh-all-tables))))
+
+(add-hook 'after-save-hook #'sia-vulpea--schedule-refresh-after-save)
+
+;;; Writing a meta property back to its note ----------------------------
+
+(defun sia-vulpea--write-meta (note key value)
+  "Set NOTE's meta property KEY to VALUE, in NOTE's own file.
+Rewrites the existing \"- KEY :: ...\" description-list line if
+one exists; otherwise inserts a new one just before the first
+heading (or at the end of the file, if there is no heading).
+
+I could not confirm a public Vulpea function for writing this
+description-list metadata format -- only the older #+KEYWORD:
+file-property system (`vulpea-buffer-prop-set') is documented --
+so this edits the line directly, in the same format
+`vulpea-note-meta-get-list' reads. Saves the buffer; relies on
+your existing autosync to pick the change up (which, via
+`sia-vulpea--schedule-refresh-after-save' above, also refreshes
+every open live table -- including this one)."
+  (with-current-buffer (find-file-noselect (vulpea-note-path note))
+    (save-excursion
+      (goto-char (point-min))
+      (let* ((case-fold-search t)
+             (re (format "^\\(-[ \t]+%s[ \t]+::[ \t]*\\).*$" (regexp-quote key)))
+             (escaped (replace-regexp-in-string "\\\\" "\\\\\\\\" value)))
+        (if (re-search-forward re nil t)
+            (replace-match (concat "\\1" escaped) t)
+          (goto-char (point-min))
+          (if (re-search-forward "^\\*" nil t)
+              (progn (beginning-of-line) (insert (format "- %s :: %s\n" key value)))
+            (goto-char (point-max))
+            (unless (bolp) (insert "\n"))
+            (insert (format "- %s :: %s\n" key value))))))
+    (save-buffer)))
+
 (defun sia-vulpea-vui--cell (note column)
   "Return a display string for COLUMN of NOTE.
 Same COLUMN shapes as the dblock version: a keyword for a
@@ -3231,47 +3294,87 @@ becomes a button rather than plain text."
   (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
 
 (vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
-  "A live, clickable table of Vulpea notes.
+  "A live, clickable, editable table of Vulpea notes.
 TAGS filters notes (must have all of them). COLUMNS is the
-ordered list of fields to show -- :title is always rendered as a
-button that opens the note; other entries follow
-`sia-vulpea-vui--cell'. SORT-BY optionally sorts rows by one
-column's text value. PARENT-OF, if given, must already be a
-resolved literal note ID (resolve \"self\" with
-`sia-vulpea--resolve-parent-of' *before* constructing this
-component -- the component itself doesn't know which buffer it's
-mounted in, so it can't resolve \"self\" on its own); notes must
-then link to it via PARENT-PROP (default \"parents\").
-PARENT-TITLE, if given, is shown as a \"Parent: ...\" line purely
-for display -- it's not used for filtering."
+ordered list of fields to show -- :title is always a button that
+opens the note; :tags/:id/:file are read-only; a string (a meta
+key) is rendered as an editable field that writes straight back
+to the note on submit (see `sia-vulpea--write-meta'). SORT-BY is
+the initial sort column; click any column's button in the \"Sort
+by:\" row to change it live, or click it again to reverse
+direction -- this overrides SORT-BY once clicked (mirrors what
+you called \"overwriting the :sort property\"). PARENT-OF/
+PARENT-PROP/PARENT-TITLE are as in `sia-vulpea--note-matches-p'
+and the parent-display line.
+
+The table also refreshes automatically: it subscribes to
+`sia-vulpea-table-refresh-functions' while mounted, which fires
+after any note is saved (see `sia-vulpea--schedule-refresh-after-save')."
+  :state ((refresh-tick 0)
+          (sort-override nil)
+          (sort-desc nil))
   :render
-  (let* ((notes (vulpea-db-query
-                 (lambda (note)
-                   (sia-vulpea--note-matches-p note tags parent-of parent-prop))))
-         (notes (if sort-by
-                    (seq-sort-by (lambda (n) (sia-vulpea-vui--cell n sort-by))
-                                 #'string< notes)
-                  notes))
-         (vui-columns (mapcar (lambda (c)
-                                 (list :header (sia-vulpea-vui--header-label c) :width 24))
-                               columns))
-         (rows (mapcar
-                (lambda (note)
-                  (mapcar
-                   (lambda (c)
-                     (if (eq c :title)
+  (progn
+    (vui-use-effect ()
+      (let ((fn (lambda () (vui-set-state :refresh-tick #'1+))))
+        (add-hook 'sia-vulpea-table-refresh-functions fn)
+        (lambda () (remove-hook 'sia-vulpea-table-refresh-functions fn))))
+    (let* ((effective-sort (or sort-override sort-by))
+           (notes (vulpea-db-query
+                   (lambda (note)
+                     (sia-vulpea--note-matches-p note tags parent-of parent-prop))))
+           (notes (if effective-sort
+                      (let ((sorted (seq-sort-by
+                                     (lambda (n) (sia-vulpea-vui--cell n effective-sort))
+                                     #'string< notes)))
+                        (if sort-desc (reverse sorted) sorted))
+                    notes))
+           (vui-columns (mapcar (lambda (c)
+                                   (list :header (sia-vulpea-vui--header-label c) :width 24))
+                                 columns))
+           (rows (mapcar
+                  (lambda (note)
+                    (mapcar
+                     (lambda (c)
+                       (cond
+                        ((eq c :title)
                          (vui-button (vulpea-note-title note)
-                                     :on-click (lambda () (find-file (vulpea-note-path note))))
-                       (sia-vulpea-vui--cell note c)))
-                   columns))
-                notes)))
-    (vui-vstack
-     (when parent-title
-       (vui-text (format "Parent: %s" parent-title) :face 'bold))
-     (vui-text (format "%d note%s" (length notes) (if (= (length notes) 1) "" "s"))
-                :face 'shadow)
-     (vui-newline)
-     (vui-table :columns vui-columns :rows rows :border :ascii))))
+                                     :on-click (lambda () (find-file (vulpea-note-path note)))))
+                        ((keywordp c) (sia-vulpea-vui--cell note c))
+                        (t
+                         ;; A meta key: editable. NOTE: I'm not fully
+                         ;; certain `vui-field' uses :on-change for its
+                         ;; commit callback -- check `describe-function
+                         ;; vui-field' if edits don't seem to take.
+                         (vui-field
+                          :value (car (or (vulpea-note-meta-get-list note c) '("")))
+                          :on-change (lambda (val)
+                                       (sia-vulpea--write-meta note c val)
+                                       (vui-set-state :refresh-tick #'1+))))))
+                     columns))
+                  notes)))
+      (vui-vstack
+       (when parent-title
+         (vui-text (format "Parent: %s" parent-title) :face 'bold))
+       (vui-text (format "%d note%s" (length notes) (if (= (length notes) 1) "" "s"))
+                  :face 'shadow)
+       (vui-newline)
+       (apply #'vui-hstack
+              (vui-text "Sort by: " :face 'shadow)
+              (mapcar
+               (lambda (c)
+                 (vui-button
+                  (concat (sia-vulpea-vui--header-label c)
+                          (cond ((not (equal effective-sort c)) "")
+                                (sort-desc " \u2193") (t " \u2191")))
+                  :on-click (lambda ()
+                              (if (equal sort-override c)
+                                  (vui-set-state :sort-desc (not sort-desc))
+                                (progn (vui-set-state :sort-override c)
+                                       (vui-set-state :sort-desc nil))))))
+               columns))
+       (vui-newline)
+       (vui-table :columns vui-columns :rows rows :border :ascii)))))
 
 (defun sia-vulpea--table-buffer-name (view-name parent-of)
   "Return a buffer name for a live Vulpea table.
