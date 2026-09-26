@@ -2,12 +2,18 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("Inbox for notes (tabs and whatnot)"
-  (filename . "~/notes/inbox/")
-  (front-context-string)
-  (rear-context-string . "hts-capture.org\n")
-  (position . 499)
-  (last-modified 27239 11740 721878 0))
+(("tab inbox"
+  (filename . "~/notes/inbox/tabs/")
+  (front-context-string . ".DS_Store\n  -rw-")
+  (rear-context-string . "20k 09-24 12:30 ")
+  (position . 434)
+  (last-modified 1790277043213347000 . 1000000000))
+("Inbox for notes (tabs and whatnot)"
+ (filename . "~/notes/inbox/")
+ (front-context-string)
+ (rear-context-string . "hts-capture.org\n")
+ (position . 499)
+ (last-modified 27239 11740 721878 0))
 ("Notes folder"
  (filename . "~/notes/")
  (front-context-string . "area\n  drwxr-xr-")

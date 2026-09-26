@@ -1538,7 +1538,7 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
       org-cite-activate-processor 'citar)
 
 (use-package org-ref
-  :ensure (:wait t)
+  :ensure t
   :after (ox-pandoc)
 )
 
@@ -2131,7 +2131,8 @@ DELTA would be something like 1 or -1."
   ;; Finally, load your theme of choice (or a random one with
   ;; `modus-themes-load-random', `modus-themes-load-random-dark',
   ;; `modus-themes-load-random-light').
-  (modus-themes-load-theme 'ef-melissa-light))
+  (modus-themes-load-theme 'ef-melissa-light)
+  )
 
 ;; In all of the following, WEIGHT is a symbol such as `semibold',
 ;; `light', `bold', or anything mentioned in `modus-themes-weights'.
@@ -2996,7 +2997,7 @@ bucket, not something worth linking to directly."
       (save-buffer))
     (insert (org-link-make-string (concat "id:" id) desc))))
 
-(keymap-global-set "C-S-o" #'sia-move-region-to-heading)
+(keymap-global-set "M-a" #'sia-move-region-to-heading)
 
 (provide 'sia-move-region-to-heading)
 ;;; sia-move-region-to-heading.el ends here
@@ -3007,3 +3008,397 @@ bucket, not something worth linking to directly."
 ;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
 
 (setq warning-minimum-level :error)
+
+;; Autochange theme with dark mode
+
+(defun my-load-theme (appearance)
+  (mapc #'disable-theme custom-enabled-themes)
+  (pcase appearance
+    ('light (load-theme 'ef-melissa-light t))
+    ('dark  (load-theme 'ef-dream t))))
+
+(add-hook 'ns-system-appearance-change-functions #'my-load-theme)
+
+;; Create dataview-like tables through the vulpea query system
+
+
+
+;;; sia-vulpea-dblock.el --- Dataview-style property tables, backed by Vulpea -*- lexical-binding: t; -*-
+
+(require 'vulpea)
+(require 'org-table)
+
+(defun sia-vulpea-dblock--cell (note column)
+  "Return a display string for COLUMN of NOTE.
+COLUMN is either a keyword naming a built-in field:
+  :title  :tags  :id  :file
+or a string naming a Vulpea meta key -- i.e. a \"KEY :: value\"
+description-list entry in the note, read via
+`vulpea-note-meta-get-list'. Multiple values for the same key are
+joined with \", \"."
+  (pcase column
+    (:title (or (vulpea-note-title note) ""))
+    (:tags (mapconcat #'identity (vulpea-note-tags note) ", "))
+    (:id (vulpea-note-id note))
+    (:file (file-name-nondirectory (vulpea-note-path note)))
+    ((pred stringp)
+     (mapconcat #'identity
+                (or (vulpea-note-meta-get-list note column) '(""))
+                ", "))
+    (_ "")))
+
+(defun sia-vulpea-dblock--header-label (column)
+  "Return a display label for COLUMN (see `sia-vulpea-dblock--cell')."
+  (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
+
+(defun org-dblock-write:vulpea-table (params)
+  "Write a Dataview-style table of Vulpea notes into the current dynamic block.
+Recognized PARAMS:
+
+  :tags      List of tags to filter by; a note must have ALL of
+             them to be included. Omit (or nil) for every note.
+
+  :columns   List of columns to show, in order. Each entry is
+             either a keyword (:title, :tags, :id, :file) or a
+             string naming a Vulpea meta key (e.g. \"status\",
+             \"author\", \"rating\"). Defaults to just (:title).
+
+  :sort-by   A single column (same shape as above) to sort rows
+             by, ascending, as a string comparison. Optional.
+
+Example block, written by hand or via `org-create-dblock':
+
+  #+BEGIN: vulpea-table :tags (\"book\") :columns (:title \"author\" \"rating\") :sort-by \"rating\"
+  #+END:
+
+Regenerate with `org-dblock-update' (C-c C-c on the #+BEGIN
+line) or `org-update-all-dblocks' for every block in the buffer."
+  (let* ((tags (plist-get params :tags))
+         (columns (or (plist-get params :columns) '(:title)))
+         (sort-by (plist-get params :sort-by))
+         (notes (vulpea-db-query
+                 (lambda (note)
+                   (or (null tags)
+                       (seq-every-p (lambda (tag)
+                                      (seq-contains-p (vulpea-note-tags note) tag))
+                                    tags)))))
+         (notes (if sort-by
+                    (seq-sort-by (lambda (n) (sia-vulpea-dblock--cell n sort-by))
+                                 #'string< notes)
+                  notes)))
+    (insert "| " (mapconcat #'sia-vulpea-dblock--header-label columns " | ") " |\n")
+    (insert "|-\n")
+    (dolist (note notes)
+      (insert "| "
+              (mapconcat (lambda (c) (sia-vulpea-dblock--cell note c)) columns " | ")
+              " |\n"))
+    (when notes
+      (delete-char -1))
+    (org-table-align)))
+
+(defun sia-insert-vulpea-table ()
+  "Insert a new vulpea-table dynamic block at point, prompting for params.
+A quick way to get a starting block without hand-typing the
+#+BEGIN: line; edit the params afterwards as needed."
+  (interactive)
+  (let* ((tags (split-string (read-string "Filter by tags (space-separated, blank for all): ") nil t))
+         (columns-raw (split-string
+                       (read-string "Columns (space-separated; :title/:tags/:id/:file or meta keys): "
+                                    ":title")
+                       nil t))
+         (columns (mapcar (lambda (c) (if (string-prefix-p ":" c) (intern c) c)) columns-raw))
+         (sort-by (let ((s (read-string "Sort by column (blank for none): ")))
+                    (unless (string-empty-p s)
+                      (if (string-prefix-p ":" s) (intern s) s)))))
+    (org-create-dblock
+     (list :name "vulpea-table"
+           :tags tags
+           :columns columns
+           :sort-by sort-by))
+    (org-update-dblock)))
+
+(provide 'sia-vulpea-dblock)
+;;; sia-vulpea-dblock.el ends here
+
+;;; sia-vulpea-vui-table.el --- Interactive Vulpea property tables via vui.el -*- lexical-binding: t; -*-
+
+(require 'vui)
+(require 'vulpea)
+
+(defun sia-vulpea-vui--cell (note column)
+  "Return a display string for COLUMN of NOTE.
+Same COLUMN shapes as the dblock version: a keyword for a
+built-in field (:tags, :id, :file), or a string naming a Vulpea
+meta key. :title is handled separately by the caller, since it
+becomes a button rather than plain text."
+  (pcase column
+    (:tags (mapconcat #'identity (vulpea-note-tags note) ", "))
+    (:id (vulpea-note-id note))
+    (:file (file-name-nondirectory (vulpea-note-path note)))
+    ((pred stringp)
+     (mapconcat #'identity (or (vulpea-note-meta-get-list note column) '(""))
+                ", "))
+    (_ "")))
+
+(defun sia-vulpea-vui--header-label (column)
+  "Return a display label for COLUMN."
+  (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
+
+(vui-defcomponent sia-vulpea-table (tags columns sort-by)
+  "A live, clickable table of Vulpea notes.
+TAGS filters notes (must have all of them). COLUMNS is the
+ordered list of fields to show -- :title is always rendered as a
+button that opens the note; other entries follow
+`sia-vulpea-vui--cell'. SORT-BY optionally sorts rows by one
+column's text value."
+  :render
+  (let* ((notes (vulpea-db-query
+                 (lambda (note)
+                   (or (null tags)
+                       (seq-every-p (lambda (tag)
+                                      (seq-contains-p (vulpea-note-tags note) tag))
+                                    tags)))))
+         (notes (if sort-by
+                    (seq-sort-by (lambda (n) (sia-vulpea-vui--cell n sort-by))
+                                 #'string< notes)
+                  notes))
+         (vui-columns (mapcar (lambda (c)
+                                 (list :header (sia-vulpea-vui--header-label c) :width 24))
+                               columns))
+         (rows (mapcar
+                (lambda (note)
+                  (mapcar
+                   (lambda (c)
+                     (if (eq c :title)
+                         (vui-button (vulpea-note-title note)
+                                     :on-click (lambda () (find-file (vulpea-note-path note))))
+                       (sia-vulpea-vui--cell note c)))
+                   columns))
+                notes)))
+    (vui-vstack
+     (vui-text (format "%d note%s" (length notes) (if (= (length notes) 1) "" "s"))
+                :face 'shadow)
+     (vui-newline)
+     (vui-table :columns vui-columns :rows rows :border :ascii))))
+
+(defun sia-vulpea-open-table (&optional tags columns sort-by)
+  "Open a live, clickable table of Vulpea notes in its own buffer.
+Prompts for TAGS/COLUMNS/SORT-BY when called interactively (same
+shapes as the vulpea-table dblock -- see
+`org-dblock-write:vulpea-table' if you have that defined too).
+Click a title to open that note; press `g' in the resulting
+buffer to refresh against the current state of the Vulpea db."
+  (interactive
+   (let* ((tags (split-string (read-string "Filter by tags (space-separated, blank for all): ") nil t))
+          (columns-raw (split-string
+                        (read-string "Columns (space-separated; :title/:tags/:id/:file or meta keys): "
+                                     ":title")
+                        nil t))
+          (columns (mapcar (lambda (c) (if (string-prefix-p ":" c) (intern c) c)) columns-raw))
+          (sort-by (let ((s (read-string "Sort by column (blank for none): ")))
+                     (unless (string-empty-p s)
+                       (if (string-prefix-p ":" s) (intern s) s)))))
+     (list tags columns sort-by)))
+  (vui-mount (vui-component 'sia-vulpea-table
+               :tags tags :columns columns :sort-by sort-by)
+             "*vulpea table*"))
+
+(provide 'sia-vulpea-vui-table)
+;;; sia-vulpea-vui-table.el ends here
+
+;;; sia-vulpea-table-views.el --- Named views + inline mounting for Vulpea vui tables -*- lexical-binding: t; -*-
+
+;; Requires the two earlier pieces to already be loaded (either as
+;; separate files with their own (provide ...), or pasted into
+;; init.el before this, in order):
+;;   - sia-vulpea-dblock.el     (org-dblock-write:vulpea-table, the
+;;                                static-text fallback)
+;;   - sia-vulpea-vui-table.el  (the sia-vulpea-table vui component,
+;;                                sia-vulpea-open-table)
+
+(require 'vui)
+(require 'vulpea)
+(require 'sia-vulpea-vui-table)
+(require 'sia-vulpea-dblock)
+
+;;; Named views ---------------------------------------------------------
+
+(defcustom sia-vulpea-table-views-file
+  (expand-file-name "sia-vulpea-table-views.el" user-emacs-directory)
+  "File where named Vulpea table views are persisted."
+  :type 'file
+  :group 'vulpea)
+
+(defvar sia-vulpea-table-views nil
+  "Alist of (NAME . (TAGS COLUMNS SORT-BY)) for saved Vulpea table views.")
+
+(defun sia-vulpea-table-views-load ()
+  "Load saved views from `sia-vulpea-table-views-file', if present."
+  (setq sia-vulpea-table-views
+        (when (file-exists-p sia-vulpea-table-views-file)
+          (with-temp-buffer
+            (insert-file-contents sia-vulpea-table-views-file)
+            (read (current-buffer))))))
+
+(defun sia-vulpea-table-views-save-to-disk ()
+  "Persist `sia-vulpea-table-views' to `sia-vulpea-table-views-file'."
+  (with-temp-file sia-vulpea-table-views-file
+    (prin1 sia-vulpea-table-views (current-buffer))))
+
+(sia-vulpea-table-views-load)
+
+(defun sia-vulpea--read-column-list (&optional prompt)
+  "Read a space-separated list of columns as keywords/strings."
+  (mapcar (lambda (c) (if (string-prefix-p ":" c) (intern c) c))
+          (split-string (read-string (or prompt "Columns: ") ":title") nil t)))
+
+(defun sia-vulpea--read-tags ()
+  "Read a space-separated list of tags."
+  (split-string (read-string "Filter by tags (space-separated, blank for all): ") nil t))
+
+(defun sia-vulpea--read-sort-by ()
+  "Read an optional single sort column."
+  (let ((s (read-string "Sort by column (blank for none): ")))
+    (unless (string-empty-p s) (if (string-prefix-p ":" s) (intern s) s))))
+
+(defun sia-vulpea-table-view-save (name tags columns sort-by)
+  "Save (or overwrite) a named Vulpea table view, persisted to disk."
+  (interactive
+   (list (read-string "Save view as: ")
+         (sia-vulpea--read-tags)
+         (sia-vulpea--read-column-list
+          "Columns (space-separated; :title/:tags/:id/:file or meta keys): ")
+         (sia-vulpea--read-sort-by)))
+  (setf (alist-get name sia-vulpea-table-views nil nil #'string=)
+        (list tags columns sort-by))
+  (sia-vulpea-table-views-save-to-disk)
+  (message "Saved Vulpea table view \"%s\"" name))
+
+(defun sia-vulpea-table-view-delete (name)
+  "Delete a saved Vulpea table view by NAME, with completion."
+  (interactive (list (completing-read "Delete view: "
+                                       (mapcar #'car sia-vulpea-table-views) nil t)))
+  (setq sia-vulpea-table-views (assoc-delete-all name sia-vulpea-table-views))
+  (sia-vulpea-table-views-save-to-disk)
+  (message "Deleted Vulpea table view \"%s\"" name))
+
+(defun sia-vulpea--select-view ()
+  "Prompt for a saved view name with completion; return (TAGS COLUMNS SORT-BY)."
+  (unless sia-vulpea-table-views
+    (user-error "No saved Vulpea table views yet -- use `sia-vulpea-table-view-save' first"))
+  (let ((name (completing-read "View: " (mapcar #'car sia-vulpea-table-views) nil t)))
+    (cdr (assoc name sia-vulpea-table-views))))
+
+(defun sia-vulpea-open-saved-table ()
+  "Select a saved Vulpea table view (minibuffer completion) and open it live."
+  (interactive)
+  (pcase-let ((`(,tags ,columns ,sort-by) (sia-vulpea--select-view)))
+    (sia-vulpea-open-table tags columns sort-by)))
+
+;;; Inline mounting -------------------------------------------------------
+
+(defvar-local sia-vulpea--inline-table-instances nil
+  "Alist of (MARKER . VUI-INSTANCE) for live inline Vulpea tables
+currently mounted in this buffer.")
+
+(defvar-local sia-vulpea--inline-tables-active nil
+  "Non-nil if inline Vulpea tables are meant to stay live in this
+buffer -- survives save/reopen via the hooks below.")
+
+(defun sia-vulpea--dblock-vulpea-table-regions ()
+  "Return (PARAMS CONTENT-BEGIN CONTENT-END) for each vulpea-table
+dblock in the buffer, top-to-bottom."
+  (let (blocks)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+vulpea-table\\(.*\\)$" nil t)
+        (let* ((params-str (match-string 1))
+               (params (ignore-errors (car (read-from-string (format "(%s)" params-str)))))
+               (content-begin (progn (forward-line 1) (point)))
+               (content-end (if (re-search-forward "^[ \t]*#\\+END:" nil t)
+                                 (line-beginning-position)
+                               (point))))
+          (when params (push (list params content-begin content-end) blocks)))))
+    (nreverse blocks)))
+
+(defun sia-vulpea-inline-tables-mount ()
+  "Replace every vulpea-table dblock's content in this buffer with a
+live, clickable `sia-vulpea-table' component. Blocks are processed
+bottom-to-top so earlier positions stay valid as later ones are
+rewritten."
+  (interactive)
+  (sia-vulpea--inline-tables-clear)
+  (dolist (block (reverse (sia-vulpea--dblock-vulpea-table-regions)))
+    (pcase-let ((`(,params ,cbeg ,cend) block))
+      (let ((tags (plist-get params :tags))
+            (columns (plist-get params :columns))
+            (sort-by (plist-get params :sort-by)))
+        (goto-char cbeg)
+        (delete-region cbeg cend)
+        (let ((instance (vui-mount-inline
+                          (vui-component 'sia-vulpea-table
+                            :tags tags :columns columns :sort-by sort-by))))
+          (push (cons (copy-marker cbeg) instance) sia-vulpea--inline-table-instances)))))
+  (setq sia-vulpea--inline-tables-active t))
+
+(defun sia-vulpea--inline-tables-clear ()
+  "Unmount live inline tables and regenerate plain dblock text in
+their place, without touching `sia-vulpea--inline-tables-active'."
+  (dolist (cell sia-vulpea--inline-table-instances)
+    (vui-unmount (cdr cell)))
+  (setq sia-vulpea--inline-table-instances nil)
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+vulpea-table" nil t)
+      (beginning-of-line)
+      (ignore-errors (org-dblock-update)))))
+
+(defun sia-vulpea-inline-tables-unmount ()
+  "Unmount all live inline Vulpea tables in this buffer, restoring
+plain (static) dblock text so the buffer has real content to save."
+  (interactive)
+  (sia-vulpea--inline-tables-clear)
+  (setq sia-vulpea--inline-tables-active nil))
+
+(defun sia-vulpea-inline-tables-toggle ()
+  "Toggle live, clickable inline Vulpea tables in the current buffer."
+  (interactive)
+  (if sia-vulpea--inline-tables-active
+      (progn (sia-vulpea-inline-tables-unmount)
+             (message "Inline Vulpea tables: off"))
+    (sia-vulpea-inline-tables-mount)
+    (message "Inline Vulpea tables: on")))
+
+(defun sia-vulpea--inline-tables-before-save ()
+  "Unmount live inline tables before saving, so the file gets real
+text instead of ephemeral widget state."
+  (when sia-vulpea--inline-table-instances
+    (sia-vulpea--inline-tables-clear)))
+
+(defun sia-vulpea--inline-tables-after-save ()
+  "Remount live inline tables after saving, if they were active."
+  (when sia-vulpea--inline-tables-active
+    (sia-vulpea-inline-tables-mount)))
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'before-save-hook #'sia-vulpea--inline-tables-before-save nil t)
+            (add-hook 'after-save-hook #'sia-vulpea--inline-tables-after-save nil t)))
+
+;;; Insert a dblock from a saved view --------------------------------------
+
+(defun sia-vulpea-insert-table-from-view ()
+  "Insert a vulpea-table dblock at point, using a saved view
+selected via minibuffer completion."
+  (interactive)
+  (pcase-let ((`(,tags ,columns ,sort-by) (sia-vulpea--select-view)))
+    (org-create-dblock (list :name "vulpea-table" :tags tags :columns columns :sort-by sort-by))
+    (org-update-dblock)))
+
+(keymap-global-set "C-c w t" #'sia-vulpea-inline-tables-toggle)
+(keymap-global-set "C-c w v" #'sia-vulpea-open-saved-table)
+(keymap-global-set "C-c w V" #'sia-vulpea-table-view-save)
+
+(provide 'sia-vulpea-table-views)
+;;; sia-vulpea-table-views.el ends here
+
