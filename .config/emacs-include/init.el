@@ -3669,3 +3669,184 @@ was inserted from."
 
 (provide 'sia-vulpea-table-views)
 ;;; sia-vulpea-table-views.el ends here
+
+;; Batch converting properties to plug into vulpea instead
+
+;;; sia-vulpea-convert-properties.el --- Convert drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+
+(require 'org)
+(require 'vulpea)
+
+(defvar sia-vulpea-convert-property-blocklist
+  '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
+    "ROAM_EXCLUDE" "ROAM_PLANNING" "BLOCKER" "TRIGGER" "ORDERED"
+    "COOKIE_DATA" "LOG_INTO_DRAWER" "LOGGING" "VISIBILITY"
+    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED")
+  "Property names never converted to meta lines (case-insensitive).
+These are properties Org, org-roam, or Vulpea itself read
+directly out of the property drawer -- converting them to meta
+lines would break that machinery (most importantly ID: Vulpea's
+whole notion of \"a node\" depends on it staying a real
+property). Add to this list before running a conversion if your
+notes use other drawer properties something else depends on.")
+
+;;; Low-level: one node at a time ---------------------------------------
+
+(defun sia-vulpea--after-property-drawer-pos ()
+  "Return the position right after the property drawer of the node at point.
+\"Node at point\" is the heading at or above point, or the
+file-level node if point is before the first heading. If that
+node has no drawer, return the position right after its heading
+line (or point-min, for the file-level node)."
+  (save-excursion
+    (if (org-before-first-heading-p)
+        (goto-char (point-min))
+      (org-back-to-heading t)
+      (forward-line 1))
+    (if (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+        (progn (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+               (forward-line 1)
+               (point))
+      (point))))
+
+(defun sia-vulpea--insert-or-update-meta-line (key value)
+  "Insert or update a \"- KEY :: VALUE\" meta line for the node at point.
+Placed right after that node's property drawer. If a meta line
+for KEY already exists between the drawer and the next heading
+(or end of file, for the file-level node), its value is replaced
+instead of adding a duplicate -- so re-running a conversion is
+safe and idempotent."
+  (let* ((start (sia-vulpea--after-property-drawer-pos))
+         (end (save-excursion
+                (goto-char start)
+                (if (re-search-forward "^\\*" nil t) (line-beginning-position) (point-max))))
+         (re (format "^\\(-[ \t]+%s[ \t]+::[ \t]*\\).*$" (regexp-quote key))))
+    (save-excursion
+      (goto-char start)
+      (if (re-search-forward re end t)
+          (replace-match (concat "\\1" value) t)
+        (goto-char start)
+        (insert (format "- %s :: %s\n" key value))))))
+
+(defun sia-vulpea--convert-node-properties (&optional keep-original)
+  "Convert the node at point's own drawer properties to meta lines.
+\"Node at point\" is the heading at or above point, or the
+file-level node if point is before the first heading. Only
+properties not in `sia-vulpea-convert-property-blocklist', and
+with a non-empty value, are converted; the property name is
+downcased for the meta key. Unless KEEP-ORIGINAL is non-nil, each
+converted property is then deleted from the drawer. Returns the
+list of property names converted (empty if none)."
+  (save-excursion
+    (unless (org-before-first-heading-p) (org-back-to-heading t))
+    (let ((converted nil))
+      (dolist (prop (org-entry-properties (point) 'standard))
+        (let ((name (car prop)) (value (cdr prop)))
+          (unless (or (member (upcase name) sia-vulpea-convert-property-blocklist)
+                      (null value)
+                      (string-empty-p value))
+            (sia-vulpea--insert-or-update-meta-line (downcase name) value)
+            (push name converted)
+            (unless keep-original (org-entry-delete (point) name)))))
+      (nreverse converted))))
+
+(defun sia-vulpea-convert-properties-at-point (&optional keep-original)
+  "Convert the drawer properties of the node at point to meta lines.
+With KEEP-ORIGINAL (\\[universal-argument]), keep the properties
+in the drawer too, instead of deleting each one as it's
+converted."
+  (interactive "P")
+  (let ((converted (sia-vulpea--convert-node-properties keep-original)))
+    (if converted
+        (message "Converted: %s" (string-join converted ", "))
+      (message "Nothing to convert here (all properties are blocklisted, or there are none)"))))
+
+;;; Whole buffer, and every node in it -----------------------------------
+
+(defun sia-vulpea-convert-buffer-properties-to-meta (&optional keep-original)
+  "Convert drawer properties to meta lines for every recognized node
+in the current buffer -- the file-level node (if it has an :ID:)
+and every heading with an :ID:, i.e. every node Vulpea/org-roam
+actually indexes here. Saves the buffer afterwards."
+  (interactive "P")
+  (let ((count 0))
+    (save-excursion
+      (goto-char (point-min))
+      (when (org-entry-get (point-min) "ID")
+        (when (sia-vulpea--convert-node-properties keep-original)
+          (setq count (1+ count))))
+      (org-map-entries
+       (lambda ()
+         (when (org-entry-get (point) "ID")
+           (when (sia-vulpea--convert-node-properties keep-original)
+             (setq count (1+ count)))))))
+    (when (called-interactively-p 'any)
+      (message "Converted properties on %d node%s in this buffer"
+               count (if (= count 1) "" "s")))
+    (save-buffer)
+    count))
+
+;;; Preview + real run across every Vulpea note ---------------------------
+
+(defun sia-vulpea-preview-convert-all-notes-properties ()
+  "Report, without changing anything, what a full conversion would do.
+Lists, per note file, which non-blocklisted properties were
+found on its recognized nodes. Run this before
+`sia-vulpea-convert-all-notes-properties-to-meta' to sanity-check
+`sia-vulpea-convert-property-blocklist' first -- nothing here
+writes to any file."
+  (interactive)
+  (let ((files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+        (report nil))
+    (dolist (file files)
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (let (found)
+            (goto-char (point-min))
+            (when (org-entry-get (point-min) "ID")
+              (dolist (p (org-entry-properties (point-min) 'standard))
+                (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                  (push (car p) found))))
+            (org-map-entries
+             (lambda ()
+               (when (org-entry-get (point) "ID")
+                 (dolist (p (org-entry-properties (point) 'standard))
+                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                     (push (car p) found))))))
+            (when found
+              (push (format "%s: %s" (file-name-nondirectory file)
+                            (string-join (seq-uniq found) ", "))
+                    report))))))
+    (if report
+        (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
+          (erase-buffer)
+          (insert (string-join (nreverse report) "\n"))
+          (goto-char (point-min))
+          (display-buffer (current-buffer)))
+      (message "Nothing would be converted -- every property found is blocklisted."))))
+
+(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
+  "Convert drawer properties to meta lines across every Vulpea note.
+Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
+file Vulpea currently knows about, saving each one. This edits
+and saves your entire note collection -- run
+`sia-vulpea-preview-convert-all-notes-properties' first, and back
+up your notes (or commit, if under version control) before
+running this, especially with KEEP-ORIGINAL nil (the default),
+which deletes each converted property from its drawer as it goes."
+  (interactive "P")
+  (unless (y-or-n-p "This will edit and save every Vulpea note. Continue? ")
+    (user-error "Aborted"))
+  (let* ((files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+         (total 0))
+    (dolist (file files)
+      (with-current-buffer (find-file-noselect file)
+        (setq total (+ total (sia-vulpea-convert-buffer-properties-to-meta keep-original)))))
+    (message "Converted properties across %d node%s in %d note file%s"
+             total (if (= total 1) "" "s")
+             (length files) (if (= (length files) 1) "" "s"))))
+
+(keymap-global-set "C-c w c" #'sia-vulpea-convert-properties-at-point)
+
+(provide 'sia-vulpea-convert-properties)
+;;; sia-vulpea-convert-properties.el ends here
