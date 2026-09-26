@@ -3731,19 +3731,42 @@ notes use other drawer properties something else depends on.")
 (defun sia-vulpea--after-property-drawer-pos ()
   "Return the position right after the property drawer of the node at point.
 \"Node at point\" is the heading at or above point, or the
-file-level node if point is before the first heading. If that
-node has no drawer, return the position right after its heading
-line (or point-min, for the file-level node)."
+file-level node if point is before the first heading.
+
+For a heading, this is simply right after its own drawer (or
+right after the heading line, if it has none).
+
+For the file-level node, this additionally skips past any
+leading #+KEYWORD: lines (#+title:, #+date:, #+filetags:, etc.)
+in whatever order they appear relative to the property drawer.
+Without this, meta lines inserted \"right after the drawer\"
+would land *above* #+title:/#+date: whenever the drawer happens
+to come first in the file -- which is exactly the bug this
+guards against."
   (save-excursion
     (if (org-before-first-heading-p)
-        (goto-char (point-min))
+        (progn
+          (goto-char (point-min))
+          (let (moved)
+            (setq moved t)
+            (while moved
+              (setq moved nil)
+              (cond
+               ((looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+                (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                (forward-line 1)
+                (setq moved t))
+               ((looking-at "^[ \t]*#\\+[a-zA-Z_-]+:.*$")
+                (forward-line 1)
+                (setq moved t)))))
+          (point))
       (org-back-to-heading t)
-      (forward-line 1))
-    (if (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
-        (progn (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
-               (forward-line 1)
-               (point))
-      (point))))
+      (forward-line 1)
+      (if (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+          (progn (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                 (forward-line 1)
+                 (point))
+        (point)))))
 
 (defun sia-vulpea--insert-or-update-meta-line (key value)
   "Insert or update a \"- KEY :: VALUE\" meta line for the node at point.
