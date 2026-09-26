@@ -3051,6 +3051,30 @@ joined with \", \"."
   "Return a display label for COLUMN (see `sia-vulpea-dblock--cell')."
   (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
 
+(defun sia-vulpea--resolve-parent-of (parent-of)
+  "Resolve PARENT-OF to a literal note ID.
+If PARENT-OF is the string \"self\" or the symbol `self', resolve
+it to the ID of the note visited by the *current buffer*
+(creating one via `org-id-get-create' at the top of the file if
+it doesn't have one yet). Any other value -- nil, or an actual
+ID string -- is returned unchanged."
+  (if (member parent-of '("self" self))
+      (save-excursion (goto-char (point-min)) (org-id-get-create))
+    parent-of))
+
+(defun sia-vulpea--note-matches-p (note tags parent-of parent-prop)
+  "Non-nil if NOTE matches TAGS and, if given, PARENT-OF.
+TAGS is a list NOTE's tags must all include (nil matches
+everything). PARENT-OF, if non-nil, must already be a resolved
+literal ID (see `sia-vulpea--resolve-parent-of') -- NOTE matches
+only if its PARENT-PROP meta property (default \"parents\")
+links to that ID."
+  (and (or (null tags)
+           (seq-every-p (lambda (tag) (seq-contains-p (vulpea-note-tags note) tag)) tags))
+       (or (null parent-of)
+           (seq-contains-p (vulpea-note-meta-get-list note (or parent-prop "parents") 'link)
+                            parent-of))))
+
 (defun org-dblock-write:vulpea-table (params)
   "Write a Dataview-style table of Vulpea notes into the current dynamic block.
 Recognized PARAMS:
@@ -3066,9 +3090,23 @@ Recognized PARAMS:
   :sort-by   A single column (same shape as above) to sort rows
              by, ascending, as a string comparison. Optional.
 
+  :parent-of An ID, or the literal string \"self\", to filter
+             by: only notes whose :parent-prop meta property
+             links to this ID are included. \"self\" resolves
+             dynamically, on every write, to the ID of the note
+             this dblock itself lives in -- so a block placed in
+             a parent note always shows its current children.
+             Optional; omit for no such filtering.
+
+  :parent-prop  Which meta property to check for :parent-of.
+             Defaults to \"parents\".
+
 Example block, written by hand or via `org-create-dblock':
 
   #+BEGIN: vulpea-table :tags (\"book\") :columns (:title \"author\" \"rating\") :sort-by \"rating\"
+  #+END:
+
+  #+BEGIN: vulpea-table :parent-of self :columns (:title)
   #+END:
 
 Regenerate with `org-dblock-update' (C-c C-c on the #+BEGIN
@@ -3076,12 +3114,11 @@ line) or `org-update-all-dblocks' for every block in the buffer."
   (let* ((tags (plist-get params :tags))
          (columns (or (plist-get params :columns) '(:title)))
          (sort-by (plist-get params :sort-by))
+         (parent-of (sia-vulpea--resolve-parent-of (plist-get params :parent-of)))
+         (parent-prop (plist-get params :parent-prop))
          (notes (vulpea-db-query
                  (lambda (note)
-                   (or (null tags)
-                       (seq-every-p (lambda (tag)
-                                      (seq-contains-p (vulpea-note-tags note) tag))
-                                    tags)))))
+                   (sia-vulpea--note-matches-p note tags parent-of parent-prop))))
          (notes (if sort-by
                     (seq-sort-by (lambda (n) (sia-vulpea-dblock--cell n sort-by))
                                  #'string< notes)
@@ -3124,6 +3161,7 @@ A quick way to get a starting block without hand-typing the
 
 (require 'vui)
 (require 'vulpea)
+(require 'sia-vulpea-dblock) ; for sia-vulpea--resolve-parent-of / sia-vulpea--note-matches-p
 
 (defun sia-vulpea-vui--cell (note column)
   "Return a display string for COLUMN of NOTE.
@@ -3144,20 +3182,22 @@ becomes a button rather than plain text."
   "Return a display label for COLUMN."
   (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
 
-(vui-defcomponent sia-vulpea-table (tags columns sort-by)
+(vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop)
   "A live, clickable table of Vulpea notes.
 TAGS filters notes (must have all of them). COLUMNS is the
 ordered list of fields to show -- :title is always rendered as a
 button that opens the note; other entries follow
 `sia-vulpea-vui--cell'. SORT-BY optionally sorts rows by one
-column's text value."
+column's text value. PARENT-OF, if given, must already be a
+resolved literal note ID (resolve \"self\" with
+`sia-vulpea--resolve-parent-of' *before* constructing this
+component -- the component itself doesn't know which buffer it's
+mounted in, so it can't resolve \"self\" on its own); notes must
+then link to it via PARENT-PROP (default \"parents\")."
   :render
   (let* ((notes (vulpea-db-query
                  (lambda (note)
-                   (or (null tags)
-                       (seq-every-p (lambda (tag)
-                                      (seq-contains-p (vulpea-note-tags note) tag))
-                                    tags)))))
+                   (sia-vulpea--note-matches-p note tags parent-of parent-prop))))
          (notes (if sort-by
                     (seq-sort-by (lambda (n) (sia-vulpea-vui--cell n sort-by))
                                  #'string< notes)
@@ -3181,11 +3221,16 @@ column's text value."
      (vui-newline)
      (vui-table :columns vui-columns :rows rows :border :ascii))))
 
-(defun sia-vulpea-open-table (&optional tags columns sort-by)
+(defun sia-vulpea-open-table (&optional tags columns sort-by parent-of parent-prop)
   "Open a live, clickable table of Vulpea notes in its own buffer.
-Prompts for TAGS/COLUMNS/SORT-BY when called interactively (same
-shapes as the vulpea-table dblock -- see
-`org-dblock-write:vulpea-table' if you have that defined too).
+Prompts for TAGS/COLUMNS/SORT-BY/PARENT-OF/PARENT-PROP when
+called interactively (same shapes as the vulpea-table dblock --
+see `org-dblock-write:vulpea-table'). If PARENT-OF is \"self\",
+it's resolved against the buffer you called this from -- i.e.
+whichever note you were visiting -- *before* the new table
+buffer takes over, so \"self\" means what you'd expect even
+though the table itself opens somewhere else.
+
 Click a title to open that note; press `g' in the resulting
 buffer to refresh against the current state of the Vulpea db."
   (interactive
@@ -3197,10 +3242,19 @@ buffer to refresh against the current state of the Vulpea db."
           (columns (mapcar (lambda (c) (if (string-prefix-p ":" c) (intern c) c)) columns-raw))
           (sort-by (let ((s (read-string "Sort by column (blank for none): ")))
                      (unless (string-empty-p s)
-                       (if (string-prefix-p ":" s) (intern s) s)))))
-     (list tags columns sort-by)))
+                       (if (string-prefix-p ":" s) (intern s) s))))
+          (parent-of (let ((s (read-string
+                                "Only children of note ID (blank for none, \"self\" for current note): ")))
+                       (unless (string-empty-p s) s)))
+          (parent-prop (let ((s (read-string "Parent meta property (blank for \"parents\"): ")))
+                          (unless (string-empty-p s) s))))
+     ;; Resolve "self" now, in the buffer this command was called
+     ;; from -- by the time vui-mount switches buffers below, we'd
+     ;; have lost that context.
+     (list tags columns sort-by (sia-vulpea--resolve-parent-of parent-of) parent-prop)))
   (vui-mount (vui-component 'sia-vulpea-table
-               :tags tags :columns columns :sort-by sort-by)
+               :tags tags :columns columns :sort-by sort-by
+               :parent-of parent-of :parent-prop parent-prop)
              "*vulpea table*"))
 
 (provide 'sia-vulpea-vui-table)
@@ -3261,16 +3315,25 @@ buffer to refresh against the current state of the Vulpea db."
   (let ((s (read-string "Sort by column (blank for none): ")))
     (unless (string-empty-p s) (if (string-prefix-p ":" s) (intern s) s))))
 
-(defun sia-vulpea-table-view-save (name tags columns sort-by)
-  "Save (or overwrite) a named Vulpea table view, persisted to disk."
+(defun sia-vulpea-table-view-save (name tags columns sort-by parent-of parent-prop)
+  "Save (or overwrite) a named Vulpea table view, persisted to disk.
+PARENT-OF is stored as-typed, including the literal \"self\" --
+it's resolved fresh each time the view is opened, not at save
+time, so a \"self\" view means \"children of whatever note I'm
+in right now\" wherever/whenever you invoke it."
   (interactive
    (list (read-string "Save view as: ")
          (sia-vulpea--read-tags)
          (sia-vulpea--read-column-list
           "Columns (space-separated; :title/:tags/:id/:file or meta keys): ")
-         (sia-vulpea--read-sort-by)))
+         (sia-vulpea--read-sort-by)
+         (let ((s (read-string
+                   "Only children of note ID (blank for none, \"self\" for current note): ")))
+           (unless (string-empty-p s) s))
+         (let ((s (read-string "Parent meta property (blank for \"parents\"): ")))
+           (unless (string-empty-p s) s))))
   (setf (alist-get name sia-vulpea-table-views nil nil #'string=)
-        (list tags columns sort-by))
+        (list tags columns sort-by parent-of parent-prop))
   (sia-vulpea-table-views-save-to-disk)
   (message "Saved Vulpea table view \"%s\"" name))
 
@@ -3283,17 +3346,24 @@ buffer to refresh against the current state of the Vulpea db."
   (message "Deleted Vulpea table view \"%s\"" name))
 
 (defun sia-vulpea--select-view ()
-  "Prompt for a saved view name with completion; return (TAGS COLUMNS SORT-BY)."
+  "Prompt for a saved view name with completion.
+Return (TAGS COLUMNS SORT-BY PARENT-OF PARENT-PROP), PARENT-OF
+still unresolved (may literally be \"self\")."
   (unless sia-vulpea-table-views
     (user-error "No saved Vulpea table views yet -- use `sia-vulpea-table-view-save' first"))
   (let ((name (completing-read "View: " (mapcar #'car sia-vulpea-table-views) nil t)))
     (cdr (assoc name sia-vulpea-table-views))))
 
 (defun sia-vulpea-open-saved-table ()
-  "Select a saved Vulpea table view (minibuffer completion) and open it live."
+  "Select a saved Vulpea table view (minibuffer completion) and open it live.
+A \"self\" parent-of in the view is resolved against the buffer
+this command was called from, before the new table buffer takes
+over -- same reasoning as in `sia-vulpea-open-table'."
   (interactive)
-  (pcase-let ((`(,tags ,columns ,sort-by) (sia-vulpea--select-view)))
-    (sia-vulpea-open-table tags columns sort-by)))
+  (pcase-let ((`(,tags ,columns ,sort-by ,parent-of ,parent-prop) (sia-vulpea--select-view)))
+    (sia-vulpea-open-table tags columns sort-by
+                           (sia-vulpea--resolve-parent-of parent-of)
+                           parent-prop)))
 
 ;;; Inline mounting -------------------------------------------------------
 
@@ -3332,12 +3402,17 @@ rewritten."
     (pcase-let ((`(,params ,cbeg ,cend) block))
       (let ((tags (plist-get params :tags))
             (columns (plist-get params :columns))
-            (sort-by (plist-get params :sort-by)))
+            (sort-by (plist-get params :sort-by))
+            ;; Resolved here, in this note's own buffer, so "self"
+            ;; means this note -- same as the dblock writer does.
+            (parent-of (sia-vulpea--resolve-parent-of (plist-get params :parent-of)))
+            (parent-prop (plist-get params :parent-prop)))
         (goto-char cbeg)
         (delete-region cbeg cend)
         (let ((instance (vui-mount-inline
                           (vui-component 'sia-vulpea-table
-                            :tags tags :columns columns :sort-by sort-by))))
+                            :tags tags :columns columns :sort-by sort-by
+                            :parent-of parent-of :parent-prop parent-prop))))
           (push (cons (copy-marker cbeg) instance) sia-vulpea--inline-table-instances)))))
   (setq sia-vulpea--inline-tables-active t))
 
@@ -3389,15 +3464,20 @@ text instead of ephemeral widget state."
 
 (defun sia-vulpea-insert-table-from-view ()
   "Insert a vulpea-table dblock at point, using a saved view
-selected via minibuffer completion."
+selected via minibuffer completion. PARENT-OF is inserted as-is
+(including a literal \"self\") -- the dblock writer resolves it
+fresh on every update, so a \"self\" view dropped into a note
+always tracks that note's own children, not whichever note it
+was inserted from."
   (interactive)
-  (pcase-let ((`(,tags ,columns ,sort-by) (sia-vulpea--select-view)))
-    (org-create-dblock (list :name "vulpea-table" :tags tags :columns columns :sort-by sort-by))
+  (pcase-let ((`(,tags ,columns ,sort-by ,parent-of ,parent-prop) (sia-vulpea--select-view)))
+    (org-create-dblock (list :name "vulpea-table" :tags tags :columns columns
+                              :sort-by sort-by :parent-of parent-of :parent-prop parent-prop))
     (org-update-dblock)))
 
-(keymap-global-set "C-c w t" #'sia-vulpea-inline-tables-toggle)
-(keymap-global-set "C-c w v" #'sia-vulpea-open-saved-table)
-(keymap-global-set "C-c w V" #'sia-vulpea-table-view-save)
+(keymap-global-set "M-v w t" #'sia-vulpea-inline-tables-toggle)
+(keymap-global-set "M-v w v" #'sia-vulpea-open-saved-table)
+(keymap-global-set "M-v w V" #'sia-vulpea-table-view-save)
 
 (provide 'sia-vulpea-table-views)
 ;;; sia-vulpea-table-views.el ends here
