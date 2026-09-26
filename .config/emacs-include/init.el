@@ -3715,7 +3715,9 @@ was inserted from."
   '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
     "ROAM_EXCLUDE" "ROAM_PLANNING" "BLOCKER" "TRIGGER" "ORDERED"
     "COOKIE_DATA" "LOG_INTO_DRAWER" "LOGGING" "VISIBILITY"
-    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED")
+    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED" ;; these were the ones that were added by Claude directly
+    "CREATED" ;; this one is for the date that is added by org-node when you nodeify an entry
+    )
   "Property names never converted to meta lines (case-insensitive).
 These are properties Org, org-roam, or Vulpea itself read
 directly out of the property drawer -- converting them to meta
