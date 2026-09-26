@@ -3787,6 +3787,20 @@ safe and idempotent."
         (goto-char start)
         (insert (format "- %s :: %s\n" key value))))))
 
+(defun sia-vulpea--ensure-blank-line-before-meta ()
+  "Ensure a blank line separates the node at point's property
+drawer (and, for the file-level node, its #+KEYWORD: lines) from
+the meta block that begins right after them -- see
+`sia-vulpea--after-property-drawer-pos'. Only inserts a newline
+if the line immediately before that position isn't already
+blank, so re-running a conversion never piles up extra blank
+lines."
+  (save-excursion
+    (goto-char (sia-vulpea--after-property-drawer-pos))
+    (unless (or (bobp)
+                (save-excursion (forward-line -1) (looking-at "^[ \t]*$")))
+      (insert "\n"))))
+
 (defun sia-vulpea--convert-node-properties (&optional keep-original)
   "Convert the node at point's own drawer properties to meta lines.
 \"Node at point\" is the heading at or above point, or the
@@ -3794,8 +3808,12 @@ file-level node if point is before the first heading. Only
 properties not in `sia-vulpea-convert-property-blocklist', and
 with a non-empty value, are converted; the property name is
 downcased for the meta key. Unless KEEP-ORIGINAL is non-nil, each
-converted property is then deleted from the drawer. Returns the
-list of property names converted (empty if none)."
+converted property is then deleted from the drawer. If anything
+was converted, a blank line is inserted before the meta block
+(once, however many properties were converted) to separate it
+from the drawer/front matter above -- see
+`sia-vulpea--ensure-blank-line-before-meta'. Returns the list of
+property names converted (empty if none)."
   (save-excursion
     (unless (org-before-first-heading-p) (org-back-to-heading t))
     (let ((converted nil))
@@ -3807,6 +3825,8 @@ list of property names converted (empty if none)."
             (sia-vulpea--insert-or-update-meta-line (downcase name) value)
             (push name converted)
             (unless keep-original (org-entry-delete (point) name)))))
+      (when converted
+        (sia-vulpea--ensure-blank-line-before-meta))
       (nreverse converted))))
 
 (defun sia-vulpea-convert-properties-at-point (&optional keep-original)
