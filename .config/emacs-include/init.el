@@ -3710,14 +3710,14 @@ was inserted from."
 
 (require 'org)
 (require 'vulpea)
+(require 'cl-lib)
+(require 'subr-x)
 
 (defvar sia-vulpea-convert-property-blocklist
   '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
     "ROAM_EXCLUDE" "ROAM_PLANNING" "BLOCKER" "TRIGGER" "ORDERED"
     "COOKIE_DATA" "LOG_INTO_DRAWER" "LOGGING" "VISIBILITY"
-    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED" ;; these were the ones that were added by Claude directly
-    "CREATED" ;; this one is for the date that is added by org-node when you nodeify an entry
-    )
+    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED")
   "Property names never converted to meta lines (case-insensitive).
 These are properties Org, org-roam, or Vulpea itself read
 directly out of the property drawer -- converting them to meta
@@ -3842,28 +3842,145 @@ converted."
 
 ;;; Whole buffer, and every node in it -----------------------------------
 
+(defun sia-vulpea--node-title ()
+  "Return the title of the node at point.
+The heading text if inside one, or the file's own #+title:
+line (falling back to the filename) at file level -- mirrors
+`sia-vulpea--after-property-drawer-pos''s notion of \"node at
+point\"."
+  (if (org-before-first-heading-p)
+      (or (save-excursion
+            (goto-char (point-min))
+            (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
+              (string-trim (match-string 1))))
+          (file-name-nondirectory (or (buffer-file-name) "")))
+    (org-get-heading t t t t)))
+
+(defun sia-vulpea--convertible-note-p (note)
+  "Non-nil if NOTE, as Vulpea's db currently has it, has at least
+one drawer property not in `sia-vulpea-convert-property-blocklist'
+with a non-empty value."
+  (cl-some (lambda (prop)
+             (and (not (member (upcase (car prop)) sia-vulpea-convert-property-blocklist))
+                  (cdr prop)
+                  (not (string-empty-p (cdr prop)))))
+           (vulpea-note-properties note)))
+
+(defun sia-vulpea--files-with-convertible-properties ()
+  "Return the subset of all Vulpea note files with at least one node
+(file-level or heading) that has a convertible property,
+according to Vulpea's db as of its last sync.
+
+This is a pre-filter only, to avoid opening and scanning files
+that have nothing to do -- the actual conversion still re-reads
+each kept file's live buffer via `org-entry-properties', which
+stays the source of truth for what gets converted. If a note's
+drawer changed since the last `vulpea-db-sync' and hasn't been
+re-indexed yet, this could (rarely) skip a file the direct scan
+would have caught; since `vulpea-db-sync' is set to auto, that
+window should stay small."
+  (let ((table (make-hash-table :test #'equal)))
+    (dolist (note (vulpea-db-query))
+      (when (sia-vulpea--convertible-note-p note)
+        (puthash (vulpea-note-path note) t table)))
+    (let (files) (maphash (lambda (k _v) (push k files)) table) files)))
+
+(defun sia-vulpea--insert-converted-report (nodes)
+  "Insert one Org line per (ID . TITLE) in NODES, as a clickable
+id: link: \"- [[id:ID][TITLE]]\". Meant for a buffer already in
+`org-mode', so the links are actually clickable/`org-open-at-point'-able."
+  (dolist (node nodes)
+    (insert (format "- [[id:%s][%s]]\n" (car node) (cdr node)))))
+
 (defun sia-vulpea-convert-buffer-properties-to-meta (&optional keep-original)
   "Convert drawer properties to meta lines for every recognized node
 in the current buffer -- the file-level node (if it has an :ID:)
 and every heading with an :ID:, i.e. every node Vulpea/org-roam
-actually indexes here. Saves the buffer afterwards."
+actually indexes here. Saves the buffer afterwards. Returns a
+list of (ID . TITLE) for every node that had at least one
+property converted (empty if none)."
   (interactive "P")
-  (let ((count 0))
+  (let (converted-nodes)
     (save-excursion
       (goto-char (point-min))
       (when (org-entry-get (point-min) "ID")
         (when (sia-vulpea--convert-node-properties keep-original)
-          (setq count (1+ count))))
+          (push (cons (org-entry-get (point-min) "ID") (sia-vulpea--node-title))
+                converted-nodes)))
       (org-map-entries
        (lambda ()
          (when (org-entry-get (point) "ID")
            (when (sia-vulpea--convert-node-properties keep-original)
-             (setq count (1+ count)))))))
+             (push (cons (org-entry-get (point) "ID") (sia-vulpea--node-title))
+                   converted-nodes))))))
     (when (called-interactively-p 'any)
       (message "Converted properties on %d node%s in this buffer"
-               count (if (= count 1) "" "s")))
+               (length converted-nodes) (if (= (length converted-nodes) 1) "" "s")))
     (save-buffer)
-    count))
+    (nreverse converted-nodes)))
+
+;;; Non-blocking batch processing, with progress + ETA --------------------
+
+(defun sia-vulpea--format-duration (seconds)
+  "Return SECONDS formatted as e.g. \"2m 13s\" or \"45s\"."
+  (let* ((secs (max 0 (round seconds)))
+         (m (/ secs 60))
+         (s (% secs 60)))
+    (if (> m 0) (format "%dm %ds" m s) (format "%ds" s))))
+
+(defun sia-vulpea--process-files-async (files per-file-fn label on-done)
+  "Call PER-FILE-FN once per file in FILES, one at a time, without
+freezing Emacs for the whole run.
+
+Each file is handled, then the *next* one is scheduled via a
+fresh zero-second timer instead of just continuing a tight
+`dolist' loop -- that gap is what hands control back to Emacs's
+command loop between files, so redisplay happens, `C-g' still
+works, and the UI doesn't lock up. To be fully transparent about
+what this is and isn't: stock Emacs has no threads that run
+Elisp concurrently, so nothing here runs \"in the background\"
+while you keep typing in another buffer -- it's cooperative
+yielding, not true parallelism. (Emacs 26+ built with
+`--with-threads' does have `make-thread', but Elisp execution
+under it is still serialized by a global lock, so it wouldn't
+actually speed this up or free the UI thread the way OS threads
+would -- it's not used here.) What you do get is a UI that stays
+responsive and interruptible for the whole duration of a large
+batch, which a plain loop over hundreds of files would not give
+you.
+
+PER-FILE-FN is called with one file path, current-buffer already
+that file's buffer (via `find-file-noselect'); its return value
+is collected. LABEL is shown alongside a live N/TOTAL count and
+an ETA, estimated from the average time per file so far. ON-DONE
+is called with the list of all per-file return values, in the
+same order as FILES, once every file has been processed."
+  (let* ((total (length files))
+         (reporter (make-progress-reporter (format "%s " label) 0 total))
+         (start-time (current-time))
+         (i 0)
+         (results nil))
+    (cl-labels
+        ((step ()
+           (if (null files)
+               (progn
+                 (progress-reporter-done reporter)
+                 (funcall on-done (nreverse results)))
+             (let ((file (pop files)))
+               (push (with-current-buffer (find-file-noselect file)
+                       (funcall per-file-fn file))
+                     results)
+               (setq i (1+ i))
+               (progress-reporter-update
+                reporter i
+                (format " (%d/%d, ETA %s)" i total
+                        (sia-vulpea--format-duration
+                         (if (zerop i)
+                             0
+                           (* (/ (float-time (time-subtract (current-time) start-time)) i)
+                              (- total i))))))
+               (run-with-timer 0 nil #'step)))))
+      (step))))
 
 ;;; Preview + real run across every Vulpea note ---------------------------
 
@@ -3873,57 +3990,92 @@ Lists, per note file, which non-blocklisted properties were
 found on its recognized nodes. Run this before
 `sia-vulpea-convert-all-notes-properties-to-meta' to sanity-check
 `sia-vulpea-convert-property-blocklist' first -- nothing here
-writes to any file."
+writes to any file. Runs without freezing Emacs, with a live
+progress count and ETA in the echo area -- see
+`sia-vulpea--process-files-async'."
   (interactive)
-  (let ((files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-        (report nil))
-    (dolist (file files)
-      (with-current-buffer (find-file-noselect file)
-        (save-excursion
-          (let (found)
-            (goto-char (point-min))
-            (when (org-entry-get (point-min) "ID")
-              (dolist (p (org-entry-properties (point-min) 'standard))
-                (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
-                  (push (car p) found))))
-            (org-map-entries
-             (lambda ()
-               (when (org-entry-get (point) "ID")
-                 (dolist (p (org-entry-properties (point) 'standard))
-                   (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
-                     (push (car p) found))))))
-            (when found
-              (push (format "%s: %s" (file-name-nondirectory file)
-                            (string-join (seq-uniq found) ", "))
-                    report))))))
-    (if report
-        (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
-          (erase-buffer)
-          (insert (string-join (nreverse report) "\n"))
-          (goto-char (point-min))
-          (display-buffer (current-buffer)))
-      (message "Nothing would be converted -- every property found is blocklisted."))))
+  (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+         (files (sia-vulpea--files-with-convertible-properties)))
+    (if (null files)
+        (message "Nothing would be converted -- no notes have any non-blocklisted properties, per Vulpea's db.")
+      (message "Pre-filter (via Vulpea's db): scanning %d of %d note file%s."
+                (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
+      (sia-vulpea--process-files-async
+       files
+     (lambda (file)
+       (save-excursion
+         (let (found)
+           (goto-char (point-min))
+           (when (org-entry-get (point-min) "ID")
+             (dolist (p (org-entry-properties (point-min) 'standard))
+               (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                 (push (car p) found))))
+           (org-map-entries
+            (lambda ()
+              (when (org-entry-get (point) "ID")
+                (dolist (p (org-entry-properties (point) 'standard))
+                  (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                    (push (car p) found))))))
+           (when found
+             (format "%s: %s" (file-name-nondirectory file)
+                     (string-join (seq-uniq found) ", "))))))
+     "Previewing property conversion"
+     (lambda (results)
+       (let ((report (delq nil results)))
+         (if report
+             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
+               (erase-buffer)
+               (insert (string-join report "\n"))
+               (goto-char (point-min))
+               (display-buffer (current-buffer)))
+           (message "Nothing would be converted -- every property found is blocklisted.")))))))
 
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
-file Vulpea currently knows about, saving each one. This edits
-and saves your entire note collection -- run
+file Vulpea's db reports as having something convertible (see
+`sia-vulpea--files-with-convertible-properties' -- files with
+nothing to do are never opened), saving each one. This edits and
+saves potentially a large part of your note collection -- run
 `sia-vulpea-preview-convert-all-notes-properties' first, and back
 up your notes (or commit, if under version control) before
 running this, especially with KEEP-ORIGINAL nil (the default),
-which deletes each converted property from its drawer as it goes."
+which deletes each converted property from its drawer as it goes.
+Runs without freezing Emacs, with a live progress count and ETA
+in the echo area -- see `sia-vulpea--process-files-async'.
+
+When finished, opens a report buffer (in `org-mode', so the
+links are clickable via `org-open-at-point') listing every
+converted node as a \"- [[id:...][Title]]\" line -- see
+`sia-vulpea--insert-converted-report'."
   (interactive "P")
   (unless (y-or-n-p "This will edit and save every Vulpea note. Continue? ")
     (user-error "Aborted"))
-  (let* ((files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
-         (total 0))
-    (dolist (file files)
-      (with-current-buffer (find-file-noselect file)
-        (setq total (+ total (sia-vulpea-convert-buffer-properties-to-meta keep-original)))))
-    (message "Converted properties across %d node%s in %d note file%s"
-             total (if (= total 1) "" "s")
-             (length files) (if (= (length files) 1) "" "s"))))
+  (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+         (files (sia-vulpea--files-with-convertible-properties)))
+    (if (null files)
+        (message "Nothing to convert -- no notes have any non-blocklisted properties, per Vulpea's db.")
+      (message "Pre-filter (via Vulpea's db): converting %d of %d note file%s."
+                (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
+      (sia-vulpea--process-files-async
+       files
+       (lambda (_file) (sia-vulpea-convert-buffer-properties-to-meta keep-original))
+       "Converting properties"
+       (lambda (results)
+         (let* ((converted-nodes (apply #'append results))
+                (total (length converted-nodes))
+                (file-count (length (seq-remove #'null results))))
+           (message "Converted properties on %d node%s across %d note file%s"
+                     total (if (= total 1) "" "s")
+                     file-count (if (= file-count 1) "" "s"))
+           (with-current-buffer (get-buffer-create "*vulpea property conversion report*")
+             (erase-buffer)
+             (org-mode)
+             (insert (format "* Converted %d node%s\n\n"
+                              total (if (= total 1) "" "s")))
+             (sia-vulpea--insert-converted-report converted-nodes)
+             (goto-char (point-min))
+             (display-buffer (current-buffer)))))))))
 
 (keymap-global-set "C-c w c" #'sia-vulpea-convert-properties-at-point)
 
