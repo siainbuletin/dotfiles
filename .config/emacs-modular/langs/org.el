@@ -1,0 +1,127 @@
+;; -*- lexical-binding: t; -*-
+(use-package org
+  :ensure nil
+  :defer t
+  :bind
+  (:map org-mode-map
+        ("C-c ." . 'org-time-stamp))
+  :hook
+  (org-mode . siapip/org-setup-deadline-highlighting)
+  :config
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((shell . t)))
+  (setq org-confirm-babel-evaluate nil
+        org-hide-emphasis-markers t
+        org-todo-keywords '((sequence "TODO" "WAITING" "DOING" "|" "DONE" "CANCELLED"))
+        org-modern-todo-faces '(("TODO" :foreground "white" :background "darkgreen" :weight bold)
+                                ("DOING" :foreground "white" :background "orange" :weight bold)
+                                ("WAITING" :foreground "white" :background "blue"))))
+
+(use-package org-journal
+  :defer t
+  :bind
+  (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))
+   ("C-M-S-i" . (lambda () (interactive) (org-journal-new-entry nil))))
+  :init
+  (setq org-journal-dir "~/org/journal"
+        org-journal-date-format "%Y-%m-%d"
+        org-journal-enable-agenda-integration t
+        org-journal-carryover-items "TODO={TODO\\|WAITING\\|DOING}"))
+
+;;(use-package ox-search
+;;  :ensure nil
+;;  :hook (org-mode . ox-search-mode))
+
+(use-package org-node
+  :hook (after-init . org-node-cache-mode))
+
+(use-package org-modern
+  :defer t
+  :hook ((org-mode . org-modern-mode)))
+
+(use-package org-appear
+  :hook (org-mode . org-appear-mode))
+
+(defun org-babel-nushell--list-includes (params)
+  "Extract values from all :include keys in PARAMS alist."
+  (let ((result nil))
+    (dolist (pair params result)
+      (when (and (consp pair)
+                 (eq (car pair) :include))
+        (push (cdr pair) result)))))
+
+(defun org-babel-nushell--read-includes (params)
+  "Read all includes"
+  (let ((result '()))
+    (dolist (name (org-babel-nushell--list-includes params))
+      (let ((block-position (org-babel-find-named-block name)))
+        (when block-position
+          (save-excursion
+            (goto-char block-position)
+            (let ((data (org-babel-get-src-block-info)))
+              (when data
+                (push (nth 1 data) result)))))))
+    (string-join (nreverse result) "\n")))
+
+(defun org-babel-nushell-var-to-nushell (params)
+  (format "let $%s = %s" (car params) (json-encode (cdr params))))
+
+(defcustom org-babel-nushell-eval-shell-file-name "/bin/sh"
+  "Shell executable used by `org-babel-eval' to execute Nushell source blocks.
+This shell is used to execute the Nushell command."
+  :type 'string
+  :group 'siapip)
+
+(defun org-babel-execute:nushell (body params)
+  "Execute a block of nushell code"
+  (let* ((shell-file-name org-babel-nushell-eval-shell-file-name)
+         (cmd (or (cdr (assoc :cmd params)) "nu"))
+         (args (or (cdr (assoc :args params)) "-c"))
+         (vars (mapcar
+                'org-babel-nushell-var-to-nushell
+                (org-babel--get-vars params)))
+         (included-code (org-babel-nushell--read-includes params))
+         (code (string-join (list (or included-code "") (org-babel-chomp body)) "\n"))
+         (full-code (if vars
+                        (concat (string-join vars "\n") "\n" code)
+                      code))
+         (command (format "%s %s %s" cmd args (shell-quote-argument full-code))))
+    (org-babel-eval command "")))
+
+(defun org-babel-execute:jinja (body params)
+  "Execute a jinja2 template"
+  (let* ((script (shell-quote-argument "import sys, jinja2 as j2; print(j2.Template(sys.argv[1]).render())"))
+         (code (shell-quote-argument (org-babel-chomp body)))
+         (command (format "python3 -c %s %s" script code)))
+    (org-babel-eval command "")))
+
+(defface siapip/org-deadline-highlight
+  '((t . (:background "#4c1f24")))
+  "Highlight face for today's deadlines")
+
+(defun siapip/org-highlight-todays-deadlines ()
+  "Highlight headlines with a deadline of today or earlier in Org mode."
+  (interactive)
+  (remove-overlays (point-min) (point-max) 'siapip/deadline t)
+  (let ((today (calendar-absolute-from-gregorian (calendar-current-date))))
+    (org-element-map (org-element-parse-buffer 'headline) 'headline
+      (lambda (hl)
+        (when-let* ((deadline     (org-element-property :deadline hl))
+                    (year         (org-element-property :year-start deadline))
+                    (month        (org-element-property :month-start deadline))
+                    (day          (org-element-property :day-start deadline))
+                    (deadline-abs (calendar-absolute-from-gregorian (list month day year))))
+          (when (and (not (eq (org-element-property :todo-type hl) 'done))
+                     (<= deadline-abs today))
+            (let* ((start (org-element-property :begin hl))
+                   (end (save-excursion (goto-char start) (line-end-position)))
+                   (ov (make-overlay start end)))
+              (overlay-put ov 'siapip/deadline t)
+              (overlay-put ov 'face 'siapip/org-deadline-highlight))))))))
+
+(defun siapip/org-setup-deadline-highlighting ()
+  (add-hook 'after-save-hook #'siapip/org-highlight-todays-deadlines nil t)
+  (siapip/org-highlight-todays-deadlines))
+
+(siapip/load '("./ext/ox-confluence/ox-confluence"))

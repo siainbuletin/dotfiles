@@ -1,0 +1,18 @@
+;; -*- lexical-binding: t; -*-
+(let ((customization-file (expand-file-name "custom.el"
+                                            (file-name-directory
+                                             (directory-file-name
+                                              (file-name-directory (or load-file-name
+                                                                       buffer-file-name)))))))
+  (if (file-exists-p customization-file)
+      (progn
+        (message "Using custom file: %s" customization-file)
+        (setq custom-file customization-file)
+        (load custom-file 'noerror))
+    (progn
+      (message "Using default custom file location: %s" custom-file))))
+
+(defgroup siapip nil
+  "Configuration options for siapip Emacs setup."
+  :prefix "siapip/"
+  :group 'convenience)

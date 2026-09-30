@@ -1,0 +1,28 @@
+backups/
+elfeed/
+eln-cache/
+elpa/
+elpaca/
+eshell/
+transient/
+url/ 
+
+# I actually don't know what the url/ directory is for
+
+# files created by emacs
+tramp
+elgrep-data.el
+recentf
+never
+
+# files needed for the note-taking process
+.org-id-locations
+*/.org-id-locations
+vulpea.db
+.vorg.db
+
+# files created during the tangling process
+temp.org
+
+# backups of configuration files
+*.org#
