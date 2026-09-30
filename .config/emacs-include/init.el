@@ -3717,7 +3717,9 @@ was inserted from."
   '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
     "ROAM_EXCLUDE" "ROAM_PLANNING" "BLOCKER" "TRIGGER" "ORDERED"
     "COOKIE_DATA" "LOG_INTO_DRAWER" "LOGGING" "VISIBILITY"
-    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED")
+    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED" ;; by ai
+    "CREATED" ;; necessary for org-node to work well
+    )
   "Property names never converted to meta lines (case-insensitive).
 These are properties Org, org-roam, or Vulpea itself read
 directly out of the property drawer -- converting them to meta
@@ -3856,34 +3858,49 @@ point\"."
           (file-name-nondirectory (or (buffer-file-name) "")))
     (org-get-heading t t t t)))
 
-(defun sia-vulpea--convertible-note-p (note)
-  "Non-nil if NOTE, as Vulpea's db currently has it, has at least
-one drawer property not in `sia-vulpea-convert-property-blocklist'
-with a non-empty value."
-  (cl-some (lambda (prop)
-             (and (not (member (upcase (car prop)) sia-vulpea-convert-property-blocklist))
-                  (cdr prop)
-                  (not (string-empty-p (cdr prop)))))
-           (vulpea-note-properties note)))
+(defun sia-vulpea--file-has-convertible-properties-p (file)
+  "Non-nil if FILE's raw text contains at least one property-drawer
+line whose name isn't in `sia-vulpea-convert-property-blocklist'
+and whose value is non-empty.
+
+This is a fast, structure-agnostic text scan -- no `org-mode', no
+Vulpea db -- meant only as a pre-filter before the real,
+buffer-based conversion. It doesn't require FILE to actually be
+visited or parsed as Org, just read as text, which is what makes
+it cheap. A false positive here (matching something that isn't
+really inside a drawer) just means a file gets opened for
+nothing during the real pass, which is harmless -- so the regex
+doesn't need to be a perfect drawer parser, only a conservative
+one that never produces a false *negative*."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (catch 'found
+      (while (re-search-forward
+              "^[ \t]*:\\([A-Za-z_][A-Za-z0-9_-]*\\):[ \t]+\\(.+\\)$" nil t)
+        (let ((name (match-string 1)) (value (match-string 2)))
+          (unless (or (member (upcase name) '("PROPERTIES" "END"))
+                      (member (upcase name) sia-vulpea-convert-property-blocklist)
+                      (string-empty-p (string-trim value)))
+            (throw 'found t))))
+      nil)))
 
 (defun sia-vulpea--files-with-convertible-properties ()
-  "Return the subset of all Vulpea note files with at least one node
-(file-level or heading) that has a convertible property,
-according to Vulpea's db as of its last sync.
+  "Return the subset of all Vulpea note files with at least one
+convertible property, found via a fast raw-text pre-scan of each
+file (see `sia-vulpea--file-has-convertible-properties-p').
 
-This is a pre-filter only, to avoid opening and scanning files
-that have nothing to do -- the actual conversion still re-reads
-each kept file's live buffer via `org-entry-properties', which
-stays the source of truth for what gets converted. If a note's
-drawer changed since the last `vulpea-db-sync' and hasn't been
-re-indexed yet, this could (rarely) skip a file the direct scan
-would have caught; since `vulpea-db-sync' is set to auto, that
-window should stay small."
-  (let ((table (make-hash-table :test #'equal)))
-    (dolist (note (vulpea-db-query))
-      (when (sia-vulpea--convertible-note-p note)
-        (puthash (vulpea-note-path note) t table)))
-    (let (files) (maphash (lambda (k _v) (push k files)) table) files)))
+This deliberately does NOT go through Vulpea's db -- Vulpea
+doesn't expose property-drawer contents through its own note
+data, so filtering that way never actually worked (every note
+came back with nothing convertible, regardless of what was
+really in the file, and no amount of `vulpea-db-sync-full-scan'
+would have changed that). This is a pre-filter only: the actual
+conversion still re-reads each kept file's live buffer via
+`org-entry-properties', which remains the source of truth for
+what gets converted."
+  (seq-filter #'sia-vulpea--file-has-convertible-properties-p
+              (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query)))))
 
 (defun sia-vulpea--insert-converted-report (nodes)
   "Insert one Org line per (ID . TITLE) in NODES, as a clickable
@@ -3997,8 +4014,8 @@ progress count and ETA in the echo area -- see
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
          (files (sia-vulpea--files-with-convertible-properties)))
     (if (null files)
-        (message "Nothing would be converted -- no notes have any non-blocklisted properties, per Vulpea's db.")
-      (message "Pre-filter (via Vulpea's db): scanning %d of %d note file%s."
+        (message "Nothing would be converted -- no notes have any non-blocklisted properties.")
+      (message "Pre-filter (raw-text scan): scanning %d of %d note file%s."
                 (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
       (sia-vulpea--process-files-async
        files
@@ -4028,21 +4045,22 @@ progress count and ETA in the echo area -- see
                (insert (string-join report "\n"))
                (goto-char (point-min))
                (display-buffer (current-buffer)))
-           (message "Nothing would be converted -- every property found is blocklisted.")))))))
+           (message "Nothing would be converted -- every property found is blocklisted."))))))))
 
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
   "Convert drawer properties to meta lines across every Vulpea note.
 Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
-file Vulpea's db reports as having something convertible (see
-`sia-vulpea--files-with-convertible-properties' -- files with
-nothing to do are never opened), saving each one. This edits and
-saves potentially a large part of your note collection -- run
-`sia-vulpea-preview-convert-all-notes-properties' first, and back
-up your notes (or commit, if under version control) before
-running this, especially with KEEP-ORIGINAL nil (the default),
-which deletes each converted property from its drawer as it goes.
-Runs without freezing Emacs, with a live progress count and ETA
-in the echo area -- see `sia-vulpea--process-files-async'.
+file a fast raw-text pre-scan finds has something convertible
+(see `sia-vulpea--files-with-convertible-properties' -- files
+with nothing to do are never opened as Org buffers), saving each
+one. This edits and saves potentially a large part of your note
+collection -- run `sia-vulpea-preview-convert-all-notes-properties'
+first, and back up your notes (or commit, if under version
+control) before running this, especially with KEEP-ORIGINAL nil
+(the default), which deletes each converted property from its
+drawer as it goes. Runs without freezing Emacs, with a live
+progress count and ETA in the echo area -- see
+`sia-vulpea--process-files-async'.
 
 When finished, opens a report buffer (in `org-mode', so the
 links are clickable via `org-open-at-point') listing every
@@ -4054,8 +4072,8 @@ converted node as a \"- [[id:...][Title]]\" line -- see
   (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
          (files (sia-vulpea--files-with-convertible-properties)))
     (if (null files)
-        (message "Nothing to convert -- no notes have any non-blocklisted properties, per Vulpea's db.")
-      (message "Pre-filter (via Vulpea's db): converting %d of %d note file%s."
+        (message "Nothing to convert -- no notes have any non-blocklisted properties.")
+      (message "Pre-filter (raw-text scan): converting %d of %d note file%s."
                 (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
       (sia-vulpea--process-files-async
        files
@@ -4081,3 +4099,105 @@ converted node as a \"- [[id:...][Title]]\" line -- see
 
 (provide 'sia-vulpea-convert-properties)
 ;;; sia-vulpea-convert-properties.el ends here
+
+;; Grouping backlinks based on the property that it's representing
+
+;;; sia-vulpea-grouped-backlinks.el --- Backlinks grouped by mention vs meta-property key -*- lexical-binding: t; -*-
+
+;; What this does: for a given note, finds every other note linking
+;; to it, and sorts each link into either "Mentions" (a plain inline
+;; or body-text [[id:...]] link) or a group named after the meta
+;; property it was found in -- e.g. a note with
+;;   - pub-author :: [[id:...][Christopher Arthur]]
+;; contributes to a "pub-author" group when you look at Christopher
+;; Arthur's backlinks, distinct from any note that just mentions him
+;; in passing prose.
+;;
+;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
+;; docstrings below for why, and `sia-vulpea-classify-backlinks' for
+;; the one point of Vulpea API I couldn't fully confirm.
+
+(require 'vulpea)
+(require 'org)
+(require 'sia-vulpea-dblock) ; for sia-vulpea-select-note
+
+(defun sia-vulpea--line-meta-key-at (file pos)
+  "If POS in FILE sits on a \"- KEY :: ...\" meta line, return KEY.
+Otherwise return nil, meaning this link sits in plain prose (a
+heading, a paragraph, anywhere that isn't a meta description-list
+entry) rather than a structured meta property."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char pos)
+      (beginning-of-line)
+      (if (looking-at "^[ \t]*-[ \t]+\\([A-Za-z0-9_-]+\\)[ \t]+::[ \t]")
+          (match-string 1)
+        nil))))
+
+(defun sia-vulpea-classify-backlinks (id)
+  "Return an alist of (GROUP . NOTES) for every note linking to ID.
+GROUP is \"Mentions\" for a plain inline/body link, or the
+meta-property key name (e.g. \"pub-author\") for a link found on
+a \"- KEY :: [[id:...]]\" line -- see `sia-vulpea--line-meta-key-at'.
+NOTES is a deduplicated list of `vulpea-note' structs: the source
+of each such link.
+
+This relies on `vulpea-db-query-links-to' returning link plists
+with at least :source (a note ID) and :pos (a buffer position in
+the source file). I've seen this shape referenced in Vulpea's own
+db/changelog material, but haven't been able to confirm it
+against a live Emacs session -- if this errors for you, `C-h f
+vulpea-db-query-links-to' will show the real return shape, and
+the two `plist-get' calls below are the only things that would
+need adjusting."
+  (let ((groups (make-hash-table :test #'equal)))
+    (dolist (link (vulpea-db-query-links-to id))
+      (let* ((source-id (plist-get link :source))
+             (pos (plist-get link :pos))
+             (source-note (and source-id (vulpea-db-get-by-id source-id))))
+        (when (and source-note pos)
+          (let* ((key (sia-vulpea--line-meta-key-at (vulpea-note-path source-note) pos))
+                 (group (or key "Mentions")))
+            (puthash group (cons source-note (gethash group groups)) groups)))))
+    (let (result)
+      (maphash
+       (lambda (group notes)
+         (push (cons group
+                     (seq-uniq notes (lambda (a b)
+                                       (equal (vulpea-note-id a) (vulpea-note-id b)))))
+               result))
+       groups)
+      result)))
+
+(defun sia-vulpea-show-grouped-backlinks (&optional note)
+  "Show backlinks to NOTE, grouped into \"Mentions\" plus one section
+per meta-property key they were found under (see
+`sia-vulpea-classify-backlinks'). Prompts for NOTE, via
+`sia-vulpea-select-note' (tag-annotated completion), if not given.
+
+Each entry is a real, clickable [[id:...][Title]] link back to
+the note that made the reference -- opened in `org-mode' so
+`org-open-at-point' works on them, same pattern as the property-
+conversion report."
+  (interactive)
+  (let* ((note (or note (sia-vulpea-select-note "Show backlinks for: ")))
+         (groups (sia-vulpea-classify-backlinks (vulpea-note-id note))))
+    (with-current-buffer (get-buffer-create
+                           (format "*vulpea backlinks: %s*" (vulpea-note-title note)))
+      (erase-buffer)
+      (org-mode)
+      (insert (format "* Backlinks to %s\n\n" (vulpea-note-title note)))
+      (if (null groups)
+          (insert "No backlinks found.\n")
+        (dolist (group (sort groups (lambda (a b) (string< (car a) (car b)))))
+          (insert (format "** %s (%d)\n" (car group) (length (cdr group))))
+          (dolist (n (cdr group))
+            (insert (format "- %s\n"
+                            (org-link-make-string (concat "id:" (vulpea-note-id n))
+                                                   (vulpea-note-title n)))))
+          (insert "\n")))
+      (goto-char (point-min))
+      (display-buffer (current-buffer)))))
+
+(provide 'sia-vulpea-grouped-backlinks)
+;;; sia-vulpea-grouped-backlinks.el ends here
