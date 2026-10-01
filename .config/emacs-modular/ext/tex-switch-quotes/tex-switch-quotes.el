@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 (defadvice tex-insert-quote (around tex-switch-quotes activate compile)
   "Insert german or english quotes by looking at the LaTeX context.
 

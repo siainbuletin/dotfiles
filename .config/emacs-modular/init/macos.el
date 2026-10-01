@@ -1,11 +1,9 @@
 ;; -*- lexical-binding: t; -*-
 
-;;; MACOS settings
+;; Settings specific to the MacOS environment.
 
 ;; This is so that I can actually use the CMD key as my Meta key.
-
 (setq mac-command-modifier 'meta)
-
 (setq mac-option-modifier 'none)
 
 ;; Open with a specific MacOS app
@@ -84,6 +82,8 @@
        :silent-success t))))
 
 ; Source - https://stackoverflow.com/a/4083987
+; Posted by hatmatrix
+; Retrieved 2026-03-29, License - CC BY-SA 2.5
 
 (when (eq system-type 'darwin)
   (require 'ls-lisp)

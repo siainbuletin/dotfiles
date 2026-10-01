@@ -36,17 +36,14 @@
 
 (setq tab-bar-show nil)
 
-(use-package perspective
-  :ensure t
-  :bind
-  ("C-x k" . persp-kill-buffer*) ; this basically replaces the built-in kill buffer command
-  :custom
-  (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
-  :init
-  (persp-mode))
-
 (use-package ace-window
-  :ensure t)
+  :ensure t
+  :demand t
+  :custom
+  (aw-dispatch-always t)
+  (aw-dispatch-when-more-than 0)
+  :bind
+  (("C-x o" . ace-window)))
 
 (defun transpose-buffers (arg)
   "Transpose the buffers shown in two windows."
@@ -120,3 +117,47 @@
     (kill-buffer)               ;; Kill the current buffer
     (when (window-live-p window) ;; Check if the window is still live
       (delete-window))))         ;; Delete the window if it exists
+
+(defvar siapip/window-toggle-fullscreen:state nil)
+(defun siapip/window-toggle-fullscreen ()
+  (interactive)
+  (if siapip/window-toggle-fullscreen:state
+      (progn
+        (winner-undo)
+        (setq siapip/window-toggle-fullscreen:state nil))
+    (progn
+      (delete-other-windows)
+      (setq siapip/window-toggle-fullscreen:state t))))
+(when (boundp 'winner-mode)
+  (winner-mode t))
+(global-set-key (kbd "S-<f11>") 'siapip/window-toggle-fullscreen)
+
+(use-package buffer-move
+  :bind
+  (("C-M-S-<up>"    . buf-move-up)
+   ("C-M-S-<down>"  . buf-move-down)
+   ("C-M-S-<left>"  . buf-move-left)
+   ("C-M-S-<right>" . buf-move-right)))
+
+;; (use-package persp-mode
+;;   :ensure t
+;;   :demand t
+;;   :custom
+;;   (wg-morph-on nil)
+;;   (persp-autokill-buffer-on-remove 'kill-weak)
+;;   (persp-auto-resume-time -1.0)
+;;   (persp-emacsclient-init-frame-behaviour-override nil)
+;;   (persp-nil-name "main")
+;;   :init
+;;   (persp-mode t)
+;;   :config
+;;   (persp-set-keymap-prefix (kbd "C-c P")))
+
+;; (use-package perspective
+;;   :ensure t
+;;   :bind
+;;   ("C-x k" . persp-kill-buffer*) ; this basically replaces the built-in kill buffer command
+;;   :custom
+;;   (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
+;;   :init
+;;   (persp-mode))

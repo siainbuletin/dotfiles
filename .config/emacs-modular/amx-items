@@ -7,7 +7,6 @@
  arp
  dbx
  dig
- eat
  erc
  ert
  eww
@@ -15,14 +14,12 @@
  gdb
  irc
  jdb
- lsp
  man
  mpc
  pdb
  pwd
  rsh
  sdb
- sly
  xdb
  calc
  diff
@@ -51,6 +48,9 @@
  ediff
  edirs
  eglot
+ try
+ eldoc
+ hanoi
 )
 
 ;; ----- amx-data -----

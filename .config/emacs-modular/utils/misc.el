@@ -40,34 +40,9 @@ editing. The default location is in the .emacs.d directory."
 ;; Yes or no short
 (defalias 'yes-or-no-p 'y-or-n-p)
 
-;;Just kill buffer without asking
-(global-set-key (kbd "C-M-<escape>") (lambda () (interactive) (kill-emacs)))
-(global-set-key (kbd "C-M-S-q") (lambda () (interactive) (kill-this-buffer)))
-(global-set-key (kbd "C-M-S-w") (lambda () (interactive)
-                                  (kill-this-buffer)
-                                  (if (equal 1 (length (window-list)))
-                                      (delete-frame)
-                                    (delete-window))))
-(global-set-key (kbd "C-x k") (lambda () (interactive) (kill-this-buffer)))
-(global-set-key (kbd "C-M-<up>") (lambda () (interactive)
-                                   (set-face-attribute 'default nil :height (+ (face-attribute 'default :height) 5))))
-(global-set-key (kbd "C-M-<down>") (lambda () (interactive)
-                                     (set-face-attribute 'default nil :height (- (face-attribute 'default :height) 5))))
-(global-set-key (kbd "C-+") 'text-scale-increase)
-(global-set-key (kbd "C--") 'text-scale-decrease)
-(global-set-key (kbd "C-M-S-u") 'rename-uniquely)
-(global-set-key (kbd "C-M-z C-e") 'eval-region)
-(global-set-key (kbd "C-M-z C-M-e") 'eval-buffer)
-(global-set-key (kbd "C-M-S-c") 'find-emacs-config)
-(global-set-key (kbd "C-M-S-z") 'cmake-ide-compile)
-(defun find-emacs-config ()
-  "Open the emacs configuration file"
-  (interactive)
-  (find-file "~/.emacs.d/siapip/siapip-emacs.el"))
-
 ;; Selection/Clipboard improvements
 (delete-selection-mode t)
-(transient-mark-mode t)
+;; (transient-mark-mode t)
 (setq x-select-enable-clipboard t)
 (setq mouse-yank-at-point t)
 ;;focus follow mouse
@@ -137,87 +112,18 @@ editing. The default location is in the .emacs.d directory."
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
 
-(use-package which-key
-  :demand t
-  :init
-  (setq which-key-idle-delay 0.3)
-  (setq which-key-sort-order 'which-key-key-order-alpha)
-  (setq which-key-max-description-length 40)
-  :config
-  (which-key-mode 1))
-
-(use-package ace-window
-  :demand t
-  :custom
-  (aw-dispatch-always t)
-  (aw-dispatch-when-more-than 0)
-  :bind
-  (("C-x o" . ace-window)))
-
-(defvar siapip/window-toggle-fullscreen:state nil)
-(defun siapip/window-toggle-fullscreen ()
-  (interactive)
-  (if siapip/window-toggle-fullscreen:state
-      (progn
-        (winner-undo)
-        (setq siapip/window-toggle-fullscreen:state nil))
-    (progn
-      (delete-other-windows)
-      (setq siapip/window-toggle-fullscreen:state t))))
-(when (boundp 'winner-mode)
-  (winner-mode t))
-(global-set-key (kbd "S-<f11>") 'siapip/window-toggle-fullscreen)
-
-(use-package buffer-move
-  :bind
-  (("C-M-S-<up>"    . buf-move-up)
-   ("C-M-S-<down>"  . buf-move-down)
-   ("C-M-S-<left>"  . buf-move-left)
-   ("C-M-S-<right>" . buf-move-right)))
-
 (use-package git-gutter
   :ensure t
   :config
   (global-git-gutter-mode t)
   (setq git-gutter:update-interval 0.2))
 
-(use-package all-the-icons
-  :ensure t
-  :demand t)
-
-(use-package refine)
-(use-package function-args)
-(use-package stickyfunc-enhance)
-
-(use-package embark
-  :ensure t
-  :bind
-  (("C-." . embark-act)
-   ("C-;" . embark-dwim)))
-(use-package embark-consult
-  :ensure t
-  :after (embark consult))
-
 (use-package avy
   :ensure t
   :demand t
   :bind (("C-:" . avy-goto-char)
          ("C-M-:" . avy-goto-char-timer)))
-
-(use-package persp-mode
-  :ensure t
-  :demand t
-  :custom
-  (wg-morph-on nil)
-  (persp-autokill-buffer-on-remove 'kill-weak)
-  (persp-auto-resume-time -1.0)
-  (persp-emacsclient-init-frame-behaviour-override nil)
-  (persp-nil-name "main")
-  :init
-  (persp-mode t)
-  :config
-  (persp-set-keymap-prefix (kbd "C-c P")))
-
+         
 (global-set-key
  (kbd "C-c b")
  (lambda ()
@@ -231,21 +137,17 @@ editing. The default location is in the .emacs.d directory."
 
 (use-package origami
   :ensure t
+  :after s
   :defer t
   :config
   (global-origami-mode t))
 
+(use-package f
+  :ensure t)
+
 (use-package envrc
   :ensure t
   :hook (after-init . envrc-global-mode))
-
-(use-package shackle
-  :custom
-  (shackle-rules
-   '((org-journal-mode :same t)
-     (magit-status-mode :same t :inhibit-window-quit t)))
-  :config
-  (shackle-mode t))
 
 (add-hook 'compilation-filter-hook
           (lambda ()

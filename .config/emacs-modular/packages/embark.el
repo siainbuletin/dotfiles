@@ -11,4 +11,6 @@
   (setq prefix-help-command #'embark-prefix-help-command))
 
 (use-package embark-consult
-  :ensure t)
+  :ensure t
+  :after (embark consult))
+

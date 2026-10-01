@@ -13,9 +13,9 @@
     (progn
       (message "Using default custom file location: %s" custom-file))))
 
-(defgroup siapip nil
-  "Configuration options for siapip Emacs setup."
-  :prefix "siapip/"
+(defgroup siaopts nil
+  "Configuration options for Sia's Emacs setup."
+  :prefix "siaopts/"
   :group 'convenience)
 
 (custom-set-variables

@@ -84,27 +84,32 @@
 
 ;; ai.el
 
-;; org-db.el
-
 ;; vulpea-eco.el
 
 ;; ENVIRONMENT VARIABLES - see env.el
 
-;; EXTRACT FUNCTION
-
-(require 'sia-move-region-to-heading)
-
-;; Create dataview-like tables through the vulpea query system
-(require 'sia-vulpea-dblock)
-(require 'sia-vulpea-vui-table)
-(require 'sia-vulpea-table-views)
-
-;; Batch converting properties to plug into vulpea instead
-
-(require 'sia-vulpea-convert-properties)
-
-;; Grouping backlinks based on the property that it's representing
-
-(require 'sia-vulpea-grouped-backlinks)
+;; the rest of the functions can be found in the /functions/ folder
 
 ;; textui.el
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(bibtex-aux-opt-alist
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
+ '(custom-safe-themes
+   '("acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
+     "f2f42f0b7c53736840fc3ff5751235e3b87cc535b04ddaf3423e2926548bfbb4"
+     default))
+ '(sia/modeline 'lambda-line))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(org-default ((t (:background "#F0B609" :inherit default))))
+ '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
+ '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
+ '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))

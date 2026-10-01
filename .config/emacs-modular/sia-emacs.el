@@ -23,11 +23,25 @@
    "./init/package"
    "./init/encoding" ;; text encoding
    "./init/essential" ;; this represents essential functions
-   "./init/snippets" ;; snippet management
-   "./init/custom"
-   "./init/gui"
    "./init/env"
+   "./init/custom" ;; this is for the ~customize~ buffer
+   "./init/gui"
+   "./init/macos.el" ;; MacOS specific settings
    "./init/exwm" ;; see whether you're going to combine this with regular window management
+   "./init/snippets" ;; snippet management
+   ))
+
+;; misc modules (utility)
+
+(siapip/load
+ '("./utils/exec-path-from-shell"
+   "./utils/minibuffer"
+   "./utils/indention"
+   "./utils/replace-with-shell"
+   "./utils/misc"
+   ;; "./utils/modeline-choose"
+   "./utils/lambda-line"
+   ;; "./utils/extended-command"
    ))
 
 ;; package loading
@@ -37,7 +51,6 @@
     "./packages/minibuffer-packs"
     "./packages/embark" 
     "./packages/counsel-recoll" 
-    "./packages/essential-packs"
     "./packages/consult-snapfile"
     "./packages/keys"
     "./packages/dired-conf"
@@ -50,11 +63,10 @@
     "./packages/academic"
     "./packages/reading"
     "./packages/projects"
-    "./packages/latex"
     "./packages/help"
     "./packages/browsing"
-    "./packages/vc"
-    "./packages/icons"
+    "./packages/vcontrol"
+    "./packages/icon-config"
     "./packages/rss"
     "./packages/fonts"
     "./packages/taskman"
@@ -65,44 +77,10 @@
     "./packages/terminal"
     "./packages/http"
     "./packages/ai"
-    "./packages/org-db"
-    "./packages/vulpea-eco"
+    "./packages/vulpea-base"
   ))
 
-;; loading different modules
-
-(siapip/load
- '("./utils/exec-path-from-shell"
-   "./utils/minibuffer"
-   "./utils/indention"
-   "./utils/replace-with-shell"
-   "./utils/misc"
-   "./utils/vterm"
-   "./utils/eat-terminal"
-   "./utils/modeline"
-   "./utils/multiple-cursors"
-   "./utils/extended-command"))
-
-;; language modules
-
-(siapip/load
- '("./langs/common"
-   "./langs/plantuml"
-   "./langs/lisp"
-   "./langs/go"
-   "./langs/c"
-   "./langs/python"
-   "./langs/rust"
-   "./langs/org"
-   "./langs/xml"
-   "./langs/nix"
-   "./langs/misc"))
-
-(siapip/load "./langs/latex")
-
-(siapip/load
- '("./ext/tex-switch-quotes/tex-switch-quotes"
-   "./ext/misc/hl-line+"))
+;; functions I wrote
 
 (siapip/load
   '("./functions/sia-move-region-to-heading.el"
@@ -111,3 +89,30 @@
     "./functions/sia-vulpea-grouped-backlinks.el"
     "./functions/sia-vulpea-table-views.el"
     "./functions/sia-vulpea-vui-table.el"))
+
+;; Calling functions later on
+
+(siapip/load
+  '("./packages/vulpea-extensions" ;; needs the functions that I called earlier
+  ))
+
+;; language modules
+
+(siapip/load
+ '("./langs/common"
+   ;; "./langs/plantuml"
+   ;; "./langs/lisp"
+   ;; "./langs/go"
+   ;; "./langs/c"
+   ;; "./langs/python"
+   ;; "./langs/rust"
+   ;; "./langs/xml"
+   ;; "./langs/nix"
+   ;; "./langs/misc" currently disabled, as there's several packages that conflict with something else that I have on the system
+   "./langs/latex"
+   ))
+
+(siapip/load
+ '("./ext/tex-switch-quotes/tex-switch-quotes"
+   "./ext/misc/hl-line+"))
+

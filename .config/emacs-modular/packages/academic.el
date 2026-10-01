@@ -1,5 +1,9 @@
 ;; -*- lexical-binding: t; -*-
 
+;; This file should deal with bibliography management, as well as provide
+;; guidance for where the files should be found. In the future, I want some
+;; sort of DEVONthink integration that's genuinely useful.
+
 (defgroup ews ()
   "Emacs Writing Studio."
   :group 'files
@@ -195,19 +199,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
          (org-cite-activate-processor 'citar)
          (citar-bibliography sia-bibtex-files)
 
-         (citar-templates
-'((main . "${author editor:30}   ${date year issued:4}    ${title:110}")
-  (suffix . "     ${=type=:20}    ${tags keywords keywords:*}")
-  (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
-  (note . "#+title: Notes on ${author editor}, ${title}") ; For new notes
-  ))
-;;      (citar-symbols
-;;       `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
-;;               ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
-;;         (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
-;;               ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
-;;         (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
-;;               ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
       (citar-symbol-separator "  ")
 
          :bind
@@ -228,8 +219,6 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
   )
 
 (setq citar-at-point-function 'embark-act)
-
-
 
 (use-package citar-denote
   :ensure (:wait t)

@@ -7,6 +7,9 @@
   (keymap-global-set "M-o n a" 'vulpea-buffer-alias-add)
 )
 
+(use-package vui
+  :ensure (:wait t))
+
 (setq vulpea-db-sync-directories '("~/notes/"))
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
@@ -254,50 +257,3 @@
               :tags (if (string-match-p "TODO" title)
                         '("task")
                       '("note")))))
-
-;; Integration with other packages
-
-(use-package consult-vulpea
-  :ensure (:wait t)
-  :after vulpea
-  :config
-  (consult-vulpea-mode 1)
-)
-
-(require 'vulpea-para)
-(vulpea-para-agenda-mode)
-
-(vulpea-para-setup-defaults)
-
-;; keep a cemetery (or anything) out of the agenda file list
-(setq vulpea-para-agenda-files-filter
-      (lambda (note)
-        (not (vulpea-note-tagged-any-p note "cemetery"))))
-
-;; Getting the custom agenda view for vulpea-para
-
-(setq org-agenda-custom-commands
-      `((" " "Agenda"
-         (,vulpea-para-agenda-cmd-refile
-          ,vulpea-para-agenda-cmd-today
-          ,vulpea-para-agenda-cmd-focus
-          ,vulpea-para-agenda-cmd-stuck-projects
-          ,vulpea-para-agenda-cmd-waiting
-          ,(vulpea-para-agenda-cmd-current-quarter)))))
-
-;; the Area > Project prefix in the agenda
-(setq org-agenda-prefix-format
-      '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
-        (todo   . " %(vulpea-para-agenda-category 36) ")))
-
-;; Other modules for vulpea
-
-;; (use-package vulpea-capf
-;;   :ensure (:wait t)
-;;   :hook (org-mode . vulpea-capf-mode)
-;;   )
-
-;; (setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
-;; (setq vulpea-capf-in-brackets t)
-
-;; (setq vulpea-capf-annotate-function t)

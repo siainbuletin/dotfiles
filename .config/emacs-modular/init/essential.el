@@ -1,9 +1,4 @@
-(defun reload-init-file ()
-  (interactive)
-  (load-file user-init-file))
-
-;; set shortcut for the reloading
-(keymap-global-set "<f5>" 'reload-init-file)
+;; -*- lexical-binding: t; -*-
 
 (defun sia-execute-all-buffers ()
   (interactive)
@@ -108,3 +103,22 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 ;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
 
 (setq warning-minimum-level :error)
+
+(use-package transient
+  :ensure t)
+
+(use-package p-search
+  :ensure (:host github :repo "zkry/p-search"))
+
+(use-package websocket
+  :ensure (:wait t)
+)
+
+(use-package helm
+    :ensure (:wait t))
+
+(use-package ess
+  :ensure t)
+
+(use-package taxy
+  :ensure t)

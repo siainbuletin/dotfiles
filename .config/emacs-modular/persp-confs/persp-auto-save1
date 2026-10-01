@@ -1,0 +1,427 @@
+;; -*- mode: emacs-lisp; eval: (progn (pp-buffer) (indent-buffer)) -*-
+((def-persp nil
+            ((def-buffer "20260725231100-thesis.org"
+                         "/Users/siainbuletin/notes/area/20260725231100-thesis.org"
+                         org-mode nil)
+             (def-buffer "[D] Disco Elysium"
+                         "/Users/siainbuletin/notes/20251214T200359--disco-elysium__game.org"
+                         org-mode nil)
+             (def-buffer "[D] Self-hosted music streamer"
+                         "/Users/siainbuletin/notes/20251221T021303--self-hosted-music-streamer__docs_workflow.org"
+                         org-mode nil)
+             (def-buffer "[D] Curs modernă importanța matematicii"
+                         "/Users/siainbuletin/notes/20250325T120000--curs-modernă-importanța-matematicii__course.org"
+                         org-mode nil)
+             (def-buffer "[D] Dual booting on desktop"
+                         "/Users/siainbuletin/notes/20251227T153518--dual-booting-on-desktop__linux_process.org"
+                         org-mode nil)
+             (def-buffer "[D] Nouă schemă compendium musicae"
+                         "/Users/siainbuletin/notes/20260604T192824--nouă-schemă-compendium-musicae__writing.org"
+                         org-mode nil)
+             (def-buffer "[D] Curs Timp - Bigelow și presentism"
+                         "/Users/siainbuletin/notes/20241017T160000--curs-timp-bigelow-și-presentism__course.org"
+                         org-mode nil)
+             (def-buffer "[D] obsidian-el"
+                         "/Users/siainbuletin/notes/20251117T175720--obsidian-el__package.org"
+                         org-mode nil)
+             (def-buffer "[D] Hegel and time"
+                         "/Users/siainbuletin/notes/20251220T133450--hegel-and-time__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Homo economicus"
+                         "/Users/siainbuletin/notes/20251203T124136--homo-economicus__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] A2S2 Pe urmele lui Marx"
+                         "/Users/siainbuletin/notes/20251205T041624--pe-urmele-lui-marx__dashboard.org"
+                         org-mode nil)
+             (def-buffer "[D] Scheduling"
+                         "/Users/siainbuletin/notes/20251215T002311--scheduling__concept_docs.org"
+                         org-mode nil)
+             (def-buffer "[D] material conditional"
+                         "/Users/siainbuletin/notes/20251124T170334--material-conditional__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Managing inboxes"
+                         "/Users/siainbuletin/notes/20251204T110449--managing-inboxes__process.org"
+                         org-mode nil)
+             (def-buffer "[D] Flash-modding my iPod 7th gen"
+                         "/Users/siainbuletin/notes/20251228T144741--flash-modding-my-ipod-7th-gen__hardware_ipod_log_project.org"
+                         org-mode nil)
+             (def-buffer "[D] beets"
+                         "/Users/siainbuletin/notes/20251210T221521--beets__software.org"
+                         org-mode nil)
+             (def-buffer "workflow.org<notes>"
+                         "/Users/siainbuletin/notes/workflow.org"
+                         org-mode nil)
+             (def-buffer "[D] version control"
+                         "/Users/siainbuletin/notes/20251206T173815--version-control__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Identity"
+                         "/Users/siainbuletin/notes/20251221T215616--identity__concept.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Zeița Aletheia despre existență, vorbind prin Parmenide"
+              "/Users/siainbuletin/notes/20251214T173207--zeița-aletheia-despre-existență-vorbind-prin-parmenide__zettel.org"
+              org-mode nil)
+             (def-buffer "[D] Camera Lucida"
+                         "/Users/siainbuletin/notes/20251207T233943--camera-lucida__book.org"
+                         org-mode nil)
+             (def-buffer "[D] Streaming's effect on music listening"
+                         "/Users/siainbuletin/notes/20251203T010550--streamings-effect-on-music-listening__thesis_zettel.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Compendium Musicae - Impactul lui Descartes asupra muzicii"
+              "/Users/siainbuletin/notes/20251214T165541--compendium-musicae-impactul-lui-descartes-asupra-muzicii__project_writing.org"
+              org-mode nil)
+             (def-buffer
+              "[D] Music streaming makes music disposable and deindividualised"
+              "/Users/siainbuletin/notes/20251203T022856--music-streaming-makes-music-disposable-and-deindividualised__thesis_zettel.org"
+              org-mode nil)
+             (def-buffer
+              "[D] Inboxing and indexing large collection of documents into personal DMS"
+              "/Users/siainbuletin/notes/20251204T110428--inboxing-and-indexing-large-collection-of-documents-into-personal-dms__workflow.org"
+              org-mode nil)
+             (def-buffer "personal.org<notes>"
+                         "/Users/siainbuletin/notes/personal.org"
+                         org-mode nil)
+             (def-buffer "[D] Arch Linux"
+                         "/Users/siainbuletin/notes/20251224T130547--arch-linux__distro_linux_operatingsystem.org"
+                         org-mode nil)
+             (def-buffer "[D] personal identity"
+                         "/Users/siainbuletin/notes/20251213T155153--personal-identity__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Clipboard management in Linux"
+                         "/Users/siainbuletin/notes/20251114T232044--clipboard-management-in-linux__docs.org"
+                         org-mode nil)
+             (def-buffer "[D] Temporal parts"
+                         "/Users/siainbuletin/notes/20251228T004408--temporal-parts__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Modernă seminar schopenhauer"
+                         "/Users/siainbuletin/notes/20250505T100000--modernă-seminar-schopenhauer__course.org"
+                         org-mode nil)
+             (def-buffer "[D] Thales"
+                         "/Users/siainbuletin/notes/20251214T173432--thales__person.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Devalorizarea artei în capitalismul de platformă"
+              "/Users/siainbuletin/notes/20251121T224525--devalorizarea-artei-în-capitalismul-de-platformă__zettel.org"
+              org-mode nil)
+             (def-buffer "[D] Counterpoint usages in pop music"
+                         "/Users/siainbuletin/notes/20260121T153908--counterpoint-usages-in-pop-music__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Morning routine"
+                         "/Users/siainbuletin/notes/20251230T185347--morning-routine__concept_management_personal.org"
+                         org-mode nil)
+             (def-buffer "hyrolo.org"
+                         "/Users/siainbuletin/notes/hyrolo.org"
+                         org-mode nil)
+             (def-buffer "university.org<notes>"
+                         "/Users/siainbuletin/notes/university.org"
+                         org-mode nil)
+             (def-buffer "[D] xeft"
+                         "/Users/siainbuletin/notes/20251223T233614--xeft__emacs_package.org"
+                         org-mode nil)
+             (def-buffer "[D] Flash mod for iPod"
+                         "/Users/siainbuletin/notes/20251225T125809--flash-mod-for-ipod__process.org"
+                         org-mode nil)
+             (def-buffer "[D] Running MacBook Pro 2018 as a server"
+                         "/Users/siainbuletin/notes/20251227T195600--running-macbook-pro-2018-as-a-server__hardware_project.org"
+                         org-mode nil)
+             (def-buffer "[D] GNU Hyperbole"
+                         "/Users/siainbuletin/notes/20251209T203344--gnu-hyperbole__software.org"
+                         org-mode nil)
+             (def-buffer "[D] The Pale and nothingness as longing"
+                         "/Users/siainbuletin/notes/20251220T140741--the-pale-and-nothingness-as-longing__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Immanent causation"
+                         "/Users/siainbuletin/notes/20251221T213905--immanent-causation__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Eternal return"
+                         "/Users/siainbuletin/notes/20260109T004017--eternal-return__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Notes are your thinking and writing"
+                         "/Users/siainbuletin/notes/20251213T230952--notes-are-your-thinking-and-writing__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Organising DJ libraries"
+                         "/Users/siainbuletin/notes/20251210T222718--organising-dj-libraries__workflow.org"
+                         org-mode nil)
+             (def-buffer "[D] Being and Time"
+                         "/Users/siainbuletin/notes/20251216T181129--being-and-time__book.org"
+                         org-mode nil)
+             (def-buffer "vulpea_para.org"
+                         "/Users/siainbuletin/notes/vulpea_para.org"
+                         org-mode nil)
+             (def-buffer "[D] Eseu noica mathesis"
+                         "/Users/siainbuletin/notes/20260603T224453--eseu-noica-raționalism__project_writing.org"
+                         org-mode nil)
+             (def-buffer "[D] Docker"
+                         "/Users/siainbuletin/notes/20251210T200613--docker__software.org"
+                         org-mode nil)
+             (def-buffer "[D] Evaluation when learning"
+                         "/Users/siainbuletin/notes/20251219T022102--evaluation-when-learning__workflow_zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Temporalitatea eliziană"
+                         "/Users/siainbuletin/notes/20251214T203400--temporalitatea-eliziană__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Music Markup Language"
+                         "/Users/siainbuletin/notes/20251213T194347--music-markup-language__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Mercurial"
+                         "/Users/siainbuletin/notes/20260102T190314--mercurial__programming_software.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Bibliographic records in individual org-mode files"
+              "/Users/siainbuletin/notes/20251206T160211--bibliographic-records-in-individual-org-mode-files__docs_emacs_process.org"
+              org-mode nil)
+             (def-buffer "[D] OpusModus"
+                         "/Users/siainbuletin/notes/20251226T121655--opusmodus__music_software.org"
+                         org-mode nil)
+             (def-buffer "[D] Class consciousness"
+                         "/Users/siainbuletin/notes/20251205T114624--class-consciousness__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Physical Music Collection"
+                         "/Users/siainbuletin/notes/20251213T193154--physical-music-collection__docs_meta.org"
+                         org-mode nil)
+             (def-buffer "[D] Executable Books Project"
+                         "/Users/siainbuletin/notes/20251209T203436--executable-books-project__software.org"
+                         org-mode nil)
+             (def-buffer "[D] LBA28 addressing"
+                         "/Users/siainbuletin/notes/20251228T150040--lba28-addressing__docs_ipod.org"
+                         org-mode nil)
+             (def-buffer "[D] Hegel's philosophy of history"
+                         "/Users/siainbuletin/notes/20251220T135106--hegels-philosophy-of-history__zettel.org"
+                         org-mode nil)
+             (def-buffer "[D] Search structure over org-mode"
+                         "/Users/siainbuletin/notes/20251117T101810--search-structure-over-org-mode__workflow.org"
+                         org-mode nil)
+             (def-buffer "[D] Analytical geometry"
+                         "/Users/siainbuletin/notes/20251214T232136--analytical-geometry__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] MusicBrainz"
+                         "/Users/siainbuletin/notes/20251221T013826--musicbrainz__software.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Sense as an abstract entity which explains cognitive significance"
+              "/Users/siainbuletin/notes/20251228T102344--sense-as-an-abstract-entity-which-explains-cognitive-significance__zettel.org"
+              org-mode nil)
+             (def-buffer
+              "[D] Marxian value theory applied to the arts"
+              "/Users/siainbuletin/notes/20251203T020500--marxian-value-theory-applied-to-the-arts__thesis_zettel.org"
+              org-mode nil)
+             (def-buffer
+              "[D] PVRIS - All We Know of Heaven, All We Need of Hell"
+              "/Users/siainbuletin/notes/20251207T215901--pvris-all-we-know-of-heaven-all-we-need-of-hell__music.org"
+              org-mode nil)
+             (def-buffer "[D] Annotated Bibliography"
+                         "/Users/siainbuletin/notes/20251206T155807--annotated-bibliography__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Musical syntax"
+                         "/Users/siainbuletin/notes/20251216T183952--musical-syntax__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] dispossession"
+                         "/Users/siainbuletin/notes/20251119T155606--dispossession__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Prezentare industria culturală"
+                         "/Users/siainbuletin/notes/20260326T141233--prezentare-industria-culturală-sandu__project_writing.org"
+                         org-mode nil)
+             (def-buffer "[D] Mixxx"
+                         "/Users/siainbuletin/notes/20251213T193722--mixxx__music_software.org"
+                         org-mode nil)
+             (def-buffer "[D] Vinyl Records"
+                         "/Users/siainbuletin/notes/20251213T193056--vinyl-records__docs_meta.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Full-text search over global data repository"
+              "/Users/siainbuletin/notes/20251204T103653--full-text-search-over-global-data-repository__emacs_workflow.org"
+              org-mode nil)
+             (def-buffer "[D] most2002heideggers"
+                         "/Users/siainbuletin/notes/litnotes/20260106T183500--most2002heideggers__journalarticle_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] cohen1984quantifyin"
+                         "/Users/siainbuletin/notes/litnotes/20251222T222351--cohen1984quantifyin__book_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] russell1905on-denotin"
+                         "/Users/siainbuletin/notes/litnotes/20260103T131131--russell1905on-denotin__journalarticle_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] drott2024str-capital"
+                         "/Users/siainbuletin/notes/litnotes/20251205T022045--drott2024str-capital__booksection_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] denaci-2010-essay-aesth-death"
+                         "/Users/siainbuletin/notes/litnotes/20260105T160358--denaci-2010-essay-aesth-death__blogpost_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] jorgensen-2012-descar-music"
+                         "/Users/siainbuletin/notes/litnotes/20251221T171354--jorgensen-2012-descar-music__journalarticle_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] nietzsche1997on-the-use"
+                         "/Users/siainbuletin/notes/litnotes/20260105T203536--nietzsche1997on-the-use__inbook_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] prior1959thank-good"
+                         "/Users/siainbuletin/notes/litnotes/20251228T015538--prior1959thank-good__journalarticle_litnote.org"
+                         org-mode nil)
+             (def-buffer "[D] Japan trip"
+                         "/Users/siainbuletin/notes/20260502T162747--japan-trip__docs_project.org"
+                         org-mode nil)
+             (def-buffer "[D] Audio over IP"
+                         "/Users/siainbuletin/notes/20251224T100549--audio-over-ip__docs.org"
+                         org-mode nil)
+             (def-buffer "workflow.org<area>"
+                         "/Users/siainbuletin/notes/area/workflow.org"
+                         org-mode nil)
+             (def-buffer "personal.org<area>"
+                         "/Users/siainbuletin/notes/area/personal.org"
+                         org-mode nil)
+             (def-buffer "20260725231503-personal.org"
+                         "/Users/siainbuletin/notes/area/20260725231503-personal.org"
+                         org-mode nil)
+             (def-buffer "20260725231532-university.org"
+                         "/Users/siainbuletin/notes/area/20260725231532-university.org"
+                         org-mode nil)
+             (def-buffer "20260725234202-apartament.org_archive"
+                         "/Users/siainbuletin/notes/area/20260725234202-apartament.org_archive"
+                         org-mode nil)
+             (def-buffer "20260725234158-elena_cuza.org"
+                         "/Users/siainbuletin/notes/area/20260725234158-elena_cuza.org"
+                         org-mode nil)
+             (def-buffer "university.org<area>"
+                         "/Users/siainbuletin/notes/area/university.org"
+                         org-mode nil)
+             (def-buffer "20260725231507-emacs.org"
+                         "/Users/siainbuletin/notes/area/20260725231507-emacs.org"
+                         org-mode nil)
+             (def-buffer "20260725234202-apartament.org"
+                         "/Users/siainbuletin/notes/area/20260725234202-apartament.org"
+                         org-mode nil)
+             (def-buffer "work.org<area>"
+                         "/Users/siainbuletin/notes/area/work.org"
+                         org-mode nil)
+             (def-buffer "emacs-config.org<area>"
+                         "/Users/siainbuletin/notes/area/emacs-config.org"
+                         org-mode nil)
+             (def-buffer "[D] Midterm Disco Elysium"
+                         "/Users/siainbuletin/notes/20251214T200352--midterm-disco-elysium__project_writing.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Gândirea și adevărul poetic în Grecia arhaică"
+              "/Users/siainbuletin/notes/20251214T171511--gândirea-și-adevărul-poetic-în-grecia-arhaică__project_writing_zettel.org"
+              org-mode nil)
+             (def-buffer "work.org<notes>"
+                         "/Users/siainbuletin/notes/work.org" org-mode
+                         nil)
+             (def-buffer "[D] Inbox for ideas - for my thesis"
+                         "/Users/siainbuletin/notes/20251204T171052--inbox-for-ideas-for-my-thesis__meta.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Identitate și persistență în timp - eseu SEA"
+              "/Users/siainbuletin/notes/20251228T004853--identitate-și-persistență-în-timp-eseu-sea__project_writing.org"
+              org-mode nil)
+             (def-buffer "[D] Restante anul 3"
+                         "/Users/siainbuletin/notes/20260520T142306--restante-anul-3__docs.org"
+                         org-mode nil)
+             (def-buffer "[D] Timecode Vinyl Control"
+                         "/Users/siainbuletin/notes/20251224T172620--timecode-vinyl-control__audio_concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Examen estetică Oana"
+                         "/Users/siainbuletin/notes/20260126T151414--examen-estetică-oana__course_dash_project.org"
+                         org-mode nil)
+             (def-buffer "[D] Thomas Kuhn"
+                         "/Users/siainbuletin/notes/20260106T184738--thomas-kuhn__person.org"
+                         org-mode nil)
+             (def-buffer "inbox-capture.org"
+                         "/Users/siainbuletin/notes/inbox/inbox-capture.org"
+                         org-mode nil)
+             (def-buffer "supatabs_list_1763393353216.org"
+                         "/Users/siainbuletin/notes/inbox/tabs/supatabs_list_1763393353216.org"
+                         org-mode nil)
+             (def-buffer "251122-inbox.org"
+                         "/Users/siainbuletin/notes/inbox/tabs/251122-inbox.org"
+                         org-mode nil)
+             (def-buffer "251118-inbox-3.org"
+                         "/Users/siainbuletin/notes/inbox/tabs/251118-inbox-3.org"
+                         org-mode nil)
+             (def-buffer "supatabs_list_1763152191319.org"
+                         "/Users/siainbuletin/notes/inbox/tabs/supatabs_list_1763152191319.org"
+                         org-mode nil)
+             (def-buffer "[D] Information foraging"
+                         "/Users/siainbuletin/notes/20251207T000756--information-foraging__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] Bringing version control to composition"
+                         "/Users/siainbuletin/notes/20251009T223000--version-control-composition__project.org"
+                         org-mode nil)
+             (def-buffer "[D] MIDI"
+                         "/Users/siainbuletin/notes/20251217T000825--midi__format_language.org"
+                         org-mode nil)
+             (def-buffer "[D] psearch"
+                         "/Users/siainbuletin/notes/20251119T094138--psearch__package.org"
+                         org-mode nil)
+             (def-buffer "[D] Archaic Greece, poetry and memory"
+                         "/Users/siainbuletin/notes/20260214T203429--archaic-greece-poetry-and-memory__zettel.org"
+                         org-mode nil)
+             (def-buffer
+              "[D] Flattening of music culture on streaming platforms"
+              "/Users/siainbuletin/notes/20251203T011822--flattening-of-music-culture-on-streaming-platforms__thesis_zettel.org"
+              org-mode nil)
+             (def-buffer "[D] Knowledge representation"
+                         "/Users/siainbuletin/notes/20251213T230044--knowledge-representation__concept.org"
+                         org-mode nil)
+             (def-buffer "[D] org-node"
+                         "/Users/siainbuletin/notes/20251216T102815--org-node__emacs_package.org"
+                         org-mode nil)
+             (def-buffer "[D] Commodification of music"
+                         "/Users/siainbuletin/notes/20251203T020106--commodification-of-music__concept_thesis.org"
+                         org-mode nil)
+             (def-buffer "[D] Consuming less electricity"
+                         "/Users/siainbuletin/notes/20251229T222445--consuming-less-electricity__process.org"
+                         org-mode nil)
+             (def-buffer "emacs-config.org<notes>"
+                         "/Users/siainbuletin/notes/emacs-config.org"
+                         org-mode nil)
+             (def-buffer "2026-06-29.org"
+                         "/Users/siainbuletin/notes/journal/2026-06-29.org"
+                         org-mode nil)
+             (def-buffer "[D] Drafting workflow"
+                         "/Users/siainbuletin/notes/20251117T100514--drafting-workflow__workflow.org"
+                         org-mode nil))
+            (def-wconf
+             (((min-height . 12) (min-width . 10)
+               (min-height-ignore . 11) (min-width-ignore . 6)
+               (min-height-safe . 3) (min-width-safe . 2)
+               (min-pixel-height . 156) (min-pixel-width . 50)
+               (min-pixel-height-ignore . 143)
+               (min-pixel-width-ignore . 30)
+               (min-pixel-height-safe . 39)
+               (min-pixel-width-safe . 10))
+              vc (pixel-width . 416) (pixel-height . 432)
+              (total-width . 83) (total-height . 34)
+              (normal-height . 1.0) (normal-width . 1.0)
+              (combination-limit)
+              (vc (pixel-width . 416) (pixel-height . 377)
+                  (total-width . 83) (total-height . 29)
+                  (normal-height . 0.8726851851851852)
+                  (normal-width . 1.0) (combination-limit . t)
+                  (leaf (pixel-width . 416) (pixel-height . 195)
+                        (total-width . 83) (total-height . 15)
+                        (normal-height . 0.5) (normal-width . 1.0)
+                        (buffer "*dashboard*" (selected) (hscroll . 0)
+                                (fringes 8 8 nil nil) (margins nil)
+                                (scroll-bars nil 0 t nil 0 t nil)
+                                (vscroll . 0) (dedicated)
+                                (point . 1276) (start . 1))
+                        (prev-buffers ("*elpaca-log*" 1 1)
+                                      ("*scratch*" 1 1)))
+                  (leaf (last . t) (pixel-width . 416)
+                        (pixel-height . 182) (total-width . 83)
+                        (total-height . 14) (normal-height . 0.5)
+                        (normal-width . 1.0)
+                        (buffer "*Backtrace*" (selected) (hscroll . 0)
+                                (fringes 8 8 nil nil) (margins nil)
+                                (scroll-bars nil 0 t nil 0 t nil)
+                                (vscroll . 0) (dedicated)
+                                (point . 161) (start . 1))))
+              (leaf (last . t) (pixel-width . 416) (pixel-height . 55)
+                    (total-width . 83) (total-height . 5)
+                    (normal-height . 0.12731481481481483)
+                    (normal-width . 1.0)
+                    (buffer "*Warnings*" (selected) (hscroll . 0)
+                            (fringes 8 8 nil nil) (margins nil)
+                            (scroll-bars nil 0 t nil 0 t nil)
+                            (vscroll . 0) (dedicated) (point . 22619)
+                            (start . 21766)))))
+            (def-params nil) t nil nil))

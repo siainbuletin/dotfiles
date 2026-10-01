@@ -1,11 +1,18 @@
 ;; -*- lexical-binding: t; -*-
 
+;; This should have several options for the dashboard that I'm using.
+;; And it should be toggled according to taste (or at least the context
+;; that I might be working in). I want to try the Lambda Emacs dashboard 
+;; specifically, for this context, at least.
+
 (use-package dashboard
   :ensure t
+  
   :init
   (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
   (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
   (dashboard-setup-startup-hook)
+  
   :bind
   ("C-c d d" . dashboard-open))
 
@@ -17,7 +24,6 @@
 
 (setq dashboard-items '((recents   . 5)
                         (bookmarks . 5)
-                        (projects  . 5)
                         (agenda    . 7)
                         (registers . 5)))
 
@@ -34,7 +40,6 @@
 
 (setq dashboard-item-shortcuts '((recents   . "r")
                                  (bookmarks . "b")
-                                 (projects  . "p")
                                  (agenda    . "a")
                                  (registers . "e")))
 

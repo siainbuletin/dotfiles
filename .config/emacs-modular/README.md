@@ -41,6 +41,8 @@ A modular Emacs configuration with comprehensive language support, development t
 
 Language support is primarily based on LSP and/or specialized modes:
 
+There's a common programming languages file that integrates global configurations.
+
 - **C/C++**: LSP (clangd) + company + flycheck + CMake integration
 - **Python**: lsp-pyright + company + flycheck
 - **Go**: LSP (gopls) + comprehensive Go tooling
@@ -49,20 +51,12 @@ Language support is primarily based on LSP and/or specialized modes:
 - **Web**: HTML, CSS, JavaScript support
 - **PlantUML**: Integrated preview and automatic generation of diagrams
 - **Org-mode**: Enhanced with org-modern, org-journal, and custom babel support
-- **Ansible/Salt**: YAML mode with specialized snippets and formatting
 - **Misc**: Support for YAML, JSON, Docker, and many others
 
 ### Additional Features
-- Confluence export from Org mode documents
 - EXWM (Emacs X Window Manager) integration (optional)
-- Google Styleguide integration
 
 ## Setup
-
-Clone the repository to anywhere and install the submodules:
-```
-git clone --recursive https://github.com/0x17de/emacs-config/ /path/to/siapip-emacs-config/
-```
 
 Here's how your `.emacs` file could be structured. The most critical element is the load command. If you're unsure about the location of your `.emacs` file, simply execute `M-: user-init-file RET` (press Alt and colon together, type user-init-file, then hit Enter) in Emacs, and the minibuffer will display the path to your initialization file.
 

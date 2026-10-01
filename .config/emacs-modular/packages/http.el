@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 ;; HTTP library
 
 (use-package plz
