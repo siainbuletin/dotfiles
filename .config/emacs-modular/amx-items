@@ -1,0 +1,59 @@
+
+;; ----- amx-history -----
+(
+ cd
+ 5x5
+ amx
+ arp
+ dbx
+ dig
+ eat
+ erc
+ ert
+ eww
+ ftp
+ gdb
+ irc
+ jdb
+ lsp
+ man
+ mpc
+ pdb
+ pwd
+ rsh
+ sdb
+ sly
+ xdb
+ calc
+ diff
+ ffap
+ gnus
+ grep
+ help
+ ielm
+ info
+ life
+ lldb
+ mail
+ mpuz
+ ping
+ pong
+ talk
+ term
+ undo
+ yank
+ zone
+ align
+ chmod
+ debug
+ diary
+ dired
+ ediff
+ edirs
+ eglot
+)
+
+;; ----- amx-data -----
+(
+ 
+)

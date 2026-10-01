@@ -1,8 +1,4 @@
 ;; -*- lexical-binding: t; -*-
-;; To enable put the following as your .emacs file assuming
-;; all contents were installed into ~/.emacs/siapip/
-;;
-;; (load "/path/to/siapip-emacs-config/siapip-emacs")
 
 ;; SETTING UP THE LOAD PATH
 
@@ -23,12 +19,55 @@
 ;; init files
 
 (siapip/load
- '("./init/custom.el"
-   "./init/speedup.el"
-   "./init/package.el"
-   "./init/encoding.el"
-   "./init/gui.el"
-   "./init/exwm.el"))
+ '("./init/speedup"
+   "./init/package"
+   "./init/encoding" ;; text encoding
+   "./init/essential" ;; this represents essential functions
+   "./init/snippets" ;; snippet management
+   "./init/custom"
+   "./init/gui"
+   "./init/env"
+   "./init/exwm" ;; see whether you're going to combine this with regular window management
+   ))
+
+;; package loading
+
+(siapip/load
+  '("./packages/search" ;; this represents full-text search packages
+    "./packages/minibuffer-packs"
+    "./packages/embark" 
+    "./packages/counsel-recoll" 
+    "./packages/essential-packs"
+    "./packages/consult-snapfile"
+    "./packages/keys"
+    "./packages/dired-conf"
+    "./packages/bookmarks"
+    "./packages/org-config"
+    "./packages/sia-dashboard"
+    "./packages/denote"
+    "./packages/dgraphs"
+    "./packages/org-node-mem"
+    "./packages/academic"
+    "./packages/reading"
+    "./packages/projects"
+    "./packages/latex"
+    "./packages/help"
+    "./packages/browsing"
+    "./packages/vc"
+    "./packages/icons"
+    "./packages/rss"
+    "./packages/fonts"
+    "./packages/taskman"
+    "./packages/themes"
+    "./packages/windows"
+    "./packages/buffer-man"
+    "./packages/multimedia"
+    "./packages/terminal"
+    "./packages/http"
+    "./packages/ai"
+    "./packages/org-db"
+    "./packages/vulpea-eco"
+  ))
 
 ;; loading different modules
 
@@ -64,3 +103,11 @@
 (siapip/load
  '("./ext/tex-switch-quotes/tex-switch-quotes"
    "./ext/misc/hl-line+"))
+
+(siapip/load
+  '("./functions/sia-move-region-to-heading.el"
+    "./functions/sia-vulpea-convert-properties.el"
+    "./functions/sia-vulpea-dblock.el"
+    "./functions/sia-vulpea-grouped-backlinks.el"
+    "./functions/sia-vulpea-table-views.el"
+    "./functions/sia-vulpea-vui-table.el"))

@@ -5,11 +5,9 @@ elpa/
 elpaca/
 eshell/
 transient/
-url/ 
+url/ # I actually don't know what the url/ directory is for
 
 .DS_Store
-
-# I actually don't know what the url/ directory is for
 
 # files created by emacs
 tramp
