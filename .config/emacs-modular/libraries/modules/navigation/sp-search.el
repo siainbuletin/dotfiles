@@ -15,11 +15,11 @@
 ;; See also possibilities for the vulpea ecosystem for this.
 
 (use-package counsel
-  :ensure (:wait t)
+  :ensure t
 )
 
 (use-package consult
-  :ensure (:wait t)
+  :ensure t
   )
 
 (keymap-global-set "C-c s l" #'consult-line)
@@ -37,7 +37,6 @@
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
-
  
 ;; Personal functions for better searching
 

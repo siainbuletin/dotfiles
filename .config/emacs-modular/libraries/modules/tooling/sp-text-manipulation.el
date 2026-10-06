@@ -31,7 +31,6 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 (add-hook 'before-save-hook 'sp-clean-whitespace)
 
-
 ;;;;; Fill Paragraph
 (defun sp-fill-paragraph ()
   "if in an org buffer use org-fill-paragraph; else use fill-paragraph"
@@ -40,8 +39,10 @@ Works on whole buffer or selection, respects `narrow-to-region'."
       (call-interactively #'org-fill-paragraph)
     (call-interactively #'fill-paragraph)))
 
-(keymap-global-set [remap fill-paragraph]
-                #'sp-fill-paragraph)
+;; TODO --- this isn't the proper settings - I should workshop ways to
+;; do the fill-paragraph properly
+;; (keymap-global-set [remap fill-paragraph]
+;;                #'sp-fill-paragraph)
 
 ;;;;; Unfill Paragraph
 ;; Stefan Monnier <foo at acm.org>. It is the opposite of fill-paragraph

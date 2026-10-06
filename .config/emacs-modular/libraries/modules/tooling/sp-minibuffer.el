@@ -61,8 +61,6 @@
 ;     :init
 ;     (marginalia-mode))))
 
-;; -*- lexical-binding: t; -*-
-
 (use-package counsel-fd
   :ensure t
   :after counsel)
@@ -126,4 +124,5 @@
 
 (use-package corfu-prescient
   :ensure (:wait t))
-  
+
+(provide 'sp-minibuffer)

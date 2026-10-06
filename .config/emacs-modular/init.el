@@ -50,7 +50,7 @@
 
   - `clean' loads only the `init.el' file w/no personal config;
   - `core'  loads the set of modules set in `lem-core-modules';
-  - `test' loads only a `lem-setup-test.el' file for easy testing.")
+  - `test' loads only a `sp-test.el' file for easy testing.")
 
 (defvar sp--emacs-switches-found nil
   "Custom command-line switches found in `command-line-args' at startup.
@@ -125,7 +125,15 @@ emacs-version string on the kill ring."
                             (";;;;;; " . 4)
                             (";;;;;;; " . 5))))))
 
-;; LOADING MODULES FOR PACKAGES (with groups)
+;;;;;;;; LOADING MODULES FOR PACKAGES (with groups)
+
+;; Commentary:
+;;
+;; Probably this needs to be organised so that the load order
+;; makes sense enough. For example, the environment set-up for
+;; macOS should come later on in the process, before drawing the
+;; graphical interface, as it needs the theme declarations before
+;; deciding to use the ns-system-hook.
 
 ;; init modules (the most important files that I have to be loading up)
 
@@ -134,40 +142,17 @@ emacs-version string on the kill ring."
    "./libraries/modules/base/sp-package"           ;; this is the basic setup for elpaca
    "./libraries/modules/base/sp-encoding"         ;; text encoding
    "./libraries/modules/base/sp-base-libraries"   ;; the very basic processing libraries
-   "./libraries/modules/base/sp-env"              ;; Making exec-path work.
    "./libraries/modules/base/sp-gui"              ;; currently handled by early-init from Lambda Emacs
-   "./libraries/modules/base/sp-macos.el"         ;; MacOS specific settings
-   "./libraries/modules/base/sp-exwm"             ;; see whether you're going to combine this with regular window management
    "./libraries/modules/base/sp-snippets"         ;; snippet management
    "./libraries/modules/base/sp-interaction"      ;; ways to interact with the GUI
    ))
 
-;; misc modules (utility)
+;; UI (modules organised alphabetically -- should be fixed somehow
+;; but I don't know how I'm supposed to make it properly readable)
 
 (siapip/load
- '("./libraries/modules/tooling/sp-backups"
-  "./libraries/modules/tooling/sp-bookmarks"
-  "./libraries/modules/tooling/sp-choose-modeline"
-  "./libraries/modules/tooling/sp-debug"
-  "./libraries/modules/tooling/sp-embark"
-  "./libraries/modules/tooling/sp-help"
-  "./libraries/modules/tooling/sp-indention"
-  "./libraries/modules/tooling/sp-keys"
-  ;; "./libraries/modules/tooling/sp-lambda-line"
-  "./libraries/modules/tooling/sp-minibuffer"
-  "./libraries/modules/tooling/sp-misc-writing"
-  "./libraries/modules/tooling/sp-network"
-  "./libraries/modules/tooling/sp-scratch"
-  "./libraries/modules/tooling/sp-spelling"
-  "./libraries/modules/tooling/sp-templating"
-  "./libraries/modules/tooling/sp-text-manipulation"
-))
-
-;; UI
-
-(siapip/load
-  '("./libraries/modules/ui/sp-buffers"
-    "./libraries/modules/ui/sp-colors"
+  '("./libraries/modules/ui/sp-buffers"           ;; Buffer management and general drawing instructions.
+    "./libraries/modules/ui/sp-colors"            ;; Global color scheme to follow.
     "./libraries/modules/ui/sp-dashboard"
     "./libraries/modules/ui/sp-faces"
     "./libraries/modules/ui/sp-fonts"
@@ -179,6 +164,15 @@ emacs-version string on the kill ring."
     "./libraries/modules/ui/sp-writing-appearance"
   ))
 
+;; Environment specific settings
+
+(siapip/load
+ '("./libraries/modules/env/sp-env"              ;; Making exec-path work.
+   "./libraries/modules/env/sp-macos.el"         ;; MacOS specific settings
+   "./libraries/modules/env/sp-win.el"       ;; this should be triggered conditionally with the system type (and required in a different file)
+   "./libraries/modules/env/sp-exwm"             ;; see whether you're going to combine this with regular window management
+))
+
 ;; navigation
 
 (siapip/load
@@ -186,73 +180,96 @@ emacs-version string on the kill ring."
     "./libraries/modules/navigation/sp-search" ;; this represents full-text search packages
   ))
 
-;; workflows / multimedia work
+;; misc modules (utility) --- these should be split apart differently at some point
 
 (siapip/load
-  '("./libraries/modules/workflows/sp-academic"
-   "./libraries/modules/workflows/sp-beets"
-   "./libraries/modules/workflows/sp-multimedia"
-   "./libraries/modules/workflows/sp-reading"
+ '("./libraries/modules/tooling/sp-backups"             ;; For the backup files that Emacs creates
+  "./libraries/modules/tooling/sp-bookmarks"            ;; Bookmark management.
+  "./libraries/modules/tooling/sp-choose-modeline"      ;; You can choose between 2 modelines.
+  "./libraries/modules/tooling/sp-debug"                ;; If you ever need to do deep debugging for Elisp
+  "./libraries/modules/tooling/sp-embark"
+  "./libraries/modules/tooling/sp-help"                 ;; Improvements for the help module.
+  "./libraries/modules/tooling/sp-indention"
+  "./libraries/modules/tooling/sp-keys"                 ;; Keybindings
+  ;; "./libraries/modules/tooling/sp-lambda-line"       ;; Separate modeline
+  "./libraries/modules/tooling/sp-md"
+  "./libraries/modules/tooling/sp-minibuffer"
+  "./libraries/modules/tooling/sp-misc-writing"
+  "./libraries/modules/tooling/sp-network"
+  "./libraries/modules/tooling/sp-scratch"
+  "./libraries/modules/tooling/sp-server"
+  "./libraries/modules/tooling/sp-spelling"
+  "./libraries/modules/tooling/sp-splash"                ;; this is the splash screen from lambda emacs
+  "./libraries/modules/tooling/sp-templating"
+  "./libraries/modules/tooling/sp-text-manipulation"
+  "./libraries/modules/tooling/sp-workspaces"
+))
+
+;; Org-related settings
+(siapip/load
+  '("./libraries/modules/text/sp-org-base" ;; the very basic functions -- the others should be stringed in after this
+
+    "./libraries/modules/text/sp-denote" ;; the file creation subsystem
+
+    ;; it does also depend on how essential i find some features to be
+
+    ;; defined essential org-features
+    "./libraries/modules/text/sp-org-appearance"
+    "./libraries/modules/text/sp-org-capture"
+    "./libraries/modules/text/sp-org-export"
+    "./libraries/modules/text/sp-org-refile"
+    "./libraries/modules/text/sp-org-tables"
+    "./libraries/modules/text/sp-org-narrow"
+
+    ;; task management
+    "./libraries/modules/text/sp-org-agenda"
+    "./libraries/modules/text/sp-org-taskman-extra"
+
+    "./libraries/modules/text/sp-org-ext" ;; other extensions
+    
+    ;; "./libraries/modules/text/sp-org-node-mem"
+    "./libraries/modules/text/sp-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
+    "./libraries/modules/text/sp-vulpea-ext" ;; needs the functions that I called earlier
+
+    ;; Generating networks with the information
+    "./libraries/modules/text/sp-dgraphs"
+
+    ;; other notes-related settings
+    "./libraries/modules/text/sp-notes"
+    ))
+
+;; ACADEMIC WORK (submodules are found inside)
+(siapip/load
+  '("./libraries/modules/academic/sp-academic"
+  ))
+
+;; MULTIMEDIA WORK + OTHER WORKFLOWS
+(siapip/load
+  '("./libraries/modules/media/sp-beets"        ;; Managing a beets library
+    ;; "./libraries/modules/media/sp-music-play"        ;; I currently don't know how to configure any of these media players.
+   "./libraries/modules/media/sp-reading"
+   "./libraries/modules/media/sp-browsing"      ;; Setup for different browsers inside of Emacs
+   "./libraries/modules/media/sp-rss"           ;; elfeed and inboxing of new information
    ))
 
-;; package loading
-
+;;;;; OTHER
 (siapip/load
-  '(
-    ;; computer works
-    "./libraries/modules/sp-ai"
-
-    ;; text modes
-    "./libraries/modules/sp-md"
-    "./libraries/modules/sp-taskman"
-
-    ;; advanced object-based notes
-    "./libraries/modules/sp-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
-    "./libraries/modules/sp-denote"
-    "./libraries/modules/sp-dgraphs"
-    "./libraries/modules/sp-org-node-mem"
-
-    ;; academic modules + writing
-
-    ;; extra reading
-    "./libraries/modules/sp-browsing"
-    "./libraries/modules/sp-rss"
-
+  '("./libraries/modules/sp-ai"                 ;; this is for engaging with different models
+    "./libraries/modules/sp-consult-snapfile"
     ;; large management
     "./libraries/modules/sp-projects"
-
-    ;; other
-    "./libraries/modules/sp-consult-snapfile"
   ))
 
-;; Loading different org modules
-
+;;;;; FUNCTIONS I WROTE
 (siapip/load
-  '("./libraries/modules/org/sp-org-base"
-    "./libraries/modules/org/sp-org-agenda"
-    "./libraries/modules/org/sp-org-appearance"
-    "./libraries/modules/org/sp-org-capture"
-    "./libraries/modules/org/sp-org-export"
-    "./libraries/modules/org/sp-org-ext"
-    ;; "./libraries/modules/org/sp-org-node-mem"
-    "./libraries/modules/org/sp-org-refile"
-    "./libraries/modules/org/sp-org-tables"
-    "./libraries/modules/org/sp-org-taskman-extra"
-  ))
+  '("./libraries/modules/funct/sp-helper-functions.el"
+    "./libraries/modules/funct/sp-open-externally.el"
 
-;; functions I wrote
+    ;; text manipulation
+    "./libraries/modules/funct/sp-move-region-to-heading.el"
 
-(siapip/load
-  '("./libraries/modules/funct/sp-move-region-to-heading.el"
-    "./libraries/modules/funct/sp-vulpea-convert-properties.el"
-    "./libraries/modules/funct/sp-vulpea-dblock.el"
-    "./libraries/modules/funct/sp-vulpea-grouped-backlinks.el"
-    "./libraries/modules/funct/sp-vulpea-table-views.el"
-    "./libraries/modules/funct/sp-vulpea-vui-table.el"))
-
-(siapip/load
-  '("./libraries/modules/sp-vulpea-ext" ;; needs the functions that I called earlier
-  ))
+    ;; vulpea regions - these are all now 'required' in the vulpea-ext file
+    ))
 
 ;; Programming setup
 
@@ -266,7 +283,7 @@ emacs-version string on the kill ring."
    ;; "./libraries/modules/prog/sp-rust"
    ;; "./libraries/modules/prog/sp-xml"
    ;; "./libraries/modules/prog/sp-nix"
-   ;; "./libraries/modules/prog/sp-misc" currently disabled, as there's several packages that conflict with something else that I have on the system
+   ;; "./libraries/modules/prog/sp-misc"                    ;; currently disabled, as there's several packages that conflict with something else that I have on the system
    "./libraries/modules/prog/sp-latex"
    "./libraries/modules/prog/sp-prog-misc"
    "./libraries/modules/prog/sp-terminal"
@@ -276,194 +293,7 @@ emacs-version string on the kill ring."
 ;; Cloned modules (can't install with use-package otherwise)
 ;; set up later
 
-;;;;; Load Configuration Modules
-;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
-;; loaded is left to the user to set in `config.el', though if there is no
-;; `config.el' file a default set of modules will be loaded.
-
-;; Different configurations available
-;; - default - this will work without the `config.el' file.
-
-(defun sp--default-modules ()
-  "Load a default configuration for 𝛌-Emacs.
-Skips modules listed in `(sp-gui-only-modules)' when
-`sp-headless-host' is non-nil."
-  (message "
-;; ======================================================
-;; *Loading default setup of 𝛌-Emacs Modules*
-;; ======================================================")
-  (measure-time
-   (cl-dolist (mod (cl-remove-if
-                    (lambda (m)
-                      (and sp-headless-host
-                           (memq m (sp-gui-only-modules))))
-                    (list
-                    ;; Core modules
-                    'sp-libraries
-                    'sp-settings
-                    'sp-functions
-                    'sp-server
-                    'sp-scratch
-
-                    ;; UI modules
-                    'sp-frames
-                    'sp-windows
-                    'sp-buffers
-                    'sp-fonts         ;; All font settings
-                    'sp-faces
-                    'sp-colors
-                    'sp-completion
-                    'sp-keys          ;; I don't think this should be in the UI, rather in navigation
-                    'sp-help
-                    'sp-modeline
-                    'sp-theme
-                    'sp-splash
-
-                    ;; Navigation & Search modules (/navi/)
-                    'sp-navigation
-                    'sp-dired
-                    'sp-search
-
-                    ;; Project & Tab/Workspace modules
-                    'sp-vcontrol
-                    'sp-projects
-                    'sp-tabman ;; (lem-setup-tabs)
-
-                    ;; Org modules
-                    'sp-org-base
-                    'sp-org-settings
-
-                    ;; Writing modules
-                    'sp-writing
-                    'sp-notes
-                    'sp-citation
-
-                    ;; Shell & Terminal
-                    'sp-shell
-                    'sp-eshell
-
-                    ;; Programming modules (should be expanded with different libraries)
-                    'sp-programming)))
-     (require mod))))
-
-(defun sp--minimal-modules ()
-  "Load 𝛌-Emacs with a minimal set of modules.
-Skips modules listed in `(sp-gui-only-modules)' when
-`sp-headless-host' is non-nil, matching `sp--default-modules'."
-  (message "
-;; ======================================================
-;; *Loading 𝛌-Emacs, with minimal modules*
-;; ======================================================")
-  (measure-time
-   (cl-dolist (mod (cl-remove-if
-                    (lambda (m)
-                      (and sp-headless-host
-                           (memq m (sp-gui-only-modules))))
-                    (list
-                     ;; Core modules
-                     'sp-libraries
-                     'sp-settings
-                     'sp-functions
-                     'sp-server
-                     'sp-scratch
-
-                     ;; UI modules
-                     'sp-frames
-                     'sp-windows
-                     'sp-buffers
-                     'sp-completion
-                     'sp-keybindings
-                     'sp-help
-                     'sp-modeline
-                     'sp-splash
-
-                     ;; Navigation & Search modules
-                     'sp-navigation
-                     'sp-dired
-                     'sp-search)))
-     (require mod))))
-
-;;;; Defensive headless-host warning
-;; Installed BEFORE the module-loading cond so the hook is in
-;; place even if the cond's body errors out (e.g. an external
-;; package missing in the test sandbox). The function no-ops
-;; when `sp-headless-host' is nil; on a headless host it emits
-;; a prominent warning if a client creates a graphical frame
-;; (GUI-only modules were skipped at load time, so fonts,
-;; mode-line, and faces are unconfigured in such a frame).
-(require 'server)
-(defun sp--warn-gui-frame-on-headless ()
-  "Warn if a server client created a GUI frame on a headless host."
-  (when (and sp-headless-host
-             (display-graphic-p))
-    (display-warning
-     'lambda-emacs
-     (concat "GUI client frame created on a host where "
-             "sp-headless-host is t. GUI modules were not "
-             "loaded; fonts, mode-line, and faces are "
-             "unconfigured. Unset sp-headless-host and "
-             "restart Emacs to recover.")
-     :error)))
-(add-hook 'server-after-make-frame-hook #'sp--warn-gui-frame-on-headless)
-
-;; Conditionally load configuration files based on command-line switches,
-;; presence of user-config file, or the default set of modules.
-(cond
- ;; Load a subset of modules only, ignore other configuration.
- ((sp--emacs-switches "-minimal")
-  (message "*Loading a subset of 𝛌-Emacs modules *only*, ignoring personal user configuration.*")
-  (sp--minimal-modules))
-
- ;; Load test module only. This is useful for testing a specific package
- ;; against vanilla/default emacs settings.
- ((sp--emacs-switches "-test")
-  (message "*Loading test module only*")
-  (require 'sp-test))
-
- ;; Load user's personal config file (if it exists) and hasn't been bypassed
- ;; by a command-line switch to load the default libraries.
- ((and (not (sp--emacs-switches "-default"))
-       (file-exists-p sp-config-file))
-  (message "*Loading 𝛌-Emacs & user config*")
-  (load sp-config-file 'noerror))
-
- ;; Load default config
- ((sp--emacs-switches "-default")
-  (message "*Loading 𝛌-Emacs default modules")
-  (sp--default-modules)
-  ;; MacOS settings - defer load until after init. Skipped on
-  ;; headless hosts: `lem-setup-macos' is in `lem-gui-only-set'
-  ;; and the dispatcher's filter already excludes it, but this
-  ;; deferred require fires outside the dispatcher and would
-  ;; bypass the filter without the explicit guard.
-  (when (and sys-mac (not sp-headless-host))
-    (message "*Load MacOS settings...*")
-    (measure-time
-     (run-with-idle-timer 1 nil
-                          (function require)
-                          'sp-macos nil t))))
-
- ;; No user config file exists: create one from the shipped default
- ;; and load it. Historically this branch called yes-or-no-p and
- ;; discarded the answer (always proceeding), so the prompt offered
- ;; no real consent. Removed for batch-safety and honesty.
- ((when (not (file-exists-p sp-config-file))
-    (progn
-      (with-temp-file sp-config-file
-        (insert-file sp-default-config-file))
-      (load-file sp-config-file))))
- ;; Load default modules
- (t
-  (message "*Loading 𝛌-Emacs default configuration files.*")
-  (sp--default-modules)
-  ;; MacOS settings - deferred; see the `-default' branch comment
-  ;; above for why the headless guard is needed here.
-  (when (and sys-mac (not sp-headless-host))
-    (message "*Load MacOS settings...*")
-    (measure-time
-     (run-with-idle-timer 1 nil
-                          (function require)
-                          'sp-macos nil t)))))
+;; re-add here the conditional loading for different modules, which came from Lambda Emacs
 
 ;;;; After Startup
 ;; reset file-name-handler-alist

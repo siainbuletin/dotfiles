@@ -2,7 +2,7 @@
 
 ;;;; Writeroom
 (use-package writeroom-mode
-  :when (and lem-load-extras (locate-library "writeroom-mode"))
+  :when (and sp-load-extras (locate-library "writeroom-mode"))
   :commands (writeroom-mode)
   :config
   ;; (setq writeroom-fullscreen-effect 'maximized)

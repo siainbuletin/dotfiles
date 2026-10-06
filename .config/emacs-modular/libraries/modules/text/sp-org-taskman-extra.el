@@ -48,7 +48,7 @@
                              (canceled . "CNCL")))
 
   ;; Add org-gtd files to your agenda
-  (org-agenda-files (list org-gtd-directory))
+  ;; (org-agenda-files (list org-gtd-directory)) ;; this errors out so it's commented
 
   :config
   (org-edna-mode 1)

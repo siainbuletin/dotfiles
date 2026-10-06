@@ -30,7 +30,7 @@
 
 ;;;; Palimpsest (make archive)
 (use-package palimpsest
-  :when (and lem-load-extras (locate-library "palimpsest"))
+  :when (and sp-load-extras (locate-library "palimpsest"))
   :diminish palimpsest-mode
   :hook ((markdown-mode org-mode) . palimpsest-mode)
   :custom

@@ -27,13 +27,13 @@
   
   :config
   ;; Only OSX need below setup
-  (defun lem-setup-odt-org-convert-process ()
+  (defun sp-odt-org-convert-process ()
     (interactive)
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
         ;; org v8
         (setq org-odt-convert-processes '(("LibreOffice" "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
-  (lem-setup-odt-org-convert-process))
+  (sp-odt-org-convert-process))
 
 ;;; Org Export Extensions
 ;;;; Ox-Pandoc
@@ -180,6 +180,130 @@
         ;;(?^ "as haddock." org-pandoc-export-as-haddock)
         ))
 
+;; Exporting different regions
+;;;;; Export Headings as Seperate Files
+;; export headlines to separate files
+;; http://pragmaticemacs.com/emacs/export-org-mode-headlines-to-separate-files/ ; see also:
+;; http://emacs.stackexchange.com/questions/2259/how-to-export-top-level-headings-of-org-mode-buffer-to-separate-files
+
+;; FIXME: neither of these functions work right now for some reason.
+(defun lem-org-export-headlines-to-docx ()
+  "Export all subtrees that are *not* tagged with :noexport: to
+    separate docx files.
+
+    Subtrees that do not have the :EXPORT_FILE_NAME: property set
+    are exported to a filename derived from the headline text."
+  (interactive)
+  (save-buffer)
+  (let ((modifiedp (buffer-modified-p)))
+    (save-excursion
+      (goto-char (point-min))
+      (goto-char (re-search-forward "^*"))
+      (set-mark (line-beginning-position))
+      (goto-char (point-max))
+      (org-map-entries
+       (lambda ()
+         (let ((export-file (org-entry-get (point) "EXPORT_FILE_NAME")))
+           (unless export-file
+             (org-set-property
+              "EXPORT_FILE_NAME"
+              (replace-regexp-in-string " " "_" (nth 4 (org-heading-components)))))
+           (deactivate-mark)
+           (org-pandoc-export-to-docx nil t)
+           (unless export-file (org-delete-property "EXPORT_FILE_NAME"))
+           (set-buffer-modified-p modifiedp)))
+       "-noexport" 'region-start-level)))
+  (shell-command-to-string "open ~/Dropbox/Work/Comments/Referee-Reports/ref-report.docx"))
+
+(defun lem-org-export-headlines-to-pdf ()
+  "Export all subtrees that are *not* tagged with :noexport: to
+    separate pdf files.
+
+    Subtrees that do not have the :EXPORT_FILE_NAME: property set
+    are exported to a filename derived from the headline text."
+  (interactive)
+  ;; (require 'ox-pandoc)
+  (save-buffer)
+  (let ((modifiedp (buffer-modified-p)))
+    (save-excursion
+      (goto-char (point-min))
+      (goto-char (re-search-forward "^*"))
+      (set-mark (line-beginning-position))
+      (goto-char (point-max))
+      (org-map-entries
+       (lambda ()
+         (let ((export-file (org-entry-get (point) "EXPORT_FILE_NAME")))
+           (unless export-file
+             (org-set-property
+              "EXPORT_FILE_NAME"
+              (replace-regexp-in-string " " "_" (nth 4 (org-heading-components)))))
+           (deactivate-mark)
+           (org-latex-export-to-pdf nil t nil nil '(:latex-class "org-notes"))
+           ;; (org-pandoc-export-to-latex-pdf nil t)
+           (unless export-file (org-delete-property "EXPORT_FILE_NAME"))
+           (set-buffer-modified-p modifiedp)))
+       "-noexport" 'region-start-level))))
+
+;;;;; Export Top Level Trees to File
+;; From a useful [[https://emacs.stackexchange.com/questions/27226/how-to-export-top-level-trees-in-an-org-file-to-corresponding-files][stack exchange]] post
+(defun lem-org-map-entries (org-file in-tags func)
+  (let ((tags (if (stringp in-tags)
+                  (list in-tags)
+                in-tags)))
+
+    (with-temp-buffer
+      (org-mode)
+      (insert-file-contents org-file)
+
+      ;; Execute func at each heading that matches tags.
+      (while (< (point) (point-max))
+
+        ;; If find a heading...
+        (and (search-forward-regexp "^\* " nil "end")
+
+             ;; ...that matches the given tags...
+             (seq-reduce
+              (lambda(a b) (and a b))
+              (mapcar
+               (lambda (tag)
+                 (beginning-of-line)
+                 (search-forward-regexp
+                  (concat ":" tag ":") (line-end-position) "end"))
+               tags)
+              t)
+
+             ;; ... then execute given function with cursor at beginning of
+             ;; heading.
+             (progn
+               (beginning-of-line)
+               (save-excursion
+                 (funcall func))
+               (end-of-line)))))))
+
+;;;;; Org Export Last Subtree
+;; bind f5 to keyboard macro of export-last-subtree
+(fset 'export-last-subtree
+      "\C-u\C-c\C-e")
+
+(eval-after-load "org"
+  '(progn
+     (define-key org-mode-map (kbd "<f5>") 'export-last-subtree)))
+
+;; Exporting to HTML
+
+;;;;; Org Export Body to HTML Buffer
+(defun lem-org-export-to-buffer-html-as-body (&optional async body-only ext-plist)
+  "Export org buffer body to html"
+  (interactive)
+  (org-export-to-buffer 'html "*Org HTML Export*"
+    async nil nil body-only ext-plist
+    (lambda ()
+      (html-mode)
+      (lem-copy-whole-buffer-to-clipboard)))
+  (delete-windows-on "*Org HTML Export*")
+  (message "HTML copied!"))
+;; (lem-previous-user-buffer))
+
 ;;;; Ox-Hugo
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
@@ -213,5 +337,7 @@
 (use-package htmlize
   :if (and sp-load-extras (locate-library "htmlize"))
   :commands (htmlize-buffer))
+
+
 
 (provide 'sp-org-export)

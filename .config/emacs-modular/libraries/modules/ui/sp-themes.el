@@ -12,7 +12,7 @@
 (setq custom-safe-themes t)
 
 ;; Configuring the custom theme folder
-(defcustom sp-custom-themes-dir (concat sp-user-dir "themes/")
+(defcustom sp-custom-themes-dir (concat sp-libraries-dir "themes/")
   "Set a custom themes directory path."
   :group 'sia-lambda
   :type 'string)
@@ -164,7 +164,7 @@
   
   :config
   ;; load preferred theme (this doesn't have the option of just loading in some cases, it will override the ef-themes I already have installed)
-  ;; (load-theme 'lambda-light)
+  (load-theme 'lambda-light) ;; this is enabled even though I would like to have a normal switch for it, because otherwise the ns-system switch for macos doesn't end up working
 )
 
 ;; kind-icon needs to have its cache flushed after theme change
@@ -199,5 +199,5 @@ hook is left untouched; the next macOS Light/Dark change will resync."
   (run-hooks 'lem-after-load-theme-hook))
 
 ;;; Provide
-(provide 'lem-setup-theme)
-;;; lem-setup-theme.el ends here
+(provide 'sp-themes)
+;;; sp-themes.el ends here

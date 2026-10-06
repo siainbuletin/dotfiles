@@ -129,4 +129,4 @@
 ;;bind this in the narrow keymap
 (bind-key* "C-x n n" #'lem-narrow-or-widen-dwim narrow-map)
 
-(require 'sp-org-appearance)
+(provide 'sp-org-appearance)

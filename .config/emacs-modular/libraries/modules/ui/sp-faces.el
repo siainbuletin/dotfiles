@@ -96,7 +96,7 @@
   (add-hook 'markdown-mode-hook #'hl-todo-mode))
 
 ;; TODO navigation transient. Bound to <leader> s t in
-;; lem-setup-keybindings.el. Suffixes stay on press; "q" exits.
+;; sp-keybindings.el. Suffixes stay on press; "q" exits.
 ;;
 ;; Setup/teardown: the prefix's BODY runs at invocation, enables
 ;; `hl-todo-mode', and registers a one-shot `transient-exit-hook'

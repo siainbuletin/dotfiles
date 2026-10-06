@@ -153,3 +153,15 @@ DELTA would be something like 1 or -1."
         pdf-outline-buffer-mode-hook
         proced-mode-hook
         tabulated-list-mode-hook))
+
+;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
+(use-package fontset
+  :ensure nil
+  :config
+  ;; Use symbola for proper unicode
+  (when (member "Symbola" (font-family-list))
+  (set-fontset-font
+  t 'symbol "Symbola" nil))
+)
+
+(provide 'sp-fonts)

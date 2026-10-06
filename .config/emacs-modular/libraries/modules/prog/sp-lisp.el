@@ -4,6 +4,10 @@
   :group 'siapip
   :type 'boolean)
 
+;; This will make the matching parentheses show up faster.
+;; source: https://www.jamescherti.com/emacs-user-interface-better-responsiveness-and-latency/
+(setq show-paren-delay 0.05)
+
 (use-package sly
   :ensure t
   :defer t

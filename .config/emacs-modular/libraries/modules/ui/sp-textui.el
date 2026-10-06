@@ -1,7 +1,16 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-textui.el
 
-;; Better rendering for widgets
-(require 'textui)
+;; TextUI is a new package that is supposed to provide better
+;; rendering for widgets in the buffer.
 
-(require 'org-table-widget)
+(use-package textui
+    :ensure (:host github :repo "yibie/textui"))
+
+(use-package org-table-widget
+    :ensure (:host github :repo "yibie/org-table-widget"))
+
 (add-hook 'org-mode-hook #'org-table-widget-mode)
+
+(provide 'sp-textui)
+;; sp-textui.el ends here.

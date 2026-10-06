@@ -9,6 +9,8 @@
   (consult-vulpea-mode 1)
 )
 
+;; VULPEA PARA SETUP
+
 (require 'vulpea-para)
 (vulpea-para-agenda-mode)
 

@@ -1,5 +1,7 @@
 ;; -*- lexical-binding: t; -*-
 
+(keymap-global-set "C-c o a" 'org-agenda)
+
 ;;;; Org Agenda
 ;;;;; Agenda Settings
 (use-package org-agenda
@@ -21,14 +23,9 @@
 
 ;; Custom org-agenda views
 ;; Agenda Custom Commands
-  ;; Configure custom agenda views
-  ;; https://orgmode.org/manual/Storing-searches.html#Storing-searches
-  ;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/
-
-  (org-agenda-custom-commands
-   '(
-
-     ))
+;; Configure custom agenda views
+;; https://orgmode.org/manual/Storing-searches.html#Storing-searches
+;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/
 
 (setq org-agenda-custom-commands
       '(("d" "Dashboard"
@@ -211,4 +208,11 @@
          :scheduled future
          :order 3))))
 
+(setq org-agenda-files
+        (list
+         "~/notes/area/"
+         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
+))
+
 (provide 'sp-org-agenda)
+;; sp-org-agenda.el ends here

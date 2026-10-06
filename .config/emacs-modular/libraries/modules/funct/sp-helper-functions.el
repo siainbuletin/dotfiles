@@ -775,23 +775,23 @@ Sublists indicate that one of the entries is required."
       (message "No missing executable files."))))
 
 ;;; BIBLIOGRAPHY
-(defvar sia-bibtex-files
-  (when (file-exists-p sia-bibtex-directory)
-    (directory-files sia-bibtex-directory t "^[A-Z|a-z|0-9].+.bib$"))
+(defvar sp-bibtex-files
+  (when (file-exists-p sp-bibtex-dir)
+    (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))
   "List of BibTeX files. Use `sia-bibtex-register' to configure.")
 
 ;;;###autoload
 (defun sia-bibtex-register ()
-  "Register the contents of the `sia-bibtex-directory' with `sia-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
+  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   (interactive)
-  (when (file-exists-p sia-bibtex-directory)
-    (let ((bib-files (directory-files sia-bibtex-directory t
+  (when (file-exists-p sp-bibtex-dir)
+    (let ((bib-files (directory-files sp-bibtex-dir t
 				      "^[A-Z|a-z|0-9].+.bib$")))
-      (setq sia-bibtex-files bib-files
+      (setq sp-bibtex-files bib-files
   	    org-cite-global-bibliography bib-files
 	    citar-bibliography bib-files)))
-  (message "Registered:\n%s" (mapconcat #'identity sia-bibtex-files "\n")))
+  (message "Registered:\n%s" (mapconcat #'identity sp-bibtex-files "\n")))
 
 (defun sp--bibtex-combined-biblio-lookup ()
   "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
@@ -811,13 +811,13 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
   "Insert Biblio search results into current buffer or select BibTeX file."
   (interactive)
   (if-let ((current-mode major-mode)
-	   sia-bibtex-files
-	   (bibfiles (length sia-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sia-bibtex-files))
+	   sp-bibtex-files
+	   (bibfiles (length sp-bibtex-files))
+	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
 			  ((equal major-mode 'bibtex-mode)
 			   (buffer-file-name))
 			  (t (completing-read
-			      "Select BibTeX file:" sia-bibtex-files)))))
+			      "Select BibTeX file:" sp-bibtex-files)))))
       (progn (find-file bibfile)
 	     (goto-char (point-max))
 	     (sp--bibtex-combined-biblio-lookup)
@@ -826,10 +826,10 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
 
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sia-bibtex-directory'."
+  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
   (sia-bibtex-register)
   (let ((attachments '()))
-    (dolist (bibtex-file sia-bibtex-files)
+    (dolist (bibtex-file sp-bibtex-files)
       (with-temp-buffer
         (insert-file-contents bibtex-file)
         (goto-char (point-min))
@@ -838,17 +838,17 @@ Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
                                           "[[:space:]]*;[[:space:]]*")))
             (dolist (file-path file-paths)
               (push (expand-file-name (string-trim file-path)
-                                      sia-bibtex-directory)
+                                      sp-bibtex-dir)
                     attachments))))))
     attachments))
 
 (defun sp--bibtex-extract-files ()
-  "List files recursively in `sia-bibtex-directory', excluding `.bib' and `.csl'."
+  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
   (seq-remove (lambda (file)
                 (or (string-suffix-p ".bib" file)
                     (string-suffix-p ".csl" file)))
               (mapcar 'expand-file-name
-                      (directory-files-recursively sia-bibtex-directory ""))))
+                      (directory-files-recursively sp-bibtex-dir ""))))
 
 ;;;###autoload
 (defun sia-bibtex-missing-files ()

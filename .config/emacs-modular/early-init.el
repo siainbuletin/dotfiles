@@ -343,6 +343,7 @@ symbol for the corresponding `sp-setup-*' module.")
 ;; Prefer newer versions of files
 (setopt load-prefer-newer t)
 
+;; Warning settings
 ;;;; Byte Compile Warnings
 ;; 
 ;; Move other warning deferal mechanisms here
@@ -353,22 +354,16 @@ symbol for the corresponding `sp-setup-*' module.")
 ;; NOTE: Setopt won't work here
 (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local obsolete))
 
+;; Suppress unnecessary warnings
+;; You can set minimum severity level for displaying the warning buffer to :error or :emergency:
+;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
+
+(setq warning-minimum-level :error)
+
 ;;;; Check Errors
 ;; Don't produce backtraces when errors occur.
 ;; This can be set to `t' interactively when debugging.
-(setopt debug-on-error nil)
-
-;;;; Custom Settings & Default Theme
-;; Ordinarily we might leave theme loading until later in the init process, but
-;; this leads to the initial frame flashing either light or dark color,
-;; depending on the system settings. Let's avoid that by loading a default theme
-;; before initial frame creation. The modus themes are built in and excellent.
-;; NOTE: 1. The default theme is set only if there are no user configuration
-;; files, otherwise it is left to the user to do; 
-;; 2. This system check only works for MacOS, with an emacs build with the 
-;; ns-system-appearance patch. For
-;; examples of such builds see https://codeberg.org/mclearc/build-emacs-macos
-;; or https://github.com/d12frosted/homebrew-emacs-plus
+(setopt debug-on-error t)
 
 ;; Set location of package directory
 (setopt package-user-dir (expand-file-name "elpa/" sp-var-dir))

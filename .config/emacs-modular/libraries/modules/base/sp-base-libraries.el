@@ -49,6 +49,10 @@
 ;; Other base libraries (sia)
 
 ;; This is for rendering basic menus as faithfully as possible
+
+(use-package cond-let
+  :ensure (:wait t))
+
 (use-package transient
   :ensure t)
 
@@ -66,6 +70,20 @@
 
 (use-package ess
   :ensure t)
+
+(use-package ess-mode
+  :ensure t
+  :defer t
+  :hook (ess-mode . (lambda ()
+                      ('company-mode t)))
+  :bind (:map ess-mode-map
+              ([tab] . company-indent-or-complete-common)
+              ([f1] . company-show-doc-buffer))
+  :config
+  (add-to-list
+   'display-buffer-alist
+   '("\\*compilation\\*" . (display-buffer-reuse-window
+                            . ((reusable-frames . t))))))
 
 (use-package taxy
   :ensure t)
@@ -113,12 +131,6 @@
 (use-package load-dir
   :ensure (:wait t))
 
-(use-package cond-let
-  :ensure (:wait t))
-
-(use-package keycast
-  :ensure (:wait t))
-
 (use-package dwim-shell-command
   :ensure t
   :bind (([remap shell-command] . dwim-shell-command)
@@ -136,11 +148,11 @@
 ;; BUFFER FUNCTIONS
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
-;; Suppress unnecessary warnings
-
-;; You can set minimum severity level for displaying the warning buffer to :error or :emergency:
-;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
-
-(setq warning-minimum-level :error)
+;; Don't remember what Avy was for, but it's a pretty important library to have.
+(use-package avy
+  :ensure t
+  :demand t
+  :bind (("C-:" . avy-goto-char)
+         ("C-M-:" . avy-goto-char-timer)))
 
 (provide 'sp-base-libraries)

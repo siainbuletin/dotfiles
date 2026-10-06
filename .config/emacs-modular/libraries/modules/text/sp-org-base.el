@@ -7,6 +7,34 @@
 ;; - org-node (and the org-mem package)
 ;; - all the org-agenda stuff that will help with taks management (see also taskman.el)
 
+;; Basic settings for text-mode - getting text to work well
+(use-package text-mode
+  :ensure nil
+  :hook
+  (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+  :init
+  (delete-selection-mode t)
+  :custom
+  (sentence-end-double-space nil)
+  (scroll-error-top-bottom t)
+  (save-interprogram-paste-before-kill t))
+
+  (add-hook 'org-mode-hook #'org-num-mode)
+
+(add-hook 'before-save-hook
+          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+
+(show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+(delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+
+(setq org-link-search-must-match-exact-headline nil)
+
+(setq counsel-outline-display-style 'title)
+
+(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+
+(setq org-directory "~/notes")
+
 ;; Use Org from source rather than built in
 (use-package org
   :ensure nil
@@ -227,32 +255,7 @@
     ("C-x t d" . org-do-demote)
 )
 
-(use-package text-mode
-  :ensure nil
-  :hook
-  (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
-  :init
-  (delete-selection-mode t)
-  :custom
-  (sentence-end-double-space nil)
-  (scroll-error-top-bottom t)
-  (save-interprogram-paste-before-kill t))
 
-  (add-hook 'org-mode-hook #'org-num-mode)
-
-(add-hook 'before-save-hook
-          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
-
-
-
-(show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
-(delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
-
-(setq org-link-search-must-match-exact-headline nil)
-
-(setq counsel-outline-display-style 'title)
-
-(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
 
 (defun sia-make-id-for-title (title)
   "Return an ID based on TITLE."
@@ -289,13 +292,6 @@ If X does not have a CUSTOM_ID, create it based on the headline
 title."
     (let* ((id (sia-org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
-
-(setq org-directory "~/notes")
-
-(use-package org-special-block-extras
-  :ensure t)
-
-;; (load-file "~/.config/emacs-include/sia-modules/org-extra-emphasis.el")
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -370,17 +366,6 @@ selected instead of creating a new buffer."
       ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
       ("time-eater" . ?t)))
 
-(setq org-agenda-files
-        (list
-         "~/notes/area/"
-         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
-))
-
-
-(keymap-global-set "C-c o a" 'org-agenda)
-
-
-
 (setq org-priority-highest 1
       org-priority-lowest 5
       org-priority-default 4)
@@ -444,10 +429,10 @@ selected instead of creating a new buffer."
 
 ;; Time logging for org-mode
 
-(org-use-fast-todo-selection 'expert) ;; don't use popup window for todos
+(setq org-use-fast-todo-selection 'expert) ;; don't use popup window for todos
 ;; don't set to DONE if children aren’t DONE
-(org-enforce-todo-dependencies t)
-(org-enforce-todo-checkbox-dependencies t)
+(setq org-enforce-todo-dependencies t)
+(setq org-enforce-todo-checkbox-dependencies t)
 
 ;; Logging
 (setq org-log-done 'time)
@@ -457,41 +442,19 @@ selected instead of creating a new buffer."
 (setq org-log-reschedule nil)
 
 ;; All of the other org-mode packages are required with the base configuration here:
-(require 'sp-org-appearance)
-
-(require 'sp-org-capture)
-(require 'sp-org-babel)
-(require 'sp-org-agenda)
-
 (require 'sp-org-ext)
-
-;; for zettelkasten
-;; (require 'sp-org-node-mem)
-(require 'sp-vulpea-base)
-(require 'sp-vulpea-ext)
 
 ;; Lambda emacs
 
 ;; Core settings for org-mode in 𝛌-Emacs This file is for configuring org and
 ;; related files that are part of org. Other extensions to org can be found in
-;; lem-setup-org-extensions.
+;; ~sp-org-ext.el~.
 
 ;; Note that configuring that is heavily user-specific, such as capture
 ;; templates, is not put here, but should be put in the user's configuration
 ;; file (or user library). For an example of how to configure capture templates
 ;; see:
 ;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/#capture-templates
-
-;;; Code:
-
-;;;; Org Contrib
-(use-package org-contrib
-  :when (and sp-load-extras (locate-library "org-contrib"))
-  :after org
-  :config
-  ;; ignore export of headlines marked with :ignore: tag
-  (require 'ox-extra)
-  (ox-extras-activate '(ignore-headlines)))
 
 ;;;; Org ID
 ;; Use org ids for reference
@@ -519,39 +482,6 @@ selected instead of creating a new buffer."
                           ("\\.x?html?\\'" . default)
                           ("\\.pdf\\'" . emacs)
                           (auto-mode . emacs)))
-
-;;;; Org Functions
-
-
-;;;;; Narrow & Advance/Retreat
-;; Functions to advance forwards or backwards through narrowed tree
-(defun lem-org-advance ()
-  (interactive)
-  (when (buffer-narrowed-p)
-    (goto-char (point-min))
-    (widen)
-    (org-forward-heading-same-level 1))
-  (org-narrow-to-subtree))
-
-(defun lem-org-retreat ()
-  (interactive)
-  (when (buffer-narrowed-p)
-    (goto-char (point-min))
-    (widen)
-    (org-backward-heading-same-level 1))
-  (org-narrow-to-subtree))
-
-;;;;; Clone and Narrow
-(defun lem-clone-buffer-and-narrow ()
-  "Clone buffer and narrow outline tree"
-  (interactive)
-  (let ((buf (clone-indirect-buffer-other-window nil nil)))
-    (with-current-buffer buf
-      (cond ((derived-mode-p 'org-mode)
-             (org-narrow-to-element))
-            ((derived-mode-p 'markdown-mode)
-             (markdown-narrow-to-subtree))))
-    (switch-to-buffer-other-window buf)))
 
 ;;;;; Goto Org Files
 (defun lem-goto-org-files ()
@@ -596,216 +526,10 @@ selected instead of creating a new buffer."
   (interactive)
   (find-file (concat org-directory "teaching.org")))
 
-;;;;; Export Headings as Seperate Files
-;; export headlines to separate files
-;; http://pragmaticemacs.com/emacs/export-org-mode-headlines-to-separate-files/ ; see also:
-;; http://emacs.stackexchange.com/questions/2259/how-to-export-top-level-headings-of-org-mode-buffer-to-separate-files
-
-;; FIXME: neither of these functions work right now for some reason.
-(defun lem-org-export-headlines-to-docx ()
-  "Export all subtrees that are *not* tagged with :noexport: to
-    separate docx files.
-
-    Subtrees that do not have the :EXPORT_FILE_NAME: property set
-    are exported to a filename derived from the headline text."
-  (interactive)
-  (save-buffer)
-  (let ((modifiedp (buffer-modified-p)))
-    (save-excursion
-      (goto-char (point-min))
-      (goto-char (re-search-forward "^*"))
-      (set-mark (line-beginning-position))
-      (goto-char (point-max))
-      (org-map-entries
-       (lambda ()
-         (let ((export-file (org-entry-get (point) "EXPORT_FILE_NAME")))
-           (unless export-file
-             (org-set-property
-              "EXPORT_FILE_NAME"
-              (replace-regexp-in-string " " "_" (nth 4 (org-heading-components)))))
-           (deactivate-mark)
-           (org-pandoc-export-to-docx nil t)
-           (unless export-file (org-delete-property "EXPORT_FILE_NAME"))
-           (set-buffer-modified-p modifiedp)))
-       "-noexport" 'region-start-level)))
-  (shell-command-to-string "open ~/Dropbox/Work/Comments/Referee-Reports/ref-report.docx"))
-
-(defun lem-org-export-headlines-to-pdf ()
-  "Export all subtrees that are *not* tagged with :noexport: to
-    separate pdf files.
-
-    Subtrees that do not have the :EXPORT_FILE_NAME: property set
-    are exported to a filename derived from the headline text."
-  (interactive)
-  ;; (require 'ox-pandoc)
-  (save-buffer)
-  (let ((modifiedp (buffer-modified-p)))
-    (save-excursion
-      (goto-char (point-min))
-      (goto-char (re-search-forward "^*"))
-      (set-mark (line-beginning-position))
-      (goto-char (point-max))
-      (org-map-entries
-       (lambda ()
-         (let ((export-file (org-entry-get (point) "EXPORT_FILE_NAME")))
-           (unless export-file
-             (org-set-property
-              "EXPORT_FILE_NAME"
-              (replace-regexp-in-string " " "_" (nth 4 (org-heading-components)))))
-           (deactivate-mark)
-           (org-latex-export-to-pdf nil t nil nil '(:latex-class "org-notes"))
-           ;; (org-pandoc-export-to-latex-pdf nil t)
-           (unless export-file (org-delete-property "EXPORT_FILE_NAME"))
-           (set-buffer-modified-p modifiedp)))
-       "-noexport" 'region-start-level))))
-
-;;;;; Export Top Level Trees to File
-;; From a useful [[https://emacs.stackexchange.com/questions/27226/how-to-export-top-level-trees-in-an-org-file-to-corresponding-files][stack exchange]] post
-(defun lem-org-map-entries (org-file in-tags func)
-  (let ((tags (if (stringp in-tags)
-                  (list in-tags)
-                in-tags)))
-
-    (with-temp-buffer
-      (org-mode)
-      (insert-file-contents org-file)
-
-      ;; Execute func at each heading that matches tags.
-      (while (< (point) (point-max))
-
-        ;; If find a heading...
-        (and (search-forward-regexp "^\* " nil "end")
-
-             ;; ...that matches the given tags...
-             (seq-reduce
-              (lambda(a b) (and a b))
-              (mapcar
-               (lambda (tag)
-                 (beginning-of-line)
-                 (search-forward-regexp
-                  (concat ":" tag ":") (line-end-position) "end"))
-               tags)
-              t)
-
-             ;; ... then execute given function with cursor at beginning of
-             ;; heading.
-             (progn
-               (beginning-of-line)
-               (save-excursion
-                 (funcall func))
-               (end-of-line)))))))
-
-;;;;; Org demote/promote region
-(defun lem-demote-everything (number beg end)
-  "Add a NUMBER of * to all headlines between BEG and END.
-    Interactively, NUMBER is the prefix argument and BEG and END are
-    the region boundaries."
-  (interactive "p\nr")
-  (save-excursion
-    (save-restriction
-      (save-match-data
-        (widen)
-        (narrow-to-region beg end)
-        (goto-char (point-min))
-        (let ((string (make-string number ?*)))
-          (while (search-forward-regexp "^\\*" nil t)
-            (insert string)))))))
-
-;;;;; Org Return DWIM
-;; Note that i've disabled this for now as it was causing issues
-;; https://gist.github.com/alphapapa/61c1015f7d1f0d446bc7fd652b7ec4fe
-(defun lem-org-return (&optional ignore)
-  "Add new list item, heading or table row with RET.
-    A double return on an empty element deletes it. Use a prefix arg
-    to get regular RET. "
-  ;; See https://gist.github.com/alphapapa/61c1015f7d1f0d446bc7fd652b7ec4fe and
-  ;; http://kitchingroup.cheme.cmu.edu/blog/2017/04/09/A-better-return-in-org-mode/
-  (interactive "P")
-  (if ignore
-      (org-return)
-    (cond ((eq 'link (car (org-element-context)))
-           ;; Open links like usual
-           (org-open-at-point-global))
-          ((and (fboundp 'org-inlinetask-in-task-p) (org-inlinetask-in-task-p))
-           ;; It doesn't make sense to add headings in inline tasks. Thanks Anders
-           ;; Johansson!
-           (org-return))
-          ((org-at-item-checkbox-p)
-           ;; Add checkboxes
-           (org-insert-todo-heading nil))
-          ((and (org-in-item-p) (not (bolp)))
-           ;; Lists end with two blank lines, so we need to make sure we are also not
-           ;; at the beginning of a line to avoid a loop where a new entry gets
-           ;; created with only one blank line.
-           (if (org-element-property :contents-begin (org-element-context))
-               (org-insert-heading)
-             (beginning-of-line)
-             (delete-region (line-beginning-position) (line-end-position))
-             (org-return)))
-          ((org-at-heading-p)
-           (if (s-present? (org-element-property :title (org-element-context)))
-               (progn
-                 (org-end-of-meta-data)
-                 (org-insert-heading))
-             (beginning-of-line)
-             (delete-region (line-beginning-position) (line-end-position))))
-          ((org-at-table-p)
-           (if (--any? (string-empty-p it)
-                       (nth (- (org-table-current-dline) 1) (org-table-to-lisp)))
-               (org-return)
-             ;; Empty row
-             (beginning-of-line)
-             (delete-region (line-beginning-position) (line-end-position))
-             (org-return)))
-          (t
-           (org-return)))))
-
-;; (general-define-key :keymaps 'org-mode-map "RET" #'lem-org-return)
-
 ;;;;; Org Create Check Box From List Item
 ;; A useful macro for converting list items to checkboxes
 (fset 'lem-org-checkbox-from-list
       [?a ?  ?\[ ?  ?\] escape ?\M-x return])
-
-;;;;; Org link Syntax
-(defun org-update-link-syntax (&optional no-query)
-  "Update syntax for links in current buffer.
-Query before replacing a link, unless optional argument NO-QUERY
-is non-nil."
-  (interactive "P")
-  (org-with-point-at 1
-    (let ((case-fold-search t))
-      (while (re-search-forward "\\[\\[[^]]*?%\\(?:2[05]\\|5[BD]\\)" nil t)
-        (let ((object (save-match-data (org-element-context))))
-          (when (and (eq 'link (org-element-type object))
-                     (= (match-beginning 0)
-                        (org-element-property :begin object)))
-            (goto-char (org-element-property :end object))
-            (let* ((uri-start (+ 2 (match-beginning 0)))
-                   (uri-end (save-excursion
-                              (goto-char uri-start)
-                              (re-search-forward "\\][][]" nil t)
-                              (match-beginning 0)))
-                   (uri (buffer-substring-no-properties uri-start uri-end)))
-              (when (or no-query
-                        (y-or-n-p
-                         (format "Possibly obsolete URI syntax: %S.  Fix? "
-                                 uri)))
-                (setf (buffer-substring uri-start uri-end)
-                      (org-link-escape (org-link-decode uri)))))))))))
-
-
-
-
-;;;;; Org Export Last Subtree
-;; bind f5 to keyboard macro of export-last-subtree
-(fset 'export-last-subtree
-      "\C-u\C-c\C-e")
-
-(eval-after-load "org"
-  '(progn
-     (define-key org-mode-map (kbd "<f5>") 'export-last-subtree)))
-
 
 ;;;;; Org Tag Selection
 
@@ -817,33 +541,6 @@ is non-nil."
     (alet (-uniq (append (-difference current selected)
                          (-difference selected current)))
       (org-set-tags it))))
-
-;;;;; Org Copy Link
-;; see https://emacs.stackexchange.com/a/63038/11934
-(defun lem-org-link-copy-at-point ()
-  (interactive)
-  (save-excursion
-    (let* ((ol-regex "\\[\\[.*?:.*?\\]\\(\\[.*?\\]\\)?\\]")
-           (beg (re-search-backward "\\[\\["))
-           (end (re-search-forward ol-regex))
-           (link-string (buffer-substring-no-properties (match-beginning 0) (match-end 0))))
-      (kill-new link-string)
-      (message "Org link %s is copied." link-string))))
-
-;;;;; Remove Org Links
-;; https://emacs.stackexchange.com/a/10714/11934
-(defun lem-org-replace-link-by-link-description ()
-  "Replace an org link by its description or, if empty, its address"
-  (interactive)
-  (if (org-in-regexp org-link-bracket-re 1)
-      (save-excursion
-        (let ((remove (list (match-beginning 0) (match-end 0)))
-              (description
-               (if (match-end 2)
-                   (org-match-string-no-properties 2)
-                 (org-match-string-no-properties 1))))
-          (apply 'delete-region remove)
-          (insert description)))))
 
 ;;;;; Uncheck Org boxes
 ;;see https://www.reddit.com/r/emacs/comments/r107bg/comment/hlx54vf/?utm_source=share&utm_medium=web2x&context=3
@@ -915,19 +612,4 @@ one week to the next, unchecking them at the same time"
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
 
-
-;;;;; Org Export Body to HTML Buffer
-(defun lem-org-export-to-buffer-html-as-body (&optional async body-only ext-plist)
-  "Export org buffer body to html"
-  (interactive)
-  (org-export-to-buffer 'html "*Org HTML Export*"
-    async nil nil body-only ext-plist
-    (lambda ()
-      (html-mode)
-      (lem-copy-whole-buffer-to-clipboard)))
-  (delete-windows-on "*Org HTML Export*")
-  (message "HTML copied!"))
-;; (lem-previous-user-buffer))
-
-;;; Provide Org-Settings
-(provide 'lem-setup-org-settings)
+(provide 'sp-org-base)

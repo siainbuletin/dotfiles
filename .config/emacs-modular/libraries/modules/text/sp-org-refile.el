@@ -22,11 +22,14 @@
   (org-outline-path-complete-in-steps nil)
   (org-refile-allow-creating-parent-nodes 'confirm))
 
-(setq org-refile-targets '((+org/opened-buffer-files :maxlevel . 9))
-                            (nil :maxlevel . 9)
-                            (org-agenda-files :maxlevel . 8))
+;; there is something wrong in the syntax in the way that I wrote it here
+(setq org-refile-targets 
+  '(
+    (+org/opened-buffer-files :maxlevel . 9)
+    (nil :maxlevel . 9)
+    (org-agenda-files :maxlevel . 8)
+  ))
 
-;; use cache for org refile
 (setq org-refile-use-cache t)
 
 (setq org-refile-use-outline-path 'file)

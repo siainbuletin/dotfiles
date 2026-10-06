@@ -31,6 +31,7 @@
 
 (set-face-background 'fringe (face-attribute 'default :background))
 
+;; I don't remember what this linking thing actually does
 (setq org-link-frame-setup
    '((denote . find-file)
      (vm . vm-visit-folder-other-frame)
@@ -39,14 +40,14 @@
      (file . find-file)
      (wl . wl-other-frame)))
 
-
-
 (use-package ace-window
   :ensure t
   :demand t
+
   :custom
   (aw-dispatch-always t)
   (aw-dispatch-when-more-than 0)
+
   :bind
   (("C-x o" . ace-window)))
 

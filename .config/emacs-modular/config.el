@@ -36,7 +36,7 @@
 
 ;;;;; Set Splash Footer
 ;; Set a footer for the splash screen
-(setq lem-splash-footer  "")
+(setq sp-splash-footer  "")
 
 ;;;; Load Modules
 ;; Load modules in stages for a shorter init time. We load core modules first,
@@ -51,19 +51,19 @@
 (measure-time
  (cl-dolist (mod (list
                   ;; Base modules
-                  'lem-setup-libraries
-                  'lem-setup-settings
-                  'lem-setup-functions
-                  'lem-setup-macros
+                  'sp-libraries
+                  'sp-settings
+                  'sp-functions
+                  'sp-macros
                   'sp-scratch
-                  'lem-setup-theme
+                  'sp-theme
 
                   ;; Basic UI modules
-                  'lem-setup-windows
-                  'lem-setup-buffers
-                  'lem-setup-frames
-                  'lem-setup-fonts
-                  'lem-setup-faces))
+                  'sp-windows
+                  'sp-buffers
+                  'sp-frames
+                  'sp-fonts
+                  'sp-faces))
    (require mod nil t)))
 
 ;;;;; Load After-Init Modules
@@ -75,23 +75,23 @@
   ;; ======================================================")
   (measure-time (cl-dolist (mod (list
                                  ;; Splash/Dashboard
-                                 'lem-setup-splash
-                                 'lem-setup-dashboard
+                                 'sp-splash
+                                 'sp-dashboard
 
                                  ;; Completion & Keybinds
-                                 'lem-setup-completion
-                                 'lem-setup-keybindings
+                                 'sp-completion
+                                 'sp-keybindings
 
                                  ;; Navigation & Search modules
-                                 'lem-setup-navigation
-                                 'lem-setup-dired
-                                 'lem-setup-search
+                                 'sp-navigation
+                                 'sp-dired
+                                 'sp-search
 
                                  ;; Project & Tab/Workspace modules
-                                 'lem-setup-vc
-                                 'lem-setup-projects
-                                 'lem-setup-tabs
-                                 'lem-setup-workspaces))
+                                 'sp-vc
+                                 'sp-projects
+                                 'sp-tabs
+                                 'sp-workspaces))
                   (require mod nil t))))
 (add-hook 'after-init-hook #'lem-user-config-after-init)
 
@@ -105,39 +105,39 @@
   (measure-time (cl-dolist (mod (list
 
                                  ;; Writing modules
-                                 'lem-setup-writing
-                                 'lem-setup-notes
-                                 'lem-setup-citation
+                                 'sp-writing
+                                 'sp-notes
+                                 'sp-citation
 
                                  ;; Programming modules
-                                 'lem-setup-programming
-                                 'lem-setup-debug
-                                 'lem-setup-skeleton
+                                 'sp-programming
+                                 'sp-debug
+                                 'sp-skeleton
 
                                  ;; Shell & Terminal
-                                 'lem-setup-shell
-                                 'lem-setup-eshell
+                                 'sp-shell
+                                 'sp-eshell
 
                                  ;; Org modules
-                                 'lem-setup-org-base
-                                 'lem-setup-org-settings
-                                 'lem-setup-org-extensions
+                                 'sp-org-base
+                                 'sp-org-settings
+                                 'sp-org-extensions
 
                                  ;; Productivity
-                                 'lem-setup-elfeed
+                                 'sp-elfeed
 
                                  ;; OS settings
                                  ;; load only if on macos
                                  (when sys-mac
-                                   'lem-setup-macos)
+                                   'sp-macos)
 
                                  ;; Other UI/UX
-                                 'lem-setup-help
-                                 'lem-setup-colors
-                                 'lem-setup-modeline
+                                 'sp-help
+                                 'sp-colors
+                                 'sp-modeline
 
                                  ;; Server
-                                 'lem-setup-server))
+                                 'sp-server))
                   (require mod nil t))))
 (add-hook 'emacs-startup-hook #'lem-user-config-after-startup)
 

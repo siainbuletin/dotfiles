@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t; -*-
-;; sp-academic.el
+;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
 ;; guidance for where the files should be found. In the future, I want some
@@ -66,16 +67,6 @@
   (setq bibtex-autokey-titlewords 3)
   (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
-
-
-
-(require 'oc-natbib)
-(require 'oc-csl)
-
-(setq org-cite-global-bibliography sia-bibtex-files
-      org-cite-insert-processor 'citar
-      org-cite-follow-processor 'citar
-      org-cite-activate-processor 'citar)
 
 (use-package org-ref
   :ensure t
@@ -160,3 +151,5 @@
 (defcustom lem-citar-note nil "Template for use with citar notes."
   :group 'sia-lambda
   :tag "Lambda-Emacs Citar Notes Template")
+
+(require 'sp-academic)

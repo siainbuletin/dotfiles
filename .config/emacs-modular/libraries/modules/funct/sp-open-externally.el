@@ -1,3 +1,5 @@
+;; -*- lexical-binding: t; -*-
+
 ;; De văzut cum fac asta să funcționeze bine
 
 ;; Taken from Emacs Writing Studio.

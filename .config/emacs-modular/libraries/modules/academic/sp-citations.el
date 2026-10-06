@@ -1,17 +1,25 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-citations.el
 
+(require 'oc-natbib)
+;; (require 'oc-csl) -- this is already declared with use-package and all the settings
+
 ;;;; Org-Cite
 ;; built-in package -- set up proper configuration
 (use-package oc
   :ensure nil
   :after org
   :config
-  ;; (setq org-cite-global-bibliography `(,sia-bibtex-directory)) ;; I don't know if this works with a file or with a directory, unclear from the syntax.
+  ;; (setq org-cite-global-bibliography `(,sp-bibtex-dir)) ;; I don't know if this works with a file or with a directory, unclear from the syntax.
   (setq org-cite-export-processors
         '((beamer csl)
           (latex csl)
           (t csl))))
+
+(setq org-cite-global-bibliography sp-bibtex-files
+      org-cite-insert-processor 'citar
+      org-cite-follow-processor 'citar
+      org-cite-activate-processor 'citar)
 
 ;; Use csl
 ;; needs to have CSL installed on the system
@@ -71,11 +79,11 @@
          :ensure t
          :defer t ; what's the point of defering in this case?
          :custom
-         (org-cite-global-bibliography sia-bibtex-files)
+         (org-cite-global-bibliography sp-bibtex-files)
          (org-cite-insert-processor 'citar)
          (org-cite-follow-processor 'citar)
          (org-cite-activate-processor 'citar)
-         (citar-bibliography sia-bibtex-files)
+         (citar-bibliography sp-bibtex-files)
 
       (citar-symbol-separator "  ")
 
@@ -89,6 +97,7 @@
 
 (setq citar-library-file-extensions nil)
 
+;; Acting on citations (and jumping across the files better)
 (use-package citar-embark
   :ensure t
   :after (citar embark)
@@ -99,25 +108,6 @@
 (setq citar-at-point-function 'embark-act)
 
 (defvar sia-citar-library-backup-path "~/Documents/literature/backup")
-
-(defun sia-citar-update-pdf-metadata (citekey)
-  (interactive (list (citar-select-ref)))
-  (citar--check-configuration 'citar-library-paths)
-  (unless citar-library-paths
-    (user-error "Make sure `citar-library-paths' is non-nil"))
-  (let* ((files (gethash cite-key (citar-get-files cite-key))))
-    (unless files
-      (user-error (format "There are no PDF files associated with %s" citekey)))
-    (let ((file (or (unless (cdr files) (car files)) (completing-read "Please select a PDF file: " files)))
-          (title (citar-get-value 'title citekey))
-          (author (cond ((citar-get-value 'author citekey)
-                         (citar-get-value 'author citekey))
-                        ((citar-get-value 'editor citekey)
-                         (concat (citar-get-value 'editor citekey) " (ed.)")))))
-      (progn
-        (copy-file file sia-citar-library-backup-path 1)
-        (call-process-shell-command
-         (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
 
 (provide 'sp-citations)
 ;; sp-citations.el ends here

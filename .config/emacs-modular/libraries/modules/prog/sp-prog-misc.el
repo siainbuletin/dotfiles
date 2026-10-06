@@ -44,19 +44,7 @@
 
 (use-package ein
   :defer t)
-(use-package ess-mode
-  :ensure ess
-  :defer t
-  :hook (ess-mode . (lambda ()
-                      ('company-mode t)))
-  :bind (:map ess-mode-map
-              ([tab] . company-indent-or-complete-common)
-              ([f1] . company-show-doc-buffer))
-  :config
-  (add-to-list
-   'display-buffer-alist
-   '("\\*compilation\\*" . (display-buffer-reuse-window
-                            . ((reusable-frames . t))))))
+
 
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
 ;; Always group items in buffer menu
@@ -159,12 +147,6 @@
 ;; this will ensure that there's a git gutter in dired
 (use-package git-gutter-fringe
   :ensure t)
-
-(use-package avy
-  :ensure t
-  :demand t
-  :bind (("C-:" . avy-goto-char)
-         ("C-M-:" . avy-goto-char-timer)))
          
 (global-set-key
  (kbd "C-c b")

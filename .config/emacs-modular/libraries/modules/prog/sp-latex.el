@@ -150,7 +150,7 @@
 ;;;; Latex Packages
 ;; Basic settings
 (use-package auctex
-  :when (and lem-load-extras (locate-library "auctex"))
+  :when (and sp-load-extras (locate-library "auctex"))
   :mode (("\\.tex\\'" . latex-mode)
          ("\\.latex\\'" . latex-mode))
   :commands (latex-mode LaTeX-mode plain-tex-mode)

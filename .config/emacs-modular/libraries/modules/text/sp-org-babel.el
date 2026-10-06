@@ -1,8 +1,12 @@
 ;;; -*- lexical-binding: t -*-
 
+;;; Commentary:
+
 ;; This file deals with the tangling aspect of Emacs as well
 ;; this should, in the future, hold a reference to the functions
 ;; that are used for quickly tangling files.
+
+;;; Code:
 
 ;; Avoid `org-babel-do-load-languages' since it does an eager require.
 (use-package ob-python

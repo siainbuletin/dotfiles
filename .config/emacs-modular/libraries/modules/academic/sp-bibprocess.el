@@ -1,29 +1,29 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-bibprocess.el
 
-(defcustom sia-bibtex-directory
+(defcustom sp-bibtex-dir
   (concat (file-name-as-directory (getenv "HOME")) "/bibliography/")
   "Location of BibTeX files and attachments."
   :group 'siapip
   :type 'directory)
 
-(defvar sia-bibtex-files
-  (when (file-exists-p sia-bibtex-directory)
-    (directory-files sia-bibtex-directory t "^[A-Z|a-z|0-9].+.bib$"))
+(defvar sp-bibtex-files
+  (when (file-exists-p sp-bibtex-dir)
+    (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))
   "List of BibTeX files. Use `sia-bibtex-register' to configure.")
 
 ;;;###autoload
 (defun sia-bibtex-register ()
-  "Register the contents of the `sia-bibtex-directory' with `sia-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sia-bibtex-directory'."
+  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   (interactive)
-  (when (file-exists-p sia-bibtex-directory)
-    (let ((bib-files (directory-files sia-bibtex-directory t
+  (when (file-exists-p sp-bibtex-dir)
+    (let ((bib-files (directory-files sp-bibtex-dir t
 				      "^[A-Z|a-z|0-9].+.bib$")))
-      (setq sia-bibtex-files bib-files
+      (setq sp-bibtex-files bib-files
   	    org-cite-global-bibliography bib-files
 	    citar-bibliography bib-files)))
-  (message "Registered:\n%s" (mapconcat #'identity sia-bibtex-files "\n")))
+  (message "Registered:\n%s" (mapconcat #'identity sp-bibtex-files "\n")))
 
 (defun sp--bibtex-combined-biblio-lookup ()
   "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
