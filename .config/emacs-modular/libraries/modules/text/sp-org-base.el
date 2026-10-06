@@ -223,14 +223,8 @@
 (use-package math-preview
   :ensure (:wait t))
 
-
-
-(setq org-id-locations-file "~/.config/emacs-include/.org-id-locations")
-
 (use-package org-fragtog
   :ensure t)
-
-
 
 (setq org-support-shift-select t)
 
@@ -254,8 +248,6 @@
     ;; task-management bindings
     ("C-x t d" . org-do-demote)
 )
-
-
 
 (defun sia-make-id-for-title (title)
   "Return an ID based on TITLE."
@@ -441,30 +433,17 @@ selected instead of creating a new buffer."
 (setq org-log-redeadline nil) ;; don't log the time a task was rescheduled/redeadlined.
 (setq org-log-reschedule nil)
 
-;; All of the other org-mode packages are required with the base configuration here:
-(require 'sp-org-ext)
-
 ;; Lambda emacs
 
 ;; Core settings for org-mode in 𝛌-Emacs This file is for configuring org and
 ;; related files that are part of org. Other extensions to org can be found in
-;; ~sp-org-ext.el~.
+;; ~sp-org-ext.el~. This file is called in ~init.el~ instead of being required in here.
 
 ;; Note that configuring that is heavily user-specific, such as capture
 ;; templates, is not put here, but should be put in the user's configuration
 ;; file (or user library). For an example of how to configure capture templates
 ;; see:
 ;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/#capture-templates
-
-;;;; Org ID
-;; Use org ids for reference
-(use-package org-id
-  :ensure nil
-  :after org
-  :custom
-  (org-id-locations-file (concat sp-cache-dir ".org-id-locations"))
-  (org-id-method 'ts) ;; use timestamp for id
-  (org-id-link-to-org-use-id 'create-if-interactive)) ;; create ids
 
 ;; What does this eval after load mean?
 ;;;; Org Modules

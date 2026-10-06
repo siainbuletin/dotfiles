@@ -152,6 +152,7 @@ emacs-version string on the kill ring."
 
 (siapip/load
   '("./libraries/modules/ui/sp-buffers"           ;; Buffer management and general drawing instructions.
+    "./libraries/modules/ui/sp-canvas"            ;; For modules developed around the new Canvas feature in Emacs 32.
     "./libraries/modules/ui/sp-colors"            ;; Global color scheme to follow.
     "./libraries/modules/ui/sp-dashboard"
     "./libraries/modules/ui/sp-faces"
@@ -188,6 +189,7 @@ emacs-version string on the kill ring."
   "./libraries/modules/tooling/sp-choose-modeline"      ;; You can choose between 2 modelines.
   "./libraries/modules/tooling/sp-debug"                ;; If you ever need to do deep debugging for Elisp
   "./libraries/modules/tooling/sp-embark"
+  "./libraries/modules/tooling/sp-evil"
   "./libraries/modules/tooling/sp-help"                 ;; Improvements for the help module.
   "./libraries/modules/tooling/sp-indention"
   "./libraries/modules/tooling/sp-keys"                 ;; Keybindings
@@ -217,7 +219,7 @@ emacs-version string on the kill ring."
     "./libraries/modules/text/sp-org-appearance"
     "./libraries/modules/text/sp-org-capture"
     "./libraries/modules/text/sp-org-export"
-    "./libraries/modules/text/sp-org-refile"
+    ;; "./libraries/modules/text/sp-org-refile" ;; having an issue with org refile targets when loading
     "./libraries/modules/text/sp-org-tables"
     "./libraries/modules/text/sp-org-narrow"
 
@@ -241,23 +243,24 @@ emacs-version string on the kill ring."
 ;; ACADEMIC WORK (submodules are found inside)
 (siapip/load
   '("./libraries/modules/academic/sp-academic"
+    "./libraries/modules/academic/sp-statistics"
   ))
 
 ;; MULTIMEDIA WORK + OTHER WORKFLOWS
 (siapip/load
-  '("./libraries/modules/media/sp-beets"        ;; Managing a beets library
+  '("./libraries/modules/media/sp-beets"                ;; Managing a beets library
+    "./libraries/modules/media/sp-instant-messenger"
+    "./libraries/modules/media/sp-mail"
     ;; "./libraries/modules/media/sp-music-play"        ;; I currently don't know how to configure any of these media players.
-   "./libraries/modules/media/sp-reading"
-   "./libraries/modules/media/sp-browsing"      ;; Setup for different browsers inside of Emacs
-   "./libraries/modules/media/sp-rss"           ;; elfeed and inboxing of new information
+    "./libraries/modules/media/sp-reading"
+    "./libraries/modules/media/sp-browsing"             ;; Setup for different browsers inside of Emacs
+    "./libraries/modules/media/sp-rss"                  ;; elfeed and inboxing of new information
    ))
 
 ;;;;; OTHER
 (siapip/load
-  '("./libraries/modules/sp-ai"                 ;; this is for engaging with different models
+  '("./libraries/modules/sp-ai"                         ;; this is for engaging with different models. could be for local models as well, but it has to be set up
     "./libraries/modules/sp-consult-snapfile"
-    ;; large management
-    "./libraries/modules/sp-projects"
   ))
 
 ;;;;; FUNCTIONS I WROTE

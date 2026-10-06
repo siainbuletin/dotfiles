@@ -176,6 +176,27 @@
 (bind-key "N" #'sp-open-new-buffer-and-workspace 'project-prefix-map)
 
 ;; Including projectile as well for the sake of posterity (and trying things out - and moving from sp-projects - deprecated 2026.10.06)
+(use-package projectile
+  :ensure t
+  :init
+  (setq projectile-project-search-path
+        '("~/Documents/writing/"
+          "~/.config/"))
+  
+  :config
+  (projectile-mode +1)
+  
+  :bind (("C-c p" . projectile-command-map)
+         :map projectile-mode-map
+         ("C-c C-p" . projectile-command-map)
+         ("<f5>" . projectile-compile-project)
+         ("S-<f5>" . projectile-test-project)
+         ("<f6>" . projectile-run-project))
+
+  :custom
+  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-enable-caching t)
+  )
 
 ;;; Provide
 (provide 'sp-workspaces)

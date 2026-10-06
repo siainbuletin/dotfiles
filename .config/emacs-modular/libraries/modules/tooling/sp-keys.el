@@ -13,7 +13,7 @@
 ;; functions or packages from keybindings) but it also makes it the place to go
 ;; to deal with all keybindings. I use `bind-key' for setting bindings, which
 ;; comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
-;; specified by `lem-prefix'.
+;; specified by `sp-prefix'.
 
 ;;;; Bind Key
 ;; Note that bind-key comes with use-package
@@ -35,14 +35,14 @@
   :type 'string
   :group 'lambda-emacs)
 
-;; Use lem-prefix as leader namespace
+;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
-           :prefix lem-prefix)
+           :prefix sp-prefix)
 
 ;;;; Personal Keybindings by Group
 ;;;;; Buffer Keys
 (bind-keys :prefix-map lem+buffer-keys
-           :prefix (concat lem-prefix " b")
+           :prefix (concat sp-prefix " b")
            ("a" . ibuffer)
            ("b" . consult-buffer)
            ("c" . lem-copy-whole-buffer-to-clipboard )
@@ -72,7 +72,7 @@
 
 ;;;;; Comment Keybindings
 (bind-keys :prefix-map lem+comment-wrap-keys
-           :prefix (concat lem-prefix " c")
+           :prefix (concat sp-prefix " c")
            ("c" . comment-dwim)
            ("d" . crux-duplicate-and-comment-current-line-or-region)
            ("l" . comment-line)
@@ -83,7 +83,7 @@
 ;; FIXME: fix goto functions to make them more generic
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
-           :prefix (concat lem-prefix " C")
+           :prefix (concat sp-prefix " C")
            ("a" . lem-setup-kill-and-archive-region     )
            ("c" . lem-goto-custom.el                    )
            ("d" . lem-goto-emacs-dir                    )
@@ -98,7 +98,7 @@
 ;;;;; Compile Keybindings
 ;; TODO: remove complile-next-makefile in favor of project compile?
 (bind-keys :prefix-map lem+compile-keys
-           :prefix (concat lem-prefix " M")
+           :prefix (concat sp-prefix " M")
            ("m"  . compile                  )
            ("M"  . multi-compile-run        )
            ("e"  . compile-goto-error       )
@@ -108,7 +108,7 @@
 
 ;;;;; Eval Keybindings
 (bind-keys :prefix-map lem+eval-keys
-           :prefix (concat lem-prefix " e")
+           :prefix (concat sp-prefix " e")
            ("b"  . eval-buffer )
            ("c"  . lem-eval-current-form)
            ("e"  . eval-last-sexp)
@@ -116,7 +116,7 @@
 
 ;;;;; File Keybindings
 (bind-keys :prefix-map lem+file-keys
-           :prefix (concat lem-prefix " f")
+           :prefix (concat sp-prefix " f")
            ("b" . consult-bookmark                 )
            ("f" . find-file                        )
            ("l" . consult-locate                   )
@@ -127,7 +127,7 @@
 
 ;;;;; Linting (Flymake)
 (bind-keys :prefix-map lem+flymake-keys
-           :prefix (concat lem-prefix " F"        )
+           :prefix (concat sp-prefix " F"        )
            ("b" . flymake-start                   )
            ("c" . consult-flymake                 )
            ("d" . flymake-show-buffer-diagnostic  )
@@ -137,7 +137,7 @@
 
 ;;;;; Mail Keybindings
 (bind-keys :prefix-map lem+mail-keys
-           :prefix (concat lem-prefix " m")
+           :prefix (concat sp-prefix " m")
            ("c" . mu4e-compose-new           )
            ("i" . cpm-go-to-mail-inbox       )
            ("k" . mu4e-kill-update-mail      )
@@ -148,14 +148,14 @@
 ;;;;; Notes
 ;; General notes
 (bind-keys :prefix-map lem+notes-keys
-           :prefix (concat lem-prefix " n")
+           :prefix (concat sp-prefix " n")
            ("d"  .  denote)
            ("n"  .  consult-notes)
            ("s"  .  consult-notes-search-in-all-notes)
            ("w"  .  lem-denote-workbook-create-entry))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
-           :prefix (concat lem-prefix " n b")
+           :prefix (concat sp-prefix " n b")
            ("a"  .  citar-denote-add-citekey)
            ("c"  .  citar-create-note)
            ("o"  .  citar-open-notes)
@@ -163,7 +163,7 @@
 
 ;;;;; Quit Keybindings
 (bind-keys :prefix-map lem+quit-keys
-           :prefix (concat lem-prefix " q")
+           :prefix (concat sp-prefix " q")
            ("d" . lem-kill-emacs-capture-daemon)
            ("q" . save-buffers-kill-emacs      )
            ("Q" . lem-kill-all-emacsen         )
@@ -171,7 +171,7 @@
 
 ;;;;; Spelling Keybindings
 (bind-keys :prefix-map lem+spelling-keys
-           :prefix (concat lem-prefix " S")
+           :prefix (concat sp-prefix " S")
            ("b" . consult-flyspell          )
            ("h" . lem-spelling-transient    )
            ("n" . flyspell-correct-next     )
@@ -179,7 +179,7 @@
 
 ;;;;; Search Keybindings
 (bind-keys :prefix-map lem+search-keys
-           :prefix (concat lem-prefix " s")
+           :prefix (concat sp-prefix " s")
            ("a" . consult-org-agenda           )
            ;; search current buffer's directory
            ("d" . consult-ripgrep              )
@@ -201,7 +201,7 @@
 
 ;;;;; Toggle Keybindings
 (bind-keys :prefix-map lem+toggle-keys
-           :prefix (concat lem-prefix " t")
+           :prefix (concat sp-prefix " t")
            ("g" . git-gutter-mode             )
            ("d" . dired-sidebar-toggle-sidebar)
            ("e" . toggle-indicate-empty-lines )
@@ -218,7 +218,7 @@
            ("s" . flyspell-mode               )
            ("S" . ispell-buffer               )
            ("t" . toggle-dark-light-theme     )
-           ("T" . lem-load-theme              )
+           ("T" . sp-load-theme              )
            ("w" . writeroom-mode              )
            ("z" . zone                        ))
 
@@ -226,7 +226,7 @@
 ;; NOTE: This keymap is for user-specific keybindings. Define this in your
 ;; `config.el' file.
 (bind-keys :prefix-map lem+user-keys
-           :prefix (concat lem-prefix " u"))
+           :prefix (concat sp-prefix " u"))
 
 ;;;;; Version Control (Git) Keybindings
 ;; git-gutter is referenced by several bindings here but is not declared
@@ -240,7 +240,7 @@
 (autoload 'git-gutter:previous-hunk "git-gutter" "Move to previous hunk."   t)
 (autoload 'git-gutter-mode          "git-gutter" "Toggle git-gutter-mode."  t)
 (bind-keys :prefix-map  lem+vc-keys
-           :prefix (concat lem-prefix " g")
+           :prefix (concat sp-prefix " g")
            ("b" .  magit-blame                 )
            ("c" .  magit-commit                )
            ("d" .  magit-diff                  )
@@ -257,7 +257,7 @@
 
 ;;;;; Window Keybindings
 (bind-keys :prefix-map lem+window-keys
-           :prefix (concat lem-prefix " w")
+           :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
            ("f" .  lem-toggle-window-split         )
            ("c" .  delete-window                   )
@@ -280,7 +280,7 @@
 
 ;;;;; Workspace Keybindings
 (bind-keys :prefix-map lem+workspace-keys
-           :prefix (concat lem-prefix " W")
+           :prefix (concat sp-prefix " W")
            ("b"  .  tabspaces-switch-to-buffer)
            ("c"  .  tabspaces-clear-buffers)
            ("d"  .  tabspaces-close-workspace)
@@ -355,7 +355,7 @@
 ;; `org-transpose-element', and `org-table-transpose-table-at-point'
 ;; remain accessible via M-x. Spec 09 dropped a wrapping menu; see git
 ;; history for the prior dispatch macro.
-(bind-key (concat lem-prefix " .") #'transpose-words)
+(bind-key (concat sp-prefix " .") #'transpose-words)
 
 ;;;;; Rectangle transient
 ;; Suffixes stay on press; "g" exits. Setup/teardown:

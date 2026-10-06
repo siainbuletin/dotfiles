@@ -47,6 +47,11 @@
                    (name . "^\\*Messages\\*$")))))
          )
 
+;; Always group items in buffer menu
+(setq mouse-buffer-menu-mode-mult 0)
+;; Use ibuffer instead of temporary buffer popup
+(keymap-global-set "C-x C-b" 'ibuffer)
+
 ;; Working with pop-up buffers (Lambda Emacs settings)
 
 ;;;; Popper (Pop-up Buffers)

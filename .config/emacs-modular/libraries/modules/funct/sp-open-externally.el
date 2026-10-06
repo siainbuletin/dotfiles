@@ -1,4 +1,5 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-open-externally.el
 
 ;; De văzut cum fac asta să funcționeze bine
 
@@ -13,3 +14,4 @@
 ;; And especially DEVONthink in a satisfying manner.
 
 (provide 'sp-open-externally)
+;; sp-open-externally.el ends here.

@@ -7,6 +7,9 @@
 ;; have to manually fire the system appearance switch immediately after init.
 ;;
 ;; The newer version makes everything automatic.
+;;
+;; This is done much better through the function sp-load-theme that I took from
+;; Lambda Emacs configuration.
 
 (defun my-load-theme (appearance)
   (mapc #'disable-theme custom-enabled-themes)
@@ -15,3 +18,4 @@
     ('dark  (load-theme 'ef-dream t))))
 
 (add-hook 'ns-system-appearance-change-functions #'my-load-theme)
+

@@ -107,7 +107,7 @@ questions.  Otherwise use completion to select the tab."
 
 ;;;; Tab Workspaces
 (use-package tabspaces
-  :when (and lem-load-extras (locate-library "tabspaces"))
+  :when (and sp-load-extras (locate-library "tabspaces"))
   :load-path (lambda () (concat lem-user-elisp-dir "tabspaces/"))
   ;; Add some functions to the project map
   :bind (:map project-prefix-map

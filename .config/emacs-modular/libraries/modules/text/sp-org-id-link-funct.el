@@ -1,4 +1,22 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-org-id-link-funct.el
+
+;;; Commentary:
+
+;; This is isolating every function that has to do with ID creation. It also deals
+;; with links within org-mode.
+
+;;; Code:
+
+;;;; Org ID
+;; Use org ids for reference
+(use-package org-id
+  :ensure nil
+  :after org
+  :custom
+  (org-id-locations-file (concat sp-cache-dir ".org-id-locations")) ;; this keeps in line with the no-littering principle
+  (org-id-method 'ts) ;; use timestamp for id
+  (org-id-link-to-org-use-id 'create-if-interactive)) ;; create ids
 
 ;;;;; Org link Syntax
 (defun org-update-link-syntax (&optional no-query)
@@ -55,3 +73,4 @@ is non-nil."
           (insert description)))))
 
 (provide 'sp-org-id-link-funct)
+;; sp-org-id-link-funct.el ends here.

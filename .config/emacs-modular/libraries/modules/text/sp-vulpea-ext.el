@@ -11,7 +11,9 @@
 
 ;; VULPEA PARA SETUP
 
-(require 'vulpea-para)
+(use-package vulpea-para
+  :ensure (:host github :repo "d12frosted/vulpea-para"))
+
 (vulpea-para-agenda-mode)
 
 (vulpea-para-setup-defaults)

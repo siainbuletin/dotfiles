@@ -5,9 +5,9 @@
   :defer t)
 
 (use-package rainbow-delimiters
+  :ensure t
   :hook ((prog-mode . rainbow-delimiters-mode)
          (salt-mode . rainbow-delimiters-mode)))
-
 
 (use-package x509-mode
   :defer t)
@@ -45,12 +45,8 @@
 (use-package ein
   :defer t)
 
-
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
-;; Always group items in buffer menu
-(setq mouse-buffer-menu-mode-mult 0)
-;; Use ibuffer instead of temporary buffer popup
-(global-set-key (kbd "C-x C-b") 'ibuffer)
+
 (global-set-key (kbd "<M-up>") 'move-text-up)
 (global-set-key (kbd "<M-down>") 'move-text-down)
 ;(global-set-key (kbd "<home>") 'smart-beginning-of-line)

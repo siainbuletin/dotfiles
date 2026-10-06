@@ -27,6 +27,9 @@
 
 ;; Global search
 
+(use-package ag
+  :ensure (:wait t))
+
 (use-package rg
   :ensure (:wait t)
   )

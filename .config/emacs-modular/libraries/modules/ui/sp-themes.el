@@ -1,35 +1,37 @@
 ;; -*- lexical-binding: t; -*-
-
 ;;; sp-themes.el
 
-;; This includes the theme manager from Lambda Emacs
+;;; Commentary:
 
+;; This includes the theme manager from Lambda Emacs
+;;
 ;; 𝛌-Emacs comes with its own set of themes --
 ;; 𝛌-Themes. The user can of course configure things to use whatever theme they
 ;; like. The Modus themes are especially good and included with Emacs 28+.
 
-;;;; No-confirm themes
-(setq custom-safe-themes t)
-
-;; Configuring the custom theme folder
-(defcustom sp-custom-themes-dir (concat sp-libraries-dir "themes/")
+;;; Code:
+;;;; Configuring the custom theme folder
+(defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
   "Set a custom themes directory path."
   :group 'sia-lambda
   :type 'string)
 
-;; Make the custom themes dir.
+;;;;; Make the custom themes dir.
 (mkdir sp-custom-themes-dir t)
 (setq-default custom-theme-directory sp-custom-themes-dir)
 
-;; find all themes recursively in custom-theme-folder
+;;;;; find all themes recursively in custom-theme-folder
 (let ((basedir custom-theme-directory))
   (dolist (f (directory-files basedir))
     (if (and (not (or (equal f ".") (equal f "..")))
              (file-directory-p (concat basedir f)))
         (add-to-list 'custom-theme-load-path (concat basedir f)))))
 
+;;;; No-confirm themes
+(setq custom-safe-themes t)
+
 ;;;; Disable All Custom Themes
-(defun lem-disable-all-themes ()
+(defun sp-disable-all-themes ()
   "Disable all active themes & reset mode-line."
   (interactive)
   (progn
@@ -53,25 +55,25 @@
     (force-mode-line-update)))
 
 ;;;; Load Theme Wrapper
-(defun lem-load-theme ()
+(defun sp-load-theme ()
   (interactive)
   (progn
-    (lem-disable-all-themes)
+    (sp-disable-all-themes)
     (call-interactively 'load-theme)))
 
 ;;;; Toggle Menubar
 ;; toggle menubar to light or dark
-(defun lem-osx-toggle-menubar-theme ()
+(defun sp-osx-toggle-menubar-theme ()
   "Toggle menubar to dark or light using shell command."
   (interactive)
   (shell-command "dark-mode"))
 
-(defun lem-osx-menubar-theme-light ()
+(defun sp-osx-menubar-theme-light ()
   "Turn dark mode off."
   (interactive)
   (shell-command "dark-mode off"))
 
-(defun lem-osx-menubar-theme-dark ()
+(defun sp-osx-menubar-theme-dark ()
   "Turn dark mode on."
   (interactive)
   (shell-command "dark-mode on"))
@@ -165,6 +167,7 @@
   :config
   ;; load preferred theme (this doesn't have the option of just loading in some cases, it will override the ef-themes I already have installed)
   (load-theme 'lambda-light) ;; this is enabled even though I would like to have a normal switch for it, because otherwise the ns-system switch for macos doesn't end up working
+  (load-theme 'lambda-dark)
 )
 
 ;; kind-icon needs to have its cache flushed after theme change
@@ -188,15 +191,15 @@ hook is left untouched; the next macOS Light/Dark change will resync."
   (interactive)
   (let* ((current (car custom-enabled-themes))
          (target (if (eq current 'lambda-light) 'lambda-dark 'lambda-light)))
-    (lem-disable-all-themes)
+    (sp-disable-all-themes)
     (load-theme target t)))
 
 ;;;; After Load Theme Hook
-(defvar lem-after-load-theme-hook nil
+(defvar sp-after-load-theme-hook nil
   "Hook run after a color theme is loaded using `load-theme'.")
-(define-advice load-theme (:after (&rest _) lem-run-after-load-theme-hook)
-  "Run `lem-after-load-theme-hook'."
-  (run-hooks 'lem-after-load-theme-hook))
+(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
+  "Run `sp-after-load-theme-hook'."
+  (run-hooks 'sp-after-load-theme-hook))
 
 ;;; Provide
 (provide 'sp-themes)

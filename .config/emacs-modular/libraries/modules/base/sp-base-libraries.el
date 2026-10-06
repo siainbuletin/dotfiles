@@ -68,23 +68,6 @@
 (use-package helm
     :ensure (:wait t))
 
-(use-package ess
-  :ensure t)
-
-(use-package ess-mode
-  :ensure t
-  :defer t
-  :hook (ess-mode . (lambda ()
-                      ('company-mode t)))
-  :bind (:map ess-mode-map
-              ([tab] . company-indent-or-complete-common)
-              ([f1] . company-show-doc-buffer))
-  :config
-  (add-to-list
-   'display-buffer-alist
-   '("\\*compilation\\*" . (display-buffer-reuse-window
-                            . ((reusable-frames . t))))))
-
 (use-package taxy
   :ensure t)
 

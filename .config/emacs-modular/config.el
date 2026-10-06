@@ -146,7 +146,7 @@
 
 ;;;; User Keybindings
 ;; Set this to whatever you wish. All Lambda-Emacs keybinds will be available through this prefix.
-(customize-set-variable 'lem-prefix "C-c C-SPC")
+(customize-set-variable 'sp-prefix "C-c C-SPC")
 
 ;;;; User Functions
 ;; Put any custom user functions here.
