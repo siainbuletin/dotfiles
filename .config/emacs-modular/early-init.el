@@ -363,7 +363,8 @@ symbol for the corresponding `sp-setup-*' module.")
 ;;;; Check Errors
 ;; Don't produce backtraces when errors occur.
 ;; This can be set to `t' interactively when debugging.
-(setopt debug-on-error t)
+(setopt debug-on-error nil)
+;; this is mostly turned off because it becomes insufferable to keep closing the window when this warning shows up.
 
 ;; Set location of package directory
 (setopt package-user-dir (expand-file-name "elpa/" sp-var-dir))

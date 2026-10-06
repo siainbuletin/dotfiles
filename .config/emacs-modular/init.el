@@ -94,36 +94,11 @@ emacs-version string on the kill ring."
     (message (emacs-version))
     (kill-new emacs)))
 
-;;;;; Outline Navigation
+;;; Recursive load path for Emacs lisp files
 
-;; this navigation could be moved to a different module !!
-
-;; Navigate elisp files easily. Outline is a built-in library and we can easily
-;; configure it to treat elisp comments as headings.
-(use-package outline
-  :ensure nil
-  :hook (prog-mode . outline-minor-mode)
-  :bind (:map outline-minor-mode-map
-         ("<tab>"   . outline-cycle)
-         ("S-<tab>" . outline-cycle-buffer)
-         ("M-j"     . outline-move-subtree-down)
-         ("M-k"     . outline-move-subtree-up)
-         ("M-h"     . outline-promote)
-         ("M-l"     . outline-demote))
-  :config
-  (add-hook 'emacs-lisp-mode-hook
-            (lambda ()
-              ;; prevent `outline-level' from being overwritten by `lispy'
-              (setq-local outline-level #'outline-level)
-              ;; setup heading regexp specific to `emacs-lisp-mode'
-              (setq-local outline-regexp ";;;\\(;* \\)")
-              ;; heading alist allows for subtree-like folding
-              (setq-local outline-heading-alist
-                          '((";;; " . 1)
-                            (";;;; " . 2)
-                            (";;;;; " . 3)
-                            (";;;;;; " . 4)
-                            (";;;;;;; " . 5))))))
+(let ((default-directory (expand-file-name "modules/" sp-library-dir)))
+  (normal-top-level-add-to-load-path '("."))
+  (normal-top-level-add-subdirs-to-load-path))
 
 ;;;;;;;; LOADING MODULES FOR PACKAGES (with groups)
 
@@ -228,7 +203,7 @@ emacs-version string on the kill ring."
     "./libraries/modules/text/sp-org-taskman-extra"
 
     "./libraries/modules/text/sp-org-ext" ;; other extensions
-    
+
     ;; "./libraries/modules/text/sp-org-node-mem"
     "./libraries/modules/text/sp-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
     "./libraries/modules/text/sp-vulpea-ext" ;; needs the functions that I called earlier
@@ -326,9 +301,14 @@ emacs-version string on the kill ring."
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
  '(custom-safe-themes
-   '("acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
+   '("5cb84685a211fb46e47ca355dc91e52adf0c185dc0603cfe27c63855f200dd1f"
+     "d26200309cd01a0b321121be21d9e879c5e0c7bf6c0b9f090fe0f5e486dbb7a5"
+     "998bc02f2e52205ad06df88a14d53168aef1ec1bbcc6fe2b0cd15fed8e5c8dae"
+     "cc8e6619a14298073d987046081c541b8b3854a6446497bdc254c3fad065cc30"
+     "acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
      "f2f42f0b7c53736840fc3ff5751235e3b87cc535b04ddaf3423e2926548bfbb4"
      default))
+ '(helm-minibuffer-history-key "M-p")
  '(org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")) nil nil "Customized with use-package org-gtd")
  '(package-selected-packages '(lambda-themes))
  '(package-vc-selected-packages

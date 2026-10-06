@@ -152,4 +152,4 @@
   :group 'sia-lambda
   :tag "Lambda-Emacs Citar Notes Template")
 
-(require 'sp-academic)
+(provide 'sp-academic)

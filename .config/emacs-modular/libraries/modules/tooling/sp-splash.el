@@ -80,7 +80,7 @@
 
 (defun sp-splash--erase ()
   ;; check if splash exists and switch if so
-  (when-let ((inhibit-read-only t))
+  (when-let* ((inhibit-read-only t))
     (get-buffer "*splash*")
     (switch-to-buffer "*splash*")
     (erase-buffer)))
@@ -338,6 +338,7 @@
   :global nil
   :keymap sp-splash-mode-map
   :group 'lambda-emacs
+  
   :require 'sp-splash
   (buffer-disable-undo)
   (auto-revert-mode -1)
@@ -346,11 +347,13 @@
     (linum-mode -1))
   (when (>= emacs-major-version 26)
     (display-line-numbers-mode -1))
+  
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
+  
   ;; No margin or fringe in splash buffer
   (setq-local left-margin-width nil
               right-margin-width nil)
@@ -359,6 +362,7 @@
         truncate-lines nil
         inhibit-startup-message t
         inhibit-startup-echo-area-message t)
+  
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))

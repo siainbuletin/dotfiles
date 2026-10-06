@@ -149,7 +149,38 @@ Result depends on syntax table's comment character."
     (setq lsp-ui-doc-header t)
     (setq lsp-ui-doc-border "white")))
 
-;; Autocomplete changes
+;;;;; Outline Navigation
+
+;; this navigation could be moved to a different module !!
+
+;; Navigate elisp files easily. Outline is a built-in library and we can easily
+;; configure it to treat elisp comments as headings.
+(use-package outline
+  :ensure nil
+  :hook (prog-mode . outline-minor-mode)
+  :bind (:map outline-minor-mode-map
+         ("<tab>"   . outline-cycle)
+         ("S-<tab>" . outline-cycle-buffer)
+         ("M-j"     . outline-move-subtree-down)
+         ("M-k"     . outline-move-subtree-up)
+         ("M-h"     . outline-promote)
+         ("M-l"     . outline-demote))
+  :config
+  (add-hook 'emacs-lisp-mode-hook
+            (lambda ()
+              ;; prevent `outline-level' from being overwritten by `lispy'
+              (setq-local outline-level #'outline-level)
+              ;; setup heading regexp specific to `emacs-lisp-mode'
+              (setq-local outline-regexp ";;;\\(;* \\)")
+              ;; heading alist allows for subtree-like folding
+              (setq-local outline-heading-alist
+                          '((";;; " . 1)
+                            (";;;; " . 2)
+                            (";;;;; " . 3)
+                            (";;;;;; " . 4)
+                            (";;;;;;; " . 5))))))
+
+;;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)

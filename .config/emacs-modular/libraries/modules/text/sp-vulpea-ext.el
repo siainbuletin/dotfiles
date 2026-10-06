@@ -14,7 +14,7 @@
 (use-package vulpea-para
   :ensure (:host github :repo "d12frosted/vulpea-para"))
 
-(vulpea-para-agenda-mode)
+;; (vulpea-para-agenda-mode) ;; for some reason it shows up as void
 
 (vulpea-para-setup-defaults)
 
@@ -24,7 +24,7 @@
         (not (vulpea-note-tagged-any-p note "cemetery"))))
 
 ;; Getting the custom agenda view for vulpea-para
-
+;; Should this be moved to the org-agenda file, since it's a special command?
 (setq org-agenda-custom-commands
       `((" " "Agenda"
          (,vulpea-para-agenda-cmd-refile
@@ -40,16 +40,15 @@
         (todo   . " %(vulpea-para-agenda-category 36) ")))
 
 ;; Other modules for vulpea
+   
+(use-package vulpea-capf
+  :ensure (:host github :repo "neonmei/vulpea-capf")
+  :hook (org-mode . vulpea-capf-mode)
+)
 
-;; (use-package vulpea-capf
-;;   :ensure (:wait t)
-;;   :hook (org-mode . vulpea-capf-mode)
-;;   )
-
-;; (setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
-;; (setq vulpea-capf-in-brackets t)
-
-;; (setq vulpea-capf-annotate-function t)
+(setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
+(setq vulpea-capf-in-brackets t)
+(setq vulpea-capf-annotate-function t)
 
 ;; Create dataview-like tables through the vulpea query system
 (require 'sp-vulpea-dblock)

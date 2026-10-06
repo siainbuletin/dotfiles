@@ -145,6 +145,7 @@ is treated as light."
   (lem--system-apply-theme (lem--macos-current-appearance)))
 
 ;;;;; Daemon client-frame sync
+
 ;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
 ;; never receives NS appearance-change events, so the hook above never
 ;; fires for it -- the daemon freezes on whatever appearance it read at
@@ -153,6 +154,7 @@ is treated as light."
 ;; system appearance whenever a client frame is created so every frame
 ;; matches the current macOS Light/Dark state. `lem--system-apply-theme'
 ;; no-ops when the target theme is already active, so this is cheap.
+
 (defun lem--sync-theme-on-new-frame (&rest _)
   "Sync the lambda theme to the current macOS appearance.
 For `server-after-make-frame-hook': daemon client frames pick up the

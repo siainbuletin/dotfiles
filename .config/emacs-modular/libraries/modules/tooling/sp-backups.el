@@ -84,7 +84,7 @@ editing. The default location is in the .emacs.d directory."
   :ensure (:wait t))
 
 (setq-default backup-directory-alist
-    `(("." . ,(expand-file-name "backups/" user-emacs-directory)))
+    `(("." . ,(expand-file-name "backups/" sp-var-dir)))
       make-backup-files t
       vc-make-backup-files t ; Won't create backup of files that are already under version control
       backup-by-copying t ; Avoid symlinks
@@ -103,4 +103,4 @@ editing. The default location is in the .emacs.d directory."
   :init
   (savehist-mode t)
   :config
-  (setq savehist-file (expand-file-name "savehist" user-emacs-directory)))
+  (setq savehist-file (expand-file-name "savehist" sp-var-dir)))

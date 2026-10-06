@@ -1,4 +1,5 @@
 ;;; -*- lexical-binding: t -*-
+;; sp-org-babel.el
 
 ;;; Commentary:
 
@@ -8,6 +9,7 @@
 
 ;;; Code:
 
+;;;; Different languages for org babel.
 ;; Avoid `org-babel-do-load-languages' since it does an eager require.
 (use-package ob-python
   :ensure nil
@@ -73,7 +75,7 @@ Instead it's simpler to use bash."
   :defer t
   :commands (org-babel-execute:gnuplot))
 
-;;; Tangle settings
+;;:; Tangle settings
 (use-package ob-tangle
   :ensure nil
   :defer t
@@ -138,3 +140,4 @@ This shell is used to execute the Nushell command."
     (org-babel-eval command "")))
 
 (provide 'sp-org-babel)
+;; sp-org-babel.el ends here.

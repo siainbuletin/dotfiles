@@ -23,7 +23,7 @@
   (setq bind-key-describe-special-forms nil))
 
 ;;;; Personal Keybindings Prefix
-(defcustom sp-prefix "C-k C-SPC"
+(defcustom sp-prefix "C-x C-SPC"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'lambda-emacs)
@@ -217,8 +217,8 @@
            ("r" . rainbow-identifiers-mode    )
            ("s" . flyspell-mode               )
            ("S" . ispell-buffer               )
-           ("t" . toggle-dark-light-theme     )
-           ("T" . sp-load-theme              )
+           ;; ("t" . toggle-dark-light-theme     )
+           ("t" . sp-load-theme              )
            ("w" . writeroom-mode              )
            ("z" . zone                        ))
 

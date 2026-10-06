@@ -1,0 +1,190 @@
+#+title: Changelog
+
+* 0.3.0 — 2026-10-05
+
+** New
+
+- Named multiple vaults via =excali-board-vaults=: new boards automatically
+  match the source directory, choosing the deepest nested root. No active-vault
+  switching or vault picker is needed. Single and multiple vaults use the same
+  configuration list; existing boards retain their persisted roots.
+
+- Configure =excali-board-vaults= once: new boards validate their
+  source directory and destination against the vault, ask only for a filename,
+  and save immediately without overwriting existing files. Outside-vault
+  creation is blocked with guidance to configure the vault or use =excali-new=.
+- Opening existing boards also preserves the source pane on the left.
+
+- Double-click file/media cards to open their original file in another Emacs
+  window, using the same local-file validation as =C-c C-f=.
+
+- Typed, linked static media cards: PDF first-page preview, image/video
+  thumbnails and audio cover art with a type-icon fallback. Optional Poppler
+  and FFmpeg previews are asynchronous, concurrency-limited and timed out.
+- Explicit media relinking and preview retry; no playback, PDF navigation or
+  preview data embedded in the board document. Closing a board cancels jobs
+  and removes temporary previews.
+
+- Create a connected Org note by double-clicking a free arrow endpoint or
+  pressing =C-c C-j=, preserving the existing arrow and label in one undo step.
+- Named groups, named frame-based regions (=C-c C-t=) and organization
+  navigation (=C-c C-v=), using standard group/frame structure.
+
+- Reading-state Org links use native Pango hit testing through wrapping,
+  scrolling and rotation, with safe supported-link dispatch.
+- Inline local file/Org attachment images render with clipped, proportional
+  previews; missing images degrade to placeholders. No remote image downloads
+  or image embedding into board documents.
+
+- Vault-bounded, explicit Org ID reference repair and reverse board lookup.
+  Duplicate IDs are reported; live unsaved boards take precedence in results.
+- Periodic external-source checks safely refresh clean buffers and report
+  conflicts without overwriting unsaved edits or cached card content.
+
+- Per-board vault directory with recursive, bounded file discovery and
+  relative-path completion for Org sources and attachments. Native Org DIR/ID
+  attachment resolution is shared infrastructure; it does not relocate files.
+
+- Independent Org text cards (=C-c C-n=), live editing and board-owned persistence.
+  Convert them to local Org headings (=C-c C-w=) without replacing their shapes
+  or connections. Conversion failures preserve the note and roll back Org edits;
+  undoing conversion in the board never deletes source text.
+- =excali-board-mode= derives from =excali-mode= for Org reference boards,
+  preserving the =.excalidraw= format with a versioned board marker.
+- Add headings from Org with explicit target-board selection, or insert from
+  the board with an Org file/heading picker. Source visits, debounced live
+  preview updates, save/reopen, error reporting and safe prototype migration.
+- Native formatted Org subtree cards with clipped, fixed-size content,
+  vertical/horizontal scrolling, and rich PNG/SVG viewport exports.
+- Fixed popup editing is independent of canvas pan, zoom and card rotation.
+  Expand the same Org buffer into an ordinary window with =C-c C-e=;
+  closing never implicitly saves the source or board.
+- Replace a card's source without losing layout or connections. Insert embedded
+  local images or linked file attachments; connect cards with labeled bound arrows.
+- New boards open in the right-hand pane, preserving the source on the left.
+
+** Upgrade
+
+- Rich cards require rebuilding the native module (=make module=) and restarting
+  Emacs. Regular drawings remain independent of the optional board Lisp module.
+
+** Fixed
+
+- Converting an independent note to an Org heading reuses its existing title
+  without a second title prompt or a duplicate wrapper heading.
+
+- Explicitly bind double/triple wheel events so continuous mouse-wheel bursts
+  are not swallowed by the canvas hotspot fallback after their first event.
+- Board wheel dispatch now overrides global precision-scroll commands locally,
+  without disabling precision scrolling in Org or other buffers.
+- Card body wheel scrolling no longer requires selection. Both internal
+  scrollbar thumbs now support dragging and track clicks without moving cards.
+- Mouse presses from another buffer activate the receiving canvas before
+  reading scene state. Coalesced drags apply their final release position.
+
+* 0.2.0 — 2026-10-04
+
+** Breaking
+
+- Replace the old =.edsl= language with *Excali DSL* (=.excalidsl=):
+  explicit node/edge declarations, dotted containment, relative placement,
+  and separate style blocks. Old syntax is no longer parsed.
+
+** New
+
+- =ob-excali= Org Babel adapter: =excali= source blocks export SVG, PNG or
+  editable scenes, with source editing, atomic output and normal Babel confirmation.
+- Document-wide styles and node/edge defaults with strict validation.
+- Joint relative layout and container sizing; explicit arrow attachment sides.
+- Source-located errors, deterministic sketch seeds, and atomic scene export.
+- Runnable examples and the language reference in =docs/excali-dsl.md=.
+
+** Documentation
+
+- Add a 45-second English-captioned demo of explicit node placement, style
+  blocks, and editing/regenerating the same diagram inside Org Babel.
+
+** Fixed
+
+- Load the canvas entry points when previewing directly from an autoloaded DSL
+  mode, without requiring a drawing to be opened first.
+- Keep the source buffer's preview association when opening a canvas, so repeated
+  =C-c C-c= refreshes the same scene.
+
+** Upgrade
+
+- Rewrite old =.edsl= documents using the new syntax; changing the extension alone
+  is not a conversion. Use =.excalidsl= for source, not =.excalidraw= JSON scenes.
+- Register =excali-dsl-mode= explicitly in deferred local-clone configurations;
+  README includes a complete example and recovery steps for wrong associations.
+- Enable =(excali . t)= with =org-babel-do-load-languages= to use Org blocks.
+  Keep other enabled Babel languages and the normal execution confirmation.
+
+* 0.1.1 — 2026-09-29
+
+** Breaking
+
+- Everything is named =excali= now, not =excal=: files (=excali.el=,
+  =excali-*.el=), commands (=excali-open=, =excali-new=), the major mode
+  (=excali-mode=), options and the module (=excali-module=).  The
+  repository moved from =excal-mode= to =excali-mode=; the old address
+  redirects.
+- =make= byte-compiles the Lisp as well as building the module.  Run it
+  again after pulling: loaded from uncompiled =.el= files, excali runs
+  several times slower.
+
+** New
+
+- Drawing from text: the =.edsl= language of [[https://github.com/tyrchen/excalidraw-dsl][excalidraw-dsl]].
+  =excali-dsl-mode= for =.edsl= files, =C-c C-c= draws the buffer in a
+  scene beside it (again: refreshes it), =excali-dsl-yank= and
+  =excali-dsl-insert-file= add a diagram to the current scene, and
+  =excali-dsl-elements= and friends make diagrams from Lisp.  Layout is
+  automatic and layered; arrows and labels are bound, so the drawing
+  stays editable.
+- The official library collection of libraries.excalidraw.com, from
+  Emacs: =C-c l o= lists it, =RET= previews a library in place of the
+  list (=q= goes back), =+= adds the item at point and =a= a whole
+  library.  Items the personal library holds are marked, added ones
+  light up, and the list marks libraries wholly added.
+- Library items can be deleted: =d= in the library browser (=C-c l b=),
+  or =C-c l d= by name.
+- One scene in several windows, each with its own zoom and scroll;
+  editing in one redraws the others.
+- The style panel (=s=) follows upstream's properties panel: its
+  properties in its order and words, only those the selection or tool
+  takes, then layers, align and actions.  Each property opens a panel
+  of its values; colors open a picker like upstream's, with the fifteen
+  colors on =q= .. =b=, the shades of the current color on =1= .. =5=
+  and =#= for a hex code.
+- Pointer shapes over handles, elements, links and line points, shown
+  through the canvas image's hot spots so Emacs switches them itself.
+- Dragging with the right button pans, like the middle one; shift with
+  a vertical wheel pans sideways.
+
+** Fixed
+
+- Wheel panning goes the way Emacs scrolls a buffer on every system and
+  honors =mouse-wheel-flip-direction=.  Sideways panning was reversed on
+  Windows and Linux, and a tilted wheel on Windows panned vertically.
+
+** Faster
+
+- Large scenes stay responsive.  With 2846 elements: dragging 300 of
+  them went from 163 ms a frame to 9, a hit test from 30 ms to 1.4, and
+  rebuilding pointer hot spots after a command from 160 ms to 2.  The
+  module keeps the elements it has read, a render repaints only what
+  changed, and hot spots are built around the mouse.
+- Library thumbnails are cached on disk and drawn in the background,
+  those in view first: a library of 249 icons opens in about 30 ms
+  instead of blocking for a second.
+
+* 0.1.0 — 2026-09-28
+
+First public release.  Opens, edits and saves =.excalidraw= files as the
+web app does: every drawing tool (with laser, eye dropper, bucket fill,
+autoshape and lasso), bound and elbow arrows, flowcharts grown with
+=Cmd+arrow=, groups, frames, images, the element library, snapping,
+dark mode, undo, and PNG/SVG export with the scene embedded.  Drawing
+is done by a Cairo/Pango module into Emacs 32's canvas images, with a
+CoreAnimation layer on macOS.

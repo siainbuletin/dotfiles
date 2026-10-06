@@ -1,17 +1,29 @@
 ;; -*- lexical-binding: t; -*-
 
+;;; Commentary:
+
+;;; Code:
+
+;;;; Mixed pitch
 (use-package mixed-pitch
-  :ensure (:wait t)
+  :ensure t
+
   :config
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-property-value)
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-special-keyword)
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'font-lock-comment-face)
-  :hook (text-mode . mixed-pitch-mode))
+  :hook (text-mode . mixed-pitch-mode)
+)
 
 (set-face-attribute 'default nil
                   :family "PT Mono"
                   :height 100)
 
+
+
+;;;; Variables for fonts
+;; This configuration is taken from HA macs and should be adapted better at some point
+;; with better variables, so that it's easier to customize the fonts that are being used.
 (defvar ha-fixed-font
   (when window-system
     (or
@@ -154,6 +166,7 @@ DELTA would be something like 1 or -1."
         proced-mode-hook
         tabulated-list-mode-hook))
 
+;;;; FONTSET
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset
   :ensure nil
@@ -165,3 +178,4 @@ DELTA would be something like 1 or -1."
 )
 
 (provide 'sp-fonts)
+;; sp-fonts.el ends here.
