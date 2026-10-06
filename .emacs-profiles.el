@@ -1,9 +1,11 @@
 (
  ("old-config" . ((user-emacs-directory . "~/.config/emacs/")))
  ("my-lambda" . ((user-emacs-directory . "~/.config/emacs-distributions/lambda-emacs-modified/")))
+ ("lambda-emacs" . ((user-emacs-directory . "~/.config/emacs-distributions/lambda-emacs-october/")))
  ("prelude" . ((user-emacs-directory . "~/.config/emacs-distributions/emacs-prelude/")))
  ("mono-literate" . ((user-emacs-directory . "~/.config/emacs-literate/")))
  ("ews" . ((user-emacs-directory . "~/.config/emacs-distributions/ews/")))
  ("debug-env" . ((user-emacs-directory . "~/.config/emacs-debug/")))
- ("default" . ((user-emacs-directory . "~/.config/emacs-include/")))
+ ("include" . ((user-emacs-directory . "~/.config/emacs-include/")))
+ ("default" . ((user-emacs-directory . "~/.config/emacs-modular/")))
 )
