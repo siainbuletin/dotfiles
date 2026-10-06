@@ -1,31 +1,8 @@
-#+STARTUP: overview
-
-* TODO Opening files in external applications
-
-Taken from Emacs Writing Studio.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package openwith
-  :config
-  (openwith-mode t)
-  :custom
-  (openwith-associations nil))
-#+end_src
-
-
 ** TODO Enabling =git-annex= support from within =magit=
 ** TODO Enabling git gutter within Emacs
 
 #+begin_src emacs-lisp :tangle "init.el"
-  (use-package git-gutter
-    :ensure t
-    :hook
-    (prog-mode . git-gutter-mode)
-    :config
-    (setq git-gutter:update-interval 0.02))
 
-  (use-package git-gutter-fringe
-    :ensure t)
 #+end_src
 
 *Do I even need to install prog-mode for this or is it already installed within Emacs?*
@@ -42,7 +19,7 @@ At some point it would be a good idea to improve on =olivetti-mode= by simply ta
 
 #+begin_src emacs-lisp :tangle "init.el"
 (require 'org-id) ; for creating ids
-(require 'org-tempo) ; for template expansion
+
 #+end_src
 
 ** Go back to previous note after following a link
