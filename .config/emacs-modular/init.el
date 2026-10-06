@@ -47,9 +47,9 @@
     "core"
     "test")
   "Custom switches for conditional loading from command line.
-  
-  - `clean' loads only the `init.el' file w/no personal config; 
-  - `core'  loads the set of modules set in `lem-core-modules'; 
+
+  - `clean' loads only the `init.el' file w/no personal config;
+  - `core'  loads the set of modules set in `lem-core-modules';
   - `test' loads only a `lem-setup-test.el' file for easy testing.")
 
 (defvar sp--emacs-switches-found nil
@@ -130,144 +130,159 @@ emacs-version string on the kill ring."
 ;; init modules (the most important files that I have to be loading up)
 
 (siapip/load
- '("./libraries/init/speedup"              ;; stuff that should probably be in early-init.el
-   "./libraries/init/set-elpaca"           ;; this is the basic setup for elpaca
-   "./libraries/init/set-encoding"         ;; text encoding
-   "./libraries/init/set-essential"        ;; this represents essential functions
-   "./libraries/init/set-env"              ;; Making exec-path work.
-   "./libraries/init/custom"               ;; this is for the ~customize~ buffer (currently, this doesn't manage to be found - TO FIX)
-   "./libraries/init/set-gui"              ;; currently handled by early-init from Lambda Emacs
-   "./libraries/init/set-macos.el"         ;; MacOS specific settings
-   "./libraries/init/set-exwm"             ;; see whether you're going to combine this with regular window management
-   "./libraries/init/set-snippets"         ;; snippet management
-   "./libraries/init/set-base-libraries"   ;; the very basic processing libraries
-   "./libraries/init/set-interaction"
+ '("./libraries/modules/base/speedup"              ;; stuff that should probably be in early-init.el
+   "./libraries/modules/base/sp-package"           ;; this is the basic setup for elpaca
+   "./libraries/modules/base/sp-encoding"         ;; text encoding
+   "./libraries/modules/base/sp-base-libraries"   ;; the very basic processing libraries
+   "./libraries/modules/base/sp-env"              ;; Making exec-path work.
+   "./libraries/modules/base/sp-gui"              ;; currently handled by early-init from Lambda Emacs
+   "./libraries/modules/base/sp-macos.el"         ;; MacOS specific settings
+   "./libraries/modules/base/sp-exwm"             ;; see whether you're going to combine this with regular window management
+   "./libraries/modules/base/sp-snippets"         ;; snippet management
+   "./libraries/modules/base/sp-interaction"      ;; ways to interact with the GUI
    ))
 
 ;; misc modules (utility)
 
 (siapip/load
- '("./libraries/utils/set-minibuffer"
-   "./libraries/utils/exec-path-from-shell"
-   "./libraries/utils/set-indention"
-   "./libraries/utils/replace-with-shell"
-   "./libraries/utils/misc"
-   "./libraries/utils/set-choose-modeline"
-   ;; "./libraries/utils/lambda-line"
-   ;; "./libraries/utils/extended-command"
-   "./libraries/utils/set-debug"
-   "./libraries/utils/set-backups"
+ '("./libraries/modules/tooling/sp-backups"
+  "./libraries/modules/tooling/sp-bookmarks"
+  "./libraries/modules/tooling/sp-choose-modeline"
+  "./libraries/modules/tooling/sp-debug"
+  "./libraries/modules/tooling/sp-embark"
+  "./libraries/modules/tooling/sp-help"
+  "./libraries/modules/tooling/sp-indention"
+  "./libraries/modules/tooling/sp-keys"
+  ;; "./libraries/modules/tooling/sp-lambda-line"
+  "./libraries/modules/tooling/sp-minibuffer"
+  "./libraries/modules/tooling/sp-misc-writing"
+  "./libraries/modules/tooling/sp-network"
+  "./libraries/modules/tooling/sp-scratch"
+  "./libraries/modules/tooling/sp-spelling"
+  "./libraries/modules/tooling/sp-templating"
+  "./libraries/modules/tooling/sp-text-manipulation"
+))
+
+;; UI
+
+(siapip/load
+  '("./libraries/modules/ui/sp-buffers"
+    "./libraries/modules/ui/sp-colors"
+    "./libraries/modules/ui/sp-dashboard"
+    "./libraries/modules/ui/sp-faces"
+    "./libraries/modules/ui/sp-fonts"
+    "./libraries/modules/ui/sp-icons"
+    "./libraries/modules/ui/sp-tabs"
+    "./libraries/modules/ui/sp-textui"
+    "./libraries/modules/ui/sp-themes"
+    "./libraries/modules/ui/sp-windows"
+    "./libraries/modules/ui/sp-writing-appearance"
+  ))
+
+;; navigation
+
+(siapip/load
+  '("./libraries/modules/navigation/sp-dired"
+    "./libraries/modules/navigation/sp-search" ;; this represents full-text search packages
+  ))
+
+;; workflows / multimedia work
+
+(siapip/load
+  '("./libraries/modules/workflows/sp-academic"
+   "./libraries/modules/workflows/sp-beets"
+   "./libraries/modules/workflows/sp-multimedia"
+   "./libraries/modules/workflows/sp-reading"
    ))
 
 ;; package loading
 
 (siapip/load
-  '(;; essential emacs functions
-    "./libraries/packages/sia-set-search" ;; this represents full-text search packages
-    "./libraries/packages/sia-set-embark"
-    "./libraries/packages/sia-set-keys"
-    "./libraries/packages/sia-set-dired"
-    "./libraries/packages/sia-set-help"
-    "./libraries/packages/sia-set-bookmarks"
-
+  '(
     ;; computer works
-    "./libraries/packages/sia-set-terminal"
-    "./libraries/packages/sia-set-http"
-    "./libraries/packages/sia-set-vcontrol"
-    "./libraries/packages/sia-set-ai"
+    "./libraries/modules/sp-ai"
 
-    ;; graphical display
-    "./libraries/packages/sia-set-windows"
-    "./libraries/packages/sia-set-buffers"
-
-    ;; appearance
-    "./libraries/packages/sia-set-fonts"
-    "./libraries/packages/sia-set-themes"
-    "./libraries/packages/sia-set-icons"
-    
     ;; text modes
-    "./package/sia-set-md"
-    "./libraries/packages/sia-set-org-base"
-    "./libraries/packages/sia-set-taskman"
+    "./libraries/modules/sp-md"
+    "./libraries/modules/sp-taskman"
 
-    ;; setup for multimedia work
-    "./libraries/packages/sia-set-multimedia"
-    "./libraries/packages/sia-set-beets"
-    
     ;; advanced object-based notes
-    "./libraries/packages/sia-set-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
-    "./libraries/packages/sia-set-denote"
-    "./libraries/packages/sia-set-dgraphs"
-    "./libraries/packages/sia-set-org-node-mem"
+    "./libraries/modules/sp-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
+    "./libraries/modules/sp-denote"
+    "./libraries/modules/sp-dgraphs"
+    "./libraries/modules/sp-org-node-mem"
 
     ;; academic modules + writing
-    "./libraries/packages/sia-set-academic"
-    "./libraries/packages/sia-set-reading"
-    "./libraries/packages/sia-set-spelling"
 
-    ;; extra reading    
-    "./libraries/packages/sia-set-browsing"
-    "./libraries/packages/sia-set-rss"
+    ;; extra reading
+    "./libraries/modules/sp-browsing"
+    "./libraries/modules/sp-rss"
 
     ;; large management
-    "./libraries/packages/sia-set-dashboard"
-    "./libraries/packages/sia-set-projects"
+    "./libraries/modules/sp-projects"
 
     ;; other
-    "./libraries/packages/sia-set-counsel-recoll" 
-    "./libraries/packages/sia-set-consult-snapfile"
+    "./libraries/modules/sp-consult-snapfile"
+  ))
+
+;; Loading different org modules
+
+(siapip/load
+  '("./libraries/modules/org/sp-org-base"
+    "./libraries/modules/org/sp-org-agenda"
+    "./libraries/modules/org/sp-org-appearance"
+    "./libraries/modules/org/sp-org-capture"
+    "./libraries/modules/org/sp-org-export"
+    "./libraries/modules/org/sp-org-ext"
+    ;; "./libraries/modules/org/sp-org-node-mem"
+    "./libraries/modules/org/sp-org-refile"
+    "./libraries/modules/org/sp-org-tables"
+    "./libraries/modules/org/sp-org-taskman-extra"
   ))
 
 ;; functions I wrote
 
 (siapip/load
-  '("./libraries/functions/sp-move-region-to-heading.el"
-    "./libraries/functions/sp-vulpea-convert-properties.el"
-    "./libraries/functions/sp-vulpea-dblock.el"
-    "./libraries/functions/sp-vulpea-grouped-backlinks.el"
-    "./libraries/functions/sp-vulpea-table-views.el"
-    "./libraries/functions/sp-vulpea-vui-table.el"))
-
-;; Calling functions later on
+  '("./libraries/modules/funct/sp-move-region-to-heading.el"
+    "./libraries/modules/funct/sp-vulpea-convert-properties.el"
+    "./libraries/modules/funct/sp-vulpea-dblock.el"
+    "./libraries/modules/funct/sp-vulpea-grouped-backlinks.el"
+    "./libraries/modules/funct/sp-vulpea-table-views.el"
+    "./libraries/modules/funct/sp-vulpea-vui-table.el"))
 
 (siapip/load
-  '("./libraries/packages/set-sia-vulpea-ext" ;; needs the functions that I called earlier
+  '("./libraries/modules/sp-vulpea-ext" ;; needs the functions that I called earlier
   ))
 
-;; language modules
+;; Programming setup
 
 (siapip/load
- '("./libraries/langs/sp-base-code"
-   ;; "./libraries/langs/sp-plantuml"
-   ;; "./libraries/langs/sp-lisp"
-   ;; "./libraries/langs/sp-go"
-   ;; "./libraries/langs/sp-c"
-   ;; "./libraries/langs/sp-python"
-   ;; "./libraries/langs/sp-rust"
-   ;; "./libraries/langs/sp-xml"
-   ;; "./libraries/langs/sp-nix"
-   ;; "./libraries/langs/sp-misc" currently disabled, as there's several packages that conflict with something else that I have on the system
-   "./libraries/langs/sp-latex"
-   ))
-
-(siapip/load
- '("./ext/tex-switch-quotes/tex-switch-quotes"
-   "./ext/misc/hl-line+"))
+ '("./libraries/modules/prog/sp-base-code"
+   ;; "./libraries/modules/prog/sp-plantuml"
+   ;; "./libraries/modules/prog/sp-lisp"
+   ;; "./libraries/modules/prog/sp-go"
+   ;; "./libraries/modules/prog/sp-c"
+   ;; "./libraries/modules/prog/sp-python"
+   ;; "./libraries/modules/prog/sp-rust"
+   ;; "./libraries/modules/prog/sp-xml"
+   ;; "./libraries/modules/prog/sp-nix"
+   ;; "./libraries/modules/prog/sp-misc" currently disabled, as there's several packages that conflict with something else that I have on the system
+   "./libraries/modules/prog/sp-latex"
+   "./libraries/modules/prog/sp-prog-misc"
+   "./libraries/modules/prog/sp-terminal"
+   "./libraries/modules/prog/sp-vcontrol"
+))
 
 ;; Cloned modules (can't install with use-package otherwise)
-(siapip/load
- '("./cloned/imenu"
-   ))
-
-;;; Endnotes:
-;; INFO: Your custom config can be either here or inside /path/to/siapip-emacs-config/custom.el
-
-;; Other configurations will be found in the libraries folder.
+;; set up later
 
 ;;;;; Load Configuration Modules
 ;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
 ;; loaded is left to the user to set in `config.el', though if there is no
 ;; `config.el' file a default set of modules will be loaded.
+
+;; Different configurations available
+;; - default - this will work without the `config.el' file.
 
 (defun sp--default-modules ()
   "Load a default configuration for 𝛌-Emacs.
@@ -294,25 +309,25 @@ Skips modules listed in `(sp-gui-only-modules)' when
                     'sp-frames
                     'sp-windows
                     'sp-buffers
-                    'sp-fonts
+                    'sp-fonts         ;; All font settings
                     'sp-faces
                     'sp-colors
                     'sp-completion
-                    'sp-keys
+                    'sp-keys          ;; I don't think this should be in the UI, rather in navigation
                     'sp-help
                     'sp-modeline
                     'sp-theme
                     'sp-splash
 
-                    ;; Navigation & Search modules
+                    ;; Navigation & Search modules (/navi/)
                     'sp-navigation
                     'sp-dired
                     'sp-search
 
                     ;; Project & Tab/Workspace modules
-                    'sp-vc
+                    'sp-vcontrol
                     'sp-projects
-                    'sp-tabs
+                    'sp-tabman ;; (lem-setup-tabs)
 
                     ;; Org modules
                     'sp-org-base
@@ -377,7 +392,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
 ;; (GUI-only modules were skipped at load time, so fonts,
 ;; mode-line, and faces are unconfigured in such a frame).
 (require 'server)
-(defun lem--warn-gui-frame-on-headless ()
+(defun sp--warn-gui-frame-on-headless ()
   "Warn if a server client created a GUI frame on a headless host."
   (when (and sp-headless-host
              (display-graphic-p))
@@ -389,7 +404,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
              "unconfigured. Unset sp-headless-host and "
              "restart Emacs to recover.")
      :error)))
-(add-hook 'server-after-make-frame-hook #'lem--warn-gui-frame-on-headless)
+(add-hook 'server-after-make-frame-hook #'sp--warn-gui-frame-on-headless)
 
 ;; Conditionally load configuration files based on command-line switches,
 ;; presence of user-config file, or the default set of modules.
@@ -435,7 +450,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
  ((when (not (file-exists-p sp-config-file))
     (progn
       (with-temp-file sp-config-file
-        (insert-file lem-default-config-file))
+        (insert-file sp-default-config-file))
       (load-file sp-config-file))))
  ;; Load default modules
  (t
@@ -462,6 +477,11 @@ Skips modules listed in `(sp-gui-only-modules)' when
                                                   (time-subtract after-init-time before-init-time)) gcs-done))
                                 (put 'narrow-to-page 'disabled nil)))
 
+;;; Endnotes:
+;; INFO: Your custom config can be either here or inside /path/to/siapip-emacs-config/custom.el
+
+;; Other configurations will be found in the libraries folder.
+
 ;; CUSTOM VARIABLES
 
 (custom-set-variables
@@ -476,18 +496,13 @@ Skips modules listed in `(sp-gui-only-modules)' when
    '("acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
      "f2f42f0b7c53736840fc3ff5751235e3b87cc535b04ddaf3423e2926548bfbb4"
      default))
- '(sia/modeline 'doom-modeline)
+ '(org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")) nil nil "Customized with use-package org-gtd")
+ '(package-selected-packages '(lambda-themes))
  '(package-vc-selected-packages
-   '((claudemacs :url "https://github.com/cpoile/claudemacs" :branch "main")
-     (org-modern-indent :url "https://github.com/jdtsmith/org-modern-indent")
-     (org-devonthink :url "https://github.com/lasvice/org-devonthink" :branch
-		     "master")
-     (pulsing-cursor :url "https://github.com/jasonjckn/pulsing-cursor" :branch
-		     "main")
-     (bibtex-capf :url "https://codeberg.org/mclear-tools/bibtex-capf.git" :branch
-		  "main")
-     (zotxt-emacs :url "https://github.com/egh/zotxt-emacs.git" :branch "master"))))
-    
+   '((lambda-themes :vc-backend Git :url
+                    "https://codeberg.org/Lambda-Emacs/lambda-themes.git")))
+ '(sia/modeline 'doom-modeline))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -497,4 +512,3 @@ Skips modules listed in `(sp-gui-only-modules)' when
  '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
  '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
  '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
-

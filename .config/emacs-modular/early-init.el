@@ -1,5 +1,12 @@
 ;;; early-init.el --- summary -*- lexical-binding: t; no-byte-compile: t; mode: emacs-lisp; coding:utf-8; fill-column: 80 -*-
 
+;; Prepare for triggering elpaca instead
+;; (this is where we diverge from Lambda Emacs - I prefer using the
+;; declarative 'elpaca' instead (although it might be cool to have more
+;; functions that are written for the native package manager, as I think
+;; elpaca was actually developed for this use-case))
+(setq package-enable-at-startup nil)
+
 ;;;; Speed up startup
 ;; Help speed up emacs initialization See
 ;; https://blog.d46.us/advanced-emacs-startup/ and
@@ -135,29 +142,35 @@
 (defconst sp-emacs-dir (expand-file-name user-emacs-directory)
   "The path to the emacs.d directory.")
 
-(defconst sp-library-dir (concat lem-emacs-dir "libraries/")
+(defconst sp-library-dir (concat sp-emacs-dir "libraries/")
   "The directory for 𝛌-Emacs Lisp libraries.
 This will house all setup libraries and external libraries or packages.")
 
-(defconst sia-var-dir (concat sp-emacs-dir "var/")
+(defconst sp-user-dir (concat sp-library-dir "lambda-user/")
+  "Storage for personal elisp, scripts, and any other private files.")
+
+(defconst sp-setup-dir (concat sp-library-dir "modules/")
+  "The storage location of the setup-init files.")
+
+(defconst sp-var-dir (concat sp-emacs-dir "var/")
   "The directory for non-essential file storage.
 Contents are subject to change. Used for package storage (elpa or
 straight) and by `sp-etc-dir' and `sp-cache-dir'.")
 
-(defconst sp-etc-dir (concat sia-var-dir "etc/")
+(defconst sp-etc-dir (concat sp-var-dir "etc/")
   "The directory for non-volatile storage.
   These are not deleted or tampered with by emacs functions. Use
   this for dependencies like servers or config files that are
   stable (i.e. it should be unlikely that you need to delete them
                if something goes wrong).")
 
-(defconst sp-cache-dir (concat sia-var-dir "cache/")
+(defconst sp-cache-dir (concat sp-var-dir "cache/")
   "The directory for volatile storage.
   Use this for transient files that are generated on the fly like
   caches and ephemeral/temporary files. Anything that may need to
   be cleared if there are problems.")
 
-(defconst lem-default-config-file (concat sp-library-dir "lem-default-config.el")
+(defconst sp-default-config-file (concat sp-library-dir "lem-default-config.el")
   "A sample default configuration of the personal config file to get the user started.")
 
 ;;;; User Configuration Variables
@@ -178,7 +191,7 @@ for breaking changes to the `lem-setup' surface a downstream config
 relies on.  Keep this in sync with the git release tag.")
 
 ;; Find the user configuration file
-(defconst sp-config-file (expand-file-name "config.el" sp-user-dir)
+(defconst sp-config-file (expand-file-name "config.el" user-emacs-directory)
   "The user's configuration file.")
 
 ;; These next two variables are both optional, but may be convenient.
@@ -258,82 +271,62 @@ symbol for the corresponding `sp-setup-*' module.")
   "Return the list of module feature symbols from `sp-gui-only-set'."
   (mapcar #'cdr sp-gui-only-set))
 
-;; Curated external-package set installable from ELPA archives.
-;; Packages not in this alist are not installed automatically:
-;;  - vc-installed packages live in `package-vc-selected-packages'
-;;    (custom-set-variables tail) or use use-package's `:vc' keyword;
-;;  - vendored packages are loaded from local checkouts via
-;;    `:load-path';
-;;  - sub-packages that ship with a parent (vertico-buffer,
-;;    embark-consult, preview.el) install transitively.
-;; See `sp-install-extras' for how this alist is consumed.
-;;
-;; This is the default set of packages that Lambda Emacs uses.
-(defconst sp-packages-alist
-  '((buffers        . (popper revert-buffer-all))
-    (citation       . (citar citeproc))
-    (colors         . (rainbow-mode))
-    (completion     . (vertico orderless embark marginalia consult
-                       consult-dir corfu cape kind-icon yasnippet))
-    (dashboard      . (dashboard page-break-lines))
-    (debug          . (bug-hunter esup))
-    (dired          . (dired-narrow dired-ranger diredfl peep-dired
-                       dired-sidebar))
-    (elfeed         . (elfeed elfeed-tube))
-    (eshell         . (pcmpl-homebrew pcmpl-args pcomplete-extension
-                       esh-help eshell-up eshell-syntax-highlighting))
-    (faces          . (outline-minor-faces dimmer svg-tag-mode
-                       highlight-numbers hl-todo goggles))
-    (fonts          . (nerd-icons nerd-icons-dired
-                       nerd-icons-completion))
-    (frames         . (ns-auto-titlebar))
-    (functions      . (crux))
-    (help           . (helpful elisp-demos info-colors))
-    (libraries      . (async dash s f compat))
-    (llm            . ())
-    (lsp            . (dap-mode))
-    (macos          . (reveal-in-osx-finder grab-mac-link osx-lib
-                       osx-dictionary org-mac-link))
-    (macros         . (anaphora))
-    (modeline       . (hide-mode-line))
-    (navigation     . (imenu-list goto-last-change))
-    (notes          . (denote citar-denote consult-notes))
-    (org-extensions . (org-appear org-modern org-autolist org-download
-                       ox-pandoc ox-hugo htmlize org-pomodoro))
-    (org-settings   . (org-contrib))
-    (programming    . (rainbow-delimiters rainbow-identifiers embrace
-                       puni iedit elisp-def aggressive-indent
-                       highlight-indent-guides package-lint
-                       flymake-collection
-                       multi-compile))
-    (search         . (deadgrep rg visual-regexp visual-regexp-steroids))
-    (settings       . (ws-butler expand-region))
-    (shell          . (exec-path-from-shell eat))
-    (tabs           . (tabspaces))
-    (windows        . (ace-window))
-    (writing        . (flyspell-correct consult-flyspell markdown-mode
-                       markdown-toc writeroom-mode lorem-ipsum
-                       palimpsest auctex define-word)))
-  "External ELPA packages lambda-emacs installs as part of its
-default set. Each entry is (TOPIC . PACKAGES) where TOPIC is a
-symbolic key (also used by `sp-gui-only-set' to mark install-time
-skip topics for headless hosts) and PACKAGES is a list of package
-names suitable for `package-install'.
+;; Bootstrapping elpaca
+(defvar elpaca-installer-version 0.12)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                              :ref nil :depth 1 :inherit ignore
+                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                              :build (:not elpaca-activate)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                  ,@(when-let* ((depth (plist-get order :depth)))
+                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                  ,(plist-get order :repo) ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
 
-Topics with an empty PACKAGES list have no default external
-packages on this track: `llm' is empty because its defaults
-(claudemacs, claude-code-ide) are installed via use-package's
-`:vc' keyword rather than ELPA.
+;;; Configure elpaca use-package support
+(elpaca elpaca-use-package
+        ;; Enable use-package :ensure support for Elpaca.
+        (elpaca-use-package-mode)
+        ;; Assume :elpaca t unless otherwise specified.
+        (setq elpaca-use-package-by-default t))
 
-Topics missing from this alist entirely have no default external
-packages at all -- they are pure built-in modules.
+;;When installing a package used in the init file itself,
+;;e.g. a package which adds a use-package key word,
+;;use the :wait recipe keyword to block until that package is installed/configured.
+;;For example:
+;;(use-package general :ensure (:wait t) :demand t)
 
-Users disable specific packages by editing this alist in
-`config.el' before init finishes, or set `sp-load-extras' to
-nil to disable all external-package configuration. See
-`sp-install-extras' for the installation loop.")
+;; (elpaca-wait)
 
-;;;; Make System Directories
+;;;; Making sure system directories are created
 ;; Directory paths
 (dolist (dir (list sp-library-dir sp-var-dir sp-etc-dir sp-cache-dir sp-user-dir sp-setup-dir))
   (unless (file-directory-p dir)
@@ -371,32 +364,14 @@ nil to disable all external-package configuration. See
 ;; depending on the system settings. Let's avoid that by loading a default theme
 ;; before initial frame creation. The modus themes are built in and excellent.
 ;; NOTE: 1. The default theme is set only if there are no user configuration
-;; files, otherwise it is left to the user to do; 2. This system check only
-;; works for MacOS, with an emacs build with the ns-system-appearance patch. For
+;; files, otherwise it is left to the user to do; 
+;; 2. This system check only works for MacOS, with an emacs build with the 
+;; ns-system-appearance patch. For
 ;; examples of such builds see https://codeberg.org/mclearc/build-emacs-macos
 ;; or https://github.com/d12frosted/homebrew-emacs-plus
 
-;;;; Bootstrap Package System
-;; Load the package-system.
-(require 'package)
-
-;;;; Package Archives
-;; See https://protesilaos.com/codelog/2022-05-13-emacs-elpa-devel/ for discussion
-(setopt package-archives
-        '(("elpa" . "https://elpa.gnu.org/packages/")
-          ("elpa-devel" . "https://elpa.gnu.org/devel/")
-          ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-          ("melpa" . "https://melpa.org/packages/"))
-
-        ;; Highest number gets priority (what is not mentioned gets priority 0)
-        package-archive-priorities
-        '(;; Prefer development packages
-          ("elpa-devel" . 99)
-          ("melpa" . 90))
-
-        ;; Set location of package directory
-        package-user-dir (expand-file-name "elpa/" sia-var-dir)
-        package-gnupghome-dir (concat package-user-dir "gnupg"))
+;; Set location of package directory
+(setopt package-user-dir (expand-file-name "elpa/" sp-var-dir))
 
 ;; Make sure the elpa/ folder exists after setting it above.
 (unless (file-exists-p package-user-dir)
@@ -404,85 +379,4 @@ nil to disable all external-package configuration. See
 (setopt package-quickstart-file (expand-file-name "package-quickstart.el" sp-cache-dir))
 
 ;; Initialize packages and load compat early
-(package-initialize)
-
-;; External-package installer. Called directly on interactive
-;; boots and deferred to `after-init-hook' on daemon boots so the
-;; daemon unit comes up fast while installation proceeds in the
-;; background. Scoped to ELPA packages in `sp-packages-alist';
-;; vc-installed packages are handled separately by the
-;; `custom-set-variables' tail at the bottom of this file.
-(defun sp-install-extras ()
-  "Install external packages declared in `sp-packages-alist'.
-
-Does nothing when `sp-load-extras' is nil. On headless hosts
-(`sp-headless-host' non-nil) skips topics in
-`(sp-gui-only-topics)' so GUI-only packages are not installed.
-Missing packages trigger `package-refresh-contents' once on the
-first miss, then `package-install' for each missing package.
-Install failures are reported via `display-warning' and do not
-abort init; a failed refresh also does not abort, so one bad
-archive endpoint cannot brick the whole boot."
-  (when sp-load-extras
-    (let ((refreshed nil)
-          (gui-only (sp-gui-only-topics)))
-      (dolist (entry sp-packages-alist)
-        (let ((topic (car entry))
-              (packages (cdr entry)))
-          (unless (and sp-headless-host (memq topic gui-only))
-            (dolist (pkg packages)
-              (unless (package-installed-p pkg)
-                (unless refreshed
-                  (condition-case err
-                      (progn (package-refresh-contents)
-                             (setq refreshed t))
-                    (error
-                     (display-warning
-                      'lambda-emacs
-                      (format "Package archive refresh failed: %s" err)
-                      :warning)
-                     ;; Do not retry refresh this boot.
-                     (setq refreshed t))))
-                (condition-case err
-                    (package-install pkg)
-                  (error
-                   (display-warning
-                    'lambda-emacs
-                    (format "Failed to install %s: %s" pkg err)
-                    :warning)))))))))))
-
-(when (package-installed-p 'compat)
-  (require 'compat nil t))
-
-;;;; Early Config
-;; Check if there is a user early-config file & load. If it doesn't exist, print
-;; a message saying so.
-(let ((early-config-file (expand-file-name "early-config.el" sp-user-dir)))
-  (cond ((file-exists-p early-config-file)
-         (measure-time
-          (load early-config-file nil 'nomessage))
-         (message "early-config.el loaded!"))
-        (t
-         (message "No user early-config file exists.")
-         (message "Loading default settings."))))
-
-;; Daemon-aware call: synchronous on interactive boots (one-time
-;; cost, usually near-instant because everything is already
-;; installed), deferred to `after-init-hook' on daemon boots so
-;; the daemon service becomes active quickly even on first boot.
-;; First `emacsclient' attach after a cold daemon start may see
-;; packages mid-install.
-;;
-;; Placed AFTER the Early Config cond so any override of
-;; `sp-load-extras' or `sp-headless-host' the user set in
-;; `early-config.el' is visible to the install loop. Otherwise a
-;; user who declared the host as headless in early-config.el
-;; would still have GUI-only packages installed on first boot
-;; (wasting disk and bandwidth), even though the dispatcher
-;; would correctly skip them at module-require time.
-(if (daemonp)
-    (add-hook 'after-init-hook #'sp-install-extras)
-  (sp-install-extras))
-
-;; NOTE: package-vc-selected-packages is set in early-config.el
-;; so it's available before install time.
+;; (package-initialize)

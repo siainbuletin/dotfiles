@@ -1,0 +1,6 @@
+;;+title: Things to fix in the configuration
+
+* Make it possible to load different configurations according to needs
+* Make a better way to deal with bibliography files
+* Show the agenda smartly within the Lambda Emacs inspired configuration
+* Add the ascii art for the dashboard for Lambda Emacs
