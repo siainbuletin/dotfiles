@@ -77,11 +77,20 @@
                                      (window-parameters (no-other-window . t)))))
 
 
-
+;;;; CRUX
 ;; This is loading the library of default functions coming from Emacs Prelude. Lots
 ;; of useful defaults that you can start working in Emacs with.
+;;
+;; Crux bundles many useful interactive commands to enhance your overall Emacs 
+;; experience. 
+
 (use-package crux
-  :ensure t)
+  :ensure t
+  :if (and sp-load-extras (locate-library "crux"))
+  :defer 1
+  :bind
+  ("C-k"   . crux-smart-kill-line)
+  ("C-a"   . crux-move-beginning-of-line))
 
 (use-package websocket
   :ensure (:wait t)
@@ -147,8 +156,8 @@
 (use-package try
   :ensure (:wait t))
 
-;; Sounds
-(setq ring-bell-function 'ignore) ;; Disable the bell sound
+
+
 
 ;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well

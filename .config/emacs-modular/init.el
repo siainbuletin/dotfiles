@@ -120,6 +120,7 @@ emacs-version string on the kill ring."
    "./libraries/modules/base/sp-gui"              ;; currently handled by early-init from Lambda Emacs
    "./libraries/modules/base/sp-snippets"         ;; snippet management
    "./libraries/modules/base/sp-interaction"      ;; ways to interact with the GUI
+   "./libraries/modules/base/sp-keys"                 ;; Keybindings - it has to be loaded in the base, otherwise it will cause issues with sp-prefix being called earlier
    ))
 
 ;; UI (modules organised alphabetically -- should be fixed somehow
@@ -153,9 +154,10 @@ emacs-version string on the kill ring."
 ;; navigation
 
 (siapip/load
-  '("./libraries/modules/navigation/sp-dired"
-    "./libraries/modules/navigation/sp-goto"
-    "./libraries/modules/navigation/sp-search" ;; this represents full-text search packages
+  '("./libraries/modules/navi/sp-dired"
+    "./libraries/modules/navi/sp-goto"
+    "./libraries/modules/navi/sp-navi-misc"
+    "./libraries/modules/navi/sp-search" ;; this represents full-text search packages
   ))
 
 ;; misc modules (utility) --- these should be split apart differently at some point
@@ -169,7 +171,7 @@ emacs-version string on the kill ring."
   ;; "./libraries/modules/tooling/sp-evil"
   "./libraries/modules/tooling/sp-help"                 ;; Improvements for the help module.
   "./libraries/modules/tooling/sp-indention"
-  "./libraries/modules/tooling/sp-keys"                 ;; Keybindings
+
   ;; "./libraries/modules/tooling/sp-lambda-line"       ;; Separate modeline
   "./libraries/modules/tooling/sp-md"
   "./libraries/modules/tooling/sp-minibuffer"

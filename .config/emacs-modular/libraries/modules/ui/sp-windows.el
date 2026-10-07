@@ -1,10 +1,7 @@
 ;; -*- lexical-binding: t; -*-
-
 ;; sp-windows.el --- Window setup
 
 ;; Appearance
-;; WINDOW FUNCTIONS
-(setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
 
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
@@ -190,4 +187,120 @@
     (add-to-list
      'dimmer-buffer-exclusion-regexps "^ \\*Vertico\\*$")))
 
+;;;; Functions for windows
+;;;; Window Functions
+;;;;; Toggle Dedicated Window
+(defun lem-toggle-window-dedicated ()
+  "Toggle whether the current active window is dedicated or not"
+  (interactive)
+  (message
+   (if (let ((window (get-buffer-window (current-buffer))))
+         (set-window-dedicated-p window (not (window-dedicated-p window))))
+       "Window '%s' is dedicated"
+     "Window '%s' is normal")
+   (current-buffer)))
+
+;;;;; Exchange Windows
+;; Swap buffers in windows and leave the cursor in the original window. Courtesy of
+;; Mike Zamansky's video.
+;; http://cestlaz.github.io/posts/using-emacs-36-touch-of-elisp/#.WX5Wg0czpcx
+
+(defun lem-window-exchange-buffer ()
+  "Swap buffer in windows and leave focus in original window"
+  (interactive)
+  (ace-swap-window)
+  (aw-flip-window))
+
+;;;;; Rotate Windows
+;; from magnars modified by ffevotte for dedicated windows support
+(defun lem-rotate-windows (count)
+  "Rotate your windows.
+  Dedicated windows are left untouched. Giving a negative prefix
+  argument takes the kindows rotate backwards."
+  (interactive "p")
+  (let* ((non-dedicated-windows (cl-remove-if 'window-dedicated-p (window-list)))
+         (num-windows (length non-dedicated-windows))
+         (i 0)
+         (step (+ num-windows count)))
+    (cond ((not (> num-windows 1))
+           (message "You can't rotate a single window!"))
+          (t
+           (dotimes (counter (- num-windows 1))
+             (let* ((next-i (% (+ step i) num-windows))
+
+                    (w1 (elt non-dedicated-windows i))
+                    (w2 (elt non-dedicated-windows next-i))
+
+                    (b1 (window-buffer w1))
+                    (b2 (window-buffer w2))
+
+                    (s1 (window-start w1))
+                    (s2 (window-start w2)))
+               (set-window-buffer w1 b2)
+               (set-window-buffer w2 b1)
+               (set-window-start w1 s2)
+               (set-window-start w2 s1)
+               (setq i next-i)))))))
+
+(defun lem-rotate-windows-backward (count)
+  "Rotate your windows backward."
+  (interactive "p")
+  (lem-rotate-windows (* -1 count)))
+
+;;;;; Focus Window Split
+;; Easy split and move functions
+(defun lem-split-window-right-and-focus ()
+  "Split the window horizontally and focus the new window."
+  (interactive)
+  (require 'windmove)
+  (split-window-right)
+  (windmove-right))
+
+(defun lem-split-window-below-and-focus ()
+  "Split the window vertically and focus the new window."
+  (interactive)
+  (require 'windmove)
+  (split-window-below)
+  (windmove-down))
+
+;;;;; Toggle Window Split
+(defun lem-toggle-window-split ()
+  "Move from a horizontal to a vertical split and vice versa."
+  (interactive)
+  (if (= (count-windows) 2)
+      (let* ((this-win-buffer (window-buffer))
+             (next-win-buffer (window-buffer (next-window)))
+             (this-win-edges (window-edges (selected-window)))
+             (next-win-edges (window-edges (next-window)))
+             (this-win-2nd (not (and (<= (car this-win-edges)
+                                         (car next-win-edges))
+                                     (<= (cadr this-win-edges)
+                                         (cadr next-win-edges)))))
+             (splitter
+              (if (= (car this-win-edges)
+                     (car (window-edges (next-window))))
+                  'split-window-horizontally
+                'split-window-vertically)))
+        (delete-other-windows)
+        (let ((first-win (selected-window)))
+          (funcall splitter)
+          (if this-win-2nd (other-window 1))
+          (set-window-buffer (selected-window) this-win-buffer)
+          (set-window-buffer (next-window) next-win-buffer)
+          (select-window first-win)
+          (if this-win-2nd (other-window 1))))))
+
+;;;;; Jump to Minibuffer Window
+(defun sp-goto-minibuffer-window ()
+  "locate point to minibuffer window if it is active."
+  (interactive)
+  (if (active-minibuffer-window)
+      (select-window (active-minibuffer-window))
+    (error "Minibuffer is not active")))
+
+(bind-key "C-c m" #'sp-goto-minibuffer-window)
+
+;;; Provide:
+
 (provide 'sp-windows)
+;; sp-windows.el ends here.

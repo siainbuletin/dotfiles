@@ -16,6 +16,14 @@
 ;;; Exiting without confirmation
 (setq confirm-kill-processes nil)
 
+;; Sounds
+(setq ring-bell-function 'ignore) ;; Disable the bell sound
+
+;; flash-screen-instead-of-ringing-bell
+;; When you perform a problematic operation, flash the screen
+;; instead of ringing the terminal bell
+(setq visible-bell t)
+
 ;;;;; Archive region to setup-archive
 (defun sp-kill-and-archive-region ()
   "Delete & append region to end of setup-archive.el"
@@ -25,7 +33,7 @@
 
 ;;;;; Config Helper Functions
 
-(defvar lem-files-sources-data
+(defvar sp-files-sources-data
   `(("Init Files"      ?i ,sp-emacs-dir)
     ("Setup Files"     ?s ,sp-setup-dir)
     ("User Files"      ?u ,sp-user-dir))
@@ -45,16 +53,16 @@
 				               (directory-files dir nil "[^.].*[.].+")))
       :action   ,(lambda (f) (find-file f)))))
 
-(defun lem-find-lambda-file ()
+(defun sp-find-lambda-file ()
   "Find a file from list of λ-Emacs configuration files."
   (interactive)
   (require 'consult)
   (consult--multi (mapcar #'(lambda (s) (apply 'sp--files-make-source s))
-			              lem-files-sources-data)
+			              sp-files-sources-data)
 		          :prompt "λ-files: "
 		          :history 'file-name-history))
 
-(defun lem-search-lambda-files ()
+(defun sp-search-lambda-files ()
   "Search all configuration files in λ-Emacs with consult-ripgrep."
   (interactive)
   (require 'consult)
@@ -74,7 +82,7 @@
 (defun lem-load-config-file ()
   "Load the user config file."
   (interactive)
-  (load-file lem-config-file))
+  (load-file sp-config-file))
 
 ;;;; Built-in Functions
 ;; These are useful built-in functions, but you have to enable them
@@ -88,160 +96,7 @@
 (put 'ns-print-buffer 'disabled t)
 (put 'suspend-frame 'disabled t)
 
-;;;; CRUX
-;; A Collection of Ridiculously Useful eXtensions for Emacs. Crux bundles many
-;; useful interactive commands to enhance your overall Emacs experience. Most of
-;; the crux commands are related to the editing experience, but there are also a
-;; bunch of utility commands that are just very useful to have (e.g.
-;; crux-open-with and crux-reopen-as-root). Originally part of Emacs Prelude.
-(use-package crux
-  :if (and sp-load-extras (locate-library "crux"))
-  :defer 1
-  :bind
-  ("C-k"   . crux-smart-kill-line)
-  ("C-a"   . crux-move-beginning-of-line))
 
-;;;; Frame Functions
-;;;;; Delete Frame or Quit
-(defun lem-delete-frame-or-quit ()
-  "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
-  (interactive)
-  (kill-matching-buffers "*vterm" nil t)
-  (when (condition-case nil (delete-frame)
-          (error (save-buffers-kill-emacs))))
-  (select-frame-set-input-focus (selected-frame)))
-
-;;;;; Create Capture Frame
-;; have these functions available for server
-(defun lem-activate-capture-frame ()
-  "run org-capture in capture frame"
-  (progn
-    (require 'org)
-    (select-frame-by-name "capture")
-    (switch-to-buffer (get-buffer-create "new"))
-    (org-capture)))
-
-;;;;; Weather Capture Frame
-(defun lem-weather-journal-capture ()
-  (interactive)
-  (progn
-    (require 'org)
-    (select-frame-by-name "capture")
-    (switch-to-buffer (get-buffer-create "new"))
-    (lem-org-journal)
-    (lem-insert-weather)))
-
-;;;; Window Functions
-;;;;; Toggle Dedicated Window
-(defun lem-toggle-window-dedicated ()
-  "Toggle whether the current active window is dedicated or not"
-  (interactive)
-  (message
-   (if (let ((window (get-buffer-window (current-buffer))))
-         (set-window-dedicated-p window (not (window-dedicated-p window))))
-       "Window '%s' is dedicated"
-     "Window '%s' is normal")
-   (current-buffer)))
-
-;;;;; Exchange Windows
-;; Swap buffers in windows and leave the cursor in the original window. Courtesy of
-;; Mike Zamansky's video.
-;; http://cestlaz.github.io/posts/using-emacs-36-touch-of-elisp/#.WX5Wg0czpcx
-
-(defun lem-window-exchange-buffer ()
-  "Swap buffer in windows and leave focus in original window"
-  (interactive)
-  (ace-swap-window)
-  (aw-flip-window))
-
-;;;;; Rotate Windows
-;; from magnars modified by ffevotte for dedicated windows support
-(defun lem-rotate-windows (count)
-  "Rotate your windows.
-  Dedicated windows are left untouched. Giving a negative prefix
-  argument takes the kindows rotate backwards."
-  (interactive "p")
-  (let* ((non-dedicated-windows (cl-remove-if 'window-dedicated-p (window-list)))
-         (num-windows (length non-dedicated-windows))
-         (i 0)
-         (step (+ num-windows count)))
-    (cond ((not (> num-windows 1))
-           (message "You can't rotate a single window!"))
-          (t
-           (dotimes (counter (- num-windows 1))
-             (let* ((next-i (% (+ step i) num-windows))
-
-                    (w1 (elt non-dedicated-windows i))
-                    (w2 (elt non-dedicated-windows next-i))
-
-                    (b1 (window-buffer w1))
-                    (b2 (window-buffer w2))
-
-                    (s1 (window-start w1))
-                    (s2 (window-start w2)))
-               (set-window-buffer w1 b2)
-               (set-window-buffer w2 b1)
-               (set-window-start w1 s2)
-               (set-window-start w2 s1)
-               (setq i next-i)))))))
-
-(defun lem-rotate-windows-backward (count)
-  "Rotate your windows backward."
-  (interactive "p")
-  (lem-rotate-windows (* -1 count)))
-
-;;;;; Focus Window Split
-;; Easy split and move functions
-(defun lem-split-window-right-and-focus ()
-  "Split the window horizontally and focus the new window."
-  (interactive)
-  (require 'windmove)
-  (split-window-right)
-  (windmove-right))
-
-(defun lem-split-window-below-and-focus ()
-  "Split the window vertically and focus the new window."
-  (interactive)
-  (require 'windmove)
-  (split-window-below)
-  (windmove-down))
-
-;;;;; Toggle Window Split
-(defun lem-toggle-window-split ()
-  "Move from a horizontal to a vertical split and vice versa."
-  (interactive)
-  (if (= (count-windows) 2)
-      (let* ((this-win-buffer (window-buffer))
-             (next-win-buffer (window-buffer (next-window)))
-             (this-win-edges (window-edges (selected-window)))
-             (next-win-edges (window-edges (next-window)))
-             (this-win-2nd (not (and (<= (car this-win-edges)
-                                         (car next-win-edges))
-                                     (<= (cadr this-win-edges)
-                                         (cadr next-win-edges)))))
-             (splitter
-              (if (= (car this-win-edges)
-                     (car (window-edges (next-window))))
-                  'split-window-horizontally
-                'split-window-vertically)))
-        (delete-other-windows)
-        (let ((first-win (selected-window)))
-          (funcall splitter)
-          (if this-win-2nd (other-window 1))
-          (set-window-buffer (selected-window) this-win-buffer)
-          (set-window-buffer (next-window) next-win-buffer)
-          (select-window first-win)
-          (if this-win-2nd (other-window 1))))))
-
-;;;;; Jump to Minibuffer Window
-(defun sp-goto-minibuffer-window ()
-  "locate point to minibuffer window if it is active."
-  (interactive)
-  (if (active-minibuffer-window)
-      (select-window (active-minibuffer-window))
-    (error "Minibuffer is not active")))
-
-(bind-key "C-c m" #'sp-goto-minibuffer-window)
 
 ;;;; Buffer Functions
 ;;;;; Blank Buffer New Frame
@@ -690,7 +545,8 @@ will be killed."
 ;; From a great vim migration guide by Juanjo Álvarez
 ;; https://juanjoalvarez.net/en/detail/2014/sep/19/vim-emacsevil-chaotic-migration-guide/
 ;; (original code from davvil) https://github.com/davvil/.emacs.d/blob/master/init.el
-
+;;
+;; This should make operating with the minibuffer a little easier.
 (defun minibuffer-keyboard-quit ()
   "Abort recursive edit.
       In Delete Selection mode, if the mark is active, just deactivate it;
@@ -709,46 +565,6 @@ will be killed."
   (define-key minibuffer-local-must-match-map [escape] 'minibuffer-keyboard-quit)
   (define-key minibuffer-local-isearch-map [escape] 'minibuffer-keyboard-quit)
   (global-set-key [escape] 'evil-exit-emacs-state))
-
-;;;;; Quit Message Function
-(defun sp--quit-p (&optional prompt)
-  "Return t if this session should be killed. Prompts the user for
-      confirmation."
-  (or (yes-or-no-p (format "››› %s" (or prompt "Quit Emacs?")))
-      (ignore (message "Aborted"))))
-(setq confirm-kill-emacs nil)
-(add-hook 'kill-emacs-query-functions #'sp--quit-p)
-(defvar lem-quit-messages
-  '(;; from Doom
-    "Let's beat it -- This is turning into a bloodbath!"
-    "I wouldn't leave if I were you. DOS is much worse."
-    "Ya know, next time you come in here I'm gonna toast ya."
-    "Go ahead and leave. See if I care."
-    "Are you sure you want to quit this great editor?"
-    ;; Custom
-    "Emacs! Emacs!! Emacs!!!"
-    "The King is dead, long live the King!"
-    "Like you have somewhere better to be..."
-    "Don't worry, I won't tell everyone you're a failure"
-    "Aus so krummem Holze, als woraus der Mensch gemacht ist, kann nichts ganz Gerades gezimmert werden"
-    "Sed omnia praeclara tam difficilia, quam rara sunt"
-    "(setq nothing t everything 'permitted)"
-    "Emacs will remember that."
-    "Emacs, Emacs never changes."
-    "Hey! Hey, M-x listen!"
-    "Okay, look. We've both said a lot of things you're going to regret..."
-    "You are *not* prepared!")
-  "A list of quit messages, picked randomly by `lem-quit'. Taken from
-      http://doom.wikia.com/wiki/Quit_messages and elsewhere.")
-
-(defun sp--quit (&rest _)
-  (sp--quit-p
-   (format "%s  Quit?"
-           (nth (random (length lem-quit-messages))
-                lem-quit-messages))))
-
-(remove-hook 'kill-emacs-query-functions #'sp--quit-p)
-(add-hook 'kill-emacs-query-functions #'sp--quit)
 
 ;; Other functions to look through (this is an archive)
 ;; Emacs Writing Studio Customisation
@@ -986,6 +802,100 @@ generate links in titlecase for attachments."
      (t
       (let ((clean-title (replace-regexp-in-string "\\([a-zA-Z0-9]\\)-\\([a-zA-Z0-9]\\)" "\\1 \\2" title)))
         (format "%s" (titlecase--string clean-title titlecase-style)))))))
+
+;;;; Sensible defaults library
+
+;;; Code:
+
+;; Utility functions:
+
+(defun sp-comment-region-or-line ()
+  "Comments or uncomments the region or the current line if
+there's no active region."
+  (interactive)
+  (let (beg end)
+    (if (region-active-p)
+        (setq beg (region-beginning) end (region-end))
+      (setq beg (line-beginning-position) end (line-end-position)))
+    (comment-or-uncomment-region beg end)))
+
+(defun sensible-defaults/increase-gc-threshold ()
+  "Allow 20MB of memory (instead of 0.76MB) before calling
+garbage collection. This means GC runs less often, which speeds
+up some operations."
+  (setq gc-cons-threshold 20000000))
+
+(defun sp-offer-to-create-parent-directories-on-save ()
+  "When saving a file in a directory that doesn't exist, offer
+to (recursively) create the file's parent directories."
+  (add-hook 'before-save-hook
+            (lambda ()
+              (when buffer-file-name
+                (let ((dir (file-name-directory buffer-file-name)))
+                  (when (and (not (file-exists-p dir))
+                             (y-or-n-p (format "Directory %s does not exist. Create it?" dir)))
+                    (make-directory dir t)))))))
+
+(defun sensible-defaults/apply-changes-to-highlighted-region ()
+  "Turn on transient-mark-mode."
+  (transient-mark-mode t))
+
+;; Ask if you're sure that you want to close Emacs.
+(setq confirm-kill-emacs nil)
+
+(defun sensible-defaults/quiet-startup ()
+  "Don't present the usual startup message, and clear the scratch
+buffer."
+  (setq inhibit-startup-message t)
+  (setq initial-scratch-message nil))
+
+(defun sensible-defaults/shorten-yes-or-no ()
+  "Don't ask `yes/no?', ask `y/n?'."
+  (fset 'yes-or-no-p 'y-or-n-p))
+
+(defun sensible-defaults/always-highlight-code ()
+  "Turn on syntax highlighting whenever possible."
+  (global-font-lock-mode t))
+
+(defun sensible-defaults/refresh-buffers-when-files-change ()
+  "When something changes a file, automatically refresh the
+buffer containing that file so they can't get out of sync."
+  (global-auto-revert-mode t))
+
+(defun sensible-defaults/show-matching-parens ()
+  "Visually indicate matching pairs of parentheses."
+  (show-paren-mode t)
+  (setq show-paren-delay 0.0))
+
+(defun sensible-defaults/open-clicked-files-in-same-frame-on-mac ()
+  "When you double-click on a file in the Mac Finder open it as a
+buffer in the existing Emacs frame, rather than creating a new
+frame just for that file."
+  (setq ns-pop-up-frames nil))
+
+(defun sensible-defaults/yank-to-point-on-mouse-click ()
+  "When middle-clicking the mouse to yank from the clipboard,
+insert the text where point is, not where the mouse cursor is."
+  (setq mouse-yank-at-point t))
+
+(defun sensible-defaults/use-all-settings ()
+  "Use all of the sensible-defaults settings."
+  (sp-open-from-home-dir)
+  (sensible-defaults/increase-gc-threshold)
+  (sp-camelcase-separate-words)
+  (sp-auto-follow-symlinks)
+  (sp-single-space-after-periods)
+  (sp-offer-to-create-parent-directories-on-save)
+  (sensible-defaults/apply-changes-to-highlighted-region)
+  (sensible-defaults/quiet-startup)
+  (sensible-defaults/shorten-yes-or-no)
+  (sensible-defaults/always-highlight-code)
+  (sensible-defaults/refresh-buffers-when-files-change)
+  (sensible-defaults/show-matching-parens)
+
+
+  (sensible-defaults/open-clicked-files-in-same-frame-on-mac)
+  (sensible-defaults/yank-to-point-on-mouse-click))
 
 ;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

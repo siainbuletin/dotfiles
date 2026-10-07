@@ -19,20 +19,10 @@
 
 ;;;;; Set Fonts
 
-;; Uncomment and set below variables for fonts other than the defaults
-(custom-set-variables
- '(sp-ui-default-font
-   '(:font "PT Mono" :height 120)))
-
-(custom-set-variables
- '(sp-ui-variable-width-font
-   '(:font "Aporetic Serif Mono" :height 120)))
-
 ;;;;; Org Directories
 ;; Set these if you're using org
 (setq org-directory "~/notes/"
-      org-default-notes-file (concat org-directory "inbox.org")
-      org-agenda-files (list org-directory))
+      org-default-notes-file (concat org-directory "inbox.org"))
 
 ;;;;; Set Splash Footer
 ;; Set a footer for the splash screen

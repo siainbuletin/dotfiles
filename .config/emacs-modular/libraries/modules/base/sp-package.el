@@ -15,7 +15,9 @@
   ;; use-package's :ensure machinery. Setting this to nil lets
   ;; modules omit :ensure entirely without accidentally triggering
   ;; an install on any form that says nothing about :ensure.
-  (use-package-always-ensure nil)
+  ;; (use-package-always-ensure nil)
+  ;; I don't know what to do with this setting
+
   ;; Navigate use-package declarations w/imenu
   (use-package-enable-imenu-support t))
   

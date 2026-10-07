@@ -54,6 +54,15 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
            (when (and val (not (eq val prev-val)))
              (sp-ui--set-variable-width-font val)))))
 
+;; Uncomment and set below variables for fonts other than the defaults
+(custom-set-variables
+ '(sp-ui-default-font
+   '(:font "PT Mono" :height 120)))
+
+(custom-set-variables
+ '(sp-ui-variable-width-font
+   '(:font "Aporetic Serif Mono" :height 120)))
+   
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset

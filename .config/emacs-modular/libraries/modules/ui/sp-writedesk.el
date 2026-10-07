@@ -6,6 +6,20 @@
 ;; This sub-library is called 'writedesk' because it's supposed to set up the space specifically
 ;; for longform writing within org-mode.
 
+;; Olivetti makes sure that every org buffer is being wrapped properly.
+(use-package olivetti
+  :ensure t
+  
+  :custom
+  (olivetti-minimum-body 100)
+  (olivetti-body-width 80)
+  
+  :bind
+  (("C-c w o" . sia-olivetti))
+  
+  :hook
+  (org-mode . olivetti-mode))
+
 ;;;; Writeroom
 (use-package writeroom-mode
   :when (and sp-load-extras (locate-library "writeroom-mode"))

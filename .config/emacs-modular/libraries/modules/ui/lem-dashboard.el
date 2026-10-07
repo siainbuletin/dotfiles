@@ -37,6 +37,7 @@
 ;; references via (nerd-icons-sucicon ...).
 
 (use-package dashboard
+  :ensure t
   :if (and sp-load-extras
              (locate-library "dashboard")
              (locate-library "nerd-icons")
@@ -54,7 +55,8 @@
   :config
   (add-hook 'elpaca-after-init-hook #'lem-dashboard)
   (add-hook 'dashboard-mode-hook #'lem-dashboard-hide-modeline)
-  (dashboard-setup-startup-hook)
+  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
 
   :bind
   ("C-c d d" . dashboard-open))
@@ -117,6 +119,16 @@
       (hl-line-mode -1)
       (setq-local mode-line-format nil)
       (setq-local header-line-format nil))))
+
+;; Functions to call dashboard when it kas been killed or not loaded
+(defun lem-dashboard ()
+  "Load dashboard and swith to buffer."
+  (interactive)
+  (let ((buffer "*dashboard*"))
+    (when (not (get-buffer buffer))
+      (dashboard-insert-startupify-lists))
+    (switch-to-buffer buffer))
+  (delete-other-windows))
 
 (defun sp-goto-dashboard ()
   "Goto the dashboard."

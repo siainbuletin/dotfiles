@@ -45,19 +45,6 @@
   (org-modern-star 'replace)
   (org-modern-replace-stars "⦶⦷⦹⊕⍟⊛⏣❂"))
 
-;; Writing environment
-(use-package olivetti
-  :ensure t
-  :demand t
-  :after org
-  :custom
-  (olivetti-minimum-body 100)
-  (olivetti-body-width 80)
-  :bind
-  (("C-c w o" . sia-olivetti))
-  :hook
-  (org-mode . olivetti-mode))
-
 (use-package org-autolist
   :ensure t)
 

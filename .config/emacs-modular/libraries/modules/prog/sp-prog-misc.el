@@ -170,4 +170,21 @@
           (lambda ()
             (ansi-color-apply-on-region compilation-filter-start (point))))
 
+(defun sp-camelcase-separate-words ()
+  "Treat CamelCaseSubWords as separate words in every programming
+mode."
+  (add-hook 'prog-mode-hook 'subword-mode))
+
+;;;; Working with scripts
+;; When saving a file that starts with `#!', make it executable."
+(add-hook 'after-save-hook
+            'executable-make-buffer-file-executable-if-script-p)
+
+;;;; Linting code well enough
+;; If you save a file that doesn't end with a newline, automatically append one.
+(setq require-final-newline t)
+
+;;; Provide:
+
 (provide 'sp-prog-misc)
+;; sp-prog-misc.el ends here.

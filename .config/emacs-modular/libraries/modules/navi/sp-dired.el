@@ -9,6 +9,11 @@
 
 ;;; Code:
 
+;;;; Helpful functions
+;; Make-dired-file-sizes-human-readable
+;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
+(setq-default dired-listing-switches "-alh")
+
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
   :when (and sp-load-extras (locate-library "dired-sidebar"))
@@ -21,56 +26,6 @@
   
   ;; Set horizontal fitting to only when needed
   (fit-window-to-buffer-horizontally 'only))
-
-;;;; Imenu list outline
-;; Make a useful outline buffer
-;; Binding set to toggle "o"
-(use-package imenu-list
-  :when (and sp-load-extras (locate-library "imenu-list"))
-  :commands (imenu-list-smart-toggle imenu-list-minor-mode)
-  
-  :config
-  (setq imenu-list-focus-after-activation t
-        imenu-list-auto-resize t
-        imenu-list-position 'right))
-
-;;;; Save place
-;; Everyone remember where we parked.
-(use-package saveplace
-  :ensure nil
-  :hook (emacs-startup . save-place-mode)
-  :config
-  (setq save-place-file (concat sp-cache-dir "saved-places"))
-  (setq save-place-forget-unreadable-files nil))
-
-;;;; Go To Change
-;; Easily go to last change
-(use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
-  :bind (("C-\"" . #'goto-last-change)))
-
-;;;; Recent files
-;; List recent files
-(use-package recentf
-  :ensure nil
-  :defer 2
-  :custom
-  (recentf-save-file (concat sp-cache-dir "recentf"))
-  (recentf-max-saved-items 500)
-  (recentf-max-menu-items 10)
-  :config
-  (recentf-mode 1))
-
-;;;; Jump in Buffer
-(defun lem-jump-in-buffer ()
-  "Jump between headlines in buffer using consult"
-  (interactive)
-  (cond
-   ((eq major-mode 'org-mode)
-    (call-interactively 'consult-org-heading))
-   (t
-    (call-interactively 'consult-outline))))
-
 
 ;;;; Personal function for sorting
 

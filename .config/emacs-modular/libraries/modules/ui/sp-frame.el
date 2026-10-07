@@ -8,12 +8,20 @@
 
 ;;; Code:
 
+(setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
+
 ;;;; Frame defaults
+;; This setting will ensure that the frame is actually square, which 
+;; radically changes the appearance on MacOS and brings it closer to a
+;; Linux experience.
+
+;; Make a clean & minimalist frame
+;; To modify initial frame set `initial-frame-alist`
+
 (use-package frame
   :ensure nil
   :config
-  ;; Make a clean & minimalist frame
-  ;; To modify initial frame set `initial-frame-alist`
+
   (setq-default default-frame-alist
                 (append (list
                          '(frame-title-format . nil)
@@ -28,16 +36,6 @@
 
   ;; Don't show icon in frame
   (setq-default ns-use-proxy-icon nil))
-
-;;;; (Re)Center Frames
-(defun sp-frame-recenter (&optional frame)
-  "Center FRAME on the screen.
-FRAME can be a frame name, a terminal name, or a frame.
-If FRAME is omitted or nil, use currently selected frame."
-  (interactive)
-  (unless (memq (frame-parameter frame 'fullscreen) '(maximized fullboth))
-    (modify-frame-parameters
-     frame '((user-position . t) (top . 0.5) (left . 0.5)))))
 
 ;; un/comment this hook if you want frames recentered
 (add-hook 'after-make-frame-functions #'sp-frame-recenter)
@@ -69,6 +67,16 @@ If FRAME is omitted or nil, use currently selected frame."
   :when (and sp-load-extras (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
   :commands ns-auto-titlebar-mode
   :init (ns-auto-titlebar-mode))
+
+;;;; Frame Functions
+;;;;; Delete Frame or Quit
+(defun sp-delete-frame-or-quit ()
+  "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
+  (interactive)
+  (kill-matching-buffers "*vterm" nil t)
+  (when (condition-case nil (delete-frame)
+          (error (save-buffers-kill-emacs))))
+  (select-frame-set-input-focus (selected-frame)))
 
 ;;; Provide:
 

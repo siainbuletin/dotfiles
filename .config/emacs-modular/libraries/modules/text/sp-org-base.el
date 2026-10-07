@@ -21,9 +21,16 @@
 
   (add-hook 'org-mode-hook #'org-num-mode)
 
+;;; Should be default settings for writing (also called linting)
 (add-hook 'before-save-hook
           'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 
+(defun sp-single-space-after-periods ()
+  "Don't assume that sentences should have two spaces after
+periods. This ain't a typewriter."
+  (setq sentence-end-double-space nil))
+  
+;;; Useful writing functions 
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 

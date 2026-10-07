@@ -129,16 +129,17 @@
         (agenda-structure . (variable-pitch light 1.8))
         (t . (1.1))))
 
-;; EF THemes
+;; EF THEMES
 (use-package ef-themes
   :ensure t)
 
+;; MODUS THEMES
 (use-package lambda-themes
   :ensure (:type git :host github :repo "lambda-emacs/lambda-themes") 
 
   :config
   ;; load preferred theme 
-  (load-theme 'lambda-light)
+  ;; (load-theme 'lambda-light)
 )
 
 ;; Lambda themes options

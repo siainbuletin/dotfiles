@@ -15,6 +15,24 @@
 ;; comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
 ;; specified by `sp-prefix'.
 
+(defun sp-bind-commenting ()
+  "Comment or uncomment a region by hitting M-;."
+  (global-set-key (kbd "M-;")
+                  'sp-comment-region-or-line))
+
+;; this should be removed because I can already do C-a and C-e on Linux and MacOS to get
+;; to the proper end of line.
+(defun sp-bind-home-and-end-keys ()
+  "Make <home> and <end> move point to the beginning and end of
+the line, respectively."
+  (keymap-global-set "<home>" 'move-beginning-of-line)
+  (keymap-global-set "<end>" 'move-end-of-line))
+
+(defun sensible-defaults/use-all-keybindings ()
+  "Use all of the sensible-defaults keybindings."
+  (sp-bind-commenting)
+  (sp-bind-home-and-end-keys))
+
 ;;;; Bind Key
 ;; Note that bind-key comes with use-package
 (use-package bind-key
@@ -88,12 +106,12 @@
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
-           ("f" . lem-find-lambda-file                  )
+           ("f" . sp-find-lambda-file                  )
            ("l" . lem-load-config                       )
            ("i" . sp-goto-init.el                      )
            ("I" . lem-load-init-file                    )
            ("o" . sp-goto-org-files                    )
-           ("s" . lem-search-lambda-files               ))
+           ("s" . sp-search-lambda-files               ))
 
 ;;;;; Compile Keybindings
 ;; TODO: remove complile-next-makefile in favor of project compile?

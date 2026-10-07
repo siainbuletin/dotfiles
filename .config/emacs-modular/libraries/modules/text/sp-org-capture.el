@@ -1,5 +1,13 @@
 ;;; -*- lexical-binding: t -*-
 
+;;; Commentary:
+
+;; This contains important code for later on utilisation of stuff like
+;; journals for your work. There's the Lambda Emacs function for recording
+;; the weather at a given point.
+;;
+;; org-capture should be well plugged into org-gtd to fit with the workflow.
+
 ;;; Code:
 
 ;;;; Capture mechanisms
@@ -53,5 +61,25 @@
           ("i" "Idea or quick thought to take care of" entry
            (file "~/notes/inbox/thoughts-capture.org"))
 ))
+
+;;;;; Create Capture Frame
+;; have these functions available for server
+(defun lem-activate-capture-frame ()
+  "run org-capture in capture frame"
+  (progn
+    (require 'org)
+    (select-frame-by-name "capture")
+    (switch-to-buffer (get-buffer-create "new"))
+    (org-capture)))
+
+;;;;; Weather Capture Frame
+(defun lem-weather-journal-capture ()
+  (interactive)
+  (progn
+    (require 'org)
+    (select-frame-by-name "capture")
+    (switch-to-buffer (get-buffer-create "new"))
+    (lem-org-journal)
+    (lem-insert-weather)))
 
 (provide 'sp-org-capture)
