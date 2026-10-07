@@ -405,17 +405,6 @@ selected instead of creating a new buffer."
   :custom
   (org-inline-anim-loop t))
 
-(use-package consult-notes
-  :ensure t
-  :after consult
-  :custom
-  (consult-notes-denote-display-keywords-indicator "_")
-  :bind
-  (("C-c w d f" . consult-notes)
-   ("C-c w d g" . consult-notes-search-in-all-notes))
-  :init
-  (consult-notes-denote-mode))
-
 ;; (use-package org-ql
 ;;  :ensure t)
 
@@ -463,44 +452,44 @@ selected instead of creating a new buffer."
                           (auto-mode . emacs)))
 
 ;;;;; Goto Org Files
-(defun lem-goto-org-files ()
+(defun sp-goto-org-files ()
   "goto org-files directory"
   (interactive)
   (let ((default-directory org-directory))
     (call-interactively 'find-file)))
-(defun lem-goto-inbox.org ()
+(defun sp-goto-inbox.org ()
   "goto org-inbox"
   (interactive)
   (find-file (concat org-directory "inbox.org")))
-(defun lem-goto-todo.org ()
+(defun sp-goto-todo.org ()
   "goto org-todo"
   (interactive)
   (find-file (concat org-directory "todo.org")))
-(defun lem-goto-conferences.org ()
+(defun sp-goto-conferences.org ()
   "goto org-conferences"
   (interactive)
   (find-file (concat org-directory "conferences.org")))
-(defun lem-goto-referee-reports.org ()
+(defun sp-goto-referee-reports.org ()
   "goto org referee reports"
   (interactive)
   (find-file (concat org-directory "referee-reports.org")))
-(defun lem-goto-reference.org ()
+(defun sp-goto-reference.org ()
   "goto org reference notes"
   (interactive)
   (find-file (concat org-directory "reference.org")))
-(defun lem-goto-someday.org ()
+(defun sp-goto-someday.org ()
   "goto org-someday"
   (interactive)
   (find-file (concat org-directory "someday.org")))
-(defun lem-goto-reading.org ()
+(defun sp-goto-reading.org ()
   "goto reading list"
   (interactive)
   (find-file (concat org-directory "reading.org")))
-(defun lem-goto-writing.org ()
+(defun sp-goto-writing.org ()
   "goto writing list"
   (interactive)
   (find-file (concat org-directory "writing.org")))
-(defun lem-goto-teaching.org ()
+(defun sp-goto-teaching.org ()
   "goto teaching file"
   (interactive)
   (find-file (concat org-directory "teaching.org")))

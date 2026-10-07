@@ -42,7 +42,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                     'sp-splash
 
                     ;; Navigation & Search modules (/navi/)
-                    'sp-navigation
+                    'sp-dired
                     'sp-dired
                     'sp-search
 
@@ -100,7 +100,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                      'sp-splash
 
                      ;; Navigation & Search modules
-                     'sp-navigation
+                     'sp-dired
                      'sp-dired
                      'sp-search)))
      (require mod))))

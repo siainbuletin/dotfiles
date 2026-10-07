@@ -1,4 +1,10 @@
 ;; -*- lexical-binding: t -*-
+;; sp-writedesk.el
+
+;;; Commentary:
+
+;; This sub-library is called 'writedesk' because it's supposed to set up the space specifically
+;; for longform writing within org-mode.
 
 ;;;; Writeroom
 (use-package writeroom-mode
@@ -20,4 +26,5 @@
                 maximum-scroll-margin 0.25
                 scroll-margin 99999)))
 
-(provide 'sp-writing-appearance)
+(provide 'sp-writedesk)
+;; sp-writedesk.el ends here.

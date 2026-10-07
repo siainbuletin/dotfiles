@@ -26,14 +26,14 @@
 (defcustom sp-prefix "C-x C-SPC"
   "Prefix for all personal keybinds."
   :type 'string
-  :group 'lambda-emacs)
+  :group 'sia-lambda)
 
 ;;;; Personal Leader Key
 
 (defcustom lem+leader-map (make-sparse-keymap)
   "An overriding keymap for <leader> key, for use with modal keybindings."
   :type 'string
-  :group 'lambda-emacs)
+  :group 'sia-lambda)
 
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
@@ -85,14 +85,14 @@
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
            ("a" . lem-setup-kill-and-archive-region     )
-           ("c" . lem-goto-custom.el                    )
-           ("d" . lem-goto-emacs-dir                    )
-           ("e" . lem-goto-early-init.el                )
+           ("c" . sp-goto-custom.el                    )
+           ("d" . sp-goto-emacs-dir                    )
+           ("e" . sp-goto-early-init.el                )
            ("f" . lem-find-lambda-file                  )
            ("l" . lem-load-config                       )
-           ("i" . lem-goto-init.el                      )
+           ("i" . sp-goto-init.el                      )
            ("I" . lem-load-init-file                    )
-           ("o" . lem-goto-org-files                    )
+           ("o" . sp-goto-org-files                    )
            ("s" . lem-search-lambda-files               ))
 
 ;;;;; Compile Keybindings
@@ -196,7 +196,7 @@
            ("s" . consult-line                 )
            ;; search for next spelling error
            ("S" . lem-flyspell-ispell-goto-next-error)
-           ("t" . lem-todo-transient           )
+           ("t" . sp-todo-transient           )
            ("." . consult-line-symbol-at-point ))
 
 ;;;;; Toggle Keybindings

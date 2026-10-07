@@ -29,6 +29,13 @@
 (provide 'sp-org-archive)
 
 ;;;; Palimpsest (make archive)
+;; This minor mode for Emacs provides several strategies to remove text
+;; without permanently deleting it. Namely, it provides the following capabilities:
+;;
+;; - Send selected text to the bottom of the buffer
+;; - Send selected text to the top of the buffer
+;; - Send selected text to a trash file
+
 (use-package palimpsest
   :when (and sp-load-extras (locate-library "palimpsest"))
   :diminish palimpsest-mode

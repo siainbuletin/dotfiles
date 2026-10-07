@@ -235,7 +235,7 @@
                                     ("nf-fa-book" "Notes" "n" sp-open-notes-in-workspace "Open notes directory")
                                     ("nf-fa-folder" "Projects" "p" tabspaces-open-or-create-project-and-workspace "Open project & workspace")))
                    (max-label-width (apply 'max (mapcar (lambda (item) (length (nth 1 item))) button-labels))))
-              
+            
               (dolist (button button-labels)
                 (let* ((icon (nth 0 button))
                        (label (nth 1 button))
@@ -337,7 +337,7 @@
   "Emacs minor mode for splash screen."
   :global nil
   :keymap sp-splash-mode-map
-  :group 'lambda-emacs
+  :group 'sia-lambda
   
   :require 'sp-splash
   (buffer-disable-undo)

@@ -13,6 +13,9 @@
 ;; (executable-find "Emacs")
 ))
 
+;;; Exiting without confirmation
+(setq confirm-kill-processes nil)
+
 ;;;;; Archive region to setup-archive
 (defun sp-kill-and-archive-region ()
   "Delete & append region to end of setup-archive.el"
@@ -231,14 +234,14 @@
           (if this-win-2nd (other-window 1))))))
 
 ;;;;; Jump to Minibuffer Window
-(defun lem-goto-minibuffer-window ()
+(defun sp-goto-minibuffer-window ()
   "locate point to minibuffer window if it is active."
   (interactive)
   (if (active-minibuffer-window)
       (select-window (active-minibuffer-window))
     (error "Minibuffer is not active")))
 
-(bind-key "C-c m" #'lem-goto-minibuffer-window)
+(bind-key "C-c m" #'sp-goto-minibuffer-window)
 
 ;;;; Buffer Functions
 ;;;;; Blank Buffer New Frame

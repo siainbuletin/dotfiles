@@ -7,6 +7,12 @@
 ;; with the way that Windows accesses the native binaries for Emacs, it might be a better idea to
 ;; run Emacs within WSL.
 
+;; Lambda-Emacs is developed on macOS and Linux; Windows works but needs a little more care. Put 
+;; git (and ideally ripgrep) on your Windows PATH, expect the first-run compilation to take 
+;; noticeably longer, and prefer a recent official Emacs build with native compilation. Restarting 
+;; Emacs to resume installation usually clears transient build failures.
+;; https://codeberg.org/Lambda-Emacs/lambda-emacs#headline-10
+
 ;;; Code:
 
 (when (memq system-type '(windows-nt cygwin ms-dos))

@@ -86,7 +86,7 @@
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Notes")
-      (sp-notebook))))
+      (sp-denote-notebook))))
 
 ;;;;; Eshell Workspace
 (defun sp-open-new-eshell-and-workspace ()
@@ -176,6 +176,8 @@
 (bind-key "N" #'sp-open-new-buffer-and-workspace 'project-prefix-map)
 
 ;; Including projectile as well for the sake of posterity (and trying things out - and moving from sp-projects - deprecated 2026.10.06)
+;; OPTIONAL: ag is nice alternative to using grep with Projectile
+
 (use-package projectile
   :ensure t
   :init

@@ -107,31 +107,52 @@ questions.  Otherwise use completion to select the tab."
 
 ;;;; Tab Workspaces
 (use-package tabspaces
-  :when (and sp-load-extras (locate-library "tabspaces"))
-  :load-path (lambda () (concat lem-user-elisp-dir "tabspaces/"))
-  ;; Add some functions to the project map
-  :bind (:map project-prefix-map
-         ("p" . tabspaces-open-or-create-project-and-workspace))
-  :hook (emacs-startup . tabspaces-mode)
+  :ensure t
+  ;; :hook
+  ;; (after-init . tabspaces-mode) ;; use this only if you want the minor-mode loaded at startup.
+  
+  :commands (tabspaces-switch-or-create-workspace
+             tabspaces-open-or-create-project-and-workspace)
+  
   :custom
   (tabspaces-use-filtered-buffers-as-default t)
   (tabspaces-default-tab "Home")
-  :config
-  (defun lem--consult-tabspaces ()
-    "Deactivate isolated buffers when not using tabspaces."
-    (require 'consult)
-    (when (boundp 'consult-source-buffer)
-      (cond (tabspaces-mode
-             ;; hide full buffer list (still available with "b")
-             ;; Use plist-put instead of consult-customize for internal sources
-             (plist-put consult-source-buffer :hidden t)
-             (plist-put consult-source-buffer :default nil)
-             (add-to-list 'consult-buffer-sources 'consult-source-workspace))
-            (t
-             (plist-put consult-source-buffer :hidden nil)
-             (plist-put consult-source-buffer :default t)
-             (setq consult-buffer-sources (remove #'consult-source-workspace consult-buffer-sources))))))
-  (add-hook 'tabspaces-mode-hook #'lem--consult-tabspaces))
+  (tabspaces-remove-to-default t)
+  (tabspaces-include-buffers '("*scratch*"))
+  (tabspaces-initialize-project-with-todo t)
+  (tabspaces-todo-file-name "project-todo.org")
+  
+  ;; sessions
+  (tabspaces-session t)
+  (tabspaces-session-auto-restore t)
+  
+  ;; additional options
+  (tabspaces-fully-resolve-paths t)  ; Resolve relative project paths to absolute
+  (tabspaces-exclude-buffers '("*Messages*" "*Compile-Log*"))  ; Additional buffers to exclude
+  (tab-bar-new-tab-choice "*scratch*"))
+
+;; Optional: treat plain directories containing a .project file as
+;; projects, so they work with tabspaces without version control.
+;; See the "Non-VC Projects" section below.
+;; (setq project-vc-extra-root-markers '(".project"))
+
+;; Keybindings for tabspaces
+(defvar tabspaces-command-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C") 'tabspaces-clear-buffers)
+    (define-key map (kbd "b") 'tabspaces-switch-to-buffer)
+    (define-key map (kbd "d") 'tabspaces-close-workspace)
+    (define-key map (kbd "k") 'tabspaces-kill-buffers-close-workspace)
+    (define-key map (kbd "n") 'tabspaces-rename-workspace)
+    (define-key map (kbd "o") 'tabspaces-open-or-create-project-and-workspace)
+    (define-key map (kbd "r") 'tabspaces-remove-current-buffer)
+    (define-key map (kbd "R") 'tabspaces-remove-selected-buffer)
+    (define-key map (kbd "s") 'tabspaces-switch-or-create-workspace)
+    (define-key map (kbd "t") 'tabspaces-switch-buffer-and-tab)
+    (define-key map (kbd "w") 'tabspaces-show-workspaces)
+    (define-key map (kbd "T") 'tabspaces-toggle-echo-area-display)
+    map)
+  "Keymap for tabspace/workspace commands after `tabspaces-keymap-prefix'.")
 
 ;;;;; Consult Isolated Workspace Buffers
 ;; Filter Buffers for Consult-Buffer

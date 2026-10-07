@@ -9,9 +9,16 @@
 (require 'sp-org-babel)
 (require 'sp-org-agenda)
 (require 'sp-org-images)
-;; (require 'sp-org-node-mem)
+
+;;;;;; ID-based workflows
+(require 'sp-org-node-mem)
+
+;;;;;; Vulpea
 (require 'sp-vulpea-base)
-(require 'sp-vulpea-ext)
+(require 'sp-vulpea-ui)
+(require 'sp-vulpea-para)
+(require 'sp-vulpea-schemas)
+(require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 
 ;;;;;; Other extensions
 

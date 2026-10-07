@@ -1,9 +1,13 @@
 ;; -*- lexical-binding: t -*-
 ;; sp-base-libraries.el 
 
+;;; Commentary:
+
 ;; This is mostly taken from lem-setup-libraries.el because they're very basic libraries
 ;; used for asynchronous processing string
 ;; manipulation, list manipulation and backward compatibility respectively.
+
+;;; Code:
 
 ;; Built in libraries; lots of packages depend on these
 (use-package subr-x
@@ -54,7 +58,25 @@
   :ensure (:wait t))
 
 (use-package transient
-  :ensure t)
+  :ensure t
+  :commands (transient-setup transient-show transient-help)
+  
+  :custom
+  (transient-levels-file (concat sp-cache-dir "transient/levels.el"))
+  (transient-values-file (concat sp-cache-dir "transient/values.el"))
+  (transient-history-file (concat sp-cache-dir "transient/history.el"))
+  (transient-detect-key-conflicts t)
+  (transient-force-fixed-pitch t)
+  (transient-show-popup t)
+
+  ;; set transient popop to top of window
+  (transient-display-buffer-action '(display-buffer-in-side-window
+                                     (side . top)
+                                     (dedicated . t)
+                                     (inhibit-same-window . t)
+                                     (window-parameters (no-other-window . t)))))
+
+
 
 ;; This is loading the library of default functions coming from Emacs Prelude. Lots
 ;; of useful defaults that you can start working in Emacs with.
@@ -125,12 +147,13 @@
 (use-package try
   :ensure (:wait t))
 
-;; SOUNDS
+;; Sounds
 (setq ring-bell-function 'ignore) ;; Disable the bell sound
 
-;; BUFFER FUNCTIONS
+;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
+;;; Avy
 ;; Don't remember what Avy was for, but it's a pretty important library to have.
 (use-package avy
   :ensure t
@@ -138,4 +161,10 @@
   :bind (("C-:" . avy-goto-char)
          ("C-M-:" . avy-goto-char-timer)))
 
+;;; Casual package
+;; This is transient-based menus for working with built-in packages, like dired.
+(use-package casual
+  :ensure t)
+
 (provide 'sp-base-libraries)
+;; sp-base-libraries.el ends here.

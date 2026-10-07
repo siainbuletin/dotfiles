@@ -1,5 +1,17 @@
 ;;; early-init.el --- summary -*- lexical-binding: t; no-byte-compile: t; mode: emacs-lisp; coding:utf-8; fill-column: 80 -*-
 
+;;: Commentary:
+
+;; This setup file is following a lot from Lambda Emacs, but it diverges
+;; by not making use of the built-in package manager (although it might
+;; be an option to later come back to it).
+;;
+;; This setup is concerned with speeding up the initialisation process.
+;;
+;; There should be a better way to separate the setup part from initialisation.
+
+;;; Code:
+
 ;; Prepare for triggering elpaca instead
 ;; (this is where we diverge from Lambda Emacs - I prefer using the
 ;; declarative 'elpaca' instead (although it might be cool to have more
@@ -146,6 +158,11 @@
   "The directory for 𝛌-Emacs Lisp libraries.
 This will house all setup libraries and external libraries or packages.")
 
+;;; Making sure that the library dir is being recursed into
+(let ((default-directory sp-library-dir))
+  (normal-top-level-add-to-load-path '("."))
+  (normal-top-level-add-subdirs-to-load-path))
+
 (defconst sp-user-dir (concat sp-library-dir "lambda-user/")
   "Storage for personal elisp, scripts, and any other private files.")
 
@@ -195,7 +212,7 @@ relies on.  Keep this in sync with the git release tag.")
   "The user's configuration file.")
 
 ;; These next two variables are both optional, but may be convenient.
-;; They are used with the functions `lem-goto-projects' and `lem-goto-elisp-library'.
+;; They are used with the functions `sp-goto-projects' and `sp-goto-elisp-library'.
 
 ;; Set user project directory
 (defcustom sp-project-dir nil "Set the directory for user projects."
@@ -203,7 +220,7 @@ relies on.  Keep this in sync with the git release tag.")
   :type 'string)
 
 ;; Set user elisp project dir
-(defcustom lem-user-elisp-dir nil
+(defcustom sp-user-elisp-dir t
   "Directory for personal elisp projects.
 Any customized libraries not available via standard package repos like elpa or melpa should go here."
   :group 'sia-lambda
@@ -255,7 +272,7 @@ BOOT-TIME ONLY. Changes take effect on Emacs restart."
 ;; are derived via helper functions so the lists cannot drift.
 (defconst sp-gui-only-set
   '((fonts     . sp-setup-fonts)
-    (frames    . sp-setup-frames)
+    (frames    . sp-frames)
     (dashboard . sp-setup-dashboard)
     (splash    . sp-setup-splash)
     (macos     . sp-setup-macos))
@@ -374,5 +391,17 @@ symbol for the corresponding `sp-setup-*' module.")
   (mkdir package-user-dir t))
 (setopt package-quickstart-file (expand-file-name "package-quickstart.el" sp-cache-dir))
 
+;; Making it possible to load Emacs with a switch on or off from the CLI
+(defun sp-cli-profile-switch (name)
+  "Return non-nil if switch NAME was given; register it so Emacs ignores it."
+  (when (member name command-line-args)
+    (push (cons name #'ignore) command-switch-alist)
+    t))
+
+(when (sp-cli-profile-switch "--headless-host") (setq sp-headless-host t))
+(when (sp-cli-profile-switch "--no-extras")     (setq sp-load-extras nil))
+
 ;; Initialize packages and load compat early
 ;; (package-initialize)
+
+;; early-init.el ends here.

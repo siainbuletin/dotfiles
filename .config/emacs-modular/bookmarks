@@ -1,0 +1,78 @@
+;;;; Emacs Bookmark Format Version 1;;;; -*- coding: utf-8-emacs; mode: lisp-data -*-
+;;; This format is meant to be slightly human-readable;
+;;; nevertheless, you probably don't want to edit it.
+;;; -*- End Of Bookmark File Format Version Stamp -*-
+(("Inbox for tabs"
+  (filename . "~/notes/inbox/tabs/")
+  (front-context-string . ".DS_Store\n  -rw-")
+  (rear-context-string . "20k 09-24 12:30 ")
+  (position . 434)
+  (last-modified 1790277043213347000 . 1000000000))
+("General inbox"
+ (filename . "~/notes/inbox/")
+ (front-context-string)
+ (rear-context-string . "hts-capture.org\n")
+ (position . 499)
+ (last-modified 27239 11740 721878 0))
+("Notes"
+ (filename . "~/notes/")
+ (front-context-string . "area\n  drwxr-xr-")
+ (rear-context-string . ".5k 07-25 23:44 ")
+ (position . 201)
+ (last-modified 27239 11723 636225 0))
+("Vulpea PARA area files"
+ (filename . "~/notes/area/")
+ (front-context-string . ".stfolder\n  -rw-")
+ (rear-context-string . "54 Nov 18 17:21 ")
+ (position . 146)
+ (last-modified 26947 53668 727945 723000))
+("creative industries"
+ (front-context-string . "ness in exchange")
+ (rear-context-string . "on of\nproductive")
+ (position . 14309)
+ (last-modified 26931 14299 188807 99000)
+ (location . "https://www.triple-c.at/index.php/tripleC/article/download/639/720/2735?inline=1")
+ (handler . eww-bookmark-jump))
+("org-capture-last-stored-marker"
+ (filename . "~/.notes")
+ (front-context-string . "** TODO Find a w")
+ (rear-context-string . "n_litnote.org]]\n")
+ (position . 2133)
+ (last-modified 26912 27411 361993 19000))
+("BibTeX files"
+ (filename . "~/bibliography/")
+ (front-context-string . ".git\n  drwxr-xr-")
+ (rear-context-string . "0K nov 20 13:46 ")
+ (position . 150)
+ (last-modified 1790148016238098000 . 1000000000))
+("Literature folder"
+ (filename . "~/Documents/literature/")
+ (front-context-string . ".stfolder\n  drwx")
+ (rear-context-string . "54 Nov  3 08:50 ")
+ (position . 148)
+ (last-modified 26909 29574 542366 339000))
+("Bachelor's Thesis"
+ (filename . "~/Documents/writing/thesis/")
+ (front-context-string . "admin-notes\n  dr")
+ (rear-context-string . " 0 Nov  6 13:14 ")
+ (position . 152)
+ (last-modified 26904 42233 892276 495000))
+("Modular Emacs config folder"
+ (filename . "~/.config/emacs-modular/")
+ (front-context-string . "backups\n  drwxr-")
+ (rear-context-string . "2K Nov 15 17:54 ")
+ (position . 149)
+ (last-modified 26904 42204 347307 842000))
+("org-capture-last-stored"
+ (filename . "~/Documents/notes/title-notes-on-irwin-terence-the-theory-of-forms.org")
+ (front-context-string)
+ (rear-context-string . "Theory of Forms\n")
+ (position . 166)
+ (last-modified 26999 29946 137146 495000))
+("org-refile-last-stored"
+ (filename . "~/notes/20260930T201406--washing-machines__docs_hardware.org")
+ (front-context-string . "* LG washing mac")
+ (rear-context-string . " : r/Appliances\n")
+ (position . 1660)
+ (last-modified 1790788526109431000 . 1000000000))
+)

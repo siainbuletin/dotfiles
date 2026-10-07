@@ -1,0 +1,73 @@
+;;+title: Things to fix in the configuration
+
+* Configuration goodies
+** TODO Make it possible to load different configurations according to needs
+
+The configuration that I stole from Lambda Emacs makes it possible to load different modules in a declared configuration name, so that you can exclude files that aren't needed at the time (and conditionally load them).
+
+It would be good if I could find a manner to trigger this loading from the command-line.
+
+It would be especially useful if it could include support for loading on different systems more efficiently (even including a configuration that could work for the N900 in the future)
+* TODO Make a better way to deal with bibliography files
+
+* TODO Add the ASCII art for the dashboard for Lambda Emacs
+
+* Task management system
+** TODO See what org-gtd is actually capable of and if it interferes too much with the current configuration
+
+This would mean that you have to read the documentation more thoroughly and write notes accordingly.
+** TODO Integrate org-gtd with vulpea-para
+** TODO Show the agenda smartly within the Lambda Emacs inspired configuration
+
+* Window management
+** Read about the best way of sending Windows in Emacs and collaborating with MacOS window managers
+* Launcher in Emacs
+** Test out consult-omni again
+
+* TODO Session management
+
+Persisting history across Emacs restarts.
+
+This is currently disabled because I'm getting issues with =elpaca=.
+
+*From which configuration was this taken?*
+
+#+begin_src emacs-lisp :tangle no
+  (use-package savehist
+    :init
+    (savehist-mode))
+#+end_src
+
+Saving the state between restarts of Emacs (meaning which buffers were open).
+
+#+begin_src emacs-lisp :tangle "init.el"
+(desktop-save-mode 1)
+#+end_src
+
+* TODO Logic and Mathematics environment
+** LaTeX previews within org-mode buffers
+
+=org-fragtog= is similar to =org-appear=, but it's made specifically for snippets of LaTeX. It automatically toggles Org mode LaTeX fragment previews as the cursor enters and exits them. By default, the text is small and can become unreadable when changing between dark and light themes.
+
+#+begin_src emacs-lisp :tangle "init.el"
+(use-package org-fragtog
+  :after org
+  :hook
+  (org-mode . org-fragtog-mode)
+  :custom
+  (org-startup-with-latex-preview nil)
+  (org-format-latex-options
+   (plist-put org-format-latex-options :scale 2)
+   (plist-put org-format-latex-options :foreground 'auto)
+   (plist-put org-format-latex-options :background 'auto)))
+#+end_src
+
+The =org-format-latex-options= variable controls the way Emacs presents fragments. This variable is a list with properties such as colours and size. The =plist-put= function lets you change options in the list. The foreground and background are set to take the same colour as your text. If you change from dark to light mode or vice versa, you should evaluate the ~org-latex-preview~ function (=C-c C-x C-l=) to change the preview images.
+
+Automated LaTeX previews are disabled because they can delay loading a page and cause trouble when the user does not have LaTeX installed.
+
+*Do you even want to have automated LaTeX previews in this case?*
+
+** Configuring rendering equations using Typst
+
+** Permanently plugging Typst into the system

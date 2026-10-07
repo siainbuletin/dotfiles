@@ -20,28 +20,6 @@
 ;;;; Underline
 (customize-set-variable 'x-underline-at-descent-line t)
 
-;;;; Dim inactive windows
-(use-package dimmer
-  :when (and sp-load-extras (locate-library "dimmer"))
-  :hook (after-init . dimmer-mode)
-  :custom
-  (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
-  (dimmer-fraction 0.5)
-  (dimmer-adjustment-mode :foreground)
-  (dimmer-use-colorspace :rgb)
-  (dimmer-watch-frame-focus-events nil)
-  :config
-  (dimmer-configure-which-key)
-  (dimmer-configure-magit)
-  (dimmer-configure-posframe)
-  (dimmer-configure-vertico))
-
-(defun dimmer-configure-vertico ()
-  "Convenience settings for Dimmer & Vertico users."
-  (with-no-warnings
-    (add-to-list
-     'dimmer-buffer-exclusion-regexps "^ \\*Vertico\\*$")))
-
 ;;;; Reveal Mode
 ;; Toggle uncloaking of invisible text near point, including folded org headlines (Reveal mode).
 (use-package reveal
@@ -106,7 +84,7 @@
 ;; implementation this replaced.
 (require 'transient)
 
-(transient-define-prefix lem-todo-transient ()
+(transient-define-prefix sp-todo-transient ()
   "TODO navigation."
   ["TODO"
    ("n" "Next"     hl-todo-next     :transient t)
@@ -121,7 +99,7 @@
             (hl-todo-mode -1)
             (remove-hook 'transient-exit-hook cleanup)))
     (add-hook 'transient-exit-hook cleanup))
-  (transient-setup 'lem-todo-transient))
+  (transient-setup 'sp-todo-transient))
 
 ;; ;;https://github.com/erickgnavar/dotfiles/tree/master/.emacs.d#highlight-todo-fixme-etc
 ;; (defun lem-highlight-todo-like-words ()
@@ -167,7 +145,6 @@
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
-
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

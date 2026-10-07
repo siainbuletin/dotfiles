@@ -1,41 +1,36 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-denote.el
+
+;;; Commentary:
+
+;; Settings for Prot's denote package.
+;;
+;; This will at some point be phased out, as I prefer an ID-based
+;; workflow for my notes, and I never seem to use the filenames
+;; for anything. Plus, the filenames are much too long, they become
+;; a lot harder to parse.
+
+;;; Code:
 
 (use-package denote
   :ensure t
-  :defer t
-  :demand t
-
+  ;; :if (and sp-load-extras (locate-library "denote"))
+  :commands (denote denote-create-note denote-link-ol-store)
+  
   :config
   (denote-rename-buffer-mode)
-  (setq denote-file-type 'org) ; default is org
-  (setq denote-history-completion-in-prompts nil)
-  (setq denote-rename-confirmations '(modify-file-name add-front-matter))
-  (setq denote-kill-buffers nil)
-  (setq denote-sort-keywords t)
-  (setq denote-known-keywords
-        '("academic-journal"
-          "blog-post"
-          "book"
-          "booksection"
-          "concept"
-          "course"
-          "current"
-          "docs"
-          "group"
-          "institution"
-          "journal-article"
-          "language"
-          "library"
-          "music"
-          "package"
-          "person"
-          "process"
-          "studyplace"
-          "thesis"
-          "workflow"
-          "zettel"))
-  ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
 
+  :custom
+  ;; Use org-read-date
+  (denote-date-prompt-use-org-read-date t)
+  (denote-file-type 'org) ;; use org
+  (denote-allow-multi-word-keywords t)
+  (denote-rename-confirmations '(modify-file-name add-front-matter))
+  (denote-sort-keywords t)
+
+  ;; Set default prompts for note creation
+  (denote-prompts '(title keywords))
+  
   :hook
   (dired-mode . denote-dired-mode)
 
@@ -61,27 +56,7 @@
 
 (setq denote-directory (expand-file-name "~/notes/"))
 
-(add-hook 'dired-mode-hook #'denote-dired-mode-in-directories)
-
 (setq denote-save-buffers t)
-
-(use-package denote-org
-  :ensure t
-  :after denote
-
-  :custom
-  ;; `denote-org-link-to-heading' controls the behavior of
-  ;; `org-store-link': setting to id makes it insert an ID in the
-  ;; PROPERTIES drawer
-  ;;
-  ;; (denote-org-store-link-to-heading 'context)
-  (denote-org-store-link-to-heading 'id))
-
-(use-package denote-merge
-      :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
-      :bind
-      ("M-n m f" . denote-merge-file)
-      ("M-n m r" . denote-merge-region))
 
 (global-set-key (kbd "C-c z") #'list-denotes)
 
@@ -111,3 +86,6 @@ agenda."
   (when-let* ((file (buffer-file-name))
               ((string-match-p my-denote-to-agenda-regexp (buffer-file-name))))
     (setq org-agenda-files (delete file org-agenda-files))))
+
+(provide 'sp-denote)
+;; sp-denote.el ends here.

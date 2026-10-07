@@ -1,8 +1,139 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-fonts.el
 
 ;;; Commentary:
 
 ;;; Code:
+
+;;;; Check Fonts
+;; See https://emacsredux.com/blog/2021/12/22/check-if-a-font-is-available-with-emacs-lisp/
+(defun sp-font-available-p (font-name)
+  "Check if font is available from system instaxlled fonts."
+  (member font-name (font-family-list)))
+
+;;;; Set Default & Variable Pitch Fonts
+(defun sp-ui--set-default-font (spec)
+  "Set the default font based on SPEC.
+SPEC is expected to be a plist with the same key names
+as accepted by `set-face-attribute'."
+  (when spec
+    (apply 'set-face-attribute 'default nil spec)))
+
+(defun sp-ui--set-variable-width-font (spec)
+  "Set the default font based on SPEC.
+SPEC is expected to be a plist with the same key names
+as accepted by `set-face-attribute'."
+  (when spec
+    (apply 'set-face-attribute 'variable-pitch nil spec)))
+
+(defcustom sp-ui-default-font nil
+  "The configuration of the `default' face.
+Use a plist with the same key names as accepted by `set-face-attribute'."
+  :group 'sia-lambda
+  :type '(plist :key-type: symbol)
+  :tag "Lambda-Emacs Default font"
+  :set (lambda (sym val)
+         (let ((prev-val (if (boundp 'sp-ui-default-font)
+                             sp-ui-default-font
+                           nil)))
+           (set-default sym val)
+           (when (and val (not (eq val prev-val)))
+             (sp-ui--set-default-font val)))))
+
+(defcustom sp-ui-variable-width-font nil
+  "The configuration of the `default' face.
+Use a plist with the same key names as accepted by `set-face-attribute'."
+  :group 'sia-lambda
+  :type '(plist :key-type: symbol)
+  :tag "Lambda-Emacs Variable width font"
+  :set (lambda (sym val)
+         (let ((prev-val (if (boundp 'sp-ui-variable-width-font)
+                             sp-ui-variable-width-font
+                           nil)))
+           (set-default sym val)
+           (when (and val (not (eq val prev-val)))
+             (sp-ui--set-variable-width-font val)))))
+
+;;;; Set Symbol & Emoji Fonts
+;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
+(use-package fontset
+  :ensure nil
+  
+  :custom
+  ;; Set this to nil to set symbols entirely separately
+  ;; Need it set to `t` in order to display org-modern-indent faces properly
+  (use-default-font-for-symbols t)
+  
+  :config
+  ;; Use symbola for proper symbol glyphs, but have some fallbacks
+  (cond ((sp-font-available-p "Symbola")
+         (set-fontset-font
+          t 'symbol "Symbola" nil))
+        ((sp-font-available-p "Apple Symbols")
+         (set-fontset-font
+          t 'symbol "Apple Symbols" nil))
+        ((sp-font-available-p "Symbol")
+         (set-fontset-font
+          t 'symbol "Symbol" nil))
+        ((sp-font-available-p "Segoe UI Symbol")
+         (set-fontset-font
+          t 'symbol "Segoe UI Symbol" nil)))
+  
+  ;; Use Apple emoji
+  ;; NOTE that emoji here may need to be set to unicode to get color emoji
+  (when (and (>= emacs-major-version 28)
+             (sp-font-available-p "Apple Color Emoji"))
+    (set-fontset-font t 'emoji
+                      '("Apple Color Emoji" . "iso10646-1") nil 'prepend))
+  
+  ;; Fall back font for missing glyph
+  (defface fallback '((t :family "Fira Code"
+                         :inherit fringe)) "Fallback")
+  (set-display-table-slot standard-display-table 'truncation
+                          (make-glyph-code ?… 'fallback))
+  (set-display-table-slot standard-display-table 'wrap
+                          (make-glyph-code ?↩ 'fallback)))
+
+;; Set default line spacing. If the value is an integer, it indicates
+;; the number of pixels below each line. A decimal number is a scaling factor
+;; relative to the current window's default line height. The setq-default
+;; function sets this for all buffers. Otherwise, it only applies to the current
+;; open buffer
+(setq-default line-spacing 0.1)
+
+;;;; Font Lock
+(use-package font-lock
+  :ensure nil
+  :defer 1
+  :custom
+  ;; Max font lock decoration (set nil for less)
+  (font-lock-maximum-decoration t)
+  ;; No limit on font lock
+  (font-lock-maximum-size nil))
+
+;;;; Scale Text
+;; When using `text-scale-increase', this sets each 'step' to about one point size.
+;;
+;; This should be improved globally to adapt to the resolution of the screen that you're
+;; working with.
+(setopt text-scale-mode-step 1.08)
+(bind-key* "s-=" #'text-scale-increase)
+(bind-key* "s--" #'text-scale-decrease)
+(bind-key* "s-0" #'text-scale-adjust)
+
+;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
+;; properly adapt to the system.
+;;
+;; I should probably try to hook into the faces system of Emacs to get it to work well.
+(defun sp-minibuffer ()
+  "make minibuffer use larger font size."
+  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
+
+(add-hook 'minibuffer-mode-hook 'sp-minibuffer)
+
+(defun sp-text-buffer ()
+  "Make the font in the text buffer generally larger."
+  (text-scale-increase 4))
 
 ;;;; Mixed pitch
 (use-package mixed-pitch
@@ -15,11 +146,10 @@
   :hook (text-mode . mixed-pitch-mode)
 )
 
-(set-face-attribute 'default nil
-                  :family "PT Mono"
-                  :height 100)
-
-
+(set-face-attribute 'org-document-title nil
+                    :font "Atkinson Hyperlegible"
+                    :weight 'bold
+                    :height 1.8)
 
 ;;;; Variables for fonts
 ;; This configuration is taken from HA macs and should be adapted better at some point
@@ -83,9 +213,6 @@
                         :height 'unspecified)
     (set-face-attribute 'variable-pitch nil :font prop-font :inherit 'default
                         :height 'unspecified)))
-
-; (set-face-attribute 'default nil
-;                     :family "0xProto Nerd Font")
 
 (set-face-attribute 'default nil
                   :family "Aporetic Sans Mono"
@@ -165,17 +292,6 @@ DELTA would be something like 1 or -1."
         pdf-outline-buffer-mode-hook
         proced-mode-hook
         tabulated-list-mode-hook))
-
-;;;; FONTSET
-;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
-(use-package fontset
-  :ensure nil
-  :config
-  ;; Use symbola for proper unicode
-  (when (member "Symbola" (font-family-list))
-  (set-fontset-font
-  t 'symbol "Symbola" nil))
-)
 
 (provide 'sp-fonts)
 ;; sp-fonts.el ends here.

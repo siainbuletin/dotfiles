@@ -28,6 +28,16 @@ Result depends on syntax table's comment character."
   (set-face-background 'highlight-indent-guides-even-face "gray18")
   (set-face-foreground 'highlight-indent-guides-character-face "gray16"))
 
+;; Proper parentheses setup
+(use-package smartparens
+  :ensure t
+  :hook (prog-mode text-mode markdown-mode) ;; add `smartparens-mode` to these hooks
+  
+  :config
+  ;; load default config
+  (require 'smartparens-config))
+
+;; Semantic coding (is this the LSP?)
 (use-package semantic
   :ensure nil
   :commands semantic-mode

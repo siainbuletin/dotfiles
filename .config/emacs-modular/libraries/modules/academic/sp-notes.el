@@ -13,50 +13,7 @@
 
 ;;; Code:
 
-;;;; Notebook Setup
 
-(defcustom lem-notes-dir nil
-  "Set a directory path for notes."
-  :group 'sia-lambda
-  :type 'string)
-
-(use-package denote
-  :if (and sp-load-extras (locate-library "denote"))
-  :commands (denote denote-create-note denote-link-ol-store)
-  
-  :custom
-  ;; Use org-read-date
-  (denote-date-prompt-use-org-read-date t)
-  (denote-file-type 'org) ;; use org
-  (denote-allow-multi-word-keywords nil) ;; single word keywords only
-  
-  ;; Set default prompts for note creation
-  (denote-prompts '(title keywords subdirectory))
-  ;; Set multiple keywords as a list of strings
-  (denote-known-keywords '("workbook" "project" "idea")))
-
-;; Org-capture note creation with Denote
-(with-eval-after-load 'org-capture
-  (add-to-list 'org-capture-templates
-               '("n" "New note (with Denote)" plain
-                 (file denote-last-path)
-                 #'denote-org-capture
-                 :no-save t
-                 :immediate-finish nil
-                 :kill-buffer t
-                 :jump-to-captured t)))
-
-(defun sia-denote-capture-note ()
-  "Create a new note with denote."
-  (interactive)
-  (org-capture nil "n"))
-
-;; Example note creation function
-(defun lem-insert-header-and-time-property ()
-  "Insert an org heading with a created time string property."
-  (interactive)
-  (insert "* ")
-  (org-set-property "CREATED" (format-time-string "[%Y-%m-%d %T]")))
 
 (defun lem-denote-workbook-create-entry ()
   "Create an entry tagged \\='workbook\\=' with the date as its title.
@@ -77,24 +34,41 @@ log/ instead. Kept because old entries still live in workbook/."
 
 ;;;; Consult Notes
 ;; Adapted from https://github.com/minad/consult/wiki/hrm-notes
+;; this is taken from Lambda Emacs
 (use-package consult-notes
+  :ensure t
   :if (and sp-load-extras (locate-library "consult-notes"))
-  :commands (consult-notes
+  :after consult
+  
+  :commands
+  (consult-notes
              consult-notes-search-in-all-notes)
+
+  :bind
+  (("C-c w d f" . consult-notes)
+   ("C-c w d g" . consult-notes-search-in-all-notes))
+
   :config
   ;; Without a source, consult-notes shows an empty picker. The denote
-  ;; source lists everything under `denote-directory' (~/Documents/notes).
-  (consult-notes-denote-mode 1))
+  ;; source lists everything under `denote-directory'.
+  (consult-notes-denote-mode 1)
+)
 
-(defun lem-notebook ()
+;; Creating a notebook is a much more useful way of using consult-notes,
+;; instead of the minibuffer. However, I don't make much use of denote
+;; anymore, as I prefer having IDs.
+;;
+;; The better option would be adapting this to the ID-based workflow
+;; by making it query IDs.
+;; 
+;; But this means making use of a different consult plugin.
+(defun sp-denote-notebook ()
   "Open `consult-notes in buffer window rather than minibuffer."
   (interactive)
   (let ((vertico-buffer-display-action
          '(display-buffer-reuse-window)))
     (consult-notes)))
 
-
 ;;; Provide Setup-Notes
-(provide 'sp-setup-notes)
-;;; sp-setup-notes.el ends here
-
+(provide 'sp-notes)
+;;; sp-notes.el ends here

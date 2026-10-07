@@ -39,7 +39,8 @@
 ;;;; Ox-Pandoc
 ;; Export w/pandoc
 (use-package ox-pandoc
-  :if (and sp-load-extras (locate-library "ox-pandoc") (executable-find "pandoc"))
+  :ensure t
+  ;; :if (and sp-load-extras (locate-library "ox-pandoc") (executable-find "pandoc"))
   :defer t  ;; Defer loading until needed for export
   :commands (org-pandoc-export-to-html5
              org-pandoc-export-to-html5-and-open

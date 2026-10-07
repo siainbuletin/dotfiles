@@ -1,4 +1,7 @@
 ;;; -*- lexical-binding: t -*-
+;; sp-org-appearance.el
+
+;;; Commentary:
 
 ;; This doesn't include any settings for fonts, as they are declared separately in sp-fonts.
 ;;
@@ -7,11 +10,13 @@
 ;; It should, in the future, hold a definition for the way that tables appear in a more modern fashion,
 ;; later on.
 
+;;; Code:
+
 ;; show markup at point -- this should be part of org!
 (use-package org-appear
   :if (and sp-load-extras (locate-library "org-appear"))
   :after org
-  :ensure (:wait t)
+  ;; :ensure (:wait t)
  
   :hook
   (org-mode . org-appear-mode)
@@ -31,7 +36,7 @@
   :custom
   (org-modern-hide-stars 'leading)
   (org-modern-todo nil)
-  (org-modern-tag t)
+  (org-modern-tag nil)
   
   ;; Customize this per your font
   (org-modern-label-border 1)
@@ -40,6 +45,7 @@
   (org-modern-star 'replace)
   (org-modern-replace-stars "⦶⦷⦹⊕⍟⊛⏣❂"))
 
+;; Writing environment
 (use-package olivetti
   :ensure t
   :demand t
@@ -54,7 +60,6 @@
 
 (use-package org-autolist
   :ensure t)
-
 
 (use-package org-bulletproof
   :ensure (:wait t)
@@ -72,6 +77,7 @@
     1 'org-checkbox-done-text prepend))
  'append)
 
+;;;; Spacious padding
 (use-package spacious-padding
   :ensure t
   :init
@@ -90,43 +96,7 @@
       `( :mode-line-active default
          :mode-line-inactive shadow))
 
-(set-face-attribute 'org-document-title nil
-                    :font "Atkinson Hyperlegible"
-                    :weight 'bold
-                    :height 1.8)
-
-;;;; Narrow/Widen with buffers
-;; this could definitely be made a lot better for more complicated work with narrowed buffers
-
-(defun lem-narrow-or-widen-dwim (p)
-  "Widen if buffer is narrowed, narrow-dwim otherwise.
-  Dwim means: region, org-src-block, org-subtree, markdown
-  subtree, or defun, whichever applies first. Narrowing to
-  org-src-block actually calls `org-edit-src-code'.
-
-  With prefix P, don't widen, just narrow even if buffer
-  is already narrowed."
-  (declare (interactive-only t))
-  (interactive "P")
-  (cond ((and (buffer-narrowed-p) (not p)) (widen))
-        ((region-active-p)
-         (narrow-to-region (region-beginning)
-                           (region-end)))
-        ((derived-mode-p 'org-mode)
-         ;; `org-edit-src-code' is not a real narrowing
-         ;; command. Remove this first conditional if
-         ;; you don't want it.
-         (cond ((ignore-errors (org-edit-src-code) t)
-                (delete-other-windows))
-               ((ignore-errors (org-narrow-to-block) t))
-               (t (org-narrow-to-subtree))))
-        ((derived-mode-p 'markdown-mode)
-         (markdown-narrow-to-subtree))
-        ((derived-mode-p 'latex-mode)
-         (LaTeX-narrow-to-environment))
-        (t (narrow-to-defun))))
-
-;;bind this in the narrow keymap
-(bind-key* "C-x n n" #'lem-narrow-or-widen-dwim narrow-map)
+;;; Provide:
 
 (provide 'sp-org-appearance)
+;; sp-org-appearance.el ends here.

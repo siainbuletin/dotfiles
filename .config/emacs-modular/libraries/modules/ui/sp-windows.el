@@ -168,4 +168,26 @@
 ;;   :init
 ;;   (persp-mode))
 
+;;;; Dim inactive windows
+(use-package dimmer
+  :when (and sp-load-extras (locate-library "dimmer"))
+  :hook (after-init . dimmer-mode)
+  :custom
+  (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
+  (dimmer-fraction 0.5)
+  (dimmer-adjustment-mode :foreground)
+  (dimmer-use-colorspace :rgb)
+  (dimmer-watch-frame-focus-events nil)
+  :config
+  (dimmer-configure-which-key)
+  (dimmer-configure-magit)
+  (dimmer-configure-posframe)
+  (dimmer-configure-vertico))
+
+(defun dimmer-configure-vertico ()
+  "Convenience settings for Dimmer & Vertico users."
+  (with-no-warnings
+    (add-to-list
+     'dimmer-buffer-exclusion-regexps "^ \\*Vertico\\*$")))
+
 (provide 'sp-windows)

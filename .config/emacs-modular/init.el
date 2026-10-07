@@ -16,7 +16,7 @@
   (dolist (path paths)
     (condition-case err
         (load (expand-file-name path siapip/load-path))
-      (error (message "Failed to load siapip-config sub-library at %S: %S" path err)))))
+      (error (message "Failed to load Sia's sub-library at %S: %S" path err)))))
 
 ;;;; Startup
 
@@ -129,15 +129,16 @@ emacs-version string on the kill ring."
   '("./libraries/modules/ui/sp-buffers"           ;; Buffer management and general drawing instructions.
     "./libraries/modules/ui/sp-canvas"            ;; For modules developed around the new Canvas feature in Emacs 32.
     "./libraries/modules/ui/sp-colors"            ;; Global color scheme to follow.
-    "./libraries/modules/ui/sp-dashboard"
+    "./libraries/modules/ui/lem-dashboard"        ;; Load the Lambda variant of the dashboard package (no-frills, well executed).
     "./libraries/modules/ui/sp-faces"
+    "./libraries/modules/ui/sp-frame"
     "./libraries/modules/ui/sp-fonts"
     "./libraries/modules/ui/sp-icons"
     "./libraries/modules/ui/sp-tabs"
     "./libraries/modules/ui/sp-textui"
     "./libraries/modules/ui/sp-themes"
     "./libraries/modules/ui/sp-windows"
-    "./libraries/modules/ui/sp-writing-appearance"
+    "./libraries/modules/ui/sp-writedesk"
   ))
 
 ;; Environment specific settings
@@ -153,6 +154,7 @@ emacs-version string on the kill ring."
 
 (siapip/load
   '("./libraries/modules/navigation/sp-dired"
+    "./libraries/modules/navigation/sp-goto"
     "./libraries/modules/navigation/sp-search" ;; this represents full-text search packages
   ))
 
@@ -164,7 +166,7 @@ emacs-version string on the kill ring."
   "./libraries/modules/tooling/sp-choose-modeline"      ;; You can choose between 2 modelines.
   "./libraries/modules/tooling/sp-debug"                ;; If you ever need to do deep debugging for Elisp
   "./libraries/modules/tooling/sp-embark"
-  "./libraries/modules/tooling/sp-evil"
+  ;; "./libraries/modules/tooling/sp-evil"
   "./libraries/modules/tooling/sp-help"                 ;; Improvements for the help module.
   "./libraries/modules/tooling/sp-indention"
   "./libraries/modules/tooling/sp-keys"                 ;; Keybindings
@@ -204,21 +206,15 @@ emacs-version string on the kill ring."
 
     "./libraries/modules/text/sp-org-ext" ;; other extensions
 
-    ;; "./libraries/modules/text/sp-org-node-mem"
-    "./libraries/modules/text/sp-vulpea-base" ;; (this module) will pull its necessary add-on functions on its own (recursion)
-    "./libraries/modules/text/sp-vulpea-ext" ;; needs the functions that I called earlier
 
-    ;; Generating networks with the information
-    "./libraries/modules/text/sp-dgraphs"
-
-    ;; other notes-related settings
-    "./libraries/modules/text/sp-notes"
     ))
 
 ;; ACADEMIC WORK (submodules are found inside)
 (siapip/load
   '("./libraries/modules/academic/sp-academic"
     "./libraries/modules/academic/sp-statistics"
+    "./libraries/modules/academic/sp-dgraphs"     ;; Generating networks with the information
+    "./libraries/modules/academic/sp-notes"     ;; other notes-related settings
   ))
 
 ;; MULTIMEDIA WORK + OTHER WORKFLOWS
@@ -266,6 +262,7 @@ emacs-version string on the kill ring."
    "./libraries/modules/prog/sp-prog-misc"
    "./libraries/modules/prog/sp-terminal"
    "./libraries/modules/prog/sp-vcontrol"
+   "./libraries/modules/prog/sp-eshell"                     ;; copied ad-literam from Lambda emacs
 ))
 
 ;; Cloned modules (can't install with use-package otherwise)
@@ -301,7 +298,9 @@ emacs-version string on the kill ring."
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
  '(custom-safe-themes
-   '("5cb84685a211fb46e47ca355dc91e52adf0c185dc0603cfe27c63855f200dd1f"
+   '("854b81231db83bc217b0c8671f23ec92163a96b28f045ff879bba738a9ed88bb"
+     "b8719ba8ddfa912c98d876d5cc530c13bd6589e34b617093848e492aabe2a2dd"
+     "5cb84685a211fb46e47ca355dc91e52adf0c185dc0603cfe27c63855f200dd1f"
      "d26200309cd01a0b321121be21d9e879c5e0c7bf6c0b9f090fe0f5e486dbb7a5"
      "998bc02f2e52205ad06df88a14d53168aef1ec1bbcc6fe2b0cd15fed8e5c8dae"
      "cc8e6619a14298073d987046081c541b8b3854a6446497bdc254c3fad065cc30"

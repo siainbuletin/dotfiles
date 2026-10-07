@@ -18,15 +18,15 @@
 ;;;; User Vars
 
 ;;;;; Set Fonts
-;; Set fonts
-;; Uncomment and set below variables for fonts other than the defaults
-;; (custom-set-variables
-;;  '(lem-ui-default-font
-;;    '(:font "" :height 120)))
 
-;; (custom-set-variables
-;;  '(lem-ui-variable-width-font
-;;    '(:font "" :height 120)))
+;; Uncomment and set below variables for fonts other than the defaults
+(custom-set-variables
+ '(sp-ui-default-font
+   '(:font "PT Mono" :height 120)))
+
+(custom-set-variables
+ '(sp-ui-variable-width-font
+   '(:font "Aporetic Serif Mono" :height 120)))
 
 ;;;;; Org Directories
 ;; Set these if you're using org
@@ -83,7 +83,7 @@
                                  'sp-keybindings
 
                                  ;; Navigation & Search modules
-                                 'sp-navigation
+                                 'sp-dired
                                  'sp-dired
                                  'sp-search
 
@@ -142,7 +142,7 @@
 (add-hook 'emacs-startup-hook #'lem-user-config-after-startup)
 
 ;;;;; Scratch Directory
-(customize-set-variable 'lem-scratch-default-dir lem-scratch-save-dir)
+(customize-set-variable 'sp-scratch-default-dir sp-scratch-save-dir)
 
 ;;;; User Keybindings
 ;; Set this to whatever you wish. All Lambda-Emacs keybinds will be available through this prefix.
