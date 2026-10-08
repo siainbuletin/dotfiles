@@ -15,10 +15,37 @@
   (olivetti-body-width 80)
   
   :bind
-  (("C-c w o" . sia-olivetti))
+  (("C-c w o" . sp-olivetti))
   
   :hook
   (org-mode . olivetti-mode))
+
+;; Distraction-free writing
+(defvar sp-olivetti-point nil
+  "Stores the point position before enabling Olivetti mode.")
+
+;;;###autoload
+(defun sp-olivetti ()
+  "Distraction-free writing environment enhancing Olivetti mode.
+
+Stores the window configuration when enabling Olivetti mode.
+Restores the previous configuration when existing Olivetti mode
+and moves point to the last location."
+  (interactive)
+  (if olivetti-mode
+      (progn
+        (if (eq (length (window-list)) 1)
+            (progn
+              (jump-to-register 1)
+              (goto-char sp-olivetti-point)))
+        (olivetti-mode 0)
+        (text-scale-set 0))
+    (progn
+      (setq sp-olivetti-point (point))
+      (window-configuration-to-register 1)
+      (delete-other-windows)
+      (text-scale-set 1)
+      (olivetti-mode t))))
 
 ;;;; Writeroom
 (use-package writeroom-mode

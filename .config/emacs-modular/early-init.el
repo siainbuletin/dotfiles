@@ -1,5 +1,5 @@
-;;; early-init.el --- summary -*- lexical-binding: t; no-byte-compile: t; mode: emacs-lisp; coding:utf-8; fill-column: 80 -*-
-
+;; -*- lexical-binding: t; no-byte-compile: t; mode: emacs-lisp; coding:utf-8; fill-column: 80 -*-
+;;; early-init.el --- summary
 ;;: Commentary:
 
 ;; This setup file is following a lot from Lambda Emacs, but it diverges
@@ -19,6 +19,24 @@
 ;; elpaca was actually developed for this use-case))
 (setq package-enable-at-startup nil)
 
+;; Mirror debugging output to the terminal
+(when init-file-debug               ; true only with --debug-init
+  ;; Echo every message to the terminal
+  (advice-add 'message :after
+              (lambda (fmt &rest args)
+                (when fmt
+                  (princ (concat (apply #'format-message fmt args) "\n")
+                         #'external-debugging-output))))
+  ;; Print backtraces to the terminal instead of opening the debugger
+  (setq debug-on-error t
+        debugger (lambda (&rest _)
+                   (let ((standard-output #'external-debugging-output))
+                     (backtrace)))))
+
+;; This should be written as an if statement so that if you're not using the
+;; terminal to launch Emacs you can still get a *Backtrace* buffer if you get
+;; something wrong.
+
 ;;;; Speed up startup
 ;; Help speed up emacs initialization See
 ;; https://blog.d46.us/advanced-emacs-startup/ and
@@ -26,7 +44,7 @@
 ;; https://www.reddit.com/r/emacs/comments/3kqt6e/2_easy_little_known_steps_to_speed_up_emacs_start/
 ;; This will be set back to normal at the end of the init file
 
-(defvar lem-file-name-handler-alist file-name-handler-alist)
+(defvar sp-file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)
 
 ;;;; Measure Time Macro
@@ -110,12 +128,15 @@
 (setopt frame-inhibit-implied-resize t
         ;; HACK: Don't show size info (or anything else) in frame title
         frame-title-format "\n"
+        
         ;; Disable start-up screen
         inhibit-startup-screen t
         inhibit-startup-message t
+        
         ;; We'll provide our own splash screen, thanks
         inhibit-splash-screen t
-        ;; No message in initial scratch buffer
+        
+        ;; Don't let scratch buffer message
         initial-scratch-message nil)
 
 ;; And set these to nil so users don't have to toggle the modes twice to
@@ -123,6 +144,7 @@
 ;; don't error on unbound minor-mode functions.
 (when (fboundp 'tool-bar-mode)   (setopt tool-bar-mode nil))
 (when (fboundp 'scroll-bar-mode) (setopt scroll-bar-mode nil))
+(when (fboundp 'horizontal-scroll-bar-mode) (setopt horizontal-scroll-bar-mode nil))
 
 ;; Fundamental mode at startup.
 ;; This helps with load-time since no extra libraries are loaded.
@@ -158,11 +180,6 @@
   "The directory for 𝛌-Emacs Lisp libraries.
 This will house all setup libraries and external libraries or packages.")
 
-;;; Making sure that the library dir is being recursed into
-(let ((default-directory sp-library-dir))
-  (normal-top-level-add-to-load-path '("."))
-  (normal-top-level-add-subdirs-to-load-path))
-
 (defconst sp-user-dir (concat sp-library-dir "lambda-user/")
   "Storage for personal elisp, scripts, and any other private files.")
 
@@ -187,13 +204,13 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
   caches and ephemeral/temporary files. Anything that may need to
   be cleared if there are problems.")
 
-(defconst sp-default-config-file (concat sp-library-dir "lem-default-config.el")
-  "A sample default configuration of the personal config file to get the user started.")
+;; The default config from Lambda Emacs (lem-default-config) and the 
+;; Makefile that would generate it hav been deprecated
 
 ;;;; User Configuration Variables
 
 ;; Define customization group for Lambda Emacs.
-(defgroup lambda-emacs '()
+(defgroup sia-lambda '()
   "An Emacs distribution with sane defaults, pre-configured packages, and useful functions, aimed at writing and academic work in the humanities."
   :tag "Lambda-Emacs"
   :link '(url-link "https://codeberg.org/Lambda-Emacs/lambda-emacs")
@@ -206,10 +223,6 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
 Bump the minor version for new or changed modules and the major version
 for breaking changes to the `lem-setup' surface a downstream config
 relies on.  Keep this in sync with the git release tag.")
-
-;; Find the user configuration file
-(defconst sp-config-file (expand-file-name "config.el" user-emacs-directory)
-  "The user's configuration file.")
 
 ;; These next two variables are both optional, but may be convenient.
 ;; They are used with the functions `sp-goto-projects' and `sp-goto-elisp-library'.
@@ -226,122 +239,8 @@ Any customized libraries not available via standard package repos like elpa or m
   :group 'sia-lambda
   :type 'string)
 
-;; External-package master switch (see `sp-install-extras')
-(defcustom sp-load-extras t
-  "Master switch for external-package configuration in lambda-emacs.
-
-When non-nil (default), modules load their external-package
-configuration and `sp-install-extras' installs packages listed
-in `sp-packages-alist'. When nil, only built-in Emacs features
-are configured -- a starter-friendly boot requiring no package
-installation.
-
-BOOT-TIME ONLY. Set via `setq' in `config.el' or `early-config.el';
-changes take effect on Emacs restart.
-
-It governs all external-package
-configuration, not just the `use-package' `:ensure' behavior."
-  :group 'sia-lambda
-  :type 'boolean)
-
-;; Headless host flag
-(defcustom sp-headless-host nil
-  "When non-nil, skip modules that are meaningless without a graphic display.
-
-Set this in `config.el' or `early-config.el' on hosts where this
-Emacs instance will never be asked to create a graphical frame --
-for example, a server running `emacs --daemon' that will only
-ever serve TTY clients via `emacsclient -nw'.
-
-INVARIANT: When this is non-nil, creating a graphical frame is
-unsupported. The GUI-only modules listed in `sp-gui-only-set'
-are skipped at module-require time, so fonts, frames, splash,
-dashboard, and macOS-specific integrations are not configured.
-A defensive `server-after-make-frame-hook' installed in init.el
-warns loudly if a client creates a GUI frame on a host where
-this variable is set.
-
-BOOT-TIME ONLY. Changes take effect on Emacs restart."
-  :type 'boolean
-  :group 'sia-lambda)
-
-;; GUI-only skip set: single source of truth used by both the
-;; install loop (skip packages whose topic is GUI-only on a
-;; headless host) and the module dispatcher (skip modules whose
-;; feature symbol is GUI-only on a headless host). The two views
-;; are derived via helper functions so the lists cannot drift.
-(defconst sp-gui-only-set
-  '((fonts     . sp-setup-fonts)
-    (frames    . sp-frames)
-    (dashboard . sp-setup-dashboard)
-    (splash    . sp-setup-splash)
-    (macos     . sp-setup-macos))
-  "Topics and modules that are meaningless without a graphic display.
-Car is a `sp-packages-alist' topic key; cdr is the feature
-symbol for the corresponding `sp-setup-*' module.")
-
-(defun sp-gui-only-topics ()
-  "Return the list of topic keys from `sp-gui-only-set'."
-  (mapcar #'car sp-gui-only-set))
-
-(defun sp-gui-only-modules ()
-  "Return the list of module feature symbols from `sp-gui-only-set'."
-  (mapcar #'cdr sp-gui-only-set))
-
-;; Bootstrapping elpaca
-(defvar elpaca-installer-version 0.12)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1 :inherit ignore
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca-activate)))
-(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (<= emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                  ,@(when-let* ((depth (plist-get order :depth)))
-                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                  ,(plist-get order :repo) ,repo))))
-                  ((zerop (call-process "git" nil buffer t "checkout"
-                                        (or (plist-get order :ref) "--"))))
-                  (emacs (concat invocation-directory invocation-name))
-                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                  ((require 'elpaca))
-                  ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
-
-;;; Configure elpaca use-package support
-(elpaca elpaca-use-package
-        ;; Enable use-package :ensure support for Elpaca.
-        (elpaca-use-package-mode)
-        ;; Assume :elpaca t unless otherwise specified.
-        (setq elpaca-use-package-by-default t))
-
-;;When installing a package used in the init file itself,
-;;e.g. a package which adds a use-package key word,
-;;use the :wait recipe keyword to block until that package is installed/configured.
-;;For example:
-;;(use-package general :ensure (:wait t) :demand t)
-
-;; (elpaca-wait)
+;; Elpaca bootstrapping has been moved to init.el, since that's where it's supposed to actually live
+;; see also the result of the convo with Claude 2026.10.07
 
 ;;;; Making sure system directories are created
 ;; Directory paths
@@ -355,6 +254,22 @@ symbol for the corresponding `sp-setup-*' module.")
   (progn
     (push sp-setup-dir load-path)
     (push sp-user-dir load-path)))
+
+;; Recurse into the library dir. This must run AFTER the directories are
+;; created above, and is guarded because listing a missing directory errors.
+(when (file-directory-p sp-library-dir)
+  (let ((default-directory sp-library-dir))
+    (normal-top-level-add-to-load-path '("."))
+    (normal-top-level-add-subdirs-to-load-path)))
+
+;; Restoring the variables so the switch in ~init.el~ is actually able to load 
+;; the different kinds of Emacs configurations.
+(defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'sia-lambda)
+(defcustom sp-load-extras t "Load external-package configuration." :type 'boolean :group 'sia-lambda)
+
+(defconst sp-gui-only-set '(sp-gui sp-macos sp-splash lem-dashboard)
+  "Modules that are meaningless without a graphic display.")  ; adjust to your real names
+(defun lem-gui-only-modules () sp-gui-only-set)
 
 ;;;; Prefer Newer files
 ;; Prefer newer versions of files
@@ -375,21 +290,22 @@ symbol for the corresponding `sp-setup-*' module.")
 ;; You can set minimum severity level for displaying the warning buffer to :error or :emergency:
 ;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
 
-(setq warning-minimum-level :error)
+;; (setq warning-minimum-level :error)
+;; for debugging serious stuff, i'm leaving the debugger do its work
 
 ;;;; Check Errors
 ;; Don't produce backtraces when errors occur.
 ;; This can be set to `t' interactively when debugging.
-(setopt debug-on-error nil)
-;; this is mostly turned off because it becomes insufferable to keep closing the window when this warning shows up.
+(setopt debug-on-error init-file-debug) ;; don't set it to `t`, otherwise it 
+;; interefers with the init process from Elpaca later on, in the init.el. Read, 
+;; also, the explanation from Claude for this problem.
+;; Debugging on error would mostly be turned off when launching Emacs normally, 
+;; because the window behavior is insufferable. I need to find a better way to 
+;; make the debug window pop up when it's actually needed.
 
-;; Set location of package directory
-(setopt package-user-dir (expand-file-name "elpa/" sp-var-dir))
-
-;; Make sure the elpa/ folder exists after setting it above.
-(unless (file-exists-p package-user-dir)
-  (mkdir package-user-dir t))
-(setopt package-quickstart-file (expand-file-name "package-quickstart.el" sp-cache-dir))
+;; Keep Elpaca's repos and builds under var/ (replaces `package-user-dir').
+;; The installer in init.el uses `defvar', so this value is respected.
+(defvar elpaca-directory (expand-file-name "elpaca/" sp-var-dir))
 
 ;; Making it possible to load Emacs with a switch on or off from the CLI
 (defun sp-cli-profile-switch (name)
@@ -400,8 +316,5 @@ symbol for the corresponding `sp-setup-*' module.")
 
 (when (sp-cli-profile-switch "--headless-host") (setq sp-headless-host t))
 (when (sp-cli-profile-switch "--no-extras")     (setq sp-load-extras nil))
-
-;; Initialize packages and load compat early
-;; (package-initialize)
 
 ;; early-init.el ends here.

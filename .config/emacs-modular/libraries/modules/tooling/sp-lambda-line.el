@@ -25,3 +25,5 @@
     (when (eq lambda-line-position 'top)
       (setq-default mode-line-format (list "%_"))
       (setq mode-line-format (list "%_"))))
+
+(provide 'sp-lambda-line)

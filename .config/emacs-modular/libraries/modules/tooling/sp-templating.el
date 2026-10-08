@@ -10,4 +10,7 @@
 
 ;; Is this package built in?
 
+;;; Provide:
+
 (provide 'sp-templating)
+;; sp-templating.el ends here.

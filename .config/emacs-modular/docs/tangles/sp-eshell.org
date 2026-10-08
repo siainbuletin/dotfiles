@@ -1,0 +1,3 @@
+Status: unwritten, unused, I don't know what for yet
+
+Should it be merged directly with the terminal setup overall?

@@ -1,5 +1,7 @@
 ;; -*- lexical-binding: t; -*-
-;; set-choose-modeline.el
+;; sp-choose-modeline.el
+
+;;; Commentary:
 
 ;; This package allows for choosing between different modelines to use and load in Emacs, 
 ;; which overall makes the experience a lot easier
@@ -7,6 +9,8 @@
 ;; The ~defcustom~ sia/modeline allows to declare what is the modeline style to use
 ;; It currently defaults to the doom-modeline
 ;; Included is also the lambda-emacs modeline
+
+;;; Code:
 
 (defcustom sia/modeline 'lambda-line
   "The modeline to use.
@@ -83,4 +87,7 @@ Options are 'doom-modeline or 'lambda-line."
       (setq mode-line-format (list "%_")))))
   )
 
-;; set-choose-modeline.el ends here
+;;; Provide:
+
+(provide 'sp-choose-modeline)
+;; sp-choose-modeline.el ends here

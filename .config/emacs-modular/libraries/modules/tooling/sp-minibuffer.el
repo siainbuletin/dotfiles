@@ -1,4 +1,5 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-minibuffer.el --- Minibuffer settings
 
 ;;; Commentary:
 
@@ -45,4 +46,7 @@
 (use-package corfu-prescient
   :ensure (:wait t))
 
+;;; Provide:
+
 (provide 'sp-minibuffer)
+;; sp-minibuffer.el ends here.

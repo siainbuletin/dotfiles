@@ -9,10 +9,20 @@
 
 ;;; Code:
 
+;; Configure dired to have casual bindings
+  (use-package dired
+    :ensure nil
+    :after casual
+
+    :bind
+    (:map dired-mode-map
+          ("C-o" . casual-dired-tmenu)))
+
+
 ;;;; Helpful functions
 ;; Make-dired-file-sizes-human-readable
 ;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
-(setq-default dired-listing-switches "-alh")
+(setq-default dired-listing-switches "-alh")    
 
 ;;;;; Dired Sidebar
 (use-package dired-sidebar

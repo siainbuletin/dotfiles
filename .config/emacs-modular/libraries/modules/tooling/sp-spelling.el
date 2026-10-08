@@ -81,4 +81,7 @@
   :group 'siapip
   :type 'list)
 
+;;; Provide:
+
 (provide 'sp-spelling)
+;; sp-spelling.el ends here.

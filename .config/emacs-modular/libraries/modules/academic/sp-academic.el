@@ -142,13 +142,13 @@
   :ensure t)
 
 ;;;; Citation Variables
-(defcustom lem-bibliography nil "User bibliography for citation."
+(defcustom sp-bibliography nil "User bibliography for citation."
   :group 'sia-lambda
   :tag "Lambda-Emacs User Bibliography")
-(defcustom lem-bib-notes nil "User citation notes directory."
+(defcustom sp-bib-notes nil "User citation notes directory."
   :group 'sia-lambda
   :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom lem-citar-note nil "Template for use with citar notes."
+(defcustom sp-citar-note nil "Template for use with citar notes."
   :group 'sia-lambda
   :tag "Lambda-Emacs Citar Notes Template")
 

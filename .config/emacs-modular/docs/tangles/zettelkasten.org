@@ -1,0 +1,655 @@
+#+TITLE: Note-taking and zettelkasten interconnection system
+#+STARTUP: overview
+
+* Components necessary for making the system work
+
+My academic workflow is deeply entangled with my practice of writing complex notes that I should always have the possibility to fall back on if needed. This means that I need to have a robust backlinking system, like I managed to have it in Obsidian, and a really good completion framework. For this, see Quick switcher functionality for Emacs.
+
+My Zettelkasten system is highly personal and complex in the way that I have set it up to reflect my own thinking.
+
+These are the main idiosyncrasies that I want to stay true to as much as possible.
+
+- atomic files :: One note represent one singular idea and nothing more.
+
+- bi-directional linking :: This is crucial for making sure that no information is ever lost on the system. Should also include rendering a special backlink buffer which is relative to the buffer we're currently editing.
+
+- flexible naming :: Being able to name my notes as exactly what they represent within my mind system is essential to my writing workflow. Ideas may be more verbose, so they will be
+
+- tagging files as particular object types :: This allowed me to set up a sort of "pseudo-class" system for my files, which would differentiate their functionality in my knowledge management system. Trying to sketch out how this would work is detailed in [[#Creating an object system just from org-mode files]].
+
+- making the content available to a dynamic buffering a querying system :: This will be replicating the functionality from Dataview, and will be used for dynamic view cration. It can also be used, if needed, for generating backlink panes
+
+- note discoverability :: The bi-directional linking would be essential for building a usable graph of nodes. It's unclear what interface I want for these nodes yet. Mostly I want to work with local graphs. A good bi-directional link pane that is visible next to the note I'm editing can also be quite enough for exploration and finding information again.
+
+The bi-directional linking should also be supplemented by the rendering of a special backlink buffer either contained in the original note, or on the side. If it were within the original note, then it would take up less space on the screen, but it might introduce issues with the overall rendering of the content.
+
+Although =denote= is recommended a lot for atomic notes, I really don't like the fact that it imposes a strict structure for the naming. I want to define my own names and keep them as close to the titles, so I can reference them easily in other files. This is following the Obsidian scheme a lot, but I have found that it's the best way to organise my thoughts.
+
+For writing my personal thoughts, since I _don't want to lose anything_, I use a system that's very based in bidirectional linking. This also has to be easily discoverable through different panes, like emulating the backlink pane that's available at the bottom of a note from Obsidian.
+
+* Packages and paradigms that I explicitily _avoid_
+
+Since there are a lot of options but I'm not particularly happy with any one of them, I will put my criteria for things that I want to specifically _avoid_.
+
+- enclosing the information in databases :: This is completely undesirable because it takes away the possibility for portability of the data. I want my connections to somehow be available even if the =org-roam= package gets deprecated.
+
+- creating an overly complicated cache :: This isn't as important as avoiding a database, but I want to make sure that the system runs as smoothly as it can, which means that everything will noticeably start to crawl at my already 30k-sized vault of notes. Of course, it might be hard to find a functioning system that doesn't cache the links somewhere. This would also allow updating the names across all of the files.
+
+Perhaps this can be remedied in Emacs through using the org ids, but I don't like the way that they litter my manuscript. They should get out of the way as much as possible. I would like to replicate the experience of typing =[[= in my manuscript and getting suggestions for what I want to add (and even to be able to add these new
+
+- imposes naming-schemes :: =denote= does this for the purposes of easier identification. Since I have already formed a workflow which is based on my own lack of naming schemes (but that allows everything to be findable either through title search or full-text search), naming is a big aspect of my workflow for writing overall.
+
+* Enabling =markdown-mode= for editing Obsidian files
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package markdown-mode
+    :ensure t)
+#+end_src
+
+Enable the TOC for long markdown notes as well
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package markdown-toc
+    :ensure t
+    :after markdown-mode)
+#+end_src
+
+* Options for the workflow and the patchwork I have to do to make it work
+
+There's the option to either use =zetteldeft= in its own workflow, which allows custom file names but it's not that easy to operate with backlinks, or =denote=, which has an imposed file naming scheme. The title of the file would have to be dimmed in the configuration.
+
+It's pretty hard to change the naming in =denote=.
+
+But the advantage of =denote= is that it just kind of works properly out of the box.
+
+The two currently working packages that I have are
+- [[file:denote.org][denote]]: has better development than zetteldeft, is the package with the biggest community aside from =org-roam=
+- [[file:zetteldeft.org][zetteldeft]]: a lot closer to what I want out of a proper notetaking system.
+
+As retired systems, we have
+- [[file:howm.org][Howm]]
+- [[file:emacs-zk.org][=zk= package (which is different from =zetteldeft=)]]
+
+* TODO Searching through notes
+
+Consult Notes is a convenience package that builds on Consult. It provides access to Denote files and also lets you search through your notes.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package consult-notes
+    :ensure t
+    :after consult
+    :custom
+    (consult-notes-denote-display-keywords-indicator "_")
+    :bind
+    (("C-c w d f" . consult-notes)
+     ("C-c w d g" . consult-notes-search-in-all-notes))
+    :init
+    (consult-notes-denote-mode))
+#+end_src
+
+There's also the overall solution of using =grep= or =ripgrep=. The bigger specifics of this problem are articulated in [[denote:20251117T101810][Search structure over org-mode]].
+
+* Moving contents of files from one to another
+
+For more deliberation on how this should be done, see [[denote:20251115T122217][Extracting contents of an org file to another]].
+
+* TODO Autosaving files if working with denote
+
+I got used to just having my notes autosave when editing a whole bunch of them with Obsidian. I don't want to lose progress and I also don't want to have to constantly hit =org-save-all-org-buffers=. However, I don't want to autosave changes regardless of the location, but specifically for notes in the =denote= directory (which is currently set as =~/Documents/notes=).
+
+For this, you can activate =real-auto-save-mode= in org buffers. (But you have to add a hook only for the directories you want to save the files in).
+
+Another thing that you can do is to trigger the autosave when you focus out of the Emacs window.
+
+Some helper threads for how to do this:
+- https://duckduckgo.com/?q=org+save+all+buffers+autosave&t=brave&ia=web | org save all buffers autosave at DuckDuckGo
+- https://github.com/ChillarAnand/real-auto-save | ChillarAnand/real-auto-save: Automatically save your all your buffers/files at regular intervals in Emacs!
+- https://doc.endlessparentheses.com/Fun/org-save-all-org-buffers.html | Emacs Online Documentation
+- https://emacs.stackexchange.com/questions/74516/how-can-i-save-all-buffers-on-auto-save-except-the-ones-have-specifc-mode | hooks - How can I save all buffers on auto-save except the ones have specifc mode? - Emacs Stack Exchange
+- https://www.reddit.com/r/emacs/comments/9e5h4f/is_there_a_way_to_autosave_org_note_buffers/ | Is there a way to autosave Org Note buffers? : r/emacs
+
+* Facilitating the migration from Obsidian
+
+The only way to make the migration from Obsidian easier is to bring the entire Obsidian vault with its backlinks into Emacs through the =obsidian-el= package, and try to navigate it from there as I start moving files to org-mode instead. I can also just continue writing in my Markdown notes, provided I don't forget to update them or actually delete them once I've moved them to the org-mode equivalent.
+
+Converting links in Markdown files to =denote= links actually works, but I would still have to do a full conversion of Markdown to =org-mode= to make it work. While I could theoretically keep on using Markdown, as the links to the denote vault still work, I fear that I would be losing all of the functionality from org-mode itself. Besides, while writing my academic notes, I want to have the more advanced functionality that a package like [[denote:20251117T173553][org-ref]] brings (or even something like [[denote:20251117T213726][org-cite]], which is just built into Emacs.
+
+This would mean finding a way to index the notes from Obsidian, which would have to take care of all the =[[wikilinks]]= that I have peppered in throughout. I want to avoid having to use the =obsidian-el= package, as the indexing on that is way too slow.
+
+** Specific text editing functions to emulate from Obsidian
+
+While using Obsidian, I used the "Note Composer" plugin quite a lot. This allowed me to split files by sending their contents across (see [[denote:20251115T122217][Extracting contents of an org file to another]] for wanting to emulate this in Emacs) and to merge them together when their contents were similar enough.
+
+I would need this merging feature to actually be natively supported within =denote=. I don't know if I could just use [[denote:20251117T173722][org-refile]] like you usually can with something like [[denote:20251117T214125][org-capture]]
+
+** Automatic saving for buffers
+
+This is probably actually configured in [[file:org-config.org][org-mode literate configuration]]
+
+This is really useful as Obsidian helped be quickly jump between different files without worrying about saving them properly. Emacs doesn't do this by default because you might also be saving more sensitive files and it's undesirable to basically "commit" all of those changes immediately.
+* Bi-directional linking support
+
+There's support for seeing backlinks in Emacs through the [[denote:20251115T114845][denote]] package. It has the function =denote-backlinks=, which creates a buffer which actually shows all of the backlinks in context. This is really useful.
+
+This is already a pretty spotty issue in Emacs, as packages used for Zettelkasten usually don't bother to set up this particular feature properly. But the smart bi-directional linking is what really makes Obsidian a tool for uninterrupted thought, and nothing can replace it in this way.
+
+The system in =howm=, which would show a different pane for incoming and outgoing links was pretty useful, but =howm= is pretty hard to setup properly, which is why I have given up on it.
+
+<2025-12-30 Tue> A lot of this can be solved with [[id:c6682b9f-07db-448e-800a-00b75345492b][org-super-links]], which is configured below, with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]].
+
+** TODO Dealing with unresolved links
+
+One of the best features of Obsidian was that it let you work and define new files as you were writing, that would later be filled in and end up showing all of the links that were previously defined to that file.
+
+I don't know if the way that Obsidian did this was through keeping a cache and managing to work with a really siloed environment, but I want to be able to deal with my links in the same way --- *as movable objects of knowledge that can be sent anywhere I want them*.
+
+A particular incarnation of this system would _precisely be the buffer system that Emacs uses_, that enables a way of looking at files in an object-oriented way --- everything can be taken and reused, because that's how the brain works as well.
+
+** TODO Visualising backlinks within a pane
+
+This could be done by configuring =org-sidebar=, or making buffers themselves more actionable. *Perhaps this could also be integrated with =embark= for more functionality
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package org-sidebar
+      :ensure t)
+#+end_src
+
+* TODO Creating an object system just from org-mode files
+
+ This is something I'm able to do in Obsidian with the help of =Metadata Menu= and =Supercharged Links=, as it allows me to define some pseudo-classes of text files that I work with. The icons provided by =Supercharged Links= allow me to quickly parse the content of my files for different placeholders --- ideas are differentiated from general concepts that I didn't personally come up with.
+
+This is explained further in Obsidian, in the _Assigning classes to different documents of the same format_ file.
+
+<2025-12-24 Wed>: I think this could actually be done with [[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]], especially [[id:c233f0c2-9549-4afc-ad10-52371833325c][HyRolo]], if only I can actually get it to work... (see [[id:fb1ac70c-2e3f-41b6-83d8-ae05043c4517][GNU Hyperbole configuration]])
+
+** Assigning the proper classes to org-mode files
+
+Maybe there should be a prompt in the file creation dialogue for whatever note-taking module I'm currently making.
+
+** Changing the display of an org link depending on the type of link it is
+
+Currently, you can change the coloring at least based on the type of org link created. For example, you can differentiate between a generic =file:= link that you may use in =org-mode= and a =denote:= link, which specifically supports the structure of denote.
+
+For example, you can make the link type in =org-ref= (for displaying a citation) to actually display differently.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun org-ref-make-org-link-cite-key-visible (&rest _)
+  "Make the org-ref cite link visible in descriptive links."
+
+  (save-match-data
+    (let ((s (match-string 1))
+      (beg (match-beginning 0))
+      (end (match-end 0))
+      (cite-re (format "^\\(%s:\\)"
+               (regexp-opt (-sort
+                    (lambda (a b)
+                      (> (length a) (length b)))
+                    org-ref-cite-types))))
+      cite-type)
+
+      (when (and s (string-match cite-re s))
+    (setq cite-type (match-string 1 s))
+    (remove-text-properties beg end
+                '(invisible))
+    (add-text-properties
+     beg end
+     `(face (:foreground ,org-ref-cite-color)))))))
+
+(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
+#+end_src
+
+This solution is written directly by John Kitchin.[fn:2]
+
+* Generating an [[id:17454c85-0e55-430a-b9cd-0f964225ece1][argument map]] from different notes
+
+This is important for keeping track of different debates while I'm writing and can help with the visualisation of research. It can make sure that you have founded arguments for each part. It also seems similar to what [[id:fb234918-643f-4285-a0bb-4ab30108c5e7][Hypernomicon]] is doing with indexing debates. This is possible with the new (as of <2025-12-24 Wed>) package, =discourse-graphs=.
+
+** Initial configuration
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package discourse-graphs
+    :ensure (discourse-graphs :type git
+  			      :host github
+  			      :repo "LuciusChen/discourse-graphs"
+  			      :files ("*.el"
+  			      "discourse-graphs-ui/out/*.html"
+  			      "discourse-graphs-ui/out/assets/*"))
+    :config
+    (setq dg-directories ;; This is where we scan for nodes
+    '("~/Documents/notes/")
+    )
+    (setq dg-recursive t)
+    (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+
+  (discourse-graphs-mode 1)
+  )
+#+end_src
+
+*** Adding functionality for denote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Use with denote
+(setq dg-use-denote t)
+#+end_src
+
+See also [[file:denote.org][Denote]] for the configuration (relevant in that case)
+
+** Configuring the context panel
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq dg-context-window-width 0.3)
+
+;; Auto-update context when moving between nodes
+(setq dg-context-auto-update t)
+
+;; Maximum lines to display per node in context panel (nil for unlimited)
+(setq dg-context-max-lines 30)
+#+end_src
+
+** Heading configuration in the org buffer
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Show overlays on headings
+(setq dg-overlay-enable t)
+#+end_src
+
+** Synthesis dashboard
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Synthesis dashboard file location
+(setq dg-synthesis-file "~/Documents/notes/dg-synthesis.org")
+#+end_src
+
+[2026-06-22 Mon] This should basically be the board for the literature review.
+- Customizing it should come in a better format, a little later, when I figure out how to arrange the layout and really use the features
+
+** Customizing how the attributes on headings are computed
+
+~discourse-graphs.el~ will show an overlay for org headings, which will show the way that an idea is treated across the literature.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-discourse-attributes
+        '(
+          (claim
+           . (
+  	      (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+              (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+              (overlay . evidence-score)
+  		  )
+  	     )
+
+          (question
+           . (
+  	    (answer-count . "{count:Answered By:claim}")
+              (overlay . answer-count)
+  		)
+  	   )
+          ;; ... more types
+          )
+  )
+#+end_src
+
+** Defining my new types for the system
+*** Understanding the canonical designations
+*** Node types
+
+Node types are basically the types of semantic units that you can make use of.[fn:6]
+- and what exists
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-node-types
+        '(
+          (question . (:short "QUE"
+              		    :color "lightblue"
+              		    :desc "Research question"))
+          (claim    . (:short "CLM"
+              		    :color "lightyellow"
+              		    :desc "Assertion, thesis or position in a debate"))
+          (evidence . (:short "EVD"
+              		    :color "lightgreen"
+              		    :desc "Argument, proof, or supporting empirical data"))
+          (source   . (:short "SRC"
+              		    :color "lightgray"
+            		    :desc "Reference material / Philosophical text"))
+          (theory   . (:short "THY"
+        			    :color "lightcoral"
+      			    :desc "Theoretical framework"))
+          ))
+#+end_src
+
+*** Relation types
+
+This describes the way in which nodes can be connected.
+
+Since the connection type for nodes will affect the way that they show up in ~discourse-graphs.el~ web UI, it's important to define them properly.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-relation-types
+        '(
+  	(supports  . (:inverse "Supported By"
+  			       :color "green"
+  			       :style "solid"))
+  	(opposes   . (:inverse "Opposed By"
+  			       :color "red"
+  			       :style "dashed"))
+   	(informs   . (:inverse "Informed By"
+  			       :color "blue"
+  			       :style "solid"))
+   	(answers   . (:inverse "Answered By"
+  			       :color "purple"
+  			       :style "solid"))
+  	)
+        )
+#+end_src
+
+Relation patterns: which source→target combinations are "canonical"[fn:6 ]
+
+Non-canonical relations are allowed but flagged for review.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq dg-relation-patterns
+        '((supports . (:source (evidence)
+  			     :target (claim)))
+  	(opposes  . (:source (evidence)
+  			     :target (claim)))
+  	(informs  . (:source (source)
+  			     :target (evidence)))
+  	(answers  . (:source (claim)
+  			     :target (question)))
+  	)
+  	  )
+#+end_src
+
+*** Defining a literature review board
+
+* Defining my own set of functions for better operation on the files
+
+* Getting the [[denote:20251117T213411][Queries injected into Text Editor buffers]] to work
+
+It's like saving a buffer from the result of ripgrep. It kind of functions like a computational notebook. I want to make the type of queries that I had in Obsidian through Dataview as dynamic and embeddable as possible (this could maybe be done through =org-babel= as well).
+
+Although I want to install =orger=, the problem with it is that it's a Python tool for which I have to maintain environment variables.
+
+I also need to configure where the data comes from.
+
+It might be easier to just work with a search framework at first, if I don't even have databases from which to pull information.
+
+See [[#Search and navigation packages]] first and foremost.
+
+There's an option to get a [[denote:20251117T213411][Queries injected into Text Editor buffers]] through the =denote= package if I use the denote links as queries functionality. There's also the option to have [[denote:20251115T120100][the dynamic blocks from org-mode]], which are also natively supported by [[denote:20251115T114845][denote]], which would show a dynamic view of the relevant data (like an author's works).
+
+** Configuring =org-ql=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package org-ql
+        :ensure t)
+#+end_src
+
+Since this needs to access files in ~org-directory~, see [[file:org-config.org][Org-mode configuration]].
+
+** Trying out [[denote:20251213T220500][org-supertag]]
+
+=org-supertag= still is a pretty young package. It's also unclear how it will be useful for my system.
+
+Currently disabled because it kind of sucks in the way it deals with data.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-supertag
+    :ensure (org-supertag :host github :repo "yibie/org-supertag"))
+
+  (setq org-supertag-sync-directories '("~/Documents/notes/"))
+#+end_src
+
+* Improving the backlinking structure with =org-node=
+
+As an alternative (or rather, an enhancement) of my system which is currently based on [[denote:20251115T114845][denote]], I want to see what I could do if I had =org-node=, which is more similar to =org-roam=. I want to avoid =org-roam= since it's really slow, but it does seem to have better capacities for, for example, taking care of [[denote:20251117T105322][Literature notes]] and how they show up when you search for them.
+
+Also, the [[denote:20251207T151311][backlink pane]] is really subpar in [[denote:20251115T114845][denote]]. Renaming files and merging is also pretty fickle right now, as the =denote-merge= package still has issues. Searching to the really granular heading in my notes isn't easily done. I want to be able to declaratively structure and destructure my notes as needed, instead of forcing atomic notes across the board --- this may not work for manuscripts or for [[denote:20251203T115137][Generating comparison tables from queries]] (as you need to do something about the [[denote:20251117T103002][Detail-in-context problem]]).
+
+[[denote:20251216T102815][org-node]] also benefits from having a "related" section, which aids in knowledge discovery.
+
+The cache created by =org-node= can be queried, like the one in [[denote:20251116T141307][org-roam]]. This isn't possible, for example, in [[denote:20251213T215223][org-super-links]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-mem
+    :defer
+    :config
+    ;; At least one of these two is needed
+    (setq org-mem-do-sync-with-org-id t)
+    (setq org-mem-watch-dirs
+          (list "~/Documents/notes/"))
+    ;; To also detect "denote:abcdefg" links without [[enclosing brackets]]
+    (add-to-list 'org-mem-seek-link-types "denote")
+    (org-mem-updater-mode))
+#+end_src
+
+The part about detecting without enclosing brackets is taken from the github discussion with =meedstrom= on bringing [[denote:20251216T102815][org-node]] closer to [[denote:20251115T114845][denote]].[fn:3]
+
+!@What is the directory that I should have configured in here? Should I try directly with my [[denote:20251115T114845][denote]] directory? Would that create any kind of issue with my already existing notes?!@
+
+!@What is the ~org-mem-updater-mode~?!@
+
+This would make sure that the nodes are kept updated (and the database that tracks all of that information).
+
+The files in the ~org-mem-watch-dirs~ will be checked recursively.[fn:4] If you want, it can also check files mentioned in ~org-id-locations~ and ~org-id-extra-files~.
+
+=org-node= depends on the =inspector= package, so we'll install that first.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package inspector
+    :ensure t)
+#+end_src
+
+And now we can get to actual =org-node=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-node
+    :init
+    ;; Optional key bindings
+    ;; Tip: Try changing these to just "M-o"!
+    (keymap-global-set "M-o" org-node-global-prefix-map)
+    (with-eval-after-load 'org
+      (keymap-set org-mode-map "M-o n" org-node-org-prefix-map))
+    :config
+    (org-node-cache-mode))
+#+end_src
+
+** Always updating the backlink drawer under nodes
+
+This makes it possible to see that a node is being linked to from elsewhere if you don't want to bring up the context buffer outright. But it might be better if I just found a way to transclude the context buffer or have it pop up like a [[id:16fb2c0e-306d-4fb0-aedf-b960e1974a02][tooltip]].
+
+This function will create a *multi-line* backlink drawer, instead of putting everything on one line.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-node-backlink-do-drawers t)
+#+end_src
+
+** Making =org-node= recognise =denote= links
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq all-my-denote-links
+      (seq-filter (##equal "denote" (org-mem-link-type %))
+                  (org-mem-all-links)))
+#+end_src
+
+This currently doesn't work because I need to have another package installed. Refer to the relevant issue on GitHub.
+
+** Avoid conflict in minibuffer completion (if you have two nodes of the same name)
+
+If two ID-nodes exist with the same title, one of them disappears from minibuffer completions.
+
+That’s just the nature of completion. Much can be said for embracing the uniqueness constraint, and org-node will print messages about collisions.
+
+Anyway… there’s a workaround. Assuming you leave org-node-affixation-fn at its default setting, adding this to initfiles tends to do the trick:[fn:5]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-node-alter-candidates t)
+#+end_src
+
+** Replacing the backlink creation system with [[id:c6682b9f-07db-448e-800a-00b75345492b][org-super-links]]
+:PROPERTIES:
+:CREATED: <2025-12-30 Tue>
+:END:
+
+!@Currently disabled because it introduces an ~org-store-link~ dialogue that fires up every time I want to create a heading with org-node. I'll fix this when it's relevant again.!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-super-links
+    :ensure (org-super-links :type git
+  			   :host github
+  			   :repo "toshism/org-super-links"))
+#+end_src
+
+To make sure that it works well with org-node, you have to make sure that you never enable ~org-node-backlink-mode~ and then you just let =org-super-links= hoot into ~org-node-insert-link-hook~. This will convert to super-link style backlinks.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-hook 'org-node-insert-link-hook
+            #'org-super-links-convert-link-to-super)
+#+end_src
+
+This will create a multi-line ~:BACKLINKS:~ drawer that will be auto-updated/pre-populated.
+
+You should run ~org-node-backlink-mass-update-drawers~ to update all of the missing backlinks in bulk. This is useful if you've never used =org-super-links= before using =org-node=.[fn:5]
+
+** Configuration for =org-super-links=
+
+!@How do you actually make it show up the backlinks immediately after saving an org buffer? Should you make an ~after-save~ hook for it to work properly?!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq org-super-links-backlink-into-drawer t)
+
+(setq org-super-links-backlink-prefix "<- ")
+#+end_src
+
+* GNU Hyperbole configuration
+:PROPERTIES:
+:ID:       fb1ac70c-2e3f-41b6-83d8-ae05043c4517
+:END:
+
+[[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]] is much more powerful than I had initially thought, especially it could help with [[id:87ad43a1-c6e2-47b8-b412-68df72ed01e9][Music collection management]] because of the way that it manages records. It's worth investigating, though look at principles of [[id:728fbe87-c731-41f3-a96a-017ba7ebc8f5][flat file database]] (and [[id:287b6dfe-8e7c-46c7-a105-b11ca750bfe9][Collecting org files into a flat database]]) to better understand if it works like this or if I should use [[id:9148c391-f6e0-43b9-9d5d-e7472dcb6fe2][GNU Recutils]] instead.
+
+** TODO Initial installation with =use-package=
+
+I need to actually find a way to do the installation through =use-package=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+      (use-package hyperbole
+        :ensure t
+        :config (hyperbole-mode 1))
+#+end_src
+
+This has been removed because I can't modify the action key to not collide with the rest of the commands. The documentation feels way too obscure.
+
+** Changing the hyperbole major keybindings so that it doesn't interfere with other modes
+
+Right now it's specifically interfering with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]], so I have to modify the very specific Hyperbole keys. They don't work with normal ~global-set-key~ syntax, which is really annoying, because it deviates quite a lot from the Emacs way of doing things.
+
+*** This doesn't work
+
+#+begin_src emacs-lisp :tangle no :eval never
+(hkey-set-key "M-p" 'hkey-either)
+(hkey-set-key "" 'hkey-operate)
+#+end_src
+
+The binding that actually interrupts org-node is ~hkey-operate~ (which I'm not really sure what it's for).
+
+Is it possible to just turn off ~hkey-operate~? It basically just keeps the key pressed while you're working on a buffer, so I don't want it to disturb me right now.
+
+*** Disabling all of the default keybindings for Hyperbole
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq hkey-init nil)
+#+end_src
+
+** Rebinding the keys
+
+The action key is still going to be ~M-RET~, but now all the other keys aren't interfering with the rest of my workflow.
+
+!@This doesn't work, it seems that if you want to actually rebind the action keys, you have to change the entirety of the Lisp code. So the ~hkey-init~ solution isn't actually the solution to this problem!@.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(keymap-global-set "C-h y" hyperbole-menu-key)
+
+(keymap-global-set "M-o" org-node-global-prefix-map)
+
+(global-key-set "C-h y" 'hyperbole-menu-key)
+
+(hkey-set-key "M-s s" 'hkey-either)
+#+end_src
+
+This package is absolutely insufferable in how hard it is to actually set it up with your own configuration. You can't even test out different keybindings, it changes the configuration of Emacs so much that you can barely act with the same keys anymore. So it's pretty much unusable for me right now.
+
+* Testing out =org-roam-ql= to be able to query files with IDs in the zeroth section as well
+:PROPERTIES:
+:CREATED: [2026-01-05 Mon]
+:END:
+
+If this works as intended with [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]], then it would fill some space in the functioning of [[id:ac711f84-6b85-4294-8427-a2d0c5985b69][org-ql]] so I could, for example, query for files that backlink from a project file. See the idea with ~:bib-project:~ in the zeroth section.
+
+[[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]] can generally interoperate with [[id:9ff75a0e-1c6f-41d8-a94f-9e0f329f69ea][org-roam]], although the database structure is different. I don't know if =org-roam-ql= is working based on the ~:ID:~ of each entry (or, rather, each property drawer) or if it relies on the SQL used by [[id:9ff75a0e-1c6f-41d8-a94f-9e0f329f69ea][org-roam]].
+
+For this I will also need to install org-roam
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-roam
+      :ensure t)
+
+  (use-package org-roam-ql
+    :ensure t
+    :after org-roam
+    :bind ((:map org-roam-mode-map
+                 ;; Have org-roam-ql's transient available in org-roam-mode buffers
+                 ("v" . org-roam-ql-buffer-dispatch)
+                 :map minibuffer-mode-map
+                 ;; Be able to add titles in queries while in minibuffer.
+                 ;; This is similar to `org-roam-node-insert', but adds
+                 ;; only title as a string.
+                 ("C-c n i" . org-roam-ql-insert-node-title))))
+#+end_src
+
+* ekg: Creating a knowledge graph based on the ID properties of the notes
+
+It was first proposed on [2026-02-05 Thu], but the I actually installed the package, barely, on [2026-06-24 Wed] (got caught up with other things)
+
+[[id:b27e568b-97e8-4565-bdbe-0ac8ea427981][ekg]]
+
+This also requires the triples package
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+
+#+end_src
+
+* vulpea installation
+
+[2026-06-24 Wed]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package vulpea)
+#+end_src
+
+** Configuring the directory
+
+Theoretically, this shouldn't be necessary, since it falls back to the ~org-directory~, but I need to do some refactoring on this, before anything.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq vulpea-db-sync-directories '("~/Documents/notes/"))
+#+end_src
+
+** Enabling autosync for vulpea
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(vulpea-db-autosync-mode +1)
+#+end_src
+
+* Footnotes
+[fn:6] https://github.com/LuciusChen/discourse-graphs
+
+[fn:5]  https://github.com/meedstrom/org-node
+
+[fn:1] Emacs Writing Studio literate configuration
+
+[fn:2] https://emacs.stackexchange.com/questions/18644/org-mode-customize-link-display
+
+[fn:3]  https://github.com/meedstrom/org-node/issues/161
+
+[fn:4]  https://github.com/meedstrom/org-mem?tab=readme-ov-file

@@ -1,6 +1,15 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-backups.el
 
+;;; Commentary:
+
+;; Emacs leaves a bunch of backup files behind, that I don't actually want
+;; to have to see.
+;;
+;; There should also be a better way to deal with all of these files.
+
+;;; Code:
+
 (defcustom siapip/backup-file-location "~/.emacs.d/backups"
   "Directory where backup files will be stored.
 This specifies the path where Emacs will save backup files when
@@ -104,3 +113,7 @@ editing. The default location is in the .emacs.d directory."
   (savehist-mode t)
   :config
   (setq savehist-file (expand-file-name "savehist" sp-var-dir)))
+
+;;; Provide:
+(provide 'sp-backups)
+;; sp-backups.el ends here.

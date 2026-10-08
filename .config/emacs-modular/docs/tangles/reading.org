@@ -1,0 +1,323 @@
+#+title: Reading and annotation workflow for Emacs
+#+startup: overview
+* The vision for an integrated reading and task management environment
+
+This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
+
+The goal is being able to find the information again through _topical_ exploration. Tackling a particular problem could be done by first finding what I need through full-text search of the contents of the sources I have on my system as well. Sources can be PDFs, EPUBs, or even web articles that I have saved (and that I'm scared will be lost to time because of poor archival efforts).
+
+The way that I group information in Obsidian topically and _atomically_ is really important to my problem-solving process. As such, I want to be able to replicate my workflow for gathering links as closely as possible in this program. It's like an annex to the main file, full of things that I should read more and that would help improve the main problems tackled within an atomic file.
+
+As an improvement to my current Obsidian system, I wish I had a better way of marking links as already having been read and, so to say, /parsed/ for the most important information I could get out of them.
+
+These reading statuses should at some point be articulated in accordance to the task management system that I have set in place.
+
+Reading sources (like first getting information) is also treated in [[file:browser.org][Browsing from Emacs]] and [[file:inputs.org][RSS and Input Collection]].
+
+* Organising the setup in layers
+
+The reading setup is structured in different layers, based on the different modalities of the reading materials I have on hand. I want to make sure that everything is *as well integrated with the annotation framework used as possible*. The structure of support that I seek is as follows:
+
+- PDFs :: I need to be able to work on both well constructed and digitally-generated documents (with native OCR layers) and PDFs that weren't as well scanned, as those may be the only sources I have available in some cases.
+
+  For PDFs, the current solution I've adopted is =pdf-tools=, which is also the most common.
+
+- EPUBs :: Some books aren't distributed in any other format.
+
+  The good thing about the =nov-el= package is that it's also easy to integrate it with =calibredb=, which makes it possible to show all of the nice metadata about what I'm reading. The =calibredb= can also allow better portability for the system
+
+* Configuration for =pdf-tools=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package pdf-tools
+    :ensure t
+    :init
+    (pdf-tools-install)
+    (pdf-loader-install)
+    (setq-default pdf-view-display-size 'fit-width))
+#+end_src
+
+By bootstrapping =pdf-tools-install= at =:init=, we're forcing Emacs to use =pdf-tools= instead of =docview-mode=. =pdf-tools-install= is actually configuring a server component.[fn:1]
+
+** Setting keybindings for =pdf-tools=
+
+I keep getting an error that the symbol function is void, so fuck this.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (with-eval-after-load "pdf-tools"
+    (define-key pdf-view-mode-map (kbd "g") nil)
+    (define-key pdf-view-mode-map (kbd "g g") 'pdf-view-first-page)
+    (define-key pdf-view-mode-map (kbd "G") 'pdf-view-last-page)
+    (define-key pdf-view-mode-map (kbd "e") 'pdf-view-goto-page)
+    (define-key pdf-view-mode-map (kbd "r") 'pdf-view-revert-buffer)
+    (define-key pdf-view-mode-map (kbd "a") 'pdf-annot-add-text-annotation)
+    (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-delete)
+    (define-key pdf-view-mode-map (kbd "h") 'pdf-annot-add-highlight-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "~") 'pdf-annot-add-squiggly-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "u") 'pdf-annot-add-underline-markup-annotation)
+    (define-key pdf-view-mode-map (kbd "s") 'pdf-annot-add-strikeout-markup-annotation))
+#+end_src
+
+** Making =pdf-tools= default for TeX export (with proper reverting buffers)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+        TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
+        TeX-source-correlate-start-server t)
+
+  (add-hook 'TeX-after-compilation-finished-functions
+  	  #'TeX-revert-document-buffer)
+#+end_src
+
+** Continuous scrolling mode in the PDF
+
+This disables the continuous scrolling, so that you rely on =PgUp= and =PgDown= instead.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setopt pdf-view-continuous nil)
+#+end_src
+
+** TODO Configuring =xdg-open= to automatically open PDFs through =pdf-tools=
+** Virtual buffers
+
+This  will take several PDFs and display them within a singular buffer.[fn:2]
+
+=M-x pdf-virtual-buffer-create=
+
+** Adding a text layer to PDF
+
+Instead of being limited to the search tools provided by =pdf-tools=, we could instead treat the PDF buffer as if it were a text buffer. This also helps if you're [[denote:20251119T215556][using Emacs in the terminal]] or through SSH, as it helps you take a peek at a PDF without actually leaving Emacs.
+
+=pdftotext= is system program, and =pdftotext.el= is a wrapper mode which works for Emacs. =fmt= is also needed for line wrapping.[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package pdftotext
+    :ensure (:host github :repo "tecosaur/pdftotext.el"))
+#+end_src
+
+* Getting the annotation mode going
+
+By itself, =pdf-tools= already has a way to annotating the file. But I want to make an integrated environment for reading, so I want to be using either =org-noter= or =org-pdf-tools=.
+
+** Configuring =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter
+    :after (org pdf-view)
+    :bind (:map org-noter-notes-mode-map
+                ("C-M-i" . org-noter-insert-dynamic-block))
+    :custom
+    (org-noter-notes-search-path (list org-directory))
+    (org-noter-supported-modes '(doc-view-mode pdf-view-mode))
+    (org-noter-separate-notes-from-heading t)
+    :config
+    (require 'pdf-macs)
+    ;; (defun org-noter-pdf--show-arrow ())
+    )
+
+  (use-package djvu) ; apparently needed for org-noter
+#+end_src
+
+This function will autosave your last position when reading a PDF in Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-auto-save-last-location t)
+#+end_src
+
+Configuring =org-noter= to actually show annotated text on the PDF.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-highlight-selected-text t)
+#+end_src
+
+*Does this mean that it will also become embedded into the PDF?*
+
+*How do I make sure if the text I highlighted is actually embedded into the PDF?*
+
+*** Configuring =org-noter= to open the notes in the current window and bring the PDF on the other side
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-noter-always-create-frame nil)
+#+end_src
+
+This is taken from https://github.com/Vidianos-Giannitsis/Dotfiles/tree/master/emacs/.emacs.d#org-noter
+
+*** Hiding the property drawer that is created by =org-noter=
+
+#+begin_src emacs-lisp
+(defun org-cycle-hide-drawers (state)
+     "Hide all the :PROPERTIES: drawers when called with the 'all argument. Mainly for hiding them in crammed org-noter files"
+     (interactive "MEnter 'all for hiding :PROPERTIES: drawers in an org buffer: ")
+     (when (and (derived-mode-p 'org-mode)
+		  (not (memq state '(overview folded contents))))
+	 (save-excursion
+	   (let* ((globalp (memq state '(contents all)))
+		  (beg (if globalp
+			 (point-min)
+			 (point)))
+		  (end (if globalp
+			 (point-max)
+			 (if (eq state 'children)
+			   (save-excursion
+			     (outline-next-heading)
+			     (point))
+			   (org-end-of-subtree t)))))
+	     (goto-char beg)
+	     (while (re-search-forward org-drawer-regexp end t)
+	       (save-excursion
+		 (beginning-of-line 1)
+		 (when (looking-at org-drawer-regexp)
+		   (let* ((start (1- (match-beginning 0)))
+			  (limit
+			    (save-excursion
+			      (outline-next-heading)
+				(point)))
+			  (msg (format
+				 (concat
+				   "org-cycle-hide-drawers:  "
+				   "`:END:`"
+				   " line missing at position %s")
+				 (1+ start))))
+		     (if (re-search-forward "^[ \t]*:END:" limit t)
+		       (outline-flag-region start (point-at-eol) t)
+		       (user-error msg))))))))))
+#+end_src
+
+** Configuring =org-pdftools=
+
+=org-pdftools= adds a special org link type (see [[denote:20251115T113306][Custom link creation in org mode]]) for a precise PDF link location.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pdftools
+    :hook (org-mode . org-pdftools-setup-link))
+#+end_src
+
+=org-pdftools= actually works in tandem with =org-noter=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-noter-pdftools
+    :after org-noter
+    :config
+    ;; Add a function to ensure precise note is inserted
+    (defun org-noter-pdftools-insert-precise-note (&optional toggle-no-questions)
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((org-noter-insert-note-no-questions (if toggle-no-questions
+                                                     (not org-noter-insert-note-no-questions)
+                                                   org-noter-insert-note-no-questions))
+             (org-pdftools-use-isearch-link t)
+             (org-pdftools-use-freepointer-annot t))
+         (org-noter-insert-note (org-noter--get-precise-info)))))
+
+    ;; fix https://github.com/weirdNox/org-noter/pull/93/commits/f8349ae7575e599f375de1be6be2d0d5de4e6cbf
+    (defun org-noter-set-start-location (&optional arg)
+      "When opening a session with this document, go to the current clocation.
+  With a prefix ARG, remove start location."
+      (interactive "P")
+      (org-noter--with-valid-session
+       (let ((inhibit-read-only t)
+             (ast (org-noter--parse-root))
+             (location (org-noter--doc-approx-location (when (called-interactively-p 'any) 'interactive))))
+         (with-current-buffer (org-noter--session-notes-buffer session)
+           (org-with-wide-buffer
+            (goto-char (org-element-property :begin ast))
+            (if arg
+                (org-entry-delete nil org-noter-property-note-location)
+              (org-entry-put nil org-noter-property-note-location
+                             (org-noter--pretty-print-location location))))))))
+    (with-eval-after-load 'pdf-annot
+      (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+#+end_src
+
+There's also:
+
+#+begin_quote
+Added customizable variable org-pdftools-use-isearch-link and org-pdftools-use-freepointer-annot to control whether you will get prompt to create isearch/freepointer link if no existing annotations are found[fn:4]
+#+end_quote
+
+In order to link a specific page of a .pdf-file in an org-file, use the following syntax:
+
+=[[pdf:~/file.pdf::3][Link to page 3]]=
+
+When browsing a pdftools-buffer you can use org-store-link (by default C-c l) to get a link to this location withing the pdf – even while marking some content in the =.pdf=. Then use org-insert-link (by default =C-c C-l=) to create a link to this page and this place on the page:
+
+=[[pdf:~/file.pdf::5++0.00;;annot-5-0][file.pdf: Page 5; Quoting: some text]]=
+
+* Bootstrapping the other document readers
+** Installing =nov-el=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package nov
+    :ensure t
+    :config
+    (setq nov-variable-pitch nil
+          nov-text-width 70)
+    :init
+    (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
+#+end_src
+
+The init section ensures that any file with an =epub= extension is associated with this package. An ePub file is essentially a compressed website, so you will need the Zip program to enable reading these files. Refer to section #sec-epub in _Emacs Writing Studio_ on how to read ePub files.
+
+** =calibredb= configuration
+
+=calibredb= is a good option for interfacing with a whole library of books that I can also make available to my Kindle (even if it's running KoReader). (see more about [[file:devices.org][Managing external devices through Emacs]])
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package calibredb
+    :defer t
+    :config
+    (setq calibredb-root-dir "~/Documents/calibre-library")
+    (setq calibredb-db-dir "~/Documents/calibre-library/metadata.db")
+    )
+#+end_src
+
+* Integrating the packages wih one another
+** TODO Integrating =calibredb= with =org-ref=
+
+This is apparently possible and it would make an academic reading workflow on e-ink a lot easier in the long run.
+
+* Proposed improvements
+
+I had an idea about replacing =pdf-tools= with =eaf-pdf=. This is detailed in [[file:~/.config/emacs-include/config-tasks.org][More tasks for configuration]].
+
+* Bringing a better reader into Emacs, for all formats: =emacs-reader=
+
+This currently has to be installed directly from the source.
+
+[2026-01-05 Mon] It doesn't support annotations.
+
+[2026-01-08 Thu] Disabled, as it doesn't actually do anything.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package reader
+    :ensure (reader :type git
+  		  :host codeberg
+  		  :repo "divyaranjan/emacs-reader"
+  		  :files ("*.el" "render-core.so")
+  		  :pre-build ("make" "all")))
+#+end_src
+* Creating a reading list
+
+See [[denote:20251213T184505][Reading list in Emacs]] (it's really important to organise academic resources in a table that's easy to navigate)
+
+** Using ~tabulated-list-mode~ to create a table to choose reading materials from
+
+To make it easier to look through your possible reading materials (and where they're said to be relevant for reading), then you should create a table with the available materials and their properties.
+
+This is already possible in [[denote:20251116T141328][Obsidian]] through the (now deprecated) [[denote:20251216T231240][obsidian-projects]] plugin and the newer [[denote:20251203T025436][obsidian-bases]], which seems to work somewhat better right now.
+
+But I want to be able to use the built-in [[denote:20251114T230911][task management]] features to see the priority of what I have to read and how far along I already am with the progress. See also the talk given by Vidianos at EmacsConf 2025, by creating a reading list system with [[denote:20251209T185022][ebib]] and [[denote:20251116T141307][org-roam]].
+
+One way to make a filtered view that you can then feed into ~tabulated-list-mode~
+
+If you want to go further than that, you can develop some custom filters for [[denote:20251216T232038][denote-menu]], which already uses ~tabulated-list-mode~. See
+
+* Footnotes
+
+[fn:1]  https://ferdy.me/pdf-tools-for-emacs-on-windows/
+
+[fn:2]  https://www.youtube.com/watch?v=rTtLu4QAT2I
+
+[fn:3]  https://github.com/tecosaur/pdftotext.el
+
+[fn:4]  https://github.com/fuxialexander/org-pdftools

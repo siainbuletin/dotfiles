@@ -35,5 +35,7 @@
   (interactive)
   (shell-command-to-string "pkill -f /Applications/Emacs.app/Contents/MacOS/emacs"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Provide:
+
 (provide 'sp-server)
+;; sp-server.el ends here

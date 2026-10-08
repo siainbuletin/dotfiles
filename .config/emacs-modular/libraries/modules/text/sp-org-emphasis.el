@@ -31,5 +31,8 @@
   (unless (lem--cursor-outside-of-any-word)
     (mark-word)))
 
-;; See also org-extra-emphasis.el
+;;;; Proper highlighting of regions, like in Markdown with Obsidian
+(use-package org-extra-emphasis
+  :ensure (:type git :host github :repo "QiangF/org-extra-emphasis"))
+
 (provide sp-org-emphasis)

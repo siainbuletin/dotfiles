@@ -274,6 +274,10 @@
           (switch-to-buffer "*splash*"))
         (sp-splash-mode))))
 
+;;;;; Set Splash Footer
+;; Set a footer for the splash screen
+(setq sp-splash-footer  "wawawewa")
+
 (defun sp-splash-screen-bury ()
   "Bury the splash screen buffer (immediately)."
   (interactive)
@@ -395,6 +399,8 @@
            (not (member "--insert"    command-line-args))
            (not (member "--find-file" command-line-args)))
   (add-hook 'window-setup-hook #'sp-splash--setup-splash-hooks))
+
+;;; Provide:
 
 (provide 'sp-splash)
 ;;; sp-splash.el ends here

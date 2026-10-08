@@ -1,11 +1,13 @@
 ;;; -*- lexical-binding: t -*-
+;; sp-interaction.el
+
+;;; Commentary:
 
 ;; This is set up for the lowest level of interaction
 ;; with the graphical interface in Emacs. For example,
 ;; the mouse support. 
 
-;; This should probably be merged soon enough with the
-;; gui.el configuration file (needs to be pruned).
+;;; Code:
 
 ;; Scrolling and mouse usage
 ;; taken from lambda emacs 2026.10.02
@@ -52,3 +54,8 @@
 
 ;; This should include a link to the window management packages that I use in this case.
 ;; and exwm should be moved to the window management macro library.
+
+;;; Provide:
+
+(provide 'sp-interaction)
+;; sp-interaction.el ends here.

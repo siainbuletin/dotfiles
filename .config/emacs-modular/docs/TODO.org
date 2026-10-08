@@ -71,3 +71,14 @@ Automated LaTeX previews are disabled because they can delay loading a page and 
 ** Configuring rendering equations using Typst
 
 ** Permanently plugging Typst into the system
+
+* Working with org-mode
+** Declare all of the variables for org-mode in a clean way, at the top of the file
+
+This is referring to ~org-directory~ and such.
+
+* Override all variables that are written in the customize buffer
+
+The customize buffer is annoying because it requires too much localised input (meaning that I actively have to click on things).
+
+I want to be able to modify the code before integrating in my setup so that everything is declaratively stated in the init.el files (and properly documented within the literate configuration).

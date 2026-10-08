@@ -1,8 +1,11 @@
 ;;; sp-colors.el --- summary -*- lexical-binding: t -*-
 
+;;; Commentary:
+
 ;; Setup how emacs handles colors
 
-;;;; Color
+;;; Code:
+
 (setq-default ns-use-srgb-colorspace t)
 
 ;;;; Show Colors
@@ -16,5 +19,6 @@
          (add-hook 'prog-mode-hook 'rainbow-mode))
   )
 
+;;; Provide:
 (provide 'sp-colors)
 ;;; sp-colors.el ends here

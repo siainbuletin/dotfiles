@@ -1,6 +1,10 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-network.el
 
+;;; Commentary:
+
+;;; Code:
+
 (use-package tramp
   :config
   (add-to-list 'tramp-methods

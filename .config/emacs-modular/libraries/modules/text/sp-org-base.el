@@ -87,23 +87,8 @@ periods. This ain't a typewriter."
           1))
 
   :custom
-  ;; Aesthetics & UI
-  (org-auto-align-tags nil) ;; don't auto-align tags
-  (org-catch-invisible-edits 'smart) ;; prevent editing invisible area
-  (org-cycle-separator-lines 0) ;; no empty lines in collapsed view
-  (org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
-  (org-fontify-quote-and-verse-blocks t) ;; make quotes stand out
-  (org-hide-emphasis-markers t)  ;; hide emph markers
-  (org-hide-leading-stars t)  ;; hide leading stars
-  (org-image-actual-width  500) ;; show all images at 500px using imagemagik
-  (org-pretty-entities t) ;; make latex look good, etc.
-  (org-pretty-entities-include-sub-superscripts t) ;; prettify sub/superscripts
-  (org-read-date-prefer-future 'time) ;; Incomplete dates refer to future dates & times
-  (org-startup-folded nil) ;; Don't start org in outline
-  (org-tags-column 0) ;; place tags directly next to headline text
-
   ;; Footnotes
-  (org-footnote-section nil) ;; place footnotes locally
+  (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
   (org-footnote-auto-adjust t) ;; renumber footnotes
 
   ;; Indentation
@@ -165,17 +150,15 @@ periods. This ain't a typewriter."
   (:map org-mode-map
         ("C-c ." . 'org-time-stamp))
   :hook
-  (org-mode . siapip/org-setup-deadline-highlighting)
+  (org-mode . sp-org-deadline-highlighting)
   :config
   )
-
-
 
 (defface siapip/org-deadline-highlight
   '((t . (:background "#4c1f24")))
   "Highlight face for today's deadlines")
 
-(defun siapip/org-highlight-todays-deadlines ()
+(defun sp-org-highlight-todays-deadlines ()
   "Highlight headlines with a deadline of today or earlier in Org mode."
   (interactive)
   (remove-overlays (point-min) (point-max) 'siapip/deadline t)
@@ -195,27 +178,13 @@ periods. This ain't a typewriter."
               (overlay-put ov 'siapip/deadline t)
               (overlay-put ov 'face 'siapip/org-deadline-highlight))))))))
 
-(defun siapip/org-setup-deadline-highlighting ()
-  (add-hook 'after-save-hook #'siapip/org-highlight-todays-deadlines nil t)
-  (siapip/org-highlight-todays-deadlines))
+(defun sp-org-deadline-highlighting ()
+  (add-hook 'after-save-hook #'sp-org-highlight-todays-deadlines nil t)
+  (sp-org-highlight-todays-deadlines))
   
-
 (add-hook 'org-mode-hook #'org-indent-mode)
 
-(setq org-startup-folded 'content)
-
-(setq org-hide-emphasis-markers t)
-(setq org-hide-leading-stars t)
-(setq org-startup-with-inline-images t)
-;; (setq org-image-actual-width '(450))
-(setq org-pretty-entities t) ; What makes them pretty?\
-(setq org-auto-align-tags nil)
-; (setq org-tags-column 0) ; What exactly does this do? Wouldn't it be more correct to set it as nil instead of 0?
-(setq org-src-fontify-natively t)
-
 (setq org-agenda-breadcrumbs-separator " ) ")
-
-(setq org-fontify-quote-and-verse-blocks t)
 
 (setq org-highlight-latex-and-related '(latex))
 
@@ -291,16 +260,6 @@ If X does not have a CUSTOM_ID, create it based on the headline
 title."
     (let* ((id (sia-org-custom-id-get-create (cdr x))))
       (org-insert-link nil (concat "#" id) (car x))))
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(org-default ((t (:background "#F0B609" :inherit default))))
- '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
- '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
- '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))
 
 (defun +org/opened-buffer-files ()
   "Return the list of files currently opened in emacs"
@@ -503,12 +462,12 @@ selected instead of creating a new buffer."
 
 ;;;;; Org Create Check Box From List Item
 ;; A useful macro for converting list items to checkboxes
-(fset 'lem-org-checkbox-from-list
+(fset 'sp-org-checkbox-from-list
       [?a ?  ?\[ ?  ?\] escape ?\M-x return])
 
 ;;;;; Org Tag Selection
 
-(defun lem-org-select-tags-completing-read ()
+(defun sp-org-select-tags-completing-read ()
   "Select tags to add to headline."
   (interactive)
   (let* ((current (org-get-tags (point)))
@@ -519,7 +478,7 @@ selected instead of creating a new buffer."
 
 ;;;;; Uncheck Org boxes
 ;;see https://www.reddit.com/r/emacs/comments/r107bg/comment/hlx54vf/?utm_source=share&utm_medium=web2x&context=3
-(defun lem-copy-and-uncheck (start end)
+(defun sp-copy-and-uncheck (start end)
   "copy a region of regularly repeating checkbox items forward from
 one week to the next, unchecking them at the same time"
   (interactive "r")
@@ -527,7 +486,7 @@ one week to the next, unchecking them at the same time"
   (setq deactivate-mark t))
 
 ;;;;; Org Tree/Heading to New File
-(defun lem-org-tree-to-new-file ()
+(defun sp-org-tree-to-new-file ()
   "Move an org subtree to a new file"
   (interactive)
   (org-copy-subtree nil t)

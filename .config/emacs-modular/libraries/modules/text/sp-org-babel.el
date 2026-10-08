@@ -139,5 +139,28 @@ This shell is used to execute the Nushell command."
          (command (format "python3 -c %s %s" script code)))
     (org-babel-eval command "")))
 
+;;; Tangling all files at once from the literate configuration
+(require 'ob-tangle)
+
+(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))
+(defvar sp-literate-files '("early.org" "core.org" "ui.org" "keys.org")
+  "Org files to tangle, in order.")
+
+(defun sp-tangle-all ()
+  "Tangle every file in `sp-org-files' to its `:tangle' targets."
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil)
+        (tangled '()))
+    (dolist (name sp-literate-files)
+      (setq tangled
+            (append tangled
+                    (org-babel-tangle-file (expand-file-name name sp-literate-org-dir)))))
+    (message "Tangled %d file(s): %s"
+             (length tangled)
+             (mapconcat #'file-name-nondirectory tangled ", "))
+    tangled))
+
+;;; Provide:
+
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.

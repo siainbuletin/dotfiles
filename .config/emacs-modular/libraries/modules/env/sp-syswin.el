@@ -1,5 +1,5 @@
-;; -*- lexical-binding: t; -*-
-;; sp-win.el
+;; -*- lexical-binding: t -*- 
+;; sp-syswin.el
 
 ;;; Commentary:
 
@@ -20,4 +20,6 @@
         w32-get-true-file-attributes nil      ; Decrease file IO workload
         w32-pipe-buffer-size (* 128 1024)))   ; Read more at a time
 
-(provide 'sp-win)
+
+(provide 'sp-syswin)
+;; sp-syswin.el ends here

@@ -1,6 +1,10 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-faces.el --- Setup for faces
 
+;;; Commentary:
+
+;;; Code:
+
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
@@ -145,6 +149,8 @@
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
+
+;;; Provide:
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

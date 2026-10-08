@@ -1,0 +1,12 @@
+#+title: Academic org setup
+
+Large modules concerned here
+
+- Bibliography management :: currently declared in sp-bibprocess.org
+- Citations :: There are several backends that I could use, but it's preferrable to go with the newly built-in ~org-cite~
+- PDF preview :: Should include support for DEVONthink (in development)
+PDF/file management - some functions can be taken from elsewhere if needed
+Writing and exporting in an academic function - this is typesetting and should be done with LaTeX, pandoc, Typst, and everything else that may help in this case.
+
+
+This file may get too long if it doesn't include several other `.org` files that would have to be tangled.

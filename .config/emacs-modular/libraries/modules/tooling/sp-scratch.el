@@ -43,6 +43,8 @@ User may prefer to set this to `sp-scratch-save-dir'."
 ;					"when exiting Emacs!\n\n")
 
 ;;;; Functions
+;; I don't currently know what to do with this or if it's helping the scratch in any way.
+(customize-set-variable 'sp-scratch-default-dir sp-scratch-save-dir)
 
 (defun lem--bury-scratch ()
   "Don't kill scratch buffer, bury it."

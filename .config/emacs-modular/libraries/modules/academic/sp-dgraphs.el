@@ -1,5 +1,13 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-dgraphs.el
 
+;;; Commentary:
+
+;; This is just adding the code for Discourse Graphs, which I want to have
+;; set up separately. I need to pull in the other variables used in Lambda
+;; Emacs for it to work well.
+
+;;; Code:
 (use-package discourse-graphs
   :ensure (discourse-graphs :type git
                             :host github
@@ -101,3 +109,8 @@
                            :target (question)))
       )
         )
+
+;;; Provide:
+
+(provide 'sp-dgraphs)
+;; sp-dgraphs.el ends here.

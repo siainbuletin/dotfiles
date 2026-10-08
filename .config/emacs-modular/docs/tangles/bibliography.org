@@ -1,0 +1,1072 @@
+
+
+#+title: Bibliography management within Emacs
+#+startup: overview
+
+* What exactly are you trying to replace
+
+I want to bring in an _annotated bibliography_ format that would allow me to have integrated notes all over the Emacs system. This means a tight integration with the zettelkasten system. Currently, my system is based around =denote=, so I'll be using =citar-denote= for configuring the literature notes.
+
+There's multiple bibliography files that I have on my computer. This can be seen all at once from =helm-bibtex= already, which has a nice interface to my BibTeX files.
+
+This list of descriptors tells how I've settled on particular solutions for the various moving parts of my configuration. One version of replacing Zotero completely can be done with this:
+
+- managing the database :: through =ebib=. it can handle a much larger BibTeX file.
+
+- handling citations :: both =org-ref= and =org-cite= can handle this in =org= documents. set up both of them to use the =ebib= database as the default bibliography.
+
+- literature notes :: can be done with =org-roam-bibtex=, which plugs into =org-roam=. That means that when I click a citation, a hydra asks me what I want, I press 'n', and it takes me to an existing note or opens an =org-roam-capture= buffer, pre-filled with title, keywords, author etc.
+
+The problem with =org-roam-bibtex= is that it hasn't been updated much lately.
+
+- fetch PDFs from DOI :: org-ref
+
+- look up paper on databases :: =biblio= (dependency of =org-ref=) can be used to look up a paper on e.g. ArXiv and retrieve the BibTeX entry.
+
+Biblio can also download the PDF for you , either direct from ArXiv or it can look for open access versions of the paper. You need to provide a folder path for your bibliography.
+
+- getting up to speed with reading :: Having this folder path correctly set up, the hydra mentioned before will also offer to open the PDF. It must be named the same as the cite key. If this is correctly set up, it is a breeze to download PDFs and open them for a quick look in =pdf-tools= or even =org-noter=, read and annotate and save your note in the org-roam system, and close it again.
+
+- inserting from the bibtex database :: =Citar= can search your BibTeX database and insert org-cite formatted citations, BibTeX entries, or formatted references. It can also be used to find and insert multiple cite keys (I don't think it can be made to insert org-ref formatted citations, but once the keys are there, that is easy).
+
+With Citar + Embark, I can search for a reference , narrow it down with consult/vertico, and with the =embark-citar= menu I can either open the PDF or the org-roam notes for the entry that way.
+
+It took me a bit to find the right setup, and there are still a few rough edges, but I still think it is way nicer than any reference manager I have used before.
+
+The functionality that I actually need for my system
+
+It's actually quite hard to settle on a combination of settings for what I need in my own usage. While =org-ref= is one of the most advanced packages for bibliography management that has been made for Emacs, it doesn't actually provide all of the functions that I may want.
+
+- a way to attach my PDF files :: I want to have integration with the file system that can go as deep as I need it to.
+
+It also needs to not be bound to specific directories. The problem with =org-attach= is that it creates specific directories
+
+- easy way to find the PDF files again :: This would also mean that I can search the PDF files by name, or query them through the command line through something like grep. I want to avoid being locked into the Emacs ecosystem as much as possible. Also, the PDF files should be able to live in a single flat directory from which I can select things.
+
+- functionality between markdown and org-mode :: This is especially important if I want to have =completion-at-point= for my citation keys. Currently, the package that supports this is =citar=.
+
+* Functions needed for this to work
+
+* Logistical issues to sort out
+
+Since Emacs functions in its own particular way, there are some decisions that we need to make in the bibliography management workflow to make it smooth and not have Emacs throw up too much of a fuss.
+
+** TODO How do you plan to deal with all of the biggest BibTeX files?
+
+It seems that =org-ref=, like other bibliography managers built for Emacs, was made to work with pure BibTeX files. Now, I know that if my BibTeX files get too big (aroung 2k entries), they don't even really load within BibDesk anymore. This is a large issue.
+
+Ideally, I would be able to keep all of the BibTeX entries into one gargantuan file, but I am scared that this will make the entire system just crash instantly.
+
+Org-cite is reportedly not very suited for handling large files[1] (at least it wasn't 4 years ago). Suggestions for other packages
+- =org-cite= per se is not slow, but the =oc-basic= insert processor you're using is on the first load, after which the data is cached.
+- citar uses =parsebib=, which is very fast.
+
+You can also limit which parts of the org-cite libraries will load.
+- this is actually adjusted in the Lambda Emacs distribution (to deal with any kind of speed issue)
+  - Lambda Emacs uses =oc= and =oc-csl= along with =citar=
+  - it doesn't make use of =org-ref=
+  - the lambda emacs config has changed since 4 years ago and not uses a custom package called =bibtex-capf= (which works with both Markdown and org files)
+
+* Configuring basic =bibtex-mode=
+
+At its core, =ebib= isn't actually all that useful on top of the already useful integrated =bibtex-mode= within Emacs itself.
+
+** Customizing the automatic citekey generation
+
+I want to replicate the pattern that I had in BibTeX
+
+** Automatically renaming the BibTeX entries in the file
+
+This prompt shows up whenever you add a new entry to the BibTeX file you're working with.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq bibtex-autokey-name-separator nil
+      bibtex-autokey-name-year-separator nil
+      bibtex-autokey-year-length 4
+      bibtex-autokey-names 1
+      bibtex-autokey-names-stretch 1
+      bibtex-autokey-titlewords 0)
+#+end_src
+
+* Preparing the environment for bibliography management
+
+Before we can bring in the actual management packages, we need the =org-mode= backend that can handle everything.
+
+** TODO Defining BibTeX files as separate variables for portability
+
+If you want to avoid setting the same file path for bibliography files across different packages, you can take the Emacs Writing Studio approach and define them as a variable that can be called later.
+
+** TODO General biliography bootstrapping
+
+This is where we're calling the default BibTex functions. =bibtex=, here, refers to the Emacs BibTeX mode. BibTeX mode has support for adding entries according to certain field configurations (it would be a lot more visual, like working in BibDesk for the same purpose).
+
+The new optional fields that are defined under =bibtex-user-optional-fields= define keywords for tagging the literature and =file= to allow reading attachments from Emacs.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package bibtex
+    :ensure nil
+    :custom
+    (bibtex-dialect 'biblatex)
+    (bibtex-user-optional-fields
+     '(("keywords" "Keywords to describe the entry" "")
+       ("file"     "Relative or absolute path to attachments" "" )))
+    (bibtex-align-at-equal-sign t)
+    :config
+    (sia-bibtex-register)
+    :bind
+    (("C-c w b r" . sia-bibtex-register))
+  )
+#+end_src
+
+The =sia-register-bibtex= function  assigns all files with the =.bib= extension in the directory stored in the ~sia-bibliography-directory~ variable to the list of global BibTeX files. You need to set this variable to the location where you store your bibliography. Section #sec-bib in _Emacs Writing Studio_ explains creating and managing a bibliography. We use a special variable to ensure other variables have the same value.
+
+* Finding out about bibliography
+
+This goes hand in hand with the later step of [[#Ingesting the files]]. Currently, it's possible to look up bibliography either through the =consult-omni= package (which is configured in the module for [[file:browser.org][Browsing in Emacs]]), or you can use =biblio=. =biblio= is a dependency of =org-ref=.
+
+* Ingesting the files into the database
+
+There's multiple options that you can use in this case:
+
+- drag and drop PDF or DOI link :: org-ref can take care of the entry and download the PDF for you.
+
+But how do you tell =org-ref= where to find these fles?
+
+- supplying an already formatted BibTeX record :: for this, you can run =doi-utils-get-bibtex-entry-pdf= to get the PDF.[fn:2]
+
+- replicating Zotero connector functionality in the browser itself :: someone has developed some hooks based on =org-protocol= for this, but I would have to look into it further.
+
+** Preliminary: Installing =org-protocol=
+
+This is necessary for [[id:2f21897e-675d-4238-a980-7bf10e31f40d][Ingesting from the browser (with =org-capture-ref=)]].
+
+This is from a guide for Firefox, which would work generally.
+
+** TODO Configuring the =biblio= package
+
+The Biblio package enables you to extract literature from various databases.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package biblio
+    :ensure t
+    :bind
+    (("C-c w b b" . sia-bibtex-biblio-lookup)))
+#+end_src
+
+*** Extension of =biblio= which pulls packages from [[denote:20251120T214608][Google Scholar]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package biblio-gscholar
+        :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+#+end_src
+
+*** Custom BibTeX filters for =biblio=
+
+By default biblio.el performs only minor cleanups on the BibTeX entries that it downloads from the web. To customize the clean-up phase, add functions to biblio-cleanup-bibtex-function (each such function should take one argument, autokey, indicated whether to generate a new BibTeX key; see biblio-format-bibtex).
+
+Add custom field ‘creationdate’ recording the date when the item was added.
+
+I'm gonna turn these two off because it shows that =biblio-cleanup-bibtex-function= is symbol's value as variable is void (I still don't know how to fix all of this reliably).
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defun ~biblio-record-creation-date (_autokey)
+    (save-excursion
+      (bibtex-make-field "creationdate" t t)
+      (insert (format-time-string "%Y-%m-%d"))))
+
+  (add-function
+   :before biblio-cleanup-bibtex-function
+   #'~biblio-record-creation-date)
+#+end_src
+
+Prevent ‘bibtex-mode’ from inserting tabs.[fn:4] *But aren't tabs actually good?*
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defun ~biblio-with-spaces-not-tabs (oldfun &rest args)
+    (let ((indent-tabs-mode nil))
+      (when oldfun
+        (apply oldfun args))))
+
+  (add-function
+   :around biblio-cleanup-bibtex-function
+   #'~biblio-with-spaces-not-tabs)
+#+end_src
+
+** =pdf-drop-=mode=: Dragging and dropping a PDF in the database
+
+There's the option to use Rougier's =pdf-drop-mode=, which can just make it possible drag and drop a PDF and eventually fetch the DOI automatically. It adds support for simply dragging and dropping PDFs to add them to the BibTeX file.
+
+But does =pdf-drop-mode= also format the entry?
+
+** Ingesting from the browser (with =org-capture-ref=)
+:PROPERTIES:
+:ID:       2f21897e-675d-4238-a980-7bf10e31f40d
+:END:
+
+=org-capture-ref= depends on =org-protocol= in order to collaborate with the browser
+
+This will create a different org file that will have a BibTeX block inserted into the body of the file. This can be used for quickly creating literature notes that exists by themselves (see [[id:1ad2bbe5-867c-4add-a3d6-6c3375bb770e][Creating annotated bibliography records (with literature notes)]])
+
+Before bootstrapping =org-capture-ref=, we first need to call =persid= (Nicolas Rougier's "Persistent Identifier Library"). This package works with ISBN, ISSN, DOI, PMID, PMCID and ARXIV and it can help with creating a personal database of such documents.
+
+This is all currently disabled because I'm getting issues with elpaca pulling the packages.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package persid
+      :ensure (persid :type git :host github :repo "rougier/persid"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-capture-ref
+    :ensure (:type git :host github :repo "yantar92/org-capture-ref")
+    :after (org-ref persid))
+#+end_src
+
+*** Setting up =org-capture= to actually work for this
+
+I'm actually having issues with getting these 3 packages to work. I get errors with the =require= call that comes later and I can't load my Emacs, actually.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package asoc
+      :ensure (:type git :host github :repo "troyp/asoc.el"))
+
+      (use-package doct
+        :ensure t)
+#+end_src
+
+*** TODO Setting up the relevant org capture templates
+
+This is also disabled for the reasons listed above.
+
+Do I really need to use =(require)= templates in here? Isn't it bound to lexical binding
+
+#+begin_src emacs-lisp :tangle no :eval never
+; (require 'org-capture)
+; (require 'asoc)
+; (require 'doct)
+; (require 'org-capture-ref)
+
+(let ((templates (doct '( :group "Browser link"
+ 			  :type entry
+ 			  :file "~/notes/inbox/bib-capture.org"
+ 			  :fetch-bibtex (lambda () (org-capture-ref-process-capture)) ; this must run first
+                          :link-type (lambda () (org-capture-ref-get-bibtex-field :type))
+                          :extra (lambda () (if (org-capture-ref-get-bibtex-field :journal)
+					   (s-join "\n"
+                                                   '("- [ ] download and attach pdf"
+						     "- [ ] [[elisp:org-attach-open][read paper capturing interesting references]]"
+						     "- [ ] [[elisp:(browse-url (url-encode-url (format \"https://www.semanticscholar.org/search?q=%s\" (org-entry-get nil \"TITLE\"))))][check citing articles]]"
+						     "- [ ] [[elisp:(browse-url (url-encode-url (format \"https://www.connectedpapers.com/search?q=%s\" (org-entry-get nil \"TITLE\"))))][check related articles]]"
+                                                     "- [ ] check if bibtex entry has missing fields"))
+                                         ""))
+                          :org-entry (lambda () (org-capture-ref-get-org-entry))
+			  :template
+                          ("%{fetch-bibtex}* TODO %?%{space}%{org-entry}"
+                           "%{extra}"
+                           "- Keywords: #%{link-type}")
+			  :children (("Interactive link"
+				      :keys "b"
+				      :clock-in t
+                                      :space " "
+				      :clock-resume t
+				      )
+				     ("Silent link"
+				      :keys "B"
+                                      :space ""
+				      :immediate-finish t))))))
+  (dolist (template templates)
+    (asoc-put! org-capture-templates
+	       (car template)
+	       (cdr  template)
+	       'replace)))
+#+end_src
+
+TL;DR how the above code works: Call org-capture-ref-process-capture at the beginning to scrape BiBTeX from the link. Then use org-capture-ref-get-org-entry to format the heading (according to org-capture-ref-headline-format). Alternatively it is possible to use org-capture-ref-get-bibtex-field to get metadata directly (:bibtex-string field will contain formatted BiBTeX entry).
+
+org-protocol has to be integrated specifically with =qutebrowser=
+
+*** How does =org-ref= find the references in individual annotated bibliography files?
+
+The records have to exported to the manuscript file that you're working with (meaning the associated BibTeX file
+
+*** Integration with elfeed
+
+This allows us to capture RSS links that are coming through =elfeed=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun yant/elfeed-capture-entry ()
+  "Capture selected entries into inbox."
+  (interactive)
+  (elfeed-search-tag-all 'opened)
+  (previous-logical-line)
+  (let ((entries (elfeed-search-selected)))
+    (cl-loop for entry in entries
+	     do (elfeed-untag entry 'unread)
+	     when (elfeed-entry-link entry)
+	     do (flet ((raise-frame nil nil))
+		  (org-protocol-capture (list :template "B"
+					      :url it
+					      :title (format "%s: %s"
+							     (elfeed-feed-title (elfeed-entry-feed entry))
+							     (elfeed-entry-title entry))
+                                              :elfeed-data entry))))
+    (mapc #'elfeed-search-update-entry entries)
+    (unless (use-region-p) (forward-line))))
+#+end_src
+
+** TODO Templates for =org-capture= for bringing in new bibliography
+
+This could also be done through something like =org-protocol= or =emacs-anywhere= to be able to integrate it more tightly with the browser.
+
+** TODO Getting =OpenAlex= to work for fetching more bibliography
+
+=OpenAlex= is a part of =org-ref=, so first and foremost that has to be configured separately.
+
+** TODO Regular copy pasting of the reference into the BibTeX file
+
+Would it be easy to do with =citar=?
+
+** DONE =zotra=: Bringing Zotero translators into Emacs
+CLOSED: [2025-12-23 Tue 20:39]
+
+!@Zotra is removed for the time being, because the translation done for articles isn't that much different from doi-utils. Zotra still only deals with DOIs, which is not what I need, considering that I need more complex bibliography management (and more idiosyncratic material that I'm working with).!@
+
+It can mostly use the title search to look for the proper articles/books and their DOIs, if you don't already have them on hand. It might actually work better than the =doi-utils= package.
+
+Unfortunately, because of installation errors, I have to actually package this as a module in itself (I don't yet know how to create a git submodule, but =zotra= hasn't really been updated in a while anyway).
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (add-to-list 'load-path "~/.config/emacs-include/cloned-modules/zotra")
+  (require 'zotra)
+
+  (setq zotra-backend 'translation-server)
+  (setq zotra-local-server-directory "~/cloned-utilities/zotero-translation-server")
+  (setq zotra-default-bibliography "~/Documents/bibliography/zotra-inbox.bib"
+        )
+  (setq zotra-download-attachment-default-directory "~/Documents/literature/zotra-dwnld")
+#+end_src
+
+The original call with =use-package= (might be an error with MELPA, because it can't pull any kind of information).
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package zotra
+    :ensure t)
+
+  ; (setq zotra-backend 'zotra-server) ; doesn't work because zotra-server isn't updated
+#+end_src
+
+See the documentation for [[denote:20251211T093333][zotra]] for why it doesn't really work as it should.
+
+* Managing the actual database itself
+
+Although there's a option to use =ebib=, I really dislike its interface. I would much rather just open the relevant BibTeX file and add the entry manually, as this part is already quite manual within =ebib= itself. The interface also isn't the most handsome of all.
+
+** Preloading files in =ebib=
+Before being able to point to a specific folder for BibTeX files that ebib should be preloading, we need to define a function.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defvar do.refs/db-dirs nil
+  "A list of paths to directories containing all my bibtex databases")
+
+(defvar do.refs/pdf-dir nil
+  "The path to the directory containing the PDF files. The file
+  for the entry with key <key> is stored as <key>.pdf.")
+
+(defvar do.refs/notes-dir nil
+  "The path to the directory containing my notes for the
+  references. The note for the item with key <key> is stored in
+  this folder as <key>.org")
+
+(defvar do.refs/pdf-download-dir nil
+  "The path to the temporary directory to which we download PDF
+  files.")
+
+(defvar do.refs/file-assoc `(("pdf" . "open")
+                           ("docx" . "open")
+                           ("doc" . "open")
+                           ("pptx" . "open")
+                           ("ppt" . "open"))
+  "The executables used to open related files from the reference database.")
+
+(defun do.refs/get-db-file-list ()
+  "Get the list of all the bib files containing my bib database."
+  (mapcan (lambda (dir) (directory-files dir t "\\.bib\\'"))
+          do.refs/db-dirs))
+
+(defun do.refs/update-db-file-list ()
+  "Update the list of bib files."
+  (interactive)
+  (let ((db-list (do.refs/get-db-file-list)))
+    (setq reftex-default-bibliography db-list)
+    (setq bibtex-completion-bibliography db-list)
+    (setq ebib-preload-bib-files db-list)))
+#+end_src
+
+Pointing ebib to the proper databases is done as such:[fn:1] The notes directory is disabled because I use =citar-denote= for managing literature notes. See below: [[e0129068-4390-4c89-adb7-1c4050f22b02][Literature notes through citar-denote]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq ebib-file-search-dirs sia-bibtex-files)
+  ;; (setq ebib-notes-directory "~/Documents/ebib-literature-notes")
+  (setq ebib-preload-bib-files (do.refs/get-db-file-list))
+#+end_src
+
+** Autogenerating citekeys in =ebib=
+Auto-generating the citekeys through =ebib= (with the help of the built-in BibTeX mode)[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq bibtex-autokey-year-length 4)
+  (setq bibtex-autokey-titleword-separator "-")
+  (setq bibtex-autokey-name-year-separator "-")
+  (setq bibtex-autokey-year-title-separator "-")
+  (setq bibtex-autokey-titleword-length 8)
+  (setq bibtex-autokey-titlewords 3)
+  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+        '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
+#+end_src
+
+** Importing from the clipboard into =ebib=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(defun do.refs/ebib-import-from-clipboard ()
+    "Attempt to import the contents in the kill ring/clipboard into `ebib'."
+    (interactive)
+    (with-temp-buffer
+      (yank)
+      (ebib-import)
+      (call-interactively #'ebib)))
+#+end_src
+
+** Adding the most recently downloaded PDF to the current entry
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun do.refs/ebib-add-newest-from-downloads (&optional file-extension)
+    "Add the most recent file from `do.refs/pdf-download-dir' to the ebib entry at point."
+    (interactive)
+    ;; pull out the most recent file from ~/Downloads with the .pdf extension.
+    (let ((newest-file (let ((dir-files (directory-files-and-attributes do.refs/pdf-download-dir)))
+                         (caar (sort
+                                (if (not file-extension)
+                                    ;; the newest file from the download directory
+                                    (mapcan (lambda (x)
+                                              (let ((file-name (concat (file-name-as-directory do.refs/pdf-download-dir) (car x))))
+                                                (when (file-regular-p file-name) (cons x nil))))
+                                            dir-files)
+                                  ;; all files with a certain extension
+                                  (mapcan (lambda (x) (when (string-equal (file-name-extension (nth 0 x)) file-extension) (cons x nil)))
+                                          dir-files))
+                                ;; sort by date
+                                (lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))))
+      (if newest-file
+          ;; https://nullprogram.com/blog/2017/10/27/
+          ;; need to override `read-file-name' because ebib normally prompts us for the file to import
+          (let ((fpath (concat (file-name-as-directory do.refs/pdf-download-dir) newest-file))
+                (bibkey (ebib--get-key-at-point)))
+            (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) fpath)))
+              (let ((current-prefix-arg '(4))) ;; C-u (to keep from removing original file)
+                (call-interactively #'ebib-import-file)))
+            (message "[Ebib] [Dennis] Imported %s for %s" fpath bibkey))
+        (message "[Ebib] [Dennis] No files from %s imported." do.refs/pdf-download-dir))))
+#+end_src
+
+** TODO Cleaning the incoming records into the BibTeX database
+* TODO Picking out citations from the minibuffer
+
+This is here because citar should be bootstrapped a lot earlier on.
+
+This should also include a preview of the name of the author, the name of the work, and the type of work it is (book, journal article, book section, blog post, etc).
+
+The package which provides an interface for this is =citar=. Through various commands, it will show a global view of all of the packages.
+
+=sia-bibtex-files= is a function that I explained the definition of in [[#Defining BibTeX files as separate variables for portability]].
+
+This will also be setting up completion-at-point function for =citar-capf=.
+
+By customizing the processors for =org-cite=, I'm basically completely replacing =org-cite= with =citar=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+         (use-package citar
+           :ensure t
+           :defer t ; what's the point of defering in this case?
+           :custom
+           (org-cite-global-bibliography sia-bibtex-files)
+           (org-cite-insert-processor 'citar)
+           (org-cite-follow-processor 'citar)
+           (org-cite-activate-processor 'citar)
+           (citar-bibliography sia-bibtex-files)
+
+           (citar-templates
+  '((main . "${author editor:30}   ${date year issued:4}    ${title:110}")
+    (suffix . "     ${=type=:20}    ${tags keywords keywords:*}")
+    (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
+    (note . "#+title: Notes on ${author editor}, ${title}") ; For new notes
+    ))
+   	(citar-symbols
+   	 `((file ,(all-the-icons-faicon "file-o" :face 'all-the-icons-green :v-adjust -0.1) .
+   		 ,(all-the-icons-faicon "file-o" :face 'kb/citar-icon-dim :v-adjust -0.1) )
+   	   (note ,(all-the-icons-material "speaker_notes" :face 'all-the-icons-blue :v-adjust -0.3) .
+   		 ,(all-the-icons-material "speaker_notes" :face 'kb/citar-icon-dim :v-adjust -0.3))
+   	   (link ,(all-the-icons-octicon "link" :face 'all-the-icons-orange :v-adjust 0.01) .
+   		 ,(all-the-icons-octicon "link" :face 'kb/citar-icon-dim :v-adjust 0.01))))
+   	(citar-symbol-separator "  ")
+
+           :bind
+           (("C-c w b o" . citar-open))
+           (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+           :hook
+           (LaTeX-mode . citar-capf-setup)
+           (org-mode . citar-capf-setup)
+           (markdown-mode . citar-capf-setup))
+#+end_src
+
+** Setting =citar= to open any kind of file
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-library-file-extensions nil)
+#+end_src
+
+** TODO BibTeX-CAPF (from =Citar=)
+
+What exactly is the point of BibTeX CAPF in this case?
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; CONFIGURING BIBTEX-CAPF
+  (use-package bibtex-capf
+  :ensure (:type git :host github :repo "mclear-tools/bibtex-capf")
+  :hook ((org-mode markdown-mode tex-mode latex-mode reftex-mode). bibtex-capf-mode)
+  :custom
+  (bibtex-capf-bibliography
+   '("~/Documents/bibliography/marx.bib")))
+#+end_src
+
+** Configuring =citar-embark= for acting upon the citations
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package citar-embark
+  :ensure t
+  :after (citar embark)
+  :no-require
+  :config (citar-embark-mode)
+  )
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-at-point-function 'embark-act)
+#+end_src
+
+** TODO Configuring the minibuffer appearance of =citar=
+
+This makes the indicators for the entry types to show the =nerd-icons= font icons (this package is called in [[file:appearance.org][Appearance settings]].
+
+Unfortunately, =citar-indicator-files= gives the function as if it's void, so I've disabled it.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq citar-indicators
+  (list citar-indicator-files ; plain text
+        citar-indicator-notes-icons)) ; icon
+#+end_src
+
+* Creating annotated bibliography records (with literature notes)
+:PROPERTIES:
+:ID:       1ad2bbe5-867c-4add-a3d6-6c3375bb770e
+:END:
+:BACKLINKS:
+[2025-12-19 Fri 01:03] <- [[id:2f21897e-675d-4238-a980-7bf10e31f40d][Ingesting from the browser (with =org-capture-ref=)]]
+:END:
+
+This could be tangled into the actual BibTeX record. And you could keep the literature notes in basically the same place. But it would essentially bypass any kind of bibliography management mode like =org-ref=.
+
+There are two ways to do annotated bibliography records
+
+- all information in a single ~.org~ file :: This means that you can use =org-babel= to tangle the information into a BibTeX file, which can later on be compiled by itself into the master bibliography file that you use just for manuscript compilation. So bibliography in the front-facing manner is only handled in the [[file:typesetting.org][Typesetting stage.]]
+
+- separate BibTeX and literature notes :: There's a way to find the relevant BibTeX record when coming from the literature note. This is a little bit simpler to set up since it doesn't require that much manual tangling. Besides, I don't yet have a good =universal-launcher= or personal variant of an Obsidian Quick Switcher to actually find these records easily. =citar-denote= also allows me to keep tags for each bibliographic record, which would bring it closer to the first variant of keeping everything as a central ~.org~ file.
+
+** Literature notes through =citar-denote=
+:PROPERTIES:
+:ID:       e0129068-4390-4c89-adb7-1c4050f22b02
+:END:
+
+This will depend on my note-taking system being set in =denote=.
+
+=citar-denote= allows the user to browse and *act* on bibliographic data which can be stored in BibTeX, BibLaTeX or JSON. By combining =citar= and =denote=, it now also becomes possible to link =denote= notes to the bibliography. This solves the issue of discoverability for the entire system.
+
+An advantage to =citar-denote= is that it allows keeping multiple notes on the same item of bibliography, and each note can refer to multiple pieces of literature.[fn:3]
+
+It is also claimed that this method will help with creating literature reviews.[fn:3]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package citar-denote
+  :custom
+  (citar-open-always-create-notes t)
+  :init
+  (citar-denote-mode)
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-denote-open-note)
+   ("C-c w b x" . citar-denote-nocite)
+   :map org-mode-map
+   ("C-c w b k" . citar-denote-add-citekey)
+   ("C-c w b K" . citar-denote-remove-citekey)
+   ("C-c w b d" . citar-denote-dwim)
+   ("C-c w b e" . citar-denote-open-reference-entry)))
+#+end_src
+
+What exactly does =citar-denote= do with the bibliographic records themselves?
+
+How do you properly configure citar to make extensions only to =.org= when creating a file?
+
+*** Setting variables for citar denote (with explanations)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-denote-title-format 'author-year-title)
+#+end_src
+
+Ideally, I don't want the title of the org buffer instead to be the citation key, but I want the _filename_ to be the citekey to make reading the buffers a lot easier. This will all be enclosed into the naming scheme used by denote (be careful not to run the renaming function on these files).
+
+This setting will basically leave the title of the file itself to be the citation key, instead of anything else that's formatted. It will still be enclosed within the naming scheme of =denote=.
+
+How will you be able to query the document to also be able to surface the associated PDF file? It would be great if I could replicate the functionality that I had in Alfred which could also open the PDF for me on the other side of the screen.
+
+In any case, the citekey for the document is already part of the =:reference:= property that's assigned to the org file.
+
+Perhaps it could be overcome by simply querying the document through its title instead of relying on the filename to actually get that document.
+
+The problem with setting this function to =nil= is that it doesn't automatically fetch the title for the article I'm reading. So it might not be as important to prioritise the citekey for the PDF I'm working with anymore, since I don't need that as a literature note. Besides, the citekey is actually included as ~:reference:~ in the frontmatter of the file. In a way, that's better. As such, I now default to ~author-year-title~, which provides more useful information.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-denote-title-format-authors '2)
+#+end_src
+
+This sets the number of authors that are included in the format until it defaults to et al.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-denote-keyword "litnote")
+#+end_src
+
+This sets the keyword that identifies a note as being a literature note. The default is =bib=, I have set it up to be =litnote=.
+
+There is an option called =citar-denote-use-bib-keywords= which allows you to transfer all of the keywords from the BibTeX file to =denote= itself. This can be useful, although I'm afraid of the way that denote might end up cluttered. I would rather want to find a way to do nested properties for these. Meaning that the keywords would be written as ~litnote/book-section~ instead of just ~book-section~. Everything that would come from the BibTeX database would be prefixed with ~bibtex/<keyword>~.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq citar-denote-subdir "litnotes")
+#+end_src
+
+*** How are relationships between citation keys and note files maintained?
+
+=citar-denote= creates a cache.
+
+The package regenerates this cache after you edit a bibliography file or call any Citar functions.
+
+*Can this package ever cause any kind of problem?*
+
+Each bibliographic note is marked with the configurable bib file tag (=citar-denote-keyword=). This tag reduces the search space to generate the cache.
+
+*** How to work with the package
+
+Since =citar= already has functionality for dealing with literature notes, creating a literature note is invoked with =citar-create-note=. This will automatically add the ~:bib:~ keyword to the file.
+
+By default, it automatically picks up the =title= property from the BibTeX record that you provide for this, /but this can also be customized if you want/.
+
+Since we're using =citar-denote=, we'll automatically have a =denote= identifier attached to our literature note.
+
+But how do we configure this citar note creation to actually preserve the title of the file as a citekey (at least within the confines of the identifier)? It would basically designate a different metadata element for denote ID creation.
+
+=citar-denote= can also automatically open the associated PDF file for this piece of literature.
+
+*** Setting up templates for =citar-denote=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq denote-templates
+        '((report . "* Some heading\n\n* Another heading")
+  	(biblio . ,(concat "Creator: %^{author-or-editor}"
+  			   "\n\n"
+  			   "* Basics"
+  			   "\n\n" ; this will add a new line
+  			   "* Related bibliography"
+  			   "insert an org dynamic block here"))))
+#+end_src
+
+This currently doesn't actually work, it doesn't insert anything into the file that I'm creating with citar.
+
+It would be good if I could generate a [[denote:20251121T150529][denote query link]] for linking back to the author that created this article. It would aid a lot in discoverability (and making a good reference graph).
+
+*** How are relationships between citation keys and note files maintained?
+
+=citar-denote= creates a cache.
+
+The package regenerates this cache after you edit a bibliography file or call any Citar functions.
+
+*Can this package ever cause any kind of problem?*
+
+Each bibliographic note is marked with the configurable bib file tag (=citar-denote-keyword=). This tag reduces the search space to generate the cache.
+
+** Keeping a [[denote:20251213T184505][reading list]] with [[denote:20251203T121324][org-bib-mode]]
+
+This is currently disabled because org-bib-mode is based on an old library for citeproc. I could theoretically modify it to work for my own needs, by removing citeproc and enabling native =org-cite= support. Maybe there's a different way I could see all of the component bibliography for my writing if I just use org column view and use the original CachesToCaches template for annotated bibliography. It's too hard to get this working properly, unfortunately.
+
+This will allow [[denote:20251203T121052][Research as a task]], because you can list out the things that you're looking for with the bibliography from those files.
+
+This is a minor mode created by [[denote:20251217T105353][Nicolas P. Rougier]]. It depends on =org-imenu= and =pdf-drop-mode=.
+
+=org-bib-mode= also requires =citeproc.el=.
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (use-package pdf-drop-mode
+      :ensure (pdf-drop-mode :type git
+    			 :host github
+    			 :repo "rougier/pdf-drop-mode"))
+
+    (use-package citeproc
+      :ensure t)
+
+    (use-package citeproc-org
+      :ensure t)
+#+end_src
+
+=org-imenu= doesn't work if I don't load it manually. It depends on =imenu-list=, which I won't try to install from ELPA, since it doesn't appear to be listed. They're all pretty old packages.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (load "~/.config/emacs-include/imenu-list.el")
+  (load "~/.config/emacs-include/org-imenu.el")
+#+end_src
+
+=org-bib-mode= has to be loaded separately as an Elisp module.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (load "~/.config/emacs-include/rougier-org-bib.el")
+#+end_src
+
+*** TODO Pulling tasks from the linked files into the "Reading list file"
+
+It would be a good idea to somehow scan only the [[denote:20251115T114845][denote]] files (created with [[denote:20251115T114734][citar-denote]]) and fetch the [[denote:20251217T104019][citekeys]] that are put in ~#+reference:~ frontmatter field that match what is outlined in the Rea  (require 'org-bib)ding list file, which has completed references from the [[denote:20251206T173825][citar]] package, with which you can just /insert/ stuff.
+
+This could be made even better if I could also transclude the content of /blocks/ that contain [[denote:20251120T232656][BibTeX]] information in them, so I could use [[denote:20251206T160309][org-babel]] to tangle all of that content to the relevant [[denote:20251120T232656][BibTeX]] file that I actually use for my writing projects, since all of the cruft has actually been filtered out. In this case, a [[denote:20251120T232656][BibTeX]] file that I have in my ~~/Documents/bibliography~ directory is actually just a collection point for bibliography (see [[denote:20251214T160922][Capturing bibliography]]).
+
+* Integrating citar with =pdf-tools=
+
+See also [[#configuring-how-files-are-attached-through--citar-][Configuring how files are attached through =citar=]] for adding PDFs to the files.
+
+** Searching contents of PDFs
+
+Taken from the citar wiki: https://github.com/emacs-citar/citar/wiki/Example-functions
+
+If you run this and select candidates, this will pass the list of any associated PDF files to pdf-tools to search across all of them. If you run embark-act-all on a filtered candidate list, it will pass the files associated with all of those candidates.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun sia-search-pdf-contents (keys-entries &optional str)
+    "Search pdfs."
+    (interactive (list (citar-select-refs)))
+    (let ((files (citar-file--files-for-multiple-entries
+                  (citar--ensure-entries keys-entries)
+                  citar-library-paths
+                  '("pdf")))
+          (search-str (or str (read-string "Search string: "))))
+      (pdf-occur-search files search-str t)))
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; with this, you can exploit embark's multitarget actions, so that you can run `embark-act-all`
+  (add-to-list 'embark-multitarget-actions #'sia-search-pdf-contents)
+#+end_src
+
+** Add metadata to PDF files
+
+This function will use the metadata from the entry and update the PDF file metadata. Note that it will make use of the 'editor' field when the 'author' field is empty while also keeping your library free of the backup files that =exiftool= creates by default (backups will be stored in the ex/citar-library-backup-path).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defvar sia-citar-library-backup-path "~/Documents/literature/backup")
+
+  (defun sia-citar-update-pdf-metadata (citekey)
+    (interactive (list (citar-select-ref)))
+    (citar--check-configuration 'citar-library-paths)
+    (unless citar-library-paths
+      (user-error "Make sure `citar-library-paths' is non-nil"))
+    (let* ((files (gethash cite-key (citar-get-files cite-key))))
+      (unless files
+        (user-error (format "There are no PDF files associated with %s" citekey)))
+      (let ((file (or (unless (cdr files) (car files)) (completing-read "Please select a PDF file: " files)))
+            (title (citar-get-value 'title citekey))
+            (author (cond ((citar-get-value 'author citekey)
+                           (citar-get-value 'author citekey))
+                          ((citar-get-value 'editor citekey)
+                           (concat (citar-get-value 'editor citekey) " (ed.)")))))
+        (progn
+          (copy-file file sia-citar-library-backup-path 1)
+          (call-process-shell-command
+           (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
+#+end_src
+
+* Working with bibliography while writing
+
+While writing, it's important that I can easily call references to things I've read. In this way, I can build useful zettels that I use as references back to the reading material, as well as a marker of my level of expertise in a particular domain.
+
+This means that I spend as little time as possible within any other app than Emacs, so I can focus on simply writing and researching as much as possible.
+
+It's detailed as an ideal workflow in _Interleaved Notes and Reference Management_ in Obsidian.
+
+When working directly with the buffer where we're taking notes, there's several needs that I have to fulfill.
+
+1. calling the minibuffer for showing available citations
+2. rendering the citations inline
+
+** TODO Rendering the citations inline
+
+_Taken directly from Emacs Writing Studio._
+
+This configuration sets the global bibliography equal to the =sia-bibtex-files= variable. To set this variable, configure the =sia-bibtex-directory= to register bibliography files and run the =sia-bibtex-register= function every time you add new bib-files.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (require 'oc-natbib)
+  (require 'oc-csl)
+
+  (setq org-cite-global-bibliography sia-bibtex-files
+        org-cite-insert-processor 'citar
+        org-cite-follow-processor 'citar
+        org-cite-activate-processor 'citar)
+#+end_src
+
+* TODO Managing reading resources (bibliography)
+
+* TODO Calling the necessary packages
+
+** Adding =org-ref=
+
+#+begin_src emacs-lisp :tangle "init.el"
+      (use-package org-ref
+        :ensure t)
+        ;;(advice-add #'completing-read-multiple :override #'consult-completing-read-multiple)
+        ;;(require 'org-ref)
+        ;;(require 'doi-utils) ; this was taken from a different config
+
+      (use-package helm-bibtex
+        :ensure t)
+#+end_src
+
+*** Adding main paths for =org-ref=
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-ref-default-bibliography '("~/Documents/bibliography/master.bib")
+      org-ref-pdf-directory "~/Documents/literature/")
+#+end_src
+
+** What exactly are you doing with so many bibliography management packages?
+
+* TODO Working with literature notes
+
+When I decide that I'm about to read something, I need to create an entry for it somehow. There's multiple way to act on the BibTeX file that I have on hand.
+
+One of them is through the =org-ref= package, which provides the =org-ref-open-bibtex-notes= function. It will create a new entry if it can't find one.[fn:2] *But how exactly does it locate this entry?*
+
+If you don't have the BibTex file open, you can search the BibTeX database with =helm-bibtex= instead. For this to work, =helm-bibtex= has to know where the notes and the PDFs reside initially.
+
+As opposed to =citar-denote=, which creates an extremely verbose filename for my literature notes, I have configured =ebib= (above) to simply create notes based on the citekey. This is a lot more ergonomic.
+
+** TODO Making the search through bibliographic files faster
+
+The citation search mechanism in =citar-denote= uses =xref= at its base. This can be improved if you use =ripgrep= instead. You just have to set =xref-search-program= to =ripgrep=, which I have done above.
+
+*** Adding a bibliographic note in a silo
+* TODO Configuring the attachment framework
+
+Since org-attach doesn't allow a flat directory structure, I will be using a different framework for storing the fields.
+
+=ebib= is capable of attaching a PDF in the =file= field of a BibTeX file. I am worried about misplacing something at some point.
+
+** CANCELLED configuration for =org-attach=
+** TODO Configuring =helm-bibtex= for opening external files
+
+=helm-bibtex= will open the files either with =pdf-tools= or =docview=
+
+*But how do you attach a PDF to a BibTex entry?*
+** Configuring how files are attached through =citar=
+:PROPERTIES:
+:CUSTOM_ID: configuring-how-files-are-attached-through--citar-
+:END:
+
+There's an option in =citar= which allows you to write a =file= field in the BibTeX file in Emacs. For this, you need to specify where your library of PDFs is actually located.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; (setq citar-library-paths "~/Documents/literature")
+;; this has to be a list of directories in order to work
+
+(setq citar-library-file-extensions (list "pdf" "jpg")
+      citar-file-additional-files-separator "-")
+#+end_src
+
+** TODO Separate bibliographic records for each BibTeX entry
+
+It is actually possible to use dedicated =org= files from which you can tangle a BibTeX file.
+
+But how can this even get managed through something like =org-ref= effectively? I feel like it would only introduce more and more headaches.
+
+It is also possible to set the bibliography notes to go into a single file, but this isn't the approach that I want to take (mostly because I don't want to deal with gargantuan org files).
+
+#+begin_src emacs-lisp :tangle no
+(setq org-ref-bibliography-notes "~/org/bibnotes.org")
+#+end_src
+
+Note that it is entirely possible to have separate note files for every entry in your bibliography file.
+- *Could I be able to do this by adopting those separate bibliographic records I saw?*
+- see [[#Separate bibliographic records for each BibTeX entry]]
+
+*** Configuring source for BibTeX completion from =helm-bibtex=
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (setq bibtex-completion-bibliography
+        '("~/Documents/bibliography/master.bib"
+          "~/Documents/bibliography/thesis.bib"
+          "~/Documents/bibliography/marx.bib"
+          "~/Documents/bibliography/hci.bib"
+          "~/Documents/bibliography/aesthetics.bib"
+          "~/Documents/bibliography/hegel-prezentare.bib"
+          "~/Documents/bibliography/modernitate.bib")
+  	  bibtex-completion-library-path '("~/Documents/literature/")
+  	  bibtex-completion-notes-path "~/Documents/org/"
+  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
+#+end_src
+
+**** Test for declaring the bibliography directory as a variable (=sia-bibtex-files=)
+
+If I try to do this, I run =helm-bibtex= to see if it worked and I get =Wrong type argument: stringp, sia-bibtex-files= as an error.
+
+Try to see if this solution might work: https://github.com/tmalsburg/helm-bibtex/issues/429
+
+#+begin_src emacs-lisp :tangle no
+  (setq bibtex-completion-bibliography
+        'sia-bibtex-files)
+  	  bibtex-completion-library-path '("~/Documents/literature/")
+  	  bibtex-completion-notes-path "~/Documents/org/"
+  	  bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
+#+end_src
+
+*** Configuring BibTeX citekey generation from =bibtex-completion= engine
+
+At least this is what I think it is. This is currently disabled because I'm getting function is void error.
+
+#+begin_src emacs-lisp :tangle no
+  ;; this bit was copied directly from the GitHub page, I don't actually understand what it does
+  bibtex-completion-additional-search-fields '(keywords)
+  bibtex-completion-display-formats
+  '((article       . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${journal:40}")
+    (inbook        . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} Chapter ${chapter:32}")
+    (incollection  . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+    (inproceedings . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*} ${booktitle:40}")
+    (t             . "${=has-pdf=:1}${=has-note=:1} ${year:4} ${author:36} ${title:*}"))
+  bibtex-completion-pdf-open-function
+  (lambda (fpath)
+    (call-process "open" nil 0 nil fpath)))
+#+end_src
+
+*** TODO Generating BibTeX citekeys automatically
+
+This needs to be tested to see if it really works.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  ;; Automatically generating BibTeX keys
+  (require 'bibtex)
+
+  (setq bibtex-autokey-year-length 4
+        bibtex-autokey-name-year-separator "-"
+        bibtex-autokey-year-title-separator "-"
+        bibtex-autokey-titleword-separator "-"
+        bibtex-autokey-titlewords 2
+        bibtex-autokey-titlewords-stretch 1
+        bibtex-autokey-titleword-length 5)
+
+  (define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
+#+end_src
+
+*** TODO Helm-bibtex for inserting citations
+
+#+begin_src emacs-lisp :tangle no
+  ;; Helm-bibtex for citation insertion
+  (require 'org-ref-helm)
+#+end_src
+
+** TODO Get the hang of using =org-ref= for managing all references
+
+How do you load multiple bibliography files?
+
+They have to be loaded manually in a list. You can also figure out how to load them as the variable =sia-bibtex-files=.
+
+** TODO Exporting special =.bib= file for the exported article
+
+We should be calling this function in either an org=mode of
+ buffer to generate a BibTeX file from the keys we inserted in the document using M-x cite or a custom snippet.
+
+* TODO Working with a manuscript directly
+
+This also includes defining the relevant BibTeX file for the project I'm actively working on.
+
+** TODO Exporting citations from =org-mode= through =org-cite=
+
+This is taken directly from the =init.el= of Emacs Writing Studio.
+
+I'm currently not tangling this because I can't get the =sia-bibtex-files= variable to work, and I also don't know how to set a real file path for this configuration. I need to check with the official =org-cite= documentation for this purpose.
+
+* Exploring the references through a network graph
+
+see the setup for =org-grapher=. I need to find a way to make this work with [[file:denote.org][Denote (see the configuration)]]. Otherwise the link recognition would genuinely be botched
+
+Instead of using a heavy package like =org-roam=, we will be strapping =org-grapher=. This package doesn't yet support ID-based links in =org-mode=.[fn:10]
+
+#+begin_src emacs-lisp :tangle no :eval never
+(use-package org-grapher
+  :ensure (:type git :host github :repo "SenkiReign/org-grapher"))
+#+end_src
+
+Setting the org file directory:
+
+#+begin_src emacs-lisp :tangle no :eval never
+    (setq org-grapher-notes-directory "~/Documents/notes"
+          org-grapher-recursive t
+          org-grapher-output-file "~/.cache/org-graph.html")
+#+end_src
+
+Customizing the colors of the nodes:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq org-grapher--tag-colors
+  '("emacs" "#d65d0e"
+    "work" "#458588"
+    "personal" "#98971a"))
+#+end_src
+* TODO Recognising cross-references immediately in a PDF
+
+One thing that I end up doing a lot during my research is that I take the referenced works from the article that I'm reading and I attempt to create a reference network, to really trace out the *relevance* of ideas across different academic work.
+
+The manual workflow that I have outside of Emacs is that I copy-paste the name of the referenced article into my search bar (it's a little faster if I also have a search bang setup in that browser or if I'm using the extension for Alfred to open the query directly in Google Scholar), and then try to fetch the article from there. If I can't download it directly from Google Scholar, then I try to go to Sci-Hub where I can ask for the DOI. At any point, for either Google Scholar or Sci-Hub I may end up having a rate limit, or being hit with a CAPTCHA because I'm trying to download the files directly from Emacs. This isn't really ideal especially when I'm researching and I just want to have a big schema down that I can later traverse.
+
+As I don't actually end up reading the articles that quickly, I want to have a very quick way to chart out the references so at least when I _choose_ to go out and manually download that source, I at least know for sure what it is that I'm getting into.
+
+For this reason, I should at least be able to make a DOI into a usable BibTeX record that can be used in plotting out a reference network (or at least organise everything based on some kind of tag). This would speed up the workflow and minimise the interruptions.
+
+It would be great that while you're reading, to be able to take the in-text references to another text and annotate it on the side to be able to look at the reference later.
+
+This would either mean that it's an overlay, or it's in the special org file that's related to the article that I'm currently reading.
+
+** Fetching the DOI in the case of papers that already have a DOI specified in the article
+
+there should be a way to open the link under the point, and then directly format that DOI into an entry.
+
+*Should this entry be formatted in the annotated bibliography format?*
+* Integrating [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]] with bibliography management
+
+The only current package that I have right now is =citar-org-node=, but it's a pretty barebones development (and it's not even on MELPA).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package citar-org-node
+  :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
+        :rev :newest))
+#+end_src
+
+This will basically use the functionality of ~ROAM_REFS~.
+
+* Footnotes
+[fn:4]  https://github.com/cpitclaudel/biblio.el
+
+[fn:1] https://ogbe.net/emacs/references
+
+[fn:2] https://www.anand-iyer.com/blog/2017/research-literature-management-with-emacs/
+
+[fn:3] https://github.com/pprevos/citar-denote/blob/main/citar-denote.org

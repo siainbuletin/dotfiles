@@ -1,4 +1,9 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-embark ---
+
+;;; Commentary:
+
+;;; Code:
 
 (use-package embark
   :ensure t
@@ -15,3 +20,4 @@
   :after (embark consult))
 
 (provide 'sp-embark)
+;; sp-embark ends here.

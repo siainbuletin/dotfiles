@@ -1,0 +1,34 @@
+#+TITLE: Making presentations directly in org-mode
+
+You want to be able to connect a second screen and for nothing to actually get corrupted.
+
+Also find a nice way to include images to the presentations.
+
+Which one of these workflows would also allow me to export to PDF easily?
+
+* Setting up =org-present=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; animated gif support to spruce things up
+  (use-package org-inline-anim
+    :custom
+    (org-inline-anim-loop t))
+
+  (use-package org-present
+    :ensure t
+    :after org-inline-anim
+    :hook
+    ((org-present-mode . (lambda ()
+                           (org-present-big)
+                           (org-display-inline-images)
+                           (org-present-read-only)
+                           (centaur-tabs-local-mode)
+                           (org-inline-anim-mode)
+                           (org-inline-anim-animate-all)))
+     (org-present-mode-quit . (lambda ()
+                                ;; TODO: actually turn on centaur tabs again.
+                                ;;       Nothing works that I've tried so far
+                                (org-present-small)
+                                (org-present-read-write)
+                                (org-present-show-cursor)))))
+#+end_src

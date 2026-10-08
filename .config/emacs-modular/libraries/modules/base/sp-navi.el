@@ -1,10 +1,19 @@
 ;; -*- lexical-binding: t; -*-
-;;; sp-dired.el --- summary
+;;; sp-navi.el --- summary
 
 ;;; Commentary:
 
-;; Other useful functions for navigation.
+;; Contains the general configuration for navigation within Emacs. The relevant
+;; submodules are recursed within the file
 
+;;; Code:
+;;;; Require sub-libraries for navigation (organised alphabetically)
+(require 'sp-consult-snapfile)
+(require 'sp-dired)
+(require 'sp-goto)
+(require 'sp-search)
+
+;;;; Defining utility functions
 (defun sp-open-from-home-dir ()
   "When opening a file, start searching at the user's home
 directory."
@@ -13,12 +22,6 @@ directory."
 (defun sp-auto-follow-symlinks ()
   "When opening a file, always follow symlinks."
   (setq vc-follow-symlinks t))
-
-;;;; Go To Change
-;; Easily go to last change
-(use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
-  :bind (("C-\"" . #'goto-last-change)))
 
 ;;;; Imenu list outline
 ;; Make a useful outline buffer
@@ -63,4 +66,7 @@ directory."
    (t
     (call-interactively 'consult-outline))))
     
-(provide 'sp-navi-misc)
+;;; Provide:
+
+(provide 'sp-navi)
+;; sp-navi.el ends here.

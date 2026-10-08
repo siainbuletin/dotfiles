@@ -1,0 +1,9 @@
+#+TITLE: Ideas and improvements to the configuration that are in the works
+
+* Loading Lisp macros
+
+This would have to be added pretty high up in the beginning of the =init.el= file in order to work.
+
+The idea is taken from Prot's emacs config.
+
+I already have the macros ={{{latest-export-date}}}= and ={{{word-count}}}= defined in the start of the =main.org= literate configuration document.

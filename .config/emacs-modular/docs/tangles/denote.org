@@ -1,0 +1,368 @@
+#+title: Configuring denote
+#+startup: overview
+
+* Bootstrapping the main package
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package denote
+    :ensure t
+    :defer t
+    :demand t
+
+    :config
+    (denote-rename-buffer-mode)
+    (setq denote-file-type 'org) ; default is org
+    (setq denote-history-completion-in-prompts nil)
+    (setq denote-rename-confirmations '(modify-file-name add-front-matter))
+    (setq denote-kill-buffers nil)
+    (setq denote-sort-keywords t)
+    (setq denote-known-keywords
+  	  '("academic-journal"
+  	    "blog-post"
+  	    "book"
+  	    "booksection"
+  	    "concept"
+  	    "course"
+  	    "current"
+  	    "docs"
+  	    "group"
+  	    "institution"
+  	    "journal-article"
+  	    "language"
+  	    "library"
+  	    "music"
+  	    "package"
+  	    "person"
+  	    "process"
+  	    "studyplace"
+  	    "thesis"
+  	    "workflow"
+  	    "zettel"))
+    ; (denote-link-description-function #'ews-denote-link-description-title-case) ; I need to actually rename this to my own function starting with sia-
+
+    :hook
+    (dired-mode . denote-dired-mode)
+
+    :bind
+    (:map global-map
+  	("M-n o" . denote-open-or-create)
+  	("M-n r" . denote-rename-file)
+  	("M-n f" . denote-rename-file-using-front-matter)
+
+  	:map text-mode-map
+  	("M-n i" . denote-link-or-create) ; "insert" mnemonic
+  	("M-n I" . denote-add-links)
+
+  	:map dired-mode-map
+  	("C-c C-d C-i" . denote-link-dired-marked-notes)
+  	("C-c C-d C-r" . denote-dired-rename-marked-files)
+
+  	;; these are copied directly from the Emacs Writing Studio configuration
+  	("C-c w d b" . denote-find-backlink)
+  	("C-c w d d" . denote-date)
+  	("C-c w d l" . denote-find-link)
+  	("C-c w d i" . denote-link-or-create)
+  	("C-c w d k" . denote-rename-file-keywords)))
+#+end_src
+
+I will I could change =(setq denote-kill-buffers nil)= to =(setq denote-kill-buffers 'on-creation)=, but otherwise, when creating a note with =citar-denote=, it won't insert the citekey as ~#+reference:~ in the frontmatter. So it breaks the entire package.
+
+* How =denote= functions internally
+** How =denote= ignores files that aren't notes
+
+Does it do this because it just follows the actual name of the file?
+
+How do you make the actual title of the file show up in the buffers?
+
+* Configuring integration with =dired=
+:PROPERTIES:
+:ID:       b23767ab-48ad-4b7e-a2db-5f878034fb54
+:END:
+
+One of the upsides of Denote’s file-naming scheme is the predictable pattern it establishes, which appears as a near-tabular presentation in a listing of notes (i.e. in Dired).[fn:1] It's better to configure =denote-dired-mode= only for the directories you want and actively use for =denote= itself.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; We use different ways to specify a path for demo purposes.
+  (setq denote-dired-directories
+        (list denote-directory
+                                          ; (thread-last denote-directory (expand-file-name "attachments"))
+              (expand-file-name "~/Documents/notes")))
+#+end_src
+
+I can't actually get this singling in on the folder to work.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (add-hook 'dired-mode-hook #'denote-dired-mode-in-directories)
+#+end_src
+
+I don't exactly know what =thread-last= does for denote-dired
+
+The user option denote-dired-directories-include-subdirectories specifies whether the denote-dired-directories also cover their subdirectories. By default they do not. Set this option to t to include subdirectories as well.
+
+The faces we define for this purpose are:
+
+- denote-faces-date
+- denote-faces-delimiter
+- denote-faces-extension
+- denote-faces-keywords
+- denote-faces-signature
+- denote-faces-subdirectory
+- denote-faces-time
+- denote-faces-title
+
+For more control, we also provide these:
+
+- denote-faces-year
+- denote-faces-month
+- denote-faces-day
+- denote-faces-hour
+- denote-faces-minute
+- denote-faces-second
+
+For the time being, the =diredfl= package is not compatible with this facility.
+
+The denote-dired-mode does not only fontify note files that were created by Denote: it covers every file name that follows our naming conventions (The file-naming scheme). This is particularly useful for scenaria where, say, one wants to organise their collection of PDFs and multimedia in a systematic way (and, perhaps, use them as attachments for the notes Denote produces if you are writing Org notes and are using its standand attachments’ facility).
+
+* Saving files by default with denote
+
+The user option denote-save-buffers controls whether commands that create new notes (Points of entry) or rename existing files save their buffer outright (Renaming files). By default, when the value of this user option is nil, buffers are not saved. They are saved when the value is non-nil.[fn:4]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq denote-save-buffers t)
+#+end_src
+
+* Have a handy navigation menu for Denote
+
+This is taken from this configuration: https://lambdaland.org/posts/2025-07-11_research_notes/ It's actually configured in the =transient= package, which is found [[file:vc.org][here]].
+
+* TODO Automatically rename denote file buffers
+
+The minor mode denote-rename-buffer-mode provides the means to automatically rename the buffer of a Denote file upon visiting the file. This applies both to existing Denote files as well as new ones (Points of entry). Enable the mode thus:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(add-hook 'denote-mode #'denote-rename-buffer-mode)
+#+end_src
+
+_*I get an error that the function is void, so this is disabled.*_
+
+Buffers are named by applying the function specified in the user option denote-rename-buffer-function. The default function is denote-rename-buffer: it renames the buffer based on the template set in the user option denote-rename-buffer-format, combined with the denote-buffer-name-prefix (Set the prefix of all Denote buffers). Other fields are explained elsewhere in this manual (The denote-rename-buffer-format).
+
+Note that renaming a buffer is not the same as renaming a file (Renaming files). The former is just for convenience inside of Emacs. Whereas the latter is for writing changes to disk, making them available to all programs.
+
+You can also format the way that the buffer is renamed with =denote-rename-buffer-format=.
+
+There's a bunch of issues documented here:
+- https://github.com/protesilaos/denote/issues/160 | "denote-rename-buffer-mode" not effective when the note is called from register. · Issue #160 · protesilaos/denote
+
+* Plugins for =denote=
+** =denote-org=: extra functionality for =org-mode=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package denote-org
+      :ensure t
+      :after denote
+
+      :custom
+      ;; `denote-org-link-to-heading' controls the behavior of
+      ;; `org-store-link': setting to id makes it insert an ID in the
+      ;; PROPERTIES drawer
+      ;;
+      ;; (denote-org-store-link-to-heading 'context)
+      (denote-org-store-link-to-heading 'id))
+#+end_src
+
+This extends denote to support org dynamic blocks, links to headings and splitting an org subtree into its own standalone file (through =org-refile=). This is important for quickly sorting information away when it's no longer needed.
+
+** =denote-markdown=: adding functionality for Markdown
+
+Is it possible to convert the markdown links to proper org mode so I don't have to manually remake all of my files?
+
+Since the markdown notes have to be recognised as Denote files, they need to be renamed and have the property be added to them. So ingesting would actually be quite complicated since the system depends on the files being _set in place as they are like this_. This isn't great and it will require quite a lot of manual work.
+
+Denote package recognises two Markdown file types: one has YAML front-matter, and the other has TOML front-matter.[fn:3] There's also a newer type: =markdown-obsidian=, which adds support for the frontmatter found in Obsidian.
+- Unlike the two variants defined in core Denote, markdown-obsidian does not have any front matter other than the title of the note as a top-level heading.
+
+It's possible to convert Obsidian-style links to the denote type
+
+The command =denote-markdown-convert-obsidian-links-to-denote-type= does the inverse of =denote-markdown-convert-links-to-obsidian-type=.
+
+#+begin_quote
+The command denote-markdown-convert-links-to-obsidian-type changes links from ~[Test description](denote:20241026T051243)~ to ~[20241026T051243--test-description__keyword1](20241026T051243--test-description__keyword1.md)~. This is how the Obsidian application handles links and is useful for those who need to use their Denote files there (Use the markdown-obsidian file type).
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package denote-markdown
+      :ensure t
+      :after denote)
+#+end_src
+** REMOVED <2025-12-23 Tue> =denote-merge=: Merging and splitting files together
+
+!@Currently removed until it is added to (M)ELPA and it solves the issue of replacing denote links improperly. Also, I don't have much use for it now that I'm using [[id:e75f887c-1187-4242-9016-58647ac518eb][org-node]].!@
+
+#+begin_src emacs-lisp no :eval never
+    (use-package denote-merge
+      :ensure (denote-merge :type git :host github :repo "protesilaos/denote-merge")
+      :bind
+      ("M-n m f" . denote-merge-file)
+      ("M-n m r" . denote-merge-region))
+#+end_src
+
+<2026-01-03 Sat> I don't currently use the ~denote-merge-file~ option anymore, because it creates issues with the identifier. I also am not really looking to leave a little link behind, but I want to be able to easily send text around when I need to.
+
+*** Setting user options for =denote-merge=
+
+Automatically save the buffers before attempting to merge them:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq denote-merge-save-buffers t)
+#+end_src
+
+When merging an entire file, I prefer to show in the heading that the new part of the note actually came from somewhere else, but I don't want it to be at the very beginning of the heading of the merged region. *For now it isn't configured like I want it to because I don't know to add it to the end of the file name that's used as an org heading. For now this just makes it stand out a little more.*
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq denote-merge-annotate-file "(MERGED FILE)")
+#+end_src
+
+I don't want =denote-merge= to show that the region I've moved over actually comes from somewhere. This is because in my inbox, I just want to see what my browsing efforts have amounted to. And since I'm usually restraining the scope of what I'm working on within a single file, I want the FROM file to contain a link to the "subchildren", which are the TO files.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq denote-merge-annotate-region nil)
+#+end_src
+
+** =denote-explore=: exploring notes holistically
+
+This package was created by Peter Prevos for Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package denote-explore
+  :bind
+  (;; Statistics
+   ("C-c w x c" . denote-explore-count-notes)
+   ("C-c w x C" . denote-explore-count-keywords)
+   ("C-c w x b" . denote-explore-barchart-keywords)
+   ("C-c w x e" . denote-explore-barchart-filetypes)
+   ;; Random walks
+   ("C-c w x r" . denote-explore-random-note)
+   ("C-c w x l" . denote-explore-random-link)
+   ("C-c w x k" . denote-explore-random-keyword)
+   ("C-c w x x" . denote-explore-random-regex)
+   ;; Denote Janitor
+   ("C-c w x d" . denote-explore-identify-duplicate-notes)
+   ("C-c w x z" . denote-explore-zero-keywords)
+   ("C-c w x s" . denote-explore-single-keywords)
+   ("C-c w x o" . denote-explore-sort-keywords)
+   ("C-c w x w" . denote-explore-rename-keyword)
+   ;; Visualise denote
+   ("C-c w x n" . denote-explore-network)
+   ("C-c w x v" . denote-explore-network-regenerate)
+   ("C-c w x D" . denote-explore-barchart-degree)))
+#+end_src
+
+** =denote-journal=: keeping a daily journal
+
+This can be used as a kind of counterpart for =org-journal=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package denote-journal
+    :after denote
+    :custom
+    (denote-journal-keyword "log")
+    (denote-journal-directory (expand-file-name "~/Documents/notes/journal"))
+    (denote-journal-title-format 'day-date-month-year)
+  			    )
+#+end_src
+
+** =denote-sequence=: folgezettel-style breadcrumbs in the notes
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package denote-sequence
+      :ensure t)
+#+end_src
+
+** =denote-menu=: see denote files in a tabulated list
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package denote-menu
+    :ensure t)
+
+  (setq denote-menu-show-file-type nil)
+
+  (global-set-key (kbd "C-c z") #'list-denotes)
+#+end_src
+
+I'm getting a symbol's value as variable is void with this one:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (define-key denote-menu-mode-map (kbd "c") #'denote-menu-clear-filters)
+  (define-key denote-menu-mode-map (kbd "/ r") #'denote-menu-filter)
+  (define-key denote-menu-mode-map (kbd "/ k") #'denote-menu-filter-by-keyword)
+  (define-key denote-menu-mode-map (kbd "/ o") #'denote-menu-filter-out-keyword)
+  (define-key denote-menu-mode-map (kbd "e") #'denote-menu-export-to-dired)
+#+end_src
+
+This could be used for filtering literature notes written through =citar-denote=.
+* Dealing with recursive directories in =denote=
+* DONE Configuring denote to open links in the same pane
+
+I think it might be default Emacs functionality to open links in a new buffer, instead of opening them in place. This is a lot better if you're breadcrumbing across files while you're writing.
+
+TODO document this
+
+* TODO Integrating with bibliography management
+
+This can be done through the =citar-denote= plugin. See [[file:bibliography.org][Bibliography management]]. This is relevant for creating literature notes.
+
+* PROG Sending tasks regarding to projects to =org-agenda=
+
+*This has to be tested for functionality with [[file:~/Documents/writing/thesis/][the project files for my thesis.]]*
+
+Added on <2025-11-17 Mon>. The rationale behind this is described in [[denote:20251117T160008][Collecting tasks from a writing project into org-agenda]]. This will work based on the presence of a =:project:= keyword in the =denote= file.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (defvar my-denote-to-agenda-regexp "_project"
+      "Denote file names that are added to the agenda.
+    See `my-add-denote-to-agenda'.")
+
+    (defun my-denote-add-to-agenda ()
+      "Add current file to the `org-agenda-files', if needed.
+    The file's name must match the `my-denote-to-agenda-regexp'.
+
+    Add this to the `after-save-hook' or call it interactively."
+      (interactive)
+      (when-let* ((file (buffer-file-name))
+                  ((denote-file-is-note-p file))
+                  ((string-match-p my-denote-to-agenda-regexp (buffer-file-name))))
+        (add-to-list 'org-agenda-files file)))
+
+    ;; This will add the file automatically
+    (add-hook 'after-save-hook #'my-denote-add-to-agenda)
+
+    (defun my-denote-remove-from-agenda ()
+      "Remove current file from the `org-agenda-files'.
+    See `my-denote-add-to-agenda' for how to add files to the Org
+    agenda."
+      (interactive)
+      (when-let* ((file (buffer-file-name))
+                  ((string-match-p my-denote-to-agenda-regexp (buffer-file-name))))
+        (setq org-agenda-files (delete file org-agenda-files))))
+#+end_src
+
+* TODO Bending =denote= to my will
+** Defining a different identifier scheme
+
+Is it possible to actually turn off the tagging and the naming scheme and have my own arbitrary note names that actually reflect the content of the note that I'm working with?
+
+This can be used for notes like literature notes, where the metadata of the file is more important.
+
+You can also configure the =denote-prompts= variable to define the default way Denote generates and renames files.[fn:2]
+
+If you want the files to show up in a clean way when you're browsing in =dired=, you can install the =denote-dired= extension, which will highlight the different parts of the file name to help with differentiation (and take away from the noise in the file). =denote-dired= is configured here: [[id:b23767ab-48ad-4b7e-a2db-5f878034fb54][Configuring integration with =dired=]].
+
+* Footnotes
+
+[fn:4]  https://protesilaos.com/emacs/denote#h:bf80f4cd-6f56-4f7c-a991-8573161e4511
+[fn:3] https://protesilaos.com/emacs/denote-markdown
+
+[fn:1] https://protesilaos.com/emacs/denote#h:337f9cf0-9f66-45af-b73f-f6370472fb51
+
+[fn:2]  https://lucidmanager.org/productivity/taking-notes-with-emacs-denote/

@@ -1,4 +1,9 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-buffers.el --- Buffer setup
+
+;;; Commentary:
+
+;;; Code:
 
 (use-package ibuffer
   :ensure nil
@@ -94,3 +99,8 @@
      `((window-height . ,popper-window-height)
        (side . top)
        (slot . 1)))))
+
+;;; Provide:
+
+(provide 'sp-buffers)
+;; sp-buffers.el ends here.

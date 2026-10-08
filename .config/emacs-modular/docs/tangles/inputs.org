@@ -1,0 +1,38 @@
+#+TITLE: Capturing inputs
+
+This would also be useful for the part about capturing bibliography. For bibliography management, see [[file:bibliography.org][Bibliography management from Emacs]].
+
+Would it be easier if I used =gnus= instead of =elfeed=?
+- the possible improvement would be that =gnus= can also be used for emails
+- but this would have to be elaborated more concisely in [[file:email.org][Email management through Emacs]]
+
+* TODO Configuring RSS Feeds for =elfeed=
+
+Taken directly from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package elfeed
+    :custom
+    (elfeed-db-directory
+     (expand-file-name "elfeed" user-emacs-directory))
+    (elfeed-show-entry-switch 'display-buffer)
+    :bind
+    ("C-c w e" . elfeed))
+#+end_src
+
+** Subscriptions
+
+moved to org mode file
+
+* Configuring =elfeed= to be integrated with =org-mode=
+
+Taken directly from Emacs Writing Studio.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package elfeed-org
+      :ensure t
+      :config
+      (elfeed-org)
+      :custom
+      (setq sia-elfeed-org-files (list "~/Documents/elfeed.org")))
+#+end_src

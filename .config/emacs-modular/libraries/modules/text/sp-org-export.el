@@ -339,6 +339,91 @@
   :if (and sp-load-extras (locate-library "htmlize"))
   :commands (htmlize-buffer))
 
+;;; Clipboard conversion through Pandoc 
+;; (initially lived in the file for functions in Lambda Emacs)
+(defun sp-org-to-markdown ()
+  "convert clipboard contents from org to markdown and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t markdown"))
+  (yank))
 
+(defun sp-markdown-to-org ()
+  "convert clipboard contents from markdown to org and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t org"))
+  (yank))
+
+(defun sp-tex-to-org ()
+  "convert clipboard contents from markdown to org and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f latex -t org"))
+  (yank))
+
+(defun sp-org-to-tex ()
+  "convert clipboard contents from org to tex and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t latex"))
+  (yank))
+
+(defun sp-tex-to-markdown ()
+  "convert clipboard contents from markdown to org and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f latex -t markdown --markdown-headings=atx"))
+  (yank))
+
+(defun sp-markdown-to-tex ()
+  "convert clipboard contents from markdown to org and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t latex"))
+  (yank))
+
+(defun sp-cite-to-org ()
+  "convert clipboard contents from markdown to org with citations and paste"
+  (interactive)
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
+  (yank))
+
+(defun sp-cite-to-markdown ()
+  "convert clipboard contents to markdown with citations and paste"
+  (interactive)
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
+  (yank))
+
+(defun sp-bibtex-to-yaml-reference ()
+  "convert clipboard bibtex contents to yaml and paste"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc-citeproc -y -f bibtex | pbcopy"))
+  (yank))
+
+(defun sp-md-to-rtf ()
+  "convert md to rtf and send to clipboard"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t rtf | pbcopy"))
+  (yank))
+
+
+;; NOTE: piping to pbcopy doesn't seem to work but it is ready to paste as is
+(defun sp-org-to-rtf ()
+  "convert org to rtf and send to clipboard"
+  (interactive)
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 -font Helvetica | pbcopy")))
+
+(defun sp-org-to-mail-rtf ()
+  "copy buffer, convert clipboard contents from org to rtf, and send to mail message"
+  (interactive)
+  ('sp-copy-whole-buffer-to-clipboard)
+  ;; (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t rtf"))
+  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 | pbcopy"))
+  (kill-buffer)
+  (delete-frame)
+  (do-applescript "if application \"Mail\" is running then
+      tell application \"Mail\"
+      activate
+      delay 0.35
+      tell application \"System Events\"
+      keystroke \"v\" using {command down}
+      end tell
+      end tell
+      end if"))
 
 (provide 'sp-org-export)

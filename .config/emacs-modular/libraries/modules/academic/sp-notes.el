@@ -15,9 +15,9 @@
 
 
 
-(defun lem-denote-workbook-create-entry ()
+(defun sp-denote-workbook-create-entry ()
   "Create an entry tagged \\='workbook\\=' with the date as its title.
-Superseded by `lem-denote-log-entry' in the user layer, which writes into
+Superseded by `sp-denote-log-entry' in the user layer, which writes into
 log/ instead. Kept because old entries still live in workbook/."
   (interactive)
   (denote
@@ -30,15 +30,15 @@ log/ instead. Kept because old entries still live in workbook/."
    (expand-file-name "workbook" (car (denote-directories)))
    nil
    nil)
-  (lem-insert-header-and-time-property))
+  (sp-insert-header-and-time-property))
 
 ;;;; Consult Notes
 ;; Adapted from https://github.com/minad/consult/wiki/hrm-notes
 ;; this is taken from Lambda Emacs
 (use-package consult-notes
   :ensure t
-  :if (and sp-load-extras (locate-library "consult-notes"))
-  :after consult
+  ;; :if (and sp-load-extras (locate-library "consult-notes")) ;; I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
+  ;; :after consult
   
   :commands
   (consult-notes

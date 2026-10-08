@@ -1,0 +1,114 @@
+#+TITLE: Documentation setup for Emacs
+
+I still don't really know what this package does, so for now it will be disabled.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package help-fns+)
+#+end_src
+
+* Man pages and other
+
+man-pages are good, but sometimes I need a shorter version For that, tldr is great![fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package tldr)
+#+end_src
+
+devdocs are also pretty handy to have, especially pre-downloaded entries I can read directly in Emacs:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package devdocs)
+#+end_src
+
+NOTE: Remember to download documentation with devdocs-install before intended use.
+
+Usage:
+- devdocs-peruse opens a specific documentation (e.g, kotlin-1.9, rust book, Spring Boot etc.)
+- devdocs-lookup lets me see a list of the topics in that specific doc.
+
+* TODO Improving the Help buffers with =helpful=
+
+This is a lot better than the default GNU Help buffer, as it provides more contextual information
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package helpful
+    :ensure t
+    :bind
+    (("C-h f" . helpful-function)
+     ("C-h x" . helpful-command)
+     ("C-h k" . helpful-key)
+     ("C-h v" . helpful-variable)))
+#+end_src
+
+Replacing default GNU Help, it's done with this:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Note that the built-in `describe-function' includes both functions
+  ;; and macros. `helpful-function' is functions only, so we provide
+  ;; `helpful-callable' as a drop-in replacement.
+  (global-set-key (kbd "C-h f") #'helpful-callable)
+
+  (global-set-key (kbd "C-h v") #'helpful-variable)
+  (global-set-key (kbd "C-h k") #'helpful-key)
+  (global-set-key (kbd "C-h x") #'helpful-command)
+#+end_src
+
+This will make helpful even more present.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Lookup the current symbol at point. C-c C-d is a common keybinding
+  ;; for this in lisp modes.
+  (global-set-key (kbd "C-c C-d") #'helpful-at-point)
+
+  ;; Look up *F*unctions (excludes macros).
+  ;;
+  ;; By default, C-h F is bound to `Info-goto-emacs-command-node'. Helpful
+  ;; already links to the manual, if a function is referenced there.
+  (global-set-key (kbd "C-h F") #'helpful-function)
+#+end_src
+
+* TODO Configuring my own annotations and modifications to man pages
+
+* Configuring dictionary support
+
+Basically like the MacOS version of looking up words. It helps to know better what you're writing and what you're writing with.
+
+The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
+
+=lexic= makes use of [[denote:20251119T221634][StarDict]].
+
+In order to recognise format one of the supported dictionaries, Lexic matches the bookname= parameter from the StarDict .ifo file against the entries in lexic-dictionary-specs. Lexic needs to do this, because formatting is inconsistent, and so must be implemented on a per-dictionary basis.
+
+For example, if I downloaded a copy of Soule’s English Synonyms, I’d need to make sure that the SoulesSynonymns.ifo file contains the line bookname=Soule's
+  Dictionary of English Synonyms. Check the value of lexic-dictionary-specs to see what it expects for other dictionaries supported by default.
+
+Then, if I open a new Emacs session, and look for a synonym I should see it formatted nicely.[fn:1]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lexic
+    :ensure t)
+#+end_src
+
+To get =lexic= working, you also need to download the dictionaries themselves.
+
+Note that this mode only works for english.
+
+Add a dictionary to sdcv (Stardic’s cli)
+Download a dictionary file from:
+
+https://web.archive.org/web/20140917131745/http://abloz.com/huzheng/stardict-dic/
+
+Create the directory where sdcv looks for dictionaries: =sudo mkdir -p /usr/share/stardict/dic/=
+
+Download the programmes you will need to extract dictionary files: =sudo pacman -S tar unzip=
+
+The next command depends on whether the downloaded file is a .gz file or a .bz2 file.
+
+#+begin_src shell
+sudo tar -xvjf downloaded.tar.<other-extension> -C /usr/share/stardict/dic
+#+end_src
+
+* Footnotes
+[fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
+
+[fn:1] https://github.com/tecosaur/lexic?tab=readme-ov-file

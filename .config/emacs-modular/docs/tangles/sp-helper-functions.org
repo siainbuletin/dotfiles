@@ -1,0 +1,338 @@
+#+TITLE: Utility functions for editing in Emacs
+
+Status: old, has no new helper functions added to it
+
+* TODO add configuration from new modular files
+
+This includes any kind of utility function that enhances the functionality of base Emacs. This doesn't make use of any kind of package (as much as possible). It's mostly composed of quick patches that I added on the go. Each function is explained as needed.
+
+* Reloading the configuration on the fly
+
+This will make reloading the configuration a lot easier.
+
+Unfortunately, the reloading won't function like a silverbullet for anything. You may need to actually quit Emacs sometimes to really test out whether the reloading worked. I also noticed that the reloading works worse with =elpaca=, that's where you'll need to restart Emacs more often.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun reload-init-file ()
+    (interactive)
+    (load-file user-init-file))
+
+  ;; set shortcut for the reloading
+  (keymap-global-set "<f5>" 'reload-init-file)
+#+end_src
+* Quickly deploying the new literate configuration
+** Make =org-babel-execute-buffer= cycle through the confirmations automatically
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun sia-execute-all-buffers ()
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil))
+    (org-babel-execute-buffer)))
+#+end_src
+
+** Keybindings for efficiency
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "C-c o o") 'org-org-export-to-org)
+(global-set-key (kbd "C-c e c") 'sia-execute-all-buffers)
+#+end_src
+
+* Getting rid of customization via =M-x= menu
+
+This will eliminate the =custom-file= which is created if you try to configure Emacs through the interactive menu.
+
+In the event that I mistakenly call =M-x customize= to change something in my Emacs, this function makes sure that the file never actually appends to the =init.el=. (Afterall, it will get overwritten anyway once I run =org-babel-tangle= again.)
+
+By using the =make-temp-file= function, the file will be placed in the =/tmp= directory[fn:1]
+
+The function is taken from Protesilaos' configuration
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq custom-file (make-temp-file "emacs-custom-"))
+#+end_src
+
+* Persistent scratch when you jot down ideas
+
+This isn't really something that I use that much, since I don't use the scratch buffer (I replace it with a dashboard on startup). But it would be nice to use if I ever wanted to have a constant testing place (without setting up an entire REPL).
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package persistent-scratch)
+#+end_src
+
+* Graphical interface
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
+
+  ;; WINDOW FUNCTIONS
+  (setq-default frame-title-format '("✨ %b 🌊")) ;; Make the window title to be the buffer name
+#+end_src
+
+** Redraw the entire display when there's graphical errors
+
+It still is something that I have to deal with: figuring out why there's screen tearing when I'm editing on my Legion Pro 5. Might be because of Wayland. Currently, I switch back and forth between Wayland and XWayland. On the ThinkPad E14, I have to make use of X11 no matter what I do (it's what I built EndeavourOS with).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; Redrawing the display when there's graphical errors
+  (global-set-key (kbd "<f6>") 'redraw-display)
+#+end_src
+
+* Undo tree
+
+By default, the Emacs undo tree doesn't support redo, which is absolutely despicable.
+
+** Through =undo-tree=
+
+The =undo-tree= has been merged into master, so all you have to do to get it to work now is declare it as such:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package undo-tree
+    :config
+    (add-to-list 'undo-tree-incompatible-major-modes #'nxml-mode)
+    (global-undo-tree-mode)
+
+    :custom
+    (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
+#+end_src
+
+And for saving the history of those undos.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq undo-tree-auto-save-history nil))
+#+end_src
+
+** Through =vundo=
+There's also the option to use =vundo=, which I prefer in this case.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package vundo
+    :ensure t)
+#+end_src
+
+If you want to use prettier Unicode characters to draw the tree:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(setq vundo-glyph-alist vundo-unicode-symbols)
+#+end_src
+* Showing matches in a file
+
+I'm going to install =anzu=, which is basically a port from Neovim. It has an integration with =doom-modeline= which will show the matches on the side (see [[file:appearance.org][appearance config]]).
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+          (use-package anzu
+            :ensure t
+
+            :config
+    	; (anzu-mode) ; would this even work?
+  	)
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (anzu-mode +1)
+#+end_src
+
+By making anzu mode global it will show up no matter what and it also won't clutter up the =doom-modeline=. But global-anzu-mode produces an error
+
+I actually can't get anzu to work properly, so it's disabled from loading on the emacs init currently.
+
+* Text editing
+** Joining lines with a keybinding
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(keymap-global-set "C-c j j" #'join-line)
+#+end_src
+
+** Autoclosing pairs when doing text editing
+
+See also [[file:org-config.org][the org-mode configuration]] for more tweaks to [[denote:20251117T173819][Text editing experience within Emacs]].
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(electric-pair-mode 1)
+#+end_src
+
+Does this mean that the mode is enabled globally?
+
+* TODO Make reloading the modular Emacs literate configuration from just one function
+
+I basically need to handle three commands with just one.
+1. =org-export-to-org=
+2. switch over to =temp.org= as the buffer that's being evaluated (maybe the temp file could actually be loaded into memory or loaded to =/tmp= just for the purpose of getting this configuration working)
+3. =org-babel-execute-block= for executing all of the block in the =temp.org= (I have already fixed the part about going through all of the checking for each execution of each code block within the buffer)
+4. =org-babel-tangle= for the actual tangling process
+
+Since it's not a good idea to use a lambda (anonymous function) to call the multiple different functions within a single keybinding, it is a better idea to define my own function.
+
+The lambda would look like this:
+
+#+begin_example emacs-lisp
+(global-set-key (kbd "C-c a b c") (lambda () (interactive) (some-command) (some-other-command)))
+#+end_example
+
+Will you please explain why not quote lambdas?
+- This works great. Thanks! I have the same question about quote though --- I usually also quote the lambdas, and would like to know why not to.
+-  Because '(...) is a list, not a function. See https://stackoverflow.com/questions/16801396/when-should-emacs-function-syntax-be-used/16802304#16802304
+- Also, quoting lambdas hurts byte compilation.
+
+I recommend never binding lambda expressions to keys, for the simple reason that when you ask Emacs what that key does, it will end up telling you something like this (to use the accepted code, when byte-compiled, as an example):
+
+=C-c a b c= runs the command =#[nil "\300 \210\301 \207" [some-command
+some-other-command] 1 nil nil]=, which is an interactive compiled Lisp
+function.
+
+It is bound to C-c a b c.
+
+=(anonymous)=
+
+Not documented.
+If you never byte-compile your code, it's less cryptic, but still unformatted:
+
+#+begin_quote
+=C-c a b c= runs the command =(lambda nil (interactive) (some-command)
+(some-other-command))=, which is an interactive Lisp function.
+#+end_quote
+
+Which, while still readable in the case of a small function like this, gets rapidly incomprehensible for larger functions.
+
+But how exactly can you move between files while running the same function? how can you call a different buffer to do this action?
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun sia-modular-tangle ()
+  "Run 'org-org-export-to-org', then 'org-babel-execute-buffer', which cycles through the options, finally to 'org-babel-tangle' into usable source code."
+  (interactive)
+  (org-org-export-to-org)
+  (some-other-command))
+
+(global-set-key (kbd "C-c a b c") 'sia-modular-tangle)
+#+end_src
+
+* Configuring integration with shell tools
+
+See notes on [[denote:20251119T222358][dwim-shell-command]] and the more general [[denote:20251119T222058][Interfacing with Emacs from outside of it]].
+
+#+begin_quote
+Alternatively, can also install via use-package, define your own commands and remap to shell-command’s existing binding.
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package dwim-shell-command
+  :ensure t
+  :bind (([remap shell-command] . dwim-shell-command)
+         :map dired-mode-map
+         ([remap dired-do-async-shell-command] . dwim-shell-command)
+         ([remap dired-do-shell-command] . dwim-shell-command)
+         ([remap dired-smart-shell-command] . dwim-shell-command)))
+#+end_src
+
+There's also the optional package included in the directory which provides pre-written functions. It's called =dwim-shell-commands=, with the =s= at the end.
+
+** Convering shell commands into dwim commands
+
+You can use a template to reconstruct different commands into =dwim-shell-command= format.
+
+* Trying packages before actually installing them
+
+This will undo the installation once Emacs is closed.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package try
+    :ensure t)
+#+end_src
+
+* Templating
+
+Yasnippet makes boiler plate and other code snippets much faster to write with snippets that activates with small keywords. Just type the keyword and TAB, and yasnippet will fill in the snippet :) (you may have to fill in some names like class name or parameter names after TAB off course…).[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package yasnippet
+  :demand t
+
+  :config
+  (yas-reload-all)
+
+  :hook
+  (sh-mode . yas-minor-mode))
+
+;; install useful snippets
+(use-package yasnippet-snippets
+  :after yasnippet)
+#+end_src
+* Remove redundant whitespace
+:PROPERTIES:
+:CREATED: [2026-01-06 Tue]
+:END:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (defun sia-clean-whitespace (&optional Begin End)
+    "Delete trailing whitespace, and replace repeated blank lines to just 1.
+  Only space and tab is considered whitespace here.
+  Works on whole buffer or selection, respects `narrow-to-region'.
+
+  URL `http://xahlee.info/emacs/emacs/elisp_compact_empty_lines.html'
+  Created: 2017-09-22
+  Version: 2025-05-04"
+    (interactive)
+    (let (xbeg xend)
+      (seq-setq (xbeg xend)
+                (if (and Begin End)
+                    (list Begin End)
+                  (if (region-active-p)
+                      (list (region-beginning) (region-end))
+                    (list (point-min) (point-max)))))
+      (save-excursion
+        (save-restriction
+          (narrow-to-region xbeg xend)
+          (progn
+            (goto-char (point-min))
+            (while (re-search-forward "[ \t]+\n" nil t) (replace-match "\n")))
+          (progn
+            (goto-char (point-min))
+            (while (re-search-forward "\n\n\n+" nil t) (replace-match "\n\n")))
+          (progn
+            (goto-char (point-max))
+            (while (eq (char-before) 32) (delete-char -1))))))
+    (message "done xah-clean-whitespace"))
+#+end_src
+
+This will add a hook to always clean the whitespace after a save
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (add-hook 'before-save-hook 'sia-clean-whitespace)
+#+end_src
+
+* Seeing what are the keys in use: =keycast=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package keycast
+  :ensure t)
+#+end_src
+
+** Starting Emacs always with keycast in header more
+:PROPERTIES:
+:CREATED:  [2026-01-06 Tue]
+:END:
+
+!@Fix this, it doesn't work!@
+
+#+begin_src emacs-lisp :tangle no :eval never
+(keycast-header-line-mode)
+#+end_src
+
+** TODO Figure out how to make the keycast work with [[file:modeline.org][the Doom Modeline]]
+
+You need to set up a custom variable for it to work well.
+
+* Other
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; SOUNDS
+  (setq ring-bell-function 'ignore) ;; Disable the bell sound
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; BUFFER FUNCTIONS
+  (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
+#+end_src
+* Footnotes
+[fn:2]  https://github.com/themkat/.emacs.d?tab=readme-ov-file#casual-suite
+
+[fn:1] https://protesilaos.com/emacs/dotemacs#h:f2ffe0e9-a58d-4bba-9831-cc35940ea83f

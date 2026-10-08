@@ -12,6 +12,14 @@
 
 ;;;; Capture mechanisms
 
+;;;;; Org Directories
+;; Set these if you're using org
+;; the org-agenda thing should be adapted so that it reflects the
+;; conventions set by vulpea-para
+(setq org-default-notes-file (concat org-directory "inbox.org")
+      org-agenda-files (list org-directory))
+
+
 ;; Org-capture note creation with Denote
 (with-eval-after-load 'org-capture
   (add-to-list 'org-capture-templates

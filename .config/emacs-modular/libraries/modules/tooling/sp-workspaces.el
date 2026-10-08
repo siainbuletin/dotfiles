@@ -69,8 +69,8 @@
       (tab-bar-switch-to-tab "emacs.d")
     (progn
       (tab-bar-new-tab)
-      (tab-bar-rename-tab "emacs.d")
-      (find-file sp-config-file)
+      (tab-bar-rename-tab "emacs-modular-configuration")
+      (find-file sp-library-dir)
       (split-window-right)
       (other-window 1)
       (project-magit-dir))))
@@ -200,5 +200,7 @@
   (projectile-enable-caching t)
   )
 
-;;; Provide
+;;; Provide:
+
 (provide 'sp-workspaces)
+;; sp-workspaces.el ends here.

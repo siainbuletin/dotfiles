@@ -58,7 +58,8 @@
   :ensure (:wait t))
 
 (use-package transient
-  :ensure t
+  :ensure (:wait t)
+  :demand t ;; this makes sure that the macro `transient-define-prefix` can actually be called by the time we get to `sp-keys.el`
   :commands (transient-setup transient-show transient-help)
   
   :custom
@@ -75,7 +76,6 @@
                                      (dedicated . t)
                                      (inhibit-same-window . t)
                                      (window-parameters (no-other-window . t)))))
-
 
 ;;;; CRUX
 ;; This is loading the library of default functions coming from Emacs Prelude. Lots
@@ -99,8 +99,10 @@
 (use-package helm
     :ensure (:wait t))
 
-(use-package taxy
-  :ensure t)
+;; For some reason it causes some backtraces with very basic functions.
+;; It may be possible that I simply don't understand how this package works very well.
+;; (use-package taxy
+;;   :ensure t)
 
 ;; Other settings I don't know what to do with
 ;; This is the configuration that I need in order to make my tangling work.

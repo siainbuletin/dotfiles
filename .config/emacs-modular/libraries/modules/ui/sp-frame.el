@@ -1,5 +1,5 @@
 ;; -*- lexical-binding: t -*-
-;; sp-frames.el
+;; sp-frame.el
 
 ;;; Commentary:
 
@@ -80,5 +80,5 @@
 
 ;;; Provide:
 
-(provide 'sp-frames)
-;;; sp-frames.el ends here
+(provide 'sp-frame)
+;;; sp-frame.el ends here

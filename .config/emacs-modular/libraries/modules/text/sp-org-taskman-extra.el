@@ -1,5 +1,14 @@
 ;; -*- lexical-binding: t; -*-
 
+;;; Code:
+
+;; Settings related specifically to task management done through org-mode.
+;; Org-agenda is being treated in a separate file.
+
+;;; Commentary:
+
+;;;; TODO faces
+
 (use-package hl-todo
   :ensure t
   :config
@@ -27,6 +36,9 @@
   :config
   (org-edna-mode))
 
+;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+
+;;; Org-gtd package
 (use-package org-gtd
   :ensure (:wait t)
   :after org

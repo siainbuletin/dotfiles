@@ -1,5 +1,28 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-md.el --- Markdown settings
 
+;;; Commentary:
+
+;;
+
+;;; Code:
+
+;;;; Markdown-ts-mode (native emacs 21)
+;; Emacs 31 brought Markdown-ts-mode, which is closer to the keybindings
+;; that you may find in org-mode, it feels more native to Emacs itself
+;; in a lot of ways.
+
+(use-package markdown-ts-mode
+  :ensure nil
+  :defer t)
+
+;; One caveat I want to be upfront about: markdown-ts-mode is still experimental,
+;; and you have to opt into it. As the header of markdown-ts-mode.el notes, it 
+;; isn't wired up to auto-mode-alist yet, so it won't take over .md files on its 
+;; own. For now you pull in the library with M-x load-library RET markdown-ts-mode,
+;; then turn it on in a bufferf, or add it to auto-mode-alist yourself if you're feeling brave.
+
+;;;; Legacy markdown mode
 (use-package markdown-mode
   :ensure t
   :commands (markdown-mode gfm-mode)
@@ -58,3 +81,8 @@
 ;; macro: delete backslashes in paragraph to cleanup markdown conversion
 (fset 'lem-md-delete-backslash
       (lambda (&optional arg) "Keyboard macro." (interactive "p") (funcall (kmacro "\361\361f\\x" 0 "%d") arg)))
+
+;;; Provide:
+
+(provide 'sp-md)
+;; sp-md.el ends here.

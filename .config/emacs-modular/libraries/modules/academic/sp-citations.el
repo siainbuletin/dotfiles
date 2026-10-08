@@ -49,8 +49,8 @@
   :custom
   
   ;; Use with org citation
-  (org-cite-global-bibliography `(,lem-bibliography))
-  (citar-bibliography `(,lem-bibliography))
+  (org-cite-global-bibliography `(,sp-bibliography))
+  (citar-bibliography `(,sp-bibliography))
   (org-cite-insert-processor 'citar)
   (org-cite-follow-processor 'citar)
   (org-cite-activate-processor 'citar)
@@ -64,7 +64,7 @@
         `((main . " ${=key= id:15} ${title:48}")
           (suffix . "${author editor:30}  ${=type=:12}  ${=beref=:12} ${tags keywords:*}")
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
-          (note . ,lem-citar-note)))
+          (note . ,sp-citar-note)))
   (when (display-graphic-p)
     ;; nerd-icons has no octicon PDF/text glyph, so those two use
     ;; FontAwesome; link-external maps to the octicon directly.
@@ -73,7 +73,7 @@
             (note ,(nerd-icons-faicon  "nf-fa-file_text_o"    :face 'warning) . " ")
             (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
   ;; edit notes
-  (setq citar-notes-paths `(,lem-bib-notes)))
+  (setq citar-notes-paths `(,sp-bib-notes)))
 
 (use-package citar
          :ensure t

@@ -1,4 +1,7 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-snippets.el
+
+;;; Code:
 
 (use-package yasnippet
   :ensure (:wait t)
@@ -19,3 +22,8 @@
 (use-package yasnippet-snippets
   :after yasnippet
   :ensure (:wait t))
+
+;;; Provide:
+
+(provide 'sp-snippets)
+;; sp-snippets.el ends here.

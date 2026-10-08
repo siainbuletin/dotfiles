@@ -1,0 +1,12 @@
+%basic formatting
+#set text(size: 12pt, font: ("Times New Roman"), lang: "ro")
+#set par(first-line-indent: 2em, leading: 1.2em, spacing: 1.2em, justify: true, linebreaks: "simple")
+#set page(paper: "a4")
+#set heading(numbering: "1.a.")
+
+#bibliography(
+  "passions.bib",
+  title: auto,
+  full: true,
+  style: "chicago-author-date",
+)

@@ -1,0 +1,93 @@
+#+title: Local document management system interfaced from Emacs
+#+startup: oveview
+
+* How would this work?
+
+In order to get this done, I have to get really good at the file system interaction with Emacs. Also, it might be good to add functions for =org-refile= to actually hook into =org-capture= so the PDFs that I'm using don't end up getting lost.
+
+* TODO Choosing where files get attached
+
+Ideally, all of the files live in a flat directory, and they're picked out based on the metadata. It would be nice if I had bibliographic records made in org specifically for all of the attached files, but I need to see how to configure =org-attach= to work for this.
+
+* TODO Configuring links across documents on the entire system
+
+My goal in using Emacs is trying to get a more direct access to my entire file system. This means that links shouldn't just live within the one silo I have assigned to my Zettelkasten, but there should be an option to easily link across to my =org-agenda= as well, or to any coding process, while still keeping a degree of separation between my separate types of documents.
+
+At the same time, especially when I want to write, I'm interested in following along a series of questions that I may have about the content that I'm tackling. After all, that makes up about most of the tasks that I usually have, because they're tied to understanding and deep research. For this, I need a deep interconnection with my task management workplace.
+
+This can also be enhanced if I enable links to my magit commits, for the projects that I'm actually working on moving along through different commits. This is the version control part that's more complicated.
+
+* TODO Porting the binary links to files from BibDesk
+
+It's obviously not going to work to effectively _port_ the file links that I had created through BibDesk, so they would somehow have to be matched based on the file name, which corresponds to the citekey. Otherwise, trying to reassociate all of the files will end up being a great pain in the ass.
+
+* TODO Easy file picking for the PDFs
+
+Currently, one way to get at the PDF documents that I've stored is through =helm-bibtex= or =citar-open=, which can take the path that's declared directly in the BibTeX special field =file:=.
+
+To make things easier for myself (in finding the PDFs), they should be named exactly as the citekeys declared in BibTeX. For this, see [[#Rename PDF files from citekey]].
+
+This could also be configured universally through =universal-launcher= at some point.
+
+* TODO Rename PDF files from citekey
+
+One solution would be adapting the function =org-ref-pdf-to-bibtex= from =org-ref=, which will accept a PDF file, try to find the DOI, and then try to fetch the BibTeX entry from online. After that, it will add the PDF to the designated =.bib= file, and will also move the PDF to a designated directory and rename it accordingly.[fn:1]
+
+The problem with the =org-ref= solution is that a lot of the PDFs I'm using don't have a DOI, they're OCRd books.
+
+You can assign arbitrary PDF files to any BibTeX entry in =org-ref=. Just go to =C-c ]=, search your file and choose =Add PDF to library= helm action. The file will be assigned to your bibtex entry (no need to enter DOI or creaty new bibtex entry) and can be opened later from =C-c ]= interface.[fn:1]
+
+* PROG Enabling full-text search over non-plain text documents
+
+I already have a search framework set in place for Emacs in general, but I need to have something workable for looking across my PDF as well. Ideally, all of this information would show up in a side-buffer (perhaps could be configured with =org-sidebar=), where I could see my options for _starting to read something_ and using it in my thinking.
+
+You can search across a large number of plain text files by plugging =ripgrep= as a backend into =xref= (see [[#Adding ripgrep support for xref]]). But this is only useful if you have this text layer already on hand to begin with.
+
+If you don't, you need a different engine which is specialised in searching across any kind of document. For this, there are several options:
+
+- =Recoll= :: This also exists as a GUI client. It's based on Xapian. If plugged as is into Emacs, it needs =org-recoll=.
+
+- =Xapian= :: Has several other plugins that tap directly into the engine, like =xapian-lite= and =xeft=.
+
+There's also =pdfgrep= for getting textual information directly from the PDFs on the system.
+
+** Using =recoll= as the search engine
+
+From Rougier's literate emacs config, you have to define a PATH where the Recoll program is found.
+
+To be able to make use of the presence of Recoll on our system, we need to plug Recoll into =consult=.
+
+See [[file:search.org][Search configuration]].
+
+** Creating an easily readable buffer for search results
+
+I want each entry to have a spot where the search string is highlighted.
+
+** Piping the results of the search into a different buffer
+
+What would be even cooler is if I could take the results of the search and inform my literature review with it. After all, that's one of the reasons why I download so many PDFs upon seeing them --- to search them more easily and see what I can take from them later on. I may never know where I can find new help for my work.
+
+* Configuring =org-linker.el=
+
+[[id:5457fd52-e7d0-4f10-8be1-b85bbb90b132][This]] is supposed to work better than [[id:b1650752-895c-496d-9eb9-5349d5fa073e][org-attach]], because it actually attaches UUID for the transactions it's doing.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package org-linker
+    :ensure t (org-linker :type git :host github :repo "jcguu95/org-linker.el"))
+#+end_src
+
+** Creating the root directory for the files that you want to attach
+
+** Customizing the function that generates the UUID
+
+You can customize the uuid generating function org-linker/uuid-generator-function (see below).[fn:2]
+
+** Keeping track of changed files
+
+Transaction History
+All transactions are logged in a human-readable text-based database under org-linker's root directory. So if you do something wrong, you can always go to the root and resolve any problem with ease.[fn:2]
+
+* Footnotes
+[fn:2] https://github.com/jcguu95/org-linker.el
+
+[fn:1]  https://www.reddit.com/r/emacs/comments/hulj9i/renaming_pdfs_when_changing_cite_key/

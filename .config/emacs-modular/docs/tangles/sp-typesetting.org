@@ -1,0 +1,338 @@
+#+TITLE: Typesetting settings for Emacs
+#+startup: overview
+
+LaTeX and Typst.
+
+This should be ensuring that the =texlive= and =typst= binaries are actually installed on the system.
+
+* TODO Working with projects that are nested within chapters
+
+Large projects usually have to be treated in separate files, just like I prefer to set up the environment when
+
+This is specifically concerning larger projects that have to be broken up in specific chapters.
+
+** Appearance of the environment - plugging =olivetti-mode=
+
+I currently don't know if I actually like this environment, but I have to enable it if I want to make use of the =sia-olivetti= function.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package olivetti
+        :ensure t
+        :demand t
+        :after org
+        :custom
+        (olivetti-minimum-body 100)
+        (olivetti-body-width 80)
+        :bind
+        (("C-c w o" . sia-olivetti))
+        :hook
+        (org-mode . olivetti-mode))
+#+end_src
+
+The hook will turn on =olivetti-mode= by default in an org-mode buffer.
+
+If you define ~olivetti-body-width~ as a number (in this case ~80~), then you won't actually have adaptive reflow for the text when you change from a wider frame to a more narrow one. If you set ~olivetti-body-width~ as a fraction (what I had before, ~0.8~), then it will resize, but when using a wider frame, it will make the text a little bit to spread out to have it be easily readable.
+
+** TODO Tangling the different parts of the manuscript together
+
+This would also be meant to emulate the Scrivener mode that you get in Obsidian with longform, but only in this case it actually works well and you don't feel the jankiness of an Electron program.
+
+*Is there any need for =pandoc= in this case, or can I just use =org-babel=?
+
+** TODO Project management considerations
+
+This can also refer to the points that you should be following through the practice of a proper literature review.
+
+** TODO Structuring writing projects in multiple chapters with =binder=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package binder
+    :ensure t)
+#+end_src
+
+How do you make it open up the proper project? It doesn't seem to want to open with the sidebar anymore.
+
+This package isn't really maintained and doesn't have that many useful functions, so it should be removed.
+
+*** Customizing the binder sidebar for seeing the different files in there
+
+Since =emacs-binder='s purpose is to emulate a Scrivener workflow,
+
+** TODO Support a drafting workflow
+
+Iterative development for a text is also something that concerns project management, at its base.
+
+*** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
+
+** Writing integrated notes
+
+The point while drafting a manuscript is to have quick and easy access to the PDFs that I'm taking references from, as well as be able to connect the annotation content to what I'm reading. This is later materialised in the [[id:7e9d8466-d1ff-491a-82c8-d3c937c9575a][Zettelkasten]] notes that I use for actual writing of the manuscript.
+
+[[id:bc1a5a70-e215-4e81-9e9d-32648989fe6a][org-noter]] seems to be best suited package for this scope.
+
+* Basic LaTeX settings
+
+[2026-01-18 Sun]
+
+#+begin_src emacs-lisp :tangle "init.el"
+(setq org-latex-compiler "xelatex")
+(setq org-latex-pdf-process
+      (list (concat "latexmk -"
+                    org-latex-compiler
+                    " -recorder -synctex=1 -bibtex-cond %b")))
+
+(setq org-latex-listings t)
+
+(setq org-latex-default-packages-alist
+      '(("" "graphicx" t)
+        ("" "grffile" t)
+        ("" "longtable" nil)
+        ("" "wrapfig" nil)
+        ("" "rotating" nil)
+        ("normalem" "ulem" t)
+        ("" "amsmath" t)
+        ("" "textcomp" t)
+        ("" "amssymb" t)
+        ("" "capt-of" nil)
+        ("" "hyperref" nil)))
+#+end_src
+
+* CNCL The default builder for LaTeX files
+CLOSED: [2026-01-18 Sun 02:05]
+
+[2026-01-18 Sun]
+
+#+begin_src emacs-lisp :tangle no :eval never
+(latex :variables
+       latex-build-command "LatexMk"
+       latex-enable-auto-fill t)
+#+end_src
+
+LaTeXMK is supposed to be easier to work with.[fn:6]
+
+Next, the idea is that I place ~#+LATEX_CMD:~ processor in an .org file, and during the export Org-mode should pick up the right processor. I also wanted to chose between pdflatex and xelatex, so I’ve created this:
+
+** Choosing between the LaTeX backend exporters
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; Default packages included in every tex file, pdflatex or xelatex
+(setq org-latex-packages-alist
+      '(("" "graphicx" t)
+        ("" "longtable" nil)
+        ("" "float" nil)))
+
+;; source: https://lists.gnu.org/archive/html/emacs-orgmode/2013-06/msg00240.html
+(defun my-auto-tex-cmd (backend)
+  "When exporting from .org with latex,
+  automatically run latex, pdflatex, or xelatex as appropriate,
+  using latexmk."
+  (let ((texcmd))
+    (setq texcmd "latexmk -pdf %f")
+    (if (string-match "LATEX_CMD: pdflatex" (buffer-string))
+        (progn
+          (setq texcmd "latexmk -pdf -pdflatex='pdflatex -file-line-error --shell-escape -synctex=1' %f")
+          (setq org-latex-default-packages-alist
+                '(("AUTO" "inputenc" t)
+                  ("T1"   "fontenc"   t)
+                  (""     "fixltx2e"  nil)
+                  (""     "wrapfig"   nil)
+                  (""     "soul"      t)
+                  (""     "textcomp"  t)
+                  (""     "marvosym"  t)
+                  (""     "wasysym"   t)
+                  (""     "latexsym"  t)
+                  (""     "amssymb"   t)
+                  (""     "hyperref"  nil)))))
+    (if (string-match "LATEX_CMD: xelatex" (buffer-string))
+        (progn
+          (setq texcmd "latexmk -pdflatex='xelatex -file-line-error --shell-escape -synctex=1' -pdf %f")
+          (setq org-latex-default-packages-alist
+                '(("" "fontspec" t)
+                  ("" "xunicode" t)
+                  ("" "url" t)
+                  ;; ("" "rotating" t)
+                  ;; ("" "memoir-article-styles" t)
+                  ;; ("american" "babel" t)
+                  ;; ("babel" "csquotes" t)
+                  ;; ("" "listings" nil)
+                  ("svgnames" "xcolor" t)
+                  ("" "soul" t)
+                  ("xetex, colorlinks=true, urlcolor=FireBrick, plainpages=false, pdfpagelabels, bookmarksnumbered" "hyperref" nil)
+                  ))
+          (setq org-latex-classes
+                (cons '("memarticle"
+                        "\\documentclass[11pt,oneside,article]{memoir}"
+                        ("\\section{%s}" . "\\section*{%s}")
+                        ("\\subsection{%s}" . "\\subsection*{%s}")
+                        ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                        ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                        ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+                      org-latex-classes))))
+
+    (setq org-latex-pdf-process (list texcmd))))
+(add-hook 'org-export-before-parsing-hook 'my-auto-tex-cmd)
+#+end_src
+
+* Exporting plain LaTeX
+
+For actual notes on how to do this, see [[id:05e98dbc-85f4-4b61-bc1e-10ac69fad67a][Compiling LaTeX from org]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(require 'ox-latex)
+(unless (boundp 'org-latex-classes)
+  (setq org-latex-classes nil))
+#+end_src
+
+This snippet is given by this article in worg[fn:1]
+
+** Defining my own plain LaTeX class
+
+#+begin_quote
+This will give us a class that won’t include all the default packages in the generated LaTeX file. Put this in your init file. You can then use it with ~#+LATEX_CLASS: org-plain-latex.~[fn:2]
+#+end_quote
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (with-eval-after-load 'ox-latex
+  (add-to-list 'org-latex-classes
+               '("org-plain-latex"
+                 "\\documentclass{article}
+             [NO-DEFAULT-PACKAGES]
+             [PACKAGES]
+             [EXTRA]"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+#+end_src
+
+** Creating the necessary ~SETUPFILE~
+
+A SETUPFILE is simply a file that contains some sort of org mode configuration. For example, the #+LATEX_CLASS: we saw earlier. Or, maybe #+LATEX_HEADER:. It could even be as simple as #+TITLE:. In this SETUPFILE we can place all of our lines of LaTeX code we want included in the final generated document. This is a very powerful and easy method of perfectly customizing our export.
+
+Linking to a SETUPFILE is done like this
+
+~#+SETUPFILE: ~/Dropbox/Mackup/emacs-stuff/org/jake-standard-latex-export.org~
+
+*** Structuring the ~SETUPFILE~
+
+Now, in that SETUPFILE, we place the LaTeX lines we normally would put in a .tex file. For example, \usepackage{amsmath}. Hopefully you have your own favorite .tex file setup, but if not I suggest learning LaTeX and/or finding a template online.
+
+I suggest using a macro to add #+LATEX_CLASS: to each line, rather than typing it manually of course! Notice the LaTeX_CLASS: - the custom one we just created.
+
+#+begin_src org
+,#+LaTeX_CLASS: org-plain-latex
+,#+LaTeX_CLASS_OPTIONS: [letter]
+,#+LATEX_HEADER: \usepackage{lmodern} % Ensures we have the right font
+
+,#+LATEX_HEADER: \usepackage[AUTO]{inputenc}
+,#+LATEX_HEADER: \usepackage{graphicx}
+,#+LATEX_HEADER: \usepackage{amsmath, amsthm, amssymb}
+,#+LATEX_HEADER: \usepackage[table, xcdraw]{xcolor}
+
+% and so on...
+#+end_src
+
+** Enabling code highlighting in a LaTeX export[fn:2]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq org-latex-listings 't)
+#+end_src
+
+This means that you need to add this to the ~SETUPFILE~:
+
+#+begin_src org
+,#+LATEX_HEADER: \usepackage{listings}
+#+end_src
+
+If you enable org-latex-listings but don’t include the listings package in your TeX file, it will likely not compile (if you are exporting an org file with code blocks).
+
+* TODO Document compilation/export workflow for org-mode manuscripts
+** TODO Exporting to HTML for creating websites
+*** TODO Exporting to multi-node HTML pages for easier navigation
+
+This would basically mirror the style of the manual that GNU Emacs uses, with the buttons at the top that facilitate easier navigation.
+
+** TODO Exporting documents to GNU Info mode for creating personal man pages
+
+Do you need to invoke the =WoMan= Emacs mode for this?
+
+** Configuring =org-pandoc-import= for universal =org-mode= usage
+
+This could also be good for [[id:767b476c-ef48-4b15-a719-f65c1d035dc2][Export org-mode manuscripts to Microsoft Word]]. It would be good for converting a whole bunch of Markdown files to be used in Emacs (instead of trying to use =obsidian-el= module, which is quite abysmally slow when it comes to doing anything with the cache). See [[denote:20251119T212807][Batch convert markdown to org-mode]]
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package org-pandoc-import
+    :ensure (:host github
+  		 :repo "tecosaur/org-pandoc-import"
+  		 :files ("*.el" "filters" "preprocessors")))
+#+end_src
+
+This package can also be used in conjunction with =ox-pandoc= or =ox-gfm=, as they can help with exporting through =org-pandoc-import-transient-mode=.[fn:3]
+
+** Exporting org-mode manuscripts to Typst for better typesetting
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package ox-typst
+  :after org)
+#+end_src
+
+This will make Typst available through the =org-export-dispatch= dialogue menu.[fn:4]
+
+** TODO Export org-mode manuscripts to Microsoft Word
+:PROPERTIES:
+:ID:       767b476c-ef48-4b15-a719-f65c1d035dc2
+:END:
+:BACKLINKS:
+[2026-02-05 Thu 13:49] <- [[id:7e34dee4-5f4a-4d0c-86e9-8d11076596fd][Compiling Word documents from org-mode]]
+:END:
+
+** Installing =ox-pandoc=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package ox-pandoc
+    :ensure t)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; default options for all output formats
+(setq org-pandoc-options '((standalone . t)))
+;; cancel above settings only for 'docx' format
+(setq org-pandoc-options-for-docx '((standalone . nil)))
+;; special settings for beamer-pdf and latex-pdf exporters
+(setq org-pandoc-options-for-beamer-pdf '((pdf-engine . "xelatex")))
+(setq org-pandoc-options-for-latex-pdf '((pdf-engine . "xelatex")))
+;; special extensions for markdown_github output
+(setq org-pandoc-format-extensions '(markdown_github+pipe_tables+raw_html))
+#+end_src
+
+** Enabling proper support for citations
+
+- https://arnesonium.com/2022/10/org-mode-to-docx-pipeline | An Org-mode to DOCX Pipeline | Erik L. Arneson — Writer and Software Developer
+- https://duckduckgo.com/?q=org+mode+to+docx&t=brave&ia=web | org mode to docx at DuckDuckGo
+- https://irreal.org/blog/?p=10911 | An Org-mode to DOCX Pipeline | Irreal
+
+** TODO Reingesting Microsoft Word documents received from advisors
+
+This also includes finding ways to apply the advice and the requirements from the thesis advisor.
+
+** TODO Dealing with the typography
+
+Would it be better to continue relying on =typst= for doing my documents, or would I want to go back to =LaTeX= for some of the documents?
+
+=org-mode= would definitely allow me the freedom of not needing arcane syntax while still writing the skeleton of the document that's ready for exporting.
+
+However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
+
+* Footnotes
+[fn:6]  https://knezevic.ch/posts/xelatex-orgmode-love/
+
+[fn:1]  https://orgmode.org/worg/org-tutorials/org-latex-export.html
+
+[fn:2]  https://jakebox.github.io/posts/2021-03-20-org_latex
+
+[fn:3] https://github.com/tecosaur/org-pandoc-import
+
+[fn:4] https://github.com/jmpunkt/ox-typst
+
+[fn:5] https://arnesonium.com/2022/10/org-mode-to-docx-pipeline

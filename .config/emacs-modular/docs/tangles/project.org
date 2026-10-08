@@ -1,0 +1,51 @@
+#+TITLE: Project management within Emacs
+#+STARTUP: overview
+
+* Principles
+Projectile depends on installing =ripgrep= first on the system.
+
+The project management is mostly meant for _writing_ projects, although it can later be enabled for taking care of programming projects as well.
+
+A writing project has to gather several components.
+
+- the actual written manuscript :: This is compiled as one big org mode manuscript. *It's still unclear to me when I should start moving to the manuscript part, since it would rather have to be a collection of my =denote= zettelkasten.*
+
+- usable literature notes :: This is the literature that I have picked out and for which I have all of the relevant information available
+
+- drafts for the ideas I'm currently working on :: These are inboxed ideas either through =org-capture= or that came up in the middle of reading something
+
+* Bootstrapping packages
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package projectile
+    :ensure t
+    :init
+    (setq projectile-project-search-path
+          '("~/writing/"
+            "~/.config/"
+            "~/playground"))
+    :config
+    ;; These are the configurations to use on Linux for projectile
+    (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
+    (global-set-key (kbd "C-c p") 'projectile-command-map)
+    (projectile-mode +1))
+#+end_src
+
+=ag= is nice alternative to using grep with Projectile.
+
+#+begin_src emacs-lisp :tangle "init.el"
+  (use-package ag
+    :ensure t)
+#+end_src
+
+This block for vertico isn't actually necessary as I have already instantiated it before.
+
+#+begin_src emacs-lisp :tangle no
+        ;; Optional: Enable vertico as the selection framework to use with Projectile
+        (use-package vertico
+          :ensure t
+          :init
+          (vertico-mode +1)
+          :custom
+          (vertico-sort-function
+           'vertico-sort-history-alpha))
+#+end_src

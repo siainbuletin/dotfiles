@@ -1,11 +1,11 @@
-;;; sp-other-functions.el --- summary -*- lexical-binding: t -*-
+;;; sp-helper-funct.el --- summary -*- lexical-binding: t -*-
 
 ;; Useful functions
 
 ;;;;; Call an emacs instance
 ;; Call an emacs instance for testing
 
-(defun lem-call-emacs ()
+(defun sp-call-emacs ()
   (interactive)
   (start-process "Emacs" nil
                  ;; (executable-find "/usr/local/bin/emacs")))
@@ -74,15 +74,10 @@
       (message "Please install `rg' first."))))
 
 ;; Load init file
-(defun lem-load-init-file ()
+(defun sp-load-init-file ()
   "Load the base init file."
   (interactive)
   (load-file (concat user-emacs-directory "init.el")))
-
-(defun lem-load-config-file ()
-  "Load the user config file."
-  (interactive)
-  (load-file sp-config-file))
 
 ;;;; Built-in Functions
 ;; These are useful built-in functions, but you have to enable them
@@ -103,7 +98,7 @@
 ;; Make a blank buffer when opening a new frame. From
 ;; https://stackoverflow.com/a/25792276.
 
-(defun lem-new-buffer-new-frame ()
+(defun sp-new-buffer-new-frame ()
   "Create a new frame with a new empty buffer."
   (interactive)
   (let ((buffer (generate-new-buffer "untitled")))
@@ -112,7 +107,7 @@
 
 
 ;;;;; Create new buffer
-(defun lem-create-new-buffer ()
+(defun sp-create-new-buffer ()
   "Create a new buffer in the default major mode."
   (interactive)
   (let ((buffer (generate-new-buffer "*new*")))
@@ -121,7 +116,7 @@
       (funcall (default-value 'major-mode)))))
 
 ;;;;; Create New Elisp Buffer
-(defun lem-create-new-elisp-buffer ()
+(defun sp-create-new-elisp-buffer ()
   "Create a new buffer in `'emacs-lisp-mode'."
   (interactive)
   (let ((buffer (generate-new-buffer "*elisp*")))
@@ -130,7 +125,7 @@
       (emacs-lisp-mode))))
 
 ;;;;; Make Temp Buffer
-(defun lem-tmp-buffer()
+(defun sp-tmp-buffer()
   "Make a temporary buffer and switch to it."
   (interactive)
   (switch-to-buffer (get-buffer-create (concat "tmp-" (format-time-string "%m.%dT%H.%M.%S"))))
@@ -138,7 +133,7 @@
 
 ;;;;; Revert all buffers
 ;;
-(defun lem-revert-all-file-buffers ()
+(defun sp-revert-all-file-buffers ()
   "Refresh all open file buffers without confirmation.
 Buffers in modified (not yet saved) state in emacs will not be reverted. They
 will be reverted though if they were modified outside emacs.
@@ -163,12 +158,12 @@ will be killed."
 
 ;;;;; Clipboard to/from Buffer
 ;; http://stackoverflow.com/a/10216338/4869
-(defun lem-copy-whole-buffer-to-clipboard ()
+(defun sp-copy-whole-buffer-to-clipboard ()
   "Copy entire buffer to clipboard"
   (interactive)
   (clipboard-kill-ring-save (point-min) (point-max)))
 
-(defun lem-copy-clipboard-to-whole-buffer ()
+(defun sp-copy-clipboard-to-whole-buffer ()
   "Copy clipboard and replace buffer"
   (interactive)
   (delete-region (point-min) (point-max))
@@ -191,7 +186,7 @@ will be killed."
       t
       )))
 
-(defun lem-next-user-buffer ()
+(defun sp-next-user-buffer ()
   "Switch to the next user buffer.
   “user buffer” is determined by `sp-user-buffer-q'.
   URL `http://ergoemacs.org/emacs/elisp_next_prev_user_buffer.html'
@@ -205,7 +200,7 @@ will be killed."
                  (setq i (1+ i)))
         (progn (setq i 100))))))
 
-(defun lem-previous-user-buffer ()
+(defun sp-previous-user-buffer ()
   "Switch to the previous user buffer.
   “user buffer” is determined by `sp-user-buffer-q'.
   URL `http://ergoemacs.org/emacs/elisp_next_prev_user_buffer.html'
@@ -221,7 +216,7 @@ will be killed."
 
 ;;;;; Eval emacs buffer until error
 
-(defun lem-eval-buffer-until-error ()
+(defun sp-eval-buffer-until-error ()
   "Evaluate emacs buffer until error occured."
   (interactive)
   (goto-char (point-min))
@@ -232,14 +227,14 @@ will be killed."
 ;; wrapper on (kill-buffer) to kill the current buffer. This is sometimes better
 ;; than (evil-delete-buffer) since it keeps the window.
 
-(defun lem-kill-this-buffer ()
+(defun sp-kill-this-buffer ()
   (interactive)
   (kill-buffer))
 
 ;;;;; Show Filename of Buffer
 
 ;; http://camdez.com/blog/2013/11/14/emacs-show-buffer-file-name/
-(defun lem-show-and-copy-buffer-full-filename ()
+(defun sp-show-and-copy-buffer-full-filename ()
   "Show the full path to the current file in the minibuffer and copy to clipboard."
   (interactive)
   (let ((file-name (buffer-file-name)))
@@ -249,7 +244,7 @@ will be killed."
           (kill-new file-name))
       (error "Buffer not visiting a file"))))
 
-(defun lem-show-and-copy-buffer-filename ()
+(defun sp-show-and-copy-buffer-filename ()
   "Show the abbreviated path to the current file in the minibuffer and copy to clipboard."
   (interactive)
   (let ((file-name (buffer-file-name)))
@@ -270,7 +265,7 @@ will be killed."
 ;;;;; Delete Current File
 ;; from magnars
 
-(defun lem-delete-current-buffer-file ()
+(defun sp-delete-current-buffer-file ()
   "Removes file connected to current buffer and kills buffer."
   (interactive)
   (let ((filename (buffer-file-name))
@@ -284,7 +279,7 @@ will be killed."
         (message "File '%s' successfully removed" filename)))))
 
 ;;;;; Get string from file
-(defun lem-get-string-from-file (filePath)
+(defun sp-get-string-from-file (filePath)
   "Read a file and return the contents as a string"
   (with-temp-buffer
     (insert-file-contents filePath)
@@ -293,12 +288,12 @@ will be killed."
 
 ;;;;; Duplicate file
 ;; Duplicate a file in dired or deer
-(defun lem-duplicate-file ()
+(defun sp-duplicate-file ()
   (interactive)
   (dired-do-copy-regexp "\\(.*\\)\\.\\(.*\\)" "\\1 (copy).\\2"))
 
 ;;;;; Move File
-(defun lem-move-file ()
+(defun sp-move-file ()
   "Write this file to a new location, and delete the old one."
   (interactive)
   (let ((old-location (buffer-file-name)))
@@ -321,17 +316,17 @@ will be killed."
 ;;;;; Insert seconds
 ;; Functions for inserting times.
 
-(defun lem-insert-time-string ()
+(defun sp-insert-time-string ()
   "Insert year, day, hour, month, and second as a single string
       with no seperation"
   (interactive)
   (insert (format-time-string "%Y%d%H%M%S")))
 
-(defun lem-insert-time-seconds-epoch ()
+(defun sp-insert-time-seconds-epoch ()
   "Insert the integer number of seconds since the epoch."
   (interactive)
   (insert (format-time-string "%s")))
-;; (keymap-global-set "C-c e") 'lem-insert-time-seconds-epoch)
+;; (keymap-global-set "C-c e") ''sp-insert-time-seconds-epoch)
 
 ;;;;; Insert Comment Seperator
 ;; ======================================================
@@ -339,7 +334,7 @@ will be killed."
 ;; ======================================================
 ;; https://github.com/kuanyui/writing-utils.el/blob/db29d30e11b6d6d96c0d351b642af97631f3365f/writing-utils.el#L85
 
-(defun lem-insert-commented-separator()
+(defun sp-insert-commented-separator()
   "Insert a commented separator in your code. Like this in
       ELisp:
       ;; ======================================================
@@ -360,7 +355,7 @@ will be killed."
 
 ;;;;; Insert Weather
 ;; From [[https://www.baty.blog/2019/insert-weather-into-emacs-buffer][Jack Baty]] with some slight modifications for formatting. See also [[https://github.com/chubin/wttr.in][wttr.in]].
-(defun lem-insert-weather ()
+(defun sp-insert-weather ()
   "Insert `'wttr.in' weather forecast in buffer."
   (interactive)
   (let ((w (shell-command-to-string "curl -s 'wttr.in/?0qT' | head -n10")))
@@ -368,92 +363,6 @@ will be killed."
                        (split-string w "\n")
                        "\n")))
   (newline))
-
-;;;;; Clipboard Transforms Using Pandoc
-(defun lem-org-to-markdown ()
-  "convert clipboard contents from org to markdown and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t markdown"))
-  (yank))
-
-(defun lem-markdown-to-org ()
-  "convert clipboard contents from markdown to org and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t org"))
-  (yank))
-
-(defun lem-tex-to-org ()
-  "convert clipboard contents from markdown to org and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f latex -t org"))
-  (yank))
-
-(defun lem-org-to-tex ()
-  "convert clipboard contents from org to tex and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t latex"))
-  (yank))
-
-(defun lem-tex-to-markdown ()
-  "convert clipboard contents from markdown to org and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f latex -t markdown --markdown-headings=atx"))
-  (yank))
-
-(defun lem-markdown-to-tex ()
-  "convert clipboard contents from markdown to org and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t latex"))
-  (yank))
-
-(defun lem-cite-to-org ()
-  "convert clipboard contents from markdown to org with citations and paste"
-  (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" lem-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
-  (yank))
-
-(defun lem-cite-to-markdown ()
-  "convert clipboard contents to markdown with citations and paste"
-  (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" lem-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
-  (yank))
-
-(defun lem-bibtex-to-yaml-reference ()
-  "convert clipboard bibtex contents to yaml and paste"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc-citeproc -y -f bibtex | pbcopy"))
-  (yank))
-
-(defun lem-md-to-rtf ()
-  "convert md to rtf and send to clipboard"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t rtf | pbcopy"))
-  (yank))
-
-
-;; NOTE: piping to pbcopy doesn't seem to work but it is ready to paste as is
-(defun lem-org-to-rtf ()
-  "convert org to rtf and send to clipboard"
-  (interactive)
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 -font Helvetica | pbcopy")))
-
-(defun lem-org-to-mail-rtf ()
-  "copy buffer, convert clipboard contents from org to rtf, and send to mail message"
-  (interactive)
-  (lem-copy-whole-buffer-to-clipboard)
-  ;; (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t rtf"))
-  (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 | pbcopy"))
-  (kill-buffer)
-  (delete-frame)
-  (do-applescript "if application \"Mail\" is running then
-      tell application \"Mail\"
-      activate
-      delay 0.35
-      tell application \"System Events\"
-      keystroke \"v\" using {command down}
-      end tell
-      end tell
-      end if"))
 
 ;;;;; Smart Yanking
 ;;Courtesy of Marcin Borkowski http://mbork.pl/2018-07-02_Smart_yanking
@@ -509,7 +418,7 @@ will be killed."
 ;; http://lists.gnu.org/archive/html/help-gnu-emacs/2007-05/msg00975.html
 
 ;;;;; Wrap in Yaml block
-(defun lem-yaml-wrap ()
+(defun sp-yaml-wrap ()
   "wrap region in --- for a yaml block"
   (interactive)
   (let ((start (region-beginning))
@@ -521,7 +430,7 @@ will be killed."
 
 ;;;;; Jump to sexp
 
-(defun lem-forward-or-backward-sexp (&optional arg)
+(defun sp-forward-or-backward-sexp (&optional arg)
   "Go to the matching parenthesis character if one is adjacent to point."
   (interactive "^p")
   (cond ((looking-at "\\s(") (forward-sexp arg))
@@ -532,7 +441,7 @@ will be killed."
 
 ;;;; UI Functions
 ;;;;; Toggle markup
-(defun lem-toggle-display-markup ()
+(defun sp-toggle-display-markup ()
   "Toggle the display of markup in markdown and org modes"
   (interactive)
   (if (eq major-mode 'org-mode)
@@ -593,133 +502,9 @@ Sublists indicate that one of the entries is required."
                  (mapconcat 'identity missing ", "))
       (message "No missing executable files."))))
 
-;;; BIBLIOGRAPHY
-(defvar sp-bibtex-files
-  (when (file-exists-p sp-bibtex-dir)
-    (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))
-  "List of BibTeX files. Use `sia-bibtex-register' to configure.")
 
-;;;###autoload
-(defun sia-bibtex-register ()
-  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
-  (interactive)
-  (when (file-exists-p sp-bibtex-dir)
-    (let ((bib-files (directory-files sp-bibtex-dir t
-				      "^[A-Z|a-z|0-9].+.bib$")))
-      (setq sp-bibtex-files bib-files
-  	    org-cite-global-bibliography bib-files
-	    citar-bibliography bib-files)))
-  (message "Registered:\n%s" (mapconcat #'identity sp-bibtex-files "\n")))
-
-(defun sp--bibtex-combined-biblio-lookup ()
-  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
-  (require 'biblio)
-  (let* ((dbs (biblio--named-backends))
-         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
-         (db-selected (biblio-completing-read-alist
-                       "Backend:"
-                       db-list)))
-    (if (eq db-selected 'biblio-doi-backend)
-        (let ((doi (read-string "DOI: ")))
-          (biblio-doi-insert-bibtex doi))
-      (biblio-lookup db-selected))))
-
-;;;###autoload
-(defun sia-bibtex-biblio-lookup ()
-  "Insert Biblio search results into current buffer or select BibTeX file."
-  (interactive)
-  (if-let ((current-mode major-mode)
-	   sp-bibtex-files
-	   (bibfiles (length sp-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
-			  ((equal major-mode 'bibtex-mode)
-			   (buffer-file-name))
-			  (t (completing-read
-			      "Select BibTeX file:" sp-bibtex-files)))))
-      (progn (find-file bibfile)
-	     (goto-char (point-max))
-	     (sp--bibtex-combined-biblio-lookup)
-	     (save-buffer))
-    (message "No BibTeX file(s) defined.")))
-
-;; Search for missing BibTeX attachments and filenames
-(defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
-  (sia-bibtex-register)
-  (let ((attachments '()))
-    (dolist (bibtex-file sp-bibtex-files)
-      (with-temp-buffer
-        (insert-file-contents bibtex-file)
-        (goto-char (point-min))
-        (while (re-search-forward "file.*=.*{\\([^}]+\\)}" nil t)
-          (let ((file-paths (split-string (match-string 1)
-                                          "[[:space:]]*;[[:space:]]*")))
-            (dolist (file-path file-paths)
-              (push (expand-file-name (string-trim file-path)
-                                      sp-bibtex-dir)
-                    attachments))))))
-    attachments))
-
-(defun sp--bibtex-extract-files ()
-  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
-  (seq-remove (lambda (file)
-                (or (string-suffix-p ".bib" file)
-                    (string-suffix-p ".csl" file)))
-              (mapcar 'expand-file-name
-                      (directory-files-recursively sp-bibtex-dir ""))))
-
-;;;###autoload
-(defun sia-bibtex-missing-files ()
-  "List BibTeX attachments not listed in a BibTeX file entry."
-  (interactive)
-  (let* ((files (sp--bibtex-extract-files))
-         (attachments (sp--bibtex-extract-attachments))
-         (missing (cl-remove-if
-                   (lambda (f) (member f attachments)) files)))
-    (message "%s files not registered in bibliography" (length missing))
-    (dolist (file missing)
-      (message file))))
-
-;;;###autoload
-(defun sia-bibtex-missing-attachments ()
-  "List BibTeX file entries with missing attachment(s)."
-  (interactive)
-  (let* ((files (sp--bibtex-extract-files))
-         (attachments (sp--bibtex-extract-attachments))
-         (missing (cl-remove-if
-                   (lambda (f) (member f files)) attachments)))
-    (message "%s BibTeX files without matching attachment." (length missing))
-    (dolist (file missing)
-      (message file))))
 
 ;; Denote
-;; Distraction-free writing
-(defvar sia-olivetti-point nil
-  "Stores the point position before enabling Olivetti mode.")
-
-;;;###autoload
-(defun sia-olivetti ()
-  "Distraction-free writing environment enhancing Olivetti mode.
-
-Stores the window configuration when enabling Olivetti mode.
-Restores the previous configuration when existing Olivetti mode
-and moves point to the last location."
-  (interactive)
-  (if olivetti-mode
-      (progn
-        (if (eq (length (window-list)) 1)
-            (progn
-              (jump-to-register 1)
-              (goto-char sia-olivetti-point)))
-        (olivetti-mode 0)
-        (text-scale-set 0))
-    (progn
-      (setq sia-olivetti-point (point))
-      (window-configuration-to-register 1)
-      (delete-other-windows)
-      (text-scale-set 1)
-      (olivetti-mode t))))
 
 ;;;###autoload
 (defun sia-org-insert-notes-drawer ()
@@ -899,5 +684,5 @@ insert the text where point is, not where the mouse cursor is."
 
 ;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(provide 'sp-other-functions)
-;;; sp-other-functions.el ends here
+(provide 'sp-helper-funct)
+;;; sp-helper-funct.el ends here

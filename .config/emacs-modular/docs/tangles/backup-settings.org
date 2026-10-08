@@ -1,0 +1,43 @@
+#+TITLE: Native backup from Emacs
+
+This is also relevant for the ideas in [[file:file-management.org][File management with dired]].
+
+We'll be installing a utility package called =vc-backup= which creates a versioned backup backend.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package vc-backup)
+#+end_src
+
+Before actually saving a file, what Emacs does is that it takes the contents of the old file and creates a "backup" file for it. These will usually have a =~= attached at the end. As long as you have the file open in the current buffer, the backup will stay at the point _before_ you first opened it. Basically, the backups are done *session by session*.[fn:6]
+
+After you kill a buffer, if you visit the file again, it will create a new backup file, since what you're doing is effectively *starting a new session*.
+
+This code snippet will also make sure that the autosaved files are offloaded to a different folder (for peace of mind). It makes use of the =backup-directory-alist= variable, which can set up file name patterns and backup directory names.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq-default backup-directory-alist
+      `(("." . ,(expand-file-name "backups/" user-emacs-directory)))
+        make-backup-files t
+        vc-make-backup-files t ; Won't create backup of files that are already under version control
+        backup-by-copying t ; Avoid symlinks
+        delete-old-versions t
+        delete-by-moving-to-trash t ; This makes sure that the files aren't permanently deleted
+        kept-new-versions 6
+        kept-old-versions 3
+        version-control t)
+#+end_src
+
+*What exactly is the difference between =setq= and =setq-default=?
+
+* Visited file autosave
+
+Since I edit a lot of notes files (and jump between them), I need a way to safeguard against Emacs crashing (see [[denote:20251117T215613][Debugging Emacs crashing]]
+
+* Dealing with lockfiles
+
+*I still have to figure out how to make good use of this.*
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;;; Lockfiles unfortunately cause more pain than benefit
+  (setq create-lockfiles nil)
+#+end_src

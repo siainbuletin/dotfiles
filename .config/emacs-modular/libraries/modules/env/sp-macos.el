@@ -1,6 +1,14 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-macos.el --- settings specific to the MacOS environment.
 
-;; Settings specific to the MacOS environment.
+;;; Commentary:
+
+;; MacOS is my main operating system (my most capable and portable computer),
+;; for this reason, it's important to have it be integrated with the rest of
+;; the system, including running DEVONthink well enough (although DT support
+;; is configured elsewhere in this config).
+
+;;; Code:
 
 ;; This is so that I can actually use the CMD key as my Meta key.
 (setq mac-command-modifier 'meta)
@@ -172,3 +180,8 @@ live system appearance instead of the daemon's stale startup value."
     :hook (org-mode . (lambda ()
                         (define-key org-mode-map (kbd "C-c g")
                           'org-mac-link-get-link))))
+
+;;; Provide:
+
+(provide 'sp-macos)
+;; sp-macos.el ends here.

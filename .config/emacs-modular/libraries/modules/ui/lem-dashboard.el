@@ -38,28 +38,23 @@
 
 (use-package dashboard
   :ensure t
-  :if (and sp-load-extras
-             (locate-library "dashboard")
-             (locate-library "nerd-icons")
-             (display-graphic-p)
-             (< (length command-line-args) 2))
-
+  ;; :if sp-load-extras
+  :commands
+  (dashboard-open)
+  
   :custom
   ;; Set info & center
   (dashboard-set-init-info t)
   (dashboard-center-content t)
-    
+  
   ;; Set project backend
-  (dashboard-projects-backend 'project-el) ;; Can this also be used with projectile?
+  (dashboard-projects-backend 'project-el)
+  
+  ;; :config
+  ;; (add-hook 'dashboard-mode-hook #'lem-dashboard-hide-modeline)
+)
 
-  :config
-  (add-hook 'elpaca-after-init-hook #'lem-dashboard)
-  (add-hook 'dashboard-mode-hook #'lem-dashboard-hide-modeline)
-  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
-  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
-
-  :bind
-  ("C-c d d" . dashboard-open))
+;; (require 'dashboard)
 
 ;;; Cosmetics for the bar
 

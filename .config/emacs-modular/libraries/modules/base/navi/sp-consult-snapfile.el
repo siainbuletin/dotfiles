@@ -1,4 +1,9 @@
 ;; -*- lexical-binding: t; -*-
+;;; sp-consult-snapfile.el --- summary
+
+;;; Commentary:
+
+;;; Code:
 
 (use-package consult-snapfile
   :load-path "~/cloned-utilities/consult-snapfile/emacs"
@@ -12,3 +17,7 @@
 
 ;; Max results to return
 (setq consult-snapfile-max-results 100)
+
+;;; Provide:
+(provide 'sp-consult-snapfile)
+;; sp-consult-snapfile.el ends here.

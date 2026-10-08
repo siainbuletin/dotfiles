@@ -71,4 +71,25 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 (keymap-global-set "H-w" 'formatted-copy)
 
+;; Abbreviation
+
+(use-package abbrev
+  :ensure nil
+  :defer 2
+  :config
+  ;; (add-hook 'text-mode-hook #'abbrev-mode)
+  (setq abbrev-file-name (concat sp-var-dir "abbrev/.abbrev_defs")
+        save-abbrevs 'nil)
+  (if (file-exists-p abbrev-file-name)
+      (quietly-read-abbrev-file)))
+
+;;;; Capitalization
+;; From https://karthinks.com/software/batteries-included-with-emacs/
+(keymap-global-set "M-u" 'upcase-dwim)
+(keymap-global-set "M-l" 'downcase-dwim)
+(keymap-global-set "M-c" 'capitalize-dwim)
+
+;;; Provide:
+
 (provide 'sp-text-manipulation)
+;; sp-text-manipulation.el ends here.

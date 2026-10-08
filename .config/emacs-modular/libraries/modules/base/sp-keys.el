@@ -63,27 +63,27 @@ the line, respectively."
            :prefix (concat sp-prefix " b")
            ("a" . ibuffer)
            ("b" . consult-buffer)
-           ("c" . lem-copy-whole-buffer-to-clipboard )
+           ("c" . sp-copy-whole-buffer-to-clipboard )
            ("d" . kill-buffer-and-window             )
-           ("e" . lem-create-new-elisp-buffer        )
+           ("e" . sp-create-new-elisp-buffer        )
            ("E" . erase-buffer                       )
            ("f" . reveal-in-osx-finder               )
            ("i" . consult-imenu                      )
-           ("j" . lem-jump-in-buffer                 )
-           ("k" . lem-kill-this-buffer               )
+           ("j" . sp-jump-in-buffer                 )
+           ("k" . sp-kill-this-buffer               )
            ("K" . crux-kill-other-buffers            )
            ("m" . consult-mark                       )
            ("M" . consult-global-mark                )
-           ("n" . lem-create-new-buffer              )
-           ("N" . lem-new-buffer-new-frame           )
+           ("n" . sp-create-new-buffer              )
+           ("N" . sp-new-buffer-new-frame           )
            ("p" . consult-project-buffer             )
            ("r" . revert-buffer                      )
            ("R" . crux-rename-file-and-buffer        )
            ("s" . consult-buffer-other-window        )
-           ("S" . lem-spelling-transient            )
+           ("S" . sp-spelling-transient            )
            ("t" . tab-bar-new-tab                    )
-           ("[" . lem-previous-user-buffer           )
-           ("]" . lem-next-user-buffer               )
+           ("[" . sp-previous-user-buffer           )
+           ("]" . sp-next-user-buffer               )
            ("{" . tab-bar-switch-to-prev-tab         )
            ("}" . tab-bar-switch-to-next-tab         )
            ("<backtab>" . crux-switch-to-previous-buffer))
@@ -95,21 +95,21 @@ the line, respectively."
            ("d" . crux-duplicate-and-comment-current-line-or-region)
            ("l" . comment-line)
            ("o" . org-block-wrap)
-           ("y" . lem-yaml-wrap))
+           ("y" . sp-yaml-wrap))
 
 ;;;;; Config Keybindings
 ;; FIXME: fix goto functions to make them more generic
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
-           ("a" . lem-setup-kill-and-archive-region     )
+           ("a" . sp-setup-kill-and-archive-region     )
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
            ("f" . sp-find-lambda-file                  )
-           ("l" . lem-load-config                       )
+           ("l" . sp-load-config                       )
            ("i" . sp-goto-init.el                      )
-           ("I" . lem-load-init-file                    )
+           ("I" . sp-load-init-file                    )
            ("o" . sp-goto-org-files                    )
            ("s" . sp-search-lambda-files               ))
 
@@ -120,7 +120,7 @@ the line, respectively."
            ("m"  . compile                  )
            ("M"  . multi-compile-run        )
            ("e"  . compile-goto-error       )
-           ("k"  . lem-compile-next-makefile)
+           ("k"  . sp-compile-next-makefile)
            ("K"  . kill-compilation         )
            ("r"  . recompile                ))
 
@@ -128,7 +128,7 @@ the line, respectively."
 (bind-keys :prefix-map lem+eval-keys
            :prefix (concat sp-prefix " e")
            ("b"  . eval-buffer )
-           ("c"  . lem-eval-current-form)
+           ("c"  . sp-eval-current-form)
            ("e"  . eval-last-sexp)
            ("f"  . eval-defun))
 
@@ -141,7 +141,7 @@ the line, respectively."
            ("o" . crux-open-with                   )
            ("s" . save-buffer                      )
            ("r" . consult-recent-file              )
-           ("y" . lem-show-and-copy-buffer-filename))
+           ("y" . sp-show-and-copy-buffer-filename))
 
 ;;;;; Linting (Flymake)
 (bind-keys :prefix-map lem+flymake-keys
@@ -170,7 +170,7 @@ the line, respectively."
            ("d"  .  denote)
            ("n"  .  consult-notes)
            ("s"  .  consult-notes-search-in-all-notes)
-           ("w"  .  lem-denote-workbook-create-entry))
+           ("w"  .  sp-denote-workbook-create-entry))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")
@@ -182,16 +182,16 @@ the line, respectively."
 ;;;;; Quit Keybindings
 (bind-keys :prefix-map lem+quit-keys
            :prefix (concat sp-prefix " q")
-           ("d" . lem-kill-emacs-capture-daemon)
+           ("d" . sp-kill-emacs-capture-daemon)
            ("q" . save-buffers-kill-emacs      )
-           ("Q" . lem-kill-all-emacsen         )
+           ("Q" . sp-kill-all-emacsen         )
            ("r" . restart-emacs                ))
 
 ;;;;; Spelling Keybindings
 (bind-keys :prefix-map lem+spelling-keys
            :prefix (concat sp-prefix " S")
            ("b" . consult-flyspell          )
-           ("h" . lem-spelling-transient    )
+           ("h" . sp-spelling-transient    )
            ("n" . flyspell-correct-next     )
            ("p" . flyspell-correct-previous ))
 
@@ -202,18 +202,18 @@ the line, respectively."
            ;; search current buffer's directory
            ("d" . consult-ripgrep              )
            ;; search with directory input
-           ("D" . lem-search-in-input-dir      )
+           ("D" . sp-search-in-input-dir      )
            ("b" . multi-occur                  )
            ("f" . consult-line                 )
            ("h" . consult-org-heading          )
-           ("j" . lem-forward-or-backward-sexp )
+           ("j" . sp-forward-or-backward-sexp )
            ("k" . consult-yank-pop             )
            ("l" . vertico-repeat               )
            ("n" . consult-notes-search-in-all-notes)
            ("r" . vr/query-replace             )
            ("s" . consult-line                 )
            ;; search for next spelling error
-           ("S" . lem-flyspell-ispell-goto-next-error)
+           ("S" . sp-flyspell-ispell-goto-next-error)
            ("t" . sp-todo-transient           )
            ("." . consult-line-symbol-at-point ))
 
@@ -227,7 +227,7 @@ the line, respectively."
            ("F" . flymake-mode                )
            ("h" . hl-line-mode                )
            ("H" . hide-mode-line-mode         )
-           ("m" . lem-toggle-display-markup   )
+           ("m" . sp-toggle-display-markup   )
            ("n" . display-line-numbers-mode   )
            ("o" . imenu-list-smart-toggle     )
            ("p" . puni-global-mode            )
@@ -248,7 +248,7 @@ the line, respectively."
 
 ;;;;; Version Control (Git) Keybindings
 ;; git-gutter is referenced by several bindings here but is not declared
-;; in `lem-packages-alist'. Autoload the commands we bind so the keymap
+;; in `sp-packages-alist'. Autoload the commands we bind so the keymap
 ;; entries are `commandp'-true even on a cold boot before the user
 ;; installs git-gutter; pressing the key without git-gutter installed
 ;; raises `file-missing' (not `void-function'), and once git-gutter is
@@ -277,24 +277,24 @@ the line, respectively."
 (bind-keys :prefix-map lem+window-keys
            :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
-           ("f" .  lem-toggle-window-split         )
+           ("f" .  sp-toggle-window-split         )
            ("c" .  delete-window                   )
            ("d" .  delete-window                   )
-           ("h" .  lem-split-window-below-and-focus)
+           ("h" .  sp-split-window-below-and-focus)
            ("H" .  split-window-below              )
            ("m" .  delete-other-windows            )
-           ("o" .  lem-other-window                )
-           ("r" .  lem-rotate-windows              )
-           ("R" .  lem-rotate-windows-backward     )
+           ("o" .  sp-other-window                )
+           ("r" .  sp-rotate-windows              )
+           ("R" .  sp-rotate-windows-backward     )
            ("t" .  tear-off-window                 )
            ("u" .  winner-undo                     )
            ("U" .  winner-redo                     )
-           ("v" .  lem-split-window-right-and-focus)
+           ("v" .  sp-split-window-right-and-focus)
            ("V" .  split-window-right              )
            ("w" .  ace-window                      )
-           ("x" .  lem-window-exchange-buffer      )
+           ("x" .  sp-window-exchange-buffer      )
            ("-" .  split-window-below              )
-           ("_" .  lem-split-window-below-and-focus))
+           ("_" .  sp-split-window-below-and-focus))
 
 ;;;;; Workspace Keybindings
 (bind-keys :prefix-map lem+workspace-keys
@@ -349,7 +349,7 @@ the line, respectively."
 ;; freeform tabular docstring was the entire UI -- replaced here by
 ;; transient's standard column groups.
 
-(transient-define-prefix lem-ediff-transient ()
+(transient-define-prefix sp-ediff-transient ()
   "Launch an ediff session."
   ["Ediff"
    ["Buffers"
@@ -382,16 +382,16 @@ the line, respectively."
 ;; Spec 09 -- see git history for the prior macro-based dispatch
 ;; implementation including its ASCII-art docstring.
 
-(defun lem-rectangle-toggle-region ()
+(defun sp-rectangle-toggle-region ()
   "Toggle `rectangle-mark-mode' based on current region state.
-Used by `lem-rectangle-transient' as the \"r\" suffix; replaces
+Used by `sp-rectangle-transient' as the \"r\" suffix; replaces
 an inline branching lambda from the prior implementation."
   (interactive)
   (if (region-active-p)
       (deactivate-mark)
     (rectangle-mark-mode 1)))
 
-(transient-define-prefix lem-rectangle-transient ()
+(transient-define-prefix sp-rectangle-transient ()
   "Rectangle editing."
   ["Rectangle"
    ["Move"
@@ -409,7 +409,7 @@ an inline branching lambda from the prior implementation."
    ["Mark"
     ("e" "Exchange"     rectangle-exchange-point-and-mark :transient t)
     ("N" "Number lines" rectangle-number-lines            :transient t)
-    ("r" "Toggle region" lem-rectangle-toggle-region      :transient t)]
+    ("r" "Toggle region" sp-rectangle-toggle-region      :transient t)]
    [""
     ("u" "Undo" undo                :transient t)
     ("g" "Quit" transient-quit-one)]]
@@ -422,7 +422,7 @@ an inline branching lambda from the prior implementation."
               (deactivate-mark))
             (remove-hook 'transient-exit-hook cleanup)))
     (add-hook 'transient-exit-hook cleanup))
-  (transient-setup 'lem-rectangle-transient))
+  (transient-setup 'sp-rectangle-transient))
 
 ;; TODO: Add org and markdown keybindings
 ;;; End keybindings

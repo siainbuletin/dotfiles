@@ -47,15 +47,6 @@
   (interactive)
   (find-file custom-file))
 
-(defun sp-goto-config ()
-  "Open user config file"
-  (interactive)
-  (find-file sp-config-file))
-(defun lem-load-config ()
-  "Load config "
-  (interactive)
-  (load-file user-init-file)
-  (load-file sp-config-file))
 (defun sp-goto-emacs-dir ()
   "Open 𝛌-Emacs directory"
   (interactive)
@@ -68,6 +59,12 @@
   "Open user elisp library."
   (interactive)
   (find-file sp-user-elisp-dir))
+
+;;;; Go To Change
+;; Easily go to last change
+(use-package goto-last-change
+  :when (and sp-load-extras (locate-library "goto-last-change"))
+  :bind (("C-\"" . #'goto-last-change)))
 
 ;;; Provide:
 

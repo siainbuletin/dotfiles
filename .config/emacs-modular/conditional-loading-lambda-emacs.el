@@ -28,7 +28,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                     'sp-scratch
 
                     ;; UI modules
-                    'sp-frames
+                    'sp-frame
                     'sp-windows
                     'sp-buffers
                     'sp-fonts         ;; All font settings
@@ -90,7 +90,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                      'sp-scratch
 
                      ;; UI modules
-                     'sp-frames
+                     'sp-frame
                      'sp-windows
                      'sp-buffers
                      'sp-completion
@@ -154,7 +154,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
   (message "*Loading 𝛌-Emacs default modules")
   (sp--default-modules)
   ;; MacOS settings - defer load until after init. Skipped on
-  ;; headless hosts: `lem-setup-macos' is in `lem-gui-only-set'
+  ;; headless hosts: `sp-setup-macos' is in `sp-gui-only-set'
   ;; and the dispatcher's filter already excludes it, but this
   ;; deferred require fires outside the dispatcher and would
   ;; bypass the filter without the explicit guard.

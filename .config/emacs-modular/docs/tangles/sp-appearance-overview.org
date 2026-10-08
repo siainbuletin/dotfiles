@@ -1,0 +1,820 @@
+#+title: GUI Settings for Emacs
+#+startup: overview
+
+STATUS: Needs overhaul.
+
+This is a reconfiguration of the GUI I want in Emacs without depending on the NANO module (since it's too complicated right now for me to understand).
+
+* Why is it called so early on in the configuration?
+
+The module for =display-graphic-p= is necessary for multiple enhancements to the GUI of Emacs. The dashboard is configured within its own file: [[file:dashboard.org][Dashboard configuration]].
+
+* Organisation principles
+There's multiple tenets to follow in this case
+
+- readability :: The fonts should be thick enough, there should be enough space on the page, and have serif fonts in case of writing prose. The experience shall be as close as possible to that of writing in typography (in the case of writing prose). For code, I want the best readability with monospaced fonts.
+- command clarity :: Sometimes it isn't clear what happens when I use a keybinding by accident, so I want to avoid any potential data loss.
+- good documentation reading environment :: The original layout for the GNU Info pages is quite shit. I want to improve that and the appearance of EWW.  (see more in the Obsidian note about _Reading directly from Emacs_)
+
+Why is this configuration so high up in the org file? Apparently I can't make the icons work at all unless I call them very early on.
+
+* Default menu settings
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(when (display-graphic-p)
+  (context-menu-mode 1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (horizontal-scroll-bar-mode -1)
+#+end_src
+
+* Dimming windows when unfocused
+
+This is also tied to [[file:wm.org][Window management principles for Emacs]]. To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:1] As an interesting alternative, check out the =selected-window-accent= project.
+
+This is currently turned off, as it's more distracting than actually useful
+
+#+begin_src emacs-lisp :tangle no :eval never
+        (use-package dimmer
+          :ensure t
+
+          :custom
+          (dimmer-adjustment-mode :foreground)
+
+          :config
+          (dimmer-configure-which-key)      ; Do not dim these special windows
+          (dimmer-configure-hydra)
+          (dimmer-configure-magit)
+
+          (dimmer-mode t))
+#+end_src
+
+* Making the cursor visible
+
+introduced his Pulsar project is just what I need. Specifically, I might loose the cursor and need to have it highlighted (using F8), but also, this automatically highlights the cursor line with specific actions, like changing windows.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package pulsar
+    :ensure t
+    :custom
+    (pulsar-face 'pulsar-generic)
+    (pulsar-delay 0.15)
+
+    :bind ("<f8>" . pulsar-pulse-line)
+
+    :config
+    (dolist (built-in-function '(recenter-top-bottom move-to-window-line-top-bottom reposition-window
+                                 bookmark-jump other-window delete-window delete-other-windows
+                                 forward-page backward-page scroll-up-command scroll-down-command
+                                 ha-new-window tab-new tab-close tab-next org-next-visible-heading
+                                 org-previous-visible-heading org-forward-heading-same-level
+                                 org-backward-heading-same-level outline-backward-same-level
+                                 outline-forward-same-level outline-next-visible-heading
+                                 outline-previous-visible-heading outline-up-heading))
+      (add-to-list 'pulsar-pulse-functions built-in-function))
+
+    (when (fboundp 'winner-undo)
+      (add-to-list 'pulsar-pulse-functions 'winner-undo)
+      (add-to-list 'pulsar-pulse-functions 'winner-redo))
+
+    (when (fboundp 'winum-select-window-1)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-1)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-2)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-3)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-4)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-5)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-6)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-7)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-8)
+      (add-to-list 'pulsar-pulse-functions 'winum-select-window-9))
+
+    (when (fboundp 'aw-delete-window)
+      (add-to-list 'pulsar-pulse-functions 'aw-move-window)
+      (add-to-list 'pulsar-pulse-functions 'aw-swap-window)
+      (add-to-list 'pulsar-pulse-functions 'aw-copy-window)
+      (add-to-list 'pulsar-pulse-functions 'aw-split-window-vert)
+      (add-to-list 'pulsar-pulse-functions 'aw-split-window-horz)
+      (add-to-list 'pulsar-pulse-functions 'aw-split-window-fair)
+      (add-to-list 'pulsar-pulse-functions 'aw-delete-window))
+
+    (when (fboundp 'evil-window-right)
+      (add-to-list 'pulsar-pulse-functions 'evil-window-right)
+      (add-to-list 'pulsar-pulse-functions 'evil-window-left)
+      (add-to-list 'pulsar-pulse-functions 'evil-window-up)
+      (add-to-list 'pulsar-pulse-functions 'evil-window-down))
+
+    (pulsar-global-mode 1))
+#+end_src
+
+And if I can’t find the cursor, and don’t want to move it to see it, I can hit a =<F8>=.
+
+* Fonts
+** Mixed pitch
+
+Initially I thought that this should reside in the [[file:org-config.org][Org-mode configuration]], but since the appearance file is already bootstrapped earlier than that, this is better. =mixed-pitch= is a minor mode that enables mixing fixed-pitch (also known as fixed-width or monospace) and variable-pitch (AKA “proportional”) fonts. It tries to be smart about which fonts get which face.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package mixed-pitch
+  :config
+  (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-property-value)
+  (add-to-list 'mixed-pitch-fixed-pitch-faces 'org-special-keyword)
+  (add-to-list 'mixed-pitch-fixed-pitch-faces 'font-lock-comment-face)
+  :hook (text-mode . mixed-pitch-mode))
+#+end_src
+
+Initially, my configuration was =:hook (org-mode . mixed-pitch-mode)=, but the Howardism configuration makes it global for all text buffers. This means it would work for Markdown as well. I'll have to see how much I like it.
+
+By using =:hook (text-mode . mixed-pitch-mode)=, I essentially only enable the variable pitch in buffers that are made for writing prose, and not the code buffers.[fn:2]
+
+#+begin_quote
+My issue is that it does something with the variable-pitch font that doesn’t allow it to scale to different resolutions.[fn:3]
+#+end_quote
+
+** The default font used in Emacs
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'default nil
+    		    :family "PT Mono"
+    		    :height 100)
+#+end_src
+
+** Choosing between fonts definrbd as options
+
+This is a variable which lets me choose which font I want on the fly. This particular block is for monospaced fonts
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defvar ha-fixed-font
+  (when window-system
+    (or
+     ;; Choose favorite installed font from an ordered list (by preference):
+     (seq-first
+      (seq-filter (lambda (font) (when (x-list-fonts font) font))
+                  '("Cascadia Code NF"         ; Microsoft's offical has Nerds
+                    "CaskaydiaCove Nerd Font"  ; Best Nerd-based font
+                    "NanumGothicCoding"        ; Winner of codingfont.com
+                    "Hack Nerd Font"           ; no litagures!?
+                    "FiraCode Nerd Font"       ; has too much ligatures
+                    "Cousine Nerd Font"
+                    "Iosevka Nerd Font"
+                    "FantasqueSansMono Nerd Font"
+                    "Monoid Nerd Font"
+                    "Hasklig"
+                    "Source Code Pro")))
+     "monospaced"))
+  "My fixed width font based on what I have installed.")
+#+end_src
+
+While I like Atkinson Hyperlegible a lot (oh, and Literata, now called Xcharter), I found that SN Pro is great for headers as well as matches my monospace font. Downside? Limited ligatures, like -> works, but —> doesn’t.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defvar ha-variable-font
+  (when window-system
+    (or
+     (seq-first
+      (seq-filter (lambda (font) (when (x-list-fonts font) font))
+                  '("SN Pro"
+                    "Atkinson Hyperlegible"
+                    "Literata"
+                    "XCharter"
+                    "Charter"
+                    "Serif")))
+     (warn "Cannot find a Serif Font.  Install Source Sans Pro."))))
+
+(defvar ha-variable-header-font
+  (when window-system
+    (or
+     (seq-first
+      (seq-filter (lambda (font) (when (x-list-fonts font) font))
+                  '("SN Pro" "Overpass" "DejaVu Sans"
+                    "Verdana" "Overpass"
+                    "Source Sans Pro"
+                    "Lucida Grande"
+                    "Sans Serif")))
+     (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+#+end_src
+
+Simple function that gives me the font information based on the size I need. Recently updated after reading this essay by Prot (https://protesilaos.com/codelog/2020-09-05-emacs-note-mixed-font-heights/), as I wanted my fixed-pitch to scale along with my variable-pitch font.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun ha-set-favorite-font-size (size)
+  "Set the default font size as well as equalize the fixed and variable fonts."
+
+  (let ((fixed-font (format "%s-%d" ha-fixed-font size))
+        (prop-font  (format "%s-%d" ha-variable-font size)))
+    (when (fboundp 'mixed-pitch-mode)
+      (mixed-pitch-mode -1))
+
+    ;; The font specification is the name and the size ... odd enough I guess:
+    (set-face-attribute 'default nil :font fixed-font)
+    (set-face-attribute 'fixed-pitch nil :font fixed-font :inherit 'default
+                        :height 'unspecified)
+    (set-face-attribute 'variable-pitch nil :font prop-font :inherit 'default
+                        :height 'unspecified)))
+#+end_src
+
+** TODO Choosing the font size depending on the display that's plugged in
+
+#+begin_src emacs-lisp :tangle no :eval never
+Define interactive functions to quickly adjusting the font size based on my computing scenario:
+
+(defun ha-mac-monitor-fontsize ()
+  "Quickly set reset my font size when I connect my laptop to a monitor on a Mac."
+  (interactive)
+  (ha-set-favorite-font-size 16))
+
+(defun ha-linux-monitor-fontsize ()
+  "Quickly set reset my font size when I connect my laptop to a monitor on Linux."
+  (interactive)
+  (ha-set-favorite-font-size 12))
+
+(defun ha-mac-laptop-fontsize ()
+  "Quickly set reset my font size when I disconnect my laptop to a monitor from a Mac."
+  (interactive)
+  (ha-set-favorite-font-size 32))
+
+(defun ha-linux-laptop-fontsize ()
+  "Quickly set reset my font size when I disconnect my laptop to a monitor from Linux."
+  (interactive)
+  (ha-set-favorite-font-size 10))
+
+(defun ha-imac-fontsize ()
+  "Quickly set reset my font size when I am on my iMac."
+  (interactive)
+  (ha-set-favorite-font-size 16))
+#+end_src
+
+Which font to choose out of these options that were given?
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun font-monitor-size-default ()
+  "Set the default size according to my preference."
+  (interactive)
+  (cond
+   ((eq system-type 'gnu/linux)         (ha-linux-monitor-fontsize))
+   ((s-starts-with? "imac" system-name) (ha-imac-fontsize))
+   (t                                   (ha-mac-monitor-fontsize))))
+
+(defun font-laptop-size-default ()
+  "Set the default size according to my preference."
+  (interactive)
+  (if (eq system-type 'gnu/linux)
+      (ha-linux-laptop-fontsize)
+    (ha-mac-laptop-fontsize)))
+#+end_src
+
+** Imperative font settings
+
+This is because I'm having quite a few issues with =fontaine= currently.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'default nil
+  		    :family "Aporetic Sans Mono"
+  		    :height 100)
+#+end_src
+
+Changing the fontification of links in org mode.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'link nil
+  		    :family "IntoneMono Nerd Font"
+  		    :Height 100)
+#+end_src
+
+*** Making the title of the document a bit bigger
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (set-face-attribute 'org-document-title nil
+  		    :font "Aporetic Serif Mono"
+  		    :weight 'bold
+  		    :height 1.6)
+#+end_src
+
+*** Changing the appearance of each heading level
+
+You can resize the headings based on the level.
+
+*** TODO Move the atkison fonts to the proper appearance configuration with fontaine
+This was creating a lot of issues with the settings for fontaine (which are defined in [[file:appearance.org][Appearance configuration]]). I need to move the Atkinson fonts to the big setq block that I have created for fontaine.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (dolist (face '((org-level-1 . 1.5)
+                  (org-level-2 . 1.4)
+                  (org-level-3 . 1.3)
+                  (org-level-4 . 1.1)
+                  (org-level-5 . 1.1)
+                  (org-level-6 . 1.1)
+                  (org-level-7 . 1.1)
+                  (org-level-8 . 1.1)))
+    (set-face-attribute (car face) nil
+                        :font "Atkinson Hyperlegible"
+                        :weight 'bold
+                        :height (cdr face)))
+#+end_src
+
+** Working with a better font management system in =fontaine=
+
+This is a package created by Prot. These are sets of font configurations and they can be called on demand in GUI emacs frames. The user option =fontaine-presets= holds all such presets.[fn:4] Presets are lists of properties that govern the family, weight, height, and slant of the faces listed in the value of the variable fontaine-faces.
+
+Each preset is identified by a user-defined symbol as the =car= of a property list. Multiple presets are grouped into an alist (a list of lists).
+
+Properties from one fontaine preset can be inherited by other presets. For example, I want =regular= to basically be like the fallback values defined in the alist as =t=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package fontaine
+      :ensure t
+      :init
+      (fontaine-mode))
+
+    (setq fontaine-presets
+          '((regular)
+
+    	(prose
+    	 :inherit regular
+    	 ; :line-spacing 1.5 ; I can't actually use this because it messes up all of the minibuffer and makes the lines way too large to be readable
+  	 )
+
+            (large
+    	 :inherit regular
+             :default-height 150
+             :fixed-pitch-height 1.0
+             :variable-pitch-height 1.05)
+
+            (presentation)
+
+            (t
+             ;; This is for fallback properties (the default value)
+             :default-family "Aporetic Serif Mono"
+             :default-weight regular
+             :default-height 200
+
+             :fixed-pitch-family "Fira Code"
+             :fixed-pitch-weight nil ; falls back to :default-weight
+             :fixed-pitch-height 1.05
+
+             :fixed-pitch-serif-family "Aporetic Serif Mono"
+             :fixed-pitch-serif-weight nil
+             :fixed-pitch-serif-slant nil
+             :fixed-pitch-serif-width nil
+             :fixed-pitch-serif-height 1.05
+
+             :variable-pitch-family "iA Writer Quattro"
+             :variable-pitch-weight nil
+             :variable-pitch-height 1.0
+
+             :mode-line-active-family nil
+             :mode-line-active-weight nil
+             :mode-line-active-slant nil
+             :mode-line-active-width nil
+             :mode-line-active-height 1.0
+
+             :header-line-family "Gill Sans"
+             :header-line-weight nil
+             :header-line-slant nil
+             :header-line-width nil
+             :header-line-height 1.0
+
+             :line-number-family nil
+             :line-number-weight nil
+             :line-number-slant nil
+             :line-number-width nil
+             :line-number-height 1.0
+
+             :tab-bar-family nil
+             :tab-bar-weight nil
+             :tab-bar-slant nil
+             :tab-bar-width nil
+             :tab-bar-height 1.0
+
+             :tab-line-family nil
+             :tab-line-weight nil
+             :tab-line-slant nil
+             :tab-line-width nil
+             :tab-line-height 1.0
+
+             :bold-family nil ; this will just use whatever the underlying face has
+             :bold-weight bold
+
+             :italic-family "Source Code Pro"
+             :italic-slant italic
+             :line-spacing 1)))
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq fontaine-set-preset 'regular)
+#+end_src
+
+*** Persist frame size on non-auto tiling window managers
+[ Fontaine does this automatically as of 3.1.0-dev. ][fn:5]
+
+If using a non-tiling window manager e.g. GNOME/KDE, when a new preset is applied the frame may be resized in order to preserve the number of columns or lines it displays. To disable this feature set frame-inhibit-implied-resize to t.
+
+=(setq frame-inhibit-implied-resize t)=
+
+** Making ligatures work
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq prettify-symbols-unprettify-at-point 'right-edge)
+
+  (global-prettify-symbols-mode +1)
+  (prettify-symbols-mode +1)
+#+end_src
+
+Also note that adding a little extra space between lines makes text files easier to read.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
+#+end_src
+
+** Settings for the fonts in the org buffer
+
+I want the quote to actually be different, so it's easier to read for me
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'org-quote nil
+    		    :family "Aporetic Serif Mono")
+#+end_src
+
+*** Setting the ellipsis for org-mode to look proper
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq org-ellipsis " [+]")
+#+end_src
+
+*  Font icons
+** Installing all-the-icons
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package all-the-icons
+    :if (display-graphic-p))
+#+end_src
+
+** Installing nerd-icons (currently doesn't work)
+:PROPERTIES:
+:ID:       c94f8620-cf2e-4283-b641-193570821772
+:CUSTOM_ID: installing-nerd-icons--currently-doesn-t-work-
+:END:
+
+It does actually work for the =doom-modeline= which is configured [[#doom-emacs-modeline][here]].
+
+The nerd-icons project integrates the icons associated with Nerd Fonts with specific use cases to make Emacs look more like a fancy IDE. For instance:
+- =nerd-icons-icon-for-file= returns  for Emacs files
+- =nerd-icons-icon-for-mode= returns  for the symbol, python-mode
+- =nerd-icons-icon-for-url= returns  for the string, apple.com (a globe is the default)
+
+This project replaces all-the-icons, which isn’t needed anymore.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package nerd-icons
+    :ensure t
+    :custom
+    ;; The Nerd Font you want to use in GUI defaults to fixed-font:
+    (nerd-icons-font-family "Symbols Nerd Font Mono"))
+#+end_src
+
+This adds nerd icons support to =ibuffer=.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+    (use-package nerd-icons-ibuffer
+      :ensure t
+      :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+#+end_src
+
+The way we access the font icons has always been … odd; needing to specify the collection, etc. I would like to come up with a better mechanism, so the following function abstracts that as I figure out a better solution. *I don't know what this does and I've turned it off for now. It's taken from Howardism.*
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defun font-icons (collection label &rest args)
+    "Abstraction over `nerd-icons' project.
+  LABEL is a short icon description merged with COLLECTION to
+  identify an icon to use. For instance, 'faicon or 'octicon.
+ARGS, a plist, contain the title, sizing and other information.
+
+For instance:
+  (font-icons 'faicon \"file\" :title \"File Management\")
+
+The goal is to take:
+  (all-the-icons-octicon \"git-branch\")
+And reformat to:
+  (font-icons 'octicon \"git-branch\")"
+  (let* ((func (intern (format "nerd-icons-%s" collection)))
+         (short (cl-case collection
+                  (octicon "oct")
+                  (faicon "fa")
+                  (mdicon "md")
+                  (codicon "cod")
+                  (sucicon "custom")
+                  (devicon "dev")
+                  (t collection)))
+         (title (plist-get args :title))
+         (space (plist-get args :space))
+         (icon (format "nf-%s-%s" short
+                       (string-replace "-" "_" label))))
+
+    ;; With the appropriate nerd-icons function name,
+    ;; an expanded icon name, we get the icon string:
+    (concat (apply func (cons icon args))
+            (cond
+             ((and title space) (concat (s-repeat space " ") title))
+             (title             (concat " " title))))))
+#+end_src
+
+* Zooming in / increasing font size
+
+Do we want to increase the size of font in a single window (using text-scale-increase), or globally (using my new font-size-increase)?
+
+Increase or decrease the set size of the face:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun font-size-adjust (delta)
+  "Adjust the current frame's font size.
+DELTA would be something like 1 or -1."
+  (interactive "nFont size difference: ")
+  (when (null delta) (setq delta 1))
+
+  (let* ((font-family (face-attribute 'default :font))
+         (font-size   (font-get font-family :size))
+         (new-size    (+ delta font-size)))
+    (ha-set-favorite-font-size new-size)))
+
+(defun font-size-increase ()
+   "Increase the `default' font size of all frames."
+   (interactive)
+   (font-size-adjust 1))
+
+(defun font-size-decrease ()
+   "Decrease the `default' font size of all frames."
+   (interactive)
+   (font-size-adjust -1))
+#+end_src
+
+And some keybindings to call them:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(global-set-key (kbd "s-+") 'font-size-increase)
+(global-set-key (kbd "s-=") 'font-size-increase)
+(global-set-key (kbd "s--") 'font-size-decrease)
+#+end_src
+
+* Highlighting the active line while editing
+
+Emacs has a mode for highlighting the current line called =hl-line-mode=.
+
+Prot's package optimises =hl-line-mode= to buffers whose major modes depend on line selection as a mode of interaction (for example for something like =org-mode=.
+
+The idea is that hl-line-mode cannot work equally well for contexts with competing priorities: (i) line selection, or (ii) simple line highlight.[fn:7]
+
+the =lin-face= in Prot's =lin= package can be configured independently and it will stand out as a different highlight when working with selection.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package lin
+    :ensure t)
+
+  (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+
+  ;; You can use this to live update the face:
+  ;;
+  ;; (customize-set-variable 'lin-face 'lin-green)
+
+  (setq lin-mode-hooks
+        '(bongo-mode-hook
+          dired-mode-hook
+          elfeed-search-mode-hook
+          git-rebase-mode-hook
+          grep-mode-hook
+          ibuffer-mode-hook
+          ilist-mode-hook
+          ledger-report-mode-hook
+          log-view-mode-hook
+          magit-log-mode-hook
+          mu4e-headers-mode-hook
+          notmuch-search-mode-hook
+          notmuch-tree-mode-hook
+          occur-mode-hook
+          org-agenda-mode-hook
+          pdf-outline-buffer-mode-hook
+          proced-mode-hook
+          tabulated-list-mode-hook))
+#+end_src
+
+=lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
+
+https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
+https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
+https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
+https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
+https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
+https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
+https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
+https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
+https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
+
+* Highlighting task labels
+
+This is relevant for [[file:task.org][Task management setup]].
+
+In code, if you drop a specific text labels, we can highlight them with hl-todo package:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package hl-todo
+  :ensure t
+  :config
+  (setq hl-todo-keyword-faces
+    `(("TODO"   . ,(face-foreground 'warning))
+      ("FIXME"  . ,(face-foreground 'error))
+      ("NOTE"   . ,(face-foreground 'success))))
+  (global-hl-todo-mode 1))
+#+end_src
+
+This package visually standout comments like: TODO Fix bug where highlight isn’t loading
+
+Suggests to bind some keys to =hl-todo-next= in order to jump from tag to tag, but the consult-todo implements that in a more visual way:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package consult-todo
+  :ensure t
+  :init
+  (defconst consult-todo--narrow
+    '((?t . "TODO")
+      (?f . "FIXME")
+      (?n . "NOTE"))
+    "Mapping of narrow and keywords.")
+  ;; :config
+  ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
+  )
+#+end_src
+
+* Themes
+** TODO Defining a directory for themes
+
+In the future I could make a directory for other cosmetics
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(add-to-list 'custom-theme-load-path "~/.config/emacs-include/themes")
+#+end_src
+
+If you have lots of themes which you want to group inside a themes folder such as ~~/.emacs.d/~ themes, the following snippet allows you to conveniently add all its subfolders to the theme load path:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(let ((basedir "~/.emacs.d/themes/"))
+  (dolist (f (directory-files basedir))
+    (if (and (not (or (equal f ".") (equal f "..")))
+             (file-directory-p (concat basedir f)))
+        (add-to-list 'custom-theme-load-path (concat basedir f)))))
+#+end_src
+
+** Taking themes from =use-package=
+
+For now, I'm only using themes created by Prot since they're the most flexible.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package modus-themes
+    :ensure (:wait t))
+
+  (use-package ef-themes
+    :ensure t
+    :init
+    ;; This makes the Modus commands listed below consider only the Ef
+    ;; themes.  For an alternative that includes Modus and all
+    ;; derivative themes (like Ef), enable the
+    ;; `modus-themes-include-derivatives-mode' instead.  The manual of
+    ;; the Ef themes has a section that explains all the possibilities:
+    ;;
+    ;; - Evaluate `(info "(ef-themes) Working with other Modus themes or taking over Modus")'
+    ;; - Visit <https://protesilaos.com/emacs/ef-themes#h:6585235a-5219-4f78-9dd5-6a64d87d1b6e>
+    (ef-themes-take-over-modus-themes-mode 1)
+    :bind
+    (("M-<f5>" . modus-themes-select)
+     ("C-<f5>" . modus-themes-load-random))
+
+    :config
+    ;; All customisations here.
+    (setq modus-themes-mixed-fonts t)
+    (setq modus-themes-italic-constructs t)
+
+    ;; Finally, load your theme of choice (or a random one with
+    ;; `modus-themes-load-random', `modus-themes-load-random-dark',
+    ;; `modus-themes-load-random-light').
+    (modus-themes-load-theme 'ef-melissa-light))
+#+end_src
+
+** Configuring modus themes
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; In all of the following, WEIGHT is a symbol such as `semibold',
+  ;; `light', `bold', or anything mentioned in `modus-themes-weights'.
+  (setq modus-themes-italic-constructs t
+        modus-themes-bold-constructs nil
+        modus-themes-mixed-fonts t
+        modus-themes-variable-pitch-ui nil
+        modus-themes-disable-other-themes t
+
+        ;; Options for `modus-themes-prompts' are either nil (the
+        ;; default), or a list of properties that may include any of those
+        ;; symbols: `italic', `WEIGHT'
+        modus-themes-prompts '(italic bold)
+
+        ;; The `modus-themes-completions' is an alist that reads two
+        ;; keys: `matches', `selection'.  Each accepts a nil value (or
+        ;; empty list) or a list of properties that can include any of
+        ;; the following (for WEIGHT read further below):
+        ;;
+        ;; `matches'   :: `underline', `italic', `WEIGHT'
+        ;; `selection' :: `underline', `italic', `WEIGHT'
+        modus-themes-completions
+        '((matches . (extrabold))
+          (selection . (semibold italic text-also))))
+#+end_src
+
+Setting the background for my code blocks:
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
+#+end_src
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; The `modus-themes-headings' is an alist: read the manual's
+  ;; node about it or its doc string.  Basically, it supports
+  ;; per-level configurations for the optional use of
+  ;; `variable-pitch' typography, a height value as a multiple of
+  ;; the base font size (e.g. 1.5), and a `WEIGHT'.
+  (setq modus-themes-headings
+        '((1 . (variable-pitch 1.5))
+          (2 . (1.3))
+          (agenda-date . (1.3))
+          (agenda-structure . (variable-pitch light 1.8))
+          (t . (1.1))))
+#+end_src
+
+** Loading the theme that we're using now
+
+#+begin_src emacs-lisp :tangle no :eval never
+(load-theme 'modus-vivendi t)
+#+end_src
+
+This isn't actually necessary if we're using =modus-themes-load-theme=, which works for modus themes and ef themes created by Protesilaos.
+
+** Modifying base settings for the themes
+
+This doesn't actually work because it can't find the 'default variable.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(set-face-attribute ‘variable-pitch nil :font "Roboto Mono" :height 140)
+#+end_src
+
+This sets the variable-pitch face to Roboto Mono at 140% size. Tweak such attributes to mold the theme to your preferences![fn:6]
+
+** UNUSED: Specifying theme families from Prot
+
+This is taken directly from Prot's configuration and uses the modus themes.
+
+- Modus themes :: They conform with the highest accessibility standard for colour contrast (WCAG AAA). They are elegant and designed with attention to detail. I consider the modus-operandi and modus-vivendi themes to be the standard of what a default accessible theme should be like.
+
+- Ef themes :: Highly legible (WCAG AA or WCAG AAA) and more colourful than the Modus themes. The collection of palettes is also wider to match a broad variety of preferences.
+
+- Doric themes :: Minimalist themes that use few colours while remaining highly usable.
+
+- Standard themes :: A re-imagination of the default Emacs looks. They bring consistency and customisability to those who like how Emacs is out-of-the-box.
+
+When choosing from this custom value, you have the options: =doric=, =ef=, =modus=, and =standard=. A nil value does not load any of the above (use Emacs without a theme).
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defcustom prot-emacs-load-theme-family 'modus
+  "Set of themes to load.
+Valid values are the symbols `doric', `ef', `modus', and `standard',
+which reference the `doric-themes', `ef-themes', `modus-themes', and
+`standard-themes', respectively.
+
+This user option must be set in the `prot-emacs-pre-custom.el'
+file.  If that file exists in the Emacs directory, it is loaded
+before all other modules of my setup."
+  :group 'prot-emacs
+  :type '(choice :tag "Set of themes to load" :value modus
+                 (const :tag "The `doric-themes' module" doric)
+                 (const :tag "The `ef-themes' module" ef)
+                 (const :tag "The `modus-themes' module" modus)
+                 (const :tag "The `standard-themes' module" standard)
+                 (const :tag "Do not load a theme module" nil)))
+#+end_src
+
+* Modifying the default face for Emacs overall
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (set-face-attribute 'default nil
+  		    :family "0xProto Nerd Font")
+#+end_src
+
+* Footnotes
+
+[fn:8]  https://github.com/seagle0128/doom-modeline
+[fn:7] https://protesilaos.com/emacs/lin
+
+[fn:1] https://howardabrams.com/hamacs/ha-display.html
+
+[fn:2] https://www.youtube.com/watch?v=qR8JRYr4BKE
+
+[fn:3] https://github.com/howardabrams/hamacs/blob/main/ha-display.org
+
+[fn:4] https://protesilaos.com/emacs/fontaine
+
+[fn:5]  https://protesilaos.com/emacs/fontaine#h:62d716b4-44f7-4078-85d2-29a7da8ca253
+
+[fn:6] https://thelinuxcode.com/emacs_themes/

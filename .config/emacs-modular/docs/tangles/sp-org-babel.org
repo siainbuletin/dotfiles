@@ -1,0 +1,85 @@
+#+title: Babel settings and tangling
+#+last-seen: [2026-10-07]
+
+Path: text > org > sp-org-babel.el
+
+Main issues treated:
+- general babel settings
+- complicated issues with tangling the code to multiple files, properly
+
+* Introduction
+
+Since I have a literate configuration, having a proper manner to tangle multiple files into multiple Emacs Lisp files must importantly be done in an organised fashion.
+
+As such, the ~:tangle~ command that I attach to org-babel blocks should be able to call on an Elisp variable that declares the default directory for modules used in the configuration.
+
+The `:tangle` header argument accepts an Emacs Lisp expression in parentheses, which Org evaluates when tangling. That means you can build the path from a variable instead of using a path relative to the org file.
+
+* Discussion for how to implement it with Claude
+
+You first need to have the base directory declared, which we have already done in ~early-init.el~. This is where we'll be telling org-babel to tangle the ~.el~ files to.
+
+```elisp
+(defvar sp-library-dir (expand-file-name "site-lisp/" user-emacs-directory)
+  "Root directory that tangled .el files are written to.")
+```
+
+You can declare the proper variable as a header argument for the entire org-file, as such:
+
+```org
+#+PROPERTY: header-args:emacs-lisp :tangle (concat sp-library-dir "navi/sp-navi-misc.el") :mkdirp yes :comments no
+```
+
+You can also do it per-subtree (heading), if you have one ~.org~ file that produces several ~.el~ files. This is done in the property drawer (which makes it a lot easier than declaring every time, per every block):
+
+```org
+,* Keybindings
+,:PROPERTIES:
+,:header-args:emacs-lisp: :tangle (concat sp-library-dir "keys/sp-keys.el") :mkdirp yes
+,:END:
+```
+
+Or per block:
+
+```org
+#+begin_src emacs-lisp :tangle (concat sp-library-dir "core/sp-core.el") :mkdirp yes
+(setq sp-example t)
+#+end_src
+```
+
+`:mkdirp yes` creates the subfolder if it doesn't exist yet.
+
+**Make it more robust**
+
+`concat` only works if `sp-library-dir` ends in a slash. `expand-file-name` doesn't have that problem and also normalizes the path, so I'd use it:
+
+```org
+:tangle (expand-file-name "ui/sp-ui.el" sp-library-dir)
+```
+
+To make the header arguments shorter, define a small helper once:
+
+```elisp
+(defun sp-tangle-path (subpath)
+  "Return SUBPATH (e.g. \"ui/sp-ui.el\") inside `sp-library-dir'."
+  (expand-file-name subpath sp-library-dir))
+```
+
+Then every block or property line becomes:
+
+```org
+#+PROPERTY: header-args:emacs-lisp :tangle (sp-tangle-path "ui/sp-ui.el") :mkdirp yes
+```
+
+If you ever move the output folder, you change one variable.
+
+**Things to watch for**
+
+- **The variable and helper must exist in the Emacs doing the tangling.** Otherwise Org signals a void-variable or void-function error. This matters for `emacs --batch` runs, where your init file isn't loaded unless you pass `-l`, so put the `defvar` and `defun` in a file that your batch command loads first.
+- **Define them before `sp-tangle-all` runs**, so the best place is your normal init, before any tangling.
+- **A tangle target of `no`** still disables a block, so you can mix expressions and plain `no` freely in the same file.
+- **Relative paths no longer apply** for these blocks, so you can move or rename the org files without breaking where output lands.
+
+* Actual code used
+
+The actual org-babel library is part of the larger submodule for org and should be called as such. You can consult the architecture in ~main.org~.

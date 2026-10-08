@@ -12,6 +12,7 @@
 
 ;;; Code:
 
+;;; What exactly can this setting do?
 (use-package consult-vulpea
   :ensure (:wait t)
   :after vulpea

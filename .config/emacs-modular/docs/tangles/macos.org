@@ -1,0 +1,156 @@
+#+title: MacOS configuration
+
+Last updated: June 26th, 2026
+
+This is for specific settings that make Emacs work well on MacOS.
+
+* Making Emacs available as an app entry in MacOS
+
+By default, the ~homebrew~ version of Emacs that I can install doesn't have a desktop entry (meaning one that lives in ~/Applications/Emacs.app~), which means that I can't easily open it from the MacOS dock or from Spotlight.
+
+To enable all of this, I need to install Emacs from a special location.
+
+However, this means that I won't be able to run commands through the command line (or even change the form of Emacs that I'm using --- this is through the Chemacs configuration).
+
+To create an alias for Emacs.app that will show up in the shell, I need to change the fish shell configuration.[fn:1]
+
+#+begin_src shell
+alias emacs="$(/Applications/Emacs.app/Contents/MacOS/Emacs -nw)"
+#+end_src
+
+However, if I add this to the fish configuration file, it makes the shell launch directly into Emacs, which is not what I want. And I don't particularly understand what is making Emacs launch like that.
+
+Also, trying to put the alias in the format for Bash shell (in the ~./.bashaliases~ file) also ends up creating an error.
+
+[2026-06-26 Fri] I really need to write a literate configuration for my shell.
+
+alias emacs="$(/Applications/Emacs.app/Contents/MacOS/Emacs "$@")"
+- this command simply doesn't work because of '$@'
+
+I don't really understand how I should be using the shebang, in this case.
+
+* Changing the modifier key
+
+This is so that I can actually use the CMD key as my Meta key.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq mac-command-modifier 'meta)
+
+(setq mac-option-modifier 'none)
+#+end_src
+
+* Making MacOS behave well
+** Making sure that dired works
+
+If this isn't set up properly, then I can't have Full Disk Access.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(when (eq system-type 'darwin)
+  (require 'ls-lisp)
+  (setq ls-lisp-use-insert-directory-program nil))
+#+end_src
+
+This solution is from 2010: https://stackoverflow.com/questions/4076360/error-in-dired-sorting-on-os-x
+
+I really hope that it won't randomly start working pretty soon.
+
+
+
+* Integrating into the appearance of MacOS
+** Make more use of the existing frames
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(setq ns-pop-up-frames nil)
+#+end_src
+
+;; eyecandy for macos
+
+(setq ns-use-srgb-colorspace nil)
+
+* Interfacing with the rest of the system
+** Open with a specific MacOS app
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun dwim-shell-commands-macos-open-with ()
+  "Convert all marked images to jpg(s)."
+  (interactive)
+  (let* ((apps (seq-sort
+                #'string-lessp
+                (seq-mapcat (lambda (paths)
+                              (directory-files-recursively
+                               paths "\\.app$" t (lambda (path)
+                                                  (not (string-suffix-p ".app" path)))))
+                            '("/Applications" "~/Applications" "/System/Applications"))))
+         (selection (progn
+                      (cl-assert apps nil "No apps found")
+                      (completing-read "Open with: "
+                                       (mapcar (lambda (path)
+                                                 (propertize (file-name-base path) 'path path))
+                                               apps)))))
+    (dwim-shell-command-on-marked-files
+     "Open with"
+     (format "open -a '%s' '<<*>>'" (get-text-property 0 'path selection))
+     :silent-success t
+     :no-progress t
+     :utils "open")))
+#+end_src
+
+** Kill MacOS processes right from Emacs
+
+Added on [2026-03-29 Sun]
+
+[2026-06-26 Fri] Make sure to read some more about how this works, in practice, for taking care of the processes.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(require 'dwim-shell-command)
+(require 'map)
+(require 'proced)
+(require 'seq)
+
+(defun dwim-shell-commands-kill-process ()
+  "Select and kill process."
+  (interactive)
+  (let* ((pid-width 5)
+         (comm-width 25)
+         (user-width 10)
+         (processes (proced-process-attributes))
+         (candidates
+          (mapcar (lambda (attributes)
+                    (let* ((process (cdr attributes))
+                           (pid (format (format "%%%ds" pid-width) (map-elt process 'pid)))
+                           (user (format (format "%%-%ds" user-width)
+                                         (truncate-string-to-width
+                                          (map-elt process 'user) user-width nil nil t)))
+                           (comm (format (format "%%-%ds" comm-width)
+                                         (truncate-string-to-width
+                                          (map-elt process 'comm) comm-width nil nil t)))
+                           (args-width (- (window-width) (+ pid-width user-width comm-width 3)))
+                           (args (map-elt process 'args)))
+                      (cons (if args
+                                (format "%s %s %s %s" pid user comm (truncate-string-to-width args args-width nil nil t))
+                              (format "%s %s %s" pid user comm))
+                            process)))
+                  processes))
+         (selection (map-elt candidates
+                             (completing-read "kill process: "
+                                              (seq-sort
+                                               (lambda (p1 p2)
+                                                 (string-lessp (nth 2 (split-string (string-trim (car p1))))
+                                                               (nth 2 (split-string (string-trim (car p2))))))
+                                               candidates) nil t)))
+         (prompt-title (format "%s %s %s"
+                               (map-elt selection 'pid)
+                               (map-elt selection 'user)
+                               (map-elt selection 'comm))))
+    (when (y-or-n-p (format "Kill? %s" prompt-title))
+      (dwim-shell-command-on-marked-files
+       (format "Kill %s" prompt-title)
+       (format "kill -9 %d" (map-elt selection 'pid))
+       :utils "kill"
+       :error-autofocus t
+       :silent-success t))))
+#+end_src
+
+* Footnotes
+
+[fn:1] This is already added in the actual file, it doesn't get tangled from the file, it's here for documentation purposes.

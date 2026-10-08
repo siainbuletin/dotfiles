@@ -345,6 +345,27 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 ;; Bind keys for completing-read-info
 (bind-key "C-h I" #'completing-read-info)
 
+;;;; Help at point
+
+;; With this on, eldoc shows the help text for whatever sits under the cursor, 
+;; without me invoking anything. Paired with eldoc-echo-area-prefer-doc-buffer, 
+;; it makes wandering through unfamiliar code feel more guided.
+(setq eldoc-help-at-pt t) ;; EMACS-31
+
+;;;; Dictionaries
+;; this is useful for looking up more information
+
+(use-package define-word
+  :when (and sp-load-extras (locate-library "define-word"))
+  :commands (define-word define-word-at-point))
+
+(use-package osx-dictionary
+  :when (and sp-load-extras (locate-library "osx-dictionary"))
+  :commands (osx-dictionary-search-word-at-point osx-dictionary-search-input))
+
+(use-package lexic
+  :ensure t)
+
 ;;;; Other:
 (use-package tldr
     :ensure (:wait t))

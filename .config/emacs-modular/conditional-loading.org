@@ -1,0 +1,650 @@
+#+title: Working on conditional loading properly
+
+* Introduction
+
+Dropping the need for using a ~config.el~ file is necessary since I'm the only user working with this information.
+
+The point of loading in phases is that it can shorten the init time. Everything else can rather go into efforts for lazy loading.
+
+Load modules in stages for a shorter init time. We load core modules first, then more expensive modules after init, with the rest loaded after startup has fully completed.
+
+!@How do you establish which are the core modules, exactly?!@
+
+The conditional loading should also work if you're loading from a command line or a launcher that makes use of the command line.
+
+* Achieving the approach in the code
+
+The lists of modules (sub-libraries) need to become plain data.
+- Each profile (default, minimal, test) becomes an entry in an alist, and one function loads whichever profile is active. The `cond` over `sp-config-file`, `sp-default-config-file` and the copy-the-default-config branch all go away.
+
+* The current status for each library is documented in the corresponding org file
+
+** Base libraries (~base/~)
+
+These should also be called the init modules (the most important files that I have to be loading up)
+
+;; speedup - deprecated (was w/ garbage collection)
+
+- ~sp-package~ :: leftover use-package settings
+- ~sp-encoding~ :: text encoding
+- ~sp-base-libraries~ :: the very basic processing libraries !@(the definitions aren't that stable)!@
+- ~sp-gui~ :: currently handled by early-init from Lambda Emacs !@(and should be merged with the modules under ~ui/~)!@
+- ~sp-snippets~ :: snippet management
+- ~sp-interaction~ :: ways to interact with the GUI !@(Should also be merged with windows)!@
+- sp-keys :: Keybindings - it has to be loaded in the base, otherwise it will cause issues with sp-prefix being called earlier
+
+** UI (ui/)
+
+The UI modules here are organised alphabetically, but it should be fine since it's all loaded from an alist.
+
+;; UI (modules organised alphabetically -- should be fixed somehow
+;; but I don't know how I'm supposed to make it properly readable)
+
+- sp-buffers :: Buffer management and general drawing instructions.
+- sp-canvas :: For modules developed around the new Canvas feature in Emacs 32.
+- sp-colors :: Global color scheme to follow.
+- lem-dashboard :: Load the Lambda variant of the dashboard package (no-frills, well executed).
+- sp-faces ::
+- sp-frame ::
+- sp-fonts ::
+- sp-icons ::
+- sp-tabs ::
+- sp-textui ::
+- sp-themes ::
+- sp-windows ::
+- sp-writedesk ::
+
+** Environment settings (env/)
+
+- sp-env :: Making exec-path work (mostly tailored to MacOS anyway)
+- sp-macos :: MacOS specific settings
+- sp-syswin.el :: this should be triggered conditionally with the system type (and required in a different file)
+- sp-exwm :: DISABLED. see whether you're going to combine this with regular window management
+
+** Navigation (navi/)
+
+Main file: sp-navi !@(TODO: you gotta move to here)!@
+
+- sp-navi.el :: contains...
+  - other functions
+  - sp-dired :: Sub-library for dired settings
+  - sp-goto ::
+  - sp-search :: this represents full-text search packages
+
+** Utility miscellaneous modules (tooling/)
+
+;; misc modules (utility) --- these should be split apart differently at some point
+
+This is also currently being loaded alphabetically.
+
+- sp-backups :: For the backup files that Emacs creates
+- sp-bookmarks :: Bookmark management.
+- sp-choose-modeline :: DISABLED. You can choose between 2 modelines.
+- sp-debug :: If you ever need to do deep debugging for Elisp
+- sp-embark :: Specific settings for embark (and acting on items)
+- sp-evil :: DISABLED. Evil mode (currently there just for the sake of it, I don't want it loaded)
+- sp-help :: Improvements for the help module.
+- sp-indention ::
+- sp-lambda-line :: Separate modeline
+- sp-md :: Markdown settings and the new native markdown-ts-mode for editing ~.md~ files well
+- sp-minibuffer ::
+- sp-network :: Network settings, internet, (in the future - Docker containerization, if possible)
+- sp-scratch :: Settings for persistent scratch
+- sp-server :: Emacs client
+- sp-spelling :: Spell checker
+- sp-splash :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
+- sp-templating ::
+- sp-text-manipulation ::
+- sp-workspaces :: This is based on launching separate tabspaces. It's taken from Lambda Emacs
+
+** Org related settings (and other text modules) (~text/~)
+
+- sp-org-base :: the very basic functions -- the others should be stringed in after this
+- sp-denote :: the file creation subsystem (should be replaced with other text modules)
+- some defined essential org-features
+   + sp-org-appearance ::
+   + sp-org-capture ::
+   + sp-org-export ::
+   + sp-org-narrow ::
+   + sp-org-refile :: DISABLED. having an issue with org refile targets when loading
+   + sp-org-tables :: ENABLED, NOT THAT WELL CONFIGURED.
+- task management modules
+   + sp-org-agenda ::
+   + sp-org-taskman-extra ::
+- sp-org-ext :: other extensions.
+
+** Strictly academic work (~academic/~)
+
+- sp-academic :: contains bibprocess, pdfprocess, and others !@(COMPLETE HERE)!@
+- sp-statistics :: ESS package (currently unconfigured)
+- sp-dgraphs :: Generating networks with the information (should be made to actually be actionable)
+- sp-notes :: other notes-related settings
+
+** Media work and other workflows (~media/~)
+
+These media workflows should be enabled last, and only loaded when it's actually needed to start using them, as they're not currently being put to work.
+
+- sp-beets :: ENABLED. Managing a beets library
+- sp-instant-messenger :: EMPTY.
+- sp-mail :: EMPTY.
+- sp-music-play :: DISABLED. I currently don't know how to configure any of these media players.
+- sp-reading :: UNCONFIGURED.
+- sp-browsing :: UNCONFIGURED. Setup for different browsers inside of Emacs
+- sp-rss :: UNCONFIGURED. elfeed and inboxing of new information
+- sp-ai :: UNCONFIGURED. This is for engaging with different models. could be for local models as well, but it has to be set up
+- sp-consult-snapfile :: UNCONFIGURED.
+
+** Custom functions I've written (~funct/~)
+
+- sp-helper-funct.el ::
+- sp-open-externally.el ::
+- sp-move-region-to-heading.el ::
+
+Vulpea functions --- These are all now 'required' in the vulpea-ext file
+
+** Programming setup (~prog/~)
+
+- sp-plantuml :: DISABLED (because not in use.)
+- ;; sp-lisp :: DISABLED (because not in use.)
+- ;; sp-go :: DISABLED (because not in use.)
+- ;; sp-c :: DISABLED (because not in use.)
+- ;; sp-python :: DISABLED (because not in use.)
+- ;; sp-rust :: DISABLED (because not in use.)
+- ;; sp-xml :: DISABLED (because not in use.)
+- ;; sp-nix :: DISABLED (because not in use.)
+- ;; sp-misc :: DISABLED (because not in use.)                    ;; currently disabled, as there's several packages that conflict with something else that I have on the system
+- sp-latex :: This should be moved to text manipulation or be part of the ~academic/~ module for exporting formatted documents when needed.
+- sp-prog-misc"
+- sp-terminal"
+- sp-vcontrol :: Refers to version control settings (magit, mostly)
+- sp-eshell"                     ;; copied ad-literam from Lambda emacs
+
+* How the libraries are being split
+
+- base modules (core, as one may call them) :: hard to establish what goes into here
+    - from Lambda emacs, these were
+
+#+begin_src elisp
+(measure-time
+ (cl-dolist (mod (list
+                  ;; Base modules
+                  'sp-libraries
+                  'sp-settings
+                  'sp-functions
+                  'sp-macros
+                  'sp-scratch
+                  'sp-theme
+
+                  ;; Basic UI modules
+                  'sp-windows
+                  'sp-buffers
+                  'sp-frame
+                  'sp-fonts
+                  'sp-faces))
+   (require mod nil t)))
+#+end_src
+
+(message "
+;; ======================================================
+;; *Loading 𝛌-Emacs Base Modules*
+;; ======================================================")
+
+- after init modules
+    - why do they need to go after init?
+    - do they not inhibit proper initialisation?
+
+(measure-time (cl-dolist (mod (list
+                                 ;; Splash/Dashboard
+                                 'sp-splash
+                                 'sp-dashboard
+
+                                 ;; Completion & Keybinds
+                                 'sp-completion
+                                 'sp-keybindings
+
+                                 ;; Navigation & Search modules
+                                 'sp-dired
+                                 'sp-dired
+                                 'sp-search
+
+                                 ;; Project & Tab/Workspace modules
+                                 'sp-vc
+                                 'sp-projects
+                                 'sp-tabs
+                                 'sp-workspaces))
+                  (require mod nil t))))
+
+- after-startup modules ::
+
+                                 ;; Writing modules
+                                 'sp-writing
+                                 'sp-notes
+                                 'sp-citation
+
+                                 ;; Programming modules
+                                 'sp-programming
+                                 'sp-debug
+                                 'sp-skeleton
+
+                                 ;; Shell & Terminal
+                                 'sp-shell
+                                 'sp-eshell
+
+                                 ;; Org modules
+                                 'sp-org-base
+                                 'sp-org-settings
+                                 'sp-org-extensions
+
+                                 ;; Productivity
+                                 'sp-elfeed
+
+                                 ;; OS settings
+                                 ;; load only if on macos
+                                 (when sys-mac
+                                   'sp-macos)
+
+                                 ;; Other UI/UX
+                                 'sp-help
+                                 'sp-colors
+                                 'sp-modeline
+
+                                 ;; Server
+                                 'sp-server))
+
+* LLM output (the original version - not using this one)
+
+```elisp
+;;;; Module sets (replaces config.el)
+;; Each entry is (PROFILE MODULE...). Modules are feature symbols: file
+;; `sp-base-code.el' must (provide 'sp-base-code) and sit on `load-path'.
+;; Defined with `defvar', so a `setq' in early-config.el wins.
+(defvar sp-module-sets
+  '((default
+     ;; Core
+     sp-libraries sp-settings sp-functions sp-server sp-scratch
+     ;; UI
+     sp-frame sp-windows sp-buffers sp-fonts sp-faces sp-colors
+     sp-completion sp-keys sp-help sp-modeline sp-theme sp-splash
+     ;; Navigation & search
+     sp-dired sp-search
+     ;; Projects & workspaces
+     sp-vcontrol sp-projects sp-tabman
+     ;; Org
+     sp-org-base sp-org-settings
+     ;; Writing
+     sp-writing sp-notes sp-citation
+     ;; Shell
+     sp-shell sp-eshell
+     ;; Programming
+     sp-programming sp-base-code)
+    (minimal
+     sp-libraries sp-settings sp-functions sp-server sp-scratch
+     sp-frame sp-windows sp-buffers sp-completion sp-keys sp-help
+     sp-modeline sp-splash
+     sp-dired sp-search)
+    (test sp-test))
+  "Alist mapping a profile name to the modules it loads, in order.")
+
+(defun sp--load-modules (modules)
+  "Require each symbol in MODULES in order.
+Skips modules in `(sp-gui-only-modules)' when `sp-headless-host' is non-nil.
+A module that fails to load is reported and the rest still load."
+  (measure-time
+   (dolist (mod modules)
+     (unless (and sp-headless-host (memq mod (sp-gui-only-modules)))
+       (condition-case err
+           (require mod)
+         (error (message "Failed to load module `%s': %S" mod err)))))))
+
+;; But how are these modules actually recognised form the list, well enough?
+
+(defun sp--active-profile ()
+  "Return the profile selected by a command-line switch, else `default'.
+Any profile name in `sp-module-sets' works as a switch (-minimal, -test, ...)."
+  (or (car (seq-find (lambda (set)
+                       (sp--emacs-switches (format "-%s" (car set))))
+                     sp-module-sets))
+      'default))
+
+(let ((profile (sp--active-profile)))
+  (message "*Loading 𝛌-Emacs profile: %s*" profile)
+  (sp--load-modules (cdr (assq profile sp-module-sets)))
+  ;; Deferred macOS settings, as before (GUI-only, so skipped when headless).
+  (when (and (eq profile 'default) sys-mac (not sp-headless-host))
+    (run-with-idle-timer 1 nil #'require 'sp-macos nil t)))
+```
+
+**What this changes**
+
+- **No `config.el`.** The module lists live in `sp-module-sets`. For per-machine tweaks, `setq` or modify that variable in `early-config.el`, which loads first, instead of keeping a separate config file.
+- **New profiles are one entry.** Because the switch check is derived from the alist, adding `(writing sp-libraries sp-settings sp-writing)` makes `emacs -writing` work with no dispatcher changes.
+- **Modules are symbols.** `'sp-base-code` just works, provided `sp-base-code.el` ends with `(provide 'sp-base-code)` and the directory is on `load-path` (the recursive setup from earlier). Your `'sp-base code` with the space would be read as two symbols, so make sure it's hyphenated.
+- **`require` instead of `load`.** Your `siapip/load` re-executes a file on every call and doesn't use features. `require` loads each module once and skips it afterwards. The `condition-case` keeps the same "report and continue" behavior as your function.
+- **`cl-dolist` became `dolist`.** `cl-dolist` is only needed for `cl-return`, which this loop doesn't use.
+
+** Things I noticed in the original
+
+- The `-default` switch isn't needed anymore, since `default` is the fallback. It still works, because `default` is in the alist.
+
+The defensive headless-host warning hook above the `cond` can stay exactly as it is. If you paste your second file, I can adapt the module names and the load-path setup to match how you actually call `siapip/load` today.
+
+* Creating a module loader file, instead
+
+I've replaced the `config.el` cascade with a single `sp-config-profiles.el`. I haven't run it, and it relies on helpers from your Lambda setup (`sp--emacs-switches`, `sp-gui-only-modules`, `measure-time`, `sys-mac`).
+
+It uses a recursive lookup
+**How it works**
+
+- **Recursive lookup like `require`.** Every subfolder of `sp-library-dir` is added to `load-path` once, using the same `normal-top-level-add-subdirs-to-load-path` approach as earlier. After that, `'sp-base-code` resolves wherever the file lives, with no paths.
+
+- **Profiles replace `config.el`.** The `sp-module-profiles` alist holds one list of symbols per bundle (`default`, `minimal`, `test`). `sp--active-profile` still picks one from the `-minimal` and `-test` switches, and the default is the fallback. To change what loads, edit that list.
+
+- **Error reporting is kept.** `sp-require-module` wraps `require` in `condition-case` and prints `Failed to load sub-library ...` with the error, so one broken module doesn't stop the rest. It also catches a file that loads but fails to provide its feature.
+- **Your existing `siapip/load` has a drop-in replacement.** `siapip/require` accepts a symbol or a list, so `(siapip/require '(sp-base-code sp-ui))` replaces the path-based calls.
+
+**Removed**
+
+All `sp-config-file` and `sp-default-config-file` logic is gone, including the branch that copied a default config into place.
+
+You can delete those variables from your early-init. The macOS deferred load is now one `when` at the end of `sp-load-profile`, limited to the default profile and non-headless hosts, matching your original behaviour. The headless GUI-frame warning hook is unchanged.
+
+**What to check**
+
+- **Every module must `(provide 'its-file-name)`.** `require` needs the feature name to match the file name, which `load` didn't care about. A mismatch shows up as one of the failure messages.
+- **File names must be unique across subfolders**, since two `utils.el` files collide on `load-path`.
+- **Possible typos in your original lists.** `sp-keys` in the default profile vs `sp-keybindings` in minimal (I kept `sp-keys` and left a FIXME), and `sp-dired` listed twice, which I deduplicated. Your message also wrote `'sp-base code` with a space, which I assume means `sp-base-code`.
+- **`require` loads each feature only once.** If you re-evaluate a file in a running session, `(require 'x)` won't reload it. Use `(load-library "x")` or `M-x load-file` for that.
+
+** The file created
+
+Modifications to be made by me, a human
+- replace the recursive load path with what I already have declared as
+  sp-library-dir (I already have a recursive load that's embedded into
+  the project)
+
+#+begin_src elisp
+;;; sp-config-profiles.el --- Declarative module profiles  -*- lexical-binding: t; -*-
+
+;; Replaces the config.el-driven dispatcher.  Modules are plain feature
+;; symbols (e.g. `sp-base-code') loaded with `require', so they are found
+;; anywhere under `sp-library-dir' and are only ever loaded once.  Every module
+;; file must end with (provide 'its-own-file-name).
+
+;;;; Recursive load-path (declared once)
+(defvar sp-library-dir (expand-file-name "libraries/" user-emacs-directory)
+  "Root folder whose subfolders are all added to `load-path'.")
+
+(when (file-directory-p sp-library-dir)
+  (let ((default-directory sp-library-dir))
+    (normal-top-level-add-to-load-path '("."))
+    (normal-top-level-add-subdirs-to-load-path)))
+
+;;;; Safe require
+(defun sp-require-module (feature)
+  "Require FEATURE, reporting a message instead of aborting on failure."
+  (condition-case err
+      (require feature)
+    (error
+     (message "Failed to load sub-library `%S': %S" feature err)
+     nil)))
+
+;; Drop-in replacement for `siapip/load': accepts one symbol or a list.
+(defun sp-require (features)
+  "Require FEATURES (a symbol or list of symbols) with error reporting."
+  (dolist (feature (ensure-list features))
+    (sp-require-module feature)))
+
+;;; THIS PROFILE LIST IS UNUPDATED BECAUSE THE CONFIGURATION MODEL DIDN'T ACTUALLY WORK FOR MY CASE
+
+;;;; Profiles
+;; Edit these lists to change what each bundle loads.  This is the
+;; replacement for config.el.
+(defvar sp-module-profiles
+  '((default
+     . (;; Core
+        sp-package
+        sp-encoding
+        sp-base-libraries
+        sp-snippets
+        sp-interaction
+        sp-keys
+        sp-navi ;; Navigation & search
+
+        ;; UI
+        sp-buffers
+        sp-canvas
+        sp-colors
+        lem-dashboard
+        sp-faces
+        sp-frame
+        sp-fonts
+        sp-icons
+        sp-tabs
+        sp-textui
+        sp-themes
+        sp-windows
+        sp-writedesk
+
+        ;; Environment settings (have to come after the UI because of dependencies)
+        sp-env
+        sp-macos
+        ;; sp-win ;; will be adding the relevant modules later
+        ;; sp-exwm
+
+        ;; Utility misc modules
+        sp-backuos
+        sp-bookmarks
+        ;; sp-choose-modeline
+        lem-dashboard
+        sp-debug
+        sp-embark
+        ;; sp-evil
+        sp-help
+        sp-indention
+        sp-lambda-line
+        sp-md
+        sp-minibuffer
+        sp-network
+        sp-scratch
+        sp-server
+        sp-splash
+        sp-spelling
+        sp-templating
+        sp-text-manipulation
+        sp-workspaces
+
+        ;; Org related settings
+        sp-org-base
+        sp-denote
+        sp-org-appearance
+        sp-org-capture
+        sp-org-export
+        sp-org-narrow
+        ;; sp-org-refile
+        sp-org-tables
+        sp-org-agenda
+        sp-org-taskman-extra
+        sp-org-ext
+
+        ;; Academic
+        sp-academic
+        ;; sp-statistics
+        sp-dgraphs
+        sp-notes
+
+        ;; Functions
+        sp-helper-funct
+        sp-open-externally
+        sp-move-region-to-heading
+
+        ;; Project & workspace
+        sp-vcontrol
+        sp-projects
+        sp-tabman
+        ;; Org
+        sp-org-base sp-org-settings
+        ;; Writing
+        sp-writing sp-notes sp-citation
+        ;; Shell & terminal
+        sp-shell sp-eshell))
+    (plus-programming
+     . (;; Core
+        sp-package
+        sp-encoding
+        sp-base-libraries
+        sp-gui
+        sp-snippets
+        sp-interaction
+        sp-keys
+        sp-navi ;; Navigation & search
+
+        ;; UI
+        sp-buffers
+        sp-canvas
+        sp-colors
+        lem-dashboard
+        sp-faces
+        sp-frame
+        sp-fonts
+        sp-icons
+        sp-tabs
+        sp-textui
+        sp-themes
+        sp-windows
+        sp-writedesk
+
+        ;; Environment settings (have to come after the UI because of dependencies)
+        sp-env
+        sp-macos
+        ;; sp-win ;; will be adding the relevant modules later
+        ;; sp-exwm
+
+        ;; Utility misc modules
+        sp-backups
+        sp-bookmarks
+        ;; sp-choose-modeline
+        lem-dashboard
+        sp-debug
+        sp-embark
+        ;; sp-evil
+        sp-help
+        sp-indention
+        sp-lambda-line
+        sp-md
+        sp-minibuffer
+        sp-network
+        sp-scratch
+        sp-server
+        sp-splash
+        sp-spelling
+        sp-templating
+        sp-text-manipulation
+        sp-workspaces
+
+        ;; Programming
+        sp-base-code
+        sp-prog-misc
+        sp-terminal
+        sp-vcontrol
+        sp-eshell
+        sp-latex))
+    (minimal
+     . (;; Core
+        sp-package
+        sp-encoding
+        sp-base-libraries
+        sp-gui
+        sp-snippets
+        sp-interaction
+        sp-keys
+        sp-navi ;; Navigation & search
+
+        ;; UI
+        sp-buffers
+        sp-canvas
+        sp-colors
+        lem-dashboard
+        sp-faces
+        sp-frame
+        sp-fonts
+        sp-icons
+        sp-tabs
+        sp-textui
+        sp-themes
+        sp-windows
+        sp-writedesk
+
+        ;; Environment settings (have to come after the UI because of dependencies)
+        sp-env
+        sp-macos
+        ;; sp-win ;; will be adding the relevant modules later
+        ;; sp-exwm))
+    (test
+     . (;; Core
+        sp-package
+        sp-encoding
+        sp-base-libraries
+        sp-gui
+        sp-snippets
+        sp-interaction
+        sp-keys
+        sp-navi ;; Navigation & search
+
+        ;; Needs setup for sp-test module
+        )))
+  "Alist mapping a profile name to the features loaded for it.")
+
+(defun sp--active-profile ()
+  "Return the profile selected by command-line switches."
+  (cond ((sp--emacs-switches "-minimal") 'minimal)
+        ((sp--emacs-switches "-test") 'test)
+        (t 'default)))
+
+(defun sp-load-profile (&optional profile)
+  "Load every module of PROFILE (default: the one chosen by switches).
+Skips modules in `(sp-gui-only-modules)' when `sp-headless-host' is non-nil."
+  (let* ((profile (or profile (sp--active-profile)))
+         (modules (alist-get profile sp-module-profiles)))
+    (unless modules
+      (user-error "No modules defined for profile `%S'" profile))
+    (message "\n;; ======================================================
+;; *Loading Lambda-Emacs profile: %S*
+;; ======================================================" profile)
+    (measure-time
+     (dolist (mod modules)
+       (unless (and sp-headless-host
+                    (memq mod (sp-gui-only-modules)))
+         (sp-require-module mod))))
+    ;; MacOS settings: deferred until idle, default profile only, never headless.
+    (when (and sys-mac (not sp-headless-host) (eq profile 'default))
+      (run-with-idle-timer 1 nil #'require 'sp-macos nil t))))
+
+;;;; Defensive headless-host warning (unchanged)
+(require 'server)
+(defun sp--warn-gui-frame-on-headless ()
+  "Warn if a server client created a GUI frame on a headless host."
+  (when (and sp-headless-host
+             (display-graphic-p))
+    (display-warning
+     'lambda-emacs
+     (concat "GUI client frame created on a host where "
+             "sp-headless-host is t. GUI modules were not "
+             "loaded; fonts, mode-line, and faces are "
+             "unconfigured. Unset sp-headless-host and "
+             "restart Emacs to recover.")
+     :error)))
+(add-hook 'server-after-make-frame-hook #'sp--warn-gui-frame-on-headless)
+
+;;;; Go
+(sp-load-profile)
+
+(provide 'sp-config-profiles)
+;;; sp-config-profiles.el ends here
+#+end_src
+
+Going through the configurations:
+- default :: Everything that should be loaded at first
+- plus-programming :: If you want to begin programming
+
+There should be a way to configure lazyloading for the other modules as well, and just trigger the load when trying to use a certain module. This means that the function should be available, but it should only end up being available after the startup.
+sa

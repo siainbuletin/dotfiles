@@ -161,6 +161,12 @@ Result depends on syntax table's comment character."
 
 ;;;;; Outline Navigation
 
+;; how to make navigation better --- see Karthik
+;; Selective display (C-x $)
+;; If you code with rigid indentation, you can get a quick overview of your 
+;; document with set-selective-display. No mucking around with folding, 
+;; outline- or hs-minor-mode regexps.
+
 ;; this navigation could be moved to a different module !!
 
 ;; Navigate elisp files easily. Outline is a built-in library and we can easily
