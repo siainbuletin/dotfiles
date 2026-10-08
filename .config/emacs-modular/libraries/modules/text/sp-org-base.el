@@ -87,10 +87,6 @@ periods. This ain't a typewriter."
           1))
 
   :custom
-  ;; Footnotes
-  (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
-  (org-footnote-auto-adjust t) ;; renumber footnotes
-
   ;; Indentation
   (org-adapt-indentation t) ;; adapt indentation
   (org-startup-indented t) ;; start with indentation of headlines

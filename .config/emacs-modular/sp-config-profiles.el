@@ -29,7 +29,6 @@
 ;; I would want to change the location of sp-config-profiles.el so that it's no
 ;; longer in the top-level directory.
 
-
 ;;; Code:
 
 ;;;; Safe require
@@ -41,7 +40,7 @@
      (message "Failed to load sub-library `%S': %S" feature err)
      nil)))
 
-;; Drop-in replacement for `siapip/load': accepts one symbol or a list.
+;; Drop-in replacement for `sp-load': accepts one symbol or a list.
 (defun sp-require (features)
   "Require FEATURES (a symbol or list of symbols) with error reporting."
   (dolist (feature (ensure-list features))

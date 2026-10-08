@@ -319,14 +319,14 @@ Any profile name in `sp-module-sets' works as a switch (-minimal, -test, ...)."
 - **No `config.el`.** The module lists live in `sp-module-sets`. For per-machine tweaks, `setq` or modify that variable in `early-config.el`, which loads first, instead of keeping a separate config file.
 - **New profiles are one entry.** Because the switch check is derived from the alist, adding `(writing sp-libraries sp-settings sp-writing)` makes `emacs -writing` work with no dispatcher changes.
 - **Modules are symbols.** `'sp-base-code` just works, provided `sp-base-code.el` ends with `(provide 'sp-base-code)` and the directory is on `load-path` (the recursive setup from earlier). Your `'sp-base code` with the space would be read as two symbols, so make sure it's hyphenated.
-- **`require` instead of `load`.** Your `siapip/load` re-executes a file on every call and doesn't use features. `require` loads each module once and skips it afterwards. The `condition-case` keeps the same "report and continue" behavior as your function.
+- **`require` instead of `load`.** Your `sp-load` re-executes a file on every call and doesn't use features. `require` loads each module once and skips it afterwards. The `condition-case` keeps the same "report and continue" behavior as your function.
 - **`cl-dolist` became `dolist`.** `cl-dolist` is only needed for `cl-return`, which this loop doesn't use.
 
 ** Things I noticed in the original
 
 - The `-default` switch isn't needed anymore, since `default` is the fallback. It still works, because `default` is in the alist.
 
-The defensive headless-host warning hook above the `cond` can stay exactly as it is. If you paste your second file, I can adapt the module names and the load-path setup to match how you actually call `siapip/load` today.
+The defensive headless-host warning hook above the `cond` can stay exactly as it is. If you paste your second file, I can adapt the module names and the load-path setup to match how you actually call `sp-load` today.
 
 * Creating a module loader file, instead
 
@@ -340,7 +340,7 @@ It uses a recursive lookup
 - **Profiles replace `config.el`.** The `sp-module-profiles` alist holds one list of symbols per bundle (`default`, `minimal`, `test`). `sp--active-profile` still picks one from the `-minimal` and `-test` switches, and the default is the fallback. To change what loads, edit that list.
 
 - **Error reporting is kept.** `sp-require-module` wraps `require` in `condition-case` and prints `Failed to load sub-library ...` with the error, so one broken module doesn't stop the rest. It also catches a file that loads but fails to provide its feature.
-- **Your existing `siapip/load` has a drop-in replacement.** `siapip/require` accepts a symbol or a list, so `(siapip/require '(sp-base-code sp-ui))` replaces the path-based calls.
+- **Your existing `sp-load` has a drop-in replacement.** `siapip/require` accepts a symbol or a list, so `(siapip/require '(sp-base-code sp-ui))` replaces the path-based calls.
 
 **Removed**
 
@@ -388,7 +388,7 @@ Modifications to be made by me, a human
      (message "Failed to load sub-library `%S': %S" feature err)
      nil)))
 
-;; Drop-in replacement for `siapip/load': accepts one symbol or a list.
+;; Drop-in replacement for `sp-load': accepts one symbol or a list.
 (defun sp-require (features)
   "Require FEATURES (a symbol or list of symbols) with error reporting."
   (dolist (feature (ensure-list features))

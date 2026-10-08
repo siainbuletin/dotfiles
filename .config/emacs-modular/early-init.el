@@ -290,8 +290,9 @@ Any customized libraries not available via standard package repos like elpa or m
 ;; You can set minimum severity level for displaying the warning buffer to :error or :emergency:
 ;; https://emacs.stackexchange.com/questions/78800/how-to-disable-automatic-appearance-of-warnings-buffer-in-emacs
 
-;; (setq warning-minimum-level :error)
-;; for debugging serious stuff, i'm leaving the debugger do its work
+;; If you want to do serious debugging, you can leave this line commented, to get to see everything in the
+;; terminal outout, as needed
+(setq warning-minimum-level :error) 
 
 ;;;; Check Errors
 ;; Don't produce backtraces when errors occur.

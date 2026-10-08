@@ -23,18 +23,18 @@
   
 ;; SETTING UP THE LOAD PATH
 
-(defvar siapip/load-path (file-name-directory (or load-file-name buffer-file-name))
+(defvar sp-load-path (file-name-directory (or load-file-name buffer-file-name))
   "Path of the siapip emacs config")
-(when (not siapip/load-path)
+(when (not sp-load-path)
   (error "Cannot determine configuration path of siapip emacs-config: both load-file-name and buffer-file-name are nil"))
 
-(defun siapip/load (paths)
+(defun sp-load (paths)
   "Load files relative to this emacs config."
   (when (not (listp paths))
     (setq paths (list paths)))
   (dolist (path paths)
     (condition-case err
-        (load (expand-file-name path siapip/load-path))
+        (load (expand-file-name path sp-load-path))
       (error (message "Failed to load Sia's sub-library at %S: %S" path err)))))
 
 ;;;; Startup
@@ -253,6 +253,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-appearance
                     'sp-org-capture
                     'sp-org-export
+                    ;; 'sp-org-fn
                     'sp-org-narrow
                     ;; 'sp-org-refile
                     'sp-org-tables
@@ -328,6 +329,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-appearance
                     'sp-org-capture
                     'sp-org-export
+                    ;; 'sp-org-fn
                     'sp-org-narrow
                     ;; 'sp-org-refile
                     'sp-org-tables

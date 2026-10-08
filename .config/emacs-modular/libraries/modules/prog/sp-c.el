@@ -51,12 +51,6 @@ Each element of this list has the form:
 (use-package cc-mode
   :ensure nil
   :defer t
-  :config
-  (condition-case err
-      (progn
-        (siapip/load "ext/google-styleguide/google-c-style")
-        (siapip/google-c-style-set-overrides))
-    (error (message "Failed to load google-c-style. Did you also sync the git submodules? %S" err)))
   :hook ((c-mode . 'siapip/c-mode-common-init)
          (c++-mode . 'siapip/c-mode-common-init))
   :bind (:map c-mode-map
