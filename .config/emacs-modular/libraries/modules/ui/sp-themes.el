@@ -163,11 +163,11 @@
 (defun toggle-dark-light-theme ()
   "Flip the active lambda variant between light and dark.
 If neither lambda variant is currently active (the user loaded some
-other theme), default to `lambda-dark'. The macOS system-appearance
+other theme), default to `ef-dream'. The macOS system-appearance
 hook is left untouched; the next macOS Light/Dark change will resync."
   (interactive)
   (let* ((current (car custom-enabled-themes))
-         (target (if (eq current 'lambda-light) 'lambda-dark 'lambda-light)))
+         (target (if (eq current 'lambda-light) 'ef-dream 'lambda-light)))
     (sp-disable-all-themes)
     (load-theme target t)))
 

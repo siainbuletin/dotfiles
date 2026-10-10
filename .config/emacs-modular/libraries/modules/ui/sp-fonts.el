@@ -169,13 +169,13 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
      ;; Choose favorite installed font from an ordered list (by preference):
      (seq-first
       (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("Cascadia Code NF"         ; Microsoft's offical has Nerds
+                  '("Iosevka Nerd Font"
+                    "Cousine Nerd Font"
+                    "Cascadia Code NF"         ; Microsoft's offical has Nerds
                     "CaskaydiaCove Nerd Font"  ; Best Nerd-based font
                     "NanumGothicCoding"        ; Winner of codingfont.com
                     "Hack Nerd Font"           ; no litagures!?
                     "FiraCode Nerd Font"       ; has too much ligatures
-                    "Cousine Nerd Font"
-                    "Iosevka Nerd Font"
                     "FantasqueSansMono Nerd Font"
                     "Monoid Nerd Font"
                     "Hasklig"
@@ -225,11 +225,11 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
 
 (set-face-attribute 'default nil
                   :family "Aporetic Sans Mono"
-                  :height 100)
+                  :height 150)
 
 (set-face-attribute 'link nil
                   :family "IntoneMono Nerd Font"
-                  :height 100)
+                  :height 150)
 
 (use-package fontaine
   :ensure (:wait t)
@@ -246,7 +246,8 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
 (set-face-attribute 'org-quote nil
                   :family "Aporetic Serif Mono")
 
-(setq org-ellipsis " [+]")
+(set-face-attribute 'mode-line nil :height 150)
+(set-face-attribute 'mode-line-inactive nil :height 150)
 
 (defun font-size-adjust (delta)
   "Adjust the current frame's font size.
@@ -269,10 +270,11 @@ DELTA would be something like 1 or -1."
    (interactive)
    (font-size-adjust -1))
 
-(global-set-key (kbd "s-+") 'font-size-increase)
-(global-set-key (kbd "s-=") 'font-size-increase)
-(global-set-key (kbd "s--") 'font-size-decrease)
+(global-set-key (kbd "M-+") 'font-size-increase)
+(global-set-key (kbd "M-=") 'font-size-increase)
+(global-set-key (kbd "M--") 'font-size-decrease)
 
+;;; Lin package
 (use-package lin
   :ensure t)
 

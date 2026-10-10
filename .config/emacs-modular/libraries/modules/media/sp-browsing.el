@@ -1,5 +1,17 @@
 ;; -*- lexical-binding: t; -*-
 
+;;; Commentary:
+
+;; Creating the environment for browsing within Emacs.
+
+;;; Code:
+
+;;;; Defining variables
+
+;;;; EWW (built-in)
+
+;;;;; Helper functions for eww
+
 ;; Open link in eww or browser
 (defun open-link-at-point-or-minibuffer-with-choice ()
   "Use `consult` to select a link at point, in the buffer, from `consult-omni` results, or prompt for a URL.
@@ -23,3 +35,7 @@
             (select-window (split-window window top-window-height))
             (eww url)))))
       (message "No URL provided."))))
+
+;;;; Elpher
+
+;;;; consult-omni

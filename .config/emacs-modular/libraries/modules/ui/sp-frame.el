@@ -40,6 +40,9 @@
 ;; un/comment this hook if you want frames recentered
 (add-hook 'after-make-frame-functions #'sp-frame-recenter)
 
+;;; Enabling keycast header line mode by default
+(keycast-header-line-mode 1)
+
 ;;;; Window Margins for Text Indentation
 ;; Add margins to windows to maintain text indentation with smaller frame borders
 (defun sp-set-window-margins ()

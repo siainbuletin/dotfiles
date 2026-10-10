@@ -187,14 +187,6 @@ the line, respectively."
            ("Q" . sp-kill-all-emacsen         )
            ("r" . restart-emacs                ))
 
-;;;;; Spelling Keybindings
-(bind-keys :prefix-map lem+spelling-keys
-           :prefix (concat sp-prefix " S")
-           ("b" . consult-flyspell          )
-           ("h" . sp-spelling-transient    )
-           ("n" . flyspell-correct-next     )
-           ("p" . flyspell-correct-previous ))
-
 ;;;;; Search Keybindings
 (bind-keys :prefix-map lem+search-keys
            :prefix (concat sp-prefix " s")
@@ -447,18 +439,9 @@ an inline branching lambda from the prior implementation."
     :custom
     (which-key-max-description-length 40)
     (which-key-lighter nil)
-    (setq which-key-idle-delay 0.3)
+    ;; (setq which-key-idle-delay 0.3) ;; no delay so I can actually get the previews in the minibuffer
     ;; (which-key-sort-order 'which-key-order-alpha) ;; error. see what are the actual symbols/options
-    (which-key-mode +1)
-    :init
-    (which-key-add-key-based-replacements
-"C-c w"   "Emacs Writing Studio"
-    "C-c w b" "Bibliographic"
-    "C-c w d" "Denote"
-    "C-c w m" "Multimedia"
-    "C-c w s" "Spelling and Grammar"
-    "C-c w t" "Themes"
-    "C-c w x" "Explore"))
+    (which-key-mode +1))
 
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))

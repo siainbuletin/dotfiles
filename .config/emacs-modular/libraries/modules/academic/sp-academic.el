@@ -36,12 +36,17 @@
 ;; there should also be a way to handle PDFs, especially if we're doing deeplinking with DEVONthink,
 ;; but these details will have to be worked out later on.
 
+;;; Code:
+;;;; Requiring sub-libraries
+
 (require 'sp-bibprocess)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
 
-;; bibliography lookup
+;;;; Setting up the proper variables
+
+;;; Looking up academic sources 
 
 (use-package biblio
   :ensure t
@@ -68,10 +73,16 @@
   (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
+;;; Org-ref
 (use-package org-ref
   :ensure t
   :after (ox-pandoc)
 )
+
+;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+(setq org-ref-insert-cite-function
+      (lambda ()
+	(org-cite-insert nil)))
 
 (defun org-ref-make-org-link-cite-key-visible (&rest _)
   "Make the org-ref cite link visible in descriptive links."

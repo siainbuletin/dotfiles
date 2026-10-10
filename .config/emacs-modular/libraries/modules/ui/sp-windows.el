@@ -4,7 +4,7 @@
 ;;; Commentary:
 
 ;; This sub-library deals specifically with the issues of Windows in Emacs
-;; (frames should be treated separately). 
+;; (frames should be treated separately).
 ;;
 ;; Eventually, the entire graphical environment and where information gets
 ;; placed should be moved to a larger file regarding window management,
@@ -14,7 +14,6 @@
 ;;; Code:
 
 ;;;; Appearance
-
 
 ;;;; Moving windows around
 ;; TODO: this has to be configured better.
@@ -29,8 +28,8 @@
 
 ;; Transpose swaps your horizontal and vertical arrangement, rotate spins
 ;; the whole layout around, and the flip commands mirror it left-to-right
-;; or top-to-bottom. If you've ever built a three-window layout and then 
-;; wished the editor pane were on the other side, these do the job and 
+;; or top-to-bottom. If you've ever built a three-window layout and then
+;; wished the editor pane were on the other side, these do the job and
 ;; keep every buffer in place while they're at it.
 
 ;; Window splits

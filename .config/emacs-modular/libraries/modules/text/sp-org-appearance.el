@@ -14,9 +14,9 @@
 
 ;;;; General org basic appearance options
 ;;; these were taken initially from Lambda Emacs
-(setq org-catch-invisible-edits 'smart) ;; prevent editing invisible area
 (setq org-cycle-separator-lines 0) ;; no empty lines in collapsed view
-(setq org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
+;; (setq org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
+(setq org-ellipsis " [+]")
 (setq org-fontify-quote-and-verse-blocks t) ;; make quotes stand out
 
 (setq org-hide-leading-stars t)  ;; hide leading stars
@@ -45,9 +45,9 @@
 
 ;; show markup at point -- this should be part of org!
 (use-package org-appear
-  :if (and sp-load-extras (locate-library "org-appear"))
+  ;; :if (and sp-load-extras (locate-library "org-appear"))
+  :ensure (:wait t)
   :after org
-  ;; :ensure (:wait t)
  
   :hook
   (org-mode . org-appear-mode)

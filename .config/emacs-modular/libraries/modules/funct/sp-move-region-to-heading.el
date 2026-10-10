@@ -1,5 +1,9 @@
 ;;; sp-move-region-to-heading.el --- Move a region under a heading in another file, leaving a link behind -*- lexical-binding: t; -*-
 
+;;; Commentary:
+
+;;; Code:
+
 (require 'vulpea)
 (require 'org-id)
 (require 'denote)

@@ -14,7 +14,7 @@
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
-;; (vulpea-db-autosync-mode +1) ;; this makes sure that the vault is being updated on each startup.
+(vulpea-db-autosync-mode +1)
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 

@@ -19,7 +19,7 @@
   :after vulpea)
 
 ;; opening the vulpea sidebar
-(global-set-key (kbd "C-c v s") #'vulpea-ui-sidebar-toggle)
+(global-set-key (kbd "C-x s t") #'vulpea-ui-sidebar-toggle)
 
 ;; Position: 'right (default), 'left, 'top, 'bottom
 (setq vulpea-ui-sidebar-position 'right)

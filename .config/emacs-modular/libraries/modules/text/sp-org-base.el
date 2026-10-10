@@ -22,8 +22,10 @@
   (add-hook 'org-mode-hook #'org-num-mode)
 
 ;;; Should be default settings for writing (also called linting)
-(add-hook 'before-save-hook
-          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+;; (add-hook 'before-save-hook
+;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
+
 
 (defun sp-single-space-after-periods ()
   "Don't assume that sentences should have two spaces after
@@ -63,6 +65,8 @@ periods. This ain't a typewriter."
    ("M-K" . org-shiftup)
    ("M-L" . org-shiftright)
    ("M-H" . org-shiftleft)
+   ;; Reorganising notes through vulpea
+   ("C-x s t" . vulpea-split-heading)
  
    ;; easily emphasize text
    ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))
@@ -87,6 +91,12 @@ periods. This ain't a typewriter."
           1))
 
   :custom
+  ;; Footnotes
+  (org-footnote-section nil)
+
+  ;; Editing
+  (setq org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
+
   ;; Indentation
   (org-adapt-indentation t) ;; adapt indentation
   (org-startup-indented t) ;; start with indentation of headlines
@@ -95,8 +105,8 @@ periods. This ain't a typewriter."
   ;; Insertion/Yanking
   (org-insert-heading-respect-content t) ;; insert new headings after subtree
   (org-M-RET-may-split-line '((default . t)))  ;; don't split line when creating a new headline, list item, or table field
-  (org-yank-adjusted-subtrees t)  ;; adjust subtrees to depth when yanked
-  (org-yank-folded-subtrees t) ;; fold subtrees on yank
+  (org-yank-adjusted-subtrees nil)  ;; adjust subtrees to depth when yanked
+  (org-yank-folded-subtrees nil) ;; fold subtrees on yank
 
   ;; Lists
   (org-list-allow-alphabetical t) ;; allow alphabetical list
@@ -200,6 +210,8 @@ periods. This ain't a typewriter."
 
 (setq org-support-shift-select t)
 
+(global-unset-key (kbd "C-x t i"))
+
 (use-package org
     :ensure nil
     :bind
@@ -212,7 +224,7 @@ periods. This ain't a typewriter."
     ("C-c s a" . org-save-all-org-buffers)
 
     ;; working with items (lists)
-    ("C-c t i" . org-toggle-item)
+    ("C-x t i" . org-toggle-item)
 
     ;; sorting elements
     ("C-c s i" . org-sort-list)

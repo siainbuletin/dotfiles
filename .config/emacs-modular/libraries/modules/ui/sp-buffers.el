@@ -60,6 +60,8 @@
 ;; Working with pop-up buffers (Lambda Emacs settings)
 
 ;;;; Popper (Pop-up Buffers)
+;; this is a package created by Karthik and it makes it possible to bring up windows without
+;; messing up the layout
 (use-package popper
   :ensure t
   ;; :if (and sp-load-extras (locate-library "popper"))
@@ -67,11 +69,11 @@
   :bind (("M-`"   . popper-toggle-latest)
          ("C-`"   . popper-cycle)
          ("C-M-`" . popper-toggle-type))
+
   :custom
   (popper-window-height 20)
   (popper-display-control t)
-  ;; set display to top -- if user prefers they can set this to `bottom'
-  (popper-display-function #'popper-select-popup-at-top)
+  (popper-display-function #'popper-select-popup-right)   ;; set display to top -- if user prefers they can set this to `bottom' (i set it to the custom function for sending it right-ward)
   ;; group by project.el project root, with fall back to default-directory
   (popper-group-function #'popper-group-by-directory)
   ;; Set popper buffers
@@ -80,10 +82,13 @@
      "Output\\*$"
      "\\*Async Shell Command\\*"
      help-mode
-     compilation-mode))
+     compilation-mode
+     vulpea-sidebar-ui-mode))
+  
   :init
   ;; For echo area hints
   (popper-echo-mode +1)
+  
   :config
   ;; Display functions for popup buffers at top, where they are easy to read.
   ;; This is just a slight modification of the existing functions.
@@ -98,7 +103,22 @@
      buffer
      `((window-height . ,popper-window-height)
        (side . top)
-       (slot . 1)))))
+       (slot . 1))))
+       
+  ;; Displaying functions on the side if wanted
+  (defun popper-select-popup-right (buffer &optional _alist)
+    "Display and switch to popup-buffer BUFFER at the top of the screen."
+    (let ((window (popper-display-popup-right buffer)))
+      (select-window window)))
+
+  (defun popper-display-popup-right (buffer &optional _alist)
+    "Display popup-buffer BUFFER at the top of the screen."
+    (display-buffer-in-side-window
+     buffer
+     `((window-height . ,popper-window-height)
+       (side . right)
+       (slot . 1))))
+       )
 
 ;;; Provide:
 

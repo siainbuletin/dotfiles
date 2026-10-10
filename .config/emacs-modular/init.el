@@ -270,7 +270,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Functions
                     'sp-helper-funct
                     'sp-open-externally
-                    'sp-move-region-to-heading)))
+                    'sp-move-region-to-heading
+                    )))
      (require mod))))
 
 (defun lem--minimal-modules ()
