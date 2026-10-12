@@ -2,6 +2,9 @@
 
 ;;;; Text Functions
 
+;;;; Enabling CUA mode by default.
+(cua-mode)
+
 ;; Cleaning up unnecessary whitespace
 (defun sp-clean-whitespace (&optional Begin End)
   "Delete trailing whitespace, and replace repeated blank lines to just 1.

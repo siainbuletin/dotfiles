@@ -58,24 +58,50 @@ Works in linux, MacOS, Microsoft Windows."
 ;;;; Dirvish dired extension
 (use-package dirvish
   :ensure t
-  
-  :init
-  (dirvish-override-dired-mode)
-  (dirvish-peek-mode)
-  (dirvish-side-follow-mode)
-  (dirvish-emerge-mode) ;; this will automatically start dirvish with the emerge mode (grouping for the file types)
+
+  :hook
+  ((dired-mode . dirvish-override-dired-mode)
+  (dired-mode . dirvish-peek-mode)
+  (dired-mode . dirvish-side-follow-mode)
+  (dired-mode . dirvish-emerge-mode)) ;; this will automatically start dirvish with the emerge mode (grouping for the file types)
 )
 
-(setq dirvish-attributes
-      '(vc-state file-size git-msg subtree-state all-the-icons collapse file-time))
+(use-package dirvish
+  :ensure t
+  
+  :init
+  (dirvish-override-dired-mode)          ; global mode, enable once
+  
+  :hook
+  (dirvish-mode . dirvish-emerge-mode)   ; only inside Dirvish buffers
+  
+  :custom
+  ;;;; attributes to show in the dirvish buffer
+  (dirvish-attributes
+   '(vc-state file-size git-msg subtree-state nerd-icons collapse file-time))
 
-;;;;; UI settings for dirvish
-(setq dirvish-mode-line-format '(:left (sort symlink) :right (vc-info yank index)))
-(setq dirvish-header-line-height '(25 . 35))
-(setq dirvish-side-width 38)
-(setq dirvish-header-line-format '(:left (path) :right (free-space)))
-(setq dired-listing-switches
-      "-l --almost-all --human-readable --group-directories-first")
+  ;;;;; UI settings for dirvish
+  (dirvish-mode-line-format '(:left (sort symlink) :right (vc-info yank index)))
+  (dirvish-header-line-height '(25 . 35))
+  (dirvish-side-width 38)
+  (dirvish-header-line-format '(:left (path) :right (free-space)))
+
+  (dired-listing-switches
+   "-l --almost-all --human-readable --group-directories-first")
+  
+  ;;;; groups
+  (dirvish-emerge-groups
+   '(("Recent files" (predicate . recent-files-2h))
+     ("Documents"    (extensions "pdf" "tex" "bib" "epub"))
+     ("Video"        (extensions "mp4" "mkv" "webm"))
+     ("Pictures"     (extensions "jpg" "png" "svg" "gif"))
+     ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
+     ("Archives"     (extensions "gz" "rar" "zip"))))
+  
+  :config
+  (dirvish-peek-mode)
+  (dirvish-side-follow-mode)
+  (add-hook 'dirvish-find-entry-hook #'dirvish-open-binaries-externally))
 
 ;;;; Open binary files externally
 (defun dirvish-open-binaries-externally (file fn)
@@ -87,20 +113,6 @@ Works in linux, MacOS, Microsoft Windows."
                        dirvish-binary-exts)))
     ;; return t to terminate `dirvish--find-entry'.
     (prog1 t (dired-do-open))))
-
-(add-hook 'dirvish-find-entry-hook #'dirvish-open-binaries-externally)
-
-;;;; Grouping based on file type
-
-(setq dirvish-emerge-groups
-  ;; Header string |    Type    |    Criterias
-  '(("Recent files"  (predicate . recent-files-2h))
-  ("Documents"     (extensions "pdf" "tex" "bib" "epub"))
-  ("Video"         (extensions "mp4" "mkv" "webm"))
-  ("Pictures"      (extensions "jpg" "png" "svg" "gif"))
-  ("Audio"         (extensions "mp3" "flac" "wav" "ape" "aac"))
-  ("Archives"      (extensions "gz" "rar" "zip")))
-)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

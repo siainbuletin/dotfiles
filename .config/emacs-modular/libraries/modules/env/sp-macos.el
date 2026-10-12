@@ -119,8 +119,8 @@ APPEARANCE is `light' or `dark' from
 No-op when the target is already at the head of
 `custom-enabled-themes'."
   (let ((target (pcase appearance
-                  ('dark 'lambda-dark)
-                  (_     'lambda-light))))
+                  ('dark 'lambda-dark-faded)
+                  (_     'lambda-light-faded))))
     (unless (eq target (car custom-enabled-themes))
       (mapc #'disable-theme custom-enabled-themes)
       (load-theme target t))))

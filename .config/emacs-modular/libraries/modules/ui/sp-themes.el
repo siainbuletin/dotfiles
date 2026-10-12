@@ -121,6 +121,11 @@
 (use-package ef-themes
   :ensure t)
 
+;; DORIC THEMES
+(use-package doric-themes
+  :ensure t
+  :demand t)
+
 ;; MODUS THEMES
 (use-package lambda-themes
   :ensure (:type git :host github :repo "lambda-emacs/lambda-themes") 
@@ -155,7 +160,7 @@ other theme), default to `ef-dream'. The macOS system-appearance
 hook is left untouched; the next macOS Light/Dark change will resync."
   (interactive)
   (let* ((current (car custom-enabled-themes))
-         (target (if (eq current 'lambda-light) 'ef-dream 'lambda-light)))
+         (target (if (eq current 'lambda-light) 'ef-dream 'lambda-light-faded)))
     (sp-disable-all-themes)
     (load-theme target t)))
 
