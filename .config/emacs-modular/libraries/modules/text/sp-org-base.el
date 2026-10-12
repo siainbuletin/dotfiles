@@ -279,7 +279,8 @@ title."
                       (buffer-file-name x)))
                 (buffer-list))))
 
-(defun sia-org-tree-to-indirect-buffer (&optional arg)
+;; Working with indirect buffers
+(defun sp-org-tree-to-indirect-buffer (&optional arg)
   "Create indirect buffer and narrow it to current subtree.
 The buffer is named after the subtree heading, with the filename
 appended.  If a buffer by that name already exists, it is
@@ -304,74 +305,6 @@ selected instead of creating a new buffer."
       (goto-char pos)
       (rename-buffer buffer-name)
       (org-narrow-to-subtree))))
-
-(setq org-todo-keywords
-      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
-
-(setq org-tag-alist
-      '(;; Circumstances
-        ("@home" . ?H)
-        ("@uni" . ?U)
-      ("@waiting" . ?W)
-
-        ;; Devices
-        ("@computer" . ?C)
-        ("@phone" . ?P)
-
-        ;; Activities
-        ("@planning" . ?p)
-        ("@configuration" . ?c)
-        ("@writing" . ?w)
-        ("@reading" . ?s)
-        ("@music" . ?m)
-        ("@research" . ?r)
-        ("@errands" . ?e)
-
-      ;; Effort estimate
-      ("deep" . ?d)
-      ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
-      ("time-eater" . ?t)))
-
-(setq org-priority-highest 1
-      org-priority-lowest 5
-      org-priority-default 4)
-
-(defun my-mark-as-project ()
-"This function makes sure that the current heading has
-(1) the tag :project:
-(2) has property COOKIE_DATA set to \"todo recursive\"
-(3) has any TODO keyword and
-(4) a leading progress indicator"
-    (interactive)
-    (org-toggle-tag "project" 'on)
-    (org-set-property "COOKIE_DATA" "todo recursive")
-    (org-back-to-heading t)
-    (let* ((title (nth 4 (org-heading-components)))
-           (keyword (nth 2 (org-heading-components))))
-       (when (and (bound-and-true-p keyword) (string-prefix-p "[" title))
-           (message "TODO keyword and progress indicator found")
-           )
-       (when (and (not (bound-and-true-p keyword)) (string-prefix-p "[" title))
-           (message "no TODO keyword but progress indicator found")
-           (forward-whitespace 1)
-           (insert "NEXT ")
-           )
-       (when (and (not (bound-and-true-p keyword)) (not (string-prefix-p "[" title)))
-           (message "no TODO keyword and no progress indicator found")
-           (forward-whitespace 1)
-           (insert "NEXT [/] ")
-           )
-       (when (and (bound-and-true-p keyword) (not (string-prefix-p "[" title)))
-           (message "TODO keyword but no progress indicator found")
-           (forward-whitespace 2)
-           (insert "[/] ")
-           )
-       )
-)
-
-(require 'org-inlinetask)
-
-(setq org-hierarchical-todo-statistics nil)
 
 ;; animated gif support to spruce things up
 (use-package org-inline-anim

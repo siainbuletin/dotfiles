@@ -682,9 +682,6 @@ insert the text where point is, not where the mouse cursor is."
   (sensible-defaults/open-clicked-files-in-same-frame-on-mac)
   (sensible-defaults/yank-to-point-on-mouse-click))
 
-;;; Other functions that I wrote
-(require 'sp-move-region-to-heading)
-
 ;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'sp-helper-funct)

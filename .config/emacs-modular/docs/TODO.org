@@ -42,6 +42,19 @@ This would mean that you have to read the documentation more thoroughly and writ
 ** TODO See what can be done with time tracking and effort estimates
 ** TODO Change the keybindings for [[id:65222ab0-1f97-40e8-bae7-ec409da87eb2][org-agenda]] so they don't interfere with normal note-taking
 ** Check which files are constantly being added to the agenda by the workflows that weren't making use of [[id:1124CFBB-0911-4A5C-9C16-89CF99FD4EFA][vulpea-para]]
+** TODO Make long files with a lot of projects easier to navigate (so you don't have to look at them hierarchically, even though they're all actually bound to the same area)
+
+Is it possible to force [[id:1124CFBB-0911-4A5C-9C16-89CF99FD4EFA][vulpea-para]] to add multiple notes to an area, instead of having one org file for defining this area? Or would the projects just end up living separately?
+
+* Object system
+
+See [[id:4ee78b9c-d29b-4458-b129-5de6455a18ce][Object system for personal notes]]
+
+** Echo a small summary for what the main note does (what it describes in the 'Basics' area) in another note
+
+This means that you don't have to mirror what has already been said
+- but this would probably mean that you have to design a custom org block to make it work well
+
 * Compatibility with mobile applications
 ** TODO Try out the new Orger application
 * Window management
@@ -54,6 +67,8 @@ It might be a better idea to just disable it for the time being.
 ** How can you include frame management into better Window management?
 ** Interfacing with external window managers
 *** Read about the best way of sending Windows in Emacs and collaborating with MacOS window managers
+** Is it possible to make EXWM work with MacOS?
+** Can you configure Emacs to boot into EXWM on particular machines, like Linux, in this case?
 * Launcher in Emacs
 ** See what's the development for Universal Launcher
 
@@ -127,3 +142,14 @@ I want to be able to modify the code before integrating in my setup so that ever
 * File navigation
 ** Find a way to fold folders in dired
 ** Try out the [[id:A057ECB1-495D-45B5-A77E-2BD2DCFC903B][dirvish-el]] file manager (the one with media preview)
+* Modeline
+** TODO Customize the modeline to include the name of the file/buffer that you're working on, as well as the wordcount
+** Where are the customization variables hidden with the modeline?
+* Project management
+** Make a way to differentiate between the different kinds of projects in the minibuffer selection for ~vulpea-para-find-project~
+
+Currently, not every project shows up
+- I also don't want to see the breadcrumbing for projects that have subprojects
+- I would rather have the minibuffer make me choose to maybe recurse into the file and select from the sub-projects
+
+It would also be nice if I could see the project dependencies in a separate buffer from which I could decide what I need to work on next

@@ -117,18 +117,6 @@
 
 (setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
 
-;; The `modus-themes-headings' is an alist: read the manual's
-;; node about it or its doc string.  Basically, it supports
-;; per-level configurations for the optional use of
-;; `variable-pitch' typography, a height value as a multiple of
-;; the base font size (e.g. 1.5), and a `WEIGHT'.
-(setq modus-themes-headings
-      '((1 . (variable-pitch 1.5))
-        (2 . (1.3))
-        (agenda-date . (1.3))
-        (agenda-structure . (variable-pitch light 1.8))
-        (t . (1.1))))
-
 ;; EF THEMES
 (use-package ef-themes
   :ensure t)

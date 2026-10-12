@@ -9,7 +9,7 @@
   (use-package-verbose t)               ;; Report loading details
   (use-package-minimum-reported-time 0) ;; This is really helpful for profiling
   (use-package-expand-minimally nil)    ;; Expand normally
-  
+
   ;; Unconditional: lambda-emacs handles installation via
   ;; `sp-install-extras' driven by `sp-packages-alist', not via
   ;; use-package's :ensure machinery. Setting this to nil lets
@@ -20,7 +20,7 @@
 
   ;; Navigate use-package declarations w/imenu
   (use-package-enable-imenu-support t))
-  
+
 ;; SETTING UP THE LOAD PATH
 
 (defvar sp-load-path (file-name-directory (or load-file-name buffer-file-name))
@@ -175,12 +175,50 @@ emacs-version string on the kill ring."
   (normal-top-level-add-to-load-path '("."))
   (normal-top-level-add-subdirs-to-load-path))
 
+;; Reporting whether the modules have loaded properly
+(defun sp-require-module (feature)
+  "Require FEATURE and log the outcome to *Messages*.
+Return non-nil if FEATURE is loaded afterwards."
+  (if (featurep feature)
+      (progn (message "[skip]   %-24s already loaded" feature) t)
+    (let ((start (float-time)))
+      (condition-case err
+          (progn
+            (require feature)
+            (message "[ok]     %-24s %.3fs" feature (- (float-time) start))
+            t)
+        (error
+         (message "[FAILED] %-24s %S" feature err)
+         nil)))))
+
+;;;;; Module loading helpers
+(defun lem--require-modules (modules)
+  "Require each feature in MODULES, logging every result to *Messages*.
+Skips modules in `(lem-gui-only-modules)' when `sp-headless-host' is
+non-nil. A failing module is reported and the rest still load."
+  (let (loaded failed skipped)
+    (dolist (mod modules)
+      (cond
+       ((and (bound-and-true-p sp-headless-host)
+             (memq mod (lem-gui-only-modules)))
+        (push mod skipped)
+        (message "[headless] %-22s skipped (GUI-only)" mod))
+       ((sp-require-module mod)
+        (push mod loaded))
+       (t
+        (push mod failed))))
+    (message "Modules: %d loaded, %d failed, %d skipped%s"
+             (length loaded) (length failed) (length skipped)
+             (if failed
+                 (format " (failed: %s)"
+                         (mapconcat #'symbol-name (reverse failed) ", "))
+               ""))))
+
 ;;; Modular loading without a config.el
 ;;;;; Load Configuration Modules
 ;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
 ;; loaded is left to the user to set in `config.el', though if there is no
 ;; `config.el' file a default set of modules will be loaded.
-
 (defun lem--default-modules ()
   "Load a default configuration for 𝛌-Emacs.
 Skips modules listed in `(lem-gui-only-modules)' when
@@ -190,10 +228,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
 ;; *Loading default setup of 𝛌-Emacs Modules*
 ;; ======================================================")
   (measure-time
-   (cl-dolist (mod (cl-remove-if
-                    (lambda (m)
-                      (and sp-headless-host
-                           (memq m (lem-gui-only-modules))))
+   (lem--require-modules
                     (list
                     ;; Core
                     'sp-encoding
@@ -203,7 +238,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-keys
                     'sp-navi ;; Navigation & search
 
-                    
                     ;; UI modules (loaded alphabetically)
                     'sp-buffers
                     'sp-canvas
@@ -271,8 +305,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-helper-funct
                     'sp-open-externally
                     'sp-move-region-to-heading
-                    )))
-     (require mod))))
+                    ))))
 
 (defun lem--minimal-modules ()
   "Load 𝛌-Emacs with a minimal set of modules.
@@ -391,7 +424,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
      (run-with-idle-timer 1 nil
                           (function require)
                           'sp-setup-macos nil t))))
-  
+
  ;; Default: no switch given
  (t
   (message "*Loading 𝛌-Emacs default modules*")
@@ -423,7 +456,11 @@ Skips modules listed in `(lem-gui-only-modules)' when
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
  '(custom-safe-themes
-   '("854b81231db83bc217b0c8671f23ec92163a96b28f045ff879bba738a9ed88bb"
+   '("e0fbe5caa6e602975e59cdd381c9773a670a864dd7bb7bf2345414856148098b"
+     "1d18bef9d0e1b7f30a3290c48fdc52465bdca62564e404c1019bb1fcc8cb0c27"
+     "967c23e9ba179b80560774419f081df22e7674aac23c5c550b817e4a1ce7d058"
+     "953a4391d91a93ac734777a53001d1b514c22c4b7233c932ae029a5b01cdf3f7"
+     "854b81231db83bc217b0c8671f23ec92163a96b28f045ff879bba738a9ed88bb"
      "b8719ba8ddfa912c98d876d5cc530c13bd6589e34b617093848e492aabe2a2dd"
      "5cb84685a211fb46e47ca355dc91e52adf0c185dc0603cfe27c63855f200dd1f"
      "d26200309cd01a0b321121be21d9e879c5e0c7bf6c0b9f090fe0f5e486dbb7a5"
@@ -438,7 +475,10 @@ Skips modules listed in `(lem-gui-only-modules)' when
  '(package-vc-selected-packages
    '((lambda-themes :vc-backend Git :url
                     "https://codeberg.org/Lambda-Emacs/lambda-themes.git")))
- '(sia/modeline 'doom-modeline))
+ '(sia/modeline 'doom-modeline)
+ '(sp-ui-default-font '(:font "PT Mono" :height 120))
+ '(sp-ui-variable-width-font '(:font "Aporetic Serif Mono" :height 120))
+ '(transient-show-menu t nil nil "Customized with use-package transient"))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

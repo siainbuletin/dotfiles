@@ -1,11 +1,84 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-org-taskman-extra.el --- Task management components needed to make the system work
 
 ;;; Code:
 
 ;; Settings related specifically to task management done through org-mode.
-;; Org-agenda is being treated in a separate file.
+;; Org-agenda is being treated in a separate file. This is because org-agenda
+;; has a lot of appearance issues that should be sorted up separately, and
+;; it's a different component of such a task management system.
 
 ;;; Commentary:
+;;;; What are the TODO keywords that you're actually using?
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
+
+;;;; Set up the org tags
+(setq org-tag-alist
+      '(;; Circumstances
+        ("@home" . ?H)
+        ("@uni" . ?U)
+      ("@waiting" . ?W)
+
+        ;; Devices
+        ("@computer" . ?C)
+        ("@phone" . ?P)
+
+        ;; Activities
+        ("@planning" . ?p)
+        ("@configuration" . ?c)
+        ("@writing" . ?w)
+        ("@reading" . ?s)
+        ("@music" . ?m)
+        ("@research" . ?r)
+        ("@errands" . ?e)
+
+      ;; Effort estimate
+      ("deep" . ?d)
+      ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
+      ("time-eater" . ?t)))
+
+;;;; Setting up the priorities
+(setq org-priority-highest 1
+      org-priority-lowest 5
+      org-priority-default 4)
+
+(defun my-mark-as-project ()
+"This function makes sure that the current heading has
+(1) the tag :project:
+(2) has property COOKIE_DATA set to \"todo recursive\"
+(3) has any TODO keyword and
+(4) a leading progress indicator"
+    (interactive)
+    (org-toggle-tag "project" 'on)
+    (org-set-property "COOKIE_DATA" "todo recursive")
+    (org-back-to-heading t)
+    (let* ((title (nth 4 (org-heading-components)))
+           (keyword (nth 2 (org-heading-components))))
+       (when (and (bound-and-true-p keyword) (string-prefix-p "[" title))
+           (message "TODO keyword and progress indicator found")
+           )
+       (when (and (not (bound-and-true-p keyword)) (string-prefix-p "[" title))
+           (message "no TODO keyword but progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT ")
+           )
+       (when (and (not (bound-and-true-p keyword)) (not (string-prefix-p "[" title)))
+           (message "no TODO keyword and no progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT [/] ")
+           )
+       (when (and (bound-and-true-p keyword) (not (string-prefix-p "[" title)))
+           (message "TODO keyword but no progress indicator found")
+           (forward-whitespace 2)
+           (insert "[/] ")
+           )
+       )
+)
+
+(require 'org-inlinetask)
+
+(setq org-hierarchical-todo-statistics nil)
 
 ;;;; TODO faces
 

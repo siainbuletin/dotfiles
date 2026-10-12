@@ -44,18 +44,19 @@
 (setq org-hide-emphasis-markers t)  ;; hide emph markers
 
 ;; show markup at point -- this should be part of org!
-(use-package org-appear
-  ;; :if (and sp-load-extras (locate-library "org-appear"))
-  :ensure (:wait t)
-  :after org
- 
-  :hook
-  (org-mode . org-appear-mode)
+;; it seems that this creates quite a bit of issues with the invisible section, so it's turned off for now
+;; (use-package org-appear
+;;   ;; :if (and sp-load-extras (locate-library "org-appear"))
+;;   :ensure (:wait t)
+;;   :after org
 
-  :custom
-  (org-appear-autoemphasis  t)
-  (org-appear-autolinks nil)
-  (org-appear-autosubmarkers t))
+;;   :hook
+;;   (org-mode . org-appear-mode)
+
+;;   :custom
+;;   (org-appear-autoemphasis  t)
+;;   (org-appear-autolinks nil)
+;;   (org-appear-autosubmarkers t))
 
 ;;;; Org-modern
 (use-package org-modern
@@ -63,12 +64,12 @@
   :defer t
   :hook ((org-mode . org-modern-mode)
          (org-agenda-finalize . org-modern-agenda))
-  
+
   :custom
-  (org-modern-hide-stars 'leading)
+  ;; (org-modern-hide-stars 'leading) ;; this causes issues with the invisible region -- this should be fixed at some point
   (org-modern-todo nil)
   (org-modern-tag nil)
-  
+
   ;; Customize this per your font
   (org-modern-label-border 1)
   ;; Note that these stars allow differentiation of levels
