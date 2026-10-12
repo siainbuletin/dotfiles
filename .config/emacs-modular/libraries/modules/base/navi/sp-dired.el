@@ -57,13 +57,25 @@ Works in linux, MacOS, Microsoft Windows."
 
 ;;;; Dirvish dired extension
 (use-package dirvish
-  :ensure t)
+  :ensure t
+  
+  :init
+  (dirvish-override-dired-mode)
+  (dirvish-peek-mode)
+  (dirvish-side-follow-mode)
+  (dirvish-emerge-mode) ;; this will automatically start dirvish with the emerge mode (grouping for the file types)
+)
 
-;;;; Attributes for files
 (setq dirvish-attributes
-  (append
-    '(vc-state subtree-state nerd-icons collapse)
-    '(git-msg file-modes file-time file-size)))
+      '(vc-state file-size git-msg subtree-state all-the-icons collapse file-time))
+
+;;;;; UI settings for dirvish
+(setq dirvish-mode-line-format '(:left (sort symlink) :right (vc-info yank index)))
+(setq dirvish-header-line-height '(25 . 35))
+(setq dirvish-side-width 38)
+(setq dirvish-header-line-format '(:left (path) :right (free-space)))
+(setq dired-listing-switches
+      "-l --almost-all --human-readable --group-directories-first")
 
 ;;;; Open binary files externally
 (defun dirvish-open-binaries-externally (file fn)
@@ -77,6 +89,18 @@ Works in linux, MacOS, Microsoft Windows."
     (prog1 t (dired-do-open))))
 
 (add-hook 'dirvish-find-entry-hook #'dirvish-open-binaries-externally)
+
+;;;; Grouping based on file type
+
+(setq dirvish-emerge-groups
+  ;; Header string |    Type    |    Criterias
+  '(("Recent files"  (predicate . recent-files-2h))
+  ("Documents"     (extensions "pdf" "tex" "bib" "epub"))
+  ("Video"         (extensions "mp4" "mkv" "webm"))
+  ("Pictures"      (extensions "jpg" "png" "svg" "gif"))
+  ("Audio"         (extensions "mp3" "flac" "wav" "ape" "aac"))
+  ("Archives"      (extensions "gz" "rar" "zip")))
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

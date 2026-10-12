@@ -71,10 +71,7 @@
 
   :custom
   (aw-dispatch-always t)
-  (aw-dispatch-when-more-than 0)
-
-  :bind
-  (("C-x o" . ace-window)))
+  (aw-dispatch-when-more-than 2))
 
 (defun transpose-buffers (arg)
   "Transpose the buffers shown in two windows."
