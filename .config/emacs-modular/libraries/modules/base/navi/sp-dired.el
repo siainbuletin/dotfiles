@@ -55,6 +55,29 @@ Works in linux, MacOS, Microsoft Windows."
 ;; Set Dired listing switches for more minimalist output
 (setq dired-listing-switches "-aghov --group-directories-first")
 
+;;;; Dirvish dired extension
+(use-package dirvish
+  :ensure t)
+
+;;;; Attributes for files
+(setq dirvish-attributes
+  (append
+    '(vc-state subtree-state nerd-icons collapse)
+    '(git-msg file-modes file-time file-size)))
+
+;;;; Open binary files externally
+(defun dirvish-open-binaries-externally (file fn)
+  "When FN is not `dired', open binary FILE externally."
+  (when-let* (((not (eq fn 'dired)))
+              ((file-exists-p file))
+              ((not (file-directory-p file)))
+              ((member (downcase (or (file-name-extension file) ""))
+                       dirvish-binary-exts)))
+    ;; return t to terminate `dirvish--find-entry'.
+    (prog1 t (dired-do-open))))
+
+(add-hook 'dirvish-find-entry-hook #'dirvish-open-binaries-externally)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Provide

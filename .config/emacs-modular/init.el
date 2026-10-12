@@ -456,7 +456,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
  '(custom-safe-themes
-   '("e0fbe5caa6e602975e59cdd381c9773a670a864dd7bb7bf2345414856148098b"
+   '("1b623b81f373d49bcf057315fe404b30c500c3b5a387cf86c699d83f2f5763f4"
+     "7c0179ef765b9bf1d79612235236d29eebcaca9b4a287ff802959ed20db154b6"
+     "e0fbe5caa6e602975e59cdd381c9773a670a864dd7bb7bf2345414856148098b"
      "1d18bef9d0e1b7f30a3290c48fdc52465bdca62564e404c1019bb1fcc8cb0c27"
      "967c23e9ba179b80560774419f081df22e7674aac23c5c550b817e4a1ce7d058"
      "953a4391d91a93ac734777a53001d1b514c22c4b7233c932ae029a5b01cdf3f7"
