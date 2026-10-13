@@ -238,20 +238,28 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-keys
                     'sp-navi ;; Navigation & search
 
-                    ;; UI modules (loaded alphabetically)
-                    'sp-buffers
-                    'sp-canvas
+                    ;; UI modules (loaded in order of need)
+                    'sp-icons
+
                     'sp-colors
                     'sp-faces
                     'sp-fonts
-                    'sp-frame
-                    'sp-icons
-                    'sp-tabs
+
                     'sp-textui
                     'sp-themes
+
+                    ;;;; Window management
+                    'sp-frame
+                    'sp-buffers
                     'sp-windows
+                    'sp-tabs
+                    'sp-mini-frame
+
                     'sp-writedesk
                     'lem-dashboard
+                    
+                    ;;;; Modern settings
+                    'sp-canvas
 
                     ;; Environment settings (have to come after the UI because of dependencies)
                     'sp-env
