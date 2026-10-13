@@ -364,59 +364,6 @@ will be killed."
                        "\n")))
   (newline))
 
-;;;;; Smart Yanking
-;;Courtesy of Marcin Borkowski http://mbork.pl/2018-07-02_Smart_yanking
-
-(defun has-space-at-boundary-p (string)
-  "Check whether STRING has any whitespace on the boundary.
-      Return 'left, 'right, 'both or nil."
-  (let ((result nil))
-    (when (string-match-p "^[[:space:]]+" string)
-      (setq result 'left))
-    (when (string-match-p "[[:space:]]+$" string)
-      (if (eq result 'left)
-          (setq result 'both)
-        (setq result 'right)))
-    result))
-
-(defun is-there-space-around-point-p ()
-  "Check whether there is whitespace around point.
-      Return 'left, 'right, 'both or nil."
-  (let ((result nil))
-    (when (< (save-excursion
-               (skip-chars-backward "[:space:]"))
-             0)
-      (setq result 'left))
-    (when (> (save-excursion
-               (skip-chars-forward "[:space:]"))
-             0)
-      (if (eq result 'left)
-          (setq result 'both)
-        (setq result 'right)))
-    result))
-
-(defun set-point-before-yanking (string)
-  "Put point in the appropriate place before yanking STRING."
-  (let ((space-in-yanked-string (has-space-at-boundary-p string))
-        (space-at-point (is-there-space-around-point-p)))
-    (cond ((and (eq space-in-yanked-string 'left)
-                (eq space-at-point 'left))
-           (skip-chars-backward "[:space:]"))
-          ((and (eq space-in-yanked-string 'right)
-                (eq space-at-point 'right))
-           (skip-chars-forward "[:space:]")))))
-
-(defun set-point-before-yanking-if-in-text-mode (string)
-  "Invoke `set-point-before-yanking' in text modes."
-  (when (derived-mode-p 'text-mode)
-    (set-point-before-yanking string)))
-
-(advice-add
- 'insert-for-yank
- :before
- #'set-point-before-yanking-if-in-text-mode)
-;; http://lists.gnu.org/archive/html/help-gnu-emacs/2007-05/msg00975.html
-
 ;;;;; Wrap in Yaml block
 (defun sp-yaml-wrap ()
   "wrap region in --- for a yaml block"
@@ -501,8 +448,6 @@ Sublists indicate that one of the entries is required."
         (message "Missing executable files(s): %s"
                  (mapconcat 'identity missing ", "))
       (message "No missing executable files."))))
-
-
 
 ;; Denote
 

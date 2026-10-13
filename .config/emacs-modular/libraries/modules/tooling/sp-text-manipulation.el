@@ -1,6 +1,11 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-text-manipulation.el --- text functions and better text editing
 
-;;;; Text Functions
+;;; Commentary:
+
+;; This creates useful functions for moving around text a lot easier.
+
+;;; Code:
 
 ;;;; Enabling CUA mode by default.
 (cua-mode)
@@ -33,6 +38,32 @@ Works on whole buffer or selection, respects `narrow-to-region'."
   (message "done sp-clean-whitespace"))
 
 (add-hook 'before-save-hook 'sp-clean-whitespace)
+
+;;;; Another whitespace package
+(use-package stripspace
+  ;; Enable for prog-mode-hook, text-mode-hook, conf-mode-hook
+  :hook ((prog-mode . stripspace-local-mode)
+         (text-mode . stripspace-local-mode)
+         (conf-mode . stripspace-local-mode))
+
+  :custom
+  ;; The `stripspace-only-if-initially-clean' option:
+  ;; - nil to always delete trailing whitespace.
+  ;; - Non-nil to only delete whitespace when the buffer is clean initially.
+  ;; (The initial cleanliness check is performed when `stripspace-local-mode'
+  ;; is enabled.)
+  (stripspace-only-if-initially-clean nil)
+
+  ;; Enabling `stripspace-restore-column' preserves the cursor's column position
+  ;; even after stripping spaces. This is useful in scenarios where you add
+  ;; extra spaces and then save the file. Although the spaces are removed in the
+  ;; saved file, the cursor remains in the same position, ensuring a consistent
+  ;; editing experience without affecting cursor placement.
+  (stripspace-restore-column t)
+  
+  ;; normalising indentation in programming mode
+  (stripspace-normalize-indentation t)
+  )
 
 ;;;;; Fill Paragraph
 (defun sp-fill-paragraph ()
@@ -91,6 +122,59 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 (keymap-global-set "M-u" 'upcase-dwim)
 (keymap-global-set "M-l" 'downcase-dwim)
 (keymap-global-set "M-c" 'capitalize-dwim)
+
+;;;;; Smart Yanking
+;;Courtesy of Marcin Borkowski http://mbork.pl/2018-07-02_Smart_yanking
+
+(defun has-space-at-boundary-p (string)
+  "Check whether STRING has any whitespace on the boundary.
+      Return 'left, 'right, 'both or nil."
+  (let ((result nil))
+    (when (string-match-p "^[[:space:]]+" string)
+      (setq result 'left))
+    (when (string-match-p "[[:space:]]+$" string)
+      (if (eq result 'left)
+          (setq result 'both)
+        (setq result 'right)))
+    result))
+
+(defun is-there-space-around-point-p ()
+  "Check whether there is whitespace around point.
+      Return 'left, 'right, 'both or nil."
+  (let ((result nil))
+    (when (< (save-excursion
+               (skip-chars-backward "[:space:]"))
+             0)
+      (setq result 'left))
+    (when (> (save-excursion
+               (skip-chars-forward "[:space:]"))
+             0)
+      (if (eq result 'left)
+          (setq result 'both)
+        (setq result 'right)))
+    result))
+
+(defun set-point-before-yanking (string)
+  "Put point in the appropriate place before yanking STRING."
+  (let ((space-in-yanked-string (has-space-at-boundary-p string))
+        (space-at-point (is-there-space-around-point-p)))
+    (cond ((and (eq space-in-yanked-string 'left)
+                (eq space-at-point 'left))
+           (skip-chars-backward "[:space:]"))
+          ((and (eq space-in-yanked-string 'right)
+                (eq space-at-point 'right))
+           (skip-chars-forward "[:space:]")))))
+
+(defun set-point-before-yanking-if-in-text-mode (string)
+  "Invoke `set-point-before-yanking' in text modes."
+  (when (derived-mode-p 'text-mode)
+    (set-point-before-yanking string)))
+
+(advice-add
+ 'insert-for-yank
+ :before
+ #'set-point-before-yanking-if-in-text-mode)
+;; http://lists.gnu.org/archive/html/help-gnu-emacs/2007-05/msg00975.html
 
 ;;; Provide:
 
