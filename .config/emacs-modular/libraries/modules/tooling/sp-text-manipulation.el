@@ -39,32 +39,6 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 (add-hook 'before-save-hook 'sp-clean-whitespace)
 
-;;;; Another whitespace package
-(use-package stripspace
-  ;; Enable for prog-mode-hook, text-mode-hook, conf-mode-hook
-  :hook ((prog-mode . stripspace-local-mode)
-         (text-mode . stripspace-local-mode)
-         (conf-mode . stripspace-local-mode))
-
-  :custom
-  ;; The `stripspace-only-if-initially-clean' option:
-  ;; - nil to always delete trailing whitespace.
-  ;; - Non-nil to only delete whitespace when the buffer is clean initially.
-  ;; (The initial cleanliness check is performed when `stripspace-local-mode'
-  ;; is enabled.)
-  (stripspace-only-if-initially-clean nil)
-
-  ;; Enabling `stripspace-restore-column' preserves the cursor's column position
-  ;; even after stripping spaces. This is useful in scenarios where you add
-  ;; extra spaces and then save the file. Although the spaces are removed in the
-  ;; saved file, the cursor remains in the same position, ensuring a consistent
-  ;; editing experience without affecting cursor placement.
-  (stripspace-restore-column t)
-  
-  ;; normalising indentation in programming mode
-  (stripspace-normalize-indentation t)
-  )
-
 ;;;;; Fill Paragraph
 (defun sp-fill-paragraph ()
   "if in an org buffer use org-fill-paragraph; else use fill-paragraph"
