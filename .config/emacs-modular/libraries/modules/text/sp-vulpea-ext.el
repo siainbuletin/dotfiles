@@ -12,14 +12,6 @@
 
 ;;; Code:
 
-;;; What exactly can this setting do?
-(use-package consult-vulpea
-  :ensure (:wait t)
-  :after vulpea
-  :config
-  (consult-vulpea-mode 1)
-)
-
 ;; JOURNALING
 (use-package vulpea-journal
   :ensure t

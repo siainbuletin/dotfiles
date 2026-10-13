@@ -7,16 +7,16 @@
 
 (use-package ibuffer
   :ensure nil
-  :config
-  (setq ibuffer-expert t)
-  (setq ibuffer-display-summary nil)
-  (setq ibuffer-use-other-window nil)
-  (setq ibuffer-show-empty-filter-groups nil)
-  (setq ibuffer-default-sorting-mode 'filename/process)
-  (setq ibuffer-title-face 'font-lock-doc-face)
-  (setq ibuffer-use-header-line t)
-  (setq ibuffer-default-shrink-to-minimum-size nil)
-  (setq ibuffer-formats
+  
+  :custom ;; this is for customizing variables. :config is for functions
+  (ibuffer-display-summary nil)
+  (ibuffer-use-other-window nil)
+  (ibuffer-show-empty-filter-groups nil)
+  (ibuffer-default-sorting-mode 'filename/process)
+  (ibuffer-title-face 'font-lock-doc-face)
+  (ibuffer-use-header-line t)
+  (ibuffer-default-shrink-to-minimum-size nil)
+  (ibuffer-formats
         '((mark modified read-only locked " "
                 (name 30 30 :left :elide)
                 " "
@@ -51,6 +51,9 @@
                    (name . "^\\*Backtrace\\*$")
                    (name . "^\\*Messages\\*$")))))
          )
+
+;; nerd-icons-ibuffer is already called in sp-icons.el
+(require 'nerd-icons-ibuffer)
 
 ;; Always group items in buffer menu
 (setq mouse-buffer-menu-mode-mult 0)

@@ -1,0 +1,175 @@
+* Writing a custom type of highlight
+
+I want this highlight to actually be harmonized with the themes that I'm working with in Emacs.
+
+This means that I can't simply hard-code the colors.
+
+I want the setup to be a little more serious, based in functions.
+
+The point was, at first, to get rid of the ~org-extra-emphasis~ package, but I might actually choose to keep it after all.
+
+
+Is it possible to replicate the highlighting syntax found in Markdown (==like this==) in org-mode? I'm already using the org-extra-emphasis package, but is there any better way?
+
+Yes, and since you already have org-extra-emphasis, you’re most of the way there. A few options, depending on what you want.
+
+* Stuff I'm not going to use directly
+** The option to keep using org-extra-emphasis (probably the best fit)
+
+It’s built for this: it lets you define extra emphasis markers, including a highlight, with proper font-lock and export handling. Just make sure you’ve defined a marker that doesn’t collide with existing ones. The package’s default highlight marker is =-adjacent in some setups, so pick something distinct (e.g. ~~-style or a custom char) and check that the export backends (HTML <mark>, LaTeX \hl{} via soul) are configured. The main tradeoff is that Org’s emphasis syntax is single-character-delimited, so a literal ==text== isn’t natively representable, since = is already verbatim in Org.
+
+** Creating a link-type or macro approach.
+
+Claude considers this to be more portable
+- Define a custom link type that renders as a highlight on export and is fontified in the buffer:
+
+!@the thing is that I don't need this highlighting to be there during the export.
+
+elisp
+(org-link-set-parameters
+ "hl"
+ :face '(:background "yellow" :foreground "black")
+ :export (lambda (path desc backend _)
+           (let ((text (or desc path)))
+             (pcase backend
+               ('html  (format "<mark>%s</mark>" text))
+               ('latex (format "\\hl{%s}" text))
+               (_ text)))))
+Usage: [[hl:some text]] or [[hl:id][some text]]. It’s more verbose, but it survives in any Org parser and exports cleanly.
+
+3. Roll your own ==text== font-lock
+
+If you really want the Markdown look in the buffer, add a font-lock rule:
+
+elisp
+(font-lock-add-keywords
+ 'org-mode
+ '(("\\(==\\)\\([^=\n]+\\)\\(==\\)"
+    (1 '(face nil invisible org-link) t)
+    (2 '(:background "yellow" :foreground "black") t)
+    (3 '(face nil invisible org-link) t))))
+This only affects display. Export won’t understand it unless you also add an org-export-filter-plain-text-functions hook to convert ==text== to <mark> etc. Also note that it clashes with Org’s =verbatim= when text sits next to =, so it can misfire on things like =foo==bar=.
+
+4. Use #+begin_mark-style special blocks
+
+For block-level highlighting only. Special blocks export to a <div class="mark">, which you can style with CSS, but this doesn’t work inline.
+
+My recommendation: keep org-extra-emphasis for inline highlighting in your own notes, and add the custom link type (option 2) only if you need reliable cross-backend export or interoperability with other Org tools. Option 3 is fun but fragile.
+
+If you tell me which export targets matter (HTML, LaTeX/PDF, or just in-buffer reading), I can give you a concrete config for that.
+
+Ideally, the highlighting would work as if they're comments within the text. Is there maybe a way to change how inline comments look in org mode so they're more visible?
+
+Finding ways to make Org mode comments stand out.
+Finding ways to make Org mode comments stand out.
+Org has no true inline comment syntax. Comments only work as whole lines (# comment), as #+begin_comment blocks, and as COMMENT headings. But there are two ways to get what you want.
+
+1. Make existing comments more visible
+
+Org fontifies line comments, comment blocks, and COMMENT headings with font-lock-comment-face. You can restyle it for Org buffers only, without touching other modes:
+
+elisp
+(add-hook 'org-mode-hook
+          (lambda ()
+            (face-remap-add-relative
+             'font-lock-comment-face
+             '(:foreground "black" :background "#fff3a3" :slant normal))))
+This only helps with line-level comments, not text in the middle of a paragraph.
+
+2. Use an export snippet as a real inline comment (best fit)
+
+Org’s export snippet syntax @@backend:text@@ is inline, and if no backend is named comment, every exporter drops it. That makes @@comment:like this@@ a native inline comment that never appears in exported output. Org doesn’t style it by default, so add a font-lock rule:
+
+elisp
+(defface my-org-inline-comment
+  '((t :background "#fff3a3" :foreground "black"))
+  "Face for @@comment:...@@ inline comments.")
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (font-lock-add-keywords
+             nil
+             '(("\\(@@comment:\\)\\([^@\n]*\\)\\(@@\\)"
+                (1 'shadow prepend)
+                (2 'my-org-inline-comment prepend)
+                (3 'shadow prepend)))
+             'append)))
+The delimiters are dimmed and the text gets the highlight. You can also hide the delimiters entirely by replacing 'shadow with '(face nil invisible t), but then editing around them gets awkward.
+
+To avoid typing the full syntax, bind a small insertion command:
+
+elisp
+(defun my-org-insert-inline-comment ()
+  (interactive)
+  (if (use-region-p)
+      (let ((text (buffer-substring (region-beginning) (region-end))))
+        (delete-region (region-beginning) (region-end))
+        (insert "@@comment:" text "@@"))
+    (insert "@@comment:@@")
+    (backward-char 2)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c h") #'my-org-insert-inline-comment))
+With a region selected, C-c h wraps it, which gives roughly the ==text== workflow.
+
+A {{{c(text)}}} macro with #+MACRO: c (empty expansion) also works, but the export snippet needs no setup per file, so I’d go with that.
+
+Is there a way to make these custom highlights-as-comments harmonize with the theme that I have currently loaded? If I just load a random color, this will stay unchanged when I change my theme, which can clash pretty badly with the color scheme I already have.
+
+Making a face adapt automatically to active theme colors.
+Making a face adapt automatically to active theme colors.
+Yes. The trick is to never hard-code a color and instead derive the face from faces the theme already defines.
+
+1. Inherit from a theme face (simplest)
+
+An inheriting face updates automatically when you switch themes, with no hooks needed:
+
+elisp
+(defface my-org-inline-comment
+  '((t :inherit secondary-selection))
+  "Face for @@comment:...@@ inline comments.")
+Good candidates to inherit from are secondary-selection, highlight, region, and lazy-highlight. Every decent theme styles these to be visible but not clashing, so try a few and pick the one you like.
+
+2. Derive the colors from the theme (more tailored)
+
+If you want the comment’s own hue (so it matches how your theme already renders comments) with a subtle tinted background, compute it from the current theme’s colors and recompute whenever the theme changes:
+
+elisp
+(require 'color)
+
+(defun my-blend-colors (c1 c2 alpha)
+  "Blend C1 into C2; ALPHA is the weight of C1 (0-1)."
+  (let ((a (color-name-to-rgb c1))
+        (b (color-name-to-rgb c2)))
+    (apply #'color-rgb-to-hex
+           (append (cl-mapcar (lambda (x y) (+ (* alpha x) (* (- 1 alpha) y)))
+                              a b)
+                   '(2)))))
+
+(defface my-org-inline-comment '((t)) "Inline comment face.")
+
+(defun my-update-inline-comment-face (&rest _)
+  (let* ((fg (face-attribute 'font-lock-comment-face :foreground nil 'default))
+         (bg (face-attribute 'default :background nil 'default)))
+    (set-face-attribute 'my-org-inline-comment nil
+                        :foreground fg
+                        :background (my-blend-colors fg bg 0.18)
+                        :slant 'normal)))
+
+(my-update-inline-comment-face)
+(add-hook 'enable-theme-functions #'my-update-inline-comment-face) ; Emacs 29+
+;; On older Emacs, use instead:
+;; (advice-add 'load-theme :after #'my-update-inline-comment-face)
+The 0.18 controls how strong the tint is. Raise it for a bolder highlight, lower it for something subtler. Because the background is a blend of the comment color and your theme’s background, it works in both light and dark themes.
+
+3. Same idea for the line-comment restyling
+
+If you also kept the face-remap-add-relative snippet from before, replace its hardcoded colors with :inherit my-org-inline-comment, so line comments and inline comments look consistent:
+
+elisp
+(add-hook 'org-mode-hook
+          (lambda ()
+            (face-remap-add-relative 'font-lock-comment-face
+                                     :inherit 'my-org-inline-comment)))
+
+I’d start with option 1 and only move to option 2 if none of the stock faces feels right.

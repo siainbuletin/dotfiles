@@ -300,11 +300,13 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-statistics
                     'sp-dgraphs
                     'sp-notes
+                    'sp-semantic
 
                     ;; Functions
                     'sp-helper-funct
                     'sp-open-externally
                     'sp-move-region-to-heading
+                    'sp-tab-inbox
                     ))))
 
 (defun lem--minimal-modules ()
@@ -456,7 +458,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
  '(custom-safe-themes
-   '("1b623b81f373d49bcf057315fe404b30c500c3b5a387cf86c699d83f2f5763f4"
+   '("8c8a79d60815b0c094ed78a6936d80e01404d6ab48f93ce121206eb0d701e6c0"
+     "1b623b81f373d49bcf057315fe404b30c500c3b5a387cf86c699d83f2f5763f4"
      "7c0179ef765b9bf1d79612235236d29eebcaca9b4a287ff802959ed20db154b6"
      "e0fbe5caa6e602975e59cdd381c9773a670a864dd7bb7bf2345414856148098b"
      "1d18bef9d0e1b7f30a3290c48fdc52465bdca62564e404c1019bb1fcc8cb0c27"

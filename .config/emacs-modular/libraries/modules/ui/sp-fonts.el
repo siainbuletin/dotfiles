@@ -169,7 +169,7 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
      ;; Choose favorite installed font from an ordered list (by preference):
      (seq-first
       (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("Iosevka Nerd Font"
+                  '("Source Code Pro"
                     "Cousine Nerd Font"
                     "Cascadia Code NF"         ; Microsoft's offical has Nerds
                     "CaskaydiaCove Nerd Font"  ; Best Nerd-based font
@@ -179,7 +179,7 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
                     "FantasqueSansMono Nerd Font"
                     "Monoid Nerd Font"
                     "Hasklig"
-                    "Source Code Pro")))
+                    )))
      "monospaced"))
   "My fixed width font based on what I have installed.")
 

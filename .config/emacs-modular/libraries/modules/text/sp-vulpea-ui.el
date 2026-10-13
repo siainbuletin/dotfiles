@@ -12,11 +12,13 @@
 ;; found in sp-vulpea-schemas.el
 
 ;;; Code:
-
-
+;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
-  :after vulpea)
+  :after vulpea
+  
+  :config
+  )
 
 ;; opening the vulpea sidebar
 (global-set-key (kbd "C-x t s") #'vulpea-ui-sidebar-toggle)
@@ -105,6 +107,13 @@
                                 context tags modified)
                      :sort ("title" . t)))
         )))
+
+;; Automatically collapse all widgets
+(setq vulpea-ui-default-widget-collapsed t)
+
+;;;; Custom vulpea-ui widget for unlinked mentions in a tab folder
+;;; vulpea-ui get unlinked mentioned without an ID property
+;; (require 'sp-tab-inbox) ;; this is required in init el so I can see progress for loading
 
 ;;; Provide:
 (provide 'sp-vulpea-ui)
