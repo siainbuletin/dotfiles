@@ -15,6 +15,7 @@
   (("C-c w b c" . citar-create-note)
    ("C-c w b n" . citar-denote-open-note)
    ("C-c w b x" . citar-denote-nocite)
+   
    :map org-mode-map
    ("C-c w b k" . citar-denote-add-citekey)
    ("C-c w b K" . citar-denote-remove-citekey)
@@ -45,9 +46,7 @@
   (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
 
   (citar-vulpea-notes-directory "~/notes/litnotes") ;; Directory to store notes (nil uses vulpea-default-notes-directory)
-  
-  :config
-  (citar-vulpea-mode 1))
+)
 
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here

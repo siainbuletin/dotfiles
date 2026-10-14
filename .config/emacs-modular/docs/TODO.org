@@ -24,7 +24,13 @@ With Claude, I added the possibility to recurse into the different ~libraries/~ 
 *** How can you define which parts of org-ref are actually useful for your setup in Emacs?
 *** TODO Extract workflow components for [[id:ee81e86a-3dff-49ae-be1d-9a538570e191][org-ref]] into a separate note from the configuration
 *** What's the most useful stuff that you can use from [[id:ee81e86a-3dff-49ae-be1d-9a538570e191][org-ref]]?
-
+** Literature notes
+*** TODO fix the overlap between [[id:b9e91da7-fbe7-4c63-9ec5-bf01de496b3f][citar-denote]] and [[id:EA173DAB-1B30-43A4-B796-7A6B6B5C3B1D][citar-vulpea]]
+DEADLINE: <2026-10-13 Tue>
+:PROPERTIES:
+:ID:       94B758F6-E23E-4EC5-86D6-D2D0E849E2F1
+:CREATED:  [2026-10-13 Tue 18:43]
+:END:
 * Appearance
 ** TODO Add the ASCII art for the dashboard for Lambda Emacs
 * Task management system
@@ -141,15 +147,50 @@ The customize buffer is annoying because it requires too much localised input (m
 I want to be able to modify the code before integrating in my setup so that everything is declaratively stated in the init.el files (and properly documented within the literate configuration).
 * File navigation
 ** Find a way to fold folders in dired
-** Try out the [[id:A057ECB1-495D-45B5-A77E-2BD2DCFC903B][dirvish-el]] file manager (the one with media preview)
+** DONE Try out the [[id:A057ECB1-495D-45B5-A77E-2BD2DCFC903B][dirvish-el]] file manager (the one with media preview)
+CLOSED: [2026-10-14 Wed 13:49]
+** Add keyboard shortcuts to dirvish so you can fold and unfold folders
+** How can you make navigation between the folders in dirvish a little bit smoother?
 * Modeline
 ** TODO Customize the modeline to include the name of the file/buffer that you're working on, as well as the wordcount
 ** Where are the customization variables hidden with the modeline?
 * Project management
-** Make a way to differentiate between the different kinds of projects in the minibuffer selection for ~vulpea-para-find-project~
+** TODO Make a way to differentiate between the different kinds of projects in the minibuffer selection for ~vulpea-para-find-project~
 
 Currently, not every project shows up
 - I also don't want to see the breadcrumbing for projects that have subprojects
 - I would rather have the minibuffer make me choose to maybe recurse into the file and select from the sub-projects
 
 It would also be nice if I could see the project dependencies in a separate buffer from which I could decide what I need to work on next
+** TODO Make it into a better environment for knowledge tracking
+* Appearance
+** TODO try to make a prettier interface to work with in Emacs
+** TODO finish reading on the design of text editors
+** TODO make emojis show up in an emacs buffer
+** TODO Find the installer for emacs nova theme
+** Settle on just one light theme that you're always loading, with the right fonts and the right color
+** NEXT where is the catpuccin theme located?
+* Other tasks
+
+** TODO learn how to read the configuration for emacs
+** TODO get into the emacs init configuration
+
+** TODO find a way to make the emacs config more easily navigable
+** TODO can you use org-mode to manage any kind of dotfile?
+** TODO how can you make an org mode file into a config?
+** TODO see how lambda-emacs has split the config file
+** TODO bring back the settings from emacs-kick
+** TODO see how easy it is to work with the casual set of packages in emacs
+** TODO how can you make the buffer management in lambda emacs be more intuitive?
+** TODO what's the pane management solution that lambda-emacs is using?
+** TODO try to understand the buffer layout in lambda-emacs
+** TODO try to render the lambda-emacs org doc presentation
+** TODO see what are the differences between lambda emacs and emacs-kick
+** TODO remove games from the emacs instance
+** TODO how exactly do you organise the packages within emacs?
+** TODO what are the different ways in which you can call on packages in emacs?
+** TODO What's up with elpaca as a package manager in emacs?
+** TODO is it possible to see all the installed packages directly in the config?
+** TODO read the sources on the use cases of use-package
+** TODO what's the difference between straight-el and melpa package manager?
+** TODO how can you work with emacs packages that are pulled from the source?

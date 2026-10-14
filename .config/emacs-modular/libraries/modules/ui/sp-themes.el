@@ -160,7 +160,7 @@ other theme), default to `ef-dream'. The macOS system-appearance
 hook is left untouched; the next macOS Light/Dark change will resync."
   (interactive)
   (let* ((current (car custom-enabled-themes))
-         (target (if (eq current 'lambda-light) 'ef-dream 'lambda-light-faded)))
+         (target (if (eq current 'ef-day) 'ef-dream 'ef-day)))
     (sp-disable-all-themes)
     (load-theme target t)))
 

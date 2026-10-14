@@ -96,13 +96,19 @@
   :ensure (:wait t)
 )
 
+;;; HTTP-D
+(use-package simple-httpd
+  :ensure t
+  :custom
+  (httpd-root "/var/www"))
+
 (use-package helm
     :ensure (:wait t))
 
 ;; For some reason it causes some backtraces with very basic functions.
 ;; It may be possible that I simply don't understand how this package works very well.
-;; (use-package taxy
-;;   :ensure t)
+(use-package taxy
+  :ensure t)
 
 ;; Other settings I don't know what to do with
 ;; This is the configuration that I need in order to make my tangling work.

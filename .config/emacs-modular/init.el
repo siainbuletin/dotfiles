@@ -302,6 +302,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-agenda
                     'sp-org-taskman-extra
                     'sp-org-ext
+                    'sp-csv
 
                     ;; Academic
                     'sp-academic
@@ -309,12 +310,24 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-dgraphs
                     'sp-notes
                     'sp-semantic
+                    'sp-dyn-graph
 
                     ;; Functions
                     'sp-helper-funct
                     'sp-open-externally
                     'sp-move-region-to-heading
                     'sp-tab-inbox
+
+                    ;; Programming modules
+                    'sp-base-code
+                    'sp-prog-misc
+                    'sp-eshell
+                    'sp-vcontrol
+                    'sp-terminal
+                    'sp-lisp
+
+                    ;; Media
+                    'sp-ai
                     ))))
 
 (defun lem--minimal-modules ()
@@ -379,7 +392,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-tables
                     'sp-org-agenda
                     'sp-org-taskman-extra
-                    'sp-org-ext)))
+                    'sp-org-ext
+                    'sp-csv
+                    )))
      (require mod))))
 
 ;;;; Defensive headless-host warning

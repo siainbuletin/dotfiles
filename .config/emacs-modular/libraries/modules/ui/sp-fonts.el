@@ -155,11 +155,6 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
   :hook (text-mode . mixed-pitch-mode)
 )
 
-(set-face-attribute 'org-document-title nil
-                    :font "Atkinson Hyperlegible"
-                    :weight 'bold
-                    :height 1.8)
-
 ;;;; Variables for fonts
 ;; This configuration is taken from HA macs and should be adapted better at some point
 ;; with better variables, so that it's easier to customize the fonts that are being used.

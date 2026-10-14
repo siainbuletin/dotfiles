@@ -1,4 +1,12 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-lisp.el --- Lisp and Emacs Lisp settings
+
+;;; Commentary:
+
+;;
+
+;;; Code
+
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
   :group 'siapip
@@ -63,3 +71,21 @@
     :bind (:map paredit-mode-map
                 ("C-M-f" . paredit-forward)
                 ("C-M-b" . paredit-backward))))
+
+;; Evaluating an expression at point
+;; source: https://www.reddit.com/r/emacs/comments/1x4806c/comment/pge1kz7/
+(defun eval-outer-sexp (point)
+  "Evaluate the smallest patenthesized sexp that contains point, and echo its value."
+  (interactive (list (point)))
+  (let (sexp)
+    (save-excursion
+      (backward-up-list 1 t t)
+      (while (not (looking-at "("))
+        (backward-up-list 1 t t))
+      (setq sexp (read (point-marker))))
+    (message "%s" (eval sexp)))))
+
+;;; Provide:
+
+(provide 'sp-lisp)
+;; sp-lisp.el ends here.

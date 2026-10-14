@@ -115,7 +115,6 @@ periods. This ain't a typewriter."
   (org-list-indent-offset 1) ;; increase sub-item indentation
 
   ;; Movement
-  (org-return-follows-link t) ;; make RET follow links
   (org-special-ctrl-a/e t)  ;; better movement in headers
 
   ;; Searching
@@ -487,4 +486,22 @@ one week to the next, unchecking them at the same time"
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
 
+;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
+(defun sp-org-point-strictly-in-link-p ()
+  "Non-nil if point is inside a link, not at its edges or trailing blanks."
+  (let ((ctx (org-element-context)))
+    (and (eq (org-element-type ctx) 'link)
+         (> (point) (org-element-property :begin ctx))
+         (< (point) (- (org-element-property :end ctx)
+                       (org-element-property :post-blank ctx))))))
+
+(define-advice org-return (:around (fn &rest args) strict-link-follow)
+  (let ((org-return-follows-link
+         (and org-return-follows-link
+              (sp-org-point-strictly-in-link-p))))
+    (apply fn args)))
+
+;;; Provide:
+
 (provide 'sp-org-base)
+;; sp-org-base.el ends here.

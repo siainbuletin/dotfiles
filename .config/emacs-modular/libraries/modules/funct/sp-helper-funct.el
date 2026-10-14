@@ -627,6 +627,10 @@ insert the text where point is, not where the mouse cursor is."
   (sensible-defaults/open-clicked-files-in-same-frame-on-mac)
   (sensible-defaults/yank-to-point-on-mouse-click))
 
+;; Other functions
+(use-package wizard
+  :ensure (:type git :host github :repo "jamescherti/wizard.el" :rev :newest))
+
 ;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'sp-helper-funct)

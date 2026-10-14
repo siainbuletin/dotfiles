@@ -43,13 +43,13 @@
 ;; Emacs has no narrowing hook, so the sidebar notices a narrow or widen on the next idle
 ;; refresh. If you want it instantly, refresh right after toggling:
 
-(defun my/org-toggle-narrow-and-sidebar ()
+(defun sp-org-toggle-narrow-and-sidebar ()
   "Toggle subtree narrowing and refresh the sidebar immediately."
   (interactive)
   (org-toggle-narrow-to-subtree)
   (vulpea-ui-sidebar-refresh))
 
-(define-key org-mode-map (kbd "M-<insert>") #'my/org-toggle-narrow-and-sidebar)
+(define-key org-mode-map (kbd "M-<insert>") #'sp-org-toggle-narrow-and-sidebar)
 
 ;; the backlinks widget
 

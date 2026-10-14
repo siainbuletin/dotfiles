@@ -30,6 +30,18 @@
       '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
         (todo   . " %(vulpea-para-agenda-category 36) ")))
 
+;; Wiring org-capture into vulpea-para
+(setq org-capture-templates
+      '(
+        ("t" "task" entry
+         (file+headline "inbox.org" "Tasks")
+         (function vulpea-para-capture-task-template))
+        
+        ("p" "project" entry
+         (function vulpea-para-capture-project-target)
+         (function vulpea-para-capture-project-template))))
+
 ;;; Provide:
+
 (provide 'sp-vulpea-para)
 ;; sp-vulpea-para.el ends here.
