@@ -26,7 +26,7 @@
                      ;; occupy the full width for vertical minibuffer completion
      (child-frame-border-width . 2)
      (internal-border-width . 2)))
-  (mini-frame-resize t)
+  (mini-frame-resize 'not-set) ; this leaves resizing to Emacs to do the job
 
   :config
   (mini-frame-mode 1)

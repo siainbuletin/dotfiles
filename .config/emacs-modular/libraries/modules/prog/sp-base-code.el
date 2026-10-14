@@ -200,3 +200,8 @@ Result depends on syntax table's comment character."
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)
+
+;;; Provide:
+
+(provide 'sp-base-code)
+;; sp-base-code.el ends here.

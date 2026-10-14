@@ -170,6 +170,8 @@ It would also be nice if I could see the project dependencies in a separate buff
 ** TODO Find the installer for emacs nova theme
 ** Settle on just one light theme that you're always loading, with the right fonts and the right color
 ** NEXT where is the catpuccin theme located?
+** TODO Fix not being able to load nerd-icons in the ibuffer or in dired
+
 * Other tasks
 
 ** TODO learn how to read the configuration for emacs

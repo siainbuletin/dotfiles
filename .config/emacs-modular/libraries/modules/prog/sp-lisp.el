@@ -83,7 +83,7 @@
       (while (not (looking-at "("))
         (backward-up-list 1 t t))
       (setq sexp (read (point-marker))))
-    (message "%s" (eval sexp)))))
+    (message "%s" (eval sexp))))
 
 ;;; Provide:
 

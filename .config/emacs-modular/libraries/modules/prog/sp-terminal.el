@@ -1,4 +1,9 @@
 ;; -*- lexical-binding: t; -*-
+;; sp-terminal.el --- Terminal emulator settings
+
+;;; Commentary:
+
+;;; Code:
 
 ;; Does not work on Windows, but we can just avoid compiling dependencies and using it
 ;; (if I'm ever forced to use Windows again for work or similar)
@@ -23,13 +28,17 @@
   :bind
   ("<f7>" . vterm))
 
-;; -*- lexical-binding: t; -*-
-(defvar siapip/vterm-counter 0
+;; Vterm counter
+(defvar sp-vterm-counter 0
   "Counter to make unique vterm buffers.")
 (defun siapip/start-vterm ()
     "Starts a new vterm buffer."
   (interactive)
-  (setq siapip/vterm-counter (1+ siapip/vterm-counter))
-  (let ((buffer-name (format "*vterm-%d*" siapip/vterm-counter)))
+  (setq sp-vterm-counter (1+ sp-vterm-counter))
+  (let ((buffer-name (format "*vterm-%d*" sp-vterm-counter)))
     (vterm buffer-name)))
 
+;;; Provide:
+
+(provide 'sp-terminal)
+;; sp-terminal.el ends here.
