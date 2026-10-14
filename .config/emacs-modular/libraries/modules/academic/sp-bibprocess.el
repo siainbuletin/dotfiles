@@ -102,7 +102,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 (defun sp-bibtex-biblio-lookup ()
   "Insert Biblio search results into current buffer or select BibTeX file."
   (interactive)
-  (if-let ((current-mode major-mode)
+  (if-let* ((current-mode major-mode)
 	   sp-bibtex-files
 	   (bibfiles (length sp-bibtex-files))
 	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))

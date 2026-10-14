@@ -1,4 +1,5 @@
-;;; org-context.el --- Contextual capture and agenda commands for Org-mode
+;; -*- lexical-binding: t -*-
+;;; org-context-agen.el --- Contextual capture and agenda commands for Org-mode
 
 ;; Author: Sylvain Rousseau <thisirs at gmail dot com>
 ;; URL: https://github.com/thisirs/org-context
@@ -10,18 +11,18 @@
 ;; This package advises `org-capture' and `org-agenda' to allow
 ;; contextual capture templates and agenda commands.
 ;;
-;; See documentation on https://github.com/thisirs/org-context#org-context
+;; See documentation on https://github.com/thisirs/org-context-agen#org-context-agen
 
 ;;; Installation:
 
 ;; Put the following in your .emacs:
 ;;
-;; (require 'org-context)
-;; (org-context-mode +1)
+;; (require 'org-context-agen)
+;; (org-context-agen-mode +1)
 ;;
-;; and customize `org-context-capture-alist' and `org-context-capture'
-;; for contextual captures and `org-context-agenda-alist'
-;; `org-context-agenda' for custom commands.
+;; and customize `org-context-agen-capture-alist' and `org-context-agen-capture'
+;; for contextual captures and `org-context-agen-agenda-alist'
+;; `org-context-agen-agenda' for custom commands.
 
 ;;; Code:
 
@@ -31,7 +32,7 @@
 (require 'seq)
 
 ;;;###autoload
-(defvar org-context-capture-alist
+(defvar org-context-agen-capture-alist
   nil
   "Alist that specifies contextual capture templates.
 
@@ -43,12 +44,12 @@ described in the Org manual that will be added to the set of
 default ones.")
 
 ;;;###autoload
-(progn (defvar-local org-context-capture nil
+(progn (defvar-local org-context-agen-capture nil
          "Buffer local variable that holds the templates definitions.")
-       (put 'org-context-capture 'safe-local-variable 'org-context-capture-safe-p))
+       (put 'org-context-agen-capture 'safe-local-variable 'org-context-agen-capture-safe-p))
 
 ;;;###autoload
-(defun org-context-capture-safe-p (templates)
+(defun org-context-agen-capture-safe-p (templates)
   "Return non-nil if the list of capture templates TEMPLATES is safe.
 
 A template is considered safe if it does not have to evaluate
@@ -76,18 +77,18 @@ arbitrary functions."
     safe))
 
 ;;;###autoload
-(defvar org-context-agenda-alist
+(defvar org-context-agen-agenda-alist
   nil
   "Alist of filename patterns vs corresponding custom agenda
   list.")
 
 ;;;###autoload
-(progn (defvar-local org-context-agenda nil
+(progn (defvar-local org-context-agen-agenda nil
          "Buffer local variable that holds the custom agenda commands.")
-       (put 'org-context-agenda 'safe-local-variable 'org-context-agenda-safe-p))
+       (put 'org-context-agen-agenda 'safe-local-variable 'org-context-agen-agenda-safe-p))
 
 ;;;###autoload
-(defun org-context-agenda-safe-p (commands)
+(defun org-context-agen-agenda-safe-p (commands)
   "Return non-nil if the list of agenda commands COMMANDS is safe.
 
 An agenda command is considered safe if it does not have to evaluate
@@ -119,7 +120,7 @@ arbitrary functions."
       (setq safe nil))
     safe))
 
-(defvar org-context-capture-shortcut
+(defvar org-context-agen-capture-shortcut
   '((question
      "q" "Question" entry
      (file place-holder)
@@ -133,20 +134,20 @@ arbitrary functions."
      (file place-holder)
      "* TODO %? %()\n  OPENED: %U"))
   "Alist of symbols vs their corresponding template.
-This is used in `org-context-capture-alist' or
-`org-context-capture' to shorten the template definition.")
+This is used in `org-context-agen-capture-alist' or
+`org-context-agen-capture' to shorten the template definition.")
 
-(defvar org-context-agenda-shortcut
+(defvar org-context-agen-agenda-shortcut
   '((todo "t" alltodo "")
     (agenda "a" "" agenda ""))
   "Alist of symbols vs their corresponding agenda command.
-This is used in `org-context-agenda-alist' or
-`org-context-agenda' to shorten the agenda command definition.")
+This is used in `org-context-agen-agenda-alist' or
+`org-context-agen-agenda' to shorten the agenda command definition.")
 
-(defvar org-context-add-overridden t
+(defvar org-context-agen-add-overridden t
   "Add overridden templates in a sub-menu if non-nil.")
 
-(defun org-context-capture--expand-target (template directory &optional replace)
+(defun org-context-agen-capture--expand-target (template directory &optional replace)
   "Modify the targeted Org file of the capture template TEMPLATE.
 
 If the path of the targeted Org file exists and is not absolute,
@@ -165,7 +166,7 @@ file-name and expand it against DIRECTORY."
        (nthcdr 4 template))
     template))
 
-(defun org-context-capture--expand-stolen (template directory)
+(defun org-context-agen-capture--expand-stolen (template directory)
   "Expand the stolen template TEMPLATE."
   (let (temp key stolen file desc)
     (cond
@@ -189,7 +190,7 @@ file-name and expand it against DIRECTORY."
     (setq temp
           (if (stringp stolen)
               (assoc stolen org-capture-templates)
-            (cdr (assoc stolen org-context-capture-shortcut))))
+            (cdr (assoc stolen org-context-agen-capture-shortcut))))
 
     ;; Check that we did steal a template
     (unless temp
@@ -199,58 +200,58 @@ file-name and expand it against DIRECTORY."
     (if key (setq temp (cons key (cdr temp))))
 
     ;; Modify org file path in temp
-    (setq temp (org-context-capture--expand-target temp directory file))
+    (setq temp (org-context-agen-capture--expand-target temp directory file))
 
     ;; Set description if any
     (if desc (setq temp (cons (car temp) (cons desc (cddr temp)))))
 
     temp))
 
-(defsubst org-context-capture--submenu-p (template)
+(defsubst org-context-agen-capture--submenu-p (template)
   "Return non-nil if TEMPLATE is a capture submenu."
   (and (listp template)
        (= (length template) 2)
        (stringp (cadr template))
        (> (length (cadr template)) 2)))
 
-(defsubst org-context-capture--target-p (template)
+(defsubst org-context-agen-capture--target-p (template)
   "Return non-nil if TEMPLATE is a regular capture template."
   (and (listp template) (> (length template) 2)))
 
-(defun org-context-capture--expand (templates directory)
+(defun org-context-agen-capture--expand (templates directory)
   "Expand all capture templates in the list of templates TEMPLATES.
 Eventually use DIRECTORY to build the path to the targeted Org
 files."
   (mapcar
    (lambda (temp)
      (cond
-      ((org-context-capture--submenu-p temp) temp) ;; This template is a sub-menu, return as is.
-      ((org-context-capture--target-p temp)
-       (org-context-capture--expand-target temp directory))
-      (t (org-context-capture--expand-stolen temp directory))))
+      ((org-context-agen-capture--submenu-p temp) temp) ;; This template is a sub-menu, return as is.
+      ((org-context-agen-capture--target-p temp)
+       (org-context-agen-capture--expand-target temp directory))
+      (t (org-context-agen-capture--expand-stolen temp directory))))
    templates))
 
-(defun org-context-capture-templates ()
+(defun org-context-agen-capture-templates ()
   "Return a set of capture templates including contextual ones.
 
-This function looks into `org-context-capture-alist' or
-`org-context-capture' to see if there is any matching capture
+This function looks into `org-context-agen-capture-alist' or
+`org-context-agen-capture' to see if there is any matching capture
 templates."
   (let ((file-name (or buffer-file-name
                        (and (eq major-mode 'dired-mode)
                             default-directory)
                        (buffer-name)))
         (org-templates org-capture-templates)
-        (alist org-context-capture-alist)
+        (alist org-context-agen-capture-alist)
         condition templates directory merge overridden)
 
-    ;; Set `templates' from local variable `org-context-capture' or
-    ;; from `org-context-capture-alist' if `org-context-capture' is
+    ;; Set `templates' from local variable `org-context-agen-capture' or
+    ;; from `org-context-agen-capture-alist' if `org-context-agen-capture' is
     ;; not local. Set `directory' that might be used to have the path
     ;; of the targeted org file in case it is not specified in the
     ;; template.
-    (if (local-variable-p 'org-context-capture)
-        (setq templates org-context-capture
+    (if (local-variable-p 'org-context-agen-capture)
+        (setq templates org-context-agen-capture
               directory (let ((dir-local (dir-locals-find-file file-name)))
                           (if dir-local
                               (if (listp dir-local)
@@ -274,7 +275,7 @@ templates."
 
     (when templates
       ;; Expand templates to Org templates
-      (setq templates (org-context-capture--expand templates directory))
+      (setq templates (org-context-agen-capture--expand templates directory))
 
       ;; Merge contextual templates `templates' and default ones from
       ;; `org-templates' into `merge'
@@ -295,7 +296,7 @@ templates."
             (set where (cons (car org-templates) (symbol-value where))))))
 
       ;; And add overridden templates in sub-menu
-      (when (and org-context-add-overridden overridden)
+      (when (and org-context-agen-add-overridden overridden)
         (push '("o" "Overridden") merge)
         (dolist (temp (nreverse overridden))
           (unless (or (stringp (cdr temp))
@@ -306,20 +307,20 @@ templates."
     (or (nreverse merge) org-capture-templates)))
 
 (defun org-capture-advice (func &rest args)
-  (let ((org-capture-templates (org-context-capture-templates)))
+  (let ((org-capture-templates (org-context-agen-capture-templates)))
     (apply func args)))
 
 ;; Advising org-agenda
 
-(defsubst org-context-agenda--submenu-p (command)
+(defsubst org-context-agen-agenda--submenu-p (command)
   "Return non-nil if the agenda command COMMAND is a sub-menu command."
   (and (listp command) (stringp (cdr command))))
 
-(defsubst org-context-agenda--regular-p (command)
+(defsubst org-context-agen-agenda--regular-p (command)
   "Return non-nil if the agenda command COMMAND is a regular command."
   (and (listp command) (> (length command) 2)))
 
-(defun org-context-agenda--add-org-agenda-buffer-name (settings directory)
+(defun org-context-agen-agenda--add-org-agenda-buffer-name (settings directory)
   "Add `org-agenda-buffer-name' setting to SETTINGS."
   (cons `(org-agenda-buffer-name
           ,(format
@@ -331,7 +332,7 @@ templates."
             (car command)))
         settings))
 
-(defun org-context-agenda--add-org-agenda-files (alist directory &optional files)
+(defun org-context-agen-agenda--add-org-agenda-files (alist directory &optional files)
   (unless (assoc 'org-agenda-files alist)
     (setq alist (cons (cons 'org-agenda-files nil) alist)))
   (setq alist
@@ -348,11 +349,11 @@ templates."
                     entry))
                 alist)))
 
-(defun org-context-agenda--expand-composite (command directory &optional org-files)
+(defun org-context-agen-agenda--expand-composite (command directory &optional org-files)
   ;; COMMAND is like (key desc (cmd1 cmd2 ...) general-settings-for-whole-set files)
   (seq-let (key desc subcommands settings files) command
-    (setq settings (org-context-agenda--add-org-agenda-files settings directory org-files))
-    (setq settings (org-context-agenda--add-org-agenda-buffer-name settings directory))
+    (setq settings (org-context-agen-agenda--add-org-agenda-files settings directory org-files))
+    (setq settings (org-context-agen-agenda--add-org-agenda-buffer-name settings directory))
     (setq subcommands
           (mapcar
            (lambda (command)
@@ -360,24 +361,24 @@ templates."
                (if alist
                    (cons (car command)
                          (list (nth 1 command)
-                               (org-context-agenda--add-org-agenda-files alist directory)))
+                               (org-context-agen-agenda--add-org-agenda-files alist directory)))
                  command)))
            subcommands))
     (if (null files)
         (list key desc subcommands settings)
       (list key desc subcommands settings files))))
 
-(defun org-context-agenda--expand-simple (command directory &optional org-files)
+(defun org-context-agen-agenda--expand-simple (command directory &optional org-files)
   ;; COMMAND is like (key desc type match settings files), we only
   ;; have to update settings
   (seq-let (key desc type match settings files) command
-    (setq settings (org-context-agenda--add-org-agenda-files settings directory org-files))
-    (setq settings (org-context-agenda--add-org-agenda-buffer-name settings directory))
+    (setq settings (org-context-agen-agenda--add-org-agenda-files settings directory org-files))
+    (setq settings (org-context-agen-agenda--add-org-agenda-buffer-name settings directory))
     (if (null files)
         (list key desc type match settings)
       (list key desc type match settings files))))
 
-(defun org-context-agenda--expand-regular (command directory &optional files)
+(defun org-context-agen-agenda--expand-regular (command directory &optional files)
   "Update or add settings slot in agenda command COMMAND.
 
 Add an `org-agenda-buffer-name' setting based on the key in
@@ -394,10 +395,10 @@ based on DIRECTORY and FILES."
   ;; settings files) or composite (key desc (cmd1 cmd2 ...)
   ;; general-settings-for-whole-set files) based on type
   (if (listp (nth 2 command))
-      (org-context-agenda--expand-composite command directory files)
-    (org-context-agenda--expand-simple command directory files)))
+      (org-context-agen-agenda--expand-composite command directory files)
+    (org-context-agen-agenda--expand-simple command directory files)))
 
-(defun org-context-agenda--expand-alist (alist directory &optional files)
+(defun org-context-agen-agenda--expand-alist (alist directory &optional files)
   "Add or update an `org-agenda-files' property in ALIST.
 
 Add an `org-agenda-files' property if not already present and
@@ -419,7 +420,7 @@ DIRECTORY if no files are present."
                     entry))
                 alist)))
 
-(defun org-context-agenda--expand-stolen (command directory)
+(defun org-context-agen-agenda--expand-stolen (command directory)
   "Steal an agenda command and expand it."
 
   (let (key stolen files desc new-command)
@@ -445,7 +446,7 @@ DIRECTORY if no files are present."
 
     (setq command (if (stringp stolen)
                       (assoc stolen org-agenda-custom-commands)
-                    (cdr (assoc stolen org-context-agenda-shortcut))))
+                    (cdr (assoc stolen org-context-agen-agenda-shortcut))))
 
     ;; Check that we did steal a command
     (unless command
@@ -465,12 +466,12 @@ DIRECTORY if no files are present."
         (setq command (cons (car command) (cons desc (cddr command)))))
 
     (setq command
-          (org-context-agenda--expand-regular
+          (org-context-agen-agenda--expand-regular
            command directory files))
 
     command))
 
-(defun org-context-agenda--expand (commands directory)
+(defun org-context-agen-agenda--expand (commands directory)
   "Expand all agenda commands in list of commands COMMANDS.
 
 Return sub-menu command unchanged. Expand regular commands and
@@ -479,30 +480,30 @@ targeted Org files."
   (mapcar
    (lambda (command)
      (cond
-      ((org-context-agenda--submenu-p command) ;; Sub-menu command, return as is
+      ((org-context-agen-agenda--submenu-p command) ;; Sub-menu command, return as is
        command)
-      ((org-context-agenda--regular-p command) ;; Expand if regular
-       (org-context-agenda--expand-regular command directory))
+      ((org-context-agen-agenda--regular-p command) ;; Expand if regular
+       (org-context-agen-agenda--expand-regular command directory))
       (t ;; Should be stolen then...
-       (org-context-agenda--expand-stolen command directory))))
+       (org-context-agen-agenda--expand-stolen command directory))))
    commands))
 
-(defun org-context-agenda-commands ()
+(defun org-context-agen-agenda-commands ()
   "Return a set of agenda commands including contextual ones.
 
-This function looks into `org-context-agenda-alist' or
-`org-context-agenda' to see if there is any matching custom
+This function looks into `org-context-agen-agenda-alist' or
+`org-context-agen-agenda' to see if there is any matching custom
 command."
   (let* ((file-name (or buffer-file-name
                         (and (eq major-mode 'dired-mode)
                              default-directory)
                         (buffer-name)))
          (org-commands org-agenda-custom-commands)
-         (alist org-context-agenda-alist)
+         (alist org-context-agen-agenda-alist)
          condition commands directory merge overridden)
 
-    (if (local-variable-p 'org-context-agenda)
-        (setq commands org-context-agenda
+    (if (local-variable-p 'org-context-agen-agenda)
+        (setq commands org-context-agen-agenda
               directory (let ((dir-local (dir-locals-find-file file-name)))
                           (if dir-local
                               (if (listp dir-local)
@@ -526,7 +527,7 @@ command."
 
     (when commands
       ;; Expand commands to Org agenda commands
-      (setq commands (org-context-agenda--expand commands directory))
+      (setq commands (org-context-agen-agenda--expand commands directory))
 
       ;; Merge contextual agenda commands `commands' and default ones
       ;; from `org-commands' into `merge'
@@ -547,7 +548,7 @@ command."
             (set where (cons (car org-commands) (symbol-value where))))))
 
       ;; And add overridden commands in sub-menu
-      (when (and org-context-add-overridden overridden)
+      (when (and org-context-agen-add-overridden overridden)
         (push '("o" . "Overridden") merge)
         (dolist (command (nreverse overridden))
           (unless (stringp (cdr command))
@@ -559,13 +560,13 @@ command."
 (defun org-agenda-advice (func &rest args)
   "Allow contextual agenda commands.
 
-The function `org-context-agenda-commands' is called to retrieve
+The function `org-context-agen-agenda-commands' is called to retrieve
 the new set of custom commands."
-  (let ((org-agenda-custom-commands (org-context-agenda-commands)))
+  (let ((org-agenda-custom-commands (org-context-agen-agenda-commands)))
     (apply func args)))
 
 ;;;###autoload
-(defun org-context-agenda-from (file-or-buffer key)
+(defun org-context-agen-agenda-from (file-or-buffer key)
   (let (org-agenda-context-commands buffer)
     (cond
      ((bufferp file-or-buffer)
@@ -582,11 +583,11 @@ the new set of custom commands."
       (org-agenda nil key))))
 
 ;;;###autoload
-(define-minor-mode org-context-mode
-  "Minor mode to activate `org-context'."
+(define-minor-mode org-context-agen-mode
+  "Minor mode to activate `org-context-agen'."
   :lighter ""
   :global t
-  (if org-context-mode
+  (if org-context-agen-mode
       (progn
         (advice-add 'org-capture :around #'org-capture-advice)
         (advice-add 'org-agenda :around #'org-agenda-advice))
@@ -594,8 +595,9 @@ the new set of custom commands."
     (advice-remove 'org-agenda #'org-agenda-advice)))
 
 ;;;###autoload
-(define-obsolete-function-alias 'org-context-activate 'org-context-mode "0.0.5")
+(define-obsolete-function-alias 'org-context-agen-activate 'org-context-agen-mode "0.0.5")
 
-(provide 'org-context)
+;;; Provide:
 
-;;; org-context.el ends here
+(provide 'org-context-agen)
+;;; org-context-agen.el ends here

@@ -66,7 +66,7 @@ periods. This ain't a typewriter."
    ("M-L" . org-shiftright)
    ("M-H" . org-shiftleft)
    ;; Reorganising notes through vulpea
-   ("C-x s t" . vulpea-split-heading)
+   ("C-x s t" . sp-split-leave-parents)
  
    ;; easily emphasize text
    ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))
