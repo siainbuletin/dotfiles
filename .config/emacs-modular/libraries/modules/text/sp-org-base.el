@@ -44,6 +44,8 @@ periods. This ain't a typewriter."
 
 (setq org-directory "~/notes")
 
+(global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
+
 ;; Use Org from source rather than built in
 (use-package org
   :ensure nil
@@ -229,8 +231,6 @@ periods. This ain't a typewriter."
   :ensure t)
 
 (setq org-support-shift-select t)
-
-(global-unset-key (kbd "C-x t i"))
 
 (defun sia-make-id-for-title (title)
   "Return an ID based on TITLE."

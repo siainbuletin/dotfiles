@@ -46,6 +46,7 @@
   :defer t)
 
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
+(global-unset-key (kbd "C-x C-s")) ; stop me from quitting Emacs accidentally
 
 (global-set-key (kbd "<M-up>") 'move-text-up)
 (global-set-key (kbd "<M-down>") 'move-text-down)
@@ -60,8 +61,6 @@
 ;; Selection/Clipboard improvements
 (delete-selection-mode t)
 ;; (transient-mark-mode t)
-(setq x-select-enable-clipboard t)
-(setq mouse-yank-at-point t)
 ;;focus follow mouse
 (defcustom siapip/focus-follows-mouse t
   "When non-nil, focus follows the mouse pointer."

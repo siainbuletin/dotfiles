@@ -66,6 +66,34 @@ directory."
    (t
     (call-interactively 'consult-outline))))
     
+;;; Better find-file
+(defun sp-find-file ()
+  "Find file from current directory in many different ways."
+  (interactive)
+  (let* ((find-options '(("find -type f -printf \"$PWD/%p\\0\"" . :string)
+                         ("fd --absolute-path --type f -0" . :string)
+                         ("rg --follow --files --null" . :string)
+                         ("find-name-dired" . :command)))
+         (selection (completing-read "Select : " find-options))
+         (metadata '((category . file)))
+         (file-list)
+         (file))
+    (pcase (alist-get selection find-options nil nil #'string=)
+      (:command
+       (call-interactively (intern selection)))
+      (:string
+       (setq file-list (split-string (shell-command-to-string selection) "\0" t))
+       (setq file (completing-read (format "Find file in %s: " (abbreviate-file-name default-directory))
+                                   (lambda (str pred action)
+                                     (if (eq action 'metadata)
+                                         `(metadata . ,metadata)
+                                       (complete-with-action action file-list str pred)))
+                                   nil t nil 'file-name-history)))
+      (when file (find-file (expand-file-name file))))))
+
+(global-unset-key (kbd "C-x C-f")) ; stop me from freezing emacs
+(keymap-global-set "C-x C-f" #'sp-find-file)
+
 ;;; Provide:
 
 (provide 'sp-navi)

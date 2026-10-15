@@ -1,4 +1,6 @@
+#+title: Functions for general navigation
 
+* Requiring smaller files.
 * Making ~find-file~ more efficient
 
 See [[id:73ed91ef-33ae-4f74-8474-67fab74e4c7f][Emacs interacting with the file system]]
@@ -50,3 +52,10 @@ To be completely honest, I don't really use Emacs' built-in find functions, such
 If you want the file view (through a [[id:532287eb-75c2-4986-810b-e710fe432a57][dired]] buffer), you can use [[id:4bd12d15-726e-43f0-a61e-124aab860f98][embark-export]] to see the entire view.
 
 [fn:1] https://www.emacs.dyerdwelling.family/emacs/20240804075952-emacs--finding-files-using-completing-read/
+
+* Footer section
+
+;;; Provide:
+
+(provide 'sp-navi)
+;; sp-navi.el ends here.
