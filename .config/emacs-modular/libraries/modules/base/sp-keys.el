@@ -33,6 +33,20 @@ the line, respectively."
   (sp-bind-commenting)
   (sp-bind-home-and-end-keys))
 
+;;; ironkey setup
+;; Protecting keybindings in certain keymaos
+(use-package ironkey
+  :ensure (:type git :host github :repo "JimDBh/ironkey")
+  :demand t
+  :hook 
+  ((after-init . ironkey-update))
+  
+  :config
+  (setq ironkey-iron-alist `((,(kbd "M-.") . nil) ;; command in global-map
+                             (,(kbd "C-x p") . nil) ;; prefix keymap in global-map
+                             (,(kbd "<tab>") . company-mode))) ;; command in minor mode map
+  (ironkey-mode t))
+
 ;;;; Bind Key
 ;; Note that bind-key comes with use-package
 (use-package bind-key
