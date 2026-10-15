@@ -43,8 +43,8 @@ the line, respectively."
   
   :config
   (setq ironkey-iron-alist `((,(kbd "M-.") . nil) ;; command in global-map
-                             (,(kbd "C-x p") . nil) ;; prefix keymap in global-map
-                             (,(kbd "<tab>") . company-mode))) ;; command in minor mode map
+                             (,(kbd "C-x p") . nil))) ;; prefix keymap in global-map
+                             
   (ironkey-mode t))
 
 ;;;; Bind Key

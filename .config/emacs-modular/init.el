@@ -297,6 +297,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-export
                     ;; 'sp-org-fn
                     'sp-org-narrow
+                    'sp-org-id-link
                     ;; 'sp-org-refile
                     'sp-org-tables
                     'sp-org-agenda

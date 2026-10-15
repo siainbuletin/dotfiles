@@ -69,6 +69,7 @@ Result depends on syntax table's comment character."
 
 (use-package company
   :defer t
+
   :init 
   (setq company-async-timeout 5
         company-dabbrev-downcase 0
@@ -77,11 +78,13 @@ Result depends on syntax table's comment character."
         company-require-match nil
         company-selection-wrap-around t
         company-tooltip-align-annotations t)
+  
   :config
   (add-hook 'company-completion-started-hook 'company-init-quickhelp)
   (company-tng-mode t)
   (setq company-backends '())
-  (add-to-list 'company-backends 'company-capf)) ; LSP completion backend
+  (add-to-list 'company-backends 'company-capf) ; LSP completion backend
+) 
 
 (use-package lsp-mode
   :defer t
@@ -93,34 +96,16 @@ Result depends on syntax table's comment character."
                 lsp-headerline-breadcrumb-enable nil
                 lsp-file-watch-threshold 10000)
           (setq lsp-client-packages (delete 'lsp-java lsp-client-packages)))
+
 (use-package flycheck
   :defer t)
 
-(defgroup siapip/mmm nil
-  "mmm mode configuration."
-  :group 'siapip
-  :prefix "siapip/mmm-")
-(defcustom siapip/mmm-mode:enable nil
-  "Enable mmm-mode."
-  :group 'siapip/mmm
-  :type 'boolean)
-(defcustom siapip/mmm-mode:babel:enable nil
-  "Enable org-babel support for mmm-mode."
-  :group 'siapip/mmm
-  :type 'boolean)
+;;; MMM MODE
 
-(when siapip/mmm-mode:enable
-  (defun mmm-get-mode-for-lang (lang)
-    (cond ((string= lang "python") 'python-mode)
-          ((string= lang "elisp") 'emacs-lisp-mode)
-          ((string= lang "emacs-lisp") 'emacs-lisp-mode)
-          ((string= lang "js") 'js-mode)
-          ((string= lang "ruby") 'ruby-mode)
-          ;; Add more language mappings as needed
-          (t nil)))
-  (use-package mmm-mode
+(use-package mmm-mode
     :config
     (setq mmm-global-mode 'maybe)
+    
     (mmm-add-classes
      '((org-babel
         :submode nil
@@ -133,9 +118,7 @@ Result depends on syntax table's comment character."
         :match-submode (lambda (lang)
                          (let ((l (match-string-no-properties 2)))
                            (mmm-get-mode-for-lang l))))))
-    (when siapip/mmm-mode:babel:enable
-      (mmm-add-mode-ext-class 'org-mode nil 'org-babel)
-      (mmm-add-mode-ext-class 'org-journal-mode nil 'org-babel))))
+)
 
 (use-package lsp-ui
   :defer t
