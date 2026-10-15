@@ -80,5 +80,7 @@ non-nil) it is a no-op."
 
 (setq interprogram-cut-function 'lem--osc52-cut-function)
 
+;;; Provide:
+
 (provide 'sp-tty-clipboard)
 ;;; sp-tty-clipboard.el ends here

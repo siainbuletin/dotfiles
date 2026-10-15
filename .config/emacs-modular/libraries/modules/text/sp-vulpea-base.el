@@ -5,9 +5,19 @@
 
 (use-package vulpea
   :ensure (:wait t)
+
   :init
-  (keymap-global-set "M-o f" 'vulpea-find)
-  (keymap-global-set "M-o n a" 'vulpea-buffer-alias-add)
+  ;; Vulpea derives its defaults from `org-directory'. Doom's :lang org
+  ;; module sets it to ~/org/ - override here if your notes live elsewhere,
+  ;; or set `vulpea-db-sync-directories' explicitly.
+  
+  :custom
+  (vulpea-db-sync-directories (list "~/notes/" user-emacs-directory))
+
+  :bind
+  (("M-o f" . vulpea-find)
+   :map org-mode-map
+   ("M-o n a" . vulpea-buffer-alias-add))
 )
 
 (setq vulpea-db-sync-directories '("~/notes/"))

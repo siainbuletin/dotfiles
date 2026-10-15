@@ -75,7 +75,28 @@ periods. This ain't a typewriter."
    ("s-M-~" . org-emphasize-with-code-dwim)
    
    ;; better pasting behavior in org-mode
-   ("s-v" . org-yank))
+   ("s-v" . org-yank)
+   
+   ;; Toggling items in the hierarchy
+   ("C-S-x t i" . org-toggle-item)
+   ("C-S-x t h" . org-toggle-heading)
+
+   ;; sorting elements
+   ("C-c s i" . org-sort-list)
+
+   ;; Footnotes
+   ("C-c f n" . org-footnote-new)
+   ("C-c f q" . org-footnote-normalize)
+   
+   ;; Visibility for the markup
+   ("C-c l d" . org-toggle-link-display)
+
+   ;; safety nets
+   ("C-c s a" . org-save-all-org-buffers)
+
+   ;; task-management bindings
+   ("C-x t d" . org-do-demote)
+   )
 
   :init
   ;; Org-Emphasis-Regex settings. Set regex boundaries for emphasis.
@@ -210,27 +231,6 @@ periods. This ain't a typewriter."
 (setq org-support-shift-select t)
 
 (global-unset-key (kbd "C-x t i"))
-
-(use-package org
-    :ensure nil
-    :bind
-    ;; editing my regular zettels
-    ("C-c f n" . org-footnote-new)
-    ("C-c f q" . org-footnote-normalize)
-    ("C-c l d" . org-toggle-link-display)
-
-    ;; safety nets
-    ("C-c s a" . org-save-all-org-buffers)
-
-    ;; working with items (lists)
-    ("C-x t i" . org-toggle-item)
-
-    ;; sorting elements
-    ("C-c s i" . org-sort-list)
-
-    ;; task-management bindings
-    ("C-x t d" . org-do-demote)
-)
 
 (defun sia-make-id-for-title (title)
   "Return an ID based on TITLE."

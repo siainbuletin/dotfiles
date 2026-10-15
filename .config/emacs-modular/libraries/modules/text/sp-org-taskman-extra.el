@@ -124,7 +124,7 @@
   (org-gtd-directory "~/notes/area/org-gtd/")
 
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
-  (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
+  ;; TODO keyword are configured elsewhere
 
   ;; Map GTD semantic states to your keywords
   (org-gtd-keyword-mapping '((todo . "TODO")
@@ -156,6 +156,8 @@
 (customize-set-variable 'org-todo-keywords
                         '((sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
                           (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)")))
+
+(org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
 
 ;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil

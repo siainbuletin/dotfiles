@@ -52,6 +52,11 @@ This would mean that you have to read the documentation more thoroughly and writ
 
 Is it possible to force [[id:1124CFBB-0911-4A5C-9C16-89CF99FD4EFA][vulpea-para]] to add multiple notes to an area, instead of having one org file for defining this area? Or would the projects just end up living separately?
 
+** Unify the org todo keywords
+
+- [ ] what's the best way to make different sets of org-todo-keywords?
+   + [ ] find some examples for this
+
 * Object system
 
 See [[id:4ee78b9c-d29b-4458-b129-5de6455a18ce][Object system for personal notes]]
@@ -172,6 +177,17 @@ It would also be nice if I could see the project dependencies in a separate buff
 ** NEXT where is the catpuccin theme located?
 ** TODO Fix not being able to load nerd-icons in the ibuffer or in dired
 
+* Documenting the modules individually
+** Personal functions
+*** sp-leave-split-heading
+
+This one was written with [[id:690AEE51-DC48-4816-9A9E-1D0FD1380175][Claude]]
+- It has quite a lot of if loops trying to condition for all cases in which a link might show up
+
+**** TODO Export the chat with Claude and try to sift through the code
+**** TODO Make a summary at the top for what each of the functions does
+**** TODO Complement the [[id:43f1e437-1b5d-43c5-952d-dcf91ed0daf4][docstrings]] written by Claude
+
 * Other tasks
 
 ** TODO learn how to read the configuration for emacs
@@ -196,3 +212,33 @@ It would also be nice if I could see the project dependencies in a separate buff
 ** TODO read the sources on the use cases of use-package
 ** TODO what's the difference between straight-el and melpa package manager?
 ** TODO how can you work with emacs packages that are pulled from the source?
+* Query system
+** Look at different configurations for [[id:ac711f84-6b85-4294-8427-a2d0c5985b69][org-ql]]
+
+See also
+
+** Is it different to try to do queries with vulpea directly?
+
+(vulpea-note-id note)            ; UUID string
+(vulpea-note-path note)          ; Absolute file path
+(vulpea-note-level note)         ; 0 = file-level, 1+ = heading
+(vulpea-note-title note)         ; Note title
+(vulpea-note-primary-title note) ; Original title when selected via an alias, else nil
+(vulpea-note-aliases note)       ; List of alias strings
+(vulpea-note-tags note)          ; List of tag strings
+(vulpea-note-links note)         ; List of plists (:dest :type :pos :description)
+(vulpea-note-meta note)          ; Alist of metadata (document order)
+(vulpea-note-properties note)    ; Alist of org properties
+(vulpea-note-todo note)          ; TODO state string or nil
+(vulpea-note-priority note)      ; Priority character or nil
+(vulpea-note-scheduled note)     ; Scheduled timestamp or nil
+(vulpea-note-deadline note)      ; Deadline timestamp or nil
+(vulpea-note-closed note)        ; Closed timestamp or nil
+(vulpea-note-category note)      ; Resolved org category, never nil
+(vulpea-note-outline-path note)  ; List of parent headings
+(vulpea-note-attach-dir note)    ; Attachment directory or nil
+(vulpea-note-file-title note)    ; Title of file containing note
+(vulpea-note-created-at note)    ; Creation date "YYYY-MM-DD" or nil
+(vulpea-note-modified-at note)   ; File mtime "YYYY-MM-DD HH:MM:SS"
+(vulpea-note-title-source note)  ; Where the title came from, or nil
+(vulpea-note-category-source note) ; Where the category came from, or nil
