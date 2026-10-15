@@ -16,6 +16,7 @@
 ;; source: https://www.jamescherti.com/emacs-user-interface-better-responsiveness-and-latency/
 (setq show-paren-delay 0.05)
 
+;;;; Interpreter
 (use-package sly
   :ensure t
   :defer t
@@ -28,6 +29,7 @@
          (sly-repl-mode . (lambda ()
                             (company-mode t))))))
 
+;;;; Editing modes
 (use-package lisp-mode
   :ensure nil
   :demand t
@@ -58,6 +60,29 @@
                        (setq company-backends '(company-capf
                                                 company-files
                                                 company-dabbrev-code)))))
+
+;;;; Show code examples
+;; Show code examples with the elisp-demos package.
+;; Find a function without a good demonstration? Call elisp-demos-add-demo.
+
+(use-package elisp-demos
+  :ensure t
+  :after helpful ; this can enhance the `describe-function` call
+  :config
+  (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))
+
+;;;; Finding better functions
+;; Wilfred’s suggest function helps you find the right function. 
+;; Basically, you type in the parameters of a function, and then 
+;; the desired output, and it will write the function call.
+(use-package suggest
+  :ensure t)
+
+;;;; Better appearance
+;;;;; Showing the parantheses better
+;; source: https://howardabrams.com/hamacs/ha-programming-elisp.html
+(use-package paren-face
+  :hook (emacs-lisp-mode . paren-face-mode))
 
 (when siapip/lisp-paredit:enabled
   (use-package paredit

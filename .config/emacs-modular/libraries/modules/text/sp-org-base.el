@@ -78,8 +78,8 @@ periods. This ain't a typewriter."
    ("s-v" . org-yank)
    
    ;; Toggling items in the hierarchy
-   ("C-S-x t i" . org-toggle-item)
-   ("C-S-x t h" . org-toggle-heading)
+   ("C-x t i" . org-toggle-item)
+   ("C-x t h" . org-toggle-heading)
 
    ;; sorting elements
    ("C-c s i" . org-sort-list)
