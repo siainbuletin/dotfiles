@@ -1,0 +1,81 @@
+#+title: Documentation for the ~sp-org-id-link~ module
+
+Description: This module deals with a bunch of functions
+
+* ID creation clauses
+* ~sp-org-create-note-and-link~: create links in place, without having to create the note first-hand
+
+ID-based note-taking systems in org-mode aren't capable of creating links to files or nodes that don't already exist, like Obsidian can, if you write [[link]] in the file and the title 'link' doesn't already exist in its database. 
+
+Program an interactive function for Emacs that, upon being called, creates a note in org-directory without creating an active buffer or creating a new window for it, and inserts the link at point in the source org-mode buffer.
+
+Drafting ID generation and file-writing logic for the note.
+Thought for 10s
+
+Scripting an Emacs function to create and link org notes.
+
+Drafting ID generation and file-writing logic for the note.
+
+(require 'org)
+(require 'org-id)
+
+(defun sp-org-slugify (title)
+  "Turn TITLE into a filesystem-safe slug."
+  (let ((slug (string-trim
+               (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               "-" "-")))
+    (if (string-empty-p slug) "note" slug)))
+
+(defun sp-org-create-note-and-link (title)
+  "Create a new org note TITLE in `org-directory' and insert an ID link to it.
+The note is written straight to disk: no buffer is visited and no window
+is created.  If the region is active, its text is used as the title and
+is replaced by the link."
+  (interactive
+   (list (if (use-region-p)
+             (buffer-substring-no-properties (region-beginning) (region-end))
+           (read-string "New note title: "))))
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
+    (when (string-empty-p title)
+      (user-error "Empty title"))
+    (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+           (id   (org-id-new))
+           (file (expand-file-name
+                  (format "%s-%s.org"
+                          (format-time-string "%Y%m%dT%H%M%S")
+                          (sp-org-slugify title))
+                  dir))
+           (coding-system-for-write 'utf-8))
+      (make-directory dir t)
+      (when (file-exists-p file)
+        (user-error "File already exists: %s" file))
+      ;; Write the note without ever creating a visiting buffer.
+      (with-temp-file file
+        (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
+                        id title)))
+      ;; Register the ID so org can resolve the link immediately.
+      (org-id-add-location id file)
+      (org-id-locations-save)
+      ;; Insert the link at point (replacing the region if there was one).
+      (when (use-region-p)
+        (delete-region (region-beginning) (region-end)))
+      (insert (org-link-make-string (concat "id:" id) title))
+      (message "Created %s" (file-name-nondirectory file)))))
+
+Usage: call M-x sp-org-create-note-and-link, or bind it, e.g. (define-key org-mode-map (kbd "C-c n l") #'sp-org-create-note-and-link). If you select text first, that text becomes the title and is replaced by the link.
+
+** Explanation from Claude
+
+How it works:
+
+with-temp-file writes the note directly to disk. No buffer visits the file, so no window is involved and the file is never opened.
+org-id-add-location registers the new ID in org-id-locations, so C-c C-o on the link works right away instead of waiting for an org-id-update-id-locations rescan.
+The :ID: property drawer comes first, then #+title:, which is the layout org-roam and vulpea expect for file-level nodes.
+
+Things you may want to adjust:
+
+Database sync. If you use org-roam or vulpea, their databases won’t know about the new file until they sync. Add a call at the end of the function, such as (org-roam-db-update-file file) for org-roam, or whatever update function your vulpea version provides, if you don’t have autosync enabled.
+Existing titles. This always creates a new note. To get Obsidian’s “link to it if it exists” behavior, first look up the title in your database and only create a note when there’s no match.
+Filename scheme. The timestamp prefix avoids collisions. Drop it from the format call if you prefer plain slugs, but then keep the file-exists-p check.

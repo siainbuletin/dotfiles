@@ -242,3 +242,8 @@ See also
 (vulpea-note-modified-at note)   ; File mtime "YYYY-MM-DD HH:MM:SS"
 (vulpea-note-title-source note)  ; Where the title came from, or nil
 (vulpea-note-category-source note) ; Where the category came from, or nil
+
+* Try to make ~which-key~ actually useful
+
+I don't know how to trigger [[id:A26D1D32-459A-4F6A-8E4B-7EC8B44645F2][which-key.el]] properly so I can make use of the guiding with those keybindings
+- !@Would it be of more help if I tried [[id:2F1E1750-385A-4134-B4D7-367AD31ABEFD][guide-key.el]]?!@
