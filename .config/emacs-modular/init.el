@@ -319,6 +319,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-move-region-to-heading
                     'sp-tab-inbox
                     'sp-org-link-conversion
+                    'sp-org-lint
 
                     ;; Programming modules
                     'sp-base-code

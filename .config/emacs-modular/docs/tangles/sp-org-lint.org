@@ -1,11 +1,11 @@
-* Linting lists
+* Linting lists (and ordering alphabetically, as needed)
 
 Create two linting interactive functions for org-mode buffers. The first (sp-org-lint-list) takes list items that are found in a region and removes whitespace between list items. The second (sp-org-lint-resources)iterates forward on the first, by also sorting the list items alphabetically.
 
 Removing blank lines carefully to protect list boundaries.
 Here are both functions. The first does the whitespace cleanup, and the second calls it and then sorts.
 
-elisp
+#+begin_src elisp
 ;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
 
 (require 'org)
@@ -78,39 +78,197 @@ parent item but are not re-sorted themselves."
             (goto-char (org-list-get-bottom-point (org-list-struct)))))
       (set-marker end-marker nil))))
 
+;;; Provide:
+
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here
+#+end_src
+
 Usage: select a region in an Org buffer and run M-x sp-org-lint-list or M-x sp-org-lint-resources. Bind them if you like:
 
-elisp
+#+begin_src elisp
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c l l") #'sp-org-lint-list)
   (define-key org-mode-map (kbd "C-c l r") #'sp-org-lint-resources))
+#+End_src
+
 Example:
 
-org
+#+begin_example
 - Zotero
 
 - Obsidian
   continuation text
 
 - Emacs
+#+end_example
+
 becomes, after sp-org-lint-resources:
 
-org
+#+begin_example
 - Emacs
 - Obsidian
   continuation text
 - Zotero
+#+end_example
+
 Notes:
 
-Blank lines: these are only removed when the line before is part of a list and the line after is a list item. A blank line between a list and the paragraph or heading that follows it stays.
-Sorting: org-sort-list moves each item together with its continuation text and sublists. It sorts top-level items only. To sort nested levels too, move point into the sublist and run C-c ^ (org-sort), or tell me and I’ll add a recursive option.
-Ordering: ?a is case-insensitive. Change it to (org-sort-list t ?a) for case-sensitive sorting, or use ?A for reverse order.
-Numbered lists: the sort works, but the numbers are not renumbered. Org usually fixes that on the next edit, and C-c C-c on an item forces it.
-
-
-
+- Blank lines :: these are only removed when the line before is part of a list and the line after is a list item. A blank line between a list and the paragraph or heading that follows it stays. !@Really good!!@
+- Sorting :: ~~org-sort-list~ moves each item together with its continuation text and sublists. It sorts top-level items only. To sort nested levels too, move point into the sublist and run ~~C-c ^~~ (~~org-sort~), or tell me and I’ll add a recursive option.
+- Ordering :: ?a is case-insensitive. Change it to (org-sort-list t ?a) for case-sensitive sorting, or use ?A for reverse order.
+- Numbered lists :: the sort works, but the numbers are not renumbered. Org usually fixes that on the next edit, and C-c C-c on an item forces it.
 
 Claude is AI and can make mistakes. Please double-check responses.
 Claude finished the response
+
+** Automatically detecting the region where there's a list
+
+Can you make selecting the list region be recognised automatically, starting from the earliest list item that can be detected near point, and until the end (meaning the last line that's actually a list, without having to mark the region that I want to run the function on? (or auto-mark the region)
+
+Here’s the updated file. With no active region, both commands detect the whole list around point and work on that. With an active region, they behave as before.
+
+#+begin_src elisp
+;; -*- lexical-binding: t -*-
+;;; sp-org-lint.el --- Lint plain lists in org-mode buffers
+
+;;; Code:
+;;;; Required modules:
+(require 'org)
+(require 'org-list)
+
+(defconst sp-org--item-re
+  "^\\(?:[ \t]+\\*\\|[ \t]*[-+]\\|[ \t]*[0-9]+[.)]\\)[ \t]"
+  "Match the start of a plain list item line.
+A bare `*' only counts when indented, so headings are not mistaken for items.")
+
+;;; Region detection
+
+(defun sp-org--item-near-point ()
+  "Return the start of an item at or near point, or nil.
+Tries the current line (including continuation text), then the
+previous non-blank line, then the next non-blank line."
+  (let ((orig (point)))
+    (save-excursion
+      (or (org-in-item-p)
+          (progn
+            (skip-chars-backward " \t\n")
+            (and (not (bobp)) (org-in-item-p)))
+          (progn
+            (goto-char orig)
+            (skip-chars-forward " \t\n")
+            (and (not (eobp)) (org-in-item-p)))))))
+
+(defun sp-org--list-bounds ()
+  "Return (BEG . END) of the whole plain list at or near point.
+BEG is the start of the first item of the outermost list; END is the
+end of the last non-blank line belonging to it (trailing blank lines
+are excluded).  Signal a `user-error' if no list is found."
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((item (sp-org--item-near-point)))
+    (unless item
+      (user-error "No list found near point"))
+    (save-excursion
+      (goto-char item)
+      (let* ((struct (org-list-struct))
+             (beg (org-list-get-top-point struct))
+             (end (org-list-get-bottom-point struct)))
+        (goto-char end)
+        (skip-chars-backward " \t\n")
+        (cons beg (point))))))
+
+(defun sp-org--region-args ()
+  "Return (BEG END): the active region, else the list around point."
+  (if (use-region-p)
+      (list (region-beginning) (region-end))
+    (let ((bounds (sp-org--list-bounds)))
+      (list (car bounds) (cdr bounds)))))
+
+;;;###autoload
+(defun sp-org-mark-list ()
+  "Mark the whole plain list at or near point."
+  (interactive)
+  (let ((bounds (sp-org--list-bounds)))
+    (goto-char (car bounds))
+    (push-mark (cdr bounds) nil t)))
+
+;;; Linting
+
+(defun sp-org--check-region (beg end)
+  "Signal an error unless in `org-mode' and BEG/END are usable."
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (when (= beg end)
+    (user-error "Region is empty")))
+
+(defun sp-org--remove-blank-lines-between-items (beg end-marker)
+  "Delete blank lines between list items from BEG to END-MARKER."
+  (save-excursion
+    (goto-char beg)
+    (while (re-search-forward "\n\\(?:[ \t]*\n\\)+" end-marker t)
+      (let ((blank-beg (match-beginning 0))
+            (blank-end (match-end 0)))
+        (when (and
+               ;; the next non-blank line starts a list item...
+               (save-excursion
+                 (goto-char blank-end)
+                 (looking-at-p sp-org--item-re))
+               ;; ...and the previous line belongs to a list
+               ;; (an item itself, or an indented continuation line).
+               (save-excursion
+                 (goto-char blank-beg)
+                 (beginning-of-line)
+                 (or (looking-at-p sp-org--item-re)
+                     (looking-at-p "[ \t]+[^ \t\n]"))))
+          (replace-match "\n"))))))
+
+;;;###autoload
+(defun sp-org-lint-list (beg end)
+  "Remove blank lines between list items.
+Operates on the active region from BEG to END.  Without an active
+region, operates on the whole list at or near point.  Blank lines
+separating a list from surrounding paragraphs or headings are kept."
+  (interactive (sp-org--region-args))
+  (sp-org--check-region beg end)
+  (let ((end-marker (copy-marker end)))
+    (unwind-protect
+        (sp-org--remove-blank-lines-between-items beg end-marker)
+      (set-marker end-marker nil))))
+
+;;;###autoload
+(defun sp-org-lint-resources (beg end)
+  "Lint the lists from BEG to END, then sort them alphabetically.
+Operates on the active region, or on the whole list at or near point
+when no region is active.  First removes blank lines between items,
+then sorts each top-level list case-insensitively by item text.
+Nested sublists travel with their parent item but are not re-sorted."
+  (interactive (sp-org--region-args))
+  (sp-org--check-region beg end)
+  (let ((end-marker (copy-marker end)))
+    (unwind-protect
+        (save-excursion
+          (sp-org--remove-blank-lines-between-items beg end-marker)
+          (goto-char beg)
+          (while (and (< (point) end-marker)
+                      (re-search-forward sp-org--item-re end-marker t))
+            (beginning-of-line)
+            (org-sort-list nil ?a)
+            (goto-char (org-list-get-bottom-point (org-list-struct)))))
+      (set-marker end-marker nil))))
+
+(provide 'sp-org-lint)
+;;; sp-org-lint.el ends here
+#+end_src
+
+How detection works:
+
+Where it looks: it checks the current line first, including continuation text under an item. If that isn’t part of a list, it tries the previous non-blank line, then the next non-blank line. So you can sit on a blank line just below or above a list and it still finds it.
+Start of the region: it starts at the first item of the outermost list. That holds even if point is inside a nested sublist.
+End of the region: it ends at the last non-blank line that belongs to the list, so trailing blank lines before the next paragraph or heading are not included or touched.
+Optional marking: M-x sp-org-mark-list selects the detected list so you can see what the commands would act on. The two lint commands don’t need it.
+
+Caveats:
+
+Org’s own list rules: detection relies on org-list-struct, so it follows Org’s rules for where a list ends. By default, two consecutive blank lines end a list. Items separated by two or more blank lines count as separate lists, and only the one at point is processed. If you need that case handled, mark the region manually (or tell me and I’ll loop over adjacent lists).
+No list found: if nothing list-like is found near point, you get a “No list found near point” message and nothing changes.
