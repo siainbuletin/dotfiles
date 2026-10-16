@@ -99,27 +99,7 @@ Result depends on syntax table's comment character."
 
 (use-package flycheck
   :defer t)
-
-;;; MMM MODE
-
-(use-package mmm-mode
-    :config
-    (setq mmm-global-mode 'maybe)
-    
-    (mmm-add-classes
-     '((org-babel
-        :submode nil
-        :front "#\\+\\(begin_src\\|BEGIN_SRC\\) \\([a-zA-Z+-]+\\)"
-        :front-match 2
-        :front-offset 0
-        :back "#\\+\\(end_src\\|END_SRC\\)"
-        :save-matches t
-        :delimiter-mode nil
-        :match-submode (lambda (lang)
-                         (let ((l (match-string-no-properties 2)))
-                           (mmm-get-mode-for-lang l))))))
-)
-
+  
 (use-package lsp-ui
   :defer t
   :bind (:map lsp-ui-doc-frame-mode-map          

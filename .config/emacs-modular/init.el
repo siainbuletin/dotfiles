@@ -318,6 +318,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-open-externally
                     'sp-move-region-to-heading
                     'sp-tab-inbox
+                    'sp-org-link-conversion
 
                     ;; Programming modules
                     'sp-base-code
