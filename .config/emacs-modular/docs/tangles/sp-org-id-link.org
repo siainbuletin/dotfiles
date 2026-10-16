@@ -3,7 +3,8 @@
 Description: This module deals with a bunch of functions
 
 * ID creation clauses
-* ~sp-org-create-note-and-link~: create links in place, without having to create the note first-hand
+* Custom functions (called elsewhere)
+** ~sp-org-create-note-and-link~: create links in place, without having to create the note first-hand
 
 ID-based note-taking systems in org-mode aren't capable of creating links to files or nodes that don't already exist, like Obsidian can, if you write [[link]] in the file and the title 'link' doesn't already exist in its database.
 
@@ -66,7 +67,7 @@ is replaced by the link."
 
 Usage: call M-x sp-org-create-note-and-link, or bind it, e.g. (define-key org-mode-map (kbd "C-c n l") #'sp-org-create-note-and-link). If you select text first, that text becomes the title and is replaced by the link.
 
-** Explanation from Claude
+*** Explanation from Claude
 
 How it works:
 
@@ -79,8 +80,14 @@ Things you may want to adjust:
 Database sync. If you use org-roam or vulpea, their databases won’t know about the new file until they sync. Add a call at the end of the function, such as (org-roam-db-update-file file) for org-roam, or whatever update function your vulpea version provides, if you don’t have autosync enabled.
 Existing titles. This always creates a new note. To get Obsidian’s “link to it if it exists” behavior, first look up the title in your database and only create a note when there’s no match.
 Filename scheme. The timestamp prefix avoids collisions. Drop it from the format call if you prefer plain slugs, but then keep the file-exists-p check.
-* Enlarge scope
-** First pass
+** Enlarge scope to convert wikilinks from Obsidian as well
+
+[2026-10-16 Fri] I can't simply import my notes manually, as there's 20k notes, each with different links that have to be resolved.
+
+This is supposed to go through the buffer in order and deal with each note that leads nowhere.
+- plain [[id:3d4c1a4f-0d5d-4e6e-a32c-dabf72b8e6f0][wikilink]]s aren't supposed to be used in [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]], as long as I'm not making use of [[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]] !@(subject to change sometime in the future)!@
+
+*** First pass
 
 [2026-10-16 Fri]
 
@@ -284,7 +291,7 @@ Things to be aware of:
 - **Matching.** It's case-insensitive, to match the earlier conflict check. If you want it strictly case-sensitive, drop the `downcase` calls in the index and the lookups. Aliases are not matched. I can add that in the same way as in the previous answer.
 - **API assumption.** I used `vulpea-select` and `vulpea-select-from` with the `:initial-prompt` and `:require-match` keywords. Check those if your vulpea version differs.
 
-** Newer version
+*** Newer version
 
 This one has the steps in place
 
@@ -607,9 +614,9 @@ Step 2. All unresolved links are highlighted at once with the my/org-wikilink-pe
 
 Step 3. If you type something that doesn’t match an existing note, you can create a note, skip the link, or quit. On create, the title is editable, the note is written to disk with no buffer or window, and the link is converted in place.
 
-Behavior to know about
+**** Behavior to know about
 
-- Repeated targets. The answer is cached per target. If the same unresolved [[Foo]] appears ten times, you are prompted once, and a note created for it is reused.
+- Repeated targets :: The answer is cached per target. If the same unresolved [[Foo]] appears ten times, you are prompted once, and a note created for it is reused.
 - Obsidian syntax. [[Target|Alias]] becomes [[id:…][Alias]]. [[Target#Heading]] and [[Target^block]] link to the note, and the heading or block part is dropped.
 - What is left alone. Embeds (![[image.png]]), same-file references ([[#Heading]]), file paths, links with a type (id:, file:, https:), and anything inside src/example/export/comment blocks.
 - Skipped or quit links. They stay as plain [[…]] text and lose the highlight. The echo area summarizes what was converted, picked, created and left over.
@@ -618,6 +625,6 @@ Behavior to know about
 Assumptions to check against your vulpea version
 
 - ~vulpea-db-query~ with no argument returns all notes.
-- vulpea-select accepts :initial-prompt and :require-match.
+- ~vulpea-select~ accepts ~:initial-prompt~ and ~:require-match~.
 - When you type something that isn’t an existing note, vulpea-select returns a note with a title and no ID. The command treats that as “no existing note selected”.
 - If vulpea’s autosync is off, notes created during a run won’t be in vulpea-db until it syncs. Running the command in another buffer before then could create duplicates.

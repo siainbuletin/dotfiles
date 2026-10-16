@@ -82,10 +82,10 @@
 ;;;;; Showing the parantheses better
 ;; source: https://howardabrams.com/hamacs/ha-programming-elisp.html
 (use-package paren-face
+  :ensure t
   :hook (emacs-lisp-mode . paren-face-mode))
 
-(when siapip/lisp-paredit:enabled
-  (use-package paredit
+(use-package paredit
     :ensure t
     :defer t
     ;;:diminish paredit-mode
@@ -95,7 +95,7 @@
            (sly-repl-mode . paredit-mode))
     :bind (:map paredit-mode-map
                 ("C-M-f" . paredit-forward)
-                ("C-M-b" . paredit-backward))))
+                ("C-M-b" . paredit-backward)))
 
 ;; Evaluating an expression at point
 ;; source: https://www.reddit.com/r/emacs/comments/1x4806c/comment/pge1kz7/

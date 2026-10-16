@@ -253,7 +253,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-buffers
                     'sp-windows
                     'sp-tabs
-                    ;; 'sp-mini-frame
+                    'sp-mini-frame
 
                     'sp-writedesk
                     'lem-dashboard
