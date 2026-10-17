@@ -46,7 +46,6 @@
   :defer t)
 
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
-(global-unset-key (kbd "C-x C-s")) ; stop me from quitting Emacs accidentally
 
 (global-set-key (kbd "<M-up>") 'move-text-up)
 (global-set-key (kbd "<M-down>") 'move-text-down)
@@ -73,6 +72,7 @@
       focus-follows-mouse siapip/focus-follows-mouse)
 ;;(setq interprogram-paste-function 'x-cut-buffer-or-selection-value)
 
+;;;; Diffing
 ;;Diff adjustements
 (setq ediff-window-setup-function 'ediff-setup-windows-plain
       ediff-split-window-function 'split-window-horizontally
@@ -82,6 +82,24 @@
 ;;using_editor=1
 ;;merge_command="emacs-merge %orig %new %merged"
 
+;;;;; Diffing against the clipboard (for code generated with AI)
+(defun my/ediff-with-clipboard ()
+  "Ediff the current buffer (or active region) against the latest kill/clipboard."
+  (interactive)
+  (let* ((mode major-mode)
+         (clip (generate-new-buffer "*clipboard*"))
+         (orig (if (use-region-p)
+                   (let ((b (generate-new-buffer "*region*"))
+                         (s (buffer-substring (region-beginning) (region-end))))
+                     (with-current-buffer b (insert s) (funcall mode))
+                     b)
+                 (current-buffer))))
+    (with-current-buffer clip
+      (insert (current-kill 0))
+      (funcall mode))
+    (ediff-buffers orig clip)))
+
+;;;; Other misc settings
 (global-font-lock-mode t)
 (delete-selection-mode t)
 (auto-compression-mode t)

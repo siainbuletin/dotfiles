@@ -8,7 +8,6 @@ Large modules concerned here
 PDF/file management - some functions can be taken from elsewhere if needed
 Writing and exporting in an academic function - this is typesetting and should be done with LaTeX, pandoc, Typst, and everything else that may help in this case.
 
-
 This file may get too long if it doesn't include several other `.org` files that would have to be tangled.
 
 * Citations (sp-citations.el)
@@ -19,9 +18,9 @@ Do citar-vulpea and citar-denote conflict in their functionalities?
 
 Yes, in practice they compete, but only for one thing: which system citar uses as its notes backend.
 
-Both packages plug into citar’s notes-source mechanism. 
-citar-vulpea-mode makes citar create, open, and look up literature notes in your vulpea collection. 
-citar-denote does the same for Denote, where notes are files identified by their filenames. 
+Both packages plug into citar’s notes-source mechanism.
+citar-vulpea-mode makes citar create, open, and look up literature notes in your vulpea collection.
+citar-denote does the same for Denote, where notes are files identified by their filenames.
 Citar uses one active notes source at a time (the citar-notes-source variable). If you enable both modes, whichever one activates last takes over, and the other is silently ignored. As far as I know they don’t break each other in any other way.
 
 The two note systems are also separate:
@@ -36,3 +35,9 @@ Denote itself can also coexist with vulpea as a separate tool. The only conflict
 
 * sp-bibprocess.el
 * sp-pdfprocess.el
+
+* Intentions
+** Make the pipeline for ingesting articles a lot faster
+*** Prompts to give to Claude
+
+See

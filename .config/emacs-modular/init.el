@@ -645,7 +645,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
      "/Users/siainbuletin/notes/emacs-config.org"
      "/Users/siainbuletin/notes/journal/2026-06-29.org"
      "/Users/siainbuletin/notes/20251117T100514--drafting-workflow__workflow.org"))
- '(org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")) nil nil "Customized with use-package org-gtd")
  '(package-selected-packages '(lambda-themes))
  '(package-vc-selected-packages
    '((lambda-themes :vc-backend Git :url

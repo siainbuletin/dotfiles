@@ -82,7 +82,6 @@ exist after each headings's drawers."
                          nil
                        'tree)))
 
-
 ;;;;; Fill Paragraph
 (defun sp-fill-paragraph ()
   "if in an org buffer use org-fill-paragraph; else use fill-paragraph"

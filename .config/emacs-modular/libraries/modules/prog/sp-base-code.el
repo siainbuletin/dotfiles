@@ -98,7 +98,10 @@ Result depends on syntax table's comment character."
           (setq lsp-client-packages (delete 'lsp-java lsp-client-packages)))
 
 (use-package flycheck
-  :defer t)
+  :ensure t
+  :defer t
+  ;; :init (global-flycheck-mode)
+  )
   
 (use-package lsp-ui
   :defer t

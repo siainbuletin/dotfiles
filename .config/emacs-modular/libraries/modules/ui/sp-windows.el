@@ -147,6 +147,7 @@
       (delete-window))))         ;; Delete the window if it exists
 
 (defvar siapip/window-toggle-fullscreen:state nil)
+
 (defun siapip/window-toggle-fullscreen ()
   (interactive)
   (if siapip/window-toggle-fullscreen:state

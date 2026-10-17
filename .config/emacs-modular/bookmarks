@@ -2,12 +2,18 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("Inbox for tabs"
-  (filename . "~/notes/inbox/tabs/")
-  (front-context-string . ".DS_Store\n  -rw-")
-  (rear-context-string . "20k 09-24 12:30 ")
-  (position . 434)
-  (last-modified 1790277043213347000 . 1000000000))
+(("To-do's for Emacs configuration"
+  (filename . "~/.config/emacs-modular/docs/todo.org")
+  (front-context-string . "\n\n* Configuratio")
+  (rear-context-string . "he configuration")
+  (position . 44)
+  (last-modified 27346 9633 389808 0))
+("Inbox for tabs"
+ (filename . "~/notes/inbox/tabs/")
+ (front-context-string . ".DS_Store\n  -rw-")
+ (rear-context-string . "20k 09-24 12:30 ")
+ (position . 434)
+ (last-modified 1790277043213347000 . 1000000000))
 ("General inbox"
  (filename . "~/notes/inbox/")
  (front-context-string)

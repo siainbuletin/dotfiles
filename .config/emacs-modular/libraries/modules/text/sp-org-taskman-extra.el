@@ -9,9 +9,16 @@
 ;; it's a different component of such a task management system.
 
 ;;; Commentary:
-;;;; What are the TODO keywords that you're actually using?
+;;;; Org TODO Keywords
+;; What are the TODO keywords that you're actually using?
+;;
+;; How can you harmonize different sequences of keywords?
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "PROG(p)" "DONE(d)")))
+      '((sequence "TODO(t)" "PROG(p)" "DONE(d)"))
+        (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
+        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)")
+        (sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")
+        )
 
 ;;;; Set up the org tags
 (setq org-tag-alist
@@ -43,6 +50,8 @@
       org-priority-lowest 5
       org-priority-default 4)
 
+;;;; Project management
+;;;;; Marking something as a project
 (defun my-mark-as-project ()
 "This function makes sure that the current heading has
 (1) the tag :project:
@@ -76,12 +85,17 @@
        )
 )
 
+;;;;; Deep task management dependencies (and understanding how projects really work)
+(use-package org-edna
+  :ensure t
+  :config
+  (org-edna-mode))
+
 (require 'org-inlinetask)
 
 (setq org-hierarchical-todo-statistics nil)
 
 ;;;; TODO faces
-
 (use-package hl-todo
   :ensure t
   :config
@@ -91,6 +105,7 @@
       ("NOTE"   . ,(face-foreground 'success))))
   (global-hl-todo-mode 1))
 
+;;;; Consult TODO
 (use-package consult-todo
   :ensure t
   :init
@@ -103,11 +118,7 @@
   ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
   )
 
-;; Deep task management dependencies (and understanding how projects really work)
-(use-package org-edna
-  :ensure t
-  :config
-  (org-edna-mode))
+
 
 ;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
 
@@ -151,13 +162,6 @@
    ;; Quick actions on tasks in agenda views (optional but recommended)
    :map org-agenda-mode-map
    ("C-c ." . org-gtd-agenda-transient)))
-
-;;;; Org TODO Keywords
-(customize-set-variable 'org-todo-keywords
-                        '((sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
-                          (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)")))
-
-(org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
 
 ;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil

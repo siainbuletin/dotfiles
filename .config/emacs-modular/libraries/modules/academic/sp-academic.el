@@ -50,8 +50,10 @@
 
 (use-package biblio
   :ensure t
+
   :bind
-  (("C-c w b b" . sia-bibtex-biblio-lookup)))
+  (("C-c w b b" . sia-bibtex-biblio-lookup))
+)
 
 (use-package biblio-gscholar
   :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))

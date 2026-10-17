@@ -43,7 +43,7 @@
   ((lisp-mode . (lambda ()
                  (setq company-backends '(company-capf
                                           company-files))
-                 (highlight-indent-guides-mode t)
+                 ;; (highlight-indent-guides-mode t)
                  (company-mode t)))))
 
 (use-package elisp-mode
@@ -55,8 +55,8 @@
                        (company-mode t)
                        (eldoc-mode t)
                        (prettify-symbols-mode t)
-                       ;;(setq lisp-indent-function nil)
-                       (highlight-indent-guides-mode t)
+                       ;; (setq lisp-indent-function nil)
+                       ;; (highlight-indent-guides-mode t)
                        (setq company-backends '(company-capf
                                                 company-files
                                                 company-dabbrev-code)))))

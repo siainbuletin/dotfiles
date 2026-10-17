@@ -157,15 +157,12 @@
   :ensure t
   :bind (([remap shell-command] . dwim-shell-command)
          :map dired-mode-map
-         ([remap dired-do-async-shell-command] . dwim-shell-command)
-         ([remap dired-do-shell-command] . dwim-shell-command)
+         ;; ([remap dired-do-async-shell-command] . dwim-shell-command)
+         ;; ([remap dired-do-shell-command] . dwim-shell-command)
          ([remap dired-smart-shell-command] . dwim-shell-command)))
 
 (use-package try
   :ensure (:wait t))
-
-
-
 
 ;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well

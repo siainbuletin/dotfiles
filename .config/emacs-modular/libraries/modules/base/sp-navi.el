@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;; -*- lexical-binding: t -*-
 ;;; sp-navi.el --- summary
 
 ;;; Commentary:
@@ -29,7 +29,7 @@ directory."
 (use-package imenu-list
   :when (and sp-load-extras (locate-library "imenu-list"))
   :commands (imenu-list-smart-toggle imenu-list-minor-mode)
-  
+
   :config
   (setq imenu-list-focus-after-activation t
         imenu-list-auto-resize t
@@ -43,7 +43,7 @@ directory."
   :config
   (setq save-place-file (concat sp-cache-dir "saved-places"))
   (setq save-place-forget-unreadable-files nil))
-  
+
 ;;;; Recent files
 ;; List recent files
 (use-package recentf
@@ -65,7 +65,7 @@ directory."
     (call-interactively 'consult-org-heading))
    (t
     (call-interactively 'consult-outline))))
-    
+
 ;;; Better find-file
 (defun sp-find-file ()
   "Find file from current directory in many different ways."
@@ -81,17 +81,17 @@ directory."
     (pcase (alist-get selection find-options nil nil #'string=)
       (:command
        (call-interactively (intern selection)))
-      (:string
-       (setq file-list (split-string (shell-command-to-string selection) "\0" t))
-       (setq file (completing-read (format "Find file in %s: " (abbreviate-file-name default-directory))
+        (:string
+        (setq file-list (split-string (shell-command-to-string selection) "\0" t))
+        (setq file (completing-read (format "Find file in %s: " (abbreviate-file-name default-directory))
                                    (lambda (str pred action)
                                      (if (eq action 'metadata)
                                          `(metadata . ,metadata)
                                        (complete-with-action action file-list str pred)))
-                                   nil t nil 'file-name-history)))
-      (when file (find-file (expand-file-name file))))))
+                                   nil t nil 'file-name-history))
+       (when file (find-file (expand-file-name file)))))))
 
-(global-unset-key (kbd "C-x C-f")) ; stop me from freezing emacs
+(global-unset-key (kbd "C-x C-f")) ; Rebinding the find-file command.
 (keymap-global-set "C-x C-f" #'sp-find-file)
 
 ;;; Provide:

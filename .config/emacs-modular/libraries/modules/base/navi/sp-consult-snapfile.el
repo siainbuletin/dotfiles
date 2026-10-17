@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-consult-snapfile.el --- summary
+;;; sp-consult-snapfile.el --- summary -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

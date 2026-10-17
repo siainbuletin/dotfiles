@@ -207,12 +207,8 @@ This one was written with [[id:690AEE51-DC48-4816-9A9E-1D0FD1380175][Claude]]
 ** TODO see what are the differences between lambda emacs and emacs-kick
 ** TODO remove games from the emacs instance
 ** TODO how exactly do you organise the packages within emacs?
-** TODO what are the different ways in which you can call on packages in emacs?
-** TODO What's up with elpaca as a package manager in emacs?
 ** TODO is it possible to see all the installed packages directly in the config?
 ** TODO read the sources on the use cases of use-package
-** TODO what's the difference between straight-el and melpa package manager?
-** TODO how can you work with emacs packages that are pulled from the source?
 * Query system
 ** Look at different configurations for [[id:ac711f84-6b85-4294-8427-a2d0c5985b69][org-ql]]
 
@@ -255,3 +251,12 @@ So you can go through several restarts without losing everything
 - this, or trying to implement regression testing with Emacs Lisp
 * Programming setup
 ** Create a good flycheck configuration
+** Disable flycheck from org-mode in most contexts
+
+But it should be enabled if you plan on exporting to HTML or Typst later on down the line.
+
+* Tab inbox
+** Improvements
+*** TODO Make the extraction async
+
+Currently, the ~[collect all]~ function from the sidebar takes a really long time and ends up freezing Emacs. Is it possible to run all of these actions multi-threaded, or with some kind of async process that Emacs allows?
