@@ -52,10 +52,11 @@ This would mean that you have to read the documentation more thoroughly and writ
 
 Is it possible to force [[id:1124CFBB-0911-4A5C-9C16-89CF99FD4EFA][vulpea-para]] to add multiple notes to an area, instead of having one org file for defining this area? Or would the projects just end up living separately?
 
-** Unify the org todo keywords
+** TODO Unify the org todo keywords
+*** TODO Make sure they don't turn up void
 
-- [ ] what's the best way to make different sets of org-todo-keywords?
-   + [ ] find some examples for this
+*** TODO what's the best way to make different sets of org-todo-keywords?
+**** TODO find some examples for this
 
 * Object system
 
@@ -252,3 +253,5 @@ I don't know how to trigger [[id:A26D1D32-459A-4F6A-8E4B-7EC8B44645F2][which-key
 
 So you can go through several restarts without losing everything
 - this, or trying to implement regression testing with Emacs Lisp
+* Programming setup
+** Create a good flycheck configuration
