@@ -15,6 +15,10 @@
 ;;   `sp-move-region-to-heading', keeping the list bullet in both places and
 ;;   leaving a link behind.  `collect all' does this for every hit, asking for
 ;;   the heading once.
+;; - `collect all' runs in the background: it works in short slices while Emacs
+;;   is idle, so you can keep editing (also in the note being collected into),
+;;   and saves everything once at the end.  `sp-tab-inbox-cancel-collect'
+;;   stops it.
 ;; - `send' (or `sp-tab-inbox-send-elsewhere') sends a hit to another
 ;;   note you pick or create, for when the match is about something else.
 ;;   At that prompt, an embark action ("L", see `sp-tab-inbox-embark-map')
@@ -23,11 +27,6 @@
 ;;   link to the current note (e.g. the links `collect' leaves behind), with
 ;;   several lines of context, again without indexing the files.
 ;; - Inbox files that were not already open are saved and killed afterwards.
-;;
-;; There's an entire section for the way that collecting should deal with
-;; 'Resources' headings, as these contain the most complex logic. If there's
-;; a top level 'Resources' in the file, everything should automatically be
-;; placed there, instead of going through the minibuffer.
 ;;
 ;; Load it after vulpea-ui, e.g.:
 ;;
@@ -48,7 +47,6 @@
 (require 'sp-move-region-to-heading)
 
 ;;;; Configuration
-
 (defcustom sp-tab-inbox-dir (concat org-directory "/inbox/tabs/")
   "Directory of plain files with unsorted links."
   :type 'directory
@@ -113,7 +111,7 @@ A column-0 `*' is an Org heading, so it is not treated as a bullet.")
         (ids (list (vulpea-note-id note))))
     (when (and path (file-readable-p path))
       (with-temp-buffer
-        (if-let* ((buf (find-buffer-visiting path)))
+        (if-let ((buf (find-buffer-visiting path)))
             (insert (with-current-buffer buf
                       (save-restriction
                         (widen)
@@ -202,7 +200,7 @@ For a heading-level NOTE (e.g. when the sidebar follows narrowing) this is
 that heading.  For a file-level note, or if the heading can't be found, it
 is the whole file: MARKER at the start of the file and LEVEL 0."
   (or (and (> (or (vulpea-note-level note) 0) 0)
-           (when-let* ((m (sp-tab-inbox--heading-marker note)))
+           (when-let ((m (sp-tab-inbox--heading-marker note)))
              (cons m (with-current-buffer (marker-buffer m)
                        (org-with-wide-buffer
                         (goto-char m)
@@ -333,27 +331,26 @@ one exists, and otherwise prompts like `sp-move-region-to-heading' does."
            (sp-tab-inbox--resources-target note))
       (sp--read-org-heading (vulpea-note-path note))))
 
-(defun sp-tab-inbox-collect (file line text note &optional target)
-  "Move LINE of FILE under a heading of NOTE with `sp-move-region-to-heading'.
-The list bullet, if any, is moved with the text and also kept in FILE in
-front of the link left behind.
-TEXT is the hit text, checked against the file to catch stale line numbers.
-TARGET is an optional (MARKER . PATH) to skip the heading prompt.
-Return the target used."
-  (let* ((target (or target (sp-tab-inbox--target note)))
-         (existing (find-buffer-visiting file))
-         (buf (or existing (find-file-noselect file))))
-    (unwind-protect
-        (with-current-buffer buf
-          (save-excursion
-            (goto-char (point-min))
-            (forward-line (1- line))
-            (let ((bol (line-beginning-position))
-                  (end (line-end-position)))
-              (unless (equal (string-trim (buffer-substring-no-properties bol end))
-                             text)
-                (user-error "Line %d of %s changed; refresh the sidebar"
-                            line (file-name-nondirectory file)))
+;;;; Collecting: one hit
+
+(defun sp-tab-inbox--collect-line (buf line text target)
+  "Move LINE of BUF under TARGET, keeping the list bullet in both places.
+TARGET is (MARKER . PATH) as used by `sp-move-region-to-heading'.  Neither
+buffer is saved: that is the caller's job.  Return non-nil on success, and
+nil if the line no longer reads TEXT (nothing is changed then)."
+  (let ((tbuf (marker-buffer (car target))))
+    (unless (buffer-live-p tbuf)
+      (error "The note buffer for the target heading is gone"))
+    (with-current-buffer buf
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (forward-line (1- line))
+          (let ((bol (line-beginning-position))
+                (end (line-end-position)))
+            (when (equal (string-trim (buffer-substring-no-properties bol end))
+                         text)
               (goto-char bol)
               (let* ((bullet-end (and (looking-at sp-tab-inbox-bullet-re)
                                       (match-end 0)))
@@ -364,35 +361,189 @@ Return the target used."
                      (bullet (and bullet-end
                                   (buffer-substring-no-properties beg bullet-end))))
                 (goto-char beg)
-                (sp-move-region-to-heading beg end (car target) (cdr target))
+                ;; `sp-move-region-to-heading' saves the target note on every
+                ;; call, which is what makes big batches crawl; hold that back
+                ;; (the caller saves once) and look at the whole target buffer
+                ;; even if the user has it narrowed.
+                (cl-letf (((symbol-function 'save-buffer) #'ignore))
+                  (with-current-buffer tbuf
+                    (org-with-wide-buffer
+                     (with-current-buffer buf
+                       (sp-move-region-to-heading
+                        beg end (car target) (cdr target))))))
                 ;; the link now sits at BEG; put the bullet back before it
                 (when bullet
                   (goto-char beg)
-                  (insert bullet)))))
-          (save-buffer))
+                  (insert bullet)))
+              t)))))))
+
+(defun sp-tab-inbox-collect (file line text note &optional target)
+  "Move LINE of FILE under a heading of NOTE with `sp-move-region-to-heading'.
+The list bullet, if any, is moved with the text and also kept in FILE in
+front of the link left behind.  Both files are saved.
+TEXT is the hit text, checked against the file to catch stale line numbers.
+TARGET is an optional (MARKER . PATH) to skip the heading choice.
+Return the target used."
+  (let* ((target (or target (sp-tab-inbox--target note)))
+         (existing (find-buffer-visiting file))
+         (buf (or existing (find-file-noselect file))))
+    (unwind-protect
+        (progn
+          (unless (sp-tab-inbox--collect-line buf line text target)
+            (user-error "Line %d of %s changed; refresh the sidebar"
+                        line (file-name-nondirectory file)))
+          (with-current-buffer buf (save-buffer))
+          (with-current-buffer (marker-buffer (car target)) (save-buffer)))
       ;; only kill buffers this command opened
       (when (and (not existing) (buffer-live-p buf))
         (kill-buffer buf)))
     target))
 
+;;;; Collecting: all hits, in the background
+
+(defcustom sp-tab-inbox-async-slice 0.05
+  "Seconds of work `collect all' does per timer tick before yielding."
+  :type 'number
+  :group 'vulpea)
+
+(defcustom sp-tab-inbox-async-delay 0.1
+  "Seconds Emacs must sit idle before `collect all' does its next slice."
+  :type 'number
+  :group 'vulpea)
+
+(cl-defstruct (sp-tab-inbox-job (:constructor sp-tab-inbox-job--make)
+                                 (:copier nil))
+  queue target total (done 0) (skipped 0) file buf existing timer (last-msg 0.0))
+
+(defvar sp-tab-inbox--job nil
+  "The running `collect all' job, if any.")
+
+(defun sp-tab-inbox--ensure-idle ()
+  "Signal a user error if a `collect all' job is still running."
+  (when sp-tab-inbox--job
+    (user-error
+     "A link inbox job is still running (M-x sp-tab-inbox-cancel-collect stops it)")))
+
+(defun sp-tab-inbox--job-close-file (job)
+  "Save and, if JOB opened it, kill the inbox file JOB is working on."
+  (when-let ((buf (sp-tab-inbox-job-buf job)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (when (buffer-modified-p) (save-buffer)))
+      (unless (sp-tab-inbox-job-existing job)
+        (kill-buffer buf)))
+    (setf (sp-tab-inbox-job-buf job) nil
+          (sp-tab-inbox-job-file job) nil)))
+
+(defun sp-tab-inbox--job-finish (job &optional reason)
+  "End JOB: save everything once, refresh the sidebar and report.
+REASON, if given, says why the job stopped early."
+  (when (timerp (sp-tab-inbox-job-timer job))
+    (cancel-timer (sp-tab-inbox-job-timer job)))
+  (unwind-protect
+      (progn
+        (sp-tab-inbox--job-close-file job)
+        (let ((tbuf (marker-buffer (car (sp-tab-inbox-job-target job)))))
+          (when (buffer-live-p tbuf)
+            (with-current-buffer tbuf
+              (when (buffer-modified-p) (save-buffer))))))
+    (setq sp-tab-inbox--job nil))
+  (cl-incf sp-tab-inbox-generation)
+  (ignore-errors (vulpea-ui-sidebar-refresh))
+  (message "Link inbox: collected %d of %d lines%s%s"
+           (sp-tab-inbox-job-done job)
+           (sp-tab-inbox-job-total job)
+           (if (> (sp-tab-inbox-job-skipped job) 0)
+               (format ", %d skipped (changed since the search)"
+                       (sp-tab-inbox-job-skipped job))
+             "")
+           (if reason (format " - stopped: %s" reason) "")))
+
+(defun sp-tab-inbox--job-do-one (job)
+  "Collect the next queued hit of JOB, opening its file if needed."
+  (pcase-let ((`(,file ,line ,text) (pop (sp-tab-inbox-job-queue job))))
+    (unless (equal file (sp-tab-inbox-job-file job))
+      (sp-tab-inbox--job-close-file job)
+      (let ((existing (find-buffer-visiting file)))
+        (setf (sp-tab-inbox-job-existing job) existing
+              (sp-tab-inbox-job-buf job) (or existing (find-file-noselect file))
+              (sp-tab-inbox-job-file job) file)))
+    (if (sp-tab-inbox--collect-line (sp-tab-inbox-job-buf job) line text
+                                     (sp-tab-inbox-job-target job))
+        (cl-incf (sp-tab-inbox-job-done job))
+      (cl-incf (sp-tab-inbox-job-skipped job)))))
+
+(defun sp-tab-inbox--job-schedule (job)
+  "Arrange for JOB's next slice to run when Emacs is idle."
+  (setf (sp-tab-inbox-job-timer job)
+        (run-with-idle-timer sp-tab-inbox-async-delay nil
+                             #'sp-tab-inbox--job-tick job)))
+
+(defun sp-tab-inbox--job-tick (job)
+  "Do one short slice of JOB, then yield to the user."
+  (setf (sp-tab-inbox-job-timer job) nil)
+  (when (eq job sp-tab-inbox--job)
+    (if (active-minibuffer-window)
+        (sp-tab-inbox--job-schedule job)
+      (let ((deadline (+ (float-time) sp-tab-inbox-async-slice))
+            failure)
+        (condition-case err
+            (cl-loop
+             do (sp-tab-inbox--job-do-one job)
+             while (and (sp-tab-inbox-job-queue job)
+                        (< (float-time) deadline)
+                        (not (input-pending-p))))
+          (error (setq failure (error-message-string err))))
+        (cond
+         (failure (sp-tab-inbox--job-finish job failure))
+         ((null (sp-tab-inbox-job-queue job)) (sp-tab-inbox--job-finish job))
+         (t
+          (when (> (- (float-time) (sp-tab-inbox-job-last-msg job)) 1.0)
+            (setf (sp-tab-inbox-job-last-msg job) (float-time))
+            (message "Link inbox: collected %d/%d..."
+                     (+ (sp-tab-inbox-job-done job)
+                        (sp-tab-inbox-job-skipped job))
+                     (sp-tab-inbox-job-total job)))
+          (sp-tab-inbox--job-schedule job)))))))
+
+;;;###autoload
+(defun sp-tab-inbox-cancel-collect ()
+  "Stop the running `collect all' job.  What was collected so far stays."
+  (interactive)
+  (if sp-tab-inbox--job
+      (sp-tab-inbox--job-finish sp-tab-inbox--job "cancelled")
+    (message "No link inbox job is running")))
+
 (defun sp-tab-inbox-collect-one (file line text note)
   "Collect a single hit (FILE, LINE, TEXT) into NOTE and refresh the sidebar."
+  (sp-tab-inbox--ensure-idle)
   (sp-tab-inbox-collect file line text note)
   (cl-incf sp-tab-inbox-generation)
   (vulpea-ui-sidebar-refresh))
 
 (defun sp-tab-inbox-collect-all (hits note)
-  "Collect every hit in HITS under one heading of NOTE."
+  "Collect every hit in HITS into NOTE, in the background.
+The heading is chosen up front (so any prompt or merge happens now); the
+lines are then moved in short slices while Emacs is idle, one inbox file
+at a time, so you can keep editing, including in NOTE's own file.  Both
+kinds of file are saved once the job is done.  Each moved line is replaced
+by a one-line link, so line numbers stay valid between hits.  Progress is
+shown in the echo area; `sp-tab-inbox-cancel-collect' stops the job."
+  (sp-tab-inbox--ensure-idle)
   (when hits
-    (let ((target (sp-tab-inbox--target note)))
-      ;; Each moved line is replaced by a one-line link, so line numbers
-      ;; in the inbox files stay valid between hits.
-      (dolist (hit hits)
-        (pcase-let ((`(,file ,line ,text) hit))
-          (sp-tab-inbox-collect file line text note target)))
-      (cl-incf sp-tab-inbox-generation)
-      (message "Collected %d link inbox lines" (length hits))
-      (vulpea-ui-sidebar-refresh))))
+    (let* ((target (sp-tab-inbox--target note))
+           (queue (sort (copy-sequence hits)
+                        (lambda (a b)
+                          (if (equal (car a) (car b))
+                              (< (cadr a) (cadr b))
+                            (string< (car a) (car b))))))
+           (job (sp-tab-inbox-job--make :queue queue
+                                         :target target
+                                         :total (length queue))))
+      (setq sp-tab-inbox--job job)
+      (message "Link inbox: collecting %d lines in the background..."
+               (length queue))
+      (sp-tab-inbox--job-schedule job))))
 
 ;;;; Sending to another note
 
@@ -557,12 +708,13 @@ line then moves under the chosen note's Resources heading like `collect'
 does.  No link back is added here; at the prompt, run the embark action
 on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
   (interactive)
+  (sp-tab-inbox--ensure-idle)
   (pcase-let ((`(,file ,line ,text ,origin)
                (if (and file line text origin)
                    (list file line text origin)
                  (sp-tab-inbox--resolve-hit))))
     (setq sp-tab-inbox--pending (list file line text origin))
-    (when-let* ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
+    (when-let ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
                          (vulpea-select
                           "Send to note"
                           :require-match nil
@@ -578,6 +730,7 @@ CANDIDATE is an existing note, or a title to create a note for.  Besides
 moving the line like `sp-tab-inbox-send-elsewhere', this adds a link to
 the note under the See also heading of the note the search started from."
   (interactive "sNote: ")
+  (sp-tab-inbox--ensure-idle)
   (pcase-let ((`(,file ,line ,text ,origin)
                (or sp-tab-inbox--pending
                    (user-error "No link inbox hit is waiting to be sent"))))
@@ -650,7 +803,7 @@ the note under the See also heading of the note the search started from."
        (goto-char (car root))
        (org-map-entries
         (lambda ()
-          (when-let* ((id (org-entry-get nil "ID")))
+          (when-let ((id (org-entry-get nil "ID")))
             (push id ids)))
         nil
         (if (zerop (cdr root)) nil 'tree))))
