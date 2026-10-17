@@ -15,6 +15,7 @@ A bare `*' only counts when indented, so headings are not mistaken for items.")
 Change `https://' to `https?://' to also treat http links as links.")
 
 ;;; Region detection
+
 (defun sp-org--item-near-point ()
   "Return the start of the list item at or near point, or nil.
 On a list line (item or continuation text) that is the item itself.
@@ -151,12 +152,14 @@ slashes are dropped, and the host is lower-cased."
 
 (defun sp-org--item-url (item-beg item-end)
   "Return the normalized https:// URL of the item from ITEM-BEG to ITEM-END.
-Only the item's own text is searched, not its nested items.  Return
-nil if the item has no such link."
+ITEM-END is the end of the item's last line.  Only the item's own
+text is searched, not its nested items.  Return nil if the item has
+no such link."
   (save-excursion
     (goto-char item-beg)
-    (forward-line 1)
+    (end-of-line)
     (let ((own-end (save-excursion
+                     ;; A nested item line, if any, ends the item's own text.
                      (if (re-search-forward sp-org--item-re item-end t)
                          (line-beginning-position)
                        item-end))))
@@ -181,6 +184,7 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
             (end-of-line)
           (let* ((pos (point))
                  (struct (org-list-struct))
+                 ;; End of the item's last line, before any trailing blank lines.
                  (item-end (org-list-get-item-end-before-blank pos struct))
                  (url (sp-org--item-url pos item-end)))
             (cond
@@ -191,7 +195,8 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
               (setq kept (1+ kept))
               (end-of-line))
              (t
-              (delete-region pos item-end)
+              ;; Delete the whole line(s), including the final newline.
+              (delete-region pos (min (1+ item-end) (point-max)))
               (setq removed (1+ removed))))))))
     (cons removed kept)))
 
@@ -277,4 +282,4 @@ sublists travel with their parent item but are not re-sorted."
 ;;; Provide:
 
 (provide 'sp-org-lint)
-;;; sp-org-lint.el ends herea
+;;; sp-org-lint.el ends here
