@@ -1,7 +1,11 @@
 ;; -*- lexical-binding: t; -*-
 ;; sp-pdfprocess.el
 
-;; Working with PDF metadata from citar
+;;; Commentary:
+
+;;; Code:
+
+;;;; Working with PDF metadata from citar
 (defun sia-citar-update-pdf-metadata (citekey)
   (interactive (list (citar-select-ref)))
   (citar--check-configuration 'citar-library-paths)
@@ -20,6 +24,12 @@
         (copy-file file sia-citar-library-backup-path 1)
         (call-process-shell-command
          (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
+
+;;;; Calling emacs-reader
+(use-package emacs-reader
+  :ensure (:type git :url "https://codeberg.org/MonadicSheep/emacs-reader.git"))
+
+;;; Provide:
 
 (provide 'sp-pdfprocess)
 ;; sp-pdfprocess.el ends here.
