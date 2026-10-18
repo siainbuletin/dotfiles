@@ -1,0 +1,36 @@
+#+TITLE: sp-torrent.el: Torrent and file-sharing placeholder
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-torrent.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/media/sp-torrent.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module is a placeholder. It contains only a header, a commentary block listing what it is meant to do some day, and a footer. There is no code, no =provide= form, and nothing in =init.el= or any other module requires it, so it has no effect on the running configuration.
+
+* Planned scope
+
+** File header
+
+The opening comment naming the file.
+
+#+begin_src emacs-lisp -i
+;; sp-torrent.el
+#+end_src
+
+** Commentary: intended features
+
+A to-do list for the module: set up a torrent client that talks to a client on the home network, show the status of running torrents, and integrate with Soulseek. None of this is implemented yet.
+
+#+begin_src emacs-lisp -i
+;; COMMENTARY:
+;; - set up a torrent client that plugs into my network
+;; - see status of torrents
+;; - work with soulseek
+#+end_src
+
+** Footer
+
+The closing comment. Note that there is no =(provide 'sp-torrent)= form, so a =require= of this module would fail until one is added.
+
+#+begin_src emacs-lisp -i
+;; sp-torrent.el ends here
+#+end_src
