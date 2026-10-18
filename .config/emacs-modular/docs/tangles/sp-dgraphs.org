@@ -1,0 +1,202 @@
+#+TITLE: sp-dgraphs.el: Discourse Graphs for argument mapping
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/academic/sp-dgraphs.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-dgraphs.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module installs and configures =discourse-graphs=, a package by LuciusChen that treats Org headings in a notes directory as typed nodes (questions, claims, evidence, sources, theories) connected by typed relations (supports, opposes, informs, answers), stores them in an SQLite database, and offers a context panel, heading overlays and a browser-based UI. The commentary says it is kept separate so it can be set up on its own, and that some variables from Lambda Emacs still need to be pulled in for it to work well.
+
+The package is fetched from GitHub through Elpaca, including the prebuilt HTML and assets of its web UI. Notes are scanned recursively under =~/notes/=, with Denote integration turned on. The module is in the default module list in =init.el= under Academic. Note that the database is configured to live in =~/.config/emacs-include/=, while a =discourse-graphs.db= file also sits at the root of this repository, which suggests the location has changed at some point.
+
+* Header
+
+** Header and commentary
+
+File header and a short commentary on why Discourse Graphs has its own module.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-dgraphs.el
+
+;;; Commentary:
+
+;; This is just adding the code for Discourse Graphs, which I want to have
+;; set up separately. I need to pull in the other variables used in Lambda
+;; Emacs for it to work well.
+#+end_src
+
+* Installing the package
+
+** use-package discourse-graphs
+
+Installs =discourse-graphs= from GitHub with the Elisp files and the built web UI files. Once loaded, it sets the directories to scan (=~/notes/=), turns on recursive scanning, sets the SQLite database path, and enables the global =discourse-graphs-mode=. The closing parenthesis on its own line ends the =use-package= form.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+(use-package discourse-graphs
+  :ensure (discourse-graphs :type git
+                            :host github
+                            :repo "LuciusChen/discourse-graphs"
+                            :files ("*.el"
+                            "discourse-graphs-ui/out/*.html"
+                            "discourse-graphs-ui/out/assets/*"))
+  :config
+  (setq dg-directories ;; This is where we scan for nodes
+  '("~/notes/")
+  )
+  (setq dg-recursive t)
+  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+
+(discourse-graphs-mode 1)
+)
+#+end_src
+
+* Display and behaviour options
+
+These are plain =setq= calls at load time, outside the =use-package= form. They take effect because the package's =defcustom= forms do not override values that are already set.
+
+** Denote integration
+
+Sets =dg-use-denote= so that nodes are handled as Denote notes.
+
+#+begin_src emacs-lisp -i
+;; Use with denote
+(setq dg-use-denote t)
+#+end_src
+
+** Context panel
+
+The context panel takes 30 percent of the frame width, updates automatically as point moves between nodes, and shows at most 30 lines per node.
+
+#+begin_src emacs-lisp -i
+(setq dg-context-window-width 0.3)
+
+;; Auto-update context when moving between nodes
+(setq dg-context-auto-update t)
+
+;; Maximum lines to display per node in context panel (nil for unlimited)
+(setq dg-context-max-lines 30)
+#+end_src
+
+** Overlays and synthesis file
+
+Turns on overlays on node headings and sets the synthesis dashboard file to =~/notes/dg-synthesis.org=.
+
+#+begin_src emacs-lisp -i
+;; Show overlays on headings
+(setq dg-overlay-enable t)
+
+;; Synthesis dashboard file location
+(setq dg-synthesis-file "~/notes/dg-synthesis.org")
+#+end_src
+
+* Discourse model
+
+The vocabulary of the graph: computed attributes, node types, relation types, and which node types each relation may connect.
+
+** Computed attributes
+
+=dg-discourse-attributes= defines formulas over relation counts. Claims get an evidence score (supporting minus opposing evidence) and a robustness score that also counts supporting claims at half weight; the evidence score is shown in the heading overlay. Questions get an answer count, which is their overlay. A comment leaves room for more types.
+
+#+begin_src emacs-lisp -i
+(setq dg-discourse-attributes
+      '(
+        (claim
+         . (
+            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+            (overlay . evidence-score)
+                )
+           )
+
+        (question
+         . (
+          (answer-count . "{count:Answered By:claim}")
+            (overlay . answer-count)
+              )
+         )
+        ;; ... more types
+        )
+)
+#+end_src
+
+** Node types
+
+=dg-node-types= defines five node types, each with a three-letter tag, a colour and a description: question (QUE), claim (CLM), evidence (EVD), source (SRC, described as reference material or philosophical text) and theory (THY).
+
+#+begin_src emacs-lisp -i
+(setq dg-node-types
+      '(
+        (question . (:short "QUE"
+                          :color "lightblue"
+                          :desc "Research question"))
+        (claim    . (:short "CLM"
+                          :color "lightyellow"
+                          :desc "Assertion, thesis or position in a debate"))
+        (evidence . (:short "EVD"
+                          :color "lightgreen"
+                          :desc "Argument, proof, or supporting empirical data"))
+        (source   . (:short "SRC"
+                          :color "lightgray"
+                          :desc "Reference material / Philosophical text"))
+        (theory   . (:short "THY"
+                                  :color "lightcoral"
+                          :desc "Theoretical framework"))
+        ))
+#+end_src
+
+** Relation types
+
+=dg-relation-types= defines four relations with the label used for the inverse direction and the colour and line style used when drawing them: supports (green, solid), opposes (red, dashed), informs (blue, solid) and answers (purple, solid).
+
+#+begin_src emacs-lisp -i
+(setq dg-relation-types
+      '(
+      (supports  . (:inverse "Supported By"
+                             :color "green"
+                             :style "solid"))
+      (opposes   . (:inverse "Opposed By"
+                             :color "red"
+                             :style "dashed"))
+      (informs   . (:inverse "Informed By"
+                             :color "blue"
+                             :style "solid"))
+      (answers   . (:inverse "Answered By"
+                             :color "purple"
+                             :style "solid"))
+      )
+      )
+#+end_src
+
+** Relation patterns
+
+=dg-relation-patterns= restricts which node types each relation connects: evidence supports or opposes claims, sources inform evidence, and claims answer questions. Theory nodes do not appear in any pattern, so as configured they cannot take part in relations.
+
+#+begin_src emacs-lisp -i
+(setq dg-relation-patterns
+      '((supports . (:source (evidence)
+                           :target (claim)))
+      (opposes  . (:source (evidence)
+                           :target (claim)))
+      (informs  . (:source (source)
+                           :target (evidence)))
+      (answers  . (:source (claim)
+                           :target (question)))
+      )
+        )
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-dgraphs= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-dgraphs)
+;; sp-dgraphs.el ends here.
+#+end_src
