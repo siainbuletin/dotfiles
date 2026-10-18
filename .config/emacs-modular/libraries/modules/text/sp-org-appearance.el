@@ -117,6 +117,17 @@
       `( :mode-line-active default
          :mode-line-inactive shadow))
 
+;; On a tty frame (`emacsclient -c' from a terminal, `-t') the theme faces
+;; have unspecified colors, and `spacious-padding-set-faces' builds an
+;; invalid `:underline (:color unspecified ...)' for `header-line-inactive'.
+;; The error aborts `make-frame', so the server deletes the new frame.
+;; Padding only matters on graphic frames, so skip the rest.
+(define-advice spacious-padding-set-parameters-of-frame
+    (:around (fn &optional frame) sp-graphic-only)
+  "Only apply spacious padding to graphic FRAME."
+  (when (display-graphic-p frame)
+    (funcall fn frame)))
+
 ;;; Provide:
 
 (provide 'sp-org-appearance)
