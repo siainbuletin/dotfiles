@@ -1,0 +1,115 @@
+#+TITLE: sp-interaction.el: Mouse and scrolling
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/base/sp-interaction.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-interaction.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module handles the lowest level of interaction with the graphical interface: how the mouse wheel and trackpad scroll, whether pixel scrolling is used, how windows react to the pointer, and what the right-click context menu offers. It only configures built-in libraries (=mwheel=, =pixel-scroll= and =mouse=), so it has no package dependencies.
+
+The scrolling settings are noted as taken from Lambda Emacs. The module is loaded early, as part of the core group in both the default and minimal module lists in =init.el=.
+
+* Header
+
+** Header and commentary
+
+File header and a commentary describing the module as the base layer for mouse and GUI interaction.
+
+#+begin_src emacs-lisp -i
+;;; -*- lexical-binding: t -*-
+;; sp-interaction.el
+
+;;; Commentary:
+
+;; This is set up for the lowest level of interaction
+;; with the graphical interface in Emacs. For example,
+;; the mouse support. 
+
+;;; Code:
+#+end_src
+
+* Scrolling
+
+** Mouse wheel
+
+Tunes =mwheel= for trackpads, which send many more scroll events than a mouse wheel. Scrolling acts on the window under the pointer rather than the selected one, acceleration is turned off, scroll events are coalesced, and each event moves one line (two with Shift) instead of the default five.
+
+#+begin_src emacs-lisp -i
+;; Scrolling and mouse usage
+;; taken from lambda emacs 2026.10.02
+
+;; this is a built-in package
+(use-package mwheel
+  :ensure nil
+  :config
+  ;; Optimize mouse wheel scrolling for smooth-scrolling trackpad use.
+  ;; Trackpads send a lot more scroll events than regular mouse wheels,
+  ;; so the scroll amount and acceleration must be tuned to smooth it out.
+  (setq
+   ;; If the frame contains multiple windows, scroll the one under the cursor
+   ;; instead of the one that currently has keyboard focus.
+   mouse-wheel-follow-mouse 't
+   ;; Completely disable mouse wheel acceleration to avoid speeding away.
+   mouse-wheel-progressive-speed nil
+   mwheel-coalesce-scroll-events t
+   ;; The most important setting of all! Make each scroll-event move 1 line at a
+   ;; time (instead of 5 at default). Simply hold down shift to move twice as
+   ;; fast. Perfect for trackpads.
+   mouse-wheel-scroll-amount '(1 ((shift) . 2))))
+#+end_src
+
+** Pixel scrolling disabled
+
+Declares =pixel-scroll= with =:disabled=, so nothing in the form runs and =pixel-scroll-precision-mode= stays off. The comment says pixel scrolling caused janky behaviour on macOS.
+
+#+begin_src emacs-lisp -i
+;; Don't use pixel-scroll by default -- it causes janky behavior on MacOS
+(use-package pixel-scroll
+  :ensure nil
+  :disabled)
+#+end_src
+
+* Mouse
+
+** Focus and context menu
+
+Makes the window under the pointer become selected automatically (=mouse-autoselect-window=) and tells Emacs that the window manager uses focus-follows-mouse, so frames are handled accordingly. It also sets the right-click context menu to offer find-file-at-point, occur, region, undo and dictionary entries. =context-menu-mode= itself is not turned on here, so the menu only appears if it is enabled elsewhere.
+
+#+begin_src emacs-lisp -i
+;;;; Mouse
+;; Don't be afraid of the mouse!
+;; For ideas see https://ruzkuku.com/texts/emacs-mouse.html
+(use-package mouse
+  :ensure nil
+  :config
+  ;; Focus follows mouse
+  (setq mouse-autoselect-window t
+        focus-follows-mouse t)
+  (setq context-menu-functions
+        '(context-menu-ffap
+          occur-context-menu
+          context-menu-region
+          context-menu-undo
+          context-menu-dictionary)))
+#+end_src
+
+** Note on window management
+
+A reminder to link to the window management packages and to move the EXWM setup into the window management library.
+
+#+begin_src emacs-lisp -i
+;; This should include a link to the window management packages that I use in this case.
+;; and exwm should be moved to the window management macro library.
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-interaction= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-interaction)
+;; sp-interaction.el ends here.
+#+end_src

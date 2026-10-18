@@ -1,0 +1,262 @@
+#+TITLE: sp-dired.el: Dired and Dirvish file management
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/base/navi/sp-dired.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/navi/sp-dired.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module sets up file management: Dired listing options, a personal sort command, extra highlighting with =diredfl=, an optional =dired-sidebar=, and above all Dirvish, which replaces the Dired interface with previews, a side panel, grouping of files and many menus. It also tries to add an =eza= based directory preview and to open binary files in external programs.
+
+It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el= and the =sp-load-extras= flag, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
+
+The end of the file has problems worth knowing about: the eza preview is written as a =setq= instead of a =dirvish-define-preview= call, which will signal an error when the file loads, so everything after it (including the =provide=) does not run. Because modules are loaded inside a =condition-case=, this shows up as a failure message rather than stopping startup.
+
+* File header
+
+** Header and commentary
+
+The commentary describes the file as part of the navigation setup, focused on good Dired settings.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;;; sp-dired.el --- summary
+
+;;; Commentary:
+
+;; Setup code for "navigating" Emacs, in the sense of outlines, goto functions,
+;; saving place, recent files, etc.
+;; this file is particularly concerned with good settings for dired.
+#+end_src
+
+* Dired basics
+
+** Human-readable sizes
+
+Sets the default =dired-listing-switches= to =-alh=, which shows all files with sizes in KB, MB and so on. This value is overridden twice further down, so it only matters if the later settings are removed.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+;;;; Helpful functions
+;; Make-dired-file-sizes-human-readable
+;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
+(setq-default dired-listing-switches "-alh")
+#+end_src
+
+** dired-sidebar
+
+When extras are enabled and the package is installed, =dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
+
+#+begin_src emacs-lisp -i
+;;;;; Dired Sidebar
+(use-package dired-sidebar
+  :when (and sp-load-extras (locate-library "dired-sidebar"))
+  :commands (dired-sidebar-toggle-sidebar)
+
+  :custom
+  ;; Auto-fit width to content
+  (dired-sidebar-resize-on-open t)
+  (dired-sidebar-width 40)
+
+  ;; Set horizontal fitting to only when needed
+  (fit-window-to-buffer-horizontally 'only))
+#+end_src
+
+* Sorting
+
+** sp-dired-sort
+
+=sp-dired-sort= prompts for a sort order (date, size, name, or directories first, defaulting to date) and re-lists the current Dired buffer with the matching =ls= flags through =dired-sort-other=. The docstring claims it works on Linux, macOS and Windows; the directories-first option relies on GNU =ls=. No key is bound here.
+
+#+begin_src emacs-lisp -i
+;;;; Personal function for sorting
+
+(defun sp-dired-sort ()
+  "Sort dired dir listing in different ways.
+Prompt for a choice.
+Works in linux, MacOS, Microsoft Windows."
+  (interactive)
+  (let ((xmenu '(("date" . "-Al -t")
+                 ("size" . "-Al -S")
+                 ("name" . "-Al ")
+                 ("dir" . "-Al --group-directories-first")))
+        xsortBy)
+    (setq xsortBy (completing-read "Sort by (default date):" xmenu nil t nil nil (caar xmenu)))
+    (dired-sort-other (cdr (assoc xsortBy xmenu)))))
+#+end_src
+
+** Minimal listing switches
+
+Replaces the listing switches with =-aghov --group-directories-first=, which hides owner and group columns, uses human-readable sizes, sorts versions naturally and puts directories first. Dirvish sets the switches yet again when it loads.
+
+#+begin_src emacs-lisp -i
+;; Set Dired listing switches for more minimalist output
+(setq dired-listing-switches "-aghov --group-directories-first")
+#+end_src
+
+** diredfl
+
+=diredfl= adds richer colours to Dired listings. It is enabled in Dired buffers and in Dirvish's directory preview, and directory names are made bold.
+
+#+begin_src emacs-lisp -i
+;; Additional syntax highlighting for dired
+(use-package diredfl
+  :ensure t
+  :hook
+  ((dired-mode . diredfl-mode)
+   ;; highlight parent and directory preview as well
+   (dirvish-directory-view-mode . diredfl-mode))
+
+  :config
+  (set-face-attribute 'diredfl-dir-name nil :bold t))
+#+end_src
+
+* Dirvish
+
+** Dirvish configuration
+
+Dirvish takes over every Dired buffer via =dirvish-override-dired-mode=. Inside Dirvish buffers =dirvish-emerge-mode= groups files into the categories given in =dirvish-emerge-groups= (recent files, documents, video, pictures, audio, archives). =dirvish-peek-mode= adds file previews to the minibuffer while completing file names, and =dirvish-side-follow-mode= keeps the side panel in sync with the current file.
+
+The buffer shows version control state, file size, last commit message, subtree state, Nerd Font icons and file time. The mode line and header line show sort order, path, free space and similar information. The cursor is hidden and the current line highlighted instead. Listing switches are set to long format, all but =.= and =..=, human-readable sizes and directories first.
+
+=C-c f= opens Dirvish globally. Inside Dirvish, =;= goes up a directory, =?= opens the command cheatsheet, and single keys open menus for attributes (=a=), file info (=f=), quick access (=o=), sorting (=s=), history (=r=), ls switches (=l=), version control (=v=), marking (=*=) and yanking (=y=). =N= narrows, =TAB= expands a subtree, =^= goes back in history, =M-f= and =M-b= move through history and =M-e= opens the emerge menu.
+
+A bug: =dirvish-cache-dir= is given a quoted form, so it is set to the literal list =(concat sp-cache-dir "dirvish/")= instead of the path string. Dropping the quote would give the intended directory.
+
+#+begin_src emacs-lisp -i
+;;;; Dirvish dired extension
+(use-package dirvish
+  :ensure t
+  :after dired
+
+  :init
+  (dirvish-override-dired-mode)          ; global mode, enable once
+  :hook
+  (dirvish-mode . dirvish-emerge-mode)   ; only inside Dirvish buffers
+
+  :config
+  (dirvish-peek-mode)
+  (dirvish-side-follow-mode)
+
+  :custom
+  ;;;; attributes to show in the dirvish buffer
+  (dirvish-attributes
+  '(vc-state file-size git-msg subtree-state nerd-icons collapse file-time))
+
+  ;;;;; UI settings for dirvish
+  (dirvish-mode-line-format
+    '(:left (sort symlink)
+      :right (vc-info yank index)))
+  (dirvish-header-line-height '(25 . 35))
+  (dirvish-header-line-format '(:left (path) :right (free-space)))
+  (dirvish-side-width 38)
+
+  (dired-listing-switches
+   "-l --almost-all --human-readable --group-directories-first")
+
+  ;;;; showing the cursor
+  ;; Dirvish by default hides the cursor in Dired buffers and highlights the current line.
+  ;; It uses the dirvish-hl-line face for the active window and dirvish-hl-line-inactive for
+  ;; inactive windows. To modify this behavior, customize the dirvish-hide-cursor variable.
+  (dirvish-hide-cursor t)
+
+  ;;; Customizing the cache dir
+  (dirvish-cache-dir '(concat sp-cache-dir "dirvish/"))
+
+  ;;;; groups
+  (dirvish-emerge-groups
+   '(("Recent files" (predicate . recent-files-2h))
+     ("Documents"    (extensions "pdf" "tex" "bib" "epub"))
+     ("Video"        (extensions "mp4" "mkv" "webm"))
+     ("Pictures"     (extensions "jpg" "png" "svg" "gif"))
+     ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
+     ("Archives"     (extensions "gz" "rar" "zip"))))
+
+  ;;; Keybindings to move through the buffer
+  :bind
+  (("C-c f" . dirvish)
+   :map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
+   (";"   . dired-up-directory)        ; So you can adjust `dired' bindings here
+   ("?"   . dirvish-dispatch)          ; [?] a helpful cheatsheet
+   ("a"   . dirvish-setup-menu)        ; [a]ttributes settings:`t' toggles mtime, `f' toggles fullframe, etc.
+   ("f"   . dirvish-file-info-menu)    ; [f]ile info
+   ("o"   . dirvish-quick-access)      ; [o]pen `dirvish-quick-access-entries'
+   ("s"   . dirvish-quicksort)         ; [s]ort flie list
+   ("r"   . dirvish-history-jump)      ; [r]ecent visited
+   ("l"   . dirvish-ls-switches-menu)  ; [l]s command flags
+   ("v"   . dirvish-vc-menu)           ; [v]ersion control commands
+   ("*"   . dirvish-mark-menu)
+   ("y"   . dirvish-yank-menu)
+   ("N"   . dirvish-narrow)
+   ("^"   . dirvish-history-last)
+   ("TAB" . dirvish-subtree-toggle)
+   ("M-f" . dirvish-history-go-forward)
+   ("M-b" . dirvish-history-go-backward)
+   ("M-e" . dirvish-emerge-menu)))
+#+end_src
+
+* Previews
+
+** Layout note and preview count
+
+A heading notes the aim of a Yazi-like window layout, which is not implemented. =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive. Commented lines mention the preview environment and large-file threshold as things not yet worked out.
+
+#+begin_src emacs-lisp -i
+;;; Windowing Layout for dirvish
+;; this should make it work like yazi
+
+;;; Preview options
+(setq dirvish-preview-buffers-max-count 2)
+;; (dirvish-preview-environment) ;; I don't know how to set this up
+;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
+#+end_src
+
+** eza directory preview
+
+The intent is a custom preview that runs =eza -al= with colours and icons when the selected entry is a directory, then registers it at the front of =dirvish-preview-dispatchers=. As written, the definition starts with =setq= instead of =dirvish-define-preview=, so Emacs tries to evaluate =eza= as a variable and errors. The =push= would also fail if Dirvish had not yet loaded, since it runs at top level while Dirvish is deferred until Dired loads.
+
+#+begin_src emacs-lisp -i
+;; Custom preview for directories with 'eza'
+(setq dirvish-define-preview eza (file)
+  "Use `eza' to generate directory preview."
+  :require ("eza") ; tell Dirvish to check if we have the executable
+  (when (file-directory-p file) ; we only interest in directories here
+    `(shell . ("eza" "-al" "--color=always" "--icons=always"
+               "--group-directories-first" ,file))))
+
+(push 'eza dirvish-preview-dispatchers)
+#+end_src
+
+* External programs
+
+** Open binary files externally
+
+=dirvish-open-binaries-externally= is meant for =dirvish-find-entry-hook=: when you open an existing, non-directory file whose extension is in =dirvish-binary-exts=, it opens it with the system's default application via =dired-do-open= (Emacs 30 or later) and returns =t= so Dirvish does not also visit it. Like the preview above, this is never reached at load time because of the earlier error.
+
+#+begin_src emacs-lisp -i
+;;;; Open binary files externally
+(defun dirvish-open-binaries-externally (file fn)
+  "When FN is not `dired', open binary FILE externally."
+  (when-let* (((not (eq fn 'dired)))
+              ((file-exists-p file))
+              ((not (file-directory-p file)))
+              ((member (downcase (or (file-name-extension file) ""))
+                       dirvish-binary-exts)))
+    ;; return t to terminate `dirvish--find-entry'.
+    (prog1 t (dired-do-open))))
+
+(add-hook 'dirvish-find-entry-hook #'dirvish-open-binaries-externally)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+A separator line, then registration of the =sp-dired= feature.
+
+#+begin_src emacs-lisp -i
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Provide
+(provide 'sp-dired)
+
+;;; sp-dired.el ends here
+#+end_src

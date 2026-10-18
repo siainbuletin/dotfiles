@@ -1,0 +1,48 @@
+#+TITLE: sp-encoding.el: UTF-8 everywhere
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/base/sp-encoding.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-encoding.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module makes UTF-8 the coding system for files, the terminal and keyboard input. It is the very first module loaded from =init.el=, in both the default and minimal lists, so later modules can assume UTF-8. It has no dependencies.
+
+* Encoding
+
+** File header
+
+Lexical binding and the file name.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-encoding.el
+
+;;; Code:
+#+end_src
+
+** UTF-8 defaults
+
+Sets UTF-8 as the default for new buffers, file names and processes, puts it first in the list used to detect a file's encoding, and uses it for terminal output and keyboard input in terminal frames. The language environment is set to English, and =default-buffer-file-coding-system= is set as well, though that name is an obsolete alias of =buffer-file-coding-system=. Because =set-language-environment= runs after the coding settings, it can reset some of them depending on the system locale; calling it first is the usual order.
+
+#+begin_src emacs-lisp -i
+(set-default-coding-systems 'utf-8)     ; Default to utf-8 encoding
+(prefer-coding-system       'utf-8)     ; Add utf-8 at the front for automatic detection.
+(set-terminal-coding-system 'utf-8)     ; Set coding system of terminal output
+(set-keyboard-coding-system 'utf-8)     ; Set coding system for keyboard input on TERMINAL
+(set-language-environment "English")    ; Set up multilingual environment
+(setq default-buffer-file-coding-system 'utf-8)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-encoding= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-encoding)
+;; sp-encoding.el ends here.
+#+end_src
