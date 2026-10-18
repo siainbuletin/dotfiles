@@ -1,0 +1,56 @@
+#+TITLE: sp-debug.el: Startup debugging and profiling
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-debug.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-debug.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A very small module for diagnosing Emacs performance. For now it only turns on use-package's timing statistics. It is loaded from =init.el= among the utility modules.
+
+* File header
+
+** Header
+
+Standard header with lexical binding. The Commentary section is empty.
+
+#+begin_src emacs-lisp -i
+;;; -*- lexical-binding: t -*-
+;; sp-debug.el --- Debugging options for making Emacs run well
+
+;;; Commentary:
+
+;;; Code:
+#+end_src
+
+* Profiling
+
+** Purpose note
+
+An unfinished comment saying the module is for profiling and setting up different options.
+
+#+begin_src emacs-lisp -i
+;; This is for profiling and setting up different
+#+end_src
+
+** use-package statistics
+
+Setting =use-package-compute-statistics= makes use-package record how long each package took to load and configure. Run =M-x use-package-report= to see the table. It only measures packages declared after this setting takes effect, so its usefulness depends on how early the module is loaded.
+
+#+begin_src emacs-lisp -i
+;; Getting information on the launch time for packages.
+(setq use-package-compute-statistics t)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-debug= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-debug)
+;; sp-debug ends here.
+#+end_src

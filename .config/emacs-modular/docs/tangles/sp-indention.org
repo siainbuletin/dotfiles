@@ -1,0 +1,90 @@
+#+TITLE: sp-indention.el: Tabs, indentation width and indent keys
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-indention.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-indention.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module sets global indentation defaults: spaces instead of tab characters, a width of 4, and keys for inserting a literal tab and shifting a region by one tab stop. It also registers autoloads for =guess-style=, a library that guesses a file's indentation style.
+
+It is loaded with the utility modules in =init.el=. The =C-<tab>= binding calls =company-complete= from =company=, which is configured in =sp-completion=. The =guess-style= autoloads expect a =guess-style= folder next to this file, which does not exist in the repository.
+
+* Header
+
+** File header
+
+Lexical binding, a one-line description and empty commentary and code headers.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-indention.el --- Indentation
+
+;;; Commentary:
+
+;;; Code:
+#+end_src
+
+* Indentation settings
+
+** Tab keys
+
+=S-<tab>= (=<backtab>=) inserts a literal tab character with the small command =insert-tab-char=, and =C-<tab>= triggers =company-complete=. The comment asks what the tab behaviour is really for; the literal tab is presumably useful where =TAB= indents instead of inserting.
+
+#+begin_src emacs-lisp -i
+;; What is this tabbing behavior really for?
+(global-set-key (kbd "<backtab>") 'insert-tab-char)
+(global-set-key (kbd "<C-tab>") 'company-complete)
+(defun insert-tab-char ()
+  "insert a tab char. (ASCII 9, \t)"
+  (interactive)
+  (insert "\t"))
+#+end_src
+
+** Tab width
+
+Indentation uses spaces by default. =tab-width= is set to 4, though plain =setq= only changes it for the buffer that is current while this file loads, and =default-tab-width= is an obsolete alias. =c-basic-offset= and =cperl-indent-level= are made aliases of =tab-width=, so C-style and Perl indentation follow the tab width.
+
+#+begin_src emacs-lisp -i
+;; Tab width
+(setq-default indent-tabs-mode nil)
+(setq tab-width 4)
+(setq default-tab-width 4)
+(defvaralias 'c-basic-offset 'tab-width)
+(defvaralias 'cperl-indent-level 'tab-width)
+#+end_src
+
+** Shift a region
+
+=C->= and =C-<= move the selected lines one tab stop to the right or left.
+
+#+begin_src emacs-lisp -i
+;; Keymap for indentation
+(keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
+(keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
+#+end_src
+
+** guess-style autoloads
+
+Adds a =guess-style= subdirectory of this file's folder to =load-path= and declares autoloads for =guess-style-set-variable=, =guess-style-guess-variable= and =guess-style-guess-all=. The library would detect whether a file uses tabs or spaces and how wide its indentation is. Since that folder is not in the repository, calling these commands fails to load the library. Nothing calls them automatically.
+
+#+begin_src emacs-lisp -i
+;; Auto indentation
+(add-to-list 'load-path
+             (expand-file-name "guess-style"
+                               (file-name-directory (or load-file-name buffer-file-name default-directory))))
+(autoload 'guess-style-set-variable "guess-style" nil t)
+(autoload 'guess-style-guess-variable "guess-style")
+(autoload 'guess-style-guess-all "guess-style" nil t)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-indention= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-indention)
+;; sp-indention.el ends here.
+#+end_src
