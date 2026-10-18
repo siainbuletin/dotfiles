@@ -1,0 +1,189 @@
+#+TITLE: sp-mini-frame.el: Centered minibuffer frame with background dimming
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/ui/sp-mini-frame.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-mini-frame.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module uses the =mini-frame= package to show the minibuffer in a child frame near the centre of the screen, like a quick switcher. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
+
+The dimming is implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library. It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup. The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions. The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
+
+* Header
+
+** File header and commentary
+
+Lexical binding, a one-line description and the commentary. It describes the goal: a dimmed, centred minibuffer when looking for a file, while prompts such as link insertion should stay near the bottom so they follow the text being written. That second part is not implemented in this file.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-mini-frame.el --- Creating a mini-frame that works kind of like a quick switcher
+
+;;; Commentary:
+
+;; This configuration for emacs-mini-frame.el makes sure that the minibuffer is being
+;; dimmed and centered when I'm looking for a particular file, or wanting to insert a
+;; link. Inserting should still be placed somewhere in the bottom, so it can follow what
+;; I'm writing in the current buffer without interrupting the focus on screen
+
+;;; Code: 
+
+;;; Create mini frame for the buffer
+#+end_src
+
+** Require color
+
+Loads the built-in =color= library, which the comment asks about. It provides the colour conversion functions used for dimming below, such as =color-name-to-rgb= and =color-rgb-to-hex=.
+
+#+begin_src emacs-lisp -i
+(require 'color) ;; why is color needed? what is this package?
+#+end_src
+
+* The mini-frame
+
+** mini-frame-mode
+
+Installs =mini-frame= and turns on =mini-frame-mode=. The frame is centred horizontally, placed at 40 percent of the parent frame's height so the candidate list has room to grow downward, and takes 60 percent of the width so vertical completion does not fill the screen. It has thin 2-pixel borders. Leaving =mini-frame-resize= as =not-set= lets Emacs handle resizing the frame.
+
+#+begin_src emacs-lisp -i
+(use-package mini-frame
+  :ensure t
+  
+  :custom
+  (mini-frame-show-parameters
+   '((left . 0.5)    ; float = fraction of the parent frame, so 0.5 centers horizontally
+     (top . 0.4)     ; 0.5 is dead center for a one-line frame; slightly higher leaves
+                     ; room for the candidate list to grow downward
+     (width . 0.6)   ;; By adjusting the width, you're making sure that the minim-frame doesn't
+                     ;; occupy the full width for vertical minibuffer completion
+     (child-frame-border-width . 2)
+     (internal-border-width . 2)))
+  (mini-frame-resize 'not-set) ; this leaves resizing to Emacs to do the job
+
+  :config
+  (mini-frame-mode 1)
+)
+#+end_src
+
+* Dimming the background
+
+When one of the listed commands opens the minibuffer, every buffer visible in the frame behind gets its face colours blended toward the background. Leaving the minibuffer restores them.
+
+** Section comment
+
+A comment introducing the dimming code.
+
+#+begin_src emacs-lisp -i
+;;; Dimming, only for selected commands
+#+end_src
+
+** Commands that dim
+
+=sp-mini-frame-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
+
+#+begin_src emacs-lisp -i
+(defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
+  "Commands whose minibuffer should dim the underlying frame.")
+#+end_src
+
+** Dim amount
+
+=sp-mini-frame-dim-amount= (0.45) is the blending factor passed to the colour blend.
+
+#+begin_src emacs-lisp -i
+(defvar sp-mini-frame-dim-amount 0.45
+  "How far to blend text colors toward the background (0 = none, 1 = invisible).")
+#+end_src
+
+** Dimming state
+
+=sp-mini-frame--dim-cookies= holds, per buffer, the face remapping cookies so they can be removed later. =sp-mini-frame--dimmed-buffers= records which buffers were dimmed.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-mini-frame--dim-cookies nil)
+(defvar sp-mini-frame--dimmed-buffers nil)
+#+end_src
+
+** Blend two colours
+
+=sp-mini-frame--blend= converts a foreground and background colour name to RGB, blends them by the given amount and returns a hex colour string. It returns nil when either colour is not a usable string.
+
+#+begin_src emacs-lisp -i
+(defun sp-mini-frame--blend (fg bg amount)
+  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
+        (b (and (stringp bg) (color-name-to-rgb bg))))
+    (when (and f b)
+      (apply #'color-rgb-to-hex
+             (append (color-blend f b amount) '(2))))))
+#+end_src
+
+** Dim a frame
+
+=sp-mini-frame-dim= goes through each distinct buffer shown in the frame's windows. For every defined face that has a foreground colour, it adds a buffer-local remap to the blended colour, storing the cookie. A buffer that is already dimmed is left alone. Looping over the whole =face-list= for each buffer makes this somewhat heavy when many faces are defined.
+
+#+begin_src emacs-lisp -i
+(defun sp-mini-frame-dim (frame)
+  "Dim all text in the buffers shown in FRAME."
+  (let ((bg (face-background 'default frame)))
+    (dolist (buf (delete-dups
+                  (mapcar #'window-buffer (window-list frame 'no-minibuf))))
+      (with-current-buffer buf
+        (unless sp-mini-frame--dim-cookies
+          (dolist (face (face-list))
+            (let* ((fg (face-attribute face :foreground frame))
+                   (dim (and (not (eq fg 'unspecified))
+                             (sp-mini-frame--blend fg bg sp-mini-frame-dim-amount))))
+              (when dim
+                (push (face-remap-add-relative face :foreground dim)
+                      sp-mini-frame--dim-cookies))))
+          (push buf sp-mini-frame--dimmed-buffers))))))
+#+end_src
+
+** Undim
+
+=sp-mini-frame-undim= removes all stored remappings from the dimmed buffers that still exist and clears the list.
+
+#+begin_src emacs-lisp -i
+(defun sp-mini-frame-undim ()
+  (dolist (buf sp-mini-frame--dimmed-buffers)
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (mapc #'face-remap-remove-relative sp-mini-frame--dim-cookies)
+        (setq sp-mini-frame--dim-cookies nil))))
+  (setq sp-mini-frame--dimmed-buffers nil))
+#+end_src
+
+** Only dim for chosen commands
+
+=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =mini-frame-mode= is on and the command running is one of =sp-mini-frame-dim-commands=.
+
+#+begin_src emacs-lisp -i
+(defun sp-mini-frame--maybe-dim ()
+  (when (and (bound-and-true-p mini-frame-mode)
+             (memq this-command sp-mini-frame-dim-commands)
+             (minibuffer-selected-window))
+    (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))
+#+end_src
+
+** Hooks
+
+Runs the dimming check whenever a minibuffer is set up and undims on every minibuffer exit. Since the exit hook undims everything, leaving a nested minibuffer also restores the colours while the outer prompt is still open.
+
+#+begin_src emacs-lisp -i
+(add-hook 'minibuffer-setup-hook #'sp-mini-frame--maybe-dim)
+(add-hook 'minibuffer-exit-hook #'sp-mini-frame-undim)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-mini-frame= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-mini-frame)
+;; sp-mini-frame.el ends here.
+#+end_src

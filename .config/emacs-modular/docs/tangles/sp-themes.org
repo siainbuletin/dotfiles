@@ -1,0 +1,380 @@
+#+TITLE: sp-themes.el: Theme management and theme packages
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/ui/sp-themes.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-themes.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+Sets up how colour themes are found, loaded and switched. It points =custom-theme-directory= at =libraries/themes/= and adds every subfolder there to the theme load path, provides a clean theme-switching command that disables all active themes first, and installs several theme families: Modus, Ef, Doric and Lambda themes, plus =easy-theme-preview= for trying them out. It also defines a light/dark toggle and a hook that runs after any =load-theme=.
+
+Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=. The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=). Automatic switching to match the macOS system appearance lives in =sp-macos=, not here. The menubar helpers call an external =dark-mode= command-line tool.
+
+* Overview
+
+** File header
+
+Turns on lexical binding and names the file.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;;; sp-themes.el
+#+end_src
+
+** Commentary marker
+
+Start of the commentary section.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+** Origins
+
+Notes that the theme manager is taken from Lambda-Emacs, which ships its own Lambda themes, and recommends the built-in Modus themes.
+
+#+begin_src emacs-lisp -i
+;; This includes the theme manager from Lambda Emacs
+;;
+;; 𝛌-Emacs comes with its own set of themes --
+;; 𝛌-Themes. The user can of course configure things to use whatever theme they
+;; like. The Modus themes are especially good and included with Emacs 28+.
+#+end_src
+
+* Theme loading infrastructure
+
+** Trust all themes
+
+Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one never asks for confirmation. The comment questions whether this needs to come first; it does need to be set before any =load-theme= call that would otherwise prompt.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+;;;; No-confirm themes
+;; should this setting really come first?
+(setq custom-safe-themes t)
+#+end_src
+
+** Custom themes directory option
+
+=sp-custom-themes-dir= is a customizable path for local themes, defaulting to =themes/= inside =sp-library-dir=.
+
+#+begin_src emacs-lisp -i
+;;;; Configuring the custom theme folder
+(defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
+  "Set a custom themes directory path."
+  :group 'sia-lambda
+  :type 'string)
+#+end_src
+
+** Creating and registering the directory
+
+Creates that directory if it is missing and makes it the default =custom-theme-directory=, so Emacs looks there for themes and saves new ones there.
+
+#+begin_src emacs-lisp -i
+;;;;; Make the custom themes dir.
+(mkdir sp-custom-themes-dir t)
+(setq-default custom-theme-directory sp-custom-themes-dir)
+#+end_src
+
+** Adding theme subfolders to the load path
+
+Walks the themes directory and adds each subdirectory to =custom-theme-load-path=, so themes kept in their own folders (for example cloned theme repositories) can be loaded by name.
+
+#+begin_src emacs-lisp -i
+;;;;; find all themes recursively in custom-theme-folder
+(let ((basedir custom-theme-directory))
+  (dolist (f (directory-files basedir))
+    (if (and (not (or (equal f ".") (equal f "..")))
+             (file-directory-p (concat basedir f)))
+        (add-to-list 'custom-theme-load-path (concat basedir f)))))
+#+end_src
+
+* Switching themes
+
+** Section comment
+
+Introduces the disable-all helper.
+
+#+begin_src emacs-lisp -i
+;;;; Disable All Custom Themes
+#+end_src
+
+** Disabling all themes
+
+=sp-disable-all-themes= disables every enabled theme, which avoids the colour mixing that happens when =load-theme= stacks a new theme on top of old ones. It also turns off =window-divider-mode=, clears the header line, and installs a plain fallback mode line showing buffer name, major mode, a red =(**)= marker for unsaved file buffers or =(RO)= for read-only ones, and line and column. Resetting the mode line is a holdover from Lambda-Emacs; presumably the theme or mode-line package being loaded next replaces it again. The comment at the top shows the author is unsure why this step is needed.
+
+#+begin_src emacs-lisp -i
+;; why is this necessary in order to do sp-load-theme?
+(defun sp-disable-all-themes ()
+  "Disable all active themes & reset mode-line."
+  (interactive)
+  (progn
+    (dolist (i custom-enabled-themes)
+      (disable-theme i))
+    ;; disable window-divider mode
+    (window-divider-mode -1)
+    ;; revert to mode line
+    (setq-default header-line-format nil)
+    (setq-default mode-line-format
+                  '((:eval
+                     (list
+                      "%b "
+                      "%m "
+                      (cond ((and buffer-file-name (buffer-modified-p))
+                             (propertize "(**)" 'face `(:foreground "#f08290")))
+                            (buffer-read-only "(RO)" ))
+                      " %l:%c %0"
+                      " "
+                      ))))
+    (force-mode-line-update)))
+#+end_src
+
+** Theme loading wrapper
+
+=sp-load-theme= disables all themes and then calls =load-theme= interactively, so you pick a theme from the usual prompt and get a clean switch. This is the command on the theme toggle key.
+
+#+begin_src emacs-lisp -i
+;;;; Load Theme Wrapper
+(defun sp-load-theme ()
+  (interactive)
+  (progn
+    (sp-disable-all-themes)
+    (call-interactively 'load-theme)))
+#+end_src
+
+* macOS menubar appearance
+
+** Toggling the menubar
+
+=sp-osx-toggle-menubar-theme= runs the external =dark-mode= tool to flip macOS between light and dark appearance.
+
+#+begin_src emacs-lisp -i
+;;;; Toggle Menubar
+;; toggle menubar to light or dark
+(defun sp-osx-toggle-menubar-theme ()
+  "Toggle menubar to dark or light using shell command."
+  (interactive)
+  (shell-command "dark-mode"))
+#+end_src
+
+** Forcing light
+
+=sp-osx-menubar-theme-light= runs =dark-mode off=.
+
+#+begin_src emacs-lisp -i
+(defun sp-osx-menubar-theme-light ()
+  "Turn dark mode off."
+  (interactive)
+  (shell-command "dark-mode off"))
+#+end_src
+
+** Forcing dark
+
+=sp-osx-menubar-theme-dark= runs =dark-mode on=.
+
+#+begin_src emacs-lisp -i
+(defun sp-osx-menubar-theme-dark ()
+  "Turn dark mode on."
+  (interactive)
+  (shell-command "dark-mode on"))
+#+end_src
+
+* Theme packages
+
+** Section comment
+
+Start of the theme options.
+
+#+begin_src emacs-lisp -i
+;;; THEME OPTIONS
+#+end_src
+
+** Modus themes comment
+
+Introduces the Modus settings.
+
+#+begin_src emacs-lisp -i
+;;;; Modus themes
+#+end_src
+
+** Installing Modus themes
+
+Installs the =modus-themes= package, which is newer than the copy built into Emacs.
+
+#+begin_src emacs-lisp -i
+(use-package modus-themes
+  :ensure t)
+#+end_src
+
+** Mixed fonts and italics
+
+Lets Modus use fixed-pitch faces for code and tables inside variable-pitch buffers, and allows italics for constructs like comments. Both are set again in the next block.
+
+#+begin_src emacs-lisp -i
+(setq modus-themes-mixed-fonts t)
+(setq modus-themes-italic-constructs t)
+#+end_src
+
+** Modus appearance options
+
+Italic but not bold constructs, mixed fonts, no variable-pitch UI elements, and =modus-themes-disable-other-themes= so loading a Modus theme turns off others. Minibuffer prompts are italic and bold. In completion lists, matching characters are extra bold and the selected candidate is semibold italic, with the styling applied to its text too.
+
+#+begin_src emacs-lisp -i
+;; In all of the following, WEIGHT is a symbol such as `semibold',
+;; `light', `bold', or anything mentioned in `modus-themes-weights'.
+(setq modus-themes-italic-constructs t
+      modus-themes-bold-constructs nil
+      modus-themes-mixed-fonts t
+      modus-themes-variable-pitch-ui nil
+      modus-themes-disable-other-themes t
+
+      ;; Options for `modus-themes-prompts' are either nil (the
+      ;; default), or a list of properties that may include any of those
+      ;; symbols: `italic', `WEIGHT'
+      modus-themes-prompts '(italic bold)
+
+      ;; The `modus-themes-completions' is an alist that reads two
+      ;; keys: `matches', `selection'.  Each accepts a nil value (or
+      ;; empty list) or a list of properties that can include any of
+      ;; the following (for WEIGHT read further below):
+      ;;
+      ;; `matches'   :: `underline', `italic', `WEIGHT'
+      ;; `selection' :: `underline', `italic', `WEIGHT'
+      modus-themes-completions
+      '((matches . (extrabold))
+        (selection . (semibold italic text-also))))
+#+end_src
+
+** Org block background
+
+Gives Org source blocks a subtle gray background. The comment lists the other choices.
+
+#+begin_src emacs-lisp -i
+(setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
+#+end_src
+
+** Ef themes
+
+Installs Prot's =ef-themes= collection. The light/dark toggle further down uses =ef-day= and =ef-dream= from it.
+
+#+begin_src emacs-lisp -i
+;; EF THEMES
+(use-package ef-themes
+  :ensure t)
+#+end_src
+
+** Doric themes
+
+Installs Prot's minimalist =doric-themes= and loads them immediately with =:demand=.
+
+#+begin_src emacs-lisp -i
+;; DORIC THEMES
+(use-package doric-themes
+  :ensure t
+  :demand t)
+#+end_src
+
+** Lambda themes
+
+Installs =lambda-themes= from GitHub (the comment above it mislabels it as Modus). A commented-out line shows how to load =lambda-light= at startup; in practice the initial theme is chosen by the macOS appearance logic in =sp-macos=.
+
+#+begin_src emacs-lisp -i
+;; MODUS THEMES
+(use-package lambda-themes
+  :ensure (:type git :host github :repo "lambda-emacs/lambda-themes") 
+
+  :config
+  ;; load preferred theme 
+  ;; (load-theme 'lambda-light)
+)
+#+end_src
+
+** Lambda themes options
+
+Turns on italic comments, italic keywords and variable-pitch text in the Lambda themes, using =setopt= so the options' setters run.
+
+#+begin_src emacs-lisp -i
+;; Lambda themes options
+(setopt lambda-themes-set-italic-comments t)
+(setopt lambda-themes-set-italic-keywords t)
+(setopt lambda-themes-set-variable-pitch t)
+#+end_src
+
+** Refreshing kind-icon after a theme change
+
+Once =kind-icon= is loaded, flushes its icon cache whenever a Lambda theme loads, so completion icons pick up the new colours. Note this is tied to =lambda-themes-after-load-theme-hook= only, so switching to a Modus or Ef theme does not reset the cache.
+
+#+begin_src emacs-lisp -i
+;; kind-icon needs to have its cache flushed after theme change
+(with-eval-after-load 'kind-icon
+  (add-hook 'lambda-themes-after-load-theme-hook #'kind-icon-reset-cache))
+#+end_src
+
+** Pointer to the macOS settings
+
+Notes that automatic theme switching based on the system appearance is configured in =sp-macos.el=.
+
+#+begin_src emacs-lisp -i
+;; For the setting which switches the MacOS theme automatically, based on the color of the system
+;; see the sp-macos.el file.
+#+end_src
+
+** Theme preview comment
+
+Introduces the preview package.
+
+#+begin_src emacs-lisp -i
+;; For easier preview of themes
+#+end_src
+
+** easy-theme-preview
+
+Installs =easy-theme-preview=, which makes it easy to preview themes before committing to one.
+
+#+begin_src emacs-lisp -i
+(use-package easy-theme-preview
+  :ensure t)
+#+end_src
+
+* Toggles and hooks
+
+** Light/dark toggle
+
+=toggle-dark-light-theme= flips between two Ef themes: if =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first. The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code. Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
+
+#+begin_src emacs-lisp -i
+;;;; Theme toggle
+(defun toggle-dark-light-theme ()
+  "Flip the active lambda variant between light and dark.
+If neither lambda variant is currently active (the user loaded some
+other theme), default to `ef-dream'. The macOS system-appearance
+hook is left untouched; the next macOS Light/Dark change will resync."
+  (interactive)
+  (let* ((current (car custom-enabled-themes))
+         (target (if (eq current 'ef-day) 'ef-dream 'ef-day)))
+    (sp-disable-all-themes)
+    (load-theme target t)))
+#+end_src
+
+** After-load-theme hook
+
+Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. Nothing else in the config currently adds to this hook.
+
+#+begin_src emacs-lisp -i
+;;;; After Load Theme Hook
+(defvar sp-after-load-theme-hook nil
+  "Hook run after a color theme is loaded using `load-theme'.")
+(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
+  "Run `sp-after-load-theme-hook'."
+  (run-hooks 'sp-after-load-theme-hook))
+#+end_src
+
+* Provide
+
+** Provide form
+
+Makes the module available as =sp-themes=.
+
+#+begin_src emacs-lisp -i
+;;; Provide
+(provide 'sp-themes)
+;;; sp-themes.el ends here
+#+end_src
