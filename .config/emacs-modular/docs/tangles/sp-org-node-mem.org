@@ -1,0 +1,112 @@
+#+TITLE: sp-org-node-mem.el: org-node and org-mem note indexing
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-node-mem.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-node-mem.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up =org-mem=, a fast in-memory index of Org files, and =org-node=, which builds note-taking commands (find, insert link, backlinks) on top of it, for the notes in =~/notes/=. It also uses the index to compute =org-agenda-files= automatically from files that contain anything agenda-relevant.
+
+Packages: =org-mem=, =org-node= and =inspector= (installed for inspecting Lisp objects, possibly while debugging the index). The agenda function uses the =##= short-lambda macro from the =llama= package, which org-mem and org-node depend on. The module is required by =sp-org-ext=. Note that =sp-vulpea-convert-properties= keeps =CREATED= in drawers specifically so org-node keeps working.
+
+* Indexing
+
+** File header
+
+Enables lexical binding.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+#+end_src
+
+** org-mem
+
+Installs =org-mem= and, once it loads, makes it sync with =org-id= locations, watch =~/notes/= for Org files, and start =org-mem-updater-mode= so the index stays current as files change. The comment notes that at least one of the two sources (org-id sync or watched directories) is required.
+
+#+begin_src emacs-lisp -i
+(use-package org-mem
+  :ensure (:wait t)
+  :defer
+  :config
+  ;; At least one of these two is needed
+  (setq org-mem-do-sync-with-org-id t)
+  (setq org-mem-watch-dirs
+        (list "~/notes/"))
+  (org-mem-updater-mode))
+#+end_src
+
+** inspector
+
+Installs the =inspector= package, an interactive browser for Lisp data structures. It is not configured further.
+
+#+begin_src emacs-lisp -i
+(use-package inspector
+  :ensure (:wait t)
+  )
+#+end_src
+
+* org-node
+
+** org-node
+
+Installs =org-node= and enables =org-node-cache-mode= after init. =M-o n n= turns the current entry into a node by giving it an ID, and =M-o n i= inserts a link to a node.
+
+#+begin_src emacs-lisp -i
+(use-package org-node
+  :ensure (:wait t)
+  :hook (after-init . org-node-cache-mode)
+  :init
+  ;; Optional key bindings
+  ;; Tip: Try changing these to just "M-o"!
+  (keymap-global-set "M-o n n" 'org-node-nodeify-entry)
+  (keymap-global-set "M-o n i" 'org-node-insert-link)
+)
+#+end_src
+
+** Backlinks not in drawers
+
+Stops org-node from writing backlinks into =:BACKLINKS:= property drawers.
+
+#+begin_src emacs-lisp -i
+(setq org-node-backlink-do-drawers nil)
+#+end_src
+
+** Candidate display
+
+Lets org-node alter how completion candidates are displayed, for example by adding the outline path.
+
+#+begin_src emacs-lisp -i
+(setq org-node-alter-candidates t)
+#+end_src
+
+* Agenda files from the index
+
+** Compute agenda files
+
+=my-set-agenda-files= sets =org-agenda-files= to every indexed file, except those whose path contains "archive", that has at least one entry with an active timestamp, a TODO state, a scheduled date or a deadline. It runs after each full org-mem scan via =org-mem-post-full-scan-functions=, so the agenda always reflects the notes collection without maintaining a list by hand. Any value set elsewhere for =org-agenda-files= is overwritten after each scan.
+
+#+begin_src emacs-lisp -i
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "archive" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-org-node-mem=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-node-mem)
+#+end_src

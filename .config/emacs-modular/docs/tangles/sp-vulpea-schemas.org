@@ -1,0 +1,297 @@
+#+TITLE: sp-vulpea-schemas.el: Vulpea note schemas
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-vulpea-schemas.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-vulpea-schemas.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
+
+The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and =sp-vulpea-table-views= builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+
+* Overview
+
+** File header
+
+Turns on lexical binding and names the file.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-vulpea-schemas.el
+#+end_src
+
+** Commentary marker
+
+Start of the commentary section.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+** Purpose
+
+States that this file holds every schema Vulpea uses.
+
+#+begin_src emacs-lisp -i
+;; These are all the schemas that are used by vulpea.
+#+end_src
+
+** Code marker
+
+Start of the code section.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+* Music
+
+** Albums
+
+The =album= schema applies to notes tagged =album=. It requires a =creator= link to a note tagged musician, person or group, at least one =genre= link to genre notes, and a numeric =year=. Optional fields are a =name=, extra =genre-influences= links and a numeric =rating=.
+
+#+begin_src emacs-lisp -i
+;;;; Schema definition
+;;;;; Schema for albums
+(vulpea-schema-define 'album
+  :predicate (lambda (note) (member "album" (vulpea-note-tags note)))
+  :fields
+  '(
+    (:key "creator" :type note   :required t :target-tags ("musician" "person" "group"))
+    (:key "name"     :type string :required nil)
+    (:key "genre"   :type note :required t :multiple t :target-tags ("genre"))
+    (:key "genre-influences" :type note :multiple t :target-tags ("genre"))
+    (:key "year"   :type number   :required t :multiple nil)
+    (:key "rating"   :type number   :required nil :multiple nil)
+))
+#+end_src
+
+* Inquiries
+
+** Base inquiry schema
+
+=inquiry= applies to notes tagged =inquiry= and requires a =q-status= field that is either =solved= or =unsolved=. These allowed values are written as symbols, while other schemas below use strings for =:one-of=, so it is worth checking that both forms match as intended.
+
+#+begin_src emacs-lisp -i
+;;;;; Schema for inquiries
+(vulpea-schema-define 'inquiry
+  :predicate (lambda (note) (member "inquiry" (vulpea-note-tags note)))
+  :fields
+  '(
+    (:key "q-status" :type string :required t :one-of (solved unsolved))
+))
+#+end_src
+
+** Questions
+
+=question= applies to notes tagged =question= and inherits the =q-status= field from =inquiry=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'question
+		      :predicate (lambda (note) (member "question" (vulpea-note-tags note)))
+		      :include 'inquiry)
+#+end_src
+
+** Errors
+
+=error= applies to notes tagged =error= (presumably notes about bugs or error messages being chased) and also inherits =q-status=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'error
+		      :predicate (lambda (note) (member "error" (vulpea-note-tags note)))
+		      :include 'inquiry)
+#+end_src
+
+** Research questions
+
+=research-q= applies to notes tagged =research-q= and inherits =q-status=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'research-q
+		      :predicate (lambda (note) (member "research-q" (vulpea-note-tags note)))
+		      :include 'inquiry)
+#+end_src
+
+** Exploratory questions
+
+=exploratory= is for lighter questions than a full research question, tagged =exploratory=, again inheriting =q-status=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'exploratory ;; not as serious as a research question
+		      :predicate (lambda (note) (member "exploratory" (vulpea-note-tags note)))
+		      :include 'inquiry)
+#+end_src
+
+* People and organisations
+
+** People
+
+=person= applies to notes tagged =person= and has optional numeric =DOB= and =DOD= fields, which given the type are presumably years.
+
+#+begin_src emacs-lisp -i
+;; Schema for people
+(vulpea-schema-define 'person
+		      :predicate (lambda (note) (member "person" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "DOB" :type number)
+			(:key "DOD" :type number))
+		      )
+#+end_src
+
+** Musicians
+
+=musician= applies to notes tagged =musician= and inherits the person fields.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'musician
+		      :predicate (lambda (note) (member "musician" (vulpea-note-tags note)))
+		      :include 'person)
+#+end_src
+
+** Groups
+
+=group= applies to notes tagged =group= and has a =members= field holding any number of links to other notes.
+
+#+begin_src emacs-lisp -i
+;; Schema for groups
+(vulpea-schema-define 'group
+		      :predicate (lambda (note) (member "group" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "members" :type note :multiple t))
+		      )
+#+end_src
+
+** Institutions
+
+=institution= applies to notes tagged =institution= and inherits =members= from =group=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'institution
+		      :predicate (lambda (note) (member "institution" (vulpea-note-tags note)))
+		      :include 'group
+		      )
+#+end_src
+
+** Companies
+
+=company= applies to notes tagged =company= and also inherits from =group=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'company
+		      :predicate (lambda (note) (member "company" (vulpea-note-tags note)))
+		      :include 'group
+		      )
+#+end_src
+
+* Software
+
+** Software
+
+=software= applies to notes tagged =software=. It requires =source= (closed-source or open-source) and =maintenance= (current, abandoned or spotty), and optionally lists =languages= as links to other notes.
+
+#+begin_src emacs-lisp -i
+;; Schema for software-related stuff
+(vulpea-schema-define 'software
+		      :predicate (lambda (note) (member "software" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "source" :type string :required t :one-of ("closed-source" "open-source"))
+			(:key "languages" :type note :required nil :multiple t)
+			(:key "maintenance" :type string :required t :one-of ("current" "abandoned" "spotty")))
+		      )
+#+end_src
+
+** Packages
+
+=package= applies to notes tagged =package= and has an optional =(m)elpa= field saying whether the package is on MELPA or ELPA, as =yes= or =no=. The trailing comment notes that this should become a boolean.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'package
+		      :predicate (lambda (note) (member "package" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "(m)elpa" :type string :required nil :one-of (yes no)))) ;; change this to boolean
+#+end_src
+
+* Literature notes
+
+** Base text schema
+
+=base-text= applies to notes tagged =text= and holds the bibliographic core: =pub-author= links (several allowed), a required numeric =pub-year=, a required =pub-title=, and an optional free-text =relevance= note.
+
+#+begin_src emacs-lisp -i
+;; Schema for literature notes
+(vulpea-schema-define 'base-text
+		      :predicate (lambda (note) (member "text" (vulpea-note-tags note)))
+		      :fields
+		      '((:key "pub-author" :type note :multiple t)
+			(:key "pub-year" :type number :required t)
+			(:key "pub-title" :type string :required t)
+			(:key "relevance" :type string :required nil))
+)
+#+end_src
+
+** Journal articles
+
+=article= applies to notes tagged =journalarticle=, inherits the base text fields, and adds optional =pub-pages=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'article
+		      :predicate (lambda (note) (member "journalarticle" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil))
+)
+#+end_src
+
+** Book sections
+
+=booksection= applies to notes tagged =booksection=. On top of the base fields it has optional =pub-pages= and a required =bib-parent= link pointing at the note for the book, which must be tagged =book=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'booksection
+		      :predicate (lambda (note) (member "booksection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil)
+		      (:key "bib-parent" :type note :required t :target-tags ("book")))
+		      )
+#+end_src
+
+** Edited collections
+
+=collection= applies to notes tagged =collection= and adds a required =pub-editor= link.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'collection
+		      :predicate (lambda (note) (member "collection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-editor" :type note :required t))
+)
+#+end_src
+
+** Chapters in collections
+
+=incollection= applies to notes tagged =incollection=. It adds optional =pub-pages=, a required =bib-parent= link to a note tagged =collection=, and redefines =pub-author= as required, overriding the optional version inherited from =base-text=.
+
+#+begin_src emacs-lisp -i
+(vulpea-schema-define 'incollection
+		      :predicate (lambda (note) (member "incollection" (vulpea-note-tags note)))
+		      :include 'base-text
+		      :fields
+		      '((:key "pub-pages" :type string :required nil)
+		      (:key "bib-parent" :type note :required t :target-tags ("collection"))
+		      (:key "pub-author" :type note :required t))
+		      )
+#+end_src
+
+* Provide
+
+** Provide form
+
+Makes the module available as =sp-vulpea-schemas=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vulpea-schemas)
+;; sp-vulpea-schemas.el ends here.
+#+end_src

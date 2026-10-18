@@ -1,0 +1,81 @@
+#+TITLE: sp-org-time.el: Org time tracking and scheduling tools
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-time.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-time.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module collects Org packages for time tracking and scheduling: =org-pomodoro= for pomodoro timers on clocked tasks, =org-auto-scheduler= from GitHub, and =org-focus-hud=, which shows the clocked task and its checklist in a heads-up display.
+
+No module list in =init.el= and no other module loads it, so these packages are currently inactive. Note also that the file ends with =(provide 'org-time)= rather than =sp-org-time=, so =(require 'sp-org-time)= would load the file and then signal that the feature was not provided.
+
+* Header
+
+** File header and commentary
+
+The file header and commentary, which explains that time and scheduling settings are kept apart from the general task management modules.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-org-time.el --- Settings for org-mode when dealing with time-related issues, specifically.
+
+;;; Commentary:
+
+;; This is also really important for task management, but it lives separately as 
+;; an issue of scheduling, more specifically.
+
+;;; Code:
+#+end_src
+
+* Time tracking packages
+
+** Org pomodoro
+
+When extras are enabled and the package is installed, =org-pomodoro= is made available as a command, using macOS =afplay= to play its sounds. The comment trails off asking how best to trigger it; no key binding is set.
+
+#+begin_src emacs-lisp -i
+;;; Org Pomodoro
+;; Helps with time tracking
+;; But how exactly can you trigger this we
+(use-package org-pomodoro
+  :if (and sp-load-extras (locate-library "org-pomodoro"))
+  :commands org-pomodoro
+  :init
+  (progn
+    (setq org-pomodoro-audio-player "/usr/bin/afplay")))
+#+end_src
+
+** Org auto scheduler
+
+Installs =org-auto-scheduler= from the SSD2019 GitHub repository. No options are set, so its behaviour is whatever the package defaults to.
+
+#+begin_src emacs-lisp -i
+(use-package org-auto-scheduler
+  :ensure (:type git :host github :repo "SSD2019/org-auto-scheduler"))
+#+end_src
+
+** Focus HUD
+
+Configures =org-focus-hud=, bound globally to =C-c f=. Its display refreshes every 15 seconds and follows whichever task is newly clocked in. The comment says it plugs into org-auto-scheduler and covers checklist focus. There is no =:ensure= or availability check, so loading the module without the package installed would depend on the package manager's defaults.
+
+#+begin_src emacs-lisp -i
+;; Includes focus for checklists - plugs into org-auto-scheduler
+(use-package org-focus-hud
+  :bind ("C-c f" . org-focus-hud)
+  :config
+  ;; Optional: Customize refresh interval in seconds
+  (setq org-focus-hud-refresh-interval 15)
+  ;; Automatically follow newly clocked tasks (default t)
+  (setq org-focus-hud-follow-active-clock t))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Provides =org-time=, which does not match the file name; see the introduction.
+
+#+begin_src emacs-lisp -i
+(provide 'org-time)
+#+end_src

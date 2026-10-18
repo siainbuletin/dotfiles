@@ -1,0 +1,139 @@
+#+TITLE: sp-org-id-link.el: Org IDs and link utilities
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-id-link.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-id-link.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module gathers everything about Org IDs and links. It configures the built-in =org-id= library so that links to headings use stable timestamp IDs stored in the cache directory, and adds three link helpers: one that repairs old percent-escaped link syntax, one that copies the Org link at point, and one that replaces a link with its description.
+
+It depends only on Org and on =sp-cache-dir= from =early-init.el=. The module is loaded in the Org block of the default module list in =init.el= (it is not in the minimal list).
+
+* Header
+
+** File header and commentary
+
+The file header and a commentary saying this module isolates ID creation and link handling.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-org-id-link.el
+
+;;; Commentary:
+
+;; This is isolating every function that has to do with ID creation. It also deals
+;; with links within org-mode.
+
+;;; Code:
+#+end_src
+
+* Org IDs
+
+** Org-id settings
+
+After Org loads, =org-id= stores its locations file as =.org-id-locations= in =sp-cache-dir=, keeping the config directory tidy. New IDs are generated from timestamps rather than random UUIDs, and =org-store-link= creates an ID for a heading when called interactively, so stored links point at the ID rather than at the heading text.
+
+#+begin_src emacs-lisp -i
+;;;; Org ID
+;; Use org ids for reference
+(use-package org-id
+  :ensure nil
+  :after org
+  :custom
+  (org-id-locations-file (concat sp-cache-dir ".org-id-locations")) ;; this keeps in line with the no-littering principle
+  (org-id-method 'ts) ;; use timestamp for id
+  (org-id-link-to-org-use-id 'create-if-interactive)) ;; create ids
+#+end_src
+
+* Link helpers
+
+** Update link syntax and copy a link
+
+=org-update-link-syntax= has the same name as a function that ships with Org, so this copy replaces Org's own version once the module loads. It scans the buffer for bracket links containing old percent escapes (spaces and square brackets) and, after asking for each one unless given a prefix argument, rewrites the URI using the current escaping rules.
+
+=lem-org-link-copy-at-point=, from an Emacs Stack Exchange answer, searches backward for =[[= and forward for a complete bracket link, then puts the whole link text on the kill ring. Because the backward search starts from point, running it when point is not on a link copies the nearest earlier one.
+
+#+begin_src emacs-lisp -i
+;;;;; Org link Syntax
+(defun org-update-link-syntax (&optional no-query)
+  "Update syntax for links in current buffer.
+Query before replacing a link, unless optional argument NO-QUERY
+is non-nil."
+  (interactive "P")
+  (org-with-point-at 1
+    (let ((case-fold-search t))
+      (while (re-search-forward "\\[\\[[^]]*?%\\(?:2[05]\\|5[BD]\\)" nil t)
+        (let ((object (save-match-data (org-element-context))))
+          (when (and (eq 'link (org-element-type object))
+                     (= (match-beginning 0)
+                        (org-element-property :begin object)))
+            (goto-char (org-element-property :end object))
+            (let* ((uri-start (+ 2 (match-beginning 0)))
+                   (uri-end (save-excursion
+                              (goto-char uri-start)
+                              (re-search-forward "\\][][]" nil t)
+                              (match-beginning 0)))
+                   (uri (buffer-substring-no-properties uri-start uri-end)))
+              (when (or no-query
+                        (y-or-n-p
+                         (format "Possibly obsolete URI syntax: %S.  Fix? "
+                                 uri)))
+                (setf (buffer-substring uri-start uri-end)
+                      (org-link-escape (org-link-decode uri)))))))))))
+                      
+                      ;;;;; Org Copy Link
+;; see https://emacs.stackexchange.com/a/63038/11934
+(defun lem-org-link-copy-at-point ()
+  (interactive)
+  (save-excursion
+    (let* ((ol-regex "\\[\\[.*?:.*?\\]\\(\\[.*?\\]\\)?\\]")
+           (beg (re-search-backward "\\[\\["))
+           (end (re-search-forward ol-regex))
+           (link-string (buffer-substring-no-properties (match-beginning 0) (match-end 0))))
+      (kill-new link-string)
+      (message "Org link %s is copied." link-string))))
+#+end_src
+
+** Replace a link with its description
+
+=lem-org-replace-link-by-link-description= removes the bracket link at point and leaves its description, or its address when there is no description. It uses =org-match-string-no-properties=, an obsolete Org alias that recent Org versions may no longer provide.
+
+#+begin_src emacs-lisp -i
+;;;;; Remove Org Links
+;; https://emacs.stackexchange.com/a/10714/11934
+(defun lem-org-replace-link-by-link-description ()
+  "Replace an org link by its description or, if empty, its address"
+  (interactive)
+  (if (org-in-regexp org-link-bracket-re 1)
+      (save-excursion
+        (let ((remove (list (match-beginning 0) (match-end 0)))
+              (description
+               (if (match-end 2)
+                   (org-match-string-no-properties 2)
+                 (org-match-string-no-properties 1))))
+          (apply 'delete-region remove)
+          (insert description)))))
+#+end_src
+
+** Related library note
+
+A note pointing to =sp-org-create-note-and-link.el= as another link related library. No file by that name is in the modules directory now.
+
+#+begin_src emacs-lisp -i
+;; Other libraries
+;; - sp-org-create-note-and-link.el
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-org-id-link= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-org-id-link)
+;; sp-org-id-link.el ends here.
+#+end_src

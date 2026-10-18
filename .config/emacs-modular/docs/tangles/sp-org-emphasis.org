@@ -1,0 +1,100 @@
+#+TITLE: sp-org-emphasis.el: Org emphasis helpers
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-emphasis.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-emphasis.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+Small commands that make Org emphasis behave in a "do what I mean" way: with no active region they first mark the word at point, then call =org-emphasize=. The approach is adapted from a Stack Exchange answer and an Emacs TIL post, and the =lem-= prefixed helpers come from the Lambda Emacs config. The module also installs =org-extra-emphasis= from GitHub for richer highlighting.
+
+The module is not loaded from =init.el=. Its final form is =(provide sp-org-emphasis)= without a quote, which would signal a void-variable error if the file were loaded; it should be =(provide 'sp-org-emphasis)=.
+
+* Emphasis commands
+
+** Header
+
+Enables lexical binding.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+#+end_src
+
+** org-emphasize-dwim
+
+=org-emphasize-dwim= marks the current word when no region is active, then calls =org-emphasize= with the optional emphasis character. Without a character, =org-emphasize= prompts for one.
+
+#+begin_src emacs-lisp -i
+;;;;; Org Emphasis Functions
+;; Adapted from https://emacs.stackexchange.com/a/14586
+;; See https://emacstil.com/til/2021/11/29/org-emphasize-dwim/
+(defun org-emphasize-dwim (&optional char)
+  (interactive)
+  (unless (region-active-p)
+    (lem-maybe-mark-word))
+  (org-emphasize char))
+#+end_src
+
+** Verbatim and code shortcuts
+
+Two convenience commands that call =org-emphasize-dwim= with the verbatim marker (equals sign) and the code marker (tilde) respectively. No keys are bound to them in this module.
+
+#+begin_src emacs-lisp -i
+(defun org-emphasize-with-verbatim-dwim ()
+  (interactive)
+  (org-emphasize-dwim ?=))
+
+(defun org-emphasize-with-code-dwim ()
+  (interactive)
+  (org-emphasize-dwim ?~))
+#+end_src
+
+* Word marking helpers
+
+** Predicates for cursor position
+
+=lem--cursor-outside-of-any-word= is true when point is not on a word, and =lem--cursor-at-beginning-of-a-word= is true when point sits at the first character of one.
+
+#+begin_src emacs-lisp -i
+(defun lem--cursor-outside-of-any-word ()
+  (not (bounds-of-thing-at-point 'word)))
+
+(defun lem--cursor-at-beginning-of-a-word ()
+  (eq (point) (car (bounds-of-thing-at-point 'word))))
+#+end_src
+
+** lem-maybe-mark-word
+
+Moves back to the start of the word if point is in the middle of it, then marks the word with =mark-word=. If point is outside any word nothing is marked, so =org-emphasize= inserts an empty pair of markers at point.
+
+#+begin_src emacs-lisp -i
+(defun lem-maybe-mark-word ()
+  "Mark the current word. If cursor is outside of a word bounds, mark the empty position."
+  (interactive)
+  (unless (or (lem--cursor-outside-of-any-word) (lem--cursor-at-beginning-of-a-word))
+    (backward-word))
+  (unless (lem--cursor-outside-of-any-word)
+    (mark-word)))
+#+end_src
+
+* Extra emphasis
+
+** org-extra-emphasis
+
+Installs =org-extra-emphasis= from QiangF's GitHub repository. The comment says the aim is region highlighting similar to Markdown highlights in Obsidian. No configuration is applied here.
+
+#+begin_src emacs-lisp -i
+;;;; Proper highlighting of regions, like in Markdown with Obsidian
+(use-package org-extra-emphasis
+  :ensure (:type git :host github :repo "QiangF/org-extra-emphasis"))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Intended to register the feature, but the symbol is unquoted, so loading the file would fail at this line.
+
+#+begin_src emacs-lisp -i
+(provide sp-org-emphasis)
+#+end_src
