@@ -1,0 +1,60 @@
+#+TITLE: sp-vcontrol.el: Version control with Magit
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-vcontrol.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-vcontrol.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A short module that installs Magit and adds a helper for using it with YADM, the dotfile manager. It depends on the =magit= and =transient= packages, and the YADM helper also needs a TRAMP method for =yadm= to be defined somewhere, which this file does not do. The module is in the Programming group of the default module list in =init.el=.
+
+* Magit
+
+** Header
+
+File header with lexical binding.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-vcontrol.el
+#+end_src
+
+** Magit
+
+Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=. When a Magit buffer is quit, the window configuration from before it was opened is restored. Because the form waits for =transient=, the key binding is only set up once =transient= has loaded.
+
+#+begin_src emacs-lisp -i
+(use-package magit
+  :ensure t
+  :defer t
+  :after transient
+  :bind
+  (("C-M-g" . magit))
+  :custom
+  (magit-bury-buffer-function 'magit-restore-window-configuration))
+#+end_src
+
+* YADM
+
+** Magit on the YADM repository
+
+The =yadm= command opens =magit-status= on the TRAMP path =/yadm::=, which is the usual way to let Magit work on YADM's bare repository. That path only works with a matching entry in =tramp-methods=, which is not set up here; the comment admits the author has not yet got YADM working inside Emacs.
+
+#+begin_src emacs-lisp -i
+;; YADM is theoretically used for dotfile management.
+;; I haven't yet been able to do anything with that within Emacs.
+(defun yadm ()
+  (interactive)
+  (magit-status "/yadm::"))
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-vcontrol= feature.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vcontrol)
+;; sp-vcontrol.el ends here
+#+end_src
