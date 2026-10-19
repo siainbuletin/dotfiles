@@ -341,3 +341,16 @@ Ask Claude for guidance on this subject
 
 * Version control
 ** Configure magit to work with [[id:20261018T185632.047108][yadm]]
+** Find a way to keep doc generation and writing code with Claude in sync.
+** Add automatic changelog generation through[[id:20261017T135415.705819][Claude Code]]
+
+Prompt:
+
+#+begin_quote
+For each pull request that I'm working with in Claude, I want to add a reference to the chat and the results from that coding session into CHANGELOG.md​, so I remember the design choices that led to modifying the configuration in a certain manner.
+#+end_quote
+
+Should I try to write this as a skill instead?
+
+** How can I easily follow allow with everything that Claude as an agent is doing to my configuration?
+
