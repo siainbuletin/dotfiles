@@ -1,0 +1,273 @@
+#+TITLE: sp-base-code.el: Shared programming setup: completion, LSP and outlines
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-base-code.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-base-code.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module holds the programming setup that other language modules build on. It installs and configures =smartparens= for paired delimiters, =highlight-indent-guides=, the built-in =semantic= analyser for C and C++, =company= with =company-quickhelp= for in-buffer completion, =lsp-mode= and =lsp-ui= for language servers, =flycheck=, and the built-in =outline= library for folding code by comment headings.
+
+The language modules (for example =sp-go=, =sp-rust=, =sp-nix= and =sp-lisp=) turn on =company-mode= and call =lsp= or =lsp-deferred= themselves; this module only sets the shared defaults those packages use. It is loaded at the start of the Programming block in the default module list of =init.el=.
+
+* Semantic completion guard
+
+** String and comment predicates
+
+From a company-mode issue thread. =inside-string-q= and =inside-comment-q= use =syntax-ppss= to report whether point is inside a string or comment; both are interactive and echo their result, so every call prints a message. =semantic-completion-advice= is an around advice that skips the wrapped function when point is in a string or comment, used below to stop Semantic from offering completions there.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; see https://github.com/company-mode/company-mode/issues/525#issuecomment-348635719
+(defun inside-string-q ()
+  "Returns non-nil if inside string, else nil.
+Result depends on syntax table's string quote character."
+  (interactive)
+  (let ((result (nth 3 (syntax-ppss))))
+    (message "%s" result)
+    result))
+(defun inside-comment-q ()
+  "Returns non-nil if inside comment, else nil.
+Result depends on syntax table's comment character."
+  (interactive)
+  (let ((result (nth 4 (syntax-ppss))))
+    (message "%s" result)
+    result))
+(defun semantic-completion-advice (adviced-f &rest r)
+  "Check if POINT it's inside a string or comment before calling semantic-*"
+  (unless (or (inside-string-q) (inside-comment-q))
+    (apply adviced-f r)))
+#+end_src
+
+* Editing aids
+
+** Indent guides
+
+Installs =highlight-indent-guides= with the fill method and dark gray faces for odd and even indentation levels. Automatic face colouring is turned off so those explicit colours are used. No hook enables the mode, so it has to be turned on per buffer.
+
+#+begin_src emacs-lisp -i
+(use-package highlight-indent-guides
+  :ensure t
+  :config
+  (setq highlight-indent-guides-auto-enabled nil)
+  (setq highlight-indent-guides-method 'fill)
+  (set-face-background 'highlight-indent-guides-odd-face "gray14")
+  (set-face-background 'highlight-indent-guides-even-face "gray18")
+  (set-face-foreground 'highlight-indent-guides-character-face "gray16"))
+#+end_src
+
+** Smartparens
+
+Installs =smartparens= and enables =smartparens-mode= in programming, text and Markdown buffers. Requiring =smartparens-config= loads the package's default pairing rules for each language.
+
+#+begin_src emacs-lisp -i
+;; Proper parentheses setup
+(use-package smartparens
+  :ensure t
+  :hook (prog-mode text-mode markdown-mode) ;; add `smartparens-mode` to these hooks
+  
+  :config
+  ;; load default config
+  (require 'smartparens-config))
+#+end_src
+
+* Semantic, completion and language servers
+
+** Semantic for C and C++
+
+Enables the built-in =semantic-mode= in C and C++ buffers. The completion function is wrapped with the string and comment guard above, and =global-semantic-idle-completions-mode= is turned off so Semantic does not pop up completions while idle. The comment wondering whether this is the LSP shows it predates the LSP setup below.
+
+#+begin_src emacs-lisp -i
+;; Semantic coding (is this the LSP?)
+(use-package semantic
+  :ensure nil
+  :commands semantic-mode
+  :hook ((c-mode . semantic-mode)
+         (c++-mode . semantic-mode))
+  :config
+  (advice-add 'semantic-analyze-completion-at-point-function
+              :around #'semantic-completion-advice)
+  (global-semantic-idle-completions-mode -1))
+#+end_src
+
+** Srefactor and old auto-complete
+
+Installs =srefactor=, a refactoring tool built on Semantic, deferred with nothing to load it, so it is only available through its autoloaded commands. A commented out =auto-complete= configuration and an =auto-complete-auctex= line remain from an earlier completion setup.
+
+#+begin_src emacs-lisp -i
+(use-package srefactor
+  :defer t)
+;(use-package auto-complete
+;  :init
+;  (setq tab-always-indent 'complete)
+;  (setq ac-disable-inline t)
+;  :config
+;  (setq ac-sources (delete 'ac-sources '(ac-source-semantic ac-source-semantic-raw))))
+
+;; (use-package auto-complete-auctex)
+#+end_src
+
+** Company quickhelp
+
+Installs =company-quickhelp=, which shows documentation popups next to company candidates, deferred until needed.
+
+#+begin_src emacs-lisp -i
+(use-package company-quickhelp
+  :defer t)
+#+end_src
+
+** Start quickhelp lazily
+
+=company-init-quickhelp= turns on =company-quickhelp-mode= the first time a completion starts and then tries to remove itself from =company-completion-started-hook=. Because it is added to the global hook but removed with the buffer local flag, the removal probably does nothing and the mode is simply re-enabled on each completion, which is harmless.
+
+#+begin_src emacs-lisp -i
+(defun company-init-quickhelp (b-enable)
+  "Initialize company-quickhelp only if company is running"
+  (company-quickhelp-mode t)
+  (remove-hook 'company-completion-started-hook 'company-init-quickhelp t))
+#+end_src
+
+** Company and lsp-mode
+
+Company is configured with a 0.2 second idle delay, wrap-around selection, aligned annotations, no forced match and case preserving dabbrev. On load it hooks quickhelp, enables =company-tng-mode= (tab and go, where TAB cycles and inserts candidates) and resets the backends to just =company-capf=, so completion comes from completion at point functions such as the LSP client. =lsp-mode= is deferred until =lsp= or =lsp-deferred= is called. It is set to use flycheck rather than flymake, watch files up to 10000, disable multi-root workspaces, symbol highlighting and the headerline breadcrumb, and drop =lsp-java= from the client packages it loads.
+
+#+begin_src emacs-lisp -i
+(use-package company
+  :defer t
+
+  :init 
+  (setq company-async-timeout 5
+        company-dabbrev-downcase 0
+        company-idle-delay 0.2
+        company-irony-ignore-case t
+        company-require-match nil
+        company-selection-wrap-around t
+        company-tooltip-align-annotations t)
+  
+  :config
+  (add-hook 'company-completion-started-hook 'company-init-quickhelp)
+  (company-tng-mode t)
+  (setq company-backends '())
+  (add-to-list 'company-backends 'company-capf) ; LSP completion backend
+) 
+
+(use-package lsp-mode
+  :defer t
+  :commands (lsp lsp-deferred)
+  :config (setq lsp-prefer-flymake nil
+                lsp-enable-file-watchers t
+                lsp-enable-multi-root nil
+                lsp-enable-symbol-highlighting nil
+                lsp-headerline-breadcrumb-enable nil
+                lsp-file-watch-threshold 10000)
+          (setq lsp-client-packages (delete 'lsp-java lsp-client-packages)))
+#+end_src
+
+** Flycheck and lsp-ui
+
+Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode turns it on in LSP buffers. =lsp-ui= is configured to show documentation in a child frame at point when the mouse hovers, after half a second, with the signature and a header, up to 150 by 30 characters and a white border. In the documentation frame, left click is ignored, right click hides it and the mouse wheel scrolls it.
+
+#+begin_src emacs-lisp -i
+(use-package flycheck
+  :ensure t
+  :defer t
+  ;; :init (global-flycheck-mode)
+  )
+  
+(use-package lsp-ui
+  :defer t
+  :bind (:map lsp-ui-doc-frame-mode-map          
+    ([mouse-1] . #'ignore)
+    ([mouse-3] . #'lsp-ui-doc-hide)
+    ([mouse-wheel-up] . #'lsp-ui-doc-scroll-up)
+    ([mouse-wheel-down] . #'lsp-ui-doc-scroll-down))
+  :config
+  (with-eval-after-load 'lsp-mode
+    (setq lsp-ui-doc-enable t)
+    (setq lsp-ui-doc-show-with-cursor nil)
+    (setq lsp-ui-doc-show-with-mouse t)
+    (setq lsp-ui-doc-position 'at-point)
+    (setq lsp-ui-doc-delay 0.5)
+    (setq lsp-ui-doc-use-childframe t)
+    (setq lsp-ui-doc-use-webkit nil)
+    (setq lsp-ui-doc-include-signature t)
+    (setq lsp-ui-doc-max-width 150)
+    (setq lsp-ui-doc-max-height 30)
+    (setq lsp-ui-doc-header t)
+    (setq lsp-ui-doc-border "white")))
+#+end_src
+
+* Outline navigation
+
+** Notes on navigation
+
+Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives a quick overview of rigidly indented code. A note says this navigation could move to another module.
+
+#+begin_src emacs-lisp -i
+;;;;; Outline Navigation
+
+;; how to make navigation better --- see Karthik
+;; Selective display (C-x $)
+;; If you code with rigid indentation, you can get a quick overview of your 
+;; document with set-selective-display. No mucking around with folding, 
+;; outline- or hs-minor-mode regexps.
+
+;; this navigation could be moved to a different module !!
+#+end_src
+
+** Outline minor mode for code
+
+Turns on the built-in =outline-minor-mode= in every programming buffer. In that mode TAB cycles the visibility of the current section, Shift TAB cycles the whole buffer, =M-j= and =M-k= move a subtree down and up, and =M-h= and =M-l= promote and demote. Because TAB is taken over, it no longer indents or completes in programming buffers while the mode is on. For Emacs Lisp, the outline regexp treats comments starting with three or more semicolons as headings, with levels from the number of semicolons, and =outline-level= is reset so =lispy= cannot override it.
+
+#+begin_src emacs-lisp -i
+;; Navigate elisp files easily. Outline is a built-in library and we can easily
+;; configure it to treat elisp comments as headings.
+(use-package outline
+  :ensure nil
+  :hook (prog-mode . outline-minor-mode)
+  :bind (:map outline-minor-mode-map
+         ("<tab>"   . outline-cycle)
+         ("S-<tab>" . outline-cycle-buffer)
+         ("M-j"     . outline-move-subtree-down)
+         ("M-k"     . outline-move-subtree-up)
+         ("M-h"     . outline-promote)
+         ("M-l"     . outline-demote))
+  :config
+  (add-hook 'emacs-lisp-mode-hook
+            (lambda ()
+              ;; prevent `outline-level' from being overwritten by `lispy'
+              (setq-local outline-level #'outline-level)
+              ;; setup heading regexp specific to `emacs-lisp-mode'
+              (setq-local outline-regexp ";;;\\(;* \\)")
+              ;; heading alist allows for subtree-like folding
+              (setq-local outline-heading-alist
+                          '((";;; " . 1)
+                            (";;;; " . 2)
+                            (";;;;; " . 3)
+                            (";;;;;; " . 4)
+                            (";;;;;;; " . 5))))))
+#+end_src
+
+* Minibuffer completion tweaks
+
+** Autocomplete changes
+
+Turns off =icomplete-mode= and sets =completion-auto-help= so the completions buffer appears when completion is ambiguous. A commented setting for =completion-cycle-threshold= ends with a stray quote.
+
+#+begin_src emacs-lisp -i
+;;;;; Autocomplete changes
+(icomplete-mode -1)
+;; (setq completion-cycle-threshold t)"
+(setq completion-auto-help t)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-base-code= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-base-code)
+;; sp-base-code.el ends here.
+#+end_src

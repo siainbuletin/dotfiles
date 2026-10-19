@@ -1,0 +1,794 @@
+#+title: sp-vc-ai-workbench: parallel extension work with Magit and Claude Code
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-vc-ai-workbench.el :comments no :padline yes :noweb no :mkdirp yes :results silent
+#+startup: overview
+
+Literate source for =libraries/modules/custom/sp-vc-ai-workbench.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* Overview
+
+~sp-vc-ai-workbench~ is a small workbench for developing several Emacs extensions at the same time, with Claude as a brainstorming partner. It combines three ideas.
+
+1. *One repo per extension.* Each extension is its own git repository. They are listed in =sp-workbench-repos=, or discovered automatically under =sp-workbench-scan-root=.
+2. *One worktree per task.* A task is a feature, a fix or an experiment. Each task is a *git worktree* on its own branch, created under =sp-workbench-worktree-root= (default =~/.worktrees/<extension>/<branch>=). Because worktrees are separate directories, any number of tasks, across any number of extensions, can be in flight without stashing or switching branches. Magit does all the git work.
+3. *One notes file and one Claude session per worktree.* Every worktree gets a private, git-ignored =.brainstorm.org= holding the running design notes, and its own interactive Claude Code session (through =claude-code.el=) rooted in that worktree. Design talk stays attached to the branch it concerns.
+
+Claude is used only for the *brainstorming* part: questions, design options, edge cases, naming and next steps. It is not meant to write the implementation. That is a convention enforced by the prompt, not by the tool.
+
+** Naming
+
+The feature, the file and the tangled output are called =sp-vc-ai-workbench=. Every command and variable uses the shorter prefix =sp-workbench-=, so =(require 'sp-vc-ai-workbench)= provides =sp-workbench-menu=, =sp-workbench-dashboard= and so on. (Package linters would prefer the prefix to match the feature name. This is a personal library, so the shorter prefix wins.)
+
+** How this file is organised
+
+This is a literate configuration. Every source block below is tangled, in order, into =sp-vc-ai-workbench.el=; run =C-c C-v t= (=org-babel-tangle=) in this buffer to regenerate it. Blocks marked =:tangle no= are examples and are never written out. Edit the org file, never the generated =.el=.
+
+* Requirements and setup
+
+** Why Claude Code instead of the API
+
+The first version talked to Claude through =gptel= and the Anthropic API. That route needs an API key from the Claude Console, and API usage is billed separately from a Claude Pro subscription: a Pro plan does not include API credits. To stay on the subscription, this library drives *interactive Claude Code* running inside Emacs through =claude-code.el=, and moves information in and out of that session with its own commands. Nothing here calls the API directly.
+
+(Anthropic's rules about how subscription limits apply to programmatic use, such as =claude -p= or the Agent SDK, have been changing. Interactive use is the case this library is built around. Check the current support pages if that matters to you.)
+
+** What you need
+
+- =magit= and =transient=.
+- =claude-code.el=, installed from its GitHub repository (follow its README; it is not on MELPA), with a terminal backend: =eat= or =vterm=.
+- The =claude= command-line tool, signed in with your subscription.
+
+** Minimal configuration
+
+This block is an example only; it is not tangled.
+
+#+begin_src emacs-lisp :tangle no
+(use-package sp-vc-ai-workbench
+  :load-path "~/.emacs.d/lisp/"
+  :commands (sp-workbench-menu sp-workbench-dashboard sp-workbench-new-task)
+  :custom
+  (sp-workbench-repos '("~/code/sp-org-lint" "~/code/sp-vulpea-tools"))
+  ;; or let it discover every repo in a directory:
+  ;; (sp-workbench-scan-root "~/code/")
+  (sp-workbench-start-claude-on-new-task nil)
+  :bind ("C-c w" . sp-workbench-menu))
+#+end_src
+
+* Daily use
+
+Everything is reachable from =M-x sp-workbench-menu=. The commands, in the order you will usually use them:
+
+| Command                          | Menu key | What it does                                                                   |
+|----------------------------------+----------+--------------------------------------------------------------------------------|
+| =sp-workbench-new-task=          | =n=      | Create a worktree and branch, seed the notes with a one-line goal              |
+| =sp-workbench-claude-kickoff=    | =k=      | Ask Claude for key decisions and risks, based on the goal                      |
+| =sp-workbench-claude-ask=        | =a=      | Ask Claude a question, with the active region as context                       |
+| =sp-workbench-claude-capture=    | =c=      | Copy Claude's output into the notes                                            |
+| =sp-workbench-claude-open=       | =o=      | Show (or start) this worktree's Claude session                                 |
+| =sp-workbench-claude-copy-notes= | =y=      | Put the notes on the kill ring                                                 |
+| =sp-workbench-switch=            | =s=      | Jump to any task in any extension                                              |
+| =sp-workbench-dashboard=         | =d=      | Table of every worktree: branch, clean/dirty, whether Claude is running        |
+| =sp-workbench-finish-task=       | =f=      | Remove the worktree (refuses if dirty; asks if unmerged)                       |
+
+** The information flow
+
+Moving text between Emacs and a terminal UI is the awkward part, so it is worth spelling out.
+
+*** To Claude
+
+=sp-workbench-claude-ask= does not paste your context into the terminal. A newline in the middle of a paste can submit the prompt early, and long pastes are fragile. Instead it:
+
+1. writes =.brainstorm-context.md= into the worktree, containing the ground rules, the extension and branch, the commits ahead of the main branch, a diff summary, and (if a region was active) the selected code with its file and line range;
+2. sends Claude a single line: read that file and =.brainstorm.org=, then answer your question.
+
+If no Claude session exists yet, it starts one and puts the prompt on the kill ring, because a freshly started session is not ready to receive text. Paste it with =C-y= once Claude is up.
+
+*** From Claude
+
+There are two directions.
+
+- =sp-workbench-claude-capture= copies the active region of the Claude buffer (select it in copy mode of =eat= or =vterm=), or else the last =sp-workbench-claude-capture-lines= lines, into the notes under =* Claude=. ANSI escapes and terminal box borders are stripped, and the text goes into an example block so org does not misparse it. A prefix argument jumps to the notes afterwards.
+- Claude can also write into the notes itself. The ground rules allow it to append an org subheading under =* Claude= when you explicitly ask it to record something. The notes buffer auto-reverts, so the entry shows up without you doing anything.
+
+** The notes file
+
+Each =.brainstorm.org= is created with four headings: Goal, Notes, Open questions and Claude. Both it and the context file are added to the repository's =info/exclude=, so they never show up in =git status= and are never committed.
+
+** Per-worktree sessions
+
+A worktree has its own =.git= file, so the project of that directory is the worktree itself. =claude-code= therefore starts a separate session for each task. The dashboard's Claude column shows =live= when one is running, =c= on a row opens it, and finishing a task kills that worktree's session before deleting the directory.
+
+* Implementation
+
+** File header
+
+The header carries the lexical-binding cookie and the dependency list. The commentary points back here, since this org file is the real documentation.
+
+#+begin_src emacs-lisp
+;;; sp-vc-ai-workbench.el --- Parallel work on many extensions with Magit + Claude Code -*- lexical-binding: t; -*-
+
+;; Package-Requires: ((emacs "28.1") (magit "3.3") (transient "0.4") (claude-code "0.1"))
+
+;;; Commentary:
+;;
+;; Generated from sp-vc-ai-workbench.org -- edit that file, not this one.
+;;
+;; One git worktree per task, one notes file and one Claude Code session
+;; per worktree.  Entry point: M-x sp-workbench-menu.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'magit)
+(require 'transient)
+(require 'tabulated-list)
+(require 'claude-code)
+
+(declare-function claude-code-send-command "claude-code")
+(declare-function claude-code--find-claude-buffers-for-directory "claude-code")
+#+end_src
+
+** Customization
+
+All behaviour that you might reasonably want to change is a user option.
+
+- =sp-workbench-repos= and =sp-workbench-scan-root= say which repositories are extensions.
+- =sp-workbench-worktree-root= and =sp-workbench-branch-prefix= control where worktrees live and how new branches are named. Slashes in a branch name become dashes in the directory name.
+- =sp-workbench-notes-file= and =sp-workbench-context-file= name the two per-worktree files.
+- =sp-workbench-start-claude-on-new-task= starts a Claude session as soon as a task is created. It is off by default so that creating a task costs nothing.
+- =sp-workbench-claude-capture-lines= is how much of the Claude buffer is taken when no region is active.
+- =sp-workbench-max-context-chars= caps the size of the code excerpt written to the context file, keeping the tail if it is longer.
+- =sp-workbench-rules= is the ground-rules text placed at the top of the context file. It is what turns Claude into a brainstorming partner rather than a code generator: ask clarifying questions, offer two to four options with trade-offs, point out edge cases (Windows/WSL paths, large buffers, org versions, byte-compilation, autoloads), suggest names, propose a small next step, use short snippets only to illustrate an interface, and edit nothing except the notes file when asked.
+
+#+begin_src emacs-lisp
+(defgroup sp-workbench nil
+  "Parallel extension development with Magit worktrees and Claude Code."
+  :group 'tools
+  :prefix "sp-workbench-")
+
+(defcustom sp-workbench-repos nil
+  "List of directories, each the root of one extension's git repo."
+  :type '(repeat directory))
+
+(defcustom sp-workbench-scan-root nil
+  "If non-nil, every git repo directly under this directory is also an extension."
+  :type '(choice (const nil) directory))
+
+(defcustom sp-workbench-worktree-root "~/.worktrees/"
+  "Directory under which task worktrees are created.
+Layout: ROOT/<extension>/<branch-with-slashes-replaced>."
+  :type 'directory)
+
+(defcustom sp-workbench-branch-prefix "feat/"
+  "Prefix proposed when naming a new task branch."
+  :type 'string)
+
+(defcustom sp-workbench-notes-file ".brainstorm.org"
+  "Name of the per-worktree notes file (kept out of git)."
+  :type 'string)
+
+(defcustom sp-workbench-context-file ".brainstorm-context.md"
+  "Name of the per-worktree context file written for Claude (kept out of git)."
+  :type 'string)
+
+(defcustom sp-workbench-start-claude-on-new-task nil
+  "If non-nil, start a Claude Code session when creating a new task."
+  :type 'boolean)
+
+(defcustom sp-workbench-claude-capture-lines 80
+  "Lines taken from the end of the Claude buffer when no region is active."
+  :type 'integer)
+
+(defcustom sp-workbench-max-context-chars 12000
+  "Upper bound on characters of each context section written for Claude."
+  :type 'integer)
+
+(defcustom sp-workbench-rules
+  "We are brainstorming the design of an Emacs extension.  I am an experienced \
+Emacs Lisp developer; do not explain basics.
+- Help me think: ask clarifying questions that expose hidden assumptions, \
+give 2-4 design options with trade-offs, point out edge cases (Windows/WSL \
+paths, large buffers, org versions, byte-compilation, autoloads), suggest \
+API and naming, and propose a small next step.
+- Do not edit any file, except that when I explicitly ask you to record \
+something you may append it under the `* Claude' heading at the end of \
+.brainstorm.org, as an org-mode `**' subheading.
+- Use short elisp snippets only to illustrate an interface, never whole \
+implementations.  Be concise and say so when unsure."
+  "Ground rules placed at the top of the context file."
+  :type 'string)
+#+end_src
+
+** Repo and worktree discovery
+
+The extension list is the union of the explicit repos and anything with a =.git= directly under the scan root. For each repo, =magit-list-worktrees= gives every worktree; each entry is turned into a small plist with its path, branch and whether it has uncommitted changes. =sp-workbench--all-worktrees= flattens that across all extensions and is the data source for the dashboard and the switcher.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--repos ()
+  "Return the list of extension repo roots (absolute, no trailing slash)."
+  (let ((dirs (mapcar #'expand-file-name sp-workbench-repos)))
+    (when (and sp-workbench-scan-root
+               (file-directory-p sp-workbench-scan-root))
+      (dolist (d (directory-files (expand-file-name sp-workbench-scan-root) t
+                                  directory-files-no-dot-files-regexp))
+        (when (and (file-directory-p d)
+                   (file-exists-p (expand-file-name ".git" d)))
+          (push d dirs))))
+    (delete-dups (mapcar #'directory-file-name dirs))))
+
+(defun sp-workbench--name (repo)
+  "Short extension name for REPO."
+  (file-name-nondirectory (directory-file-name repo)))
+
+(defun sp-workbench--worktrees (repo)
+  "Return list of plists (:path :branch :dirty) for each worktree of REPO."
+  (let ((default-directory (file-name-as-directory repo)))
+    (mapcar
+     (lambda (wt)
+       (let* ((path (car wt))
+              (branch (nth 2 wt))
+              (default-directory (file-name-as-directory path)))
+         (list :path (directory-file-name path)
+               :branch (or branch "(detached)")
+               :dirty (and (file-directory-p path)
+                           (magit-anything-modified-p)))))
+     (magit-list-worktrees))))
+
+(defun sp-workbench--all-worktrees ()
+  "Return list of (EXTENSION . PLIST) across all repos."
+  (cl-loop for repo in (sp-workbench--repos)
+           append (cl-loop for wt in (sp-workbench--worktrees repo)
+                           collect (cons (sp-workbench--name repo)
+                                         (plist-put wt :repo repo)))))
+#+end_src
+
+Some Magit versions lack =magit-main-worktree=, which returns the primary checkout of a repo. A small fallback defines it from =magit-list-worktrees=, whose first entry is always the main worktree.
+
+#+begin_src emacs-lisp
+(unless (fboundp 'magit-main-worktree)
+  (defun magit-main-worktree (dir)
+    "Fallback: return the main worktree path for the repo containing DIR."
+    (let ((default-directory (file-name-as-directory dir)))
+      (directory-file-name (car (car (magit-list-worktrees)))))))
+#+end_src
+
+The prompts are plain =completing-read=, so they work with whatever completion framework you use. The repo prompt defaults to the extension you are currently inside, and the worktree prompt shows =*= after dirty ones.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--read-repo ()
+  "Prompt for an extension repo, defaulting to the current one."
+  (let* ((repos (sp-workbench--repos))
+         (cur (when-let ((top (magit-toplevel)))
+                (cl-find-if (lambda (r) (file-equal-p r (magit-main-worktree top)))
+                            repos)))
+         (names (mapcar (lambda (r) (cons (sp-workbench--name r) r)) repos)))
+    (unless repos (user-error "No extensions: set `sp-workbench-repos'"))
+    (cdr (assoc (completing-read "Extension: " names nil t nil nil
+                                 (and cur (sp-workbench--name cur)))
+                names))))
+
+(defun sp-workbench--read-worktree ()
+  "Prompt for any worktree of any extension; return its plist."
+  (let* ((all (sp-workbench--all-worktrees))
+         (cands (mapcar (lambda (e)
+                          (cons (format "%s: %s%s" (car e)
+                                        (plist-get (cdr e) :branch)
+                                        (if (plist-get (cdr e) :dirty) " *" ""))
+                                (cdr e)))
+                        all)))
+    (unless cands (user-error "No worktrees found"))
+    (cdr (assoc (completing-read "Worktree: " cands nil t) cands))))
+
+(defun sp-workbench--current-worktree ()
+  "Return the toplevel of the worktree we are in, or signal an error."
+  (directory-file-name
+   (or (magit-toplevel) (user-error "Not inside a git worktree"))))
+#+end_src
+
+** Notes file
+
+The notes live inside the worktree so they travel with the task, but must never be committed. Git has a per-repository ignore file, =info/exclude=, that is shared by all worktrees and is not itself versioned; =sp-workbench--ignore-local-files= appends the two file names to it (once). It asks git where that file is with =rev-parse --git-path=, which is correct from inside a linked worktree.
+
+Because Claude may append to the notes while you have them open, the notes buffer is visited with =auto-revert-mode=.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--notes-path (dir)
+  "Path of the notes file in worktree DIR."
+  (expand-file-name sp-workbench-notes-file dir))
+
+(defun sp-workbench--visit-notes (dir)
+  "Visit the notes file of DIR (auto-reverting, since Claude may edit it)."
+  (let ((buf (find-file-noselect (sp-workbench--notes-path dir))))
+    (with-current-buffer buf (auto-revert-mode 1))
+    (pop-to-buffer-same-window buf)))
+
+(defun sp-workbench--ignore-local-files (dir)
+  "Add the notes and context files to the repo's local exclude list, from DIR."
+  (let* ((default-directory (file-name-as-directory dir))
+         (rel (magit-git-string "rev-parse" "--git-path" "info/exclude"))
+         (file (and rel (expand-file-name rel dir))))
+    (when file
+      (make-directory (file-name-directory file) t)
+      (dolist (line (list sp-workbench-notes-file sp-workbench-context-file))
+        (unless (and (file-exists-p file)
+                     (with-temp-buffer
+                       (insert-file-contents file)
+                       (re-search-forward
+                        (concat "^" (regexp-quote line) "$") nil t)))
+          (write-region (concat line "\n") nil file t 'silent))))))
+#+end_src
+
+A new notes file gets the title, a creation timestamp and the four headings. The goal you typed when creating the task goes under =* Goal=. If the file already exists it is left alone, so the function is safe to call repeatedly.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--init-notes (dir extension branch goal)
+  "Create the notes file in worktree DIR for EXTENSION/BRANCH with GOAL."
+  (let ((file (sp-workbench--notes-path dir)))
+    (unless (file-exists-p file)
+      (with-temp-file file
+        (insert (format "#+title: %s / %s\n" extension branch)
+                (format "#+created: %s\n\n"
+                        (format-time-string "[%Y-%m-%d %a %H:%M]"))
+                "* Goal\n" (if (string-empty-p goal) "\n" (concat goal "\n"))
+                "* Notes\n\n"
+                "* Open questions\n\n"
+                "* Claude\n")))
+    (sp-workbench--ignore-local-files dir)
+    file))
+#+end_src
+
+Captured text is appended as a level-two entry with a timestamp. Putting the text in an =example= block keeps org from interpreting asterisks, links or keywords in terminal output.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--append-to-notes (dir title body)
+  "Append a `**' entry TITLE with BODY (in an example block) to DIR's notes."
+  (let ((buf (find-file-noselect (sp-workbench--notes-path dir))))
+    (with-current-buffer buf
+      (auto-revert-mode 1)
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert (format "\n** %s  /%s/\n#+begin_example\n%s\n#+end_example\n"
+                        title (format-time-string "%Y-%m-%d %H:%M")
+                        (string-trim-right body))))
+      (save-buffer))
+    buf))
+#+end_src
+
+** Creating and finishing tasks
+
+*** New task
+
+=sp-workbench-new-task= asks for the extension, a branch name (pre-filled with the prefix) and a one-line goal. It then:
+
+1. computes the worktree directory (=ROOT/<extension>/<branch with / replaced by ->=) and refuses if it already exists;
+2. calls =magit-worktree-branch=, which creates the branch from the repo's main branch (=magit-main-branch=) and checks it out in the new directory;
+3. creates the notes file, opens it, and shows Magit status in a side window;
+4. optionally starts Claude.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--worktree-dir (repo branch)
+  "Directory for a new worktree of REPO on BRANCH."
+  (expand-file-name (replace-regexp-in-string "/" "-" branch)
+                    (expand-file-name (sp-workbench--name repo)
+                                      sp-workbench-worktree-root)))
+
+;;;###autoload
+(defun sp-workbench-new-task (repo branch goal)
+  "Create a worktree + branch for a new task in extension REPO.
+BRANCH is the new branch name; GOAL is a one-line description that seeds
+the notes file.  Opens the notes file and Magit status side by side."
+  (interactive
+   (let* ((repo (sp-workbench--read-repo))
+          (branch (read-string "New branch: " sp-workbench-branch-prefix))
+          (goal (read-string "Goal (one line): ")))
+     (list repo branch goal)))
+  (let* ((dir (sp-workbench--worktree-dir repo branch))
+         (default-directory (file-name-as-directory repo))
+         (start (magit-main-branch)))
+    (when (file-exists-p dir)
+      (user-error "Worktree directory already exists: %s" dir))
+    (make-directory (file-name-directory dir) t)
+    (magit-worktree-branch dir branch start)
+    (sp-workbench--init-notes dir (sp-workbench--name repo) branch goal)
+    (delete-other-windows)
+    (sp-workbench--visit-notes dir)
+    (magit-status-setup-buffer dir)
+    (display-buffer (current-buffer) '(display-buffer-in-side-window
+                                       (side . right)))
+    (when sp-workbench-start-claude-on-new-task
+      (sp-workbench-claude-open dir))
+    (message "Task ready: %s" dir)))
+#+end_src
+
+*** Finishing a task
+
+Finishing is deliberately conservative. It refuses to run in the main worktree, refuses if there are uncommitted changes, and asks for confirmation if the branch is not an ancestor of the main branch. It then saves the notes buffer, kills the worktree's Claude session without the usual process-kill prompt, and hands the deletion to =magit-worktree-delete=. The notes file is deleted with the directory, so copy anything you want to keep before finishing.
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-finish-task ()
+  "Remove the current worktree, refusing if it is dirty or unmerged.
+Any Claude Code session for the worktree is killed first."
+  (interactive)
+  (let* ((dir (sp-workbench--current-worktree))
+         (main (magit-main-worktree dir))
+         (branch (magit-get-current-branch))
+         (default-directory (file-name-as-directory main)))
+    (when (file-equal-p dir main)
+      (user-error "This is the main worktree; nothing to finish"))
+    (let ((default-directory (file-name-as-directory dir)))
+      (when (magit-anything-modified-p)
+        (user-error "Worktree has uncommitted changes")))
+    (when (and branch
+               (not (magit-git-success "merge-base" "--is-ancestor"
+                                       branch (magit-main-branch))))
+      (unless (yes-or-no-p
+               (format "%s is not merged into %s.  Remove anyway? "
+                       branch (magit-main-branch)))
+        (user-error "Aborted")))
+    (when-let ((buf (get-file-buffer (sp-workbench--notes-path dir))))
+      (with-current-buffer buf (save-buffer)))
+    (dolist (b (sp-workbench--claude-buffers dir))
+      (let ((kill-buffer-query-functions nil))
+        (kill-buffer b)))
+    (magit-worktree-delete dir)))
+#+end_src
+
+*** Switching
+
+=sp-workbench-switch= is the way to move between tasks: pick any worktree of any extension and get its notes (or a Dired buffer if it has none) on the left and Magit status on the right.
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-switch ()
+  "Jump to any task: open its notes file and Magit status."
+  (interactive)
+  (let* ((wt (sp-workbench--read-worktree))
+         (path (plist-get wt :path)))
+    (delete-other-windows)
+    (if (file-exists-p (sp-workbench--notes-path path))
+        (sp-workbench--visit-notes path)
+      (dired path))
+    (magit-status-setup-buffer path)
+    (display-buffer (current-buffer) '(display-buffer-in-side-window
+                                       (side . right)))))
+#+end_src
+
+** Dashboard
+
+The dashboard is a =tabulated-list-mode= buffer with one row per worktree: extension, branch, clean or dirty, whether a Claude session is live, and the path. The row id is the worktree path, which is what the row commands use. Keys: =RET= opens the notes, =m= Magit, =c= Claude, =n= a new task, =g= refreshes, =?= opens the menu.
+
+#+begin_src emacs-lisp
+(defvar sp-workbench-dashboard-mode-map
+  (let ((m (make-sparse-keymap)))
+    (set-keymap-parent m tabulated-list-mode-map)
+    (define-key m (kbd "RET") #'sp-workbench-dashboard-visit)
+    (define-key m (kbd "m")   #'sp-workbench-dashboard-magit)
+    (define-key m (kbd "c")   #'sp-workbench-dashboard-claude)
+    (define-key m (kbd "n")   #'sp-workbench-new-task)
+    (define-key m (kbd "?")   #'sp-workbench-menu)
+    m))
+
+(define-derived-mode sp-workbench-dashboard-mode tabulated-list-mode
+  "SpWorkbench"
+  "Overview of every extension worktree."
+  (setq tabulated-list-format
+        [("Extension" 22 t) ("Branch" 34 t) ("State" 8 t)
+         ("Claude" 7 t) ("Path" 0 t)])
+  (setq tabulated-list-sort-key '("Extension"))
+  (add-hook 'tabulated-list-revert-hook
+            #'sp-workbench--dashboard-refresh nil t))
+
+(defun sp-workbench--dashboard-refresh ()
+  "Rebuild the dashboard entries."
+  (setq tabulated-list-entries
+        (cl-loop for (ext . wt) in (sp-workbench--all-worktrees)
+                 for path = (plist-get wt :path)
+                 collect (list path
+                               (vector ext
+                                       (plist-get wt :branch)
+                                       (if (plist-get wt :dirty) "dirty" "clean")
+                                       (if (sp-workbench--claude-buffers path)
+                                           "live" "-")
+                                       (abbreviate-file-name path))))))
+
+;;;###autoload
+(defun sp-workbench-dashboard ()
+  "Show all extensions and their worktrees."
+  (interactive)
+  (let ((buf (get-buffer-create "*sp-workbench*")))
+    (with-current-buffer buf
+      (sp-workbench-dashboard-mode)
+      (sp-workbench--dashboard-refresh)
+      (tabulated-list-init-header)
+      (tabulated-list-print t))
+    (pop-to-buffer buf)))
+
+(defun sp-workbench--dashboard-path ()
+  "Worktree path at point in the dashboard."
+  (or (tabulated-list-get-id) (user-error "No worktree here")))
+
+(defun sp-workbench-dashboard-visit ()
+  "Open the notes of the worktree at point."
+  (interactive)
+  (let ((path (sp-workbench--dashboard-path)))
+    (if (file-exists-p (sp-workbench--notes-path path))
+        (sp-workbench--visit-notes path)
+      (dired path))))
+
+(defun sp-workbench-dashboard-magit ()
+  "Open Magit status for the worktree at point."
+  (interactive)
+  (magit-status-setup-buffer (sp-workbench--dashboard-path)))
+
+(defun sp-workbench-dashboard-claude ()
+  "Open (or start) the Claude Code session for the worktree at point."
+  (interactive)
+  (sp-workbench-claude-open (sp-workbench--dashboard-path)))
+#+end_src
+
+** Claude Code integration
+
+*** Finding a worktree's session
+
+=claude-code.el= names its buffers =*claude:<directory>*= (optionally with an instance name). To know whether a worktree already has a session, this library searches live buffers for that name pattern. Directory spellings differ (abbreviated =~=, trailing slash, symlink-resolved), so several variants are tried. If nothing matches and =claude-code= provides its own lookup function, that is used as a fallback.
+
+*This is the most version-sensitive part of the library.* If your copy of =claude-code.el= names buffers differently, =sp-workbench--claude-buffers= is the one function to adjust.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--dir-variants (dir)
+  "Spellings of DIR that may appear in a Claude buffer name."
+  (let ((d (directory-file-name (expand-file-name dir))))
+    (delete-dups
+     (list d (concat d "/")
+           (abbreviate-file-name d) (concat (abbreviate-file-name d) "/")
+           (directory-file-name (file-truename d))
+           (concat (directory-file-name (file-truename d)) "/")))))
+
+(defun sp-workbench--claude-buffers (dir)
+  "Live Claude Code buffers belonging to worktree DIR."
+  (let* ((variants (sp-workbench--dir-variants dir))
+         (found
+          (cl-remove-if-not
+           (lambda (b)
+             (let ((n (buffer-name b)))
+               (and (string-prefix-p "*claude:" n)
+                    (buffer-live-p b)
+                    (cl-some (lambda (v) (string-search (concat ":" v) n))
+                             variants))))
+           (buffer-list))))
+    (or found
+        (when (fboundp 'claude-code--find-claude-buffers-for-directory)
+          (ignore-errors
+            (claude-code--find-claude-buffers-for-directory
+             (file-name-as-directory dir)))))))
+
+(defun sp-workbench--claude-buffer-p (buf)
+  "Non-nil if BUF is a Claude Code buffer."
+  (string-prefix-p "*claude:" (buffer-name buf)))
+#+end_src
+
+*** Opening a session
+
+=sp-workbench-claude-open= shows the existing session for the worktree or starts a new one. It binds =default-directory= to the worktree before calling =claude-code=, which roots its session at the project of the current directory. Since a linked worktree has its own =.git= file, that project is the worktree, so each task gets an independent session with the correct working directory. (Check this the first time: the session's directory should be the worktree, not the main checkout.)
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-claude-open (&optional dir)
+  "Show the Claude Code session for worktree DIR, starting one if needed.
+DIR defaults to the current worktree."
+  (interactive)
+  (let* ((dir (or dir (sp-workbench--current-worktree)))
+         (default-directory (file-name-as-directory dir)))
+    (sp-workbench--ignore-local-files dir)
+    (if-let ((buf (car (sp-workbench--claude-buffers dir))))
+        (pop-to-buffer buf)
+      (claude-code))))
+#+end_src
+
+*** Writing the context file
+
+The context file is what Claude reads. It begins with the ground rules from =sp-workbench-rules=, then lists the extension, branch and base branch, the commits ahead of the base (at most thirty), and a =git diff --stat= against the base. If you had a region selected, it is appended as a fenced code block labelled with its file and line range, truncated to =sp-workbench-max-context-chars=. The file is rewritten on every question, so it always reflects the current state of the branch.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--truncate (s)
+  "Truncate S to `sp-workbench-max-context-chars', keeping the tail."
+  (if (> (length s) sp-workbench-max-context-chars)
+      (concat "[...truncated...]\n"
+              (substring s (- (length s) sp-workbench-max-context-chars)))
+    s))
+
+(defun sp-workbench--write-context (dir selection source)
+  "Write the context file for worktree DIR.
+SELECTION is region text (or nil); SOURCE describes where it came from."
+  (let* ((default-directory (file-name-as-directory dir))
+         (main (magit-main-branch))
+         (branch (or (magit-get-current-branch) "(detached)"))
+         (log (string-join
+               (magit-git-lines "log" "--oneline" "--no-decorate" "-n" "30"
+                                (format "%s..HEAD" main))
+               "\n"))
+         (stat (string-join (magit-git-lines "diff" "--stat" main) "\n"))
+         (file (expand-file-name sp-workbench-context-file dir)))
+    (with-temp-file file
+      (insert "# Brainstorm context\n\n"
+              "## Ground rules\n" sp-workbench-rules "\n\n"
+              (format "## Worktree\nExtension: %s\nBranch: %s\nBase: %s\n\n"
+                      (sp-workbench--name (magit-main-worktree dir))
+                      branch main)
+              "## Commits ahead of base\n"
+              (if (string-empty-p log) "(none yet)" log) "\n\n"
+              "## Diff summary vs base\n"
+              (if (string-empty-p stat) "(no changes)" stat) "\n")
+      (when selection
+        (insert (format "\n## Code under discussion (%s)\n```elisp\n%s\n```\n"
+                        source (sp-workbench--truncate selection)))))
+    file))
+#+end_src
+
+*** Sending text to Claude
+
+Only single-line prompts are sent (any newlines are collapsed to spaces), using =claude-code-send-command=, which targets the session for the current directory. If there is no session yet, one is started and the prompt goes to the kill ring instead, because the terminal is not ready to accept input immediately.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--send-to-claude (dir prompt)
+  "Send one-line PROMPT to the Claude session of worktree DIR.
+If no session exists, start one and put PROMPT on the kill ring instead."
+  (let ((default-directory (file-name-as-directory dir))
+        (line (replace-regexp-in-string "[\n\r]+" " " prompt)))
+    (if (sp-workbench--claude-buffers dir)
+        (claude-code-send-command line)
+      (kill-new line)
+      (claude-code)
+      (message "Claude is starting; prompt copied, paste it with C-y when ready"))))
+#+end_src
+
+*** Asking a question
+
+=sp-workbench-claude-ask= ties it together. If a region is active, its text, file and line range are recorded. It makes sure the notes file exists, rewrites the context file, and sends the one-line prompt naming both files and your question. =sp-workbench-claude-kickoff= is the same command with a fixed question about design decisions, hidden assumptions and risks, meant for the start of a task; it relies on the goal you wrote in the notes.
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-claude-ask (question)
+  "Ask Claude QUESTION about the current worktree.
+Branch context and the active region (if any) go into the context file;
+Claude is pointed at that file and at the notes."
+  (interactive (list (read-string "Ask Claude: ")))
+  (when (string-empty-p (string-trim question))
+    (user-error "Empty question"))
+  (let* ((dir (sp-workbench--current-worktree))
+         (selection (and (use-region-p)
+                         (buffer-substring-no-properties
+                          (region-beginning) (region-end))))
+         (source (when selection
+                   (format "%s:%d-%d"
+                           (if buffer-file-name
+                               (file-relative-name buffer-file-name dir)
+                             (buffer-name))
+                           (line-number-at-pos (region-beginning))
+                           (line-number-at-pos (region-end))))))
+    (sp-workbench--init-notes dir
+                              (sp-workbench--name (magit-main-worktree dir))
+                              (or (magit-get-current-branch) "(detached)") "")
+    (sp-workbench--write-context dir selection source)
+    (sp-workbench--send-to-claude
+     dir
+     (format "Read %s (ground rules and context) and %s (my running notes), then: %s"
+             sp-workbench-context-file sp-workbench-notes-file question))))
+
+;;;###autoload
+(defun sp-workbench-claude-kickoff ()
+  "Ask Claude for an initial design discussion based on the Goal in the notes."
+  (interactive)
+  (sp-workbench-claude-ask
+   "What are the key design decisions, hidden assumptions and risks before I start? Propose a small first step."))
+#+end_src
+
+*** Capturing output from Claude
+
+Terminal buffers contain screen text, not clean prose, so captured text is cleaned first: ANSI escape sequences are removed, the vertical-bar borders of Claude Code's input box are stripped, box-drawing corner lines are blanked, trailing whitespace is dropped and runs of blank lines are collapsed.
+
+#+begin_src emacs-lisp
+(defun sp-workbench--clean-terminal-text (text)
+  "Strip ANSI escapes, TUI borders and trailing space from TEXT."
+  (let ((s (replace-regexp-in-string "\e\\[[0-9;?]*[ -/]*[@-~]" "" text)))
+    (setq s (replace-regexp-in-string "^[│┃] ?" "" s))
+    (setq s (replace-regexp-in-string " ?[│┃]$" "" s))
+    (setq s (replace-regexp-in-string "^[╭╰][─ ]*[╮╯]?$" "" s))
+    (setq s (replace-regexp-in-string "[ \t]+$" "" s))
+    (string-trim (replace-regexp-in-string "\n\\{3,\\}" "\n\n" s))))
+#+end_src
+
+=sp-workbench-claude-capture= works from the Claude buffer or from any buffer in the worktree. If you are in the Claude buffer with an active region, that region is used; otherwise the last =sp-workbench-claude-capture-lines= lines of the session buffer are taken. The cleaned text is appended to the notes as a "Captured from Claude" entry. With a prefix argument the notes are shown afterwards.
+
+In =eat= or =vterm=, entering copy mode lets you set a region in the terminal buffer; that is the way to capture a specific answer rather than the tail of the session.
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-claude-capture (&optional visit)
+  "Copy output from the Claude buffer into the notes file.
+Uses the active region if called from the Claude buffer with one (in eat/vterm,
+select it in copy mode), otherwise the last `sp-workbench-claude-capture-lines'
+lines.  With prefix argument VISIT, show the notes afterwards."
+  (interactive "P")
+  (let* ((dir (sp-workbench--current-worktree))
+         (cbuf (if (sp-workbench--claude-buffer-p (current-buffer))
+                   (current-buffer)
+                 (or (car (sp-workbench--claude-buffers dir))
+                     (user-error "No Claude session for this worktree"))))
+         (raw (with-current-buffer cbuf
+                (if (and (eq cbuf (current-buffer)) (use-region-p))
+                    (buffer-substring-no-properties (region-beginning)
+                                                    (region-end))
+                  (save-excursion
+                    (goto-char (point-max))
+                    (forward-line (- sp-workbench-claude-capture-lines))
+                    (buffer-substring-no-properties (point) (point-max))))))
+         (text (sp-workbench--clean-terminal-text raw)))
+    (when (string-empty-p text)
+      (user-error "Nothing to capture"))
+    (sp-workbench--init-notes dir
+                              (sp-workbench--name (magit-main-worktree dir))
+                              (or (magit-get-current-branch) "(detached)") "")
+    (let ((buf (sp-workbench--append-to-notes dir "Captured from Claude" text)))
+      (message "Captured %d lines into %s"
+               (length (split-string text "\n"))
+               (abbreviate-file-name (sp-workbench--notes-path dir)))
+      (when visit (pop-to-buffer buf)))))
+#+end_src
+
+*** Copying the notes out
+
+For the cases where you would rather paste into Claude yourself, =sp-workbench-claude-copy-notes= puts the entire notes file on the kill ring.
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun sp-workbench-claude-copy-notes ()
+  "Put the current worktree's notes on the kill ring, e.g. to paste into Claude."
+  (interactive)
+  (let ((file (sp-workbench--notes-path (sp-workbench--current-worktree))))
+    (unless (file-exists-p file) (user-error "No notes file yet"))
+    (kill-new (with-temp-buffer (insert-file-contents file) (buffer-string)))
+    (message "Notes copied to kill ring")))
+#+end_src
+
+** Menu
+
+A =transient= menu gathers everything in three columns: tasks, Claude, and plain Magit status for the current worktree. It is the intended entry point; bind =sp-workbench-menu= to a key of your choice.
+
+#+begin_src emacs-lisp
+;;;###autoload (autoload 'sp-workbench-menu "sp-vc-ai-workbench" nil t)
+(transient-define-prefix sp-workbench-menu ()
+  "Parallel extension workbench."
+  [["Tasks"
+    ("n" "New task (worktree)" sp-workbench-new-task)
+    ("s" "Switch task"         sp-workbench-switch)
+    ("f" "Finish task"         sp-workbench-finish-task)
+    ("d" "Dashboard"           sp-workbench-dashboard)]
+   ["Claude"
+    ("o" "Open Claude session"            sp-workbench-claude-open)
+    ("a" "Ask (region = context)"         sp-workbench-claude-ask)
+    ("k" "Kick off design talk"           sp-workbench-claude-kickoff)
+    ("c" "Capture Claude output -> notes" sp-workbench-claude-capture)
+    ("y" "Copy notes to kill ring"        sp-workbench-claude-copy-notes)]
+   ["Git"
+    ("m" "Magit status here" magit-status)]])
+#+end_src
+
+** Provide
+
+#+begin_src emacs-lisp
+(provide 'sp-vc-ai-workbench)
+;;; sp-vc-ai-workbench.el ends here
+#+end_src
+
+* Caveats and things to check
+
+This code has been written but not run: it was balance-checked, not loaded or byte-compiled. When you first use it, check these in order.
+
+1. *Byte-compile and load.* Tangle, then =M-x byte-compile-file= on the result and fix any warnings about undefined functions (the likeliest are Magit or =claude-code= names that differ in your versions).
+2. *Session lookup.* Start a session with =sp-workbench-claude-open= and confirm the dashboard shows =live= for it. If not, look at the actual buffer name and adjust =sp-workbench--claude-buffers=.
+3. *Session directory.* The Claude session should start in the worktree, not in the main checkout.
+4. *Sending.* =sp-workbench-claude-ask= relies on =claude-code-send-command= resolving to the right buffer from the worktree directory. If you run several Claude instances per directory it may prompt you to choose.
+5. *Windows and WSL.* If your repos live on one side and Emacs runs on the other, worktree paths under =~/.worktrees/= may need adjusting.
+6. *Main branch.* The workbench uses whatever =magit-main-branch= returns as the base for new branches, the merged check and the context diff.

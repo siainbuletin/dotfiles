@@ -1,0 +1,309 @@
+#+TITLE: sp-macos.el: macOS integration
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/env/sp-macos.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/env/sp-macos.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+Settings that only make sense on macOS, which the commentary describes as the main machine this configuration runs on. The module remaps the modifier keys, adds two =dwim-shell-command= helpers (open marked files with a chosen app, and pick a process to kill), makes Dired use Emacs's own directory lister, keeps the theme in step with the macOS Light/Dark appearance (including for daemon client frames), and installs =org-mac-link= for grabbing links from Mac applications.
+
+It depends on the =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, =org-mac-link=, and the variable =sys-mac= set elsewhere in the configuration to detect macOS. The themes it switches between, =ef-dream= and =lambda-light-faded=, must be installed by the theme modules. It is in both the default and minimal module lists in =init.el=. Some parts are unconditional (the key remapping and the two shell commands), so they also run on other systems where they are harmless but not useful.
+
+* Header
+
+** Header and commentary
+
+File header with lexical binding and a short commentary explaining why macOS integration matters here. DEVONthink support is mentioned as configured elsewhere.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-macos.el --- settings specific to the MacOS environment.
+
+;;; Commentary:
+
+;; MacOS is my main operating system (my most capable and portable computer),
+;; for this reason, it's important to have it be integrated with the rest of
+;; the system, including running DEVONthink well enough (although DT support
+;; is configured elsewhere in this config).
+
+;;; Code:
+#+end_src
+
+* Keyboard
+
+** Command as Meta
+
+Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters. These are set without a macOS check, but the variables only have an effect on the NS port.
+
+#+begin_src emacs-lisp -i
+;; This is so that I can actually use the CMD key as my Meta key.
+(setq mac-command-modifier 'meta)
+(setq mac-option-modifier 'none)
+#+end_src
+
+* Shell helpers
+
+Two interactive commands built on =dwim-shell-command=, adapted from that package's own collection of examples.
+
+** Open with a macOS app
+
+=dwim-shell-commands-macos-open-with= collects every =.app= bundle under =/Applications=, =~/Applications= and =/System/Applications= (without descending into bundles), lets you pick one by name, and runs =open -a= on the marked files (or the current file) with it. The docstring, which says it converts images to JPG, is a copy-paste leftover and does not describe what the command does. The function is defined before the =require= of =dwim-shell-command= below, which is fine because the package is only needed when the command runs.
+
+#+begin_src emacs-lisp -i
+;; Open with a specific MacOS app
+
+(defun dwim-shell-commands-macos-open-with ()
+  "Convert all marked images to jpg(s)."
+  (interactive)
+  (let* ((apps (seq-sort
+                #'string-lessp
+                (seq-mapcat (lambda (paths)
+                              (directory-files-recursively
+                               paths "\\.app$" t (lambda (path)
+                                                  (not (string-suffix-p ".app" path)))))
+                            '("/Applications" "~/Applications" "/System/Applications"))))
+         (selection (progn
+                      (cl-assert apps nil "No apps found")
+                      (completing-read "Open with: "
+                                       (mapcar (lambda (path)
+                                                 (propertize (file-name-base path) 'path path))
+                                               apps)))))
+    (dwim-shell-command-on-marked-files
+     "Open with"
+     (format "open -a '%s' '<<*>>'" (get-text-property 0 'path selection))
+     :silent-success t
+     :no-progress t
+     :utils "open")))
+#+end_src
+
+** Libraries for the process killer
+
+Loads =dwim-shell-command=, =map=, =proced= and =seq=.
+
+#+begin_src emacs-lisp -i
+;; kill macos processes right from emacs
+
+(require 'dwim-shell-command)
+(require 'map)
+(require 'proced)
+(require 'seq)
+#+end_src
+
+** Kill a process
+
+=dwim-shell-commands-kill-process= lists running processes from =proced-process-attributes= as aligned PID, user, command and arguments columns sized to the window, sorted by command name. After you choose one and confirm with =y-or-n-p=, it runs =kill -9= on that PID through =dwim-shell-command-on-marked-files=.
+
+#+begin_src emacs-lisp -i
+(defun dwim-shell-commands-kill-process ()
+  "Select and kill process."
+  (interactive)
+  (let* ((pid-width 5)
+         (comm-width 25)
+         (user-width 10)
+         (processes (proced-process-attributes))
+         (candidates
+          (mapcar (lambda (attributes)
+                    (let* ((process (cdr attributes))
+                           (pid (format (format "%%%ds" pid-width) (map-elt process 'pid)))
+                           (user (format (format "%%-%ds" user-width)
+                                         (truncate-string-to-width
+                                          (map-elt process 'user) user-width nil nil t)))
+                           (comm (format (format "%%-%ds" comm-width)
+                                         (truncate-string-to-width
+                                          (map-elt process 'comm) comm-width nil nil t)))
+                           (args-width (- (window-width) (+ pid-width user-width comm-width 3)))
+                           (args (map-elt process 'args)))
+                      (cons (if args
+                                (format "%s %s %s %s" pid user comm (truncate-string-to-width args args-width nil nil t))
+                              (format "%s %s %s" pid user comm))
+                            process)))
+                  processes))
+         (selection (map-elt candidates
+                             (completing-read "kill process: "
+                                              (seq-sort
+                                               (lambda (p1 p2)
+                                                 (string-lessp (nth 2 (split-string (string-trim (car p1))))
+                                                               (nth 2 (split-string (string-trim (car p2))))))
+                                               candidates) nil t)))
+         (prompt-title (format "%s %s %s"
+                               (map-elt selection 'pid)
+                               (map-elt selection 'user)
+                               (map-elt selection 'comm))))
+    (when (y-or-n-p (format "Kill? %s" prompt-title))
+      (dwim-shell-command-on-marked-files
+       (format "Kill %s" prompt-title)
+       (format "kill -9 %d" (map-elt selection 'pid))
+       :utils "kill"
+       :error-autofocus t
+       :silent-success t))))
+#+end_src
+
+* Dired
+
+** Use the Lisp directory lister
+
+On macOS, uses =ls-lisp= instead of the system =ls= for Dired listings. The BSD =ls= shipped with macOS lacks the =--dired= option Emacs expects, which is the usual reason for this setting from the cited Stack Overflow answer.
+
+#+begin_src emacs-lisp -i
+; Source - https://stackoverflow.com/a/4083987
+; Posted by hatmatrix
+; Retrieved 2026-03-29, License - CC BY-SA 2.5
+
+(when (eq system-type 'darwin)
+  (require 'ls-lisp)
+  (setq ls-lisp-use-insert-directory-program nil))
+#+end_src
+
+* Theme follows system appearance
+
+The comment explains the design: rather than scheduling theme changes by time, Emacs follows macOS, which already handles sunrise and sunset. It also records a past bug where only the change hook was registered, so the startup theme often disagreed with the system.
+
+** Background
+
+Explanatory comment for the appearance code that follows.
+
+#+begin_src emacs-lisp -i
+;;;;; macOS system-appearance dispatch
+;; Delegate Light/Dark choice to macOS. The system already does
+;; sunrise/sunset when set to Auto, and reflects manual flips
+;; instantly -- following it removes every source of drift between
+;; Emacs and the rest of the desktop.
+;;
+;; `ns-system-appearance' (symbol `light' or `dark') is set when an NS
+;; frame initializes; `ns-system-appearance-change-functions' fires
+;; when the system flips. The change hook does NOT fire at startup --
+;; the prior version of this code only registered the hook, which is
+;; why initial theme often disagreed with macOS. We apply once at file
+;; load to fix that, falling back to `defaults read' so a frameless
+;; daemon (which has not bound `ns-system-appearance' yet) still picks
+;; the right theme at boot.
+#+end_src
+
+** Applying a theme for an appearance
+
+=lem--system-apply-theme= maps =dark= to =ef-dream= and anything else to =lambda-light-faded=. It disables all enabled themes and loads the target, but does nothing if the target is already the first enabled theme. The docstring calls both lambda variants, though the dark one is actually an ef theme.
+
+#+begin_src emacs-lisp -i
+(defun lem--system-apply-theme (appearance)
+  "Load the lambda variant matching system APPEARANCE.
+APPEARANCE is `light' or `dark' from
+`ns-system-appearance-change-functions' or `ns-system-appearance'.
+No-op when the target is already at the head of
+`custom-enabled-themes'."
+  (let ((target (pcase appearance
+                  ('dark 'ef-dream)
+                  (_     'lambda-light-faded))))
+    (unless (eq target (car custom-enabled-themes))
+      (mapc #'disable-theme custom-enabled-themes)
+      (load-theme target t))))
+#+end_src
+
+** Reading the current appearance
+
+=lem--macos-current-appearance= returns =light= or =dark=. It prefers =ns-system-appearance=, which exists once a graphical frame has been created; otherwise, on macOS, it runs =defaults read -g AppleInterfaceStyle=, which prints Dark in dark mode and fails in light mode. Anywhere else it returns =light=.
+
+#+begin_src emacs-lisp -i
+(defun lem--macos-current-appearance ()
+  "Return current macOS system appearance as `light' or `dark'.
+Prefers `ns-system-appearance' (set once an NS frame exists); falls
+back to `defaults read -g AppleInterfaceStyle' for frameless daemons.
+`defaults' returns \"Dark\" when dark mode is on and exits non-zero
+when light, so any non-zero exit (or output not containing \"Dark\")
+is treated as light."
+  (cond
+   ((and (boundp 'ns-system-appearance) ns-system-appearance)
+    ns-system-appearance)
+   ((and (bound-and-true-p sys-mac)
+         (executable-find "defaults"))
+    (with-temp-buffer
+      (let ((exit (call-process "defaults" nil t nil
+                                "read" "-g" "AppleInterfaceStyle")))
+        (if (and (zerop exit)
+                 (string-match-p "Dark" (buffer-string)))
+            'dark
+          'light))))
+   (t 'light)))
+#+end_src
+
+** Wiring it up at load
+
+On macOS, registers the theme function on =ns-system-appearance-change-functions= so later system flips are followed, and applies the current appearance once immediately, since the hook does not fire at startup.
+
+#+begin_src emacs-lisp -i
+(when (bound-and-true-p sys-mac)
+  (when (boundp 'ns-system-appearance-change-functions)
+    (add-hook 'ns-system-appearance-change-functions
+              #'lem--system-apply-theme))
+  (lem--system-apply-theme (lem--macos-current-appearance)))
+#+end_src
+
+* Daemon client frames
+
+A daemon started without a frame never gets appearance-change events, so it would stay on whatever theme it picked at boot.
+
+** Background
+
+Comment explaining why client frames need their own re-sync.
+
+#+begin_src emacs-lisp -i
+;;;;; Daemon client-frame sync
+
+;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
+;; never receives NS appearance-change events, so the hook above never
+;; fires for it -- the daemon freezes on whatever appearance it read at
+;; startup, which is usually stale by the time a client connects (and
+;; leaves `emacsclient -t' frames on the wrong variant). Re-read the
+;; system appearance whenever a client frame is created so every frame
+;; matches the current macOS Light/Dark state. `lem--system-apply-theme'
+;; no-ops when the target theme is already active, so this is cheap.
+#+end_src
+
+** Sync on new frame
+
+=lem--sync-theme-on-new-frame= rereads the system appearance and applies the matching theme. It is cheap because the apply function does nothing when the theme is already active.
+
+#+begin_src emacs-lisp -i
+(defun lem--sync-theme-on-new-frame (&rest _)
+  "Sync the lambda theme to the current macOS appearance.
+For `server-after-make-frame-hook': daemon client frames pick up the
+live system appearance instead of the daemon's stale startup value."
+  (lem--system-apply-theme (lem--macos-current-appearance)))
+#+end_src
+
+** Hook for daemons
+
+When running as a daemon on macOS, adds that function to =server-after-make-frame-hook=, so every =emacsclient= frame, including terminal ones, matches the current Light/Dark state.
+
+#+begin_src emacs-lisp -i
+(when (and (bound-and-true-p sys-mac) (daemonp))
+  (add-hook 'server-after-make-frame-hook #'lem--sync-theme-on-new-frame))
+#+end_src
+
+* Org links from Mac apps
+
+** org-mac-link
+
+Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-mac-link-get-link=, which inserts a link to the item currently selected in a Mac application such as Finder, Safari or Mail. The key is defined from =org-mode-hook=, so it is re-set every time an Org buffer opens; doing it once would be enough. This block has no macOS guard.
+
+#+begin_src emacs-lisp -i
+;; taken from Lambda emacs
+;;; Org Mac Link
+(use-package org-mac-link
+    :ensure t
+    :after org
+    :hook (org-mode . (lambda ()
+                        (define-key org-mode-map (kbd "C-c g")
+                          'org-mac-link-get-link))))
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-macos= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-macos)
+;; sp-macos.el ends here.
+#+end_src

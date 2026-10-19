@@ -1,0 +1,27 @@
+#+TITLE: sp-xml.el: XML editing with nXML
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-xml.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-xml.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+A one-form module that configures the built-in =nxml-mode= for XML schema and stylesheet files. It does not end with a =provide= form and is not listed in any profile in =init.el= or =sp-config-profiles.el=, so it appears to be unused at present; loading it with =require= would run the configuration but then report that the feature was not provided.
+
+* nXML configuration
+
+** nxml-mode
+
+Opens =.xsd= and =.xslt= files in =nxml-mode=. In nXML buffers it indents with spaces rather than tabs and adds =~/.emacs.d/nxml-schemas/schemas.xml= to =rng-schema-locating-files=, so nXML can find extra schemas for validation and completion. That path is hard-coded and does not follow the config's own directories.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+(use-package nxml-mode
+  :ensure nil
+  :defer t
+  :mode (("\\.xsd\\'" . nxml-mode)
+         ("\\.xslt\\'" . nxml-mode))
+  :hook (nxml-mode . (lambda ()
+	               (make-local-variable 'indent-tabs-mode)
+	               (setq indent-tabs-mode nil)
+	               (add-to-list 'rng-schema-locating-files
+			            "~/.emacs.d/nxml-schemas/schemas.xml"))))
+#+end_src

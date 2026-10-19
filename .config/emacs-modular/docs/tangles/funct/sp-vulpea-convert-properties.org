@@ -1,0 +1,533 @@
+#+TITLE: sp-vulpea-convert-properties.el: Convert Org drawer properties to Vulpea meta lines
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-vulpea-convert-properties.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-vulpea-convert-properties.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module migrates note metadata out of Org property drawers and into Vulpea-style meta lines, i.e. description-list items of the form =- key :: value= placed just below a node's drawer. It works on one node at point, on a whole buffer, or across every note Vulpea knows about, with a dry-run preview and a non-blocking batch runner that shows progress and an ETA.
+
+It requires =org=, =vulpea=, =cl-lib= and =subr-x=, and uses =vulpea-db-query= to enumerate note files. A blocklist keeps properties that Org, org-roam, org-node or Vulpea read directly (most importantly =ID=) inside the drawer. The module is loaded from =sp-vulpea-ext=, and binds =C-c w c= globally to the at-point command. The bulk commands edit and save many files, so the docstrings recommend running the preview and backing up notes first.
+
+* Setup
+
+** File header
+
+Standard header with lexical binding.
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-convert-properties.el --- Convert drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+#+end_src
+
+** Requires
+
+Loads Org, Vulpea and the =cl-lib= and =subr-x= helpers used for =cl-labels=, =string-join= and =string-trim=.
+
+#+begin_src emacs-lisp -i
+(require 'org)
+(require 'vulpea)
+(require 'cl-lib)
+(require 'subr-x)
+#+end_src
+
+** Property blocklist
+
+=sia-vulpea-convert-property-blocklist= lists property names that are never converted, compared case-insensitively. It covers identity and Org machinery (=ID=, =CUSTOM_ID=, =CATEGORY=, logging and export properties), org-roam properties, org-edna's =BLOCKER= and =TRIGGER=, and =CREATED=, which the comment says org-node needs. Extend it before a conversion if other tools depend on drawer properties in your notes.
+
+#+begin_src emacs-lisp -i
+(defvar sia-vulpea-convert-property-blocklist
+  '("ID" "CUSTOM_ID" "CATEGORY" "ARCHIVE" "ROAM_REFS" "ROAM_ALIASES"
+    "ROAM_EXCLUDE" "ROAM_PLANNING" "BLOCKER" "TRIGGER" "ORDERED"
+    "COOKIE_DATA" "LOG_INTO_DRAWER" "LOGGING" "VISIBILITY"
+    "EXPORT_FILE_NAME" "EXPORT_TITLE" "DIR" "UNNUMBERED" ;; by ai
+    "CREATED" ;; necessary for org-node to work well
+    )
+  "Property names never converted to meta lines (case-insensitive).
+These are properties Org, org-roam, or Vulpea itself read
+directly out of the property drawer -- converting them to meta
+lines would break that machinery (most importantly ID: Vulpea's
+whole notion of \"a node\" depends on it staying a real
+property). Add to this list before running a conversion if your
+notes use other drawer properties something else depends on.")
+#+end_src
+
+* Converting a single node
+
+These functions operate on the "node at point": the heading at or above point, or the file-level node when point is before the first heading.
+
+** Finding the insertion point
+
+=sia-vulpea--after-property-drawer-pos= returns the position right after the node's property drawer. For a heading that is after its drawer, or after the heading line when there is none. For the file-level node it also skips any leading =#+KEYWORD:= lines in any order relative to the drawer, so that meta lines never end up above =#+title:= or =#+date:= when the drawer comes first in the file.
+
+#+begin_src emacs-lisp -i
+;;; Low-level: one node at a time ---------------------------------------
+
+(defun sia-vulpea--after-property-drawer-pos ()
+  "Return the position right after the property drawer of the node at point.
+\"Node at point\" is the heading at or above point, or the
+file-level node if point is before the first heading.
+
+For a heading, this is simply right after its own drawer (or
+right after the heading line, if it has none).
+
+For the file-level node, this additionally skips past any
+leading #+KEYWORD: lines (#+title:, #+date:, #+filetags:, etc.)
+in whatever order they appear relative to the property drawer.
+Without this, meta lines inserted \"right after the drawer\"
+would land *above* #+title:/#+date: whenever the drawer happens
+to come first in the file -- which is exactly the bug this
+guards against."
+  (save-excursion
+    (if (org-before-first-heading-p)
+        (progn
+          (goto-char (point-min))
+          (let (moved)
+            (setq moved t)
+            (while moved
+              (setq moved nil)
+              (cond
+               ((looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+                (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                (forward-line 1)
+                (setq moved t))
+               ((looking-at "^[ \t]*#\\+[a-zA-Z_-]+:.*$")
+                (forward-line 1)
+                (setq moved t)))))
+          (point))
+      (org-back-to-heading t)
+      (forward-line 1)
+      (if (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+          (progn (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                 (forward-line 1)
+                 (point))
+        (point)))))
+#+end_src
+
+** Inserting or updating a meta line
+
+=sia-vulpea--insert-or-update-meta-line= writes =- KEY :: VALUE= right after the drawer. If a line for the same key already exists between the drawer and the next heading, its value is replaced instead, so re-running a conversion does not create duplicates.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--insert-or-update-meta-line (key value)
+  "Insert or update a \"- KEY :: VALUE\" meta line for the node at point.
+Placed right after that node's property drawer. If a meta line
+for KEY already exists between the drawer and the next heading
+(or end of file, for the file-level node), its value is replaced
+instead of adding a duplicate -- so re-running a conversion is
+safe and idempotent."
+  (let* ((start (sia-vulpea--after-property-drawer-pos))
+         (end (save-excursion
+                (goto-char start)
+                (if (re-search-forward "^\\*" nil t) (line-beginning-position) (point-max))))
+         (re (format "^\\(-[ \t]+%s[ \t]+::[ \t]*\\).*$" (regexp-quote key))))
+    (save-excursion
+      (goto-char start)
+      (if (re-search-forward re end t)
+          (replace-match (concat "\\1" value) t)
+        (goto-char start)
+        (insert (format "- %s :: %s\n" key value))))))
+#+end_src
+
+** Separating blank line
+
+=sia-vulpea--ensure-blank-line-before-meta= inserts a newline before the meta block only if the preceding line is not already blank, which again keeps repeated runs idempotent.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--ensure-blank-line-before-meta ()
+  "Ensure a blank line separates the node at point's property
+drawer (and, for the file-level node, its #+KEYWORD: lines) from
+the meta block that begins right after them -- see
+`sia-vulpea--after-property-drawer-pos'. Only inserts a newline
+if the line immediately before that position isn't already
+blank, so re-running a conversion never piles up extra blank
+lines."
+  (save-excursion
+    (goto-char (sia-vulpea--after-property-drawer-pos))
+    (unless (or (bobp)
+                (save-excursion (forward-line -1) (looking-at "^[ \t]*$")))
+      (insert "\n"))))
+#+end_src
+
+** Converting a node's properties
+
+=sia-vulpea--convert-node-properties= walks the node's standard properties, skips blocklisted names and empty values, writes each remaining one as a meta line with a downcased key, and deletes it from the drawer unless =keep-original= is non-nil. It adds the separating blank line once if anything was converted and returns the list of converted property names.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--convert-node-properties (&optional keep-original)
+  "Convert the node at point's own drawer properties to meta lines.
+\"Node at point\" is the heading at or above point, or the
+file-level node if point is before the first heading. Only
+properties not in `sia-vulpea-convert-property-blocklist', and
+with a non-empty value, are converted; the property name is
+downcased for the meta key. Unless KEEP-ORIGINAL is non-nil, each
+converted property is then deleted from the drawer. If anything
+was converted, a blank line is inserted before the meta block
+(once, however many properties were converted) to separate it
+from the drawer/front matter above -- see
+`sia-vulpea--ensure-blank-line-before-meta'. Returns the list of
+property names converted (empty if none)."
+  (save-excursion
+    (unless (org-before-first-heading-p) (org-back-to-heading t))
+    (let ((converted nil))
+      (dolist (prop (org-entry-properties (point) 'standard))
+        (let ((name (car prop)) (value (cdr prop)))
+          (unless (or (member (upcase name) sia-vulpea-convert-property-blocklist)
+                      (null value)
+                      (string-empty-p value))
+            (sia-vulpea--insert-or-update-meta-line (downcase name) value)
+            (push name converted)
+            (unless keep-original (org-entry-delete (point) name)))))
+      (when converted
+        (sia-vulpea--ensure-blank-line-before-meta))
+      (nreverse converted))))
+#+end_src
+
+** Interactive command at point
+
+=sp-vulpea-convert-properties-at-point= is the user-facing command for the current node. With a prefix argument (=C-u=) it keeps the original properties in the drawer. It reports which properties were converted, or that there was nothing to convert. It is bound to =C-c w c= at the end of the module.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-convert-properties-at-point (&optional keep-original)
+  "Convert the drawer properties of the node at point to meta lines.
+With KEEP-ORIGINAL (\\[universal-argument]), keep the properties
+in the drawer too, instead of deleting each one as it's
+converted."
+  (interactive "P")
+  (let ((converted (sia-vulpea--convert-node-properties keep-original)))
+    (if converted
+        (message "Converted: %s" (string-join converted ", "))
+      (message "Nothing to convert here (all properties are blocklisted, or there are none)"))))
+#+end_src
+
+* Whole buffer
+
+** Node title
+
+=sia-vulpea--node-title= returns the heading text, or for the file-level node the =#+title:= value, falling back to the file name. It is used to label entries in the conversion report.
+
+#+begin_src emacs-lisp -i
+;;; Whole buffer, and every node in it -----------------------------------
+
+(defun sia-vulpea--node-title ()
+  "Return the title of the node at point.
+The heading text if inside one, or the file's own #+title:
+line (falling back to the filename) at file level -- mirrors
+`sia-vulpea--after-property-drawer-pos''s notion of \"node at
+point\"."
+  (if (org-before-first-heading-p)
+      (or (save-excursion
+            (goto-char (point-min))
+            (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
+              (string-trim (match-string 1))))
+          (file-name-nondirectory (or (buffer-file-name) "")))
+    (org-get-heading t t t t)))
+#+end_src
+
+** Fast pre-scan of a file
+
+=sia-vulpea--file-has-convertible-properties-p= reads a file as plain text in a temporary buffer and looks for any =:NAME: value= line whose name is not =PROPERTIES=, =END= or blocklisted and whose value is non-empty. It does not start =org-mode=, so it is cheap. It may produce false positives (a matching line outside a drawer), which only cost an unneeded file visit later, but is meant never to miss a convertible file.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--file-has-convertible-properties-p (file)
+  "Non-nil if FILE's raw text contains at least one property-drawer
+line whose name isn't in `sia-vulpea-convert-property-blocklist'
+and whose value is non-empty.
+
+This is a fast, structure-agnostic text scan -- no `org-mode', no
+Vulpea db -- meant only as a pre-filter before the real,
+buffer-based conversion. It doesn't require FILE to actually be
+visited or parsed as Org, just read as text, which is what makes
+it cheap. A false positive here (matching something that isn't
+really inside a drawer) just means a file gets opened for
+nothing during the real pass, which is harmless -- so the regex
+doesn't need to be a perfect drawer parser, only a conservative
+one that never produces a false *negative*."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (catch 'found
+      (while (re-search-forward
+              "^[ \t]*:\\([A-Za-z_][A-Za-z0-9_-]*\\):[ \t]+\\(.+\\)$" nil t)
+        (let ((name (match-string 1)) (value (match-string 2)))
+          (unless (or (member (upcase name) '("PROPERTIES" "END"))
+                      (member (upcase name) sia-vulpea-convert-property-blocklist)
+                      (string-empty-p (string-trim value)))
+            (throw 'found t))))
+      nil)))
+#+end_src
+
+** Candidate files
+
+=sia-vulpea--files-with-convertible-properties= takes the unique paths of all notes from =vulpea-db-query= and filters them with the text pre-scan. The docstring explains that Vulpea's database does not expose drawer contents, so an earlier attempt to filter through the database never found anything. The actual conversion still reads each live buffer with =org-entry-properties=.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--files-with-convertible-properties ()
+  "Return the subset of all Vulpea note files with at least one
+convertible property, found via a fast raw-text pre-scan of each
+file (see `sia-vulpea--file-has-convertible-properties-p').
+
+This deliberately does NOT go through Vulpea's db -- Vulpea
+doesn't expose property-drawer contents through its own note
+data, so filtering that way never actually worked (every note
+came back with nothing convertible, regardless of what was
+really in the file, and no amount of `vulpea-db-sync-full-scan'
+would have changed that). This is a pre-filter only: the actual
+conversion still re-reads each kept file's live buffer via
+`org-entry-properties', which remains the source of truth for
+what gets converted."
+  (seq-filter #'sia-vulpea--file-has-convertible-properties-p
+              (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query)))))
+#+end_src
+
+** Report lines
+
+=sia-vulpea--insert-converted-report= inserts one =id:= link per converted node, labelled with its title, so the report buffer is clickable in =org-mode=.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--insert-converted-report (nodes)
+  "Insert one Org line per (ID . TITLE) in NODES, as a clickable
+id: link: \"- [[id:ID][TITLE]]\". Meant for a buffer already in
+`org-mode', so the links are actually clickable/`org-open-at-point'-able."
+  (dolist (node nodes)
+    (insert (format "- [[id:%s][%s]]\n" (car node) (cdr node)))))
+#+end_src
+
+** Converting a buffer
+
+=sia-vulpea-convert-buffer-properties-to-meta= converts every node that has an =ID=: the file-level node first, then each heading via =org-map-entries=. Nodes without an ID are left alone. It saves the buffer afterwards, messages a count when called interactively, and returns =(ID . TITLE)= pairs for the nodes it changed. A prefix argument keeps the originals.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea-convert-buffer-properties-to-meta (&optional keep-original)
+  "Convert drawer properties to meta lines for every recognized node
+in the current buffer -- the file-level node (if it has an :ID:)
+and every heading with an :ID:, i.e. every node Vulpea/org-roam
+actually indexes here. Saves the buffer afterwards. Returns a
+list of (ID . TITLE) for every node that had at least one
+property converted (empty if none)."
+  (interactive "P")
+  (let (converted-nodes)
+    (save-excursion
+      (goto-char (point-min))
+      (when (org-entry-get (point-min) "ID")
+        (when (sia-vulpea--convert-node-properties keep-original)
+          (push (cons (org-entry-get (point-min) "ID") (sia-vulpea--node-title))
+                converted-nodes)))
+      (org-map-entries
+       (lambda ()
+         (when (org-entry-get (point) "ID")
+           (when (sia-vulpea--convert-node-properties keep-original)
+             (push (cons (org-entry-get (point) "ID") (sia-vulpea--node-title))
+                   converted-nodes))))))
+    (when (called-interactively-p 'any)
+      (message "Converted properties on %d node%s in this buffer"
+               (length converted-nodes) (if (= (length converted-nodes) 1) "" "s")))
+    (save-buffer)
+    (nreverse converted-nodes)))
+#+end_src
+
+* Non-blocking batch processing
+
+** Duration formatting
+
+=sia-vulpea--format-duration= formats a number of seconds as "2m 13s" or "45s" for the ETA display.
+
+#+begin_src emacs-lisp -i
+;;; Non-blocking batch processing, with progress + ETA --------------------
+
+(defun sia-vulpea--format-duration (seconds)
+  "Return SECONDS formatted as e.g. \"2m 13s\" or \"45s\"."
+  (let* ((secs (max 0 (round seconds)))
+         (m (/ secs 60))
+         (s (% secs 60)))
+    (if (> m 0) (format "%dm %ds" m s) (format "%ds" s))))
+#+end_src
+
+** Cooperative file loop
+
+=sia-vulpea--process-files-async= processes a list of files one at a time, visiting each with =find-file-noselect= and calling a per-file function in that buffer. After each file it schedules the next with a zero-second timer, which returns control to the command loop so redisplay happens and =C-g= works between files. The docstring is explicit that this is cooperative yielding, not true background work. A progress reporter shows N/TOTAL and an ETA from the average time per file, and =on-done= receives all results in order at the end. Visited buffers are left open.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea--process-files-async (files per-file-fn label on-done)
+  "Call PER-FILE-FN once per file in FILES, one at a time, without
+freezing Emacs for the whole run.
+
+Each file is handled, then the *next* one is scheduled via a
+fresh zero-second timer instead of just continuing a tight
+`dolist' loop -- that gap is what hands control back to Emacs's
+command loop between files, so redisplay happens, `C-g' still
+works, and the UI doesn't lock up. To be fully transparent about
+what this is and isn't: stock Emacs has no threads that run
+Elisp concurrently, so nothing here runs \"in the background\"
+while you keep typing in another buffer -- it's cooperative
+yielding, not true parallelism. (Emacs 26+ built with
+`--with-threads' does have `make-thread', but Elisp execution
+under it is still serialized by a global lock, so it wouldn't
+actually speed this up or free the UI thread the way OS threads
+would -- it's not used here.) What you do get is a UI that stays
+responsive and interruptible for the whole duration of a large
+batch, which a plain loop over hundreds of files would not give
+you.
+
+PER-FILE-FN is called with one file path, current-buffer already
+that file's buffer (via `find-file-noselect'); its return value
+is collected. LABEL is shown alongside a live N/TOTAL count and
+an ETA, estimated from the average time per file so far. ON-DONE
+is called with the list of all per-file return values, in the
+same order as FILES, once every file has been processed."
+  (let* ((total (length files))
+         (reporter (make-progress-reporter (format "%s " label) 0 total))
+         (start-time (current-time))
+         (i 0)
+         (results nil))
+    (cl-labels
+        ((step ()
+           (if (null files)
+               (progn
+                 (progress-reporter-done reporter)
+                 (funcall on-done (nreverse results)))
+             (let ((file (pop files)))
+               (push (with-current-buffer (find-file-noselect file)
+                       (funcall per-file-fn file))
+                     results)
+               (setq i (1+ i))
+               (progress-reporter-update
+                reporter i
+                (format " (%d/%d, ETA %s)" i total
+                        (sia-vulpea--format-duration
+                         (if (zerop i)
+                             0
+                           (* (/ (float-time (time-subtract (current-time) start-time)) i)
+                              (- total i))))))
+               (run-with-timer 0 nil #'step)))))
+      (step))))
+#+end_src
+
+* Preview and full run
+
+** Preview across all notes
+
+=sia-vulpea-preview-convert-all-notes-properties= is a dry run: it pre-filters the note files, then lists for each file the non-blocklisted property names found on nodes with an ID, in a =*vulpea property conversion preview*= buffer. It writes nothing. Unlike the real conversion it does not skip properties with empty values, so the preview can list a little more than would actually be converted.
+
+#+begin_src emacs-lisp -i
+;;; Preview + real run across every Vulpea note ---------------------------
+
+(defun sia-vulpea-preview-convert-all-notes-properties ()
+  "Report, without changing anything, what a full conversion would do.
+Lists, per note file, which non-blocklisted properties were
+found on its recognized nodes. Run this before
+`sia-vulpea-convert-all-notes-properties-to-meta' to sanity-check
+`sia-vulpea-convert-property-blocklist' first -- nothing here
+writes to any file. Runs without freezing Emacs, with a live
+progress count and ETA in the echo area -- see
+`sia-vulpea--process-files-async'."
+  (interactive)
+  (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+         (files (sia-vulpea--files-with-convertible-properties)))
+    (if (null files)
+        (message "Nothing would be converted -- no notes have any non-blocklisted properties.")
+      (message "Pre-filter (raw-text scan): scanning %d of %d note file%s."
+                (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
+      (sia-vulpea--process-files-async
+       files
+     (lambda (file)
+       (save-excursion
+         (let (found)
+           (goto-char (point-min))
+           (when (org-entry-get (point-min) "ID")
+             (dolist (p (org-entry-properties (point-min) 'standard))
+               (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                 (push (car p) found))))
+           (org-map-entries
+            (lambda ()
+              (when (org-entry-get (point) "ID")
+                (dolist (p (org-entry-properties (point) 'standard))
+                  (unless (member (upcase (car p)) sia-vulpea-convert-property-blocklist)
+                    (push (car p) found))))))
+           (when found
+             (format "%s: %s" (file-name-nondirectory file)
+                     (string-join (seq-uniq found) ", "))))))
+     "Previewing property conversion"
+     (lambda (results)
+       (let ((report (delq nil results)))
+         (if report
+             (with-current-buffer (get-buffer-create "*vulpea property conversion preview*")
+               (erase-buffer)
+               (insert (string-join report "\n"))
+               (goto-char (point-min))
+               (display-buffer (current-buffer)))
+           (message "Nothing would be converted -- every property found is blocklisted."))))))))
+#+end_src
+
+** Convert all notes
+
+=sia-vulpea-convert-all-notes-properties-to-meta= asks for confirmation, then runs the buffer conversion on every pre-filtered note file using the cooperative loop, saving each one. When finished it messages totals and opens =*vulpea property conversion report*= in =org-mode= with a link per converted node. With a prefix argument the original drawer properties are kept. The file count in the summary counts files with at least one converted node.
+
+#+begin_src emacs-lisp -i
+(defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
+  "Convert drawer properties to meta lines across every Vulpea note.
+Runs `sia-vulpea-convert-buffer-properties-to-meta' over every
+file a fast raw-text pre-scan finds has something convertible
+(see `sia-vulpea--files-with-convertible-properties' -- files
+with nothing to do are never opened as Org buffers), saving each
+one. This edits and saves potentially a large part of your note
+collection -- run `sia-vulpea-preview-convert-all-notes-properties'
+first, and back up your notes (or commit, if under version
+control) before running this, especially with KEEP-ORIGINAL nil
+(the default), which deletes each converted property from its
+drawer as it goes. Runs without freezing Emacs, with a live
+progress count and ETA in the echo area -- see
+`sia-vulpea--process-files-async'.
+
+When finished, opens a report buffer (in `org-mode', so the
+links are clickable via `org-open-at-point') listing every
+converted node as a \"- [[id:...][Title]]\" line -- see
+`sia-vulpea--insert-converted-report'."
+  (interactive "P")
+  (unless (y-or-n-p "This will edit and save every Vulpea note. Continue? ")
+    (user-error "Aborted"))
+  (let* ((all-files (seq-uniq (mapcar #'vulpea-note-path (vulpea-db-query))))
+         (files (sia-vulpea--files-with-convertible-properties)))
+    (if (null files)
+        (message "Nothing to convert -- no notes have any non-blocklisted properties.")
+      (message "Pre-filter (raw-text scan): converting %d of %d note file%s."
+                (length files) (length all-files) (if (= (length all-files) 1) "" "s"))
+      (sia-vulpea--process-files-async
+       files
+       (lambda (_file) (sia-vulpea-convert-buffer-properties-to-meta keep-original))
+       "Converting properties"
+       (lambda (results)
+         (let* ((converted-nodes (apply #'append results))
+                (total (length converted-nodes))
+                (file-count (length (seq-remove #'null results))))
+           (message "Converted properties on %d node%s across %d note file%s"
+                     total (if (= total 1) "" "s")
+                     file-count (if (= file-count 1) "" "s"))
+           (with-current-buffer (get-buffer-create "*vulpea property conversion report*")
+             (erase-buffer)
+             (org-mode)
+             (insert (format "* Converted %d node%s\n\n"
+                              total (if (= total 1) "" "s")))
+             (sia-vulpea--insert-converted-report converted-nodes)
+             (goto-char (point-min))
+             (display-buffer (current-buffer)))))))))
+#+end_src
+
+* Keybinding and provide
+
+** Global key
+
+Binds =C-c w c= globally to =sp-vulpea-convert-properties-at-point=.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c w c" #'sp-vulpea-convert-properties-at-point)
+#+end_src
+
+** Provide feature
+
+Provides =sp-vulpea-convert-properties=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vulpea-convert-properties)
+;;; sp-vulpea-convert-properties.el ends here
+#+end_src

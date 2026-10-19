@@ -1,0 +1,80 @@
+#+TITLE: sp-multimedia.el: Music and media playback
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-multimedia.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/media/sp-multimedia.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module installs several media packages: =emms=, =vuiet=, =lastfm=, =ready-player= and =listen=. Only =ready-player= gets real configuration. The header still names the file =sp-music-play.el=, and the =provide= form at the end provides =sp-music-play= rather than =sp-multimedia=, so a =(require 'sp-multimedia)= would fail after loading the file. The module is not in any module list in =init.el=, so it is currently unused.
+
+External players are needed for playback: =ready-player= tries =mpv=, =mplayer=, =ffplay= and =vlc= in that order, and =emms= and =listen= have their own backends.
+
+* Packages
+
+** Header
+
+The header line, which uses the module's old name and describes it as dedicated to music playback from Emacs.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-music-play.el --- dedicated specifically to music playback from Emacs --- as far as it can go in the multi-threaded direction
+#+end_src
+
+** emms, vuiet and lastfm
+
+Installs =emms= (the Emacs multimedia system), =vuiet= (a music browser and player built on Last.fm data) and =lastfm= (a Last.fm API client that =vuiet= uses). None of them are configured here.
+
+#+begin_src emacs-lisp -i
+(use-package emms
+  :ensure t)
+
+(use-package vuiet
+  :ensure t)
+
+(use-package lastfm
+  :ensure t)
+#+end_src
+
+** ready-player
+
+Installs =ready-player= and enables =ready-player-mode=, which opens media files in a player buffer with a thumbnail and controls instead of as raw bytes. Thumbnails are capped at 200 pixels high, files do not start playing automatically, and repeat and shuffle are on. Playback tries =mpv= without its audio visualisation window first, then =mplayer=, =ffplay= and =vlc=.
+
+#+begin_src emacs-lisp -i
+(use-package ready-player
+  :ensure t
+  :init
+  (ready-player-mode 1)
+  :custom
+  (ready-player-thumbnail-max-pixel-height 200)
+  (ready-player-autoplay nil)
+  (ready-player-repeat t)
+  (ready-player-shuffle t)
+  (ready-player-open-playback-commands
+   '(
+      ("mpv" "--audio-display=no")
+      ("mplayer")
+      ("ffplay")
+      ("vlc")
+     )))
+#+end_src
+
+** listen
+
+Installs =listen=, another music player for Emacs, without configuration.
+
+#+begin_src emacs-lisp -i
+(use-package listen
+  :ensure t)
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides =sp-music-play=, the old name, not =sp-multimedia=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-music-play)
+;; sp-music-play.el ends here.
+#+end_src

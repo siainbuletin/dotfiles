@@ -1,0 +1,166 @@
+#+TITLE: sp-org-narrow.el: Narrowing helpers for long Org buffers
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-narrow.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-narrow.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+Commands that make it easier to work in long Org (and Markdown) buffers by narrowing: a do-what-I-mean narrow/widen toggle, commands to step to the next or previous sibling subtree while staying narrowed, and a command that opens an indirect clone of the buffer narrowed to the current element. It is loaded in both the default and minimal module lists in =init.el=.
+
+The commentary notes a future goal of making the =vulpea-ui= sidebar follow the narrowing so it shows only the narrowed context.
+
+* Overview
+
+** File header
+
+Turns on lexical binding and names the file.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-org-narrow.el
+#+end_src
+
+** Commentary marker
+
+Start of the commentary section.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+** Purpose
+
+Describes the module as a set of narrowing helpers and mentions the planned integration with the vulpea-ui sidebar.
+
+#+begin_src emacs-lisp -i
+;; This is a bunch of functions for better working with longer org-mode buffers,
+;; which would need employing narrowing.
+;;
+;; In the future, they should be somehow correlated with vulpea-ui-sidebar so that
+;; the sidebar actually follows the narrowing properly and doesn't show any other
+;; kind of context.
+#+end_src
+
+** Code marker
+
+Start of the code section.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+* Narrow or widen
+
+** Section comment
+
+Introduces the narrow/widen toggle, with a note that it could be improved for more complex narrowed workflows.
+
+#+begin_src emacs-lisp -i
+;;;; Narrow/Widen with buffers
+;; this could definitely be made a lot better for more complicated work with narrowed buffers
+#+end_src
+
+** The do-what-I-mean toggle
+
+=sp-narrow-or-widen-dwim= widens if the buffer is already narrowed. Otherwise it narrows to the most specific thing that applies: the active region; in Org, the source block at point (by opening =org-edit-src-code= in a full-frame window), else the block at point, else the current subtree; in Markdown, the subtree; in LaTeX, the current environment; and anywhere else, the current defun. With a prefix argument it always narrows, even inside an already narrowed buffer, which allows nested narrowing. This is the well-known command from Artur Malabarba's blog.
+
+#+begin_src emacs-lisp -i
+(defun sp-narrow-or-widen-dwim (p)
+  "Widen if buffer is narrowed, narrow-dwim otherwise.
+  Dwim means: region, org-src-block, org-subtree, markdown
+  subtree, or defun, whichever applies first. Narrowing to
+  org-src-block actually calls `org-edit-src-code'.
+
+  With prefix P, don't widen, just narrow even if buffer
+  is already narrowed."
+  (declare (interactive-only t))
+  (interactive "P")
+  (cond ((and (buffer-narrowed-p) (not p)) (widen))
+        ((region-active-p)
+         (narrow-to-region (region-beginning)
+                           (region-end)))
+        ((derived-mode-p 'org-mode)
+         ;; `org-edit-src-code' is not a real narrowing
+         ;; command. Remove this first conditional if
+         ;; you don't want it.
+         (cond ((ignore-errors (org-edit-src-code) t)
+                (delete-other-windows))
+               ((ignore-errors (org-narrow-to-block) t))
+               (t (org-narrow-to-subtree))))
+        ((derived-mode-p 'markdown-mode)
+         (markdown-narrow-to-subtree))
+        ((derived-mode-p 'latex-mode)
+         (LaTeX-narrow-to-environment))
+        (t (narrow-to-defun))))
+#+end_src
+
+** Keybinding
+
+Binds the toggle to =C-x n n= with =bind-key*=, replacing the stock =narrow-to-region= binding and winning in every mode, since =bind-key*= uses the override map. The trailing =narrow-map= is not a target keymap here: =bind-key*= takes its third argument as a predicate, and because the keymap is always non-nil the binding is simply always active.
+
+#+begin_src emacs-lisp -i
+;;bind this in the narrow keymap
+(bind-key* "C-x n n" #'sp-narrow-or-widen-dwim narrow-map)
+#+end_src
+
+* Stepping between subtrees
+
+** Advance to the next sibling
+
+=sp-org-advance= widens (if narrowed), jumps to the next heading at the same level, and narrows to that subtree. Repeated calls walk through siblings one at a time. It has no keybinding in this module.
+
+#+begin_src emacs-lisp -i
+;;;;; Narrow & Advance/Retreat
+;; Functions to advance forwards or backwards through narrowed tree
+(defun sp-org-advance ()
+  (interactive)
+  (when (buffer-narrowed-p)
+    (goto-char (point-min))
+    (widen)
+    (org-forward-heading-same-level 1))
+  (org-narrow-to-subtree))
+#+end_src
+
+** Retreat to the previous sibling
+
+=sp-org-retreat= is the mirror image, moving to the previous sibling and narrowing to it.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-retreat ()
+  (interactive)
+  (when (buffer-narrowed-p)
+    (goto-char (point-min))
+    (widen)
+    (org-backward-heading-same-level 1))
+  (org-narrow-to-subtree))
+#+end_src
+
+* Clone and narrow
+
+** Indirect clone narrowed to the element
+
+=sp-clone-buffer-and-narrow= creates an indirect buffer in another window, so edits are shared with the original, and narrows it: to the element at point in Org via =org-narrow-to-element=, or to the subtree in Markdown. This lets you focus on one part of a file while keeping the full view open. The final =switch-to-buffer-other-window= may open a further window, since the clone is already shown in one.
+
+#+begin_src emacs-lisp -i
+;;;;; Clone and Narrow
+(defun sp-clone-buffer-and-narrow ()
+  "Clone buffer and narrow outline tree"
+  (interactive)
+  (let ((buf (clone-indirect-buffer-other-window nil nil)))
+    (with-current-buffer buf
+      (cond ((derived-mode-p 'org-mode)
+             (org-narrow-to-element))
+            ((derived-mode-p 'markdown-mode)
+             (markdown-narrow-to-subtree))))
+    (switch-to-buffer-other-window buf)))
+#+end_src
+
+** Provide
+
+Makes the module available as =sp-org-narrow=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-narrow)
+;; sp-org-narrow.el ends here.
+#+end_src

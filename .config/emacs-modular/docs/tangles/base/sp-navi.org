@@ -1,0 +1,186 @@
+#+TITLE: sp-navi.el: Navigation: files, places and outlines
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-navi.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-navi.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This is the umbrella module for moving around in Emacs. It pulls in the navigation sub-modules =sp-consult-snapfile=, =sp-dired=, =sp-goto= and =sp-search=, then configures a few navigation essentials of its own: an imenu outline sidebar, remembering point in files, the recent-files list, a heading jumper, and a replacement for =C-x C-f= that lets you pick between several file-listing tools.
+
+It uses =sp-cache-dir= for state files and =sp-load-extras= to gate optional packages. =sp-find-file= shells out to =find=, =fd= or =rg=, so those programs need to be installed for the corresponding choices to work. Consult (installed by =sp-search=) is needed for =lem-jump-in-buffer=.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and a note that this module holds the general navigation configuration and loads its sub-modules.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;;; sp-navi.el --- summary
+
+;;; Commentary:
+
+;; Contains the general configuration for navigation within Emacs. The relevant
+;; submodules are recursed within the file
+#+end_src
+
+** Sub-modules
+
+Requires the navigation sub-modules in alphabetical order: =sp-consult-snapfile= (a quick file finder), =sp-dired=, =sp-goto= and =sp-search=.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+;;;; Require sub-libraries for navigation (organised alphabetically)
+(require 'sp-consult-snapfile)
+(require 'sp-dired)
+(require 'sp-goto)
+(require 'sp-search)
+#+end_src
+
+* Utility functions
+
+** Start file searches at home
+
+=sp-open-from-home-dir= sets =default-directory= to the home directory. It is not called here; =sensible-defaults/use-all-settings= in =sp-helper-funct= calls it.
+
+#+begin_src emacs-lisp -i
+;;;; Defining utility functions
+(defun sp-open-from-home-dir ()
+  "When opening a file, start searching at the user's home
+directory."
+  (setq default-directory "~/"))
+#+end_src
+
+** Follow symlinks
+
+=sp-auto-follow-symlinks= sets =vc-follow-symlinks= so visiting a symlink to a version-controlled file opens the real file without asking. Like the previous helper, it is called from =sensible-defaults/use-all-settings=.
+
+#+begin_src emacs-lisp -i
+(defun sp-auto-follow-symlinks ()
+  "When opening a file, always follow symlinks."
+  (setq vc-follow-symlinks t))
+#+end_src
+
+* Places and outlines
+
+** Imenu list outline
+
+Configures =imenu-list=, a sidebar that shows the current buffer's imenu entries as an outline. It opens on the right, resizes itself and takes focus when shown. =imenu-list-smart-toggle= is bound to =o= under the leader map in =sp-keys=. A copy of the package also lives in the =cloned= modules directory.
+
+#+begin_src emacs-lisp -i
+;;;; Imenu list outline
+;; Make a useful outline buffer
+;; Binding set to toggle "o"
+(use-package imenu-list
+  :when (and sp-load-extras (locate-library "imenu-list"))
+  :commands (imenu-list-smart-toggle imenu-list-minor-mode)
+
+  :config
+  (setq imenu-list-focus-after-activation t
+        imenu-list-auto-resize t
+        imenu-list-position 'right))
+#+end_src
+
+** Save place
+
+Enables =save-place-mode= after startup so each file reopens at the position where you left it. The data is stored in =saved-places= under =sp-cache-dir=, and entries for files that are currently unreadable are kept rather than dropped.
+
+#+begin_src emacs-lisp -i
+;;;; Save place
+;; Everyone remember where we parked.
+(use-package saveplace
+  :ensure nil
+  :hook (emacs-startup . save-place-mode)
+  :config
+  (setq save-place-file (concat sp-cache-dir "saved-places"))
+  (setq save-place-forget-unreadable-files nil))
+#+end_src
+
+** Recent files
+
+Enables =recentf-mode= after two seconds idle, keeping up to 500 recent files in =recentf= under =sp-cache-dir= and showing 10 in the menu.
+
+#+begin_src emacs-lisp -i
+;;;; Recent files
+;; List recent files
+(use-package recentf
+  :ensure nil
+  :defer 2
+  :custom
+  (recentf-save-file (concat sp-cache-dir "recentf"))
+  (recentf-max-saved-items 500)
+  (recentf-max-menu-items 10)
+  :config
+  (recentf-mode 1))
+#+end_src
+
+** Jump to a heading
+
+=lem-jump-in-buffer= jumps to a heading using Consult: =consult-org-heading= in Org buffers, otherwise =consult-outline=. No key is bound to it in this module.
+
+#+begin_src emacs-lisp -i
+;;;; Jump in Buffer
+(defun lem-jump-in-buffer ()
+  "Jump between headlines in buffer using consult"
+  (interactive)
+  (cond
+   ((eq major-mode 'org-mode)
+    (call-interactively 'consult-org-heading))
+   (t
+    (call-interactively 'consult-outline))))
+#+end_src
+
+* Finding files
+
+** Choose how to find a file
+
+=sp-find-file= first asks which method to use: =find=, =fd= or =rg= to list every file under the current directory, or =find-name-dired= to search by name into a Dired buffer. For the three shell tools it collects the NUL-separated output and offers it with =completing-read=, tagging candidates with the =file= category so Marginalia and Embark treat them as files. Listing every file under a large directory can be slow.
+
+#+begin_src emacs-lisp -i
+;;; Better find-file
+(defun sp-find-file ()
+  "Find file from current directory in many different ways."
+  (interactive)
+  (let* ((find-options '(("find -type f -printf \"$PWD/%p\\0\"" . :string)
+                         ("fd --absolute-path --type f -0" . :string)
+                         ("rg --follow --files --null" . :string)
+                         ("find-name-dired" . :command)))
+         (selection (completing-read "Select : " find-options))
+         (metadata '((category . file)))
+         (file-list)
+         (file))
+    (pcase (alist-get selection find-options nil nil #'string=)
+      (:command
+       (call-interactively (intern selection)))
+        (:string
+        (setq file-list (split-string (shell-command-to-string selection) "\0" t))
+        (setq file (completing-read (format "Find file in %s: " (abbreviate-file-name default-directory))
+                                   (lambda (str pred action)
+                                     (if (eq action 'metadata)
+                                         `(metadata . ,metadata)
+                                       (complete-with-action action file-list str pred)))
+                                   nil t nil 'file-name-history))
+       (when file (find-file (expand-file-name file)))))))
+#+end_src
+
+** Rebind C-x C-f
+
+Replaces the standard =find-file= binding on =C-x C-f= with =sp-find-file=. The plain =find-file= command remains available through =M-x=.
+
+#+begin_src emacs-lisp -i
+(global-unset-key (kbd "C-x C-f")) ; Rebinding the find-file command.
+(keymap-global-set "C-x C-f" #'sp-find-file)
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-navi=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-navi)
+;; sp-navi.el ends here.
+#+end_src

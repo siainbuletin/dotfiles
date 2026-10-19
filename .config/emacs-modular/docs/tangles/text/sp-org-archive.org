@@ -1,0 +1,100 @@
+#+TITLE: sp-org-archive.el: Org archiving and Palimpsest
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-archive.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-archive.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets where Org archives completed subtrees, adds a command to archive every DONE and CANCELED task in the current file at once, and configures =palimpsest=, a minor mode that moves text out of the way instead of deleting it.
+
+It depends on Org and optionally on the =palimpsest= package, which is only used when =sp-load-extras= is non-nil and the library is installed. No module list in =init.el= and no other module requires =sp-org-archive=, so the configuration is currently inactive unless loaded by hand.
+
+* Archiving
+
+** File header
+
+The file header, with lexical binding enabled.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+#+end_src
+
+** Archive location
+
+Once Org has loaded, archived subtrees go to =org-archive/archived.org= under =org-directory=, filed into a date tree. The comment explains it is wrapped in =with-eval-after-load= because =org-directory= is unbound until Org loads, and running it at the top level used to crash module loading.
+
+#+begin_src emacs-lisp -i
+;; Tell org where to archive completed tasks. Wrapped in
+;; with-eval-after-load because `org-directory' is defined by org
+;; and is not bound at require time. Before Spec 02 this ran at
+;; top-level and crashed module-load with `void-variable
+;; org-directory' whenever the file was required before org was
+;; loaded (e.g. a cold sandbox boot with sp-load-extras nil).
+(with-eval-after-load 'org
+  (setq org-archive-location (concat org-directory "/org-archive/archived.org::datetree/")))
+#+end_src
+
+** Archive all finished tasks
+
+=lem-org-archive-done-tasks= archives every heading in the current file whose TODO state is DONE, then every one that is CANCELED. After each archive it sets =org-map-continue-from= to the previous heading so the scan does not skip entries when the archived subtree disappears.
+
+#+begin_src emacs-lisp -i
+;; Also tell org how to archive all the done tasks (DONE or CANCELED) in a file.
+;; From https://changelog.complete.org/archives/9877-emacs-3-more-on-org-mode
+;; Based on a stack overflow answer.
+;; See https://stackoverflow.com/a/27043756
+(defun lem-org-archive-done-tasks ()
+  (interactive)
+  (org-map-entries
+   (lambda ()
+     (org-archive-subtree)
+     (setq org-map-continue-from (outline-previous-heading)))
+   "/DONE" 'file)
+  (org-map-entries
+   (lambda ()
+     (org-archive-subtree)
+     (setq org-map-continue-from (outline-previous-heading)))
+   "/CANCELED" 'file))
+#+end_src
+
+** Provide the feature
+
+Registers the =sp-org-archive= feature. It sits before the Palimpsest section, but the rest of the file is still evaluated when it loads.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-archive)
+#+end_src
+
+* Palimpsest
+
+** What Palimpsest does
+
+A description of the =palimpsest= minor mode: it sends selected text to the bottom or top of the buffer, or to a trash file, instead of deleting it.
+
+#+begin_src emacs-lisp -i
+;;;; Palimpsest (make archive)
+;; This minor mode for Emacs provides several strategies to remove text
+;; without permanently deleting it. Namely, it provides the following capabilities:
+;;
+;; - Send selected text to the bottom of the buffer
+;; - Send selected text to the top of the buffer
+;; - Send selected text to a trash file
+#+end_src
+
+** Palimpsest setup
+
+When extras are enabled and the library is found, =palimpsest-mode= is turned on in Markdown and Org buffers with its lighter hidden. =C-c C-z= sends the selection to the bottom and =C-c C-a= to the top, and the trash file uses the =.archive= suffix. In Org those keys normally run =org-add-note= and =org-attach=, so the minor mode bindings would shadow them.
+
+#+begin_src emacs-lisp -i
+(use-package palimpsest
+  :when (and sp-load-extras (locate-library "palimpsest"))
+  :diminish palimpsest-mode
+  :hook ((markdown-mode org-mode) . palimpsest-mode)
+  :custom
+  (palimpsest-send-bottom "C-c C-z")
+  (palimpsest-send-top "C-c C-a")
+  :config
+  (setq palimpsest-trash-file-suffix ".archive"))
+  
+#+end_src

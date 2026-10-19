@@ -1,0 +1,322 @@
+#+TITLE: sp-academic.el: Academic workflow: bibliography and citations
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-academic.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-academic.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This is the umbrella module for academic work. It loads four sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes=) so they can be enabled together, and then configures bibliography lookup and BibTeX handling directly: =biblio= for looking up references online, BibTeX citation-key generation, =org-ref= set up to insert =org-cite= citations, =helm-bibtex= paths, a few =citar= file options, the =citar-org-node= bridge, and the =binder= package for Scrivener-like manuscript work.
+
+The long commentary is a roadmap more than a description. It lists planned pieces (DEVONthink integration, deep links into PDFs, semantic search over PDFs, paper fetching) and notes that literature notes are still made with =citar-denote= while =ROAM_REFS= handling goes through =vulpea-citar=. Bibliography files are expected under =~/bibliography/= and PDFs under =~/Documents/literature/=. The module appears in the default module list in =init.el= under Academic.
+
+The file shows signs of accumulated config: BibTeX key settings are made twice with different values (the later ones win), and the =C-c w b b= binding points at a command that is not defined anywhere in the repository.
+
+* Header and roadmap
+
+Comments describing what the academic module is meant to cover and how its parts relate.
+
+** Header and commentary
+
+File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also explains the current split between =citar-denote= for literature notes and =vulpea-citar= for =ROAM_REFS=.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;; This needs to be defined a little better.
+
+;; This file should deal with bibliography management, as well as provide
+;; guidance for where the files should be found. In the future, I want some
+;; sort of DEVONthink integration that's genuinely useful.
+
+;; The academic module was created with several submodules in mind.
+;;
+;; They can be enabled and disabled together for ease of use.
+;;
+;; Components:
+;; - registering/processing BibTeX files
+;; - citation framework (citar)
+;;    - need to rework the citar integration (both with Denote and now with vulpea)
+;;    - literature notes still created with citar-denote
+;;    - anything pertaining to ROAM_REFS is done with vulpea-citar
+;; - PDF processing and integration
+;;    - waiting on emacs-reader (Canvas emacs patch)
+;;    - deep linking to PDFs
+;;    - integration with DEVONthink
+;;    - perhaps semantic search over PDFs
+;; - bibliographic search and database
+;;    - fetch papers from sci-hub
+;;    - integration with annas-archive
+;; Citar has been plugged into Denote at first, because it helps in creating literature notes
+;; But I would like to have a workflow similar to the BibTeX one that you get with org-roam.
+;; This would have to be emulated with vulpea.
+;; I need to test out the features provided by citar-vulpea, in this case
+
+;; The sp-academic.el file is created with several submodules that I can refer to independently.
+;; One has to create literature notes
+;; The other part is just for citations
+;; And handling the BibTeX backend
+;; there should also be a way to handle PDFs, especially if we're doing deeplinking with DEVONthink,
+;; but these details will have to be worked out later on.
+
+;;; Code:
+;;;; Requiring sub-libraries
+#+end_src
+
+** Loading the sub-modules
+
+Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, and =sp-litnotes= for literature notes.
+
+#+begin_src emacs-lisp -i
+(require 'sp-bibprocess)
+(require 'sp-pdfprocess)
+(require 'sp-citations)
+(require 'sp-litnotes)
+#+end_src
+
+* Looking up sources
+
+** biblio
+
+Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sia-bibtex-biblio-lookup=. That command is not defined anywhere in the repository, so the key currently signals an error unless it is provided from outside this config.
+
+#+begin_src emacs-lisp -i
+;;;; Setting up the proper variables
+
+;;; Looking up academic sources 
+
+(use-package biblio
+  :ensure t
+
+  :bind
+  (("C-c w b b" . sia-bibtex-biblio-lookup))
+)
+#+end_src
+
+** Google Scholar backend and helper libraries
+
+Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It also installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
+
+#+begin_src emacs-lisp -i
+(use-package biblio-gscholar
+  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+
+(use-package asoc
+    :ensure (:type git :host github :repo "troyp/asoc.el"))
+
+(use-package doct
+  :ensure t)
+#+end_src
+
+* BibTeX key generation
+
+** First set of autokey options
+
+Configures =bibtex-generate-autokey=: four-digit years, hyphen separators, up to three title words of at most eight characters, and a list of title words to skip (articles in English and German, plus lowercase and non-alphanumeric words). A comment notes that On was removed from the ignore list. Several of these values are overwritten a few blocks below.
+
+#+begin_src emacs-lisp -i
+;; Citation key generation
+
+(setq bibtex-autokey-year-length 4)
+  (setq bibtex-autokey-titleword-separator "-")
+  (setq bibtex-autokey-name-year-separator "-")
+  (setq bibtex-autokey-year-title-separator "-")
+  (setq bibtex-autokey-titleword-length 8)
+  (setq bibtex-autokey-titlewords 3)
+  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+        '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
+#+end_src
+
+* org-ref
+
+** Installing org-ref
+
+Installs =org-ref=, loaded after =ox-pandoc=.
+
+#+begin_src emacs-lisp -i
+;;; Org-ref
+(use-package org-ref
+  :ensure t
+  :after (ox-pandoc)
+)
+#+end_src
+
+** Use org-cite for insertion
+
+Sets =org-ref-insert-cite-function= so that inserting a citation through org-ref calls =org-cite-insert= and produces native =[cite:...]= syntax rather than org-ref links.
+
+#+begin_src emacs-lisp -i
+;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+(setq org-ref-insert-cite-function
+      (lambda ()
+	(org-cite-insert nil)))
+#+end_src
+
+** Showing cite keys in descriptive links
+
+=org-ref-make-org-link-cite-key-visible= runs after =org-activate-bracket-links= highlights a link. When the link target starts with one of =org-ref-cite-types=, it removes the invisibility from the whole link and colours it with =org-ref-cite-color=, so the cite key stays visible even when the link has a description. It uses =-sort= from =dash= to try longer cite types first.
+
+#+begin_src emacs-lisp -i
+(defun org-ref-make-org-link-cite-key-visible (&rest _)
+  "Make the org-ref cite link visible in descriptive links."
+
+  (save-match-data
+    (let ((s (match-string 1))
+      (beg (match-beginning 0))
+      (end (match-end 0))
+      (cite-re (format "^\\(%s:\\)"
+               (regexp-opt (-sort
+                    (lambda (a b)
+                      (> (length a) (length b)))
+                    org-ref-cite-types))))
+      cite-type)
+
+      (when (and s (string-match cite-re s))
+    (setq cite-type (match-string 1 s))
+    (remove-text-properties beg end
+                '(invisible))
+    (add-text-properties
+     beg end
+     `(face (:foreground ,org-ref-cite-color)))))))
+#+end_src
+
+** Advice
+
+Attaches that function as =:after= advice on =org-activate-bracket-links=.
+
+#+begin_src emacs-lisp -i
+(advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
+#+end_src
+
+** helm-bibtex
+
+Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumably because later settings or modules expect its variables to exist.
+
+#+begin_src emacs-lisp -i
+(use-package helm-bibtex
+  :ensure (:wait t))
+#+end_src
+
+** org-ref paths
+
+Points =org-ref= at =~/bibliography/master.bib= and at =~/Documents/literature/= for PDFs. These variable names are from older org-ref versions.
+
+#+begin_src emacs-lisp -i
+(setq org-ref-default-bibliography '("~/bibliography/master.bib")
+      org-ref-pdf-directory "~/Documents/literature/")
+#+end_src
+
+* Citar and bibtex-completion files
+
+** citar library paths (disabled)
+
+A commented-out setting for =citar-library-paths=, with a note that it must be a list of directories to work.
+
+#+begin_src emacs-lisp -i
+;; (setq citar-library-paths "~/Documents/literature")
+;; this has to be a list of directories in order to work
+#+end_src
+
+** citar file options
+
+Lets =citar= treat PDF and JPG files as attachments and uses a hyphen as the separator for additional files belonging to the same key.
+
+#+begin_src emacs-lisp -i
+(setq citar-library-file-extensions (list "pdf" "jpg")
+      citar-file-additional-files-separator "-")
+#+end_src
+
+** bibtex-completion paths
+
+Sets the =.bib= files used by =helm-bibtex= and friends (a master file plus several topic and thesis bibliographies), the PDF directory, the notes directory =~/notes/=, and a template for notes that creates a heading with author, title, journal, year and type, followed by a =cite:= link.
+
+#+begin_src emacs-lisp -i
+(setq bibtex-completion-bibliography
+      '("~/bibliography/master.bib"
+        "~/bibliography/thesis.bib"
+        "~/bibliography/marx.bib"
+        "~/bibliography/hci.bib"
+        "~/bibliography/aesthetics.bib"
+        "~/bibliography/hegel-prezentare.bib"
+        "~/bibliography/modernitate.bib")
+        bibtex-completion-library-path '("~/Documents/literature/")
+        bibtex-completion-notes-path "~/notes/"
+        bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
+#+end_src
+
+* BibTeX mode
+
+** Second set of autokey options
+
+Loads =bibtex= and sets the autokey options again, this time with two title words (stretchable by one) of at most five characters. Since this runs after the earlier block, these values are the ones in effect.
+
+#+begin_src emacs-lisp -i
+;; Automatically generating BibTeX keys
+(require 'bibtex)
+
+(setq bibtex-autokey-year-length 4
+      bibtex-autokey-name-year-separator "-"
+      bibtex-autokey-year-title-separator "-"
+      bibtex-autokey-titleword-separator "-"
+      bibtex-autokey-titlewords 2
+      bibtex-autokey-titlewords-stretch 1
+      bibtex-autokey-titleword-length 5)
+#+end_src
+
+** Hydra key
+
+Binds =H-b= in =bibtex-mode-map= to the org-ref BibTeX hydra, which offers actions on the entry at point. It needs a Hyper modifier key to be available.
+
+#+begin_src emacs-lisp -i
+(define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
+#+end_src
+
+* Other packages
+
+** citar-org-node
+
+Installs =citar-org-node= from GitHub using the =:vc= keyword rather than Elpaca's =:ensure= recipes used elsewhere in this file. It connects =citar= to org-node notes.
+
+#+begin_src emacs-lisp -i
+(use-package citar-org-node
+  :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
+        :rev :newest))
+#+end_src
+
+** binder
+
+Installs =binder=, which groups files into a manuscript project in the style of Scrivener.
+
+#+begin_src emacs-lisp -i
+(use-package binder ;; for stuff that looks like scrivener
+  :ensure t)
+#+end_src
+
+* Citation variables
+
+** User options
+
+Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda= group, all nil by default. =sp-citations= uses the last two for the =citar= notes path and note template. They are defined here, after that module is required, so they only take effect if the =citar= configuration runs later.
+
+#+begin_src emacs-lisp -i
+;;;; Citation Variables
+(defcustom sp-bibliography nil "User bibliography for citation."
+  :group 'sia-lambda
+  :tag "Lambda-Emacs User Bibliography")
+(defcustom sp-bib-notes nil "User citation notes directory."
+  :group 'sia-lambda
+  :tag "Lambda-Emacs Citation Notes Directory")
+(defcustom sp-citar-note nil "Template for use with citar notes."
+  :group 'sia-lambda
+  :tag "Lambda-Emacs Citar Notes Template")
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-academic= feature.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-academic)
+#+end_src
