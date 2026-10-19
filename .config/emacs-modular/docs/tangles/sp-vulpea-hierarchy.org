@@ -5,7 +5,7 @@
 
 ** Context
 
-My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records its parent with a =- parent :: [[id:…][Title]]= line in its zeroth section, and vulpea stores that as metadata. =vulpea-graph= draws the links but doesn't show the hierarchy, so this module reads the =parent= metadata and builds the tree itself.
+My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records its parent with a =- parents :: [[id:…][Title]]= line in its zeroth section, and vulpea stores that as metadata. =vulpea-graph= draws the links but doesn't show the hierarchy, so this module reads the =parent= metadata and builds the tree itself.
 
 Two commands use the same tree:
 
