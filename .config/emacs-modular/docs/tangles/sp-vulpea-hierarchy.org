@@ -12,7 +12,7 @@ Two commands use the same tree:
 - =vulpea-hierarchy-outline= shows the tree as a foldable Org buffer. Each heading is a link to its note.
 - =vulpea-hierarchy-graph= draws the tree with Graphviz and shows the SVG.
 
-Canvas (Emacs's proposed image type with a pixel buffer) isn't in any released Emacs, and it has no layout or graph features, so it isn't used here.
+As a proposal for the future, it would be nice to try to use Emacs 32's new Canvas feature (Emacs's proposed image type with a pixel buffer) to draw this buffer, but for now, we're falling back on a Graphviz architecture.
 
 ** Loading it
 
