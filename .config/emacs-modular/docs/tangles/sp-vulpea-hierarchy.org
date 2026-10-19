@@ -66,7 +66,7 @@ Lines 1-16 are the file header. Line 1 names the file and turns on =lexical-bind
 *** Customisation (lines 21–37)
 
 - Lines 21-22 create the =vulpea-hierarchy= group under the =vulpea= group, so the options appear in =M-x customize-group=.
-- Lines 23-25 define =vulpea-hierarchy-parent-key=, the metadata key that holds a note's parent link (default ="parents"). Change it here if your key has another name.
+- Lines 23-25 define =vulpea-hierarchy-parent-key=, the metadata key that holds a note's parent link (default ="parents"). 
 - Lines 27-30 define =vulpea-hierarchy-graph-file=, where the SVG is written (a file in the temporary directory by default).
 - Lines 32-36 define =vulpea-hierarchy-rankdir=. ="LR"= draws parents on the left and children on the right, ="TB"= draws them top to bottom.
 
