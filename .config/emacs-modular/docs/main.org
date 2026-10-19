@@ -22,6 +22,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/sp-pdfprocess.org][sp-pdfprocess]] :: PDF metadata and the emacs-reader viewer ([[file:../libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]])
 - [[file:tangles/sp-semantic.org][sp-semantic]] :: Semantic search over notes ([[file:../libraries/modules/academic/sp-semantic.el][sp-semantic.el]])
 - [[file:tangles/sp-statistics.org][sp-statistics]] :: ESS for statistics ([[file:../libraries/modules/academic/sp-statistics.el][sp-statistics.el]])
+- sp-trails :: no literate source yet ([[file:../libraries/modules/academic/sp-trails.el][sp-trails.el]])
 
 ** base/
 
@@ -74,6 +75,10 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/sp-rss.org][sp-rss]] :: RSS reading with Elfeed ([[file:../libraries/modules/media/sp-rss.el][sp-rss.el]])
 - [[file:tangles/sp-torrent.org][sp-torrent]] :: Torrent and file-sharing placeholder ([[file:../libraries/modules/media/sp-torrent.el][sp-torrent.el]])
 
+*** .agent-shell/
+
+**** transcripts/
+
 ** prog/
 
 - [[file:tangles/sp-base-code.org][sp-base-code]] :: Shared programming setup: completion, LSP and outlines ([[file:../libraries/modules/prog/sp-base-code.el][sp-base-code.el]])
@@ -90,6 +95,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/sp-rust.org][sp-rust]] :: Rust editing ([[file:../libraries/modules/prog/sp-rust.el][sp-rust.el]])
 - [[file:tangles/sp-terminal.org][sp-terminal]] :: Terminal emulators (vterm and eat) ([[file:../libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
 - [[file:tangles/sp-tty-clipboard.org][sp-tty-clipboard]] :: Clipboard over OSC52 for terminal frames ([[file:../libraries/modules/prog/sp-tty-clipboard.el][sp-tty-clipboard.el]])
+- [[file:tangles/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/prog/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/sp-vcontrol.org][sp-vcontrol]] :: Version control with Magit ([[file:../libraries/modules/prog/sp-vcontrol.el][sp-vcontrol.el]])
 - [[file:tangles/sp-xml.org][sp-xml]] :: XML editing with nXML ([[file:../libraries/modules/prog/sp-xml.el][sp-xml.el]])
 
@@ -122,6 +128,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/sp-vulpea-base.org][sp-vulpea-base]] :: Vulpea note database basics ([[file:../libraries/modules/text/sp-vulpea-base.el][sp-vulpea-base.el]])
 - [[file:tangles/sp-vulpea-ext-back.org][sp-vulpea-ext-back]] :: Backup slot for the Vulpea extensions ([[file:../libraries/modules/text/sp-vulpea-ext-back.el][sp-vulpea-ext-back.el]])
 - [[file:tangles/sp-vulpea-ext.org][sp-vulpea-ext]] :: Vulpea extensions loader ([[file:../libraries/modules/text/sp-vulpea-ext.el][sp-vulpea-ext.el]])
+- [[file:tangles/sp-vulpea-hierarchy.org][sp-vulpea-hierarchy]] :: Parent/child views of vulpea notes ([[file:../libraries/modules/text/sp-vulpea-hierarchy.el][sp-vulpea-hierarchy.el]])
 - [[file:tangles/sp-vulpea-para.org][sp-vulpea-para]] :: Vulpea PARA agenda and capture wiring ([[file:../libraries/modules/text/sp-vulpea-para.el][sp-vulpea-para.el]])
 - [[file:tangles/sp-vulpea-schemas.org][sp-vulpea-schemas]] :: Vulpea note schemas ([[file:../libraries/modules/text/sp-vulpea-schemas.el][sp-vulpea-schemas.el]])
 - [[file:tangles/sp-vulpea-split.org][sp-vulpea-split]] :: Splitting Vulpea headings into notes ([[file:../libraries/modules/text/sp-vulpea-split.el][sp-vulpea-split.el]])

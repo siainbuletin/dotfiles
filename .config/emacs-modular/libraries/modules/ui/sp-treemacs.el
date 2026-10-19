@@ -43,6 +43,11 @@ The root is added to the workspace the first time it is shown."
            root (file-name-nondirectory root))))
       (treemacs-select-window))))
 
+;;; Add nerd-icons for treemacs
+(use-package treemacs-nerd-icons
+  :config
+  (treemacs-nerd-icons-config))
+
 ;;; Provide:
 
 (provide 'sp-treemacs)
