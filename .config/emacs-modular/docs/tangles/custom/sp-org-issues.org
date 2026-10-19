@@ -1,8 +1,8 @@
 #+TITLE: sp-org-issues.el: An issue tracker kept as a PARA area
-#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-issues.el :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-org-issues.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it. The skeleton and the sandbox blocks are =:tangle no=.
+Literate source for =libraries/modules/custom/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module keeps the issues of my code work (the yadm dotfiles first, vulpea-mcp next) in one Org file, and makes that file a vulpea-para *area* titled "Issues". Being an area is what plugs it into the rest of the system:
 

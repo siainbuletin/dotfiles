@@ -43,6 +43,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 
 Custom, bespoke functionality: modules I wrote myself for my own workflow, as opposed to configuration of packages from elsewhere. They live apart from the thematic directories so that it is clear which parts of the configuration are my own code.
 
+- [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/sp-vulpea-hierarchy.org][sp-vulpea-hierarchy]] :: Parent/child views of vulpea notes ([[file:../libraries/modules/custom/sp-vulpea-hierarchy.el][sp-vulpea-hierarchy.el]])
