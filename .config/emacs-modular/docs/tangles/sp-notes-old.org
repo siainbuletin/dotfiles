@@ -1,0 +1,235 @@
+#+title: Notes workflow
+
+* Introduction
+
+Lambda Emacs introduces the idea of treating your notes as a /notebook/ that actually shows up in a separate buffer, instead of cluttering up the minibuffer
+
+** Sub-file hierarchy
+
+* Header of file
+
+* Sub-libraries
+** Denote
+
+Denote isn't in use as much anymore (it only generates the files). What is actually tangled in the files is little. See the main file for denote (in the notes) for some possible configurations and documented attempts to make it work as I wanted it to.
+
+* Footer of file
+
+* Archive of sub-libraries
+
+Most of the archive for this configuration should go into the Resources repository for better archival, as it's littering the documentation and the repository for the config.
+
+** emacs-zk
+
+#+title: zk package
+
+This one creates a different kind of link within the files.
+
+This would probably have to be removed at some point once it isn't maintained anymore (as it doesn't seem to have that big of a following as compared to =denote=)
+
+For now, it is configured to function only with Markdown, as I can't get the follow link function to work properly.Hegel's end-of-art-thesis [[202511092054]]
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (use-package zk
+    :ensure (:files (:defaults "zk-consult.el"))
+    :custom
+    (zk-directory "~/Documents/zk")
+    (zk-file-extension "md")
+    :config
+    (zk-setup-auto-link-buttons)
+    (zk-setup-embark)
+    (setq zk-tag-grep-function #'zk-consult-grep-tag-search
+          zk-grep-function #'zk-consult-grep))
+#+end_src
+
+Will this work with opening separate files as needed?
+
+The =zk= package can also use interactive buttons, but these have to be configured.
+
+*** Making =zk= work properly within =org-mode=
+
+If we want org-mode to treat zk links as zk links (meaning that they open a different file), we can define a different function for that. The way that the function is defined means that it can still open a link as a heading within the same org document, but if that doesn't work, it will get rerouted externally.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun zk-org-try-to-follow-link (fn &optional arg)
+  "When 'org-open-at-point' FN fails, try 'zk-follow-link-at-point'.
+Optional ARG."
+  (let ((org-link-search-must-match-exact-headline t))
+    (condition-case nil
+	(apply fn arg)
+      (error (zk-follow-link-at-point)))))
+
+(advice-add 'org-open-at-point :around #'zk-org-try-to-follow-link)
+#+end_src
+
+Briefly, this function instructs org-open-at-point to try calling zk-follow-link-at-point when a link is not an internal link.
+
+*** The better solution: creating =[[zk:]]= links
+
+The companion package =zk-org-link.el= provides a custom Org-link type called zk, such that links will be styled =[[zk:201812101245]]= instead of =[[201812101245]]=. Using Org-links allows notes to be followed as expected, as well as exported to various formats via org-export, stored via org-store-link, and completed via org-insert-link.
+
+The link styles cannot be combined — they are not mutually compatible. Use one style or the other. That is, either use zk-org-link.el or don’t. (I do not, but here it is anyway.)
+
+To use org-links, include the following in your init.el:
+
+#+begin_src emacs-lisp :tangle no :eval never
+(with-eval-after-load 'org
+  (with-eval-after-load 'zk
+    (require 'zk-org-link)))
+#+end_src
+
+This will set create the zk Org-link type and set necessary values for several variables. Be sure to load zk-org-link.el after zk, as the above code snippet does.
+
+NOTE: zk-completion-at-point functionality is not available when using zk-org-link.el.
+
+*** Adding =link-hint.el= to =zk-links=
+
+To allow link-hint.el to find zk-links, it is necessary to add a new link type, as follows:
+
+#+begin_src emacs-lisp :tangle no
+(defun zk-link-hint--zk-link-at-point-p ()
+  "Return the id of the zk-link at point or nil."
+  (thing-at-point-looking-at (zk-link-regexp)))
+
+(defun zk-link-hint--next-zk-link (&optional bound)
+  "Find the next zk-link.
+Only search the range between just after the point and BOUND."
+  (link-hint--next-regexp zk-id-regexp bound))
+
+(eval-when-compile
+  (link-hint-define-type 'zk-link
+    :next #'zk-link-hint--next-zk-link
+    :at-point-p #'zk-link-hint--zk-link-at-point-p
+    :open #'zk-follow-link-at-point
+    :copy #'kill-new))
+
+(push 'link-hint-zk-link link-hint-types)
+#+end_src
+
+
+** howm
+** zetteldeft
+
+*** Installing =deft=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+      (use-package deft
+        :bind
+        (("C-c d" . deft)))
+#+end_src
+
+Theoretically, =deft= should be able to work with Markdown and org-mode at the same time.
+
+*** Settings for =deft=
+
+Set deft path to full path so that zetteldeft works.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+            (setq deft-directory
+                  (file-truename "~/Documents/notes"))
+            (setq deft-extensions
+                  '("md" "org" "txt"))
+            (setq deft-default-extension "org")
+            (setq deft-recursive t)
+#+end_src
+
+*** Open the file in another window
+
+A small function to open a file in the other window and shifting focus to it. That final part is what the t argument does.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun efls/deft-open-other ()
+ (interactive)
+ (deft-open-file-other-window t))
+#+end_src
+
+Let’s add another function, to simply preview in the other window, i.e. not switch focus to it.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(defun efls/deft-open-preview ()
+ (interactive)
+ (deft-open-file-other-window))
+#+end_src
+
+*** Installing =zetteldeft=
+
+=deft= is a dependency on =zetteldeft=, so we have installed that first. =zetteldeft= adds support for linking syntax on top of =deft=
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  (use-package zetteldeft
+    :after deft
+    :config
+    (defun sodaware/dteft-open-preview ()
+      (interactive)
+      (deft-open-file-other-window))
+    (zetteldeft-set-classic-keybindings)
+
+  (font-lock-add-keywords
+   'org-mode
+   `((,zetteldeft-id-regex  . fontt-lock-warning-face)
+     (,zetteldeft-tag-regex . font-lock-warning-face))))
+#+end_src
+
+Custom keybindings don't currently work because they conflict with the way that the configuration for emacs ends up compiling.w
+
+*** DONE Configuring the =zdlink= protocol for native linking within =org-mode=
+
+This is one of my favourite changes - it adds a new org-mode protocol, zdlink, which allows me to insert an org-style link to any note via C-c C-l. These links can be opened like any other org-mode link, and because they only include the note name (not the full path) they work across machines.
+
+This isn't very useful if you're using markdown, but for pure org it makes linking and navigating much easier.
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+;; Add custom `zdlink` to handle zettledeft links.
+(eval-after-load 'org
+  (lambda ()
+    (require 'zetteldeft)
+    (org-link-set-parameters
+     "zdlink"
+     :follow
+     (lambda (str) (zetteldeft--search-filename
+		    (zetteldeft--lift-id str)))
+     :complete  #'sodaware/zd-complete-link
+     :help-echo "Searches provided ID in Zetteldeft")))
+
+(defun sodaware/zd-complete-link ()
+  "Link completion for `zdlink' type links."
+  (let* ((file (completing-read "File to link to: "
+				(deft-find-all-files-no-prefix)))
+	 (link (zetteldeft--lift-id file)))
+    (unless link (user-error "No file selected"))
+    (concat "zdlink:" link)))
+#+end_src
+
+*** TODO Making a home page for zetteldeft
+
+This would help with navigation. But the solutions I have so far seen for this are mostly like patchwork.
+
+*** From the github repository (doesn't work)
+Configuring a base note for zetteldeft
+
+Let’s first store the availability to store an ID.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defvar zetteldeft-home-id nil
+  "String with ID of home note, used by `zetteldeft-go-home'.")
+#+end_src
+
+A function to open up this note is trivial.
+
+#+begin_src emacs-lisp :tangle no :eval never
+(defun zetteldeft-go-home ()
+  "Move to a designated home note.
+Set `zetteldeft-home-id' to an ID string of your home note."
+  (interactive)
+  (if (stringp zetteldeft-home-id)
+      (zetteldeft-find-file
+        (zetteldeft--id-to-full-path zetteldeft-home-id))
+    (message "No home set. Provide a string to zetteldeft-home-id.")))
+#+end_src
+
+*** Getting a backlink pane working for =zetteldeft=
+
+There should be a way to show the backlinks in =org-sidebar= considering that there's support for special =zdlink= for org-mode.
+
+But this has to be investigated more seriously.
+

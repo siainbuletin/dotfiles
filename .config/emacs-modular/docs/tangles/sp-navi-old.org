@@ -1,0 +1,61 @@
+#+title: Functions for general navigation
+
+* Requiring smaller files.
+* Making ~find-file~ more efficient
+
+See [[id:73ed91ef-33ae-4f74-8474-67fab74e4c7f][Emacs interacting with the file system]]
+
+- uses [[id:aadbf471-e3f9-492b-b2e0-21a3a61053c5][completing-read]]
+- has recursive search[fn:1]
+- has multiple search backends
+   + find-name-dired
+   + external tools
+      * find
+      * fd
+      * [[id:98c86b77-2cac-46f5-937e-e1af27051d57][rg]]
+   + /you can add other backends later/
+
+#+begin_src elisp
+(defun sp-find-file ()
+  "Find file from current directory in many different ways."
+  (interactive)
+  (let* ((find-options '(("find -type f -printf \"$PWD/%p\\0\"" . :string)
+                         ("fd --absolute-path --type f -0" . :string)
+                         ("rg --follow --files --null" . :string)
+                         ("find-name-dired" . :command)))
+         (selection (completing-read "Select : " find-options))
+         (metadata '((category . file)))
+         (file-list)
+         (file))
+    (pcase (alist-get selection find-options nil nil #'string=)
+      (:command
+       (call-interactively (intern selection)))
+      (:string
+       (setq file-list (split-string (shell-command-to-string selection) "\0" t))
+       (setq file (completing-read (format "Find file in %s: " (abbreviate-file-name default-directory))
+                                   (lambda (str pred action)
+                                     (if (eq action 'metadata)
+                                         `(metadata . ,metadata)
+                                       (complete-with-action action file-list str pred)))
+                                   nil t nil 'file-name-history)))
+      (when file (find-file (expand-file-name file))))))
+#+end_src
+
+~fd~ and [[id:98c86b77-2cac-46f5-937e-e1af27051d57][ripgrep]] are a lot faster
+- you can filter easier with ~.ignore~ file configuration
+
+fuzzy completion with [[id:21844c67-9aa1-4907-bfa3-8ca659728ce9][vertico.el]]
+- this makes search more user-friendly
+
+To be completely honest, I don't really use Emacs' built-in find functions, such as find-file and find-name-dired. Here are a few reasons why:
+
+If you want the file view (through a [[id:532287eb-75c2-4986-810b-e710fe432a57][dired]] buffer), you can use [[id:4bd12d15-726e-43f0-a61e-124aab860f98][embark-export]] to see the entire view.
+
+[fn:1] https://www.emacs.dyerdwelling.family/emacs/20240804075952-emacs--finding-files-using-completing-read/
+
+* Footer section
+
+;;; Provide:
+
+(provide 'sp-navi)
+;; sp-navi.el ends here.

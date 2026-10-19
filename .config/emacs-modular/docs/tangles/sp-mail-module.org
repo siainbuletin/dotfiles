@@ -1,7 +1,0 @@
-#+TITLE: sp-mail.el
-#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-mail.el :comments no :padline yes :noweb no :mkdirp yes
-#+STARTUP: content
-
-Literate source for =libraries/modules/media/sp-mail.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
-
-The module file is currently empty, so there is no code to document yet. Tangling this file does not create or change anything.

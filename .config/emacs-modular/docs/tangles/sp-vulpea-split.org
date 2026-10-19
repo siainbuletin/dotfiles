@@ -1,35 +1,38 @@
-* Hooking sp-vulpea-split into denote-create
+#+TITLE: sp-vulpea-split.el: Splitting Vulpea headings into notes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-vulpea-split.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-[2026-10-16 Fri]
+Literate source for =libraries/modules/text/sp-vulpea-split.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
 
-Hook sp-split-leave-parents and all the linked functions into a denote naming scheme (without actually running Denote), to maintain consistent file-naming.
-- ~sp-split-leave-parents~ now renames the new note with Denote’s naming scheme.
-- ~vulpea-split-heading~, by default, writes the file itself under a slug.org name.
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-What I did instead:
+This module provides =sp-split-leave-parents=, a wrapper around Vulpea's =vulpea-split-heading= that turns the heading at point into its own note file while keeping the link structure of the notes intact. Compared with the plain split, it records where the note came from in a =parents= meta line, leaves a link to the new note in the source file, renames the new file with Denote's naming scheme, and makes sure footnotes still resolve on both sides of the split.
 
-- Rename after the split :: once vulpea has written the new note, the command calls ~denote-rename-file~ on it. That gives you ~20261016T101500--some-heading__tag1_tag2.org~.
-- Settings it relies on :: Denote’s own settings apply, including ~denote-file-name-components-order~ and the slug functions.
-- Title and keywords :: the title comes from the ~#+title~ vulpea wrote, and the keywords are the note’s tags.
-- No prompts, links unaffected :: confirmations are turned off for that call. Denote rewrites ~#+title~ and ~#+filetags~ and saves. The org ID doesn’t change, so id links and the parents and source links aren’t affected.
-- Database re-sync :: the command then forgets the old path in the vulpea database and indexes the new one.
-- Opting out :: set ~sp-split-denote-names~ to ~nil~ to turn the renaming off.
+It depends on =vulpea=, =org-id= and =denote= (version 3 or later), and it hooks into =vulpea-split--write-file=, a private Vulpea function, so a Vulpea update that renames or reshapes that function can break it; the module warns at load time if the function is missing. It is required from =sp-vulpea-ext=. The command is bound to ~C-x s t~ in =org-mode-map= by =sp-org-base=; note that this makes ~C-x s~ a prefix key in Org buffers, which shadows =save-some-buffers= there.
 
-Limitations:
+* Overview
 
-- Existing slug file :: vulpea still checks for an existing slug.org before writing, so a leftover file with that name makes it refuse the split.
-- Finding the new name :: I find it by comparing the directory before and after the rename, because I couldn’t confirm what ~denote-rename-file~ returns. That could pick the wrong file if something else creates a file in that directory at that instant.
-- Front matter :: the note gets no ~#+identifier~ line, since Denote only needs the identifier in the file name.
-- Private vulpea function :: the re-sync calls ~vulpea-db--forget-file~, which is private, like the existing hook on ~vulpea-split--write-file~.
-- You’ll also need Denote installed (the module now requires it), and your denote-directory should cover wherever the split notes land.
+** Header and package requirements
 
-** Resulting elisp file
+The file header and a Package-Requires line declaring Emacs 28.1 and Denote 3.0.
 
-#+begin_src elisp
+#+begin_src emacs-lisp -i
 ;;; sp-vulpea-split.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
+#+end_src
 
+** Commentary
+
+The commentary is the best summary of the behaviour. On top of the normal split, the command:
+- adds a parents line to the new note linking to the nearest ancestor heading with an ID, or the file-level note, prepending to an existing parents value if there is one,
+- leaves a plain link (not a heading) where the heading used to be, unless called with a prefix argument,
+- renames the new file in Denote's ID, title, keywords format and adds an identifier keyword, while keeping the Org ID so links are unaffected,
+- copies footnote definitions so every heading that cites a footnote has a definition in its own file, with suffixed labels for extra copies.
+
+Steps 1, 2 and 4 only act while =sp-split-leave-parents= runs, so a plain =vulpea-split-heading= is unchanged.
+
+#+begin_src emacs-lisp -i
 ;;; Commentary:
 
 ;; `sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
@@ -48,40 +51,112 @@ Limitations:
 ;;
 ;; 3. Renames the new file with Denote's file-naming scheme
 ;;    (`ID--title__keywords.org'), using `denote-rename-file', so split
-;;    notes are named like the rest of your Denote files.  The note keeps
-;;    its org ID, so links are unaffected.  Disable with
+;;    notes are named like the rest of your Denote files, and adds a
+;;    matching `#+identifier:' line.  The note keeps its org ID, so
+;;    links are unaffected.  Disable with
 ;;    `sp-split-denote-names'.
 ;;
-;; Steps 1 and 2 hook `vulpea-split--write-file', a private function of
+;; 4. Keeps footnotes working across the split (see
+;;    `sp-split-check-footnotes').  Org labels are unique per file and
+;;    this setup uses no footnote section, so a heading that moves away
+;;    from its definitions would lose its sources.  Every heading that
+;;    cites a footnote gets its own copy of the definition, at the end
+;;    of its own text, in the new note, and in the source note for
+;;    definitions that left with the subtree.  Copies after the first
+;;    get a suffixed label (`[fn:smith]', `[fn:smith-2]', ...).
+;;
+;; Steps 1, 2 and 4 hook `vulpea-split--write-file', a private function of
 ;; vulpea, and only act while `sp-split-leave-parents' is running.  A
 ;; plain `vulpea-split-heading' is unchanged.
 
 ;;; Code:
+#+end_src
 
+* Setup
+
+** Required libraries
+
+Loads Org, =org-id=, =subr-x=, =seq=, Vulpea and Denote.
+
+#+begin_src emacs-lisp -i
 (require 'org)
 (require 'org-id)
 (require 'subr-x)
 (require 'seq)
 (require 'vulpea)
 (require 'denote)
+#+end_src
 
+** Active flag
+
+=sp-split--active= is non-nil only during a call to =sp-split-leave-parents=. As the comment explains, it is declared with =defvar= before use so that the =let= bindings in the command are dynamic and visible inside the advice.
+
+#+begin_src emacs-lisp -i
 ;; These must be defined before the functions below use them in `let',
 ;; so that the bindings are dynamic.
 (defvar sp-split--active nil
   "Non-nil while `sp-split-leave-parents' is running.")
+#+end_src
 
+** Link flag
+
+=sp-split--want-link= controls whether a link is left in the source file. The command binds it to nil when called with a prefix argument.
+
+#+begin_src emacs-lisp -i
 (defvar sp-split--want-link t
   "Non-nil when the split should leave a plain link in the source file.")
+#+end_src
 
+** Customisation group
+
+Declares the =sp-split= customisation group under Applications.
+
+#+begin_src emacs-lisp -i
 (defgroup sp-split nil
   "Split vulpea headings out with parents and a link left behind."
   :group 'applications)
+#+end_src
 
+** Denote naming option
+
+=sp-split-denote-names= turns the Denote renaming step on or off. On by default.
+
+#+begin_src emacs-lisp -i
 (defcustom sp-split-denote-names t
   "When non-nil, name split-out notes with Denote's file-naming scheme."
   :type 'boolean
   :group 'sp-split)
+#+end_src
 
+** Footnote option
+
+=sp-split-check-footnotes= turns the footnote copying on or off. On by default.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-split-check-footnotes t
+  "When non-nil, keep footnote definitions with the headings that cite them.
+Definitions are copied, per heading, into the new note and, for those
+that leave with the subtree, into the source note."
+  :type 'boolean
+  :group 'sp-split)
+#+end_src
+
+** Footnote report
+
+=sp-split--fn-report= collects, during one split, how many definitions were copied into the new note and into the source, and which labels had no definition anywhere. It is used for the final echo area message.
+
+#+begin_src emacs-lisp -i
+(defvar sp-split--fn-report nil
+  "Plist (:into-new N :into-source M :dangling LABELS) for the running split.")
+#+end_src
+
+* Parents and source links
+
+** Building an id link
+
+=sp-split--link-to= returns an Org id link to ID, described with the note's title from the Vulpea database, or FALLBACK-TITLE when the database does not know the ID yet.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--link-to (id fallback-title)
   "Return an id link to ID, titled from the database or FALLBACK-TITLE."
   (org-link-make-string
@@ -89,7 +164,13 @@ Limitations:
    (if-let* ((note (vulpea-db-get-by-id id)))
        (vulpea-note-title note)
      fallback-title)))
+#+end_src
 
+** Finding the parent note
+
+=sp-split--parent-link= finds where the heading with ID lives. It visits the file, walks up the ancestor headings and takes the first one that has an ID property, using its heading text as title. If no ancestor has an ID, it falls back to the file-level note, creating a file-level ID with =org-id-get-create= when there is none (so the source file can be modified as a side effect), and uses the buffer title or the file name. Returns the parent ID together with a ready-made link.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--parent-link (id)
   "Return (PARENT-ID . LINK) for the note the heading with ID lives in.
 Walks up the ancestors of the heading and takes the first one with an
@@ -115,7 +196,13 @@ ID when it is missing."
                                   (vulpea-buffer-title-get))
                              (file-name-base path))))
            (cons pid (sp-split--link-to pid title))))))))
+#+end_src
 
+** Adding the parent to the new note's body
+
+=sp-split--body-with-parent= edits the text that will become the new note. It only looks at the part before the first child heading, so children keep their own parents lines. If a parents line already exists there, the new link is put in front of the old value with a comma, unless that parent is already listed. Otherwise a new parents line is added at the top, directly joined to an existing meta list or separated from ordinary text by a blank line. The comment about reading match data early guards against later calls clobbering it.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--body-with-parent (body parent-id link)
   "Return BODY with LINK recorded in its `parents' meta line.
 PARENT-ID is the id LINK points to."
@@ -152,7 +239,13 @@ PARENT-ID is the id LINK points to."
          ((string-match-p "\\`[ \t]*[-+][ \t]+[^ \t\n]+[ \t]+::" body)
           (concat line "\n" body))
          (t (concat line "\n\n" body))))))))
+#+end_src
 
+** Leaving a link in the source
+
+=sp-split--insert-source-link= inserts a link to the split heading on its own line just before the heading in the source file. Because it goes in front of the heading, it survives when Vulpea cuts the subtree. It returns markers around the inserted text so the insertion can be undone if writing the new file fails.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--insert-source-link (id title)
   "Insert a plain link to ID on the line where its heading starts.
 TITLE is the fallback description.  The link goes in front of the
@@ -168,7 +261,361 @@ cons of markers around the inserted text, or nil."
            (insert (sp-split--link-to id (org-link-display-format title))
                    "\n")
            (cons beg (copy-marker (point)))))))))
+#+end_src
 
+* Footnotes
+
+Org footnote labels are unique per file, and this setup keeps each definition at the end of the text of the heading that uses it rather than in a footnote section. Splitting a subtree off can therefore leave references without definitions on either side. In these functions a section means a heading's own text, up to the next heading of any level.
+
+** Background
+
+The comment block introducing the footnote helpers, explaining the problem described above.
+
+#+begin_src emacs-lisp -i
+;;;; Footnotes
+;;
+;; Org footnote labels are unique per file.  Without a footnote section,
+;; definitions sit at the end of the text of the heading that uses them,
+;; so a split can strand references (definition left in the source) or
+;; strand the source (definition left with the subtree).  Sections here
+;; are a heading's own text: from the heading to the next heading of
+;; any level, children excluded.
+#+end_src
+
+** Scanning footnotes
+
+=sp-split--fn-scan= parses the buffer with =org-element-parse-buffer= and returns three lists: the start positions of all headings, every standard reference with its label and position, and every definition with its label, position and full text. A labelled inline footnote counts as a definition and is rewritten into the standard definition form so it can be copied elsewhere.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-scan ()
+  "Scan the accessible part of the current Org buffer for footnotes.
+Return (HEADS REFS DEFS).  HEADS is the sorted list of heading start
+positions.  REFS lists (LABEL BEGIN) for each standard reference
+`[fn:LABEL]'.  DEFS lists (LABEL BEGIN TEXT) for each definition, TEXT
+being the whole definition as `[fn:LABEL] ...'; a labelled inline
+footnote `[fn:LABEL:...]' counts as a definition too."
+  (let ((tree (org-element-parse-buffer))
+        heads refs defs)
+    (org-element-map tree 'headline
+      (lambda (h) (push (org-element-property :begin h) heads)))
+    (org-element-map tree '(footnote-reference footnote-definition)
+      (lambda (el)
+        (let ((label (org-element-property :label el))
+              (begin (org-element-property :begin el)))
+          (when label
+            (if (eq (org-element-type el) 'footnote-definition)
+                (push (list label begin
+                            (string-trim-right
+                             (buffer-substring-no-properties
+                              begin (org-element-property :end el))))
+                      defs)
+              (let ((cb (org-element-property :contents-begin el))
+                    (ce (org-element-property :contents-end el)))
+                (if (eq (org-element-property :type el) 'inline)
+                    (when (and cb ce)
+                      (push (list label begin
+                                  (format "[fn:%s] %s" label
+                                          (string-trim
+                                           (buffer-substring-no-properties
+                                            cb ce))))
+                            defs))
+                  (push (list label begin) refs))))))))
+    (list (sort heads #'<) (nreverse refs) (nreverse defs))))
+#+end_src
+
+** Which section a position is in
+
+=sp-split--fn-section= returns the start of the heading section containing a position, or 0 for text before the first heading.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-section (pos heads)
+  "Return the start of the section containing POS, given sorted HEADS.
+Text before the first heading is section 0."
+  (let ((sec 0))
+    (dolist (h heads sec)
+      (when (<= h pos) (setq sec h)))))
+#+end_src
+
+** End of a section
+
+=sp-split--fn-section-end= returns the position of the next heading after a section start, or the end of the buffer.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-section-end (sec heads)
+  "Return the end of section SEC: the next heading, or the end of buffer."
+  (or (seq-find (lambda (h) (> h sec)) heads) (point-max)))
+#+end_src
+
+** Fresh labels
+
+=sp-split--fn-fresh= returns the label itself if unused, otherwise the first free label with a numeric suffix starting at 2.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-fresh (label used)
+  "Return LABEL if it is not in USED, else LABEL-2, LABEL-3, ... likewise."
+  (if (not (member label used))
+      label
+    (let ((n 2))
+      (while (member (format "%s-%d" label n) used)
+        (setq n (1+ n)))
+      (format "%s-%d" label n))))
+#+end_src
+
+** Relabelling a definition
+
+=sp-split--fn-def-with-label= swaps the label at the start of a definition's text for a new one.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-def-with-label (text label)
+  "Return the definition TEXT with its label replaced by LABEL."
+  (replace-regexp-in-string "\\`\\[fn:[^]\n]*\\]" (format "[fn:%s]" label)
+                            text t t))
+#+end_src
+
+** Applying footnote edits
+
+=sp-split--fn-apply= turns the planned additions (definitions to append at the end of given sections) into insertions with sensible blank-line spacing, merges them with the label replacements, and applies everything from the end of the buffer backwards so earlier positions remain valid.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-apply (heads adds edits)
+  "Apply footnote changes to the current buffer.
+ADDS maps a section to the definition texts to put at the end of it
+\(newest first).  EDITS is a list of (POS LENGTH STRING) replacements.
+Everything is positioned against the buffer as it is now, and applied
+from the end so earlier positions stay valid."
+  (dolist (a adds)
+    (let* ((pos (sp-split--fn-section-end (car a) heads))
+           (prefix (cond ((= pos (point-min)) "")
+                         ((and (>= (- pos (point-min)) 2)
+                               (string= (buffer-substring-no-properties
+                                         (- pos 2) pos)
+                                        "\n\n"))
+                          "")
+                         ((save-excursion (goto-char pos) (bolp)) "\n")
+                         (t "\n\n")))
+           (suffix (if (= pos (point-max)) "\n" "\n\n")))
+      (push (list pos 0 (concat prefix
+                                (mapconcat #'identity (reverse (cdr a)) "\n\n")
+                                suffix))
+            edits)))
+  (dolist (e (sort edits (lambda (x y) (> (car x) (car y)))))
+    (goto-char (car e))
+    (delete-region (car e) (+ (car e) (cadr e)))
+    (insert (nth 2 e))))
+#+end_src
+
+** Definitions in the source file
+
+=sp-split--fn-source-defs= scans the whole file containing ID and returns its footnote definitions as an alist from label to text.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-source-defs (id)
+  "Return an alist (LABEL . TEXT) of the footnote definitions in ID's file."
+  (when-let* ((note (vulpea-db-get-by-id id))
+              (path (vulpea-note-path note)))
+    (with-current-buffer (find-file-noselect path)
+      (org-with-wide-buffer
+       (mapcar (lambda (d) (cons (car d) (nth 2 d)))
+               (nth 2 (sp-split--fn-scan)))))))
+#+end_src
+
+** Fixing footnotes in the new note
+
+=sp-split--fn-fix-body= works on the new note's body in a temporary Org buffer (with mode hooks delayed for speed). For each cited label it decides which heading sections need their own copy of the definition:
+- if the definition is nowhere, neither in the body nor in the source, the label is recorded as dangling,
+- if it is only in the source, every citing section gets a copy,
+- if it is in the body but cited from several sections, the sections without a definition get a copy.
+
+Each copy after the first gets a fresh suffixed label, and the references in that section are renamed to match (skipping the four characters of the opening bracket and fn colon to reach the label). It returns the new body, the number of copies and the dangling labels.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-fix-body (body source-defs)
+  "Make the footnotes in BODY self-contained.
+SOURCE-DEFS is an alist (LABEL . TEXT) of the source file's definitions.
+A heading in BODY that cites a footnote gets its own copy of the
+definition when the definition is not in BODY at all, or when the
+footnote is cited from several headings and the heading has none of its
+own.  Return (NEW-BODY COPIED DANGLING), DANGLING being the labels
+cited but defined nowhere."
+  (with-temp-buffer
+    (delay-mode-hooks (org-mode))
+    (insert body)
+    (pcase-let* ((`(,heads ,refs ,defs) (sp-split--fn-scan))
+                 (used (mapcar #'car defs))
+                 (edits nil)
+                 (adds nil)
+                 (copied 0)
+                 (dangling nil))
+      (dolist (label (seq-uniq (mapcar #'car refs)))
+        (let* ((mine (lambda (e) (equal (car e) label)))
+               (rsecs (seq-uniq
+                       (mapcar (lambda (r) (sp-split--fn-section (cadr r) heads))
+                               (seq-filter mine refs))))
+               (dsecs (mapcar (lambda (d) (sp-split--fn-section (cadr d) heads))
+                              (seq-filter mine defs)))
+               (text (or (nth 2 (assoc label defs))
+                         (cdr (assoc label source-defs))))
+               (needy (cond ((null text)
+                             (push label dangling)
+                             nil)
+                            ;; Defined only in the source: every citing
+                            ;; heading gets a copy.
+                            ((null dsecs) rsecs)
+                            ;; Defined here, cited from several headings:
+                            ;; those without a definition get a copy.
+                            ((cdr rsecs)
+                             (seq-remove (lambda (s) (memql s dsecs)) rsecs))
+                            (t nil))))
+          (dolist (sec needy)
+            (let ((new (sp-split--fn-fresh label used)))
+              (push new used)
+              (unless (equal new label)
+                (dolist (r (seq-filter
+                            (lambda (r)
+                              (and (equal (car r) label)
+                                   (eql (sp-split--fn-section (cadr r) heads)
+                                        sec)))
+                            refs))
+                  ;; Skip `[fn:' to reach the label itself.
+                  (push (list (+ (cadr r) 4) (length label) new) edits)))
+              (push (sp-split--fn-def-with-label text new)
+                    (alist-get sec adds nil nil #'eql))
+              (setq copied (1+ copied))))))
+      (sp-split--fn-apply heads adds edits)
+      (list (string-trim-right (buffer-string)) copied (nreverse dangling)))))
+#+end_src
+
+** Keeping footnotes in the source
+
+=sp-split--fn-keep-in-source= handles the opposite direction. While the subtree is still in place, it finds definitions inside the subtree that are cited from headings outside it and copies them to each of those headings. The first citing heading can keep the original label because the original definition is about to leave with the subtree. Returns the number of definitions copied.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-keep-in-source (id)
+  "Keep footnotes usable in the source once the subtree of ID is cut.
+Definitions inside the subtree that headings outside it still cite are
+copied to those headings.  Must run while the subtree is still in
+place.  Return the number of definitions copied."
+  (let ((copied 0))
+    (when-let* ((note (vulpea-db-get-by-id id))
+                (path (vulpea-note-path note)))
+      (with-current-buffer (find-file-noselect path)
+        (org-with-wide-buffer
+         (when-let* ((pos (org-find-entry-with-id id)))
+           (goto-char pos)
+           (org-back-to-heading t)
+           (let ((beg (point))
+                 (end (save-excursion (org-end-of-subtree t t) (point))))
+             (pcase-let* ((`(,heads ,refs ,defs) (sp-split--fn-scan))
+                          (inside (lambda (p) (and (>= p beg) (< p end))))
+                          (used (mapcar #'car
+                                        (seq-remove
+                                         (lambda (d) (funcall inside (cadr d)))
+                                         defs)))
+                          (edits nil)
+                          (adds nil))
+               (dolist (d (seq-filter (lambda (d) (funcall inside (cadr d)))
+                                      defs))
+                 (let* ((label (car d))
+                        (outside (seq-filter
+                                  (lambda (r)
+                                    (and (equal (car r) label)
+                                         (not (funcall inside (cadr r)))))
+                                  refs))
+                        (secs (seq-uniq
+                               (mapcar (lambda (r)
+                                         (sp-split--fn-section (cadr r) heads))
+                                       outside))))
+                   ;; The original goes away with the subtree, so the
+                   ;; first citing heading may keep the label.
+                   (dolist (sec secs)
+                     (let ((new (sp-split--fn-fresh label used)))
+                       (push new used)
+                       (unless (equal new label)
+                         (dolist (r (seq-filter
+                                     (lambda (r)
+                                       (eql (sp-split--fn-section (cadr r) heads)
+                                            sec))
+                                     outside))
+                           (push (list (+ (cadr r) 4) (length label) new)
+                                 edits)))
+                       (push (sp-split--fn-def-with-label (nth 2 d) new)
+                             (alist-get sec adds nil nil #'eql))
+                       (setq copied (1+ copied))))))
+               (sp-split--fn-apply heads adds edits)))))))
+    copied))
+#+end_src
+
+** Safe wrapper for the new note
+
+=sp-split--fn-check-body= runs the body fix when footnote checking is on, records the result in the report, and on any error logs a message and returns the body unchanged, so a footnote problem never aborts the split.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-check-body (body id)
+  "Return BODY, the body of the note split from ID, with footnotes fixed.
+Never aborts the split: on an error BODY is returned unchanged."
+  (if (not sp-split-check-footnotes)
+      body
+    (condition-case err
+        (pcase-let ((`(,new ,copied ,dangling)
+                     (sp-split--fn-fix-body body (sp-split--fn-source-defs id))))
+          (setq sp-split--fn-report
+                (list :into-new copied :dangling dangling))
+          new)
+      (error
+       (message "sp-split: footnote check skipped: %s"
+                (error-message-string err))
+       body))))
+#+end_src
+
+** Safe wrapper for the source
+
+=sp-split--fn-after-write= runs the source-side copy with the same error protection and adds its count to the report.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-after-write (id)
+  "Copy definitions leaving with the subtree of ID back into the source."
+  (when sp-split-check-footnotes
+    (condition-case err
+        (setq sp-split--fn-report
+              (plist-put sp-split--fn-report :into-source
+                         (sp-split--fn-keep-in-source id)))
+      (error
+       (message "sp-split: footnote copy in source skipped: %s"
+                (error-message-string err))))))
+#+end_src
+
+** Reporting
+
+=sp-split--fn-message= prints a summary in the echo area if anything was copied or any label was dangling; otherwise it stays silent.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--fn-message ()
+  "Report what the footnote check did, when it did anything."
+  (let ((n (or (plist-get sp-split--fn-report :into-new) 0))
+        (m (or (plist-get sp-split--fn-report :into-source) 0))
+        (d (plist-get sp-split--fn-report :dangling)))
+    (when (or (> n 0) (> m 0) d)
+      (message "Footnotes: %d definition(s) copied into the new note, %d into the source%s"
+               n m
+               (if d
+                   (format "; no definition found for: %s"
+                           (string-join d ", "))
+                 "")))))
+#+end_src
+
+* Hooking into Vulpea
+
+** Advice around the file writer
+
+=sp-split--write-file-advice= wraps =vulpea-split--write-file= and passes straight through unless =sp-split-leave-parents= is running. When active, it receives the path, ID, title, heading, tags, properties and body of the note about to be written. At this point Vulpea has already validated the split and the subtree is still in the source, so it:
+- finds the parent link,
+- fixes footnotes in the body and adds the parents line,
+- inserts the link in the source if wanted,
+- calls the original writer, then copies footnotes back into the source.
+
+If writing the new file fails, the inserted source link is removed again and the error is re-signalled, so the source is left as it was.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--write-file-advice (fn &rest args)
   "Around advice for `vulpea-split--write-file'.
 FN is the original function and ARGS its arguments: PATH ID TITLE HEAD
@@ -181,6 +628,7 @@ running."
       ;; vulpea has already run its checks, so a refused split never gets
       ;; this far.
       (let* ((parent (sp-split--parent-link id))
+             (body (sp-split--fn-check-body body id))
              (body (if parent
                        (sp-split--body-with-parent
                         body (car parent) (cdr parent))
@@ -188,14 +636,48 @@ running."
              (stub (when sp-split--want-link
                      (sp-split--insert-source-link id title))))
         (condition-case err
-            (funcall fn path id title head tags props body)
+            ;; The subtree is still in the source once the file is
+            ;; written, which is when its footnotes can be copied back.
+            (prog1 (funcall fn path id title head tags props body)
+              (sp-split--fn-after-write id))
           (error
            ;; Writing the new file failed: take the link back out.
            (when (and stub (marker-buffer (car stub)))
              (with-current-buffer (marker-buffer (car stub))
                (delete-region (car stub) (cdr stub))))
            (signal (car err) (cdr err))))))))
+#+end_src
 
+* Denote naming
+
+** Adding an identifier keyword
+
+=sp-split--add-identifier= reads the Denote identifier from the file name and, if the file has no identifier keyword yet, inserts one after the filetags line or else after the title line, then saves. If neither line is present nothing is inserted.
+
+#+begin_src emacs-lisp -i
+(defun sp-split--add-identifier (path)
+  "Add a `#+identifier:' line to the note at PATH, from its Denote file name.
+Does nothing when the file already has one or its name carries no
+Denote identifier.  The line goes after `#+filetags', else after
+`#+title'."
+  (when-let* ((ident (denote-retrieve-filename-identifier path)))
+    (with-current-buffer (find-file-noselect path)
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (let ((case-fold-search t))
+         (unless (re-search-forward "^#\\+identifier:" nil t)
+           (goto-char (point-min))
+           (when (or (re-search-forward "^#\\+filetags:.*$" nil t)
+                     (re-search-forward "^#\\+title:.*$" nil t))
+             (insert "\n#+identifier: " ident)))))
+      (save-buffer))))
+#+end_src
+
+** Renaming with Denote
+
+=sp-split--denote-rename= renames the new note's file using =denote-rename-file=, with confirmations off and buffers saved, keeping the title written by the split and using the note's tags as keywords. Because the return value of that function is not relied on, the new name is found by comparing the directory listing before and after. It then adds the identifier keyword, tells Vulpea to forget the old path (using the private =vulpea-db--forget-file=), registers the new location with =org-id=, re-indexes the file, and returns the updated note. If no new file appears, the original note is returned unchanged.
+
+#+begin_src emacs-lisp -i
 (defun sp-split--denote-rename (note)
   "Rename the file of NOTE with Denote's naming scheme, then re-sync vulpea.
 Return the note as vulpea knows it afterwards.  The org ID stays the
@@ -219,12 +701,21 @@ directory."
       (if (not new)
           note
         (let ((new-path (expand-file-name new dir)))
+          (sp-split--add-identifier new-path)
           (vulpea-db--forget-file old)
           (org-id-add-location id new-path)
           (vulpea-db-update-file new-path)
           (message "Named with Denote: %s" new)
           (or (vulpea-db-get-by-id id) note))))))
+#+end_src
 
+* The command
+
+** sp-split-leave-parents
+
+The interactive entry point, autoloaded. It binds the active flag, the link flag (off with a prefix argument) and a fresh report, then calls =vulpea-split-heading= interactively. =current-prefix-arg= is cleared so the prefix argument meant for this command does not also trigger Vulpea's own stub option. After the split it renames the file with Denote if enabled and prints the footnote summary. Bound to ~C-x s t~ in Org buffers by =sp-org-base=.
+
+#+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-split-leave-parents (&optional no-link)
   "Run `vulpea-split-heading', recording where the heading came from.
@@ -239,84 +730,35 @@ left."
          (sp-split--want-link (not no-link))
          ;; Keep vulpea's own stub option (the prefix argument) out of it.
          (current-prefix-arg nil)
+         (sp-split--fn-report nil)
          (note (call-interactively #'vulpea-split-heading)))
-    (if (and note sp-split-denote-names)
-        (sp-split--denote-rename note)
-      note)))
+    (prog1 (if (and note sp-split-denote-names)
+               (sp-split--denote-rename note)
+             note)
+      (sp-split--fn-message))))
+#+end_src
 
+** Installing the advice
+
+Warns if =vulpea-split--write-file= does not exist, which would mean an unsupported Vulpea version, and then adds the advice. The advice is added even when the function is missing, so it would take effect if a later Vulpea load defines it.
+
+#+begin_src emacs-lisp -i
 (unless (fboundp 'vulpea-split--write-file)
   (display-warning
    'sp-vulpea-split
    "`vulpea-split--write-file' not found; this vulpea version is not supported"))
 (advice-add 'vulpea-split--write-file :around #'sp-split--write-file-advice)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-vulpea-split= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
 
 (provide 'sp-vulpea-split)
 ;;; sp-vulpea-split.el ends here
 #+end_src
-
-** Adding the Denote identifier to it (UNTESTED, DOESN'T SEEM TO WORK [2026-10-17 Sat])
-
-I’ve updated ~sp-vulpea-split.el~ so the new note gets a ~#+identifier:~ line.
-
-After the Denote rename, the module reads the identifier from the new file name with ~denote-retrieve-filename-identifier~, so the line always matches the name. For example, ~20261016T101500--some-heading__tag1_tag2.org~ gets ~#+identifier: 20261016T101500~.
-
-- Placement :: the line goes right after ~#+filetags:~, or after #+title: if there are no tags. It stays below the property drawer, so the org ID is still first in the file.
-- No duplicates :: if the file already has an ~#+identifier:~ line, nothing is added.
-- Ordering :: the line is added and saved before the file is re-indexed in vulpea.
-- Opting out :: it’s part of the Denote naming step, so setting ~sp-split-denote-names~ to ~nil~ turns it off along with the renaming.
-
-The new note has no ~#+date:~ line, so the front matter is title, filetags and identifier, in that order.
-
-** Adding a way to manage stray footnotes
-
-[2026-10-17 Sat]
-
-#+begin_quote
-I don't use footnote sections in org-mode. However, when splitting headings into different files, the corresponding footnotes don't always get carried over, and they get lost as the sources from which I got certain information. can you add a checker to this function, which makes sure that repeat occurences of a footnote across different headings receives redundancy, and the source note doesn't lose the footnote definition once it moves to another file, instead getting copied in place for the relevant headings?
-#+end_quote
-
-I’ve added a footnote check to sp-vulpea-split.el. It runs as part of sp-split-leave-parents. I haven’t run any of it, since there’s no Emacs in my sandbox. I only checked that the parentheses balance. Please try it on a throwaway copy of a note first.
-
-*** What it does
-
-- References left without a definition :: if the subtree cites a footnote whose definition is elsewhere in the source file, each heading in the new note that cites it gets its own copy. The copy goes at the end of that heading’s own text, since you don’t use a footnote section.
-- Definitions that leave with the subtree :: if a definition sits inside the subtree but headings that stay in the source still cite it, those headings get a copy before the subtree is cut. The source keeps its sources.
-- Repeated citations :: when the same footnote is cited from several headings in the new note, each heading without its own definition gets one.
-- Dangling references :: if a footnote is cited but has no definition anywhere, the echo area says so, and the reference is left as it was.
-- Summary :: after the split, a message such as “Footnotes: 2 definition(s) copied into the new note, 1 into the source” appears.
-
-*Labels:* Org doesn’t allow the same label to be defined twice in one file.
-- In each file, the first copy keeps the original label, and later ones become [fn:smith-2], [fn:smith-3] and so on, with the references in that heading renamed to match.
-- If you’d rather have unlabelled inline footnotes ([fn::text]) for the copies, say so, because that’s a different approach.
-
-*** Details
-
-- Inline footnotes: ~[fn:name:text]~ is treated as a definition, and copies are written as normal ~[fn:name] text~ definitions.
-- Definitions in a footnote section :: definitions in a ~* Footnotes~ section of the source are found and copied like any others.
-- Footnotes I leave alone :: footnotes that don’t need the check, such as ones whose definition is already in the same heading, are left alone.
-- Failures :: if the footnote step fails for any reason, the split carries on and a message says the footnote step was skipped.
-- Turning it off :: set sp-split-check-footnotes to nil.
-
-* Making it run async
-
-`collect all` now runs in the background, and I made it much cheaper per line. I couldn't run Emacs here, so this is untested. A script check shows the parentheses balance. Your `sp-move-region-to-heading` is unchanged.
-
-**How it works**
-- **Timer slices:** Emacs has no threads, so the work is cut into short slices run from an idle timer. Each slice does about 0.05 s of work and then yields, and the next one waits until Emacs has been idle for 0.1 s. Both numbers are options (`sp-link-inbox-async-slice`, `sp-link-inbox-async-delay`). It also pauses while you're typing or have a minibuffer open.
-- **Heading choice:** this happens up front, so any heading prompt or `Resources` merge appears immediately. After that, the lines are collected into that heading one inbox file at a time, in file and line order.
-- **Progress:** the echo area shows it about once a second. `M-x sp-link-inbox-cancel-collect` stops the job and keeps what was already collected.
-- **Overlap:** while a job runs, `collect`, `send` and `collect all` refuse to start.
-
-**Why it was freezing, and what changed**
-- **Saving:** your move function saves the target note after every single line, and saving a big note with its after-save hooks was probably the main cost. For these calls I suppress that save, and the note and each inbox file are saved once instead (the note once at the end of the job).
-- **Opening files:** each inbox file is opened once for all its hits, not once per hit.
-- **Narrowing:** the target note is temporarily widened for each move, so a live narrowing in that buffer can no longer misplace a line.
-
-**Things to know**
-- **Unsaved note:** the note shows as modified until the job ends, since it is no longer saved after each line.
-- **Undo:** the collector's insertions go into the same undo history as your typing, so `C-/` can undo one of them. Undoing at the wrong time would be messy.
-- **Stale lines:** a line that no longer matches what the search found (the file changed meanwhile) is skipped and counted in the final message.
-- **Other errors:** any other error stops the job, saves what is done, and says why in the echo area.
-- **Sidebar:** it shows the old hit list until the job finishes, then refreshes once.
-
-Replace your copy of `sp-link-inbox.el` with this version and run `M-x load-file` on it, or restart Emacs.

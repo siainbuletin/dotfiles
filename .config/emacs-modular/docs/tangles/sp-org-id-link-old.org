@@ -1,0 +1,630 @@
+#+title: Documentation for the ~sp-org-id-link~ module
+
+Description: This module deals with a bunch of functions
+
+* ID creation clauses
+* Custom functions (called elsewhere)
+** ~sp-org-create-note-and-link~: create links in place, without having to create the note first-hand
+
+ID-based note-taking systems in org-mode aren't capable of creating links to files or nodes that don't already exist, like Obsidian can, if you write [[link]] in the file and the title 'link' doesn't already exist in its database.
+
+Program an interactive function for Emacs that, upon being called, creates a note in org-directory without creating an active buffer or creating a new window for it, and inserts the link at point in the source org-mode buffer.
+
+Drafting ID generation and file-writing logic for the note.
+Thought for 10s
+
+Scripting an Emacs function to create and link org notes.
+
+Drafting ID generation and file-writing logic for the note.
+
+(require 'org)
+(require 'org-id)
+
+(defun sp-org-slugify (title)
+  "Turn TITLE into a filesystem-safe slug."
+  (let ((slug (string-trim
+               (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               "-" "-")))
+    (if (string-empty-p slug) "note" slug)))
+
+(defun sp-org-create-note-and-link (title)
+  "Create a new org note TITLE in `org-directory' and insert an ID link to it.
+The note is written straight to disk: no buffer is visited and no window
+is created.  If the region is active, its text is used as the title and
+is replaced by the link."
+  (interactive
+   (list (if (use-region-p)
+             (buffer-substring-no-properties (region-beginning) (region-end))
+           (read-string "New note title: "))))
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
+    (when (string-empty-p title)
+      (user-error "Empty title"))
+    (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+           (id   (org-id-new))
+           (file (expand-file-name
+                  (format "%s-%s.org"
+                          (format-time-string "%Y%m%dT%H%M%S")
+                          (sp-org-slugify title))
+                  dir))
+           (coding-system-for-write 'utf-8))
+      (make-directory dir t)
+      (when (file-exists-p file)
+        (user-error "File already exists: %s" file))
+      ;; Write the note without ever creating a visiting buffer.
+      (with-temp-file file
+        (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
+                        id title)))
+      ;; Register the ID so org can resolve the link immediately.
+      (org-id-add-location id file)
+      (org-id-locations-save)
+      ;; Insert the link at point (replacing the region if there was one).
+      (when (use-region-p)
+        (delete-region (region-beginning) (region-end)))
+      (insert (org-link-make-string (concat "id:" id) title))
+      (message "Created %s" (file-name-nondirectory file)))))
+
+Usage: call M-x sp-org-create-note-and-link, or bind it, e.g. (define-key org-mode-map (kbd "C-c n l") #'sp-org-create-note-and-link). If you select text first, that text becomes the title and is replaced by the link.
+
+*** Explanation from Claude
+
+How it works:
+
+with-temp-file writes the note directly to disk. No buffer visits the file, so no window is involved and the file is never opened.
+org-id-add-location registers the new ID in org-id-locations, so C-c C-o on the link works right away instead of waiting for an org-id-update-id-locations rescan.
+The :ID: property drawer comes first, then #+title:, which is the layout org-roam and vulpea expect for file-level nodes.
+
+Things you may want to adjust:
+
+Database sync. If you use org-roam or vulpea, their databases won’t know about the new file until they sync. Add a call at the end of the function, such as (org-roam-db-update-file file) for org-roam, or whatever update function your vulpea version provides, if you don’t have autosync enabled.
+Existing titles. This always creates a new note. To get Obsidian’s “link to it if it exists” behavior, first look up the title in your database and only create a note when there’s no match.
+Filename scheme. The timestamp prefix avoids collisions. Drop it from the format call if you prefer plain slugs, but then keep the file-exists-p check.
+** Enlarge scope to convert wikilinks from Obsidian as well
+
+[2026-10-16 Fri] I can't simply import my notes manually, as there's 20k notes, each with different links that have to be resolved.
+
+This is supposed to go through the buffer in order and deal with each note that leads nowhere.
+- plain [[id:3d4c1a4f-0d5d-4e6e-a32c-dabf72b8e6f0][wikilink]]s aren't supposed to be used in [[id:91bb441f-84f8-4744-a627-639befae1553][org-mode]], as long as I'm not making use of [[id:1952213a-f2e7-4996-83e9-909e893ca440][GNU Hyperbole]] !@(subject to change sometime in the future)!@
+
+*** First pass
+
+[2026-10-16 Fri]
+
+Commands created (and functions)
+- `my/org-convert-wikilinks`
+- `my/org-slugify`, `my/vulpea-notes-with-title`, `my/org-create-note-and-link` and `my/org--handle-title-conflict` stay unchanged.
+- `my/org-create-note-and-link` keeps working as before
+
+What changed from the regular function
+- The note writer is refactored so it returns the new ID instead of inserting a link, and . Replace `my/org--create-note-and-insert-link` with the two functions below and add the rest.
+
+#+begin_src elisp
+;;;; Refactored note writer ---------------------------------------------
+
+(defun my/org--write-note (title)
+  "Write a new note called TITLE to `org-directory' and return its ID.
+No buffer is visited and no window is created."
+  (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+         (id   (org-id-new))
+         (file (expand-file-name
+                (format "%s-%s.org"
+                        (format-time-string "%Y%m%dT%H%M%S")
+                        (my/org-slugify title))
+                dir))
+         (coding-system-for-write 'utf-8))
+    (make-directory dir t)
+    (when (file-exists-p file)
+      (user-error "File already exists: %s" file))
+    (with-temp-file file
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
+                      id title)))
+    (org-id-add-location id file)
+    (org-id-locations-save)
+    id))
+
+(defun my/org--create-note-and-insert-link (title)
+  "Write a new note called TITLE and insert a link to it at point."
+  (let ((id (my/org--write-note title)))
+    (when (use-region-p)
+      (delete-region (region-beginning) (region-end)))
+    (insert (org-link-make-string (concat "id:" id) title))
+    (message "Created note \"%s\"" title)))
+
+;;;; Wikilink conversion ------------------------------------------------
+
+(defface my/org-wikilink-pending
+  '((t :inherit highlight :box (:line-width -1)))
+  "Face for wikilinks that have not been resolved yet.")
+
+(defconst my/org-wikilink-regexp
+  "\\[\\[\\([^][|#\n]+\\)\\(#[^][|\n]*\\)?\\(?:|\\([^][\n]*\\)\\)?\\]\\]"
+  "Match [[Title]], [[Title|alias]], [[Title#Heading]], [[Title#Heading|alias]].
+Group 1 is the title, group 3 the alias.  Org links such as
+[[id:..][desc]] contain \"][\" and therefore never match.")
+
+(defun my/vulpea--title-index ()
+  "Return a hash table mapping downcased titles to lists of notes."
+  (let ((table (make-hash-table :test #'equal)))
+    (dolist (note (vulpea-db-query))
+      (when-let* ((title (vulpea-note-title note)))
+        (push note (gethash (downcase (string-trim title)) table))))
+    table))
+
+(defun my/org--collect-wikilinks ()
+  "Return a list of (BEG-MARKER END-MARKER TARGET DESC) for wikilinks.
+Skips embeds (![[...]]), real Org link types ([[file:...]]) and src blocks."
+  (let (links)
+    (goto-char (point-min))
+    (while (re-search-forward my/org-wikilink-regexp nil t)
+      (let* ((beg (match-beginning 0))
+             (end (match-end 0))
+             (target (string-trim (match-string-no-properties 1)))
+             (alias  (match-string-no-properties 3)))
+        (unless (or (eq (char-before beg) ?!)
+                    (and (string-match "\\`\\([[:alpha:]][-[:alnum:]+.]*\\):" target)
+                         (member (match-string 1 target) (org-link-types)))
+                    (save-excursion (goto-char beg) (org-in-src-block-p)))
+          (push (list (copy-marker beg) (copy-marker end)
+                      target
+                      (if (and alias (not (string-empty-p (string-trim alias))))
+                          (string-trim alias)
+                        target))
+                links))))
+    (nreverse links)))
+
+(defun my/org--replace-wikilink (beg end id desc)
+  "Replace the text between BEG and END with an ID link with DESC."
+  (save-excursion
+    (goto-char beg)
+    (delete-region beg end)
+    (insert (org-link-make-string (concat "id:" id) desc))))
+
+(defun my/org--prompt-for-wikilink (text candidates)
+  "Prompt for a note, pre-filled with TEXT.
+With CANDIDATES (ambiguous title), only those can be selected.
+Otherwise any `vulpea-db' note can be chosen, and a title that matches
+nothing comes back as a note without an ID."
+  (if candidates
+      (vulpea-select-from "Link to" candidates
+                          :require-match t :initial-prompt text)
+    (vulpea-select "Link to" :initial-prompt text)))
+
+;;;###autoload
+(defun my/org-convert-wikilinks ()
+  "Convert Obsidian-style [[wikilinks]] into Org ID links using `vulpea-db'.
+
+Step 1: every wikilink whose title matches exactly one note
+(case-insensitive) is converted automatically.
+
+Step 2: the remaining links are highlighted, then visited one by one
+with a selection prompt pre-filled with the text between the brackets:
+  - pick an existing note        -> link to it
+  - type a title that is new     -> create that note and link to it
+  - submit an empty string       -> skip this link
+  - \\[keyboard-quit]                    -> stop, leaving the rest highlighted-free
+
+Operates on the active region if there is one, else on the whole buffer."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((index (my/vulpea--title-index))
+        (created (make-hash-table :test #'equal))
+        (converted 0) (created-count 0) (skipped 0)
+        pending overlays)
+    (save-excursion
+      (save-restriction
+        (when (use-region-p)
+          (narrow-to-region (region-beginning) (region-end)))
+        (let ((links (my/org--collect-wikilinks)))
+          (unwind-protect
+              (progn
+                ;; Step 1: exact, unambiguous matches.
+                (dolist (l links)
+                  (pcase-let* ((`(,beg ,end ,target ,desc) l)
+                               (matches (gethash (downcase target) index)))
+                    (if (= (length matches) 1)
+                        (progn (my/org--replace-wikilink
+                                beg end (vulpea-note-id (car matches)) desc)
+                               (cl-incf converted))
+                      (push (list beg end target desc matches) pending))))
+                (setq pending (nreverse pending))
+                ;; Step 2: highlight what is left, then walk through it.
+                (dolist (p pending)
+                  (let ((ov (make-overlay (nth 0 p) (nth 1 p))))
+                    (overlay-put ov 'face 'my/org-wikilink-pending)
+                    (overlay-put ov 'evaporate t)
+                    (push ov overlays)
+                    (setf (nthcdr 5 p) (list ov))))
+                (condition-case nil
+                    (dolist (p pending)
+                      (pcase-let ((`(,beg ,end ,target ,desc ,matches ,ov) p))
+                        (goto-char beg)
+                        (when (eq (window-buffer) (current-buffer)) (recenter))
+                        (let ((known (gethash (downcase target) created)))
+                          (if known
+                              ;; Same new title seen earlier in this run.
+                              (progn (delete-overlay ov)
+                                     (my/org--replace-wikilink beg end known desc)
+                                     (cl-incf converted))
+                            (let* ((note (my/org--prompt-for-wikilink target matches))
+                                   (title (string-trim
+                                           (or (vulpea-note-title note) ""))))
+                              (cond
+                               ((vulpea-note-id note)
+                                (delete-overlay ov)
+                                (my/org--replace-wikilink
+                                 beg end (vulpea-note-id note) desc)
+                                (cl-incf converted))
+                               ((string-empty-p title)
+                                (cl-incf skipped))
+                               (t
+                                (let ((id (my/org--write-note title)))
+                                  (puthash (downcase title) id created)
+                                  (delete-overlay ov)
+                                  (my/org--replace-wikilink beg end id desc)
+                                  (cl-incf converted)
+                                  (cl-incf created-count)))))))))
+                  (quit (message "Quit: remaining wikilinks left untouched"))))
+            (mapc #'delete-overlay overlays)
+            (dolist (l links)
+              (set-marker (nth 0 l) nil)
+              (set-marker (nth 1 l) nil))))))
+    (message "Wikilinks: %d converted (%d new notes), %d skipped"
+             converted created-count skipped)))
+#+end_src
+
+```
+
+How it behaves:
+
+- **Step 1.** `vulpea-db` is queried once and indexed by downcased title. A link with exactly one match is converted immediately. `[[Title|alias]]` becomes `[[id:…][alias]]`, and plain `[[Title]]` keeps its text as the description.
+- **Step 2.** Every link that is still unresolved gets a highlight overlay (face `my/org-wikilink-pending`). Each one is then visited in turn, scrolled into view, and `vulpea-select` opens with the bracket text as the initial input. If a title matched several notes, only those notes are offered.
+- **Typing a new title** creates the note with `my/org--write-note` (still no buffer or window) and links to it. If the same new title shows up again later in the run, it reuses that note instead of creating a duplicate, since `vulpea-db` doesn't know about it yet.
+- **Empty input** skips the link, and `C-g` stops the run. Overlays are always removed, and links you didn't get to stay as plain wikilinks.
+- **Scope.** An active region limits the conversion to that region, and the rest of the buffer is left alone.
+
+Things to be aware of:
+
+- **Headings.** For `[[Title#Heading]]` or `[[Title#^block]]`, the heading or block part is dropped, because ID links point at whole nodes. It would be possible to map it to a heading ID if your notes have them.
+- **Skipped syntax.** Embeds (`![[…]]`), real Org links like `[[file:…]]`, and anything inside a `#+begin_src` block are left untouched.
+- **Matching.** It's case-insensitive, to match the earlier conflict check. If you want it strictly case-sensitive, drop the `downcase` calls in the index and the lookups. Aliases are not matched. I can add that in the same way as in the previous answer.
+- **API assumption.** I used `vulpea-select` and `vulpea-select-from` with the `:initial-prompt` and `:require-match` keywords. Check those if your vulpea version differs.
+
+*** Newer version
+
+This one has the steps in place
+
+#+begin_src elisp
+;;; -*- lexical-binding: t; -*-
+(require 'org)
+(require 'org-id)
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'vulpea)
+
+;;;; ------------------------------------------------------------------
+;;;; Shared helpers
+;;;; ------------------------------------------------------------------
+
+(defun my/org-slugify (title)
+  "Turn TITLE into a filesystem-safe slug."
+  (let ((slug (string-trim
+               (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               "-" "-")))
+    (if (string-empty-p slug) "note" slug)))
+
+(defun my/org--write-note (title)
+  "Write a new note TITLE into `org-directory' without visiting it.
+Register its ID with org and return the ID."
+  (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+         (id   (org-id-new))
+         (base (expand-file-name
+                (format "%s-%s"
+                        (format-time-string "%Y%m%dT%H%M%S")
+                        (my/org-slugify title))
+                dir))
+         (file (concat base ".org"))
+         (n 1)
+         (coding-system-for-write 'utf-8))
+    (make-directory dir t)
+    (while (file-exists-p file)         ; several notes may be created per second
+      (setq n (1+ n)
+            file (format "%s-%d.org" base n)))
+    (with-temp-file file
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
+                      id title)))
+    (org-id-add-location id file)
+    (org-id-locations-save)
+    id))
+
+;;;; ------------------------------------------------------------------
+;;;; Single-note command (same behavior as before)
+;;;; ------------------------------------------------------------------
+
+(defun my/vulpea-notes-with-title (title)
+  "Return all notes in `vulpea-db' whose title equals TITLE, ignoring case."
+  (vulpea-db-query
+   (lambda (note)
+     (let ((existing (vulpea-note-title note)))
+       (and (stringp existing)
+            (eq t (compare-strings existing nil nil title nil nil t)))))))
+
+(defun my/org-create-note-and-link (title)
+  "Create a new org note TITLE in `org-directory' and insert an ID link to it.
+If a note with the same title (case-insensitive) already exists in
+`vulpea-db', report the conflict and offer to quit or to call
+`vulpea-insert' on the existing match(es) instead.
+
+The new note is written straight to disk: no buffer is visited and no
+window is created.  If the region is active, its text is used as the
+title and is replaced by the link."
+  (interactive
+   (list (if (use-region-p)
+             (buffer-substring-no-properties (region-beginning) (region-end))
+           (read-string "New note title: "))))
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
+    (when (string-empty-p title)
+      (user-error "Empty title"))
+    (let ((matches (my/vulpea-notes-with-title title)))
+      (if matches
+          (my/org--handle-title-conflict title matches)
+        (my/org--create-note-and-insert-link title)))))
+
+(defun my/org--handle-title-conflict (title matches)
+  "Report that TITLE conflicts with MATCHES and let the user choose what to do."
+  (let* ((n (length matches))
+         (msg (format "A note titled \"%s\" already exists (%d match%s)"
+                      (vulpea-note-title (car matches))
+                      n (if (= n 1) "" "es")))
+         (ids (mapcar #'vulpea-note-id matches)))
+    (message "%s" msg)
+    (pcase (car (read-multiple-choice
+                 (concat msg ".")
+                 '((?i "insert" "Link to the existing note with `vulpea-insert'")
+                   (?q "quit"   "Abort without doing anything"))))
+      (?i (vulpea-insert
+           (lambda (note) (member (vulpea-note-id note) ids))
+           (lambda (&rest _)
+             (user-error "Pick one of the existing matches"))))
+      (_ (message "Aborted")))))
+
+(defun my/org--create-note-and-insert-link (title)
+  "Write a new note called TITLE to `org-directory' and link to it at point."
+  (let ((id (my/org--write-note title)))
+    (when (use-region-p)
+      (delete-region (region-beginning) (region-end)))
+    (insert (org-link-make-string (concat "id:" id) title))
+    (message "Created note \"%s\"" title)))
+
+;;;; ------------------------------------------------------------------
+;;;; Wikilink conversion
+;;;; ------------------------------------------------------------------
+
+(defface my/org-wikilink-pending '((t :inherit highlight))
+  "Face for wikilinks still waiting to be resolved."
+  :group 'org)
+
+(defface my/org-wikilink-current '((t :inherit isearch))
+  "Face for the wikilink currently being resolved."
+  :group 'org)
+
+(defvar my/org--wl-created 0
+  "Number of notes created during the current wikilink run.")
+
+(defun my/org--title-index ()
+  "Return a hash table: downcased title or alias -> list of `vulpea-db' notes."
+  (let ((idx (make-hash-table :test #'equal)))
+    (dolist (note (vulpea-db-query))
+      (dolist (name (cons (vulpea-note-title note) (vulpea-note-aliases note)))
+        (when (and (stringp name) (not (string-empty-p name)))
+          (push note (gethash (downcase name) idx)))))
+    idx))
+
+;; Is this hash table actually necessary? Isn't this something that
+;; vulpea-db already kind of does?
+
+(defun my/org--lookup (index key)
+  "Return the distinct notes stored under KEY (a downcased name) in INDEX."
+  (seq-uniq (gethash key index)
+            (lambda (a b) (equal (vulpea-note-id a) (vulpea-note-id b)))))
+
+(defun my/org--link-type-p (s)
+  "Non-nil if S starts with a registered org link type, e.g. \"id:\"."
+  (and (string-match "\\`\\([[:alpha:]][[:alnum:]+.-]*\\):" s)
+       (member (match-string 1 s) (org-link-types))))
+
+(defun my/org--wikilink-parts (raw)
+  "Parse the inside of a wikilink RAW into (TARGET DESCRIPTION).
+Handle the Obsidian forms `Target|Alias', `Target#Heading' and
+`Target^block'.  Return nil for things that are not note links:
+org links with a type (id:, file:, https:...), file paths, and
+same-file references such as `#Heading'."
+  (let* ((i (string-match "\\\\?|" raw))
+         (j (and i (match-end 0)))
+         (target (string-trim (if i (substring raw 0 i) raw)))
+         (alias  (and j (string-trim (substring raw j))))
+         (base   (string-trim (replace-regexp-in-string "[#^].*\\'" "" target))))
+    (when (and (not (string-empty-p base))
+               (not (string-match-p "\\`\\(?:\\.\\.?/\\|/\\|~/\\|\\*\\|(\\)" base))
+               (not (my/org--link-type-p base)))
+      (list base (if (and alias (not (string-empty-p alias))) alias base)))))
+
+(defun my/org--collect-wikilinks (beg end)
+  "Return wikilinks between BEG and END as plists, in buffer order.
+Each plist has :beg and :end markers, the :target to look up and the
+:desc to use as link text.  `![[embeds]]' and links inside source,
+example, export and comment blocks are ignored."
+  (let (entries)
+    (save-excursion
+      (goto-char beg)
+      (while (re-search-forward "\\[\\[\\([^][\n]+\\)\\]\\]" end t)
+        (let ((mb (match-beginning 0))
+              (me (match-end 0))
+              (parts (my/org--wikilink-parts (match-string-no-properties 1))))
+          (when (and parts
+                     (not (eq (char-before mb) ?!))
+                     (not (save-excursion
+                            (goto-char mb)
+                            (save-match-data
+                              (org-in-block-p '("src" "example" "export" "comment"))))))
+            ;; The :beg marker advances on insertion so that adjacent links
+            ;; ([[a]][[b]]) survive replacement of the previous one.
+            (push (list :beg (copy-marker mb t)
+                        :end (copy-marker me)
+                        :target (car parts)
+                        :desc (cadr parts))
+                  entries)))))
+    (nreverse entries)))
+
+(defun my/org--replace-wikilink (entry id)
+  "Replace the wikilink ENTRY with an ID link to ID."
+  (let ((mb (plist-get entry :beg))
+        (me (plist-get entry :end)))
+    (save-excursion
+      (goto-char mb)
+      (delete-region mb me)
+      (insert (org-link-make-string (concat "id:" id) (plist-get entry :desc))))
+    (set-marker mb nil)
+    (set-marker me nil)))
+
+(defun my/org--highlight (entry)
+  "Create and return a highlight overlay over wikilink ENTRY."
+  (let ((ov (make-overlay (marker-position (plist-get entry :beg))
+                          (marker-position (plist-get entry :end))
+                          nil t nil)))
+    (overlay-put ov 'face 'my/org-wikilink-pending)
+    (overlay-put ov 'priority 100)
+    ov))
+
+(defun my/org--focus (ov)
+  "Move point to overlay OV, reveal it, and mark it as the current link."
+  (goto-char (overlay-start ov))
+  (if (fboundp 'org-fold-show-context)
+      (org-fold-show-context)
+    (org-show-context))
+  (recenter)
+  (overlay-put ov 'face 'my/org-wikilink-current))
+
+(defun my/org--offer-create (title index resolved)
+  "Step 3: offer to create a note TITLE.  Return an ID, :skip, or quit."
+  (pcase (car (read-multiple-choice
+               (format "No existing note for \"%s\"" title)
+               '((?c "create" "Create a new note in `org-directory'")
+                 (?s "skip"   "Leave this wikilink as it is")
+                 (?q "quit"   "Stop here; keep what was converted so far"))))
+    (?c (let* ((title   (string-trim (read-string "New note title: " title)))
+               (matches (my/org--lookup index (downcase title))))
+          (cond ((string-empty-p title) :skip)
+                ;; The edited title exists after all: reuse it.
+                ((= (length matches) 1) (vulpea-note-id (car matches)))
+                (matches :skip)         ; ambiguous: don't add another duplicate
+                (t (let ((id (my/org--write-note title)))
+                     (cl-incf my/org--wl-created)
+                     (puthash (downcase title) id resolved)
+                     id)))))
+    (?s :skip)
+    (?q (throw 'my/org-wikilinks-quit nil))))
+
+(defun my/org--resolve-interactively (entry index resolved)
+  "Steps 2 and 3 for ENTRY: pick an existing note, else offer to create one.
+Return an ID or :skip."
+  (let* ((target (plist-get entry :target))
+         (note (vulpea-select (format "Link target for [[%s]]" target)
+                              :initial-prompt target
+                              :require-match nil)))
+    (or (vulpea-note-id note)           ; an existing note was selected
+        (let ((title (string-trim (or (vulpea-note-title note) ""))))
+          (if (string-empty-p title)
+              :skip
+            (my/org--offer-create title index resolved))))))
+
+(defun my/org-convert-wikilinks ()
+  "Convert Obsidian-style [[wikilinks]] in this org buffer to ID links.
+Operates on the active region, or on the whole (accessible) buffer.
+
+1. A wikilink whose target matches exactly one note in `vulpea-db'
+   (title or alias, case-insensitive) is converted right away.
+2. The remaining wikilinks are highlighted, then visited one by one with
+   a `vulpea-select' prompt pre-filled with the text between the brackets.
+3. If no existing note is selected, offer to create a new note in
+   `org-directory' (the title is editable), skip the link, or quit.
+
+`[[Target|Alias]]' keeps Alias as the link text; `[[Target#Heading]]'
+and `[[Target^block]]' link to the note Target."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let* ((beg (if (use-region-p) (region-beginning) (point-min)))
+         (end (if (use-region-p) (region-end) (point-max)))
+         (entries (my/org--collect-wikilinks beg end))
+         (index (my/org--title-index))
+         (resolved (make-hash-table :test #'equal))
+         (my/org--wl-created 0)
+         (auto 0) (manual 0) pending)
+    (unless entries
+      (user-error "No wikilinks found"))
+    (deactivate-mark)
+
+    ;; Step 1: exact, unambiguous matches are converted straight away.
+    (dolist (e entries)
+      (let* ((matches (my/org--lookup index (downcase (plist-get e :target))))
+             (id (and (= (length matches) 1) (vulpea-note-id (car matches)))))
+        (if id
+            (progn (my/org--replace-wikilink e id)
+                   (cl-incf auto))
+          (push e pending))))
+    (setq pending (nreverse pending))
+
+    ;; Steps 2 and 3: highlight what is left and resolve it interactively.
+    (when pending
+      (setq pending (mapcar (lambda (e) (cons e (my/org--highlight e))) pending))
+      (unwind-protect
+          (catch 'my/org-wikilinks-quit
+            (dolist (cell pending)
+              (let* ((e   (car cell))
+                     (ov  (cdr cell))
+                     (key (downcase (plist-get e :target)))
+                     (id  (gethash key resolved))) ; same target seen earlier?
+                (unless id
+                  (my/org--focus ov)
+                  (setq id (my/org--resolve-interactively e index resolved))
+                  (puthash key id resolved))
+                (if (stringp id)
+                    (progn (delete-overlay ov)
+                           (my/org--replace-wikilink e id)
+                           (cl-incf manual))
+                  (overlay-put ov 'face 'my/org-wikilink-pending)))))
+        (dolist (cell pending)
+          (delete-overlay (cdr cell)))))
+    (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
+             auto manual my/org--wl-created (- (length pending) manual))))
+#+end_src
+
+Run it with M-x my/org-convert-wikilinks. If a region is active, only that region is processed.
+
+What it does
+
+Step 1. It builds a hash table of all titles and aliases in vulpea-db once. Each wikilink is then looked up case-insensitively. A single match is converted immediately. If several notes share the title, it counts as unresolved and goes to step 2.
+
+Step 2. All unresolved links are highlighted at once with the my/org-wikilink-pending face. The command then visits them in order, moves the current one to the screen with the my/org-wikilink-current face, and opens vulpea-select pre-filled with the text between the brackets. Picking an existing note converts the link.
+
+Step 3. If you type something that doesn’t match an existing note, you can create a note, skip the link, or quit. On create, the title is editable, the note is written to disk with no buffer or window, and the link is converted in place.
+
+**** Behavior to know about
+
+- Repeated targets :: The answer is cached per target. If the same unresolved [[Foo]] appears ten times, you are prompted once, and a note created for it is reused.
+- Obsidian syntax. [[Target|Alias]] becomes [[id:…][Alias]]. [[Target#Heading]] and [[Target^block]] link to the note, and the heading or block part is dropped.
+- What is left alone. Embeds (![[image.png]]), same-file references ([[#Heading]]), file paths, links with a type (id:, file:, https:), and anything inside src/example/export/comment blocks.
+- Skipped or quit links. They stay as plain [[…]] text and lose the highlight. The echo area summarizes what was converted, picked, created and left over.
+- Undo. Each replacement is a separate undo step. Notes already created on disk are not removed by undo.
+
+Assumptions to check against your vulpea version
+
+- ~vulpea-db-query~ with no argument returns all notes.
+- ~vulpea-select~ accepts ~:initial-prompt~ and ~:require-match~.
+- When you type something that isn’t an existing note, vulpea-select returns a note with a title and no ID. The command treats that as “no existing note selected”.
+- If vulpea’s autosync is off, notes created during a run won’t be in vulpea-db until it syncs. Running the command in another buffer before then could create duplicates.

@@ -1,306 +1,68 @@
-* Linting lists (and ordering alphabetically, as needed)
+#+TITLE: sp-org-lint.el: Lint and tidy plain lists in Org buffers
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/funct/sp-org-lint.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-Create two linting interactive functions for org-mode buffers. The first (sp-org-lint-list) takes list items that are found in a region and removes whitespace between list items. The second (sp-org-lint-resources)iterates forward on the first, by also sorting the list items alphabetically.
+Literate source for =libraries/modules/funct/sp-org-lint.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
 
-Removing blank lines carefully to protect list boundaries.
-Here are both functions. The first does the whitespace cleanup, and the second calls it and then sorts.
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-#+begin_src elisp
+This module provides two commands for tidying plain lists in Org buffers, aimed at lists of links such as reading or resource lists. =sp-org-lint-list= turns stray paragraph lines into list items, removes blank lines between items and drops items whose https link already appeared earlier. =sp-org-lint-resources= does the same and then sorts each top level list alphabetically by its displayed text. A helper command, =sp-org-mark-list=, marks the region the commands would act on.
+
+It depends only on built-in libraries: =org=, =org-list=, =org-element= and =subr-x=. The commands work on the active region, or when there is none, on the list at or near point, falling back to the block of consecutive non-blank lines. All edits run inside one =atomic-change-group=, so a single undo reverts a whole lint pass. The module is loaded in the Functions block of =init.el=; no key bindings are set for its commands anywhere in the configuration, so they are run with =M-x=.
+
+* Setup and patterns
+
+** File header
+
+The file header, with lexical binding enabled.
+
+#+begin_src emacs-lisp -i
 ;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
-
-(require 'org)
-(require 'org-list)
-
-(defconst sp-org--item-re
-  "^\\(?:[ \t]+\\*\\|[ \t]*[-+]\\|[ \t]*[0-9]+[.)]\\)[ \t]"
-  "Match the start of a plain list item line.
-A bare `*' only counts when indented, so headings are not mistaken for items.")
-
-(defun sp-org--region-or-error (beg end)
-  "Signal an error unless in `org-mode' and BEG/END are usable."
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Not in an org-mode buffer"))
-  (when (= beg end)
-    (user-error "Region is empty")))
-
-(defun sp-org--remove-blank-lines-between-items (beg end-marker)
-  "Delete blank lines between list items from BEG to END-MARKER."
-  (save-excursion
-    (goto-char beg)
-    (while (re-search-forward "\n\\(?:[ \t]*\n\\)+" end-marker t)
-      (let ((blank-beg (match-beginning 0))
-            (blank-end (match-end 0)))
-        (when (and
-               ;; the next non-blank line starts a list item...
-               (save-excursion
-                 (goto-char blank-end)
-                 (looking-at-p sp-org--item-re))
-               ;; ...and the previous line belongs to a list
-               ;; (an item itself, or an indented continuation line).
-               (save-excursion
-                 (goto-char blank-beg)
-                 (beginning-of-line)
-                 (or (looking-at-p sp-org--item-re)
-                     (looking-at-p "[ \t]+[^ \t\n]"))))
-          (replace-match "\n"))))))
-
-;;;###autoload
-(defun sp-org-lint-list (beg end)
-  "Remove blank lines between list items in the region from BEG to END.
-Blank lines separating a list from surrounding paragraphs or headings
-are left alone."
-  (interactive "r")
-  (sp-org--region-or-error beg end)
-  (let ((end-marker (copy-marker end)))
-    (unwind-protect
-        (sp-org--remove-blank-lines-between-items beg end-marker)
-      (set-marker end-marker nil))))
-
-;;;###autoload
-(defun sp-org-lint-resources (beg end)
-  "Lint the lists in the region from BEG to END, then sort them alphabetically.
-First runs `sp-org-lint-list' so that no stray blank lines travel
-with items while sorting.  Each top-level list in the region is then
-sorted case-insensitively by item text.  Nested sublists keep their
-parent item but are not re-sorted themselves."
-  (interactive "r")
-  (sp-org--region-or-error beg end)
-  (let ((end-marker (copy-marker end)))
-    (unwind-protect
-        (save-excursion
-          (sp-org--remove-blank-lines-between-items beg end-marker)
-          (goto-char beg)
-          (while (and (< (point) end-marker)
-                      (re-search-forward sp-org--item-re end-marker t))
-            (beginning-of-line)
-            (org-sort-list nil ?a)            ; ?a = alphabetically, case-insensitive
-            ;; Jump past the whole list we just sorted.
-            (goto-char (org-list-get-bottom-point (org-list-struct)))))
-      (set-marker end-marker nil))))
-
-;;; Provide:
-
-(provide 'sp-org-lint)
-;;; sp-org-lint.el ends here
 #+end_src
 
-Usage: select a region in an Org buffer and run M-x sp-org-lint-list or M-x sp-org-lint-resources. Bind them if you like:
+** Required libraries
 
-#+begin_src elisp
-(with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c l l") #'sp-org-lint-list)
-  (define-key org-mode-map (kbd "C-c l r") #'sp-org-lint-resources))
-#+End_src
+Loads the Org core, list and element libraries, plus =subr-x= for string helpers such as =string-trim=.
 
-Example:
-
-#+begin_example
-- Zotero
-
-- Obsidian
-  continuation text
-
-- Emacs
-#+end_example
-
-becomes, after sp-org-lint-resources:
-
-#+begin_example
-- Emacs
-- Obsidian
-  continuation text
-- Zotero
-#+end_example
-
-Notes:
-
-- Blank lines :: these are only removed when the line before is part of a list and the line after is a list item. A blank line between a list and the paragraph or heading that follows it stays. !@Really good!!@
-- Sorting :: ~~org-sort-list~ moves each item together with its continuation text and sublists. It sorts top-level items only. To sort nested levels too, move point into the sublist and run ~~C-c ^~~ (~~org-sort~), or tell me and I’ll add a recursive option.
-- Ordering :: ?a is case-insensitive. Change it to (org-sort-list t ?a) for case-sensitive sorting, or use ?A for reverse order.
-- Numbered lists :: the sort works, but the numbers are not renumbered. Org usually fixes that on the next edit, and C-c C-c on an item forces it.
-
-Claude is AI and can make mistakes. Please double-check responses.
-Claude finished the response
-
-** Automatically detecting the region where there's a list
-
-Can you make selecting the list region be recognised automatically, starting from the earliest list item that can be detected near point, and until the end (meaning the last line that's actually a list, without having to mark the region that I want to run the function on? (or auto-mark the region)
-
-Here’s the updated file. With no active region, both commands detect the whole list around point and work on that. With an active region, they behave as before.
-
-#+begin_src elisp
-;; -*- lexical-binding: t -*-
-;;; sp-org-lint.el --- Lint plain lists in org-mode buffers
-
-;;; Code:
-;;;; Required modules:
-(require 'org)
-(require 'org-list)
-
-(defconst sp-org--item-re
-  "^\\(?:[ \t]+\\*\\|[ \t]*[-+]\\|[ \t]*[0-9]+[.)]\\)[ \t]"
-  "Match the start of a plain list item line.
-A bare `*' only counts when indented, so headings are not mistaken for items.")
-
-;;; Region detection
-
-(defun sp-org--item-near-point ()
-  "Return the start of an item at or near point, or nil.
-Tries the current line (including continuation text), then the
-previous non-blank line, then the next non-blank line."
-  (let ((orig (point)))
-    (save-excursion
-      (or (org-in-item-p)
-          (progn
-            (skip-chars-backward " \t\n")
-            (and (not (bobp)) (org-in-item-p)))
-          (progn
-            (goto-char orig)
-            (skip-chars-forward " \t\n")
-            (and (not (eobp)) (org-in-item-p)))))))
-
-(defun sp-org--list-bounds ()
-  "Return (BEG . END) of the whole plain list at or near point.
-BEG is the start of the first item of the outermost list; END is the
-end of the last non-blank line belonging to it (trailing blank lines
-are excluded).  Signal a `user-error' if no list is found."
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Not in an org-mode buffer"))
-  (let ((item (sp-org--item-near-point)))
-    (unless item
-      (user-error "No list found near point"))
-    (save-excursion
-      (goto-char item)
-      (let* ((struct (org-list-struct))
-             (beg (org-list-get-top-point struct))
-             (end (org-list-get-bottom-point struct)))
-        (goto-char end)
-        (skip-chars-backward " \t\n")
-        (cons beg (point))))))
-
-(defun sp-org--region-args ()
-  "Return (BEG END): the active region, else the list around point."
-  (if (use-region-p)
-      (list (region-beginning) (region-end))
-    (let ((bounds (sp-org--list-bounds)))
-      (list (car bounds) (cdr bounds)))))
-
-;;;###autoload
-(defun sp-org-mark-list ()
-  "Mark the whole plain list at or near point."
-  (interactive)
-  (let ((bounds (sp-org--list-bounds)))
-    (goto-char (car bounds))
-    (push-mark (cdr bounds) nil t)))
-
-;;; Linting
-
-(defun sp-org--check-region (beg end)
-  "Signal an error unless in `org-mode' and BEG/END are usable."
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Not in an org-mode buffer"))
-  (when (= beg end)
-    (user-error "Region is empty")))
-
-(defun sp-org--remove-blank-lines-between-items (beg end-marker)
-  "Delete blank lines between list items from BEG to END-MARKER."
-  (save-excursion
-    (goto-char beg)
-    (while (re-search-forward "\n\\(?:[ \t]*\n\\)+" end-marker t)
-      (let ((blank-beg (match-beginning 0))
-            (blank-end (match-end 0)))
-        (when (and
-               ;; the next non-blank line starts a list item...
-               (save-excursion
-                 (goto-char blank-end)
-                 (looking-at-p sp-org--item-re))
-               ;; ...and the previous line belongs to a list
-               ;; (an item itself, or an indented continuation line).
-               (save-excursion
-                 (goto-char blank-beg)
-                 (beginning-of-line)
-                 (or (looking-at-p sp-org--item-re)
-                     (looking-at-p "[ \t]+[^ \t\n]"))))
-          (replace-match "\n"))))))
-
-;;;###autoload
-(defun sp-org-lint-list (beg end)
-  "Remove blank lines between list items.
-Operates on the active region from BEG to END.  Without an active
-region, operates on the whole list at or near point.  Blank lines
-separating a list from surrounding paragraphs or headings are kept."
-  (interactive (sp-org--region-args))
-  (sp-org--check-region beg end)
-  (let ((end-marker (copy-marker end)))
-    (unwind-protect
-        (sp-org--remove-blank-lines-between-items beg end-marker)
-      (set-marker end-marker nil))))
-
-;;;###autoload
-(defun sp-org-lint-resources (beg end)
-  "Lint the lists from BEG to END, then sort them alphabetically.
-Operates on the active region, or on the whole list at or near point
-when no region is active.  First removes blank lines between items,
-then sorts each top-level list case-insensitively by item text.
-Nested sublists travel with their parent item but are not re-sorted."
-  (interactive (sp-org--region-args))
-  (sp-org--check-region beg end)
-  (let ((end-marker (copy-marker end)))
-    (unwind-protect
-        (save-excursion
-          (sp-org--remove-blank-lines-between-items beg end-marker)
-          (goto-char beg)
-          (while (and (< (point) end-marker)
-                      (re-search-forward sp-org--item-re end-marker t))
-            (beginning-of-line)
-            (org-sort-list nil ?a)
-            (goto-char (org-list-get-bottom-point (org-list-struct)))))
-      (set-marker end-marker nil))))
-
-;;; Provide:
-
-(provide 'sp-org-lint)
-;;; sp-org-lint.el ends here
-#+end_src
-
-How detection works:
-
-- Where it looks :: it checks the current line first, including continuation text under an item. If that isn’t part of a list, it tries the previous non-blank line, then the next non-blank line. So you can sit on a blank line just below or above a list and it still finds it.
-- Start of the region :: it starts at the first item of the outermost list. That holds even if point is inside a nested sublist.
-- End of the region :: it ends at the last non-blank line that belongs to the list, so trailing blank lines before the next paragraph or heading are not included or touched.
-- Optional marking :: ~M-x sp-org-mark-list~ selects the detected list so you can see what the commands would act on. The two lint commands don’t need it.
-
-Caveats:
-
-- Org’s own list rules :: detection relies on ~org-list-struct~, so it follows Org’s rules for where a list ends. By default, two consecutive blank lines end a list. Items separated by two or more blank lines count as separate lists, and only the one at point is processed.
-   + If you need that case handled, mark the region manually (or tell me and I’ll loop over adjacent lists).
-- No list found :: if nothing list-like is found near point, you get a “No list found near point” message and nothing changes.
-** Adding an extra step for adding items where they're missing
-
-#+begin_quote
-Enhance the two functions by adding an earlier step with org-toggle-item for lines marked that aren't items, before removing the whitespace and, in the case of sp-org-lint-resources, organising the links alphabetically. For both functions, remove any duplicate links (starting by analysing the link with https://, not the entire line).
-#+end_quote
-
-Here’s the updated file. Both commands now run the same pipeline: convert, remove blank lines, remove duplicate links, and (for sp-org-lint-resources only) sort.
-
-#+begin_src elisp
-;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
-
+#+begin_src emacs-lisp -i
 (require 'org)
 (require 'org-list)
 (require 'org-element)
 (require 'subr-x)
+#+end_src
 
+** List item pattern
+
+=sp-org--item-re= matches the start of a plain list item line: a dash or plus bullet, a number followed by a period or parenthesis, or an asterisk that is indented. Requiring indentation for the asterisk keeps headings from being treated as items.
+
+#+begin_src emacs-lisp -i
 (defconst sp-org--item-re
   "^\\(?:[ \t]+\\*\\|[ \t]*[-+]\\|[ \t]*[0-9]+[.)]\\)[ \t]"
   "Match the start of a plain list item line.
 A bare `*' only counts when indented, so headings are not mistaken for items.")
+#+end_src
 
+** URL pattern
+
+=sp-org--url-re= matches an https URL up to whitespace, brackets, angle brackets or a quote, so it stops cleanly at the end of an Org bracket link. Plain http links are deliberately ignored; the docstring explains how to widen it.
+
+#+begin_src emacs-lisp -i
 (defconst sp-org--url-re "https://[^] \t\n\r<>\"[]+"
   "Match an https:// URL.
 Change `https://' to `https?://' to also treat http links as links.")
+#+end_src
 
+* Finding what to act on
+
+These helpers decide which part of the buffer a command works on when no region is active.
+
+** Item near point
+
+=sp-org--item-near-point= returns the start of the list item at point. On a blank line it looks at the nearest non-blank text above, then below, so running a command from a gap between items still finds the list. On any other non-list line it returns nil.
+
+#+begin_src emacs-lisp -i
 ;;; Region detection
+
 (defun sp-org--item-near-point ()
   "Return the start of the list item at or near point, or nil.
 On a list line (item or continuation text) that is the item itself.
@@ -316,7 +78,13 @@ On any other line nil is returned."
           (progn (skip-chars-forward " \t\n")
                  (beginning-of-line)
                  (and (not (eobp)) (org-in-item-p))))))))
+#+end_src
 
+** Whole list bounds
+
+=sp-org--list-bounds= expands from that item to the outermost list containing it, using Org's list structure, and returns its start and the end of its last non-blank line.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--list-bounds ()
   "Return (BEG . END) of the whole plain list at or near point, or nil.
 BEG is the start of the first item of the outermost list; END is the
@@ -331,7 +99,13 @@ end of the last non-blank line belonging to it."
           (goto-char end)
           (skip-chars-backward " \t\n")
           (cons beg (point)))))))
+#+end_src
 
+** Text block bounds
+
+=sp-org--block-bounds= is the fallback: the run of consecutive non-blank lines around point, delimited by blank lines or the buffer edges.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--block-bounds ()
   "Return (BEG . END) of the consecutive non-blank lines around point, or nil."
   (save-excursion
@@ -346,7 +120,13 @@ end of the last non-blank line belonging to it."
                        (progn (forward-line -1) (line-end-position))
                      (point-max)))))
         (cons beg end)))))
+#+end_src
 
+** Automatic bounds
+
+=sp-org--auto-bounds= checks that the buffer is in Org mode and returns the list bounds, else the block bounds, else signals a user error.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--auto-bounds ()
   "Return (BEG . END) of the list at point, else of the text block at point."
   (unless (derived-mode-p 'org-mode)
@@ -354,14 +134,26 @@ end of the last non-blank line belonging to it."
   (or (sp-org--list-bounds)
       (sp-org--block-bounds)
       (user-error "No list or text block found at point")))
+#+end_src
 
+** Interactive region arguments
+
+=sp-org--region-args= supplies the two arguments for the interactive commands: the active region when there is one, otherwise the automatic bounds.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--region-args ()
   "Return (BEG END): the active region, else the list or block at point."
   (if (use-region-p)
       (list (region-beginning) (region-end))
     (let ((bounds (sp-org--auto-bounds)))
       (list (car bounds) (cdr bounds)))))
+#+end_src
 
+** Mark the target
+
+=sp-org-mark-list= is an autoloaded command that activates the region over exactly what the lint commands would process without a region, so you can see or adjust the target first.
+
+#+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-org-mark-list ()
   "Mark what the lint commands would act on without an active region."
@@ -369,7 +161,15 @@ end of the last non-blank line belonging to it."
   (let ((bounds (sp-org--auto-bounds)))
     (goto-char (car bounds))
     (push-mark (cdr bounds) nil t)))
+#+end_src
 
+* Step 1: plain lines into items
+
+** Which lines are convertible
+
+=sp-org--convertible-line-p= accepts a line only if it is non-blank, not already part of a list item, and parsed by =org-element= as a paragraph. Headings, keywords, drawers, tables, blocks and continuation lines of items are left alone.
+
+#+begin_src emacs-lisp -i
 ;;; Step 1: turn plain lines into items
 
 (defun sp-org--convertible-line-p ()
@@ -380,7 +180,13 @@ are not convertible."
   (and (not (looking-at-p "[ \t]*$"))
        (not (org-in-item-p))
        (eq (org-element-type (org-element-at-point)) 'paragraph)))
+#+end_src
 
+** Converting lines
+
+=sp-org--convert-lines-to-items= walks the target line by line and calls =org-toggle-item= on each convertible line, returning how many it changed. =mark-active= is bound to nil around the call so that =org-toggle-item= acts on the single line rather than on the whole region. A marker for the next line keeps the walk correct as text is inserted.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--convert-lines-to-items (beg end-marker)
   "Run `org-toggle-item' on each plain line between BEG and END-MARKER.
 Return the number of lines converted."
@@ -397,7 +203,15 @@ Return the number of lines converted."
           (goto-char next)
           (set-marker next nil))))
     count))
+#+end_src
 
+* Step 2: blank lines between items
+
+** Removing blank lines
+
+=sp-org--remove-blank-lines-between-items= finds runs of blank lines and collapses them to a single newline only when the next line starts an item and the previous line belongs to a list (an item or an indented continuation). Blank lines that separate a list from ordinary text are kept.
+
+#+begin_src emacs-lisp -i
 ;;; Step 2: remove blank lines between items
 
 (defun sp-org--remove-blank-lines-between-items (beg end-marker)
@@ -420,7 +234,15 @@ Return the number of lines converted."
                  (or (looking-at-p sp-org--item-re)
                      (looking-at-p "[ \t]+[^ \t\n]"))))
           (replace-match "\n"))))))
+#+end_src
 
+* Step 3: duplicate links
+
+** Normalising URLs
+
+=sp-org--normalize-url= makes URLs comparable: it strips trailing punctuation, an unmatched closing parenthesis and trailing slashes, and lower-cases the scheme and host while keeping the path's case.
+
+#+begin_src emacs-lisp -i
 ;;; Step 3: remove duplicate links
 
 (defun sp-org--normalize-url (url)
@@ -434,22 +256,36 @@ slashes are dropped, and the host is lower-cased."
   (if (string-match "\\`\\(https://[^/?#]*\\)" url)
       (concat (downcase (match-string 1 url)) (substring url (match-end 1)))
     url))
+#+end_src
 
+** The URL of one item
+
+=sp-org--item-url= returns the normalised first https URL in an item's own text. It stops at the first nested item line so a link in a child item is not attributed to its parent.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--item-url (item-beg item-end)
   "Return the normalized https:// URL of the item from ITEM-BEG to ITEM-END.
-Only the item's own text is searched, not its nested items.  Return
-nil if the item has no such link."
+ITEM-END is the end of the item's last line.  Only the item's own
+text is searched, not its nested items.  Return nil if the item has
+no such link."
   (save-excursion
     (goto-char item-beg)
-    (forward-line 1)
+    (end-of-line)
     (let ((own-end (save-excursion
+                     ;; A nested item line, if any, ends the item's own text.
                      (if (re-search-forward sp-org--item-re item-end t)
                          (line-beginning-position)
                        item-end))))
       (goto-char item-beg)
       (when (re-search-forward sp-org--url-re own-end t)
         (sp-org--normalize-url (match-string 0))))))
+#+end_src
 
+** Removing duplicate items
+
+=sp-org--remove-duplicate-links= scans items in order, remembering each URL in a hash table. A later item with an already seen URL is deleted, lines and all, unless it has nested children, in which case it is kept and counted so the user can deal with it. Items without links are never removed. It returns the counts of removed and kept duplicates.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--remove-duplicate-links (beg end-marker)
   "Remove list items whose https:// link already appeared earlier.
 The first occurrence is kept.  Items without a link are never removed,
@@ -467,6 +303,7 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
             (end-of-line)
           (let* ((pos (point))
                  (struct (org-list-struct))
+                 ;; End of the item's last line, before any trailing blank lines.
                  (item-end (org-list-get-item-end-before-blank pos struct))
                  (url (sp-org--item-url pos item-end)))
             (cond
@@ -477,10 +314,19 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
               (setq kept (1+ kept))
               (end-of-line))
              (t
-              (delete-region pos item-end)
+              ;; Delete the whole line(s), including the final newline.
+              (delete-region pos (min (1+ item-end) (point-max)))
               (setq removed (1+ removed))))))))
     (cons removed kept)))
+#+end_src
 
+* Step 4: sorting
+
+** Sort key
+
+=sp-org--sort-key= produces the text an item is sorted by: the first line without its bullet or checkbox, with links replaced by their descriptions via =org-link-display-format=, trimmed and lower-cased.
+
+#+begin_src emacs-lisp -i
 ;;; Step 4: sort
 
 (defun sp-org--sort-key ()
@@ -493,7 +339,13 @@ description, or their target when they have none), lower-cased."
                 "\\`[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+\\(?:\\[[- X]\\][ \t]+\\)?"
                 "" line)))
     (downcase (string-trim (org-link-display-format text)))))
+#+end_src
 
+** Sorting each list
+
+=sp-org--sort-lists= finds each top level list in the target and runs =org-sort-list= with that key function and =string<=. A marker at the list's bottom lets the loop continue after sorting. Nested sublists move with their parent but are not sorted themselves.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--sort-lists (beg end-marker)
   "Sort each top-level list between BEG and END-MARKER alphabetically."
   (save-excursion
@@ -508,7 +360,15 @@ description, or their target when they have none), lower-cased."
           (org-sort-list nil ?f #'sp-org--sort-key #'string<)
           (goto-char bottom)
           (set-marker bottom nil))))))
+#+end_src
 
+* Pipeline and commands
+
+** Region checks
+
+=sp-org--check-region= signals a user error outside Org mode or for an empty region.
+
+#+begin_src emacs-lisp -i
 ;;; Pipeline and commands
 
 (defun sp-org--check-region (beg end)
@@ -517,7 +377,13 @@ description, or their target when they have none), lower-cased."
     (user-error "Not in an org-mode buffer"))
   (when (= beg end)
     (user-error "Region is empty")))
+#+end_src
 
+** The lint pipeline
+
+=sp-org--lint= runs the steps in order: convert lines, remove blank lines, remove duplicates, and optionally sort. Markers track the start and end of the target as it changes, and the whole pass is wrapped in =atomic-change-group= so that an error rolls everything back and undo treats it as one change. It finishes with a summary message giving the number of lines converted and duplicates removed, plus any duplicates kept because they had children.
+
+#+begin_src emacs-lisp -i
 (defun sp-org--lint (beg end sort)
   "Lint the lines from BEG to END; also sort the lists when SORT is non-nil."
   (sp-org--check-region beg end)
@@ -541,7 +407,13 @@ description, or their target when they have none), lower-cased."
              (if (> (cdr dupes) 0)
                  (format " (%d duplicate(s) with nested items kept)" (cdr dupes))
                ""))))
+#+end_src
 
+** Lint a list
+
+=sp-org-lint-list= is the autoloaded command for the first three steps, without sorting.
+
+#+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-org-lint-list (beg end)
   "Tidy the list lines between BEG and END.
@@ -551,7 +423,13 @@ items with `org-toggle-item', blank lines between items are removed,
 and items with a duplicate https:// link are removed."
   (interactive (sp-org--region-args))
   (sp-org--lint beg end nil))
+#+end_src
 
+** Lint and sort a resource list
+
+=sp-org-lint-resources= runs the full pipeline including the alphabetical sort, case-insensitive on displayed text.
+
+#+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-org-lint-resources (beg end)
   "Like `sp-org-lint-list', then sort each top-level list alphabetically.
@@ -559,43 +437,17 @@ Items are sorted case-insensitively by their displayed text.  Nested
 sublists travel with their parent item but are not re-sorted."
   (interactive (sp-org--region-args))
   (sp-org--lint beg end t))
-
-(provide 'sp-org-lint)
-;;; sp-org-lint.el ends herea
 #+end_src
 
-Example (region marked, or point anywhere in the block):
+* Provide
 
-#+begin_example
-https://zotero.org
-https://obsidian.md
+** Provide the feature
 
-[[https://zotero.org/][Zotero]]
-#+end_example
+Registers the =sp-org-lint= feature for =init.el=.
 
-becomes, after ~sp-org-lint-resources~:
+#+begin_src emacs-lisp -i
+;;; Provide:
 
-#+begin_example
-- https://obsidian.md
-- https://zotero.org
-#+end_example
-
-How the new steps work:
-
-- Conversion: only plain paragraph lines that are outside any list are toggled, one line at a time.
-   + Headings, ~#+~ lines, drawers, tables, blocks and indented continuation text under an item are left alone.
-   + The region is hidden from ~org-toggle-item~ during each call, because otherwise it would act on the whole region at once.
-- Duplicates: the key is the first ~https://~ URL in an item’s own text, so [[https://x.com/a][Title]] and a bare https://x.com/a count as the same link.
-   + Comparison ignores a trailing slash, trailing punctuation and the case of the host.
-   + The first occurrence stays, and later ones are deleted.
-- Items kept: items without an ~https://~ link are never removed.
-   + A duplicate that has nested items is kept and reported in the echo-area message, so sub-notes aren’t lost silently.
-   + For other schemes, change the regex to ~https?://~.
-- No region marked: the list at point is used as before.
-   + If point isn’t on or next to a list, the block of consecutive non-blank lines around point is used, so a pasted run of bare URLs works.
-   + For a list with plain lines directly below it, mark the region yourself.
-- Sort order: items are sorted by the text you see, so link descriptions are used rather than the raw [[https://... target.
-   + To sort by raw text, replace the ~org-sort-list~ call with (org-sort-list nil ?a).
-- Undo: the whole run is one atomic-change-group, so an error midway rolls everything back.
-- I haven’t been able to run this in a live Emacs, so test it on a copy of a note first. org-sort-list with a custom key and the org-list-* helpers are the parts most likely to differ between Org versions.
-
+(provide 'sp-org-lint)
+;;; sp-org-lint.el ends here
+#+end_src
