@@ -1,0 +1,103 @@
+#+TITLE: sp-terminal.el: Terminal emulators (vterm and eat)
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-terminal.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-terminal.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module configures =vterm=, a fast terminal emulator built on the libvterm C library. It requires a compiled native module (so CMake and a C compiler on the system) and does not work on Windows, as the comment notes.
+
+Besides styling vterm buffers to resemble the Dracula-style zsh terminal Sia uses, it adds a small command to open a fresh, uniquely named vterm each time. It also installs =eat=, a terminal emulator written in Emacs Lisp. Both are terminal backends that =claude-code= in =sp-ai= waits for.
+
+* File header
+
+** Header and commentary markers
+
+Lexical-binding header and empty =Commentary= and =Code= markers.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-terminal.el --- Terminal emulator settings
+
+;;; Commentary:
+
+;;; Code:
+#+end_src
+
+* vterm
+
+** The vterm package
+
+Installs =vterm= and sets =vterm-always-compile-module= so the native module is built without prompting.
+
+Keybindings:
+- ~C-M-S-x~ runs =siapip/start-vterm= (defined below) to open a new numbered terminal.
+- ~C-c C-x~ inside =vterm-mode-map= sends that key sequence straight to the terminal via =vterm--self-insert=, instead of letting Emacs handle it.
+- ~<f7>~ runs plain =vterm=, which reuses the default =*vterm*= buffer.
+
+The =vterm-mode= hook gives each terminal a black background and white text through =buffer-face-mode=, and enlarges the text by two steps. The two separate =:bind= keywords both take effect.
+
+#+begin_src emacs-lisp -i
+;; Does not work on Windows, but we can just avoid compiling dependencies and using it
+;; (if I'm ever forced to use Windows again for work or similar)
+(use-package vterm
+  :ensure t
+  :bind (("C-M-S-x" . siapip/start-vterm)
+         :map vterm-mode-map
+         ("C-c C-x" . 'vterm--self-insert))
+
+  :commands vterm
+
+  :custom
+  (vterm-always-compile-module t)
+
+  :hook
+  (vterm-mode . (lambda ()
+                  ;; Settings to mimic dracula I use for zsh.
+                  (setq-local buffer-face-mode-face '(:background "#000000" :foreground "#FFFFFF"))
+                  (buffer-face-mode 1)
+                  (text-scale-adjust 2)))
+
+  :bind
+  ("<f7>" . vterm))
+#+end_src
+
+** Opening numbered vterm buffers
+
+=sp-vterm-counter= is incremented on each call, and =siapip/start-vterm= opens a vterm in a buffer named =*vterm-N*=. This way every invocation gives a new terminal instead of switching to an existing one. The counter never resets, so numbers keep growing during a session even if old terminals were killed.
+
+#+begin_src emacs-lisp -i
+;; Vterm counter
+(defvar sp-vterm-counter 0
+  "Counter to make unique vterm buffers.")
+(defun siapip/start-vterm ()
+    "Starts a new vterm buffer."
+  (interactive)
+  (setq sp-vterm-counter (1+ sp-vterm-counter))
+  (let ((buffer-name (format "*vterm-%d*" sp-vterm-counter)))
+    (vterm buffer-name)))
+#+end_src
+
+* EAT
+
+** The eat package
+
+Installs =eat= (Emulate A Terminal) with default settings. It needs no native module, so it also works where vterm cannot be built. Nothing is bound to it here; =claude-code= is declared =:after= it.
+
+#+begin_src emacs-lisp -i
+;;;; EAT
+(use-package eat
+  :ensure t)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-terminal= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-terminal)
+;; sp-terminal.el ends here.
+#+end_src

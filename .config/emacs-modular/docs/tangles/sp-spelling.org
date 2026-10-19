@@ -1,0 +1,159 @@
+#+TITLE: sp-spelling.el: Spell checking
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-spelling.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-spelling.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module configures spell checking with the built-in =ispell= and =flyspell= libraries, preferring the external =aspell= program when it is installed. Flyspell is deliberately not switched on automatically: a stalled speller process once froze the Emacs daemon, so spell checking is used on demand.
+
+Optional extras (=flyspell-correct= and =consult-flyspell=) load only when =sp-load-extras= is non-nil and the library is actually installed. A transient menu, =lem-spelling-transient=, collects the common commands; it is bound to leader keys in =sp-setup-keybindings.el=. The module is loaded from =init.el= among the utility modules.
+
+* Spell checker backends
+
+** Header
+
+Enables lexical binding.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+#+end_src
+
+** ispell
+
+Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispell-region= and =ispell-buffer= autoload it. If =aspell= is on the path it becomes the speller, called with ~--sug-mode=ultra~ for fast suggestions and US English as the language. As the comment notes, =ispell-extra-args= are passed straight to the aspell command line.
+
+#+begin_src emacs-lisp -i
+;;;; Spelling
+(use-package ispell
+  :ensure nil
+  :commands (ispell-word ispell-region ispell-buffer)
+  :config
+  (when (executable-find "aspell")
+    (setq ispell-program-name "aspell")
+    ;; Please note ispell-extra-args contains ACTUAL parameters passed to aspell
+    (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US"))))
+#+end_src
+
+** flyspell, configured but not enabled
+
+Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=) exists. The long comment explains why it has no =:hook=: flyspell talks to the speller synchronously from the command loop, so a hung aspell process blocks all of Emacs. Use =M-x flyspell-mode=, =flyspell-buffer= or =ispell-buffer= when you want checking. The settings let corrections be saved as abbrevs in the global abbrev table, and silence flyspell's status and welcome messages.
+
+#+begin_src emacs-lisp -i
+;; Configure flyspell only when a speller exists, but deliberately do
+;; NOT auto-enable it via :hook.  flyspell drives ispell/aspell with a
+;; synchronous read in the command loop, so a stalled aspell freezes the
+;; whole Emacs (it froze the daemon and cost a journal entry once).  Use
+;; it on demand: M-x flyspell-mode, flyspell-buffer, or ispell-buffer.
+(use-package flyspell
+  :ensure nil
+
+  :if (or (executable-find "aspell")
+            (executable-find "hunspell")
+            (executable-find "ispell"))
+  :config
+  (setq flyspell-abbrev-p t
+        flyspell-use-global-abbrev-table-p t
+        flyspell-issue-message-flag nil
+        flyspell-issue-welcome-flag nil))
+#+end_src
+
+* Correcting misspellings
+
+** flyspell-correct
+
+When extras are enabled, =flyspell-correct= adds two keys in =flyspell-mode-map=: =C-;= corrects the previous misspelling and =C-:= corrects the word at point. Corrections are offered through the normal =completing-read= interface, so they show up in whatever minibuffer completion UI is active.
+
+#+begin_src emacs-lisp -i
+;; completion of spellings
+(use-package flyspell-correct
+  :if (and sp-load-extras (locate-library "flyspell-correct"))
+  :after flyspell
+  :bind (:map flyspell-mode-map
+         ("C-;" . flyspell-correct-previous)
+         ("C-:" . flyspell-correct-at-point))
+  :custom
+  (flyspell-correct-interface #'flyspell-correct-completing-read))
+#+end_src
+
+** Spelling transient menu
+
+=lem-spelling-transient= is a transient menu with three columns. Under Errors, =<= and =>= jump to the previous and next error and =f= checks the whole buffer; these keep the menu open so you can step through errors. Under Checker, =c= runs =ispell=, =d= changes the dictionary and =m= toggles =flyspell-mode=; these close the menu. =q= quits. The comment notes this replaced an older macro-based implementation, and that the bindings live in =sp-setup-keybindings.el=.
+
+#+begin_src emacs-lisp -i
+;; Spelling transient. Bound to <leader> b S and <leader> S h in
+;; sp-setup-keybindings.el. The three navigation keys (<, >, f) stay
+;; on press; the rest exit. See git history for the prior macro-based
+;; dispatch implementation that this replaced.
+(require 'transient)
+(transient-define-prefix lem-spelling-transient ()
+  "Spelling commands."
+  ["Spelling"
+   ["Errors"
+    ("<" "Previous" flyspell-correct-previous :transient t)
+    (">" "Next"     flyspell-correct-next     :transient t)
+    ("f" "Check"    flyspell-buffer           :transient t)]
+   ["Checker"
+    ("c" "Correction" ispell)
+    ("d" "Dictionary" ispell-change-dictionary)
+    ("m" "Mode"       flyspell-mode)]
+   [""
+    ("q" "Quit" transient-quit-one)]])
+#+end_src
+
+** consult-flyspell
+
+When extras are enabled, =consult-flyspell= lists every misspelled word in the buffer through Consult. Selecting a candidate leaves point after the word, runs =flyspell-correct-at-point= on it and then reopens the list, so you can work through the errors in one session. It does not re-check the whole buffer each time it opens.
+
+#+begin_src emacs-lisp -i
+;; Completion of misspelled words in buffer
+(use-package consult-flyspell
+  :if (and sp-load-extras (locate-library "consult-flyspell"))
+  :after flyspell
+  :config
+  (setq consult-flyspell-set-point-after-word t
+        consult-flyspell-always-check-buffer nil
+        ;; Apply flyspell-correct-at-point directly after selecting candidate
+        ;; and jump back to consult-flyspell.
+        consult-flyspell-select-function
+        (lambda () (flyspell-correct-at-point) (consult-flyspell))))
+#+end_src
+
+** Go to next error and fix it
+
+=lem-flyspell-ispell-goto-next-error= jumps to the next highlighted word and runs =ispell-word= on it. No key is bound to it in this module.
+
+#+begin_src emacs-lisp -i
+;;;;; Spelling Goto Next Error
+(defun lem-flyspell-ispell-goto-next-error ()
+  "Custom function to spell check next highlighted word"
+  (interactive)
+  (flyspell-goto-next-error)
+  (ispell-word))
+#+end_src
+
+* Dictionaries
+
+** Hunspell dictionary list
+
+=sia-hunspell-dictionaries= is a customizable string listing Hunspell dictionaries, borrowed from Emacs Writing Studio (EWS). Nothing in this module reads it yet. Its =:type= is declared as =list= although the default value is a string, so the Customize interface may complain about it.
+
+#+begin_src emacs-lisp -i
+;; taken from EWS
+(defcustom sia-hunspell-dictionaries "en_US"
+  "Comma-separated list of Hunspell dictionaries."
+  :group 'siapip
+  :type 'list)
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-spelling= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-spelling)
+;; sp-spelling.el ends here.
+#+end_src

@@ -1,0 +1,63 @@
+#+TITLE: sp-network.el: Network: TRAMP yadm method and HTTP library
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-network.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-network.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A short tooling module for network and remote-file access. It adds a TRAMP method that opens files inside the =yadm= dotfiles repository environment, and installs the =plz= HTTP client library for other packages to use. TRAMP is built in; the yadm method needs the =yadm= program on the path.
+
+* Header
+
+** File header
+
+Lexical binding and empty commentary.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-network.el
+
+;;; Commentary:
+
+;;; Code:
+#+end_src
+
+* TRAMP and HTTP
+
+** yadm TRAMP method
+
+Adds a =yadm= method to =tramp-methods=. It logs in by running =yadm enter=, which starts a shell with Git pointed at the yadm repository, using =/bin/sh=. This lets Magit and other VC tools work on dotfiles through a path like =/yadm::~/.bashrc=.
+
+#+begin_src emacs-lisp -i
+(use-package tramp
+  :config
+  (add-to-list 'tramp-methods
+               '("yadm"
+                 (tramp-login-program "yadm")
+                 (tramp-login-args (("enter")))
+                 (tramp-login-env (("SHELL") ("/bin/sh")))
+                 (tramp-remote-shell "/bin/sh")
+                 (tramp-remote-shell-args ("-c")))))
+#+end_src
+
+** plz
+
+Installs =plz=, a curl-based HTTP library that several packages build on.
+
+#+begin_src emacs-lisp -i
+;; HTTP library
+(use-package plz
+  :ensure (:wait t))
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-network=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-network)
+;; sp-network.el ends here
+#+end_src

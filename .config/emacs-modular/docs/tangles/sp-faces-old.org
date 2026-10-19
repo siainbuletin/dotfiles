@@ -1,0 +1,67 @@
+#+title: Faces configuration
+
+!@Generates the sp-faces.el file!@
+
+It's a bit more complicated to get the scale right for all of the text in Emacs.
+
+I want to be able to have slightly smaller text when I'm working with a 4K monitor. For this, I need the monitor to actually be detected
+
+* Claude conversation
+
+There are a few ways, depending on whether you want a permanent change or a quick adjustment.
+
+**Permanent: set the default face height**
+
+Put this in your init file (or the relevant org file that tangles to it). The height is in 1/10 pt, so 140 means 14pt:
+
+```elisp
+(set-face-attribute 'default nil :height 140)
+```
+
+To also pick a font family:
+
+```elisp
+(set-face-attribute 'default nil :family "JetBrains Mono" :height 140)
+```
+
+Because the other faces inherit from `default`, this scales text globally. Since you're using a Lambda-Emacs-style setup that may set fonts in its own config, check whether it already calls `set-face-attribute` or sets a `lem-` font variable. Otherwise your setting could be overridden later in startup.
+
+If you want the size to apply to the very first frame without a flash of the old size, you can also set it in `early-init.el`:
+
+```elisp
+(add-to-list 'default-frame-alist '(font . "JetBrains Mono-14"))
+```
+
+**Temporary: adjust on the fly**
+
+- `C-x C-+` increases the size of the default face for all buffers, `C-x C--` decreases it, and `C-x C-0` resets it. It applies to every buffer, not just the current one.
+- `C-u C-x C-+` isn't needed. Just repeat the last key (`+`, `-`, `0`) after the first command to keep adjusting.
+- `C-x C-=` is the same as `C-x C-+` on many keyboards.
+
+Note that `text-scale-adjust` (`C-x C-+`) only changes the current buffer in some versions. If you want it truly global, use the `default` face approach above, or `global-text-scale-adjust` (Emacs 29+):
+
+```elisp
+(global-set-key (kbd "C-x C-+") #'global-text-scale-adjust)
+```
+
+**Mode line, minibuffer, and other UI**
+
+The `default` face change covers most of it, but the mode line and minibuffer follow their own faces if your theme sets them explicitly. If any of them stay small, set them too:
+
+```elisp
+(set-face-attribute 'mode-line nil :height 140)
+(set-face-attribute 'mode-line-inactive nil :height 140)
+```
+
+**GUI Emacs from WSL**
+
+If you run Emacs through WSLg and it looks small or blurry, the issue is often display scaling rather than Emacs. In that case, a bigger font height as above is the simplest fix, though you can also adjust the scaling in your `.wslgconfig` or Windows display settings. The same font settings in a shared dotfiles folder will apply to both your Windows and WSL setups, but font names differ between them, so you may want a fallback:
+
+```elisp
+(set-face-attribute 'default nil
+                    :family (cond ((member "JetBrains Mono" (font-family-list)) "JetBrains Mono")
+                                  (t "Monospace"))
+                    :height 140)
+```
+
+If you tell me your Emacs version and which font you're using, I can tailor this further.

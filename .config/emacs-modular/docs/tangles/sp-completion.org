@@ -1,0 +1,191 @@
+#+TITLE: sp-completion.el: Minibuffer completion with Vertico, Marginalia and Orderless
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-completion.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-completion.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up the minibuffer completion stack: Vertico for the vertical candidate list, Marginalia for annotations, Orderless for space-separated, out-of-order matching, and it installs Company for in-buffer completion. It is required by =sp-minibuffer=, which builds further on this base (for example with Consult and Embark).
+
+All packages come from elpaca. The Vertico buffer extension is configured with a customised display method, but =vertico-buffer-mode= itself is left off.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and a one-line note that these are the completion frameworks the config uses.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-completion.el
+
+;;; Commentary:
+
+;; These are the completion frameworks that I plan on using.
+
+;;; Code:
+#+end_src
+
+* Vertico
+
+** Vertico
+
+Loads Vertico immediately and turns on =vertico-mode=. It shows up to 13 candidates, lets the minibuffer shrink and grow with the list, wraps around from the last candidate to the first, and sorts by history first and then alphabetically.
+
+#+begin_src emacs-lisp -i
+;;;; Vertico (base)
+(use-package vertico
+  :ensure t
+  :demand t
+
+  :custom
+  (vertico-count 13) ; Number of candidates to display
+  (vertico-resize t)
+  (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
+  (vertico-sort-function
+           'vertico-sort-history-alpha)
+
+  :config
+  (vertico-mode))
+#+end_src
+
+** Vertico in a buffer window
+
+Configures the =vertico-buffer= extension, which shows candidates in a normal window instead of the minibuffer. The prompt line is hidden. The large =cl-defmethod= replaces Vertico's own =vertico--setup= method for buffer mode with a near copy of it whose main change is that =header-line-format= is nil, so the candidate window has no header line. Because it redefines an internal method, it may need updating when Vertico changes.
+
+A second =:config= sets the display action to a side window on the right, 12 lines high. The comment there speaks of the top of the frame, but the code uses the right side. =vertico-buffer-mode= is commented out, since the author felt it looked wrong, so none of this is active until that mode is turned on manually.
+
+#+begin_src emacs-lisp -i
+;;;; Vertico extensions
+;; Use vertico in buffer
+(use-package vertico-buffer
+  :ensure nil
+  :after vertico
+  :custom
+  (vertico-buffer-hide-prompt t)
+  :config
+  ;; Set no headerline in vertico-buffer
+  (cl-defmethod vertico--setup :after (&context (vertico-buffer-mode (eql t)))
+    (add-hook 'pre-redisplay-functions 'vertico-buffer--redisplay nil 'local)
+    (let* ((action vertico-buffer-display-action) tmp win old-buf
+           (_ (unwind-protect
+                  (progn
+                    (with-current-buffer (setq tmp (generate-new-buffer "*vertico-buffer*"))
+                      ;; Set a fake major mode such that `display-buffer-reuse-mode-window'
+                      ;; does not take over!
+                      (setq major-mode 'vertico-buffer-mode))
+                    ;; Temporarily select the original window such
+                    ;; that `display-buffer-same-window' works.
+                    (setq old-buf (mapcar (lambda (win) (cons win (window-buffer win))) (window-list))
+                          win (with-minibuffer-selected-window (display-buffer tmp action))
+                          old-buf (alist-get win old-buf))
+                    (set-window-buffer win (current-buffer)))
+                (kill-buffer tmp)))
+           (sym (make-symbol "vertico-buffer--destroy"))
+           (depth (recursion-depth))
+           (now (window-parameter win 'no-other-window))
+           (ndow (window-parameter win 'no-delete-other-windows)))
+      (fset sym (lambda ()
+                  (when (= depth (recursion-depth))
+                    (with-selected-window (active-minibuffer-window)
+                      (if (not (and (window-live-p win) (buffer-live-p old-buf)))
+                          (delete-window win)
+                        (set-window-parameter win 'no-other-window now)
+                        (set-window-parameter win 'no-delete-other-windows ndow)
+                        (set-window-buffer win old-buf))
+                      (when vertico-buffer-hide-prompt
+                        (set-window-vscroll nil 0))
+                      (remove-hook 'minibuffer-exit-hook sym)))))
+      ;; NOTE: We cannot use a buffer-local minibuffer-exit-hook here.
+      ;; The hook will not be called when abnormally exiting the minibuffer
+      ;; from another buffer via `keyboard-escape-quit'.
+      (add-hook 'minibuffer-exit-hook sym)
+      (set-window-parameter win 'no-other-window t)
+      (set-window-parameter win 'no-delete-other-windows t)
+      (overlay-put vertico--candidates-ov 'window win)
+      (when (and vertico-buffer-hide-prompt vertico--count-ov)
+        (overlay-put vertico--count-ov 'window win))
+      (setq-local show-trailing-whitespace nil
+                  truncate-lines t
+                  face-remapping-alist
+                  (copy-tree `((mode-line-inactive mode-line)
+                               ,@face-remapping-alist))
+                  header-line-format nil
+                  mode-line-format
+                  (list (format " %s "
+                                (propertize
+                                 (format (if (< depth 2) "*%s*" "*%s [%s]*")
+                                         (replace-regexp-in-string
+                                          ":? *\\'" ""
+                                          (minibuffer-prompt))
+                                         depth)
+                                 'face 'mode-line-buffer-id)))
+                  cursor-in-non-selected-windows 'box
+                  vertico-count (- (/ (window-pixel-height win)
+                                      (default-line-height)) 1))))
+  :config
+  ;; put minibuffer at top -- this is the more natural place to be looking!
+  (setq vertico-buffer-display-action
+        '(display-buffer-in-side-window
+          (window-height . 12)
+          (side . right)))
+  ;; (vertico-buffer-mode 1) ;; I don't want this enabled by default, because it just kind of looks wrong
+  )
+#+end_src
+
+* Annotations and matching
+
+** Marginalia
+
+Enables =marginalia-mode=, which adds annotations such as docstrings, file sizes and key bindings next to candidates. It also tells Marginalia that =elpaca-info= completes package names, so those candidates get the =elpaca= category.
+
+#+begin_src emacs-lisp -i
+;;;; Marginalia
+(use-package marginalia
+  :ensure (:wait t)
+  :init
+  (marginalia-mode)
+  (setf
+    (alist-get 'elpaca-info marginalia-command-categories) 'elpaca))
+#+end_src
+
+** Orderless
+
+Makes =orderless= the main completion style, with =basic= as a fallback, so you can type several space-separated fragments in any order. File names use =partial-completion= instead, so paths like =~/d/s= expand component by component.
+
+#+begin_src emacs-lisp -i
+;;;; Orderless
+(use-package orderless
+  :ensure (:wait t)
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  (completion-category-overrides
+   '((file (styles partial-completion)))))
+#+end_src
+
+* In-buffer completion
+
+** Company
+
+Installs Company without enabling it globally. Individual modes turn it on, for example the LaTeX setup in =sp-latex=.
+
+#+begin_src emacs-lisp -i
+;;;; Company
+(use-package company
+  :ensure (:wait t))
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-completion=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-completion)
+;; sp-completion.el ends here.
+#+end_src

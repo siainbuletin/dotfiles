@@ -1,0 +1,47 @@
+#+TITLE: sp-music-comp.el: Composing music in Emacs
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-music-comp.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/media/sp-music-comp.el=. Tangling this file (=C-c C-v t=) writes every =emacs-lisp= block below into that =.el= file, except the blocks marked =:tangle no=. Nothing is tangled unless you run it.
+
+This module is meant to hold the configuration for writing and working with music from Emacs. The planning notes in =sp-music-composition.org= describe the goals: control an audio server, write scores declaratively in the spirit of OpusModus rather than engraving by hand, and live-code music through REPLs.
+
+The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it. The blocks below are a skeleton for when you fill it in. Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-music-comp)= would succeed.
+
+* File header
+
+The first line turns on lexical binding, as every module in this config does. The =;;; Commentary:= section is the place to describe the module once it has content.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-music-comp.el
+
+;;; Commentary:
+
+;; Music composition, scores and live-coding from Emacs.
+
+;;; Code:
+#+end_src
+
+* Configuration
+
+Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block. The file's =#+PROPERTY= line already sends each block to =libraries/modules/media/sp-music-comp.el=, so a new block needs no header arguments. Keep the blocks above [[*Provide]] so they tangle before the =provide= form.
+
+* Sandbox
+
+A place to try out configuration before committing to it. Blocks here use =:tangle no=, so they never reach the =.el= file. When something works, move it into [[*Configuration]].
+
+Write candidate settings in this block and evaluate them with =C-c C-c= to try them in the running Emacs.
+
+#+begin_src emacs-lisp :tangle no
+;; Try new settings here and evaluate them with C-c C-c.
+#+end_src
+
+* Provide
+
+The =provide= form lets =require= and =sp-require-module= load this module by name.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-music-comp)
+;;; sp-music-comp.el ends here
+#+end_src

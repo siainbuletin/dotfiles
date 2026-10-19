@@ -1,0 +1,37 @@
+#+TITLE: sp-org-navigation.el: Org navigation placeholder
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-navigation.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-navigation.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A placeholder module for Org navigation helpers. Its only configuration is commented out, so loading it does nothing beyond providing the feature. It is not listed in any profile, so it appears to be unused at present.
+
+* Org navigation
+
+** File header
+
+Enables lexical binding.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+#+end_src
+
+** ox-search (disabled)
+
+A commented-out =use-package= that would have enabled =ox-search-mode= in every Org buffer. No package of that name ships with Org, so it was presumably a local or experimental package.
+
+#+begin_src emacs-lisp -i
+;;(use-package ox-search
+;;  :ensure nil
+;;  :hook (org-mode . ox-search-mode))
+#+end_src
+
+** Provide feature
+
+Provides =sp-org-navigation=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-navigation)
+#+end_src

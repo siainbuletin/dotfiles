@@ -1,27 +1,48 @@
-#+title: Bookmark management
+#+TITLE: sp-bookmarks.el: Bookmark management
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/tooling/sp-bookmarks.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-* Introduction
+Literate source for =libraries/modules/tooling/sp-bookmarks.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
 
-You can store a file as a bookmark with C-x r m (bookmark-set). The bookmark will also store the location of the cursor, so you can maintain multiple bookmarks for a file. The default name for the bookmark is the name of the file. You can also enter a bespoke name in the minibuffer before hitting ENTER.
+A tiny module that configures Emacs' built-in =bookmark= library. It has no external dependencies and is loaded from =init.el= as part of the general tooling modules.
 
-To view a list of all bookmarks in the minibuffer and select the one you like to open, use C-x r b (bookmark-jump).
+The only behaviour it changes is how often bookmarks are saved to disk and which key deletes a bookmark.
 
-Bookmarks are saved in the bookmarks file in your configuration folder every time a new bookmark is created. The bookmark-save-flag is set to one so that the bookmarks file is saved every time you add a new one. The default value only saves it when you exit Emacs, which mean you could loose bookmarks in the unlikely event of an Emacs or system crash.
+* File header
 
-If you like to remove bookmark no longer required then use the bookmark-delete function, which has no default keybinding but is bound to C-x r D in the Emacs Writing Studio configuration.[fn:1]
+** Header and commentary markers
 
-* TODO add configuration from new modular files
+The standard file header enabling lexical binding, followed by empty =Commentary= and =Code= markers.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  ;;; Bookmarks
-    (use-package bookmark
-      :ensure nil
-      :custom
-      (bookmark-save-flag 1)
-      :bind
-      ("C-x r D" . bookmark-delete))
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-bookmarks.el --- Bookmark management
+
+;;; Commentary:
+
+;;; Code:
 #+end_src
 
-* Footnotes
+* Bookmark configuration
 
-[fn:1] https://lucidmanager.org/productivity/manage-files-with-emacs/
+** The bookmark package
+
+=bookmark= is built in, so =:ensure nil= stops the package manager from trying to install it. Setting =bookmark-save-flag= to 1 makes Emacs write the bookmark file after every single change, instead of only when Emacs exits, so bookmarks survive a crash. ~C-x r D~ is bound to =bookmark-delete=, which complements the default ~C-x r m~ (set) and ~C-x r b~ (jump) bindings.
+
+#+begin_src emacs-lisp -i
+(use-package bookmark
+  :ensure nil
+  :custom
+  (bookmark-save-flag 1)
+  :bind
+  ("C-x r D" . bookmark-delete))
+#+end_src
+
+** Provide
+
+Registers the feature so =(require 'sp-bookmarks)= succeeds.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-bookmarks)
+;; sp-bookmarks.el ends here.
+#+end_src

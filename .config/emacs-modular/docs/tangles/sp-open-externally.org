@@ -1,0 +1,57 @@
+#+TITLE: sp-open-externally.el: Opening files in external applications
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/funct/sp-open-externally.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-open-externally.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up the =openwith= package, which intercepts =find-file= and hands matching files to an external program instead of opening them in an Emacs buffer. The configuration is borrowed from Emacs Writing Studio.
+
+It is effectively a placeholder at the moment: the association list is empty, so no file type is actually redirected. The Romanian note near the top reads roughly "have to see how to make this work well", and a later comment mentions wanting to handle PDFs and DEVONthink.
+
+* File header
+
+** Header and a to-do note
+
+The lexical-binding header, followed by a Romanian reminder ("De văzut cum fac asta să funcționeze bine", roughly "need to figure out how to make this work well"). It signals that the module is still work in progress.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-open-externally.el
+
+;; De văzut cum fac asta să funcționeze bine
+#+end_src
+
+* openwith
+
+** Enabling openwith-mode
+
+Installs =openwith= and turns on the global =openwith-mode=. Because =openwith-associations= is set to =nil=, the mode is active but has no rules, so every file still opens inside Emacs. To make it do something, add entries of the form (regexp program args) to that list, for example to send videos or office documents to the system viewer.
+
+#+begin_src emacs-lisp -i
+;; Taken from Emacs Writing Studio.
+(use-package openwith
+  :config
+  (openwith-mode t)
+  :custom
+  (openwith-associations nil))
+#+end_src
+
+** Ideas for later
+
+Comments only. They note the wish to integrate PDF handling and DEVONthink (a macOS document manager) in a satisfying way. Nothing here is executed.
+
+#+begin_src emacs-lisp -i
+;; There should be a way to include working with PDFs as well.
+;; And especially DEVONthink in a satisfying manner.
+#+end_src
+
+** Provide
+
+Registers the =sp-open-externally= feature.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-open-externally)
+;; sp-open-externally.el ends here.
+#+end_src

@@ -1,0 +1,298 @@
+#+TITLE: sp-org-taskman-extra.el: Org task management: keywords, tags, projects and GTD
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-taskman-extra.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-taskman-extra.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module holds the task management side of the Org setup: TODO keyword sequences, the tag list with fast-selection keys, priorities, a helper to turn a heading into a project, task dependencies with =org-edna=, highlighting and searching of TODO comments with =hl-todo= and =consult-todo=, and the =org-gtd= workflow under the ~C-c d~ prefix. The agenda is deliberately kept in a separate module because of its many appearance concerns.
+
+The module is loaded from =init.el= among the text modules. Packages it installs: =org-edna=, =hl-todo=, =consult-todo= and =org-gtd=. =org-inlinetask= ships with Org.
+
+Worth knowing: the keyword sequences set at the top of the file are replaced near the end by a much shorter list (TODO, WAITING, DOING, DONE, CANCELLED). That later list wins, and it lacks the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= points to.
+
+* Overview
+
+** Header and scope
+
+The header and opening comment explain that this file is for task management through Org, while =org-agenda= lives in its own file. The =Code= and =Commentary= markers are in the reverse of the usual order, which is harmless.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-org-taskman-extra.el --- Task management components needed to make the system work
+
+;;; Code:
+
+;; Settings related specifically to task management done through org-mode.
+;; Org-agenda is being treated in a separate file. This is because org-agenda
+;; has a lot of appearance issues that should be sorted up separately, and
+;; it's a different component of such a task management system.
+#+end_src
+
+* Keywords, tags and priorities
+
+** TODO keyword sequences
+
+The comments ask which keywords are really used and how the different sequences could be harmonised. Three sequences are defined:
+- TODO, NEXT, PROG and WAIT, done with DONE or CNCL. This is the set =org-gtd= expects, with fast keys t, n, p and w, and WAIT records a timestamp when entered.
+- A long GTD-like sequence with DOING, NEXT, WAITING, MAYBE and SOMEDAY, done with DONE.
+- WAITING and HOLD, done with CANCELED, which ask for a note on state changes.
+
+The form now parses correctly (an earlier misplaced parenthesis that aborted the module is fixed; the final closing parenthesis sits alone on the next line). Several keywords and fast keys repeat across sequences, for example TODO on t, NEXT on n and both WAIT and WAITING on w, which makes fast selection ambiguous. In any case this value is overwritten by the last form in the file.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+;;;; Org TODO Keywords
+;; What are the TODO keywords that you're actually using?
+;;
+;; How can you harmonize different sequences of keywords?
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w!)" "|" "DONE" "CNCL")
+        (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
+        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)"))
+        )
+#+end_src
+
+** Tags
+
+=org-tag-alist= defines tags with single-key shortcuts for ~C-c C-q~: contexts (@home, @uni, @waiting), devices (@computer, @phone), activities (planning, configuration, writing, reading, music, research, errands) and effort categories (deep, shallow, time-eater). The inline comment notes that fast-selection keys can only be a single character.
+
+#+begin_src emacs-lisp -i
+;;;; Set up the org tags
+(setq org-tag-alist
+      '(;; Circumstances
+        ("@home" . ?H)
+        ("@uni" . ?U)
+      ("@waiting" . ?W)
+
+        ;; Devices
+        ("@computer" . ?C)
+        ("@phone" . ?P)
+
+        ;; Activities
+        ("@planning" . ?p)
+        ("@configuration" . ?c)
+        ("@writing" . ?w)
+        ("@reading" . ?s)
+        ("@music" . ?m)
+        ("@research" . ?r)
+        ("@errands" . ?e)
+
+      ;; Effort estimate
+      ("deep" . ?d)
+      ("shallow" . ?h) ; I wanted to write this as ?sh but it only accepts one symbol
+      ("time-eater" . ?t)))
+#+end_src
+
+** Priorities
+
+Uses numeric priorities from 1 (highest) to 5 (lowest), with 4 as the default for headings that have no explicit priority.
+
+#+begin_src emacs-lisp -i
+;;;; Setting up the priorities
+(setq org-priority-highest 1
+      org-priority-lowest 5
+      org-priority-default 4)
+#+end_src
+
+* Projects
+
+** Marking a heading as a project
+
+=my-mark-as-project= is an interactive command that turns the current heading into a project: it adds the project tag, sets =COOKIE_DATA= to todo recursive (so the progress cookie counts all TODO descendants), and then makes sure the heading has a TODO keyword and a progress cookie, inserting NEXT and/or a [/] cookie as needed and reporting what it found in the echo area.
+
+There is a subtle bug: it tests the local variable with =bound-and-true-p=, which checks for a dynamic (global) binding. Under lexical binding that test is always false, so the command always behaves as if the heading had no TODO keyword and may insert a second keyword. Using the variable directly instead would fix it. There is no keybinding.
+
+#+begin_src emacs-lisp -i
+;;;; Project management
+;;;;; Marking something as a project
+(defun my-mark-as-project ()
+"This function makes sure that the current heading has
+(1) the tag :project:
+(2) has property COOKIE_DATA set to \"todo recursive\"
+(3) has any TODO keyword and
+(4) a leading progress indicator"
+    (interactive)
+    (org-toggle-tag "project" 'on)
+    (org-set-property "COOKIE_DATA" "todo recursive")
+    (org-back-to-heading t)
+    (let* ((title (nth 4 (org-heading-components)))
+           (keyword (nth 2 (org-heading-components))))
+       (when (and (bound-and-true-p keyword) (string-prefix-p "[" title))
+           (message "TODO keyword and progress indicator found")
+           )
+       (when (and (not (bound-and-true-p keyword)) (string-prefix-p "[" title))
+           (message "no TODO keyword but progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT ")
+           )
+       (when (and (not (bound-and-true-p keyword)) (not (string-prefix-p "[" title)))
+           (message "no TODO keyword and no progress indicator found")
+           (forward-whitespace 1)
+           (insert "NEXT [/] ")
+           )
+       (when (and (bound-and-true-p keyword) (not (string-prefix-p "[" title)))
+           (message "TODO keyword but no progress indicator found")
+           (forward-whitespace 2)
+           (insert "[/] ")
+           )
+       )
+)
+#+end_src
+
+** Task dependencies with org-edna
+
+=org-edna= lets headings declare triggers and blockers through properties, for example marking the next sibling as NEXT when one task is done. The mode is enabled globally.
+
+#+begin_src emacs-lisp -i
+;;;;; Deep task management dependencies (and understanding how projects really work)
+(use-package org-edna
+  :ensure t
+  :config
+  (org-edna-mode))
+#+end_src
+
+** Inline tasks (disabled)
+
+The plain =require= of =org-inlinetask= is commented out; the comment says the author is not sure where it comes from (it ships with Org). Inline tasks remain available through the lazy declaration further down.
+
+#+begin_src emacs-lisp -i
+;; (require 'org-inlinetask) ;; I don't know where this is coming from.
+#+end_src
+
+** Non-hierarchical statistics
+
+With =org-hierarchical-todo-statistics= set to nil, progress cookies count all TODO entries in the subtree rather than only direct children. This complements the todo recursive cookie setting used by =my-mark-as-project=.
+
+#+begin_src emacs-lisp -i
+(setq org-hierarchical-todo-statistics nil)
+#+end_src
+
+* TODO comments
+
+** hl-todo
+
+=global-hl-todo-mode= highlights TODO, FIXME and NOTE keywords in comments and text, coloured with the foreground of the =warning=, =error= and =success= faces of the current theme. The colours are read once when the package loads, so they do not follow a later theme change.
+
+#+begin_src emacs-lisp -i
+;;;; TODO faces
+(use-package hl-todo
+  :ensure t
+  :config
+  (setq hl-todo-keyword-faces
+    `(("TODO"   . ,(face-foreground 'warning))
+      ("FIXME"  . ,(face-foreground 'error))
+      ("NOTE"   . ,(face-foreground 'success))))
+  (global-hl-todo-mode 1))
+#+end_src
+
+** consult-todo
+
+=consult-todo= lists those keywords across a buffer or project with Consult. The =:init= redefines its narrowing keys so t, f and n narrow to TODO, FIXME and NOTE. An Evil binding is commented out. A trailing comment reserves this spot for Vulpea PARA settings.
+
+#+begin_src emacs-lisp -i
+;;;; Consult TODO
+(use-package consult-todo
+  :ensure t
+  :init
+  (defconst consult-todo--narrow
+    '((?t . "TODO")
+      (?f . "FIXME")
+      (?n . "NOTE"))
+    "Mapping of narrow and keywords.")
+  ;; :config
+  ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
+  )
+
+
+
+;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+#+end_src
+
+* Getting Things Done
+
+** org-gtd
+
+Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=. The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning. =org-gtd-keyword-mapping= maps the GTD states to TODO, NEXT, WAIT and CNCL. Adding the GTD directory to the agenda is commented out because it raised an error. =org-edna-mode= is enabled again here since org-gtd relies on it.
+
+Keybindings:
+- ~C-c d c~ captures into the GTD inbox, ~C-c d p~ processes the inbox.
+- ~C-c d e~ opens the engage view, ~C-c d n~ shows all next actions, ~C-c d s~ shows stuck projects.
+- ~C-c c~ in clarify buffers runs =org-gtd-organize=. This shadows the global =org-capture= key only inside those buffers.
+- ~C-c .~ in the agenda opens =org-gtd-agenda-transient= for quick actions on tasks.
+
+#+begin_src emacs-lisp -i
+;;; Org-gtd package
+(use-package org-gtd
+  :ensure (:wait t)
+  :after org
+  :demand t
+  :init
+  ;; Suppress upgrade warnings (must be set before package loads)
+  (setq org-gtd-update-ack "4.0.0")
+  :custom
+  ;; Where org-gtd will keep its files (defaults to ~/gtd/)
+  (org-gtd-directory "~/notes/area/org-gtd/")
+
+  ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
+  ;; TODO keyword are configured elsewhere
+
+  ;; Map GTD semantic states to your keywords
+  (org-gtd-keyword-mapping '((todo . "TODO")
+                             (next . "NEXT")
+                             (wait . "WAIT")
+                             (canceled . "CNCL")))
+
+  ;; Add org-gtd files to your agenda
+  ;; (org-agenda-files (list org-gtd-directory)) ;; this errors out so it's commented
+
+  :config
+  (org-edna-mode 1)
+
+  :bind 
+  (("C-c d c" . org-gtd-capture)
+   ("C-c d e" . org-gtd-engage)
+   ("C-c d p" . org-gtd-process-inbox)
+   ("C-c d n" . org-gtd-show-all-next)
+   ("C-c d s" . org-gtd-reflect-stuck-projects)
+
+   :map org-gtd-clarify-mode-map
+   ("C-c c" . org-gtd-organize) ;; (only works in clarify buffers)
+
+   ;; Quick actions on tasks in agenda views (optional but recommended)
+   :map org-agenda-mode-map
+   ("C-c ." . org-gtd-agenda-transient)))
+#+end_src
+
+** Lazy inline tasks
+
+Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command. Inline tasks are task headings placed deep inside the body of another entry without breaking its structure. Now that the plain =require= above is commented out, this is the only place the library is set up, and it loads on first use.
+
+#+begin_src emacs-lisp -i
+;;;; Org Inline Tasks
+(use-package org-inlinetask :ensure nil
+  :commands org-inlinetask-insert-task)
+#+end_src
+
+** Final keyword and display overrides
+
+Turns off confirmation before evaluating Babel source blocks (convenient, but any block in any file runs without asking), hides emphasis markers, and sets =org-todo-keywords= once more, to TODO, WAITING, DOING, DONE and CANCELLED. This overrides the sequences at the top of the file, and it does not contain the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= expects, so org-gtd actions that set those states would use keywords Org does not know as TODO states here. =org-modern-todo-faces= gives TODO, DOING and WAITING coloured badges in =org-modern=.
+
+#+begin_src emacs-lisp -i
+;; Creating different TODO keywords for better readability
+(setq org-confirm-babel-evaluate nil
+        org-hide-emphasis-markers t
+        org-todo-keywords '((sequence "TODO" "WAITING" "DOING" "|" "DONE" "CANCELLED"))
+        org-modern-todo-faces '(("TODO" :foreground "white" :background "darkgreen" :weight bold)
+                                ("DOING" :foreground "white" :background "orange" :weight bold)
+                                ("WAITING" :foreground "white" :background "blue")))
+#+end_src
+
+** Provide
+
+Registers the =sp-org-taskman-extra= feature.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-taskman-extra)
+#+end_src

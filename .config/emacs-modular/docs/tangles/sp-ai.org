@@ -1,0 +1,145 @@
+#+TITLE: sp-ai.el: AI and LLM integration
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-ai.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/media/sp-ai.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module installs packages for working with large language models and coding agents from inside Emacs. Most of them are only installed; apart from the Anthropic login for =agent-shell= and turning on =vulpea-mcp=, none of them get keybindings, backends or API keys here, so their defaults (or settings made elsewhere) apply.
+
+The packages are =gptel= (a general chat client for many LLM providers) with =gptel-agent=, =claude-code= (runs the Claude Code CLI inside Emacs), =eca= (Editor Code Assistant), =agent-shell= (a shell-like interface to coding agents), =efrit= (an agent that runs Claude-driven commands inside Emacs), =monet= (the Claude Code IDE protocol for Emacs) and =vulpea-mcp=, which exposes the Vulpea note database to LLMs over the Model Context Protocol. =claude-code= waits for =inheritenv= (from =sp-env=), =vterm= and =eat= (from =sp-terminal=), and =vulpea-mcp= ties this module to the Vulpea setup in =sp-vulpea-base=.
+
+* File header
+
+** Header and commentary markers
+
+Lexical-binding header and an empty =Commentary= marker.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-ai.el --- AI implementation
+
+;;; Commentary:
+#+end_src
+
+* Agents that require an API key
+
+The section comment groups the clients that talk to a provider's API directly, so they need an API key or a login.
+
+** gptel
+
+After the =Code= marker, installs =gptel=. The =(:wait t)= recipe tells Elpaca to finish installing it before continuing, presumably so later packages that build on gptel, such as =gptel-agent= just below, find it available.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+;;;; Agents that require an API key
+;;;; gptel
+(use-package gptel
+  :ensure (:wait t))
+#+end_src
+
+** gptel-agent
+
+Installs =gptel-agent=, which adds agent-style tool use on top of gptel. Nothing is configured.
+
+#+begin_src emacs-lisp -i
+(use-package gptel-agent
+  :ensure t)
+#+end_src
+
+** claude-code
+
+Installs =claude-code= from Steve Molitor's GitHub repository. It runs the Claude Code command-line tool in a terminal buffer inside Emacs. =:after= makes it load only once =inheritenv=, =vterm= and =eat= have all loaded, since it can use either terminal backend and uses inheritenv to pass the Emacs environment to the process. If any of the three never loads (see the note on =inheritenv= in =sp-env=), claude-code is never configured either.
+
+#+begin_src emacs-lisp -i
+;;;; claude-code
+(use-package claude-code
+  :ensure (:type git :host github :repo "stevemolitor/claude-code.el")
+  :after (inheritenv vterm eat))
+#+end_src
+
+** eca
+
+Installs =eca=, the Editor Code Assistant client, with default settings.
+
+#+begin_src emacs-lisp -i
+;;;; eca
+(use-package eca
+  :ensure t)
+#+end_src
+
+** agent-shell
+
+Installs =agent-shell=, which runs coding agents in a comint-style buffer. Its Anthropic authentication is set to log in (=:login t=) rather than use an API key, so the Claude agent signs in with an account. No other agents are configured here.
+
+#+begin_src emacs-lisp -i
+;;;; agent-shell
+(use-package agent-shell
+  :ensure t
+  :config
+  (setq agent-shell-anthropic-authentication
+        (agent-shell-anthropic-make-authentication
+         :login t)))
+#+end_src
+
+** efrit
+
+Installs =efrit= from GitHub. Efrit is an AI coding agent that lets Claude carry out natural-language commands by running code inside Emacs. Nothing is configured or bound.
+
+#+begin_src emacs-lisp -i
+(use-package efrit
+  :ensure (:type git :host github :repo "steveyegge/efrit"))
+#+end_src
+
+* Working with AI with my knowledge base
+
+** vulpea-mcp
+
+The comment explains the goal: letting an LLM see the Vulpea notes. =vulpea-mcp= is installed straight from its Codeberg git repository and serves the Vulpea database to MCP-capable agents.
+
+#+begin_src emacs-lisp -i
+;;;; Working with AI with my knowledge base
+;; Making an LLM recognise my vulpea notes
+(use-package vulpea-mcp
+  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git"))
+#+end_src
+
+** Enabling vulpea-mcp
+
+Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs while the module loads, not inside the =use-package= form, so it only works if the function is already available at that point (for example through an autoload). Elpaca normally runs =use-package= bodies later, after the init file, so on a fresh install this call may fail, in which case the rest of the module (including the =provide=) is skipped. Moving it into a =:config= section would avoid that.
+
+#+begin_src emacs-lisp -i
+(vulpea-mcp-enable)
+#+end_src
+
+* Claude Code integration
+
+** monet
+
+Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE protocol over a WebSocket. With it, Claude Code can see the current selection and diagnostics and show proposed changes as diffs in Emacs. It is only installed here, not enabled or hooked into =claude-code=.
+
+#+begin_src emacs-lisp -i
+;;; Enhacing the experience of Claude Code
+(use-package monet
+  :ensure (:type git :host github :repo "stevemolitor/monet"))
+#+end_src
+
+** DEVONthink placeholder
+
+An empty section header for linking the DEVONthink MCP server. No code has been written for it yet.
+
+#+begin_src emacs-lisp -i
+;;; Linking the MCP of DEVONthink
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-ai= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-ai)
+;; sp-ai.el ends here.
+#+end_src

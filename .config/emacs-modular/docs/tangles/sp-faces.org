@@ -1,67 +1,278 @@
-#+title: Faces configuration
+#+TITLE: sp-faces.el: Faces, highlighting and visual feedback
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/ui/sp-faces.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-!@Generates the sp-faces.el file!@
+Literate source for =libraries/modules/ui/sp-faces.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
 
-It's a bit more complicated to get the scale right for all of the text in Emacs.
+This module gathers settings that change how text and the cursor look: outline heading faces in Lisp files, SVG tags in code, TODO and number highlighting, a TODO navigation transient, pulsing the current line after jumps, and highlighting of edited regions with Goggles. It also defines a small =what-face= helper for inspecting faces.
 
-I want to be able to have slightly smaller text when I'm working with a 4K monitor. For this, I need the monitor to actually be detected
+Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =hl-todo=, =goggles=) are only configured when =sp-load-extras= is non-nil and the library is installed. Built-ins used are =reveal=, =wid-edit=, =pulse= and =transient=. The =sp-todo-transient= defined here is bound under the leader map in =sp-keys=.
 
-* Claude conversation
+* Header
 
-There are a few ways, depending on whether you want a permanent change or a quick adjustment.
+** File header
 
-**Permanent: set the default face height**
+Lexical binding and the module's short description. The commentary section is empty.
 
-Put this in your init file (or the relevant org file that tangles to it). The height is in 1/10 pt, so 140 means 14pt:
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-faces.el --- Setup for faces
 
-```elisp
-(set-face-attribute 'default nil :height 140)
-```
+;;; Commentary:
 
-To also pick a font family:
+;;; Code:
+#+end_src
 
-```elisp
-(set-face-attribute 'default nil :family "JetBrains Mono" :height 140)
-```
+* Faces and display tweaks
 
-Because the other faces inherit from `default`, this scales text globally. Since you're using a Lambda-Emacs-style setup that may set fonts in its own config, check whether it already calls `set-face-attribute` or sets a `lem-` font variable. Otherwise your setting could be overridden later in startup.
+** Outline faces in Lisp
 
-If you want the size to apply to the very first frame without a flash of the old size, you can also set it in `early-init.el`:
+Enables =outline-minor-faces-mode= in Emacs Lisp, Lisp interaction and Lisp buffers, so =;;;= outline comment headings get heading faces like Org headlines.
 
-```elisp
-(add-to-list 'default-frame-alist '(font . "JetBrains Mono-14"))
-```
+#+begin_src emacs-lisp -i
+;;;; Outline Faces
+;; Make outline faces look better
+(use-package outline-minor-faces
+  :when (and sp-load-extras (locate-library "outline-minor-faces"))
+  :after outline
+  :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
+#+end_src
 
-**Temporary: adjust on the fly**
+** What face
 
-- `C-x C-+` increases the size of the default face for all buffers, `C-x C--` decreases it, and `C-x C-0` resets it. It applies to every buffer, not just the current one.
-- `C-u C-x C-+` isn't needed. Just repeat the last key (`+`, `-`, `0`) after the first command to keep adjusting.
-- `C-x C-=` is the same as `C-x C-+` on many keyboards.
+=what-face= reports the face at point in the echo area, which is handy when tweaking themes. It reads the face at =(point)= rather than its =pos= argument; since =pos= comes from =interactive "d"= these are the same when called interactively.
 
-Note that `text-scale-adjust` (`C-x C-+`) only changes the current buffer in some versions. If you want it truly global, use the `default` face approach above, or `global-text-scale-adjust` (Emacs 29+):
+#+begin_src emacs-lisp -i
+;;;; What Face?
+;; https://stackoverflow.com/a/66287459/6277148
+(defun what-face (pos)
+  "State the face at point POS in the minibuffer."
+  (interactive "d")
+  (let ((face (or (get-char-property (point) 'read-face-name)
+                  (get-char-property (point) 'face))))
+    (if face (message "Face: %s" face) (message "No face at %d" pos))))
+#+end_src
 
-```elisp
-(global-set-key (kbd "C-x C-+") #'global-text-scale-adjust)
-```
+** Underline position
 
-**Mode line, minibuffer, and other UI**
+Draws underlines at the font's descent line rather than the baseline, which looks cleaner and avoids clipping descenders.
 
-The `default` face change covers most of it, but the mode line and minibuffer follow their own faces if your theme sets them explicitly. If any of them stay small, set them too:
+#+begin_src emacs-lisp -i
+;;;; Underline
+(customize-set-variable 'x-underline-at-descent-line t)
+#+end_src
 
-```elisp
-(set-face-attribute 'mode-line nil :height 140)
-(set-face-attribute 'mode-line-inactive nil :height 140)
-```
+** Reveal mode
 
-**GUI Emacs from WSL**
+Turns on =global-reveal-mode=, which temporarily shows invisible text around point, such as folded Org headings, while you move through it. With =reveal-auto-hide= nil, revealed text stays visible after point leaves.
 
-If you run Emacs through WSLg and it looks small or blurry, the issue is often display scaling rather than Emacs. In that case, a bigger font height as above is the simplest fix, though you can also adjust the scaling in your `.wslgconfig` or Windows display settings. The same font settings in a shared dotfiles folder will apply to both your Windows and WSL setups, but font names differ between them, so you may want a fallback:
+#+begin_src emacs-lisp -i
+;;;; Reveal Mode
+;; Toggle uncloaking of invisible text near point, including folded org headlines (Reveal mode).
+(use-package reveal
+  :ensure nil
+  :defer 1
+  :config
+  (setq reveal-auto-hide nil)
+  (global-reveal-mode))
+#+end_src
 
-```elisp
-(set-face-attribute 'default nil
-                    :family (cond ((member "JetBrains Mono" (font-family-list)) "JetBrains Mono")
-                                  (t "Monospace"))
-                    :height 140)
-```
+** SVG tags in code
 
-If you tell me your Emacs version and which font you're using, I can tailor this further.
+In programming buffers, =svg-tag-mode= draws matching text as rounded SVG labels when Emacs supports SVG. Any =:WORD:= pattern becomes a tag with the =success= face, and the markers =TODO:=, =FIXME:=, =HACK:=, =NOTE:= and =DONE:= get their own colours.
+
+#+begin_src emacs-lisp -i
+;;;; SVG Library (For Tags/Labels/etc.)
+  ;;; SVG Tag Mode
+(use-package svg-tag-mode
+  :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
+  :hook (prog-mode . svg-tag-mode)
+  :config
+  (setq svg-tag-tags
+        '(;; Replaces any occurence of :XXX: with a dynamic SVG tag displaying XXX
+          ("\\(:[A-Z]+:\\)" . ((lambda (tag)
+                                 (svg-tag-make tag :face 'success :inverse t :beg 1 :end -1))))
+          ;; other tags
+          ("DONE:"  . ((lambda (tag) (svg-tag-make "DONE:"  :face 'fringe  :inverse t ))))
+          ("FIXME:" . ((lambda (tag) (svg-tag-make "FIXME:" :face 'error   :inverse t))))
+          ("HACK:"  . ((lambda (tag) (svg-tag-make "HACK:"  :face 'warning :inverse t))))
+          ("NOTE:"  . ((lambda (tag) (svg-tag-make "NOTE:"  :face 'warning :inverse t))))
+          ("TODO:"  . ((lambda (tag) (svg-tag-make "TODO:"  :face 'warning :inverse t)))))))
+#+end_src
+
+** Widget checkboxes
+
+Disables images in widgets, so Customize buttons and checkboxes render as plain text.
+
+#+begin_src emacs-lisp -i
+;;;; Widgets
+(use-package wid-edit
+  :ensure nil
+  :defer 1
+  :custom
+  ;; No ugly button for checkboxes
+  (widget-image-enable nil))
+#+end_src
+
+* Highlighting
+
+** Highlight numbers
+
+Enables =highlight-numbers-mode= in programming buffers, giving numeric literals their own face.
+
+#+begin_src emacs-lisp -i
+;;;; Highlight
+
+;;;;; Highlight Numbers & TODOS
+(use-package highlight-numbers
+  :when (and sp-load-extras (locate-library "highlight-numbers"))
+  :defer t
+  :commands highlight-numbers-mode
+  :init
+  (add-hook 'prog-mode-hook #'highlight-numbers-mode))
+#+end_src
+
+** Highlight TODO keywords
+
+Enables =hl-todo-mode= in programming and Markdown buffers so keywords like TODO and FIXME stand out. Enabling it in Org is commented out, presumably because Org already styles its own TODO keywords.
+
+#+begin_src emacs-lisp -i
+(use-package hl-todo
+  :when (and sp-load-extras (locate-library "hl-todo"))
+  :defer t
+  :commands hl-todo-mode
+  :init
+  ;; (add-hook 'org-mode-hook #'hl-todo-mode)
+  (add-hook 'prog-mode-hook #'hl-todo-mode)
+  (add-hook 'markdown-mode-hook #'hl-todo-mode))
+#+end_src
+
+** TODO navigation transient: setup
+
+The comment documents the transient defined next and loads =transient=.
+
+#+begin_src emacs-lisp -i
+;; TODO navigation transient. Bound to <leader> s t in
+;; sp-keybindings.el. Suffixes stay on press; "q" exits.
+;;
+;; Setup/teardown: the prefix's BODY runs at invocation, enables
+;; `hl-todo-mode', and registers a one-shot `transient-exit-hook'
+;; that disables it on every exit path (q, C-g, prefix re-invocation,
+;; focus loss). The hook removes itself so subsequent exits do not
+;; double-toggle. See git history for the prior macro-based dispatch
+;; implementation this replaced.
+(require 'transient)
+#+end_src
+
+** TODO navigation transient
+
+=sp-todo-transient= offers =n= and =p= to jump to the next and previous TODO keyword and =o= to list them with occur, all staying in the menu, and =q= to quit. On invocation it turns =hl-todo-mode= on and registers a one-shot =transient-exit-hook= function that turns it off again and removes itself, so highlighting is only active while navigating. It is bound to =s t= under the leader key in =sp-keys=.
+
+#+begin_src emacs-lisp -i
+(transient-define-prefix sp-todo-transient ()
+  "TODO navigation."
+  ["TODO"
+   ("n" "Next"     hl-todo-next     :transient t)
+   ("p" "Previous" hl-todo-previous :transient t)
+   ("o" "Occur"    hl-todo-occur    :transient t)
+   ("q" "Quit"     transient-quit-one)]
+  (interactive)
+  (hl-todo-mode 1)
+  (let (cleanup)
+    (setq cleanup
+          (lambda ()
+            (hl-todo-mode -1)
+            (remove-hook 'transient-exit-hook cleanup)))
+    (add-hook 'transient-exit-hook cleanup))
+  (transient-setup 'sp-todo-transient))
+#+end_src
+
+** Disabled keyword highlighter
+
+A commented-out alternative that would have highlighted FIXME, TODO and NOTE with plain font-lock instead of =hl-todo=.
+
+#+begin_src emacs-lisp -i
+;; ;;https://github.com/erickgnavar/dotfiles/tree/master/.emacs.d#highlight-todo-fixme-etc
+;; (defun lem-highlight-todo-like-words ()
+;;   (font-lock-add-keywords
+;;    nil `(("\\<\\(FIXME\\|TODO\\|NOTE\\)"
+;;           1 font-lock-warning-face t))))
+
+;; (add-hook 'prog-mode-hook 'my/highlight-todo-like-words)
+#+end_src
+
+* Cursor and feedback
+
+** No cursor in inactive windows
+
+Hides the cursor in windows other than the selected one.
+
+#+begin_src emacs-lisp -i
+;;;; Cursor
+;; don't show cursor in inactive windows
+(customize-set-variable 'cursor-in-non-selected-windows nil)
+#+end_src
+
+** Pulse the current line
+
+Uses the built-in =pulse= library, following Karthink's "batteries included" article. =C-<return>= runs =pulse-line=, which briefly highlights the current line. Once pulse is loaded, the line also pulses after scrolling, =recenter-top-bottom=, =other-window= and any change of selected window. Because these advices are added in =:config=, they only take effect after =pulse= has been loaded, for example by the first =C-<return>=.
+
+#+begin_src emacs-lisp -i
+;;;;; Highlight Cursor Line with Pulse
+;; From https://karthinks.com/software/batteries-included-with-emacs/
+;; Replace external package with internal command
+
+(use-package pulse
+  :bind
+  ("C-<return>" . pulse-line)
+  :commands (pulse-line pulse-momentary-highlight-one-line)
+  :config
+  (setq pulse-delay 0.08)
+  (defun pulse-line (&rest _)
+    "Pulse the current line."
+    (interactive)
+    (pulse-momentary-highlight-one-line (point)))
+  ;; pulse for commands
+  (dolist (command '(scroll-up-command scroll-down-command
+                                       recenter-top-bottom other-window))
+    (advice-add command :after #'pulse-line))
+  ;; pulse on window change
+  (push 'pulse-line window-selection-change-functions))
+#+end_src
+
+** Goggles
+
+Enables =goggles-mode= in programming and text buffers, which briefly highlights the region affected by yanks, undos and other edits, with a pulsing effect.
+
+#+begin_src emacs-lisp -i
+;;;; Goggles (Highlight Changes)
+(use-package goggles
+  :when (and sp-load-extras (locate-library "goggles"))
+  :hook ((prog-mode text-mode) . goggles-mode)
+  :config
+  (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
+#+end_src
+
+** Empty line indicators
+
+Turns off the fringe markers for empty lines after the end of the buffer.
+
+#+begin_src emacs-lisp -i
+;;;; Empty Lines
+;; Don't show empty lines.
+;; .. Allows you to tell if there are blank lines at the end of the file.
+(setq-default indicate-empty-lines nil)
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-faces=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-faces)
+;;; sp-faces.el ends here
+#+end_src

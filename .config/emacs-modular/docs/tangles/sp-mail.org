@@ -1,52 +1,48 @@
-#+title: Mail management in Emacs
-#+startup: overview
+#+TITLE: sp-mail.el: Mail management in Emacs
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-mail.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-Status: Not deployed, still brainstorming the layout and many more features.
+Literate source for =libraries/modules/media/sp-mail.el=. Tangling this file (=C-c C-v t=) writes every =emacs-lisp= block below into that =.el= file, except the blocks marked =:tangle no=. Nothing is tangled unless you run it.
 
-* COMMENT Choosing the proper email client for this
+This module is meant to hold the mail setup. The planning notes in =sp-mail-old.org= say the first client to try is =notmuch=, because it works well with =consult-recoll=. They also list the open questions: local mail storage, an address book (=org-contacts= or BBDB), encryption through GnuPG, and making Disroot work. =conditional-loading.org= lists the module as "EMPTY".
 
-There are ways to integrate =consult-recoll= with [[denote:20251118T192841][notmuch]] easily (see [[file:search.org][Search structure configuration]]), so the first package I'll try is =notmuch=.
+The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it. The blocks below are a skeleton for when you fill it in. Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-mail)= would succeed.
 
-#+begin_src emacs-lisp :tangle "init.el" :eval "never"
-  (use-package notmuch
-    :ensure t)
+* File header
+
+The first line turns on lexical binding, as every module in this config does. The =;;; Commentary:= section is the place to describe the module once it has content.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-mail.el
+
+;;; Commentary:
+
+;; Mail reading, searching and sending from Emacs.
+
+;;; Code:
 #+end_src
 
-* TODO Storing the email in a local directory
-* TODO Keeping an address book of names
+* Configuration
 
-Isn't this basically done with =org-contacts=? Or with the Big Brother Database (BBDB).
+Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block. The file's =#+PROPERTY= line already sends each block to =libraries/modules/media/sp-mail.el=, so a new block needs no header arguments. Keep the blocks above [[*Provide]] so they tangle before the =provide= form.
 
-* TODO Making sure that you don't send out bogus emails
+* Sandbox
 
-* TODO Enabling encryption for email
+A place to try out configuration before committing to it. Blocks here use =:tangle no=, so they never reach the =.el= file. When something works, move it into [[*Configuration]].
 
-Since my goal is to be private, there has to be a way to plug into GnuPG somehow and encrypt my files.
+The =notmuch= block from the planning notes is here so you can try it. Evaluate it with =C-c C-c=.
 
-* Making disroot work with Emacs
-
-Since this is an anonymous server, I believe it might work a little differently.
-
-Storing secrets in the literate configuration without ending up leaking them accidentally on the internet.
-
-* Searching over the emails
-** Opening emails through =consult-recoll= with =notmuch=
-
-If you use notmuch and include your maildirs in recoll's indexed directories, a simple way to open a candidate result given its file name is to find out the message's ID and use notmuch.el's function notmuch-show to open it:[fn:1]
-
-This actually doesn't work because =consult-recoll-open-fns= shows up as being void.
-
-#+begin_src emacs-lisp :tangle no :eval never
-  (defun open-with-notmuch (file &optional _page)
-    (with-temp-buffer
-      (insert-file-contents-literally file)
-      (goto-char (point-min))
-      (and (re-search-forward "^Message-ID: <\\([^>]+\\)>$" nil t)
-           (notmuch-show (concat "id:" (match-string 1))))))
-
-  (add-to-list 'consult-recoll-open-fns '("message/rfc822" . open-with-notmuch))
+#+begin_src emacs-lisp :tangle no
+(use-package notmuch
+  :ensure t)
 #+end_src
 
-* Footnotes
+* Provide
 
-[fn:1]  https://codeberg.org/jao/consult-recoll
+The =provide= form lets =require= and =sp-require-module= load this module by name.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-mail)
+;;; sp-mail.el ends here
+#+end_src

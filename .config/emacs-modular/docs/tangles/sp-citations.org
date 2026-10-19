@@ -1,0 +1,183 @@
+#+TITLE: sp-citations.el: Citations with org-cite, CSL and Citar
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/academic/sp-citations.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-citations.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module configures citation handling: Org's built-in =oc= citation framework, CSL-based export through =oc-csl= and the =citeproc= library, and =citar= as the interactive front end for inserting, following and acting on citations. It is required from =sp-academic=.
+
+It depends on several user variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=). Citar and citeproc are only configured when =sp-load-extras= is non-nil and the libraries are installed. CSL styles and locales must be present on disk under =~/.local/share/csl/=. Icons come from =nerd-icons= and at-point actions from =embark=.
+
+* Org-cite
+
+** Header and natbib processor
+
+Loads =oc-natbib=, the natbib export processor for LaTeX. Loading =oc-csl= here is commented out because it is configured by its own =use-package= below.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-citations.el
+
+(require 'oc-natbib)
+;; (require 'oc-csl) -- this is already declared with use-package and all the settings
+#+end_src
+
+** The oc package
+
+Configures the built-in =oc= after Org loads. All export back ends (Beamer, LaTeX and everything else) use the CSL processor, so citations are rendered by citeproc rather than BibLaTeX. =org-cite-global-bibliography= comes from =sp-bibtex-files=. Inserting, following and fontifying citations are all delegated to Citar.
+
+#+begin_src emacs-lisp -i
+;;;; Org-Cite
+;; built-in package -- set up proper configuration
+(use-package oc
+  :ensure nil
+  :after org
+
+  :custom
+  (org-cite-export-processors
+        '((beamer csl)
+          (latex csl)
+          (t csl)))
+  (org-cite-global-bibliography sp-bibtex-files)
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar)
+)
+#+end_src
+
+** CSL styles and locales
+
+=oc-csl= is deferred until one of its rendering commands is needed. Once =oc= loads, the style and locale directories are pointed at =~/.local/share/csl/styles= and =~/.local/share/csl/locales=; without those files CSL export cannot find the requested style.
+
+#+begin_src emacs-lisp -i
+;; Use csl
+;; needs to have CSL installed on the system
+(use-package oc-csl
+  :ensure nil
+  :defer t  ;; Defer loading until actually needed
+  :commands (org-cite-csl-activate
+             org-cite-csl-render-bibliography
+             org-cite-csl-render-item)
+  :init
+  ;; Set these variables early so they're available when needed
+  (with-eval-after-load 'oc
+    (setq org-cite-csl-styles-dir "~/.local/share/csl/styles")
+    (setq org-cite-csl-locales-dir "~/.local/share/csl/locales")))
+#+end_src
+
+* Citeproc and Citar
+
+** Citeproc
+
+The Emacs Lisp CSL engine that =oc-csl= uses. It is only declared when extras are enabled and the library can be found, and stays deferred until needed.
+
+#+begin_src emacs-lisp -i
+;;;; Citeproc
+(use-package citeproc
+  :if (and sp-load-extras (locate-library "citeproc"))
+  :defer t  ;; Defer loading until oc-csl needs it
+  :after oc)
+#+end_src
+
+** Citar
+
+Citar provides completing-read based selection of bibliography entries. Under =:custom= it sets the bibliography for both Org-cite and Citar to =sp-bibliography= (overriding the =sp-bibtex-files= value used above when Citar loads), repeats the processor settings, makes Embark the at-point action, adds DOI and URL as extra fields, and defines the display templates, with the note template taken from =sp-citar-note=.
+
+Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
+
+A *gotcha*: the =when= form setting =citar-symbols= and the =setq= of =citar-notes-paths= are written inside =:custom=, which expects pairs of variable and value. use-package will treat them as attempts to customise variables literally named when and setq, so the icons and notes path are most likely never applied. They would work if moved to =:config=.
+
+#+begin_src emacs-lisp -i
+;;;; Citar
+;; Do you really need to make use of citar?
+(use-package citar
+  :if (and sp-load-extras (locate-library "citar"))
+  :commands (citar-open-notes
+             citar-insert-citation)
+  
+  :custom
+  ;; Use with org citation
+  (org-cite-global-bibliography `(,sp-bibliography))
+  (citar-bibliography `(,sp-bibliography))
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar)
+  
+  ;; Working at point
+  (citar-at-point-function 'embark-act) ;; use embark with at-point
+
+  (citar-additional-fields 
+    '("doi"
+      "url"))   ;; What exactly can you do with these additional fields?
+
+  (citar-templates
+        `((main . " ${=key= id:15} ${title:48}")
+          (suffix . "${author editor:30}  ${=type=:12}  ${=beref=:12} ${tags keywords:*}")
+          (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
+          (note . ,sp-citar-note)))
+
+  (when (display-graphic-p)
+    ;; nerd-icons has no octicon PDF/text glyph, so those two use
+    ;; FontAwesome; link-external maps to the octicon directly.
+    (setq citar-symbols
+          `((file ,(nerd-icons-faicon  "nf-fa-file_pdf_o"     :face 'error)   . " ")
+            (note ,(nerd-icons-faicon  "nf-fa-file_text_o"    :face 'warning) . " ")
+            (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
+  ;; edit notes
+  (setq citar-notes-paths `(,sp-bib-notes))
+
+  :bind
+         (("C-c w b o" . citar-open))
+         (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+         
+         :hook
+         (LaTeX-mode . citar-capf-setup)
+         (org-mode . citar-capf-setup)
+         (markdown-mode . citar-capf-setup)
+)
+#+end_src
+
+** Library file extensions
+
+Sets =citar-library-file-extensions= to nil, meaning Citar does not filter library files by extension and will offer any attached file. This runs at load time regardless of whether Citar is configured.
+
+#+begin_src emacs-lisp -i
+(setq citar-library-file-extensions nil)
+#+end_src
+
+** citar-embark
+
+Once both Citar and Embark are loaded, =citar-embark-mode= adds citation-specific Embark actions (open notes, open files, copy keys and so on) on citation keys.
+
+#+begin_src emacs-lisp -i
+;; Acting on citations (and jumping across the files better)
+(use-package citar-embark
+  :ensure t
+  :after (citar embark)
+  :no-require
+  :config (citar-embark-mode)
+  )
+#+end_src
+
+** Library backup path
+
+Defines =sia-citar-library-backup-path= pointing to =~/Documents/literature/backup=. Nothing in this module uses it; presumably other code backs up the PDF library there.
+
+#+begin_src emacs-lisp -i
+(defvar sia-citar-library-backup-path "~/Documents/literature/backup")
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-citations= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-citations)
+;; sp-citations.el ends here
+#+end_src

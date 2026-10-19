@@ -1,0 +1,68 @@
+#+TITLE: sp-canvas.el: Experimental canvas and Excalidraw support
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/ui/sp-canvas.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-canvas.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module is a placeholder for drawing and canvas features, in particular the =excali= package for Excalidraw-style drawings inside Emacs. It only does something on an Emacs build with canvas image support (version 32 or later, with =canvas-refresh= and the =canvas= image type) and when a compiled =excali-module= is found.
+
+As written, the search path is the literal placeholder =/path/to/excali-mode=, so the condition is never met and the module has no effect. A copy of excali-mode is vendored in this repository under =libraries/modules/cloned/excali-mode=, which is presumably where the path should point. The module is loaded in the UI part of =init.el=.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and a commentary saying canvas support would mostly help an Emacs reader setup, and that Excalidraw and related tools are worth trying.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-canvas.el
+
+;;; Commentary:
+
+;; Canvas will be useful for Emacs reader more, but there's also
+;; excalidraw and other functions that I'd like to try out in my 
+;; work around Emacs.
+
+;;; Code:
+#+end_src
+
+* Excalidraw
+
+** Conditional excali setup
+
+If Emacs is new enough, supports canvas images and the native =excali-module= exists in the excali directory, this adds that directory to =load-path=, sets up =excali-open= and =excali-new= as autoloaded commands, and opens =.excalidsl= files in =excali-dsl-mode=. As the comment points out, =.excalidsl= files are text source files, not =.excalidraw= scene files. With the current placeholder path none of this runs.
+
+#+begin_src emacs-lisp -i
+(let ((excali-directory (expand-file-name "/path/to/excali-mode")))
+  (when (and (>= emacs-major-version 32)
+             (fboundp 'canvas-refresh)
+             (image-type-available-p 'canvas)
+             (file-exists-p
+              (expand-file-name (concat "excali-module" module-file-suffix)
+                                excali-directory)))
+    (add-to-list 'load-path excali-directory)
+
+    (use-package excali
+      :defer t
+      :commands (excali-open excali-new))
+
+    ;; Text source files, NOT .excalidraw scene files.
+    (autoload 'excali-dsl-mode "excali-dsl" nil t)
+    (add-to-list 'auto-mode-alist
+                 '("\\.excalidsl\\'" . excali-dsl-mode))))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-canvas= feature for =init.el=. The closing comment has a stray =x= at the end, which is harmless.
+
+#+begin_src emacs-lisp -i
+;;; End:
+(provide 'sp-canvas)
+;; sp-canvas.el ends here.x
+#+end_src

@@ -1,0 +1,330 @@
+#+TITLE: sp-move-region-to-heading.el: Move a region under a heading in another note
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/funct/sp-move-region-to-heading.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-move-region-to-heading.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+Provides one command, =sp-move-region-to-heading=, bound globally to =M-a=. It cuts the active region, asks for a target note (searched by title through Vulpea, or created on the spot with Denote), asks for a heading inside that note (or creates one), appends the text at the end of that heading's subtree, saves the target file, and leaves an =id:= link to the new location where the text used to be. Headings named "Resources" get special treatment: they are treated as generic buckets, so the link points at their parent or the file instead.
+
+It depends on =vulpea=, =org-id= and =denote=, all required at the top. It is loaded in the Functions group of =init.el=.
+
+* Setup
+
+** File header
+
+Names the file, summarises it, and turns on lexical binding.
+
+#+begin_src emacs-lisp -i
+;;; sp-move-region-to-heading.el --- Move a region under a heading in another file, leaving a link behind -*- lexical-binding: t; -*-
+#+end_src
+
+** Commentary marker
+
+An empty commentary section; the explanation lives in the docstrings.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+** Code marker
+
+Start of the code section.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+** Dependencies
+
+Loads Vulpea for note selection, =org-id= for ID links, and Denote for creating new notes.
+
+#+begin_src emacs-lisp -i
+(require 'vulpea)
+(require 'org-id)
+(require 'denote)
+#+end_src
+
+** The create-heading choice
+
+=sp--new-heading-candidate= is the special string offered at the top of the heading prompt. Picking it creates a new top-level heading at the end of the file.
+
+#+begin_src emacs-lisp -i
+(defconst sp--new-heading-candidate "[+ Create new heading here]"
+  "Special entry in the heading-selection prompt.
+Choosing it creates a new top-level heading at the end of the
+file instead of picking one of the existing headings.")
+#+end_src
+
+* Choosing the target note
+
+** Creating a Denote note quietly
+
+=sp--denote-create-and-get-path= calls =denote= with the given title and default settings, grabs the new file's path, and restores the window layout so the new buffer does not take over the screen.
+
+#+begin_src emacs-lisp -i
+(defun sp--denote-create-and-get-path (title)
+  "Create a new Denote note titled TITLE and return its file path.
+The note is created with `denote' using default keywords/subdirectory/etc.
+(rename it afterwards with your usual `denote-rename-file' /
+`denote-rename-file-using-front-matter' bindings if needed). The
+creation buffer is not left on screen -- window layout is
+restored once the file path is captured."
+  (let (path)
+    (save-window-excursion
+      (denote title)
+      (setq path (buffer-file-name)))
+    path))
+#+end_src
+
+** Selecting or creating the note
+
+=sp--vulpea-select-or-create-file= prompts with =vulpea-select=, the same picker as =vulpea-find=. If an existing note with a file is chosen, its path is returned. Otherwise it works out a title from whatever Vulpea returned (a stub note, a plain string, or nothing, in which case it asks), confirms with =y-or-n-p= that you want a new Denote note with that title, and returns the new file's path. Declining or giving an empty title aborts with "No target selected".
+
+#+begin_src emacs-lisp -i
+(defun sp--vulpea-select-or-create-file ()
+  "Select an existing note via Vulpea, or create one with Denote.
+Uses the same note database and prompt UI as `vulpea-find'. If
+your input at the prompt doesn't match any existing note (i.e.
+nothing in the completion corresponds to an actual file), you're
+asked to confirm creating a new Denote note with that text as
+its title; the new note becomes the target file."
+  (let ((selection (vulpea-select "Move region to note: ")))
+    (cond
+     ;; An existing note was chosen.
+     ((and (vulpea-note-p selection) (vulpea-note-path selection))
+      (vulpea-note-path selection))
+     ;; Vulpea couldn't match anything -- it may hand back a stub
+     ;; note with no path, a plain string, or nil, depending on
+     ;; how the prompt was left. Offer to create a note either way.
+     (t
+      (let ((title (cond ((vulpea-note-p selection) (vulpea-note-title selection))
+                          ((stringp selection) selection)
+                          (t (read-string "Title for new note: ")))))
+        (unless (and title (not (string-empty-p title)))
+          (user-error "No target selected"))
+        (unless (y-or-n-p
+                 (format "No note found for \"%s\" -- create it with Denote? " title))
+          (user-error "No target selected"))
+        (sp--denote-create-and-get-path title))))))
+#+end_src
+
+* Choosing the target heading
+
+** Listing headings with full outline paths
+
+=sp--org-heading-candidates= visits the file (without displaying it) and returns every heading as a pair of its full outline path, such as =Projects > Emacs > Ideas=, and a marker. Using the full path keeps headings with the same name under different parents distinct in the prompt.
+
+#+begin_src emacs-lisp -i
+(defun sp--org-heading-candidates (file)
+  "Return an alist of (OUTLINE-PATH . MARKER) for each heading in FILE.
+OUTLINE-PATH is the full ancestor chain joined with \" > \", so
+headings with the same text under different parents are shown
+distinctly. Returns nil if FILE has no headings."
+  (with-current-buffer (find-file-noselect file)
+    (org-with-wide-buffer
+     (org-map-entries
+      (lambda ()
+        (cons (mapconcat #'identity
+                          (append (org-get-outline-path)
+                                  (list (org-get-heading t t t t)))
+                          " > ")
+              (point-marker)))))))
+#+end_src
+
+** Creating a heading at the end of the file
+
+=sp--create-heading-at-end= asks for a title, appends a new level-1 heading to the end of the file, and returns a marker just after it together with the title.
+
+#+begin_src emacs-lisp -i
+(defun sp--create-heading-at-end (file)
+  "Prompt for a title and insert a new top-level heading at the end of FILE.
+Return a cons cell (MARKER . TITLE)."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (let ((title (read-string "New heading title: ")))
+        (insert "* " title "\n")
+        (cons (point-marker) title)))))
+#+end_src
+
+** Prompting for the heading
+
+=sp--read-org-heading= offers the headings with completion, with the create option first. If the file has no headings at all it skips the prompt and creates one straight away. It returns the marker and the outline path, which later becomes the link description. The docstring contains a blank line, so this form spans two units.
+
+#+begin_src emacs-lisp -i
+(defun sp--read-org-heading (file)
+  "Prompt for a heading in FILE with completion.
+Return a cons cell (MARKER . PATH), where PATH is the full
+outline path string (used later as the link description).
+
+If FILE has no headings at all, the prompt is skipped entirely
+and a new top-level heading is created directly. Otherwise, the
+prompt includes an extra option to create a new heading at the
+end of the file instead of picking an existing one."
+  (let ((candidates (sp--org-heading-candidates file)))
+    (if (null candidates)
+        (sp--create-heading-at-end file)
+      (let ((choice (completing-read
+                     "Under heading: "
+                     (cons sp--new-heading-candidate candidates)
+                     nil t)))
+        (if (string= choice sp--new-heading-candidate)
+            (sp--create-heading-at-end file)
+          (cons (cdr (assoc choice candidates)) choice))))))
+#+end_src
+
+* Deciding what the link points to
+
+** File title
+
+=sp--org-file-title= returns the buffer's =#+title:= value, or the file name if there is none.
+
+#+begin_src emacs-lisp -i
+(defun sp--org-file-title ()
+  "Return the #+title: keyword of the current buffer.
+Falls back to the file name if no #+title: line is present."
+  (or (save-excursion
+        (goto-char (point-min))
+        (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
+          (string-trim (match-string 1))))
+      (file-name-nondirectory (or (buffer-file-name) ""))))
+#+end_src
+
+** File-level ID
+
+=sp--org-file-id= returns the ID in the file's top property drawer, creating it if needed, so a link can point at the whole note.
+
+#+begin_src emacs-lisp -i
+(defun sp--org-file-id ()
+  "Return the file-level :ID: of the current buffer, creating one if needed.
+This lives in the file's own property drawer, before the first
+heading, and is what a whole-file id: link points at."
+  (save-excursion
+    (goto-char (point-min))
+    (org-id-get-create)))
+#+end_src
+
+** Recognising Resources headings
+
+=sp--resources-heading-p= is true for a heading titled "Resources" in any capitalisation.
+
+#+begin_src emacs-lisp -i
+(defun sp--resources-heading-p (title)
+  "Non-nil if TITLE (a clean heading string, tags/TODO/priority stripped) is
+\"Resources\", regardless of case (so \"resources\", \"RESOURCES\",
+\"ReSoUrCeS\", etc. all match)."
+  (string-equal (downcase title) "resources"))
+#+end_src
+
+** Choosing the link target
+
+=sp--link-target-at-point= returns the ID and description for the link left behind. Normally it gives the target heading an ID (creating one if needed) and uses its outline path as the description. For a Resources heading it adds no ID: a level-1 Resources heading defers to the file's own ID and title, and a deeper one defers to its parent heading, or to the file if it somehow has no parent. The docstring has blank lines, so the form spans two units.
+
+#+begin_src emacs-lisp -i
+(defun sp--link-target-at-point (path)
+  "Return (ID . DESCRIPTION) to link to for the heading at point.
+Normally this is the heading itself: an ID is created for it if
+needed (via `org-id-get-create'), and PATH (its outline path, or
+its title if newly created) is used as the description.
+
+But if the heading is called \"Resources\", in any case (see
+`sp--resources-heading-p'), it's treated as a generic bucket
+that shouldn't be linked to directly, and no ID is added to it
+at all:
+ - a level-1 \"Resources\" heading falls back to the file itself
+   (file-level ID and #+title:);
+ - a lower-level \"Resources\" heading falls back to its parent
+   heading (or, in the unusual case that it has no parent, to
+   the file itself)."
+  (let ((heading-title (org-get-heading t t t t)))
+    (if (sp--resources-heading-p heading-title)
+        (if (eql (org-current-level) 1)
+            (cons (sp--org-file-id) (sp--org-file-title))
+          (save-excursion
+            (if (org-up-heading-safe)
+                (cons (org-id-get-create) (org-get-heading t t t t))
+              (cons (sp--org-file-id) (sp--org-file-title)))))
+      (cons (org-id-get-create) path))))
+#+end_src
+
+* The command
+
+** sp-move-region-to-heading
+
+The interactive spec reads the region bounds, then runs the note and heading prompts described above. The body copies the region text without properties, deletes it, and in the target buffer computes the link target, jumps to the end of the chosen heading's subtree (after its body and any child headings, before the next sibling), inserts the text with a trailing newline, and saves the file. Finally it inserts an =id:= link at the point where the region was.
+
+Gotchas:
+- The region is deleted before the target is written, and only the target is saved. If something fails in between, the text is gone from the source buffer, though it is still recoverable with undo.
+- It reads =region-beginning= unconditionally, so calling it without an active mark signals an error.
+- The docstring spans several units because of its blank lines, which is why this form covers three.
+
+#+begin_src emacs-lisp -i
+(defun sp-move-region-to-heading (start end target path)
+  "Cut the region from START to END and insert it under the heading at TARGET.
+TARGET is a marker pointing at the chosen heading; PATH is its
+full outline path (or its title, if newly created). Prompts for
+a target note via Vulpea's ID-based selection (so you search by
+title/ID rather than navigating directories); if nothing
+matches, offers to create a new Denote note on the spot. Then
+prompts for a heading within that note (with completion,
+disambiguated by full outline path, plus an option to create a
+new heading) -- or, if the note has no headings yet, skips
+straight to creating one.
+
+The text is always inserted as the last content of the TARGET
+heading's subtree -- after any existing body text or
+sub-headings, but before the next heading of equal or higher
+level.
+
+The link left behind at point in the source buffer normally
+points to TARGET itself. The exception is a heading literally
+named \"Resources\" (see `sp--link-target-at-point'): no ID is
+added to it, and the link instead points to the file (for a
+level-1 \"Resources\" heading) or to its parent heading
+(otherwise) -- Resources sections are treated as a generic
+bucket, not something worth linking to directly."
+  (interactive
+   (let* ((start (region-beginning))
+          (end (region-end))
+          (file (sp--vulpea-select-or-create-file))
+          (result (sp--read-org-heading file))
+          (target (car result))
+          (path (cdr result)))
+     (list start end target path)))
+  (let ((text (buffer-substring-no-properties start end))
+        id desc)
+    (delete-region start end)
+    (with-current-buffer (marker-buffer target)
+      (save-excursion
+        (goto-char target)
+        (pcase-let ((`(,link-id . ,link-desc) (sp--link-target-at-point path)))
+          (setq id link-id
+                desc link-desc))
+        (goto-char target)
+        (org-end-of-subtree t t)
+        (unless (bolp) (insert "\n"))
+        (insert text)
+        (unless (string-suffix-p "\n" text) (insert "\n")))
+      (save-buffer))
+    (insert (org-link-make-string (concat "id:" id) desc))))
+#+end_src
+
+** Keybinding
+
+Binds the command to =M-a= globally, replacing the default =backward-sentence=.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "M-a" #'sp-move-region-to-heading)
+#+end_src
+
+** Provide
+
+Makes the module available as =sp-move-region-to-heading=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-move-region-to-heading)
+;;; sp-move-region-to-heading.el ends here
+#+end_src

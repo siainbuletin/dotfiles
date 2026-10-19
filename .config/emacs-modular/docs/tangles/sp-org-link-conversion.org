@@ -1,0 +1,499 @@
+#+TITLE: sp-org-link-conversion.el: Create notes and convert wikilinks to ID links
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/funct/sp-org-link-conversion.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-org-link-conversion.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+
+This module provides two interactive commands for linking Org notes by ID. =sp-org-create-note-and-link= writes a new note file into =org-directory= and inserts an =id:= link to it at point, without opening the file. =sp-org-convert-wikilinks= turns Obsidian-style =[[wikilinks]]= in an Org buffer into =id:= links, matching them against notes in the vulpea database and asking about anything it cannot match on its own.
+
+It requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=, and relies on the vulpea database being populated (see =sp-vulpea-base=). It is loaded from the Functions section of =init.el=. Neither command is bound to a key in this module, so they are run with =M-x=.
+
+* Header and dependencies
+
+** File header
+
+Lexical binding, the file's one-line description and the commentary header. The commentary points to =sp-org-id-link.el= for the literate notes on this topic.
+
+#+begin_src emacs-lisp -i
+;;; -*- lexical-binding: t; -*-
+;; sp-org-link-conversion.el --- Create links at point.
+
+;;; Commentary:
+
+;; 
+;;
+;; Literate configuration is found in ~sp-org-id-link.el~
+#+end_src
+
+** Required libraries
+
+Loads Org, the Org ID library, the common Lisp, sequence and string helpers, and vulpea, all of which the commands below use directly.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+;;;; Required libraries:
+(require 'org)
+(require 'org-id)
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'vulpea)
+#+end_src
+
+* Shared helpers
+
+** Section comment
+
+A banner comment for the helpers used by both commands.
+
+#+begin_src emacs-lisp -i
+;;;; ------------------------------------------------------------------
+;;;; Shared helpers
+;;;; ------------------------------------------------------------------
+#+end_src
+
+** Slugify a title
+
+=sp-org-slugify= lowercases a title, collapses each run of non-alphanumeric characters into a single hyphen and trims leading and trailing hyphens. If nothing is left it returns =note=.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-slugify (title)
+  "Turn TITLE into a filesystem-safe slug."
+  (let ((slug (string-trim
+               (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               "-" "-")))
+    (if (string-empty-p slug) "note" slug)))
+#+end_src
+
+** Write a note file
+
+=sp-org--write-note= creates a new file in =org-directory= named with a timestamp and the slugified title, for example =20261018T101500-my-note.org=. If that name is taken (several notes created in the same second) it appends =-2=, =-3= and so on. The file contains a property drawer with a fresh =ID= and a =#+title:= line, and is written in UTF-8 without visiting it. The ID is then registered and =org-id-locations= is saved, so the new link resolves immediately. It returns the ID.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--write-note (title)
+  "Write a new note TITLE into `org-directory' without visiting it.
+Register its ID with org and return the ID."
+  (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
+         (id   (org-id-new))
+         (base (expand-file-name
+                (format "%s-%s"
+                        (format-time-string "%Y%m%dT%H%M%S")
+                        (sp-org-slugify title))
+                dir))
+         (file (concat base ".org"))
+         (n 1)
+         (coding-system-for-write 'utf-8))
+    (make-directory dir t)
+    (while (file-exists-p file)         ; several notes may be created per second
+      (setq n (1+ n)
+            file (format "%s-%d.org" base n)))
+    (with-temp-file file
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
+                      id title)))
+    (org-id-add-location id file)
+    (org-id-locations-save)
+    id))
+#+end_src
+
+* Create a note and link to it
+
+** Section comment
+
+A banner comment for the single-note command.
+
+#+begin_src emacs-lisp -i
+;;;; ------------------------------------------------------------------
+;;;; Single-note command (same behavior as before)
+;;;; ------------------------------------------------------------------
+#+end_src
+
+** Find notes by title
+
+=sp-vulpea-notes-with-title= queries the vulpea database for notes whose title equals the given one, ignoring case.
+
+#+begin_src emacs-lisp -i
+(defun sp-vulpea-notes-with-title (title)
+  "Return all notes in `vulpea-db' whose title equals TITLE, ignoring case."
+  (vulpea-db-query
+   (lambda (note)
+     (let ((existing (vulpea-note-title note)))
+       (and (stringp existing)
+            (eq t (compare-strings existing nil nil title nil nil t)))))))
+#+end_src
+
+** sp-org-create-note-and-link
+
+The interactive command. It takes the active region as the title, or prompts for one, and refuses to run outside Org buffers. Newlines in the title become spaces and an empty title is rejected. If a note with the same title already exists it hands over to the conflict handler; otherwise it writes the new note and inserts the link, replacing the region when there was one.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-create-note-and-link (title)
+  "Create a new org note TITLE in `org-directory' and insert an ID link to it.
+If a note with the same title (case-insensitive) already exists in
+`vulpea-db', report the conflict and offer to quit or to call
+`vulpea-insert' on the existing match(es) instead.
+
+The new note is written straight to disk: no buffer is visited and no
+window is created.  If the region is active, its text is used as the
+title and is replaced by the link."
+  (interactive
+   (list (if (use-region-p)
+             (buffer-substring-no-properties (region-beginning) (region-end))
+           (read-string "New note title: "))))
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let ((title (string-trim (replace-regexp-in-string "[\n\r]+" " " title))))
+    (when (string-empty-p title)
+      (user-error "Empty title"))
+    (let ((matches (sp-vulpea-notes-with-title title)))
+      (if matches
+          (sp-org--handle-title-conflict title matches)
+        (sp-org--create-note-and-insert-link title)))))
+#+end_src
+
+** Title conflict handling
+
+=sp-org--handle-title-conflict= reports how many notes already use the title and asks with =read-multiple-choice=: =i= runs =vulpea-insert= restricted to the matching notes (choosing to create a new note there is refused with an error), and =q= or anything else aborts.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--handle-title-conflict (title matches)
+  "Report that TITLE conflicts with MATCHES and let the user choose what to do."
+  (let* ((n (length matches))
+         (msg (format "A note titled \"%s\" already exists (%d match%s)"
+                      (vulpea-note-title (car matches))
+                      n (if (= n 1) "" "es")))
+         (ids (mapcar #'vulpea-note-id matches)))
+    (message "%s" msg)
+    (pcase (car (read-multiple-choice
+                 (concat msg ".")
+                 '((?i "insert" "Link to the existing note with `vulpea-insert'")
+                   (?q "quit"   "Abort without doing anything"))))
+      (?i (vulpea-insert
+           (lambda (note) (member (vulpea-note-id note) ids))
+           (lambda (&rest _)
+             (user-error "Pick one of the existing matches"))))
+      (_ (message "Aborted")))))
+#+end_src
+
+** Create and insert the link
+
+=sp-org--create-note-and-insert-link= writes the note, deletes the active region if any, and inserts an =id:= link whose description is the title.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--create-note-and-insert-link (title)
+  "Write a new note called TITLE to `org-directory' and link to it at point."
+  (let ((id (sp-org--write-note title)))
+    (when (use-region-p)
+      (delete-region (region-beginning) (region-end)))
+    (insert (org-link-make-string (concat "id:" id) title))
+    (message "Created note \"%s\"" title)))
+#+end_src
+
+* Wikilink conversion
+
+The second half of the module converts =[[Target]]= style links, as written by Obsidian, into Org =id:= links. It builds an index of note titles and aliases, converts unambiguous matches automatically and walks through the rest one by one.
+
+** Section comment
+
+A banner comment for the wikilink converter.
+
+#+begin_src emacs-lisp -i
+;;;; ------------------------------------------------------------------
+;;;; Wikilink conversion
+;;;; ------------------------------------------------------------------
+#+end_src
+
+** Highlight faces
+
+Two faces for the interactive pass: =sp-org-wikilink-pending= (inheriting =highlight=) marks wikilinks still waiting to be resolved, and =sp-org-wikilink-current= (inheriting =isearch=) marks the one currently being asked about.
+
+#+begin_src emacs-lisp -i
+(defface sp-org-wikilink-pending '((t :inherit highlight))
+  "Face for wikilinks still waiting to be resolved."
+  :group 'org)
+
+(defface sp-org-wikilink-current '((t :inherit isearch))
+  "Face for the wikilink currently being resolved."
+  :group 'org)
+#+end_src
+
+** Created-note counter
+
+=sp-org--wl-created= counts how many new notes were created during a run. It is let-bound to zero by =sp-org-convert-wikilinks= and reported in its final message.
+
+#+begin_src emacs-lisp -i
+(defvar sp-org--wl-created 0
+  "Number of notes created during the current wikilink run.")
+#+end_src
+
+** Title and alias index
+
+=sp-org--title-index= reads every note from the vulpea database and builds a hash table from each lowercased title and alias to the notes that use it. A comment after it wonders whether vulpea's database already makes this unnecessary; the table does avoid a database query per wikilink.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--title-index ()
+  "Return a hash table: downcased title or alias -> list of `vulpea-db' notes."
+  (let ((idx (make-hash-table :test #'equal)))
+    (dolist (note (vulpea-db-query))
+      (dolist (name (cons (vulpea-note-title note) (vulpea-note-aliases note)))
+        (when (and (stringp name) (not (string-empty-p name)))
+          (push note (gethash (downcase name) idx)))))
+    idx))
+
+;; Is this hash table actually necessary? Isn't this something that
+;; vulpea-db already kind of does?
+#+end_src
+
+** Look up a name
+
+=sp-org--lookup= returns the notes stored under a lowercased name, with duplicates (the same note found by title and by alias) removed by ID.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--lookup (index key)
+  "Return the distinct notes stored under KEY (a downcased name) in INDEX."
+  (seq-uniq (gethash key index)
+            (lambda (a b) (equal (vulpea-note-id a) (vulpea-note-id b)))))
+#+end_src
+
+** Recognise typed links
+
+=sp-org--link-type-p= is non-nil when a string starts with a registered Org link type followed by a colon, such as =id:=, =file:= or =https:=.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--link-type-p (s)
+  "Non-nil if S starts with a registered org link type, e.g. \"id:\"."
+  (and (string-match "\\`\\([[:alpha:]][[:alnum:]+.-]*\\):" s)
+       (member (match-string 1 s) (org-link-types))))
+#+end_src
+
+** Parse a wikilink
+
+=sp-org--wikilink-parts= splits the text inside the brackets into a target and a description. It handles the Obsidian forms =Target|Alias= (also with an escaped pipe), =Target#Heading= and =Target^block=, linking the latter two to the note itself. It returns nil for things that are not note links: typed Org links, paths starting with =./=, =../=, =/= or =~/=, and same-file references starting with =*= or =(=. A bare =#Heading= also yields an empty base and is ignored.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--wikilink-parts (raw)
+  "Parse the inside of a wikilink RAW into (TARGET DESCRIPTION).
+Handle the Obsidian forms `Target|Alias', `Target#Heading' and
+`Target^block'.  Return nil for things that are not note links:
+org links with a type (id:, file:, https:...), file paths, and
+same-file references such as `#Heading'."
+  (let* ((i (string-match "\\\\?|" raw))
+         (j (and i (match-end 0)))
+         (target (string-trim (if i (substring raw 0 i) raw)))
+         (alias  (and j (string-trim (substring raw j))))
+         (base   (string-trim (replace-regexp-in-string "[#^].*\\'" "" target))))
+    (when (and (not (string-empty-p base))
+               (not (string-match-p "\\`\\(?:\\.\\.?/\\|/\\|~/\\|\\*\\|(\\)" base))
+               (not (sp-org--link-type-p base)))
+      (list base (if (and alias (not (string-empty-p alias))) alias base)))))
+#+end_src
+
+** Collect wikilinks
+
+=sp-org--collect-wikilinks= scans a range for =[[...]]= and returns, in buffer order, a plist per link with start and end markers, the target and the description. Image embeds (=![[...]]=) and links inside src, example, export and comment blocks are skipped. The start marker advances on insertion so that two adjacent links survive the replacement of the first one.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--collect-wikilinks (beg end)
+  "Return wikilinks between BEG and END as plists, in buffer order.
+Each plist has :beg and :end markers, the :target to look up and the
+:desc to use as link text.  `![[embeds]]' and links inside source,
+example, export and comment blocks are ignored."
+  (let (entries)
+    (save-excursion
+      (goto-char beg)
+      (while (re-search-forward "\\[\\[\\([^][\n]+\\)\\]\\]" end t)
+        (let ((mb (match-beginning 0))
+              (me (match-end 0))
+              (parts (sp-org--wikilink-parts (match-string-no-properties 1))))
+          (when (and parts
+                     (not (eq (char-before mb) ?!))
+                     (not (save-excursion
+                            (goto-char mb)
+                            (save-match-data
+                              (org-in-block-p '("src" "example" "export" "comment"))))))
+            ;; The :beg marker advances on insertion so that adjacent links
+            ;; ([[a]][[b]]) survive replacement of the previous one.
+            (push (list :beg (copy-marker mb t)
+                        :end (copy-marker me)
+                        :target (car parts)
+                        :desc (cadr parts))
+                  entries)))))
+    (nreverse entries)))
+#+end_src
+
+** Replace one wikilink
+
+=sp-org--replace-wikilink= deletes the wikilink text between its markers, inserts an =id:= link with the original description, and releases the markers.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--replace-wikilink (entry id)
+  "Replace the wikilink ENTRY with an ID link to ID."
+  (let ((mb (plist-get entry :beg))
+        (me (plist-get entry :end)))
+    (save-excursion
+      (goto-char mb)
+      (delete-region mb me)
+      (insert (org-link-make-string (concat "id:" id) (plist-get entry :desc))))
+    (set-marker mb nil)
+    (set-marker me nil)))
+#+end_src
+
+** Highlight overlay
+
+=sp-org--highlight= puts an overlay with the pending face over a wikilink and returns it. The high priority keeps it visible over other faces.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--highlight (entry)
+  "Create and return a highlight overlay over wikilink ENTRY."
+  (let ((ov (make-overlay (marker-position (plist-get entry :beg))
+                          (marker-position (plist-get entry :end))
+                          nil t nil)))
+    (overlay-put ov 'face 'sp-org-wikilink-pending)
+    (overlay-put ov 'priority 100)
+    ov))
+#+end_src
+
+** Focus a wikilink
+
+=sp-org--focus= moves point to the overlay, unfolds the surrounding outline (using =org-fold-show-context= on newer Org and =org-show-context= on older versions), recenters the window and switches the overlay to the current face.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--focus (ov)
+  "Move point to overlay OV, reveal it, and mark it as the current link."
+  (goto-char (overlay-start ov))
+  (if (fboundp 'org-fold-show-context)
+      (org-fold-show-context)
+    (org-show-context))
+  (recenter)
+  (overlay-put ov 'face 'sp-org-wikilink-current))
+#+end_src
+
+** Offer to create a missing note
+
+=sp-org--offer-create= asks whether to create a note, skip the link, or quit. Creating lets the user edit the title first. If the edited title matches exactly one existing note, that note is used; if it matches several, the link is skipped to avoid adding yet another duplicate; otherwise a new note is written and counted. Quitting throws to =sp-org-wikilinks-quit=, which keeps everything converted so far.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--offer-create (title index resolved)
+  "Step 3: offer to create a note TITLE.  Return an ID, :skip, or quit."
+  (pcase (car (read-multiple-choice
+               (format "No existing note for \"%s\"" title)
+               '((?c "create" "Create a new note in `org-directory'")
+                 (?s "skip"   "Leave this wikilink as it is")
+                 (?q "quit"   "Stop here; keep what was converted so far"))))
+    (?c (let* ((title   (string-trim (read-string "New note title: " title)))
+               (matches (sp-org--lookup index (downcase title))))
+          (cond ((string-empty-p title) :skip)
+                ;; The edited title exists after all: reuse it.
+                ((= (length matches) 1) (vulpea-note-id (car matches)))
+                (matches :skip)         ; ambiguous: don't add another duplicate
+                (t (let ((id (sp-org--write-note title)))
+                     (cl-incf sp-org--wl-created)
+                     (puthash (downcase title) id resolved)
+                     id)))))
+    (?s :skip)
+    (?q (throw 'sp-org-wikilinks-quit nil))))
+#+end_src
+
+** Resolve one link interactively
+
+=sp-org--resolve-interactively= opens =vulpea-select= pre-filled with the target, without requiring a match. Choosing an existing note returns its ID. Typing a title that does not exist falls through to =sp-org--offer-create=, and an empty answer skips the link.
+
+#+begin_src emacs-lisp -i
+(defun sp-org--resolve-interactively (entry index resolved)
+  "Steps 2 and 3 for ENTRY: pick an existing note, else offer to create one.
+Return an ID or :skip."
+  (let* ((target (plist-get entry :target))
+         (note (vulpea-select (format "Link target for [[%s]]" target)
+                              :initial-prompt target
+                              :require-match nil)))
+    (or (vulpea-note-id note)           ; an existing note was selected
+        (let ((title (string-trim (or (vulpea-note-title note) ""))))
+          (if (string-empty-p title)
+              :skip
+            (sp-org--offer-create title index resolved))))))
+#+end_src
+
+** sp-org-convert-wikilinks
+
+The main command, working on the region or the whole accessible buffer of an Org file.
+
+- Step 1 converts every wikilink whose target matches exactly one note title or alias.
+- Step 2 highlights the remaining ones and visits them in order with a vulpea prompt.
+- Step 3 offers to create, skip or quit for links without a chosen note.
+
+Answers are remembered per target in the =resolved= table, so a target that appears several times is only asked about once; a skipped target stays skipped for the rest of the run. Overlays are always removed at the end, even after quitting or an error, and a final message reports how many links were converted automatically, resolved by hand, newly created and left alone.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-convert-wikilinks ()
+  "Convert Obsidian-style [[wikilinks]] in this org buffer to ID links.
+Operates on the active region, or on the whole (accessible) buffer.
+
+1. A wikilink whose target matches exactly one note in `vulpea-db'
+   (title or alias, case-insensitive) is converted right away.
+2. The remaining wikilinks are highlighted, then visited one by one with
+   a `vulpea-select' prompt pre-filled with the text between the brackets.
+3. If no existing note is selected, offer to create a new note in
+   `org-directory' (the title is editable), skip the link, or quit.
+
+`[[Target|Alias]]' keeps Alias as the link text; `[[Target#Heading]]'
+and `[[Target^block]]' link to the note Target."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an org-mode buffer"))
+  (let* ((beg (if (use-region-p) (region-beginning) (point-min)))
+         (end (if (use-region-p) (region-end) (point-max)))
+         (entries (sp-org--collect-wikilinks beg end))
+         (index (sp-org--title-index))
+         (resolved (make-hash-table :test #'equal))
+         (sp-org--wl-created 0)
+         (auto 0) (manual 0) pending)
+    (unless entries
+      (user-error "No wikilinks found"))
+    (deactivate-mark)
+
+    ;; Step 1: exact, unambiguous matches are converted straight away.
+    (dolist (e entries)
+      (let* ((matches (sp-org--lookup index (downcase (plist-get e :target))))
+             (id (and (= (length matches) 1) (vulpea-note-id (car matches)))))
+        (if id
+            (progn (sp-org--replace-wikilink e id)
+                   (cl-incf auto))
+          (push e pending))))
+    (setq pending (nreverse pending))
+
+    ;; Steps 2 and 3: highlight what is left and resolve it interactively.
+    (when pending
+      (setq pending (mapcar (lambda (e) (cons e (sp-org--highlight e))) pending))
+      (unwind-protect
+          (catch 'sp-org-wikilinks-quit
+            (dolist (cell pending)
+              (let* ((e   (car cell))
+                     (ov  (cdr cell))
+                     (key (downcase (plist-get e :target)))
+                     (id  (gethash key resolved))) ; same target seen earlier?
+                (unless id
+                  (sp-org--focus ov)
+                  (setq id (sp-org--resolve-interactively e index resolved))
+                  (puthash key id resolved))
+                (if (stringp id)
+                    (progn (delete-overlay ov)
+                           (sp-org--replace-wikilink e id)
+                           (cl-incf manual))
+                  (overlay-put ov 'face 'sp-org-wikilink-pending)))))
+        (dolist (cell pending)
+          (delete-overlay (cdr cell)))))
+    (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
+             auto manual sp-org--wl-created (- (length pending) manual))))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-org-link-conversion= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-org-link-conversion)
+;; sp-org-link-conversion.el ends here.
+#+end_src
