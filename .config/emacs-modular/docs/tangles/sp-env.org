@@ -4,11 +4,9 @@
 
 Literate source for =libraries/modules/env/sp-env.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
 
-The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
-
 This module makes Emacs see the same environment as a login shell, which matters mostly on macOS where GUI apps do not inherit the shell's =PATH=. It uses =exec-path-from-shell=, configured after John Wiegley's setup.
 
-It also keeps a commented-out alternative from the modular configuration it was originally based on, and defines a command for piping the region through a shell command. The commentary notes that Windows and Linux still need their own solution.
+It also keeps a commented-out alternative from the modular configuration it was originally based on, defines a command for piping the region through a shell command, installs =inheritenv= for the Claude Code setup in =sp-ai=, and copies a few more variables needed for using YADM from Emacs. The commentary notes that Windows and Linux still need their own solution.
 
 * Overview
 
@@ -144,6 +142,38 @@ Binds ~C-M-|~ to =sp-replace-with-shell=, next to the built-in ~M-|~ (=shell-com
 
 #+begin_src emacs-lisp -i
 (keymap-global-set "C-M-|" 'sp-replace-with-shell)
+#+end_src
+
+* Support for other modules
+
+** inheritenv
+
+The comment credits a blog post on Claude Code in Emacs and points at =sp-terminal=. =inheritenv= makes processes started from a buffer inherit that buffer's environment, which =claude-code= in =sp-ai= waits for.
+
+The recipe is given with =:straight=, but this config uses Elpaca, not straight.el. =use-package= does not recognise that keyword, so it most likely reports a parse error and does not install inheritenv. Since =claude-code= is declared =:after= inheritenv, it would then never be configured. Replacing =:straight= with =:ensure= and the same recipe would fix this.
+
+#+begin_src emacs-lisp -i
+;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
+(use-package inheritenv
+  :straight (:type git :host github :repo "purcell/inheritenv"))
+#+end_src
+
+** Environment variables for YADM
+
+Copies more variables from the shell with =exec-path-from-shell-copy-env=. The comment says the goal is making YADM dotfiles work in Emacs, and the new entry for that is =GIT_CEILING_DIRECTORIES=, which stops Git from searching parent directories for a repository; together with the =yadm= command in =sp-vcontrol= this presumably lets Magit treat the home directory as the dotfile repository (intent inferred).
+
+This has problems:
+- The list contains a literal =...= where the other names were left out. That is read as a symbol, not a string, so the copy fails with an error when it reaches it, and the =provide= below is never reached.
+- Unlike the block above, it runs at top level on every system, including terminal Emacs, and before Elpaca has necessarily loaded =exec-path-from-shell=.
+- Adding =GIT_CEILING_DIRECTORIES= to the list in the =use-package= form above would avoid all of this.
+
+#+begin_src emacs-lisp -i
+;;; Environment variable so yadm can work as dotfiles in Emacs
+(dolist (var '("ASPELL_CONF"
+               ...
+               "STARDICT_DATA_DIR"
+               "GIT_CEILING_DIRECTORIES"))
+  (exec-path-from-shell-copy-env var))
 #+end_src
 
 * Provide

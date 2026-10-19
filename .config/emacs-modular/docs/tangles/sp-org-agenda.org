@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Configures Org's agenda: the =C-c o a= key, the prefix format of agenda lines, custom agenda commands, visual styling of the time grid and tags, scheduling and sorting rules, the list of agenda files, and the =org-super-agenda= grouping. It also adds a command to jump to the daily view, automatic refresh of the agenda after a capture, and an alphapapa recipe for showing an agenda limited to the current subtree or region.
 
-It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode= and =org-super-agenda=. Two things are worth knowing up front. First, =org-agenda-custom-commands= is assigned four times in a row, and each =setq= replaces the previous value, so only the last one (a single "Daily Agenda" view on =d=) is actually in effect. Second, =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
+It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode=, =org-super-agenda= and =org-other-agenda=. Two things are worth knowing up front. First, =org-agenda-custom-commands= is assigned four times in a row, and each =setq= replaces the previous value, so only the last one (a single "Daily Agenda" view on =d=) is actually in effect. Second, =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
 
 * Basics
 
@@ -51,6 +51,16 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
      (tags . " ")
      (search . " %i %-12:c")))
 )
+#+end_src
+
+** org-other-agenda
+
+Installs =org-other-agenda= by yibie straight from GitHub through the package manager's =:ensure= recipe. Nothing is configured, bound or required here, so the package only does whatever its own autoloads provide; how it is meant to be used is not visible from this module.
+
+#+begin_src emacs-lisp -i
+;;;; Org other agenda (yibie)
+(use-package org-other-agenda
+  :ensure (:host github :repo "yibie/org-other-agenda"))
 #+end_src
 
 * Custom agenda commands

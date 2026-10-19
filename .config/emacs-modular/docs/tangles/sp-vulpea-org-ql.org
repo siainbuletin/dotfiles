@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 A draft bridge between the vulpea note database and =org-ql=, meant for inline queries over notes. So far it contains a single example query rather than reusable functions.
 
-The module is not required anywhere in the config and has no =provide= form. It also depends on =org-ql=, which is not installed by any module (the install in =sp-org-base= is commented out). If the file were loaded, its query would run immediately at load time and fail unless both vulpea and org-ql were already available, so it is best read as a scratch file.
+The module is not required anywhere in the config. It depends on =org-ql=, which =sp-org-base= installs. If the file were loaded, its query would run immediately at load time and fail unless both vulpea and org-ql were already available, so it is best read as a scratch file.
 
 * Header
 
@@ -46,10 +46,13 @@ Selects all vulpea notes whose =relevance-factor= metadata is 4 or higher (notes
 
 * Provide
 
-** Missing provide
+** Provide the feature
 
-Only the =Provide= comment header is present; the =provide= call itself has not been written.
+Registers the =sp-vulpea-org-ql= feature, so the module could be loaded with =require= like the others.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
+
+(provide 'sp-vulpea-org-ql)
+;; sp-vulpea-org-ql.el ends here.
 #+end_src

@@ -8,7 +8,7 @@ This module sets up file management: Dired listing options, a personal sort comm
 
 It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el= and the =sp-load-extras= flag, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
 
-The end of the file has problems worth knowing about: the eza preview is written as a =setq= instead of a =dirvish-define-preview= call, which will signal an error when the file loads, so everything after it (including the =provide=) does not run. Because modules are loaded inside a =condition-case=, this shows up as a failure message rather than stopping startup.
+The end of the file is fragile: the eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dispatchers= at top level, while Dirvish itself is loaded later. If Dirvish is not loaded yet when this file runs, that form signals an error and everything after it (including the =provide=) is skipped. Because modules are loaded inside a =condition-case=, this shows up as a failure message rather than stopping startup.
 
 * File header
 
@@ -211,11 +211,13 @@ A heading notes the aim of a Yazi-like window layout, which is not implemented. 
 
 ** eza directory preview
 
-The intent is a custom preview that runs =eza -al= with colours and icons when the selected entry is a directory, then registers it at the front of =dirvish-preview-dispatchers=. As written, the definition starts with =setq= instead of =dirvish-define-preview=, so Emacs tries to evaluate =eza= as a variable and errors. The =push= would also fail if Dirvish had not yet loaded, since it runs at top level while Dirvish is deferred until Dired loads.
+A custom preview that runs =eza -al= with colours and icons when the selected entry is a directory, registered at the front of =dirvish-preview-dispatchers=. The =:require= line makes Dirvish check that the =eza= program exists. An earlier version wrote this as a =setq=, which could never work; it now uses =dirvish-define-preview= as intended.
+
+One caveat remains: both forms run at top level, but =dirvish-define-preview= is a macro defined in Dirvish and not autoloaded, and the Dirvish =use-package= form above is deferred (=:after dired=, and Elpaca runs package bodies late). If Dirvish has not been loaded when this file is evaluated, the call signals a void-function error. Wrapping both forms in =with-eval-after-load= for =dirvish=, or moving them into its =:config=, would make the order safe.
 
 #+begin_src emacs-lisp -i
 ;; Custom preview for directories with 'eza'
-(setq dirvish-define-preview eza (file)
+(dirvish-define-preview eza (file)
   "Use `eza' to generate directory preview."
   :require ("eza") ; tell Dirvish to check if we have the executable
   (when (file-directory-p file) ; we only interest in directories here
@@ -229,7 +231,7 @@ The intent is a custom preview that runs =eza -al= with colours and icons when t
 
 ** Open binary files externally
 
-=dirvish-open-binaries-externally= is meant for =dirvish-find-entry-hook=: when you open an existing, non-directory file whose extension is in =dirvish-binary-exts=, it opens it with the system's default application via =dired-do-open= (Emacs 30 or later) and returns =t= so Dirvish does not also visit it. Like the preview above, this is never reached at load time because of the earlier error.
+=dirvish-open-binaries-externally= is meant for =dirvish-find-entry-hook=: when you open an existing, non-directory file whose extension is in =dirvish-binary-exts=, it opens it with the system's default application via =dired-do-open= (Emacs 30 or later) and returns =t= so Dirvish does not also visit it. If the eza preview above fails because Dirvish is not loaded yet, this hook is never added either.
 
 #+begin_src emacs-lisp -i
 ;;;; Open binary files externally

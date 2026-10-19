@@ -10,7 +10,7 @@ This module holds the task management side of the Org setup: TODO keyword sequen
 
 The module is loaded from =init.el= among the text modules. Packages it installs: =org-edna=, =hl-todo=, =consult-todo= and =org-gtd=. =org-inlinetask= ships with Org.
 
-Important: as written, the very first form (the =org-todo-keywords= setting) has a misplaced parenthesis and signals a =void-function sequence= error when evaluated. Because =init.el= loads modules through =sp-require-module=, which catches errors, Emacs keeps starting, but everything after that form in this file is skipped. In practice none of the tags, priorities, org-gtd setup or faces below take effect until that form is fixed.
+Worth knowing: the keyword sequences set at the top of the file are replaced near the end by a much shorter list (TODO, WAITING, DOING, DONE, CANCELLED). That later list wins, and it lacks the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= points to.
 
 * Overview
 
@@ -34,9 +34,12 @@ The header and opening comment explain that this file is for task management thr
 
 ** TODO keyword sequences
 
-The comments ask which keywords are really used and how the different sequences could be harmonised. The intent appears to be a list of four sequences: a short TODO, PROG, DONE one; a long GTD-like one with DOING, NEXT, WAITING, MAYBE and SOMEDAY; a WAITING, HOLD, CANCELED one that records notes on state changes; and the TODO, NEXT, WAIT, DONE, CNCL sequence that =org-gtd= expects.
+The comments ask which keywords are really used and how the different sequences could be harmonised. Three sequences are defined:
+- TODO, NEXT, PROG and WAIT, done with DONE or CNCL. This is the set =org-gtd= expects, with fast keys t, n, p and w, and WAIT records a timestamp when entered.
+- A long GTD-like sequence with DOING, NEXT, WAITING, MAYBE and SOMEDAY, done with DONE.
+- WAITING and HOLD, done with CANCELED, which ask for a note on state changes.
 
-However, the quoted list closes right after the first sequence, so the remaining three sequences become extra arguments to =setq=. Evaluating it sets =org-todo-keywords= to only the first sequence and then fails trying to call a function named =sequence=, which aborts loading the rest of the module. Moving one closing parenthesis from the first line to the end of the last sequence would fix it.
+The form now parses correctly (an earlier misplaced parenthesis that aborted the module is fixed; the final closing parenthesis sits alone on the next line). Several keywords and fast keys repeat across sequences, for example TODO on t, NEXT on n and both WAIT and WAITING on w, which makes fast selection ambiguous. In any case this value is overwritten by the last form in the file.
 
 #+begin_src emacs-lisp -i
 ;;; Commentary:
@@ -45,10 +48,9 @@ However, the quoted list closes right after the first sequence, so the remaining
 ;;
 ;; How can you harmonize different sequences of keywords?
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "PROG(p)" "DONE(d)"))
+      '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w!)" "|" "DONE" "CNCL")
         (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
-        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)")
-        (sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")
+        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)"))
         )
 #+end_src
 
@@ -151,12 +153,12 @@ There is a subtle bug: it tests the local variable with =bound-and-true-p=, whic
   (org-edna-mode))
 #+end_src
 
-** Inline tasks
+** Inline tasks (disabled)
 
-Loads =org-inlinetask=, which allows task headings deep inside the body of another entry without breaking its structure.
+The plain =require= of =org-inlinetask= is commented out; the comment says the author is not sure where it comes from (it ships with Org). Inline tasks remain available through the lazy declaration further down.
 
 #+begin_src emacs-lisp -i
-(require 'org-inlinetask)
+;; (require 'org-inlinetask) ;; I don't know where this is coming from.
 #+end_src
 
 ** Non-hierarchical statistics
@@ -265,7 +267,7 @@ Keybindings:
 
 ** Lazy inline tasks
 
-A second declaration of =org-inlinetask=, making =org-inlinetask-insert-task= autoloaded. It is redundant with the plain =require= above.
+Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command. Inline tasks are task headings placed deep inside the body of another entry without breaking its structure. Now that the plain =require= above is commented out, this is the only place the library is set up, and it loads on first use.
 
 #+begin_src emacs-lisp -i
 ;;;; Org Inline Tasks
@@ -275,7 +277,7 @@ A second declaration of =org-inlinetask=, making =org-inlinetask-insert-task= au
 
 ** Final keyword and display overrides
 
-Turns off confirmation before evaluating Babel source blocks (convenient, but any block in any file runs without asking), hides emphasis markers, and sets =org-todo-keywords= once more, to TODO, WAITING, DOING, DONE and CANCELLED. If this ran, it would override the sequences above and would not contain the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= expects. =org-modern-todo-faces= gives TODO, DOING and WAITING coloured badges in =org-modern=.
+Turns off confirmation before evaluating Babel source blocks (convenient, but any block in any file runs without asking), hides emphasis markers, and sets =org-todo-keywords= once more, to TODO, WAITING, DOING, DONE and CANCELLED. This overrides the sequences at the top of the file, and it does not contain the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= expects, so org-gtd actions that set those states would use keywords Org does not know as TODO states here. =org-modern-todo-faces= gives TODO, DOING and WAITING coloured badges in =org-modern=.
 
 #+begin_src emacs-lisp -i
 ;; Creating different TODO keywords for better readability
@@ -289,7 +291,7 @@ Turns off confirmation before evaluating Babel source blocks (convenient, but an
 
 ** Provide
 
-Registers the =sp-org-taskman-extra= feature. Because of the error in the first form, this line is not reached either, so the feature never counts as loaded and =sp-require-module= reports it as failed.
+Registers the =sp-org-taskman-extra= feature.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-taskman-extra)
