@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-tab-inbox-copy.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-tab-inbox-copy.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/text/sp-tab-inbox-copy.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This file is an earlier snapshot of =sp-tab-inbox.el=. It defines a =vulpea-ui= sidebar widget that searches a folder of plain files (the "link inbox", typically saved browser tabs) for mentions of the current note's title and aliases, without adding those files to the Vulpea database. Each hit can be visited, or collected: moved under a heading of the current note with =sp-move-region-to-heading=, leaving a link behind.
 

@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-org-export.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-export.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/text/sp-org-export.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module configures how Org documents are exported. It sets general =ox= options, adds the =ox-pandoc= backend with a long menu of Pandoc output formats, provides helpers for exporting headings to separate files and for exporting the body as HTML to the clipboard, sets up =ox-hugo= with a custom =hugo:= link type, and defines a family of commands that convert the clipboard between Org, Markdown, LaTeX and RTF by piping it through Pandoc.
 
