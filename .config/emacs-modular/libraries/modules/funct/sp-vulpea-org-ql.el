@@ -17,3 +17,6 @@
                  :action #'org-get-heading))
 
 ;;; Provide:
+
+(provide 'sp-vulpea-org-ql)
+;; sp-vulpea-org-ql.el ends here.

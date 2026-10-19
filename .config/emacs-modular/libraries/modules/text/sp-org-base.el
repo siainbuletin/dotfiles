@@ -311,8 +311,8 @@ selected instead of creating a new buffer."
   :custom
   (org-inline-anim-loop t))
 
-;; (use-package org-ql
-;;  :ensure t)
+(use-package org-ql
+ :ensure t)
 
 ;; Time logging for org-mode
 

@@ -134,7 +134,7 @@ Works in linux, MacOS, Microsoft Windows."
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
 
 ;; Custom preview for directories with 'eza'
-(setq dirvish-define-preview eza (file)
+(dirvish-define-preview eza (file)
   "Use `eza' to generate directory preview."
   :require ("eza") ; tell Dirvish to check if we have the executable
   (when (file-directory-p file) ; we only interest in directories here

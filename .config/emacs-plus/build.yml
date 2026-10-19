@@ -1,2 +1,4 @@
-icon: liquid-glass
-
+icon: 
+  default: liquid-glass
+  "31": liquid-glass
+inject_path: true

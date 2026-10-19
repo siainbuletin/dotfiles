@@ -10,11 +10,10 @@
   :custom
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 
-;; YADM is theoretically used for dotfile management.
-;; I haven't yet been able to do anything with that within Emacs.
 (defun yadm ()
   (interactive)
-  (magit-status "/yadm::"))
+  (magit-status "~/"))
+
 
 (provide 'sp-vcontrol)
 ;; sp-vcontrol.el ends here

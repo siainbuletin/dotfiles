@@ -14,3 +14,4 @@ SAVEHIST=1000
 # End of lines configured by zsh-newuser-install
 
 . "$HOME/.local/bin/env"
+export PATH="$HOME/.local/bin:$PATH"

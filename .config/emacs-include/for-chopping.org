@@ -244,25 +244,6 @@ there should be a way to open the link under the point, and then directly format
 
 *Should this entry be formatted in the annotated bibliography format?*
 
-* TODO Session management
-
-Persisting history across Emacs restarts.
-
-This is currently disabled because I'm getting issues with =elpaca=.
-
-*From which configuration was this taken?*
-
-#+begin_src emacs-lisp :tangle no
-  (use-package savehist
-    :init
-    (savehist-mode))
-#+end_src
-
-Saving the state between restarts of Emacs (meaning which buffers were open).
-
-#+begin_src emacs-lisp :tangle "init.el"
-(desktop-save-mode 1)
-#+end_src
 
 * TODO Obsidian-like quick-switcher functionality
 
@@ -270,92 +251,10 @@ This isn't actually too different from just using an application launcher like =
 
 This could be possible with the help of =universal-launcher=, but it would have to be heavily tweaked to work properly.
 
-* TODO Logic and Mathematics environment
-** LaTeX previews within org-mode buffers
-
-=org-fragtog= is similar to =org-appear=, but it's made specifically for snippets of LaTeX. It automatically toggles Org mode LaTeX fragment previews as the cursor enters and exits them. By default, the text is small and can become unreadable when changing between dark and light themes.
-
-#+begin_src emacs-lisp :tangle "init.el"
-(use-package org-fragtog
-  :after org
-  :hook
-  (org-mode . org-fragtog-mode)
-  :custom
-  (org-startup-with-latex-preview nil)
-  (org-format-latex-options
-   (plist-put org-format-latex-options :scale 2)
-   (plist-put org-format-latex-options :foreground 'auto)
-   (plist-put org-format-latex-options :background 'auto)))
-#+end_src
-
-The =org-format-latex-options= variable controls the way Emacs presents fragments. This variable is a list with properties such as colours and size. The =plist-put= function lets you change options in the list. The foreground and background are set to take the same colour as your text. If you change from dark to light mode or vice versa, you should evaluate the ~org-latex-preview~ function (=C-c C-x C-l=) to change the preview images.
-
-Automated LaTeX previews are disabled because they can delay loading a page and cause trouble when the user does not have LaTeX installed.
-
-*Do you even want to have automated LaTeX previews in this case?*
-
-** Configuring rendering equations using Typst
-
-** Permanently plugging Typst into the system
 
 * TODO Computational notebook setup
 
 Can't this just be kind of resolved through =org-babel=?
-
-* TODO Configuring the Casual Suite
-
-#+begin_src emacs-lisp :tangle no
-  (use-package casual)
-#+end_src
-
-** TODO Casual Agenda
-
-#+begin_src emacs-lisp :tangle no
-  ;; CASUAL AGENDA
-#+end_src
-
-** TODO Casual Dired
-
-#+begin_src emacs-lisp :tangle no
-  ;; CASUAL DIRED
-#+end_src
-
-* Project management
-** TODO Configuring =projectile=
-
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; Optional: ag is nice alternative to using grep with Projectile
-  (use-package ag
-    :ensure t)
-#+end_src
-
-This block for vertico isn't actually necessary as I have already instantiated it before.
-
-#+begin_src emacs-lisp :tangle no
-        ;; Optional: Enable vertico as the selection framework to use with Projectile
-        (use-package vertico
-          :ensure t
-          :init
-          (vertico-mode +1)
-          :custom
-          (vertico-sort-function
-           'vertico-sort-history-alpha))
-#+end_src
-
-#+begin_src emacs-lisp :tangle "init.el"
-  (use-package projectile
-    :ensure t
-    :init
-    (setq projectile-project-search-path
-          '("~/writing-prokects/"
-            "~/work/"
-            "~/playground"))
-    :config
-    ;; These are the configurations to use on Linux for projectile
-    (define-key projectile-mode-map (kbd "C-c C-p") 'projectile-command-map)
-    (global-set-key (kbd "C-c p") 'projectile-command-map)
-    (projectile-mode +1))
-#+end_src
 
 * Experimental version control system to work with
 

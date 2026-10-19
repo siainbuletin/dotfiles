@@ -309,9 +309,11 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-academic
                     ;; 'sp-statistics
                     'sp-dgraphs
+                    'sp-vulpea-hierarchy
                     'sp-notes
                     'sp-semantic
                     'sp-dyn-graph
+                    'sp-trails
 
                     ;; Functions
                     'sp-helper-funct
@@ -328,6 +330,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-vcontrol
                     'sp-terminal
                     'sp-lisp
+                    ;; 'sp-vc-ai-workbench
 
                     ;; Media
                     'sp-ai
