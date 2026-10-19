@@ -254,6 +254,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-windows
                     'sp-tabs
                     'sp-mini-frame
+                    'sp-treemacs ;; File tree on <f9>
 
                     'sp-writedesk
                     'lem-dashboard
