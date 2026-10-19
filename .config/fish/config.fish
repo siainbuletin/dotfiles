@@ -62,3 +62,5 @@ end
 
 set PATH $PATH /home/siainbuletin/.local/bin
 set -x PATH /home/siainbuletin/.cargo/bin $PATH
+
+set -gx GIT_CEILING_DIRECTORIES $HOME

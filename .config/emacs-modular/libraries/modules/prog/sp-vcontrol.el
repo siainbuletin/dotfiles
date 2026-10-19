@@ -12,7 +12,7 @@
 
 (defun yadm ()
   (interactive)
-  (magit-status "/yadm::"))
+  (magit-status "~/"))
 
 
 (provide 'sp-vcontrol)

@@ -82,6 +82,13 @@
 (use-package inheritenv
   :straight (:type git :host github :repo "purcell/inheritenv"))
 
+;;; Environment variable so yadm can work as dotfiles in Emacs
+(dolist (var '("ASPELL_CONF"
+               ...
+               "STARDICT_DATA_DIR"
+               "GIT_CEILING_DIRECTORIES"))
+  (exec-path-from-shell-copy-env var))
+
 ;;; Provide:
 
 (provide 'sp-env)
