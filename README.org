@@ -8,7 +8,7 @@ We'll see in the future if they can be subject to a move towards NixOS or even G
 
 ** General notes
 
-Most of my operating system needs revolve around Emacs. Although there's a regular =.emacs.d/= directory at the top level, my actual individual configurations live in =.config=. This is because I'm using different configuration profiles for Emacs, through the use of Chemacs2. See my literate configuration for Emacs for more details.
+Most of my operating system needs revolve around Emacs. Although there's a regular =.emacs.d/= directory at the top level, my actual individual configurations live in =.config=. This is because I'm using different configuration profiles for Emacs, through the use of Chemacs2. See my literate configuration for Emacs for more details: [[file:.config/emacs-modular/README.org][.config/emacs-modular/README.org]] describes the modular configuration and how to tangle its literate sources, and [[file:.config/emacs-modular/docs/main.org][.config/emacs-modular/docs/main.org]] is its root document, with a tree of all the modules.
 
 All of the existing configurations and their names (so you can start with Emacs with the proper flair in the terminal, as ~emacs --with-profile=<name>~ can be found declared in ~.emacs.profiles.el~ in the top directory.
 

@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-tty-clipboard.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-tty-clipboard.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/prog/sp-tty-clipboard.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This small module connects the kill ring to whichever clipboard belongs to the device the user is actually looking at. In a graphical frame that is the host's native clipboard. In a terminal frame (for example Emacs running over SSH inside tmux, viewed from Blink Shell on a phone or tablet) it is the outer terminal's clipboard, reached by writing an OSC52 escape sequence that tmux passes through to the terminal.
 

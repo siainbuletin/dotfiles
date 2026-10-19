@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-tab-inbox.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-tab-inbox.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/text/sp-tab-inbox.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module adds two widgets to the =vulpea-ui= sidebar that look at a directory of plain, unindexed files called the link inbox (by default =inbox/tabs/= under =org-directory=). The first, /Link inbox/, finds lines in those files that mention the current note's title or aliases and lets you file them away: =collect= moves a line under a heading of the current note, =collect all= does that for every hit as a background job you can keep editing through, and =send= moves it to some other note you pick or create. The second, /Inbox backlinks/, shows lines in the inbox that already link to the current note, with a few lines of context.
 

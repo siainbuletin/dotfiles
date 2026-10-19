@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-plantuml.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-plantuml.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/prog/sp-plantuml.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module defines a small home-made major mode, =siapip/plantuml-mode=, for PlantUML diagram files (=.puml=). Every time such a file is saved it runs the PlantUML jar through Java to render a PNG next to the source and shows that image in a preview buffer. It does not use the third-party =plantuml-mode= package and has no dependencies besides Java and a local =plantuml.jar=.
 

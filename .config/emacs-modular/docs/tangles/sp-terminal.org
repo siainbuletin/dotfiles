@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-terminal.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-terminal.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/prog/sp-terminal.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module configures =vterm=, a fast terminal emulator built on the libvterm C library. It requires a compiled native module (so CMake and a C compiler on the system) and does not work on Windows, as the comment notes.
 

@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/prog/sp-rust.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-rust.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/prog/sp-rust.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 Configures =rust-mode= with completion, Flycheck and LSP via =rust-analyzer=. It depends on =flycheck-rust=, =company=, =lsp-mode= and the external =rust-analyzer= binary. The module is not listed in =init.el=, so it appears to be dormant.
 

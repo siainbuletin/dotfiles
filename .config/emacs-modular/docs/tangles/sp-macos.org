@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/env/sp-macos.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/env/sp-macos.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/env/sp-macos.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 Settings that only make sense on macOS, which the commentary describes as the main machine this configuration runs on. The module remaps the modifier keys, adds two =dwim-shell-command= helpers (open marked files with a chosen app, and pick a process to kill), makes Dired use Emacs's own directory lister, keeps the theme in step with the macOS Light/Dark appearance (including for daemon client frames), and installs =org-mac-link= for grabbing links from Mac applications.
 

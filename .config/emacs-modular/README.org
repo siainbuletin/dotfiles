@@ -1,0 +1,48 @@
+#+title: Sia's modular Emacs configuration
+
+This is a modular Emacs configuration: =init.el= loads sub-libraries from =libraries/modules/=, and each module has a literate Org source in =docs/tangles/=. The root of the literate configuration is [[file:docs/main.org][docs/main.org]], which has a tree of all the modules after its preamble.
+
+The README of the configuration this one started from is kept in [[file:README-copied.md][README-copied.md]].
+
+* Tangling the literate files
+
+Nearly every module in =libraries/modules/= has a literate source in =docs/tangles/= (the module tree marks the ones that don't yet): the module =sp-x.el= is written from =sp-x.org= (and =lem-dashboard.el= from =sp-lem-dashboard.org=). The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
+
+** Where a file tangles to
+
+The file header of each literate source says where it tangles. Its second line is a =#+PROPERTY= line like this one, from =docs/tangles/sp-ai.org=:
+
+#+begin_example
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/media/sp-ai.el :comments no :padline yes :noweb no :mkdirp yes
+#+end_example
+
+- =:tangle= is the path of the =.el= file, relative to the =.org= file. Every =emacs-lisp= block in the file goes there, in order, unless the block says otherwise.
+- =:comments no= keeps Org from adding link comments to the =.el= file, and =:padline yes= puts one blank line between blocks, so tangling reproduces the module as it is.
+- =:mkdirp yes= creates the module's directory if it is missing.
+
+Blocks with =:tangle no=, such as the ones under a =Sandbox= heading, are for trying configuration out with =C-c C-c= and never reach the =.el= file. To adopt something from the sandbox, move it into a block without =:tangle no=.
+
+** Tangling one file
+
+Open the literate source and press =C-c C-v t= (=org-babel-tangle=). This rewrites the =.el= file named in the header from the blocks in the file; nothing is tangled unless you run it. If you just edited the =#+PROPERTY= line, press =C-c C-c= on it first so Org picks up the change.
+
+** Tangling everything
+
+To rewrite every module at once, evaluate this block with =C-c C-c=. It tangles each literate source whose header points into =libraries/modules/=, and skips the older documents in =docs/tangles/= (the =-old.org= files and the notes that tangle elsewhere).
+
+#+begin_src emacs-lisp :tangle no :results silent
+(let ((default-directory (expand-file-name "~/.config/emacs-modular/")))
+  (dolist (f (file-expand-wildcards "docs/tangles/sp-*.org"))
+    (with-temp-buffer
+      (insert-file-contents f)
+      (when (search-forward ":tangle ../../libraries/modules/" nil t)
+        (org-babel-tangle-file f)))))
+#+end_src
+
+The same thing from a shell (it works in fish and bash), run from =~/.config/emacs-modular=:
+
+#+begin_src sh :tangle no :eval never
+emacs --batch -l org --eval '(dolist (f (file-expand-wildcards "docs/tangles/sp-*.org")) (with-temp-buffer (insert-file-contents f) (when (search-forward ":tangle ../../libraries/modules/" nil t) (org-babel-tangle-file f))))'
+#+end_src
+
+Afterwards, =git diff= shows what changed. Org ends every tangled file with a newline, so modules that had none gain one, the modules that are still empty are replaced by the skeleton in their literate source, and any literate source edited since its =.el= file brings those edits in.

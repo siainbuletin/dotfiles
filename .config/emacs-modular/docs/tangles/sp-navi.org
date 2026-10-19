@@ -2,7 +2,7 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/base/sp-navi.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-navi.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. Tangling this file (=C-c C-v t=) rewrites that =.el= file from these blocks; nothing is tangled unless you run it.
+Literate source for =libraries/modules/base/sp-navi.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This is the umbrella module for moving around in Emacs. It pulls in the navigation sub-modules =sp-consult-snapfile=, =sp-dired=, =sp-goto= and =sp-search=, then configures a few navigation essentials of its own: an imenu outline sidebar, remembering point in files, the recent-files list, a heading jumper, and a replacement for =C-x C-f= that lets you pick between several file-listing tools.
 
