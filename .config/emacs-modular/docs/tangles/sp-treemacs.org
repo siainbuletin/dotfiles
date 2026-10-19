@@ -77,6 +77,15 @@ The root is added to the workspace the first time it is shown."
       (treemacs-select-window))))
 #+end_src
 
+* Adding nerd-icons
+
+#+begin_src emacs-lisp -i
+;;; Add nerd-icons for treemacs
+(use-package treemacs-nerd-icons
+  :config
+  (treemacs-nerd-icons-config))
+#+end_src
+
 * Sandbox
 
 Settings to try with =C-c C-c= before adopting them. This block is never tangled.
