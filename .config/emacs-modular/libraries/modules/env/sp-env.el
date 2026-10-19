@@ -78,6 +78,10 @@
 
 (keymap-global-set "C-M-|" 'sp-replace-with-shell)
 
+;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
+(use-package inheritenv
+  :straight (:type git :host github :repo "purcell/inheritenv"))
+
 ;;; Provide:
 
 (provide 'sp-env)

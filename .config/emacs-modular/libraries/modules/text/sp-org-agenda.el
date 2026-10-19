@@ -21,6 +21,10 @@
      (search . " %i %-12:c")))
 )
 
+;;;; Org other agenda (yibie)
+(use-package org-other-agenda
+  :ensure (:host github :repo "yibie/org-other-agenda"))
+
 ;; Custom org-agenda views
 ;; Agenda Custom Commands
 ;; Configure custom agenda views

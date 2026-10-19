@@ -14,17 +14,17 @@
          ("C-c C-x" . 'vterm--self-insert))
 
   :commands vterm
-  
+
   :custom
   (vterm-always-compile-module t)
-  
+
   :hook
   (vterm-mode . (lambda ()
                   ;; Settings to mimic dracula I use for zsh.
                   (setq-local buffer-face-mode-face '(:background "#000000" :foreground "#FFFFFF"))
                   (buffer-face-mode 1)
                   (text-scale-adjust 2)))
-  
+
   :bind
   ("<f7>" . vterm))
 
@@ -37,6 +37,10 @@
   (setq sp-vterm-counter (1+ sp-vterm-counter))
   (let ((buffer-name (format "*vterm-%d*" sp-vterm-counter)))
     (vterm buffer-name)))
+
+;;;; EAT
+(use-package eat
+  :ensure t)
 
 ;;; Provide:
 

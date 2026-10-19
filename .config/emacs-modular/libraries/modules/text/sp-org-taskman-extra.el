@@ -14,10 +14,9 @@
 ;;
 ;; How can you harmonize different sequences of keywords?
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "PROG(p)" "DONE(d)"))
+      '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w!)" "|" "DONE" "CNCL")
         (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
-        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)")
-        (sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")
+        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)"))
         )
 
 ;;;; Set up the org tags
@@ -91,7 +90,7 @@
   :config
   (org-edna-mode))
 
-(require 'org-inlinetask)
+;; (require 'org-inlinetask) ;; I don't know where this is coming from.
 
 (setq org-hierarchical-todo-statistics nil)
 

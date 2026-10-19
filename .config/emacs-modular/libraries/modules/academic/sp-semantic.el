@@ -12,7 +12,7 @@
 ;;; Code:
 ;;;; org-semantic
 (use-package org-semantic-results
-  :ensure (org-semantic :type git :host github :repo "alberti42/org-semantic")
+  :ensure (org-semantic :host github :repo "alberti42/org-semantic")
   :custom 
   (org-semantic-vault-root "~/notes")
   

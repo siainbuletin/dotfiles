@@ -18,7 +18,8 @@ With Claude, I added the possibility to recurse into the different ~libraries/~ 
 * TODO Make a better way to deal with bibliography files
 * Academic system
 ** Bibliography management
-*** Is it really necessary to register the BibTeX files like you do in [[id:BF417B9D-0315-4199-918B-C828537AC426][Emacs Writing Studio]]?
+*** TODO Is it really necessary to register the BibTeX files like you do in [[id:BF417B9D-0315-4199-918B-C828537AC426][Emacs Writing Studio]]?
+**** Can I just use a regular directory for sorting all of these files?
 *** Make sure you don't have to load any BibTeX files manually
 *** TODO Define the functions necessary for adding large amounts of inboxed literature to the BibTeX files
 *** How can you define which parts of org-ref are actually useful for your setup in Emacs?
@@ -26,11 +27,12 @@ With Claude, I added the possibility to recurse into the different ~libraries/~ 
 *** What's the most useful stuff that you can use from [[id:ee81e86a-3dff-49ae-be1d-9a538570e191][org-ref]]?
 ** Literature notes
 *** TODO fix the overlap between [[id:b9e91da7-fbe7-4c63-9ec5-bf01de496b3f][citar-denote]] and [[id:EA173DAB-1B30-43A4-B796-7A6B6B5C3B1D][citar-vulpea]]
-DEADLINE: <2026-10-13 Tue>
 :PROPERTIES:
 :ID:       94B758F6-E23E-4EC5-86D6-D2D0E849E2F1
 :CREATED:  [2026-10-13 Tue 18:43]
 :END:
+** PDF processing
+*** Add a way to do citation recognition so you can write the links in the [[id:e5e314c3-3ebe-4dd0-9c6a-4374d880346c][Literature notes]] themselves
 * Appearance
 ** TODO Add the ASCII art for the dashboard for Lambda Emacs
 * Task management system
@@ -260,3 +262,82 @@ But it should be enabled if you plan on exporting to HTML or Typst later on down
 *** TODO Make the extraction async
 
 Currently, the ~[collect all]~ function from the sidebar takes a really long time and ends up freezing Emacs. Is it possible to run all of these actions multi-threaded, or with some kind of async process that Emacs allows?
+
+* Semantics
+** TODO Try to improve on the querying by taking notes next to it
+
+This should happen by trying to plug [[id:96ecda66-952b-483d-b91f-519dc172c460][embark]] into it
+- so you can collect the answer and then feed it back into an MCP as needed
+-
+** TODO Navigate the chat history semantically, without having to interact with [[id:20261017T140201.879313][Claude Code Desktop]]
+
+This would help with picking up work where it left off
+
+* Artificial intelligence
+** Find a way to organise questions related to my thesis with Claude Cowork
+
+How can I gather them into a workable dashboard?
+- and also make it properly update my [[id:65222ab0-1f97-40e8-bae7-ec409da87eb2][org-agenda]]?
+
+Would it be better to simply use[[id:370C741D-9CDC-41B6-B827-D075BCB04FAC][org-semantic]] for more complex searches?
+
+** Wire [[id:DC134D5D-6039-4E82-8080-D471E46F9209][agent-shell]] with [[id:20261017T135415.705819][Claude Code]]
+** See how you can use prompt queueing
+** Create a project management pipeline
+** Make [[id:20261017T135415.705819][Claude Code]] automatically write a changelog for this configuration
+** Integrate [[id:a49f4f3a-db34-4182-ad63-6ee6cea92fb4][org-edna]] with [[id:DCC1F507-BB29-4D9C-A698-9630E9B29B01][AI Agents]] so you can better surface what's needed to do (in a dashboard)
+** Have [[id:20261017T135415.705819][Claude Code]] teach me how to use [[id:a49f4f3a-db34-4182-ad63-6ee6cea92fb4][org-edna]]
+** Have a better processing interface for your task inbox
+*** Make Claude schedule a task inbox in the morning
+
+* Rewrite the configuration in a mode 'correct' way with [[id:20261017T135415.705819][Claude Code]]
+:PROPERTIES:
+:ID:       20261017T215230.851242
+:CREATED:  [2026-10-17 Sat 21:52]
+:END:
+** Resources
+
+* TODO Make better configuration for [[id:20261018T212401.340028][org-other-agenda]]
+
+[[id:20261018T212401.340028][org-other-agenda]] for all of the opentasksinthis case
+
+* Find a way to integrate TDD to Emacs
+
+[[id:20261018T220532.383876][Implementing TDD into Emaacs configuration]]
+
+* Find a way to stop opening buffers for all of the agenda files
+** What is creating that customize set variable that loads all of the agenda files?
+
+* Creating the view for all of the articles
+** Would it be a better idea to draw the query with [[id:ac711f84-6b85-4294-8427-a2d0c5985b69][org-ql]] instead?
+
+How would it work better than what vulpea-db-query can do?
+
+* Add a better way of inserting links in org-mode
+
+These should be links to different pages that aren't org-mode themselves, like help pages (this should help with better documentation practices overall)
+
+** PROG Install [[id:20261018T221338.879091][org-link-completion]]
+
+This is because org-insert-link doesn't natively support completion.
+
+* Find a way to maybe replace [[id:50cbeb4b-c236-4347-a646-814fba2e1111][BibTeX]] with [[id:2670d49c-521d-4858-9d62-8fcf4a6bbca9][litdb]] for my configuration for bibliography management
+
+this keeps a database of files that can later be exported to BibTeX if needed
+- but it's important to see just how open this format is and how much I can bend the database to my needs
+- would it help if it were plugged into [[id:ff696ffc-d1d9-444b-a186-4d1c603b4015][DEVONthink]] somehow?
+- or should I have a separate picker for all of this information to be well-organised?
+
+Ask Claude for guidance on this subject
+
+* Documentation
+** TODO Read through the documentation that Claude created
+** Read the guide for how to use [[id:706ab8bd-eb3e-4a67-906f-f299cbdc7efa][magit]] for a large pull request, which was written here by [[id:690AEE51-DC48-4816-9A9E-1D0FD1380175][Claude]]
+* Look into creating a module for dealing with these custom research questions
+* Hierarchy and browsing
+** Modules written with Claude
+*** TODO Test out the ~sp-trails.el~ file for the functionality
+*** Test out the ~vulpea-hierarchy~ module and make a branch for it as well
+
+* Version control
+** Configure magit to work with [[id:20261018T185632.047108][yadm]]
