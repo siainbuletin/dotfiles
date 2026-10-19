@@ -215,7 +215,9 @@ Hides the cursor in windows other than the selected one.
 
 ** Pulse the current line
 
-Uses the built-in =pulse= library, following Karthink's "batteries included" article. =C-<return>= runs =pulse-line=, which briefly highlights the current line. Once pulse is loaded, the line also pulses after scrolling, =recenter-top-bottom=, =other-window= and any change of selected window. Because these advices are added in =:config=, they only take effect after =pulse= has been loaded, for example by the first =C-<return>=.
+Uses the built-in =pulse= library, following Karthink's "batteries included" article. =C-<return>= runs =pulse-line=, which briefly highlights the current line. Once pulse is loaded, the line also pulses on any change of selected window, through =window-selection-change-functions=. Because that hook is added in =:config=, it only takes effect after =pulse= has been loaded, for example by the first =C-<return>=.
+
+This block used to advise =scroll-up-command=, =scroll-down-command=, =recenter-top-bottom= and =other-window= with =pulse-line= as well. That advice was removed: because =pulse-line= is interactive, its empty =(interactive)= spec replaced the advised command's own spec, so =C-x o= called =other-window= with no COUNT and failed with "Wrong number of arguments". Those commands already pulse through =pulsar= in =sp-windows=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Highlight Cursor Line with Pulse
@@ -232,10 +234,6 @@ Uses the built-in =pulse= library, following Karthink's "batteries included" art
     "Pulse the current line."
     (interactive)
     (pulse-momentary-highlight-one-line (point)))
-  ;; pulse for commands
-  (dolist (command '(scroll-up-command scroll-down-command
-                                       recenter-top-bottom other-window))
-    (advice-add command :after #'pulse-line))
   ;; pulse on window change
   (push 'pulse-line window-selection-change-functions))
 #+end_src

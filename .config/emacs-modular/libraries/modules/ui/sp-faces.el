@@ -131,10 +131,6 @@
     "Pulse the current line."
     (interactive)
     (pulse-momentary-highlight-one-line (point)))
-  ;; pulse for commands
-  (dolist (command '(scroll-up-command scroll-down-command
-                                       recenter-top-bottom other-window))
-    (advice-add command :after #'pulse-line))
   ;; pulse on window change
   (push 'pulse-line window-selection-change-functions))
 
