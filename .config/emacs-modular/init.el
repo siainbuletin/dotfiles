@@ -304,6 +304,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-agenda
                     'sp-org-taskman-extra
                     'sp-org-ext
+                    'sp-org-issues ;; issue tracker area (after sp-org-ext)
                     'sp-csv
 
                     ;; Academic
