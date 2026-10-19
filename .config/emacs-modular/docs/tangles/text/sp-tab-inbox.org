@@ -683,6 +683,32 @@ REASON, if given, says why the job stopped early."
 
 =sp-tab-inbox--job-schedule= sets a one-shot idle timer for the next tick. =sp-tab-inbox--job-tick= ignores stale timers for a job that is no longer current, and waits again while a minibuffer is active. Otherwise it collects hits until the queue is empty, the slice's time is used up or input arrives. Any error ends the job with that message; an empty queue finishes it normally; otherwise it shows progress in the echo area at most once a second and schedules the next tick.
 
+*** Explaining how the async actually works
+
+`collect all` now runs in the background, and I made it much cheaper per line. I couldn't run Emacs here, so this is untested. A script check shows the parentheses balance. Your `sp-move-region-to-heading` is unchanged.
+
+**How it works**
+- **Timer slices:** Emacs has no threads, so the work is cut into short slices run from an idle timer. Each slice does about 0.05 s of work and then yields, and the next one waits until Emacs has been idle for 0.1 s. Both numbers are options (`sp-link-inbox-async-slice`, `sp-link-inbox-async-delay`). It also pauses while you're typing or have a minibuffer open.
+- **Heading choice:** this happens up front, so any heading prompt or `Resources` merge appears immediately. After that, the lines are collected into that heading one inbox file at a time, in file and line order.
+- **Progress:** the echo area shows it about once a second. `M-x sp-link-inbox-cancel-collect` stops the job and keeps what was already collected.
+- **Overlap:** while a job runs, `collect`, `send` and `collect all` refuse to start.
+
+**Why it was freezing, and what changed**
+- **Saving:** your move function saves the target note after every single line, and saving a big note with its after-save hooks was probably the main cost. For these calls I suppress that save, and the note and each inbox file are saved once instead (the note once at the end of the job).
+- **Opening files:** each inbox file is opened once for all its hits, not once per hit.
+- **Narrowing:** the target note is temporarily widened for each move, so a live narrowing in that buffer can no longer misplace a line.
+
+**Things to know**
+- **Unsaved note:** the note shows as modified until the job ends, since it is no longer saved after each line.
+- **Undo:** the collector's insertions go into the same undo history as your typing, so `C-/` can undo one of them. Undoing at the wrong time would be messy.
+- **Stale lines:** a line that no longer matches what the search found (the file changed meanwhile) is skipped and counted in the final message.
+- **Other errors:** any other error stops the job, saves what is done, and says why in the echo area.
+- **Sidebar:** it shows the old hit list until the job finishes, then refreshes once.
+
+Replace your copy of `sp-link-inbox.el` with this version and run `M-x load-file` on it, or restart Emacs.
+
+*** The code itself
+
 #+begin_src emacs-lisp -i
 (defun sp-tab-inbox--job-schedule (job)
   "Arrange for JOB's next slice to run when Emacs is idle."

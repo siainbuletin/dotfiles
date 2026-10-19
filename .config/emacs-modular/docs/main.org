@@ -3,8 +3,29 @@
 #+options: ':t author:t
 #+startup: overview
 
+* Preambel
+
 TODO - this cookie with the export date should be updated to reflect the new document. There should be a way to implement dynamic properties in a document anyway.
 [ Last revised and exported on *{{{latest-export-date}}}*, with a word count of *{{{word-count}}}*. ]
+
+* LARGE UPDATE: OCTOBER 2026
+
+The configuration now works by generating different ~.el~ files for different needs and functionalities within Emacs, and it's supposed to be loaded conditionally, based on whatever needs I might have for my configuration (as well as proper debugging).
+
+Keeping a literate configuration allows me to take advantage of the features of org-mode to set tasks for improvement in the overall configuration, and have it mingle with the notes that I might find in my collection of Zettelkasten. For this reason (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
+
+Disclosure: many of the modules and functions I included are written with the help of Claude (not a programmer) and should be well-documented for readability (so I can actually understand what's going on).
+
+The current configuration draws heavily from modules from Colin McLear's Lambda Emacs. Noteworthy modifications include:
+- replacing native ~package.el~ utilization with ~elpaca~
+
+For motivations of why this configuration is set up in this way, please refer to"[[file:docs/why-this-literate.org][Why this form of literate configuration?]]".
+
+* What can this configuration actually do?
+
+- Documentation lookup integration
+- Many quality-of-life improvements for editing
+- Embark integration for contextual actions
 
 * Module tree
 
@@ -83,10 +104,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/media/sp-rss.org][sp-rss]] :: RSS reading with Elfeed ([[file:../libraries/modules/media/sp-rss.el][sp-rss.el]])
 - [[file:tangles/media/sp-torrent.org][sp-torrent]] :: Torrent and file-sharing placeholder ([[file:../libraries/modules/media/sp-torrent.el][sp-torrent.el]])
 
-*** .agent-shell/
-
-**** transcripts/
-
 ** prog/
 
 - [[file:tangles/prog/sp-base-code.org][sp-base-code]] :: Shared programming setup: completion, LSP and outlines ([[file:../libraries/modules/prog/sp-base-code.el][sp-base-code.el]])
@@ -99,7 +116,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/prog/sp-nix.org][sp-nix]] :: Nix editing with the nixd language server ([[file:../libraries/modules/prog/sp-nix.el][sp-nix.el]])
 - [[file:tangles/prog/sp-plantuml.org][sp-plantuml]] :: Minimal PlantUML mode with PNG preview ([[file:../libraries/modules/prog/sp-plantuml.el][sp-plantuml.el]])
 - [[file:tangles/prog/sp-prog-misc.org][sp-prog-misc]] :: Miscellaneous programming packages and editor defaults ([[file:../libraries/modules/prog/sp-prog-misc.el][sp-prog-misc.el]])
-- [[file:tangles/prog/sp-python.org][sp-python]] :: Python development with LSP and ruff ([[file:../libraries/modules/prog/sp-python.el][sp-python.el]])
 - [[file:tangles/prog/sp-rust.org][sp-rust]] :: Rust editing ([[file:../libraries/modules/prog/sp-rust.el][sp-rust.el]])
 - [[file:tangles/prog/sp-terminal.org][sp-terminal]] :: Terminal emulators (vterm and eat) ([[file:../libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
 - [[file:tangles/prog/sp-tty-clipboard.org][sp-tty-clipboard]] :: Clipboard over OSC52 for terminal frames ([[file:../libraries/modules/prog/sp-tty-clipboard.el][sp-tty-clipboard.el]])
@@ -130,7 +146,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/text/sp-org-tables.org][sp-org-tables]] :: Org table rendering, wrapping and monospace ([[file:../libraries/modules/text/sp-org-tables.el][sp-org-tables.el]])
 - [[file:tangles/text/sp-org-taskman-extra.org][sp-org-taskman-extra]] :: Org task management: keywords, tags, projects and GTD ([[file:../libraries/modules/text/sp-org-taskman-extra.el][sp-org-taskman-extra.el]])
 - [[file:tangles/text/sp-org-time.org][sp-org-time]] :: Org time tracking and scheduling tools ([[file:../libraries/modules/text/sp-org-time.el][sp-org-time.el]])
-- [[file:tangles/text/sp-tab-inbox-copy.org][sp-tab-inbox-copy]] :: Link inbox sidebar widget (older copy) ([[file:../libraries/modules/text/sp-tab-inbox-copy.el][sp-tab-inbox-copy.el]])
 - [[file:tangles/text/sp-tab-inbox.org][sp-tab-inbox]] :: Link inbox sidebar widgets for vulpea-ui ([[file:../libraries/modules/text/sp-tab-inbox.el][sp-tab-inbox.el]])
 - [[file:tangles/text/sp-vulpea-base.org][sp-vulpea-base]] :: Vulpea note database basics ([[file:../libraries/modules/text/sp-vulpea-base.el][sp-vulpea-base.el]])
 - [[file:tangles/text/sp-vulpea-ext-back.org][sp-vulpea-ext-back]] :: Backup slot for the Vulpea extensions ([[file:../libraries/modules/text/sp-vulpea-ext-back.el][sp-vulpea-ext-back.el]])
@@ -181,17 +196,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
 - [[file:tangles/ui/sp-writedesk.org][sp-writedesk]] :: Writing desk: Olivetti and Writeroom ([[file:../libraries/modules/ui/sp-writedesk.el][sp-writedesk.el]])
 
-* LARGE UPDATE: OCTOBER 2026
-
-The configuration now works by generating different ~.el~ files for different needs and functionalities within Emacs, and it's supposed to be loaded conditionally, based on whatever needs I might have for my configuration (as well as proper debugging).
-
-Keeping a literate configuration allows me to take advantage of the features of org-mode to set tasks for improvement in the overall configuration, and have it mingle with the notes that I might find in my collection of Zettelkasten. For this reason (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
-
-Disclosure: many of the modules and functions I included are written with the help of Claude (not a programmer) and should be well-documented for readability (so I can actually understand what's going on).
-
-The current configuration draws heavily from modules from Colin McLear's Lambda Emacs. Noteworthy modifications include:
-- replacing native ~package.el~ utilization with ~elpaca~
-
 * Architecture of the modules
 
 Currently, the sub-libraries live in different subfolders (which makes things a lot more readable). These subfolders could be turned into a ~-core~ file that gets loaded as a master sub-library when you're interested in doing some conditional loading.
@@ -208,31 +212,7 @@ Deciding on the order should end up being not the most trivial task.
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
 
-* Changelog
 
-On <2025-11-02 Sun>, I changed the configuration from using =straight.el= to using =elpaca=, as it makes it easier to deal with package dependencies (since it combines the approach from both the native package manager and the possibility to use =use-package=).
-
-On <2025-11-12 Wed>, I converted the configuration to a multi-file org setup, which will later compile to multiple Emacs Lisp files.
-
-On <2025-11-15 Sat>, I settled on using =denote= for my notetaking system and started bringing in more notes from that setup. I also changed the theme system to modus themes, as it is a lot easier to configure overall.
-
-See [[file:config-tasks.org][Open tasks and next improvements for the configuration]] for what should be done next.
-
-- [ ] This also needs a table of contents to facilitate easier navigation between the modules (even if each org file has its independent tree of headings for designating the sections)
-
-* Introduction - The inner workings of this literate configuration
-
-Since I want to be able to treat my code in as modular a way as possible, I am separating the modules of my configuration to different org mode files, which will be later tangled to their respective Emacs Lisp modules. This also includes the possibility for the future to tangle to different Emacs Lisp documents, as for now, everything is centralised into a single =init.el= file.
-
-This will allow much simpler debugging when another package is starting to go haywire and will allow writing down personal Lisp modules more easily.
-
-The main file only contains the very basic bootstrapping commands for the package manager. Everything else will be managed in separate files.
-
-This file also serves as a design document for how the documents are also laid out. For more detail into each function, there will be a link added to the relevant =org-mode= configuration module.
-
-Thus, ths entire configuration is built in the style of a README, and more relevant points are to be found in different documents.
-
-The rationale for this configuration is also further explained in "[[file:docs/why-this-literate.org][Why this form of literate configuration?]]".
 
 * Functionality of the literate configuration
 

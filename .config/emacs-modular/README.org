@@ -2,8 +2,6 @@
 
 This is a modular Emacs configuration: =init.el= loads sub-libraries from =libraries/modules/=, and each module has a literate Org source in =docs/tangles/=, in subdirectories that mirror those of =libraries/modules/=. The root of the literate configuration is [[file:docs/main.org][docs/main.org]], which has a tree of all the modules after its preamble.
 
-The README of the configuration this one started from is kept in [[file:README-copied.md][README-copied.md]].
-
 * Tangling the literate files
 
 Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org= (and =lem-dashboard.el= from =sp-lem-dashboard.org=). Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
@@ -16,8 +14,10 @@ The file header of each literate source says where it tangles. Its second line i
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-ai.el :comments no :padline yes :noweb no :mkdirp yes
 #+end_example
 
-- =:tangle= is the path of the =.el= file, relative to the =.org= file. Every =emacs-lisp= block in the file goes there, in order, unless the block says otherwise.
-- =:comments no= keeps Org from adding link comments to the =.el= file, and =:padline yes= puts one blank line between blocks, so tangling reproduces the module as it is.
+- =:tangle= is the path of the =.el= file, relative to the =.org= file. 
+  - Every =emacs-lisp= block in the file goes there, in order, unless the block says otherwise.
+- =:comments no= keeps Org from adding link comments to the =.el= file
+- =:padline yes= puts one blank line between blocks, so tangling reproduces the module as it is.
 - =:mkdirp yes= creates the module's directory if it is missing.
 
 Blocks with =:tangle no=, such as the ones under a =Sandbox= heading, are for trying configuration out with =C-c C-c= and never reach the =.el= file. To adopt something from the sandbox, move it into a block without =:tangle no=.

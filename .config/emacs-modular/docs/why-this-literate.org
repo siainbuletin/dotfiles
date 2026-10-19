@@ -1,5 +1,12 @@
 #+TITLE: Explaining the methodology for choosing this type of configuration
 
+* Scope
+
+- make a maintainable configuration
+- possibly create new, experimental modules to enhance my Emacs experience (with Claude)
+
+As such, it should be as easy as possible to debug anything in this configuration.
+
 * Different methodologies for doing an Emacs literate configuration
 *** Loading the org configuration from =init.el= through =org-babel-load-file=
 
@@ -104,3 +111,17 @@ You lose some of the helpers like company-mode, paredit-mode when you write code
 One of the most common errors that you can have if you're writing your =init.el= through org-mode is that you forget to close parentheses when you're writing between source code blocks. If you've forgotten some parentheses, this will produce the =End of file during parsing= error. This can be easily checked in the =init.el= file that was tangled using =M-x check-parens RET=.[fn:3]
 
 You can also enable =show-paren-mode=, which will help
+
+* Introduction - The inner workings of this literate configuration
+
+Since I want to be able to treat my code in as modular a way as possible, I am separating the modules of my configuration to different org mode files, which will be later tangled to their respective Emacs Lisp modules. This also includes the possibility for the future to tangle to different Emacs Lisp documents, as for now, everything is centralised into a single =init.el= file.
+
+This will allow much simpler debugging when another package is starting to go haywire and will allow writing down personal Lisp modules more easily.
+
+The main file only contains the very basic bootstrapping commands for the package manager. Everything else will be managed in separate files.
+
+This file also serves as a design document for how the documents are also laid out. For more detail into each function, there will be a link added to the relevant =org-mode= configuration module.
+
+Thus, ths entire configuration is built in the style of a README, and more relevant points are to be found in different documents.
+
+The rationale for this configuration is also further explained in 
