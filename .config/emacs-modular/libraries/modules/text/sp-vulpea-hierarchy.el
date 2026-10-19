@@ -27,7 +27,7 @@
   :type 'string)
 
 (defcustom vulpea-hierarchy-graph-file
-  (expand-file-name "vulpea-hierarchy.svg" temporary-file-directory)
+  (expand-file-name "vulpea-hierarchy.svg" sp-cache-dir)
   "Where `vulpea-hierarchy-graph' writes its SVG."
   :type 'file)
 
