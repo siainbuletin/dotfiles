@@ -22,7 +22,7 @@
   "Parent/child views of vulpea notes."
   :group 'vulpea)
 
-(defcustom vulpea-hierarchy-parent-key "parent"
+(defcustom vulpea-hierarchy-parent-key "parents"
   "Metadata key that holds a note's parent link."
   :type 'string)
 
