@@ -1,5 +1,7 @@
 #+title: sp-vulpea-hierarchy
-#+PROPERTY: header-args:elisp :tangle ../../libraries/modules/text/sp-vulpea-hierarchy.el :padline no :comments no
+#+PROPERTY: header-args:emacs-lisp :tangle ../../libraries/modules/text/sp-vulpea-hierarchy.el :comments no :padline yes :noweb no :mkdirp yes
+
+Literate source for =libraries/modules/text/sp-vulpea-hierarchy.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 * Parent/child views of vulpea notes
 
@@ -18,7 +20,7 @@ As a proposal for the future, it would be nice to try to use Emacs 32's new Canv
 
 The module is loaded from =init.el=, in the Academic block of =lem--default-modules=, right after =sp-dgraphs=:
 
-#+begin_src elisp :tangle no
+#+begin_src emacs-lisp :tangle no
 'sp-vulpea-hierarchy
 #+end_src
 
@@ -32,7 +34,7 @@ Line numbers below refer to =libraries/modules/text/sp-vulpea-hierarchy.el=. Tan
 
 Lines 1-16 are the file header. Line 1 names the file and turns on =lexical-binding=, which the closures in the code need. Line 3 declares the minimum Emacs version (29.1) and vulpea (2.7.0). The commentary (lines 5-13) states the metadata format the module expects and the two commands. Line 15 marks where the code starts.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 ;;; sp-vulpea-hierarchy.el --- Parent/child views of vulpea notes -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0"))
@@ -57,7 +59,7 @@ Lines 1-16 are the file header. Line 1 names the file and turns on =lexical-bind
 - Line 18 loads =subr-x= for =string-join= and =if-let=.
 - Line 19 loads =vulpea=, which provides the database query and metadata functions used everywhere below.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 (require 'cl-lib)
 (require 'subr-x)
 (require 'vulpea)
@@ -70,7 +72,7 @@ Lines 1-16 are the file header. Line 1 names the file and turns on =lexical-bind
 - Lines 27-30 define =vulpea-hierarchy-graph-file=, where the SVG is written (a file in the temporary directory by default).
 - Lines 32-36 define =vulpea-hierarchy-rankdir=. ="LR"= draws parents on the left and children on the right, ="TB"= draws them top to bottom.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 (defgroup vulpea-hierarchy nil
   "Parent/child views of vulpea notes."
@@ -105,7 +107,7 @@ This function returns a plist with three keys: =:notes= (id to note), =:children
 - Lines 51-55 load the parent notes themselves, when they don't carry a parent key. Without this their titles would show as =<missing …>=.
 - Lines 56-64 return the plist. The roots are the collected parent ids minus the ids with a parent, sorted by title. =delete-dups= removes repeated parents, since one parent can have several children.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 (defun vulpea-hierarchy--build ()
   "Return a plist describing the hierarchy.
 :notes maps id to note, :children maps parent id to child ids,
@@ -140,7 +142,7 @@ This function returns a plist with three keys: =:notes= (id to note), =:children
 - Line 66 defines the helper. It takes an id and the notes table.
 - Lines 67-70 return the note's title. If the id is not in the table (a dangling link, where the parent note was deleted), it returns =<missing ID>=. The graph and outline show that marker instead of failing.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 (defun vulpea-hierarchy--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
@@ -156,7 +158,7 @@ This function returns a plist with three keys: =:notes= (id to note), =:children
 - Line 74 copies the child list before sorting, so the hash table value isn't changed in place.
 - Lines 75-78 sort by title, using the title helper so dangling children still sort.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 (defun vulpea-hierarchy--sorted-children (id tree)
   "Child ids of ID in TREE, sorted by title."
@@ -179,7 +181,7 @@ Line 80 is a section heading in the file. The outline writes Org headings, one p
 - Line 94 ends the heading line.
 - Lines 95-96 check for a cycle. If the id is already one of its own ancestors, a =cycle back= heading is written instead of recursing. Otherwise every child is written at depth plus one, with the id added to =seen=.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 ;;; Outline view
 
@@ -210,7 +212,7 @@ SEEN guards against parent cycles."
 - Lines 104-112 fill the buffer: erase it, switch to =org-mode=, write each root at depth 1, move to the top, fold to level 2 with =org-content=, and make the buffer read-only. =inhibit-read-only= lets the erase run on a read-only buffer.
 - Line 115 shows the buffer.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 ;;;###autoload
 (defun vulpea-hierarchy-outline ()
@@ -234,7 +236,7 @@ SEEN guards against parent cycles."
 
 Line 117 is a section heading. The following code builds the Graphviz source.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 ;;; Graph view
 
@@ -252,7 +254,7 @@ This function returns Graphviz (DOT) text for the tree.
 - Lines 143-146 write one edge per parent to child link, after all the nodes.
 - Lines 147-148 close the graph and return the text.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 (defun vulpea-hierarchy--dot (tree)
   "Return Graphviz source for TREE, one cluster per root."
   (let ((notes (plist-get tree :notes))
@@ -295,7 +297,7 @@ This function returns Graphviz (DOT) text for the tree.
 - Lines 157-161 write it to a temporary buffer and run =dot -Tsvg= on it, writing the SVG to =vulpea-hierarchy-graph-file=. Any failure stops with Graphviz's own message.
 - Lines 162-167 open the SVG file. Emacs uses =image-mode= for =.svg= files, so it displays as an image. =revert-buffer= refreshes it when the command runs again.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 ;;;###autoload
 (defun vulpea-hierarchy-graph ()
@@ -319,7 +321,7 @@ This function returns Graphviz (DOT) text for the tree.
 
 Line 169 provides the feature, so =(require 'sp-vulpea-hierarchy)= works. The module ends on the next line.
 
-#+begin_src elisp
+#+begin_src emacs-lisp
 
 (provide 'sp-vulpea-hierarchy)
 ;;; sp-vulpea-hierarchy.el ends here
