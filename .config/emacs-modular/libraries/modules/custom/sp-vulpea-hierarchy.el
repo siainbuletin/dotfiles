@@ -67,6 +67,24 @@
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
+(defun vulpea-hierarchy--parent-ids (note)
+  "Ids of every parent NOTE names under `vulpea-hierarchy-parent-key'.
+A value may hold several links, separated by commas or not, and the key
+may repeat.  Every link counts, not only the first one in a line."
+  (let (ids)
+    (dolist (value (cdr (assoc vulpea-hierarchy-parent-key
+                               (vulpea-note-meta note))))
+      (let ((pos 0) (found nil))
+        (while (string-match org-link-bracket-re value pos)
+          (setq found t)
+          (let ((link (match-string 1 value)))
+            (when (string-prefix-p "id:" link)
+              (push (string-remove-prefix "id:" link) ids)))
+          (setq pos (match-end 0)))
+        (when (and (not found) (not (string-empty-p (string-trim value))))
+          (push (string-trim value) ids))))
+    (delete-dups (seq-remove #'string-empty-p (nreverse ids)))))
+
 (defun vulpea-hierarchy--build ()
   "Return a plist describing the whole hierarchy.
 :notes maps id to note, :children maps parent id to child ids,
@@ -77,8 +95,7 @@
         parent-ids)
     (dolist (note (vulpea-db-query-by-meta-key vulpea-hierarchy-parent-key))
       (puthash (vulpea-note-id note) note notes)
-      (dolist (pid (vulpea-note-meta-get-list
-                    note vulpea-hierarchy-parent-key 'link))
+      (dolist (pid (vulpea-hierarchy--parent-ids note))
         (puthash (vulpea-note-id note) t has-parent)
         (push (vulpea-note-id note) (gethash pid children))
         (push pid parent-ids)))
