@@ -9,6 +9,7 @@ to fold or unfold it.
 
 * Open pull requests
 ** Added
+- Boxes in the browser graph and labels in the SVG export of =sp-vulpea-hierarchy= end with the note's file tags, and long titles wrap so all the text is visible. ([[https://github.com/siainbuletin/dotfiles/pull/15][#15]], Claude)
 - =vulpea-hierarchy-graph= opens the hierarchy as an interactive graph in the browser, and =vulpea-hierarchy-outline-vui= shows a trial outline built with =vui=. Every command first asks for a starting note and a depth. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
 ** Changed
 - The plain-button outline is renamed =vulpea-hierarchy-outline-native=, so it can be compared with the =vui= version. SVG exports from =vulpea-hierarchy-svg= are named by creation time, note and depth, so they no longer overwrite each other. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)

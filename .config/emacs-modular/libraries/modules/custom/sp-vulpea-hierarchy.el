@@ -54,6 +54,10 @@
   "Graphviz layout direction: \"LR\" (left to right) or \"TB\" (top down)."
   :type '(choice (const "LR") (const "TB")))
 
+(defcustom vulpea-hierarchy-wrap-width 28
+  "Number of characters after which node labels wrap in the SVG export."
+  :type 'integer)
+
 ;;;; Tree and scope
 
 (defun vulpea-hierarchy--note (id notes)
@@ -193,6 +197,7 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                 `((id . ,id)
                   (title . ,(vulpea-hierarchy--title id notes))
                   (path . ,(and note (vulpea-note-path note)))
+                  (tags . ,(vconcat (and note (vulpea-note-tags note))))
                   (more . ,(gethash id (plist-get scope :more) 0)))))
             (plist-get scope :nodes))))
          (edges
@@ -436,6 +441,35 @@ PATH holds the ancestors, so a cycle stops the recursion."
 
 ;;;; Static SVG export (Graphviz)
 
+(defun vulpea-hierarchy--wrap (text width)
+  "Return TEXT as a list of lines no longer than WIDTH, breaking long words."
+  (let (lines (line ""))
+    (dolist (word (split-string text))
+      (while (> (length word) width)
+        (when (> (length line) 0) (push line lines) (setq line ""))
+        (push (substring word 0 width) lines)
+        (setq word (substring word width)))
+      (cond ((string-empty-p line) (setq line word))
+            ((<= (+ (length line) 1 (length word)) width)
+             (setq line (concat line " " word)))
+            (t (push line lines) (setq line word))))
+    (unless (string-empty-p line) (push line lines))
+    (nreverse (or lines (list "")))))
+
+(defun vulpea-hierarchy--label (id notes)
+  "Return the title of ID from NOTES followed by its file tags, like :a:b:."
+  (let* ((note (vulpea-hierarchy--note id notes))
+         (tags (and note (vulpea-note-tags note))))
+    (concat (vulpea-hierarchy--title id notes)
+            (and tags (format " :%s:" (string-join tags ":"))))))
+
+(defun vulpea-hierarchy--dot-label (id notes)
+  "Return the wrapped, escaped Graphviz label text for ID."
+  (mapconcat (lambda (line) (replace-regexp-in-string "[\"\\\\]" "\\\\\\&" line))
+             (vulpea-hierarchy--wrap (vulpea-hierarchy--label id notes)
+                                     vulpea-hierarchy-wrap-width)
+             "\\n"))
+
 (defun vulpea-hierarchy--dot (tree)
   "Return Graphviz source for TREE, one cluster per root."
   (let ((notes (plist-get tree :notes))
@@ -455,8 +489,8 @@ PATH holds the ancestors, so a cycle stops the recursion."
               (let ((id (pop queue)))
                 (unless (gethash id drawn)
                   (puthash id t drawn)
-                  (insert (format "    %S [label=%S%s];\n"
-                                  id (vulpea-hierarchy--title id notes)
+                  (insert (format "    %S [label=\"%s\"%s];\n"
+                                  id (vulpea-hierarchy--dot-label id notes)
                                   (if (equal id root)
                                       ", fillcolor=\"#d8e6f5\", penwidth=2"
                                     "")))
