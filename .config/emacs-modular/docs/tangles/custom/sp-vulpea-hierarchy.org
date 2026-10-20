@@ -9,6 +9,8 @@ Literate source for =libraries/modules/custom/sp-vulpea-hierarchy.el= and its pa
 
 My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records its parents with a =- parents :: [[id:…][Title]]= line in its zeroth section, and vulpea stores that as metadata. A note can have several parents: either one link after another on the same line, separated by commas, or one =- parents ::= line per parent. =vulpea-graph= doesn't draw this hierarchy (it analyses links for retrieval and shows lists), so this module reads the =parents= metadata and builds the tree itself.
 
+Besides =parents=, a note can relate to other notes in other ways: =supports=, =opposes=, =informs=, =answers=, or any relation you declare in =vulpea-hierarchy-relations=. Each relation lists the places it is read from: a metadata key on the note, the inverse of a key on the other note (=children= for =parents=), or a file property such as =DG_SUPPORTS=, which is how =discourse-graphs= stores its relations. Parents and children build the tree. The other relations are drawn as labelled, coloured, dashed links between two notes that are both in view.
+
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
 ** The commands
@@ -36,14 +38,14 @@ The graph view needs Graphviz (=brew install graphviz= on macOS), and the vui ou
 
 Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
 
-*** Header and commentary (lines 1–21)
+*** Header and commentary (lines 1–25)
 
 - Line 1 names the file and turns on =lexical-binding=, which the closures below need.
 - Line 3 declares the minimum versions: Emacs 29.1, vulpea 2.7.0, and vui 1.4.0 for the trial outline.
-- Lines 5-19 are the commentary. Lines 10-13 list the four commands. Lines 15-16 say every command asks for a starting note and a depth, and that the depth counts levels below the starting note.
+- Lines 5-23 are the commentary. Lines 10-13 list the four commands. Lines 15-16 say every command asks for a starting note and a depth, and that the depth counts levels below the starting note.
 - Lines 16-19 explain the limits: notes on the last level show how many children they hide, the browser graph can't load more (run it again with a bigger depth), and the outline expands any node on demand.
-- Line 21 marks where the code starts.
-
+- Lines 21-23 say that other relations are drawn as labelled links, and point to =vulpea-hierarchy-relations=.
+- Line 25 marks where the code starts.
 #+begin_src emacs-lisp :padline no
 ;;; sp-vulpea-hierarchy.el --- Parent/child views of vulpea notes -*- lexical-binding: t; -*-
 
@@ -64,19 +66,23 @@ Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
 ;; how many children they hide.  The browser graph can't load more, so
 ;; run the command again with a bigger depth.  The outline expands any
 ;; node on demand.
+;;
+;; Other relations between notes (`supports', `opposes', ...) are drawn
+;; as labelled links.  See `vulpea-hierarchy-relations' for how to
+;; declare them and where each one is read from.
 
 ;;; Code:
 #+end_src
 
-*** Requires (lines 23–29)
+*** Requires (lines 27–33)
 
-- Line 23 loads =cl-lib= for =cl-loop= and =cl-incf=.
-- Line 24 loads =subr-x= for =if-let=, =when-let=, =thread-last= and =string-empty-p=.
-- Line 25 loads =seq= for =seq-remove=.
-- Line 26 loads =json= for =json-encode=, which writes the data of the browser page.
-- Line 27 loads =vulpea=, which provides the database queries and the =vulpea-note= struct.
-- Line 28 loads =vulpea-select=, the note picker used to choose the starting note.
-- Line 29 loads =vui=, used only by the trial outline.
+- Line 27 loads =cl-lib= for =cl-loop= and =cl-incf=.
+- Line 28 loads =subr-x= for =if-let=, =when-let=, =thread-last= and =string-empty-p=.
+- Line 29 loads =seq= for =seq-remove=.
+- Line 30 loads =json= for =json-encode=, which writes the data of the browser page.
+- Line 31 loads =vulpea=, which provides the database queries and the =vulpea-note= struct.
+- Line 32 loads =vulpea-select=, the note picker used to choose the starting note.
+- Line 33 loads =vui=, used only by the trial outline.
 
 #+begin_src emacs-lisp
 (require 'cl-lib)
@@ -88,24 +94,56 @@ Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
 (require 'vui)
 #+end_src
 
-*** Customisation (lines 31–59)
+*** Customisation (lines 35–92)
 
-- Lines 31-33 create the =vulpea-hierarchy= group under =vulpea=, so the options show up in =M-x customize-group=.
-- Lines 35-37 define =vulpea-hierarchy-parent-key=, the metadata key that names a note's parents. It is =parents=, as in =- parents :: [[id:…][Title]]=.
-- Lines 39-41 define the depth offered by default when the commands ask for one (2).
-- Lines 43-46 define where the browser page is written, in =sp-cache-dir=.
-- Lines 48-51 define the directory for SVG exports, also in =sp-cache-dir=. Each export gets its own file name there.
-- Lines 53-55 define the Graphviz layout direction: ="LR"= puts parents on the left, ="TB"= puts them on top.
-- Lines 57-59 define =vulpea-hierarchy-wrap-width=, the number of characters after which a label wraps in the SVG export (28). The browser page wraps by measuring the text instead, so it ignores this option.
+- Lines 35-37 create the =vulpea-hierarchy= group under =vulpea=, so the options show up in =M-x customize-group=.
+- Lines 39-70 define =vulpea-hierarchy-relations=, the list of relations between notes. This replaces the old =vulpea-hierarchy-parent-key= option. Each entry has a name, a label and colour for the views (39-51), and a list of /sources/ that say where to look for its edges.
+- Lines 40-41 define =parent=, the relation that builds the tree. It has two sources: the =parents= key on a sub-note, and the =children= key on a parent, so a note can list its children as well as its parents.
+- Lines 42-49 define =supports=, =opposes=, =informs= and =answers=, the typed relations that =discourse-graphs= uses. Each reads a metadata key (=- supports :: [[id:…][Title]]=) and the same name as a file property (=DG_SUPPORTS=), so notes written for either work.
+- Lines 50-70 are the documentation string: an edge reads "subject name object", and the four kinds of source are =meta=, =meta-inverse=, =property= and =property-inverse=.
+- Lines 72-74 define the depth offered by default when the commands ask for one (2).
+- Lines 76-79 define where the browser page is written, in =sp-cache-dir=.
+- Lines 81-84 define the directory for SVG exports, also in =sp-cache-dir=. Each export gets its own file name there.
+- Lines 86-88 define the Graphviz layout direction: ="LR"= puts parents on the left, ="TB"= puts them on top.
+- Lines 90-92 define =vulpea-hierarchy-wrap-width=, the number of characters after which a label wraps in the SVG export (32). The browser page wraps by measuring the text instead, so it ignores this option.
 
 #+begin_src emacs-lisp
 (defgroup vulpea-hierarchy nil
   "Parent/child views of vulpea notes."
   :group 'vulpea)
 
-(defcustom vulpea-hierarchy-parent-key "parents"
-  "Metadata key that holds a note's parent link."
-  :type 'string)
+(defcustom vulpea-hierarchy-relations
+  '((parent :label "parent" :color "#888888"
+            :sources ((meta "parents") (meta-inverse "children")))
+    (supports :label "supports" :color "#2e8b57"
+              :sources ((meta "supports") (property "DG_SUPPORTS")))
+    (opposes :label "opposes" :color "#c0392b"
+             :sources ((meta "opposes") (property "DG_OPPOSES")))
+    (informs :label "informs" :color "#2874a6"
+             :sources ((meta "informs") (property "DG_INFORMS")))
+    (answers :label "answers" :color "#8e44ad"
+             :sources ((meta "answers") (property "DG_ANSWERS"))))
+  "Relations between notes, as (NAME :label LABEL :color COLOR :sources SOURCES).
+The relation `parent' is the one that builds the tree: its edges run
+from a parent down to its children.  Every other relation is drawn as a
+labelled link between two notes that are both in view.
+
+An edge reads \"SUBJECT NAME OBJECT\", for example \"claim supports
+question\".  Each of SOURCES says where to look for edges, and a
+relation may have several:
+
+  (meta KEY)           the note is the subject; the links in its
+                       metadata KEY (\"- KEY :: [[id:..][..]]\") are objects.
+  (meta-inverse KEY)   the note is the object; the links in its metadata
+                       KEY are subjects.  \"- children :: ..\" on a note
+                       gives the parent edge of each child.
+  (property KEY)       the note is the subject; the links, or bare ids,
+                       in its file property KEY are objects.
+  (property-inverse KEY)
+                       like `meta-inverse', but read from a file property.
+
+COLOR is used for the links in the browser page and the SVG export."
+  :type '(alist :key-type symbol :value-type plist))
 
 (defcustom vulpea-hierarchy-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
@@ -130,11 +168,11 @@ Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
   :type 'integer)
 #+end_src
 
-*** Finding notes and titles (lines 61–74)
+*** Finding notes and titles (lines 94–107)
 
-- Line 61 starts the section of code that builds the tree and cuts the part to show.
-- Lines 63-68 define =vulpea-hierarchy--note=. It first looks the id up in the =notes= table (65). If it isn't there, it asks the database with =vulpea-db-get-by-id= (66), stores the note in the table (67) and returns it (68). That way a parent that was not loaded up front still gets its title.
-- Lines 70-74 define =vulpea-hierarchy--title=. It returns the note's title (72-73), or =<missing ID>= for a link to a note that no longer exists (74), so a dangling link shows up in the views instead of breaking them.
+- Line 94 starts the section of code that builds the tree and cuts the part to show.
+- Lines 96-101 define =vulpea-hierarchy--note=. It first looks the id up in the =notes= table (98). If it isn't there, it asks the database with =vulpea-db-get-by-id= (99), stores the note in the table (100) and returns it (101). That way a parent that was not loaded up front still gets its title.
+- Lines 103-107 define =vulpea-hierarchy--title=. It returns the note's title (105-106), or =<missing ID>= for a link to a note that no longer exists (107), so a dangling link shows up in the views instead of breaking them.
 
 #+begin_src emacs-lisp
 ;;;; Tree and scope
@@ -153,29 +191,29 @@ Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
     (format "<missing %s>" id)))
 #+end_src
 
-*** Reading every parent of a note (lines 76–92)
+*** Reading the relations of a note (lines 109–165)
 
-This is where a note with several parents is handled. vulpea's own rule for several values is one =- parents ::= line per value, and the metadata then holds one entry per line. A single line that lists several links separated by commas stays one entry, and =vulpea-note-meta-get-list= with the =link= type only returns the first link of an entry. So this function reads every link itself.
+A note may name several parents, or several targets of another relation: either on one line, separated by commas, or on one line per value. vulpea keeps one entry per line, and a comma-separated line stays one entry, so =vulpea-note-meta-get-list= with the =link= type would only return the first link of each. The functions here read every link themselves, and they work for every relation and every kind of source.
 
-- Lines 76-79 define the function: it takes a note and returns the ids of all its parents.
-- Line 80 starts an empty list, =ids=.
-- Lines 81-82 go through every value stored under the parent key. A repeated key gives several values, so repeated lines are covered here.
-- Line 83 sets =pos=, where to search next, and =found=, which records whether this value had any link.
-- Line 84 finds the next Org link in the value, starting at =pos=.
-- Line 85 records that a link was found.
-- Lines 86-88 take the link target and, when it starts with =id:=, add the id without the prefix.
-- Line 89 moves =pos= past this link, so the loop goes on to the next link in the same value. That is what makes a comma-separated line give every parent.
-- Lines 90-91 handle a value with no link at all: if it isn't blank, the trimmed text is taken as a bare id.
-- Line 92 puts the ids back in document order, drops empty ones (such as =[[id:][Title]]=), and removes duplicates.
+- Lines 109-126 define =vulpea-hierarchy--value-ids=. It takes a list of strings and returns the ids in them. It scans each string for every bracket link (117), keeps the ones that start with =id:= (120-121) and moves on after each (122). A string with no link at all is read as bare ids separated by commas or spaces (123-125), which is how a file property usually holds them. Duplicates are dropped (126).
+- Lines 128-135 define =vulpea-hierarchy--source-values=. For a metadata source it returns the strings stored under the key (131-132). For a property source it returns the property's value as a one-element list (133-135). The =-inverse= forms read the same place.
+- Lines 137-144 define =vulpea-hierarchy--source-notes=: the notes that might hold a source. Metadata sources use the database's key index (140-141). The database has no index of properties, so property sources test every note (142-144).
+- Lines 146-165 define =vulpea-hierarchy--edges=, which goes over every relation and every source and returns all the edges as =(subject relation object)=, plus a table of the notes it read.
+- Lines 149-151 bind the notes table, a =seen= table that drops an edge written twice (when a relation is declared both ways), and the list of edges.
+- Lines 152-154 go over each relation, each of its sources, and each note that may hold it.
+- Lines 156-157 get the ids that note names under that source.
+- Lines 158-161 build the edge. For a normal source the note is the subject, and for an inverse source it is the object.
+- Lines 162-164 keep the edge the first time it is seen.
+- Line 165 returns the edges and the notes.
 
 #+begin_src emacs-lisp
-(defun vulpea-hierarchy--parent-ids (note)
-  "Ids of every parent NOTE names under `vulpea-hierarchy-parent-key'.
-A value may hold several links, separated by commas or not, and the key
-may repeat.  Every link counts, not only the first one in a line."
+(defun vulpea-hierarchy--value-ids (values)
+  "Return the ids named in VALUES, a list of strings.
+A value may hold several links, separated by commas or not.  Every link
+counts, not only the first one in a value.  A value with no link is
+read as bare ids separated by commas or spaces."
   (let (ids)
-    (dolist (value (cdr (assoc vulpea-hierarchy-parent-key
-                               (vulpea-note-meta note))))
+    (dolist (value values)
       (let ((pos 0) (found nil))
         (while (string-match org-link-bracket-re value pos)
           (setq found t)
@@ -183,48 +221,91 @@ may repeat.  Every link counts, not only the first one in a line."
             (when (string-prefix-p "id:" link)
               (push (string-remove-prefix "id:" link) ids)))
           (setq pos (match-end 0)))
-        (when (and (not found) (not (string-empty-p (string-trim value))))
-          (push (string-trim value) ids))))
+        (unless found
+          (dolist (word (split-string value "[ ,]+" t))
+            (push word ids)))))
     (delete-dups (seq-remove #'string-empty-p (nreverse ids)))))
+
+(defun vulpea-hierarchy--source-values (note source)
+  "Return the strings that SOURCE finds in NOTE."
+  (pcase source
+    ((or `(meta ,key) `(meta-inverse ,key))
+     (cdr (assoc key (vulpea-note-meta note))))
+    ((or `(property ,key) `(property-inverse ,key))
+     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+       (list value)))))
+
+(defun vulpea-hierarchy--source-notes (source)
+  "Return the notes that may hold SOURCE."
+  (pcase source
+    ((or `(meta ,key) `(meta-inverse ,key))
+     (vulpea-db-query-by-meta-key key))
+    ((or `(property ,key) `(property-inverse ,key))
+     (vulpea-db-query
+      (lambda (note) (assoc key (vulpea-note-properties note)))))))
+
+(defun vulpea-hierarchy--edges ()
+  "Return every edge as (SUBJECT RELATION OBJECT), and the notes read.
+The second value is a hash table from id to note."
+  (let ((notes (make-hash-table :test #'equal))
+        (seen (make-hash-table :test #'equal))
+        edges)
+    (pcase-dolist (`(,relation . ,plist) vulpea-hierarchy-relations)
+      (dolist (source (plist-get plist :sources))
+        (dolist (note (vulpea-hierarchy--source-notes source))
+          (puthash (vulpea-note-id note) note notes)
+          (dolist (id (vulpea-hierarchy--value-ids
+                       (vulpea-hierarchy--source-values note source)))
+            (let* ((inverse (memq (car source) '(meta-inverse property-inverse)))
+                   (edge (if inverse
+                             (list id relation (vulpea-note-id note))
+                           (list (vulpea-note-id note) relation id))))
+              (unless (gethash edge seen)
+                (puthash edge t seen)
+                (push edge edges)))))))
+    (cons (nreverse edges) notes)))
 #+end_src
 
-*** Building the whole tree (lines 94–119)
+*** Building the whole tree (lines 167–198)
 
-This function returns a plist with three keys: =:notes= (id to note), =:children= (parent id to child ids) and =:roots= (parents that have no parent of their own).
+This function returns a plist with four keys: =:notes= (id to note), =:children= (parent id to child ids), =:links= (the edges of every other relation) and =:roots= (parents that have no parent of their own).
 
-- Lines 94-97 define the function and say what it returns.
-- Lines 98-101 create the three hash tables (=notes=, =children=, =has-parent=) and an empty =parent-ids= list. The tables use =equal=, so UUID strings work as keys.
-- Line 102 goes through every note that has the parent key.
-- Line 103 stores the note in =notes=.
-- Line 104 goes through all of that note's parents, using the function above.
-- Line 105 marks the note as having a parent, which keeps it out of the roots.
-- Line 106 adds the note to its parent's list of children.
-- Line 107 collects the parent id.
-- Lines 108-112 load the parents that don't carry the parent key themselves, in one query, so their titles are known.
-- Lines 113-119 return the plist. The roots are the parents that have no parent, sorted by title.
+- Lines 167-171 define the function and say what it returns.
+- Lines 172-177 read all edges (172) and create the =children= and =has-parent= tables, which use =equal= so UUID strings work as keys, and empty lists for the parent ids, the links and every id met.
+- Lines 178-180 go over each edge and collect both ends.
+- Lines 181-184 handle a =parent= edge: the subject (the child) is marked as having a parent, which keeps it out of the roots (182), is added to its parent's list of children (183), and the parent id is collected (184).
+- Line 185 keeps an edge of any other relation as a link.
+- Lines 186-190 load the notes that only appear as the end of an edge and were not read yet, in one query, so their titles are known.
+- Lines 191-198 return the plist. The roots are the parents that have no parent, sorted by title.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--build ()
   "Return a plist describing the whole hierarchy.
 :notes maps id to note, :children maps parent id to child ids,
-:roots lists ids that are parents but have no parent themselves."
-  (let ((notes (make-hash-table :test #'equal))
-        (children (make-hash-table :test #'equal))
-        (has-parent (make-hash-table :test #'equal))
-        parent-ids)
-    (dolist (note (vulpea-db-query-by-meta-key vulpea-hierarchy-parent-key))
-      (puthash (vulpea-note-id note) note notes)
-      (dolist (pid (vulpea-hierarchy--parent-ids note))
-        (puthash (vulpea-note-id note) t has-parent)
-        (push (vulpea-note-id note) (gethash pid children))
-        (push pid parent-ids)))
-    ;; Parents that carry no parent key themselves are not loaded yet.
+:roots lists ids that are parents but have no parent themselves, and
+:links lists the edges (SUBJECT RELATION OBJECT) of every other relation."
+  (pcase-let* ((`(,edges . ,notes) (vulpea-hierarchy--edges))
+               (children (make-hash-table :test #'equal))
+               (has-parent (make-hash-table :test #'equal))
+               (parent-ids nil)
+               (links nil)
+               (ids nil))
+    (pcase-dolist (`(,subject ,relation ,object) edges)
+      (push subject ids)
+      (push object ids)
+      (if (eq relation 'parent)
+          (progn (puthash subject t has-parent)
+                 (push subject (gethash object children))
+                 (push object parent-ids))
+        (push (list subject relation object) links)))
+    ;; Notes that only appear as the object of an edge are not loaded yet.
     (dolist (note (vulpea-db-query-by-ids
                    (seq-remove (lambda (id) (gethash id notes))
-                               (delete-dups parent-ids))))
+                               (delete-dups ids))))
       (puthash (vulpea-note-id note) note notes))
     (list :notes notes
           :children children
+          :links (nreverse links)
           :roots (sort (seq-remove (lambda (id) (gethash id has-parent))
                                    (delete-dups (copy-sequence parent-ids)))
                        (lambda (a b)
@@ -232,12 +313,12 @@ This function returns a plist with three keys: =:notes= (id to note), =:children
                                   (vulpea-hierarchy--title b notes)))))))
 #+end_src
 
-*** Sorted children (lines 121–127)
+*** Sorted children (lines 200–206)
 
-- Line 121 defines the helper, which takes an id and the tree.
-- Line 123 reads the notes table from the tree.
-- Line 124 copies the child list before sorting, so the table isn't changed in place.
-- Lines 125-127 sort by title. Dangling children still sort, because the title helper gives them a marker.
+- Line 200 defines the helper, which takes an id and the tree.
+- Line 202 reads the notes table from the tree.
+- Line 203 copies the child list before sorting, so the table isn't changed in place.
+- Lines 204-206 sort by title. Dangling children still sort, because the title helper gives them a marker.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--sorted-children (id tree)
@@ -249,25 +330,27 @@ This function returns a plist with three keys: =:notes= (id to note), =:children
                      (vulpea-hierarchy--title b notes))))))
 #+end_src
 
-*** Cutting the part to show (lines 129–157)
+*** Cutting the part to show (lines 208–241)
 
 This function takes the whole tree and keeps only what is within =depth= levels of =start=. It works breadth first.
 
-- Lines 129-133 define the function and describe the result: the same keys as the tree, plus =:more= (how many children a last-level note hides) and =:nodes= (the ids in scope), with =:roots= set to just the start.
-- Lines 134-139 set up the state: the shared notes table, a new =children= table for the cut tree, the =more= table, the =seen= table, the list of =nodes= and a queue of =(id . level)= pairs.
-- Line 140 marks the start note as seen.
-- Lines 141-142 take the next pair from the queue.
-- Line 143 gets the note's children, sorted, from the full tree.
-- Lines 144-150 handle a note above the last level: every child gets an edge (145-146). The first time a child is met, it is marked (148), added to the nodes (149) and queued one level down (150). A child that was already seen still gets its edge, so a note with two parents shows under both.
-- Lines 151-152 handle a note on the last level: its children are not shown, only counted in =more=.
-- Lines 153-157 return the cut tree.
+- Lines 208-213 define the function and describe the result: the same keys as the tree, plus =:more= (how many children a last-level note hides) and =:nodes= (the ids in scope), with =:roots= set to just the start. =:links= keeps only the links between two notes that are in scope.
+- Lines 214-219 set up the state: the shared notes table, a new =children= table for the cut tree, the =more= table, the =seen= table, the list of =nodes= and a queue of =(id . level)= pairs.
+- Line 220 marks the start note as seen.
+- Lines 221-222 take the next pair from the queue.
+- Line 223 gets the note's children, sorted, from the full tree.
+- Lines 224-230 handle a note above the last level: every child gets an edge (225-226). The first time a child is met, it is marked (228), added to the nodes (229) and queued one level down (230). A child that was already seen still gets its edge, so a note with two parents shows under both.
+- Lines 231-232 handle a note on the last level: its children are not shown, only counted in =more=.
+- Line 233 puts the nodes in the order they were found.
+- Lines 234-241 return the cut tree, with the links filtered to the notes that were seen (239-241).
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--scope (tree start depth)
   "Return the part of TREE reached from START within DEPTH levels.
 The result has the same keys as the tree, plus :more, which maps an
 id at the last level to how many children it hides, and :nodes, the
-ids in scope.  :roots is just (START)."
+ids in scope.  :roots is just (START).  :links keeps the other
+relations between two notes that are both in scope."
   (let ((notes (plist-get tree :notes))
         (children (make-hash-table :test #'equal))
         (more (make-hash-table :test #'equal))
@@ -287,19 +370,23 @@ ids in scope.  :roots is just (START)."
                   (setq queue (append queue (list (cons kid (1+ level)))))))
             (when kids
               (puthash id (length kids) more))))))
+    (setq nodes (nreverse nodes))
     (list :notes notes
           :children children
           :more more
           :roots (list start)
-          :nodes (nreverse nodes))))
+          :nodes nodes
+          :links (seq-filter (pcase-lambda (`(,subject ,_ ,object))
+                               (and (gethash subject seen) (gethash object seen)))
+                             (plist-get tree :links)))))
 #+end_src
 
-*** Asking for the starting note and depth (lines 159–165)
+*** Asking for the starting note and depth (lines 243–249)
 
-- Line 161 asks for a note with =vulpea-select=. =:require-match t= allows only existing notes.
-- Line 162 asks for the depth, offering =vulpea-hierarchy-default-depth=.
-- Lines 163-164 stop with a message when there is no note or the depth is below 1.
-- Line 165 returns the note id and the depth as a pair. Every command starts with this function.
+- Line 245 asks for a note with =vulpea-select=. =:require-match t= allows only existing notes.
+- Line 246 asks for the depth, offering =vulpea-hierarchy-default-depth=.
+- Lines 247-248 stop with a message when there is no note or the depth is below 1.
+- Line 249 returns the note id and the depth as a pair. Every command starts with this function.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--read-scope ()
@@ -311,11 +398,11 @@ ids in scope.  :roots is just (START)."
     (cons (vulpea-note-id note) (truncate depth))))
 #+end_src
 
-*** Browser view: the template file (lines 167–179)
+*** Browser view: the template file (lines 251–263)
 
-- Line 167 starts the browser section.
-- Lines 169-173 define the path of the HTML template, which sits next to the module as =sp-vulpea-hierarchy.html=. It is worked out from =load-file-name= when the file is loaded, or =buffer-file-name= when it is evaluated in a buffer.
-- Lines 175-179 define the function that reads the template into a string.
+- Line 251 starts the browser section.
+- Lines 253-257 define the path of the HTML template, which sits next to the module as =sp-vulpea-hierarchy.html=. It is worked out from =load-file-name= when the file is loaded, or =buffer-file-name= when it is evaluated in a buffer.
+- Lines 259-263 define the function that reads the template into a string.
 
 #+begin_src emacs-lisp
 ;;;; Browser view
@@ -333,11 +420,11 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (buffer-string)))
 #+end_src
 
-*** Making the data safe for the page (lines 181–187)
+*** Making the data safe for the page (lines 265–271)
 
-- Line 183 turns off pretty-printing, so the JSON stays compact.
-- Line 184 encodes the data with =json-encode=.
-- Lines 185-187 replace =<=, =>= and =&= with Unicode escapes. A note title like =</script>= then can't end the page's script early.
+- Line 267 turns off pretty-printing, so the JSON stays compact.
+- Line 268 encodes the data with =json-encode=.
+- Lines 269-271 replace =<=, =>= and =&= with Unicode escapes. A note title like =</script>= then can't end the page's script early.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--json-for-html (object)
@@ -349,16 +436,34 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                  (string-replace "&" "\\u0026"))))
 #+end_src
 
-*** Building the page (lines 189–216)
+*** Building the page (lines 273–324)
 
-- Lines 189-190 define the function: it takes the cut tree, the start id and the depth.
-- Line 191 reads the notes table.
-- Lines 192-202 build the nodes. For every id in scope (202) it looks up the note (196) and makes an entry with the id, the title, the file path (empty when unknown, line 199), the file tags (200) and how many children are hidden (201). The tags go out as a JSON array, empty when there are none, and the page writes them after the title.
-- Lines 203-210 build the edges: the children table is turned into a list of pairs (205-209), and every parent and child pair becomes a two-element vector (210).
-- Lines 211-214 collect the root, the depth, the nodes and the edges into one object.
-- Lines 215-216 put the encoded data into the template, in place of =__DATA__=.
+- Lines 273-275 define =vulpea-hierarchy--relation-style=: it reads one setting, such as the label or the colour, of a relation from =vulpea-hierarchy-relations=, with a default.
+- Lines 277-286 define =vulpea-hierarchy--relations-json=. It lists the name, label and colour of every relation that has a link in view, so the page can colour the links and fill its legend.
+- Lines 288-289 define the page function: it takes the cut tree, the start id and the depth.
+- Line 290 reads the notes table.
+- Lines 291-301 build the nodes. For every id in scope (301) it looks up the note (295) and makes an entry with the id, the title, the file path (empty when unknown, 298), the file tags (299) and how many children are hidden (300). The tags go out as a JSON array, empty when there are none, and the page writes them after the title.
+- Lines 302-309 build the edges: the children table is turned into a list of pairs (304-308), and every parent and child pair becomes a two-element vector (309).
+- Lines 310-315 build the links: one object with the subject, the object and the relation name for each link in scope.
+- Lines 316-322 collect the root, the depth, the nodes, the edges, the links and the relations into one object.
+- Lines 323-324 put the encoded data into the template, in place of =__DATA__=.
 
 #+begin_src emacs-lisp
+(defun vulpea-hierarchy--relation-style (relation key &optional default)
+  "Return KEY of RELATION from `vulpea-hierarchy-relations', or DEFAULT."
+  (or (plist-get (cdr (assq relation vulpea-hierarchy-relations)) key) default))
+
+(defun vulpea-hierarchy--relations-json (links)
+  "Return the name, label and colour of each relation used by LINKS."
+  (vconcat
+   (mapcar (lambda (relation)
+             `((name . ,(symbol-name relation))
+               (label . ,(vulpea-hierarchy--relation-style
+                          relation :label (symbol-name relation)))
+               (color . ,(vulpea-hierarchy--relation-style
+                          relation :color "#888888"))))
+           (delete-dups (mapcar #'cadr links)))))
+
 (defun vulpea-hierarchy--html (scope start depth)
   "Return a self-contained HTML page showing SCOPE from START to DEPTH."
   (let* ((notes (plist-get scope :notes))
@@ -381,21 +486,30 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                                (plist-get scope :children))
                       acc)
                     append (mapcar (lambda (kid) (vector parent kid)) kids))))
+         (links
+          (vconcat
+           (mapcar (pcase-lambda (`(,subject ,relation ,object))
+                     `((from . ,subject) (to . ,object)
+                       (rel . ,(symbol-name relation))))
+                   (plist-get scope :links))))
          (data `((root . ,start)
                  (depth . ,depth)
                  (nodes . ,nodes)
-                 (edges . ,edges))))
+                 (edges . ,edges)
+                 (links . ,links)
+                 (relations . ,(vulpea-hierarchy--relations-json
+                                (plist-get scope :links))))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
                     (vulpea-hierarchy--html-template))))
 #+end_src
 
-*** The graph command (lines 218–227)
+*** The graph command (lines 326–335)
 
-- Line 218 is the autoload cookie, so the command is available before the module loads, and line 219 defines it.
-- Line 221 makes it an interactive command.
-- Lines 222-223 ask for the scope, build the full tree and cut the requested part.
-- Lines 224-226 write the page to =vulpea-hierarchy-html-file= as UTF-8. The page contains non-ASCII characters.
-- Line 227 opens the file in the default browser.
+- Line 326 is the autoload cookie, so the command is available before the module loads, and line 327 defines it.
+- Line 329 makes it an interactive command.
+- Lines 330-331 ask for the scope, build the full tree and cut the requested part.
+- Lines 332-334 write the page to =vulpea-hierarchy-html-file= as UTF-8. The page contains non-ASCII characters.
+- Line 335 opens the file in the default browser.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -410,13 +524,13 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (browse-url-of-file vulpea-hierarchy-html-file)))
 #+end_src
 
-*** Native outline: state (lines 229–241)
+*** Native outline: state (lines 337–349)
 
-- Line 229 starts the section for the outline made of Emacs buttons.
-- Lines 231-232 define the full tree shown in the buffer.
-- Lines 234-235 define the table of ids whose children are shown.
-- Lines 237-238 define the id of the starting note.
-- Lines 240-241 define the depth the view was opened with.
+- Line 337 starts the section for the outline made of Emacs buttons.
+- Lines 339-340 define the full tree shown in the buffer.
+- Lines 342-343 define the table of ids whose children are shown.
+- Lines 345-346 define the id of the starting note.
+- Lines 348-349 define the depth the view was opened with.
 All four are buffer-local, so several outline buffers can exist at once.
 
 #+begin_src emacs-lisp
@@ -435,10 +549,10 @@ All four are buffer-local, so several outline buffers can exist at once.
   "Depth shown when the outline was opened.")
 #+end_src
 
-*** Native outline: mode and keys (lines 243–255)
+*** Native outline: mode and keys (lines 351–363)
 
-- Lines 243-250 define the keymap. It inherits from =special-mode-map= (245) and adds =TAB= for toggling (246), =c= for a new start and depth (247) and =g= for rebuilding (248).
-- Lines 252-255 define the major mode, derived from =special-mode=, so the buffer is read-only and =q= closes it.
+- Lines 351-358 define the keymap. It inherits from =special-mode-map= (353) and adds =TAB= for toggling (354), =c= for a new start and depth (355) and =g= for rebuilding (356).
+- Lines 360-363 define the major mode, derived from =special-mode=, so the buffer is read-only and =q= closes it.
 
 #+begin_src emacs-lisp
 (defvar vulpea-hierarchy-view-mode-map
@@ -456,13 +570,13 @@ TAB or a [+]/[-] button expands or collapses a note.  RET on a
 title visits the note.  c re-scopes, g rebuilds the view.")
 #+end_src
 
-*** Expanding to the chosen depth (lines 257–266)
+*** Expanding to the chosen depth (lines 365–374)
 
-- Line 259 starts a queue with the start note at level 0.
-- Lines 260-261 take the next pair.
-- Lines 262-263 act only on notes above the chosen depth that have children.
-- Line 264 marks the note as expanded.
-- Lines 265-266 queue its children one level down.
+- Line 367 starts a queue with the start note at level 0.
+- Lines 368-369 take the next pair.
+- Lines 370-371 act only on notes above the chosen depth that have children.
+- Line 372 marks the note as expanded.
+- Lines 373-374 queue its children one level down.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view--expand-to-depth ()
@@ -477,16 +591,16 @@ title visits the note.  c re-scopes, g rebuilds the view.")
             (push (cons kid (1+ level)) queue)))))))
 #+end_src
 
-*** Drawing one note (lines 268–283)
+*** Drawing one note (lines 376–391)
 
-- Lines 268-270 define the function: it takes an id, an indent level and the path of ancestors.
-- Lines 271-275 work out the children, whether the note is open (it has children and is marked expanded), and the note itself.
-- Line 276 remembers where the line starts.
-- Line 277 adds two spaces of indent per level.
-- Line 278 inserts the buttons of the line.
-- Line 279 puts the note id on the whole line as a text property, so =TAB= works anywhere on it.
-- Line 280 ends the line.
-- Lines 281-283 draw the children one level deeper when the note is open. The path of ancestors stops a cycle.
+- Lines 376-378 define the function: it takes an id, an indent level and the path of ancestors.
+- Lines 379-383 work out the children, whether the note is open (it has children and is marked expanded), and the note itself.
+- Line 384 remembers where the line starts.
+- Line 385 adds two spaces of indent per level.
+- Line 386 inserts the buttons of the line.
+- Line 387 puts the note id on the whole line as a text property, so =TAB= works anywhere on it.
+- Line 388 ends the line.
+- Lines 389-391 draw the children one level deeper when the note is open. The path of ancestors stops a cycle.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view--insert (id level path)
@@ -507,12 +621,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
         (vulpea-hierarchy-view--insert kid (1+ level) (cons id path))))))
 #+end_src
 
-*** The buttons of one line (lines 285–303)
+*** The buttons of one line (lines 393–411)
 
-- Lines 288-295 insert the toggle: a =[-]= or =[+]= button when there are children, or three spaces when there are none. The button calls the action function and remembers its kind (=toggle=) and the id.
-- Line 296 inserts a space.
-- Lines 297-302 insert the title as a button of kind =visit=. Its tooltip shows the file path.
-- Line 303 adds the number of children, in parentheses.
+- Lines 396-403 insert the toggle: a =[-]= or =[+]= button when there are children, or three spaces when there are none. The button calls the action function and remembers its kind (=toggle=) and the id.
+- Line 404 inserts a space.
+- Lines 405-410 insert the title as a button of kind =visit=. Its tooltip shows the file path.
+- Line 411 adds the number of children, in parentheses.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view--insert-line-body (id kids open note)
@@ -536,13 +650,13 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (when kids (insert (format "  (%d)" (length kids))))))
 #+end_src
 
-*** Redrawing the buffer (lines 305–318)
+*** Redrawing the buffer (lines 413–426)
 
-- Lines 307-308 allow writing to the read-only buffer and remember the current line.
-- Line 309 erases the buffer.
-- Lines 310-315 insert a grey header: the starting note, the depth and the keys.
-- Line 316 draws the starting note and, below it, whatever is open.
-- Lines 317-318 return to the line the cursor was on.
+- Lines 415-416 allow writing to the read-only buffer and remember the current line.
+- Line 417 erases the buffer.
+- Lines 418-423 insert a grey header: the starting note, the depth and the keys.
+- Line 424 draws the starting note and, below it, whatever is open.
+- Lines 425-426 return to the line the cursor was on.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view--redraw ()
@@ -561,11 +675,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (forward-line (max 0 (1- line)))))
 #+end_src
 
-*** Pressing a button (lines 320–334)
+*** Pressing a button (lines 428–442)
 
-- Line 322 reads the note id from the button.
-- Lines 324-328 handle a toggle button: the id is removed from the expanded table, or added to it, and the buffer is redrawn.
-- Lines 329-334 handle a title button: the note is looked up (330), the file is opened (332) and the cursor goes to the note's position (333-334).
+- Line 430 reads the note id from the button.
+- Lines 432-436 handle a toggle button: the id is removed from the expanded table, or added to it, and the buffer is redrawn.
+- Lines 437-442 handle a title button: the note is looked up (438), the file is opened (440) and the cursor goes to the note's position (441-442).
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view--button-action (button)
@@ -585,12 +699,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
            (goto-char (vulpea-note-pos note))))))))
 #+end_src
 
-*** TAB on a line (lines 336–344)
+*** TAB on a line (lines 444–452)
 
-- Line 339 reads the id from the line under the cursor.
-- Line 340 continues only when the note has children.
-- Lines 341-343 flip its expanded state.
-- Line 344 redraws the buffer.
+- Line 447 reads the id from the line under the cursor.
+- Line 448 continues only when the note has children.
+- Lines 449-451 flip its expanded state.
+- Line 452 redraws the buffer.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view-toggle ()
@@ -604,11 +718,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
       (vulpea-hierarchy-view--redraw))))
 #+end_src
 
-*** Rebuilding the view (lines 346–351)
+*** Rebuilding the view (lines 454–459)
 
-- Line 349 builds the tree again from the database, so notes added since the view was opened show up.
-- Line 350 expands to the chosen depth again.
-- Line 351 redraws.
+- Line 457 builds the tree again from the database, so notes added since the view was opened show up.
+- Line 458 expands to the chosen depth again.
+- Line 459 redraws.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view-redraw ()
@@ -619,11 +733,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
   (vulpea-hierarchy-view--redraw))
 #+end_src
 
-*** Changing the start and depth (lines 353–361)
+*** Changing the start and depth (lines 461–469)
 
-- Line 356 asks for a new start note and depth.
-- Lines 357-359 store them and clear the expanded table.
-- Lines 360-361 expand to the new depth and redraw.
+- Line 464 asks for a new start note and depth.
+- Lines 465-467 store them and clear the expanded table.
+- Lines 468-469 expand to the new depth and redraw.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy-view-recenter ()
@@ -637,15 +751,15 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (vulpea-hierarchy-view--redraw)))
 #+end_src
 
-*** The native outline command (lines 363–377)
+*** The native outline command (lines 471–485)
 
-- Line 363 is the autoload cookie.
-- Line 364 defines the command. It used to be called =vulpea-hierarchy-outline=, and now has the =-native= suffix, so it can be compared with the vui version.
-- Line 367 asks for the scope.
-- Lines 368-370 get or create the buffer =*vulpea hierarchy*= and turn on the mode.
-- Lines 371-374 set the tree, start, depth and a new expanded table.
-- Lines 375-376 expand to the depth and draw.
-- Line 377 shows the buffer.
+- Line 471 is the autoload cookie.
+- Line 472 defines the command. It used to be called =vulpea-hierarchy-outline=, and now has the =-native= suffix, so it can be compared with the vui version.
+- Line 475 asks for the scope.
+- Lines 476-478 get or create the buffer =*vulpea hierarchy*= and turn on the mode.
+- Lines 479-482 set the tree, start, depth and a new expanded table.
+- Lines 483-484 expand to the depth and draw.
+- Line 485 shows the buffer.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -665,12 +779,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
       (pop-to-buffer buf))))
 #+end_src
 
-*** Outline with vui: visiting a note (lines 379–387)
+*** Outline with vui: visiting a note (lines 487–495)
 
 This section is a trial of the same outline built with =vui=, a component library.
 
-- Line 379 starts the section.
-- Lines 381-387 define a helper that opens a note: it finds the note (383), stops with a message if it is missing (384), opens the file (385) and goes to the note's position (386-387).
+- Line 487 starts the section.
+- Lines 489-495 define a helper that opens a note: it finds the note (491), stops with a message if it is missing (492), opens the file (493) and goes to the note's position (494-495).
 
 #+begin_src emacs-lisp
 ;;;; Outline built with vui (trial)
@@ -684,15 +798,15 @@ This section is a trial of the same outline built with =vui=, a component librar
       (goto-char (vulpea-note-pos note)))))
 #+end_src
 
-*** Outline with vui: one note (lines 389–418)
+*** Outline with vui: one note (lines 497–526)
 
 Each note is one component with its own state, so pressing a button redraws only that branch.
 
-- Line 389 defines the component and its props: the id, the indent level, the path of ancestors, the tree, the depth, and whether it starts open.
-- Line 391 gives it one piece of state, =toggled=, which starts as =nil=.
-- Lines 393-396 work out the children, whether the note is open (the starting state flipped by =toggled=), the notes table and the note.
-- Lines 397-410 draw the line: indent (399), a =-= or =+= button when there are children (400-403), the title as a button without decoration (404-407), and the child count (408-410). vui adds the square brackets around buttons itself.
-- Lines 411-418 draw the children when the note is open, as a list of components one level deeper (412-417). Children above the chosen depth start open (417).
+- Line 497 defines the component and its props: the id, the indent level, the path of ancestors, the tree, the depth, and whether it starts open.
+- Line 499 gives it one piece of state, =toggled=, which starts as =nil=.
+- Lines 501-504 work out the children, whether the note is open (the starting state flipped by =toggled=), the notes table and the note.
+- Lines 505-518 draw the line: indent (507), a =-= or =+= button when there are children (508-511), the title as a button without decoration (512-515), and the child count (516-518). vui adds the square brackets around buttons itself.
+- Lines 519-526 draw the children when the note is open, as a list of components one level deeper (520-525). Children above the chosen depth start open (525).
 
 #+begin_src emacs-lisp
 (vui-defcomponent vulpea-hierarchy-node (id level path tree depth initially-open)
@@ -727,12 +841,12 @@ Each note is one component with its own state, so pressing a button redraws only
        (vui-fragment)))))
 #+end_src
 
-*** Outline with vui: the root (lines 420–431)
+*** Outline with vui: the root (lines 528–539)
 
-- Lines 420-421 define the root component, which takes the start, the depth and the tree.
-- Lines 423-427 draw a grey header with the start note, the depth and the keys.
-- Line 428 adds an empty line.
-- Lines 429-431 draw the starting note. It starts open when the depth is at least 1.
+- Lines 528-529 define the root component, which takes the start, the depth and the tree.
+- Lines 531-535 draw a grey header with the start note, the depth and the keys.
+- Line 536 adds an empty line.
+- Lines 537-539 draw the starting note. It starts open when the depth is at least 1.
 
 #+begin_src emacs-lisp
 (vui-defcomponent vulpea-hierarchy-root (start depth tree)
@@ -749,11 +863,11 @@ Each note is one component with its own state, so pressing a button redraws only
      :initially-open (> depth 0))))
 #+end_src
 
-*** Outline with vui: the command (lines 433–440)
+*** Outline with vui: the command (lines 541–548)
 
-- Line 433 is the autoload cookie, and line 434 defines the command.
-- Line 437 asks for the scope.
-- Lines 438-440 mount the root component in the buffer =*vulpea hierarchy (vui)*=, with a freshly built tree.
+- Line 541 is the autoload cookie, and line 542 defines the command.
+- Line 545 asks for the scope.
+- Lines 546-548 mount the root component in the buffer =*vulpea hierarchy (vui)*=, with a freshly built tree.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -766,10 +880,10 @@ Each note is one component with its own state, so pressing a button redraws only
                "*vulpea hierarchy (vui)*")))
 #+end_src
 
-*** Wrapping and labelling for Graphviz (lines 442–471)
+*** Wrapping and labelling for Graphviz (lines 550–579)
 Graphviz doesn't wrap text, so the module does it before writing the label. The browser page does its own wrapping in JavaScript, because only the browser knows how wide the text is.
 
-- Line 442 is the section comment.
+- Line 550 is the section comment.
 - =vulpea-hierarchy--wrap= cuts a text into lines of at most =width= characters. It fills a line word by word, starts a new line when the next word wouldn't fit, and cuts a word that is longer than a whole line.
 - =vulpea-hierarchy--label= returns the title followed by the file tags of the note, written as =:tag1:tag2:=. A note without tags, or a missing one, gets just the title.
 - =vulpea-hierarchy--dot-label= wraps that label to =vulpea-hierarchy-wrap-width=, puts a backslash before every ="= and =\= so the text is safe inside a Graphviz string, and joins the lines with the two characters =\n=, which Graphviz reads as a line break.
@@ -807,17 +921,18 @@ Graphviz doesn't wrap text, so the module does it before writing the label. The 
              "\\n"))
 #+end_src
 
-*** Graphviz source (lines 473–504)
+*** Graphviz source (lines 581–619)
 
 This function returns Graphviz (DOT) text for the cut tree.
 
-- Lines 473-477 define the function and bind the notes, the children and a =drawn= table, so a note is written once.
-- Lines 478-483 write the =digraph= header, the layout direction and the default style of nodes and edges.
-- Lines 484-486 loop over the roots (just the start note) and open a hidden cluster for each.
-- Lines 487-497 walk the tree breadth first. Each node is written once. Its label comes from =vulpea-hierarchy--dot-label= (493), so it holds the wrapped title and the file tags. The root gets a blue fill and a thick border (494-496).
-- Line 498 closes the cluster.
-- Lines 499-502 write one edge per parent and child pair.
-- Lines 503-504 close the graph and return the text.
+- Lines 581-585 define the function and bind the notes, the children and a =drawn= table, so a note is written once.
+- Lines 586-591 write the =digraph= header, the layout direction and the default style of nodes and edges.
+- Lines 592-594 loop over the roots (just the start note) and open a hidden cluster for each.
+- Lines 595-605 walk the tree breadth first. Each node is written once. Its label comes from =vulpea-hierarchy--dot-label= (601), so it holds the wrapped title and the file tags. The root gets a blue fill and a thick border (602-604).
+- Line 606 closes the cluster.
+- Lines 607-610 write one edge per parent and child pair.
+- Lines 611-617 write the links of the other relations. Each is dashed, has the relation's label and colour, and has =constraint=false=, so it doesn't pull the layout out of the tree.
+- Lines 618-619 close the graph and return the text.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--dot (tree)
@@ -850,16 +965,23 @@ This function returns Graphviz (DOT) text for the cut tree.
                  (dolist (kid kids)
                    (insert (format "  %S -> %S;\n" pid kid))))
                children)
+      (pcase-dolist (`(,subject ,relation ,object) (plist-get tree :links))
+        (insert (format "  %S -> %S [constraint=false, style=dashed, label=%S, fontsize=10, color=%S, fontcolor=%S];\n"
+                        subject object
+                        (vulpea-hierarchy--relation-style
+                         relation :label (symbol-name relation))
+                        (vulpea-hierarchy--relation-style relation :color "#888888")
+                        (vulpea-hierarchy--relation-style relation :color "#888888"))))
       (insert "}\n")
       (buffer-string))))
 #+end_src
 
-*** Naming the SVG file (lines 506–521)
+*** Naming the SVG file (lines 621–636)
 
-- Lines 506-509 define the slug: the title in lower case, every run of characters that aren't letters or digits replaced by a dash, and dashes trimmed from both ends. ="Value form"= becomes =value-form=.
-- Lines 511-514 define the function that names a new file, from the start id, the depth and the notes table.
-- Line 515 creates the export directory if it doesn't exist.
-- Lines 516-521 build the name =<date and time>-<note name>-<depth>.svg=, for example =20261020T163734-ethics-2.svg=, inside the export directory. The time is included so two exports on the same day never overwrite each other.
+- Lines 621-624 define the slug: the title in lower case, every run of characters that aren't letters or digits replaced by a dash, and dashes trimmed from both ends. ="Value form"= becomes =value-form=.
+- Lines 626-629 define the function that names a new file, from the start id, the depth and the notes table.
+- Line 630 creates the export directory if it doesn't exist.
+- Lines 631-636 build the name =<date and time>-<note name>-<depth>.svg=, for example =20261020T163734-ethics-2.svg=, inside the export directory. The time is included so two exports on the same day never overwrite each other.
 
 #+begin_src emacs-lisp
 (defun vulpea-hierarchy--slug (title)
@@ -880,13 +1002,13 @@ exports of the same note never overwrite each other."
    vulpea-hierarchy-svg-directory))
 #+end_src
 
-*** The SVG command (lines 523–539)
+*** The SVG command (lines 638–654)
 
-- Line 523 is the autoload cookie, and line 524 defines the command.
-- Lines 527-528 stop with a message when Graphviz isn't installed.
-- Lines 529-533 ask for the scope, build the tree, cut it, make the DOT text and choose the new file name.
-- Lines 534-538 run =dot -Tsvg= on that text and write the SVG. A failure stops with Graphviz's own message.
-- Line 539 opens the new file. Emacs shows =.svg= files as images.
+- Line 638 is the autoload cookie, and line 639 defines the command.
+- Lines 642-643 stop with a message when Graphviz isn't installed.
+- Lines 644-648 ask for the scope, build the tree, cut it, make the DOT text and choose the new file name.
+- Lines 649-653 run =dot -Tsvg= on that text and write the SVG. A failure stops with Graphviz's own message.
+- Line 654 opens the new file. Emacs shows =.svg= files as images.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -908,10 +1030,10 @@ exports of the same note never overwrite each other."
     (pop-to-buffer (find-file-noselect file))))
 #+end_src
 
-*** Provide (lines 541–542)
+*** Provide (lines 656–657)
 
-- Line 541 provides the feature, so =(require 'sp-vulpea-hierarchy)= works.
-- Line 542 is the conventional end-of-file line.
+- Line 656 provides the feature, so =(require 'sp-vulpea-hierarchy)= works.
+- Line 657 is the conventional end-of-file line.
 
 #+begin_src emacs-lisp
 (provide 'sp-vulpea-hierarchy)
@@ -937,15 +1059,17 @@ The browser graph is a single HTML page with its own style and script and no out
 <title>vulpea hierarchy</title>
 #+end_src
 
-*** Styles (lines 7–19)
+*** Styles (lines 7–23)
 - Line 8 defines the light colours as variables: background, text, muted text, box, edge and root box.
 - Line 9 switches to dark colours when the browser prefers dark, unless the page asks for light.
 - Line 10 does the same when the page asks for dark.
 - Line 11 makes the page fill the window.
 - Line 12 styles the header line, cut off with an ellipsis if it is too long.
 - Line 13 makes the drawing area fill the window below the header, with a grab cursor. =touch-action:none= lets touch screens pan it.
-- Lines 14-18 style the boxes and lines: fill and border, a different fill for the root, text that ignores the mouse (line 16 sets the font), and a muted colour for the tags and the hidden-children count (line 17).
-- Line 18 styles the connecting lines.
+- Lines 14-17 style the boxes: fill and border, a different fill for the root, text that ignores the mouse (line 16 sets the font), and a muted colour for the tags and the hidden-children count (line 17).
+- Line 18 styles the tree lines.
+- Lines 19-20 style the other relations: a dashed line, and a label with an outline in the page colour so it stays readable over the line.
+- Lines 21-22 place the legend at the bottom left and space its entries.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline no :mkdirp yes
 <style>
@@ -960,31 +1084,38 @@ svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node .tags,.node .more{fill:var(--muted)}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
+.link{fill:none;stroke-width:1.6;stroke-dasharray:6 4}
+.linklabel{font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
+#legend{position:absolute;left:12px;bottom:10px;color:var(--muted);font-size:12px}
+#legend span{margin-right:14px}
 </style>
 #+end_src
 
-*** Page body (lines 20–23)
-- Line 22 is the header, filled in by the script.
-- Line 23 is the drawing area. The group =vp= holds everything drawn, and it is moved and scaled to pan and zoom.
+*** Page body (lines 24–28)
+- Line 26 is the header, filled in by the script.
+- Line 27 is the drawing area. The group =vp= holds everything drawn, and it is moved and scaled to pan and zoom.
+- Line 28 is the legend, filled in by the script with one entry per relation in view.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline no :mkdirp yes
 </head>
 <body>
 <header id="head"></header>
 <svg id="v" xmlns="http://www.w3.org/2000/svg"><g id="vp"></g></svg>
+<div id="legend"></div>
 #+end_src
 
-*** Script: data and state (lines 24–39)
-- Line 25 is where Emacs puts the JSON (=__DATA__=).
-- Line 26 is the SVG namespace.
-- Line 27 sets the sizes. =W= is the box width, =PAD= the space left and right of the text, =LINE= the height of one text line, =VPAD= the space above and below the text, =GAP= the space between boxes in a column, =COL= the distance between columns.
-- Line 28 is the width left for text inside a box.
-- Lines 29-31 index the nodes by id and group the edges into a children table.
-- Line 32 is the set of boxes the user folded. Line 33 caches the wrapped text of each box.
-- Line 34 is the current pan and zoom.
-- Lines 35-36 find the drawing group and the =svg= element.
-- Lines 37-38 create an off-screen canvas, only to measure text. Its font matches the one in the stylesheet.
-- Line 39 tracks dragging, so that a drag is not taken for a click.
+*** Script: data and state (lines 29–46)
+- Line 30 is where Emacs puts the JSON (=__DATA__=).
+- Line 31 is the SVG namespace.
+- Line 32 sets the sizes. =W= is the box width, =PAD= the space left and right of the text, =LINE= the height of one text line, =VPAD= the space above and below the text, =GAP= the space between boxes in a column, =COL= the distance between columns.
+- Line 33 is the width left for text inside a box.
+- Lines 34-36 index the nodes by id and group the edges into a children table.
+- Line 37 is the set of boxes the user folded. Line 38 caches the wrapped text of each box.
+- Line 39 remembers where each box was drawn, so a link can find its two ends. Line 40 looks up the label and colour of each relation by name.
+- Line 41 is the current pan and zoom.
+- Lines 42-43 find the drawing group and the =svg= element.
+- Lines 44-45 create an off-screen canvas, only to measure text. Its font matches the one in the stylesheet.
+- Line 46 tracks dragging, so that a drag is not taken for a click.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline no :mkdirp yes
 <script>
@@ -997,6 +1128,8 @@ const kids = new Map();
 for (const [p, c] of D.edges) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(c); }
 const collapsed = new Set();
 const infoCache = new Map();
+const pos = new Map();
+const relStyle = new Map(D.relations.map(r => [r.name, r]));
 const view = { x: 40, y: 20, k: 1 };
 const vp = document.getElementById('vp');
 const svg = document.getElementById('v');
@@ -1005,8 +1138,8 @@ ctx.font = '14px system-ui, sans-serif';
 let dragStart = null, dragged = false;
 #+end_src
 
-*** Script: header text (lines 41–43)
-Lines 41-43 write the header: the start note, the depth, and a hint about the mouse.
+*** Script: header text (lines 48–50)
+Lines 48-50 write the header: the start note, the depth, and a hint about the mouse.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 document.getElementById('head').textContent =
@@ -1014,18 +1147,18 @@ document.getElementById('head').textContent =
   '  ·  click a box to fold  ·  scroll to zoom, drag to pan  ·  +N = hidden children (rerun with a bigger depth)';
 #+end_src
 
-*** Script: measuring text (lines 45–45)
-Line 45 returns how wide a string is in pixels, using the canvas. The wrapping below depends on it.
+*** Script: measuring text (lines 52–52)
+Line 52 returns how wide a string is in pixels, using the canvas. The wrapping below depends on it.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function measure(s) { return ctx.measureText(s).width; }
 #+end_src
 
-*** Script: the pieces of a label (lines 47–65)
+*** Script: the pieces of a label (lines 54–72)
 A label is a list of pieces, and a piece is never split across lines unless it is too long for a whole line.
 
-- Lines 47-52 define =tokensOf=. It makes one piece per word of the title (48), then the file tags as one muted piece like =:idea:ethics:= (49), then the hidden-children count such as =+3= (50). The =cls= field picks the style.
-- Lines 54-65 define =breakToken=. A piece wider than a line, such as a very long word, is cut into the longest parts that fit (57-62).
+- Lines 54-59 define =tokensOf=. It makes one piece per word of the title (55), then the file tags as one muted piece like =:idea:ethics:= (56), then the hidden-children count such as =+3= (57). The =cls= field picks the style.
+- Lines 61-72 define =breakToken=. A piece wider than a line, such as a very long word, is cut into the longest parts that fit (64-69).
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function tokensOf(n) {
@@ -1049,8 +1182,8 @@ function breakToken(tok) {
 }
 #+end_src
 
-*** Script: wrapping (lines 67–80)
-Lines 67-80 define =wrap=. It places the pieces on lines one at a time, with a space between them (70-77). When the next piece would pass =TEXT_W=, it starts a new line. The result is a list of lines, each a list of pieces.
+*** Script: wrapping (lines 74–87)
+Lines 74-87 define =wrap=. It places the pieces on lines one at a time, with a space between them (77-84). When the next piece would pass =TEXT_W=, it starts a new line. The result is a list of lines, each a list of pieces.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function wrap(tokens) {
@@ -1069,8 +1202,8 @@ function wrap(tokens) {
 }
 #+end_src
 
-*** Script: the size of one box (lines 82–89)
-Lines 82-89 define =info=, which returns the node, its wrapped lines and its height. The height is the number of lines times =LINE=, plus =VPAD= above and below (86). Because every box now has its own height, the layout below can't assume a fixed one. The result is cached, so a box is wrapped once however often the view is redrawn.
+*** Script: the size of one box (lines 89–96)
+Lines 89-96 define =info=, which returns the node, its wrapped lines and its height. The height is the number of lines times =LINE=, plus =VPAD= above and below (93). Because every box now has its own height, the layout below can't assume a fixed one. The result is cached, so a box is wrapped once however often the view is redrawn.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function info(id) {
@@ -1083,8 +1216,8 @@ function info(id) {
 }
 #+end_src
 
-*** Script: creating SVG elements (lines 91–96)
-Lines 91-96 define =el=: create an SVG element, set its attributes, add it to a parent and return it.
+*** Script: creating SVG elements (lines 98–103)
+Lines 98-103 define =el=: create an SVG element, set its attributes, add it to a parent and return it.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function el(tag, attrs, parent) {
@@ -1095,21 +1228,21 @@ function el(tag, attrs, parent) {
 }
 #+end_src
 
-*** Script: children of a node (lines 98–98)
-Line 98 returns the children of a node, or none if the user folded it.
+*** Script: children of a node (lines 105–105)
+Line 105 returns the children of a node, or none if the user folded it.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
 #+end_src
 
-*** Script: layout (lines 100–116)
-Lines 100-114 define =layout=, which gives every box a vertical position. Each box has its own height, so the code tracks the next free =y= in a =cursor=.
+*** Script: layout (lines 107–123)
+Lines 107-121 define =layout=, which gives every box a vertical position. Each box has its own height, so the code tracks the next free =y= in a =cursor=.
 
-- Line 101 makes the node with its height from =info=.
-- Lines 102-104 lay out the children. The =path= test stops a note that is its own ancestor from looping forever.
-- Lines 105-108: a parent with children is centred on the middle of its first and last child (107), and the cursor moves below it.
-- Lines 109-112: a leaf takes the cursor and moves it down by its height and the gap.
-- Line 116 defines =topOf=, the highest position in a subtree. The drawing is shifted by it so the top box starts at zero. (It is not called =top=, which is already a browser global.)
+- Line 108 makes the node with its height from =info=.
+- Lines 109-111 lay out the children. The =path= test stops a note that is its own ancestor from looping forever.
+- Lines 112-115: a parent with children is centred on the middle of its first and last child (114), and the cursor moves below it.
+- Lines 116-119: a leaf takes the cursor and moves it down by its height and the gap.
+- Line 123 defines =topOf=, the highest position in a subtree. The drawing is shifted by it so the top box starts at zero. (It is not called =top=, which is already a browser global.)
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function layout(id, depth, path, cursor) {
@@ -1131,16 +1264,17 @@ function layout(id, depth, path, cursor) {
 function topOf(node) { return Math.min(node.y, ...node.kids.map(topOf)); }
 #+end_src
 
-*** Script: drawing (lines 118–144)
-Lines 118-144 define =draw=, which draws one box and then its children.
+*** Script: drawing (lines 125–152)
+Lines 125-152 define =draw=, which draws one box and then its children.
 
-- Line 119 gets the wrapped lines. Line 120 turns depth into =x= and adds the shift to =y=.
-- Lines 121-124 draw the curve from the parent's right edge, at its vertical middle, to this box's left edge, at its middle. Parent heights now differ, so both ends use =h / 2=.
-- Lines 125-126 make the group and the rounded box, which is as tall as the text needs.
-- Lines 127-133 write the text, one =text= per line. Each piece is a =tspan=, so tags and counts get their own muted style (130).
-- Line 134 adds a tooltip with the file path.
-- Lines 135-142 make a box with children clickable. A click folds or unfolds it, unless it was the end of a drag.
-- Line 143 draws the children.
+- Line 126 gets the wrapped lines. Line 127 turns depth into =x= and adds the shift to =y=.
+- Lines 128-131 draw the curve from the parent's right edge, at its vertical middle, to this box's left edge, at its middle. Parent heights differ, so both ends use =h / 2=.
+- Line 132 records where the box is, for the links.
+- Lines 133-134 make the group and the rounded box, which is as tall as the text needs.
+- Lines 135-141 write the text, one =text= per line. Each piece is a =tspan=, so tags and counts get their own muted style (138).
+- Line 142 adds a tooltip with the file path.
+- Lines 143-150 make a box with children clickable. A click folds or unfolds it, unless it was the end of a drag.
+- Line 151 draws the children.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function draw(node, parent, shift) {
@@ -1150,6 +1284,7 @@ function draw(node, parent, shift) {
     const px = parent.x + W, py = parent.y + parent.h / 2, cy = y + node.h / 2;
     el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${cy} ${x},${cy}` }, vp);
   }
+  pos.set(node.id, { x, y, h: node.h });
   const g = el('g', { class: 'node' + (node.id === D.root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
   el('rect', { width: W, height: node.h, rx: 6 }, g);
   lines.forEach((line, i) => {
@@ -1172,15 +1307,52 @@ function draw(node, parent, shift) {
 }
 #+end_src
 
-*** Script: render and view (lines 146–155)
-- Lines 146-151 define =render=: clear the drawing, lay out the tree, draw it shifted so its top is at zero, and apply the view.
-- Lines 153-155 define =apply=, which writes the pan and zoom into the group's =transform=.
+*** Script: links between notes (lines 154–175)
+Lines 154-175 define =drawLinks=, which draws every relation other than =parent= as a dashed, coloured curve with a label. It runs after the boxes, because it needs their positions.
+
+- Lines 155-157 take each link and skip it when one end isn't on screen, for example because the user folded a branch.
+- Line 158 finds the relation's label and colour.
+- Lines 160-163: two boxes in the same column are joined by a curve that bulges to the right, since a straight line would run over the boxes between them.
+- Lines 164-169: two boxes in different columns are joined from the right edge of the left one to the left edge of the right one.
+- Line 170 draws the curve in the relation's colour, and line 171 gives it a tooltip with the relation name.
+- Lines 172-173 write the label at the middle of the curve.
+
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
+function drawLinks() {
+  for (const l of D.links) {
+    const a = pos.get(l.from), b = pos.get(l.to);
+    if (!a || !b) continue;
+    const r = relStyle.get(l.rel) || { label: l.rel, color: '#888' };
+    let d, mx, my;
+    if (a.x === b.x) {
+      const x = a.x + W, ay = a.y + a.h / 2, by = b.y + b.h / 2, bulge = 50;
+      d = `M${x},${ay} C${x + bulge},${ay} ${x + bulge},${by} ${x},${by}`;
+      mx = x + bulge * 0.75; my = (ay + by) / 2;
+    } else {
+      const [l0, r0] = a.x < b.x ? [a, b] : [b, a];
+      const sx = l0.x + W, sy = l0.y + l0.h / 2, ex = r0.x, ey = r0.y + r0.h / 2;
+      d = `M${sx},${sy} C${sx + 60},${sy} ${ex - 60},${ey} ${ex},${ey}`;
+      mx = (sx + ex) / 2; my = (sy + ey) / 2;
+    }
+    const p = el('path', { class: 'link', d, stroke: r.color }, vp);
+    p.appendChild(document.createElementNS(NS, 'title')).textContent = l.rel;
+    const t = el('text', { class: 'linklabel', x: mx, y: my, 'text-anchor': 'middle', fill: r.color }, vp);
+    t.textContent = r.label;
+  }
+}
+#+end_src
+
+*** Script: render and view (lines 177–188)
+- Lines 177-184 define =render=: clear the drawing and the box positions, lay out the tree, draw it shifted so its top is at zero, draw the links, and apply the view.
+- Lines 186-188 define =apply=, which writes the pan and zoom into the group's =transform=.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 function render() {
   vp.replaceChildren();
+  pos.clear();
   const root = layout(D.root, 0, [], { y: 0 });
   draw(root, null, -topOf(root));
+  drawLinks();
   apply();
 }
 
@@ -1189,11 +1361,11 @@ function apply() {
 }
 #+end_src
 
-*** Script: zoom and pan (lines 157–174)
-- Lines 157-161 zoom with the wheel, between 0.2 and 4 times.
-- Lines 162-166 start a drag and capture the pointer.
-- Lines 167-173 pan while dragging. Moving more than 4 pixels counts as a drag (169).
-- Line 174 ends the drag.
+*** Script: zoom and pan (lines 190–207)
+- Lines 190-194 zoom with the wheel, between 0.2 and 4 times.
+- Lines 195-199 start a drag and capture the pointer.
+- Lines 200-206 pan while dragging. Moving more than 4 pixels counts as a drag (202).
+- Line 207 ends the drag.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline yes :mkdirp yes
 svg.addEventListener('wheel', e => {
@@ -1216,10 +1388,18 @@ svg.addEventListener('pointermove', e => {
 svg.addEventListener('pointerup', () => { dragStart = null; });
 #+end_src
 
-*** Script: start (lines 175–178)
-Line 175 draws the first view. Lines 176-178 close the script, the body and the page.
+*** Script: start (lines 208–218)
+- Lines 208-214 fill the legend with one coloured entry per relation that appears in the view.
+- Line 215 draws the first view. Lines 216-218 close the script, the body and the page.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-vulpea-hierarchy.html :comments no :padline no :mkdirp yes
+const legend = document.getElementById('legend');
+for (const r of D.relations) {
+  const s = document.createElement('span');
+  s.textContent = '┄ ' + r.label;
+  s.style.color = r.color;
+  legend.appendChild(s);
+}
 render();
 </script>
 </body>
@@ -1235,5 +1415,7 @@ Tested on Emacs 29.3 with mock notes, not yet on the real vulpea database:
 - The SVG name came out as =20261020T163734-ethics-2.svg=, and =dot= wrote the file.
 - The native outline expands and collapses with =TAB=.
 - The vui outline renders, and its =+= and =-= buttons expand and collapse a branch.
+- A link from a =DG_SUPPORTS= file property, a =children ::= line on a parent, and a repeated =opposes ::= key each give an edge, and an edge declared by two sources shows once.
+- The links appear in the browser page (dashed, coloured, with a legend) and in the Graphviz source (=constraint=false=), and the outline is unchanged.
 - The generated page passes a JavaScript syntax check, and in headless Chromium a long title wraps onto several lines, with the file tags muted at the end of the last one.
 - The Graphviz source wraps and escapes labels (a title with quotes came out as =Logic \"formal\"=), and =dot= accepts it.

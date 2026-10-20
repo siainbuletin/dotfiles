@@ -16,11 +16,16 @@ svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node .tags,.node .more{fill:var(--muted)}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
+.link{fill:none;stroke-width:1.6;stroke-dasharray:6 4}
+.linklabel{font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
+#legend{position:absolute;left:12px;bottom:10px;color:var(--muted);font-size:12px}
+#legend span{margin-right:14px}
 </style>
 </head>
 <body>
 <header id="head"></header>
 <svg id="v" xmlns="http://www.w3.org/2000/svg"><g id="vp"></g></svg>
+<div id="legend"></div>
 <script>
 const D = __DATA__;
 const NS = 'http://www.w3.org/2000/svg';
@@ -31,6 +36,8 @@ const kids = new Map();
 for (const [p, c] of D.edges) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(c); }
 const collapsed = new Set();
 const infoCache = new Map();
+const pos = new Map();
+const relStyle = new Map(D.relations.map(r => [r.name, r]));
 const view = { x: 40, y: 20, k: 1 };
 const vp = document.getElementById('vp');
 const svg = document.getElementById('v');
@@ -122,6 +129,7 @@ function draw(node, parent, shift) {
     const px = parent.x + W, py = parent.y + parent.h / 2, cy = y + node.h / 2;
     el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${cy} ${x},${cy}` }, vp);
   }
+  pos.set(node.id, { x, y, h: node.h });
   const g = el('g', { class: 'node' + (node.id === D.root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
   el('rect', { width: W, height: node.h, rx: 6 }, g);
   lines.forEach((line, i) => {
@@ -143,10 +151,35 @@ function draw(node, parent, shift) {
   for (const k of node.kids) draw(k, { x, y, h: node.h }, shift);
 }
 
+function drawLinks() {
+  for (const l of D.links) {
+    const a = pos.get(l.from), b = pos.get(l.to);
+    if (!a || !b) continue;
+    const r = relStyle.get(l.rel) || { label: l.rel, color: '#888' };
+    let d, mx, my;
+    if (a.x === b.x) {
+      const x = a.x + W, ay = a.y + a.h / 2, by = b.y + b.h / 2, bulge = 50;
+      d = `M${x},${ay} C${x + bulge},${ay} ${x + bulge},${by} ${x},${by}`;
+      mx = x + bulge * 0.75; my = (ay + by) / 2;
+    } else {
+      const [l0, r0] = a.x < b.x ? [a, b] : [b, a];
+      const sx = l0.x + W, sy = l0.y + l0.h / 2, ex = r0.x, ey = r0.y + r0.h / 2;
+      d = `M${sx},${sy} C${sx + 60},${sy} ${ex - 60},${ey} ${ex},${ey}`;
+      mx = (sx + ex) / 2; my = (sy + ey) / 2;
+    }
+    const p = el('path', { class: 'link', d, stroke: r.color }, vp);
+    p.appendChild(document.createElementNS(NS, 'title')).textContent = l.rel;
+    const t = el('text', { class: 'linklabel', x: mx, y: my, 'text-anchor': 'middle', fill: r.color }, vp);
+    t.textContent = r.label;
+  }
+}
+
 function render() {
   vp.replaceChildren();
+  pos.clear();
   const root = layout(D.root, 0, [], { y: 0 });
   draw(root, null, -topOf(root));
+  drawLinks();
   apply();
 }
 
@@ -172,6 +205,13 @@ svg.addEventListener('pointermove', e => {
   apply();
 });
 svg.addEventListener('pointerup', () => { dragStart = null; });
+const legend = document.getElementById('legend');
+for (const r of D.relations) {
+  const s = document.createElement('span');
+  s.textContent = '┄ ' + r.label;
+  s.style.color = r.color;
+  legend.appendChild(s);
+}
 render();
 </script>
 </body>

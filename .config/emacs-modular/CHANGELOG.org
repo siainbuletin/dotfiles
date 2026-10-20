@@ -9,10 +9,22 @@ to fold or unfold it.
 
 * Open pull requests
 ** Added
+- =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
+** Changed
+- =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
+
+* 2026-10-20
+** Added
 - Boxes in the browser graph and labels in the SVG export of =sp-vulpea-hierarchy= end with the note's file tags, and long titles wrap so all the text is visible. ([[https://github.com/siainbuletin/dotfiles/pull/15][#15]], Claude)
 - =vulpea-hierarchy-graph= opens the hierarchy as an interactive graph in the browser, and =vulpea-hierarchy-outline-vui= shows a trial outline built with =vui=. Every command first asks for a starting note and a depth. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
+- This changelog, =CHANGELOG.org=. ([[https://github.com/siainbuletin/dotfiles/pull/11][#11]], Claude)
 ** Changed
 - The plain-button outline is renamed =vulpea-hierarchy-outline-native=, so it can be compared with the =vui= version. SVG exports from =vulpea-hierarchy-svg= are named by creation time, note and depth, so they no longer overwrite each other. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
+- All custom agenda views, native and the PARA view from =sp-vulpea-para=, move to a new module =sp-agenda-views=. It is tangled from =docs/tangles/text/sp-org-agenda.org=, which now sets =:tangle= per heading instead of for the whole file, and is loaded by =sp-org-ext=. All views are offered together (Daily Agenda moved to =D=, Weekly Review to =R=), and =sp-vulpea-para= adds its capture templates instead of replacing the existing ones. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- TAB cycles outline sections only on headings in programming buffers (=sp-base-code=). ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- Duplicate backup and Vulpea directory settings are removed from =sp-backups= and =sp-vulpea-base= without changing what is in effect. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- The docs for =sp-org-base=, =sp-org-appearance= and =sp-base-libraries= match the latest hand edits to those modules. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- Every module doc in =docs/tangles/= now sits in the subdirectory that matches its module's place in =libraries/modules/=, next to its =-old.org= predecessor. Older topic notes with no module stay at the top of =docs/tangles/=. The tangle-all block and the shell one-liner in =README.org= search =docs/tangles/= recursively, and the one-liner also works in fish. ([[https://github.com/siainbuletin/dotfiles/pull/10][#10]], Claude)
 ** Fixed
 - A note whose =parents ::= line names several parents, separated by commas or repeated, now appears under each of them. Before, only the first parent counted. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
 - Problems found in the module doc review are fixed in each module and its doc in =docs/tangles/=. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
@@ -35,17 +47,6 @@ to fold or unfold it.
   - =sp-vulpea-ui=: the open-questions and albums views read correctly
   - =sp-workspaces=: the Eshell workspace starts and the config tab is reused
   - =init.el=: =lem-dashboard= is listed once in the default modules
-** Changed
-- All custom agenda views, native and the PARA view from =sp-vulpea-para=, move to a new module =sp-agenda-views=. It is tangled from =docs/tangles/text/sp-org-agenda.org=, which now sets =:tangle= per heading instead of for the whole file, and is loaded by =sp-org-ext=. All views are offered together (Daily Agenda moved to =D=, Weekly Review to =R=), and =sp-vulpea-para= adds its capture templates instead of replacing the existing ones. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
-- TAB cycles outline sections only on headings in programming buffers (=sp-base-code=). ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
-- Duplicate backup and Vulpea directory settings are removed from =sp-backups= and =sp-vulpea-base= without changing what is in effect. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
-- The docs for =sp-org-base=, =sp-org-appearance= and =sp-base-libraries= match the latest hand edits to those modules. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
-
-* 2026-10-20
-** Added
-- This changelog, =CHANGELOG.org=. ([[https://github.com/siainbuletin/dotfiles/pull/11][#11]], Claude)
-** Changed
-- Every module doc in =docs/tangles/= now sits in the subdirectory that matches its module's place in =libraries/modules/=, next to its =-old.org= predecessor. Older topic notes with no module stay at the top of =docs/tangles/=. The tangle-all block and the shell one-liner in =README.org= search =docs/tangles/= recursively, and the one-liner also works in fish. ([[https://github.com/siainbuletin/dotfiles/pull/10][#10]], Claude)
 
 * 2026-10-19
 ** Added

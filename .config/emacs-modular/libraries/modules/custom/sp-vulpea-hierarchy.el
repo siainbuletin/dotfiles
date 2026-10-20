@@ -17,6 +17,10 @@
 ;; how many children they hide.  The browser graph can't load more, so
 ;; run the command again with a bigger depth.  The outline expands any
 ;; node on demand.
+;;
+;; Other relations between notes (`supports', `opposes', ...) are drawn
+;; as labelled links.  See `vulpea-hierarchy-relations' for how to
+;; declare them and where each one is read from.
 
 ;;; Code:
 
@@ -32,9 +36,38 @@
   "Parent/child views of vulpea notes."
   :group 'vulpea)
 
-(defcustom vulpea-hierarchy-parent-key "parents"
-  "Metadata key that holds a note's parent link."
-  :type 'string)
+(defcustom vulpea-hierarchy-relations
+  '((parent :label "parent" :color "#888888"
+            :sources ((meta "parents") (meta-inverse "children")))
+    (supports :label "supports" :color "#2e8b57"
+              :sources ((meta "supports") (property "DG_SUPPORTS")))
+    (opposes :label "opposes" :color "#c0392b"
+             :sources ((meta "opposes") (property "DG_OPPOSES")))
+    (informs :label "informs" :color "#2874a6"
+             :sources ((meta "informs") (property "DG_INFORMS")))
+    (answers :label "answers" :color "#8e44ad"
+             :sources ((meta "answers") (property "DG_ANSWERS"))))
+  "Relations between notes, as (NAME :label LABEL :color COLOR :sources SOURCES).
+The relation `parent' is the one that builds the tree: its edges run
+from a parent down to its children.  Every other relation is drawn as a
+labelled link between two notes that are both in view.
+
+An edge reads \"SUBJECT NAME OBJECT\", for example \"claim supports
+question\".  Each of SOURCES says where to look for edges, and a
+relation may have several:
+
+  (meta KEY)           the note is the subject; the links in its
+                       metadata KEY (\"- KEY :: [[id:..][..]]\") are objects.
+  (meta-inverse KEY)   the note is the object; the links in its metadata
+                       KEY are subjects.  \"- children :: ..\" on a note
+                       gives the parent edge of each child.
+  (property KEY)       the note is the subject; the links, or bare ids,
+                       in its file property KEY are objects.
+  (property-inverse KEY)
+                       like `meta-inverse', but read from a file property.
+
+COLOR is used for the links in the browser page and the SVG export."
+  :type '(alist :key-type symbol :value-type plist))
 
 (defcustom vulpea-hierarchy-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
@@ -73,13 +106,13 @@
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
-(defun vulpea-hierarchy--parent-ids (note)
-  "Ids of every parent NOTE names under `vulpea-hierarchy-parent-key'.
-A value may hold several links, separated by commas or not, and the key
-may repeat.  Every link counts, not only the first one in a line."
+(defun vulpea-hierarchy--value-ids (values)
+  "Return the ids named in VALUES, a list of strings.
+A value may hold several links, separated by commas or not.  Every link
+counts, not only the first one in a value.  A value with no link is
+read as bare ids separated by commas or spaces."
   (let (ids)
-    (dolist (value (cdr (assoc vulpea-hierarchy-parent-key
-                               (vulpea-note-meta note))))
+    (dolist (value values)
       (let ((pos 0) (found nil))
         (while (string-match org-link-bracket-re value pos)
           (setq found t)
@@ -87,31 +120,77 @@ may repeat.  Every link counts, not only the first one in a line."
             (when (string-prefix-p "id:" link)
               (push (string-remove-prefix "id:" link) ids)))
           (setq pos (match-end 0)))
-        (when (and (not found) (not (string-empty-p (string-trim value))))
-          (push (string-trim value) ids))))
+        (unless found
+          (dolist (word (split-string value "[ ,]+" t))
+            (push word ids)))))
     (delete-dups (seq-remove #'string-empty-p (nreverse ids)))))
+
+(defun vulpea-hierarchy--source-values (note source)
+  "Return the strings that SOURCE finds in NOTE."
+  (pcase source
+    ((or `(meta ,key) `(meta-inverse ,key))
+     (cdr (assoc key (vulpea-note-meta note))))
+    ((or `(property ,key) `(property-inverse ,key))
+     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+       (list value)))))
+
+(defun vulpea-hierarchy--source-notes (source)
+  "Return the notes that may hold SOURCE."
+  (pcase source
+    ((or `(meta ,key) `(meta-inverse ,key))
+     (vulpea-db-query-by-meta-key key))
+    ((or `(property ,key) `(property-inverse ,key))
+     (vulpea-db-query
+      (lambda (note) (assoc key (vulpea-note-properties note)))))))
+
+(defun vulpea-hierarchy--edges ()
+  "Return every edge as (SUBJECT RELATION OBJECT), and the notes read.
+The second value is a hash table from id to note."
+  (let ((notes (make-hash-table :test #'equal))
+        (seen (make-hash-table :test #'equal))
+        edges)
+    (pcase-dolist (`(,relation . ,plist) vulpea-hierarchy-relations)
+      (dolist (source (plist-get plist :sources))
+        (dolist (note (vulpea-hierarchy--source-notes source))
+          (puthash (vulpea-note-id note) note notes)
+          (dolist (id (vulpea-hierarchy--value-ids
+                       (vulpea-hierarchy--source-values note source)))
+            (let* ((inverse (memq (car source) '(meta-inverse property-inverse)))
+                   (edge (if inverse
+                             (list id relation (vulpea-note-id note))
+                           (list (vulpea-note-id note) relation id))))
+              (unless (gethash edge seen)
+                (puthash edge t seen)
+                (push edge edges)))))))
+    (cons (nreverse edges) notes)))
 
 (defun vulpea-hierarchy--build ()
   "Return a plist describing the whole hierarchy.
 :notes maps id to note, :children maps parent id to child ids,
-:roots lists ids that are parents but have no parent themselves."
-  (let ((notes (make-hash-table :test #'equal))
-        (children (make-hash-table :test #'equal))
-        (has-parent (make-hash-table :test #'equal))
-        parent-ids)
-    (dolist (note (vulpea-db-query-by-meta-key vulpea-hierarchy-parent-key))
-      (puthash (vulpea-note-id note) note notes)
-      (dolist (pid (vulpea-hierarchy--parent-ids note))
-        (puthash (vulpea-note-id note) t has-parent)
-        (push (vulpea-note-id note) (gethash pid children))
-        (push pid parent-ids)))
-    ;; Parents that carry no parent key themselves are not loaded yet.
+:roots lists ids that are parents but have no parent themselves, and
+:links lists the edges (SUBJECT RELATION OBJECT) of every other relation."
+  (pcase-let* ((`(,edges . ,notes) (vulpea-hierarchy--edges))
+               (children (make-hash-table :test #'equal))
+               (has-parent (make-hash-table :test #'equal))
+               (parent-ids nil)
+               (links nil)
+               (ids nil))
+    (pcase-dolist (`(,subject ,relation ,object) edges)
+      (push subject ids)
+      (push object ids)
+      (if (eq relation 'parent)
+          (progn (puthash subject t has-parent)
+                 (push subject (gethash object children))
+                 (push object parent-ids))
+        (push (list subject relation object) links)))
+    ;; Notes that only appear as the object of an edge are not loaded yet.
     (dolist (note (vulpea-db-query-by-ids
                    (seq-remove (lambda (id) (gethash id notes))
-                               (delete-dups parent-ids))))
+                               (delete-dups ids))))
       (puthash (vulpea-note-id note) note notes))
     (list :notes notes
           :children children
+          :links (nreverse links)
           :roots (sort (seq-remove (lambda (id) (gethash id has-parent))
                                    (delete-dups (copy-sequence parent-ids)))
                        (lambda (a b)
@@ -130,7 +209,8 @@ may repeat.  Every link counts, not only the first one in a line."
   "Return the part of TREE reached from START within DEPTH levels.
 The result has the same keys as the tree, plus :more, which maps an
 id at the last level to how many children it hides, and :nodes, the
-ids in scope.  :roots is just (START)."
+ids in scope.  :roots is just (START).  :links keeps the other
+relations between two notes that are both in scope."
   (let ((notes (plist-get tree :notes))
         (children (make-hash-table :test #'equal))
         (more (make-hash-table :test #'equal))
@@ -150,11 +230,15 @@ ids in scope.  :roots is just (START)."
                   (setq queue (append queue (list (cons kid (1+ level)))))))
             (when kids
               (puthash id (length kids) more))))))
+    (setq nodes (nreverse nodes))
     (list :notes notes
           :children children
           :more more
           :roots (list start)
-          :nodes (nreverse nodes))))
+          :nodes nodes
+          :links (seq-filter (pcase-lambda (`(,subject ,_ ,object))
+                               (and (gethash subject seen) (gethash object seen)))
+                             (plist-get tree :links)))))
 
 (defun vulpea-hierarchy--read-scope ()
   "Ask for a starting note and a depth.  Return (START-ID . DEPTH)."
@@ -186,6 +270,21 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                  (string-replace ">" "\\u003e")
                  (string-replace "&" "\\u0026"))))
 
+(defun vulpea-hierarchy--relation-style (relation key &optional default)
+  "Return KEY of RELATION from `vulpea-hierarchy-relations', or DEFAULT."
+  (or (plist-get (cdr (assq relation vulpea-hierarchy-relations)) key) default))
+
+(defun vulpea-hierarchy--relations-json (links)
+  "Return the name, label and colour of each relation used by LINKS."
+  (vconcat
+   (mapcar (lambda (relation)
+             `((name . ,(symbol-name relation))
+               (label . ,(vulpea-hierarchy--relation-style
+                          relation :label (symbol-name relation)))
+               (color . ,(vulpea-hierarchy--relation-style
+                          relation :color "#888888"))))
+           (delete-dups (mapcar #'cadr links)))))
+
 (defun vulpea-hierarchy--html (scope start depth)
   "Return a self-contained HTML page showing SCOPE from START to DEPTH."
   (let* ((notes (plist-get scope :notes))
@@ -208,10 +307,19 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                                (plist-get scope :children))
                       acc)
                     append (mapcar (lambda (kid) (vector parent kid)) kids))))
+         (links
+          (vconcat
+           (mapcar (pcase-lambda (`(,subject ,relation ,object))
+                     `((from . ,subject) (to . ,object)
+                       (rel . ,(symbol-name relation))))
+                   (plist-get scope :links))))
          (data `((root . ,start)
                  (depth . ,depth)
                  (nodes . ,nodes)
-                 (edges . ,edges))))
+                 (edges . ,edges)
+                 (links . ,links)
+                 (relations . ,(vulpea-hierarchy--relations-json
+                                (plist-get scope :links))))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
                     (vulpea-hierarchy--html-template))))
 
@@ -500,6 +608,13 @@ PATH holds the ancestors, so a cycle stops the recursion."
                  (dolist (kid kids)
                    (insert (format "  %S -> %S;\n" pid kid))))
                children)
+      (pcase-dolist (`(,subject ,relation ,object) (plist-get tree :links))
+        (insert (format "  %S -> %S [constraint=false, style=dashed, label=%S, fontsize=10, color=%S, fontcolor=%S];\n"
+                        subject object
+                        (vulpea-hierarchy--relation-style
+                         relation :label (symbol-name relation))
+                        (vulpea-hierarchy--relation-style relation :color "#888888")
+                        (vulpea-hierarchy--relation-style relation :color "#888888"))))
       (insert "}\n")
       (buffer-string))))
 
