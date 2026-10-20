@@ -2,18 +2,27 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-org-issues.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
+* Preamble
+
 Literate source for =libraries/modules/custom/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* Basic functionality
 
 This module keeps the issues of my code work (the yadm dotfiles first, vulpea-mcp next) in one Org file, and makes that file a vulpea-para *area* titled "Issues". Being an area is what plugs it into the rest of the system:
 
 - vulpea-para sees it in =vulpea-para-areas=, so =M-x vulpea-para-agenda-area= can restrict the agenda to it, and the "Area > Project" category prefix in agenda lines reads =Issues > dotfiles=.
-- The file uses the org-gtd keywords (=TODO NEXT PROG WAIT | DONE CNCL=, the same ones =org-gtd-keyword-mapping= names in =sp-org-taskman-extra=). They are set with a =#+todo:= line in the file itself, so the issues work even though the global =org-todo-keywords= is currently overwritten at the end of =sp-org-taskman-extra= with a =TODO WAITING DOING= sequence.
+- The file uses the org-gtd keywords (=TODO NEXT PROG WAIT | DONE CNCL=, the same ones =org-gtd-keyword-mapping= names in =sp-org-taskman-extra=).
+   + They are set with a =#+todo:= line in the file itself, so the issues work even though the global =org-todo-keywords= is currently overwritten at the end of =sp-org-taskman-extra= with a =TODO WAITING DOING= sequence.
 - Every issue carries =ORG_GTD: Actions=, which makes it an org-gtd single action. Once an issue is =NEXT= it appears in =org-gtd-engage= (=C-c d e=) with the other next actions.
 - Each issue records =BRANCH=, =WORKTREE=, =PR= and =THREAD= (the Claude thread link) in its drawer, and =sp-org-issues-start= gives it its own git worktree and opens Magit there.
 
 * How the file is laid out
 
-An area in vulpea-para is one whole file tagged =area=, with =* Notes=, =* Tasks= and =* Archive= headings. The issues file keeps that shape. Under =* Tasks= there is one heading per code base. A code base is ongoing, so it is not a PARA project (a project has an end); it is a plain heading that holds the repository's settings as properties, inherited by every issue below it. An issue that grows into several steps can be tagged =:project:= on its own, and vulpea-para then treats it as a project.
+An area in vulpea-para is one whole file tagged =area=, with =* Notes=, =* Tasks= and =* Archive= headings. The issues file keeps that shape. Under =* Tasks= there is one heading per code base.
+
+A code base is ongoing, so it is not a PARA project (a project has an end); it is a plain heading that holds the repository's settings as properties, inherited by every issue below it.
+
+*Managing complexity:* An issue that grows into several steps can be tagged =:project:= on its own, and vulpea-para then treats it as a project.
 
 =M-x sp-org-issues-create-area= writes this file with =vulpea-create=, so it gets a real =ID= and lands in the vulpea database. It goes where vulpea-para puts every new area (=vulpea-para-capture-area-file-name=, =~/notes/area/<timestamp>-issues.org=). This is what it looks like, with one captured issue in it:
 
@@ -438,6 +447,9 @@ From the agenda, =t= changes an issue's state, =:= sets its tags, =C-c C-x p= se
 #+end_src
 
 * Branches and worktrees
+
+The user should be able to quickly act on issues that are listed in the repository here.
+- This workflow should replace keeping a ~todo.org~ file in the ~docs/~ repository.
 
 ** Acting on the issue at point
 

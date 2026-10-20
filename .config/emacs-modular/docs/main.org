@@ -3,7 +3,7 @@
 #+options: ':t author:t
 #+startup: overview
 
-* Preambel
+* Preamble
 
 TODO - this cookie with the export date should be updated to reflect the new document. There should be a way to implement dynamic properties in a document anyway.
 [ Last revised and exported on *{{{latest-export-date}}}*, with a word count of *{{{word-count}}}*. ]
