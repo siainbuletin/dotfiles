@@ -312,6 +312,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-statistics
                     'sp-dgraphs
                     'sp-vulpea-hierarchy
+                    'sp-dg-positions
                     'sp-notes
                     'sp-semantic
                     'sp-dyn-graph
