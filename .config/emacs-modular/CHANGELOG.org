@@ -9,6 +9,7 @@ to fold or unfold it.
 
 * Open pull requests
 ** Added
+- =M-x sp-org-issues-morning= shows one ranked list of the open issues and the open pull requests (read with =gh=) of the same repositories, and shows it by itself on the first start of Emacs each day. Its 25 ERT tests are tangled to =tests/sp-org-issues-test.el= and run headless. ([[https://github.com/siainbuletin/dotfiles/pull/23][#23]], Claude)
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 ** Changed
 - =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
