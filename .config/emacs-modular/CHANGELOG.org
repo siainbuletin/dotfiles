@@ -11,6 +11,8 @@ to fold or unfold it.
 None.
 
 * 2026-10-20
+** Added
+- This changelog, =CHANGELOG.org=. ([[https://github.com/siainbuletin/dotfiles/pull/11][#11]], Claude)
 ** Changed
 - Every module doc in =docs/tangles/= now sits in the subdirectory that matches its module's place in =libraries/modules/=, next to its =-old.org= predecessor. Older topic notes with no module stay at the top of =docs/tangles/=. The tangle-all block and the shell one-liner in =README.org= search =docs/tangles/= recursively, and the one-liner also works in fish. ([[https://github.com/siainbuletin/dotfiles/pull/10][#10]], Claude)
 
