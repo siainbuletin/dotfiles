@@ -118,7 +118,7 @@ periods. This ain't a typewriter."
   (org-footnote-section nil)
 
   ;; Editing
-  (setq org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
+  (org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
 
   ;; Indentation
   (org-adapt-indentation t) ;; adapt indentation
@@ -156,8 +156,11 @@ periods. This ain't a typewriter."
 
   (org-babel-do-load-languages
    'org-babel-load-languages
-   '((shell . t)))
-  
+   '((emacs-lisp . t)
+     (shell . t)
+     (org . t)
+     (R . t)))
+
   ;; Don't auto-pair `<' in org buffers (it interferes with structure
   ;; templates like `<s' and headlines). Only adjust the predicate if
   ;; `elec-pair' has actually been loaded -- otherwise the var is void

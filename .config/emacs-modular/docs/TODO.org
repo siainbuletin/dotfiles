@@ -18,6 +18,10 @@ With Claude, I added the possibility to recurse into the different ~libraries/~ 
 * TODO Make a better way to deal with bibliography files
 * Academic system
 ** Bibliography management
+*** TODO Document the new bibliography management workflow
+
+Document the different modules
+
 *** TODO Is it really necessary to register the BibTeX files like you do in [[id:BF417B9D-0315-4199-918B-C828537AC426][Emacs Writing Studio]]?
 **** Can I just use a regular directory for sorting all of these files?
 *** Make sure you don't have to load any BibTeX files manually
@@ -371,3 +375,5 @@ EXWM can be enabled through customize: `M-x customize-group RET siapip RET`.
 * Make Claude fix the customization options for this configuration (the flags from Lambda Emacs)
 
 * Make Claude do an elfeed workflow for summarising some articles of interest in the morning
+
+* Find a way to iterate through a research/ideation loop and then implementation with pull requests

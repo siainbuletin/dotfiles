@@ -41,22 +41,19 @@
 (setq org-fontify-quote-and-verse-blocks t)
 
 ;;;;; Emphasis
-(setq org-hide-emphasis-markers t)  ;; hide emph markers
+;; (setq org-hide-emphasis-markers t)  ;; hide emph markers
 
 ;; show markup at point -- this should be part of org!
-;; it seems that this creates quite a bit of issues with the invisible section, so it's turned off for now
-;; (use-package org-appear
-;;   ;; :if (and sp-load-extras (locate-library "org-appear"))
-;;   :ensure (:wait t)
-;;   :after org
+(use-package org-appear
+  :ensure (:wait t)
+  :after org
 
-;;   :hook
-;;   (org-mode . org-appear-mode)
+  :hook (org-mode . org-appear-mode)
 
-;;   :custom
-;;   (org-appear-autoemphasis  t)
-;;   (org-appear-autolinks nil)
-;;   (org-appear-autosubmarkers t))
+  :custom
+  (org-appear-autoemphasis  t)
+  (org-appear-autolinks t)
+  (org-appear-autosubmarkers t))
 
 ;;;; Org-modern
 (use-package org-modern

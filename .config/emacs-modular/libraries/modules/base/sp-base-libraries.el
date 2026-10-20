@@ -125,13 +125,6 @@
 
 (setq initial-major-mode 'org-mode)
 
-(org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (org . t)
-     (R . t))
-)
-
 (setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
 
 (use-package undo-tree
