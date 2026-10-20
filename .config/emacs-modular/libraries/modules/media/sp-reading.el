@@ -16,8 +16,8 @@
 (use-package calibredb
   :defer t
   :config
-  (setq calibredb-root-dir "~/Documents/calibre-library")
-  (setq calibredb-db-dir "~/Documents/calibre-library/metadata.db")
+  (setq calibredb-root-dir (sp-path sp-documents-dir "calibre-library"))
+  (setq calibredb-db-dir (sp-path sp-documents-dir "calibre-library/metadata.db"))
   )
 
 (provide 'sp-reading)

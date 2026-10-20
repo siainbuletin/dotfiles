@@ -27,7 +27,7 @@ Default is to persist."
   :group 'sia-lambda
   :type 'string)
 
-(defcustom sp-scratch-default-dir (concat (getenv "HOME") "/")
+(defcustom sp-scratch-default-dir (expand-file-name "~/")
   "Default directory for scratch buffer.
 User may prefer to set this to `sp-scratch-save-dir'."
   :group 'sia-lambda

@@ -51,6 +51,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
 - [[file:tangles/base/sp-navi.org][sp-navi]] :: Navigation: files, places and outlines ([[file:../libraries/modules/base/sp-navi.el][sp-navi.el]])
+- [[file:tangles/base/sp-paths.org][sp-paths]] :: Where my files live: notes, bibliography, checkouts ([[file:../libraries/modules/base/sp-paths.el][sp-paths.el]])
 - [[file:tangles/base/sp-snippets.org][sp-snippets]] :: Snippets with yasnippet ([[file:../libraries/modules/base/sp-snippets.el][sp-snippets.el]])
 
 *** navi/

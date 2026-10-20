@@ -14,7 +14,7 @@
 (use-package org-semantic-results
   :ensure (org-semantic :host github :repo "alberti42/org-semantic")
   :custom 
-  (org-semantic-vault-root "~/notes")
+  (org-semantic-vault-root (directory-file-name sp-notes-dir))
   
   :bind (("C-c k s" . org-semantic-find)
          ("C-c k S" . org-semantic-find-in-directory)
