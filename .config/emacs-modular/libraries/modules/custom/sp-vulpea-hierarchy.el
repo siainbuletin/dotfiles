@@ -1,15 +1,16 @@
 ;;; sp-vulpea-hierarchy.el --- Parent/child views of vulpea notes -*- lexical-binding: t; -*-
 
-;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0"))
+;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:
 
 ;; Builds a hierarchy from a parent link in each note's metadata and
 ;; shows part of it, starting from a note you choose:
 ;;
-;;   M-x vulpea-hierarchy-graph   interactive graph in the browser (default)
-;;   M-x vulpea-hierarchy-outline buttons in an Emacs buffer
-;;   M-x vulpea-hierarchy-svg     static Graphviz SVG (needs `dot')
+;;   M-x vulpea-hierarchy-graph          interactive graph in the browser (default)
+;;   M-x vulpea-hierarchy-outline-native buttons in an Emacs buffer
+;;   M-x vulpea-hierarchy-outline-vui    the same outline built with vui (trial)
+;;   M-x vulpea-hierarchy-svg            static Graphviz SVG (needs `dot')
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
@@ -25,6 +26,7 @@
 (require 'json)
 (require 'vulpea)
 (require 'vulpea-select)
+(require 'vui)
 
 (defgroup vulpea-hierarchy nil
   "Parent/child views of vulpea notes."
@@ -355,7 +357,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (vulpea-hierarchy-view--redraw)))
 
 ;;;###autoload
-(defun vulpea-hierarchy-outline ()
+(defun vulpea-hierarchy-outline-native ()
   "Ask for a starting note and depth, then show the hierarchy as buttons."
   (interactive)
   (pcase-let ((`(,start . ,depth) (vulpea-hierarchy--read-scope)))
@@ -369,6 +371,70 @@ PATH holds the ancestors, so a cycle stops the recursion."
         (vulpea-hierarchy-view--expand-to-depth)
         (vulpea-hierarchy-view--redraw))
       (pop-to-buffer buf))))
+
+
+;;;; Outline built with vui (trial)
+
+(defun vulpea-hierarchy--visit (id tree)
+  "Visit the note ID from TREE in its file."
+  (let ((note (vulpea-hierarchy--note id (plist-get tree :notes))))
+    (unless note (user-error "Note %s is not in the database" id))
+    (find-file (vulpea-note-path note))
+    (when (vulpea-note-pos note)
+      (goto-char (vulpea-note-pos note)))))
+
+(vui-defcomponent vulpea-hierarchy-node (id level path tree depth initially-open)
+  "One note in the vui outline, with its children below when open."
+  :state ((toggled nil))
+  :render
+  (let* ((kids (vulpea-hierarchy--sorted-children id tree))
+         (open (if toggled (not initially-open) initially-open))
+         (notes (plist-get tree :notes))
+         (note (vulpea-hierarchy--note id notes)))
+    (vui-vstack
+     (vui-hstack
+      (vui-space (* 2 level))
+      (if kids
+          (vui-button (if open "-" "+")
+                      :on-click (lambda () (vui-set-state :toggled (not toggled))))
+        (vui-text "   "))
+      (vui-button (vulpea-hierarchy--title id notes)
+                  :no-decoration t
+                  :help-echo (and note (vulpea-note-path note))
+                  :on-click (lambda () (vulpea-hierarchy--visit id tree)))
+      (if kids
+          (vui-text (format "(%d)" (length kids)) :face 'shadow)
+        (vui-fragment)))
+     (if (and open kids (not (member id path)))
+         (vui-list kids
+                   (lambda (kid)
+                     (vui-component 'vulpea-hierarchy-node
+                       :id kid :level (1+ level) :path (cons id path)
+                       :tree tree :depth depth
+                       :initially-open (< (1+ level) depth))))
+       (vui-fragment)))))
+
+(vui-defcomponent vulpea-hierarchy-root (start depth tree)
+  "The vui outline: a header line, then the starting note."
+  :render
+  (vui-vstack
+   (vui-text (format "%s  ·  depth %d  ·  [+]/[-] expands  ·  title visits  ·  run the command again to re-scope"
+                     (vulpea-hierarchy--title start (plist-get tree :notes))
+                     depth)
+             :face 'shadow)
+   (vui-newline)
+   (vui-component 'vulpea-hierarchy-node
+     :id start :level 0 :path nil :tree tree :depth depth
+     :initially-open (> depth 0))))
+
+;;;###autoload
+(defun vulpea-hierarchy-outline-vui ()
+  "Ask for a starting note and depth, then show the hierarchy with vui."
+  (interactive)
+  (pcase-let ((`(,start . ,depth) (vulpea-hierarchy--read-scope)))
+    (vui-mount (vui-component 'vulpea-hierarchy-root
+                 :start start :depth depth :tree (vulpea-hierarchy--build))
+               "*vulpea hierarchy (vui)*")))
 
 ;;;; Static SVG export (Graphviz)
 
