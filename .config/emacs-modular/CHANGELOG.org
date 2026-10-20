@@ -1,0 +1,47 @@
+#+title: Changelog
+#+startup: overview
+
+Changes to the Emacs configuration, one entry per pull request. Entries are
+grouped by merge date, newest first, using the Keep a Changelog categories
+(Added, Changed, Fixed, Removed). Paths are relative to this folder. Long
+lists of files sit in a sub-list under their entry: press =TAB= on the entry
+to fold or unfold it.
+
+* Open pull requests
+None.
+
+* 2026-10-20
+** Changed
+- Every module doc in =docs/tangles/= now sits in the subdirectory that matches its module's place in =libraries/modules/=, next to its =-old.org= predecessor. Older topic notes with no module stay at the top of =docs/tangles/=. The tangle-all block and the shell one-liner in =README.org= search =docs/tangles/= recursively, and the one-liner also works in fish. ([[https://github.com/siainbuletin/dotfiles/pull/10][#10]], Claude)
+
+* 2026-10-19
+** Added
+- A literate =sp-*.org= doc in =docs/tangles/= for every module in =libraries/modules/= (127 modules, =cloned/= excluded). Each holds the module's full source with prose for every block, and tangling it (=C-c C-v t=) regenerates the module. The five empty modules (=sp-syslinux=, =sp-instant-messenger=, =sp-mail=, =sp-music-comp=, =sp-vulpea-ext-back=) get skeleton docs. ([[https://github.com/siainbuletin/dotfiles/pull/2][#2]], Claude)
+- =sp-org-issues=: an issue tracker kept as a vulpea-para "Issues" area with one heading per repository. =C-c c I= files an issue, =C-c o a i i= shows the issue board, and =M-x sp-org-issues-start= gives an issue its own git worktree under =~/src/dotfiles-wt/=. ([[https://github.com/siainbuletin/dotfiles/pull/3][#3]], Claude)
+- =sp-treemacs=: =<f9>= toggles a treemacs side window rooted at the emacs-modular folder. ([[https://github.com/siainbuletin/dotfiles/pull/4][#4]], Claude)
+- A =libraries/modules/custom/= directory for bespoke modules, now holding =sp-trails=, =sp-vc-ai-workbench= and =sp-vulpea-hierarchy=, with its own section in the module tree of =docs/main.org=. ([[https://github.com/siainbuletin/dotfiles/pull/8][#8]], Claude)
+** Changed
+- The 14 older docs that had the same names as the new module docs are renamed =<name>-old.org=, with their contents unchanged. ([[https://github.com/siainbuletin/dotfiles/pull/2][#2]], Claude)
+  - =academic/sp-academic-old.org=
+  - =academic/sp-notes-old.org=
+  - =base/sp-navi-old.org=
+  - =funct/sp-org-lint-old.org=
+  - =media/sp-browsing-old.org=
+  - =media/sp-mail-old.org=
+  - =prog/sp-eshell-old.org=
+  - =prog/sp-vcontrol-old.org=
+  - =text/sp-org-babel-old.org=
+  - =text/sp-org-custom-highlight-old.org=
+  - =text/sp-org-id-link-old.org=
+  - =text/sp-vulpea-split-old.org=
+  - =tooling/sp-bookmarks-old.org=
+  - =ui/sp-faces-old.org=
+- The tangling how-to lives in =README.org= (converted from =README.md=), with a block and a fish/bash one-liner that tangle every module doc. Every module doc's intro now points to that section, =docs/main.org= gains a "Module tree" section that mirrors =libraries/modules/=, and the dotfiles =README.org= links to both. ([[https://github.com/siainbuletin/dotfiles/pull/6][#6]], Claude)
+- =sp-vc-ai-workbench= now tangles from its doc into =libraries/modules/= and uses the =sp-workbench-= prefix. =sp-vulpea-hierarchy= writes its graph file to =sp-cache-dir=, and both docs use the same header as the other module docs. ([[https://github.com/siainbuletin/dotfiles/pull/7][#7]], Claude)
+- =sp-org-issues= moves to =libraries/modules/custom/=, with its doc in =docs/tangles/custom/=. ([[https://github.com/siainbuletin/dotfiles/pull/9][#9]], Claude)
+** Fixed
+- =C-x o= works again once =pulse= is loaded. =sp-faces= no longer advises window and scroll commands with =pulse-line=; they still pulse through =pulsar= in =sp-windows=. ([[https://github.com/siainbuletin/dotfiles/pull/5][#5]], Claude)
+
+* 2026-10-18
+** Fixed
+- =emacsclient -c= frames stay open and are centred: =sp-frame= defines =sp-frame-recenter= again, which =after-make-frame-functions= was calling. ([[https://github.com/siainbuletin/dotfiles/pull/1][#1]], Claude)
