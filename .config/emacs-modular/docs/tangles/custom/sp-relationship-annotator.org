@@ -2405,3 +2405,7 @@ Tested on Emacs 29.3 with mock notes, not yet on the real vulpea database:
 - Bad formulas stop with a message that quotes them: a missing operand, an unknown operation, =sum= with no attribute, a stray character, a missing parenthesis and an unknown relation. A division by zero gives 0, and two attributes that need each other stop with a message instead of recursing forever.
 - In headless Chromium the boxes took the colour of their type, the badges =[2]=, =[-1]= and =[0]= were bold after the titles, the warning sign appeared on the anomalous link with its message as a tooltip, and the legend listed =question=, =claim= and =evidence=.
 - Not tested: a real vault. In particular, whether vulpea puts a =DG_TYPE= or =DG_SUPPORTS= file property into =vulpea-note-properties=, which the property sources rely on.
+
+** Design considerations
+
+This section is empty on purpose. It is where the brainstorming about what =relationship-annotator= should become goes: for example whether it should also write relations, not only read them.
