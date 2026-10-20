@@ -13,8 +13,8 @@ header{height:22px;padding:8px 12px;color:var(--muted);border-bottom:1px solid v
 svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor:grab;touch-action:none}
 .node rect{fill:var(--node);stroke:var(--edge)}
 .node.root rect{fill:var(--root)}
-.node text{fill:var(--fg);pointer-events:none}
-.node .more{fill:var(--muted)}
+.node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
+.node .tags,.node .more{fill:var(--muted)}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
 </style>
 </head>
@@ -24,21 +24,69 @@ svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor
 <script>
 const D = __DATA__;
 const NS = 'http://www.w3.org/2000/svg';
-const W = 240, H = 34, GAP = 10, COL = 300;
+const W = 240, PAD = 10, LINE = 18, VPAD = 6, GAP = 10, COL = 300;
+const TEXT_W = W - 2 * PAD;
 const byId = new Map(D.nodes.map(n => [n.id, n]));
 const kids = new Map();
 for (const [p, c] of D.edges) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(c); }
 const collapsed = new Set();
+const infoCache = new Map();
 const view = { x: 40, y: 20, k: 1 };
 const vp = document.getElementById('vp');
 const svg = document.getElementById('v');
+const ctx = document.createElement('canvas').getContext('2d');
+ctx.font = '14px system-ui, sans-serif';
 let dragStart = null, dragged = false;
 
 document.getElementById('head').textContent =
   (byId.get(D.root) || {}).title + '  ·  depth ' + D.depth +
   '  ·  click a box to fold  ·  scroll to zoom, drag to pan  ·  +N = hidden children (rerun with a bigger depth)';
 
-function trim(s) { return s.length > 34 ? s.slice(0, 33) + '…' : s; }
+function measure(s) { return ctx.measureText(s).width; }
+
+function tokensOf(n) {
+  const t = n.title.split(/\s+/).filter(Boolean).map(w => ({ text: w, cls: '' }));
+  if (n.tags && n.tags.length) t.push({ text: ':' + n.tags.join(':') + ':', cls: 'tags' });
+  if (n.more) t.push({ text: '+' + n.more, cls: 'more' });
+  return t;
+}
+
+function breakToken(tok) {
+  const out = [];
+  let rest = tok.text;
+  while (measure(rest) > TEXT_W && rest.length > 1) {
+    let i = rest.length;
+    while (i > 1 && measure(rest.slice(0, i)) > TEXT_W) i--;
+    out.push({ text: rest.slice(0, i), cls: tok.cls });
+    rest = rest.slice(i);
+  }
+  out.push({ text: rest, cls: tok.cls });
+  return out;
+}
+
+function wrap(tokens) {
+  const lines = [], space = measure(' ');
+  let line = [], width = 0;
+  for (const tok0 of tokens) {
+    for (const tok of breakToken(tok0)) {
+      const w = measure(tok.text);
+      if (line.length && width + space + w > TEXT_W) { lines.push(line); line = []; width = 0; }
+      width += (line.length ? space : 0) + w;
+      line.push(tok);
+    }
+  }
+  if (line.length) lines.push(line);
+  return lines;
+}
+
+function info(id) {
+  if (!infoCache.has(id)) {
+    const n = byId.get(id) || { id, title: id, path: null, more: 0, tags: [] };
+    const lines = wrap(tokensOf(n));
+    infoCache.set(id, { n, lines, h: Math.max(1, lines.length) * LINE + 2 * VPAD });
+  }
+  return infoCache.get(id);
+}
 
 function el(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
@@ -49,33 +97,41 @@ function el(tag, attrs, parent) {
 
 function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
 
-function layout(id, depth, path, row) {
-  const node = { id, depth, kids: [], y: 0 };
+function layout(id, depth, path, cursor) {
+  const node = { id, depth, kids: [], y: 0, h: info(id).h };
   if (!path.includes(id)) {
-    for (const c of childrenOf(id)) node.kids.push(layout(c, depth + 1, [...path, id], row));
+    for (const c of childrenOf(id)) node.kids.push(layout(c, depth + 1, [...path, id], cursor));
   }
-  if (node.kids.length) node.y = node.kids.reduce((s, k) => s + k.y, 0) / node.kids.length;
-  else node.y = row.n++ * (H + GAP);
+  if (node.kids.length) {
+    const first = node.kids[0], last = node.kids[node.kids.length - 1];
+    node.y = (first.y + first.h / 2 + last.y + last.h / 2) / 2 - node.h / 2;
+    cursor.y = Math.max(cursor.y, node.y + node.h + GAP);
+  } else {
+    node.y = cursor.y;
+    cursor.y += node.h + GAP;
+  }
   return node;
 }
 
-function draw(node, parent) {
-  const n = byId.get(node.id) || { title: node.id, path: null, more: 0 };
-  const x = node.depth * COL, y = node.y;
+function topOf(node) { return Math.min(node.y, ...node.kids.map(topOf)); }
+
+function draw(node, parent, shift) {
+  const { n, lines } = info(node.id);
+  const x = node.depth * COL, y = node.y + shift;
   if (parent) {
-    const px = parent.x + W, py = parent.y + H / 2;
-    el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${y + H / 2} ${x},${y + H / 2}` }, vp);
+    const px = parent.x + W, py = parent.y + parent.h / 2, cy = y + node.h / 2;
+    el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${cy} ${x},${cy}` }, vp);
   }
   const g = el('g', { class: 'node' + (node.id === D.root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
-  const t = el('text', { x: 10, y: 22 }, g);
-  t.textContent = trim(n.title);
+  el('rect', { width: W, height: node.h, rx: 6 }, g);
+  lines.forEach((line, i) => {
+    const t = el('text', { x: PAD, y: VPAD + LINE * i + 13 }, g);
+    line.forEach((tok, j) => {
+      const s = el('tspan', tok.cls ? { class: tok.cls } : {}, t);
+      s.textContent = (j ? ' ' : '') + tok.text;
+    });
+  });
   el('title', {}, g).textContent = n.path || n.title;
-  if (n.more) {
-    const m = el('text', { class: 'more', x: W - 10, y: 22, 'text-anchor': 'end' }, g);
-    m.textContent = '+' + n.more;
-  }
-  el('rect', { width: W, height: H, rx: 6 }, g);
-  g.insertBefore(g.lastElementChild, g.firstChild);
   if ((kids.get(node.id) || []).length) {
     g.style.cursor = 'pointer';
     g.addEventListener('click', () => {
@@ -84,12 +140,13 @@ function draw(node, parent) {
       render();
     });
   }
-  for (const k of node.kids) draw(k, { x, y });
+  for (const k of node.kids) draw(k, { x, y, h: node.h }, shift);
 }
 
 function render() {
   vp.replaceChildren();
-  draw(layout(D.root, 0, [], { n: 0 }), null);
+  const root = layout(D.root, 0, [], { y: 0 });
+  draw(root, null, -topOf(root));
   apply();
 }
 
