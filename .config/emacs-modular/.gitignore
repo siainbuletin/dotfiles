@@ -14,6 +14,8 @@ recentf.eld
 */.DS_Store
 .DS_Store
 
+*/*/.DS_Store
+
 # files created by emacs
 tramp
 elgrep-data.el
