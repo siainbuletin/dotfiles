@@ -5,7 +5,7 @@
 ;;; Code:
 
 (use-package consult-snapfile
-  :load-path "~/cloned-utilities/consult-snapfile/emacs"
+  :load-path (sp-path sp-clones-dir "cloned-utilities/consult-snapfile/emacs")
   :after (consult websocket)
   ;; Optional: bind to your preferred key
   :bind ("C-c s f" . consult-snapfile))

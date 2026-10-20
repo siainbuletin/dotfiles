@@ -55,7 +55,7 @@
   :type 'string)
 
 (defcustom sp-trails-chrome-history
-  (expand-file-name "~/Library/Application Support/Google/Chrome/Default/History")
+  sp-chrome-history-file
   "Chromium-family History database read by `sp-trails-import-chrome'."
   :type 'file)
 

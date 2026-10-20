@@ -45,7 +45,7 @@
   ;; Template for new note titles
   (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
 
-  (citar-vulpea-notes-directory "~/notes/litnotes") ;; Directory to store notes (nil uses vulpea-default-notes-directory)
+  (citar-vulpea-notes-directory (sp-path sp-notes-dir "litnotes/")) ;; Directory to store notes (nil uses vulpea-default-notes-directory)
 )
 
 (provide 'sp-litnotes)

@@ -112,7 +112,7 @@ Keybindings:
 Keeps Denote notes in =~/notes/=, the same directory used by the rest of the Org setup.
 
 #+begin_src emacs-lisp -i
-(setq denote-directory (expand-file-name "~/notes/"))
+(setq denote-directory sp-notes-dir)
 #+end_src
 
 ** Save buffers automatically

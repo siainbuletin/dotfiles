@@ -13,7 +13,7 @@
   :config
   (elfeed-org)
   :custom
-  (rmh-elfeed-org-files (list "~/Documents/elfeed.org")))
+  (rmh-elfeed-org-files (list (sp-path sp-documents-dir "elfeed.org"))))
 
 (defun yant/elfeed-capture-entry ()
   "Capture selected entries into inbox."
