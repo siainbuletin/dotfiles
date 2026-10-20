@@ -38,17 +38,25 @@
   :group 'vulpea)
 
 (defcustom relationship-annotator-relations
-  '((parent :label "parent" :color "#888888"
+  '((parent :label "parent" :color "#888888" :inverse "children"
             :sources ((meta "parents") (meta-inverse "children")))
     (supports :label "supports" :color "#2e8b57" :direction right
+              :inverse "Supported By"
+              :subject-types (evidence) :object-types (claim)
               :sources ((meta "supports") (property "DG_SUPPORTS")))
     (opposes :label "opposes" :color "#c0392b" :direction left
+             :inverse "Opposed By"
+             :subject-types (evidence) :object-types (claim)
              :sources ((meta "opposes") (property "DG_OPPOSES")))
     (informs :label "informs" :color "#2874a6" :direction 45
+             :inverse "Informed By"
+             :subject-types (source) :object-types (evidence)
              :sources ((meta "informs") (property "DG_INFORMS")))
     (answers :label "answers" :color "#8e44ad" :direction up
+             :inverse "Answered By"
+             :subject-types (claim) :object-types (question)
              :sources ((meta "answers") (property "DG_ANSWERS"))))
-  "Relations between notes, as (NAME :label LABEL :color COLOR :direction DIRECTION :sources SOURCES).
+  "Relations between notes, as (NAME :label LABEL :color COLOR :direction DIRECTION :inverse INVERSE :subject-types TYPES :object-types TYPES :sources SOURCES).
 The relation `parent' is the one that builds the tree: its edges run
 from a parent down to its children.  Every other relation is drawn as a
 labelled link between two notes that are both in view.
@@ -76,7 +84,14 @@ right.  An angle leans on both axes at once.  The relation `parent' has
 no direction, because it always puts parents above their children.  A
 relation with no DIRECTION is drawn to the right.  The page treats a
 direction as a request: when two requests contradict each other, the
-later one is dropped."
+later one is dropped.
+
+INVERSE names the relation as seen from its object, such as \"Supported
+By\".  Formulas in `relationship-annotator-attributes' use it to count
+incoming edges.  SUBJECT-TYPES and OBJECT-TYPES list the node types, from
+`relationship-annotator-node-types', that an edge of this relation
+should connect.  An edge between other types is not refused, only
+reported as an anomaly.  A relation without them accepts any types."
   :type '(alist :key-type symbol :value-type plist))
 
 (defcustom relationship-annotator-tag-colors
@@ -273,6 +288,453 @@ relations between two notes that are both in scope."
       (user-error "Need a starting note and a depth of at least 1"))
     (cons (vulpea-note-id note) (truncate depth))))
 
+;;;; Discourse layer
+
+;; Ported from the `discourse-graphs' package: node types, the patterns
+;; that say which types a relation should connect, the anomaly check,
+;; and attributes computed from formulas.  The package keeps its nodes
+;; in an SQLite cache that it fills by scanning files.  Here vulpea
+;; already is that database, so the layer works on the tree that
+;; `relationship-annotator--build' returns.
+
+(defcustom relationship-annotator-node-types
+  '((question :short "QUE" :color "#b07aa1" :desc "Research question")
+    (claim :short "CLM" :color "#59a14f" :desc "Assertion or thesis")
+    (evidence :short "EVD" :color "#76b7b2" :desc "Supporting data")
+    (source :short "SRC" :color "#edc948" :desc "Reference material"))
+  "Node types, as (TYPE :short ABBREVIATION :color COLOR :desc TEXT).
+A note with a type is drawn in the colour of its type, unless one of its
+file tags has a colour in `relationship-annotator-tag-colors'.  COLOR
+must be in hex form."
+  :type '(alist :key-type symbol :value-type plist))
+
+(defcustom relationship-annotator-type-sources
+  '((property "DG_TYPE") (meta "type") tag)
+  "Where to read the type of a note, tried in order.
+(property KEY) reads a file property, (meta KEY) the first value of a
+metadata field, and `tag' the first file tag that names a type in
+`relationship-annotator-node-types'.  The first source that gives a
+known type wins.  A note whose sources give none has no type, and the
+anomaly check skips its edges."
+  :type '(repeat sexp))
+
+(defcustom relationship-annotator-attributes
+  '((claim :overlay evidence-score
+           :attributes
+           ((evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence} - {count:Opposed By:claim}*0.5")
+            (total-support . "{count:Supported By:evidence} + {count:Supported By:claim}")))
+    (question :overlay answer-count
+              :attributes
+              ((answer-count . "{count:Answered By:claim}")
+               (informed-count . "{count:Informed By:evidence} + {count:Informed By:source}")))
+    (evidence :attributes
+              ((source-count . "{count:Informed By:source}")
+               (supports-count . "{count:supports:claim}")))
+    (source :overlay usage-count
+            :attributes
+            ((usage-count . "{count:informs:evidence}"))))
+  "Numbers computed for notes of each type, as (TYPE :overlay NAME :attributes ALIST).
+ALIST holds (NAME . FORMULA).  The attribute named by :overlay is shown
+in brackets after the title in the browser page.
+
+A formula is arithmetic (+ - * / and parentheses) over numbers and
+terms written {OP:RELATION:TYPE} or {OP:RELATION:TYPE:ATTRIBUTE}.
+RELATION is a relation name, to follow its edges from the note, or the
+:inverse label of a relation, to follow them backwards.  TYPE keeps only
+the related notes of that type, and may be empty.  OP is `count', or
+`sum' and `avg' of the ATTRIBUTE of the related notes."
+  :type '(alist :key-type symbol :value-type plist))
+
+;;;;; Types
+
+(defun relationship-annotator--note-type (note)
+  "Return the node type of NOTE, a symbol, or nil when it has none."
+  (when note
+    (seq-some
+     (lambda (source)
+       (let ((value
+              (pcase source
+                (`(property ,key)
+                 (cdr (assoc key (vulpea-note-properties note))))
+                (`(meta ,key)
+                 (cadr (assoc key (vulpea-note-meta note))))
+                ('tag
+                 (seq-find (lambda (tag)
+                             (assq (intern tag) relationship-annotator-node-types))
+                           (vulpea-note-tags note))))))
+         (when (stringp value)
+           (let ((type (intern (downcase (string-trim value)))))
+             (and (assq type relationship-annotator-node-types) type)))))
+     relationship-annotator-type-sources)))
+
+(defun relationship-annotator--type-style (type key)
+  "Return KEY of TYPE in `relationship-annotator-node-types'."
+  (plist-get (cdr (assq type relationship-annotator-node-types)) key))
+
+(defun relationship-annotator--type-names (types)
+  "Return the symbols in TYPES as one string, such as \"evidence or claim\"."
+  (mapconcat #'symbol-name types " or "))
+
+;;;;; Edges and the pattern check
+
+(defun relationship-annotator--all-edges (tree)
+  "Return every edge of TREE as (SUBJECT RELATION OBJECT), parent edges included."
+  (let (edges)
+    (maphash (lambda (parent kids)
+               (dolist (kid kids)
+                 (push (list kid 'parent parent) edges)))
+             (plist-get tree :children))
+    (append (nreverse edges) (plist-get tree :links))))
+
+(defun relationship-annotator--anomaly (subject-type relation object-type)
+  "Return a message when SUBJECT-TYPE RELATION OBJECT-TYPE breaks the patterns.
+The patterns are :subject-types and :object-types in
+`relationship-annotator-relations'.  Return nil when the edge fits, when
+the relation has no patterns, or when a type is nil (an untyped note
+is not checked)."
+  (let* ((plist (cdr (assq relation relationship-annotator-relations)))
+         (want-subject (plist-get plist :subject-types))
+         (want-object (plist-get plist :object-types))
+         (bad-subject (and want-subject subject-type
+                           (not (memq subject-type want-subject))))
+         (bad-object (and want-object object-type
+                          (not (memq object-type want-object)))))
+    (cond
+     ((and bad-subject bad-object)
+      (format "%s %s %s, expected %s %s %s" subject-type relation object-type
+              (relationship-annotator--type-names want-subject) relation
+              (relationship-annotator--type-names want-object)))
+     (bad-subject
+      (format "%s %s %s, the subject should be %s" subject-type relation
+              object-type (relationship-annotator--type-names want-subject)))
+     (bad-object
+      (format "%s %s %s, the object should be %s" subject-type relation
+              object-type (relationship-annotator--type-names want-object))))))
+
+(defun relationship-annotator--anomalies (tree)
+  "Return the edges of TREE that break the patterns, as (SUBJECT RELATION OBJECT MESSAGE)."
+  (let ((notes (plist-get tree :notes)) found)
+    (pcase-dolist (`(,subject ,relation ,object)
+                   (relationship-annotator--all-edges tree))
+      (when-let ((message (relationship-annotator--anomaly
+                           (relationship-annotator--note-type
+                            (relationship-annotator--note subject notes))
+                           relation
+                           (relationship-annotator--note-type
+                            (relationship-annotator--note object notes)))))
+        (push (list subject relation object message) found)))
+    (nreverse found)))
+
+;;;;; Formulas
+
+(defvar relationship-annotator--computing nil
+  "Attributes being computed, as (ID . NAME), to catch formulas that refer to themselves.")
+
+(defun relationship-annotator--parse-term (spec formula)
+  "Return the term (func OP RELATION TYPE ATTRIBUTE) written SPEC in FORMULA.
+SPEC is the text between braces."
+  (pcase-let* ((`(,op ,relation ,type ,attribute) (split-string spec ":"))
+               (op (pcase (and op (downcase op))
+                     ("count" 'count) ("sum" 'sum)
+                     ((or "avg" "average") 'avg)
+                     (_ (user-error "Unknown operation in {%s} in formula %S"
+                                    spec formula)))))
+    (unless (and relation (not (string-empty-p relation)))
+      (user-error "No relation in {%s} in formula %S" spec formula))
+    (when (and (memq op '(sum avg)) (not (and attribute (not (string-empty-p attribute)))))
+      (user-error "%s needs an attribute in {%s} in formula %S" op spec formula))
+    (list 'func op relation
+          (and type (not (string-empty-p type)) (intern (downcase type)))
+          (and attribute (not (string-empty-p attribute)) (intern attribute)))))
+
+(defun relationship-annotator--tokenize (formula)
+  "Split FORMULA into numbers, operator symbols and terms."
+  (let ((pos 0) tokens)
+    (while (< pos (length formula))
+      (let ((char (aref formula pos)))
+        (cond
+         ((memq char '(?\s ?\t)) (cl-incf pos))
+         ((memq char '(?+ ?- ?* ?/))
+          (push (intern (string char)) tokens) (cl-incf pos))
+         ((eq char ?\() (push 'open tokens) (cl-incf pos))
+         ((eq char ?\)) (push 'close tokens) (cl-incf pos))
+         ((eq char ?{)
+          (let ((end (string-search "}" formula pos)))
+            (unless end (user-error "Unclosed { in formula %S" formula))
+            (push (relationship-annotator--parse-term
+                   (substring formula (1+ pos) end) formula)
+                  tokens)
+            (setq pos (1+ end))))
+         ((eq pos (string-match "[0-9]+\\(?:\\.[0-9]+\\)?" formula pos))
+          (push (float (string-to-number (match-string 0 formula))) tokens)
+          (setq pos (match-end 0)))
+         (t (user-error "Unexpected %c in formula %S" char formula)))))
+    (nreverse tokens)))
+
+(defun relationship-annotator--parse-formula (formula)
+  "Return the parse tree of FORMULA.
+A tree is a number, a term (func ...), or (OPERATOR LEFT RIGHT) with
+OPERATOR one of + - * /."
+  (let ((tokens (relationship-annotator--tokenize formula)))
+    (cl-labels
+        ((peek () (car tokens))
+         (next () (pop tokens))
+         (expr ()
+           (let ((left (term)))
+             (while (memq (peek) '(+ -))
+               (let ((op (next)))
+                 (setq left (list op left (term)))))
+             left))
+         (term ()
+           (let ((left (factor)))
+             (while (memq (peek) '(* /))
+               (let ((op (next)))
+                 (setq left (list op left (factor)))))
+             left))
+         (factor ()
+           (let ((token (next)))
+             (cond
+              ((numberp token) token)
+              ((eq token 'open)
+               (prog1 (expr)
+                 (unless (eq (next) 'close)
+                   (user-error "Missing ) in formula %S" formula))))
+              ((eq token '-) (list '- 0.0 (factor)))
+              ((eq (car-safe token) 'func) token)
+              (t (user-error "Unexpected %s in formula %S"
+                             (or token "end") formula))))))
+      (prog1 (expr)
+        (when tokens (user-error "Unexpected %s in formula %S" (car tokens) formula))))))
+
+(defun relationship-annotator--index (tree)
+  "Return (OUTGOING . INCOMING) tables for the edges of TREE.
+OUTGOING maps (SUBJECT . RELATION) to the objects and INCOMING maps
+(OBJECT . RELATION) to the subjects."
+  (let ((out (make-hash-table :test #'equal))
+        (in (make-hash-table :test #'equal)))
+    (pcase-dolist (`(,subject ,relation ,object)
+                   (relationship-annotator--all-edges tree))
+      (push object (gethash (cons subject relation) out))
+      (push subject (gethash (cons object relation) in)))
+    (cons out in)))
+
+(defun relationship-annotator--context (tree)
+  "Return what formulas need to run on TREE."
+  (list :notes (plist-get tree :notes)
+        :index (relationship-annotator--index tree)
+        :cache (make-hash-table :test #'equal)))
+
+(defun relationship-annotator--type-of (id context)
+  "Return the node type of note ID, using CONTEXT."
+  (relationship-annotator--note-type
+   (relationship-annotator--note id (plist-get context :notes))))
+
+(defun relationship-annotator--resolve-relation (name)
+  "Return (RELATION . DIRECTION) for NAME, `out' or `in', or nil.
+NAME is a relation name, or an :inverse label, ignoring case."
+  (let ((name (downcase name)))
+    (seq-some
+     (pcase-lambda (`(,relation . ,plist))
+       (cond ((string= name (downcase (symbol-name relation)))
+              (cons relation 'out))
+             ((let ((inverse (plist-get plist :inverse)))
+                (and inverse (string= name (downcase inverse))))
+              (cons relation 'in))))
+     relationship-annotator-relations)))
+
+(defun relationship-annotator--eval (tree id context)
+  "Evaluate the parse TREE of a formula for note ID, using CONTEXT."
+  (pcase tree
+    ((pred numberp) tree)
+    (`(func ,op ,name ,type ,attribute)
+     (pcase-let* ((`(,relation . ,direction)
+                   (or (relationship-annotator--resolve-relation name)
+                       (user-error "Unknown relation %S in a formula" name)))
+                  (index (plist-get context :index))
+                  (related (gethash (cons id relation)
+                                    (if (eq direction 'out) (car index) (cdr index))))
+                  (related (if type
+                               (seq-filter
+                                (lambda (other)
+                                  (eq (relationship-annotator--type-of other context)
+                                      type))
+                                related)
+                             related)))
+       (if (eq op 'count)
+           (length related)
+         (let ((total (apply #'+ (mapcar (lambda (other)
+                                           (relationship-annotator--attribute
+                                            other attribute context))
+                                         related))))
+           (if (eq op 'sum)
+               total
+             (if related (/ total (float (length related))) 0))))))
+    (`(,op ,left ,right)
+     (let ((a (relationship-annotator--eval left id context))
+           (b (relationship-annotator--eval right id context)))
+       (pcase op
+         ('+ (+ a b)) ('- (- a b)) ('* (* a b))
+         ('/ (if (zerop b) 0 (/ (float a) b))))))))
+
+(defun relationship-annotator--attribute (id name context)
+  "Return attribute NAME of note ID, a number, using CONTEXT.
+A note whose type has no such attribute gets 0."
+  (let* ((type (relationship-annotator--type-of id context))
+         (formula (cdr (assq name (plist-get
+                                   (cdr (assq type relationship-annotator-attributes))
+                                   :attributes))))
+         (key (cons id name))
+         (cache (plist-get context :cache)))
+    (cond
+     ((null formula) 0)
+     ((member key relationship-annotator--computing)
+      (user-error "The attribute %s of %s refers to itself" name id))
+     (t
+      (let ((hit (gethash key cache 'none)))
+        (if (not (eq hit 'none))
+            hit
+          (let* ((relationship-annotator--computing
+                  (cons key relationship-annotator--computing))
+                 (parsed (or (gethash formula cache)
+                             (puthash formula
+                                      (relationship-annotator--parse-formula formula)
+                                      cache))))
+            (puthash key (relationship-annotator--eval parsed id context)
+                     cache))))))))
+
+(defun relationship-annotator--attributes (id context)
+  "Return the attributes of note ID as ((NAME . VALUE) ...), using CONTEXT."
+  (let ((type (relationship-annotator--type-of id context)))
+    (mapcar (pcase-lambda (`(,name . ,_))
+              (cons name (relationship-annotator--attribute id name context)))
+            (plist-get (cdr (assq type relationship-annotator-attributes))
+                       :attributes))))
+
+(defun relationship-annotator--number (value)
+  "Format VALUE without a fraction when it is whole."
+  (if (= value (ftruncate (float value)))
+      (format "%d" value)
+    (format "%.1f" value)))
+
+(defun relationship-annotator--badge (id context)
+  "Return the overlay attribute of note ID as \"[N]\", or nil."
+  (let* ((type (relationship-annotator--type-of id context))
+         (name (plist-get (cdr (assq type relationship-annotator-attributes))
+                          :overlay)))
+    (when name
+      (format "[%s]" (relationship-annotator--number
+                      (relationship-annotator--attribute id name context))))))
+
+;;;;; Argument gaps
+
+(defun relationship-annotator--argument-gaps (id context)
+  "Return the gaps in the argument for claim ID, a list of symbols.
+`no-support' means no evidence supports it.  `no-source' means some
+does, but none of that evidence has a source informing it.
+`unanswered-opposition' means opposing evidence is at least as plentiful
+as supporting evidence."
+  (let* ((index (plist-get context :index))
+         (supporters (gethash (cons id 'supports) (cdr index)))
+         (opposers (gethash (cons id 'opposes) (cdr index))))
+    (append
+     (unless supporters '(no-support))
+     (when (and supporters
+                (not (seq-some (lambda (evidence)
+                                 (gethash (cons evidence 'informs) (cdr index)))
+                               supporters)))
+       '(no-source))
+     (when (and opposers (<= (length supporters) (length opposers)))
+       '(unanswered-opposition)))))
+
+(defun relationship-annotator--strength (id context)
+  "Return how well claim ID stands, as a symbol.
+One of `unsupported', `challenged', `contested', `supported' or
+`unknown'."
+  (let* ((gaps (relationship-annotator--argument-gaps id context))
+         (index (plist-get context :index)))
+    (cond ((memq 'no-support gaps) 'unsupported)
+          ((memq 'unanswered-opposition gaps) 'challenged)
+          ((gethash (cons id 'opposes) (cdr index)) 'contested)
+          ((gethash (cons id 'supports) (cdr index)) 'supported)
+          (t 'unknown))))
+
+;;;;; Review buffer
+
+(defvar-local relationship-annotator--review-tree nil
+  "The tree the review buffer was built from.")
+
+(defun relationship-annotator--insert-note-button (id tree)
+  "Insert a button that visits note ID of TREE."
+  (let ((notes (plist-get tree :notes)))
+    (insert-button (relationship-annotator--title id notes)
+                   'action (lambda (_)
+                             (relationship-annotator--visit
+                              id relationship-annotator--review-tree))
+                   'follow-link t
+                   'help-echo (or (when-let ((note (relationship-annotator--note id notes)))
+                                    (vulpea-note-path note))
+                                  ""))))
+
+;;;###autoload
+(defun relationship-annotator-review ()
+  "List edges that break the type patterns, gaps in claims, and answers.
+Three sections: edges whose note types do not fit the relation, claims
+with gaps in their argument, and each question with its answers and how
+well each stands.  RET on a title visits the note."
+  (interactive)
+  (let* ((tree (relationship-annotator--build))
+         (context (relationship-annotator--context tree))
+         (notes (plist-get tree :notes))
+         (buffer (get-buffer-create "*relationship review*")))
+    (with-current-buffer buffer
+      (special-mode)
+      (setq relationship-annotator--review-tree tree)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "Edges that break the type patterns\n" 'face 'bold))
+        (let ((anomalies (relationship-annotator--anomalies tree)))
+          (if (null anomalies)
+              (insert "  none\n")
+            (pcase-dolist (`(,subject ,relation ,object ,message) anomalies)
+              (insert "  ")
+              (relationship-annotator--insert-note-button subject tree)
+              (insert (format " %s " relation))
+              (relationship-annotator--insert-note-button object tree)
+              (insert (propertize (format "   (%s)\n" message) 'face 'shadow)))))
+        (insert (propertize "\nClaims with gaps in their argument\n" 'face 'bold))
+        (let (any)
+          (dolist (id (sort (hash-table-keys notes) #'string<))
+            (when (eq (relationship-annotator--type-of id context) 'claim)
+              (when-let ((gaps (relationship-annotator--argument-gaps id context)))
+                (setq any t)
+                (insert "  ")
+                (relationship-annotator--insert-note-button id tree)
+                (insert (propertize (format "   %s\n" (mapconcat #'symbol-name gaps ", "))
+                                    'face 'shadow)))))
+          (unless any (insert "  none\n")))
+        (insert (propertize "\nQuestions and their answers\n" 'face 'bold))
+        (let ((index (plist-get context :index)) any)
+          (dolist (id (sort (hash-table-keys notes) #'string<))
+            (when (eq (relationship-annotator--type-of id context) 'question)
+              (setq any t)
+              (insert "  ")
+              (relationship-annotator--insert-note-button id tree)
+              (insert "\n")
+              (let ((answers (gethash (cons id 'answers) (cdr index))))
+                (if (null answers)
+                    (insert (propertize "    no answers\n" 'face 'shadow))
+                  (dolist (answer answers)
+                    (insert "    ")
+                    (relationship-annotator--insert-note-button answer tree)
+                    (insert (propertize (format "   %s\n"
+                                                (relationship-annotator--strength
+                                                 answer context))
+                                        'face 'shadow)))))))
+          (unless any (insert "  none\n")))
+        (goto-char (point-min))))
+    (pop-to-buffer buffer)))
+
 ;;;; Browser view
 
 (defconst relationship-annotator--html-template-file
@@ -342,16 +804,22 @@ The placeholder `__DATA__' is replaced with the JSON data.")
            (delete-dups (mapcar #'cadr links)))))
 
 (defun relationship-annotator--tag-color (note)
-  "Return (TAG . COLOR) for the first tag of NOTE in `relationship-annotator-tag-colors'."
+  "Return (NAME . COLOR) for the box colour of NOTE, or nil.
+The first tag of NOTE in `relationship-annotator-tag-colors' decides.
+Without one, the colour of the node type of NOTE does, named by the type."
   (when note
-    (seq-some (lambda (tag) (assoc tag relationship-annotator-tag-colors))
-              (vulpea-note-tags note))))
+    (or (seq-some (lambda (tag) (assoc tag relationship-annotator-tag-colors))
+                  (vulpea-note-tags note))
+        (when-let* ((type (relationship-annotator--note-type note))
+                    (color (relationship-annotator--type-style type :color)))
+          (cons (symbol-name type) color)))))
 
 (defun relationship-annotator--html (tree start depth)
   "Return a self-contained HTML page showing TREE from START to DEPTH.
 The page holds the whole tree, so it can recentre on any note and cut
 the part to show by itself."
   (let* ((notes (plist-get tree :notes))
+         (context (relationship-annotator--context tree))
          (ids (let ((acc (make-hash-table :test #'equal)))
                 (puthash start t acc)
                 (maphash (lambda (k v)
@@ -373,7 +841,8 @@ the part to show by itself."
                   (path . ,(and note (vulpea-note-path note)))
                   (tags . ,(vconcat (and note (vulpea-note-tags note))))
                   (colorTag . ,(car color))
-                  (color . ,(cdr color)))))
+                  (color . ,(cdr color))
+                  (badge . ,(relationship-annotator--badge id context)))))
             ids)))
          (edges
           (vconcat
@@ -387,7 +856,12 @@ the part to show by itself."
           (vconcat
            (mapcar (pcase-lambda (`(,subject ,relation ,object))
                      `((from . ,subject) (to . ,object)
-                       (rel . ,(symbol-name relation))))
+                       (rel . ,(symbol-name relation))
+                       (anomaly
+                        . ,(relationship-annotator--anomaly
+                            (relationship-annotator--type-of subject context)
+                            relation
+                            (relationship-annotator--type-of object context)))))
                    (plist-get tree :links))))
          (data `((root . ,start)
                  (depth . ,depth)

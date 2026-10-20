@@ -19,6 +19,7 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 #legend i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;opacity:.7}
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node .tags,.node .more{fill:var(--muted)}
+.node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
 .link{fill:none;stroke-width:1.6;stroke-dasharray:6 4}
 .linklabel{font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
@@ -103,6 +104,7 @@ function measure(s) { return ctx.measureText(s).width; }
 function tokensOf(n) {
   const t = n.title.split(/\s+/).filter(Boolean).map(w => ({ text: w, cls: '' }));
   if (n.tags && n.tags.length) t.push({ text: ':' + n.tags.join(':') + ':', cls: 'tags' });
+  if (n.badge) t.push({ text: n.badge, cls: 'badge' });
   if (more.get(n.id)) t.push({ text: '+' + more.get(n.id), cls: 'more' });
   return t;
 }
@@ -324,11 +326,12 @@ function drawLinks(labels) {
     const p = border(a, cb), q = border(b, ca);
     if (!labels) {
       const line = el('path', { class: 'link', d: `M${p.x},${p.y} L${q.x},${q.y}`, stroke: r.color }, vp);
-      line.appendChild(document.createElementNS(NS, 'title')).textContent = l.rel;
+      line.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly ? l.rel + ': ' + l.anomaly : l.rel;
     } else {
       const m = freeSpot(p, q);
       const t = el('text', { class: 'linklabel', x: m.x, y: m.y, 'text-anchor': 'middle', fill: r.color }, vp);
-      t.textContent = r.label;
+      t.textContent = l.anomaly ? r.label + ' ⚠' : r.label;
+      if (l.anomaly) t.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly;
     }
   }
 }
