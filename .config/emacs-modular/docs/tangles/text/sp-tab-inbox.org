@@ -1,0 +1,1317 @@
+#+TITLE: sp-tab-inbox.el: Link inbox sidebar widgets for vulpea-ui
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-tab-inbox.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-tab-inbox.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module adds two widgets to the =vulpea-ui= sidebar that look at a directory of plain, unindexed files called the link inbox (by default =inbox/tabs/= under =org-directory=). The first, /Link inbox/, finds lines in those files that mention the current note's title or aliases and lets you file them away: =collect= moves a line under a heading of the current note, =collect all= does that for every hit as a background job you can keep editing through, and =send= moves it to some other note you pick or create. The second, /Inbox backlinks/, shows lines in the inbox that already link to the current note, with a few lines of context.
+
+The inbox files are never added to the vulpea database; everything is found by running =rg= (ripgrep) over the directory, so ripgrep must be installed or both widgets stay empty. It depends on =vulpea=, =vulpea-ui=, =vui= (the component library the sidebar is built on) and on the sibling module =sp-move-region-to-heading=, which does the actual moving of text and provides =sp--read-org-heading= and =sp--resources-heading-p=. =embark= is used optionally for an extra action while choosing a destination note.
+
+A large part of the code deals with picking the right target heading automatically: when the note has a Resources heading, hits go there without a prompt, and duplicated Resources or See also headings are merged in place when that is safe.
+
+* File header
+
+The standard package header, the package requirements, and the module's own commentary, which summarises the user-facing behaviour described above.
+
+** Header and commentary
+
+Library header line with lexical binding, the =Package-Requires= line, and the long commentary block. The commentary notes that =collect all= runs in the background and can be stopped with =sp-tab-inbox-cancel-collect=, that the module should be loaded after =vulpea-ui=, and that =g= in the sidebar refreshes the widgets.
+
+#+begin_src emacs-lisp -i
+;;; sp-tab-inbox.el --- Link inbox widget for vulpea-ui -*- lexical-binding: t; -*-
+
+;; Package-Requires: ((emacs "29.1") (vulpea "2") (vulpea-ui "0") (vui "0"))
+
+;;; Commentary:
+
+;; A `vulpea-ui' sidebar widget that searches a directory of plain files
+;; (the "link inbox") for mentions of the current note's title and aliases,
+;; without adding those files to the vulpea database.
+;;
+;; - Each hit is shown on its own lines, with the body text word-wrapped.
+;; - Hits whose only match sits inside an id: link into the current note's
+;;   file (the note itself or any heading with an :ID:) are filtered out.
+;; - `collect' moves a hit under a heading of the current note using
+;;   `sp-move-region-to-heading', keeping the list bullet in both places and
+;;   leaving a link behind.  `collect all' does this for every hit, asking for
+;;   the heading once.
+;; - `collect all' runs in the background: it works in short slices while Emacs
+;;   is idle, so you can keep editing (also in the note being collected into),
+;;   and saves everything once at the end.  `sp-tab-inbox-cancel-collect'
+;;   stops it.
+;; - `send' (or `sp-tab-inbox-send-elsewhere') sends a hit to another
+;;   note you pick or create, for when the match is about something else.
+;;   At that prompt, an embark action ("L", see `sp-tab-inbox-embark-map')
+;;   also links that note under "See also" in the note you searched from.
+;; - A second widget, `Inbox backlinks', lists the lines of the inbox files that
+;;   link to the current note (e.g. the links `collect' leaves behind), with
+;;   several lines of context, again without indexing the files.
+;; - Inbox files that were not already open are saved and killed afterwards.
+;;
+;; Load it after vulpea-ui, e.g.:
+;;
+;;   (with-eval-after-load 'vulpea-ui
+;;     (require 'sp-tab-inbox))
+;;
+;; and set `sp-tab-inbox-dir' to your inbox directory.  Press `g' in the
+;; sidebar to refresh.
+
+;;; Code:
+#+end_src
+
+** Dependencies
+
+Loads the standard helper libraries plus =vulpea=, =vulpea-ui=, =vui= and =sp-move-region-to-heading=. Because these are hard =require= calls, the module only loads where all of them are available.
+
+#+begin_src emacs-lisp -i
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'vulpea)
+(require 'vulpea-ui)
+(require 'vui)
+(require 'sp-move-region-to-heading)
+#+end_src
+
+* Configuration
+
+User options (all in the =vulpea= customisation group) and the internal state shared between the widget and the interactive commands.
+
+** Inbox directory and wrap width
+
+=sp-tab-inbox-dir= is the directory searched for mentions, built from =org-directory=. =sp-tab-inbox-fill-column= is the width hit text is wrapped to in the sidebar and should be tuned to the sidebar's width.
+
+#+begin_src emacs-lisp -i
+;;;; Configuration
+(defcustom sp-tab-inbox-dir (concat org-directory "/inbox/tabs/")
+  "Directory of plain files with unsorted links."
+  :type 'directory
+  :group 'vulpea)
+
+(defcustom sp-tab-inbox-fill-column 40
+  "Wrap width for link inbox results.
+Tune to your sidebar width."
+  :type 'integer
+  :group 'vulpea)
+#+end_src
+
+** Automatic Resources target
+
+When =sp-tab-inbox-auto-resources= is non-nil, collecting files a hit under the note's Resources heading without asking, as long as exactly one sensible candidate exists inside the sidebar's scope. Otherwise the usual heading prompt appears.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-tab-inbox-auto-resources t
+  "When non-nil, collect under the note's \"Resources\" heading automatically.
+The heading is matched like `sp--resources-heading-p' does, in any case,
+and only inside the subtree the sidebar is scoped to (the whole file for
+a file-level note, the narrowed heading otherwise).  If there is no such
+heading, or the choice is ambiguous, you are prompted for one as usual.
+See `sp-tab-inbox--resources-target' for how ties are handled."
+  :type 'boolean
+  :group 'vulpea)
+#+end_src
+
+** New note body and See also heading
+
+=sp-tab-inbox-new-note-body= is the initial content of a note created on the fly by the send command; the default gives it a Resources heading so the hit lands there immediately. =sp-tab-inbox-see-also-heading= names the heading under which back-links to newly targeted notes are collected.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-tab-inbox-new-note-body "* Resources\n"
+  "Body of a note created by `sp-tab-inbox-send-elsewhere'.
+The default gives the new note a Resources heading, so the hit lands there
+without another prompt.  Set to nil for an empty note."
+  :type '(choice (const :tag "Empty note" nil) string)
+  :group 'vulpea)
+
+(defcustom sp-tab-inbox-see-also-heading "See also"
+  "Title of the heading that collects backlinks in the originating note.
+It is a direct child of the subtree the sidebar is scoped to, and the
+last heading in it."
+  :type 'string
+  :group 'vulpea)
+#+end_src
+
+** Backlink context
+
+=sp-tab-inbox-backlink-context-lines= sets how many lines above and below each inbox backlink are shown in the second widget.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-tab-inbox-backlink-context-lines 4
+  "Lines of context shown above and below each inbox backlink."
+  :type 'integer
+  :group 'vulpea)
+#+end_src
+
+** Internal state
+
+=sp-tab-inbox-generation= is a counter bumped after every change so that the widgets' memoised searches rerun. =sp-tab-inbox--current= remembers the note and hits last rendered, which the interactive send command uses when not called from a button. =sp-tab-inbox--pending= holds the hit being sent while the embark action runs, because embark exits the minibuffer before calling the action.
+
+#+begin_src emacs-lisp -i
+(defvar sp-tab-inbox-generation 0
+  "Bumped after collecting, so the widget's memo recomputes.")
+
+(defvar sp-tab-inbox--current nil
+  "The (NOTE . HITS) the widget last rendered, for the interactive commands.")
+
+(defvar sp-tab-inbox--pending nil
+  "The (FILE LINE TEXT ORIGIN) hit waiting for an embark action.
+Embark quits the minibuffer before running an action, so the hit being
+sent has to live outside the command that is prompting.")
+#+end_src
+
+** Bullet regexp
+
+=sp-tab-inbox-bullet-re= matches a plain list bullet (dash, plus, numbered, or an indented asterisk) with an optional checkbox at the start of a line. A column-0 asterisk is deliberately excluded since that is an Org heading.
+
+#+begin_src emacs-lisp -i
+(defconst sp-tab-inbox-bullet-re
+  "\\(?:[ \t]*[-+]\\|[ \t]*[0-9]+[.)]\\|[ \t]+\\*\\)[ \t]+\\(?:\\[[ xX-]\\][ \t]+\\)?"
+  "Matches a list bullet (and optional checkbox) at the start of a line.
+A column-0 `*' is an Org heading, so it is not treated as a bullet.")
+#+end_src
+
+* Searching
+
+Finding lines in the inbox that mention the current note, while ignoring lines where the only mention is an existing link to the note.
+
+** Collecting the note's IDs
+
+=sp-tab-inbox--note-ids= returns the note's own ID plus every =:ID:= property found in its file. It reads the live buffer if the file is open, so unsaved IDs count too.
+
+#+begin_src emacs-lisp -i
+;;;; Searching
+
+(defun sp-tab-inbox--note-ids (note)
+  "Return the ID of NOTE plus every :ID: property in NOTE's file."
+  (let ((path (vulpea-note-path note))
+        (ids (list (vulpea-note-id note))))
+    (when (and path (file-readable-p path))
+      (with-temp-buffer
+        (if-let ((buf (find-buffer-visiting path)))
+            (insert (with-current-buffer buf
+                      (save-restriction
+                        (widen)
+                        (buffer-substring-no-properties (point-min) (point-max)))))
+          (insert-file-contents path))
+        (goto-char (point-min))
+        (while (re-search-forward "^[ \t]*:ID:[ \t]+\\([^ \t\n]+\\)" nil t)
+          (push (match-string 1) ids))))
+    (delete-dups ids)))
+#+end_src
+
+** Ignoring already-linked mentions
+
+=sp-tab-inbox--unlinked-p= strips every =id:= link to one of those IDs from the text and then checks whether any search term still occurs. A line that only mentions the note inside such a link is therefore not reported as a hit.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--unlinked-p (text terms ids)
+  "Non-nil if some term in TERMS occurs in TEXT outside links to any of IDS."
+  (let* ((case-fold-search t)
+         (link-re (concat "\\[\\[id:" (regexp-opt ids)
+                          "\\]\\(?:\\[[^]]*\\]\\)?\\]"))
+         (stripped (replace-regexp-in-string link-re "" text t t)))
+    (seq-some (lambda (term) (string-match-p (regexp-quote term) stripped))
+              terms)))
+#+end_src
+
+** Running ripgrep
+
+=sp-tab-inbox-search= runs =rg= with case-insensitive, fixed-string, whole-word matching for the note's title and each alias of at least three characters. It parses the =file:line:text= output into =(FILE LINE TEXT)= lists and keeps only lines that pass the unlinked check. If =rg= is not on the path it silently returns nil.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox-search (note)
+  "Return list of (FILE LINE TEXT) mentioning NOTE's title or aliases.
+Matches that only sit inside id: links into NOTE's file are dropped."
+  (when-let* ((rg (executable-find "rg"))
+              (terms (seq-filter
+                      (lambda (s) (>= (length s) 3))
+                      (cons (vulpea-note-title note)
+                            (vulpea-note-aliases note)))))
+    (with-temp-buffer
+      (apply #'call-process rg nil t nil
+             "--line-number" "--no-heading" "--with-filename"
+             "--ignore-case" "--fixed-strings" "--word-regexp"
+             (append (mapcan (lambda (term) (list "-e" term)) terms)
+                     (list (expand-file-name sp-tab-inbox-dir))))
+      (goto-char (point-min))
+      (let ((ids (sp-tab-inbox--note-ids note))
+            result)
+        (while (re-search-forward "^\\(.+?\\):\\([0-9]+\\):\\(.*\\)$" nil t)
+          (let ((text (string-trim (match-string 3))))
+            (when (sp-tab-inbox--unlinked-p text terms ids)
+              (push (list (match-string 1)
+                          (string-to-number (match-string 2))
+                          text)
+                    result))))
+        (nreverse result)))))
+#+end_src
+
+* Display helpers
+
+** Wrapping and visiting
+
+=sp-tab-inbox-wrap= fills a hit's text to the configured width and indents every line by two spaces for display. =sp-tab-inbox-visit= opens a file at a given line in another window and is used by the file:line buttons.
+
+#+begin_src emacs-lisp -i
+;;;; Display helpers
+
+(defun sp-tab-inbox-wrap (text)
+  "Fill TEXT to `sp-tab-inbox-fill-column' and indent it by two spaces."
+  (with-temp-buffer
+    (insert text)
+    (let ((fill-column sp-tab-inbox-fill-column))
+      (fill-region (point-min) (point-max)))
+    (goto-char (point-min))
+    (while (not (eobp))
+      (insert "  ")
+      (forward-line 1))
+    (buffer-string)))
+
+(defun sp-tab-inbox-visit (file line)
+  "Visit LINE of FILE in another window."
+  (find-file-other-window file)
+  (goto-char (point-min))
+  (forward-line (1- line)))
+#+end_src
+
+* Collecting
+
+Moving a hit from an inbox file into the current note. Most of the logic here decides which heading the hit should go under: the subtree the sidebar is scoped to, its Resources heading if there is exactly one, or a prompt otherwise.
+
+** Locating the note's heading
+
+=sp-tab-inbox--heading-marker= returns a marker at the heading a heading-level note refers to. The cached position from the database is used only if the heading there still carries the note's ID; otherwise it falls back to =org-id-find=.
+
+#+begin_src emacs-lisp -i
+;;;; Collecting
+
+(defun sp-tab-inbox--heading-marker (note)
+  "Return a marker at the heading NOTE refers to, or nil.
+The position stored in NOTE is trusted only if the heading there carries
+NOTE's ID; otherwise the heading is looked up by ID."
+  (with-current-buffer (find-file-noselect (vulpea-note-path note))
+    (org-with-wide-buffer
+     (let ((id (vulpea-note-id note))
+           (pos (vulpea-note-pos note)))
+       (or (and pos (<= 1 pos (point-max))
+                (progn (goto-char pos)
+                       (and (org-at-heading-p)
+                            (equal (org-entry-get nil "ID") id)
+                            (point-marker))))
+           (org-id-find id t))))))
+#+end_src
+
+** Scope root
+
+=sp-tab-inbox--scope-root= returns the subtree the sidebar is showing as a marker and level. For a heading-level note (for example when the sidebar follows narrowing) it is that heading; for a file-level note it is the start of the file with level 0.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--scope-root (note)
+  "Return (MARKER . LEVEL) for the subtree the sidebar is scoped to.
+For a heading-level NOTE (e.g. when the sidebar follows narrowing) this is
+that heading.  For a file-level note, or if the heading can't be found, it
+is the whole file: MARKER at the start of the file and LEVEL 0."
+  (or (and (> (or (vulpea-note-level note) 0) 0)
+           (when-let ((m (sp-tab-inbox--heading-marker note)))
+             (cons m (with-current-buffer (marker-buffer m)
+                       (org-with-wide-buffer
+                        (goto-char m)
+                        (org-current-level))))))
+      (with-current-buffer (find-file-noselect (vulpea-note-path note))
+        (cons (org-with-wide-buffer (copy-marker (point-min))) 0))))
+#+end_src
+
+** Finding Resources headings
+
+=sp-tab-inbox--resources-candidates= walks every heading below the scope root and collects those whose title passes =sp--resources-heading-p=, returning marker, level and ID for each. An optional predicate lets the same walker find See also headings later.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--resources-candidates (root &optional pred)
+  "Return (MARKER LEVEL ID) for each Resources heading below ROOT.
+ROOT is (MARKER . LEVEL) as returned by `sp-tab-inbox--scope-root'.
+The root heading itself is not a candidate.  PRED, if given, replaces
+`sp--resources-heading-p' as the test on the heading's title."
+  (with-current-buffer (marker-buffer (car root))
+    (org-with-wide-buffer
+     (let (result)
+       (goto-char (car root))
+       (org-map-entries
+        (lambda ()
+          (when (and (> (org-current-level) (cdr root))
+                     (funcall (or pred #'sp--resources-heading-p)
+                              (org-get-heading t t t t)))
+            (push (list (point-marker)
+                        (org-current-level)
+                        (org-entry-get nil "ID"))
+                  result)))
+        nil
+        (if (zerop (cdr root)) nil 'tree))
+       (nreverse result)))))
+#+end_src
+
+** Splitting a subtree
+
+=sp-tab-inbox--subtree-parts= cuts a subtree into its heading with metadata (planning line and property drawer), its own body text, and its child headings, along with the subtree's start and end. This is what the merge function needs to concatenate several headings.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--subtree-parts (marker)
+  "Return (BEG END HEAD BODY CHILDREN) for the subtree at MARKER.
+BEG and END delimit the whole subtree.  HEAD is the heading line plus its
+planning line and property drawer, BODY is the text before the first
+sub-heading, and CHILDREN is everything from the first sub-heading on."
+  (save-excursion
+    (goto-char marker)
+    (let* ((beg (line-beginning-position))
+           (end (progn (org-end-of-subtree t t) (point)))
+           (meta-end (progn (goto-char beg)
+                            (org-end-of-meta-data)
+                            (min (point) end)))
+           (next (progn (goto-char beg)
+                        (end-of-line)
+                        (if (outline-next-heading) (min (point) end) end)))
+           (child-beg (max meta-end next)))
+      (list beg end
+            (buffer-substring-no-properties beg meta-end)
+            (buffer-substring-no-properties meta-end child-beg)
+            (buffer-substring-no-properties child-beg end)))))
+#+end_src
+
+** Parent heading
+
+=sp-tab-inbox--parent-marker= returns a marker at a heading's parent, or nil for a top-level heading. It is used to tell whether tied Resources headings are siblings.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--parent-marker (marker)
+  "Return a marker at the parent heading of the heading at MARKER, or nil.
+Nil means the heading sits directly under the file."
+  (with-current-buffer (marker-buffer marker)
+    (org-with-wide-buffer
+     (goto-char marker)
+     (when (org-up-heading-safe)
+       (point-marker)))))
+#+end_src
+
+** Merging duplicate headings
+
+=sp-tab-inbox--merge-resources= treats several sibling headings with the same title as a formatting error and fixes it in place. It keeps the first heading's line and properties, concatenates all bodies in file order and then all child headings, deletes the originals bottom-up so positions stay valid, and inserts the merged heading as the last child of the parent. It reports the merge in the echo area and returns the new heading's marker with a label used as the target path.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--merge-resources (tied parent &optional label)
+  "Merge the TIED sibling Resources headings into a single one under PARENT.
+TIED are (MARKER LEVEL ID) entries as returned by
+`sp-tab-inbox--resources-candidates', all children of PARENT (a marker, or
+nil for the file itself) at the same level.  The first heading's line and
+properties are kept; the bodies of all headings are concatenated in file
+order, followed by all their sub-headings.  The result is a single heading
+at the same level, placed at the end of PARENT's subtree, as its last
+child.  LABEL names the headings in messages and in the returned path
+(default \"Resources\").  Return (MARKER . PATH) for the merged heading."
+  (with-current-buffer (marker-buffer (car (car tied)))
+    (org-with-wide-buffer
+     (let* ((parts (mapcar (lambda (c) (sp-tab-inbox--subtree-parts (car c)))
+                           (sort (copy-sequence tied)
+                                 (lambda (a b) (< (car a) (car b))))))
+            (nl (lambda (s)
+                  (if (or (string-empty-p s) (string-suffix-p "\n" s))
+                      s
+                    (concat s "\n"))))
+            ;; each part is (BEG END HEAD BODY CHILDREN)
+            (text (concat (funcall nl (nth 2 (car parts)))
+                          (mapconcat (lambda (p) (funcall nl (nth 3 p))) parts "")
+                          (mapconcat (lambda (p) (funcall nl (nth 4 p))) parts ""))))
+       ;; delete bottom-up so the earlier positions stay valid
+       (dolist (p (reverse parts))
+         (delete-region (nth 0 p) (nth 1 p)))
+       (if parent
+           (progn (goto-char parent) (org-end-of-subtree t t))
+         (goto-char (point-max)))
+       (unless (bolp) (insert "\n"))
+       (let ((pos (point)))
+         (insert text)
+         (message "Merged %d %s headings" (length parts) (or label "Resources"))
+         (cons (copy-marker pos) (or label "Resources")))))))
+#+end_src
+
+** Choosing the Resources target
+
+=sp-tab-inbox--resources-target= picks the shallowest Resources heading in scope. With exactly one at that depth it is used directly. If several are tied and they are siblings without IDs, they are merged and the result is used; if any has an ID (merging would lose a possible link target) or they have different parents, it returns nil so the caller prompts instead.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--resources-target (note)
+  "Return (MARKER . PATH) for the Resources heading to collect under, or nil.
+Only the subtree NOTE is scoped to is searched, and the shallowest
+Resources heading wins.  If several are tied at that depth:
+- when they are siblings under the same parent, that is a formatting
+  error: they are merged in place into a single Resources heading at the
+  same level, last under that parent (see `sp-tab-inbox--merge-resources'),
+  which is then used -- unless any of them has an ID, in which case nil is
+  returned (the caller prompts), since merging would drop IDs that may be
+  linked to;
+- when they sit under different parents, the choice is ambiguous and nil
+  is returned (the caller prompts); nothing is changed."
+  (let* ((root (sp-tab-inbox--scope-root note))
+         (cands (sp-tab-inbox--resources-candidates root)))
+    (when cands
+      (let* ((min-level (apply #'min (mapcar #'cadr cands)))
+             (tied (seq-filter (lambda (c) (= (cadr c) min-level)) cands)))
+        (if (null (cdr tied))
+            (cons (car (car tied)) "Resources")
+          (let* ((parents (mapcar (lambda (c) (sp-tab-inbox--parent-marker (car c)))
+                                  tied))
+                 (positions (mapcar (lambda (m) (and m (marker-position m)))
+                                    parents)))
+            (and (zerop (seq-count #'caddr tied))
+                 (seq-every-p (lambda (pos) (equal pos (car positions)))
+                              positions)
+                 (sp-tab-inbox--merge-resources tied (car parents)))))))))
+#+end_src
+
+** Target with prompt fallback
+
+=sp-tab-inbox--target= tries the automatic Resources target when enabled, and otherwise asks for a heading in the note's file with =sp--read-org-heading= from =sp-move-region-to-heading=.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--target (note)
+  "Return the (MARKER . PATH) heading target to collect into for NOTE.
+Uses the Resources heading when `sp-tab-inbox-auto-resources' is set and
+one exists, and otherwise prompts like `sp-move-region-to-heading' does."
+  (or (and sp-tab-inbox-auto-resources
+           (sp-tab-inbox--resources-target note))
+      (sp--read-org-heading (vulpea-note-path note))))
+#+end_src
+
+* Collecting: one hit
+
+Moving a single inbox line into the note. The work is split in two: a low-level mover that saves nothing, and the interactive-facing wrapper that saves both files.
+
+** Moving one line without saving
+
+=sp-tab-inbox--collect-line= goes to LINE of the inbox buffer (widening first) and checks that it still reads TEXT; if not it returns nil and changes nothing, so the caller decides whether that is an error. If the line starts with a bullet, the move starts at the bullet so it travels with the text, and after =sp-move-region-to-heading= leaves a link behind the bullet is reinserted in front of that link. =sp-move-region-to-heading= normally saves the target note on every call, which made large batches slow, so here =save-buffer= is temporarily replaced with =ignore= via =cl-letf=, and the move runs with the target buffer widened so a narrowed note does not hide the heading. It signals an error if the target note's buffer has been killed.
+
+#+begin_src emacs-lisp -i
+;;;; Collecting: one hit
+
+(defun sp-tab-inbox--collect-line (buf line text target)
+  "Move LINE of BUF under TARGET, keeping the list bullet in both places.
+TARGET is (MARKER . PATH) as used by `sp-move-region-to-heading'.  Neither
+buffer is saved: that is the caller's job.  Return non-nil on success, and
+nil if the line no longer reads TEXT (nothing is changed then)."
+  (let ((tbuf (marker-buffer (car target))))
+    (unless (buffer-live-p tbuf)
+      (error "The note buffer for the target heading is gone"))
+    (with-current-buffer buf
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (forward-line (1- line))
+          (let ((bol (line-beginning-position))
+                (end (line-end-position)))
+            (when (equal (string-trim (buffer-substring-no-properties bol end))
+                         text)
+              (goto-char bol)
+              (let* ((bullet-end (and (looking-at sp-tab-inbox-bullet-re)
+                                      (match-end 0)))
+                     ;; with a bullet, start at the bullet (skip indentation)
+                     (beg (if bullet-end
+                              (progn (skip-chars-forward " \t") (point))
+                            bol))
+                     (bullet (and bullet-end
+                                  (buffer-substring-no-properties beg bullet-end))))
+                (goto-char beg)
+                ;; `sp-move-region-to-heading' saves the target note on every
+                ;; call, which is what makes big batches crawl; hold that back
+                ;; (the caller saves once) and look at the whole target buffer
+                ;; even if the user has it narrowed.
+                (cl-letf (((symbol-function 'save-buffer) #'ignore))
+                  (with-current-buffer tbuf
+                    (org-with-wide-buffer
+                     (with-current-buffer buf
+                       (sp-move-region-to-heading
+                        beg end (car target) (cdr target))))))
+                ;; the link now sits at BEG; put the bullet back before it
+                (when bullet
+                  (goto-char beg)
+                  (insert bullet)))
+              t)))))))
+#+end_src
+
+** Collecting one line and saving
+
+=sp-tab-inbox-collect= is what single-hit commands use. It resolves the target if none is given, opens the inbox file (remembering whether it was already open), calls =sp-tab-inbox--collect-line= and raises an error asking you to refresh the sidebar if the line changed. Then it saves both the inbox file and the target note, kills the inbox buffer again if this command opened it, and returns the target used.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox-collect (file line text note &optional target)
+  "Move LINE of FILE under a heading of NOTE with `sp-move-region-to-heading'.
+The list bullet, if any, is moved with the text and also kept in FILE in
+front of the link left behind.  Both files are saved.
+TEXT is the hit text, checked against the file to catch stale line numbers.
+TARGET is an optional (MARKER . PATH) to skip the heading choice.
+Return the target used."
+  (let* ((target (or target (sp-tab-inbox--target note)))
+         (existing (find-buffer-visiting file))
+         (buf (or existing (find-file-noselect file))))
+    (unwind-protect
+        (progn
+          (unless (sp-tab-inbox--collect-line buf line text target)
+            (user-error "Line %d of %s changed; refresh the sidebar"
+                        line (file-name-nondirectory file)))
+          (with-current-buffer buf (save-buffer))
+          (with-current-buffer (marker-buffer (car target)) (save-buffer)))
+      ;; only kill buffers this command opened
+      (when (and (not existing) (buffer-live-p buf))
+        (kill-buffer buf)))
+    target))
+#+end_src
+
+* Collecting: all hits, in the background
+
+=collect all= used to move every hit synchronously, saving the note after each one. It now runs as a background job driven by an idle timer, so Emacs stays responsive and you can keep editing, including in the note being collected into. Only one job runs at a time.
+
+** Timing options
+
+=sp-tab-inbox-async-slice= is how many seconds of moving the job does per tick before yielding, and =sp-tab-inbox-async-delay= is how long Emacs must be idle before the next tick runs.
+
+#+begin_src emacs-lisp -i
+;;;; Collecting: all hits, in the background
+
+(defcustom sp-tab-inbox-async-slice 0.05
+  "Seconds of work `collect all' does per timer tick before yielding."
+  :type 'number
+  :group 'vulpea)
+
+(defcustom sp-tab-inbox-async-delay 0.1
+  "Seconds Emacs must sit idle before `collect all' does its next slice."
+  :type 'number
+  :group 'vulpea)
+#+end_src
+
+** Job record and state
+
+=sp-tab-inbox-job= is a =cl-defstruct= holding the queue of remaining hits, the shared target, counts of total, done and skipped lines, the inbox file currently open (its buffer and whether it was already visited), the pending timer and when progress was last reported. =sp-tab-inbox--job= holds the running job, or nil.
+
+#+begin_src emacs-lisp -i
+(cl-defstruct (sp-tab-inbox-job (:constructor sp-tab-inbox-job--make)
+                                 (:copier nil))
+  queue target total (done 0) (skipped 0) file buf existing timer (last-msg 0.0))
+
+(defvar sp-tab-inbox--job nil
+  "The running `collect all' job, if any.")
+#+end_src
+
+** Refusing to start while a job runs
+
+=sp-tab-inbox--ensure-idle= raises a user error if a job is still running, pointing at =sp-tab-inbox-cancel-collect=. The collect and send commands all call it first, so nothing else edits the inbox files while line numbers in the queue are still in use.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--ensure-idle ()
+  "Signal a user error if a `collect all' job is still running."
+  (when sp-tab-inbox--job
+    (user-error
+     "A link inbox job is still running (M-x sp-tab-inbox-cancel-collect stops it)")))
+#+end_src
+
+** Closing the current inbox file
+
+=sp-tab-inbox--job-close-file= saves the inbox buffer the job is working on if it was modified, kills it if the job opened it, and clears the job's file fields. The job keeps one inbox file open at a time.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--job-close-file (job)
+  "Save and, if JOB opened it, kill the inbox file JOB is working on."
+  (when-let ((buf (sp-tab-inbox-job-buf job)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (when (buffer-modified-p) (save-buffer)))
+      (unless (sp-tab-inbox-job-existing job)
+        (kill-buffer buf)))
+    (setf (sp-tab-inbox-job-buf job) nil
+          (sp-tab-inbox-job-file job) nil)))
+#+end_src
+
+** Finishing a job
+
+=sp-tab-inbox--job-finish= cancels the timer, closes the inbox file, saves the target note once, and clears =sp-tab-inbox--job= (in an =unwind-protect=, so the job is cleared even if saving fails). It then bumps the generation counter, refreshes the sidebar and reports how many lines were collected, how many were skipped because they changed since the search, and why the job stopped if REASON is given.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--job-finish (job &optional reason)
+  "End JOB: save everything once, refresh the sidebar and report.
+REASON, if given, says why the job stopped early."
+  (when (timerp (sp-tab-inbox-job-timer job))
+    (cancel-timer (sp-tab-inbox-job-timer job)))
+  (unwind-protect
+      (progn
+        (sp-tab-inbox--job-close-file job)
+        (let ((tbuf (marker-buffer (car (sp-tab-inbox-job-target job)))))
+          (when (buffer-live-p tbuf)
+            (with-current-buffer tbuf
+              (when (buffer-modified-p) (save-buffer))))))
+    (setq sp-tab-inbox--job nil))
+  (cl-incf sp-tab-inbox-generation)
+  (ignore-errors (vulpea-ui-sidebar-refresh))
+  (message "Link inbox: collected %d of %d lines%s%s"
+           (sp-tab-inbox-job-done job)
+           (sp-tab-inbox-job-total job)
+           (if (> (sp-tab-inbox-job-skipped job) 0)
+               (format ", %d skipped (changed since the search)"
+                       (sp-tab-inbox-job-skipped job))
+             "")
+           (if reason (format " - stopped: %s" reason) "")))
+#+end_src
+
+** Collecting the next hit
+
+=sp-tab-inbox--job-do-one= pops the next hit, switching to its inbox file if it differs from the current one, and moves it with =sp-tab-inbox--collect-line=. A line that no longer matches counts as skipped rather than stopping the job.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--job-do-one (job)
+  "Collect the next queued hit of JOB, opening its file if needed."
+  (pcase-let ((`(,file ,line ,text) (pop (sp-tab-inbox-job-queue job))))
+    (unless (equal file (sp-tab-inbox-job-file job))
+      (sp-tab-inbox--job-close-file job)
+      (let ((existing (find-buffer-visiting file)))
+        (setf (sp-tab-inbox-job-existing job) existing
+              (sp-tab-inbox-job-buf job) (or existing (find-file-noselect file))
+              (sp-tab-inbox-job-file job) file)))
+    (if (sp-tab-inbox--collect-line (sp-tab-inbox-job-buf job) line text
+                                     (sp-tab-inbox-job-target job))
+        (cl-incf (sp-tab-inbox-job-done job))
+      (cl-incf (sp-tab-inbox-job-skipped job)))))
+#+end_src
+
+** Scheduling and running slices
+
+=sp-tab-inbox--job-schedule= sets a one-shot idle timer for the next tick. =sp-tab-inbox--job-tick= ignores stale timers for a job that is no longer current, and waits again while a minibuffer is active. Otherwise it collects hits until the queue is empty, the slice's time is used up or input arrives. Any error ends the job with that message; an empty queue finishes it normally; otherwise it shows progress in the echo area at most once a second and schedules the next tick.
+
+*** Explaining how the async actually works
+
+`collect all` now runs in the background, and I made it much cheaper per line. I couldn't run Emacs here, so this is untested. A script check shows the parentheses balance. Your `sp-move-region-to-heading` is unchanged.
+
+**How it works**
+- **Timer slices:** Emacs has no threads, so the work is cut into short slices run from an idle timer. Each slice does about 0.05 s of work and then yields, and the next one waits until Emacs has been idle for 0.1 s. Both numbers are options (`sp-link-inbox-async-slice`, `sp-link-inbox-async-delay`). It also pauses while you're typing or have a minibuffer open.
+- **Heading choice:** this happens up front, so any heading prompt or `Resources` merge appears immediately. After that, the lines are collected into that heading one inbox file at a time, in file and line order.
+- **Progress:** the echo area shows it about once a second. `M-x sp-link-inbox-cancel-collect` stops the job and keeps what was already collected.
+- **Overlap:** while a job runs, `collect`, `send` and `collect all` refuse to start.
+
+**Why it was freezing, and what changed**
+- **Saving:** your move function saves the target note after every single line, and saving a big note with its after-save hooks was probably the main cost. For these calls I suppress that save, and the note and each inbox file are saved once instead (the note once at the end of the job).
+- **Opening files:** each inbox file is opened once for all its hits, not once per hit.
+- **Narrowing:** the target note is temporarily widened for each move, so a live narrowing in that buffer can no longer misplace a line.
+
+**Things to know**
+- **Unsaved note:** the note shows as modified until the job ends, since it is no longer saved after each line.
+- **Undo:** the collector's insertions go into the same undo history as your typing, so `C-/` can undo one of them. Undoing at the wrong time would be messy.
+- **Stale lines:** a line that no longer matches what the search found (the file changed meanwhile) is skipped and counted in the final message.
+- **Other errors:** any other error stops the job, saves what is done, and says why in the echo area.
+- **Sidebar:** it shows the old hit list until the job finishes, then refreshes once.
+
+Replace your copy of `sp-link-inbox.el` with this version and run `M-x load-file` on it, or restart Emacs.
+
+*** The code itself
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--job-schedule (job)
+  "Arrange for JOB's next slice to run when Emacs is idle."
+  (setf (sp-tab-inbox-job-timer job)
+        (run-with-idle-timer sp-tab-inbox-async-delay nil
+                             #'sp-tab-inbox--job-tick job)))
+
+(defun sp-tab-inbox--job-tick (job)
+  "Do one short slice of JOB, then yield to the user."
+  (setf (sp-tab-inbox-job-timer job) nil)
+  (when (eq job sp-tab-inbox--job)
+    (if (active-minibuffer-window)
+        (sp-tab-inbox--job-schedule job)
+      (let ((deadline (+ (float-time) sp-tab-inbox-async-slice))
+            failure)
+        (condition-case err
+            (cl-loop
+             do (sp-tab-inbox--job-do-one job)
+             while (and (sp-tab-inbox-job-queue job)
+                        (< (float-time) deadline)
+                        (not (input-pending-p))))
+          (error (setq failure (error-message-string err))))
+        (cond
+         (failure (sp-tab-inbox--job-finish job failure))
+         ((null (sp-tab-inbox-job-queue job)) (sp-tab-inbox--job-finish job))
+         (t
+          (when (> (- (float-time) (sp-tab-inbox-job-last-msg job)) 1.0)
+            (setf (sp-tab-inbox-job-last-msg job) (float-time))
+            (message "Link inbox: collected %d/%d..."
+                     (+ (sp-tab-inbox-job-done job)
+                        (sp-tab-inbox-job-skipped job))
+                     (sp-tab-inbox-job-total job)))
+          (sp-tab-inbox--job-schedule job)))))))
+#+end_src
+
+** Cancelling
+
+=sp-tab-inbox-cancel-collect= (autoloaded, interactive) finishes the running job early with the reason /cancelled/. Lines already moved stay where they are and everything is saved as usual.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-tab-inbox-cancel-collect ()
+  "Stop the running `collect all' job.  What was collected so far stays."
+  (interactive)
+  (if sp-tab-inbox--job
+      (sp-tab-inbox--job-finish sp-tab-inbox--job "cancelled")
+    (message "No link inbox job is running")))
+#+end_src
+
+** Collect one and collect all
+
+=sp-tab-inbox-collect-one= checks that no job is running, collects a single hit and refreshes the sidebar. =sp-tab-inbox-collect-all= also checks for a running job, then chooses the target heading up front, so any prompt or Resources merge happens immediately. It sorts the hits by file and then line, builds a job and schedules its first slice, returning straight away. Processing one file at a time in line order is safe because each moved line is replaced by a single link line, so the remaining line numbers stay valid.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox-collect-one (file line text note)
+  "Collect a single hit (FILE, LINE, TEXT) into NOTE and refresh the sidebar."
+  (sp-tab-inbox--ensure-idle)
+  (sp-tab-inbox-collect file line text note)
+  (cl-incf sp-tab-inbox-generation)
+  (vulpea-ui-sidebar-refresh))
+
+(defun sp-tab-inbox-collect-all (hits note)
+  "Collect every hit in HITS into NOTE, in the background.
+The heading is chosen up front (so any prompt or merge happens now); the
+lines are then moved in short slices while Emacs is idle, one inbox file
+at a time, so you can keep editing, including in NOTE's own file.  Both
+kinds of file are saved once the job is done.  Each moved line is replaced
+by a one-line link, so line numbers stay valid between hits.  Progress is
+shown in the echo area; `sp-tab-inbox-cancel-collect' stops the job."
+  (sp-tab-inbox--ensure-idle)
+  (when hits
+    (let* ((target (sp-tab-inbox--target note))
+           (queue (sort (copy-sequence hits)
+                        (lambda (a b)
+                          (if (equal (car a) (car b))
+                              (< (cadr a) (cadr b))
+                            (string< (car a) (car b))))))
+           (job (sp-tab-inbox-job--make :queue queue
+                                         :target target
+                                         :total (length queue))))
+      (setq sp-tab-inbox--job job)
+      (message "Link inbox: collecting %d lines in the background..."
+               (length queue))
+      (sp-tab-inbox--job-schedule job))))
+#+end_src
+
+* Sending to another note
+
+For hits that mention the current note but really belong somewhere else. You pick or create a different note and the line is collected there instead; an optional embark action also records a See also link back in the originating note.
+
+** Embark keymap
+
+Declares =embark-keymap-alist= to silence the byte compiler, and defines =sp-tab-inbox-embark-map= with a single action on =L=, =sp-tab-inbox-embark-send-and-link=.
+
+#+begin_src emacs-lisp -i
+;;;; Sending to another note
+
+(defvar embark-keymap-alist)
+
+(defvar-keymap sp-tab-inbox-embark-map
+  :doc "Embark actions available while choosing where to send a link inbox hit."
+  "L" #'sp-tab-inbox-embark-send-and-link)
+#+end_src
+
+** Scoping the embark action
+
+=sp-tab-inbox--embark-alist= returns a copy of =embark-keymap-alist= with the inbox map placed in front of whatever is registered for the =vulpea-note= category. It is let-bound only while the send prompt is active, so the =L= action exists nowhere else. Without embark installed it simply returns the existing value.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--embark-alist ()
+  "Return `embark-keymap-alist' extended with `sp-tab-inbox-embark-map'.
+The map is added in front of whatever is already registered for the
+`vulpea-note' category, and is meant to be bound only while prompting,
+so that the action exists nowhere else."
+  (if (and (require 'embark nil t) (boundp 'embark-keymap-alist))
+      (let ((existing (alist-get 'vulpea-note embark-keymap-alist)))
+        (cons (cons 'vulpea-note
+                    (cons 'sp-tab-inbox-embark-map
+                          (if (listp existing) existing (list existing))))
+              embark-keymap-alist))
+    (bound-and-true-p embark-keymap-alist)))
+#+end_src
+
+** Ensuring a real note
+
+=sp-tab-inbox--ensure-note= takes either a title string or a note and returns a note with an ID. A note without an ID (what =vulpea-select= returns for a new title) or a bare string is turned into a new file-level note with =vulpea-create=, using =sp-tab-inbox-new-note-body= as its body.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--ensure-note (note-or-title)
+  "Return a real note for NOTE-OR-TITLE, creating a file-level one if needed.
+NOTE-OR-TITLE is a title string or a `vulpea-note'; a note without an ID
+is what `vulpea-select' returns for a title that doesn't exist yet."
+  (if (and (not (stringp note-or-title)) (vulpea-note-id note-or-title))
+      note-or-title
+    (let ((title (string-trim
+                  (or (if (stringp note-or-title)
+                          note-or-title
+                        (vulpea-note-title note-or-title))
+                      ""))))
+      (when (string-empty-p title)
+        (user-error "Empty note title"))
+      (vulpea-create title nil :body sp-tab-inbox-new-note-body))))
+#+end_src
+
+** Resolving an embark candidate
+
+=sp-tab-inbox--candidate-note= maps an embark candidate string back to a note. It first looks for the =vulpea-note-id= text property, then for the trailing UUID vulpea appends to candidates (embark can strip properties but not text), and finally for a unique case-insensitive title match among file-level notes. If none of these succeed it returns the title so a new note can be created.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--candidate-note (candidate)
+  "Return the note CANDIDATE stands for, or its title if there is none.
+The ID is read from the `vulpea-note-id' text property, or from the
+trailing UUID vulpea appends to every candidate; embark can drop the
+property but not the text.  Without an ID, an exact title match among
+file-level notes is used if there is exactly one."
+  (let* ((id (or (get-text-property 0 'vulpea-note-id candidate)
+                 (and (string-match
+                       (concat "\\([0-9A-Fa-f]\\{8\\}\\(?:-[0-9A-Fa-f]\\{4\\}\\)\\{3\\}"
+                               "-[0-9A-Fa-f]\\{12\\}\\)[ \t]*\\'")
+                       candidate)
+                      (match-string 1 candidate))))
+         (title (string-trim candidate)))
+    (or (and id (vulpea-db-get-by-id id))
+        (let ((exact (seq-filter
+                      (lambda (n)
+                        (and (zerop (vulpea-note-level n))
+                             (string-equal-ignore-case (vulpea-note-title n) title)))
+                      (vulpea-db-search-by-title title))))
+          (if (= (length exact) 1) (car exact) title)))))
+#+end_src
+
+** See also helpers
+
+=sp-tab-inbox--see-also-heading-p= tests a heading title against =sp-tab-inbox-see-also-heading=, ignoring case and surrounding space. =sp-tab-inbox--create-last-child= inserts a new heading one level below the scope root, at the end of its subtree, and returns a marker to it.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--see-also-heading-p (title)
+  "Non-nil if TITLE is the See also heading, ignoring case and spacing."
+  (string-equal-ignore-case (string-trim title) sp-tab-inbox-see-also-heading))
+
+(defun sp-tab-inbox--create-last-child (root title)
+  "Create a heading TITLE as the last child of ROOT.
+ROOT is (MARKER . LEVEL).  Return a marker at the new heading."
+  (with-current-buffer (marker-buffer (car root))
+    (org-with-wide-buffer
+     (goto-char (car root))
+     (if (zerop (cdr root))
+         (goto-char (point-max))
+       (org-end-of-subtree t t))
+     (unless (bolp) (insert "\n"))
+     (let ((pos (point)))
+       (insert (make-string (1+ (cdr root)) ?*) " " title "\n")
+       (copy-marker pos)))))
+#+end_src
+
+** Finding or creating See also
+
+=sp-tab-inbox--see-also-marker= looks for See also headings that are direct children of the scope root. With none it creates one as the last child; with one it uses it; with several and no IDs it merges them using the same merge function as for Resources; with several where one has an ID it just uses the first.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--see-also-marker (note)
+  "Return a marker at NOTE's See also heading, creating it if needed.
+The heading is a direct child of the subtree NOTE is scoped to: top level
+in a file-level note, one level below the heading when narrowed to one.
+It is created as the last heading of that subtree.  If there are several,
+they are merged in place unless one has an ID, in which case the first is
+used and nothing is changed."
+  (let* ((root (sp-tab-inbox--scope-root note))
+         (cands (seq-filter
+                 (lambda (c) (= (cadr c) (1+ (cdr root))))
+                 (sp-tab-inbox--resources-candidates
+                  root #'sp-tab-inbox--see-also-heading-p))))
+    (cond
+     ((null cands)
+      (sp-tab-inbox--create-last-child root sp-tab-inbox-see-also-heading))
+     ((null (cdr cands))
+      (car (car cands)))
+     ((zerop (seq-count #'caddr cands))
+      (car (sp-tab-inbox--merge-resources
+            cands
+            (and (> (cdr root) 0) (car root))
+            sp-tab-inbox-see-also-heading)))
+     (t (car (car cands))))))
+#+end_src
+
+** Inserting the back-link
+
+=sp-tab-inbox--insert-link= adds a list item linking to the target note at the end of the See also heading's own body, before any sub-headings, and saves the file. It does nothing if the target is the origin itself or if the heading already links to it, in which case a message says so.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--insert-link (origin note)
+  "Insert a list item linking to NOTE under ORIGIN's See also heading.
+The heading is found or created by `sp-tab-inbox--see-also-marker'.
+Nothing is inserted if it already links to NOTE, or if NOTE is ORIGIN."
+  (unless (equal (vulpea-note-id note) (vulpea-note-id origin))
+    (let ((heading (sp-tab-inbox--see-also-marker origin)))
+      (with-current-buffer (marker-buffer heading)
+        (org-with-wide-buffer
+         (goto-char heading)
+         (let ((end (save-excursion (org-end-of-subtree t t) (point))))
+           (if (save-excursion
+                 (re-search-forward
+                  (regexp-quote (concat "[[id:" (vulpea-note-id note) "]"))
+                  end t))
+               (message "%s already links to %s"
+                        (vulpea-note-title origin) (vulpea-note-title note))
+             ;; end of the heading's own body, before any sub-heading
+             (end-of-line)
+             (outline-next-heading)
+             (goto-char (min (point) end))
+             (unless (bolp) (insert "\n"))
+             (insert "- " (vulpea-utils-link-make-string note) "\n"))))
+        (save-buffer)))))
+#+end_src
+
+** Working out which hit to send
+
+=sp-tab-inbox--resolve-hit= supplies the hit when the send command is run by hand. Inside a file under the inbox directory the current line is the hit; anywhere else you choose from the hits the sidebar last rendered via =completing-read=. It requires the sidebar to have shown a note first.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--resolve-hit ()
+  "Return (FILE LINE TEXT ORIGIN) for the hit to send, asking if needed.
+In a file inside `sp-tab-inbox-dir' the line at point is the hit;
+anywhere else you pick one of the sidebar's current hits.  ORIGIN is the
+note the sidebar is showing."
+  (let ((origin (car sp-tab-inbox--current))
+        (file (buffer-file-name)))
+    (unless origin
+      (user-error "Open the vulpea-ui sidebar on a note first"))
+    (if (and file (file-in-directory-p file (expand-file-name sp-tab-inbox-dir)))
+        (list file
+              (line-number-at-pos nil t)
+              (string-trim (buffer-substring-no-properties
+                            (line-beginning-position) (line-end-position)))
+              origin)
+      (let* ((hits (cdr sp-tab-inbox--current))
+             (alist (mapcar (lambda (h)
+                              (cons (format "%s:%d  %s"
+                                            (file-name-nondirectory (nth 0 h))
+                                            (nth 1 h) (nth 2 h))
+                                    h))
+                            hits)))
+        (unless alist (user-error "No link inbox hits for %s"
+                                  (vulpea-note-title origin)))
+        (append (cdr (assoc (completing-read "Send hit: " alist nil t) alist))
+                (list origin))))))
+#+end_src
+
+** Send elsewhere command
+
+=sp-tab-inbox-send-elsewhere= (autoloaded, and also behind the =send= button) refuses to run while a =collect all= job is going, then stores the hit in =sp-tab-inbox--pending= and opens =vulpea-select= restricted to file-level notes, allowing a new title. The chosen or newly created note then receives the line just as =collect= would, landing under its Resources heading when it has one. No link back is added by this path; that is what the embark =L= action is for. The docstring contains a blank line, which is why this form spans two units.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-tab-inbox-send-elsewhere (&optional file line text origin)
+  "Send a link inbox hit to another note, picked or created on the spot.
+The hit is the line LINE of FILE with content TEXT, found from ORIGIN, the
+note the sidebar is showing.  Interactively, these are the line at point
+in an inbox file, or a hit you choose from the sidebar's current ones.
+
+The note is chosen with `vulpea-select'; a title that doesn't exist yet
+creates a new file-level note (see `sp-tab-inbox-new-note-body').  The
+line then moves under the chosen note's Resources heading like `collect'
+does.  No link back is added here; at the prompt, run the embark action
+on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
+  (interactive)
+  (sp-tab-inbox--ensure-idle)
+  (pcase-let ((`(,file ,line ,text ,origin)
+               (if (and file line text origin)
+                   (list file line text origin)
+                 (sp-tab-inbox--resolve-hit))))
+    (setq sp-tab-inbox--pending (list file line text origin))
+    (when-let ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
+                         (vulpea-select
+                          "Send to note"
+                          :require-match nil
+                          :filter-fn (lambda (n) (zerop (vulpea-note-level n)))))))
+      (setq sp-tab-inbox--pending nil)
+      (sp-tab-inbox-collect file line text (sp-tab-inbox--ensure-note picked))
+      (cl-incf sp-tab-inbox-generation)
+      (vulpea-ui-sidebar-refresh))))
+#+end_src
+
+** Embark send-and-link action
+
+=sp-tab-inbox-embark-send-and-link= is the =L= action. It takes the pending hit, resolves the candidate to a note (creating it if needed), collects the line there, and also adds a link to that note under the originating note's See also heading, then refreshes the sidebar. It errors if no hit is waiting, and like the other commands refuses to run while a =collect all= job is going.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox-embark-send-and-link (candidate)
+  "Embark action: send the pending hit to CANDIDATE and link it from its origin.
+CANDIDATE is an existing note, or a title to create a note for.  Besides
+moving the line like `sp-tab-inbox-send-elsewhere', this adds a link to
+the note under the See also heading of the note the search started from."
+  (interactive "sNote: ")
+  (sp-tab-inbox--ensure-idle)
+  (pcase-let ((`(,file ,line ,text ,origin)
+               (or sp-tab-inbox--pending
+                   (user-error "No link inbox hit is waiting to be sent"))))
+    (setq sp-tab-inbox--pending nil)
+    (let ((note (sp-tab-inbox--ensure-note
+                 (sp-tab-inbox--candidate-note candidate))))
+      (sp-tab-inbox-collect file line text note)
+      (sp-tab-inbox--insert-link origin note)
+      (cl-incf sp-tab-inbox-generation)
+      (vulpea-ui-sidebar-refresh))))
+#+end_src
+
+* Link inbox widget
+
+** Widget component
+
+=sp-tab-inbox-widget= is the =vui= component for the /Link inbox/ section. The search is memoised on the note and the generation counter, and the current note and hits are stashed for the interactive commands. With no hits it shows /No mentions/; otherwise a =collect all= button followed by, for each hit, a file:line button that visits the line, =collect= and =send= buttons, and the wrapped hit text in the mention context face.
+
+#+begin_src emacs-lisp -i
+;;;; Widget
+
+(vui-defcomponent sp-tab-inbox-widget ()
+  "Plain-text mentions of the current note in the link inbox."
+  :render
+  (let ((note (use-vulpea-ui-note)))
+    (when note
+      (let ((hits (vui-use-memo (note sp-tab-inbox-generation)
+                    (sp-tab-inbox-search note))))
+        (setq sp-tab-inbox--current (cons note hits))
+        (vui-component 'vulpea-ui-widget
+          :title "Link inbox"
+          :count (length hits)
+          :children
+          (lambda ()
+            (if (null hits)
+                (vui-text "No mentions")
+              (apply #'vui-vstack
+                     (vui-button "collect all"
+                                 :on-click (lambda ()
+                                             (sp-tab-inbox-collect-all hits note)))
+                     (mapcar
+                      (lambda (hit)
+                        (pcase-let ((`(,file ,line ,text) hit))
+                          (vui-vstack
+                           (vui-hstack
+                            (vui-button
+                             (format "%s:%d" (file-name-nondirectory file) line)
+                             :on-click (lambda () (sp-tab-inbox-visit file line)))
+                            (vui-text " ")
+                            (vui-button
+                             "collect"
+                             :on-click (lambda ()
+                                         (sp-tab-inbox-collect-one
+                                          file line text note)))
+                            (vui-text " ")
+                            (vui-button
+                             "send"
+                             :on-click (lambda ()
+                                         (sp-tab-inbox-send-elsewhere
+                                          file line text note))))
+                           (vui-text
+                            (propertize (sp-tab-inbox-wrap text)
+                                        'face 'vulpea-ui-mention-context-face)))))
+                      hits)))))))))
+#+end_src
+
+** Registering the widget
+
+Registers the component with =vulpea-ui= as =link-inbox= at order 360, placing it right after the built-in unlinked mentions widget.
+
+#+begin_src emacs-lisp -i
+(vulpea-ui-register-widget 'link-inbox
+  :component 'sp-tab-inbox-widget
+  :order 360) ; right after unlinked-mentions (350)
+#+end_src
+
+* Inbox backlinks widget
+
+A read-only widget showing inbox lines that already link to the current note or any heading inside its scope, such as the links left behind by collecting.
+
+** IDs in scope
+
+=sp-tab-inbox--scope-ids= collects the note's ID and every heading ID inside the scoped subtree, which is what backlinks are searched for.
+
+#+begin_src emacs-lisp -i
+;;;; Inbox backlinks widget
+
+(defun sp-tab-inbox--scope-ids (note)
+  "Return the IDs of NOTE and of every heading inside its scoped subtree."
+  (let ((root (sp-tab-inbox--scope-root note))
+        (ids (list (vulpea-note-id note))))
+    (with-current-buffer (marker-buffer (car root))
+      (org-with-wide-buffer
+       (goto-char (car root))
+       (org-map-entries
+        (lambda ()
+          (when-let ((id (org-entry-get nil "ID")))
+            (push id ids)))
+        nil
+        (if (zerop (cdr root)) nil 'tree))))
+    (delete-dups ids)))
+#+end_src
+
+** Searching for backlinks
+
+=sp-tab-inbox--backlink-hits= runs =rg= for =id:ID]= for each ID and returns the matching file and line pairs sorted by file name and then line number.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--backlink-hits (note)
+  "Return a sorted list of (FILE LINE) for inbox lines linking into NOTE."
+  (when-let* ((rg (executable-find "rg"))
+              (ids (sp-tab-inbox--scope-ids note)))
+    (with-temp-buffer
+      (apply #'call-process rg nil t nil
+             "--line-number" "--no-heading" "--with-filename"
+             "--ignore-case" "--fixed-strings"
+             (append (mapcan (lambda (id) (list "-e" (concat "id:" id "]"))) ids)
+                     (list (expand-file-name sp-tab-inbox-dir))))
+      (goto-char (point-min))
+      (let (result)
+        (while (re-search-forward "^\\(.+?\\):\\([0-9]+\\):" nil t)
+          (push (list (match-string 1) (string-to-number (match-string 2)))
+                result))
+        (sort result
+              (lambda (a b)
+                (if (equal (car a) (car b))
+                    (< (cadr a) (cadr b))
+                  (string< (car a) (car b)))))))))
+#+end_src
+
+** Merging context windows
+
+=sp-tab-inbox--backlink-windows= wraps each hit in a window of context lines and merges windows in the same file that touch or overlap, recording which lines in each window are actual hits. This relies on the hits being sorted.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--backlink-windows (note)
+  "Return (FILE START END HIT-LINES) context windows for NOTE's inbox backlinks.
+Hits whose contexts touch or overlap are merged into one window."
+  (let ((n sp-tab-inbox-backlink-context-lines)
+        windows)
+    (dolist (hit (sp-tab-inbox--backlink-hits note))
+      (let ((file (car hit))
+            (line (cadr hit))
+            (w (car windows)))
+        (if (and w (equal (nth 0 w) file) (<= (- line n) (1+ (nth 2 w))))
+            (setf (nth 2 w) (+ line n)
+                  (nth 3 w) (append (nth 3 w) (list line)))
+          (push (list file (max 1 (- line n)) (+ line n) (list line)) windows))))
+    (nreverse windows)))
+#+end_src
+
+** Reading file lines
+
+=sp-tab-inbox--file-lines= returns a range of lines from a file, reading the open buffer when there is one so unsaved edits show up.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--file-lines (file start end)
+  "Return the lines START to END (1-based, inclusive) of FILE.
+Reads the visiting buffer if FILE is open, so unsaved edits show up."
+  (let ((buf (find-buffer-visiting file)))
+    (with-temp-buffer
+      (if buf
+          (insert (with-current-buffer buf
+                    (save-restriction
+                      (widen)
+                      (buffer-substring-no-properties (point-min) (point-max)))))
+        (insert-file-contents file))
+      (goto-char (point-min))
+      (forward-line (1- (max 1 start)))
+      (let ((n (max 1 start))
+            lines)
+        (while (and (<= n end) (not (eobp)))
+          (push (buffer-substring-no-properties
+                 (line-beginning-position) (line-end-position))
+                lines)
+          (forward-line 1)
+          (cl-incf n))
+        (nreverse lines)))))
+#+end_src
+
+** Prettifying links
+
+=sp-tab-inbox--prettify= replaces Org links in a line by their description, or by their target when there is no description, so the context reads as plain text.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--prettify (text)
+  "Replace Org links in TEXT by their descriptions, or their targets."
+  (thread-last text
+    (replace-regexp-in-string "\\[\\[[^]]*\\]\\[\\([^]]*\\)\\]\\]" "\\1")
+    (replace-regexp-in-string "\\[\\[\\([^]]*\\)\\]\\]" "\\1")))
+#+end_src
+
+** Rendering a window
+
+=sp-tab-inbox--render-window= prettifies, trims and wraps each line of a context window, dropping empty lines, and shows hit lines in bold and the others in the mention context face.
+
+#+begin_src emacs-lisp -i
+(defun sp-tab-inbox--render-window (file start end hit-lines)
+  "Return the wrapped context of FILE lines START to END as one string.
+Lines in HIT-LINES are shown in bold, the rest in the context face."
+  (let ((line start)
+        parts)
+    (dolist (text (sp-tab-inbox--file-lines file start end))
+      (let ((s (string-trim (sp-tab-inbox--prettify text))))
+        (unless (string-empty-p s)
+          (push (propertize (sp-tab-inbox-wrap s)
+                            'face (if (memq line hit-lines)
+                                      'bold
+                                    'vulpea-ui-mention-context-face))
+                parts)))
+      (cl-incf line))
+    (concat (mapconcat #'identity (nreverse parts) "\n") "\n")))
+#+end_src
+
+** Backlinks component
+
+=sp-tab-inbox-backlinks-widget= renders the /Inbox backlinks/ section. Its count is the total number of hit lines; each window gets a file:line button that visits the first hit, followed by the rendered context. It shows /No links/ when there are none.
+
+#+begin_src emacs-lisp -i
+(vui-defcomponent sp-tab-inbox-backlinks-widget ()
+  "Lines of the link inbox files that link to the current note."
+  :render
+  (let ((note (use-vulpea-ui-note)))
+    (when note
+      (let ((windows (vui-use-memo (note sp-tab-inbox-generation)
+                       (sp-tab-inbox--backlink-windows note))))
+        (vui-component 'vulpea-ui-widget
+          :title "Inbox backlinks"
+          :count (apply #'+ (mapcar (lambda (w) (length (nth 3 w))) windows))
+          :children
+          (lambda ()
+            (if (null windows)
+                (vui-text "No links")
+              (apply #'vui-vstack
+                     (mapcar
+                      (lambda (w)
+                        (pcase-let ((`(,file ,start ,end ,hit-lines) w))
+                          (vui-vstack
+                           (vui-button
+                            (format "%s:%d" (file-name-nondirectory file)
+                                    (car hit-lines))
+                            :on-click (lambda ()
+                                        (sp-tab-inbox-visit file (car hit-lines))))
+                           (vui-text
+                            (sp-tab-inbox--render-window
+                             file start end hit-lines)))))
+                      windows)))))))))
+#+end_src
+
+** Registering the backlinks widget
+
+Registers it as =link-inbox-backlinks= at order 370, directly after the link inbox widget.
+
+#+begin_src emacs-lisp -i
+(vulpea-ui-register-widget 'link-inbox-backlinks
+  :component 'sp-tab-inbox-backlinks-widget
+  :order 370) ; right after the link inbox widget (360)
+#+end_src
+
+* Provide
+
+** Feature
+
+Provides the =sp-tab-inbox= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide
+
+(provide 'sp-tab-inbox)
+;;; sp-tab-inbox.el ends here
+#+end_src

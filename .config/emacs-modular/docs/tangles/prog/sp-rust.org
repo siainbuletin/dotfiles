@@ -1,0 +1,36 @@
+#+TITLE: sp-rust.el: Rust editing
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-rust.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-rust.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+Configures =rust-mode= with completion, Flycheck and LSP via =rust-analyzer=. It depends on =flycheck-rust=, =company=, =lsp-mode= and the external =rust-analyzer= binary. The module is not listed in =init.el=, so it appears to be dormant.
+
+* Rust
+
+** rust-mode, Flycheck and LSP
+
+The whole module is one block. It installs =flycheck-rust= and =rust-mode= lazily. When =rust-mode= loads, a hook turns on =eldoc-mode=, =company-mode= and =flycheck-mode=, runs =flycheck-rust-setup= so Flycheck understands Cargo projects, and starts =lsp=. =F5= runs =rust-compile= and =TAB= indents or completes with Company.
+
+References to =racer= are commented out; Racer was the older Rust completion backend, now superseded by =rust-analyzer=. The final =setq= tells =lsp-mode= to start the server with the plain =rust-analyzer= command found on the =PATH=.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+(use-package flycheck-rust
+  :defer t)
+;(use-package racer)
+(use-package rust-mode
+  :defer t
+  :config
+  (add-hook 'rust-mode-hook
+            (lambda ()
+              ;(racer-mode t)
+              (eldoc-mode t)
+              (company-mode t)
+              (flycheck-mode t)
+              (flycheck-rust-setup)
+              (lsp)))
+  (define-key rust-mode-map [(f5)] 'rust-compile)
+  (define-key rust-mode-map [(tab)] 'company-indent-or-complete-common))
+(setq lsp-rust-analyzer-server-command '("rust-analyzer"))
+#+end_src

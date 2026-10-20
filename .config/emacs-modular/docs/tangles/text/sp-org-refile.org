@@ -1,0 +1,99 @@
+#+TITLE: sp-org-refile.el: Org refile targets and caching
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-refile.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-refile.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module configures Org's refile command (=C-c C-w=), which moves the heading at point under another heading. It sets the list of possible targets (open Org buffers, the current file, and the agenda files), makes the completion show full outline paths in one step, allows creating new parent headings, and caches the target list, rebuilding it in the background when Emacs is idle.
+
+The approach comes from Aaron Bieber's article and from Lambda Emacs, and the author notes that it would be more useful adapted to Vulpea. It relies on =+org/opened-buffer-files=, defined in =sp-org-base=. The module is currently disabled: it is commented out in the default and minimal module lists and in =sp-config-profiles.el=.
+
+* Org refile
+
+** File header and notes
+
+Lexical binding and the author's notes: a link to the source article, a description of the intended behaviour, a doubt about whether the setting from Lambda Emacs still works after being rewritten with =use-package=, and the wish to adapt it to Vulpea.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+
+;;;; Org Refile
+
+;; See https://blog.aaronbieber.com/2017/03/19/organizing-notes-with-refile.html.
+
+;; With the below settings, you can trigger Refile with C-c C-w in any Org file
+;; and get a completing read of all headings up to three levels deep in all
+;; files in org-agenda-files. You can also refile to the top header in a
+;; document and create new parents.
+
+;; (this setting is comming from lambda emacs and I'm not really sure if it will
+;; work as intended, because I modified what it does via use-package)
+
+;; This would be more useful if adapted from Lambda emacs to work with vulpea.
+#+end_src
+
+** Refile completion behaviour
+
+After Org loads, =org-outline-path-complete-in-steps= is turned off so the whole path to a target can be chosen in a single completion prompt (which suits Vertico-style completion), and =org-refile-allow-creating-parent-nodes= set to =confirm= lets you type a new parent heading, created after confirmation.
+
+#+begin_src emacs-lisp -i
+(use-package org-refile
+  :ensure nil
+  :after org
+
+  :custom
+  (org-outline-path-complete-in-steps nil)
+  (org-refile-allow-creating-parent-nodes 'confirm))
+#+end_src
+
+** Refile targets
+
+=org-refile-targets= offers headings up to level 9 in every Org file currently open (via =+org/opened-buffer-files= from =sp-org-base=), up to level 9 in the current buffer (the =nil= entry), and up to level 8 in =org-agenda-files=. The comment says something is wrong with the syntax, but the form is a valid targets list; any problem is more likely that the helper function is not defined if =sp-org-base= has not been loaded.
+
+#+begin_src emacs-lisp -i
+;; there is something wrong in the syntax in the way that I wrote it here
+(setq org-refile-targets 
+  '(
+    (+org/opened-buffer-files :maxlevel . 9)
+    (nil :maxlevel . 9)
+    (org-agenda-files :maxlevel . 8)
+  ))
+#+end_src
+
+** Cache the targets
+
+Turns on =org-refile-use-cache=, so the target list is computed once and reused instead of being rebuilt for every refile.
+
+#+begin_src emacs-lisp -i
+(setq org-refile-use-cache t)
+#+end_src
+
+** Show file names in paths
+
+=org-refile-use-outline-path= set to =file= shows each target as a path starting with its file name, and also allows refiling to the top level of a file.
+
+#+begin_src emacs-lisp -i
+(setq org-refile-use-outline-path 'file)
+#+end_src
+
+** Rebuild the cache when idle
+
+A repeating idle timer runs after 300 seconds of idleness: it clears the refile cache and rebuilds the target list, so the next refile is fast and reasonably up to date. Since the timer is started at load time and repeats, rebuilding can cause a short pause when the target set is large.
+
+#+begin_src emacs-lisp -i
+(run-with-idle-timer 300 t (lambda ()
+                            (org-refile-cache-clear)
+                            (org-refile-get-targets)))
+#+end_src
+
+* Footer
+
+** Provide the feature
+
+Provides =sp-org-refile=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-refile)
+#+end_src

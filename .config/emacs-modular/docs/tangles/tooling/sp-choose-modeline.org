@@ -1,0 +1,139 @@
+#+TITLE: sp-choose-modeline.el: Choosing a modeline
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-choose-modeline.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-choose-modeline.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module lets the config switch between two modeline packages, =doom-modeline= and Lambda Emacs's =lambda-line=, through a single customizable variable. The choice is made once at load time with a =cond=, and only the selected package is installed and activated.
+
+The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=; a separate =sp-lambda-line= module is loaded instead, so this file appears to be kept for reference or for switching back to Doom's modeline. The commentary says the default is =doom-modeline=, but the code actually defaults to =lambda-line=.
+
+* File header
+
+** Header and commentary
+
+The header and commentary describe the purpose: choosing between modelines via the =sia/modeline= option, with doom-modeline and the Lambda Emacs modeline available.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-choose-modeline.el
+
+;;; Commentary:
+
+;; This package allows for choosing between different modelines to use and load in Emacs, 
+;; which overall makes the experience a lot easier
+
+;; The ~defcustom~ sia/modeline allows to declare what is the modeline style to use
+;; It currently defaults to the doom-modeline
+;; Included is also the lambda-emacs modeline
+
+;;; Code:
+#+end_src
+
+* Modeline selection
+
+** The sia/modeline option
+
+=sia/modeline= is a customizable choice between the symbols =doom-modeline= and =lambda-line=, in the =siapip= group. It defaults to =lambda-line=. Because it is read once when the module loads, changing it requires restarting Emacs or reloading the module.
+
+#+begin_src emacs-lisp -i
+(defcustom sia/modeline 'lambda-line
+  "The modeline to use.
+Options are 'doom-modeline or 'lambda-line."
+  :type '(choice
+          (const :tag "Doom modeline" doom-modeline)
+          (const :tag "Lambda Emacs modeline" lambda-line))
+  :group 'siapip)
+#+end_src
+
+* Loading the chosen modeline
+
+** doom-modeline or lambda-line
+
+For =doom-modeline=, the settings hide the buffer encoding and the minor-mode list, show coloured major-mode, buffer-state and modification icons, set the height to 25 and bar width to 8, enable imenu support, project detection, the LSP icon and word counts, and then turn on =doom-modeline-mode=. =doom-modeline-percent-position= is set twice, first to =t= and then to =nil=, so the second value wins.
+
+For =lambda-line=, the package is installed from Codeberg and configured with a clock icon (which needs the ClockFace font), placement at the bottom, abbreviated mode names, custom read-only, modified and read-write symbols, vertical padding and Nerd Font icons. After =lambda-line-mode= is activated, if the line is placed at the top the ordinary mode line is reduced to a thin divider. With the current =bottom= setting that branch does not run.
+
+#+begin_src emacs-lisp -i
+(cond
+ ((eq sia/modeline 'doom-modeline)
+  (use-package doom-modeline
+    :ensure t
+     
+    :init
+    (setq doom-modeline-buffer-encoding nil ; irrelevant for me but shows UTF-8
+
+    ;; identifying the modes we're in
+    doom-modeline-major-mode-color-icon t
+    doom-modeline-minor-modes nil ; keep identification to the current modes
+
+    ;; this works on the buffer state
+    doom-modeline-buffer-state-icon t
+    doom-modeline-buffer-modification-icon t
+    doom-modeline-file-name-style 'auto
+
+    ;; size and rendering of the modeline
+    doom-modeline-height 25
+    doom-modeline-bar-width 8
+    doom-modeline-window-width-limit 85
+
+    ;; navigating the file
+    doom-modeline-percent-position t ; is this for the percentage of the position within the file?
+    doom-modeline-support-imenu t
+    doom-modeline-percent-position nil
+
+    ;; integrating with project management
+    doom-modeline-project-detection 'auto
+
+    ;; other
+    doom-modeline-lsp-icon t ; this doesn't currently work as I'm not working with code projects
+    doom-modeline-enable-word-count t)
+    (doom-modeline-mode 1)
+    ))
+ 
+ ((eq sia/modeline 'lambda-line)
+  (use-package lambda-line
+    :ensure (:type git :repo "https://codeberg.org/Lambda-Emacs/lambda-line")
+
+    :custom
+    (lambda-line-icon-time t) ;; requires ClockFace font (see below)
+    (lambda-line-clockface-update-fontset "ClockFaceRect") ;; set clock icon
+    (lambda-line-position 'bottom) ;; Set position of status-line 
+    (lambda-line-abbrev t) ;; abbreviate major modes
+    (lambda-line-hspace "  ")  ;; add some cushion
+    (lambda-line-prefix t) ;; use a prefix symbol
+    (lambda-line-prefix-padding nil) ;; no extra space for prefix 
+    (lambda-line-status-invert nil)  ;; no invert colors
+    (lambda-line-gui-ro-symbol  " ⨂") ;; symbols
+    (lambda-line-gui-mod-symbol " ⬤") 
+    (lambda-line-gui-rw-symbol  " ◯") 
+    (lambda-line-space-top +.50)  ;; padding on top and bottom of line
+    (lambda-line-space-bottom -.50)
+    (lambda-line-symbol-position 0.1) ;; adjust the vertical placement of symbol
+
+    (lambda-line-use-nerd-icon t)
+
+    :config
+    (lambda-line-mode)  ;; activate lambda-line 
+    
+    ;; set divider line in footer
+    (when (eq lambda-line-position 'top)
+      (setq-default mode-line-format (list "%_"))
+      (setq mode-line-format (list "%_")))))
+  )
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-choose-modeline= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-choose-modeline)
+;; sp-choose-modeline.el ends here
+#+end_src

@@ -1,0 +1,87 @@
+#+TITLE: sp-browsing.el: Web browsing inside Emacs
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-browsing.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/media/sp-browsing.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module is meant to set up an environment for browsing from within Emacs: EWW, Elpher (for Gopher and Gemini) and =consult-omni=. At present most of it is an outline of section headers with no content, and the only real code is a single command for opening a link either in EWW or in the macOS default browser.
+
+The command depends on =consult= and =consult-omni= and on the macOS =open= program. The module does not end with a =provide= form and is not listed in =init.el=, so it is currently unused; =sp-search= mentions it as something to integrate with later.
+
+* File header
+
+** Header and commentary
+
+Enables lexical binding and states the module's purpose: creating the environment for browsing within Emacs.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Creating the environment for browsing within Emacs.
+#+end_src
+
+* Code outline
+
+** Placeholder sections
+
+Headers for defining variables and for EWW. Both are empty for now.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+
+;;;; Defining variables
+
+;;;; EWW (built-in)
+#+end_src
+
+* EWW helpers
+
+** Open a link in EWW or the system browser
+
+=open-link-at-point-or-minibuffer-with-choice= finds a URL by trying, in order, the URL at point, a =consult= selection over URLs in the buffer, a =consult-omni= search, and finally a plain prompt. It then asks whether to open it in the macOS browser (via the shell =open= command) or in EWW. For EWW it splits the window so the original keeps the top 20% and EWW gets the bottom 80%.
+
+Some caveats: =thing-at-point--list= does not appear to be a standard Emacs function, so the second fallback may error; =consult-omni= is called for its return value, which may not be a URL; and the =open= command only works on macOS.
+
+#+begin_src emacs-lisp -i
+;;;;; Helper functions for eww
+
+;; Open link in eww or browser
+(defun open-link-at-point-or-minibuffer-with-choice ()
+  "Use `consult` to select a link at point, in the buffer, from `consult-omni` results, or prompt for a URL.
+  Then choose to open it in macOS default browser or eww.
+  If 'eww' is chosen, the link is opened in a window that occupies 80% of the frame height below the current one."
+  (interactive)
+  (let* ((url (or (thing-at-point 'url)                             ;; Check if there's a URL at point
+                (consult--read (thing-at-point--list 'url))       ;; Use consult to select a URL from the buffer
+                (consult-omni)                                    ;; Use consult-omni results to select a link
+                (read-string "Enter URL: "))))                    ;; Fall back to manual URL entry
+    (if url
+      (let ((choice (completing-read "Open link in: " '("macOS Browser" "eww"))))
+        (cond
+         ((string-equal choice "macOS Browser")
+          (shell-command (concat "open " (shell-quote-argument url))))
+         ((string-equal choice "eww")
+          ;; Calculate the height for the top window (20% of the frame height)
+          (let ((window (selected-window))
+                (top-window-height (floor (* 0.2 (window-total-height)))))
+            ;; Split window with 20% height on top and 80% height for eww on the bottom
+            (select-window (split-window window top-window-height))
+            (eww url)))))
+      (message "No URL provided."))))
+#+end_src
+
+* Further browsers
+
+** Elpher and consult-omni placeholders
+
+Empty headers reserved for Elpher and =consult-omni= configuration.
+
+#+begin_src emacs-lisp -i
+;;;; Elpher
+
+;;;; consult-omni
+#+end_src

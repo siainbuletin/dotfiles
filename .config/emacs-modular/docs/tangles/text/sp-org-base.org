@@ -1,0 +1,829 @@
+#+TITLE: sp-org-base.el: Core Org mode and text-mode settings
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-base.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-base.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up the basic writing environment for =text-mode= and the core of Org mode: keybindings, indentation, lists, source blocks, logging, deadline highlighting, custom IDs for headings, quick-jump commands to the main Org files and a handful of small editing helpers. It is loaded from the Org section of =init.el= (both the default and minimal module lists), before the other Org modules such as =sp-org-appearance=, =sp-org-capture= and =sp-org-agenda=.
+
+Org itself is the built-in package (=:ensure nil=). Extra packages pulled in here are =company-math=, =math-preview=, =org-fragtog=, =org-inline-anim= and =org-ql=. Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends come from =sp-org-emphasis=, and =sp-split-leave-parents= comes from =sp-vulpea-split=. The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
+
+The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
+
+* File header
+
+** Lexical binding and overview
+
+The file enables lexical binding and opens with a comment listing the Org-related packages that live in other modules: the vulpea ecosystem, org-node with org-mem, and the agenda and task-management setup.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+
+;; This file only sets up the very basic extensions for org mode.
+;; I also use many other packages, they will be required later on.
+;; This includes the:
+;; - vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
+;; - org-node (and the org-mem package)
+;; - all the org-agenda stuff that will help with taks management (see also taskman.el)
+#+end_src
+
+* Basic text editing
+
+** text-mode defaults
+
+Turns on =visual-line-mode= in every =text-mode= buffer, which includes Org buffers since =org-mode= derives from =text-mode=. It enables =delete-selection-mode=, disables two spaces after sentences, lets scrolling past the buffer edge move point to the top or bottom instead of erroring (=scroll-error-top-bottom=), and saves the system clipboard to the kill ring before a kill overwrites it.
+
+The indented =add-hook= after the form is a separate top-level form that turns on =org-num-mode=, so every Org heading gets an outline number.
+
+#+begin_src emacs-lisp -i
+;; Basic settings for text-mode - getting text to work well
+(use-package text-mode
+  :ensure nil
+  :hook
+  (text-mode . visual-line-mode) ; Would this function enable text mode in all text buffers, and not just org-mode?
+  :init
+  (delete-selection-mode t)
+  :custom
+  (sentence-end-double-space nil)
+  (scroll-error-top-bottom t)
+  (save-interprogram-paste-before-kill t))
+
+  (add-hook 'org-mode-hook #'org-num-mode)
+#+end_src
+
+** Writing helpers and disabled whitespace cleanup
+
+A commented-out hook would delete trailing whitespace on every save. The comment explains it was disabled because it clashed with vulpea's database auto-sync and blocked some edits.
+
+=sp-single-space-after-periods= simply sets =sentence-end-double-space= to nil; it is called from =sp-helper-funct=. The block also enables =show-paren-mode= and =delete-selection-mode= globally (the latter is already turned on in the =text-mode= block above).
+
+#+begin_src emacs-lisp -i
+;;; Should be default settings for writing (also called linting)
+;; (add-hook 'before-save-hook
+;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
+;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
+
+
+(defun sp-single-space-after-periods ()
+  "Don't assume that sentences should have two spaces after
+periods. This ain't a typewriter."
+  (setq sentence-end-double-space nil))
+  
+;;; Useful writing functions 
+(show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
+(delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
+#+end_src
+
+* Links, IDs and directories
+
+** Fuzzy headline link search
+
+With =org-link-search-must-match-exact-headline= set to nil, a link to a headline that does not match exactly falls back to a fuzzy text search in the file.
+
+#+begin_src emacs-lisp -i
+(setq org-link-search-must-match-exact-headline nil)
+#+end_src
+
+** Counsel outline display
+
+Makes =counsel-outline= show only heading titles, not the full outline path.
+
+#+begin_src emacs-lisp -i
+(setq counsel-outline-display-style 'title)
+#+end_src
+
+** Org IDs for stored links
+
+When storing a link interactively to an Org heading, Org creates an =ID= property if the heading has none, unless it already has a =CUSTOM_ID=.
+
+#+begin_src emacs-lisp -i
+(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+#+end_src
+
+** Org directory
+
+Sets =org-directory= to =~/notes=. Note that it has no trailing slash, while several other places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=), which produces names like =~/notesinbox.org=. Other modules such as =sp-org-archive= and =sp-tab-inbox= add the slash themselves.
+
+#+begin_src emacs-lisp -i
+(setq org-directory "~/notes")
+#+end_src
+
+** Free up C-x t i
+
+Removes the global binding of =C-x t i= (part of the =tab-bar= prefix) so that the Org block below can bind it to =org-toggle-item= in Org buffers.
+
+#+begin_src emacs-lisp -i
+(global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
+#+end_src
+
+* Org mode configuration
+
+** Main use-package org block
+
+The main Org setup, using the built-in Org and associating =.org= files with =org-mode=.
+
+Keybindings:
+- =C-c a= opens =org-agenda= globally.
+- =C-M-h/j/k/l= move or promote subtrees (=org-meta*=) and =M-H/J/K/L= are the shift variants, in a vim-like layout.
+- =C-x s t= runs =sp-split-leave-parents= to split a heading into its own vulpea note.
+- =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
+- =s-v= pastes with =org-yank=.
+- =C-x t i= and =C-x t h= toggle items and headings, =C-x t d= demotes, =C-c s i= sorts a list.
+- =C-c f n= and =C-c f q= create and normalize footnotes.
+- =C-c l d= toggles raw link display, =C-c s a= saves all Org buffers.
+
+In =:init=, =org-emphasis-regexp-components= is widened so emphasis markers work next to more punctuation (including the em dash); this has to be set before Org loads.
+
+The =:custom= section keeps footnotes next to their reference, turns on adaptive and startup indentation, preserves source block indentation, inserts headings after the current subtree, allows alphabetical lists, sets a bullet rotation for demoted list items, enables smart =C-a=/=C-e= on headings, raises imenu depth to 8, and makes source blocks fontify natively, edit in another window and confirm before evaluation.
+
+Gotcha: the =(setq org-catch-invisible-edits ...)= line sits inside =:custom=, which expects =(variable value)= pairs, so it does not set =org-catch-invisible-edits= as intended (its own comment already doubts it works).
+
+In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the =shell= Babel language, and adds a hook so =electric-pair-mode= never auto-pairs =<= in Org buffers, which would break structure templates like =<s=. The hook checks that =electric-pair-inhibit-predicate= is bound first to avoid a void-variable error.
+
+#+begin_src emacs-lisp -i
+;; Use Org from source rather than built in
+(use-package org
+  :ensure nil
+  :defer t
+
+  :commands (org-mode)
+  :mode (("\\.org$" . org-mode))
+ 
+  :bind
+  (:map global-map
+   ("C-c a" . org-agenda))
+ 
+  (:map org-mode-map
+   ("C-M-k" . org-metaup)
+   ("C-M-j" . org-metadown)
+   ("C-M-l" . org-metaright)
+   ("C-M-h" . org-metaleft)
+   ("M-J" . org-shiftdown)
+   ("M-K" . org-shiftup)
+   ("M-L" . org-shiftright)
+   ("M-H" . org-shiftleft)
+   ;; Reorganising notes through vulpea
+   ("C-x s t" . sp-split-leave-parents)
+ 
+   ;; easily emphasize text
+   ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))
+   ("s-i" . (lambda () (interactive) (org-emphasize-dwim ?/)))
+   ("s-M-`" . org-emphasize-with-verbatim-dwim)
+   ("s-M-~" . org-emphasize-with-code-dwim)
+   
+   ;; better pasting behavior in org-mode
+   ("s-v" . org-yank)
+   
+   ;; Toggling items in the hierarchy
+   ("C-x t i" . org-toggle-item)
+   ("C-x t h" . org-toggle-heading)
+
+   ;; sorting elements
+   ("C-c s i" . org-sort-list)
+
+   ;; Footnotes
+   ("C-c f n" . org-footnote-new)
+   ("C-c f q" . org-footnote-normalize)
+   
+   ;; Visibility for the markup
+   ("C-c l d" . org-toggle-link-display)
+
+   ;; safety nets
+   ("C-c s a" . org-save-all-org-buffers)
+
+   ;; task-management bindings
+   ("C-x t d" . org-do-demote)
+   )
+
+  :init
+  ;; Org-Emphasis-Regex settings. Set regex boundaries for emphasis.
+  ;; Load this before org-mode is loaded.
+  ;; See https://emacs.stackexchange.com/q/54673/11934
+  ;; https://emacs.stackexchange.com/q/54632/11934
+
+  (setq org-emphasis-regexp-components
+        '("-—[:space:]('\"{["
+          "\][:space:].,:!?;'\")}\\[-"
+          "[:space:]"
+          "."
+          1))
+
+  :custom
+  ;; Footnotes
+  (org-footnote-section nil)
+
+  ;; Editing
+  (setq org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
+
+  ;; Indentation
+  (org-adapt-indentation t) ;; adapt indentation
+  (org-startup-indented t) ;; start with indentation of headlines
+  (org-src-preserve-indentation t) ;; preserve code indentation
+
+  ;; Insertion/Yanking
+  (org-insert-heading-respect-content t) ;; insert new headings after subtree
+  (org-M-RET-may-split-line '((default . t)))  ;; don't split line when creating a new headline, list item, or table field
+  (org-yank-adjusted-subtrees nil)  ;; adjust subtrees to depth when yanked
+  (org-yank-folded-subtrees nil) ;; fold subtrees on yank
+
+  ;; Lists
+  (org-list-allow-alphabetical t) ;; allow alphabetical list
+  ;; Demote sequence for list bullets
+  (org-list-demote-modify-bullet '(("+" . "-") ("-" . "+") ("*" . "+")))
+  (org-list-indent-offset 1) ;; increase sub-item indentation
+
+  ;; Movement
+  (org-special-ctrl-a/e t)  ;; better movement in headers
+
+  ;; Searching
+  (org-imenu-depth 8) ;; scan to depth 8 w/imenu
+  (imenu-auto-rescan t) ;; make sure imenu refreshes
+
+  ;; Source block settings
+  (org-src-fontify-natively t) ;; use lang-specific fontification
+  (org-src-window-setup 'other-window) ;; edit source in other window
+  (org-src-tab-acts-natively t) ;; use lang bindings
+  (org-confirm-babel-evaluate t) ;; confirm evaluation
+
+  :config
+  ;; Map vimrc source blocks to vimrc-mode for correct tangle comment syntax
+  (add-to-list 'org-src-lang-modes '("vimrc" . vimrc))
+
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((shell . t)))
+  
+  ;; Don't auto-pair `<' in org buffers (it interferes with structure
+  ;; templates like `<s' and headlines). Only adjust the predicate if
+  ;; `elec-pair' has actually been loaded -- otherwise the var is void
+  ;; and the hook raises a void-variable error during org-mode init.
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (when (boundp 'electric-pair-inhibit-predicate)
+                (setq-local electric-pair-inhibit-predicate
+                            `(lambda (c)
+                               (if (char-equal c ?<) t
+                                 (,electric-pair-inhibit-predicate c)))))))
+  )
+#+end_src
+
+** Disable electric indent
+
+Turns off =electric-indent-mode= globally, so =RET= does not reindent lines automatically.
+
+#+begin_src emacs-lisp -i
+(electric-indent-mode 0)
+#+end_src
+
+* Deadline highlighting
+
+Headlines whose deadline is today or earlier get a dark red background, refreshed each time the file is saved.
+
+** Timestamp key and deadline hook
+
+A second =use-package org= form binds =C-c .= to =org-time-stamp= and runs =sp-org-deadline-highlighting= in every Org buffer.
+
+#+begin_src emacs-lisp -i
+(use-package org
+  :bind
+  (:map org-mode-map
+        ("C-c ." . 'org-time-stamp))
+  :hook
+  (org-mode . sp-org-deadline-highlighting)
+  :config
+  )
+#+end_src
+
+** Highlight face
+
+Defines =siapip/org-deadline-highlight=, a face with a dark red background used for overdue or due-today headlines.
+
+#+begin_src emacs-lisp -i
+(defface siapip/org-deadline-highlight
+  '((t . (:background "#4c1f24")))
+  "Highlight face for today's deadlines")
+#+end_src
+
+** Find and highlight due headlines
+
+=sp-org-highlight-todays-deadlines= removes previous highlight overlays, parses the buffer's headlines and, for each one that is not in a done state and has a deadline on or before today, puts an overlay with the highlight face over the headline line. Dates are compared as absolute day numbers from =calendar=. It can also be run interactively.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-highlight-todays-deadlines ()
+  "Highlight headlines with a deadline of today or earlier in Org mode."
+  (interactive)
+  (remove-overlays (point-min) (point-max) 'siapip/deadline t)
+  (let ((today (calendar-absolute-from-gregorian (calendar-current-date))))
+    (org-element-map (org-element-parse-buffer 'headline) 'headline
+      (lambda (hl)
+        (when-let* ((deadline     (org-element-property :deadline hl))
+                    (year         (org-element-property :year-start deadline))
+                    (month        (org-element-property :month-start deadline))
+                    (day          (org-element-property :day-start deadline))
+                    (deadline-abs (calendar-absolute-from-gregorian (list month day year))))
+          (when (and (not (eq (org-element-property :todo-type hl) 'done))
+                     (<= deadline-abs today))
+            (let* ((start (org-element-property :begin hl))
+                   (end (save-excursion (goto-char start) (line-end-position)))
+                   (ov (make-overlay start end)))
+              (overlay-put ov 'siapip/deadline t)
+              (overlay-put ov 'face 'siapip/org-deadline-highlight))))))))
+#+end_src
+
+** Enable highlighting per buffer
+
+=sp-org-deadline-highlighting= adds a buffer-local =after-save-hook= so the highlights refresh on save, then highlights once immediately. The block also hooks =org-indent-mode= into Org buffers, which duplicates the effect of =org-startup-indented= above.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-deadline-highlighting ()
+  (add-hook 'after-save-hook #'sp-org-highlight-todays-deadlines nil t)
+  (sp-org-highlight-todays-deadlines))
+  
+(add-hook 'org-mode-hook #'org-indent-mode)
+#+end_src
+
+* Agenda, LaTeX and math
+
+** Agenda breadcrumb separator
+
+Sets the separator used between outline levels when the agenda shows breadcrumbs.
+
+#+begin_src emacs-lisp -i
+(setq org-agenda-breadcrumbs-separator " ) ")
+#+end_src
+
+** Highlight LaTeX
+
+Fontifies inline LaTeX fragments in Org buffers.
+
+#+begin_src emacs-lisp -i
+(setq org-highlight-latex-and-related '(latex))
+#+end_src
+
+** company-math
+
+Installs =company-math= and, in Org buffers, prepends its LaTeX symbol backend to =company-backends=, so typing a LaTeX command offers math symbol completions. Loads only after both Org and company.
+
+#+begin_src emacs-lisp -i
+(use-package company-math
+  :ensure (:wait t)
+  :after (org company)
+  :hook
+  (org-mode . (lambda ()
+                (setq-local company-backends (append '((company-math-symbols-latex))
+                                                     company-backends)))))
+#+end_src
+
+** math-preview
+
+Installs =math-preview=, which renders LaTeX math as images using an external MathJax-based program. No commands or bindings are set here.
+
+#+begin_src emacs-lisp -i
+(use-package math-preview
+  :ensure (:wait t))
+#+end_src
+
+** org-fragtog
+
+Installs =org-fragtog=, which toggles LaTeX fragment previews automatically when point enters or leaves them. It is only installed here; the mode is not turned on in this module.
+
+#+begin_src emacs-lisp -i
+(use-package org-fragtog
+  :ensure t)
+#+end_src
+
+** Shift selection
+
+Lets shift plus arrow keys select text in Org buffers where Org does not have a special meaning for them.
+
+#+begin_src emacs-lisp -i
+(setq org-support-shift-select t)
+#+end_src
+
+* Readable custom IDs
+
+These functions give headings a human-readable =CUSTOM_ID= derived from the title, and use it when inserting links with counsel.
+
+** Title to ID
+
+=sia-make-id-for-title= lowercases a title and replaces every non-alphanumeric character with a hyphen.
+
+#+begin_src emacs-lisp -i
+(defun sia-make-id-for-title (title)
+  "Return an ID based on TITLE."
+  (let* ((new-id (replace-regexp-in-string "[^[:alnum:]]" "-" (downcase title))))
+    new-id))
+#+end_src
+
+** Create a CUSTOM_ID
+
+=sia-org-custom-id-create= builds an ID from the current heading's title, stores it in the =CUSTOM_ID= property and registers it with =org-id-add-location= so ID lookups can find the file.
+
+#+begin_src emacs-lisp -i
+(defun sia-org-custom-id-create ()
+  "Create and store CUSTOM_ID for current heading."
+  (let* ((title (or (nth 4 (org-heading-components)) ""))
+         (new-id (sia-make-id-for-title title)))
+    (org-entry-put nil "CUSTOM_ID" new-id)
+    (org-id-add-location new-id (buffer-file-name (buffer-base-buffer)))
+    new-id))
+#+end_src
+
+** Get or create, and counsel link override
+
+=sia-org-custom-id-get-create= returns an existing =CUSTOM_ID= at a position, or creates one (always recreating it when FORCE is non-nil).
+
+The same block redefines =counsel-org-link-action= so inserting a link with =counsel-org-link= produces a =#custom-id= link, creating the ID if needed. Because this is a plain =defun= at top level, it only wins if counsel's own definition is loaded before this file; if counsel loads later its original function would replace this one.
+
+#+begin_src emacs-lisp -i
+(defun sia-org-custom-id-get-create (&optional where force)
+  "Get or create CUSTOM_ID for heading at WHERE.
+  If FORCE is t, always recreate the property."
+  (org-with-point-at where
+    (let ((old-id (org-entry-get nil "CUSTOM_ID")))
+      ;; If CUSTOM_ID exists and FORCE is false, return it
+      (if (and (not force) old-id (stringp old-id))
+          old-id
+        ;; otherwise, create it
+        (sia-org-custom-id-create)))))
+
+        ;; Now override counsel-org-link-action
+  (defun counsel-org-link-action (x)
+    "Insert a link to X.
+
+X is expected to be a cons of the form (title . point), as passed
+by `counsel-org-link'.
+
+If X does not have a CUSTOM_ID, create it based on the headline
+title."
+    (let* ((id (sia-org-custom-id-get-create (cdr x))))
+      (org-insert-link nil (concat "#" id) (car x))))
+#+end_src
+
+** List open Org files
+
+=+org/opened-buffer-files= returns the file names of all buffers visiting =.org= files. It is used as a refile target source in =sp-org-refile=.
+
+#+begin_src emacs-lisp -i
+(defun +org/opened-buffer-files ()
+  "Return the list of files currently opened in emacs"
+  (delq nil
+        (mapcar (lambda (x)
+                  (if (and (buffer-file-name x)
+                           (string-match "\\.org$"
+                                         (buffer-file-name x)))
+                      (buffer-file-name x)))
+                (buffer-list))))
+#+end_src
+
+* Indirect buffers
+
+** Subtree to indirect buffer
+
+=sp-org-tree-to-indirect-buffer= opens the current subtree in an indirect buffer, narrowed to that subtree, and names it after the heading (coloured with the heading's outline face) followed by =::= and the file's buffer name. If a buffer with that name already exists it switches to it instead of making a new one. The interactive prefix argument is accepted but not used.
+
+#+begin_src emacs-lisp -i
+;; Working with indirect buffers
+(defun sp-org-tree-to-indirect-buffer (&optional arg)
+  "Create indirect buffer and narrow it to current subtree.
+The buffer is named after the subtree heading, with the filename
+appended.  If a buffer by that name already exists, it is
+selected instead of creating a new buffer."
+  (interactive "P")
+  (let* ((new-buffer-p)
+         (pos (point))
+         (buffer-name (let* ((heading (org-get-heading t t))
+                             (level (org-outline-level))
+                             (face (intern (concat "outline-" (number-to-string level))))
+                             (heading-string (propertize (org-link-display-format heading)
+                                                         'face face)))
+                        (concat heading-string "::" (buffer-name))))
+         (new-buffer (or (get-buffer buffer-name)
+                         (prog1 (condition-case nil
+                                    (make-indirect-buffer (current-buffer) buffer-name 'clone)
+                                  (error (make-indirect-buffer (current-buffer) buffer-name)))
+                           (setq new-buffer-p t)))))
+    (switch-to-buffer new-buffer)
+    (when new-buffer-p
+      ;; I don't understand why setting the point again is necessary, but it is.
+      (goto-char pos)
+      (rename-buffer buffer-name)
+      (org-narrow-to-subtree))))
+#+end_src
+
+* Media and extras
+
+** Animated GIFs
+
+Installs =org-inline-anim= so inline animated GIFs can play in Org buffers, looping by default.
+
+#+begin_src emacs-lisp -i
+;; animated gif support to spruce things up
+(use-package org-inline-anim
+  :ensure (:wait t)
+  :custom
+  (org-inline-anim-loop t))
+#+end_src
+
+** org-ql
+
+Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on.
+
+#+begin_src emacs-lisp -i
+(use-package org-ql
+ :ensure t)
+#+end_src
+
+* Tasks and logging
+
+** Section comment
+
+A comment marking the start of the time-logging settings.
+
+#+begin_src emacs-lisp -i
+;; Time logging for org-mode
+#+end_src
+
+** TODO selection and dependencies
+
+Fast TODO selection works without a popup window (=expert= mode). A task cannot be marked DONE while it has undone child tasks or unchecked checkboxes.
+
+#+begin_src emacs-lisp -i
+(setq org-use-fast-todo-selection 'expert) ;; don't use popup window for todos
+;; don't set to DONE if children aren’t DONE
+(setq org-enforce-todo-dependencies t)
+(setq org-enforce-todo-checkbox-dependencies t)
+#+end_src
+
+** Logging
+
+Records the time when a task is completed and puts log entries into a =LOGBOOK= drawer. State-change notes go before drawers, and rescheduling or changing a deadline is not logged.
+
+#+begin_src emacs-lisp -i
+;; Logging
+(setq org-log-done 'time)
+(setq org-log-into-drawer t)
+(setq org-log-state-notes-insert-after-drawers nil)
+(setq org-log-redeadline nil) ;; don't log the time a task was rescheduled/redeadlined.
+(setq org-log-reschedule nil)
+#+end_src
+
+* Settings inherited from Lambda Emacs
+
+The rest of the file comes from the Lambda Emacs (𝛌-Emacs) Org configuration, lightly adapted.
+
+** Lambda Emacs header comments
+
+Comments copied from Lambda Emacs describing the original file's role. They mention =sp-org-ext.el= for extensions and say that user-specific settings such as capture templates belong in the user's own configuration.
+
+#+begin_src emacs-lisp -i
+;; Lambda emacs
+
+;; Core settings for org-mode in 𝛌-Emacs This file is for configuring org and
+;; related files that are part of org. Other extensions to org can be found in
+;; ~sp-org-ext.el~. This file is called in ~init.el~ instead of being required in here.
+
+;; Note that configuring that is heavily user-specific, such as capture
+;; templates, is not put here, but should be put in the user's configuration
+;; file (or user library). For an example of how to configure capture templates
+;; see:
+;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/#capture-templates
+#+end_src
+
+** Extra Org modules
+
+Once Org is loaded, adds =org-habit= (habit tracking in the agenda), =org-tempo= (=<s= style structure templates) and =org-protocol= (capturing from outside Emacs) to =org-modules=. The comment asks what =with-eval-after-load= means: it delays the body until Org has been loaded, because =org-modules= is defined by Org.
+
+#+begin_src emacs-lisp -i
+;; What does this eval after load mean?
+;;;; Org Modules
+(with-eval-after-load 'org
+;; Load additional org modules
+(add-to-list 'org-modules 'org-habit t)
+(add-to-list 'org-modules 'org-tempo t)
+(add-to-list 'org-modules 'org-protocol t))
+#+end_src
+
+** Open files in default applications
+
+Opening links to =.docx=, =.mm= and HTML files hands them to the system's default application, while PDFs and anything with a known major mode open inside Emacs.
+
+#+begin_src emacs-lisp -i
+;;;; Open Files in Default Application
+;;Open files in their default applications (ms word being the prime example)
+(customize-set-variable 'org-file-apps
+                        '(("\\.docx\\'" . default)
+                          ("\\.mm\\'" . default)
+                          ("\\.x?html?\\'" . default)
+                          ("\\.pdf\\'" . emacs)
+                          (auto-mode . emacs)))
+#+end_src
+
+** Jump to Org files
+
+=sp-goto-org-files= runs =find-file= starting in =org-directory=. The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching. They build paths with =concat= and no separator, so with =org-directory= set to =~/notes= above they point at the wrong file names (for example =~/notesinbox.org=).
+
+#+begin_src emacs-lisp -i
+;;;;; Goto Org Files
+(defun sp-goto-org-files ()
+  "goto org-files directory"
+  (interactive)
+  (let ((default-directory org-directory))
+    (call-interactively 'find-file)))
+(defun sp-goto-inbox.org ()
+  "goto org-inbox"
+  (interactive)
+  (find-file (concat org-directory "inbox.org")))
+(defun sp-goto-todo.org ()
+  "goto org-todo"
+  (interactive)
+  (find-file (concat org-directory "todo.org")))
+(defun sp-goto-conferences.org ()
+  "goto org-conferences"
+  (interactive)
+  (find-file (concat org-directory "conferences.org")))
+(defun sp-goto-referee-reports.org ()
+  "goto org referee reports"
+  (interactive)
+  (find-file (concat org-directory "referee-reports.org")))
+(defun sp-goto-reference.org ()
+  "goto org reference notes"
+  (interactive)
+  (find-file (concat org-directory "reference.org")))
+(defun sp-goto-someday.org ()
+  "goto org-someday"
+  (interactive)
+  (find-file (concat org-directory "someday.org")))
+(defun sp-goto-reading.org ()
+  "goto reading list"
+  (interactive)
+  (find-file (concat org-directory "reading.org")))
+(defun sp-goto-writing.org ()
+  "goto writing list"
+  (interactive)
+  (find-file (concat org-directory "writing.org")))
+(defun sp-goto-teaching.org ()
+  "goto teaching file"
+  (interactive)
+  (find-file (concat org-directory "teaching.org")))
+#+end_src
+
+** Checkbox keyboard macro
+
+=sp-org-checkbox-from-list= is a keyboard macro meant to turn a list item into a checkbox by inserting =[ ]=. The key sequence (=a=, escape, then =M-x=) looks like it was recorded with vim-style modal editing, so with plain Emacs bindings it probably does not do what its name says.
+
+#+begin_src emacs-lisp -i
+;;;;; Org Create Check Box From List Item
+;; A useful macro for converting list items to checkboxes
+(fset 'sp-org-checkbox-from-list
+      [?a ?  ?\[ ?  ?\] escape ?\M-x return])
+#+end_src
+
+** Tag selection
+
+=sp-org-select-tags-completing-read= offers the buffer's tags with =completing-read-multiple= and toggles the chosen ones: selected tags that the heading already has are removed and the rest are added. It depends on the dash list functions and the =alet= macro from the anaphora package, which this config does not install explicitly.
+
+#+begin_src emacs-lisp -i
+;;;;; Org Tag Selection
+
+(defun sp-org-select-tags-completing-read ()
+  "Select tags to add to headline."
+  (interactive)
+  (let* ((current (org-get-tags (point)))
+         (selected (completing-read-multiple "Select org tag(s): " (org-get-buffer-tags))))
+    (alet (-uniq (append (-difference current selected)
+                         (-difference selected current)))
+      (org-set-tags it))))
+#+end_src
+
+** Copy and uncheck checkboxes
+
+=sp-copy-and-uncheck= copies the active region to the kill ring with every =[X]= replaced by =[ ]=, which is handy for carrying a weekly checklist forward.
+
+#+begin_src emacs-lisp -i
+;;;;; Uncheck Org boxes
+;;see https://www.reddit.com/r/emacs/comments/r107bg/comment/hlx54vf/?utm_source=share&utm_medium=web2x&context=3
+(defun sp-copy-and-uncheck (start end)
+  "copy a region of regularly repeating checkbox items forward from
+one week to the next, unchecking them at the same time"
+  (interactive "r")
+  (kill-new (replace-regexp-in-string (rx "[X]") "[ ]" (buffer-substring start end)))
+  (setq deactivate-mark t))
+#+end_src
+
+** Subtree to new file
+
+=sp-org-tree-to-new-file= cuts the current subtree, prompts for a file, opens it in another window and pastes the subtree there.
+
+#+begin_src emacs-lisp -i
+;;;;; Org Tree/Heading to New File
+(defun sp-org-tree-to-new-file ()
+  "Move an org subtree to a new file"
+  (interactive)
+  (org-copy-subtree nil t)
+  (find-file-other-window
+   (read-file-name "Move subtree to file:" ))
+  (org-paste-subtree))
+#+end_src
+
+** Wrap text in a block
+
+=org-block-wrap= asks for a single key and wraps the active region in the matching block (ascii, comment, center, example, emacs-lisp src, html, LaTeX, notes, quote, src or verse). Without a region it inserts an empty block at point. When point is in a table it instead runs =org-table-rotate-recalc-marks=. It is not bound to a key in this module.
+
+#+begin_src emacs-lisp -i
+;;;;; Org Wrap in Block Template
+;; A helpful function I found for wrapping text in a block template.
+;; http://pragmaticemacs.com/emacs/wrap-text-in-an-org-mode-block/
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; function to wrap blocks of text in org templates                       ;;
+;; e.g. latex or src etc                                                  ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun org-block-wrap ()
+  "Make a template at point."
+  (interactive)
+  (if (org-at-table-p)
+      (call-interactively 'org-table-rotate-recalc-marks)
+    (let* ((choices '(
+                      ("a" . "ascii")
+                      ("c" . "comment")
+                      ("C" . "center")
+                      ("e" . "example")
+                      ("E" . "src emacs-lisp")
+                      ("h" . "html")
+                      ("l" . "laTeX")
+                      ("n" . "notes")
+                      ("q" . "quote")
+                      ("s" . "src")
+                      ("v" . "verse")
+                      ))
+           (key
+            (key-description
+             (vector
+              (read-key
+               (concat (propertize "Template type: " 'face 'minibuffer-prompt)
+                       (mapconcat (lambda (choice)
+                                    (concat (propertize (car choice) 'face 'font-lock-type-face)
+                                            ": "
+                                            (cdr choice)))
+                                  choices
+                                  ", ")))))))
+      (let ((result (assoc key choices)))
+        (when result
+          (let ((choice (cdr result)))
+            (cond
+             ((region-active-p)
+              (let ((start (region-beginning))
+                    (end (region-end)))
+                (goto-char end)
+                (insert "#+end_" choice "\n")
+                (goto-char start)
+                (insert "#+begin_" choice "\n")))
+             (t
+              (insert "#+begin_" choice "\n")
+              (save-excursion (insert "#+end_" choice))))))))))
+#+end_src
+
+* Following links with RET
+
+** Point strictly inside a link
+
+=sp-org-point-strictly-in-link-p= returns non-nil only when point is inside a link, not on its first character, its end or the blanks after it.
+
+#+begin_src emacs-lisp -i
+;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
+(defun sp-org-point-strictly-in-link-p ()
+  "Non-nil if point is inside a link, not at its edges or trailing blanks."
+  (let ((ctx (org-element-context)))
+    (and (eq (org-element-type ctx) 'link)
+         (> (point) (org-element-property :begin ctx))
+         (< (point) (- (org-element-property :end ctx)
+                       (org-element-property :post-blank ctx))))))
+#+end_src
+
+** Advice on org-return
+
+Advises =org-return= so =org-return-follows-link= only applies when point is strictly inside a link. Pressing =RET= at the very start or end of a link inserts a newline instead of opening it.
+
+#+begin_src emacs-lisp -i
+(define-advice org-return (:around (fn &rest args) strict-link-follow)
+  (let ((org-return-follows-link
+         (and org-return-follows-link
+              (sp-org-point-strictly-in-link-p))))
+    (apply fn args)))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-org-base= feature so =init.el= can require it.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-org-base)
+;; sp-org-base.el ends here.
+#+end_src

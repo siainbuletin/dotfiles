@@ -1,0 +1,138 @@
+#+TITLE: sp-goto.el: Clickable addresses and quick file jumps
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../../libraries/modules/base/navi/sp-goto.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/navi/sp-goto.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A small navigation module with three parts. It turns on =goto-address-mode= (built in) in text, programming, compilation and shell buffers so URLs and e-mail addresses become clickable, defines a handful of =sp-goto-= commands that open frequently used files and directories, and binds =goto-last-change= when that package is available.
+
+It is loaded from =sp-navi=, which requires it, rather than being listed in =init.el= itself. The jump commands rely on directory variables defined in =early-init.el=, such as =sp-user-dir=, =sp-project-dir= and =sp-user-elisp-dir=, and on =org-directory=. None of the =sp-goto-= commands are bound to keys here. The similarly named =sp-goto-minibuffer-window= lives in =sp-windows=, not in this file.
+
+* Header
+
+** Header and commentary
+
+File header and a commentary describing =goto-address=: clicking or pressing a key on a URL opens it with =browse-url=, and on an e-mail address starts a message to it.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-goto.el 
+
+;;; Commentary:
+
+;; This package allows you to click or hit a key sequence while on a
+;; URL or e-mail address, and either load the URL into a browser of
+;; your choice using the browse-url package, or if it's an e-mail
+;; address, to send an e-mail to that address.
+
+;;; Code:
+#+end_src
+
+* Clickable URLs and e-mail addresses
+
+** goto-addr
+
+Configures the built-in =goto-addr= library without installing anything. =goto-address-mode= is enabled in compilation, Eshell, text and shell buffers, and =goto-address-prog-mode= (which only highlights inside comments and strings) in programming buffers. On a highlighted address, =RET= follows it and =M-RET= inserts a newline instead.
+
+#+begin_src emacs-lisp -i
+(use-package goto-addr
+  :ensure nil
+  :hook ((compilation-mode . goto-address-mode)
+         (prog-mode . goto-address-prog-mode)
+         (eshell-mode . goto-address-mode)
+         (text-mode . goto-address-mode)
+         (shell-mode . goto-address-mode))
+  :bind (:map goto-address-highlight-keymap
+         ("<RET>"  . goto-address-at-point)
+         ("M-<RET>" . newline))
+  :commands (goto-address-prog-mode
+             goto-address-mode))
+#+end_src
+
+* Go-to commands
+
+Interactive shortcuts for opening specific files and directories, presumably meant to be called with =M-x= or bound elsewhere.
+
+** Private settings and journal
+
+=sp-goto-private= opens =private.el= in the =lambda-user= directory, and =sp-goto-journal= opens =journal.org= in =org-directory=. The journal path is built by plain concatenation, so it relies on =org-directory= ending in a slash.
+
+#+begin_src emacs-lisp -i
+;;;; Goto Functions
+(defun sp-goto-private ()
+  (interactive)
+  (find-file (concat sp-user-dir "private.el")))
+
+(defun sp-goto-journal ()
+  (interactive)
+  (find-file (concat org-directory "journal.org")))
+#+end_src
+
+** Init files
+
+=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives, so that command probably opens the wrong file unless =~/.emacs.d= points here.
+
+#+begin_src emacs-lisp -i
+(defun sp-goto-early-init.el ()
+  "Open early-init.el file"
+  (interactive)
+  (find-file "~/.emacs.d/early-init.el"))
+
+(defun sp-goto-init.el ()
+  "Open init.el file"
+  (interactive)
+  (find-file user-init-file))
+
+(defun sp-goto-custom.el ()
+  "Open custom.el file"
+  (interactive)
+  (find-file custom-file))
+#+end_src
+
+** Directories
+
+=sp-goto-emacs-dir=, =sp-goto-projects= and =sp-goto-elisp-library= open the Emacs directory, =sp-project-dir= and =sp-user-elisp-dir= in Dired. In =early-init.el= the project directory defaults to nil and the elisp directory to t, so the last two only work once those are set to real paths.
+
+#+begin_src emacs-lisp -i
+(defun sp-goto-emacs-dir ()
+  "Open 𝛌-Emacs directory"
+  (interactive)
+  (find-file user-emacs-directory))
+(defun sp-goto-projects ()
+  "Open projects dir"
+  (interactive)
+  (find-file sp-project-dir))
+(defun sp-goto-elisp-library ()
+  "Open user elisp library."
+  (interactive)
+  (find-file sp-user-elisp-dir))
+#+end_src
+
+* Last change
+
+** goto-last-change
+
+When extras are enabled and the =goto-last-change= library is installed, binds =C-"= to jump to the position of the most recent edit in the buffer. The package is not installed here; this block only configures it if present.
+
+#+begin_src emacs-lisp -i
+;;;; Go To Change
+;; Easily go to last change
+(use-package goto-last-change
+  :when (and sp-load-extras (locate-library "goto-last-change"))
+  :bind (("C-\"" . #'goto-last-change)))
+#+end_src
+
+* Provide
+
+** Provide
+
+Provides the =sp-goto= feature.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-goto)
+;; sp-goto.el ends here.
+#+end_src

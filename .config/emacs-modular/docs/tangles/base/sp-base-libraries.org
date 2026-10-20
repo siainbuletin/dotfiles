@@ -1,0 +1,394 @@
+#+TITLE: sp-base-libraries.el: Base libraries and general defaults
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-base-libraries.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-base-libraries.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This is one of the first modules loaded in every profile. It installs or declares the small libraries many other packages and =sp-= modules rely on (=subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others), and then collects a number of general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
+
+Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= and =sp-load-extras= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and a note that the core library list is taken from Lambda Emacs, covering async processing, string and list manipulation and backward compatibility.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-base-libraries.el 
+
+;;; Commentary:
+
+;; This is mostly taken from lem-setup-libraries.el because they're very basic libraries
+;; used for asynchronous processing string
+;; manipulation, list manipulation and backward compatibility respectively.
+
+;;; Code:
+#+end_src
+
+* Core Lisp libraries
+
+** subr-x
+
+Declares the built-in =subr-x= string and control helpers, loaded after one second of idle time.
+
+#+begin_src emacs-lisp -i
+;; Built in libraries; lots of packages depend on these
+(use-package subr-x
+  :ensure nil
+  :defer 1)
+#+end_src
+
+** cl-lib
+
+Declares the built-in =cl-lib= Common Lisp extensions, deferred.
+
+#+begin_src emacs-lisp -i
+(use-package cl-lib
+  :ensure nil
+  :defer t)
+#+end_src
+
+** cl (legacy)
+
+Declares the old =cl= package for compatibility with packages that still use its unprefixed names. =cl= is deprecated in modern Emacs and loading it produces a deprecation warning.
+
+#+begin_src emacs-lisp -i
+;; Include this only for compatibility purposes
+(use-package cl
+  :ensure nil
+  :defer t)
+#+end_src
+
+** async
+
+Installs =async=, which runs Lisp in a child Emacs process. After Dired loads it enables =dired-async-mode=, so copies, renames and symlinks in Dired run asynchronously, and hides its mode-line indicator.
+
+#+begin_src emacs-lisp -i
+;; Asynchronous commands. Adds the ability to call asynchronous functions and
+;; process with ease. See the documentation for `async-start' and
+;; `async-start-process'.
+
+(use-package async
+  :ensure t
+  :after dired
+  :config
+  (dired-async-mode 1)
+  (setq dired-async--modeline-mode nil))
+#+end_src
+
+** dash
+
+Installs the =dash= list library, loaded after two seconds idle.
+
+#+begin_src emacs-lisp -i
+;; A modern list API for Emacs. No 'cl required.
+
+(use-package dash
+  :ensure t
+  :defer 2)
+#+end_src
+
+** s
+
+Installs the =s= string library, loaded after two seconds idle.
+
+#+begin_src emacs-lisp -i
+;; String manipulation
+(use-package s
+  :ensure t
+  :defer 2)
+#+end_src
+
+** f
+
+Installs the =f= file and directory library, loaded after two seconds idle.
+
+#+begin_src emacs-lisp -i
+;; APIs for files & directories
+(use-package f
+  :ensure t
+  :defer 2)
+#+end_src
+
+* Other base libraries
+
+** cond-let
+
+Installs =cond-let= and waits for it, since newer versions of transient and Magit depend on it. The preceding comment about rendering menus belongs to transient.
+
+#+begin_src emacs-lisp -i
+;; Other base libraries (sia)
+
+;; This is for rendering basic menus as faithfully as possible
+
+(use-package cond-let
+  :ensure (:wait t))
+#+end_src
+
+** Transient
+
+Installs and loads =transient= immediately so =transient-define-prefix= is available when =sp-keys= is loaded. Its level, value and history files are stored under =sp-cache-dir=. Key conflict detection and fixed-pitch popups are on, and popups appear in a dedicated side window at the top of the frame that =other-window= skips.
+
+#+begin_src emacs-lisp -i
+(use-package transient
+  :ensure (:wait t)
+  :demand t ;; this makes sure that the macro `transient-define-prefix` can actually be called by the time we get to `sp-keys.el`
+  :commands (transient-setup transient-show transient-help)
+  
+  :custom
+  (transient-levels-file (concat sp-cache-dir "transient/levels.el"))
+  (transient-values-file (concat sp-cache-dir "transient/values.el"))
+  (transient-history-file (concat sp-cache-dir "transient/history.el"))
+  (transient-detect-key-conflicts t)
+  (transient-force-fixed-pitch t)
+  (transient-show-popup t)
+
+  ;; set transient popop to top of window
+  (transient-display-buffer-action '(display-buffer-in-side-window
+                                     (side . top)
+                                     (dedicated . t)
+                                     (inhibit-same-window . t)
+                                     (window-parameters (no-other-window . t)))))
+#+end_src
+
+** Crux
+
+Installs =crux=, a set of handy commands from Emacs Prelude, when extras are enabled and the library is available. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
+
+#+begin_src emacs-lisp -i
+;;;; CRUX
+;; This is loading the library of default functions coming from Emacs Prelude. Lots
+;; of useful defaults that you can start working in Emacs with.
+;;
+;; Crux bundles many useful interactive commands to enhance your overall Emacs 
+;; experience. 
+
+(use-package crux
+  :ensure t
+  :if (and sp-load-extras (locate-library "crux"))
+  :defer 1
+  :bind
+  ("C-k"   . crux-smart-kill-line)
+  ("C-a"   . crux-move-beginning-of-line))
+#+end_src
+
+** websocket
+
+Installs the =websocket= library, used by packages such as org-roam-ui.
+
+#+begin_src emacs-lisp -i
+(use-package websocket
+  :ensure (:wait t)
+)
+#+end_src
+
+** simple-httpd
+
+Installs =simple-httpd=, a small web server inside Emacs, with its document root set to =/var/www=.
+
+#+begin_src emacs-lisp -i
+;;; HTTP-D
+(use-package simple-httpd
+  :ensure t
+  :custom
+  (httpd-root "/var/www"))
+#+end_src
+
+** Helm
+
+Installs Helm. No configuration is applied here, so it is presumably present as a dependency for other packages rather than as the main completion UI.
+
+#+begin_src emacs-lisp -i
+(use-package helm
+    :ensure (:wait t))
+#+end_src
+
+** taxy
+
+Installs =taxy=, a library for grouping items into hierarchies. The comment notes it has caused backtraces in the past.
+
+#+begin_src emacs-lisp -i
+;; For some reason it causes some backtraces with very basic functions.
+;; It may be possible that I simply don't understand how this package works very well.
+(use-package taxy
+  :ensure t)
+#+end_src
+
+* Miscellaneous settings
+
+Settings collected here because they had no other home, mainly around Org tangling and general editing.
+
+** Execute all Babel blocks
+
+=sia-execute-all-buffers= runs every source block in the current Org buffer with confirmation turned off. Despite its name it only acts on the current buffer.
+
+#+begin_src emacs-lisp -i
+;; Other settings I don't know what to do with
+;; This is the configuration that I need in order to make my tangling work.
+;; Also, the code should appear to be referenced elsewhere on the system.
+
+(defun sia-execute-all-buffers ()
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil))
+    (org-babel-execute-buffer))
+)
+#+end_src
+
+** Global keys for Org export and execution
+
+Binds =C-c o o= to =org-org-export-to-org= and =C-c e c= to =sia-execute-all-buffers=.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c o o" 'org-org-export-to-org)
+(keymap-global-set "C-c e c" 'sia-execute-all-buffers)
+#+end_src
+
+** Scratch buffer in Org
+
+Makes =*scratch*= start in =org-mode=.
+
+#+begin_src emacs-lisp -i
+(setq initial-major-mode 'org-mode)
+#+end_src
+
+** Babel languages
+
+Enables Org Babel for Emacs Lisp, Org and R. R blocks need R installed (and usually ESS).
+
+#+begin_src emacs-lisp -i
+(org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (org . t)
+     (R . t))
+)
+#+end_src
+
+** Bar cursor
+
+Uses a bar cursor by default, like most other editors.
+
+#+begin_src emacs-lisp -i
+(setq-default cursor-type 'bar) ;; this will make the cursor similar to other text editors
+#+end_src
+
+** undo-tree
+
+Installs =undo-tree= and enables it globally, excluding =nxml-mode=. Undo history is persisted to =~/.emacs.d/undo=, a hard-coded path that does not follow =sp-cache-dir=.
+
+#+begin_src emacs-lisp -i
+(use-package undo-tree
+  :ensure (:wait t)
+  :config
+  (add-to-list 'undo-tree-incompatible-major-modes #'nxml-mode)
+  (global-undo-tree-mode)
+
+  :custom
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))))
+#+end_src
+
+** vundo
+
+Installs =vundo=, a visual undo tree browser for the built-in undo system.
+
+#+begin_src emacs-lisp -i
+(use-package vundo
+  :ensure (:wait t))
+#+end_src
+
+** Join line
+
+Binds =C-c j j= to =join-line=, which joins the current line to the previous one.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c j j" #'join-line)
+#+end_src
+
+** Electric pairs
+
+Turns on =electric-pair-mode= globally, so typing an opening bracket or quote inserts its partner.
+
+#+begin_src emacs-lisp -i
+(electric-pair-mode 1)
+#+end_src
+
+** load-dir
+
+Installs =load-dir=, which can load every Lisp file in a directory.
+
+#+begin_src emacs-lisp -i
+(use-package load-dir
+  :ensure (:wait t))
+#+end_src
+
+** dwim-shell-command
+
+Installs =dwim-shell-command= and uses it in place of =shell-command= globally and =dired-smart-shell-command= in Dired. It runs shell commands with placeholders for the file at point or the marked files. Remapping the other Dired shell commands is left commented out.
+
+#+begin_src emacs-lisp -i
+(use-package dwim-shell-command
+  :ensure t
+  :bind (([remap shell-command] . dwim-shell-command)
+         :map dired-mode-map
+         ;; ([remap dired-do-async-shell-command] . dwim-shell-command)
+         ;; ([remap dired-do-shell-command] . dwim-shell-command)
+         ([remap dired-smart-shell-command] . dwim-shell-command)))
+#+end_src
+
+** try
+
+Installs =try=, which lets you try a package for the current session without installing it permanently.
+
+#+begin_src emacs-lisp -i
+(use-package try
+  :ensure (:wait t))
+#+end_src
+
+** Auto-revert
+
+Enables =global-auto-revert-mode= so buffers update when their files change on disk.
+
+#+begin_src emacs-lisp -i
+;;; Buffer functions
+(global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
+#+end_src
+
+** Avy
+
+Installs and loads Avy for jumping to visible text. =C-:= jumps to a character and =C-M-:= jumps using a timed multi-character input.
+
+#+begin_src emacs-lisp -i
+;;; Avy
+;; Don't remember what Avy was for, but it's a pretty important library to have.
+(use-package avy
+  :ensure t
+  :demand t
+  :bind (("C-:" . avy-goto-char)
+         ("C-M-:" . avy-goto-char-timer)))
+#+end_src
+
+** Casual
+
+Installs =casual=, a collection of transient menus for built-in modes such as Dired, Calc and Info. No bindings are set here.
+
+#+begin_src emacs-lisp -i
+;;; Casual package
+;; This is transient-based menus for working with built-in packages, like dired.
+(use-package casual
+  :ensure t)
+#+end_src
+
+* Provide
+
+** Provide feature
+
+Provides =sp-base-libraries=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-base-libraries)
+;; sp-base-libraries.el ends here.
+#+end_src

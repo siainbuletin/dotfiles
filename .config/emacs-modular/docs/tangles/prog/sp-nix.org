@@ -1,0 +1,53 @@
+#+TITLE: sp-nix.el: Nix editing with the nixd language server
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-nix.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-nix.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module sets up editing of Nix files with =nix-mode= and the =nixd= language server through =lsp-mode=. It is off by default behind a custom option, =siapip/nix-mode-enable=.
+
+It builds on the LSP and company setup in =sp-base-code= and needs the =nixd= executable on the path. Nothing in =init.el= or the other modules requires =sp-nix=, and the file has no =provide= form, so it is currently inactive; requiring it by feature name would fail after loading.
+
+* Nix mode
+
+** File header
+
+The file header, with lexical binding enabled.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+#+end_src
+
+** Enable option
+
+=siapip/nix-mode-enable= is a boolean user option, nil by default, in a =siapip= customization group. It is marked safe for booleans, so it can be set as a file or directory local variable without a prompt. Because the check below happens once when the file loads, the option has to be set before this module is loaded.
+
+#+begin_src emacs-lisp -i
+(defcustom siapip/nix-mode-enable nil
+  "Enable nix-mode with LSP support for editing Nix files."
+  :type 'boolean
+  :group 'siapip
+  :safe #'booleanp)
+#+end_src
+
+** Nix mode with nixd
+
+When the option is on, =.nix= files open in =nix-mode= and start LSP lazily. In Nix buffers TAB indents or completes with company, =F1= describes the thing at point and =F12= jumps to the definition. After lsp-mode loads, Nix buffers are given the language id =nix= and a client named =nixd= is registered that talks to the =nixd= server over standard input and output.
+
+#+begin_src emacs-lisp -i
+(when siapip/nix-mode-enable
+  (use-package nix-mode
+    :mode "\\.nix\\'"
+    :hook (nix-mode . lsp-deferred)
+    :bind (:map nix-mode-map
+                ([tab] . company-indent-or-complete-common)
+                ([f1] . lsp-describe-thing-at-point)
+                ([f12] . lsp-find-definition))
+    :config
+    (with-eval-after-load 'lsp-mode
+      (add-to-list 'lsp-language-id-configuration '(nix-mode . "nix"))
+      (lsp-register-client
+       (make-lsp-client :new-connection (lsp-stdio-connection "nixd")
+                        :major-modes '(nix-mode)
+                        :server-id 'nixd)))))
+#+end_src

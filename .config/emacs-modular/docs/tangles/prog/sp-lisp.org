@@ -1,0 +1,212 @@
+#+TITLE: sp-lisp.el: Common Lisp and Emacs Lisp editing
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-lisp.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-lisp.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up editing for Lisp languages: Common Lisp through the =sly= REPL with SBCL as the inferior Lisp, and Emacs Lisp through the built-in =elisp-mode=. Both get =company= completion on TAB, and structural editing with =paredit=. It also adds helpers for learning and exploring Emacs Lisp (=elisp-demos=, which extends =helpful= from =sp-help=, and Wilfred Hughes's =suggest=), dimmed parentheses with =paren-face=, and a small command for evaluating the enclosing form.
+
+=company= itself is configured in =sp-base-code= and =sp-completion=. The module is part of the programming group in the default profile. One block has a structural bug: in the =sly= declaration the =:hook= keyword ended up inside the =:config= =setq= form, which is described below.
+
+* Header and options
+
+** File header
+
+Lexical binding and the empty commentary and code markers.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-lisp.el --- Lisp and Emacs Lisp settings
+
+;;; Commentary:
+
+;;
+
+;;; Code
+#+end_src
+
+** Paredit option
+
+=siapip/lisp-paredit:enabled= is a boolean user option meant to control whether paredit turns on automatically in Lisp modes. Nothing reads it: the =paredit= block below adds its hooks unconditionally, so the option currently has no effect.
+
+#+begin_src emacs-lisp -i
+(defcustom siapip/lisp-paredit:enabled nil
+  "When enabled, this option automatically activates paredit mode in Lisp modes."
+  :group 'siapip
+  :type 'boolean)
+#+end_src
+
+** Faster paren matching
+
+Lowers =show-paren-delay= to 0.05 seconds so the matching parenthesis is highlighted almost immediately, following a James Cherti article on responsiveness.
+
+#+begin_src emacs-lisp -i
+;; This will make the matching parentheses show up faster.
+;; source: https://www.jamescherti.com/emacs-user-interface-better-responsiveness-and-latency/
+(setq show-paren-delay 0.05)
+#+end_src
+
+* Common Lisp
+
+** sly
+
+=sly= is a Common Lisp IDE and REPL. =inferior-lisp-program= is set to =sbcl= before it loads. The parentheses in =:config= are misplaced: the =:hook= keyword and its list sit inside the =setq= call. That makes =setq= receive an odd number of arguments, so loading =sly= raises an error. The intended hooks (enable =sly-mode= in =lisp-mode=, and =company-mode= in the REPL) are never installed, and =sly-complete-symbol-function= is never set to flex completion.
+
+#+begin_src emacs-lisp -i
+;;;; Interpreter
+(use-package sly
+  :ensure t
+  :defer t
+  :init
+  (setq inferior-lisp-program "sbcl")
+  :config
+  (setq sly-complete-symbol-function 'sly-flex-completions
+  :hook ((lisp-mode . (lambda ()
+                        (sly-mode t)))
+         (sly-repl-mode . (lambda ()
+                            (company-mode t))))))
+#+end_src
+
+** lisp-mode
+
+Settings for Common Lisp buffers. TAB runs =company-indent-or-complete-common= (indent, or complete if already indented), =C-c C-d h= looks up documentation through sly, and =C-c C-z= starts or switches to the sly REPL. A hook enables =company-mode= with =company-capf= and file name completion as its backends.
+
+#+begin_src emacs-lisp -i
+;;;; Editing modes
+(use-package lisp-mode
+  :ensure nil
+  :demand t
+  :bind
+  (:map lisp-mode-map
+        ;;([tab] . sly-complete-symbol)
+        ([tab] . company-indent-or-complete-common)
+        ("C-c C-d h" . sly-documentation-lookup)
+        ("C-c C-z" . sly))
+  :hook
+  ((lisp-mode . (lambda ()
+                 (setq company-backends '(company-capf
+                                          company-files))
+                 ;; (highlight-indent-guides-mode t)
+                 (company-mode t)))))
+#+end_src
+
+* Emacs Lisp
+
+** elisp-mode
+
+In Emacs Lisp buffers TAB also indents or completes. The hook turns on =company-mode=, =eldoc-mode= (signatures in the echo area) and =prettify-symbols-mode= (so =lambda= shows as a symbol), and sets the company backends to completion-at-point, file names and code words from open buffers. Commented-out lines show indent guides and a custom indent function that were tried.
+
+#+begin_src emacs-lisp -i
+(use-package elisp-mode
+  :ensure nil
+  :demand t
+  :bind (:map emacs-lisp-mode-map ([tab] . 'company-indent-or-complete-common))
+  :hook
+  (emacs-lisp-mode . (lambda ()
+                       (company-mode t)
+                       (eldoc-mode t)
+                       (prettify-symbols-mode t)
+                       ;; (setq lisp-indent-function nil)
+                       ;; (highlight-indent-guides-mode t)
+                       (setq company-backends '(company-capf
+                                                company-files
+                                                company-dabbrev-code)))))
+#+end_src
+
+** elisp-demos
+
+=elisp-demos= adds usage examples to help buffers. It loads after =helpful= and advises =describe-function-1= so the built-in help also shows demos. =elisp-demos-add-demo= records a new example for a function.
+
+#+begin_src emacs-lisp -i
+;;;; Show code examples
+;; Show code examples with the elisp-demos package.
+;; Find a function without a good demonstration? Call elisp-demos-add-demo.
+
+(use-package elisp-demos
+  :ensure t
+  :after helpful ; this can enhance the `describe-function` call
+  :config
+  (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))
+#+end_src
+
+** suggest
+
+Installs =suggest=, which lets you enter example inputs and a desired output and then searches for Emacs Lisp functions that produce it.
+
+#+begin_src emacs-lisp -i
+;;;; Finding better functions
+;; Wilfred’s suggest function helps you find the right function. 
+;; Basically, you type in the parameters of a function, and then 
+;; the desired output, and it will write the function call.
+(use-package suggest
+  :ensure t)
+#+end_src
+
+* Appearance and structural editing
+
+** paren-face
+
+=paren-face-mode= renders parentheses in a dimmed face in Emacs Lisp buffers so the code stands out, an idea taken from Howard Abrams's config.
+
+#+begin_src emacs-lisp -i
+;;;; Better appearance
+;;;;; Showing the parantheses better
+;; source: https://howardabrams.com/hamacs/ha-programming-elisp.html
+(use-package paren-face
+  :ensure t
+  :hook (emacs-lisp-mode . paren-face-mode))
+#+end_src
+
+** paredit
+
+=paredit= keeps parentheses balanced and offers structural commands. It is turned on in Emacs Lisp, Common Lisp, =lisp-interaction-mode= (the scratch buffer) and the sly REPL. =C-M-f= and =C-M-b= are rebound to paredit's own sexp motion.
+
+#+begin_src emacs-lisp -i
+(use-package paredit
+    :ensure t
+    :defer t
+    ;;:diminish paredit-mode
+    :hook ((emacs-lisp-mode . paredit-mode)
+           (lisp-mode . paredit-mode)
+           (lisp-interaction-mode . paredit-mode)
+           (sly-repl-mode . paredit-mode))
+    :bind (:map paredit-mode-map
+                ("C-M-f" . paredit-forward)
+                ("C-M-b" . paredit-backward)))
+#+end_src
+
+* Evaluation helper
+
+** Evaluate the enclosing form
+
+=eval-outer-sexp=, from a Reddit comment, moves up to the innermost parenthesised form around point (skipping strings and comments), reads it, evaluates it and echoes the result. Unlike =eval-last-sexp= it does not need point to be after the form. It is not bound to a key here.
+
+#+begin_src emacs-lisp -i
+;; Evaluating an expression at point
+;; source: https://www.reddit.com/r/emacs/comments/1x4806c/comment/pge1kz7/
+(defun eval-outer-sexp (point)
+  "Evaluate the smallest patenthesized sexp that contains point, and echo its value."
+  (interactive (list (point)))
+  (let (sexp)
+    (save-excursion
+      (backward-up-list 1 t t)
+      (while (not (looking-at "("))
+        (backward-up-list 1 t t))
+      (setq sexp (read (point-marker))))
+    (message "%s" (eval sexp))))
+#+end_src
+
+* Footer
+
+** Provide the feature
+
+Provides =sp-lisp= for the module loader.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-lisp)
+;; sp-lisp.el ends here.
+#+end_src

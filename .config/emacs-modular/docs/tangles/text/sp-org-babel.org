@@ -1,0 +1,296 @@
+#+TITLE: sp-org-babel.el: Org Babel languages and tangling
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-babel.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-babel.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module configures Org Babel: which languages can be executed in source blocks, how tangled files are cleaned up, and a command to tangle the literate configuration in one go. Most languages are set up lazily with =use-package= and =:commands=, so each =ob-*= library loads only when a block of that language is first executed. It also defines two custom Babel languages, =nushell= and =jinja=.
+
+The module is not listed in =init.el=; it is required from =sp-org-ext=. The ditaa and PlantUML blocks expect jar files under =software/= in =user-emacs-directory=, and the custom languages need the external =nu= program and Python 3 with the =jinja2= library.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and a commentary saying the file handles tangling and should eventually collect the helper functions for quickly tangling files.
+
+#+begin_src emacs-lisp -i
+;;; -*- lexical-binding: t -*-
+;; sp-org-babel.el
+
+;;; Commentary:
+
+;; This file deals with the tangling aspect of Emacs as well
+;; this should, in the future, hold a reference to the functions
+;; that are used for quickly tangling files.
+
+;;; Code:
+#+end_src
+
+* Babel languages
+
+Each language is declared through its built-in =ob-= library. The comment explains why this avoids =org-babel-do-load-languages=: that function requires every listed library immediately, while =:commands= only creates autoloads for the execute functions.
+
+** Python
+
+Python blocks load =ob-python= on demand and run with =python3=.
+
+#+begin_src emacs-lisp -i
+;;;; Different languages for org babel.
+;; Avoid `org-babel-do-load-languages' since it does an eager require.
+(use-package ob-python
+  :ensure nil
+  :defer t
+  :commands (org-babel-execute:python)
+  :config
+  (progn
+    (setq org-babel-python-command "python3"))) ;Default to python 3.x
+#+end_src
+
+** ditaa
+
+Points =org-ditaa-jar-path= at =software/ditaa.jar= inside the Emacs directory, following Sacha Chua's config. Unlike the others it has no =:commands=, so it only takes effect if something else loads =ob-ditaa=.
+
+#+begin_src emacs-lisp -i
+(use-package ob-ditaa
+  :ensure nil
+  :defer t
+  :config
+  (progn
+    ;; http://pages.sachachua.com/.emacs.d/Sacha.html
+    (setq org-ditaa-jar-path (expand-file-name
+                              "ditaa.jar"
+                              (concat user-emacs-directory "software/")))))
+#+end_src
+
+** PlantUML
+
+Points =org-plantuml-jar-path= at =software/plantuml.jar= and advises =org-babel-execute:plantuml= so it always runs with bash as =shell-file-name=. As the docstring explains, under tcsh the =>= redirection refuses to overwrite existing files. Like ditaa, it has no =:commands= of its own.
+
+#+begin_src emacs-lisp -i
+(use-package ob-plantuml
+  :ensure nil
+  :defer t
+  :config
+  (progn
+    (setq org-plantuml-jar-path (expand-file-name
+                                 "plantuml.jar"
+                                 (concat user-emacs-directory "software/")))
+
+    (defun lem-advice-org-babel-execute:plantuml (orig-fun &rest args)
+      "Force `shell-file-name' to be bash as the \">\" operator is used for redirection.
+
+If this forcing is not done, and if `shell-file-name' is tcsh,
+\">\" does not work.  When trying to overwrite files, we get a
+\"File exists\" error, and \">!\" would need to be used instead.
+
+Instead it's simpler to use bash."
+      (let ((shell-file-name (executable-find "bash")))
+        (apply orig-fun args)))
+    (advice-add 'org-babel-execute:plantuml :around #'lem-advice-org-babel-execute:plantuml)))
+#+end_src
+
+** Shell
+
+Autoloads =ob-shell= for =sh= and =bash= blocks, both for executing and for expanding their bodies. =sp-org-base= also loads the =shell= language eagerly, so in practice this is already available.
+
+#+begin_src emacs-lisp -i
+(use-package ob-shell
+  :ensure nil
+  :defer t
+  :commands
+  (org-babel-execute:sh
+   org-babel-expand-body:sh
+   org-babel-execute:bash
+   org-babel-expand-body:bash))
+#+end_src
+
+** Lisp, LaTeX and gnuplot
+
+Autoloads the Babel support for Common Lisp, LaTeX and gnuplot blocks.
+
+#+begin_src emacs-lisp -i
+(use-package ob-lisp
+  :ensure nil
+  :defer t
+  :commands (org-babel-execute:lisp))
+
+(use-package ob-latex
+  :ensure nil
+  :defer t
+  :commands
+  (org-babel-execute:latex))
+
+(use-package ob-gnuplot
+  :ensure nil
+  :defer t
+  :commands (org-babel-execute:gnuplot))
+#+end_src
+
+* Tangling
+
+** Clean up tangled files
+
+After each tangle, Org runs =org-babel-post-tangle-hook= in the buffer of every file it wrote. Here that deletes trailing whitespace and then saves the buffer, so tangled files never keep trailing blanks.
+
+#+begin_src emacs-lisp -i
+;;:; Tangle settings
+(use-package ob-tangle
+  :ensure nil
+  :defer t
+  :config
+  (progn
+    ;; Trailing whitespace management
+    ;; Delete trailing whitespace in tangled buffer and save it.
+    (add-hook 'org-babel-post-tangle-hook #'delete-trailing-whitespace)
+    (add-hook 'org-babel-post-tangle-hook #'save-buffer :append)))
+#+end_src
+
+* Nushell blocks
+
+A small custom Babel language for the Nushell shell. A block can pull in code from other named blocks with =:include=, receives Babel =:var= values as Nushell variables, and can override the command and arguments with =:cmd= and =:args=.
+
+** Collect include names
+
+=org-babel-nushell--list-includes= returns the value of every =:include= header argument in a block's parameters.
+
+#+begin_src emacs-lisp -i
+(defun org-babel-nushell--list-includes (params)
+  "Extract values from all :include keys in PARAMS alist."
+  (let ((result nil))
+    (dolist (pair params result)
+      (when (and (consp pair)
+                 (eq (car pair) :include))
+        (push (cdr pair) result)))))
+#+end_src
+
+** Read included blocks
+
+=org-babel-nushell--read-includes= finds each named block listed in =:include= and joins their bodies with newlines, in the order given. Names that do not exist are silently ignored.
+
+#+begin_src emacs-lisp -i
+(defun org-babel-nushell--read-includes (params)
+  "Read all includes"
+  (let ((result '()))
+    (dolist (name (org-babel-nushell--list-includes params))
+      (let ((block-position (org-babel-find-named-block name)))
+        (when block-position
+          (save-excursion
+            (goto-char block-position)
+            (let ((data (org-babel-get-src-block-info)))
+              (when data
+                (push (nth 1 data) result)))))))
+    (string-join (nreverse result) "\n")))
+#+end_src
+
+** Variables as let statements
+
+=org-babel-nushell-var-to-nushell= turns a Babel variable into a Nushell =let= statement, encoding the value as JSON so strings, numbers and tables come through as Nushell literals.
+
+#+begin_src emacs-lisp -i
+(defun org-babel-nushell-var-to-nushell (params)
+  (format "let $%s = %s" (car params) (json-encode (cdr params))))
+#+end_src
+
+** Shell used to launch nu
+
+=org-babel-nushell-eval-shell-file-name= is the shell =org-babel-eval= uses to start Nushell, =/bin/sh= by default.
+
+#+begin_src emacs-lisp -i
+(defcustom org-babel-nushell-eval-shell-file-name "/bin/sh"
+  "Shell executable used by `org-babel-eval' to execute Nushell source blocks.
+This shell is used to execute the Nushell command."
+  :type 'string
+  :group 'siapip)
+#+end_src
+
+** Execute a Nushell block
+
+=org-babel-execute:nushell= builds the program from the variable =let= lines, the included code and the block body, then runs it as =nu -c= with the whole program passed as one quoted argument. The output becomes the block's result.
+
+#+begin_src emacs-lisp -i
+(defun org-babel-execute:nushell (body params)
+  "Execute a block of nushell code"
+  (let* ((shell-file-name org-babel-nushell-eval-shell-file-name)
+         (cmd (or (cdr (assoc :cmd params)) "nu"))
+         (args (or (cdr (assoc :args params)) "-c"))
+         (vars (mapcar
+                'org-babel-nushell-var-to-nushell
+                (org-babel--get-vars params)))
+         (included-code (org-babel-nushell--read-includes params))
+         (code (string-join (list (or included-code "") (org-babel-chomp body)) "\n"))
+         (full-code (if vars
+                        (concat (string-join vars "\n") "\n" code)
+                      code))
+         (command (format "%s %s %s" cmd args (shell-quote-argument full-code))))
+    (org-babel-eval command "")))
+#+end_src
+
+** Jinja templates
+
+=org-babel-execute:jinja= renders the block body as a Jinja2 template with a one-line Python 3 script and returns the rendered text. Header variables are not passed to the template, so it renders with an empty context.
+
+#+begin_src emacs-lisp -i
+(defun org-babel-execute:jinja (body params)
+  "Execute a jinja2 template"
+  (let* ((script (shell-quote-argument "import sys, jinja2 as j2; print(j2.Template(sys.argv[1]).render())"))
+         (code (shell-quote-argument (org-babel-chomp body)))
+         (command (format "python3 -c %s %s" script code)))
+    (org-babel-eval command "")))
+#+end_src
+
+* Tangle the literate configuration
+
+** Load ob-tangle
+
+Requires =ob-tangle= right away, which also triggers the post-tangle hooks set up above.
+
+#+begin_src emacs-lisp -i
+;;; Tangling all files at once from the literate configuration
+(require 'ob-tangle)
+#+end_src
+
+** Literate files
+
+=sp-literate-org-dir= is =docs/tangles/= in the Emacs directory and =sp-literate-files= lists the Org files to tangle, in order: =early.org=, =core.org=, =ui.org= and =keys.org=. None of these four files currently exist in =docs/tangles/=, so the list looks out of date.
+
+#+begin_src emacs-lisp -i
+(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))
+(defvar sp-literate-files '("early.org" "core.org" "ui.org" "keys.org")
+  "Org files to tangle, in order.")
+#+end_src
+
+** sp-tangle-all
+
+=sp-tangle-all= tangles each file in =sp-literate-files= without asking for evaluation confirmation, then reports how many files were written and their names, and returns that list. Its docstring mentions =sp-org-files=, but the variable it actually uses is =sp-literate-files=.
+
+#+begin_src emacs-lisp -i
+(defun sp-tangle-all ()
+  "Tangle every file in `sp-org-files' to its `:tangle' targets."
+  (interactive)
+  (let ((org-confirm-babel-evaluate nil)
+        (tangled '()))
+    (dolist (name sp-literate-files)
+      (setq tangled
+            (append tangled
+                    (org-babel-tangle-file (expand-file-name name sp-literate-org-dir)))))
+    (message "Tangled %d file(s): %s"
+             (length tangled)
+             (mapconcat #'file-name-nondirectory tangled ", "))
+    tangled))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-org-babel= feature so =sp-org-ext= can require it.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-org-babel)
+;; sp-org-babel.el ends here.
+#+end_src

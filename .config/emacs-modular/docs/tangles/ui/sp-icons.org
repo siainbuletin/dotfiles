@@ -1,0 +1,160 @@
+#+TITLE: sp-icons.el: Nerd icons for files, dired, completion and ibuffer
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-icons.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-icons.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up =nerd-icons= and its companion packages, which add file and mode icons to dired, completion candidates and ibuffer. It replaces the older =all-the-icons= setup from Lambda Emacs: nerd-icons uses a single patched font, =Symbols Nerd Font Mono=, instead of six separate fonts, and it also works in terminal frames.
+
+Most of the packages are only configured when =sp-load-extras= (from =early-init.el=) is non-nil and the library is actually installed. The font check uses =sp-font-available-p= from =sp-fonts=. In a GUI the font has to be installed on the system once with =M-x nerd-icons-install-fonts=. The module is loaded early in the UI section of =init.el=, before =sp-colors= and =sp-fonts=.
+
+* Header
+
+** File header and commentary
+
+Lexical binding and the commentary explaining the switch to nerd-icons. It includes a TODO to remove all remaining uses of all-the-icons, and notes that, unlike the old setup, nothing here is limited to graphical frames.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-icons.el
+
+;;; Commentary:
+
+;; The code for icons that was found in Lambda Emacs ~lem-setup-fonts~ now lives in a
+;; separate file.
+;;
+;; TODO: completely remove all-the-icons from any call on the system and depend
+;; on one icons package entirely.
+;;
+;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched 
+;; font ("Symbols Nerd Font Mono") rather than the six separate fonts 
+;; all-the-icons shipped.
+;;
+;; nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
+;; gate -- this omits the (display-graphic-p) condition.
+
+;;; Code:
+#+end_src
+
+* Font helpers
+
+** Check for the icon font
+
+=sp-font--icon-check= only reports, it never installs anything. It says whether =Symbols Nerd Font Mono= is available, or, if not, tells a GUI user to run =nerd-icons-install-fonts= and explains that in a terminal the glyphs come from the terminal's own font.
+
+#+begin_src emacs-lisp -i
+;; nerd-icons uses 
+(defun sp-font--icon-check ()
+  "Report whether the Nerd Font for `nerd-icons' glyphs is present.
+Deliberately does NOT auto-install the font.  In a terminal the
+glyphs are rendered by the terminal emulator's own font (e.g. a
+Nerd Font configured in the terminal), not by Emacs. 
+
+A GUI frame needs the font installed at the OS level -- run
+`M-x nerd-icons-install-fonts' once, by hand."
+  (cond ((sp-font-available-p "Symbols Nerd Font Mono")
+         (message "Nerd Font for icons already installed!"))
+        ((display-graphic-p)
+         (message "GUI frame: run M-x nerd-icons-install-fonts to display icon glyphs."))
+        (t
+         (message "Terminal frame: icon glyphs render via the terminal font."))))
+#+end_src
+
+** Map the icon font
+
+=sp-font--init-nerd-icons-fonts= adds =Symbols Nerd Font Mono= to the default fontset in front of other fonts for Unicode characters, so icon code points are drawn with it in GUI frames. In a terminal it does nothing.
+
+#+begin_src emacs-lisp -i
+(defun sp-font--init-nerd-icons-fonts ()
+  "Map the single Nerd Font for icon glyphs in GUI frames.
+A no-op in a TTY, where the terminal font handles the glyphs."
+  (when (and (display-graphic-p) (fboundp 'set-fontset-font))
+    (set-fontset-font t 'unicode
+                      (font-spec :family "Symbols Nerd Font Mono")
+                      nil 'prepend)))
+#+end_src
+
+* Icon packages
+
+** nerd-icons
+
+Configures the core package with autoloads for its icon functions. Both helper functions run from =after-setting-font-hook=, which fires whenever the frame font changes: the check is added at startup and the fontset mapping once nerd-icons is loaded. Icons are drawn at their normal size (scale factor 1.0).
+
+#+begin_src emacs-lisp -i
+(use-package nerd-icons
+  :when (and sp-load-extras (locate-library "nerd-icons"))
+
+  :commands (nerd-icons-octicon
+             nerd-icons-faicon
+             nerd-icons-mdicon
+             nerd-icons-sucicon
+             nerd-icons-wicon
+             nerd-icons-codicon
+             nerd-icons-devicon
+             nerd-icons-flicon
+             nerd-icons-icon-for-file
+             nerd-icons-icon-for-dir
+             nerd-icons-icon-for-mode)
+
+  :init
+  (add-hook 'after-setting-font-hook #'sp-font--icon-check)
+
+  :custom
+  (nerd-icons-scale-factor 1.0) ;; Adjust this as necessary per user font
+  :config
+  (add-hook 'after-setting-font-hook #'sp-font--init-nerd-icons-fonts))
+#+end_src
+
+** nerd-icons-dired
+
+Shows file icons next to entries in every dired buffer through =nerd-icons-dired-mode=.
+
+#+begin_src emacs-lisp -i
+;; icons for dired
+(use-package nerd-icons-dired
+  :when (and sp-load-extras (locate-library "nerd-icons-dired"))
+  :defer t
+  :commands nerd-icons-dired-mode
+  :init
+  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode))
+#+end_src
+
+** nerd-icons-completion
+
+Turns on =nerd-icons-completion-mode= after startup, adding icons to file, buffer and other completion candidates in the minibuffer. When =marginalia-mode= is toggled, the marginalia integration is set up as well. The comment notes the package comes straight from MELPA.
+
+#+begin_src emacs-lisp -i
+;; Completion Icons
+(use-package nerd-icons-completion
+  ;; On MELPA proper, so it installs through `sp-packages-alist' like
+  ;; everything else -- no fork or package-vc-install hack needed.
+  :when (and sp-load-extras (locate-library "nerd-icons-completion"))
+  :hook (emacs-startup . nerd-icons-completion-mode)
+  :config
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+#+end_src
+
+** nerd-icons-ibuffer
+
+Adds icons to ibuffer lists. Unlike the packages above it is always installed and is not gated on =sp-load-extras=.
+
+#+begin_src emacs-lisp -i
+(use-package nerd-icons-ibuffer
+  :ensure t
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-icons= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-icons)
+;; sp-icons.el ends here.
+#+end_src
