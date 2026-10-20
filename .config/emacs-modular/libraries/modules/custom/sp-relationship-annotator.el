@@ -1,16 +1,17 @@
-;;; sp-vulpea-hierarchy.el --- Parent/child views of vulpea notes -*- lexical-binding: t; -*-
+;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:
 
-;; Builds a hierarchy from a parent link in each note's metadata and
-;; shows part of it, starting from a note you choose:
+;; Reads relationships between vulpea notes (the `parent' relation builds
+;; a hierarchy; others such as `supports' are links) and shows part of
+;; them, starting from a note you choose:
 ;;
-;;   M-x vulpea-hierarchy-graph          interactive graph in the browser (default)
-;;   M-x vulpea-hierarchy-outline-native buttons in an Emacs buffer
-;;   M-x vulpea-hierarchy-outline-vui    the same outline built with vui (trial)
-;;   M-x vulpea-hierarchy-svg            static Graphviz SVG (needs `dot')
+;;   M-x relationship-annotator-graph          interactive graph in the browser (default)
+;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
+;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
+;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
@@ -19,7 +20,7 @@
 ;; node on demand.
 ;;
 ;; Other relations between notes (`supports', `opposes', ...) are drawn
-;; as labelled links.  See `vulpea-hierarchy-relations' for how to
+;; as labelled links.  See `relationship-annotator-relations' for how to
 ;; declare them and where each one is read from.
 
 ;;; Code:
@@ -32,11 +33,11 @@
 (require 'vulpea-select)
 (require 'vui)
 
-(defgroup vulpea-hierarchy nil
-  "Parent/child views of vulpea notes."
+(defgroup relationship-annotator nil
+  "Typed relationships between vulpea notes, as graphs and outlines."
   :group 'vulpea)
 
-(defcustom vulpea-hierarchy-relations
+(defcustom relationship-annotator-relations
   '((parent :label "parent" :color "#888888"
             :sources ((meta "parents") (meta-inverse "children")))
     (supports :label "supports" :color "#2e8b57" :direction right
@@ -78,7 +79,7 @@ direction as a request: when two requests contradict each other, the
 later one is dropped."
   :type '(alist :key-type symbol :value-type plist))
 
-(defcustom vulpea-hierarchy-tag-colors
+(defcustom relationship-annotator-tag-colors
   '(("root" . "#4e79a7")
     ("idea" . "#f28e2b")
     ("question" . "#b07aa1")
@@ -93,44 +94,44 @@ the default box colour.  COLOR must be in hex form, such as
 light and dark themes."
   :type '(alist :key-type string :value-type string))
 
-(defcustom vulpea-hierarchy-default-depth 2
+(defcustom relationship-annotator-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
   :type 'integer)
 
-(defcustom vulpea-hierarchy-html-file
-  (expand-file-name "vulpea-hierarchy.html" sp-cache-dir)
-  "Where `vulpea-hierarchy-graph' writes its HTML page."
+(defcustom relationship-annotator-html-file
+  (expand-file-name "relationship-annotator.html" sp-cache-dir)
+  "Where `relationship-annotator-graph' writes its HTML page."
   :type 'file)
 
-(defcustom vulpea-hierarchy-svg-directory
-  (expand-file-name "vulpea-hierarchy/" sp-cache-dir)
-  "Directory where `vulpea-hierarchy-svg' writes its SVG files."
+(defcustom relationship-annotator-svg-directory
+  (expand-file-name "relationship-annotator/" sp-cache-dir)
+  "Directory where `relationship-annotator-svg' writes its SVG files."
   :type 'directory)
 
-(defcustom vulpea-hierarchy-rankdir "TB"
+(defcustom relationship-annotator-rankdir "TB"
   "Graphviz layout direction: \"TB\" (parents on top) or \"LR\" (parents on the left)."
   :type '(choice (const "LR") (const "TB")))
 
-(defcustom vulpea-hierarchy-wrap-width 28
+(defcustom relationship-annotator-wrap-width 28
   "Number of characters after which node labels wrap in the SVG export."
   :type 'integer)
 
 ;;;; Tree and scope
 
-(defun vulpea-hierarchy--note (id notes)
+(defun relationship-annotator--note (id notes)
   "Return the note with ID from NOTES, loading it from the database if needed."
   (or (gethash id notes)
       (when-let ((note (vulpea-db-get-by-id id)))
         (puthash id note notes)
         note)))
 
-(defun vulpea-hierarchy--title (id notes)
+(defun relationship-annotator--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
-  (if-let ((note (vulpea-hierarchy--note id notes)))
+  (if-let ((note (relationship-annotator--note id notes)))
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
-(defun vulpea-hierarchy--value-ids (values)
+(defun relationship-annotator--value-ids (values)
   "Return the ids named in VALUES, a list of strings.
 A value may hold several links, separated by commas or not.  Every link
 counts, not only the first one in a value.  A value with no link is
@@ -149,7 +150,7 @@ read as bare ids separated by commas or spaces."
             (push word ids)))))
     (delete-dups (seq-remove #'string-empty-p (nreverse ids)))))
 
-(defun vulpea-hierarchy--source-values (note source)
+(defun relationship-annotator--source-values (note source)
   "Return the strings that SOURCE finds in NOTE."
   (pcase source
     ((or `(meta ,key) `(meta-inverse ,key))
@@ -158,7 +159,7 @@ read as bare ids separated by commas or spaces."
      (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
        (list value)))))
 
-(defun vulpea-hierarchy--source-notes (source)
+(defun relationship-annotator--source-notes (source)
   "Return the notes that may hold SOURCE."
   (pcase source
     ((or `(meta ,key) `(meta-inverse ,key))
@@ -167,18 +168,18 @@ read as bare ids separated by commas or spaces."
      (vulpea-db-query
       (lambda (note) (assoc key (vulpea-note-properties note)))))))
 
-(defun vulpea-hierarchy--edges ()
+(defun relationship-annotator--edges ()
   "Return every edge as (SUBJECT RELATION OBJECT), and the notes read.
 The second value is a hash table from id to note."
   (let ((notes (make-hash-table :test #'equal))
         (seen (make-hash-table :test #'equal))
         edges)
-    (pcase-dolist (`(,relation . ,plist) vulpea-hierarchy-relations)
+    (pcase-dolist (`(,relation . ,plist) relationship-annotator-relations)
       (dolist (source (plist-get plist :sources))
-        (dolist (note (vulpea-hierarchy--source-notes source))
+        (dolist (note (relationship-annotator--source-notes source))
           (puthash (vulpea-note-id note) note notes)
-          (dolist (id (vulpea-hierarchy--value-ids
-                       (vulpea-hierarchy--source-values note source)))
+          (dolist (id (relationship-annotator--value-ids
+                       (relationship-annotator--source-values note source)))
             (let* ((inverse (memq (car source) '(meta-inverse property-inverse)))
                    (edge (if inverse
                              (list id relation (vulpea-note-id note))
@@ -188,12 +189,12 @@ The second value is a hash table from id to note."
                 (push edge edges)))))))
     (cons (nreverse edges) notes)))
 
-(defun vulpea-hierarchy--build ()
+(defun relationship-annotator--build ()
   "Return a plist describing the whole hierarchy.
 :notes maps id to note, :children maps parent id to child ids,
 :roots lists ids that are parents but have no parent themselves, and
 :links lists the edges (SUBJECT RELATION OBJECT) of every other relation."
-  (pcase-let* ((`(,edges . ,notes) (vulpea-hierarchy--edges))
+  (pcase-let* ((`(,edges . ,notes) (relationship-annotator--edges))
                (children (make-hash-table :test #'equal))
                (has-parent (make-hash-table :test #'equal))
                (parent-ids nil)
@@ -218,18 +219,18 @@ The second value is a hash table from id to note."
           :roots (sort (seq-remove (lambda (id) (gethash id has-parent))
                                    (delete-dups (copy-sequence parent-ids)))
                        (lambda (a b)
-                         (string< (vulpea-hierarchy--title a notes)
-                                  (vulpea-hierarchy--title b notes)))))))
+                         (string< (relationship-annotator--title a notes)
+                                  (relationship-annotator--title b notes)))))))
 
-(defun vulpea-hierarchy--sorted-children (id tree)
+(defun relationship-annotator--sorted-children (id tree)
   "Child ids of ID in TREE, sorted by title."
   (let ((notes (plist-get tree :notes)))
     (sort (copy-sequence (gethash id (plist-get tree :children)))
           (lambda (a b)
-            (string< (vulpea-hierarchy--title a notes)
-                     (vulpea-hierarchy--title b notes))))))
+            (string< (relationship-annotator--title a notes)
+                     (relationship-annotator--title b notes))))))
 
-(defun vulpea-hierarchy--scope (tree start depth)
+(defun relationship-annotator--scope (tree start depth)
   "Return the part of TREE reached from START within DEPTH levels.
 The result has the same keys as the tree, plus :more, which maps an
 id at the last level to how many children it hides, and :nodes, the
@@ -244,7 +245,7 @@ relations between two notes that are both in scope."
     (puthash start t seen)
     (while queue
       (pcase-let ((`(,id . ,level) (pop queue)))
-        (let ((kids (vulpea-hierarchy--sorted-children id tree)))
+        (let ((kids (relationship-annotator--sorted-children id tree)))
           (if (< level depth)
               (dolist (kid kids)
                 (puthash id (append (gethash id children) (list kid)) children)
@@ -264,48 +265,48 @@ relations between two notes that are both in scope."
                                (and (gethash subject seen) (gethash object seen)))
                              (plist-get tree :links)))))
 
-(defun vulpea-hierarchy--read-scope ()
+(defun relationship-annotator--read-scope ()
   "Ask for a starting note and a depth.  Return (START-ID . DEPTH)."
   (let* ((note (vulpea-select "Start note: " :require-match t))
-         (depth (read-number "Depth: " vulpea-hierarchy-default-depth)))
+         (depth (read-number "Depth: " relationship-annotator-default-depth)))
     (unless (and note (vulpea-note-id note) (>= depth 1))
       (user-error "Need a starting note and a depth of at least 1"))
     (cons (vulpea-note-id note) (truncate depth))))
 
 ;;;; Browser view
 
-(defconst vulpea-hierarchy--html-template-file
-  (expand-file-name "sp-vulpea-hierarchy.html"
+(defconst relationship-annotator--html-template-file
+  (expand-file-name "sp-relationship-annotator.html"
                     (file-name-directory (or load-file-name buffer-file-name)))
-  "File holding the HTML template for `vulpea-hierarchy-graph'.
+  "File holding the HTML template for `relationship-annotator-graph'.
 The placeholder `__DATA__' is replaced with the JSON data.")
 
-(defun vulpea-hierarchy--html-template ()
-  "Return the text of `vulpea-hierarchy--html-template-file'."
+(defun relationship-annotator--html-template ()
+  "Return the text of `relationship-annotator--html-template-file'."
   (with-temp-buffer
-    (insert-file-contents vulpea-hierarchy--html-template-file)
+    (insert-file-contents relationship-annotator--html-template-file)
     (buffer-string)))
 
-(defconst vulpea-hierarchy--vendor-directory
-  (expand-file-name "vendor/vulpea-hierarchy/"
+(defconst relationship-annotator--vendor-directory
+  (expand-file-name "vendor/relationship-annotator/"
                     (file-name-directory (or load-file-name buffer-file-name)))
   "Directory holding the scripts that the browser page includes.")
 
-(defconst vulpea-hierarchy--vendor-scripts
+(defconst relationship-annotator--vendor-scripts
   '("layout-base.min.js" "cose-base.min.js" "cytoscape.min.js"
     "cytoscape-fcose.min.js")
-  "Scripts of `vulpea-hierarchy--vendor-directory', in the order the page loads them.")
+  "Scripts of `relationship-annotator--vendor-directory', in the order the page loads them.")
 
-(defun vulpea-hierarchy--libraries ()
+(defun relationship-annotator--libraries ()
   "Return the text of the vendored scripts, one after the other."
   (with-temp-buffer
-    (dolist (file vulpea-hierarchy--vendor-scripts)
-      (insert-file-contents (expand-file-name file vulpea-hierarchy--vendor-directory))
+    (dolist (file relationship-annotator--vendor-scripts)
+      (insert-file-contents (expand-file-name file relationship-annotator--vendor-directory))
       (goto-char (point-max))
       (insert "\n"))
     (buffer-string)))
 
-(defun vulpea-hierarchy--json-for-html (object)
+(defun relationship-annotator--json-for-html (object)
   "Encode OBJECT as JSON that is safe inside a <script> element."
   (let ((json-encoding-pretty-print nil))
     (thread-last (json-encode object)
@@ -313,11 +314,11 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                  (string-replace ">" "\\u003e")
                  (string-replace "&" "\\u0026"))))
 
-(defun vulpea-hierarchy--relation-style (relation key &optional default)
-  "Return KEY of RELATION from `vulpea-hierarchy-relations', or DEFAULT."
-  (or (plist-get (cdr (assq relation vulpea-hierarchy-relations)) key) default))
+(defun relationship-annotator--relation-style (relation key &optional default)
+  "Return KEY of RELATION from `relationship-annotator-relations', or DEFAULT."
+  (or (plist-get (cdr (assq relation relationship-annotator-relations)) key) default))
 
-(defun vulpea-hierarchy--direction-vector (direction)
+(defun relationship-annotator--direction-vector (direction)
   "Return DIRECTION as a unit vector [DX DY] on a screen, where DY grows downward."
   (let ((degrees (pcase direction
                    ('right 0) ('up 90) ('left 180) ('down 270)
@@ -326,27 +327,27 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (vector (/ (round (* 1000 (cos (degrees-to-radians degrees)))) 1000.0)
             (/ (round (* -1000 (sin (degrees-to-radians degrees)))) 1000.0))))
 
-(defun vulpea-hierarchy--relations-json (links)
+(defun relationship-annotator--relations-json (links)
   "Return the name, label and colour of each relation used by LINKS."
   (vconcat
    (mapcar (lambda (relation)
              `((name . ,(symbol-name relation))
-               (label . ,(vulpea-hierarchy--relation-style
+               (label . ,(relationship-annotator--relation-style
                           relation :label (symbol-name relation)))
-               (color . ,(vulpea-hierarchy--relation-style
+               (color . ,(relationship-annotator--relation-style
                           relation :color "#888888"))
-               (direction . ,(vulpea-hierarchy--direction-vector
-                              (vulpea-hierarchy--relation-style
+               (direction . ,(relationship-annotator--direction-vector
+                              (relationship-annotator--relation-style
                                relation :direction 'right)))))
            (delete-dups (mapcar #'cadr links)))))
 
-(defun vulpea-hierarchy--tag-color (note)
-  "Return (TAG . COLOR) for the first tag of NOTE in `vulpea-hierarchy-tag-colors'."
+(defun relationship-annotator--tag-color (note)
+  "Return (TAG . COLOR) for the first tag of NOTE in `relationship-annotator-tag-colors'."
   (when note
-    (seq-some (lambda (tag) (assoc tag vulpea-hierarchy-tag-colors))
+    (seq-some (lambda (tag) (assoc tag relationship-annotator-tag-colors))
               (vulpea-note-tags note))))
 
-(defun vulpea-hierarchy--html (tree start depth)
+(defun relationship-annotator--html (tree start depth)
   "Return a self-contained HTML page showing TREE from START to DEPTH.
 The page holds the whole tree, so it can recentre on any note and cut
 the part to show by itself."
@@ -365,10 +366,10 @@ the part to show by itself."
           (vconcat
            (mapcar
             (lambda (id)
-              (let* ((note (vulpea-hierarchy--note id notes))
-                     (color (vulpea-hierarchy--tag-color note)))
+              (let* ((note (relationship-annotator--note id notes))
+                     (color (relationship-annotator--tag-color note)))
                 `((id . ,id)
-                  (title . ,(vulpea-hierarchy--title id notes))
+                  (title . ,(relationship-annotator--title id notes))
                   (path . ,(and note (vulpea-note-path note)))
                   (tags . ,(vconcat (and note (vulpea-note-tags note))))
                   (colorTag . ,(car color))
@@ -393,192 +394,192 @@ the part to show by itself."
                  (nodes . ,nodes)
                  (edges . ,edges)
                  (links . ,links)
-                 (relations . ,(vulpea-hierarchy--relations-json
+                 (relations . ,(relationship-annotator--relations-json
                                 (plist-get tree :links))))))
-    (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
-                    (string-replace "__LIBS__" (vulpea-hierarchy--libraries)
-                                    (vulpea-hierarchy--html-template)))))
+    (string-replace "__DATA__" (relationship-annotator--json-for-html data)
+                    (string-replace "__LIBS__" (relationship-annotator--libraries)
+                                    (relationship-annotator--html-template)))))
 
 ;;;###autoload
-(defun vulpea-hierarchy-graph ()
+(defun relationship-annotator-graph ()
   "Ask for a starting note and depth, then open the hierarchy in the browser.
 The page holds the whole tree.  Clicking a box recentres the graph on it."
   (interactive)
-  (pcase-let* ((`(,start . ,depth) (vulpea-hierarchy--read-scope))
-               (tree (vulpea-hierarchy--build)))
+  (pcase-let* ((`(,start . ,depth) (relationship-annotator--read-scope))
+               (tree (relationship-annotator--build)))
     (let ((coding-system-for-write 'utf-8))
-      (with-temp-file vulpea-hierarchy-html-file
-        (insert (vulpea-hierarchy--html tree start depth))))
-    (browse-url-of-file vulpea-hierarchy-html-file)))
+      (with-temp-file relationship-annotator-html-file
+        (insert (relationship-annotator--html tree start depth))))
+    (browse-url-of-file relationship-annotator-html-file)))
 
 ;;;; Native outline view
 
-(defvar-local vulpea-hierarchy--tree nil
+(defvar-local relationship-annotator--tree nil
   "Full hierarchy shown in this buffer.")
 
-(defvar-local vulpea-hierarchy--expanded nil
+(defvar-local relationship-annotator--expanded nil
   "Hash table of ids whose children are shown.")
 
-(defvar-local vulpea-hierarchy--start nil
+(defvar-local relationship-annotator--start nil
   "Id of the note the outline starts from.")
 
-(defvar-local vulpea-hierarchy--depth 2
+(defvar-local relationship-annotator--depth 2
   "Depth shown when the outline was opened.")
 
-(defvar vulpea-hierarchy-view-mode-map
+(defvar relationship-annotator-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
-    (define-key map (kbd "TAB") #'vulpea-hierarchy-view-toggle)
-    (define-key map (kbd "c") #'vulpea-hierarchy-view-recenter)
-    (define-key map (kbd "g") #'vulpea-hierarchy-view-redraw)
+    (define-key map (kbd "TAB") #'relationship-annotator-view-toggle)
+    (define-key map (kbd "c") #'relationship-annotator-view-recenter)
+    (define-key map (kbd "g") #'relationship-annotator-view-redraw)
     map)
-  "Keymap for `vulpea-hierarchy-view-mode'.")
+  "Keymap for `relationship-annotator-view-mode'.")
 
-(define-derived-mode vulpea-hierarchy-view-mode special-mode "Hierarchy"
-  "Major mode for the native vulpea hierarchy outline.
+(define-derived-mode relationship-annotator-view-mode special-mode "Hierarchy"
+  "Major mode for the native relationship outline.
 TAB or a [+]/[-] button expands or collapses a note.  RET on a
 title visits the note.  c re-scopes, g rebuilds the view.")
 
-(defun vulpea-hierarchy-view--expand-to-depth ()
+(defun relationship-annotator-view--expand-to-depth ()
   "Expand every node in the view above the starting depth."
-  (let ((queue (list (cons vulpea-hierarchy--start 0))))
+  (let ((queue (list (cons relationship-annotator--start 0))))
     (while queue
       (pcase-let ((`(,id . ,level) (pop queue)))
-        (when (and (< level vulpea-hierarchy--depth)
-                   (vulpea-hierarchy--sorted-children id vulpea-hierarchy--tree))
-          (puthash id t vulpea-hierarchy--expanded)
-          (dolist (kid (vulpea-hierarchy--sorted-children id vulpea-hierarchy--tree))
+        (when (and (< level relationship-annotator--depth)
+                   (relationship-annotator--sorted-children id relationship-annotator--tree))
+          (puthash id t relationship-annotator--expanded)
+          (dolist (kid (relationship-annotator--sorted-children id relationship-annotator--tree))
             (push (cons kid (1+ level)) queue)))))))
 
-(defun vulpea-hierarchy-view--insert (id level path)
+(defun relationship-annotator-view--insert (id level path)
   "Insert the line for ID at indent LEVEL, then its children if expanded.
 PATH holds the ancestors, so a cycle stops the recursion."
-  (let* ((tree vulpea-hierarchy--tree)
+  (let* ((tree relationship-annotator--tree)
          (notes (plist-get tree :notes))
-         (kids (vulpea-hierarchy--sorted-children id tree))
-         (open (and kids (gethash id vulpea-hierarchy--expanded)))
-         (note (vulpea-hierarchy--note id notes)))
+         (kids (relationship-annotator--sorted-children id tree))
+         (open (and kids (gethash id relationship-annotator--expanded)))
+         (note (relationship-annotator--note id notes)))
     (let ((start (point)))
       (insert (make-string (* 2 level) ?\s))
-      (vulpea-hierarchy-view--insert-line-body id kids open note)
-      (put-text-property start (point) 'vulpea-hierarchy-id id))
+      (relationship-annotator-view--insert-line-body id kids open note)
+      (put-text-property start (point) 'relationship-annotator-id id))
     (insert "\n")
     (when (and open (not (member id path)))
       (dolist (kid kids)
-        (vulpea-hierarchy-view--insert kid (1+ level) (cons id path))))))
+        (relationship-annotator-view--insert kid (1+ level) (cons id path))))))
 
-(defun vulpea-hierarchy-view--insert-line-body (id kids open note)
+(defun relationship-annotator-view--insert-line-body (id kids open note)
   "Insert the toggle and title buttons of ID's line, then its child count."
-  (let ((notes (plist-get vulpea-hierarchy--tree :notes)))
+  (let ((notes (plist-get relationship-annotator--tree :notes)))
     (if kids
         (insert-button (if open "[-]" "[+]")
-                       'action #'vulpea-hierarchy-view--button-action
+                       'action #'relationship-annotator-view--button-action
                        'follow-link t
                        'help-echo "Expand or collapse"
-                       'vulpea-hierarchy-id id
-                       'vulpea-hierarchy-kind 'toggle)
+                       'relationship-annotator-id id
+                       'relationship-annotator-kind 'toggle)
       (insert "   "))
     (insert " ")
-    (insert-button (vulpea-hierarchy--title id notes)
-                   'action #'vulpea-hierarchy-view--button-action
+    (insert-button (relationship-annotator--title id notes)
+                   'action #'relationship-annotator-view--button-action
                    'follow-link t
                    'help-echo (or (and note (vulpea-note-path note)) "")
-                   'vulpea-hierarchy-id id
-                   'vulpea-hierarchy-kind 'visit)
+                   'relationship-annotator-id id
+                   'relationship-annotator-kind 'visit)
     (when kids (insert (format "  (%d)" (length kids))))))
 
-(defun vulpea-hierarchy-view--redraw ()
+(defun relationship-annotator-view--redraw ()
   "Erase the buffer and draw the view from its current state."
   (let ((inhibit-read-only t)
         (line (line-number-at-pos)))
     (erase-buffer)
     (insert (propertize (format "%s  ·  depth %d  ·  TAB expand  RET visit  c re-scope  g rebuild\n\n"
-                                (vulpea-hierarchy--title
-                                 vulpea-hierarchy--start
-                                 (plist-get vulpea-hierarchy--tree :notes))
-                                vulpea-hierarchy--depth)
+                                (relationship-annotator--title
+                                 relationship-annotator--start
+                                 (plist-get relationship-annotator--tree :notes))
+                                relationship-annotator--depth)
                         'face 'shadow))
-    (vulpea-hierarchy-view--insert vulpea-hierarchy--start 0 nil)
+    (relationship-annotator-view--insert relationship-annotator--start 0 nil)
     (goto-char (point-min))
     (forward-line (max 0 (1- line)))))
 
-(defun vulpea-hierarchy-view--button-action (button)
+(defun relationship-annotator-view--button-action (button)
   "Expand or visit the note of BUTTON, depending on its kind."
-  (let ((id (button-get button 'vulpea-hierarchy-id)))
-    (pcase (button-get button 'vulpea-hierarchy-kind)
+  (let ((id (button-get button 'relationship-annotator-id)))
+    (pcase (button-get button 'relationship-annotator-kind)
       ('toggle
-       (if (gethash id vulpea-hierarchy--expanded)
-           (remhash id vulpea-hierarchy--expanded)
-         (puthash id t vulpea-hierarchy--expanded))
-       (vulpea-hierarchy-view--redraw))
+       (if (gethash id relationship-annotator--expanded)
+           (remhash id relationship-annotator--expanded)
+         (puthash id t relationship-annotator--expanded))
+       (relationship-annotator-view--redraw))
       ('visit
-       (let ((note (vulpea-hierarchy--note id (plist-get vulpea-hierarchy--tree :notes))))
+       (let ((note (relationship-annotator--note id (plist-get relationship-annotator--tree :notes))))
          (unless note (user-error "Note %s is not in the database" id))
          (find-file (vulpea-note-path note))
          (when (vulpea-note-pos note)
            (goto-char (vulpea-note-pos note))))))))
 
-(defun vulpea-hierarchy-view-toggle ()
+(defun relationship-annotator-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
-  (when-let ((id (get-text-property (point) 'vulpea-hierarchy-id)))
-    (when (vulpea-hierarchy--sorted-children id vulpea-hierarchy--tree)
-      (if (gethash id vulpea-hierarchy--expanded)
-          (remhash id vulpea-hierarchy--expanded)
-        (puthash id t vulpea-hierarchy--expanded))
-      (vulpea-hierarchy-view--redraw))))
+  (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
+    (when (relationship-annotator--sorted-children id relationship-annotator--tree)
+      (if (gethash id relationship-annotator--expanded)
+          (remhash id relationship-annotator--expanded)
+        (puthash id t relationship-annotator--expanded))
+      (relationship-annotator-view--redraw))))
 
-(defun vulpea-hierarchy-view-redraw ()
+(defun relationship-annotator-view-redraw ()
   "Rebuild the tree from the database and redraw."
   (interactive)
-  (setq vulpea-hierarchy--tree (vulpea-hierarchy--build))
-  (vulpea-hierarchy-view--expand-to-depth)
-  (vulpea-hierarchy-view--redraw))
+  (setq relationship-annotator--tree (relationship-annotator--build))
+  (relationship-annotator-view--expand-to-depth)
+  (relationship-annotator-view--redraw))
 
-(defun vulpea-hierarchy-view-recenter ()
+(defun relationship-annotator-view-recenter ()
   "Ask for a new starting note and depth, then redraw."
   (interactive)
-  (pcase-let ((`(,start . ,depth) (vulpea-hierarchy--read-scope)))
-    (setq vulpea-hierarchy--start start
-          vulpea-hierarchy--depth depth
-          vulpea-hierarchy--expanded (make-hash-table :test #'equal))
-    (vulpea-hierarchy-view--expand-to-depth)
-    (vulpea-hierarchy-view--redraw)))
+  (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+    (setq relationship-annotator--start start
+          relationship-annotator--depth depth
+          relationship-annotator--expanded (make-hash-table :test #'equal))
+    (relationship-annotator-view--expand-to-depth)
+    (relationship-annotator-view--redraw)))
 
 ;;;###autoload
-(defun vulpea-hierarchy-outline-native ()
+(defun relationship-annotator-outline-native ()
   "Ask for a starting note and depth, then show the hierarchy as buttons."
   (interactive)
-  (pcase-let ((`(,start . ,depth) (vulpea-hierarchy--read-scope)))
-    (let ((buf (get-buffer-create "*vulpea hierarchy*")))
+  (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+    (let ((buf (get-buffer-create "*relationship annotator*")))
       (with-current-buffer buf
-        (vulpea-hierarchy-view-mode)
-        (setq vulpea-hierarchy--tree (vulpea-hierarchy--build)
-              vulpea-hierarchy--start start
-              vulpea-hierarchy--depth depth
-              vulpea-hierarchy--expanded (make-hash-table :test #'equal))
-        (vulpea-hierarchy-view--expand-to-depth)
-        (vulpea-hierarchy-view--redraw))
+        (relationship-annotator-view-mode)
+        (setq relationship-annotator--tree (relationship-annotator--build)
+              relationship-annotator--start start
+              relationship-annotator--depth depth
+              relationship-annotator--expanded (make-hash-table :test #'equal))
+        (relationship-annotator-view--expand-to-depth)
+        (relationship-annotator-view--redraw))
       (pop-to-buffer buf))))
 
 ;;;; Outline built with vui (trial)
 
-(defun vulpea-hierarchy--visit (id tree)
+(defun relationship-annotator--visit (id tree)
   "Visit the note ID from TREE in its file."
-  (let ((note (vulpea-hierarchy--note id (plist-get tree :notes))))
+  (let ((note (relationship-annotator--note id (plist-get tree :notes))))
     (unless note (user-error "Note %s is not in the database" id))
     (find-file (vulpea-note-path note))
     (when (vulpea-note-pos note)
       (goto-char (vulpea-note-pos note)))))
 
-(vui-defcomponent vulpea-hierarchy-node (id level path tree depth initially-open)
+(vui-defcomponent relationship-annotator-node (id level path tree depth initially-open)
   "One note in the vui outline, with its children below when open."
   :state ((toggled nil))
   :render
-  (let* ((kids (vulpea-hierarchy--sorted-children id tree))
+  (let* ((kids (relationship-annotator--sorted-children id tree))
          (open (if toggled (not initially-open) initially-open))
          (notes (plist-get tree :notes))
-         (note (vulpea-hierarchy--note id notes)))
+         (note (relationship-annotator--note id notes)))
     (vui-vstack
      (vui-hstack
       (vui-space (* 2 level))
@@ -586,47 +587,47 @@ PATH holds the ancestors, so a cycle stops the recursion."
           (vui-button (if open "-" "+")
                       :on-click (lambda () (vui-set-state :toggled (not toggled))))
         (vui-text "   "))
-      (vui-button (vulpea-hierarchy--title id notes)
+      (vui-button (relationship-annotator--title id notes)
                   :no-decoration t
                   :help-echo (and note (vulpea-note-path note))
-                  :on-click (lambda () (vulpea-hierarchy--visit id tree)))
+                  :on-click (lambda () (relationship-annotator--visit id tree)))
       (if kids
           (vui-text (format "(%d)" (length kids)) :face 'shadow)
         (vui-fragment)))
      (if (and open kids (not (member id path)))
          (vui-list kids
                    (lambda (kid)
-                     (vui-component 'vulpea-hierarchy-node
+                     (vui-component 'relationship-annotator-node
                        :id kid :level (1+ level) :path (cons id path)
                        :tree tree :depth depth
                        :initially-open (< (1+ level) depth))))
        (vui-fragment)))))
 
-(vui-defcomponent vulpea-hierarchy-root (start depth tree)
+(vui-defcomponent relationship-annotator-root (start depth tree)
   "The vui outline: a header line, then the starting note."
   :render
   (vui-vstack
    (vui-text (format "%s  ·  depth %d  ·  [+]/[-] expands  ·  title visits  ·  run the command again to re-scope"
-                     (vulpea-hierarchy--title start (plist-get tree :notes))
+                     (relationship-annotator--title start (plist-get tree :notes))
                      depth)
              :face 'shadow)
    (vui-newline)
-   (vui-component 'vulpea-hierarchy-node
+   (vui-component 'relationship-annotator-node
      :id start :level 0 :path nil :tree tree :depth depth
      :initially-open (> depth 0))))
 
 ;;;###autoload
-(defun vulpea-hierarchy-outline-vui ()
+(defun relationship-annotator-outline-vui ()
   "Ask for a starting note and depth, then show the hierarchy with vui."
   (interactive)
-  (pcase-let ((`(,start . ,depth) (vulpea-hierarchy--read-scope)))
-    (vui-mount (vui-component 'vulpea-hierarchy-root
-                 :start start :depth depth :tree (vulpea-hierarchy--build))
-               "*vulpea hierarchy (vui)*")))
+  (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+    (vui-mount (vui-component 'relationship-annotator-root
+                 :start start :depth depth :tree (relationship-annotator--build))
+               "*relationship annotator (vui)*")))
 
 ;;;; Static SVG export (Graphviz)
 
-(defun vulpea-hierarchy--wrap (text width)
+(defun relationship-annotator--wrap (text width)
   "Return TEXT as a list of lines no longer than WIDTH, breaking long words."
   (let (lines (line ""))
     (dolist (word (split-string text))
@@ -641,37 +642,37 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (unless (string-empty-p line) (push line lines))
     (nreverse (or lines (list "")))))
 
-(defun vulpea-hierarchy--label (id notes)
+(defun relationship-annotator--label (id notes)
   "Return the title of ID from NOTES followed by its file tags, like :a:b:."
-  (let* ((note (vulpea-hierarchy--note id notes))
+  (let* ((note (relationship-annotator--note id notes))
          (tags (and note (vulpea-note-tags note))))
-    (concat (vulpea-hierarchy--title id notes)
+    (concat (relationship-annotator--title id notes)
             (and tags (format " :%s:" (string-join tags ":"))))))
 
-(defun vulpea-hierarchy--dot-label (id notes)
+(defun relationship-annotator--dot-label (id notes)
   "Return the wrapped, escaped Graphviz label text for ID."
   (mapconcat (lambda (line) (replace-regexp-in-string "[\"\\\\]" "\\\\\\&" line))
-             (vulpea-hierarchy--wrap (vulpea-hierarchy--label id notes)
-                                     vulpea-hierarchy-wrap-width)
+             (relationship-annotator--wrap (relationship-annotator--label id notes)
+                                     relationship-annotator-wrap-width)
              "\\n"))
 
-(defun vulpea-hierarchy--dot-fill (note rootp)
+(defun relationship-annotator--dot-fill (note rootp)
   "Return the Graphviz attributes for the fill of NOTE.
 A note with a coloured tag gets that colour as a tint.  The root gets a
 thick border, and a blue fill when it has no coloured tag."
-  (let ((color (cdr (vulpea-hierarchy--tag-color note))))
+  (let ((color (cdr (relationship-annotator--tag-color note))))
     (concat (cond (color (format ", fillcolor=\"%s66\"" color))
                   (rootp ", fillcolor=\"#d8e6f5\""))
             (and rootp ", penwidth=2"))))
 
-(defun vulpea-hierarchy--dot (tree)
+(defun relationship-annotator--dot (tree)
   "Return Graphviz source for TREE, one cluster per root."
   (let ((notes (plist-get tree :notes))
         (children (plist-get tree :children))
         (drawn (make-hash-table :test #'equal)))
     (with-temp-buffer
       (insert "digraph vulpea {\n"
-              (format "  rankdir=%s;\n" vulpea-hierarchy-rankdir)
+              (format "  rankdir=%s;\n" relationship-annotator-rankdir)
               "  node [shape=box, style=\"rounded,filled\", fillcolor=\"#f4f4f4\","
               " fontname=\"Helvetica\"];\n"
               "  edge [color=\"#888888\"];\n")
@@ -684,9 +685,9 @@ thick border, and a blue fill when it has no coloured tag."
                 (unless (gethash id drawn)
                   (puthash id t drawn)
                   (insert (format "    %S [label=\"%s\"%s];\n"
-                                  id (vulpea-hierarchy--dot-label id notes)
-                                  (vulpea-hierarchy--dot-fill
-                                   (vulpea-hierarchy--note id notes)
+                                  id (relationship-annotator--dot-label id notes)
+                                  (relationship-annotator--dot-fill
+                                   (relationship-annotator--note id notes)
                                    (equal id root))))
                   (setq queue (append queue (gethash id children)))))))
           (insert "  }\n")))
@@ -697,41 +698,41 @@ thick border, and a blue fill when it has no coloured tag."
       (pcase-dolist (`(,subject ,relation ,object) (plist-get tree :links))
         (insert (format "  %S -> %S [constraint=false, style=dashed, label=%S, fontsize=10, color=%S, fontcolor=%S];\n"
                         subject object
-                        (vulpea-hierarchy--relation-style
+                        (relationship-annotator--relation-style
                          relation :label (symbol-name relation))
-                        (vulpea-hierarchy--relation-style relation :color "#888888")
-                        (vulpea-hierarchy--relation-style relation :color "#888888"))))
+                        (relationship-annotator--relation-style relation :color "#888888")
+                        (relationship-annotator--relation-style relation :color "#888888"))))
       (insert "}\n")
       (buffer-string))))
 
-(defun vulpea-hierarchy--slug (title)
+(defun relationship-annotator--slug (title)
   "Return TITLE as a file-name slug, such as \"value-form\"."
   (string-trim (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
                "-+" "-+"))
 
-(defun vulpea-hierarchy--svg-file (start depth notes)
+(defun relationship-annotator--svg-file (start depth notes)
   "Return a new SVG file name for the scope from START to DEPTH.
 The name is <creation date and time>-<note name>-<depth>.svg, so
 exports of the same note never overwrite each other."
-  (make-directory vulpea-hierarchy-svg-directory t)
+  (make-directory relationship-annotator-svg-directory t)
   (expand-file-name
    (format "%s-%s-%d.svg"
            (format-time-string "%Y%m%dT%H%M%S")
-           (vulpea-hierarchy--slug (vulpea-hierarchy--title start notes))
+           (relationship-annotator--slug (relationship-annotator--title start notes))
            depth)
-   vulpea-hierarchy-svg-directory))
+   relationship-annotator-svg-directory))
 
 ;;;###autoload
-(defun vulpea-hierarchy-svg ()
+(defun relationship-annotator-svg ()
   "Ask for a starting note and depth, then write and show a Graphviz SVG."
   (interactive)
   (unless (executable-find "dot")
     (user-error "Graphviz `dot' not found on PATH"))
-  (pcase-let* ((`(,start . ,depth) (vulpea-hierarchy--read-scope))
-               (tree (vulpea-hierarchy--build))
-               (scope (vulpea-hierarchy--scope tree start depth))
-               (dot (vulpea-hierarchy--dot scope))
-               (file (vulpea-hierarchy--svg-file start depth (plist-get tree :notes))))
+  (pcase-let* ((`(,start . ,depth) (relationship-annotator--read-scope))
+               (tree (relationship-annotator--build))
+               (scope (relationship-annotator--scope tree start depth))
+               (dot (relationship-annotator--dot scope))
+               (file (relationship-annotator--svg-file start depth (plist-get tree :notes))))
     (with-temp-buffer
       (insert dot)
       (unless (zerop (call-process-region (point-min) (point-max) "dot" nil t nil
@@ -739,5 +740,23 @@ exports of the same note never overwrite each other."
         (error "Graphviz failed: %s" (buffer-string))))
     (pop-to-buffer (find-file-noselect file))))
 
-(provide 'sp-vulpea-hierarchy)
-;;; sp-vulpea-hierarchy.el ends here
+;;;; Old names
+
+;; The module used to be `sp-vulpea-hierarchy'.  The old names keep
+;; working, which also keeps `sp-dg-positions' reading the same rankdir.
+
+(dolist (name '(relations tag-colors default-depth html-file svg-directory
+                          rankdir wrap-width))
+  (define-obsolete-variable-alias
+    (intern (format "vulpea-hierarchy-%s" name))
+    (intern (format "relationship-annotator-%s" name))
+    "2026-10-20"))
+
+(dolist (name '(graph outline-native outline-vui svg))
+  (define-obsolete-function-alias
+    (intern (format "vulpea-hierarchy-%s" name))
+    (intern (format "relationship-annotator-%s" name))
+    "2026-10-20"))
+
+(provide 'sp-relationship-annotator)
+;;; sp-relationship-annotator.el ends here
