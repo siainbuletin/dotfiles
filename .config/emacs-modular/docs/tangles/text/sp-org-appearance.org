@@ -102,18 +102,9 @@ Fontifies source blocks with their language's major mode. The quote and verse se
 (setq org-fontify-quote-and-verse-blocks t)
 #+end_src
 
-** Hidden emphasis markers
-
-The line that would hide the markup characters around bold, italic and similar text is commented out, so the markers stay visible. It was switched off while chasing a bug with invisible regions in Org buffers.
-
-#+begin_src emacs-lisp -i
-;;;;; Emphasis
-;; (setq org-hide-emphasis-markers t)  ;; hide emph markers
-#+end_src
-
 ** org-appear
 
-Enables =org-appear= in Org buffers. It reveals emphasis markers, link targets and sub and superscript markup while point is on them (=org-appear-autoemphasis=, =org-appear-autolinks= and =org-appear-autosubmarkers= are all on). It had been commented out because it was suspected of causing problems with invisible text, and it is now back on. With =org-hide-emphasis-markers= commented out above, there are no hidden emphasis markers to reveal; it still matters for links and sub and superscripts.
+Enables =org-appear= in Org buffers. It reveals emphasis markers and sub and superscript markup while point is on them (=org-appear-autoemphasis= and =org-appear-autosubmarkers= are on, =org-appear-autolinks= is off). It had been commented out because it was suspected of causing problems with invisible text, and it is now back on. =org-hide-emphasis-markers= is not set, so emphasis markers are always visible and there is nothing for it to reveal there; it matters for sub and superscripts only, since =org-appear-autolinks= is off.
 
 #+begin_src emacs-lisp -i
 ;; show markup at point -- this should be part of org!
@@ -125,7 +116,7 @@ Enables =org-appear= in Org buffers. It reveals emphasis markers, link targets a
 
   :custom
   (org-appear-autoemphasis  t)
-  (org-appear-autolinks t)
+  (org-appear-autolinks nil)
   (org-appear-autosubmarkers t))
 #+end_src
 

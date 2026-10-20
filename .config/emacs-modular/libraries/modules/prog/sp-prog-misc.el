@@ -131,9 +131,6 @@
 (global-set-key [mouse-4] 'down-slightly)
 (global-set-key [mouse-5] 'up-slightly)
 
-;; Git diff fix
-(setq vc-handled-backends '(Git))
-
 ;;Term or GUI mode mouse changes
 (unless (display-graphic-p)
   (require 'mouse)

@@ -30,8 +30,8 @@ to fold or unfold it.
   - =sp-workspaces=: the Eshell workspace starts and the config tab is reused
   - =init.el=: =lem-dashboard= is listed once in the default modules
 ** Changed
-- All views in =sp-org-agenda= are now in one list (Daily Agenda moved to =D=, Weekly Review to =R=), and =sp-vulpea-para= adds its agenda view and capture templates instead of replacing the existing ones. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
-- TAB cycles outline sections only on headings in programming buffers (=sp-base-code=), and VC is limited to Git instead of being switched off (=sp-prog-misc=). ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- All custom agenda views, native and the PARA view from =sp-vulpea-para=, move to a new module =sp-agenda-views=. It is tangled from =docs/tangles/text/sp-org-agenda.org=, which now sets =:tangle= per heading instead of for the whole file, and is loaded by =sp-org-ext=. All views are offered together (Daily Agenda moved to =D=, Weekly Review to =R=), and =sp-vulpea-para= adds its capture templates instead of replacing the existing ones. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- TAB cycles outline sections only on headings in programming buffers (=sp-base-code=). ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
 - Duplicate backup and Vulpea directory settings are removed from =sp-backups= and =sp-vulpea-base= without changing what is in effect. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
 - The docs for =sp-org-base=, =sp-org-appearance= and =sp-base-libraries= match the latest hand edits to those modules. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
 

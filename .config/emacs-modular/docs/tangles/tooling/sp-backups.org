@@ -85,7 +85,7 @@ The backup settings that used to be repeated here, in =:config= and at the top o
 
 ** vc-backup
 
-Installs =vc-backup=, a VC backend that treats Emacs backup files as a version history, so older backups can be browsed and diffed with the normal VC commands. Note that =sp-prog-misc= limits =vc-handled-backends= to Git, which may keep this backend from being used.
+Installs =vc-backup=, a VC backend that treats Emacs backup files as a version history, so older backups can be browsed and diffed with the normal VC commands.
 
 #+begin_src emacs-lisp -i
 (use-package vc-backup

@@ -47,13 +47,14 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 ** Vulpea modules
 
-Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
+Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, the custom agenda views (=sp-agenda-views=, tangled from =sp-org-agenda.org=), schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
+(require 'sp-agenda-views) ;; custom agenda views, incl. the PARA view
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 #+end_src
