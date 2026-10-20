@@ -8,7 +8,12 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Added
+- =vulpea-hierarchy-graph= opens the hierarchy as an interactive graph in the browser, and =vulpea-hierarchy-outline-vui= shows a trial outline built with =vui=. Every command first asks for a starting note and a depth. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
+** Changed
+- The plain-button outline is renamed =vulpea-hierarchy-outline-native=, so it can be compared with the =vui= version. SVG exports from =vulpea-hierarchy-svg= are named by creation time, note and depth, so they no longer overwrite each other. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
 ** Fixed
+- A note whose =parents ::= line names several parents, separated by commas or repeated, now appears under each of them. Before, only the first parent counted. ([[https://github.com/siainbuletin/dotfiles/pull/13][#13]], Claude)
 - Problems found in the module doc review are fixed in each module and its doc in =docs/tangles/=. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
   - =sp-academic=: =C-c w b b= calls =sp-bibtex-biblio-lookup=; autokey options are set once
   - =sp-dired=: =dirvish-cache-dir= is a path; the eza preview is defined once Dirvish has loaded
