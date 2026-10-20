@@ -43,10 +43,10 @@
   "Where `vulpea-hierarchy-graph' writes its HTML page."
   :type 'file)
 
-(defcustom vulpea-hierarchy-graph-file
-  (expand-file-name "vulpea-hierarchy.svg" sp-cache-dir)
-  "Where `vulpea-hierarchy-svg' writes its SVG."
-  :type 'file)
+(defcustom vulpea-hierarchy-svg-directory
+  (expand-file-name "vulpea-hierarchy/" sp-cache-dir)
+  "Directory where `vulpea-hierarchy-svg' writes its SVG files."
+  :type 'directory)
 
 (defcustom vulpea-hierarchy-rankdir "LR"
   "Graphviz layout direction: \"LR\" (left to right) or \"TB\" (top down)."
@@ -405,6 +405,23 @@ PATH holds the ancestors, so a cycle stops the recursion."
       (insert "}\n")
       (buffer-string))))
 
+(defun vulpea-hierarchy--slug (title)
+  "Return TITLE as a file-name slug, such as \"value-form\"."
+  (string-trim (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               "-+" "-+"))
+
+(defun vulpea-hierarchy--svg-file (start depth notes)
+  "Return a new SVG file name for the scope from START to DEPTH.
+The name is <creation date and time>-<note name>-<depth>.svg, so
+exports of the same note never overwrite each other."
+  (make-directory vulpea-hierarchy-svg-directory t)
+  (expand-file-name
+   (format "%s-%s-%d.svg"
+           (format-time-string "%Y%m%dT%H%M%S")
+           (vulpea-hierarchy--slug (vulpea-hierarchy--title start notes))
+           depth)
+   vulpea-hierarchy-svg-directory))
+
 ;;;###autoload
 (defun vulpea-hierarchy-svg ()
   "Ask for a starting note and depth, then write and show a Graphviz SVG."
@@ -412,17 +429,16 @@ PATH holds the ancestors, so a cycle stops the recursion."
   (unless (executable-find "dot")
     (user-error "Graphviz `dot' not found on PATH"))
   (pcase-let* ((`(,start . ,depth) (vulpea-hierarchy--read-scope))
-               (scope (vulpea-hierarchy--scope (vulpea-hierarchy--build) start depth))
-               (dot (vulpea-hierarchy--dot scope)))
+               (tree (vulpea-hierarchy--build))
+               (scope (vulpea-hierarchy--scope tree start depth))
+               (dot (vulpea-hierarchy--dot scope))
+               (file (vulpea-hierarchy--svg-file start depth (plist-get tree :notes))))
     (with-temp-buffer
       (insert dot)
       (unless (zerop (call-process-region (point-min) (point-max) "dot" nil t nil
-                                          "-Tsvg" "-o" vulpea-hierarchy-graph-file))
+                                          "-Tsvg" "-o" file))
         (error "Graphviz failed: %s" (buffer-string))))
-    (let ((buf (find-file-noselect vulpea-hierarchy-graph-file)))
-      (with-current-buffer buf
-        (revert-buffer t t))
-      (pop-to-buffer buf))))
+    (pop-to-buffer (find-file-noselect file))))
 
 (provide 'sp-vulpea-hierarchy)
 ;;; sp-vulpea-hierarchy.el ends here
