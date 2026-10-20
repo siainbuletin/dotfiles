@@ -57,7 +57,7 @@
   :ensure nil
   :after eshell
   :custom
-  (eshell-ls-use-colorls t)
+  (eshell-ls-use-colors t)
   (eshell-ls-use-in-dired nil))
 
 (use-package em-cmpl
@@ -108,9 +108,10 @@
   ;; Visual commands
   (add-to-list 'eshell-visual-options '("git" "--help" "--paginate"))
   (add-to-list 'eshell-visual-subcommands '("git" "log" "diff" "show"))
-  (add-to-list 'eshell-visual-commands '("ranger" "vi" "screen" "top" "less" "more" "lynx"
-                                         "ncftp" "pine" "tin" "trn" "elm" "vim"
-                                         "nmtui" "alsamixer" "htop" "el" "elinks" "tail" "top" "nano" "ssh")))
+  (dolist (command '("ranger" "vi" "screen" "top" "less" "more" "lynx"
+                     "ncftp" "pine" "tin" "trn" "elm" "vim"
+                     "nmtui" "alsamixer" "htop" "el" "elinks" "tail" "top" "nano" "ssh"))
+    (add-to-list 'eshell-visual-commands command)))
 
 ;;;; Eshell Pcomplete
 

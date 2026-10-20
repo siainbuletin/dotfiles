@@ -4,7 +4,7 @@
 
 Literate source for =libraries/modules/prog/sp-xml.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-A one-form module that configures the built-in =nxml-mode= for XML schema and stylesheet files. It does not end with a =provide= form and is not listed in any profile in =init.el= or =sp-config-profiles.el=, so it appears to be unused at present; loading it with =require= would run the configuration but then report that the feature was not provided.
+A one-form module that configures the built-in =nxml-mode= for XML schema and stylesheet files. It ends with =(provide 'sp-xml)=, but it is not listed in any profile in =init.el= or =sp-config-profiles.el=, so it appears to be unused at present.
 
 * nXML configuration
 
@@ -24,4 +24,14 @@ Opens =.xsd= and =.xslt= files in =nxml-mode=. In nXML buffers it indents with s
 	               (setq indent-tabs-mode nil)
 	               (add-to-list 'rng-schema-locating-files
 			            "~/.emacs.d/nxml-schemas/schemas.xml"))))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Provides =sp-xml=, so that =require= finds the feature it expects.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-xml)
 #+end_src

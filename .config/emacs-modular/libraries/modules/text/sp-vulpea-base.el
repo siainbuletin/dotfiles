@@ -10,9 +10,6 @@
   ;; Vulpea derives its defaults from `org-directory'. Doom's :lang org
   ;; module sets it to ~/org/ - override here if your notes live elsewhere,
   ;; or set `vulpea-db-sync-directories' explicitly.
-  
-  :custom
-  (vulpea-db-sync-directories (list "~/notes/" user-emacs-directory))
 
   :bind
   (("M-o f" . vulpea-find)

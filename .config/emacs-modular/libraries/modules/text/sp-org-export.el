@@ -380,13 +380,13 @@
 (defun sp-cite-to-org ()
   "convert clipboard contents from markdown to org with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
   (yank))
 
 (defun sp-cite-to-markdown ()
   "convert clipboard contents to markdown with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
   (yank))
 
 (defun sp-bibtex-to-yaml-reference ()
@@ -411,7 +411,7 @@
 (defun sp-org-to-mail-rtf ()
   "copy buffer, convert clipboard contents from org to rtf, and send to mail message"
   (interactive)
-  ('sp-copy-whole-buffer-to-clipboard)
+  (sp-copy-whole-buffer-to-clipboard)
   ;; (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t rtf"))
   (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 | pbcopy"))
   (kill-buffer)

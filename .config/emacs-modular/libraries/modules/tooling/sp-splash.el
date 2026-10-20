@@ -61,7 +61,7 @@
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'lambda-splash)
+  :group 'sp-splash)
 
 ;; Banner
 
@@ -69,7 +69,7 @@
 (defcustom sp-splash-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'lambda-splash)
+  :group 'sp-splash)
 
 (defvar isep "   "
   "Separator for icon and title.")
@@ -80,10 +80,10 @@
 
 (defun sp-splash--erase ()
   ;; check if splash exists and switch if so
-  (when-let* ((inhibit-read-only t))
-    (get-buffer "*splash*")
+  (when (get-buffer "*splash*")
     (switch-to-buffer "*splash*")
-    (erase-buffer)))
+    (let ((inhibit-read-only t))
+      (erase-buffer))))
 
 (defun sp-splash-terminal ()
   "A custom splash screen for terminal Emacs"
@@ -341,7 +341,7 @@
   "Emacs minor mode for splash screen."
   :global nil
   :keymap sp-splash-mode-map
-  :group 'sia-lambda
+  :group 'sp-splash
   
   :require 'sp-splash
   (buffer-disable-undo)

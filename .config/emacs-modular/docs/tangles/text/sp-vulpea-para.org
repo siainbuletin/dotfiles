@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module wires the =vulpea-para= library into Org's agenda and capture. vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database; a copy of it is kept under =libraries/modules/cloned/vulpea-para/=. Here it filters which notes count as agenda files, defines the main agenda view from vulpea-para's building blocks, sets an Area and Project prefix in agenda lines, and defines task and project capture templates.
 
-It is required by =sp-org-ext=, after =sp-org-capture= and =sp-org-agenda=. Because it assigns =org-agenda-custom-commands=, =org-agenda-prefix-format= and =org-capture-templates= with plain =setq=, the values here replace whatever those earlier modules set for the same variables.
+It is required by =sp-org-ext=, after =sp-org-capture= and =sp-org-agenda=. It adds its agenda view and its capture templates to =org-agenda-custom-commands= and =org-capture-templates= with =add-to-list=, so the views and templates those earlier modules set stay available. It used to assign both variables with plain =setq=, which replaced them. =org-agenda-prefix-format= is still assigned with =setq=, so the value here replaces whatever an earlier module set for it.
 
 * Header
 
@@ -52,19 +52,19 @@ Loads =vulpea-para=. The library's =vulpea-para-setup-defaults= is commented out
 
 ** Main agenda view
 
-Replaces =org-agenda-custom-commands= with a single view bound to the space key in the agenda dispatcher. It stacks vulpea-para's blocks: items to refile, today, focus items, stuck projects, waiting items, and the current quarter (built by calling a function at load time). A comment wonders whether this belongs in the agenda module instead.
+Adds a view bound to the space key in the agenda dispatcher, in front of the views from =sp-org-agenda=. It stacks vulpea-para's blocks: items to refile, today, focus items, stuck projects, waiting items, and the current quarter (built by calling a function at load time). A comment wonders whether this belongs in the agenda module instead.
 
 #+begin_src emacs-lisp -i
 ;; Getting the custom agenda view for vulpea-para
 ;; Should this be moved to the org-agenda file, since it's a special command?
-(setq org-agenda-custom-commands
-      `((" " "Agenda"
-         (,vulpea-para-agenda-cmd-refile
-          ,vulpea-para-agenda-cmd-today
-          ,vulpea-para-agenda-cmd-focus
-          ,vulpea-para-agenda-cmd-stuck-projects
-          ,vulpea-para-agenda-cmd-waiting
-          ,(vulpea-para-agenda-cmd-current-quarter)))))
+(add-to-list 'org-agenda-custom-commands
+             `(" " "Agenda"
+               (,vulpea-para-agenda-cmd-refile
+                ,vulpea-para-agenda-cmd-today
+                ,vulpea-para-agenda-cmd-focus
+                ,vulpea-para-agenda-cmd-stuck-projects
+                ,vulpea-para-agenda-cmd-waiting
+                ,(vulpea-para-agenda-cmd-current-quarter))))
 #+end_src
 
 ** Agenda line prefix
@@ -82,19 +82,19 @@ Sets the agenda prefix so each line starts with vulpea-para's category string, i
 
 ** Capture templates
 
-Replaces =org-capture-templates= with two entries: =t= files a task under the Tasks heading of =inbox.org= in =org-directory= using vulpea-para's task template, and =p= creates a project, where both the target location and the template come from vulpea-para functions.
+Adds two entries to =org-capture-templates=, after any set by earlier modules: =t= files a task under the Tasks heading of =inbox.org= in =org-directory= using vulpea-para's task template, and =p= creates a project, where both the target location and the template come from vulpea-para functions.
 
 #+begin_src emacs-lisp -i
 ;; Wiring org-capture into vulpea-para
-(setq org-capture-templates
-      '(
-        ("t" "task" entry
-         (file+headline "inbox.org" "Tasks")
-         (function vulpea-para-capture-task-template))
-        
-        ("p" "project" entry
-         (function vulpea-para-capture-project-target)
-         (function vulpea-para-capture-project-template))))
+(dolist (template
+         '(("t" "task" entry
+            (file+headline "inbox.org" "Tasks")
+            (function vulpea-para-capture-task-template))
+
+           ("p" "project" entry
+            (function vulpea-para-capture-project-target)
+            (function vulpea-para-capture-project-template))))
+  (add-to-list 'org-capture-templates template t))
 #+end_src
 
 * Provide

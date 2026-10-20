@@ -6,7 +6,7 @@ Literate source for =libraries/modules/prog/sp-plantuml.el=. Every line of the m
 
 This module defines a small home-made major mode, =siapip/plantuml-mode=, for PlantUML diagram files (=.puml=). Every time such a file is saved it runs the PlantUML jar through Java to render a PNG next to the source and shows that image in a preview buffer. It does not use the third-party =plantuml-mode= package and has no dependencies besides Java and a local =plantuml.jar=.
 
-The module is not loaded by any module list or profile. Note also that the file ends with =(provide 'siapip/plantuml-mode)= rather than =(provide 'sp-plantuml)=, so =(require 'sp-plantuml)= would load the code but then signal that the file did not provide the expected feature. It would need to be loaded with =load= or have its =provide= changed to be used through the module loader.
+The module is not loaded by any module list or profile. The file ends with =(provide 'sp-plantuml)=, so it can be loaded through the module loader once it is added to a module list.
 
 * Options
 
@@ -108,8 +108,8 @@ A major mode derived from =prog-mode=, shown as "PUML" in the mode line. It adds
 
 ** Provide the feature
 
-Provides the feature =siapip/plantuml-mode=, which does not match the file name, as described in the introduction.
+Provides =sp-plantuml=, matching the file name. It used to provide =siapip/plantuml-mode=, which is the name of the mode rather than the module.
 
 #+begin_src emacs-lisp -i
-(provide 'siapip/plantuml-mode)
+(provide 'sp-plantuml)
 #+end_src

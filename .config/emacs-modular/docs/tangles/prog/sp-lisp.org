@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module sets up editing for Lisp languages: Common Lisp through the =sly= REPL with SBCL as the inferior Lisp, and Emacs Lisp through the built-in =elisp-mode=. Both get =company= completion on TAB, and structural editing with =paredit=. It also adds helpers for learning and exploring Emacs Lisp (=elisp-demos=, which extends =helpful= from =sp-help=, and Wilfred Hughes's =suggest=), dimmed parentheses with =paren-face=, and a small command for evaluating the enclosing form.
 
-=company= itself is configured in =sp-base-code= and =sp-completion=. The module is part of the programming group in the default profile. One block has a structural bug: in the =sly= declaration the =:hook= keyword ended up inside the =:config= =setq= form, which is described below.
+=company= itself is configured in =sp-base-code= and =sp-completion=. The module is part of the programming group in the default profile.
 
 * Header and options
 
@@ -52,7 +52,7 @@ Lowers =show-paren-delay= to 0.05 seconds so the matching parenthesis is highlig
 
 ** sly
 
-=sly= is a Common Lisp IDE and REPL. =inferior-lisp-program= is set to =sbcl= before it loads. The parentheses in =:config= are misplaced: the =:hook= keyword and its list sit inside the =setq= call. That makes =setq= receive an odd number of arguments, so loading =sly= raises an error. The intended hooks (enable =sly-mode= in =lisp-mode=, and =company-mode= in the REPL) are never installed, and =sly-complete-symbol-function= is never set to flex completion.
+=sly= is a Common Lisp IDE and REPL. =inferior-lisp-program= is set to =sbcl= before it loads. =:config= sets =sly-complete-symbol-function= to flex completion, and =:hook= enables =sly-mode= in =lisp-mode= and =company-mode= in the REPL. The parentheses in =:config= used to be misplaced, with the =:hook= keyword and its list inside the =setq= call, which gave =setq= an odd number of arguments, so loading =sly= raised an error and neither the hooks nor the flex completion were installed.
 
 #+begin_src emacs-lisp -i
 ;;;; Interpreter
@@ -62,11 +62,11 @@ Lowers =show-paren-delay= to 0.05 seconds so the matching parenthesis is highlig
   :init
   (setq inferior-lisp-program "sbcl")
   :config
-  (setq sly-complete-symbol-function 'sly-flex-completions
+  (setq sly-complete-symbol-function 'sly-flex-completions)
   :hook ((lisp-mode . (lambda ()
                         (sly-mode t)))
          (sly-repl-mode . (lambda ()
-                            (company-mode t))))))
+                            (company-mode t)))))
 #+end_src
 
 ** lisp-mode

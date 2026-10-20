@@ -42,7 +42,7 @@ periods. This ain't a typewriter."
 
 (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
 
-(setq org-directory "~/notes")
+(setq org-directory "~/notes/")
 
 (global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
 

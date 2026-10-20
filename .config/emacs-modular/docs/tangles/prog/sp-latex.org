@@ -10,7 +10,7 @@ This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk, conf
 
 Packages involved are =auctex=, =auctex-latexmk=, =company-auctex=, =org-pandoc-import= (fetched from GitHub), and the built-in =preview=, =reftex=, =bibtex=, =ox-latex= and =align=. External programs: a TeX distribution with =latexmk=, =xelatex=, =luatex= and =dvipdfmx=. The setup hook also uses =company= and =rainbow-delimiters=.
 
-The file has grown by accretion and has a few rough edges worth knowing: the =auctex=, =preview= and =reftex= =use-package= forms appear twice, the TeX engine is set to XeTeX by default but to LuaTeX by the setup hook, =org-latex-listings= is set twice, and the file ends without =(provide 'sp-latex)=. Since the loader uses =require=, loading this module will run all its code but then report the feature as not provided, so it shows as =[FAILED]= in the module log.
+The file has grown by accretion and has a few rough edges worth knowing: the TeX engine is set to XeTeX by default but to LuaTeX by the setup hook, =org-latex-listings= is set twice. The file ends with =(provide 'sp-latex)=, so the module loader no longer logs it as =[FAILED]=. The =auctex=, =preview= and =reftex= forms used to appear twice (the second copy of =auctex= only differed by an =sp-load-extras= guard); the duplicates are removed.
 
 * Editing setup and commands
 
@@ -84,7 +84,7 @@ Deferred install of the AUCTeX completion backend for company. The form has no =
 
 ** AUCTeX
 
-Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX buffers it enables preview, Flyspell and RefTeX. It defaults the engine to XeTeX, turns off auto-save and self-parsing of style information, skips the save prompt before compiling, enables PDF mode, and leaves =TeX-master= nil so AUCTeX asks for the master file. This block is unconditional; a guarded duplicate appears later.
+Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX buffers it enables preview, Flyspell and RefTeX. It defaults the engine to XeTeX, turns off auto-save and self-parsing of style information, skips the save prompt before compiling, enables PDF mode, and leaves =TeX-master= nil so AUCTeX asks for the master file. This block is unconditional; a guarded duplicate of it used to follow later and has been removed.
 
 #+begin_src emacs-lisp -i
 (use-package auctex
@@ -107,7 +107,7 @@ Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX bu
 
 ** TeX mode bindings and Org LaTeX export
 
-The =latex= block runs =sia/latex-setup= from =TeX-mode-hook= and binds =F5= to =sia/latexmk-run=, =TAB= to =company-indent-or-complete-common= and =F1= to =company-show-doc-buffer= in =TeX-mode-map=. After AUCTeX loads it loads =latex-compile-on-save.el=, which defines a minor mode that compiles on every save; that file lives in the config root, so the load only works if that directory is on the load path.
+The =latex= block runs =sia/latex-setup= from =TeX-mode-hook= and binds =F5= to =sia/latexmk-run=, =TAB= to =company-indent-or-complete-common= and =F1= to =company-show-doc-buffer= in =TeX-mode-map=. After AUCTeX loads it loads =latex-compile-on-save.el=, which defines a minor mode that compiles on every save; that file lives in the config root, so it is loaded by its full path under =sp-emacs-dir= rather than by name, which would only work if that directory were on the load path.
 
 The same unit then sets Org export to use =xelatex= and builds =org-latex-pdf-process= as a single latexmk call with the recorder, SyncTeX and conditional BibTeX.
 
@@ -121,7 +121,7 @@ The same unit then sets Org export to use =xelatex= and builds =org-latex-pdf-pr
               ([tab] . company-indent-or-complete-common)
               ([f1] . company-show-doc-buffer))
   :config
-  (load "latex-compile-on-save.el"))
+  (load (expand-file-name "latex-compile-on-save.el" sp-emacs-dir)))
 
 
 
@@ -261,58 +261,6 @@ Makes =turn-on-reftex= autoloadable and lets RefTeX integrate with AUCTeX for la
   (setq reftex-plug-into-AUCTeX t))
 #+end_src
 
-** AUCTeX (guarded duplicate)
-
-A second copy of the AUCTeX block, only active when =sp-load-extras= is non-nil and AUCTeX is installed. Its settings are identical to the earlier one, so it mainly duplicates the hooks.
-
-#+begin_src emacs-lisp -i
-;;;; Latex Packages
-;; Basic settings
-(use-package auctex
-  :when (and sp-load-extras (locate-library "auctex"))
-  :mode (("\\.tex\\'" . latex-mode)
-         ("\\.latex\\'" . latex-mode))
-  :commands (latex-mode LaTeX-mode plain-tex-mode)
-  :init
-  (progn
-    (add-hook 'LaTeX-mode-hook #'LaTeX-preview-setup)
-    (add-hook 'LaTeX-mode-hook #'flyspell-mode)
-    (add-hook 'LaTeX-mode-hook #'turn-on-reftex)
-    (setq-default TeX-engine 'xetex)
-    (setq TeX-auto-save nil
-          TeX-parse-self nil
-          TeX-save-query nil
-          TeX-PDF-mode t)
-    (setq-default TeX-master nil)))
-#+end_src
-
-** Preview (duplicate)
-
-Identical repeat of the preview block above.
-
-#+begin_src emacs-lisp -i
-(use-package preview
-  :ensure nil
-  :after auctex
-  :commands LaTeX-preview-setup
-  :init
-  (progn
-    (setq-default preview-scale 1.4
-                  preview-scale-function '(lambda () (* (/ 10.0 (preview-document-pt)) preview-scale)))))
-#+end_src
-
-** RefTeX (duplicate)
-
-Identical repeat of the RefTeX block above.
-
-#+begin_src emacs-lisp -i
-(use-package reftex
-  :ensure nil
-  :commands turn-on-reftex
-  :init
-  (setq reftex-plug-into-AUCTeX t))
-#+end_src
-
 ** BibTeX and auto-fill
 
 Opens =.bib= files in =bibtex-mode= with fields aligned at the equals sign and a fill column of 120. =lem-latex-auto-fill= turns on auto-fill at 80 columns with left justification in LaTeX buffers.
@@ -403,7 +351,7 @@ Adds a "DVI to PDF" entry to =TeX-command-list= that runs =dvipdfmx= on the DVI 
 
 ** SyncTeX helper
 
-=synctex/un-urlify= strips a =file://= prefix from a path. It is a leftover from an EmacsWiki SyncTeX recipe and is not used elsewhere in the module. The file ends here with no =provide= form.
+=synctex/un-urlify= strips a =file://= prefix from a path. It is a leftover from an EmacsWiki SyncTeX recipe and is not used elsewhere in the module.
 
 #+begin_src emacs-lisp -i
 ;; SyncTeX (http://www.emacswiki.org/emacs/AUCTeX#toc19)
@@ -412,4 +360,12 @@ Adds a "DVI to PDF" entry to =TeX-command-list= that runs =dvipdfmx= on the DVI 
   (if (string= (substring fname-or-url 0 8) "file:///")
       (substring fname-or-url 7)
     fname-or-url))
+#+end_src
+
+** Provide the feature
+
+Provides =sp-latex=, which the module loader looks for. The form was missing, so the loader logged the module as failed even though its code had run.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-latex)
 #+end_src

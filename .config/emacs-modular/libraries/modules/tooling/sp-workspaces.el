@@ -65,8 +65,8 @@
   "Open emacs.d in its own workspace"
   (interactive)
   (require 'tabspaces)
-  (if (member "emacs.d" (tabspaces--list-tabspaces))
-      (tab-bar-switch-to-tab "emacs.d")
+  (if (member "emacs-modular-configuration" (tabspaces--list-tabspaces))
+      (tab-bar-switch-to-tab "emacs-modular-configuration")
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "emacs-modular-configuration")
@@ -97,7 +97,7 @@
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Eshell")
-      (sp-eshell-home)
+      (lem-eshell-home)
       (rename-buffer "eshell-workspace")
       (delete-other-windows))))
 

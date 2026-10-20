@@ -51,7 +51,7 @@
               (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
                           (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
-        ("d" "Daily Agenda"
+        ("D" "Daily Agenda"
          ((agenda "" ((org-agenda-span 'day)
                       (org-deadline-warning-days 7)))
           (tags-todo "+PRIORITY=\"A\""
@@ -97,7 +97,7 @@
              ((org-agenda-overriding-header "Cancelled Projects")
               (org-agenda-files org-agenda-files)))))
 
-        ("w" "Weekly Review"
+        ("R" "Weekly Review"
          ((agenda ""
                   ((org-agenda-overriding-header "Completed Tasks")
                    (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
@@ -106,27 +106,11 @@
           (agenda ""
                   ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
                    (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
-                   (org-agenda-span 'week)))))))
+                   (org-agenda-span 'week)))))
 
-(setq org-agenda-custom-commands
-      '(("r" "Research and university" tags-todo "+@research @reading @uni")))
+        ("r" "Research and university" tags-todo "+@research @reading @uni")
 
-(setq org-agenda-custom-commands
-      '(("u" "Untagged Tasks" tags-todo "-{.*}")))
-
-(setq org-agenda-custom-commands
-    '(("p" "Planning"
-       ((tags-todo "+@planning"
-                    ((org-agenda-overriding-header "Planning Tasks")))
-        (tags-todo "-{.*}"
-                    ((org-agenda-overriding-header "Untagged Tasks")))))))
-
-(setq org-agenda-custom-commands
-      '(("d" "Daily Agenda"
-         ((agenda "" ((org-agenda-span 'day)
-                      (org-deadline-warning-days 7)))
-          (tags-todo "+PRIORITY=\"A\""
-                     ((org-agenda-overriding-header "High Priority Tasks")))))))
+        ("u" "Untagged Tasks" tags-todo "-{.*}")))
 
 ;;;;; Agenda Jump to Dashboard
 (defun lem-jump-to-org-dashboard ()

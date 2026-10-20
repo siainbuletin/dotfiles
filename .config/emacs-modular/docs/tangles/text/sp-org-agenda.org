@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Configures Org's agenda: the =C-c o a= key, the prefix format of agenda lines, custom agenda commands, visual styling of the time grid and tags, scheduling and sorting rules, the list of agenda files, and the =org-super-agenda= grouping. It also adds a command to jump to the daily view, automatic refresh of the agenda after a capture, and an alphapapa recipe for showing an agenda limited to the current subtree or region.
 
-It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode=, =org-super-agenda= and =org-other-agenda=. Two things are worth knowing up front. First, =org-agenda-custom-commands= is assigned four times in a row, and each =setq= replaces the previous value, so only the last one (a single "Daily Agenda" view on =d=) is actually in effect. Second, =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
+It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode=, =org-super-agenda= and =org-other-agenda=. One thing is worth knowing up front: =org-agenda-custom-commands= is assigned once, with all the views in a single list (it used to be assigned several times in a row, so only the last view survived). Also, =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
 
 * Basics
 
@@ -65,7 +65,7 @@ Installs =org-other-agenda= by yibie straight from GitHub through the package ma
 
 * Custom agenda commands
 
-These forms define the views offered by the agenda dispatcher. Because each one is a plain =setq= of the same variable, only the final one survives; the earlier ones are effectively history kept in the file.
+This form defines the views offered by the agenda dispatcher. =sp-vulpea-para= adds its own =Agenda= view on the space key to the same list when it loads.
 
 ** Sources
 
@@ -79,15 +79,17 @@ Links to the Org manual and the System Crafters article the views were based on.
 ;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/
 #+end_src
 
-** The full set of views (overwritten)
+** The views
 
-A large list of views, none of which is active because later forms replace it:
+All the views live in one list, so every one of them is offered by the dispatcher. They used to be separate =setq= forms that replaced each other, which left only a single Daily Agenda view; the clashing keys are now distinct.
 - =d= Dashboard: today's agenda, items due today, items due in the next five days, NEXT tasks and tasks tagged =email=.
-- =p= Planning: tasks tagged =@planning=, untagged tasks, and unprocessed items from =~/notes/inbox.org=.
-- A second =d= Daily Agenda: today with a seven-day deadline warning plus priority A tasks. It shares the key with Dashboard, so only one would be reachable.
+- =p= Planning: tasks tagged =@planning=, untagged tasks, and unprocessed items from =~/notes/inbox.org=. An older, shorter =p= Planning view without the inbox section is dropped in favour of this one.
+- =D= Daily Agenda: today with a seven-day deadline warning plus priority A tasks. It used to share the key =d= with Dashboard.
 - =n= NEXT tasks, =W= tasks tagged =work=, and =e= low-effort NEXT tasks under 15 minutes.
 - =w= Workflow Status: one section per workflow keyword (WAIT, REVIEW, PLAN, BACKLOG, READY, ACTIVE, COMPLETED, CANCELED).
-- A second =w= Weekly Review: completed and unfinished scheduled tasks for the week, again clashing on the key.
+- =R= Weekly Review: completed and unfinished scheduled tasks for the week. It used to share the key =w= with Workflow Status.
+- =r= Research and university: tasks tagged =@research=, =@reading= or =@uni=. As written, the match string means =@research= and the other two tags combined, which may not be the intended "any of".
+- =u= Untagged Tasks: tasks that have no tags.
 
 #+begin_src emacs-lisp -i
 (setq org-agenda-custom-commands
@@ -110,7 +112,7 @@ A large list of views, none of which is active because later forms replace it:
               (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
                           (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
-        ("d" "Daily Agenda"
+        ("D" "Daily Agenda"
          ((agenda "" ((org-agenda-span 'day)
                       (org-deadline-warning-days 7)))
           (tags-todo "+PRIORITY=\"A\""
@@ -156,7 +158,7 @@ A large list of views, none of which is active because later forms replace it:
              ((org-agenda-overriding-header "Cancelled Projects")
               (org-agenda-files org-agenda-files)))))
 
-        ("w" "Weekly Review"
+        ("R" "Weekly Review"
          ((agenda ""
                   ((org-agenda-overriding-header "Completed Tasks")
                    (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
@@ -165,58 +167,18 @@ A large list of views, none of which is active because later forms replace it:
           (agenda ""
                   ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
                    (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
-                   (org-agenda-span 'week)))))))
-#+end_src
+                   (org-agenda-span 'week)))))
 
-** Research view (overwritten)
+        ("r" "Research and university" tags-todo "+@research @reading @uni")
 
-Replaces the list with a single =r= view of tasks tagged =@research=, =@reading= or =@uni=. As written, the match string means =@research= and the other two tags combined, which may not be the intended "any of". It is itself replaced by the next form.
-
-#+begin_src emacs-lisp -i
-(setq org-agenda-custom-commands
-      '(("r" "Research and university" tags-todo "+@research @reading @uni")))
-#+end_src
-
-** Untagged view (overwritten)
-
-Replaces the list with a single =u= view of tasks that have no tags.
-
-#+begin_src emacs-lisp -i
-(setq org-agenda-custom-commands
-      '(("u" "Untagged Tasks" tags-todo "-{.*}")))
-#+end_src
-
-** Planning view (overwritten)
-
-Replaces the list with a =p= Planning view: =@planning= tasks and untagged tasks.
-
-#+begin_src emacs-lisp -i
-(setq org-agenda-custom-commands
-    '(("p" "Planning"
-       ((tags-todo "+@planning"
-                    ((org-agenda-overriding-header "Planning Tasks")))
-        (tags-todo "-{.*}"
-                    ((org-agenda-overriding-header "Untagged Tasks")))))))
-#+end_src
-
-** Daily agenda (the one in effect)
-
-The last assignment, so this is what the dispatcher actually offers: =d= Daily Agenda, showing today's agenda with deadlines warned seven days ahead, followed by all priority A tasks. If the other views are wanted, these forms would need merging into one list.
-
-#+begin_src emacs-lisp -i
-(setq org-agenda-custom-commands
-      '(("d" "Daily Agenda"
-         ((agenda "" ((org-agenda-span 'day)
-                      (org-deadline-warning-days 7)))
-          (tags-todo "+PRIORITY=\"A\""
-                     ((org-agenda-overriding-header "High Priority Tasks")))))))
+        ("u" "Untagged Tasks" tags-todo "-{.*}")))
 #+end_src
 
 * Agenda commands and hooks
 
 ** Jump to the dashboard
 
-=lem-jump-to-org-dashboard= loads Org and opens the custom view on =d=. Given the overwrites above, that is the Daily Agenda rather than the Dashboard the name suggests.
+=lem-jump-to-org-dashboard= loads Org and opens the custom view on =d=, the Dashboard.
 
 #+begin_src emacs-lisp -i
 ;;;;; Agenda Jump to Dashboard

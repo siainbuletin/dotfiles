@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-workspaces.el=. Every line of 
 
 This module builds named workspaces on top of =tab-bar= and =tabspaces=. A workspace is a tab with its own isolated set of buffers. The functions here open a fixed set of dedicated workspaces (Home, the config directory, the Org agenda, notes, a terminal, email) or switch to them if they already exist, and bind them to number keys under the leader map from =sp-keys=.
 
-=tabspaces= itself is declared in =sp-tabs=; this file only calls its internals such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=. Other dependencies are =project.el=, =magit=, =org=, =mu4e=, =multi-vterm=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=). Two helpers it calls, =project-magit-dir= and =sp-eshell-home=, are not defined anywhere in the repository, so the commands that rely on them stop with an error at that step.
+=tabspaces= itself is declared in =sp-tabs=; this file only calls its internals such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=. Other dependencies are =project.el=, =magit=, =org=, =mu4e=, =multi-vterm=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=). One helper it calls, =project-magit-dir=, is not defined anywhere in the repository, so the command that relies on it stops with an error at that step.
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
 
@@ -110,7 +110,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
 
 ** Config directory workspace
 
-=sp-open-emacsd-in-workspace= opens =sp-library-dir= in Dired in a new tab, with a second window intended for Magit through the undefined =project-magit-dir=. It checks for a tab called "emacs.d" but names the new tab "emacs-modular-configuration", so the check never matches and each call creates another tab.
+=sp-open-emacsd-in-workspace= opens =sp-library-dir= in Dired in a new tab, with a second window intended for Magit through the undefined =project-magit-dir=. It checks for a tab called "emacs-modular-configuration" and switches to it if it exists. The check used to look for "emacs.d", a name the new tab never had, so it never matched and each call created another tab.
 
 #+begin_src emacs-lisp -i
 ;;;;; Open emacs.d in Workspace
@@ -118,8 +118,8 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
   "Open emacs.d in its own workspace"
   (interactive)
   (require 'tabspaces)
-  (if (member "emacs.d" (tabspaces--list-tabspaces))
-      (tab-bar-switch-to-tab "emacs.d")
+  (if (member "emacs-modular-configuration" (tabspaces--list-tabspaces))
+      (tab-bar-switch-to-tab "emacs-modular-configuration")
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "emacs-modular-configuration")
@@ -150,7 +150,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
 
 ** Eshell workspace
 
-=sp-open-new-eshell-and-workspace= switches to or creates an "Eshell" tab, starts Eshell in the home directory through =sp-eshell-home=, and renames the buffer to =eshell-workspace=. =sp-eshell-home= is not defined in the repository, so creating the tab fails at that point. It is not bound to a key here.
+=sp-open-new-eshell-and-workspace= switches to or creates an "Eshell" tab, starts Eshell in the home directory through =lem-eshell-home= (from =sp-eshell=), and renames the buffer to =eshell-workspace=. It used to call =sp-eshell-home=, which is not defined anywhere, so creating the tab failed at that point. It is not bound to a key here.
 
 #+begin_src emacs-lisp -i
 ;;;;; Eshell Workspace
@@ -162,7 +162,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Eshell")
-      (sp-eshell-home)
+      (lem-eshell-home)
       (rename-buffer "eshell-workspace")
       (delete-other-windows))))
 #+end_src

@@ -1,5 +1,5 @@
 ;; -*- lexical-binding: t; -*-
-;; sp-music-play.el --- dedicated specifically to music playback from Emacs --- as far as it can go in the multi-threaded direction
+;; sp-multimedia.el --- dedicated specifically to music playback from Emacs --- as far as it can go in the multi-threaded direction
 
 (use-package emms
   :ensure t)
@@ -30,5 +30,5 @@
 (use-package listen
   :ensure t)
 
-(provide 'sp-music-play)
-;; sp-music-play.el ends here.
+(provide 'sp-multimedia)
+;; sp-multimedia.el ends here.

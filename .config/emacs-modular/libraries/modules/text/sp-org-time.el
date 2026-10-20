@@ -30,4 +30,4 @@
   ;; Automatically follow newly clocked tasks (default t)
   (setq org-focus-hud-follow-active-clock t))
 
-(provide 'org-time)
+(provide 'sp-org-time)

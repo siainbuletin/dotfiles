@@ -248,11 +248,11 @@ Defines =siapip/scroll-amount= (5 lines) and two small commands, =up-slightly= a
 
 ** Disable version control backends
 
-Setting =vc-handled-backends= to an empty list turns off Emacs' built-in VC entirely, so files in Git repositories are opened without VC checks and VC mode line info. The comment calls it a Git diff fix; Magit is not affected by this setting.
+Limits Emacs' built-in VC to Git, so it no longer probes other version control systems. It used to be set to an empty list, which turned VC off entirely: files in Git repositories were opened without VC checks and VC mode line info, and Dirvish's =vc-state= column in =sp-dired= had nothing to show. The comment calls it a Git diff fix; Magit is not affected by this setting.
 
 #+begin_src emacs-lisp -i
 ;; Git diff fix
-(setq vc-handled-backends ())
+(setq vc-handled-backends '(Git))
 #+end_src
 
 ** Terminal mouse support
