@@ -143,130 +143,17 @@ ids in scope.  :roots is just (START)."
 
 ;;;; Browser view
 
-(defconst vulpea-hierarchy--html-template
-  "<!doctype html>
-<html lang=\"en\">
-<head>
-<meta charset=\"utf-8\">
-<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
-<title>vulpea hierarchy</title>
-<style>
-:root{--bg:#fbfbfa;--fg:#222;--muted:#777;--node:#f2f2f0;--edge:#9a9a9a;--root:#d8e6f5}
-@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]){--bg:#1d1f21;--fg:#e6e6e6;--muted:#999;--node:#2a2d31;--edge:#666;--root:#2f4a66}}
-:root[data-theme=\"dark\"]{--bg:#1d1f21;--fg:#e6e6e6;--muted:#999;--node:#2a2d31;--edge:#666;--root:#2f4a66}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif}
-header{height:22px;padding:8px 12px;color:var(--muted);border-bottom:1px solid var(--edge);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor:grab;touch-action:none}
-.node rect{fill:var(--node);stroke:var(--edge)}
-.node.root rect{fill:var(--root)}
-.node text{fill:var(--fg);pointer-events:none}
-.node .more{fill:var(--muted)}
-.edge{fill:none;stroke:var(--edge);stroke-width:1.2}
-</style>
-</head>
-<body>
-<header id=\"head\"></header>
-<svg id=\"v\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"vp\"></g></svg>
-<script>
-const D = __DATA__;
-const NS = 'http://www.w3.org/2000/svg';
-const W = 240, H = 34, GAP = 10, COL = 300;
-const byId = new Map(D.nodes.map(n => [n.id, n]));
-const kids = new Map();
-for (const [p, c] of D.edges) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(c); }
-const collapsed = new Set();
-const view = { x: 40, y: 20, k: 1 };
-const vp = document.getElementById('vp');
-const svg = document.getElementById('v');
-let dragStart = null, dragged = false;
+(defconst vulpea-hierarchy--html-template-file
+  (expand-file-name "sp-vulpea-hierarchy.html"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "File holding the HTML template for `vulpea-hierarchy-graph'.
+The placeholder `__DATA__' is replaced with the JSON data.")
 
-document.getElementById('head').textContent =
-  (byId.get(D.root) || {}).title + '  ·  depth ' + D.depth +
-  '  ·  click a box to fold  ·  scroll to zoom, drag to pan  ·  +N = hidden children (rerun with a bigger depth)';
-
-function trim(s) { return s.length > 34 ? s.slice(0, 33) + '…' : s; }
-
-function el(tag, attrs, parent) {
-  const e = document.createElementNS(NS, tag);
-  for (const k in attrs) e.setAttribute(k, attrs[k]);
-  parent.appendChild(e);
-  return e;
-}
-
-function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
-
-function layout(id, depth, path, row) {
-  const node = { id, depth, kids: [], y: 0 };
-  if (!path.includes(id)) {
-    for (const c of childrenOf(id)) node.kids.push(layout(c, depth + 1, [...path, id], row));
-  }
-  if (node.kids.length) node.y = node.kids.reduce((s, k) => s + k.y, 0) / node.kids.length;
-  else node.y = row.n++ * (H + GAP);
-  return node;
-}
-
-function draw(node, parent) {
-  const n = byId.get(node.id) || { title: node.id, path: null, more: 0 };
-  const x = node.depth * COL, y = node.y;
-  if (parent) {
-    const px = parent.x + W, py = parent.y + H / 2;
-    el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${y + H / 2} ${x},${y + H / 2}` }, vp);
-  }
-  const g = el('g', { class: 'node' + (node.id === D.root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
-  const t = el('text', { x: 10, y: 22 }, g);
-  t.textContent = trim(n.title);
-  el('title', {}, g).textContent = n.path || n.title;
-  if (n.more) {
-    const m = el('text', { class: 'more', x: W - 10, y: 22, 'text-anchor': 'end' }, g);
-    m.textContent = '+' + n.more;
-  }
-  el('rect', { width: W, height: H, rx: 6 }, g);
-  g.insertBefore(g.lastElementChild, g.firstChild);
-  if ((kids.get(node.id) || []).length) {
-    g.style.cursor = 'pointer';
-    g.addEventListener('click', () => {
-      if (dragged) return;
-      if (collapsed.has(node.id)) collapsed.delete(node.id); else collapsed.add(node.id);
-      render();
-    });
-  }
-  for (const k of node.kids) draw(k, { x, y });
-}
-
-function render() {
-  vp.replaceChildren();
-  draw(layout(D.root, 0, [], { n: 0 }), null);
-  apply();
-}
-
-function apply() {
-  vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
-}
-
-svg.addEventListener('wheel', e => {
-  e.preventDefault();
-  view.k = Math.min(4, Math.max(0.2, view.k * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-  apply();
-}, { passive: false });
-svg.addEventListener('pointerdown', e => {
-  dragStart = { x: e.clientX - view.x, y: e.clientY - view.y, cx: e.clientX, cy: e.clientY };
-  dragged = false;
-  svg.setPointerCapture(e.pointerId);
-});
-svg.addEventListener('pointermove', e => {
-  if (!dragStart) return;
-  if (Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) dragged = true;
-  view.x = e.clientX - dragStart.x;
-  view.y = e.clientY - dragStart.y;
-  apply();
-});
-svg.addEventListener('pointerup', () => { dragStart = null; });
-render();
-</script>
-</body>
-</html>
-"
-  "Template for `vulpea-hierarchy--html'.  `__DATA__' is replaced with JSON.")
+(defun vulpea-hierarchy--html-template ()
+  "Return the text of `vulpea-hierarchy--html-template-file'."
+  (with-temp-buffer
+    (insert-file-contents vulpea-hierarchy--html-template-file)
+    (buffer-string)))
 
 (defun vulpea-hierarchy--json-for-html (object)
   "Encode OBJECT as JSON that is safe inside a <script> element."
@@ -302,7 +189,7 @@ render();
                  (nodes . ,nodes)
                  (edges . ,edges))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
-                    vulpea-hierarchy--html-template)))
+                    (vulpea-hierarchy--html-template))))
 
 
 ;;;###autoload
