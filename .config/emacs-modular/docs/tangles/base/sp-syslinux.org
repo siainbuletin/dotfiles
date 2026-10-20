@@ -1,8 +1,8 @@
 #+TITLE: sp-syslinux.el: Linux system integration
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/env/sp-syslinux.el :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-syslinux.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/env/sp-syslinux.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-syslinux.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module is the Linux counterpart of =sp-syswin=, which handles running Emacs on Windows. It is meant to hold settings that only apply when Emacs runs on Linux, such as paths, clipboard and desktop integration, or anything that should load only when =system-type= is =gnu/linux=. The purpose is inferred from the name and from =sp-syswin=.
 
@@ -25,7 +25,7 @@ The first line turns on lexical binding, as every module in this config does. Th
 
 * Configuration
 
-Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block. The file's =#+PROPERTY= line already sends each block to =libraries/modules/env/sp-syslinux.el=, so a new block needs no header arguments. Keep the blocks above [[*Provide]] so they tangle before the =provide= form.
+Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block. The file's =#+PROPERTY= line already sends each block to =libraries/modules/base/sp-syslinux.el=, so a new block needs no header arguments. Keep the blocks above [[*Provide]] so they tangle before the =provide= form.
 
 * Sandbox
 
