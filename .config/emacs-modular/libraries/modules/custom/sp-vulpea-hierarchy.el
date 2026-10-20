@@ -14,9 +14,10 @@
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
-;; how many children they hide.  The browser graph can't load more, so
-;; run the command again with a bigger depth.  The outline expands any
-;; node on demand.
+;; how many children they hide.  The browser graph holds
+;; `vulpea-hierarchy-embed-depth' levels (4) and can't load more, so run
+;; the command again from another note, or with a bigger depth.  The
+;; outline expands any node on demand.
 ;;
 ;; Other relations between notes (`supports', `opposes', ...) are drawn
 ;; as labelled links.  See `vulpea-hierarchy-relations' for how to
@@ -95,6 +96,13 @@ light and dark themes."
 
 (defcustom vulpea-hierarchy-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
+  :type 'integer)
+
+(defcustom vulpea-hierarchy-embed-depth 4
+  "Levels below the starting note that the browser page holds.
+The page recentres and changes depth only within them.  Notes at the
+last level show how many children they hide; run the command again from
+another note to go further.  A larger depth, when you ask for one, wins."
   :type 'integer)
 
 (defcustom vulpea-hierarchy-html-file
@@ -348,8 +356,9 @@ The placeholder `__DATA__' is replaced with the JSON data.")
 
 (defun vulpea-hierarchy--html (tree start depth)
   "Return a self-contained HTML page showing TREE from START to DEPTH.
-The page holds the whole tree, so it can recentre on any note and cut
-the part to show by itself."
+TREE is already cut to the levels the page holds, see
+`vulpea-hierarchy--scope'.  The page can recentre on any note in it and
+cut the part to show by itself."
   (let* ((notes (plist-get tree :notes))
          (ids (let ((acc (make-hash-table :test #'equal)))
                 (puthash start t acc)
@@ -393,6 +402,10 @@ the part to show by itself."
                  (nodes . ,nodes)
                  (edges . ,edges)
                  (links . ,links)
+                 (hidden . ,(let (acc)
+                              (maphash (lambda (id count) (push (cons id count) acc))
+                                       (plist-get tree :more))
+                              acc))
                  (relations . ,(vulpea-hierarchy--relations-json
                                 (plist-get tree :links))))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
@@ -402,10 +415,13 @@ the part to show by itself."
 ;;;###autoload
 (defun vulpea-hierarchy-graph ()
   "Ask for a starting note and depth, then open the hierarchy in the browser.
-The page holds the whole tree.  Clicking a box recentres the graph on it."
+The page holds `vulpea-hierarchy-embed-depth' levels below the starting
+note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)
   (pcase-let* ((`(,start . ,depth) (vulpea-hierarchy--read-scope))
-               (tree (vulpea-hierarchy--build)))
+               (tree (vulpea-hierarchy--scope
+                      (vulpea-hierarchy--build) start
+                      (max depth vulpea-hierarchy-embed-depth))))
     (let ((coding-system-for-write 'utf-8))
       (with-temp-file vulpea-hierarchy-html-file
         (insert (vulpea-hierarchy--html tree start depth))))
