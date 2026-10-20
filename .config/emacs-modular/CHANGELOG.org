@@ -9,9 +9,11 @@ to fold or unfold it.
 
 * Open pull requests
 ** Added
+- Each relation in =vulpea-hierarchy-relations= takes a =:direction= (up, down, left, right or an angle), so the browser graph can put =supports=, =opposes= and the like on a chosen side of a note. ([[https://github.com/siainbuletin/dotfiles/pull/18][#18]], Claude)
 - =vulpea-hierarchy-tag-colors= tints each box in the browser graph and the SVG export by the first of its file tags that has a colour, and the legend lists the tags in view. ([[https://github.com/siainbuletin/dotfiles/pull/17][#17]], Claude)
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 ** Changed
+- The browser graph places boxes with the fCoSE layout, vendored in =libraries/modules/custom/vendor/vulpea-hierarchy/=. Parents go above their children, and the Graphviz default =vulpea-hierarchy-rankdir= is now ="TB"=. ([[https://github.com/siainbuletin/dotfiles/pull/18][#18]], Claude)
 - A click on a box in the browser graph recentres the graph on it, with buttons for the depth and for going back, and a marker to fold a branch. The page holds the whole tree to do this. ([[https://github.com/siainbuletin/dotfiles/pull/17][#17]], Claude)
 - =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 
