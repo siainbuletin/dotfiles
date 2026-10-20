@@ -39,15 +39,15 @@
 (defcustom vulpea-hierarchy-relations
   '((parent :label "parent" :color "#888888"
             :sources ((meta "parents") (meta-inverse "children")))
-    (supports :label "supports" :color "#2e8b57"
+    (supports :label "supports" :color "#2e8b57" :direction right
               :sources ((meta "supports") (property "DG_SUPPORTS")))
-    (opposes :label "opposes" :color "#c0392b"
+    (opposes :label "opposes" :color "#c0392b" :direction left
              :sources ((meta "opposes") (property "DG_OPPOSES")))
-    (informs :label "informs" :color "#2874a6"
+    (informs :label "informs" :color "#2874a6" :direction 45
              :sources ((meta "informs") (property "DG_INFORMS")))
-    (answers :label "answers" :color "#8e44ad"
+    (answers :label "answers" :color "#8e44ad" :direction up
              :sources ((meta "answers") (property "DG_ANSWERS"))))
-  "Relations between notes, as (NAME :label LABEL :color COLOR :sources SOURCES).
+  "Relations between notes, as (NAME :label LABEL :color COLOR :direction DIRECTION :sources SOURCES).
 The relation `parent' is the one that builds the tree: its edges run
 from a parent down to its children.  Every other relation is drawn as a
 labelled link between two notes that are both in view.
@@ -66,7 +66,16 @@ relation may have several:
   (property-inverse KEY)
                        like `meta-inverse', but read from a file property.
 
-COLOR is used for the links in the browser page and the SVG export."
+COLOR is used for the links in the browser page and the SVG export.
+
+DIRECTION says where the object of the relation is drawn, as seen from
+its subject, in the browser page: `up', `down', `left' or `right', or an
+angle in degrees, where 0 is right and 90 is up, so 45 is up and to the
+right.  An angle leans on both axes at once.  The relation `parent' has
+no direction, because it always puts parents above their children.  A
+relation with no DIRECTION is drawn to the right.  The page treats a
+direction as a request: when two requests contradict each other, the
+later one is dropped."
   :type '(alist :key-type symbol :value-type plist))
 
 (defcustom vulpea-hierarchy-tag-colors
@@ -98,8 +107,8 @@ light and dark themes."
   "Directory where `vulpea-hierarchy-svg' writes its SVG files."
   :type 'directory)
 
-(defcustom vulpea-hierarchy-rankdir "LR"
-  "Graphviz layout direction: \"LR\" (left to right) or \"TB\" (top down)."
+(defcustom vulpea-hierarchy-rankdir "TB"
+  "Graphviz layout direction: \"TB\" (parents on top) or \"LR\" (parents on the left)."
   :type '(choice (const "LR") (const "TB")))
 
 (defcustom vulpea-hierarchy-wrap-width 28
@@ -277,6 +286,25 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (insert-file-contents vulpea-hierarchy--html-template-file)
     (buffer-string)))
 
+(defconst vulpea-hierarchy--vendor-directory
+  (expand-file-name "vendor/vulpea-hierarchy/"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Directory holding the scripts that the browser page includes.")
+
+(defconst vulpea-hierarchy--vendor-scripts
+  '("layout-base.min.js" "cose-base.min.js" "cytoscape.min.js"
+    "cytoscape-fcose.min.js")
+  "Scripts of `vulpea-hierarchy--vendor-directory', in the order the page loads them.")
+
+(defun vulpea-hierarchy--libraries ()
+  "Return the text of the vendored scripts, one after the other."
+  (with-temp-buffer
+    (dolist (file vulpea-hierarchy--vendor-scripts)
+      (insert-file-contents (expand-file-name file vulpea-hierarchy--vendor-directory))
+      (goto-char (point-max))
+      (insert "\n"))
+    (buffer-string)))
+
 (defun vulpea-hierarchy--json-for-html (object)
   "Encode OBJECT as JSON that is safe inside a <script> element."
   (let ((json-encoding-pretty-print nil))
@@ -289,6 +317,15 @@ The placeholder `__DATA__' is replaced with the JSON data.")
   "Return KEY of RELATION from `vulpea-hierarchy-relations', or DEFAULT."
   (or (plist-get (cdr (assq relation vulpea-hierarchy-relations)) key) default))
 
+(defun vulpea-hierarchy--direction-vector (direction)
+  "Return DIRECTION as a unit vector [DX DY] on a screen, where DY grows downward."
+  (let ((degrees (pcase direction
+                   ('right 0) ('up 90) ('left 180) ('down 270)
+                   ((pred numberp) direction)
+                   (_ 0))))
+    (vector (/ (round (* 1000 (cos (degrees-to-radians degrees)))) 1000.0)
+            (/ (round (* -1000 (sin (degrees-to-radians degrees)))) 1000.0))))
+
 (defun vulpea-hierarchy--relations-json (links)
   "Return the name, label and colour of each relation used by LINKS."
   (vconcat
@@ -297,7 +334,10 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                (label . ,(vulpea-hierarchy--relation-style
                           relation :label (symbol-name relation)))
                (color . ,(vulpea-hierarchy--relation-style
-                          relation :color "#888888"))))
+                          relation :color "#888888"))
+               (direction . ,(vulpea-hierarchy--direction-vector
+                              (vulpea-hierarchy--relation-style
+                               relation :direction 'right)))))
            (delete-dups (mapcar #'cadr links)))))
 
 (defun vulpea-hierarchy--tag-color (note)
@@ -356,7 +396,8 @@ the part to show by itself."
                  (relations . ,(vulpea-hierarchy--relations-json
                                 (plist-get tree :links))))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
-                    (vulpea-hierarchy--html-template))))
+                    (string-replace "__LIBS__" (vulpea-hierarchy--libraries)
+                                    (vulpea-hierarchy--html-template)))))
 
 ;;;###autoload
 (defun vulpea-hierarchy-graph ()
