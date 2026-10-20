@@ -210,7 +210,6 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
                     (vulpea-hierarchy--html-template))))
 
-
 ;;;###autoload
 (defun vulpea-hierarchy-graph ()
   "Ask for a starting note and depth, then open the hierarchy in the browser."
@@ -371,7 +370,6 @@ PATH holds the ancestors, so a cycle stops the recursion."
         (vulpea-hierarchy-view--expand-to-depth)
         (vulpea-hierarchy-view--redraw))
       (pop-to-buffer buf))))
-
 
 ;;;; Outline built with vui (trial)
 
