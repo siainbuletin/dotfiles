@@ -99,8 +99,8 @@ Line numbers refer to =libraries/modules/custom/sp-vulpea-hierarchy.el=.
 - Lines 35-37 create the =vulpea-hierarchy= group under =vulpea=, so the options show up in =M-x customize-group=.
 - Lines 39-70 define =vulpea-hierarchy-relations=, the list of relations between notes. This replaces the old =vulpea-hierarchy-parent-key= option. Each entry has a name, a label and colour for the views (39-51), and a list of /sources/ that say where to look for its edges.
 - Lines 40-41 define =parent=, the relation that builds the tree. It has two sources: the =parents= key on a sub-note, and the =children= key on a parent, so a note can list its children as well as its parents.
-- Lines 42-51 define =supports=, =opposes=, =informs= and =answers=, the typed relations that =discourse-graphs= uses. Each reads a metadata key (=- supports :: [[id:…][Title]]=) and the same name as a file property (=DG_SUPPORTS=), so notes written for either work.
-- Lines 52-69 are the documentation string: an edge reads "subject name object", and the four kinds of source are =meta=, =meta-inverse=, =property= and =property-inverse=.
+- Lines 42-49 define =supports=, =opposes=, =informs= and =answers=, the typed relations that =discourse-graphs= uses. Each reads a metadata key (=- supports :: [[id:…][Title]]=) and the same name as a file property (=DG_SUPPORTS=), so notes written for either work.
+- Lines 50-70 are the documentation string: an edge reads "subject name object", and the four kinds of source are =meta=, =meta-inverse=, =property= and =property-inverse=.
 - Lines 72-74 define the depth offered by default when the commands ask for one (2).
 - Lines 76-79 define where the browser page is written, in =sp-cache-dir=.
 - Lines 81-84 define the directory for SVG exports, also in =sp-cache-dir=. Each export gets its own file name there.
