@@ -72,13 +72,13 @@ Interactive shortcuts for opening specific files and directories, presumably mea
 
 ** Init files
 
-=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives, so that command probably opens the wrong file unless =~/.emacs.d= points here.
+=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is built from =user-emacs-directory=, so it opens the =early-init.el= of the configuration that is running (it used to be hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives).
 
 #+begin_src emacs-lisp -i
 (defun sp-goto-early-init.el ()
   "Open early-init.el file"
   (interactive)
-  (find-file "~/.emacs.d/early-init.el"))
+  (find-file (expand-file-name "early-init.el" user-emacs-directory)))
 
 (defun sp-goto-init.el ()
   "Open init.el file"

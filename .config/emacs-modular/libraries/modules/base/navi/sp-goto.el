@@ -35,7 +35,7 @@
 (defun sp-goto-early-init.el ()
   "Open early-init.el file"
   (interactive)
-  (find-file "~/.emacs.d/early-init.el"))
+  (find-file (expand-file-name "early-init.el" user-emacs-directory)))
 
 (defun sp-goto-init.el ()
   "Open init.el file"

@@ -23,11 +23,11 @@
   :init
   (setq inferior-lisp-program "sbcl")
   :config
-  (setq sly-complete-symbol-function 'sly-flex-completions
+  (setq sly-complete-symbol-function 'sly-flex-completions)
   :hook ((lisp-mode . (lambda ()
                         (sly-mode t)))
          (sly-repl-mode . (lambda ()
-                            (company-mode t))))))
+                            (company-mode t)))))
 
 ;;;; Editing modes
 (use-package lisp-mode

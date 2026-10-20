@@ -124,9 +124,10 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** text/
 
+- [[file:tangles/text/sp-org-agenda.org][sp-agenda-views]] :: Custom agenda views, including the PARA view; tangled from the same doc as =sp-org-agenda= ([[file:../libraries/modules/text/sp-agenda-views.el][sp-agenda-views.el]])
 - [[file:tangles/text/sp-csv.org][sp-csv]] :: Create Org files from a CSV export ([[file:../libraries/modules/text/sp-csv.el][sp-csv.el]])
 - [[file:tangles/text/sp-denote.org][sp-denote]] :: Denote note-taking setup ([[file:../libraries/modules/text/sp-denote.el][sp-denote.el]])
-- [[file:tangles/text/sp-org-agenda.org][sp-org-agenda]] :: Org agenda views and helpers ([[file:../libraries/modules/text/sp-org-agenda.el][sp-org-agenda.el]])
+- [[file:tangles/text/sp-org-agenda.org][sp-org-agenda]] :: Org agenda settings and helpers ([[file:../libraries/modules/text/sp-org-agenda.el][sp-org-agenda.el]])
 - [[file:tangles/text/sp-org-appearance.org][sp-org-appearance]] :: How Org buffers look ([[file:../libraries/modules/text/sp-org-appearance.el][sp-org-appearance.el]])
 - [[file:tangles/text/sp-org-archive.org][sp-org-archive]] :: Org archiving and Palimpsest ([[file:../libraries/modules/text/sp-org-archive.el][sp-org-archive.el]])
 - [[file:tangles/text/sp-org-babel.org][sp-org-babel]] :: Org Babel languages and tangling ([[file:../libraries/modules/text/sp-org-babel.el][sp-org-babel.el]])

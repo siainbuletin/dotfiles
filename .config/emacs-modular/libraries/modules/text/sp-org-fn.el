@@ -25,7 +25,7 @@
 ;; this should only be kept on if you have the proper logic for nested headings working well
 ;; enough, because it makes sifting through for the correct reference really easy to get wrong
 ;; when trying to move notes around.
-(org-footnote-auto-adjust t) ;; renumber footnotes
+(setq org-footnote-auto-adjust t) ;; renumber footnotes
 
 ;; Defining the custom variables for this
 (defvar sp-fn-max-lvl 3

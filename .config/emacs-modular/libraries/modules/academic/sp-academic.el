@@ -52,7 +52,7 @@
   :ensure t
 
   :bind
-  (("C-c w b b" . sia-bibtex-biblio-lookup))
+  (("C-c w b b" . sp-bibtex-biblio-lookup))
 )
 
 (use-package biblio-gscholar
@@ -66,13 +66,8 @@
 
 ;; Citation key generation
 
-(setq bibtex-autokey-year-length 4)
-  (setq bibtex-autokey-titleword-separator "-")
-  (setq bibtex-autokey-name-year-separator "-")
-  (setq bibtex-autokey-year-title-separator "-")
-  (setq bibtex-autokey-titleword-length 8)
-  (setq bibtex-autokey-titlewords 3)
-  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+;; The length, separator and title-word counts are set once, further down.
+(setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
 ;;; Org-ref

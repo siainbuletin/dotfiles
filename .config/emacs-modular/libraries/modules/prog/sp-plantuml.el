@@ -54,4 +54,4 @@
   :group 'siapip
   (add-hook 'after-save-hook 'siapip/plantuml-save-hook nil t))
 
-(provide 'siapip/plantuml-mode)
+(provide 'sp-plantuml)

@@ -31,7 +31,7 @@ Installs =vui=, a declarative UI library that the Vulpea table views build on.
 
 ** vulpea
 
-Installs =vulpea= and waits for it to finish so later code can call its functions immediately. The empty =:init= only carries a comment copied from Doom-oriented documentation about =org-directory=. =vulpea-db-sync-directories= is set to =~/notes/= plus the Emacs configuration directory.
+Installs =vulpea= and waits for it to finish so later code can call its functions immediately. The empty =:init= only carries a comment copied from Doom-oriented documentation about =org-directory=. =vulpea-db-sync-directories= is set further down.
 
 Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers runs =vulpea-buffer-alias-add= to add an alias to the current note.
 
@@ -43,9 +43,6 @@ Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers r
   ;; Vulpea derives its defaults from `org-directory'. Doom's :lang org
   ;; module sets it to ~/org/ - override here if your notes live elsewhere,
   ;; or set `vulpea-db-sync-directories' explicitly.
-  
-  :custom
-  (vulpea-db-sync-directories (list "~/notes/" user-emacs-directory))
 
   :bind
   (("M-o f" . vulpea-find)
@@ -56,9 +53,9 @@ Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers r
 
 * Database settings
 
-** Synced directories (override)
+** Synced directories
 
-Sets =vulpea-db-sync-directories= again, this time to =~/notes/= only. Because this =setq= runs after the =:custom= value above, the Emacs config directory is in practice no longer indexed. It is unclear which of the two is intended.
+Sets =vulpea-db-sync-directories= to =~/notes/= only, so the Emacs config directory is not indexed. The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=, but this =setq= ran afterwards and replaced it, so the duplicate was removed and the effective value is unchanged. Add =user-emacs-directory= here if the config directory should be indexed as well.
 
 #+begin_src emacs-lisp -i
 (setq vulpea-db-sync-directories '("~/notes/"))

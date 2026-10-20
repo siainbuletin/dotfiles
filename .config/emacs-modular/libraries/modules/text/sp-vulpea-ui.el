@@ -84,10 +84,10 @@
 			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
 			                :sort ("Modified" . t)))
         
-        ("open-questions" . (:filter (:tags-all ("question)
+        ("open-questions" . (:filter (:tags-all ("question")
                                       :level 1 ;; this will only bring up headings at first
                                       )
-                             :columns (title (meta "q-status) links tags modified)
+                             :columns (title (meta "q-status") links tags modified)
                              :sort ("Modified" . t)
         ))
         
@@ -102,11 +102,10 @@
                                 (meta "year")
                                 (meta "genre")
                                 (meta "genre-influences")
-                                (meta "rating"
+                                (meta "rating")
                                 (meta "review")
                                 context tags modified)
-                     :sort ("title" . t)))
-        )))
+                     :sort ("title" . t)))))
 
 ;; Automatically collapse all widgets
 (setq vulpea-ui-default-widget-collapsed t)

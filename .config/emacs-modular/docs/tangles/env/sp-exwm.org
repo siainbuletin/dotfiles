@@ -29,7 +29,7 @@ The configuration:
 - sets global keys: =s-r= resets, =s-w= switches workspace, =s-0= to =s-9= switch to or create that workspace, =s-&= launches a shell command;
 - makes =C-q= in X windows send the next key straight to the application.
 
-The last entry of =exwm-input-global-keys=, meant to bind =s-o= to lock the screen with =slock=, is missing its surrounding parentheses. As written, the vector and the lambda's parts are spliced into the list as separate elements, so this binding does not work and may make EXWM reject the key list. Several alternatives, such as =exwm-config= and an =xrandr= screen layout hook, are left commented out. The =exwm-randr-enable= and =exwm-systemtray-enable= calls are the older API; recent EXWM versions use =exwm-randr-mode= and =exwm-systemtray-mode= instead.
+The last entry of =exwm-input-global-keys= binds =s-o= to lock the screen with =slock=. It used to be missing its surrounding parentheses, so the vector and the lambda's parts were spliced into the list as separate elements and the binding did not work. Several alternatives, such as =exwm-config= and an =xrandr= screen layout hook, are left commented out. The =exwm-randr-enable= and =exwm-systemtray-enable= calls are the older API; recent EXWM versions use =exwm-randr-mode= and =exwm-systemtray-mode= instead.
 
 #+begin_src emacs-lisp -i
 ;; See https://github.com/ch11ng/exwm/wiki
@@ -82,9 +82,9 @@ as the window manager for this session."
             ([?\s-&] . (lambda (command)
                          (interactive (list (read-shell-command "$ ")))
                          (start-process-shell-command command nil command)))
-            [s-o] . (lambda ()
-  		    (interactive)
-  		    (start-process "" nil "/usr/bin/slock"))))
+            ([s-o] . (lambda ()
+  		       (interactive)
+  		       (start-process "" nil "/usr/bin/slock")))))
     (define-key exwm-mode-map [?\C-q] #'exwm-input-send-next-key)
     (exwm-randr-enable)
     (exwm-systemtray-enable)

@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-windows.el=. Every line of the modu
 
 This module configures how Emacs windows (the panes inside a frame) are split, decorated, moved around and highlighted. Frames are handled separately in =sp-frame=. It installs =balanced-windows=, =ace-window=, =pulsar=, =buffer-move= and, when extras are enabled, =dimmer=, and binds the Emacs 31 window-layout commands.
 
-The second half defines a set of interactive window helpers adapted from Lambda Emacs (named =lem-...=): toggling dedicated windows, swapping, rotating and re-splitting windows, and splitting with focus. Note that the window prefix map in =sp-keys= binds names such as =sp-rotate-windows=, =sp-toggle-window-split= and =sp-split-window-below-and-focus=, while this file defines them with the =lem-= prefix; no =sp-= versions were found in the repository, so those leader keys appear to point at undefined commands.
+The second half defines a set of interactive window helpers adapted from Lambda Emacs (named =lem-...=): toggling dedicated windows, swapping, rotating and re-splitting windows, and splitting with focus. The window prefix map in =sp-keys= binds these =lem-...= commands (rotate, toggle split, split and focus, exchange buffers); it used to name =sp-...= versions that do not exist, which left those leader keys dead.
 
 The module is part of the window management group in the default module list, loaded after =sp-frame= and =sp-buffers=.
 

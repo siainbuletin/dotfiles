@@ -56,7 +56,7 @@ Setting =confirm-kill-processes= to nil lets Emacs exit without asking about run
 
 ** Archive a region
 
-=sp-kill-and-archive-region= appends the active region to =sp-archived-configs.el= inside =sp-setup-dir= and then deletes it from the buffer, a quick way to retire a chunk of configuration while keeping a copy. The docstring mentions setup-archive.el, which is an older file name. Note that =sp-keys.el= binds this under the config prefix as =sp-setup-kill-and-archive-region=, a name that is not defined anywhere, so that binding currently fails.
+=sp-kill-and-archive-region= appends the active region to =sp-archived-configs.el= inside =sp-setup-dir= and then deletes it from the buffer, a quick way to retire a chunk of configuration while keeping a copy. The docstring mentions setup-archive.el, which is an older file name. =sp-keys.el= binds it under the config prefix (=a=).
 
 #+begin_src emacs-lisp -i
 ;;;;; Archive region to setup-archive

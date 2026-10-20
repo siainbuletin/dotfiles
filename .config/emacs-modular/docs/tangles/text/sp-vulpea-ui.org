@@ -148,9 +148,9 @@ Notes tagged =archive= are excluded from backlinks. Links from every kind of con
 =vulpea-ui-collection-views= defines four named tables, each with a filter, a list of columns and a sort order.
 
 - =thesis-reading-list=: file-level notes tagged =book= whose =bib-project= metadata links to a specific thesis note, showing title, publication title, author, read status, links, tags and modification time, newest first. A commented-out filter on =read-status= is noted as not working yet.
-- =open-questions=: intended to show first-level headings tagged =question= with their =q-status=. Two closing quotes are missing (after =question= and after =q-status=), so the reader swallows the =:level= and =:columns= text into one long tag string. The form still loads but this view will not match anything useful.
+- =open-questions=: first-level headings tagged =question=, showing their =q-status=, links, tags and modification time. Two closing quotes used to be missing (after =question= and after =q-status=), so the reader swallowed the =:level= and =:columns= text into one long tag string and the view matched nothing useful.
 - =music=: file-level notes tagged =music=, showing year and genre, sorted by title.
-- =albums=: notes tagged =album= with creator, year, genre, influences, rating and review columns. A closing parenthesis is missing after =(meta "rating"=, so the remaining columns and the =:sort= clause end up nested inside the rating column rather than at the right level.
+- =albums=: notes tagged =album= with creator, year, genre, influences, rating and review columns. The =(meta "rating")= column used to be missing its closing parenthesis, which nested the remaining columns and the =:sort= clause inside it.
 
 #+begin_src emacs-lisp -i
 ;; Collection views
@@ -164,10 +164,10 @@ Notes tagged =archive= are excluded from backlinks. Links from every kind of con
 			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
 			                :sort ("Modified" . t)))
         
-        ("open-questions" . (:filter (:tags-all ("question)
+        ("open-questions" . (:filter (:tags-all ("question")
                                       :level 1 ;; this will only bring up headings at first
                                       )
-                             :columns (title (meta "q-status) links tags modified)
+                             :columns (title (meta "q-status") links tags modified)
                              :sort ("Modified" . t)
         ))
         
@@ -182,11 +182,10 @@ Notes tagged =archive= are excluded from backlinks. Links from every kind of con
                                 (meta "year")
                                 (meta "genre")
                                 (meta "genre-influences")
-                                (meta "rating"
+                                (meta "rating")
                                 (meta "review")
                                 context tags modified)
-                     :sort ("title" . t)))
-        )))
+                     :sort ("title" . t)))))
 #+end_src
 
 ** Collapsed widgets

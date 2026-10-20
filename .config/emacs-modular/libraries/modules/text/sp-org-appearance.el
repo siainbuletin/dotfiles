@@ -40,9 +40,6 @@
 (setq org-src-fontify-natively t)
 (setq org-fontify-quote-and-verse-blocks t)
 
-;;;;; Emphasis
-;; (setq org-hide-emphasis-markers t)  ;; hide emph markers
-
 ;; show markup at point -- this should be part of org!
 (use-package org-appear
   :ensure (:wait t)
@@ -52,7 +49,7 @@
 
   :custom
   (org-appear-autoemphasis  t)
-  (org-appear-autolinks t)
+  (org-appear-autolinks nil)
   (org-appear-autosubmarkers t))
 
 ;;;; Org-modern

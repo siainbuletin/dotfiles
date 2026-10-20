@@ -272,7 +272,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-backups
                     'sp-bookmarks
                     ;; 'sp-choose-modeline
-                    'lem-dashboard
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil
