@@ -281,27 +281,10 @@ If I ever add/remove files, I do this instead:
   ~/Git/Projects/dotfiles $ stow -t $HOME -R emacs
 #+end_src
 
-* The submodules and their explanations
+* The old structure
 
-The files are included based on the order in which they should be loaded.
-
-** Bootstrap
-#+INCLUDE: ~/.config/emacs-include/org-modules/bootstrap.org src org
-
-Deals with the early packages as well as =early-init.el= in just one file. The early init is mostly used for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
-
-*It might actually be a good idea to have the early init in a separate file, but I would like to use the model used by howardism in his own repository.*
-
-** Utility functions for Emacs as a whole
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/utility-functions.org src org
-
-Mostly contains patchwork over the basic Emacs experience. It's pretty necessary for good functioning.
-** Bootstrapping =casual= suite
-
-~/.config/emacs-include/org-modules/casual.org src org
-
-Not actually included anymore because it's really annoying.
+- bootstrap.org :: dealt with `early-init.el` settings. Meant for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
+- utility-functions.org :: mostly this module is now refactored into ~sp-helper-functions.el~
 
 ** Search structure and completion layer
 
