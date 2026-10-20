@@ -1,0 +1,51 @@
+#+TITLE: sp-dyn-graph.el: Interactive note graph for Vulpea
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-dyn-graph.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-dyn-graph.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module installs =vulpea-graph= from the Arenile/vulpea-graph-ui GitHub repository, an interactive graph view of Vulpea notes served to a browser. It needs the =websocket= and =simple-httpd= packages, and builds on the Vulpea setup loaded through =sp-org-ext=. The module is loaded in the Academic block of the default module list in =init.el=.
+
+* Vulpea graph
+
+** File header
+
+The file header, an empty commentary and the start of the code section.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-dyn-graph.el
+
+;;; Commentary:
+
+;; 
+
+;;; Code:
+#+end_src
+
+** Vulpea graph package
+
+Installs =vulpea-graph= along with its =assets= folder, which holds the browser side files. The commands =vulpea-graph= and =vulpea-graph-mode= are autoloaded. The =:after= clause holds the configuration back until both =websocket= and =simple-httpd= are loaded; since use-package wraps the whole form, including the autoloads, in that condition, the commands may only become available once those two libraries have been loaded by something else.
+
+#+begin_src emacs-lisp -i
+(use-package vulpea-graph
+  :ensure (:host github :repo "Arenile/vulpea-graph-ui" :files ("*.el" "assets"))
+  :after (websocket simple-httpd)
+  :commands
+  (vulpea-graph vulpea-graph-mode))
+#+end_src
+
+* Provide
+
+** Provide the feature
+
+Registers the =sp-dyn-graph= feature for =init.el=.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-dyn-graph)
+;; sp-dyn-graph.el ends here.
+#+end_src

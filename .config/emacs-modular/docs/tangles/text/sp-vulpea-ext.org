@@ -1,0 +1,166 @@
+#+TITLE: sp-vulpea-ext.el: Vulpea extensions loader
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-vulpea-ext.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-vulpea-ext.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: dataview-style tables, property conversion, grouped backlinks and a smarter heading split. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
+
+It is required from =sp-org-ext=, alongside =sp-vulpea-schemas=. Most of the required modules live under =libraries/modules/funct/=, which is why the file first makes sure every subdirectory of =libraries/modules/= is on the =load-path=.
+
+* Setup
+
+** File header
+
+Turns on lexical binding and names the file.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-vulpea-ext.el
+#+end_src
+
+** Commentary marker
+
+Start of the commentary section.
+
+#+begin_src emacs-lisp -i
+;;; Commentary:
+#+end_src
+
+** Recursive load path for modules
+
+Binds =default-directory= to =libraries/modules/= under =sp-library-dir= and calls =normal-top-level-add-to-load-path= and =normal-top-level-add-subdirs-to-load-path=, so every module subdirectory becomes requirable by name. This guarantees the =require= forms below can find modules in =funct/= even if the load path was set up differently elsewhere. Note that it sits before the =;;; Code:= marker, but it is ordinary code and runs at load time.
+
+#+begin_src emacs-lisp -i
+;;;; Recursive loading for the modules
+(let ((default-directory (expand-file-name "modules/" sp-library-dir)))
+  (normal-top-level-add-to-load-path '("."))
+  (normal-top-level-add-subdirs-to-load-path))
+#+end_src
+
+** Integration note
+
+A comment introducing the package integrations.
+
+#+begin_src emacs-lisp -i
+;; Integration with other packages
+#+end_src
+
+** Code marker
+
+Start of the code section.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+#+end_src
+
+* Vulpea add-on packages
+
+** vulpea-journal
+
+Installs =vulpea-journal= from the package archives and configures it after =vulpea= loads. It provides daily journaling on top of Vulpea notes. No options are set here.
+
+#+begin_src emacs-lisp -i
+;; JOURNALING
+(use-package vulpea-journal
+  :ensure t
+  :after vulpea)
+#+end_src
+
+** vulpea-capf
+
+Installs =vulpea-capf= from GitHub (neonmei/vulpea-capf) and turns on =vulpea-capf-mode= in every Org buffer. It adds a completion-at-point backend that completes note titles into links.
+
+#+begin_src emacs-lisp -i
+;; Other modules for vulpea
+   
+(use-package vulpea-capf
+  :ensure (:host github :repo "neonmei/vulpea-capf")
+  :hook (org-mode . vulpea-capf-mode)
+)
+#+end_src
+
+** vulpea-capf options
+
+Restricts completion to the inside of =[[...]]= brackets rather than offering note titles everywhere, and turns on annotations in the completion popup. These are plain =setq= calls at top level, so they take effect even before the package loads.
+
+#+begin_src emacs-lisp -i
+(setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
+(setq vulpea-capf-in-brackets t)
+(setq vulpea-capf-annotate-function t)
+#+end_src
+
+* Config extension modules
+
+** Dataview-like tables
+
+Loads the three table modules in dependency order: =sp-vulpea-dblock= (an Org dynamic block that renders a static property table from Vulpea queries), =sp-vulpea-vui-table= (an interactive table built with vui.el) and =sp-vulpea-table-views= (named views and inline mounting of those tables).
+
+#+begin_src emacs-lisp -i
+;; Create dataview-like tables through the vulpea query system
+(require 'sp-vulpea-dblock)
+(require 'sp-vulpea-vui-table)
+(require 'sp-vulpea-table-views)
+#+end_src
+
+** Property conversion comment
+
+Introduces the next module.
+
+#+begin_src emacs-lisp -i
+;; Batch converting properties to plug into vulpea instead
+#+end_src
+
+** Converting drawer properties
+
+Loads =sp-vulpea-convert-properties=, which batch converts Org property drawer entries into Vulpea meta lines (the =- key :: value= list items Vulpea indexes).
+
+#+begin_src emacs-lisp -i
+(require 'sp-vulpea-convert-properties)
+#+end_src
+
+** Grouped backlinks comment
+
+Introduces the next module.
+
+#+begin_src emacs-lisp -i
+;; Grouping backlinks based on the property that it's representing
+#+end_src
+
+** Grouped backlinks
+
+Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain mentions versus groups named after the meta property the link appears in (for example all notes that list this person under =pub-author=).
+
+#+begin_src emacs-lisp -i
+(require 'sp-vulpea-grouped-backlinks)
+#+end_src
+
+** Smarter heading split
+
+Loads =sp-vulpea-split=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
+
+#+begin_src emacs-lisp -i
+;;; Making vulpea-split-heading smart (ensure backlinks)
+(require 'sp-vulpea-split)
+#+end_src
+
+* Provide
+
+** Provide marker
+
+Section comment.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+#+end_src
+
+** Provide form
+
+Makes the module available as =sp-vulpea-ext=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-vulpea-ext)
+;; sp-vulpea-ext.el
+#+end_src

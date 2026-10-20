@@ -1,0 +1,200 @@
+#+TITLE: sp-frame.el: Frame appearance, margins and frame helpers
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-frame.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-frame.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module configures Emacs frames, meaning the top-level windows managed by the operating system. It produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars, recentres new frames, adds small window margins everywhere, and turns on =keycast= in the header line. Some basic frame settings live in =early-init.el= instead, for faster startup.
+
+It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS when =sp-load-extras= is set. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
+
+* Header and frame title
+
+** File header
+
+Lexical binding and the commentary, which points to =early-init.el= for the settings applied before the first frame appears.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;; sp-frame.el
+
+;;; Commentary:
+
+;; Setup for frames. Note that some basic settings are placed in early-init for
+;; better startup.
+
+;;; Code:
+#+end_src
+
+** Frame title
+
+Sets the window manager title to the current buffer name surrounded by a decorative symbol character.
+
+#+begin_src emacs-lisp -i
+(setq-default frame-title-format '("␥ %b ␥")) ;; Make the window title to be the buffer name
+#+end_src
+
+* Frame defaults
+
+** Minimal frame parameters
+
+Inside the built-in =frame= package, =default-frame-alist= is set so new frames have a 30 pixel internal border, no tool bar, no vertical or horizontal scroll bars, and no window manager decorations (=undecorated=). Per the comment, this makes macOS frames square-cornered and closer to the Linux look. The =frame-title-format= entry is not a real frame parameter and has no effect. Pixel-wise resizing of windows and frames avoids gaps around the edges, and =ns-use-proxy-icon= hides the document icon in the macOS title bar. Note that this replaces any earlier contents of =default-frame-alist= rather than adding to it.
+
+#+begin_src emacs-lisp -i
+;;;; Frame defaults
+;; This setting will ensure that the frame is actually square, which 
+;; radically changes the appearance on MacOS and brings it closer to a
+;; Linux experience.
+
+;; Make a clean & minimalist frame
+;; To modify initial frame set `initial-frame-alist`
+
+(use-package frame
+  :ensure nil
+  :config
+
+  (setq-default default-frame-alist
+                (append (list
+                         '(frame-title-format . nil)
+                         '(internal-border-width . 30)
+                         '(tool-bar-lines . 0)
+                         '(vertical-scroll-bars . nil)
+                         '(horizontal-scroll-bars . nil)
+                         '(undecorated . t))))
+  ;; Resize pixel-wise to avoid gaps
+  (setq-default window-resize-pixelwise t)
+  (setq-default frame-resize-pixelwise t)
+
+  ;; Don't show icon in frame
+  (setq-default ns-use-proxy-icon nil))
+#+end_src
+
+** Recentre a frame
+
+=sp-frame-recenter= moves a frame to the centre of the screen by setting its =top= and =left= parameters to 0.5. It is meant to skip fullscreen frames, but it checks for the value =maximised= while Emacs uses =maximized=, and it checks the selected frame rather than FRAME, so in practice the check never matches.
+
+#+begin_src emacs-lisp -i
+(defun sp-frame-recenter (&optional frame)
+  "Center FRAME on the screen.
+FRAME can be a frame name, a terminal name, or a frame.
+If FRAME is omitted or nil, use currently selected frame."
+  (interactive)
+  (unless (eq 'maximised (frame-parameter nil 'fullscreen))
+    (modify-frame-parameters
+     frame '((user-position . t) (top . 0.5) (left . 0.5)))))
+#+end_src
+
+** Recentre new frames
+
+Runs =sp-frame-recenter= for every newly created frame. The comment invites disabling the hook if recentring is not wanted.
+
+#+begin_src emacs-lisp -i
+;; un/comment this hook if you want frames recentered
+(add-hook 'after-make-frame-functions #'sp-frame-recenter)
+#+end_src
+
+** Keycast in the header line
+
+Turns on =keycast-header-line-mode=, which shows the last key and command in the header line of every window. This depends on =keycast= being installed and loaded by =sp-keys=.
+
+#+begin_src emacs-lisp -i
+;;; Enabling keycast header line mode by default
+(keycast-header-line-mode 1)
+#+end_src
+
+* Window margins
+
+Small left and right margins keep text from touching the window edge now that frame borders are narrow.
+
+** Set margins on all windows
+
+=sp-set-window-margins= walks every window in the selected frame and gives each non-minibuffer window a two-column margin on both sides. It overrides margins set by other modes, such as writing modes that centre text.
+
+#+begin_src emacs-lisp -i
+;;;; Window Margins for Text Indentation
+;; Add margins to windows to maintain text indentation with smaller frame borders
+(defun sp-set-window-margins ()
+  "Set left and right margins for all windows to maintain text indentation."
+  (walk-windows
+   (lambda (window)
+     (unless (window-minibuffer-p window)
+       (set-window-margins window 2 2)))))
+#+end_src
+
+** Reapply on layout changes
+
+Adds the function to =window-configuration-change-hook=, so margins are restored whenever windows are split, deleted or change buffers.
+
+#+begin_src emacs-lisp -i
+;; Apply margins when windows change
+(add-hook 'window-configuration-change-hook #'sp-set-window-margins)
+#+end_src
+
+** Apply at startup
+
+Applies the margins once after init, for the initial frame.
+
+#+begin_src emacs-lisp -i
+;; Apply margins to initial frame
+(add-hook 'after-init-hook #'sp-set-window-margins)
+#+end_src
+
+** Apply to new frames
+
+For each new frame, selects it and applies the margins. Selecting the frame from this hook can change which frame is focused, a side effect to keep in mind with =emacsclient=.
+
+#+begin_src emacs-lisp -i
+;; Apply margins to new frames
+(add-hook 'after-make-frame-functions
+          (lambda (frame)
+            (select-frame frame)
+            (sp-set-window-margins)))
+#+end_src
+
+* macOS title bar
+
+** ns-auto-titlebar
+
+On macOS, when extras are enabled and the package is installed, =ns-auto-titlebar-mode= keeps the native title bar's light or dark appearance in sync with the current theme. The linked issue explains why this is needed for emacs-plus builds.
+
+#+begin_src emacs-lisp -i
+;;;; Fix titlebar titling colors
+;; see also https://github.com/d12frosted/homebrew-emacs-plus/issues/55
+(use-package ns-auto-titlebar
+  :when (and sp-load-extras (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
+  :commands ns-auto-titlebar-mode
+  :init (ns-auto-titlebar-mode))
+#+end_src
+
+* Frame functions
+
+** Delete frame or quit
+
+=sp-delete-frame-or-quit= kills all vterm buffers without asking, then deletes the current frame. If that fails because it is the last frame, it falls back to =save-buffers-kill-emacs=. Finally it gives input focus to whatever frame is now selected.
+
+#+begin_src emacs-lisp -i
+;;;; Frame Functions
+;;;;; Delete Frame or Quit
+(defun sp-delete-frame-or-quit ()
+  "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
+  (interactive)
+  (kill-matching-buffers "*vterm" nil t)
+  (when (condition-case nil (delete-frame)
+          (error (save-buffers-kill-emacs))))
+  (select-frame-set-input-focus (selected-frame)))
+#+end_src
+
+* Footer
+
+** Provide the feature
+
+Provides =sp-frame= for the module loader.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-frame)
+;;; sp-frame.el ends here
+#+end_src

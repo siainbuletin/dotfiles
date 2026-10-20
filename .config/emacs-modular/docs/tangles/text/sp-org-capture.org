@@ -1,0 +1,150 @@
+#+TITLE: sp-org-capture.el: Org capture templates and capture frames
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-capture.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-capture.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module sets up =org-capture=: the default inbox file, a handful of capture templates, the global ~C-c c~ binding, and helper functions (inherited from Lambda Emacs, hence the =lem-= prefix) for running capture in a dedicated frame named capture, for example from an external launcher talking to the Emacs server.
+
+It is required from =sp-org-ext=. It relies on =org-directory= being set elsewhere, on Denote for the note template, and on the commentary's plan to integrate capture with org-gtd and vulpea-para. Task capture lives in the Vulpea modules instead.
+
+* Overview
+
+** Header and commentary
+
+The commentary says this module is the basis for later journal-style workflows, mentions the Lambda Emacs weather recording function, and states the intention that capture should plug into org-gtd.
+
+#+begin_src emacs-lisp -i
+;;; -*- lexical-binding: t -*-
+
+;;; Commentary:
+
+;; This contains important code for later on utilisation of stuff like
+;; journals for your work. There's the Lambda Emacs function for recording
+;; the weather at a given point.
+;;
+;; org-capture should be well plugged into org-gtd to fit with the workflow.
+
+;;; Code:
+#+end_src
+
+* Capture mechanisms
+
+** Org directories and a Denote template
+
+Sets =org-default-notes-file= to =inbox.org= inside =org-directory= and makes the whole =org-directory= the agenda. The comment notes this should eventually follow vulpea-para conventions.
+
+After =org-capture= loads, a template on key n is appended that creates a new note through Denote: the target is =denote-last-path=, the content comes from =denote-org-capture=, and after capturing Emacs jumps to the new note.
+
+#+begin_src emacs-lisp -i
+;;;; Capture mechanisms
+
+;;;;; Org Directories
+;; Set these if you're using org
+;; the org-agenda thing should be adapted so that it reflects the
+;; conventions set by vulpea-para
+(setq org-default-notes-file (concat org-directory "inbox.org")
+      org-agenda-files (list org-directory))
+
+
+;; Org-capture note creation with Denote
+(with-eval-after-load 'org-capture
+  (add-to-list 'org-capture-templates
+               '("n" "New note (with Denote)" plain
+                 (file denote-last-path)
+                 #'denote-org-capture
+                 :no-save t
+                 :immediate-finish nil
+                 :kill-buffer t
+                 :jump-to-captured t)))
+#+end_src
+
+** Inserting a heading with a creation time
+
+=lem-insert-header-and-time-property= inserts a new top-level heading and gives it a =CREATED= property holding the current timestamp. The comment calls it an example note creation function; it has no keybinding.
+
+#+begin_src emacs-lisp -i
+;; Example note creation function
+(defun lem-insert-header-and-time-property ()
+  "Insert an org heading with a created time string property."
+  (interactive)
+  (insert "* ")
+  (org-set-property "CREATED" (format-time-string "[%Y-%m-%d %T]")))
+#+end_src
+
+* Bindings and templates
+
+** Global capture key
+
+Binds ~C-c c~ to =org-capture= everywhere.
+
+#+begin_src emacs-lisp -i
+;;;; Bindings
+(keymap-global-set "C-c c" #'org-capture)
+#+end_src
+
+** Capture templates
+
+Replaces =org-capture-templates= with two entries:
+- l, Listening log: a date-tree entry in =~/notes/inbox/listening-log.org= holding a timestamp, the active region and a link to where capture started.
+- i, Idea or quick thought: an entry in =~/notes/inbox/thoughts-capture.org= using Org's default template since none is given.
+
+Because this is a plain =setq=, it would wipe the Denote template above if =org-capture= were already loaded when this module runs; normally the deferred =add-to-list= runs later and appends n to this list.
+
+#+begin_src emacs-lisp -i
+(setq org-capture-templates
+        '(
+          ("l" "Listening log" entry
+           (file+datetree "~/notes/inbox/listening-log.org")
+           "* %U\n %i\n %a")
+
+          ("i" "Idea or quick thought to take care of" entry
+           (file "~/notes/inbox/thoughts-capture.org"))
+))
+#+end_src
+
+* Capture frames
+
+** Running capture in a capture frame
+
+=lem-activate-capture-frame= is meant to be called through =emacsclient=: it loads Org, selects the frame named capture, switches to a scratch buffer called new and starts =org-capture=. It is not interactive. The comment points to sp-vulpea.el for task capture.
+
+#+begin_src emacs-lisp -i
+;; See also sp-vulpea.el for task capturing 
+
+;;;;; Create Capture Frame
+;; have these functions available for server
+(defun lem-activate-capture-frame ()
+  "run org-capture in capture frame"
+  (progn
+    (require 'org)
+    (select-frame-by-name "capture")
+    (switch-to-buffer (get-buffer-create "new"))
+    (org-capture)))
+#+end_src
+
+** Weather journal capture
+
+=lem-weather-journal-capture= does the same frame setup and then calls =lem-org-journal= and =lem-insert-weather=. Neither of those functions is defined anywhere in this configuration, so this command currently fails with a void-function error. It is a leftover from Lambda Emacs.
+
+#+begin_src emacs-lisp -i
+;;;;; Weather Capture Frame
+(defun lem-weather-journal-capture ()
+  (interactive)
+  (progn
+    (require 'org)
+    (select-frame-by-name "capture")
+    (switch-to-buffer (get-buffer-create "new"))
+    (lem-org-journal)
+    (lem-insert-weather)))
+#+end_src
+
+** Provide
+
+Registers the =sp-org-capture= feature.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-capture)
+#+end_src

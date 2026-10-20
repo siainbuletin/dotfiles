@@ -1,0 +1,120 @@
+#+TITLE: sp-c.el: C, C++ and CMake editing
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-c.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-c.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module sets up editing for C-family languages and CMake files. It builds on the =google-c-style= package, adjusting a few of its indentation settings through a small override mechanism, and enables a stack of minor modes (=company-mode=, =hs-minor-mode=, =flycheck-mode=, =rainbow-delimiters-mode=) whenever a C or C++ buffer opens. Function keys are bound consistently: =F1= for documentation, =F5= for =recompile= and =F6= for refactoring.
+
+Several of the commands it binds come from packages this module does not install itself: =google-c-style=, =flycheck-irony=, =srefactor= and the CEDET =semantic= tools. The module is not listed in the module list in =init.el= or in =sp-config-profiles.el=, so it appears to be dormant unless loaded by hand.
+
+* Google C style overrides
+
+Rather than copying and editing the whole =google-c-style= definition, the module keeps a list of targeted overrides and patches them into the style in place.
+
+** Override list and the function that applies it
+
+=siapip/google-c-style-overrides= is a customizable list where each entry is a path of keys into the =google-c-style= alist plus a new value. The defaults set the basic offset to 4, indent member initialiser lists by =++= and outdent access labels (=public:=, =private:=) by =-=. The command =siapip/google-c-style-set-overrides= walks each key path with =assoc= and replaces the value with =setf= on the =cdr=. Note that nothing in this module calls the function, so the overrides only take effect if you run it yourself; also, if a key path is not found, =assoc= returns =nil= and the =setf= will signal an error.
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+(defcustom siapip/google-c-style-overrides
+  '(((c-basic-offset) 4)
+    ((c-offsets-alist member-init-intro) ++)
+    ((c-offsets-alist access-label) -))
+  "Overwrite individual keys in google-c-style.
+
+Each element of this list has the form:
+
+  ((KEY1 KEY2 ...) NEW-VALUE)
+
+- The first part is a list of keys that describes how to traverse
+  into the `google-c-style` structure. If there's only a single key,
+  it modifies that top-level attribute. If multiple keys are given,
+  they are traversed in sequence to locate the nested attribute.
+
+- The second part is the NEW-VALUE to set for that attribute."
+  :group 'siapip
+  :type '(repeat (list (repeat symbol) sexp)))
+(defun siapip/google-c-style-set-overrides ()
+  "Apply the overrides in `siapip/google-c-style-overrides' to `google-c-style' in place."
+  (interactive)
+  (dolist (cfg siapip/google-c-style-overrides)
+    (let* ((init google-c-style))
+      (dolist (c (car cfg))
+        (setq init (assoc c init)))
+      (setf (cdr init) (cdr cfg)))))
+#+end_src
+
+* CMake
+
+** cmake-mode
+
+Installs =cmake-mode= lazily and also associates files named =CMakeInstallTargets.txt= with it. In CMake buffers =F1= runs =cmake-help=, =F5= runs =recompile= and =TAB= indents or triggers completion via =company-indent-or-complete-common=. A hook turns on =company-mode=.
+
+#+begin_src emacs-lisp -i
+(use-package cmake-mode
+  :defer t
+  :mode (("CMakeInstallTargets\\.txt\\'" . cmake-mode))
+  :bind (:map cmake-mode-map
+         ([f1] . cmake-help)
+         ([f5] . recompile)
+         ([tab] . company-indent-or-complete-common))
+  :hook (cmake-mode . (lambda ()
+                        (company-mode t))))
+#+end_src
+
+* C and C++ modes
+
+** Common init hook and cc-mode bindings
+
+=siapip/c-mode-common-init= is the shared setup for C and C++ buffers: it enables completion, code folding, Flycheck (with the Irony checker if =flycheck-irony= is available), rainbow delimiters, applies the Google style and then forces =c-basic-offset= back to 4. Failure to set the Google style is caught and reported as a message rather than breaking buffer setup.
+
+The built-in =cc-mode= is configured (=:ensure nil=) to run that hook in =c-mode= and =c++-mode=, and both mode maps get the same keys: =F1= for =semantic-ia-show-doc=, =F5= for =recompile=, =F6= for =srefactor-refactor-at-point= and =TAB= for company completion. A possible gotcha: the hook functions are written as quoted symbols inside =:hook=, which use-package normally expects unquoted, so it is worth checking that the hook actually fires.
+
+#+begin_src emacs-lisp -i
+(defun siapip/c-mode-common-init ()
+  "Callback for initialization of c-like modes"
+  (company-mode t)
+  (hs-minor-mode t)
+  (flycheck-mode t)
+  (when (fboundp 'flycheck-irony-setup)
+    (flycheck-irony-setup))
+  (rainbow-delimiters-mode t)
+  (condition-case err
+      (google-set-c-style)
+    (error (message "Failed to set google-c-style: Did loading it fail? %S" err)))
+  (setq c-basic-offset 4))
+(use-package cc-mode
+  :ensure nil
+  :defer t
+  :hook ((c-mode . 'siapip/c-mode-common-init)
+         (c++-mode . 'siapip/c-mode-common-init))
+  :bind (:map c-mode-map
+              ([f1] . semantic-ia-show-doc)
+              ([f5] . recompile)
+              ([f6] . srefactor-refactor-at-point)
+              ([tab] . company-indent-or-complete-common)
+         :map c++-mode-map
+              ([f1] . semantic-ia-show-doc)
+              ([f5] . recompile)
+              ([f6] . srefactor-refactor-at-point)
+              ([tab] . company-indent-or-complete-common)))
+#+end_src
+
+* Helpers
+
+** Inserting an include guard
+
+=defguard= prompts for a guard name and wraps the current buffer in a classic =#ifndef NAME_H= / =#define NAME_H= ... =#endif= include guard, upcasing the name. It uses =beginning-of-buffer= and =end-of-buffer=, which work but are meant for interactive use (=goto-char= with =point-min= / =point-max= is the usual non-interactive form).
+
+#+begin_src emacs-lisp -i
+(defun defguard (guard)
+  "Inserts guard header for C++"
+  (interactive "sGuard name: ")
+  (save-excursion
+    (beginning-of-buffer)
+    (insert (concat "#ifndef " (upcase guard) "_H\n#define " (upcase guard) "_H\n\n"))
+    (end-of-buffer)
+    (insert "\n#endif")))
+#+end_src
