@@ -116,7 +116,7 @@ the line, respectively."
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
-           ("a" . sp-setup-kill-and-archive-region     )
+           ("a" . sp-kill-and-archive-region           )
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
@@ -283,24 +283,24 @@ the line, respectively."
 (bind-keys :prefix-map lem+window-keys
            :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
-           ("f" .  sp-toggle-window-split         )
+           ("f" .  lem-toggle-window-split        )
            ("c" .  delete-window                   )
            ("d" .  delete-window                   )
-           ("h" .  sp-split-window-below-and-focus)
+           ("h" .  lem-split-window-below-and-focus)
            ("H" .  split-window-below              )
            ("m" .  delete-other-windows            )
-           ("o" .  sp-other-window                )
-           ("r" .  sp-rotate-windows              )
-           ("R" .  sp-rotate-windows-backward     )
+           ("o" .  other-window                   )
+           ("r" .  lem-rotate-windows            )
+           ("R" .  lem-rotate-windows-backward   )
            ("t" .  tear-off-window                 )
            ("u" .  winner-undo                     )
            ("U" .  winner-redo                     )
-           ("v" .  sp-split-window-right-and-focus)
+           ("v" .  lem-split-window-right-and-focus)
            ("V" .  split-window-right              )
            ("w" .  ace-window                      )
-           ("x" .  sp-window-exchange-buffer      )
+           ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
-           ("_" .  sp-split-window-below-and-focus))
+           ("_" .  lem-split-window-below-and-focus))
 
 ;;;;; Workspace Keybindings
 (bind-keys :prefix-map lem+workspace-keys

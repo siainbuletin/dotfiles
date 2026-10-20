@@ -140,9 +140,11 @@ Result depends on syntax table's comment character."
 (use-package outline
   :ensure nil
   :hook (prog-mode . outline-minor-mode)
+  :custom
+  ;; TAB and S-TAB cycle visibility only when point is on a heading, so TAB
+  ;; keeps indenting and completing everywhere else in prog-mode buffers.
+  (outline-minor-mode-cycle t)
   :bind (:map outline-minor-mode-map
-         ("<tab>"   . outline-cycle)
-         ("S-<tab>" . outline-cycle-buffer)
          ("M-j"     . outline-move-subtree-down)
          ("M-k"     . outline-move-subtree-up)
          ("M-h"     . outline-promote)

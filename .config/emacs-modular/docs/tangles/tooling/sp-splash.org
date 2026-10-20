@@ -130,7 +130,7 @@ Outline header for the variables section.
 
 ** Init info
 
-=sp-splash-init-info= holds a function that returns a summary string such as "42 packages loaded in 1.2s". It counts =package-activated-list= for package.el, or the straight.el profile cache, and falls back to just the init time when no packages are counted. The approach is borrowed from emacs-dashboard and Doom. Its =:group= is =lambda-splash=, a group that is not defined here.
+=sp-splash-init-info= holds a function that returns a summary string such as "42 packages loaded in 1.2s". It counts =package-activated-list= for package.el, or the straight.el profile cache, and falls back to just the init time when no packages are counted. The approach is borrowed from emacs-dashboard and Doom. Its =:group= is =sp-splash=, the customization group defined above (it used to be =lambda-splash=, which this config never defines).
 
 #+begin_src emacs-lisp -i
 ;; Init info
@@ -148,7 +148,7 @@ Outline header for the variables section.
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'lambda-splash)
+  :group 'sp-splash)
 #+end_src
 
 ** Banner
@@ -162,7 +162,7 @@ Outline header for the variables section.
 (defcustom sp-splash-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'lambda-splash)
+  :group 'sp-splash)
 #+end_src
 
 ** Separators
@@ -188,15 +188,15 @@ Outline header for the functions that build the splash buffer.
 
 ** Erase helper
 
-=sp-splash--erase= is meant to switch to the splash buffer and clear it. As written, =when-let*= only binds =inhibit-read-only= so its body always runs, and the =get-buffer= result is discarded, so =switch-to-buffer= would create the buffer if it did not exist. The function is not called anywhere in the module.
+=sp-splash--erase= switches to the splash buffer and clears it, but only if the buffer exists. It used to wrap its body in =when-let*=, which only bound =inhibit-read-only= and discarded the =get-buffer= result, so the body always ran and =switch-to-buffer= created the buffer when it was missing. Now =inhibit-read-only= is bound around =erase-buffer= alone. The function is not called anywhere in the module.
 
 #+begin_src emacs-lisp -i
 (defun sp-splash--erase ()
   ;; check if splash exists and switch if so
-  (when-let* ((inhibit-read-only t))
-    (get-buffer "*splash*")
+  (when (get-buffer "*splash*")
     (switch-to-buffer "*splash*")
-    (erase-buffer)))
+    (let ((inhibit-read-only t))
+      (erase-buffer))))
 #+end_src
 
 ** Terminal splash
@@ -536,14 +536,14 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
 
 ** Minor mode
 
-=sp-splash-mode= is a buffer-local minor mode that makes the splash look clean: it disables undo, auto-revert, whitespace mode and line numbers, makes the buffer read-only, hides the cursor, mode line and header line, and removes margins and fringes. It also sets the global =inhibit-startup-screen= family of variables and =truncate-lines=. When Evil is active it switches to Emacs state so the single-key bindings are not shadowed. The =:group= =sia-lambda= is not defined in this module.
+=sp-splash-mode= is a buffer-local minor mode that makes the splash look clean: it disables undo, auto-revert, whitespace mode and line numbers, makes the buffer read-only, hides the cursor, mode line and header line, and removes margins and fringes. It also sets the global =inhibit-startup-screen= family of variables and =truncate-lines=. When Evil is active it switches to Emacs state so the single-key bindings are not shadowed. Its =:group= is =sp-splash=; it used to be =sia-lambda=, which this config never defines.
 
 #+begin_src emacs-lisp -i
 (define-minor-mode sp-splash-mode
   "Emacs minor mode for splash screen."
   :global nil
   :keymap sp-splash-mode-map
-  :group 'sia-lambda
+  :group 'sp-splash
   
   :require 'sp-splash
   (buffer-disable-undo)

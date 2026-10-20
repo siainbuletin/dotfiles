@@ -519,25 +519,25 @@ These commands, carried over from Lambda Emacs's helper functions, read the macO
 
 ** Resolving citations to Org
 
-=sp-cite-to-org= is meant to run the clipboard through Pandoc with the user's bibliography so citations are rendered as formatted text, then convert the result to Org. It passes the quoted symbol ='sp-bibliography= to =concat=, which only accepts strings, so it signals an error; using the variable's value (and making sure it is set) would fix it.
+=sp-cite-to-org= is meant to run the clipboard through Pandoc with the user's bibliography so citations are rendered as formatted text, then convert the result to Org. It passes the value of =sp-bibliography= (a =defcustom= in =sp-academic=, =nil= until you set it) to =concat=. It used to pass the quoted symbol ='sp-bibliography=, which =concat= rejects, so it always signalled an error. Set =sp-bibliography= to the path of your =.bib= file first.
 
 #+begin_src emacs-lisp -i
 (defun sp-cite-to-org ()
   "convert clipboard contents from markdown to org with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
   (yank))
 #+end_src
 
 ** Resolving citations to Markdown
 
-=sp-cite-to-markdown= does the same but produces Markdown with ATX headings. It has the same quoted-symbol bug as the previous command.
+=sp-cite-to-markdown= does the same but produces Markdown with ATX headings. It reads =sp-bibliography= in the same way, so it needs the variable set too.
 
 #+begin_src emacs-lisp -i
 (defun sp-cite-to-markdown ()
   "convert clipboard contents to markdown with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" 'sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
   (yank))
 #+end_src
 
@@ -574,13 +574,13 @@ These commands, carried over from Lambda Emacs's helper functions, read the macO
 
 ** Org to formatted Mail message
 
-=sp-org-to-mail-rtf= is meant for composing email in Org: copy the buffer, convert it to RTF through HTML, kill the buffer, close the frame, and use AppleScript to paste into the Mail app if it is running. The first call is written as =('sp-copy-whole-buffer-to-clipboard)=, a quoted symbol in function position, which Emacs rejects as an invalid function, so the command fails before doing anything. Removing the quote would make it call the helper from =sp-helper-funct=. Note that it closes the current frame unconditionally.
+=sp-org-to-mail-rtf= is meant for composing email in Org: copy the buffer, convert it to RTF through HTML, kill the buffer, close the frame, and use AppleScript to paste into the Mail app if it is running. The first call is =(sp-copy-whole-buffer-to-clipboard)=, the helper from =sp-helper-funct=. It used to be written with a quote, as a quoted symbol in function position, which Emacs rejects as an invalid function, so the command failed before doing anything. Note that it closes the current frame unconditionally.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-to-mail-rtf ()
   "copy buffer, convert clipboard contents from org to rtf, and send to mail message"
   (interactive)
-  ('sp-copy-whole-buffer-to-clipboard)
+  (sp-copy-whole-buffer-to-clipboard)
   ;; (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t rtf"))
   (kill-new (shell-command-to-string "pbpaste | pandoc -f org -t html | /usr/bin/textutil -stdin -stdout -format html -convert rtf -fontsize 14 | pbcopy"))
   (kill-buffer)

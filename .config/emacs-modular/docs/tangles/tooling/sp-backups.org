@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-backups.el=. Every line of the
 
 This module decides where Emacs keeps backup files and auto-save files, turns on aggressive automatic saving of every modified file, disables lock files and enables =savehist= so minibuffer history survives restarts. It relies on the directory constants =sp-var-dir= and =sp-cache-dir= from =early-init.el= and installs the =vc-backup= package.
 
-The file has grown in layers: backup settings are set several times with different values, and the later assignments win. Reading top to bottom, the effective result is that backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions, and auto-save files go to =auto-save-files/= under =sp-cache-dir=. The module is loaded with the utility modules in =init.el=, in both the default and minimal lists.
+The backup settings are made once, in the final block: backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions, and auto-save files go to =auto-save-files/= under =sp-cache-dir=. The file used to set the backup directory, version counts and lock files several times with different values, where the later assignments won; those earlier, overridden copies are gone, so the effective settings are unchanged. The module is loaded with the utility modules in =init.el=, in both the default and minimal lists.
 
 * Header
 
@@ -28,48 +28,18 @@ Lexical binding and a short commentary: Emacs leaves backup files around that sh
 ;;; Code:
 #+end_src
 
-* Backup location
-
-** First backup directory
-
-Defines the option =siapip/backup-file-location= (default =~/.emacs.d/backups=), creates that directory, warning instead of failing if it cannot, and points =backup-directory-alist= at it with copying backups. This location is overridden twice further down, so in practice only the empty directory remains from this block.
-
-#+begin_src emacs-lisp -i
-(defcustom siapip/backup-file-location "~/.emacs.d/backups"
-  "Directory where backup files will be stored.
-This specifies the path where Emacs will save backup files when
-editing. The default location is in the .emacs.d directory."
-  :type 'directory
-  :group 'siapip)
-(condition-case nil
-    (make-directory siapip/backup-file-location t)
-  (error (message "Warning: Could not create backup directory")))
-(setq backup-directory-alist (list (cons "." siapip/backup-file-location)))
-(setq backup-by-copying t)
-#+end_src
-
-** Auto-save and lock files off
-
-Turns off auto-saving and lock files. The auto-save part is reversed immediately by the =files= block below, which turns auto-saving back on.
-
-#+begin_src emacs-lisp -i
-(setq auto-save-default nil)
-(setq create-lockfiles nil)
-#+end_src
-
 * Backups and auto-save
 
 ** use-package files
 
 Configures the built-in =files= library. In =:init=:
-- backups go to =backup= under =sp-cache-dir=, created if missing;
-- the auto-save list and auto-save files are kept under =sp-cache-dir= as well;
+- the auto-save list and auto-save files are kept under =sp-cache-dir=;
 - auto-saving is turned on for every buffer, every 30 idle seconds or 300 keystrokes, and auto-save files are deleted after a real save;
 - =auto-save-visited-mode= is enabled, which saves file-visiting buffers directly to their files.
 
-The =:config= turns on numbered backups by copying, silently deletes old versions, keeps 10 new and 0 old ones, and also backs up files under version control. It defines =lem-full-auto-save=, which saves every modified file buffer and ignores errors, runs it from =auto-save-hook= and from a repeating 5 second idle timer. The net effect is that modified files are written to disk whenever Emacs is idle for a few seconds.
+The =:config= defines =lem-full-auto-save=, which saves every modified file buffer and ignores errors, and runs it from =auto-save-hook= and from a repeating 5 second idle timer. The net effect is that modified files are written to disk whenever Emacs is idle for a few seconds.
 
-Because =files= is always preloaded, the deferred =:config= most likely runs at once, so the kept-version counts it sets are overridden by the next blocks.
+The backup settings that used to be repeated here, in =:config= and at the top of the file now live only in the final block below.
 
 #+begin_src emacs-lisp -i
 ;;;; Backups / Auto-Save
@@ -77,14 +47,6 @@ Because =files= is always preloaded, the deferred =:config= most likely runs at 
   :ensure nil
   :defer 1
   :init
-  
-  ;; backups
-  (let ((backup-dir (concat sp-cache-dir "backup")))
-    ;; Move backup file to `~/.emacs.d/temp/cache/backup'
-    (setq backup-directory-alist `(("." . ,backup-dir)))
-    ;; Makesure backup directory exist
-    (when (not (file-exists-p backup-dir))
-      (make-directory backup-dir t)))
   
   ;; auto save
   (setq auto-save-list-file-prefix
@@ -101,19 +63,9 @@ Because =files= is always preloaded, the deferred =:config= most likely runs at 
   (setq-default
    auto-save-timeout 30              ; number of seconds idle time before auto-save (default: 30)
    auto-save-interval 300            ; number of keystrokes between auto-saves (default: 300)
-   delete-auto-save-files t
-   create-lockfiles nil)
+   delete-auto-save-files t)
   (auto-save-visited-mode 1)
   :config
-  (setq  make-backup-files t               ; backup of a file the first time it is saved.
-         backup-by-copying t               ; don't clobber symlinks
-         version-control t                 ; version numbers for backup files
-         delete-old-versions t             ; delete excess backup files silently
-         kept-old-versions 0               ; oldest versions to keep when a new numbered backup is made
-         kept-new-versions 10              ; newest versions to keep when a new numbered backup is made
-         vc-make-backup-files t            ; backup versioned files, which Emacs does not do by default
-         )
-
   (defun lem-full-auto-save ()
     (interactive)
     (save-excursion
@@ -131,21 +83,9 @@ Because =files= is always preloaded, the deferred =:config= most likely runs at 
   (run-with-idle-timer 5 t (lambda () (lem-full-auto-save))))
 #+end_src
 
-** Backup version counts
-
-Sets numbered backups with 6 new and 2 old versions, deleting extra versions silently.
-
-#+begin_src emacs-lisp -i
-;; What to do with the backups?
-(setq delete-old-versions t)
-(setq kept-new-versions 6)
-(setq kept-old-versions 2)
-(setq version-control t)
-#+end_src
-
 ** vc-backup
 
-Installs =vc-backup=, a VC backend that treats Emacs backup files as a version history, so older backups can be browsed and diffed with the normal VC commands. Note that =sp-prog-misc= empties =vc-handled-backends=, which may keep this backend from being used.
+Installs =vc-backup=, a VC backend that treats Emacs backup files as a version history, so older backups can be browsed and diffed with the normal VC commands.
 
 #+begin_src emacs-lisp -i
 (use-package vc-backup
@@ -154,7 +94,7 @@ Installs =vc-backup=, a VC backend that treats Emacs backup files as a version h
 
 ** Final backup settings
 
-The last word on backups: the default =backup-directory-alist= points to =backups/= under =sp-var-dir=, backups are made by copying and also for version-controlled files, deleted files are moved to the system trash, and 6 new and 3 old numbered versions are kept. The inline comment on =vc-make-backup-files= says the opposite of what the setting does; t means files under version control are backed up too.
+The one place where backups are configured: the default =backup-directory-alist= points to =backups/= under =sp-var-dir=, backups are made by copying and also for version-controlled files, deleted files are moved to the system trash, and 6 new and 3 old numbered versions are kept. The inline comment on =vc-make-backup-files= says the opposite of what the setting does; t means files under version control are backed up too.
 
 #+begin_src emacs-lisp -i
 (setq-default backup-directory-alist

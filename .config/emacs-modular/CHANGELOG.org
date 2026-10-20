@@ -8,7 +8,32 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
-None.
+** Fixed
+- Problems found in the module doc review are fixed in each module and its doc in =docs/tangles/=. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+  - =sp-academic=: =C-c w b b= calls =sp-bibtex-biblio-lookup=; autokey options are set once
+  - =sp-dired=: =dirvish-cache-dir= is a path; the eza preview is defined once Dirvish has loaded
+  - =sp-eshell=: =eshell-ls-use-colors= spelled correctly; visual commands added one by one
+  - =sp-exwm=: the =s-o= lock-screen key entry is well formed
+  - =sp-frame=: recentring checks =maximized=
+  - =sp-goto=: opens the running config's =early-init.el=
+  - =sp-keys=: window keys and the kill-and-archive key point at commands that exist
+  - =sp-latex=: provides =sp-latex=; duplicate AUCTeX blocks removed; compile-on-save loaded by full path
+  - =sp-lisp=: the =sly= hooks and flex completion are installed
+  - =sp-multimedia=, =sp-plantuml=, =sp-org-emphasis=, =sp-org-time=, =sp-xml=, =sp-rss=: =provide= the feature named like the file
+  - =sp-org-base=: =org-directory= ends in a slash
+  - =sp-org-export=: the cite commands and the mail RTF command run
+  - =sp-org-fn=: =org-footnote-auto-adjust= is set with =setq=
+  - =sp-pdfprocess=: no void-variable error on =citekey=
+  - =sp-rss=: =rmh-elfeed-org-files= and =cl-letf= instead of a bad =:custom= and =flet=
+  - =sp-splash=: erase helper and customization groups
+  - =sp-vulpea-ui=: the open-questions and albums views read correctly
+  - =sp-workspaces=: the Eshell workspace starts and the config tab is reused
+  - =init.el=: =lem-dashboard= is listed once in the default modules
+** Changed
+- All custom agenda views, native and the PARA view from =sp-vulpea-para=, move to a new module =sp-agenda-views=. It is tangled from =docs/tangles/text/sp-org-agenda.org=, which now sets =:tangle= per heading instead of for the whole file, and is loaded by =sp-org-ext=. All views are offered together (Daily Agenda moved to =D=, Weekly Review to =R=), and =sp-vulpea-para= adds its capture templates instead of replacing the existing ones. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- TAB cycles outline sections only on headings in programming buffers (=sp-base-code=). ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- Duplicate backup and Vulpea directory settings are removed from =sp-backups= and =sp-vulpea-base= without changing what is in effect. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
+- The docs for =sp-org-base=, =sp-org-appearance= and =sp-base-libraries= match the latest hand edits to those modules. ([[https://github.com/siainbuletin/dotfiles/pull/14][#14]], Claude)
 
 * 2026-10-20
 ** Added

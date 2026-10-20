@@ -246,15 +246,6 @@ Defines =siapip/scroll-amount= (5 lines) and two small commands, =up-slightly= a
 (global-set-key [mouse-5] 'up-slightly)
 #+end_src
 
-** Disable version control backends
-
-Setting =vc-handled-backends= to an empty list turns off Emacs' built-in VC entirely, so files in Git repositories are opened without VC checks and VC mode line info. The comment calls it a Git diff fix; Magit is not affected by this setting.
-
-#+begin_src emacs-lisp -i
-;; Git diff fix
-(setq vc-handled-backends ())
-#+end_src
-
 ** Terminal mouse support
 
 When Emacs runs in a terminal, it enables =xterm-mouse-mode= so clicks and scrolling work. It also defines =track-mouse= as an empty function, a workaround from an old Stack Overflow answer; =track-mouse= is normally a macro, so this may break code that relies on it in terminal frames.

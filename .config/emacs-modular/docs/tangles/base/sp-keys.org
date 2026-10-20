@@ -205,7 +205,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Config files (C)
 
-=lem+config-keys= jumps to and reloads the configuration: open =init.el=, =early-init.el=, =custom.el= or the Emacs directory, find or search config files, and reload the config. The FIXME notes say the goto helpers should become more generic and that the kill-and-archive command does not yet create an archive file.
+=lem+config-keys= jumps to and reloads the configuration: open =init.el=, =early-init.el=, =custom.el= or the Emacs directory, find or search config files, and reload the config. The FIXME notes say the goto helpers should become more generic and that the kill-and-archive command does not yet create an archive file. =a= runs =sp-kill-and-archive-region= from =sp-helper-funct=; the binding used to name =sp-setup-kill-and-archive-region=, which is not defined anywhere.
 
 #+begin_src emacs-lisp -i
 ;;;;; Config Keybindings
@@ -213,7 +213,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
-           ("a" . sp-setup-kill-and-archive-region     )
+           ("a" . sp-kill-and-archive-region           )
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
@@ -445,31 +445,31 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
 
 ** Windows (w)
 
-=lem+window-keys= handles window layout: =ace-window=, splitting with or without moving focus, deleting windows, rotating and swapping buffers between windows, toggling split direction, =tear-off-window= into a new frame, and =winner-undo= / =winner-redo=. Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below).
+=lem+window-keys= handles window layout: =ace-window=, splitting with or without moving focus, deleting windows, rotating and swapping buffers between windows, toggling split direction, =tear-off-window= into a new frame, and =winner-undo= / =winner-redo=. Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below). The rotate, split, swap and toggle keys point at the =lem-...= commands defined in =sp-windows=; they used to name =sp-...= versions that do not exist, which left those keys dead. =o= calls the built-in =other-window=, because no =lem-= version of it exists.
 
 #+begin_src emacs-lisp -i
 ;;;;; Window Keybindings
 (bind-keys :prefix-map lem+window-keys
            :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
-           ("f" .  sp-toggle-window-split         )
+           ("f" .  lem-toggle-window-split        )
            ("c" .  delete-window                   )
            ("d" .  delete-window                   )
-           ("h" .  sp-split-window-below-and-focus)
+           ("h" .  lem-split-window-below-and-focus)
            ("H" .  split-window-below              )
            ("m" .  delete-other-windows            )
-           ("o" .  sp-other-window                )
-           ("r" .  sp-rotate-windows              )
-           ("R" .  sp-rotate-windows-backward     )
+           ("o" .  other-window                   )
+           ("r" .  lem-rotate-windows            )
+           ("R" .  lem-rotate-windows-backward   )
            ("t" .  tear-off-window                 )
            ("u" .  winner-undo                     )
            ("U" .  winner-redo                     )
-           ("v" .  sp-split-window-right-and-focus)
+           ("v" .  lem-split-window-right-and-focus)
            ("V" .  split-window-right              )
            ("w" .  ace-window                      )
-           ("x" .  sp-window-exchange-buffer      )
+           ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
-           ("_" .  sp-split-window-below-and-focus))
+           ("_" .  lem-split-window-below-and-focus))
 #+end_src
 
 ** Workspaces (W)

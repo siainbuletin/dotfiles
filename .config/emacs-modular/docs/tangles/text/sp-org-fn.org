@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 An experiment in placing Org footnote definitions inside the subtree they belong to rather than in one section at the end of the file. The motivation is that commands like =vulpea-split-heading= move a heading into a new file but leave its footnotes behind. The plan was to keep file-end footnotes only for small files and otherwise attach a footnote section to the nearest heading no deeper than a configurable level.
 
-The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. There is also a load-time bug: =(org-footnote-auto-adjust t)= is written as a function call, but =org-footnote-auto-adjust= is a variable, so loading the file would signal a void-function error. It probably came from a =:custom= block and was meant to be a =setq=.
+The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable, which would have signalled a void-function error when the file loaded; it is now a =setq=.
 
 * Background
 
@@ -75,14 +75,14 @@ A commented-out setting for =org-footnote-section=, kept as a note. The question
 
 ** Automatic renumbering
 
-Intended to turn on =org-footnote-auto-adjust=, which renumbers and sorts footnotes after each insertion or deletion. The comment warns this is only safe once nested headings work, since renumbering makes it easy to get references wrong when moving notes. As noted above, this line is a function call on a variable and would error when the file loads.
+Turns on =org-footnote-auto-adjust= with a =setq=, which renumbers and sorts footnotes after each insertion or deletion. The comment warns this is only safe once nested headings work, since renumbering makes it easy to get references wrong when moving notes.
 
 #+begin_src emacs-lisp -i
 ;; Autorenumbering for footnotes
 ;; this should only be kept on if you have the proper logic for nested headings working well
 ;; enough, because it makes sifting through for the correct reference really easy to get wrong
 ;; when trying to move notes around.
-(org-footnote-auto-adjust t) ;; renumber footnotes
+(setq org-footnote-auto-adjust t) ;; renumber footnotes
 #+end_src
 
 ** Maximum heading level

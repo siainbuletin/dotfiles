@@ -99,14 +99,14 @@ Does not list files automatically after =cd= (a hook later in the file does that
 
 ** ls
 
-Sets =eshell-ls-use-colorls=, inherited from Lambda-Emacs. Eshell's real option is named =eshell-ls-use-colors=, so this looks like a typo and probably has no effect. It also stops Eshell's =ls= from being used inside Dired.
+Sets =eshell-ls-use-colors=, inherited from Lambda-Emacs. The line used to name =eshell-ls-use-colorls=, a typo for Eshell's real option, so it had no effect and colours were left at their default. It also stops Eshell's =ls= from being used inside Dired.
 
 #+begin_src emacs-lisp -i
 (use-package em-ls
   :ensure nil
   :after eshell
   :custom
-  (eshell-ls-use-colorls t)
+  (eshell-ls-use-colors t)
   (eshell-ls-use-in-dired nil))
 #+end_src
 
@@ -191,7 +191,7 @@ Makes globs case-insensitive and signals an error when a glob matches nothing, i
 
 Tells Eshell which programs need a real terminal and should run in a term buffer: =git= with =--help= or =--paginate=, the =git log=, =diff= and =show= subcommands, and full-screen tools like =htop=, =vim=, =less= and =ssh=.
 
-The last =add-to-list= adds the whole list of program names as a single element of =eshell-visual-commands=, which expects a flat list of strings, so those programs are probably not recognised as visual. Each would need adding separately, or the list appending. The two git entries are in the correct format.
+The program names are added to =eshell-visual-commands= one at a time, because that variable expects a flat list of strings. An earlier version added the whole list as a single nested element, so none of those programs were recognised as visual. The two git entries are in the correct format.
 
 #+begin_src emacs-lisp -i
 (use-package em-term
@@ -201,9 +201,10 @@ The last =add-to-list= adds the whole list of program names as a single element 
   ;; Visual commands
   (add-to-list 'eshell-visual-options '("git" "--help" "--paginate"))
   (add-to-list 'eshell-visual-subcommands '("git" "log" "diff" "show"))
-  (add-to-list 'eshell-visual-commands '("ranger" "vi" "screen" "top" "less" "more" "lynx"
-                                         "ncftp" "pine" "tin" "trn" "elm" "vim"
-                                         "nmtui" "alsamixer" "htop" "el" "elinks" "tail" "top" "nano" "ssh")))
+  (dolist (command '("ranger" "vi" "screen" "top" "less" "more" "lynx"
+                     "ncftp" "pine" "tin" "trn" "elm" "vim"
+                     "nmtui" "alsamixer" "htop" "el" "elinks" "tail" "top" "nano" "ssh"))
+    (add-to-list 'eshell-visual-commands command)))
 #+end_src
 
 * Completion and help extras

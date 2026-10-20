@@ -215,7 +215,7 @@ Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives 
 
 ** Outline minor mode for code
 
-Turns on the built-in =outline-minor-mode= in every programming buffer. In that mode TAB cycles the visibility of the current section, Shift TAB cycles the whole buffer, =M-j= and =M-k= move a subtree down and up, and =M-h= and =M-l= promote and demote. Because TAB is taken over, it no longer indents or completes in programming buffers while the mode is on. For Emacs Lisp, the outline regexp treats comments starting with three or more semicolons as headings, with levels from the number of semicolons, and =outline-level= is reset so =lispy= cannot override it.
+Turns on the built-in =outline-minor-mode= in every programming buffer. In that mode =M-j= and =M-k= move a subtree down and up, and =M-h= and =M-l= promote and demote. With =outline-minor-mode-cycle= set, TAB cycles the visibility of the current section and Shift TAB cycles the whole buffer, but only while point is on a heading, so TAB still indents and completes everywhere else. The module used to bind =<tab>= to =outline-cycle= for the whole mode, which took TAB over in every programming buffer. For Emacs Lisp, the outline regexp treats comments starting with three or more semicolons as headings, with levels from the number of semicolons, and =outline-level= is reset so =lispy= cannot override it.
 
 #+begin_src emacs-lisp -i
 ;; Navigate elisp files easily. Outline is a built-in library and we can easily
@@ -223,9 +223,11 @@ Turns on the built-in =outline-minor-mode= in every programming buffer. In that 
 (use-package outline
   :ensure nil
   :hook (prog-mode . outline-minor-mode)
+  :custom
+  ;; TAB and S-TAB cycle visibility only when point is on a heading, so TAB
+  ;; keeps indenting and completing everywhere else in prog-mode buffers.
+  (outline-minor-mode-cycle t)
   :bind (:map outline-minor-mode-map
-         ("<tab>"   . outline-cycle)
-         ("S-<tab>" . outline-cycle-buffer)
          ("M-j"     . outline-move-subtree-down)
          ("M-k"     . outline-move-subtree-up)
          ("M-h"     . outline-promote)

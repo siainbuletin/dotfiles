@@ -78,7 +78,7 @@ Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files, =sp-pd
 
 ** biblio
 
-Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sia-bibtex-biblio-lookup=. That command is not defined anywhere in the repository, so the key currently signals an error unless it is provided from outside this config.
+Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sp-bibtex-biblio-lookup=, defined in =sp-bibprocess= (which this module requires). The binding used to point at =sia-bibtex-biblio-lookup=, a name that is not defined anywhere, so the key signalled an error.
 
 #+begin_src emacs-lisp -i
 ;;;; Setting up the proper variables
@@ -89,7 +89,7 @@ Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX 
   :ensure t
 
   :bind
-  (("C-c w b b" . sia-bibtex-biblio-lookup))
+  (("C-c w b b" . sp-bibtex-biblio-lookup))
 )
 #+end_src
 
@@ -112,18 +112,13 @@ Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It 
 
 ** First set of autokey options
 
-Configures =bibtex-generate-autokey=: four-digit years, hyphen separators, up to three title words of at most eight characters, and a list of title words to skip (articles in English and German, plus lowercase and non-alphanumeric words). A comment notes that On was removed from the ignore list. Several of these values are overwritten a few blocks below.
+Configures =bibtex-generate-autokey= with a list of title words to skip (articles in English and German, plus lowercase and non-alphanumeric words). A comment notes that On was removed from the ignore list. The year length, separators and title-word counts are not set here: they were set in this block and again in the second block below, which overwrote them, so they are now set only in the second block.
 
 #+begin_src emacs-lisp -i
 ;; Citation key generation
 
-(setq bibtex-autokey-year-length 4)
-  (setq bibtex-autokey-titleword-separator "-")
-  (setq bibtex-autokey-name-year-separator "-")
-  (setq bibtex-autokey-year-title-separator "-")
-  (setq bibtex-autokey-titleword-length 8)
-  (setq bibtex-autokey-titlewords 3)
-  (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
+;; The length, separator and title-word counts are set once, further down.
+(setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 #+end_src
 
@@ -248,7 +243,7 @@ Sets the =.bib= files used by =helm-bibtex= and friends (a master file plus seve
 
 ** Second set of autokey options
 
-Loads =bibtex= and sets the autokey options again, this time with two title words (stretchable by one) of at most five characters. Since this runs after the earlier block, these values are the ones in effect.
+Loads =bibtex= and sets the autokey options: four-digit years, hyphen separators, and two title words (stretchable by one) of at most five characters. These are the only values for these options; an earlier block used to set them too (with three title words of up to eight characters), but this block ran later and overwrote them.
 
 #+begin_src emacs-lisp -i
 ;; Automatically generating BibTeX keys

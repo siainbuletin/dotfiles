@@ -35,4 +35,4 @@
 (use-package org-extra-emphasis
   :ensure (:type git :host github :repo "QiangF/org-extra-emphasis"))
 
-(provide sp-org-emphasis)
+(provide 'sp-org-emphasis)

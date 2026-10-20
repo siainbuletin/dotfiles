@@ -41,9 +41,7 @@ Start of the code section.
 
 =sia-citar-update-pdf-metadata= asks you to pick a reference with =citar-select-ref=, checks that =citar-library-paths= is set, and finds the PDF files attached to that key. If there is more than one it lets you choose. It takes the title from the bibliography and the author, falling back to the editor with " (ed.)" appended. It then copies the PDF into the backup directory and runs =exiftool= to overwrite the Title and Author fields in place.
 
-As written the function has bugs and will likely fail when run:
-- It refers to =cite-key= (with a hyphen) in the =let*=, but the argument is =citekey=, so it signals a void-variable error.
-- The shell command is built by string concatenation with single quotes, so a title containing an apostrophe or a path with spaces would break it.
+The =let*= used to refer to =cite-key= (with a hyphen) although the argument is =citekey=, which signalled a void-variable error; it now uses =citekey=. One weakness remains: the shell command is built by string concatenation with single quotes, so a title containing an apostrophe or a path with spaces would break it.
 
 #+begin_src emacs-lisp -i
 ;;;; Working with PDF metadata from citar
@@ -52,7 +50,7 @@ As written the function has bugs and will likely fail when run:
   (citar--check-configuration 'citar-library-paths)
   (unless citar-library-paths
     (user-error "Make sure `citar-library-paths' is non-nil"))
-  (let* ((files (gethash cite-key (citar-get-files cite-key))))
+  (let* ((files (gethash citekey (citar-get-files citekey))))
     (unless files
       (user-error (format "There are no PDF files associated with %s" citekey)))
     (let ((file (or (unless (cdr files) (car files)) (completing-read "Please select a PDF file: " files)))

@@ -104,10 +104,10 @@ When storing a link interactively to an Org heading, Org creates an =ID= propert
 
 ** Org directory
 
-Sets =org-directory= to =~/notes=. Note that it has no trailing slash, while several other places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=), which produces names like =~/notesinbox.org=. Other modules such as =sp-org-archive= and =sp-tab-inbox= add the slash themselves.
+Sets =org-directory= to =~/notes/=. The trailing slash matters because several places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=); without it they produced names like =~/notesinbox.org=. Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
 
 #+begin_src emacs-lisp -i
-(setq org-directory "~/notes")
+(setq org-directory "~/notes/")
 #+end_src
 
 ** Free up C-x t i
@@ -138,9 +138,9 @@ In =:init=, =org-emphasis-regexp-components= is widened so emphasis markers work
 
 The =:custom= section keeps footnotes next to their reference, turns on adaptive and startup indentation, preserves source block indentation, inserts headings after the current subtree, allows alphabetical lists, sets a bullet rotation for demoted list items, enables smart =C-a=/=C-e= on headings, raises imenu depth to 8, and makes source blocks fontify natively, edit in another window and confirm before evaluation.
 
-Gotcha: the =(setq org-catch-invisible-edits ...)= line sits inside =:custom=, which expects =(variable value)= pairs, so it does not set =org-catch-invisible-edits= as intended (its own comment already doubts it works).
+=org-catch-invisible-edits= is set to =show-and-error= here, so editing a folded or hidden region is refused with an error after revealing it (the comment doubts it works). It used to be written as a =setq= inside =:custom=, which expects =(variable value)= pairs, so it did not set the variable.
 
-In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the =shell= Babel language, and adds a hook so =electric-pair-mode= never auto-pairs =<= in Org buffers, which would break structure templates like =<s=. The hook checks that =electric-pair-inhibit-predicate= is bound first to avoid a void-variable error.
+In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the Emacs Lisp, shell, Org and R Babel languages (R blocks need R installed, and usually ESS), and adds a hook so =electric-pair-mode= never auto-pairs =<= in Org buffers, which would break structure templates like =<s=. The hook checks that =electric-pair-inhibit-predicate= is bound first to avoid a void-variable error.
 
 #+begin_src emacs-lisp -i
 ;; Use Org from source rather than built in
@@ -215,7 +215,7 @@ In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the =shell= Ba
   (org-footnote-section nil)
 
   ;; Editing
-  (setq org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
+  (org-catch-invisible-edits 'show-and-error) ;; prevent editing invisible area ;;; Does this actually work?
 
   ;; Indentation
   (org-adapt-indentation t) ;; adapt indentation
@@ -253,8 +253,11 @@ In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the =shell= Ba
 
   (org-babel-do-load-languages
    'org-babel-load-languages
-   '((shell . t)))
-  
+   '((emacs-lisp . t)
+     (shell . t)
+     (org . t)
+     (R . t)))
+
   ;; Don't auto-pair `<' in org buffers (it interferes with structure
   ;; templates like `<s' and headlines). Only adjust the predicate if
   ;; `elec-pair' has actually been loaded -- otherwise the var is void
@@ -623,7 +626,7 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 
 ** Jump to Org files
 
-=sp-goto-org-files= runs =find-file= starting in =org-directory=. The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching. They build paths with =concat= and no separator, so with =org-directory= set to =~/notes= above they point at the wrong file names (for example =~/notesinbox.org=).
+=sp-goto-org-files= runs =find-file= starting in =org-directory=. The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching. They build paths with =concat= and no separator, which works because =org-directory= ends in a slash (with the earlier value =~/notes= they pointed at the wrong file names, for example =~/notesinbox.org=).
 
 #+begin_src emacs-lisp -i
 ;;;;; Goto Org Files

@@ -13,7 +13,7 @@
   :config
   (elfeed-org)
   :custom
-  (setq sia-elfeed-org-files (list "~/Documents/elfeed.org")))
+  (rmh-elfeed-org-files (list "~/Documents/elfeed.org")))
 
 (defun yant/elfeed-capture-entry ()
   "Capture selected entries into inbox."
@@ -24,7 +24,7 @@
     (cl-loop for entry in entries
              do (elfeed-untag entry 'unread)
              when (elfeed-entry-link entry)
-             do (flet ((raise-frame nil nil))
+             do (cl-letf (((symbol-function 'raise-frame) #'ignore))
                   (org-protocol-capture (list :template "B"
                                               :url it
                                               :title (format "%s: %s"
@@ -36,3 +36,5 @@
 
 ;; How can this be made to integrate with general bibliography management?
 ;; It would probably have to be studied in the way that it works for Emacs Writing Studio.
+
+(provide 'sp-rss)

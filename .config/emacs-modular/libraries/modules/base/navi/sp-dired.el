@@ -92,7 +92,7 @@ Works in linux, MacOS, Microsoft Windows."
   (dirvish-hide-cursor t)
 
   ;;; Customizing the cache dir
-  (dirvish-cache-dir '(concat sp-cache-dir "dirvish/"))
+  (dirvish-cache-dir (concat sp-cache-dir "dirvish/"))
 
   ;;;; groups
   (dirvish-emerge-groups
@@ -133,15 +133,17 @@ Works in linux, MacOS, Microsoft Windows."
 ;; (dirvish-preview-environment) ;; I don't know how to set this up
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
 
-;; Custom preview for directories with 'eza'
-(dirvish-define-preview eza (file)
-  "Use `eza' to generate directory preview."
-  :require ("eza") ; tell Dirvish to check if we have the executable
-  (when (file-directory-p file) ; we only interest in directories here
-    `(shell . ("eza" "-al" "--color=always" "--icons=always"
-               "--group-directories-first" ,file))))
+;; Custom preview for directories with 'eza'.  `dirvish-define-preview' is a
+;; macro from Dirvish, which is loaded later, so define it once Dirvish is there.
+(with-eval-after-load 'dirvish
+  (dirvish-define-preview eza (file)
+    "Use `eza' to generate directory preview."
+    :require ("eza") ; tell Dirvish to check if we have the executable
+    (when (file-directory-p file) ; we only interest in directories here
+      `(shell . ("eza" "-al" "--color=always" "--icons=always"
+                 "--group-directories-first" ,file))))
 
-(push 'eza dirvish-preview-dispatchers)
+  (push 'eza dirvish-preview-dispatchers))
 
 ;;;; Open binary files externally
 (defun dirvish-open-binaries-externally (file fn)

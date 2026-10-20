@@ -9,3 +9,5 @@
 	               (setq indent-tabs-mode nil)
 	               (add-to-list 'rng-schema-locating-files
 			            "~/.emacs.d/nxml-schemas/schemas.xml"))))
+
+(provide 'sp-xml)
