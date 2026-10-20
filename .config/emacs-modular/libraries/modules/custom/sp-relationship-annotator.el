@@ -15,9 +15,10 @@
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
-;; how many children they hide.  The browser graph can't load more, so
-;; run the command again with a bigger depth.  The outline expands any
-;; node on demand.
+;; how many children they hide.  The browser graph holds
+;; `relationship-annotator-embed-depth' levels (4) and can't load more, so run
+;; the command again from another note, or with a bigger depth.  The
+;; outline expands any node on demand.
 ;;
 ;; Other relations between notes (`supports', `opposes', ...) are drawn
 ;; as labelled links.  See `relationship-annotator-relations' for how to
@@ -111,6 +112,13 @@ light and dark themes."
 
 (defcustom relationship-annotator-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
+  :type 'integer)
+
+(defcustom relationship-annotator-embed-depth 4
+  "Levels below the starting note that the browser page holds.
+The page recentres and changes depth only within them.  Notes at the
+last level show how many children they hide; run the command again from
+another note to go further.  A larger depth, when you ask for one, wins."
   :type 'integer)
 
 (defcustom relationship-annotator-html-file
@@ -816,8 +824,9 @@ Without one, the colour of the node type of NOTE does, named by the type."
 
 (defun relationship-annotator--html (tree start depth)
   "Return a self-contained HTML page showing TREE from START to DEPTH.
-The page holds the whole tree, so it can recentre on any note and cut
-the part to show by itself."
+TREE is already cut to the levels the page holds, see
+`relationship-annotator--scope'.  The page can recentre on any note
+in it and cut the part to show by itself."
   (let* ((notes (plist-get tree :notes))
          (context (relationship-annotator--context tree))
          (ids (let ((acc (make-hash-table :test #'equal)))
@@ -868,6 +877,10 @@ the part to show by itself."
                  (nodes . ,nodes)
                  (edges . ,edges)
                  (links . ,links)
+                 (hidden . ,(let (acc)
+                              (maphash (lambda (id count) (push (cons id count) acc))
+                                       (plist-get tree :more))
+                              acc))
                  (relations . ,(relationship-annotator--relations-json
                                 (plist-get tree :links))))))
     (string-replace "__DATA__" (relationship-annotator--json-for-html data)
@@ -877,10 +890,13 @@ the part to show by itself."
 ;;;###autoload
 (defun relationship-annotator-graph ()
   "Ask for a starting note and depth, then open the hierarchy in the browser.
-The page holds the whole tree.  Clicking a box recentres the graph on it."
+The page holds `relationship-annotator-embed-depth' levels below the starting
+note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)
   (pcase-let* ((`(,start . ,depth) (relationship-annotator--read-scope))
-               (tree (relationship-annotator--build)))
+               (tree (relationship-annotator--scope
+                      (relationship-annotator--build) start
+                      (max depth relationship-annotator-embed-depth))))
     (let ((coding-system-for-write 'utf-8))
       (with-temp-file relationship-annotator-html-file
         (insert (relationship-annotator--html tree start depth))))
