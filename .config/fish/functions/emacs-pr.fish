@@ -4,6 +4,7 @@
 #        emacs-pr rm 7       remove that worktree, its packages, its home and its ref
 #        emacs-pr reset 7    give PR 7 a fresh copy of ~/notes next time
 #        emacs-pr reseed     drop the package seed (re-cloned from the live one next time)
+#        emacs-pr --help     print this usage (and where things live)
 #
 # Every PR gets its own copy of everything it can write to, so any number of sandboxes can run
 # next to each other and next to your live Emacs:
@@ -24,6 +25,33 @@ function __emacs_pr_repoint --argument-names old new
     done'
 end
 
+# Print the usage text (emacs-pr --help).
+function __emacs_pr_help
+    echo 'emacs-pr: run a pull request of the dotfiles in a sandboxed Emacs
+
+Usage:
+  emacs-pr N          Fetch PR N and start an Emacs on it. Running it again updates the
+                      sandbox to the latest commit of the PR and starts it again.
+  emacs-pr rm N       Remove everything of PR N: worktree, packages, notes copy and ref.
+  emacs-pr reset N    Give PR N a fresh copy of ~/notes the next time it starts.
+  emacs-pr reseed     Drop the package seed; the next new sandbox clones your live
+                      packages again (sandboxes that exist keep theirs).
+  emacs-pr -h|--help  Show this text.
+
+Where things are:
+  ~/src/dotfiles-wt/pr-N                 the PR\'s worktree (detached, with its own var/)
+  ~/.cache/emacs-sandbox/home/pr-N       the HOME of the sandbox, holding a copy of ~/notes
+  ~/.cache/emacs-sandbox/seed            clone of your live var/elpaca; each PR clones it
+  ~/.cache/emacs-sandbox/eln-cache       native-compile cache, shared by all sandboxes
+
+Each sandbox has its own packages and notes, so any number can run next to each other and
+next to your live Emacs. The same commands exist inside Emacs as M-x sp-sandbox-pr,
+sp-sandbox-remove, sp-sandbox-reset-notes and sp-sandbox-reseed.
+
+Needs yadm, git and Emacs 29+, and macOS (APFS, for cp -c). More: "Testing a pull request
+in a sandbox" in ~/.config/emacs-modular/README.org.'
+end
+
 function emacs-pr --description 'Isolated Emacs for a dotfiles PR'
     set -l real $HOME
     set -l cache $real/.cache/emacs-sandbox
@@ -31,6 +59,9 @@ function emacs-pr --description 'Isolated Emacs for a dotfiles PR'
     set -l live $real/.config/emacs-modular/var/elpaca
 
     switch $argv[1]
+        case '' -h --help help
+            __emacs_pr_help
+            return
         case reseed
             rm -rf $seed
             return
