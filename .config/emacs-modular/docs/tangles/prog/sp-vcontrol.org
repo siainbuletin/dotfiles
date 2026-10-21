@@ -6,17 +6,22 @@ Literate source for =libraries/modules/prog/sp-vcontrol.el=. Every line of the m
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-A short module that installs Magit and adds a helper for using it with YADM, the dotfile manager. It depends on the =magit= and =transient= packages. The YADM helper opens Magit in the home directory, which only works if Git can see a repository there; =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup. The module is in the Programming group of the default module list in =init.el=.
+A short module that installs Magit, adds a helper for using it with YADM, the dotfile manager, and sets up Forge so Magit can work with GitHub pull requests and issues. It depends on the =magit=, =transient= and =forge= packages. The YADM helper opens Magit in the home directory, which only works if Git can see a repository there; =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup. The module is in the Programming group of the default module list in =init.el=. The Forge part is a basic configuration and has not been run in a test environment yet.
 
 * Magit
 
 ** Header
 
-File header with lexical binding.
+File header with lexical binding, then the usual empty =Commentary= section and the start of the code.
 
 #+begin_src emacs-lisp -i
 ;; -*- lexical-binding: t; -*-
 ;; sp-vcontrol.el
+
+;;; Commentary:
+
+;;; Code:
+;;;; Magit initial installation
 #+end_src
 
 ** Magit
@@ -36,17 +41,39 @@ Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=. W
 
 * YADM
 
-** Magit on the home directory, and provide
+** Magit on the home directory
 
 The =yadm= command opens =magit-status= on =~/=. YADM keeps its repository outside the home directory, so this only shows the dotfiles if the shell environment points Git at that repository (for example a =.git= link in the home directory); the variables copied in =sp-env= suggest that is the setup, though the details are not in this config. An earlier version used a TRAMP path =/yadm::= instead; a =yadm= TRAMP method is still defined in =sp-network=, but nothing uses it here any more.
+
+#+begin_src emacs-lisp -i
+;;;; YADM function to be able to work with dotfiles
+(defun yadm ()
+  (interactive)
+  (magit-status "~/"))
+#+end_src
+
+* Forge
+
+** Forge and credentials
+
+Installs =forge= once =magit= has loaded. Forge adds GitHub (and other forge) pull requests and issues to Magit: the commands are reached from the Magit transients (for example =N= in a status buffer), and it keeps its data in a local database. It has no settings of its own here, so it uses its defaults.
+
+Forge needs a token to talk to GitHub. =auth-sources= is set to just =~/.authinfo=, which replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain. The token entry in that file is the user's to add, for example =machine api.github.com login USERNAME^forge password TOKEN=; nothing secret is stored in this config.
+
+#+begin_src emacs-lisp -i
+;;; Forge settings
+(use-package forge
+  :after magit)
+
+(setq auth-sources '("~/.authinfo"))
+#+end_src
+
+** Provide
 
 The last lines provide the =sp-vcontrol= feature.
 
 #+begin_src emacs-lisp -i
-(defun yadm ()
-  (interactive)
-  (magit-status "~/"))
-
+;;; Provide:
 
 (provide 'sp-vcontrol)
 ;; sp-vcontrol.el ends here
