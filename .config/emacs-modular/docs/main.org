@@ -286,30 +286,9 @@ If I ever add/remove files, I do this instead:
 
 - bootstrap.org :: dealt with `early-init.el` settings. Meant for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
 - utility-functions.org :: mostly this module is now refactored into ~sp-helper-functions.el~
-
-** Search structure and completion layer
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/search.org src org
-
-Contains configuration for the completion packages as well as any search framework over the data, like =org-ql= or the implementation of =Xapian=. This means that it also has =vertico= and all of the other modern Emacs completion packages.
-
-** Keybindings
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/keybindings.org src org
-
-For avoiding RSI and developing a system which works across the entire operating system. It's particularly important if you're able to call up =org-protocol=, =org-capture= or Joshua Blais' =universal-launcher= from anywhere on the system.
-
-** File management
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/file-management.org src org
-
-Mostly settings for =dired=, and moving files around more efficiently. [[file:org-modules/file-management.org][(see here)]]
-
-** File back up settings
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/backup-settings.org src org
-
-This is mostly for the native backup functionality that is provided by Emacs.
+- search.org :: this defined the search structure and completion layer (ex. ~org-ql~ or the implementation of =Xapian=)
+- file-management.org :: Mostly settings for =dired=, and moving files around more efficiently.
+- backup-settings.org :: native backup functionality that is provided by Emacs.
 
 ** Bookmark management
 
