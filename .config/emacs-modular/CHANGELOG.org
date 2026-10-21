@@ -37,10 +37,10 @@ to fold or unfold it.
 - =emacs-pr= gives every pull request its own packages (a clone of a seed of the live =var/elpaca=) and its own copy of the notes, so several sandboxes can run at once next to the live Emacs. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - A click on a box in the browser graph recentres the graph on it, with buttons for the depth and for going back, and a marker to fold a branch. The page holds =vulpea-hierarchy-embed-depth= levels (4) below the starting note, cut in Emacs, so a large vault doesn't make it large; to go further, run the command again from another note. ([[https://github.com/siainbuletin/dotfiles/pull/17][#17]], Claude)
 - =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
-** Removed
-- The Custom block at the end of =init.el= (=custom-set-variables= and =custom-set-faces=) is removed, including the absolute =org-agenda-files= list, so =sp-vulpea-para= decides which agenda files load. The fonts, modeline choice, safe themes and org emphasis faces it held are no longer set. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
 ** Fixed
 - Clicking a box in the =relationship-annotator-graph= page now recentres the graph on it (the page captured the pointer, so the click never reached the box). A box can also be focused with =TAB= and recentred with =RET=. ([[https://github.com/siainbuletin/dotfiles/pull/38][#38]], Claude)
+** Removed
+- The Custom block at the end of =init.el= (=custom-set-variables= and =custom-set-faces=) is removed, including the absolute =org-agenda-files= list, so =sp-vulpea-para= decides which agenda files load. The fonts, modeline choice, safe themes and org emphasis faces it held are no longer set. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
 
 * 2026-10-21
 ** Added
