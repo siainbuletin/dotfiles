@@ -63,8 +63,8 @@ Configures the built-in =oc= after Org loads. All export back ends (Beamer, LaTe
   :init
   ;; Set these variables early so they're available when needed
   (with-eval-after-load 'oc
-    (setq org-cite-csl-styles-dir "~/.local/share/csl/styles")
-    (setq org-cite-csl-locales-dir "~/.local/share/csl/locales")))
+    (setq org-cite-csl-styles-dir (sp-path sp-data-home "csl/styles"))
+    (setq org-cite-csl-locales-dir (sp-path sp-data-home "csl/locales"))))
 #+end_src
 
 * Citeproc and Citar
@@ -166,7 +166,7 @@ Once both Citar and Embark are loaded, =citar-embark-mode= adds citation-specifi
 Defines =sia-citar-library-backup-path= pointing to =~/Documents/literature/backup=. Nothing in this module uses it; presumably other code backs up the PDF library there.
 
 #+begin_src emacs-lisp -i
-(defvar sia-citar-library-backup-path "~/Documents/literature/backup")
+(defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
 #+end_src
 
 * Provide
