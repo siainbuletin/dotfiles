@@ -1,0 +1,19 @@
+#+title: Architecture decision records
+#+startup: overview
+
+Decisions about how I work with AI-made changes on this repository, one file each. The top-level [[file:../README.org::*Reviewing and merging AI-made changes on macOS][README.org]] only summarises the current choices and links here for the reasons.
+
+Each record has a status (accepted, superseded or rejected), the context, the decision, the alternatives that were considered and the consequences. To change a decision, write a new record that supersedes the old one and set the old one's =#+status:= to =superseded by NNNN=; do not rewrite history.
+
+*Not verified on my Mac.* The records were written from a Linux container. Tool behaviour comes from each project's documentation and source, and anything I have not tried is marked /untested/.
+
+| No.  | Decision                                                      | Status   |
+|------+---------------------------------------------------------------+----------|
+| [[file:0001-plain-clone-for-gui-git-tools.org][0001]] | Use a plain clone for GUI git tools, keep yadm for the live config | accepted |
+| [[file:0002-sourcegit-for-visual-git.org][0002]] | Use SourceGit for branches, merges and conflicts              | accepted |
+| [[file:0003-merge-prs-on-github-with-merge-commits.org][0003]] | Merge PRs on GitHub with merge commits                        | accepted |
+| [[file:0004-number-prefixed-pr-branches.org][0004]] | Prefix PR branch names with the PR number                     | accepted |
+| [[file:0005-update-stacked-prs-by-merging.org][0005]] | Update stacked PRs by merging, not rebasing                   | accepted |
+| [[file:0006-changelog-keep-both-sides.org][0006]] | Resolve =CHANGELOG.org= conflicts by keeping both sides       | accepted |
+| [[file:0007-emacs-tooling-for-pr-review.org][0007]] | Review and try PRs from Emacs with Forge, code-review and a sandbox | accepted |
+| [[file:0008-workbench-for-brainstorming-only.org][0008]] | =sp-vc-ai-workbench= is for brainstorming, not for writing code | accepted, not yet in use |
