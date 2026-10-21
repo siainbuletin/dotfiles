@@ -1,0 +1,388 @@
+#+title: sp-relationship-annotator-live
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-relationship-annotator-live.el :comments no :padline yes :noweb no :mkdirp yes
+
+Literate source for =libraries/modules/custom/sp-relationship-annotator-live.el=. Every line of the file lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* A live browser view for the relationship annotator
+
+** Context
+
+=relationship-annotator-graph= (see [[file:sp-relationship-annotator.org][sp-relationship-annotator]]) writes a self-contained HTML page to =relationship-annotator-html-file= and opens it from disk. The page is a snapshot: after I edit a note, or add a =supports= relation, I have to run the command again and open a new file.
+
+This module serves the same page from Emacs on =http://127.0.0.1:8765/=. Every page load is rendered fresh from the vulpea database, and the page polls Emacs every two seconds; when the database changed, it reloads itself on the same centre note and depth. Nothing about the static export changes: =relationship-annotator-graph= and =relationship-annotator-svg= work as before, and this module only calls the page builder of the first module.
+
+*** Why a small server of its own
+
+- The config already has =simple-httpd= (in =sp-base-libraries=) and =websocket= (used by =sp-dyn-graph=). =simple-httpd= is one global server with its root at =/var/www=, which other things may start or stop, and its default is to listen on every interface. Serving my notes needs a server that is certainly bound to loopback and that nothing else touches.
+- The server needs about eighty lines with =make-network-process=, so it adds no dependency and can be tested without installing any package.
+- It handles one short request per connection (=Connection: close=). Polling needs nothing longer-lived, so there are no Server-Sent Events or websockets to keep open.
+
+*** What it protects against
+
+- It listens on =127.0.0.1= only. The host is a constant, not an option.
+- It answers =GET= only, and it refuses any request whose =Host= header is not =127.0.0.1=, =localhost= or =[::1]= with the right port. That stops a web page on another site from reaching the server through a rebinding trick.
+- It runs inside Emacs, so a page load blocks Emacs for as long as building the tree takes. The =/version= poll does not build anything; it only looks at two file times.
+
+*** How it notices a change
+
+The vulpea database is a file (=vulpea-db-location=), and =vulpea-db-autosync-mode= (on in =sp-vulpea-base=) writes to it when a note is saved. So the version token is made from the modification time and size of that file and of its =-wal= sibling. Saving a note changes the token a moment after the save, once vulpea has updated the database, and the page reloads then. Nothing is hooked into vulpea, so a change to the module's own options (=relationship-annotator-relations=, for example) is not noticed: use =relationship-annotator-live-refresh= for that.
+
+** The commands
+
+| Command                                  | What it does                                                                                       |
+|------------------------------------------+----------------------------------------------------------------------------------------------------|
+| =relationship-annotator-live=            | Asks for a start note and depth, starts the server if needed, and opens the page in the browser.   |
+| =relationship-annotator-live-open=       | Opens the page again for the last start note and depth, or asks when there is none.                |
+| =relationship-annotator-live-start=      | Starts the server on =relationship-annotator-live-port=.                                           |
+| =relationship-annotator-live-stop=       | Stops the server.                                                                                  |
+| =relationship-annotator-live-refresh=    | Makes the open pages reload on their next poll, for changes the database file cannot show.         |
+
+| Option                                      | Default | Meaning                                    |
+|---------------------------------------------+---------+--------------------------------------------|
+| =relationship-annotator-live-port=          | 8765    | The port on 127.0.0.1.                     |
+| =relationship-annotator-live-poll-interval= | 2       | Seconds between two polls of an open page. |
+
+** Loading it
+
+Loaded from =init.el=, in the Academic block of =lem--default-modules=, right after =sp-relationship-annotator=:
+
+#+begin_src org :tangle no
+'sp-relationship-annotator-live
+#+end_src
+
+** The Emacs Lisp, block by block
+
+*** Header, requires and options
+
+- The header and commentary list the commands.
+- =sp-relationship-annotator= is required because the page and the tree come from it. =url-util= parses the query string of a request.
+- The port and the poll interval are the only options. The address is a constant on purpose.
+
+#+begin_src emacs-lisp
+;;; sp-relationship-annotator-live.el --- Serve the relationship graph on localhost, and keep it up to date -*- lexical-binding: t; -*-
+
+;; Package-Requires: ((emacs "29.1"))
+
+;;; Commentary:
+
+;; Serves the page of `relationship-annotator-graph' from a small HTTP
+;; server inside Emacs, bound to 127.0.0.1 only, instead of writing an
+;; HTML file and opening it from disk.  The page is rendered from the
+;; vulpea database on each load, and an open page reloads itself when the
+;; database changes.
+;;
+;;   M-x relationship-annotator-live          ask for a note, start, open
+;;   M-x relationship-annotator-live-open     open the last note again
+;;   M-x relationship-annotator-live-start    start the server
+;;   M-x relationship-annotator-live-stop     stop the server
+;;   M-x relationship-annotator-live-refresh  make open pages reload
+;;
+;; The static export (`relationship-annotator-graph') is not changed.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'url-util)
+(require 'sp-relationship-annotator)
+
+(defgroup relationship-annotator-live nil
+  "A live view of the relationship graph on localhost."
+  :group 'relationship-annotator)
+
+(defcustom relationship-annotator-live-port 8765
+  "Port of the live view, on 127.0.0.1."
+  :type 'integer)
+
+(defcustom relationship-annotator-live-poll-interval 2
+  "Seconds between two checks of an open page for a changed database."
+  :type 'number)
+#+end_src
+
+*** State and the version token
+
+- =--address= is the loopback address; nothing changes it.
+- =--server=, =--root= and =--depth= hold the server process and the last start note and depth, so that =-open= and a bare =/= can use them.
+- =--bumps= counts manual refreshes and is part of the token.
+- =--files= lists the database file and its write-ahead log. =--version= hashes the modification time and size of those that exist, with the counter, into a short token.
+
+#+begin_src emacs-lisp
+(defconst relationship-annotator-live--address "127.0.0.1"
+  "The only address the server listens on.")
+
+(defvar relationship-annotator-live--server nil
+  "The listening process, or nil.")
+
+(defvar relationship-annotator-live--root nil
+  "Id of the note the live view was last opened on.")
+
+(defvar relationship-annotator-live--depth nil
+  "Depth the live view was last opened with.")
+
+(defvar relationship-annotator-live--bumps 0
+  "Number of times `relationship-annotator-live-refresh' was called.")
+
+(defun relationship-annotator-live--files ()
+  "Return the vulpea database file and its write-ahead log."
+  (when-let* ((db (and (boundp 'vulpea-db-location) vulpea-db-location)))
+    (list db (concat db "-wal"))))
+
+(defun relationship-annotator-live--version ()
+  "Return a token that changes when the vulpea database does."
+  (format "%x"
+          (sxhash-equal
+           (cons relationship-annotator-live--bumps
+                 (mapcar (lambda (file)
+                           (when-let* ((attributes (file-attributes file)))
+                             (list (file-attribute-modification-time attributes)
+                                   (file-attribute-size attributes))))
+                         (relationship-annotator-live--files))))))
+#+end_src
+
+*** Pages and data
+
+- =--tree= cuts the tree the way =relationship-annotator-graph= does: down to the larger of the depth and the embed depth.
+- =--script= is added to the end of every page. It keeps the version the page was rendered with, polls =/version=, and goes to the same address (=root= and =depth= are the variables of the page, which may have changed by clicks) when the token differs. When a poll fails, the title says so, and goes back when the server answers again.
+- =--page= renders the page with =relationship-annotator--html= and puts the script before the last =</body>=.
+- =--json= asks the same function with the template and the scripts replaced, so that what comes back is the data alone: root, depth, nodes, edges, links, hidden and relations. =cl-letf= is local to the call.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--tree (start depth)
+  "Return the tree below START, cut like `relationship-annotator-graph' does."
+  (relationship-annotator--scope
+   (relationship-annotator--build) start
+   (max depth relationship-annotator-embed-depth)))
+
+(defun relationship-annotator-live--script (version)
+  "Return the script that reloads a page when the token differs from VERSION."
+  (format "<script>
+(() => {
+  const version = %s, base = document.title;
+  setInterval(async () => {
+    try {
+      const response = await fetch('/version', { cache: 'no-store' });
+      const now = (await response.text()).trim();
+      document.title = base;
+      if (now !== version)
+        location.replace('/?root=' + encodeURIComponent(root) + '&depth=' + depth);
+    } catch (e) { document.title = base + ' (offline)'; }
+  }, %d);
+})();
+</script>
+"
+          (json-encode-string version)
+          (round (* 1000 relationship-annotator-live-poll-interval))))
+
+(defun relationship-annotator-live--page (start depth)
+  "Return the page for START and DEPTH, with the script that follows the database."
+  (let* ((html (relationship-annotator--html
+                (relationship-annotator-live--tree start depth) start depth))
+         (script (relationship-annotator-live--script
+                  (relationship-annotator-live--version)))
+         (end (string-match-p "</body>\\s-*</html>\\s-*\\'" html)))
+    (if end
+        (concat (substring html 0 end) script (substring html end))
+      (concat html script))))
+
+(defun relationship-annotator-live--json (start depth)
+  "Return the data of the page for START and DEPTH, as a JSON string."
+  (cl-letf (((symbol-function 'relationship-annotator--html-template)
+             (lambda () "__DATA__"))
+            ((symbol-function 'relationship-annotator--libraries)
+             (lambda () "")))
+    (relationship-annotator--html
+     (relationship-annotator-live--tree start depth) start depth)))
+#+end_src
+
+*** Answering a request
+
+- =--respond= builds the status line and headers by hand, encodes the body as UTF-8, sends it, and closes the connection. =Cache-Control: no-store= keeps the browser from showing an old page.
+- =--host-ok= accepts only the three names of the local machine, with this server's port or none.
+- =--route= receives the path and the query. =/version= is the poll. =/= and =/graph.json= take =root= and =depth= from the query, or from the last start note. A root that is not in the database gets a 404 instead of an empty graph. The browser's request for =/favicon.ico= gets an empty 204 so that it doesn't show as an error. Anything else is a 404.
+- =--handle= reads the request line and the headers, refuses other methods (405) and other hosts (403), and turns an error in the route into a 500 with the message, which only the local machine can read.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--respond (process status type body)
+  "Send BODY with STATUS and content TYPE on PROCESS, then close it."
+  (let ((bytes (encode-coding-string body 'utf-8)))
+    (process-send-string
+     process
+     (concat
+      (encode-coding-string
+       (format (concat "HTTP/1.1 %s\r\nContent-Type: %s; charset=utf-8\r\n"
+                       "Content-Length: %d\r\nCache-Control: no-store\r\n"
+                       "Connection: close\r\n\r\n")
+               status type (length bytes))
+       'utf-8)
+      bytes))
+    (delete-process process)))
+
+(defun relationship-annotator-live--host-ok (host)
+  "Non-nil when the Host header HOST names this machine and this port."
+  (and host
+       (string-match "\\`\\(localhost\\|127\\.0\\.0\\.1\\|\\[::1\\]\\)\\(?::\\([0-9]+\\)\\)?\\'" host)
+       (let ((port (match-string 2 host)))
+         (or (null port)
+             (= (string-to-number port) relationship-annotator-live-port)))))
+
+(defun relationship-annotator-live--route (path query)
+  "Return (STATUS TYPE BODY) for PATH and the parsed QUERY."
+  (let* ((root (or (cadr (assoc "root" query)) relationship-annotator-live--root))
+         (depth (max 1 (min 20 (or (and (cadr (assoc "depth" query))
+                                         (string-to-number (cadr (assoc "depth" query))))
+                                    relationship-annotator-live--depth
+                                    relationship-annotator-default-depth)))))
+    (cond
+     ((equal path "/version")
+      (list "200 OK" "text/plain" (relationship-annotator-live--version)))
+     ((equal path "/favicon.ico")
+      (list "204 No Content" "text/plain" ""))
+     ((not (member path '("/" "/graph.json")))
+      (list "404 Not Found" "text/plain" "Not found"))
+     ((null root)
+      (list "200 OK" "text/plain"
+            "Run M-x relationship-annotator-live in Emacs to pick a note."))
+     ((not (vulpea-db-query-by-ids (list root)))
+      (list "404 Not Found" "text/plain" (format "No note with id %s" root)))
+     ((equal path "/graph.json")
+      (list "200 OK" "application/json"
+            (relationship-annotator-live--json root depth)))
+     (t
+      (list "200 OK" "text/html" (relationship-annotator-live--page root depth))))))
+
+(defun relationship-annotator-live--handle (process request)
+  "Answer REQUEST, the text of a request head, on PROCESS."
+  (let* ((lines (split-string request "\r\n"))
+         (first (split-string (car lines) " "))
+         (method (nth 0 first))
+         (target (or (nth 1 first) ""))
+         (host (cl-some (lambda (line)
+                          (when (string-match "\\`[Hh]ost:[ \t]*\\(.*?\\)[ \t]*\\'" line)
+                            (match-string 1 line)))
+                        (cdr lines)))
+         (parts (split-string target "?"))
+         (query (url-parse-query-string (or (cadr parts) ""))))
+    (cond
+     ((not (equal method "GET"))
+      (relationship-annotator-live--respond
+       process "405 Method Not Allowed" "text/plain" "GET only"))
+     ((not (relationship-annotator-live--host-ok host))
+      (relationship-annotator-live--respond
+       process "403 Forbidden" "text/plain" "Forbidden"))
+     (t
+      (condition-case err
+          (apply #'relationship-annotator-live--respond process
+                 (relationship-annotator-live--route (car parts) query))
+        (error
+         (relationship-annotator-live--respond
+          process "500 Internal Server Error" "text/plain"
+          (error-message-string err))))))))
+#+end_src
+
+*** The server process
+
+- =--filter= collects the bytes of a connection until the blank line that ends the head, then handles it. A head larger than 16 KB is dropped.
+- =--sentinel= does nothing: a connection ends when =--respond= closes it.
+- =-start= opens the listening socket on the loopback address only, with no query on exit, and tells where the page is.
+- =-stop= closes it. A port that is already in use is reported as an error.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--filter (process string)
+  "Collect STRING from PROCESS until the request head is complete, then answer."
+  (let ((data (concat (or (process-get process :data) "") string)))
+    (process-put process :data data)
+    (cond
+     ((string-search "\r\n\r\n" data)
+      (process-put process :data nil)
+      (relationship-annotator-live--handle process data))
+     ((> (length data) 16384)
+      (delete-process process)))))
+
+(defun relationship-annotator-live--sentinel (_process _event)
+  "Ignore connection events: each connection is closed once it is answered.")
+
+;;;###autoload
+(defun relationship-annotator-live-start ()
+  "Start the live view server on 127.0.0.1, at `relationship-annotator-live-port'."
+  (interactive)
+  (unless (process-live-p relationship-annotator-live--server)
+    (setq relationship-annotator-live--server
+          (condition-case err
+              (make-network-process
+               :name "relationship-annotator-live"
+               :server t :noquery t :family 'ipv4 :coding 'binary
+               :host relationship-annotator-live--address
+               :service relationship-annotator-live-port
+               :filter #'relationship-annotator-live--filter
+               :sentinel #'relationship-annotator-live--sentinel)
+            (file-error
+             (user-error "Cannot listen on %s:%d: %s"
+                         relationship-annotator-live--address
+                         relationship-annotator-live-port
+                         (error-message-string err))))))
+  (message "Relationship graph at http://%s:%d/"
+           relationship-annotator-live--address relationship-annotator-live-port))
+
+;;;###autoload
+(defun relationship-annotator-live-stop ()
+  "Stop the live view server."
+  (interactive)
+  (when (process-live-p relationship-annotator-live--server)
+    (delete-process relationship-annotator-live--server))
+  (setq relationship-annotator-live--server nil)
+  (message "Relationship graph server stopped"))
+#+end_src
+
+*** Opening the page and refreshing
+
+- =--url= builds the address for a start note and depth, with the id encoded.
+- =-open= starts the server if needed and sends the browser to the page. With no remembered note it asks, like the other commands, with =relationship-annotator--read-scope=.
+- =relationship-annotator-live= always asks, remembers the answer, and opens.
+- =-refresh= raises the counter, so the token changes and open pages reload on their next poll.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--url (start depth)
+  "Return the address of the page for START and DEPTH."
+  (format "http://%s:%d/?root=%s&depth=%d"
+          relationship-annotator-live--address relationship-annotator-live-port
+          (url-hexify-string start) depth))
+
+;;;###autoload
+(defun relationship-annotator-live ()
+  "Ask for a starting note and depth, then show the hierarchy live in the browser.
+The page is served by Emacs on localhost and reloads when the notes change."
+  (interactive)
+  (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+    (setq relationship-annotator-live--root start
+          relationship-annotator-live--depth depth)
+    (relationship-annotator-live-open)))
+
+;;;###autoload
+(defun relationship-annotator-live-open ()
+  "Open the live view in the browser on the last starting note, or ask for one."
+  (interactive)
+  (unless relationship-annotator-live--root
+    (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+      (setq relationship-annotator-live--root start
+            relationship-annotator-live--depth depth)))
+  (relationship-annotator-live-start)
+  (browse-url (relationship-annotator-live--url
+               relationship-annotator-live--root
+               (or relationship-annotator-live--depth
+                   relationship-annotator-default-depth))))
+
+;;;###autoload
+(defun relationship-annotator-live-refresh ()
+  "Make the open live pages reload on their next poll."
+  (interactive)
+  (cl-incf relationship-annotator-live--bumps)
+  (message "Live pages will reload within %s seconds"
+           relationship-annotator-live-poll-interval))
+#+end_src
+
+*** Provide
+
+#+begin_src emacs-lisp
+(provide 'sp-relationship-annotator-live)
+;;; sp-relationship-annotator-live.el ends here
+#+end_src

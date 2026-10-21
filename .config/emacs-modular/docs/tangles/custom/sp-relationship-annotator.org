@@ -27,6 +27,8 @@ A vault of this size is too large to draw whole. So every command first asks for
 | =relationship-annotator-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                 |
 | =relationship-annotator-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question. |
 
+=sp-relationship-annotator-live= ([[file:sp-relationship-annotator-live.org][its doc]]) serves the same page from Emacs on localhost and reloads it when the notes change; the commands above are unchanged.
+
 Notes on the last level show how many children they hide (=+N= in the browser, a count in the outline). The browser graph can't load more, so run it again with a bigger depth; the outlines expand any note on demand.
 
 ** Loading it

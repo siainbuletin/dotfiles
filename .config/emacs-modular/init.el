@@ -313,6 +313,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-statistics
                     'sp-dgraphs
                     'sp-relationship-annotator
+                    'sp-relationship-annotator-live ;; live localhost view of the graph
                     'sp-notes
                     'sp-semantic
                     'sp-dyn-graph
