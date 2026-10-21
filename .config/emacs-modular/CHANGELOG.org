@@ -10,7 +10,6 @@ to fold or unfold it.
 * Open pull requests
 ** Added
 - The splash screen draws the lambda from =libraries/lambda-splash.txt= behind the menu (Agenda, Config, …) instead of the PNG logo, in a face that follows the dark or light theme. =sp-splash-art-x-offset= and =sp-splash-art-y-offset= set its position; in the splash, =S-<arrow>= nudges it, =0= resets it and =s= shows the offsets to copy into the config. ([[https://github.com/siainbuletin/dotfiles/pull/31][#31]], Claude)
-- A section in the top-level =README.org= on reviewing and merging AI-made changes on macOS: yadm with a plain clone for SourceGit, =gh= and the merge button, Forge and =code-review=, how =sp-vc-ai-workbench= fits, the merge rules learnt from the #18 to #22 stack, and a table of the alternatives considered. ([[https://github.com/siainbuletin/dotfiles/pull/35][#35]], Claude)
 - =sp-paths=, a new first module that names the notes, documents, literature, bibliography, source and yadm locations once. Each can be overridden from the environment (for example =SP_NOTES_DIR=), and the Chrome history path has a default per system. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
 - An empty "Design considerations" section in the literate doc of =sp-relationship-annotator=, for brainstorming later. ([[https://github.com/siainbuletin/dotfiles/pull/20][#20]], Claude)
 - Notes can have a type (=question=, =claim=, =evidence= or =source=) from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can list the types it connects, and the browser graph flags other edges with a warning sign. Boxes take the colour of their type when no tag has one, and an attribute computed from a formula, such as =[2]=, follows the title. =relationship-annotator-review= lists the anomalies, the claims with gaps and the strength of each answer. This ports the logic of =discourse-graphs=; =docs/relationship-annotator-vs-discourse-graphs.org= compares the two. ([[https://github.com/siainbuletin/dotfiles/pull/19][#19]], Claude)
@@ -45,6 +44,8 @@ to fold or unfold it.
 
 * 2026-10-21
 ** Added
+- A section in the top-level =README.org= on reviewing and merging AI-made changes on macOS: yadm with a plain clone for SourceGit, =gh= and the merge button, Forge and =code-review=, how =sp-vc-ai-workbench= fits, the merge rules learnt from the #18 to #22 stack, and a table of the alternatives considered. ([[https://github.com/siainbuletin/dotfiles/pull/35][#35]], Claude)
+- Decision records for the AI workflow in =adr/= at the top of the repository, one file per decision (plain clone for GUI tools, SourceGit, merge commits on GitHub, number-prefixed PR branches, merging stacked PRs, =CHANGELOG.org= conflicts, Emacs PR tooling, =sp-vc-ai-workbench=). The macOS section of the top-level =README.org= now only summarises the choices and links to them. ([[https://github.com/siainbuletin/dotfiles/pull/41][#41]], Claude)
 - =emacs-pr=, a fish function (=~/.config/fish/functions/emacs-pr.fish=) that runs a pull request in a sandboxed Emacs with its own copy of the notes and a shared package cache, documented in =README.org=. ([[https://github.com/siainbuletin/dotfiles/pull/24][#24]], Claude)
 
 * 2026-10-20
