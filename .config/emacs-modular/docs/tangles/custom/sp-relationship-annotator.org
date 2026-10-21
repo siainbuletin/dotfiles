@@ -1772,10 +1772,11 @@ The browser graph is a single HTML page with its own style and script. Emacs fil
 - Line 12 styles the header line, cut off with an ellipsis if it is too long.
 - Line 13 makes the drawing area fill the window below the header, with a grab cursor. =touch-action:none= lets touch screens pan it.
 - Lines 14-15 style the boxes: fill and border, and a thicker border for the centre note.
-- Line 16 styles the fold marker in the corner of a box.
-- Lines 17-18 style the header buttons and keep them on the right.
-- Line 19 gives the legend swatches a size and a slight transparency, like the tinted boxes.
-- Line 20 makes the box text ignore the mouse and sets its font. Line 21 gives the tags and the hidden-children count a muted colour, and line 22 makes the badge (the number in brackets) bold.
+- Lines 16-17 style the header buttons and keep them on the right.
+- Line 18 gives the legend swatches a size and a slight transparency, like the tinted boxes.
+- Line 19 makes the box text ignore the mouse and sets its font.
+- Line 20 styles the fold marker in the corner of a box. It has to come after line 19 and be as specific (=.node text.fold=), because line 19 would otherwise turn off the mouse for the marker as well, and a click on it would recentre the graph instead of folding. The rule turns the mouse back on, and gives the marker a smaller font, the muted colour and a pointer cursor.
+- Line 21 gives the tags and the hidden-children count a muted colour, and line 22 makes the badge (the number in brackets) bold.
 - Line 23 styles the tree lines. Lines 24-25 style the other relations: a dashed line, and a label with an outline in the page colour so it stays readable over the line.
 - Lines 26-27 place the legend at the bottom left and space its entries.
 
@@ -1789,11 +1790,11 @@ header{height:22px;padding:8px 12px;color:var(--muted);border-bottom:1px solid v
 svg{position:absolute;top:38px;left:0;width:100%;height:calc(100% - 38px);cursor:grab;touch-action:none}
 .node rect{fill:var(--node);stroke:var(--edge)}
 .node.root rect{fill:var(--root);stroke-width:2.5}
-.fold{font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
 button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(--edge);border-radius:4px;margin-left:6px;cursor:pointer}
 #ctl{float:right}
 #legend i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;opacity:.7}
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
+.node text.fold{pointer-events:all;font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
 .node .tags,.node .more{fill:var(--muted)}
 .node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
