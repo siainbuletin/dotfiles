@@ -12,6 +12,125 @@ Most of my operating system needs revolve around Emacs. Although there's a regul
 
 All of the existing configurations and their names (so you can start with Emacs with the proper flair in the terminal, as ~emacs --with-profile=<name>~ can be found declared in ~.emacs.profiles.el~ in the top directory.
 
+** Reviewing and merging AI-made changes on macOS
+
+On my Mac, most changes to this repository are written by Claude in a cloud session and arrive as pull requests, often several at once and sometimes stacked on each other. Magit's text interface is hard for me to follow when a stack of branches or a merge conflict is involved, so I review and merge with a small set of tools, each with one job. This section is the map of that setup. 
+ 
+#+begin_quote
+*What has and has not been run.* This was written from a Linux container, not from my Mac. The tool descriptions come from each project's documentation and source; I have not confirmed any of the SourceGit button names, keys or menus against the installed app, and the =sp-vc-ai-workbench= module has never been loaded (see below). Things I have not tried myself are marked /untested/.
+#+end_quote
+
+*** The stack
+
+| Job                                   | Tool                                | Where it lives                                    |
+|---------------------------------------+-------------------------------------+---------------------------------------------------|
+| Dotfiles repository                   | =yadm=                              | =~/.local/share/yadm/repo.git=, work tree =~=     |
+| Shell                                 | =fish=                              | =~/.config/fish/=                                 |
+| Visual branches, merges, conflicts    | SourceGit                           | on a plain clone, =~/src/dotfiles-test=, as well as directly on the file, since I may need to visualise the changes           |
+| Pull request actions (create, merge)  | =gh= (GitHub CLI) and GitHub's web UI | any shell, in a clone or worktree               |
+| Reading, commenting on PRs in Emacs   | Forge and =code-review=             | =sp-vcontrol= module (PR #30)                     |
+| Git operations in Emacs               | Magit, styled by =sp-magit-style=   | =sp-vcontrol=, =sp-magit-style= modules           |
+| Trying a PR without touching my config | =emacs-pr= / =M-x sp-sandbox-pr=    | =sp-sandbox= module                               |
+| Parallel brainstorming with Claude    | =sp-vc-ai-workbench=                | =libraries/modules/custom/= (not loaded yet)      |
+
+Since ~yadm~ doesn't have a `.git` repository in the normal manner, not a lot of git clients work that well.
+
+Stacked diffs should be handled with something like Graphite or directly in the ~gh~ command-line utility (or integrated into Emacs, if that's possible)
+
+**** yadm and the plain clone
+
+=yadm= keeps this repository in =~/.local/share/yadm/repo.git= with =~= as its work tree. That layout is what makes the dotfiles live, but it also means that GUI git clients (SourceGit, GitKraken, GitHub Desktop) cannot open it properly: they look for a =.git= next to the files and find the home folder instead.
+
+So I keep a second, ordinary clone for the GUI tools:
+
+#+begin_src sh :tangle no :eval never
+git clone https://github.com/siainbuletin/dotfiles.git ~/src/dotfiles-test
+#+end_src
+
+Everything goes through GitHub: branches are pushed from the clone, and I update the live config with =yadm fetch= and =yadm merge= (or =F u= in Magit) once a PR has landed. Because it is a separate repository, it never changes the files in =~=. Branch checkouts for trying code happen in a worktree or in the clone, not in =~=; see the sandbox below.
+
+**** fish
+
+Commands in this section are written for =fish= (=and= / =; and=, no =&&= needed). =GIT_CEILING_DIRECTORIES= is set to =$HOME= in =config.fish= and in =sp-env= so Git does not mistake =~/Downloads= and friends for part of the repository. The =emacs-pr= sandbox is a fish function in =~/.config/fish/functions/=.
+
+**** SourceGit: the visual part
+
+SourceGit is a free, cross-platform Git client (Avalonia, MIT licence; the Homebrew cask is =sourcegit=, and an unsigned build may need =xattr -cr= to open). I use it for the things I find hard to follow as text:
+
+- the commit graph, to see which branch is on top of which in a stack;
+- *Merge* with a preview that says whether the merge will have conflicts;
+- the built-in three-pane conflict editor (MINE, THEIRS, RESULT) with USE MINE, USE THEIRS and USE BOTH per block;
+- fetch, checkout of a remote branch and plain push, each as a labelled dialog.
+
+The step-by-step flows are written in the project notes: "Merging branches and resolving conflicts in SourceGit" (=sourcegit-merge-conflicts.md=) and "Landing the stacked PRs without conflicts" (=stacked-pr-conflicts.md=). The short version is under /Rules I follow/ below.
+
+For org files, SourceGit's own editor shows raw text. For =CHANGELOG.org= I open the file in Emacs instead, where =smerge-mode= starts on the conflict markers (=C-c ^ a= keeps both sides, =C-c ^ n= / =C-c ^ p= move between conflicts, =M-x smerge-ediff= gives a three-way view), then stage it in SourceGit. SourceGit can also call an external merge tool (Preferences, DIFF/MERGE TOOL): the list for macOS has FileMerge, VS Code, KDiff3, Beyond Compare, P4Merge and Cursor, with no Emacs entry; going through =git mergetool= with an ediff wrapper script is possible but /untested/ (the wrapper has to block until ediff quits).
+
+**** =gh= and the merge button
+
+Pull requests are created and merged with =gh= or GitHub's merge button, not by merging locally and pushing =main=:
+
+#+begin_src sh :tangle no :eval never
+gh pr create --base main --head BRANCH --fill   # or let Claude open it
+gh pr view 12 --web
+gh pr diff 12
+gh pr merge 12 --merge                          # a merge commit; the PR shows as Merged
+#+end_src
+
+I choose merge commits, not squashes. =gh pr merge --delete-branch= is fine once nothing else is based on the branch.
+
+**** Forge, code-review and Magit in Emacs
+
+=sp-vcontrol= installs Forge (PR and issue lists inside Magit; =N= opens its menu, =N c p= creates a PR) and =code-review= (read a PR's diff in Emacs and leave line comments). Forge needs a GitHub token in =auth-source=; the setup is in the project notes (=review-guide.md=, part 2f). =sp-magit-style= only changes how Magit looks (bigger section headings, chevrons, icons). I still use Magit for staging, small commits and writing messages. I reach for SourceGit when the question is "what is on top of what" or "resolve this conflict".
+
+**** Trying a PR before merging it
+
+=emacs-pr N= (fish) or =M-x sp-sandbox-pr= (Emacs) starts a second Emacs on PR /N/ in its own worktree, with its own packages and its own copy of =~/notes=, next to my live Emacs. The README of the Emacs configuration describes it under [[file:.config/emacs-modular/README.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]]. It is the way to answer "does this PR start?" before pressing merge.
+
+*** How =sp-vc-ai-workbench= fits
+
+=sp-vc-ai-workbench= (=libraries/modules/custom/sp-vc-ai-workbench.el=, literate source in =docs/tangles/custom/sp-vc-ai-workbench.org=) is the Emacs side of working /with/ Claude, and the tools above are the side of dealing with what Claude /produced/. They meet at the git worktree.
+
+- The workbench creates one worktree and branch per task under =~/.worktrees/<extension>/<branch>= (=sp-workbench-new-task=), with a git-ignored =.brainstorm.org= and one Claude Code session (through =claude-code.el=) in each. Claude is told to brainstorm, not to write the implementation (the ground rules in =sp-workbench-rules=). It is built for my separate extension repositories, listed in =sp-workbench-repos= or found under =sp-workbench-scan-root=.
+- The stack in this README handles the other direction: pull requests that Claude opened from a cloud session, mostly against this dotfiles repo. There the worktrees are the ones from =sp-org-issues= and =emacs-pr= (=~/src/dotfiles-wt/=).
+- Both use Magit's worktree commands, so SourceGit sees the same checkouts. An extension repo is an ordinary git repository, so SourceGit can open it directly (the yadm restriction does not apply). That is /untested/, as is whether SourceGit lists the =~/.worktrees/= checkouts.
+- Branch names: the workbench proposes =feat/= (=sp-workbench-branch-prefix=). My rule for /pull request/ branches is a number prefix (below). A workbench branch becomes a PR branch only when I open the PR, at which point it needs the number; set =sp-workbench-branch-prefix= to something neutral or rename the branch then.
+- *Status:* the module is commented out in =init.el= (=;; 'sp-vc-ai-workbench=). Its own doc says that it was "balance-checked, not loaded or byte-compiled", and lists seven checks for the first run. I have not run it on the Mac.
+
+*** Rules I follow
+
+1. *Branch names start with the PR number*, e.g. =18-relationship-annotator=, so the numbers tell me the order to review and merge. Create the PR first (or pick the next number), then name the branch. Never rename a branch that other open PRs use as their base without retargeting them.
+2. *Merge on GitHub (or with =gh pr merge --merge=), not locally.* Merging a PR branch into =main= on my machine, pushing =main= and deleting the branch makes GitHub show the PR as *Closed*, not *Merged* (it happened to PRs of the #18 to #22 stack on 2026-10-21). Use the button or =gh pr merge --merge=.
+3. *Do not rebase stacked branches after the parent merges.* With merge commits, each child already contains its parent's commits, so nothing needs moving. Retarget the child's base to =main= on its PR page, check the diff shrank to its own commits, then merge. A rebase (and a force-push) is only for a parent that was /squash/-merged, with =git rebase --onto origin/main OLD_PARENT child= and =--force-with-lease=.
+4. *Update a child by merging into it*, not the other way round: check out the child, merge the parent or =origin/main= in. In SourceGit read the *Into:* field before confirming. No force-push is needed.
+5. *=CHANGELOG.org= conflicts keep both sides.* Every PR adds lines at the top of =* Open pull requests=, so two PRs always collide there. Never use Use Mine / Use Theirs on it. Keep both, then skim for duplicates and wrong headings. Putting =CHANGELOG.org merge=union= in =.gitattributes= would make git do this on local merges (not GitHub's button); that is suggested in the notes but /untested/ here.
+6. *Mine and theirs in a merge:* mine is the branch you are on, theirs is the one coming in. They swap during a rebase.
+7. *Before merging, look at what GitHub says about conflicts*, and try the PR with =emacs-pr N= if it changes startup code.
+
+*** Alternatives considered
+
+I looked at these and did not adopt them. "Untested" means I have not used the tool on this repository.
+
+| Tool                         | For                                                                                      | Against                                                                                          |
+|------------------------------+------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------|
+| SourceGit (chosen)           | Free, native-feeling GUI, graph, merge preview, built-in 3-way conflict editor, force-push uses =--force-with-lease= | Cannot open the yadm layout (so the plain clone); no =rebase --onto=; the editor does not render org |
+| Graphite (=gt=)              | Built for stacked PRs: restacks children after a parent changes, one command to submit a stack | Hosted service with its own dashboard and account; rewrites history and force-pushes constantly, which clashes with my "never rebase a stack" rule; untested |
+| git-branchless               | Undo for any git operation, smartlog of the stack, =git sync= restacks                    | Also rebase-based; adds a second mental model on top of git; no GUI; untested                   |
+| jj (Jujutsu)                 | Conflicts are first-class and do not block you; automatic restacking; works on a git repo | A different workflow and vocabulary; yadm's layout is unclear with it; Magit and Forge do not know it; untested |
+| lazygit                      | Fast terminal UI with a branch graph and a conflict screen; there is an (empty) =.config/lazygit/config.yml= here already | Text interface again, which is the thing I am trying to get away from from Magit; untested        |
+| GitKraken                    | Polished graph and conflict editor                                                       | Cannot open the yadm repository; paid for private repositories                                   |
+| Sublime Merge                | Fast, good diff and three-way merge view                                                 | Paid licence after the trial; less PR-oriented; untested                                         |
+| Fork                         | Clean macOS client, interactive rebase UI                                                | Paid licence after the evaluation; untested                                                      |
+| Meld                         | Good standalone three-way merge, can be set as the merge tool                            | Not a git client; needs installing on macOS outside the main channels; does not render org        |
+| VS Code merge editor         | Built into SourceGit's external tool list; "Accept Both" is one click                    | Shows raw markers and no org rendering without an extension; a whole editor for one task          |
+| GitHub Desktop               | Simple, official                                                                         | Cannot open the yadm repository; weak on stacks and conflict resolution (it hands conflicts to an editor) |
+| Magit ediff (=e= / =E= on a conflicted file) | Already in Emacs, real org buffers, three-way view                         | Text-driven ediff control window; this is the confusing part that started the search; still the fallback |
+| =smerge-mode=                | One key for "keep both" (=C-c ^ a=), perfect for =CHANGELOG.org=                         | Marker-based, one conflict at a time; no overview of the branch graph                            |
+| =consult-gh=                 | Browse and act on GitHub PRs and issues from the minibuffer                              | Overlaps Forge, which is already installed; another package and another token; untested           |
+| =magit-stack=                | Magit-side helper for working with stacked branches                                      | I could not confirm that it exists as a maintained package; not used. Treat as a rumour until checked |
+
+*Why SourceGit.* It is the one that is both visual and free, shows what a merge will do before it runs, ships a three-way conflict editor, and does plain =git merge= underneath, so it follows the merge-commit rules above instead of imposing a rebase workflow (Graphite, git-branchless and jj). The costs I accept are the plain clone (shared with GitKraken and GitHub Desktop, which have the same problem with yadm) and opening =CHANGELOG.org= in Emacs.
+
 ** Required software to install
 
 All names for the software are listed as they can be found either in the official Arch Linux repository or in the AUR. All may be downloadable through =pacman= or =paru= (prefered AUR helper in this case).

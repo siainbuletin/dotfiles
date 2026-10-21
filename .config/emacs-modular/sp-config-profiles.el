@@ -52,6 +52,7 @@
 (defvar sp-module-profiles
   '((default
      . (;; Core
+        sp-paths
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -139,6 +140,7 @@
     (plus-programming
      . (;; Core
         sp-package
+        sp-paths
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -199,6 +201,7 @@
     (minimal
      . (;; Core
         sp-package
+        sp-paths
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -229,6 +232,7 @@
     (test
      . (;; Core
         sp-package
+        sp-paths
         sp-encoding
         sp-base-libraries
         sp-snippets

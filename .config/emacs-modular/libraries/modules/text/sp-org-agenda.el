@@ -111,8 +111,8 @@
 
 (setq org-agenda-files
         (list
-         "~/notes/area/"
-         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
+         (sp-path sp-notes-dir "area/")
+         (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
 ))
 
 ;;; Display an agenda file for the current subtree

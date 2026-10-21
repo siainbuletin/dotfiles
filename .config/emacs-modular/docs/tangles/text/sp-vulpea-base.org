@@ -58,7 +58,7 @@ Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers r
 Sets =vulpea-db-sync-directories= to =~/notes/= only, so the Emacs config directory is not indexed. The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=, but this =setq= ran afterwards and replaced it, so the duplicate was removed and the effective value is unchanged. Add =user-emacs-directory= here if the config directory should be indexed as well.
 
 #+begin_src emacs-lisp -i
-(setq vulpea-db-sync-directories '("~/notes/"))
+(setq vulpea-db-sync-directories (list sp-notes-dir))
 #+end_src
 
 ** Parse method

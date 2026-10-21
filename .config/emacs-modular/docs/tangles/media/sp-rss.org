@@ -44,7 +44,7 @@ Installs =elfeed-org= and runs =(elfeed-org)= to read the feed list from Org fil
   :config
   (elfeed-org)
   :custom
-  (rmh-elfeed-org-files (list "~/Documents/elfeed.org")))
+  (rmh-elfeed-org-files (list (sp-path sp-documents-dir "elfeed.org"))))
 #+end_src
 
 * Capturing entries

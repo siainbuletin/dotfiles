@@ -32,15 +32,15 @@ Several table buffers can be open at once. Rather than each one watching files, 
 
 ** Refresh hook
 
-=sia-vulpea-table-refresh-functions= is an abnormal hook of zero-argument functions. Each mounted table adds a function here while it is alive and removes it when it is unmounted.
+=sp-vulpea-table-refresh-functions= is an abnormal hook of zero-argument functions. Each mounted table adds a function here while it is alive and removes it when it is unmounted.
 
 #+begin_src emacs-lisp -i
 ;;; Cross-buffer refresh broadcasting ----------------------------------
 
-(defvar sia-vulpea-table-refresh-functions nil
+(defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
 open live Vulpea tables should refresh. Each mounted
-`sia-vulpea-table' instance subscribes to this while it's alive
+`sp-vulpea-table' instance subscribes to this while it's alive
 (via `vui-use-effect') and unsubscribes on unmount.")
 #+end_src
 
@@ -52,7 +52,7 @@ open live Vulpea tables should refresh. Each mounted
 (defun sia-vulpea-refresh-all-tables ()
   "Signal every open live Vulpea table to refresh itself."
   (interactive)
-  (run-hook-with-args 'sia-vulpea-table-refresh-functions))
+  (run-hook-with-args 'sp-vulpea-table-refresh-functions))
 #+end_src
 
 ** Debounce timer
@@ -174,9 +174,9 @@ becomes a button rather than plain text."
 
 * The table component
 
-** sia-vulpea-table
+** sp-vulpea-table
 
-=sia-vulpea-table= is a vui component defined with =vui-defcomponent=. Its props are the tag filter, the list of columns, the initial sort column and the parent filter options from the dynamic block. It keeps three pieces of state: a refresh counter, a sort column chosen by clicking, and the sort direction.
+=sp-vulpea-table= is a vui component defined with =vui-defcomponent=. Its props are the tag filter, the list of columns, the initial sort column and the parent filter options from the dynamic block. It keeps three pieces of state: a refresh counter, a sort column chosen by clicking, and the sort direction.
 
 On render it:
 - subscribes, through =vui-use-effect=, a function to the refresh hook that bumps the counter (forcing a re-render), and returns a cleanup that unsubscribes it,
@@ -189,7 +189,7 @@ The output is a vertical stack with an optional bold Parent line, a grey note co
 An inline comment admits uncertainty about whether =vui-field= uses =:on-change= as its commit callback; if edits do not stick, that is the first thing to check. Note also that the database is queried on every render, which may be slow with many notes.
 
 #+begin_src emacs-lisp -i
-(vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
+(vui-defcomponent sp-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
   "A live, clickable, editable table of Vulpea notes.
 TAGS filters notes (must have all of them). COLUMNS is the
 ordered list of fields to show -- :title is always a button that
@@ -204,7 +204,7 @@ PARENT-PROP/PARENT-TITLE are as in `sia-vulpea--note-matches-p'
 and the parent-display line.
 
 The table also refreshes automatically: it subscribes to
-`sia-vulpea-table-refresh-functions' while mounted, which fires
+`sp-vulpea-table-refresh-functions' while mounted, which fires
 after any note is saved (see `sia-vulpea--schedule-refresh-after-save')."
   :state ((refresh-tick 0)
           (sort-override nil)
@@ -213,8 +213,8 @@ after any note is saved (see `sia-vulpea--schedule-refresh-after-save')."
   (progn
     (vui-use-effect ()
       (let ((fn (lambda () (vui-set-state :refresh-tick #'1+))))
-        (add-hook 'sia-vulpea-table-refresh-functions fn)
-        (lambda () (remove-hook 'sia-vulpea-table-refresh-functions fn))))
+        (add-hook 'sp-vulpea-table-refresh-functions fn)
+        (lambda () (remove-hook 'sp-vulpea-table-refresh-functions fn))))
     (let* ((effective-sort (or sort-override sort-by))
            (notes (vulpea-db-query
                    (lambda (note)
@@ -343,7 +343,7 @@ buffer to refresh against the current state of the Vulpea db."
   (let ((parent-title (and parent-of
                             (let ((note (ignore-errors (vulpea-db-get-by-id parent-of))))
                               (and note (vulpea-note-title note))))))
-    (vui-mount (vui-component 'sia-vulpea-table
+    (vui-mount (vui-component 'sp-vulpea-table
                  :tags tags :columns columns :sort-by sort-by
                  :parent-of parent-of :parent-prop parent-prop :parent-title parent-title)
                (sia-vulpea--table-buffer-name view-name parent-of))))

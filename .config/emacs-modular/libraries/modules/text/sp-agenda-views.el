@@ -27,7 +27,7 @@
                             ((org-agenda-overriding-header "Planning Tasks")))
                  (tags-todo "-{.*}"
                             ((org-agenda-overriding-header "Untagged Tasks")))
-                 (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
+                 (todo ".*" ((org-agenda-files (list (sp-path sp-notes-dir "inbox.org")))
                              (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
            ("D" "Daily Agenda"

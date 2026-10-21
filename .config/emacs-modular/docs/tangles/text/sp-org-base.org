@@ -107,7 +107,7 @@ When storing a link interactively to an Org heading, Org creates an =ID= propert
 Sets =org-directory= to =~/notes/=. The trailing slash matters because several places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=); without it they produced names like =~/notesinbox.org=. Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
 
 #+begin_src emacs-lisp -i
-(setq org-directory "~/notes/")
+(setq org-directory sp-notes-dir)
 #+end_src
 
 ** Free up C-x t i

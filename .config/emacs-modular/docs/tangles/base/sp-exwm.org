@@ -1,8 +1,8 @@
 #+TITLE: sp-exwm.el: EXWM window manager (opt-in)
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/env/sp-exwm.el :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-exwm.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/env/sp-exwm.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-exwm.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 This module would run Emacs as the X11 window manager using EXWM, based on the examples in the EXWM wiki. Everything is guarded by the option =siapip/use-exwm=, which defaults to nil, so loading the file normally does nothing beyond defining that option.
 
