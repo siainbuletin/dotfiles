@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>relationship annotator</title>
+<title>vulpea hierarchy</title>
 <style>
 :root{--bg:#fbfbfa;--fg:#222;--muted:#777;--node:#f2f2f0;--edge:#9a9a9a;--root:#d8e6f5}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1d1f21;--fg:#e6e6e6;--muted:#999;--node:#2a2d31;--edge:#666;--root:#2f4a66}}
@@ -19,7 +19,6 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node text.fold{pointer-events:all;font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
 .node .tags,.node .more{fill:var(--muted)}
-.node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
 .link{fill:none;stroke-width:1.6;stroke-dasharray:6 4}
 .linklabel{font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
@@ -108,7 +107,6 @@ function measure(s) { return ctx.measureText(s).width; }
 function tokensOf(n) {
   const t = n.title.split(/\s+/).filter(Boolean).map(w => ({ text: w, cls: '' }));
   if (n.tags && n.tags.length) t.push({ text: ':' + n.tags.join(':') + ':', cls: 'tags' });
-  if (n.badge) t.push({ text: n.badge, cls: 'badge' });
   if (more.get(n.id)) t.push({ text: '+' + more.get(n.id), cls: 'more' });
   return t;
 }
@@ -330,12 +328,11 @@ function drawLinks(labels) {
     const p = border(a, cb), q = border(b, ca);
     if (!labels) {
       const line = el('path', { class: 'link', d: `M${p.x},${p.y} L${q.x},${q.y}`, stroke: r.color }, vp);
-      line.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly ? l.rel + ': ' + l.anomaly : l.rel;
+      line.appendChild(document.createElementNS(NS, 'title')).textContent = l.rel;
     } else {
       const m = freeSpot(p, q);
       const t = el('text', { class: 'linklabel', x: m.x, y: m.y, 'text-anchor': 'middle', fill: r.color }, vp);
-      t.textContent = l.anomaly ? r.label + ' ⚠' : r.label;
-      if (l.anomaly) t.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly;
+      t.textContent = r.label;
     }
   }
 }
