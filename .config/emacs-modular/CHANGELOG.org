@@ -8,6 +8,8 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Added
+- The splash colours follow the theme: each role (art, banner, footer and three accents) takes its colour from a face of the current theme mixed towards the background, and the menu boxes use the accents in turn. =sp-splash-palettes= overrides roles for a chosen theme, =sp-splash-palette-roles= says how roles are derived, and the splash is recoloured and redrawn when the theme changes. ([[https://github.com/siainbuletin/dotfiles/pull/49][#49]], Claude)
 ** Changed
 - The splash menu is a list of boxed blocks under the banner: Agenda with the nested General agenda (=a=), thesis (=t=), issues (=i=) and deadlines (=d=), then Config and Notes. Each agenda has a variable for its files (=sp-splash-agenda-thesis-files= and the like; nil uses =org-agenda-files=). Mail and Projects are removed, and =wawawewa= is now italic and sits under the lambda. ([[https://github.com/siainbuletin/dotfiles/pull/48][#48]], Claude)
 ** Changed

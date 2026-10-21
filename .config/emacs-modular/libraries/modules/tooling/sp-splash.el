@@ -294,6 +294,111 @@ The form is also copied to the kill ring."
     (kill-new form)
     (message "%s" form)))
 
+;;;; Colour palette
+;; The splash colours follow the theme.  A role (art, banner, accents...) takes
+;; its colour from a face of the current theme, mixed towards the background,
+;; unless `sp-splash-palettes' names a colour for that theme.
+(defface sp-splash-accent-1-face '((t :inherit font-lock-keyword-face))
+  "First accent of the splash: the line colour of the first menu block."
+  :group 'faces)
+
+(defface sp-splash-accent-2-face '((t :inherit font-lock-function-name-face))
+  "Second accent of the splash: the line colour of the second menu block."
+  :group 'faces)
+
+(defface sp-splash-accent-3-face '((t :inherit font-lock-string-face))
+  "Third accent of the splash: the line colour of the third menu block."
+  :group 'faces)
+
+(defcustom sp-splash-accent-faces
+  '(sp-splash-accent-1-face sp-splash-accent-2-face sp-splash-accent-3-face)
+  "Faces that colour the menu blocks in turn, as their box lines."
+  :type '(repeat face)
+  :group 'sp-splash)
+
+(defcustom sp-splash-palette-roles
+  '((art      sp-splash-art-face      shadow                        :foreground 0.40)
+    (banner   sp-splash-banner-face   shadow                        :foreground 0.75)
+    (footer   sp-splash-footer-face   shadow                        :foreground 1.00)
+    (accent-1 sp-splash-accent-1-face font-lock-keyword-face        :foreground 1.00)
+    (accent-2 sp-splash-accent-2-face font-lock-function-name-face  :foreground 1.00)
+    (accent-3 sp-splash-accent-3-face font-lock-string-face         :foreground 1.00))
+  "How each colour role of the splash is derived from the theme.
+Each element is (ROLE FACE SOURCE-FACE ATTRIBUTE MIX).  FACE, the splash
+face of the role, gets the ATTRIBUTE of SOURCE-FACE mixed with the default
+background: MIX 1 is the source colour, 0 the background."
+  :type '(repeat (list symbol face face symbol number))
+  :group 'sp-splash)
+
+(defcustom sp-splash-palettes nil
+  "Colours chosen by hand for themes, instead of the derived ones.
+An alist of (THEME . COLORS) where COLORS is an alist of (ROLE . COLOR),
+for example:
+
+  \\='((modus-vivendi (art . \"#2a2e3a\") (accent-1 . \"#c678dd\")))
+
+A role that is not listed for the current theme is derived from the
+theme, see `sp-splash-palette-roles'."
+  :type '(alist :key-type symbol :value-type (alist :key-type symbol :value-type string))
+  :group 'sp-splash)
+
+(defcustom sp-splash-palette-follow-theme t
+  "Non-nil recolours the splash, and redraws it, when the theme changes."
+  :type 'boolean
+  :group 'sp-splash)
+
+(defun sp-splash--rgb (color)
+  "Return COLOR as a list of red, green and blue between 0 and 1, or nil."
+  (if (and (stringp color) (string-match "\\`#\\([[:xdigit:]]\\{2\\}\\)\\([[:xdigit:]]\\{2\\}\\)\\([[:xdigit:]]\\{2\\}\\)\\'" color))
+      (mapcar (lambda (i) (/ (string-to-number (match-string i color) 16) 255.0))
+              '(1 2 3))
+    (and (stringp color) (color-name-to-rgb color))))
+
+(defun sp-splash--mix (color background amount)
+  "Return COLOR moved AMOUNT (0 to 1) of the way from BACKGROUND, as #rrggbb."
+  (when-let* ((fg (sp-splash--rgb color))
+              (bg (sp-splash--rgb background)))
+    (apply #'format "#%02x%02x%02x"
+           (cl-mapcar (lambda (f b) (round (* 255 (+ b (* amount (- f b))))))
+                      fg bg))))
+
+(defun sp-splash--role-color (role)
+  "Return the colour of palette ROLE for the current theme, or nil."
+  (or (alist-get role (alist-get (car custom-enabled-themes) sp-splash-palettes))
+      (pcase-let ((`(,_ ,_ ,source ,attribute ,mix)
+                   (assq role sp-splash-palette-roles)))
+        (when source
+          (sp-splash--mix (face-attribute source attribute nil 'default)
+                          (face-attribute 'default :background nil 'default)
+                          mix)))))
+
+(defun sp-splash-apply-palette ()
+  "Set the splash faces from the colours of the current theme."
+  (interactive)
+  (dolist (entry sp-splash-palette-roles)
+    (when-let* ((color (sp-splash--role-color (car entry))))
+      (face-spec-set (nth 1 entry) `((t :foreground ,color)) 'face-override-spec))))
+
+(defun sp-splash--theme-changed (&rest _)
+  "Recolour and redraw the splash after a theme change."
+  (when sp-splash-palette-follow-theme
+    (sp-splash-apply-palette)
+    (when-let* ((buffer (get-buffer "Dashboard")))
+      (with-current-buffer buffer
+        (sp-splash-refresh)))))
+
+(add-hook 'enable-theme-functions #'sp-splash--theme-changed)
+(add-hook 'disable-theme-functions #'sp-splash--theme-changed)
+
+(defun sp-splash-show-palette ()
+  "Show the colour of every role for the current theme."
+  (interactive)
+  (message "%s: %s" (or (car custom-enabled-themes) "no theme")
+           (mapconcat (lambda (entry)
+                        (format "%s %s" (car entry)
+                                (or (sp-splash--role-color (car entry)) "-")))
+                      sp-splash-palette-roles ", ")))
+
 ;;;; Menu
 ;; The blocks under the banner.  Each element of `sp-splash-menu' is drawn as
 ;; a box, and a block with children shows them nested under its heading.
@@ -334,11 +439,14 @@ Each row is (TEXT KEY COMMAND HELP)."
                                           (apply #'append blocks))))
          (body-width (+ text-width (length ksep) 3))
          (inner-width (+ body-width 2))
-         (indent (max 0 (- content-col (/ (+ inner-width 2) 2)))))
+         (indent (max 0 (- content-col (/ (+ inner-width 2) 2))))
+         (faces (copy-sequence sp-splash-accent-faces)))
+    (when faces
+      (setcdr (last faces) faces))
     (dolist (block blocks)
       (insert-char ?\s indent)
       (insert (propertize (concat "┌" (make-string inner-width ?─) "┐\n")
-                          'face 'sp-splash-box-face))
+                          'face (or (car faces) 'sp-splash-box-face)))
       (dolist (row block)
         (pcase-let* ((`(,text ,key ,command ,help) row)
                      (body (concat text
@@ -346,7 +454,7 @@ Each row is (TEXT KEY COMMAND HELP)."
                                    ksep
                                    (if key (format "(%s)" key) "   "))))
           (insert-char ?\s indent)
-          (insert (propertize "│ " 'face 'sp-splash-box-face))
+          (insert (propertize "│ " 'face (or (car faces) 'sp-splash-box-face)))
           (if command
               (insert-text-button body
                                   'action (lambda (_) (funcall command))
@@ -354,11 +462,12 @@ Each row is (TEXT KEY COMMAND HELP)."
                                   'face 'sp-splash-menu-face
                                   'follow-link t)
             (insert (propertize body 'face 'sp-splash-menu-face)))
-          (insert (propertize " │\n" 'face 'sp-splash-box-face))))
+          (insert (propertize " │\n" 'face (or (car faces) 'sp-splash-box-face)))))
       (insert-char ?\s indent)
       (insert (propertize (concat "└" (make-string inner-width ?─) "┘\n")
-                          'face 'sp-splash-box-face))
-      (insert "\n"))))
+                          'face (or (car faces) 'sp-splash-box-face)))
+      (insert "\n")
+      (setq faces (cdr faces)))))
 
 ;;;; Define Splash
 
@@ -440,6 +549,8 @@ splash is drawn again with the current settings."
   (interactive)
   (when (and (called-interactively-p 'any) (get-buffer "Dashboard"))
     (kill-buffer "Dashboard"))
+  (when sp-splash-palette-follow-theme
+    (sp-splash-apply-palette))
   ;; Switch to or create splash buffer
   (or (when (get-buffer "Dashboard")
         (switch-to-buffer "Dashboard"))
