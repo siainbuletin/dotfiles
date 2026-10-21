@@ -54,7 +54,7 @@
       ("C-c w d i" . denote-link-or-create)
       ("C-c w d k" . denote-rename-file-keywords)))
 
-(setq denote-directory (expand-file-name "~/notes/"))
+(setq denote-directory sp-notes-dir)
 
 (setq denote-save-buffers t)
 

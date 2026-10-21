@@ -32,8 +32,8 @@
   :init
   ;; Set these variables early so they're available when needed
   (with-eval-after-load 'oc
-    (setq org-cite-csl-styles-dir "~/.local/share/csl/styles")
-    (setq org-cite-csl-locales-dir "~/.local/share/csl/locales")))
+    (setq org-cite-csl-styles-dir (sp-path sp-data-home "csl/styles"))
+    (setq org-cite-csl-locales-dir (sp-path sp-data-home "csl/locales"))))
 
 ;;;; Citeproc
 (use-package citeproc
@@ -99,7 +99,7 @@
   :config (citar-embark-mode)
   )
 
-(defvar sia-citar-library-backup-path "~/Documents/literature/backup")
+(defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
 
 ;;; Provide:
 

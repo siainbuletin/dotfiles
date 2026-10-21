@@ -7,7 +7,7 @@
   ;; At least one of these two is needed
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
-        (list "~/notes/"))
+        (list sp-notes-dir))
   (org-mem-updater-mode))
 
 (use-package inspector

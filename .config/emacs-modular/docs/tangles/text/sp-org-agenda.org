@@ -219,8 +219,8 @@ Uses every Org file in =~/notes/area/= and =~/notes/inbox/= for the agenda. The 
 #+begin_src emacs-lisp -i
 (setq org-agenda-files
         (list
-         "~/notes/area/"
-         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
+         (sp-path sp-notes-dir "area/")
+         (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
 ))
 #+end_src
 
@@ -370,7 +370,7 @@ All these views are offered by the dispatcher, each added with =add-to-list= aft
                             ((org-agenda-overriding-header "Planning Tasks")))
                  (tags-todo "-{.*}"
                             ((org-agenda-overriding-header "Untagged Tasks")))
-                 (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
+                 (todo ".*" ((org-agenda-files (list (sp-path sp-notes-dir "inbox.org")))
                              (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
            ("D" "Daily Agenda"

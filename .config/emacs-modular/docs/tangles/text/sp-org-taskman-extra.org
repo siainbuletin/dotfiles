@@ -233,7 +233,7 @@ Keybindings:
   (setq org-gtd-update-ack "4.0.0")
   :custom
   ;; Where org-gtd will keep its files (defaults to ~/gtd/)
-  (org-gtd-directory "~/notes/area/org-gtd/")
+  (org-gtd-directory (sp-path sp-notes-dir "area/org-gtd/"))
 
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
   ;; TODO keyword are configured elsewhere
