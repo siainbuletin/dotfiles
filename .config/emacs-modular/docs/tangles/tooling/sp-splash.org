@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-splash.el=. Every line of the 
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module replaces the stock Emacs startup screen with a =*splash*= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a short menu of buttons, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =lambda-splash.txt=).
+This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a short menu of buttons, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =lambda-splash.txt=).
 
 It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
 
@@ -176,18 +176,19 @@ Outline header for the variables section.
   "Separator for title and key.")
 #+end_src
 
-* Lambda art
+* Art layers
 
-The graphical splash draws the ASCII lambda in =libraries/lambda-splash.txt= behind the menu instead of the PNG logo. The art only fills blanks, so the welcome text and the buttons stay on top of it. It works the same for dark and light themes: the art is in =sp-splash-art-face=, whose colour is chosen by the background of the theme.
+The graphical splash draws text art behind the menu instead of the PNG logo: the lambda in =libraries/lambda-splash.txt= and text banner 3 of the =dashboard= package. A layer only fills blanks, so the welcome text and the buttons stay on top of it, and a layer that comes first in =sp-splash-art-layers= covers the ones after it. Art is in =sp-splash-art-face= or =sp-splash-banner-face=, whose colour is chosen by the background of the theme, so the same layers serve dark and light themes.
 
-** Face and section marker
+** Faces and section marker
 
-=sp-splash-art-face= is dim grey on a dark background and pale grey on a light one. The face is resolved when the splash is drawn, so after =load-theme= it is right the next time the splash is refreshed.
+The two faces are dim grey on a dark background and pale grey on a light one (the banner is a little stronger). They are resolved when the splash is drawn, so after =load-theme= they are right the next time the splash is refreshed.
 
 #+begin_src emacs-lisp -i
-;;;; Lambda art
-;; The lambda in `lambda-splash.txt' is drawn behind the menu: it only fills
-;; blanks, so the title and the menu buttons stay on top of it.
+;;;; Art layers
+;; Text art drawn behind the menu.  Each layer only fills blanks, so the title
+;; and the menu buttons stay on top, and a layer that comes earlier in
+;; `sp-splash-art-layers' covers the ones after it.
 (defface sp-splash-art-face
   '((((background dark))  :foreground "#454b5c")
     (((background light)) :foreground "#cfd3dc"))
@@ -197,83 +198,120 @@ with `load-theme' the next time the splash is drawn."
   :group 'faces)
 #+end_src
 
-** Position and file
-
-=sp-splash-art-file= is the text file (nil goes back to the PNG logo). The art is centred on the menu and then moved by =sp-splash-art-x-offset= columns (negative is left, the default -12 puts it slightly left) and =sp-splash-art-y-offset= lines (negative is up). The two step options set how far each nudge command moves it.
-
 #+begin_src emacs-lisp -i
-(defcustom sp-splash-art-file "lambda-splash.txt"
-  "Text file with the art drawn behind the menu.
-A relative name is looked up in `sp-library-dir'.  Nil draws the
-lambda logo image instead."
-  :type '(choice (const :tag "Use the logo image" nil) file)
-  :group 'sp-splash)
+(defface sp-splash-banner-face
+  '((((background dark))  :foreground "#6b7387")
+    (((background light)) :foreground "#9aa1b3"))
+  "Face for the dashboard banner art behind the splash menu."
+  :group 'faces)
 #+end_src
 
-#+begin_src emacs-lisp -i
-(defcustom sp-splash-art-x-offset -12
-  "Columns to move the art right (negative: left).
-Zero centres the art on the menu."
-  :type 'integer
-  :group 'sp-splash)
-#+end_src
+** Layers and steps
+
+=sp-splash-art-layers= lists the layers, topmost first. Each is =(NAME :file FILE :x X :y Y :face FACE)=. =FILE= is a text file (a relative name is looked up in =sp-library-dir=) or =(dashboard-banner . N)= for banner N of the =dashboard= package. The art is centred on the window and then moved by =X= columns and =Y= lines (negative is left and up). The default puts the lambda centred vertically and 50 columns left, and the banner centred 30 columns right and 20 lines down. Remove a layer from the list to hide it; set the list to nil to get the PNG logo back. The two step options set how far each nudge command moves a layer, and =sp-splash-art-layer= remembers which layer the nudge commands move.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-splash-art-y-offset 0
-  "Lines to move the art down (negative: up).
-Zero centres the art on the menu."
-  :type 'integer
+(defcustom sp-splash-art-layers
+  (copy-tree
+   '((banner :file (dashboard-banner . 3) :x 30 :y 20 :face sp-splash-banner-face)
+     (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-splash-art-face)))
+  "Art drawn behind the splash menu, topmost layer first.
+Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
+file (a relative name is looked up in `sp-library-dir'), or
+\(dashboard-banner . N) for text banner N of the `dashboard' package.  X and
+Y move the art right and down from the centre of the window, in columns
+and lines (negative: left and up).  Remove an element to hide its layer."
+  :type '(alist :key-type symbol :value-type plist)
   :group 'sp-splash)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-x-step 2
-  "Columns `sp-splash-art-right' and `sp-splash-art-left' move the art."
+  "Columns the art moves with `sp-splash-art-right' and `sp-splash-art-left'."
   :type 'integer
   :group 'sp-splash)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-y-step 1
-  "Lines `sp-splash-art-up' and `sp-splash-art-down' move the art."
+  "Lines the art moves with `sp-splash-art-up' and `sp-splash-art-down'."
   :type 'integer
   :group 'sp-splash)
 #+end_src
 
-** Drawing
+#+begin_src emacs-lisp -i
+(defvar sp-splash-art-layer nil
+  "Name of the layer the nudge commands move; nil means the first layer.")
+#+end_src
 
-=sp-splash--art-lines= reads the file and drops trailing blank lines. =sp-splash--draw-art= runs at the end of =sp-splash-screen=, once the menu position is known. For each non-blank art character it puts the character in the art face, but only on a plain blank: text, buttons and images are never overwritten, and a line shorter than the art is padded. Rows above the first or below the last window line are cut.
+** Finding the art
+
+=sp-splash--layer-file= resolves a layer's file. For a dashboard banner it looks in =dashboard-banners-directory= (or the =banners/= folder next to the =dashboard= library) and falls back to the copy =libraries/dashboard-banner-3.txt=, taken from the package, so the splash still works where the package is not installed. =sp-splash--art-lines= reads the file and drops trailing blank lines.
 
 #+begin_src emacs-lisp -i
-(defun sp-splash--art-lines ()
-  "Return the lines of `sp-splash-art-file', or nil when unavailable."
-  (when sp-splash-art-file
-    (let ((file (expand-file-name sp-splash-art-file sp-library-dir)))
-      (when (file-readable-p file)
-        (let ((lines (with-temp-buffer
-                       (insert-file-contents file)
-                       (split-string (buffer-string) "\n"))))
-          ;; Drop blank lines at the end so they don't count as height.
-          (while (and lines (string-blank-p (car (last lines))))
-            (setq lines (butlast lines)))
-          lines)))))
+(defun sp-splash--layer-file (file)
+  "Return the path of the art FILE of a layer, or nil when it is missing."
+  (let ((path (if (consp file)
+                  (let ((dir (or (and (boundp 'dashboard-banners-directory)
+                                      dashboard-banners-directory)
+                                 (when-let* ((lib (locate-library "dashboard")))
+                                   (expand-file-name "banners/" (file-name-directory lib))))))
+                    (and dir (expand-file-name (format "%s.txt" (cdr file)) dir)))
+                (expand-file-name file sp-library-dir))))
+    (cond ((and path (file-regular-p path)) path)
+          ;; Banner N of the package, in case the package is not installed
+          ((consp file)
+           (let ((copy (expand-file-name (format "dashboard-banner-%s.txt" (cdr file))
+                                         sp-library-dir)))
+             (and (file-regular-p copy) copy))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-splash--draw-art (first-line last-line)
-  "Draw the art behind the menu spanning FIRST-LINE to LAST-LINE.
+(defun sp-splash--art-lines (file)
+  "Return the lines of the art FILE of a layer, or nil when unavailable."
+  (when-let* ((path (sp-splash--layer-file file)))
+    (let ((lines (with-temp-buffer
+                   (insert-file-contents path)
+                   (split-string (buffer-string) "\n"))))
+      ;; Drop blank lines at the end so they don't count as height.
+      (while (and lines (string-blank-p (car (last lines))))
+        (setq lines (butlast lines)))
+      lines)))
+#+end_src
+
+** Drawing
+
+=sp-splash--draw-art= runs at the end of =sp-splash-screen= and draws each layer with =sp-splash--draw-layer=. For each non-blank art character it puts the character in the layer's face, but only on a plain blank: text, buttons and images are never overwritten, and a line shorter than the art is padded. Rows above the first or below the last window line, and columns left of the window, are cut.
+
+#+begin_src emacs-lisp -i
+(defun sp-splash--put-art-char (col ch face)
+  "Put CH in FACE at column COL of the current line if it is blank."
+  (move-to-column col)
+  (cond ((and (eolp) (<= (current-column) col))
+         (insert-char ?\s (- col (current-column)))
+         (insert (propertize (string ch) 'face face)))
+        ((and (= (current-column) col)
+              (eq (char-after) ?\s)
+              (not (get-text-property (point) 'face))
+              (not (get-text-property (point) 'button))
+              (not (get-text-property (point) 'display)))
+         (delete-char 1)
+         (insert (propertize (string ch) 'face face)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-splash--draw-layer (layer)
+  "Draw the art LAYER, centred on the window and moved by its offsets.
 Only plain blanks are replaced, so text, buttons and images are kept."
-  (when-let* ((lines (sp-splash--art-lines)))
+  (when-let* ((lines (sp-splash--art-lines (plist-get (cdr layer) :file))))
     (let* ((inhibit-read-only t)
            (indent-tabs-mode nil)
+           (face (or (plist-get (cdr layer) :face) 'sp-splash-art-face))
            (art-width (apply #'max (mapcar #'length lines)))
-           (menu-middle (/ (+ first-line last-line) 2))
-           (top (+ (- menu-middle (/ (length lines) 2))
-                   sp-splash-art-y-offset))
-           (menu-center (+ (max 0 (/ (- (window-width) (length "Welcome to λ-Emacs")) 2))
-                           9))
-           (left (+ (- menu-center (/ art-width 2))
-                    sp-splash-art-x-offset))
+           (top (+ (- (/ (window-body-height) 2) (/ (length lines) 2))
+                   (or (plist-get (cdr layer) :y) 0)))
+           (left (+ (- (/ (window-width) 2) (/ art-width 2))
+                    (or (plist-get (cdr layer) :x) 0)))
            (max-line (window-body-height))
            (row 0))
       (dolist (text lines)
@@ -289,38 +327,49 @@ Only plain blanks are replaced, so text, buttons and images are kept."
               (let ((ch (aref text i))
                     (col (+ left i)))
                 (when (and (/= ch ?\s) (>= col 0))
-                  (sp-splash--put-art-char col ch)
+                  (sp-splash--put-art-char col ch face)
                   (forward-line 0)))))
           (setq row (1+ row)))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-splash--put-art-char (col ch)
-  "Put CH in the art face at column COL of the current line if it is blank."
-  (move-to-column col)
-  (cond ((and (eolp) (<= (current-column) col))
-         (insert-char ?\s (- col (current-column)))
-         (insert (propertize (string ch) 'face 'sp-splash-art-face)))
-        ((and (= (current-column) col)
-              (eq (char-after) ?\s)
-              (not (get-text-property (point) 'face))
-              (not (get-text-property (point) 'button))
-              (not (get-text-property (point) 'display)))
-         (delete-char 1)
-         (insert (propertize (string ch) 'face 'sp-splash-art-face)))))
+(defun sp-splash--draw-art ()
+  "Draw every art layer behind the menu, the topmost layer first."
+  (dolist (layer sp-splash-art-layers)
+    (sp-splash--draw-layer layer)))
 #+end_src
 
 ** Moving the art
 
-In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= nudge the art and redraw. The splash rebuilds itself, so the change lasts until Emacs exits. =0= goes back to the defaults and =s= shows (and copies) the =setq= form for the current offsets, to paste into the config or the options above.
+In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= move the current layer and redraw; =TAB= picks the next layer. The splash rebuilds itself, so the change lasts until Emacs exits. =0= goes back to the defaults and =s= shows (and copies) the =setq= form for the current layers, to paste into the config.
 
 #+begin_src emacs-lisp -i
 ;;;; Move the art
+(defun sp-splash--current-layer ()
+  "Return the layer the nudge commands move."
+  (or (assq sp-splash-art-layer sp-splash-art-layers)
+      (car sp-splash-art-layers)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-splash-art-next-layer ()
+  "Select the next art layer for the nudge commands."
+  (interactive)
+  (let* ((names (mapcar #'car sp-splash-art-layers))
+         (rest (cdr (memq (car (sp-splash--current-layer)) names))))
+    (setq sp-splash-art-layer (car (or rest names)))
+    (message "Splash art layer: %s" sp-splash-art-layer)))
+#+end_src
+
+#+begin_src emacs-lisp -i
 (defun sp-splash-art-nudge (dx dy)
-  "Move the art DX columns right and DY lines down, and redraw the splash."
-  (setq sp-splash-art-x-offset (+ sp-splash-art-x-offset dx)
-        sp-splash-art-y-offset (+ sp-splash-art-y-offset dy))
-  (message "Splash art offset: x %d, y %d" sp-splash-art-x-offset sp-splash-art-y-offset)
+  "Move the current art layer DX columns right and DY lines down, and redraw."
+  (let ((layer (sp-splash--current-layer)))
+    (unless layer (user-error "No splash art layers"))
+    (plist-put (cdr layer) :x (+ (or (plist-get (cdr layer) :x) 0) dx))
+    (plist-put (cdr layer) :y (+ (or (plist-get (cdr layer) :y) 0) dy))
+    (message "Splash art %s: x %d, y %d" (car layer)
+             (plist-get (cdr layer) :x) (plist-get (cdr layer) :y)))
   (sp-splash-refresh))
 #+end_src
 
@@ -354,20 +403,21 @@ In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= nudge the
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-art-reset ()
-  "Put the splash art back at the default position."
+  "Put the art layers back at their default positions."
   (interactive)
-  (setq sp-splash-art-x-offset (eval (car (get 'sp-splash-art-x-offset 'standard-value)))
-        sp-splash-art-y-offset (eval (car (get 'sp-splash-art-y-offset 'standard-value))))
+  (setq sp-splash-art-layers
+        (copy-tree (eval (car (get 'sp-splash-art-layers 'standard-value)))))
   (sp-splash-refresh))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-art-show-position ()
-  "Show the current art offsets as a form to paste into the config.
+  "Show the art layers as a form to paste into the config.
 The form is also copied to the kill ring."
   (interactive)
-  (let ((form (format "(setq sp-splash-art-x-offset %d\n      sp-splash-art-y-offset %d)"
-                      sp-splash-art-x-offset sp-splash-art-y-offset)))
+  (let ((form (format "(setq sp-splash-art-layers\n      '(%s))"
+                      (mapconcat (lambda (layer) (format "%S" layer))
+                                 sp-splash-art-layers "\n        "))))
     (kill-new form)
     (message "%s" form)))
 #+end_src
@@ -389,25 +439,25 @@ Outline header for the functions that build the splash buffer.
 #+begin_src emacs-lisp -i
 (defun sp-splash--erase ()
   ;; check if splash exists and switch if so
-  (when (get-buffer "*splash*")
-    (switch-to-buffer "*splash*")
+  (when (get-buffer "Dashboard")
+    (switch-to-buffer "Dashboard")
     (let ((inhibit-read-only t))
       (erase-buffer))))
 #+end_src
 
 ** Terminal splash
 
-=sp-splash-terminal= builds the splash for terminal frames. If =*splash*= already exists it just switches to it. Otherwise it creates the buffer, hides the mode line and header line, sets margins and fill column from the window size, disables the menu bar (except on graphical macOS), inserts the ASCII banner from =lambda-splash.txt= in =sp-library-dir=, and inserts the welcome, version and init-info lines as a rectangle roughly in the middle of the window. A footer is added at the bottom and =sp-splash-mode= is enabled. The local variables =midp=, =padding-top= and =height= are computed but unused, and the =defvar= of =sp-splash-footer= inside the body only provides a fallback value.
+=sp-splash-terminal= builds the splash for terminal frames. If =Dashboard= already exists it just switches to it. Otherwise it creates the buffer, hides the mode line and header line, sets margins and fill column from the window size, disables the menu bar (except on graphical macOS), inserts the ASCII banner from =lambda-splash.txt= in =sp-library-dir=, and inserts the welcome, version and init-info lines as a rectangle roughly in the middle of the window. A footer is added at the bottom and =sp-splash-mode= is enabled. The local variables =midp=, =padding-top= and =height= are computed but unused, and the =defvar= of =sp-splash-footer= inside the body only provides a fallback value.
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-terminal ()
   "A custom splash screen for terminal Emacs"
   (interactive)
   ;; Switch to or create splash buffer
-  (or (when (get-buffer "*splash*")
-        (switch-to-buffer "*splash*"))
+  (or (when (get-buffer "Dashboard")
+        (switch-to-buffer "Dashboard"))
       ;; Hide modeline before window-body-height is computed
-      (let* ((splash-buffer (get-buffer-create "*splash*")))
+      (let* ((splash-buffer (get-buffer-create "Dashboard")))
         (with-current-buffer splash-buffer
           (setq header-line-format nil)
           (setq mode-line-format nil)
@@ -461,33 +511,33 @@ Outline header for the functions that build the splash buffer.
                              (propertize sp-splash-footer 'face 'sp-splash-footer-face)))
             (goto-char (point-min))
             (display-buffer-same-window splash-buffer nil))
-          (switch-to-buffer "*splash*"))
+          (switch-to-buffer "Dashboard"))
         (sp-splash-mode))))
 #+end_src
 
 ** Graphical splash
 
-=sp-splash-screen= is the GUI renderer. Called interactively it first kills an existing =*splash*= buffer, because otherwise the command only switches to the old buffer and a changed setting would not show. After the same buffer setup as the terminal version it inserts, centered horizontally:
-- the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there is no lambda art (see the previous section);
+=sp-splash-screen= is the GUI renderer. Called interactively it first kills an existing =Dashboard= buffer, because otherwise the command only switches to the old buffer and a changed setting would not show. After the same buffer setup as the terminal version it inserts, centered horizontally:
+- the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section);
 - the welcome text, the Emacs version and the init info;
 - a menu of text buttons with nerd-icons for Agenda, Config, Mail, Notes and Projects, each showing its single-key shortcut;
 - a footer pushed toward the bottom of the window;
-- the lambda art, drawn last and behind the menu.
+- the art layers, drawn last and behind the menu.
 Each button calls its action through =sp-splash--workspace-dispatch=, so a missing workspaces module gives a message rather than an error. The Projects button calls =tabspaces-open-or-create-project-and-workspace=, while the =p= key (below) calls =sp-open-existing-project-and-workspace=, so mouse and keyboard differ there.
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-screen ()
   "A custom splash screen for Emacs.
-Called interactively, it drops an existing *splash* buffer first so the
+Called interactively, it drops an existing Dashboard buffer first so the
 splash is drawn again with the current settings."
   (interactive)
-  (when (and (called-interactively-p 'any) (get-buffer "*splash*"))
-    (kill-buffer "*splash*"))
+  (when (and (called-interactively-p 'any) (get-buffer "Dashboard"))
+    (kill-buffer "Dashboard"))
   ;; Switch to or create splash buffer
-  (or (when (get-buffer "*splash*")
-        (switch-to-buffer "*splash*"))
+  (or (when (get-buffer "Dashboard")
+        (switch-to-buffer "Dashboard"))
       ;; Hide modeline before window-body-height is computed
-      (let* ((splash-buffer (get-buffer-create "*splash*")))
+      (let* ((splash-buffer (get-buffer-create "Dashboard")))
         (with-current-buffer splash-buffer
           (setq header-line-format nil)
           (setq mode-line-format nil)
@@ -499,8 +549,6 @@ splash is drawn again with the current settings."
                (height (/ (window-height) 2))
 	           (width (/ (window-width) 2))
                (image-scaling-factor 2.2)
-               (menu-first-line 1)
-               (menu-last-line 1)
                ;; scale icons
                (nerd-icons-scale-factor 1.10)
                (nerd-icons-default-adjust -0.02))
@@ -529,7 +577,7 @@ splash is drawn again with the current settings."
               
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
-                         (null (sp-splash--art-lines)))
+                         (null sp-splash-art-layers))
                 (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
@@ -562,7 +610,6 @@ splash is drawn again with the current settings."
 
             ;; Insert menu buttons - left-aligned as a group, group is centered
             (goto-char (point-max))
-            (setq menu-first-line (line-number-at-pos))
             (let* ((button-indent (max 0 (/ (- (window-width) (length "Welcome to λ-Emacs")) 2)))
                    (button-labels '(("nf-fa-calendar" "Agenda" "a" sp-open-agenda-in-workspace "Open Agenda")
                                     ("nf-fa-code" "Config" "c" sp-open-emacsd-in-workspace "Visit config directory")
@@ -589,7 +636,6 @@ splash is drawn again with the current settings."
                                       'face 'sp-splash-menu-face
                                       'follow-link t)
                   (insert-char ?\n 1))))
-            (setq menu-last-line (1- (line-number-at-pos)))
 
 
             ;; Add footer with some space above bottom
@@ -606,11 +652,11 @@ splash is drawn again with the current settings."
               (insert (propertize sp-splash-footer 'face 'sp-splash-footer-face)))
 
             ;; Lambda art behind the menu (a no-op when the art is off)
-            (sp-splash--draw-art menu-first-line menu-last-line)
+            (sp-splash--draw-art)
 
             (goto-char (point-min))
             (display-buffer-same-window splash-buffer nil))
-          (switch-to-buffer "*splash*"))
+          (switch-to-buffer "Dashboard"))
         (sp-splash-mode))))
 #+end_src
 
@@ -632,7 +678,7 @@ Sets the global =sp-splash-footer= string shown at the bottom of the splash. The
 (defun sp-splash-screen-bury ()
   "Bury the splash screen buffer (immediately)."
   (interactive)
-  (when (get-buffer "*splash*")
+  (when (get-buffer "Dashboard")
     (bury-buffer)))
 #+end_src
 
@@ -644,7 +690,7 @@ Sets the global =sp-splash-footer= string shown at the bottom of the splash. The
 (defun sp-splash-screen-kill ()
   "Kill the splash screen buffer (immediately)."
   (interactive)
-  (when (get-buffer "*splash*")
+  (when (get-buffer "Dashboard")
     (kill-buffer)))
 #+end_src
 
@@ -724,7 +770,7 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
 
 ** Keymap
 
-=sp-splash-mode-map= gives the splash single-key bindings: =a=, =c=, =m=, =n= and =p= for the menu actions, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the lambda art, =0= resets it and =s= shows its offsets.
+=sp-splash-mode-map= gives the splash single-key bindings: =a=, =c=, =m=, =n= and =p= for the menu actions, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =TAB= picks the next layer, =0= resets the layers and =s= shows them.
 
 #+begin_src emacs-lisp -i
 ;;;; Define Minor Mode
@@ -740,6 +786,7 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
     (define-key map (kbd "S-<right>") 'sp-splash-art-right)
     (define-key map (kbd "S-<up>") 'sp-splash-art-up)
     (define-key map (kbd "S-<down>") 'sp-splash-art-down)
+    (define-key map (kbd "TAB") 'sp-splash-art-next-layer)
     (define-key map (kbd "0") 'sp-splash-art-reset)
     (define-key map (kbd "s") 'sp-splash-art-show-position)
     (define-key map (kbd "q") 'sp-splash-screen-kill)
@@ -794,14 +841,14 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
 
 ** Refresh
 
-=sp-splash-refresh= rebuilds the splash when the current buffer is =*splash*=, by killing it and calling =sp-splash-screen= again so it is re-centred for the new window size. It always uses the graphical renderer and swallows errors.
+=sp-splash-refresh= rebuilds the splash when the current buffer is =Dashboard=, by killing it and calling =sp-splash-screen= again so it is re-centred for the new window size. It always uses the graphical renderer and swallows errors.
 
 #+begin_src emacs-lisp -i
 ;;;; Splash Setup & Refresh Functions
 (defun sp-splash-refresh ()
   "Refresh & recenter splash after window switch."
   (interactive)
-  (when (string= (buffer-name) "*splash*")
+  (when (string= (buffer-name) "Dashboard")
     (progn
       (ignore-errors
         (sp-splash-screen-kill)
