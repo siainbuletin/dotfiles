@@ -189,8 +189,8 @@ The graphical splash draws the ASCII lambda in =libraries/lambda-splash.txt= beh
 ;; The lambda in `lambda-splash.txt' is drawn behind the menu: it only fills
 ;; blanks, so the title and the menu buttons stay on top of it.
 (defface sp-splash-art-face
-  '((((background dark))  :foreground "#3a3f4b")
-    (((background light)) :foreground "#d8dbe2"))
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
   "Face for the lambda art behind the splash menu.
 The colour follows the background of the current theme, so it changes
 with `load-theme' the next time the splash is drawn."
@@ -298,7 +298,7 @@ Only plain blanks are replaced, so text, buttons and images are kept."
 (defun sp-splash--put-art-char (col ch)
   "Put CH in the art face at column COL of the current line if it is blank."
   (move-to-column col)
-  (cond ((and (eolp) (< (current-column) col))
+  (cond ((and (eolp) (<= (current-column) col))
          (insert-char ?\s (- col (current-column)))
          (insert (propertize (string ch) 'face 'sp-splash-art-face)))
         ((and (= (current-column) col)
@@ -467,7 +467,7 @@ Outline header for the functions that build the splash buffer.
 
 ** Graphical splash
 
-=sp-splash-screen= is the GUI renderer. After the same buffer setup as the terminal version it inserts, centered horizontally:
+=sp-splash-screen= is the GUI renderer. Called interactively it first kills an existing =*splash*= buffer, because otherwise the command only switches to the old buffer and a changed setting would not show. After the same buffer setup as the terminal version it inserts, centered horizontally:
 - the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there is no lambda art (see the previous section);
 - the welcome text, the Emacs version and the init info;
 - a menu of text buttons with nerd-icons for Agenda, Config, Mail, Notes and Projects, each showing its single-key shortcut;
@@ -477,8 +477,12 @@ Each button calls its action through =sp-splash--workspace-dispatch=, so a missi
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-screen ()
-  "A custom splash screen for Emacs"
+  "A custom splash screen for Emacs.
+Called interactively, it drops an existing *splash* buffer first so the
+splash is drawn again with the current settings."
   (interactive)
+  (when (and (called-interactively-p 'any) (get-buffer "*splash*"))
+    (kill-buffer "*splash*"))
   ;; Switch to or create splash buffer
   (or (when (get-buffer "*splash*")
         (switch-to-buffer "*splash*"))
