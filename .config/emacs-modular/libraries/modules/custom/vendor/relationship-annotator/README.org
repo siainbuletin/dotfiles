@@ -1,6 +1,6 @@
 #+title: Vendored scripts for the hierarchy browser view
 
-The browser graph of =sp-vulpea-hierarchy= computes the position of every box with the force-directed layout =fCoSE=, which can place boxes above, below, left or right of each other. The page does the drawing itself. The scripts below are copied unchanged, minified where the package didn't ship a minified build, and pasted into the page by =vulpea-hierarchy--html= so the page works offline. All four are MIT licensed; each licence is next to its script.
+The browser graph of =sp-relationship-annotator= computes the position of every box with the force-directed layout =fCoSE=, which can place boxes above, below, left or right of each other. The page does the drawing itself. The scripts below are copied unchanged, minified where the package didn't ship a minified build, and pasted into the page by =relationship-annotator--html= so the page works offline. All four are MIT licensed; each licence is next to its script.
 
 | File                      | Package                                 | Version |
 |---------------------------+-----------------------------------------+---------|
