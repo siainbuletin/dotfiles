@@ -14,8 +14,8 @@ All of the existing configurations and their names (so you can start with Emacs 
 
 ** Reviewing and merging AI-made changes on macOS
 
-On my Mac, most changes to this repository are written by Claude in a cloud session and arrive as pull requests, often several at once and sometimes stacked on each other. Magit's text interface is hard for me to follow when a stack of branches or a merge conflict is involved, so I review and merge with a small set of tools, each with one job. This section is the map of that setup. Nothing here applies to the Arch machines above.
-
+On my Mac, most changes to this repository are written by Claude in a cloud session and arrive as pull requests, often several at once and sometimes stacked on each other. Magit's text interface is hard for me to follow when a stack of branches or a merge conflict is involved, so I review and merge with a small set of tools, each with one job. This section is the map of that setup. 
+ 
 #+begin_quote
 *What has and has not been run.* This was written from a Linux container, not from my Mac. The tool descriptions come from each project's documentation and source; I have not confirmed any of the SourceGit button names, keys or menus against the installed app, and the =sp-vc-ai-workbench= module has never been loaded (see below). Things I have not tried myself are marked /untested/.
 #+end_quote
@@ -26,12 +26,16 @@ On my Mac, most changes to this repository are written by Claude in a cloud sess
 |---------------------------------------+-------------------------------------+---------------------------------------------------|
 | Dotfiles repository                   | =yadm=                              | =~/.local/share/yadm/repo.git=, work tree =~=     |
 | Shell                                 | =fish=                              | =~/.config/fish/=                                 |
-| Visual branches, merges, conflicts    | SourceGit                           | on a plain clone, =~/src/dotfiles-test=           |
+| Visual branches, merges, conflicts    | SourceGit                           | on a plain clone, =~/src/dotfiles-test=, as well as directly on the file, since I may need to visualise the changes           |
 | Pull request actions (create, merge)  | =gh= (GitHub CLI) and GitHub's web UI | any shell, in a clone or worktree               |
 | Reading, commenting on PRs in Emacs   | Forge and =code-review=             | =sp-vcontrol= module (PR #30)                     |
 | Git operations in Emacs               | Magit, styled by =sp-magit-style=   | =sp-vcontrol=, =sp-magit-style= modules           |
 | Trying a PR without touching my config | =emacs-pr= / =M-x sp-sandbox-pr=    | =sp-sandbox= module                               |
 | Parallel brainstorming with Claude    | =sp-vc-ai-workbench=                | =libraries/modules/custom/= (not loaded yet)      |
+
+Since ~yadm~ doesn't have a `.git` repository in the normal manner, not a lot of git clients work that well.
+
+Stacked diffs should be handled with something like Graphite or directly in the ~gh~ command-line utility (or integrated into Emacs, if that's possible)
 
 **** yadm and the plain clone
 
