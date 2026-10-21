@@ -9,10 +9,15 @@ to fold or unfold it.
 
 * Open pull requests
 ** Added
-- =emacs-pr=, a fish function (=~/.config/fish/functions/emacs-pr.fish=) that runs a pull request in a sandboxed Emacs with its own copy of the notes and a shared package cache, documented in =README.org=. ([[https://github.com/siainbuletin/dotfiles/pull/24][#24]], Claude)
+- =sp-sandbox=, a new module in =libraries/modules/custom/= with =M-x sp-sandbox-pr= (and =sp-sandbox-remove=, =sp-sandbox-reset-notes=, =sp-sandbox-reseed=) to start a pull request in a sandboxed Emacs from the Emacs I work in. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 ** Changed
+- =emacs-pr= gives every pull request its own packages (a clone of a seed of the live =var/elpaca=) and its own copy of the notes, so several sandboxes can run at once next to the live Emacs. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
+
+* 2026-10-21
+** Added
+- =emacs-pr=, a fish function (=~/.config/fish/functions/emacs-pr.fish=) that runs a pull request in a sandboxed Emacs with its own copy of the notes and a shared package cache, documented in =README.org=. ([[https://github.com/siainbuletin/dotfiles/pull/24][#24]], Claude)
 
 * 2026-10-20
 ** Added
