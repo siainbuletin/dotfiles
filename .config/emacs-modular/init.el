@@ -311,7 +311,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-academic
                     ;; 'sp-statistics
                     'sp-dgraphs
-                    'sp-vulpea-hierarchy
+                    'sp-relationship-annotator
                     'sp-notes
                     'sp-semantic
                     'sp-dyn-graph
