@@ -8,7 +8,7 @@
 ;; a hierarchy; others such as `supports' are links) and shows part of
 ;; them, starting from a note you choose:
 ;;
-;;   M-x relationship-annotator-graph          interactive graph in the browser (default)
+;;   M-x relationship-annotator-graph-static   static HTML page in the browser
 ;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
 ;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
 ;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
@@ -123,7 +123,7 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
-  "Where `relationship-annotator-graph' writes its HTML page."
+  "Where `relationship-annotator-graph-static' writes its HTML page."
   :type 'file)
 
 (defcustom relationship-annotator-svg-directory
@@ -748,7 +748,7 @@ well each stands.  RET on a title visits the note."
 (defconst relationship-annotator--html-template-file
   (expand-file-name "sp-relationship-annotator.html"
                     (file-name-directory (or load-file-name buffer-file-name)))
-  "File holding the HTML template for `relationship-annotator-graph'.
+  "File holding the HTML template for the graph pages.
 The placeholder `__DATA__' is replaced with the JSON data.")
 
 (defun relationship-annotator--html-template ()
@@ -888,8 +888,8 @@ in it and cut the part to show by itself."
                                     (relationship-annotator--html-template)))))
 
 ;;;###autoload
-(defun relationship-annotator-graph ()
-  "Ask for a starting note and depth, then open the hierarchy in the browser.
+(defun relationship-annotator-graph-static ()
+  "Ask for a starting note and depth, then open a static HTML page of the hierarchy.
 The page holds `relationship-annotator-embed-depth' levels below the starting
 note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)

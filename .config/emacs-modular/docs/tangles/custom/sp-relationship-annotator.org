@@ -21,13 +21,12 @@ A vault of this size is too large to draw whole. So every command first asks for
 
 | Command                                 | What it shows                                                                                                                   |
 |-----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------|
-| =relationship-annotator-graph=          | An interactive graph in the browser: pan, zoom, click a box to recentre, fold with the marker.                                  |
+| =relationship-annotator-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]]). |
+| =relationship-annotator-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                      |
 | =relationship-annotator-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                 |
 | =relationship-annotator-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                     |
 | =relationship-annotator-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                 |
 | =relationship-annotator-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question. |
-
-=sp-relationship-annotator-live= ([[file:sp-relationship-annotator-live.org][its doc]]) serves the same page from Emacs on localhost and reloads it when the notes change; the commands above are unchanged.
 
 Notes on the last level show how many children they hide (=+N= in the browser, a count in the outline). The browser graph can't load more, so run it again with a bigger depth; the outlines expand any note on demand.
 
@@ -63,7 +62,7 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 ;; a hierarchy; others such as `supports' are links) and shows part of
 ;; them, starting from a note you choose:
 ;;
-;;   M-x relationship-annotator-graph          interactive graph in the browser (default)
+;;   M-x relationship-annotator-graph-static   static HTML page in the browser
 ;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
 ;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
 ;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
@@ -209,7 +208,7 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
-  "Where `relationship-annotator-graph' writes its HTML page."
+  "Where `relationship-annotator-graph-static' writes its HTML page."
   :type 'file)
 
 (defcustom relationship-annotator-svg-directory
@@ -999,7 +998,7 @@ well each stands.  RET on a title visits the note."
 (defconst relationship-annotator--html-template-file
   (expand-file-name "sp-relationship-annotator.html"
                     (file-name-directory (or load-file-name buffer-file-name)))
-  "File holding the HTML template for `relationship-annotator-graph'.
+  "File holding the HTML template for the graph pages.
 The placeholder `__DATA__' is replaced with the JSON data.")
 
 (defun relationship-annotator--html-template ()
@@ -1168,7 +1167,9 @@ in it and cut the part to show by itself."
                                     (relationship-annotator--html-template)))))
 #+end_src
 
-*** The graph command (lines 890–903)
+*** The static graph command (lines 890–903)
+
+This is the old =relationship-annotator-graph=, renamed. The name =relationship-annotator-graph= now belongs to the live view in [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]], which builds the same page.
 
 - Line 890 is the autoload cookie, so the command is available before the module loads, and line 891 defines it.
 - Lines 892-894 are the documentation: the page holds =relationship-annotator-embed-depth= levels below the starting note, and a click on a box recentres the graph on it within those levels.
@@ -1179,8 +1180,8 @@ in it and cut the part to show by itself."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-graph ()
-  "Ask for a starting note and depth, then open the hierarchy in the browser.
+(defun relationship-annotator-graph-static ()
+  "Ask for a starting note and depth, then open a static HTML page of the hierarchy.
 The page holds `relationship-annotator-embed-depth' levels below the starting
 note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)
