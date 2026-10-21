@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-vulpea-base.el=. Every line of th
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-vulpea-vui-table=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-vulpea-table-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
