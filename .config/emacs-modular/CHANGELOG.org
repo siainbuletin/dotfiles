@@ -8,6 +8,13 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Startup and module load order
+- =org-ql= is installed in =sp-org-agenda=, right after =org-super-agenda= which it requires, instead of in =sp-org-base=, so Elpaca no longer warns =org-super-agenda previously queued as dependency of: (org-ql)=. ([[https://github.com/siainbuletin/dotfiles/pull/46][#46]], Claude)
+- =sp-lisp= loads before =sp-prog-misc=, because =emr= requires =paredit=, which =sp-lisp= installs. ([[https://github.com/siainbuletin/dotfiles/pull/46][#46]], Claude)
+- Twelve modules load once Emacs is idle after startup instead of during it, listed in =lem--late-modules= (=sp-defer-late-modules= set to =nil= loads them with the others). ([[https://github.com/siainbuletin/dotfiles/pull/46][#46]], Claude)
+  - =sp-academic=, =sp-dgraphs=, =sp-relationship-annotator=, =sp-notes=, =sp-semantic=, =sp-dyn-graph=
+  - =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell=, =sp-ai=
+- =docs/load-order.org= graphs the order of the modules and the package requirements behind it, with a checklist for placing a new module; it is linked from =docs/main.org=. ([[https://github.com/siainbuletin/dotfiles/pull/46][#46]], Claude)
 ** Fixed
 - The lambda art behind the splash menu lost every other character, and =M-x sp-splash-screen= only switched to an old =*splash*= buffer, so a changed setting never showed. The art is complete now, the command redraws the splash, and the art colours are a little stronger. Checked in a headless Emacs 29. ([[https://github.com/siainbuletin/dotfiles/pull/44][#44]], Claude)
 ** Added
