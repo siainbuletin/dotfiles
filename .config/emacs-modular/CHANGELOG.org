@@ -11,6 +11,7 @@ to fold or unfold it.
 ** Added
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 ** Changed
+- =init.el= no longer has =custom-set-variables= and =custom-set-faces= blocks. Their settings now live in the modules that own them (=sp-fonts=, =sp-choose-modeline=, =sp-bibprocess=, =sp-base-libraries=, =sp-org-emphasis=), the stale package, theme and agenda-file lists are dropped, and =custom-file= points to =var/etc/custom.el= (never loaded) so Customize cannot write to =init.el=. ([[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]], Claude)
 - =vulpea-hierarchy-relations= replaces the option =vulpea-hierarchy-parent-key=; its value is now the =parent= relation. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
 
 * 2026-10-20

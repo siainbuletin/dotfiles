@@ -33,6 +33,18 @@
 
 ;;;; Proper highlighting of regions, like in Markdown with Obsidian
 (use-package org-extra-emphasis
-  :ensure (:type git :host github :repo "QiangF/org-extra-emphasis"))
+  :ensure (:type git :host github :repo "QiangF/org-extra-emphasis")
+  :config
+  (dolist (face '(org-extra-emphasis-01 org-extra-emphasis-02))
+    (set-face-attribute face nil
+                        :foreground "#003F66" :inherit 'org-extra-emphasis
+                        :underline t))
+  (set-face-attribute 'org-extra-emphasis nil
+                      :background "#F0B609" :height 1.0 :inherit 'default
+                      :weight 'bold :width 'normal))
+
+(with-eval-after-load 'org
+  (set-face-attribute 'org-default nil
+                      :background "#F0B609" :inherit 'default))
 
 (provide 'sp-org-emphasis)

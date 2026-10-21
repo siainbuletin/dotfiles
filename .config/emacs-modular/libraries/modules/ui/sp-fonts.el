@@ -54,15 +54,6 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
            (when (and val (not (eq val prev-val)))
              (sp-ui--set-variable-width-font val)))))
 
-;; Uncomment and set below variables for fonts other than the defaults
-(custom-set-variables
- '(sp-ui-default-font
-   '(:font "PT Mono" :height 120)))
-
-(custom-set-variables
- '(sp-ui-variable-width-font
-   '(:font "Aporetic Serif Mono" :height 120)))
-   
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset
@@ -298,6 +289,11 @@ DELTA would be something like 1 or -1."
         pdf-outline-buffer-mode-hook
         proced-mode-hook
         tabulated-list-mode-hook))
+
+;; The font options are set last so that they win over the `set-face-attribute'
+;; calls above, as they did when `init.el' applied them at the end of startup.
+(setopt sp-ui-default-font '(:font "PT Mono" :height 120)
+        sp-ui-variable-width-font '(:font "Aporetic Serif Mono" :height 120))
 
 (provide 'sp-fonts)
 ;; sp-fonts.el ends here.

@@ -12,7 +12,7 @@
 
 ;;; Code:
 
-(defcustom sia/modeline 'lambda-line
+(defcustom sia/modeline 'doom-modeline
   "The modeline to use.
 Options are 'doom-modeline or 'lambda-line."
   :type '(choice

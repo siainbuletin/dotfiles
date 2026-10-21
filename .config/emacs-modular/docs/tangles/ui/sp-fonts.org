@@ -10,7 +10,7 @@ This module sets up typography: the default, variable-pitch and symbol fonts, em
 
 It is loaded early among the UI modules in =init.el=, after =sp-icons=, =sp-colors= and =sp-faces=. Packages it installs: =mixed-pitch=, =fontaine= and =lin=. It expects fonts such as PT Mono, Aporetic Sans Mono, Aporetic Serif Mono and IntoneMono Nerd Font to be installed, with Symbola or Apple Symbols for symbols and Apple Color Emoji for emoji.
 
-The default face is set several times as the file loads (PT Mono at 120 through the customisation variable, then Aporetic Sans Mono at 150 directly), so the last setting wins unless =fontaine= restores a preset of its own.
+The default face is set several times as the file loads (Aporetic Sans Mono at 150 directly, then PT Mono at 120 through the customisation variable at the very end of the file), so the last setting wins unless =fontaine= restores a preset of its own.
 
 * Checking fonts
 
@@ -70,7 +70,7 @@ as accepted by `set-face-attribute'."
 
 ** Customisable default font
 
-=sp-ui-default-font= is a user option in the =sia-lambda= group. Its custom setter applies the font immediately whenever a new non-nil value is set, so setting it through Customize or =custom-set-variables= changes the font at once. The =:key-type:= with a trailing colon in the type is a typo, but only affects the Customize widget.
+=sp-ui-default-font= is a user option in the =sia-lambda= group. Its custom setter applies the font immediately whenever a new non-nil value is set, so setting it through Customize, =setopt= or =custom-set-variables= changes the font at once. The =:key-type:= with a trailing colon in the type is a typo, but only affects the Customize widget.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-ui-default-font nil
@@ -108,32 +108,15 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
              (sp-ui--set-variable-width-font val)))))
 #+end_src
 
-** Choosing the default font
-
-Sets the default font to PT Mono at height 120 (12 points) through =custom-set-variables=, which triggers the setter above. This is later overridden in this file.
-
-#+begin_src emacs-lisp -i
-;; Uncomment and set below variables for fonts other than the defaults
-(custom-set-variables
- '(sp-ui-default-font
-   '(:font "PT Mono" :height 120)))
-#+end_src
-
 * Symbols, emoji and fallbacks
 
 ** Variable-pitch font and fontset setup
-
-First sets the variable-pitch font to Aporetic Serif Mono at 120.
 
 The =fontset= block configures glyph fallbacks. =use-default-font-for-symbols= is t so symbols use the default font where it has them, which the comment says =org-modern-indent= needs. For the rest, the first installed font among Symbola, Apple Symbols, Symbol and Segoe UI Symbol is assigned to the symbol script. On Emacs 28 or later, Apple Color Emoji is prepended for the emoji script to get colour emoji.
 
 Finally a face named =fallback= (Fira Code, inheriting from =fringe=) is defined and used for the truncation and wrap indicators in the standard display table, so truncated lines end with an ellipsis and wrapped lines show a return arrow.
 
 #+begin_src emacs-lisp -i
-(custom-set-variables
- '(sp-ui-variable-width-font
-   '(:font "Aporetic Serif Mono" :height 120)))
-   
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset
@@ -547,6 +530,17 @@ Lists the mode hooks in which lin should be active: Dired, Ibuffer, Magit logs, 
         pdf-outline-buffer-mode-hook
         proced-mode-hook
         tabulated-list-mode-hook))
+#+end_src
+
+** Choosing the fonts
+
+Sets the default font to PT Mono and the variable-pitch font to Aporetic Serif Mono, both at height 120 (12 points), with =setopt=, which runs the setters above. This sits at the end of the file on purpose: the settings used to be applied by a =custom-set-variables= block at the end of =init.el=, after every module had loaded, so they won over the direct =set-face-attribute= calls earlier in this file. Keeping them last preserves that outcome.
+
+#+begin_src emacs-lisp -i
+;; The font options are set last so that they win over the `set-face-attribute'
+;; calls above, as they did when `init.el' applied them at the end of startup.
+(setopt sp-ui-default-font '(:font "PT Mono" :height 120)
+        sp-ui-variable-width-font '(:font "Aporetic Serif Mono" :height 120))
 #+end_src
 
 ** Provide

@@ -204,6 +204,12 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
   caches and ephemeral/temporary files. Anything that may need to
   be cleared if there are problems.")
 
+;; Customize must never write to `init.el'. Every setting that used to live in
+;; its `custom-set-variables'/`custom-set-faces' blocks is now hard-coded in the
+;; module that owns it, so this file is deliberately never loaded: it is only
+;; where Customize saves experiments to, until they are moved into a module.
+(setq custom-file (expand-file-name "custom.el" sp-etc-dir))
+
 ;; The default config from Lambda Emacs (lem-default-config) and the 
 ;; Makefile that would generate it hav been deprecated
 
