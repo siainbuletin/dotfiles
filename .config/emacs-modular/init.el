@@ -330,6 +330,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-prog-misc
                     'sp-eshell
                     'sp-vcontrol
+                    'sp-magit-style
                     'sp-terminal
                     'sp-lisp
                     ;; 'sp-vc-ai-workbench
