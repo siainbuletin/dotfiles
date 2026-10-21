@@ -72,6 +72,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
+- [[file:tangles/custom/sp-embr.org][sp-embr]] :: Show the relationship-annotator live view in an Emacs buffer with embr.el ([[file:../libraries/modules/custom/sp-embr.el][sp-embr.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])

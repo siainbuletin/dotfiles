@@ -313,6 +313,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-statistics
                     'sp-dgraphs
                     'sp-relationship-annotator
+                    'sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
                     'sp-notes
                     'sp-semantic
                     'sp-dyn-graph

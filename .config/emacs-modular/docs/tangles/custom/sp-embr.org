@@ -1,0 +1,174 @@
+#+title: sp-embr: show the relationship-annotator live view in an Emacs buffer
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-embr.el :comments no :padline yes :noweb no :mkdirp yes :results silent
+#+startup: overview
+
+Literate source for =libraries/modules/custom/sp-embr.el=. Every =emacs-lisp= block below goes into that file, in order. The =:tangle= path in the =#+PROPERTY= line at the top says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* Overview
+
+~sp-embr~ opens a page served on =127.0.0.1= (by default the live graph view of =sp-relationship-annotator=) inside an Emacs buffer, using [[https://github.com/emacs-os/embr.el][embr.el]]. If embr is not usable, it hands the URL to =browse-url= instead.
+
+** Can a page on localhost be shown in an Emacs buffer through the Chromium protocol?
+
+Yes, with limits. This is what was checked in the embr.el sources (read from a clone of the repository, not run):
+
+- *How it works.* embr starts a Python daemon (=embr.py=) that drives a headless Chromium through Playwright. The daemon asks Chromium for a CDP /screencast/ (a stream of JPEG frames of the page), writes each frame to a file, and Emacs shows it as an image in the =*embr*= buffer. Keys, clicks, scrolling and hover are sent back to Chromium. So the page really runs in Chromium, with its JavaScript, WebSockets, fetch and SVG, but what you see in Emacs is a picture of it, not Emacs widgets. A localhost page is just another URL: =embr-browse= takes one from Lisp.
+- *Requirements.* Emacs 30.1 or newer (=Package-Requires: ((emacs "30.1"))=), Python 3.10 or newer, and a browser engine that embr installs for you from Emacs: =M-x embr-install-or-update-cloakbrowser= (the default engine, a patched closed-source Chromium) or =M-x embr-install-or-update-chromium= (plain Playwright Chromium). A canvas-patched Emacs is optional and only makes rendering faster.
+- *macOS.* Unknown. The README answers "Does this work on macOS?" with "Unknown. Let us know." The code has no macOS checks, and Playwright Chromium does run on macOS, so it may well work, but nobody has said it does. Windows is not supported.
+- *Ports.* embr opens no port of its own: it talks to its daemon over a pipe and Chromium over Playwright's own channel. The only port in play is the one the page is served on.
+- *Limits.* One normal session and one incognito session at a time (several pages through embr's own tabs, =C-c c=). Each frame is encoded and decoded, so scrolling and animation are less smooth than in a browser, and the default renderer is the slow one. A very high =embr-hover-rate= can lock the input up. Downloads are cancelled unless you ask for them. Headless mode has no scroll bars.
+
+** Alternatives
+
+| Option | JavaScript | Notes |
+|--------+------------+-------|
+| embr.el | Yes, full Chromium | Image of the page, needs Emacs 30.1, Python and a Chromium download; macOS untested upstream |
+| =xwidget-webkit= | Yes, WebKit | A real widget in the buffer, so it is crisp and fast. It needs Emacs built with =--with-xwidgets=; on macOS that is a build choice (the Homebrew =emacs-plus= and the =emacs-mac= ports can include it), and it is not in every build |
+| =eww= | No | Built in. It cannot run the graph page, which is drawn by JavaScript |
+| =browse-url= | Yes | Opens the system browser, outside Emacs. Always works |
+
+If your Emacs has xwidgets, =xwidget-webkit-browse-url= is the better tool for a localhost page and needs no extra installation: try it first (=M-: (featurep 'xwidget-internal)= says whether the build has it). embr is the answer when the build lacks xwidgets, or when WebKit renders the page differently from Chromium.
+
+** What was not tested
+
+None of this was run on a Mac, or with embr at all. The sandbox that wrote it has Emacs 29, below embr's 30.1, so the module was byte-compiled with embr stubbed out, and nothing was started. Untested: the Elpaca recipe, =M-x embr-install-or-update-*=, opening the page, and the fallback path on a real machine.
+
+* Header
+
+#+begin_src emacs-lisp -i
+;;; sp-embr.el --- Show the annotator live view in an Emacs buffer -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Generated from sp-embr.org -- edit that file, not this one.
+;;
+;; `sp-embr-open-annotator' shows the live graph view of
+;; `sp-relationship-annotator' (a page on 127.0.0.1) in an Emacs buffer with
+;; embr.el, which drives a headless Chromium.  `sp-embr-open' does the same
+;; for any URL.  When embr cannot be used (Emacs older than 30.1, package not
+;; installed, or it fails to start) the URL goes to `browse-url'.
+
+;;; Code:
+
+(require 'subr-x)
+#+end_src
+
+* Installing embr
+
+Elpaca installs embr from GitHub, as for the other packages with a recipe in this configuration. embr needs Emacs 30.1, so the =use-package= form sits inside a =when=: use-package starts the install outside any =:when=, so only an enclosing form can stop it on an older Emacs. The =:files= list is the one from the embr README: it ships Python and shell scripts that must be part of the build.
+
+=:defer t= keeps embr from loading at startup, and the settings go in =:custom= so they apply when it loads. The values are embr's defaults except for the engine, which is the plain Chromium: it is the open source one and the one that can use the Chrome Web Store. Change =embr-browser-engine= back to ='cloakbrowser= if you prefer it. After installing, run =M-x embr-install-or-update-chromium= once.
+
+#+begin_src emacs-lisp -i
+(when (>= emacs-major-version 30)
+  (use-package embr
+    :defer t
+    :ensure (embr :host github
+                  :repo "emacs-os/embr.el"
+                  :files ("*.el" "*.py" "*.sh" "native/*.c" "native/Makefile"))
+    :custom
+    (embr-browser-engine 'chromium)))
+#+end_src
+
+* Settings
+
+The live view is served by =sp-relationship-annotator-live= (pull request #37) on =http://127.0.0.1:8765/=, with the port in =relationship-annotator-live-port=. =sp-embr-annotator-port= is nil by default, which means "use =relationship-annotator-live-port= if that module is loaded, else 8765"; set a number to override. The page is always on the loopback address.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-embr nil
+  "Show pages served on localhost in an Emacs buffer."
+  :group 'tools
+  :prefix "sp-embr-")
+
+(defcustom sp-embr-annotator-host "127.0.0.1"
+  "Host serving the relationship-annotator live view."
+  :type 'string
+  :group 'sp-embr)
+
+(defcustom sp-embr-annotator-port nil
+  "Port serving the relationship-annotator live view.
+Nil means `relationship-annotator-live-port' when that is bound,
+otherwise 8765."
+  :type '(choice (const :tag "Follow the live view" nil) natnum)
+  :group 'sp-embr)
+
+(defcustom sp-embr-annotator-path "/"
+  "Path of the live view on the server, starting with a slash."
+  :type 'string
+  :group 'sp-embr)
+
+(defcustom sp-embr-fallback-function #'browse-url
+  "Function called with the URL when embr cannot be used."
+  :type 'function
+  :group 'sp-embr)
+#+end_src
+
+* Commands
+
+=sp-embr-annotator-url= builds the URL from the settings.
+
+=sp-embr--usable-p= is true when Emacs is new enough and embr can be found on the =load-path=, which is also true before embr is loaded because of =:defer t=.
+
+=sp-embr--listening-p= tries to connect to the port, so a stopped server gives a clear message rather than Chromium's error page. A connection to localhost succeeds or fails at once, so this does not block.
+
+=sp-embr-open= asks embr for the page. =embr-browse= takes the URL as its first argument when called from Lisp. If it signals an error, for example because the Chromium has not been installed yet and the prompt is declined, the error is shown and the URL goes to the fallback.
+
+#+begin_src emacs-lisp -i
+(declare-function embr-browse "embr")
+
+(defun sp-embr--annotator-port ()
+  "Return the port of the live view."
+  (or sp-embr-annotator-port
+      (bound-and-true-p relationship-annotator-live-port)
+      8765))
+
+(defun sp-embr-annotator-url ()
+  "Return the URL of the relationship-annotator live view."
+  (format "http://%s:%d%s"
+          sp-embr-annotator-host (sp-embr--annotator-port) sp-embr-annotator-path))
+
+(defun sp-embr--usable-p ()
+  "Return non-nil when embr can be used in this Emacs."
+  (and (>= emacs-major-version 30)
+       (or (featurep 'embr) (locate-library "embr"))))
+
+(defun sp-embr--listening-p (host port)
+  "Return non-nil when something accepts connections on HOST:PORT."
+  (condition-case nil
+      (progn (delete-process (open-network-stream "sp-embr-probe" nil host port))
+             t)
+    (error nil)))
+
+;;;###autoload
+(defun sp-embr-open (url)
+  "Show URL in an Emacs buffer with embr, or in `browse-url' if that fails."
+  (interactive (list (read-string "URL: " (sp-embr-annotator-url))))
+  (if (not (sp-embr--usable-p))
+      (progn
+        (message "sp-embr: embr is not usable here, using `%s'"
+                 sp-embr-fallback-function)
+        (funcall sp-embr-fallback-function url))
+    (require 'embr)
+    (condition-case err
+        (embr-browse url)
+      (error
+       (message "sp-embr: embr failed (%s), using `%s'"
+                (error-message-string err) sp-embr-fallback-function)
+       (funcall sp-embr-fallback-function url)))))
+
+;;;###autoload
+(defun sp-embr-open-annotator ()
+  "Show the relationship-annotator live view in an Emacs buffer."
+  (interactive)
+  (unless (sp-embr--listening-p sp-embr-annotator-host (sp-embr--annotator-port))
+    (user-error "Nothing is listening on %s:%d; start the live view first (M-x relationship-annotator-live)"
+                sp-embr-annotator-host (sp-embr--annotator-port)))
+  (sp-embr-open (sp-embr-annotator-url)))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp -i
+(provide 'sp-embr)
+;;; sp-embr.el ends here
+#+end_src
