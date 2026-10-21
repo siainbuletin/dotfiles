@@ -96,7 +96,7 @@ with `load-theme' the next time the splash is drawn."
 
 (defcustom sp-splash-art-layers
   (copy-tree
-   '((banner :file (dashboard-banner . 3) :x 30 :y 20 :face sp-splash-banner-face)
+   '((banner :file (dashboard-banner . 3) :x 30 :y -8 :face sp-splash-banner-face)
      (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-splash-art-face)))
   "Art drawn behind the splash menu, topmost layer first.
 Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
@@ -147,6 +147,31 @@ and lines (negative: left and up).  Remove an element to hide its layer."
         (setq lines (butlast lines)))
       lines)))
 
+(defcustom sp-splash-content-layer 'banner
+  "Name of the art layer the title and the menu sit under.
+The text is centred on this layer, below it.  Nil, or a layer that is not
+in `sp-splash-art-layers', centres the text on the window."
+  :type '(choice (const :tag "Centre on the window" nil) symbol)
+  :group 'sp-splash)
+
+(defun sp-splash--layer-box (name)
+  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
+  (when-let* ((layer (assq name sp-splash-art-layers))
+              (lines (sp-splash--art-lines (plist-get (cdr layer) :file))))
+    (let ((width (apply #'max (mapcar #'length lines)))
+          (height (length lines)))
+      (list (+ (- (/ (window-width) 2) (/ width 2))
+               (or (plist-get (cdr layer) :x) 0))
+            (+ (- (/ (window-body-height) 2) (/ height 2))
+               (or (plist-get (cdr layer) :y) 0))
+            width height))))
+
+(defun sp-splash--content-column ()
+  "Return the column the title and the menu are centred on."
+  (if-let* ((box (sp-splash--layer-box sp-splash-content-layer)))
+      (+ (nth 0 box) (/ (nth 2 box) 2))
+    (/ (window-width) 2)))
+
 (defun sp-splash--put-art-char (col ch face)
   "Put CH in FACE at column COL of the current line if it is blank."
   (move-to-column col)
@@ -168,11 +193,9 @@ Only plain blanks are replaced, so text, buttons and images are kept."
     (let* ((inhibit-read-only t)
            (indent-tabs-mode nil)
            (face (or (plist-get (cdr layer) :face) 'sp-splash-art-face))
-           (art-width (apply #'max (mapcar #'length lines)))
-           (top (+ (- (/ (window-body-height) 2) (/ (length lines) 2))
-                   (or (plist-get (cdr layer) :y) 0)))
-           (left (+ (- (/ (window-width) 2) (/ art-width 2))
-                    (or (plist-get (cdr layer) :x) 0)))
+           (box (sp-splash--layer-box (car layer)))
+           (left (nth 0 box))
+           (top (nth 1 box))
            (max-line (window-body-height))
            (row 0))
       (dolist (text lines)
@@ -356,7 +379,8 @@ splash is drawn again with the current settings."
                (image-scaling-factor 2.2)
                ;; scale icons
                (nerd-icons-scale-factor 1.10)
-               (nerd-icons-default-adjust -0.02))
+               (nerd-icons-default-adjust -0.02)
+               (content-col (sp-splash--content-column)))
 
           (with-current-buffer splash-buffer
             ;; Buffer local settings
@@ -376,6 +400,11 @@ splash is drawn again with the current settings."
 
             ;; Add padding at top
             (insert-char ?\n padding-top)
+
+            ;; Start the title and the menu below the content layer
+            (when-let* ((box (sp-splash--layer-box sp-splash-content-layer)))
+              (insert-char ?\n (max 0 (- (+ (nth 1 box) (nth 3 box) 2)
+                                         (line-number-at-pos)))))
             
             ;; Simple centered layout
             (let* ((center-col (max 0 (/ (- (window-width) 60) 2))))
@@ -396,26 +425,26 @@ splash is drawn again with the current settings."
                     (init-info (funcall sp-splash-init-info)))
                 
                 ;; Welcome text
-                (let ((welcome-center (max 0 (/ (- (window-width) (length welcome-text)) 2))))
+                (let ((welcome-center (max 0 (- content-col (/ (length welcome-text) 2)))))
                   (insert-char ?\s welcome-center)
                   (insert (propertize welcome-text 'face 'sp-splash-title-face))
                   (insert-char ?\n 2))
                 
                 ;; Version text
-                (let ((version-center (max 0 (/ (- (window-width) (length version-text)) 2))))
+                (let ((version-center (max 0 (- content-col (/ (length version-text) 2)))))
                   (insert-char ?\s version-center)
                   (insert (propertize version-text 'face 'sp-splash-header-face))
                   (insert-char ?\n 1))
                 
                 ;; Init info
-                (let ((init-center (max 0 (/ (- (window-width) (length init-info)) 2))))
+                (let ((init-center (max 0 (- content-col (/ (length init-info) 2)))))
                   (insert-char ?\s init-center)
                   (insert (propertize init-info 'face 'sp-splash-header-face))
                   (insert-char ?\n 2))))
 
             ;; Insert menu buttons - left-aligned as a group, group is centered
             (goto-char (point-max))
-            (let* ((button-indent (max 0 (/ (- (window-width) (length "Welcome to λ-Emacs")) 2)))
+            (let* ((button-indent (max 0 (- content-col (/ (length "Welcome to λ-Emacs") 2))))
                    (button-labels '(("nf-fa-calendar" "Agenda" "a" sp-open-agenda-in-workspace "Open Agenda")
                                     ("nf-fa-code" "Config" "c" sp-open-emacsd-in-workspace "Visit config directory")
                                     ("nf-fa-envelope_o" "Mail" "m" sp-open-email-in-workspace "Open Email in Mu4e")
