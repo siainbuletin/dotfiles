@@ -14,9 +14,10 @@
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
-;; how many children they hide.  The browser graph can't load more, so
-;; run the command again with a bigger depth.  The outline expands any
-;; node on demand.
+;; how many children they hide.  The browser graph holds
+;; `vulpea-hierarchy-embed-depth' levels (4) and can't load more, so run
+;; the command again from another note, or with a bigger depth.  The
+;; outline expands any node on demand.
 ;;
 ;; Other relations between notes (`supports', `opposes', ...) are drawn
 ;; as labelled links.  See `vulpea-hierarchy-relations' for how to
@@ -69,8 +70,30 @@ relation may have several:
 COLOR is used for the links in the browser page and the SVG export."
   :type '(alist :key-type symbol :value-type plist))
 
+(defcustom vulpea-hierarchy-tag-colors
+  '(("root" . "#4e79a7")
+    ("idea" . "#f28e2b")
+    ("question" . "#b07aa1")
+    ("claim" . "#59a14f")
+    ("evidence" . "#76b7b2")
+    ("source" . "#edc948"))
+  "Colours for boxes, as (FILE-TAG . COLOR).
+A note takes the colour of the first of its file tags that is listed
+here, in the order the tags are stored.  Notes with no listed tag keep
+the default box colour.  COLOR must be in hex form, such as
+\"#4e79a7\"; the views draw it as a tint, so text stays readable in
+light and dark themes."
+  :type '(alist :key-type string :value-type string))
+
 (defcustom vulpea-hierarchy-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
+  :type 'integer)
+
+(defcustom vulpea-hierarchy-embed-depth 4
+  "Levels below the starting note that the browser page holds.
+The page recentres and changes depth only within them.  Notes at the
+last level show how many children they hide; run the command again from
+another note to go further.  A larger depth, when you ask for one, wins."
   :type 'integer)
 
 (defcustom vulpea-hierarchy-html-file
@@ -285,26 +308,47 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                           relation :color "#888888"))))
            (delete-dups (mapcar #'cadr links)))))
 
-(defun vulpea-hierarchy--html (scope start depth)
-  "Return a self-contained HTML page showing SCOPE from START to DEPTH."
-  (let* ((notes (plist-get scope :notes))
+(defun vulpea-hierarchy--tag-color (note)
+  "Return (TAG . COLOR) for the first tag of NOTE in `vulpea-hierarchy-tag-colors'."
+  (when note
+    (seq-some (lambda (tag) (assoc tag vulpea-hierarchy-tag-colors))
+              (vulpea-note-tags note))))
+
+(defun vulpea-hierarchy--html (tree start depth)
+  "Return a self-contained HTML page showing TREE from START to DEPTH.
+TREE is already cut to the levels the page holds, see
+`vulpea-hierarchy--scope'.  The page can recentre on any note in it and
+cut the part to show by itself."
+  (let* ((notes (plist-get tree :notes))
+         (ids (let ((acc (make-hash-table :test #'equal)))
+                (puthash start t acc)
+                (maphash (lambda (k v)
+                           (puthash k t acc)
+                           (dolist (kid v) (puthash kid t acc)))
+                         (plist-get tree :children))
+                (pcase-dolist (`(,subject ,_ ,object) (plist-get tree :links))
+                  (puthash subject t acc)
+                  (puthash object t acc))
+                (sort (hash-table-keys acc) #'string<)))
          (nodes
           (vconcat
            (mapcar
             (lambda (id)
-              (let ((note (vulpea-hierarchy--note id notes)))
+              (let* ((note (vulpea-hierarchy--note id notes))
+                     (color (vulpea-hierarchy--tag-color note)))
                 `((id . ,id)
                   (title . ,(vulpea-hierarchy--title id notes))
                   (path . ,(and note (vulpea-note-path note)))
                   (tags . ,(vconcat (and note (vulpea-note-tags note))))
-                  (more . ,(gethash id (plist-get scope :more) 0)))))
-            (plist-get scope :nodes))))
+                  (colorTag . ,(car color))
+                  (color . ,(cdr color)))))
+            ids)))
          (edges
           (vconcat
            (cl-loop for (parent . kids) in
                     (let (acc)
                       (maphash (lambda (k v) (push (cons k v) acc))
-                               (plist-get scope :children))
+                               (plist-get tree :children))
                       acc)
                     append (mapcar (lambda (kid) (vector parent kid)) kids))))
          (links
@@ -312,26 +356,34 @@ The placeholder `__DATA__' is replaced with the JSON data.")
            (mapcar (pcase-lambda (`(,subject ,relation ,object))
                      `((from . ,subject) (to . ,object)
                        (rel . ,(symbol-name relation))))
-                   (plist-get scope :links))))
+                   (plist-get tree :links))))
          (data `((root . ,start)
                  (depth . ,depth)
                  (nodes . ,nodes)
                  (edges . ,edges)
                  (links . ,links)
+                 (hidden . ,(let (acc)
+                              (maphash (lambda (id count) (push (cons id count) acc))
+                                       (plist-get tree :more))
+                              acc))
                  (relations . ,(vulpea-hierarchy--relations-json
-                                (plist-get scope :links))))))
+                                (plist-get tree :links))))))
     (string-replace "__DATA__" (vulpea-hierarchy--json-for-html data)
                     (vulpea-hierarchy--html-template))))
 
 ;;;###autoload
 (defun vulpea-hierarchy-graph ()
-  "Ask for a starting note and depth, then open the hierarchy in the browser."
+  "Ask for a starting note and depth, then open the hierarchy in the browser.
+The page holds `vulpea-hierarchy-embed-depth' levels below the starting
+note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)
   (pcase-let* ((`(,start . ,depth) (vulpea-hierarchy--read-scope))
-               (scope (vulpea-hierarchy--scope (vulpea-hierarchy--build) start depth)))
+               (tree (vulpea-hierarchy--scope
+                      (vulpea-hierarchy--build) start
+                      (max depth vulpea-hierarchy-embed-depth))))
     (let ((coding-system-for-write 'utf-8))
       (with-temp-file vulpea-hierarchy-html-file
-        (insert (vulpea-hierarchy--html scope start depth))))
+        (insert (vulpea-hierarchy--html tree start depth))))
     (browse-url-of-file vulpea-hierarchy-html-file)))
 
 ;;;; Native outline view
@@ -578,6 +630,15 @@ PATH holds the ancestors, so a cycle stops the recursion."
                                      vulpea-hierarchy-wrap-width)
              "\\n"))
 
+(defun vulpea-hierarchy--dot-fill (note rootp)
+  "Return the Graphviz attributes for the fill of NOTE.
+A note with a coloured tag gets that colour as a tint.  The root gets a
+thick border, and a blue fill when it has no coloured tag."
+  (let ((color (cdr (vulpea-hierarchy--tag-color note))))
+    (concat (cond (color (format ", fillcolor=\"%s66\"" color))
+                  (rootp ", fillcolor=\"#d8e6f5\""))
+            (and rootp ", penwidth=2"))))
+
 (defun vulpea-hierarchy--dot (tree)
   "Return Graphviz source for TREE, one cluster per root."
   (let ((notes (plist-get tree :notes))
@@ -599,9 +660,9 @@ PATH holds the ancestors, so a cycle stops the recursion."
                   (puthash id t drawn)
                   (insert (format "    %S [label=\"%s\"%s];\n"
                                   id (vulpea-hierarchy--dot-label id notes)
-                                  (if (equal id root)
-                                      ", fillcolor=\"#d8e6f5\", penwidth=2"
-                                    "")))
+                                  (vulpea-hierarchy--dot-fill
+                                   (vulpea-hierarchy--note id notes)
+                                   (equal id root))))
                   (setq queue (append queue (gethash id children)))))))
           (insert "  }\n")))
       (maphash (lambda (pid kids)
