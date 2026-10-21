@@ -9,6 +9,8 @@
 ;; embr.el, which drives a headless Chromium.  `sp-embr-open' does the same
 ;; for any URL.  When embr cannot be used (Emacs older than 30.1, package not
 ;; installed, or it fails to start) the URL goes to `browse-url'.
+;; `sp-embr-open-annotator-xwidget' does the same with `xwidget-webkit', and
+;; `sp-embr-compare-annotator' shows both side by side.
 
 ;;; Code:
 
@@ -75,6 +77,12 @@ otherwise 8765."
              t)
     (error nil)))
 
+(defun sp-embr--check-listening ()
+  "Signal a `user-error' unless the live view is being served."
+  (unless (sp-embr--listening-p sp-embr-annotator-host (sp-embr--annotator-port))
+    (user-error "Nothing is listening on %s:%d; start the live view first (M-x relationship-annotator-live)"
+                sp-embr-annotator-host (sp-embr--annotator-port))))
+
 ;;;###autoload
 (defun sp-embr-open (url)
   "Show URL in an Emacs buffer with embr, or in `browse-url' if that fails."
@@ -94,12 +102,44 @@ otherwise 8765."
 
 ;;;###autoload
 (defun sp-embr-open-annotator ()
-  "Show the relationship-annotator live view in an Emacs buffer."
+  "Show the relationship-annotator live view in an Emacs buffer with embr."
   (interactive)
-  (unless (sp-embr--listening-p sp-embr-annotator-host (sp-embr--annotator-port))
-    (user-error "Nothing is listening on %s:%d; start the live view first (M-x relationship-annotator-live)"
-                sp-embr-annotator-host (sp-embr--annotator-port)))
+  (sp-embr--check-listening)
   (sp-embr-open (sp-embr-annotator-url)))
+
+(declare-function xwidget-webkit-browse-url "xwidget")
+
+(defun sp-embr--xwidget-usable-p ()
+  "Return non-nil when this Emacs can show an xwidget-webkit view."
+  (and (display-graphic-p) (featurep 'xwidget-internal)))
+
+;;;###autoload
+(defun sp-embr-open-xwidget (url)
+  "Show URL in an Emacs buffer with `xwidget-webkit', or in the fallback."
+  (interactive (list (read-string "URL: " (sp-embr-annotator-url))))
+  (if (sp-embr--xwidget-usable-p)
+      (xwidget-webkit-browse-url url t)
+    (message "sp-embr: no xwidgets in this Emacs, using `%s'"
+             sp-embr-fallback-function)
+    (funcall sp-embr-fallback-function url)))
+
+;;;###autoload
+(defun sp-embr-open-annotator-xwidget ()
+  "Show the relationship-annotator live view with `xwidget-webkit'."
+  (interactive)
+  (sp-embr--check-listening)
+  (sp-embr-open-xwidget (sp-embr-annotator-url)))
+
+;;;###autoload
+(defun sp-embr-compare-annotator ()
+  "Show the live view with embr on the left and `xwidget-webkit' on the right."
+  (interactive)
+  (sp-embr--check-listening)
+  (delete-other-windows)
+  (let ((right (split-window-right)))
+    (sp-embr-open (sp-embr-annotator-url))
+    (select-window right)
+    (sp-embr-open-xwidget (sp-embr-annotator-url))))
 
 (provide 'sp-embr)
 ;;; sp-embr.el ends here

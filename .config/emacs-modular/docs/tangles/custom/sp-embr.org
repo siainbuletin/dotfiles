@@ -1,4 +1,4 @@
-#+title: sp-embr: show the relationship-annotator live view in an Emacs buffer
+#+title: sp-embr: show the relationship-annotator live view in an Emacs buffer (embr.el or xwidget-webkit)
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-embr.el :comments no :padline yes :noweb no :mkdirp yes :results silent
 #+startup: overview
 
@@ -6,7 +6,7 @@ Literate source for =libraries/modules/custom/sp-embr.el=. Every =emacs-lisp= bl
 
 * Overview
 
-~sp-embr~ opens a page served on =127.0.0.1= (by default the live graph view of =sp-relationship-annotator=) inside an Emacs buffer, using [[https://github.com/emacs-os/embr.el][embr.el]]. If embr is not usable, it hands the URL to =browse-url= instead.
+~sp-embr~ opens a page served on =127.0.0.1= (by default the live graph view of =sp-relationship-annotator=) inside an Emacs buffer, using [[https://github.com/emacs-os/embr.el][embr.el]]. If embr is not usable, it hands the URL to =browse-url= instead. It also has an =xwidget-webkit= version of the same view and a command that shows both side by side, to compare them (see "The xwidget-webkit view").
 
 ** Can a page on localhost be shown in an Emacs buffer through the Chromium protocol?
 
@@ -27,11 +27,11 @@ Yes, with limits. This is what was checked in the embr.el sources (read from a c
 | =eww= | No | Built in. It cannot run the graph page, which is drawn by JavaScript |
 | =browse-url= | Yes | Opens the system browser, outside Emacs. Always works |
 
-If your Emacs has xwidgets, =xwidget-webkit-browse-url= is the better tool for a localhost page and needs no extra installation: try it first (=M-: (featurep 'xwidget-internal)= says whether the build has it). embr is the answer when the build lacks xwidgets, or when WebKit renders the page differently from Chromium.
+If your Emacs has xwidgets, =xwidget-webkit-browse-url= is probably the better tool for a localhost page and needs no extra installation; =sp-embr-compare-annotator= shows both. Check first (=M-: (featurep 'xwidget-internal)= says whether the build has it). embr is the answer when the build lacks xwidgets, or when WebKit renders the page differently from Chromium.
 
 ** What was not tested
 
-None of this was run on a Mac, or with embr at all. The sandbox that wrote it has Emacs 29, below embr's 30.1, so the module was byte-compiled with embr stubbed out, and nothing was started. Untested: the Elpaca recipe, =M-x embr-install-or-update-*=, opening the page, and the fallback path on a real machine.
+None of this was run on a Mac, or with embr at all. The sandbox that wrote it has Emacs 29, below embr's 30.1, so the module was byte-compiled with embr stubbed out, and nothing was started. Untested: the xwidget commands and the side-by-side layout (the container Emacs has no xwidgets), the Elpaca recipe, =M-x embr-install-or-update-*=, opening the page, and the fallback path on a real machine.
 
 * Header
 
@@ -47,6 +47,8 @@ None of this was run on a Mac, or with embr at all. The sandbox that wrote it ha
 ;; embr.el, which drives a headless Chromium.  `sp-embr-open' does the same
 ;; for any URL.  When embr cannot be used (Emacs older than 30.1, package not
 ;; installed, or it fails to start) the URL goes to `browse-url'.
+;; `sp-embr-open-annotator-xwidget' does the same with `xwidget-webkit', and
+;; `sp-embr-compare-annotator' shows both side by side.
 
 ;;; Code:
 
@@ -139,6 +141,12 @@ otherwise 8765."
              t)
     (error nil)))
 
+(defun sp-embr--check-listening ()
+  "Signal a `user-error' unless the live view is being served."
+  (unless (sp-embr--listening-p sp-embr-annotator-host (sp-embr--annotator-port))
+    (user-error "Nothing is listening on %s:%d; start the live view first (M-x relationship-annotator-live)"
+                sp-embr-annotator-host (sp-embr--annotator-port))))
+
 ;;;###autoload
 (defun sp-embr-open (url)
   "Show URL in an Emacs buffer with embr, or in `browse-url' if that fails."
@@ -158,12 +166,60 @@ otherwise 8765."
 
 ;;;###autoload
 (defun sp-embr-open-annotator ()
-  "Show the relationship-annotator live view in an Emacs buffer."
+  "Show the relationship-annotator live view in an Emacs buffer with embr."
   (interactive)
-  (unless (sp-embr--listening-p sp-embr-annotator-host (sp-embr--annotator-port))
-    (user-error "Nothing is listening on %s:%d; start the live view first (M-x relationship-annotator-live)"
-                sp-embr-annotator-host (sp-embr--annotator-port)))
+  (sp-embr--check-listening)
   (sp-embr-open (sp-embr-annotator-url)))
+#+end_src
+
+* The xwidget-webkit view
+
+The same page can be shown with Emacs's own =xwidget-webkit= instead, so the two can be compared on the same graph. =sp-embr-open-xwidget= calls =xwidget-webkit-browse-url= with a new session, so a second page does not replace the first. It is usable when the build has xwidgets (=(featurep 'xwidget-internal)=) and the frame is graphical; =sp-md= already relies on it for the Markdown preview, so this Emacs very likely has it. Otherwise the URL goes to the same fallback as for embr.
+
+=sp-embr-compare-annotator= splits the frame and puts the embr view on the left and the xwidget view on the right, both on the live view, so that you can pan and zoom the same graph in both and watch the CPU use of each.
+
+What to look at when comparing:
+
+- *Pan and zoom smoothness* on a large graph. embr sends a JPEG per frame through a file, so expect lag and some blur; xwidget draws a native WebKit view.
+- *CPU and memory* in Activity Monitor: embr adds a Python process and a headless Chromium with its helper processes; the xwidget runs inside the Emacs process, so a busy page can stall Emacs itself.
+- *Rendering differences*: Chromium and WebKit may draw the SVG slightly differently, and fonts differ.
+- *Input*: keys typed in the embr buffer go to the page; in the xwidget they go to the page only while it has focus (=C-x C-q= toggles the xwidget's key forwarding in some versions; otherwise click into it).
+- *Live reload*: the page polls =/version= and reloads itself, which both engines should do.
+
+#+begin_src emacs-lisp -i
+(declare-function xwidget-webkit-browse-url "xwidget")
+
+(defun sp-embr--xwidget-usable-p ()
+  "Return non-nil when this Emacs can show an xwidget-webkit view."
+  (and (display-graphic-p) (featurep 'xwidget-internal)))
+
+;;;###autoload
+(defun sp-embr-open-xwidget (url)
+  "Show URL in an Emacs buffer with `xwidget-webkit', or in the fallback."
+  (interactive (list (read-string "URL: " (sp-embr-annotator-url))))
+  (if (sp-embr--xwidget-usable-p)
+      (xwidget-webkit-browse-url url t)
+    (message "sp-embr: no xwidgets in this Emacs, using `%s'"
+             sp-embr-fallback-function)
+    (funcall sp-embr-fallback-function url)))
+
+;;;###autoload
+(defun sp-embr-open-annotator-xwidget ()
+  "Show the relationship-annotator live view with `xwidget-webkit'."
+  (interactive)
+  (sp-embr--check-listening)
+  (sp-embr-open-xwidget (sp-embr-annotator-url)))
+
+;;;###autoload
+(defun sp-embr-compare-annotator ()
+  "Show the live view with embr on the left and `xwidget-webkit' on the right."
+  (interactive)
+  (sp-embr--check-listening)
+  (delete-other-windows)
+  (let ((right (split-window-right)))
+    (sp-embr-open (sp-embr-annotator-url))
+    (select-window right)
+    (sp-embr-open-xwidget (sp-embr-annotator-url))))
 #+end_src
 
 * Provide
