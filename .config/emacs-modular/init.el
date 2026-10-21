@@ -306,6 +306,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
                     'sp-sandbox ;; launch a PR in a sandboxed Emacs
+                    'sp-thesis-dump ;; brain dump -> annotated Org tasks and citekeys (M-x sp-thesis-dump)
                     'sp-csv
 
                     ;; Academic
