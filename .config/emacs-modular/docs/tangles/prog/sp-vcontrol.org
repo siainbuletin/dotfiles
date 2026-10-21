@@ -6,7 +6,7 @@ Literate source for =libraries/modules/prog/sp-vcontrol.el=. Every line of the m
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-A short module that installs Magit, adds a helper for using it with YADM, the dotfile manager, and sets up Forge so Magit can work with GitHub pull requests and issues. It depends on the =magit=, =transient= and =forge= packages. The YADM helper opens Magit in the home directory, which only works if Git can see a repository there; =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup. The module is in the Programming group of the default module list in =init.el=. The Forge part is a basic configuration and has not been run in a test environment yet.
+A short module that installs Magit, adds a helper for using it with YADM, the dotfile manager, and sets up Forge so Magit can work with GitHub pull requests and issues, and installs =code-review= for reviewing pull requests in Emacs. It depends on the =magit=, =transient=, =forge= and =code-review= packages. The YADM helper opens Magit in the home directory, which only works if Git can see a repository there; =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup. The module is in the Programming group of the default module list in =init.el=. The Forge and code-review parts have not been run in a test environment yet.
 
 * Magit
 
@@ -66,6 +66,29 @@ Forge needs a token to talk to GitHub. =auth-sources= is set to just =~/.authinf
   :after magit)
 
 (setq auth-sources '("~/.authinfo"))
+#+end_src
+
+* Code review
+
+** code-review
+
+Installs =code-review=, which opens a pull request in its own buffer for reading the diff and writing review comments. Comments wrap at 80 columns, and a new review buffer replaces the current window (=switch-to-buffer=) instead of splitting. A hook turns on =emojify-mode= in review buffers so emoji in comments display; that needs the =emojify= package, which this module does not install.
+
+The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), is written as =(setq ...)= inside =:custom=. =:custom= expects =(variable value)= pairs, so that line probably does not set the variable as intended; it is kept as written and is worth checking.
+
+#+begin_src emacs-lisp -i
+;; code review harness
+(use-package code-review
+  :ensure t
+  
+  :custom
+  (code-review-fill-column 80) ;; Define line wrap in comment sections.
+  (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
+  (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
+)
+
+;;; For adding emojis
+(add-hook 'code-review-mode-hook #'emojify-mode)
 #+end_src
 
 ** Provide
