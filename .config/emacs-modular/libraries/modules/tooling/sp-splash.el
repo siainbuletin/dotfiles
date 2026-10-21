@@ -32,12 +32,16 @@
   "Face for splash header."
   :group 'faces)
 
-(defface sp-splash-footer-face nil
+(defface sp-splash-footer-face '((t :slant italic))
   "Face for splash footer."
   :group 'faces)
 
 (defface sp-splash-menu-face nil
   "Face for splash menus."
+  :group 'faces)
+
+(defface sp-splash-box-face '((t :inherit shadow))
+  "Face for the lines drawn around the splash menu blocks."
   :group 'faces)
 
 (defface sp-splash-image-face nil
@@ -154,6 +158,11 @@ in `sp-splash-art-layers', centres the text on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
   :group 'sp-splash)
 
+(defcustom sp-splash-footer-layer 'lambda
+  "Name of the art layer the footer text is centred on, as for the menu."
+  :type '(choice (const :tag "Centre on the window" nil) symbol)
+  :group 'sp-splash)
+
 (defun sp-splash--layer-box (name)
   "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
   (when-let* ((layer (assq name sp-splash-art-layers))
@@ -166,11 +175,15 @@ in `sp-splash-art-layers', centres the text on the window."
                (or (plist-get (cdr layer) :y) 0))
             width height))))
 
-(defun sp-splash--content-column ()
-  "Return the column the title and the menu are centred on."
-  (if-let* ((box (sp-splash--layer-box sp-splash-content-layer)))
+(defun sp-splash--layer-column (name)
+  "Return the middle column of the art layer NAME, or of the window."
+  (if-let* ((box (sp-splash--layer-box name)))
       (+ (nth 0 box) (/ (nth 2 box) 2))
     (/ (window-width) 2)))
+
+(defun sp-splash--content-column ()
+  "Return the column the title and the menu are centred on."
+  (sp-splash--layer-column sp-splash-content-layer))
 
 (defun sp-splash--put-art-char (col ch face)
   "Put CH in FACE at column COL of the current line if it is blank."
@@ -280,6 +293,72 @@ The form is also copied to the kill ring."
                                  sp-splash-art-layers "\n        "))))
     (kill-new form)
     (message "%s" form)))
+
+;;;; Menu
+;; The blocks under the banner.  Each element of `sp-splash-menu' is drawn as
+;; a box, and a block with children shows them nested under its heading.
+(defcustom sp-splash-menu
+  '(("nf-fa-calendar" "Agenda" nil nil "Agendas"
+     (("General agenda" "a" sp-splash-open-agenda "Open the general agenda")
+      ("Thesis" "t" sp-splash-open-thesis-agenda "Open the thesis agenda")
+      ("Issues" "i" sp-splash-open-issues-agenda "Open the issues agenda")
+      ("Deadlines" "d" sp-splash-open-deadlines-agenda "Open the coming deadlines")))
+    ("nf-fa-code" "Config" "c" sp-splash-open-config "Visit config directory" nil)
+    ("nf-fa-book" "Notes" "n" sp-splash-open-notes "Open notes directory" nil))
+  "Blocks of the splash menu, each drawn in a box.
+Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
+`nerd-icons-faicon' name.  CHILDREN, when non-nil, is a list of
+\(LABEL KEY COMMAND HELP) shown nested under the heading, and the heading
+then needs no KEY or COMMAND.  The keys must also be bound in
+`sp-splash-mode-map'."
+  :type '(repeat sexp)
+  :group 'sp-splash)
+
+(defun sp-splash--menu-rows (entry)
+  "Return the rows of the menu block ENTRY, heading first.
+Each row is (TEXT KEY COMMAND HELP)."
+  (pcase-let ((`(,icon ,label ,key ,command ,help ,children) entry))
+    (let ((count (length children))
+          (index 0))
+      (cons (list (concat (nerd-icons-faicon icon) isep label) key command help)
+            (mapcar (lambda (child)
+                      (setq index (1+ index))
+                      (cons (concat "  " (if (= index count) "└─ " "├─ ") (car child))
+                            (cdr child)))
+                    children)))))
+
+(defun sp-splash--insert-menu (content-col)
+  "Insert the menu blocks in boxes, centred on column CONTENT-COL."
+  (let* ((blocks (mapcar #'sp-splash--menu-rows sp-splash-menu))
+         (text-width (apply #'max (mapcar (lambda (row) (string-width (car row)))
+                                          (apply #'append blocks))))
+         (body-width (+ text-width (length ksep) 3))
+         (inner-width (+ body-width 2))
+         (indent (max 0 (- content-col (/ (+ inner-width 2) 2)))))
+    (dolist (block blocks)
+      (insert-char ?\s indent)
+      (insert (propertize (concat "┌" (make-string inner-width ?─) "┐\n")
+                          'face 'sp-splash-box-face))
+      (dolist (row block)
+        (pcase-let* ((`(,text ,key ,command ,help) row)
+                     (body (concat text
+                                   (make-string (- text-width (string-width text)) ?\s)
+                                   ksep
+                                   (if key (format "(%s)" key) "   "))))
+          (insert-char ?\s indent)
+          (insert (propertize "│ " 'face 'sp-splash-box-face))
+          (if command
+              (insert-text-button body
+                                  'action (lambda (_) (funcall command))
+                                  'help-echo help
+                                  'face 'sp-splash-menu-face
+                                  'follow-link t)
+            (insert (propertize body 'face 'sp-splash-menu-face)))
+          (insert (propertize " │\n" 'face 'sp-splash-box-face))))
+      (insert-char ?\s indent)
+      (insert (propertize (concat "└" (make-string inner-width ?─) "┘\n")
+                          'face 'sp-splash-box-face))
+      (insert "\n"))))
 
 ;;;; Define Splash
 
@@ -442,35 +521,9 @@ splash is drawn again with the current settings."
                   (insert (propertize init-info 'face 'sp-splash-header-face))
                   (insert-char ?\n 2))))
 
-            ;; Insert menu buttons - left-aligned as a group, group is centered
+            ;; Insert the menu blocks, in boxes under the banner
             (goto-char (point-max))
-            (let* ((button-indent (max 0 (- content-col (/ (length "Welcome to λ-Emacs") 2))))
-                   (button-labels '(("nf-fa-calendar" "Agenda" "a" sp-open-agenda-in-workspace "Open Agenda")
-                                    ("nf-fa-code" "Config" "c" sp-open-emacsd-in-workspace "Visit config directory")
-                                    ("nf-fa-envelope_o" "Mail" "m" sp-open-email-in-workspace "Open Email in Mu4e")
-                                    ("nf-fa-book" "Notes" "n" sp-open-notes-in-workspace "Open notes directory")
-                                    ("nf-fa-folder" "Projects" "p" tabspaces-open-or-create-project-and-workspace "Open project & workspace")))
-                   (max-label-width (apply 'max (mapcar (lambda (item) (length (nth 1 item))) button-labels))))
-            
-              (dolist (button button-labels)
-                (let* ((icon (nth 0 button))
-                       (label (nth 1 button))
-                       (key (nth 2 button))
-                       (action (nth 3 button))
-                       (help (nth 4 button))
-                       (padded-label (format (format "%%-%ds" max-label-width) label)))
-                  (insert-char ?\s button-indent)
-                  (insert-text-button (concat (nerd-icons-faicon icon)
-                                              isep 
-                                              padded-label 
-                                              ksep 
-                                              "(" key ")")
-                                      'action (lambda (_) (sp-splash--workspace-dispatch action))
-                                      'help-echo help
-                                      'face 'sp-splash-menu-face
-                                      'follow-link t)
-                  (insert-char ?\n 1))))
-
+            (sp-splash--insert-menu content-col)
 
             ;; Add footer with some space above bottom
             (goto-char (point-max))
@@ -481,7 +534,8 @@ splash is drawn again with the current settings."
             
             ;; Footer text centered
             (defvar sp-splash-footer "   " "Footer text.")
-            (let ((footer-center (max 0 (/ (- (window-width) (length sp-splash-footer)) 2))))
+            (let ((footer-center (max 0 (- (sp-splash--layer-column sp-splash-footer-layer)
+                                           (/ (length sp-splash-footer) 2)))))
               (insert-char ?\s footer-center)
               (insert (propertize sp-splash-footer 'face 'sp-splash-footer-face)))
 
@@ -516,30 +570,76 @@ splash is drawn again with the current settings."
       (funcall fn)
     (message "Enable the workspaces module (sp-workspaces) for this action")))
 
+(defcustom sp-splash-agenda-general-files nil
+  "Files of the General agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-thesis-files nil
+  "Files of the thesis agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-issues-files nil
+  "Files of the issues agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-deadlines-files nil
+  "Files searched for the coming deadlines; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-deadlines-days 30
+  "Days ahead the deadlines agenda looks."
+  :type 'integer
+  :group 'sp-splash)
+
+(defun sp-splash--open-agenda (files &optional deadlines)
+  "Show the agenda of FILES (nil: `org-agenda-files').
+With DEADLINES, show only the deadlines of the next `sp-splash-deadlines-days'."
+  (require 'org)
+  (require 'org-agenda)
+  (let ((org-agenda-files (or files org-agenda-files)))
+    (if deadlines
+        (let ((org-agenda-span sp-splash-deadlines-days)
+              (org-agenda-entry-types '(:deadline))
+              (org-deadline-warning-days sp-splash-deadlines-days))
+          (org-agenda-list))
+      (org-agenda-list))))
+
 (defun sp-splash-open-agenda ()
-  "Open the agenda workspace from the splash screen."
+  "Open the General agenda from the splash screen.
+Without `sp-splash-agenda-general-files' this is the agenda workspace."
   (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-agenda-in-workspace))
+  (if sp-splash-agenda-general-files
+      (sp-splash--open-agenda sp-splash-agenda-general-files)
+    (sp-splash--workspace-dispatch 'sp-open-agenda-in-workspace)))
+
+(defun sp-splash-open-thesis-agenda ()
+  "Open the thesis agenda from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-thesis-files))
+
+(defun sp-splash-open-issues-agenda ()
+  "Open the issues agenda from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-issues-files))
+
+(defun sp-splash-open-deadlines-agenda ()
+  "Open the coming deadlines from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-deadlines-files t))
 
 (defun sp-splash-open-config ()
   "Open the emacs.d workspace from the splash screen."
   (interactive)
   (sp-splash--workspace-dispatch 'sp-open-emacsd-in-workspace))
 
-(defun sp-splash-open-email ()
-  "Open the email workspace from the splash screen."
-  (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-email-in-workspace))
-
 (defun sp-splash-open-notes ()
   "Open the notes workspace from the splash screen."
   (interactive)
   (sp-splash--workspace-dispatch 'sp-open-notes-in-workspace))
-
-(defun sp-splash-open-project ()
-  "Open a project workspace from the splash screen."
-  (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-existing-project-and-workspace))
 
 ;;;; Define Minor Mode
 ;; Custom splash screen
@@ -547,9 +647,10 @@ splash is drawn again with the current settings."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") 'sp-splash-open-agenda)
     (define-key map (kbd "c") 'sp-splash-open-config)
-    (define-key map (kbd "m") 'sp-splash-open-email)
     (define-key map (kbd "n") 'sp-splash-open-notes)
-    (define-key map (kbd "p") 'sp-splash-open-project)
+    (define-key map (kbd "t") 'sp-splash-open-thesis-agenda)
+    (define-key map (kbd "i") 'sp-splash-open-issues-agenda)
+    (define-key map (kbd "d") 'sp-splash-open-deadlines-agenda)
     (define-key map (kbd "S-<left>") 'sp-splash-art-left)
     (define-key map (kbd "S-<right>") 'sp-splash-art-right)
     (define-key map (kbd "S-<up>") 'sp-splash-art-up)
