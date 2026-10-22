@@ -305,6 +305,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
+                    'sp-org-normalise ;; vault Tasks and TODO keyword normaliser (preview first)
                     'sp-sandbox ;; launch a PR in a sandboxed Emacs
                     'sp-csv
 
