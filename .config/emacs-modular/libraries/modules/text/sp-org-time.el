@@ -11,7 +11,6 @@
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro
-  :if (and sp-load-extras (locate-library "org-pomodoro"))
   :commands org-pomodoro
   :init
   (progn

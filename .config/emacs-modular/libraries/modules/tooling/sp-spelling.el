@@ -39,7 +39,6 @@
 
 ;; completion of spellings
 (use-package flyspell-correct
-  :if (and sp-load-extras (locate-library "flyspell-correct"))
   :after flyspell
   :bind (:map flyspell-mode-map
          ("C-;" . flyspell-correct-previous)
@@ -68,7 +67,6 @@
 
 ;; Completion of misspelled words in buffer
 (use-package consult-flyspell
-  :if (and sp-load-extras (locate-library "consult-flyspell"))
   :after flyspell
   :config
   (setq consult-flyspell-set-point-after-word t

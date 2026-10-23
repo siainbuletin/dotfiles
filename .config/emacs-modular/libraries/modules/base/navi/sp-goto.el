@@ -62,7 +62,6 @@
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
   :bind (("C-\"" . #'goto-last-change)))
 
 (provide 'sp-goto)

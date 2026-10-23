@@ -43,7 +43,7 @@
 ;; Export w/pandoc
 (use-package ox-pandoc
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "ox-pandoc") (executable-find "pandoc"))
+  ;; :if (executable-find "pandoc")
   :defer t  ;; Defer loading until needed for export
   :commands (org-pandoc-export-to-html5
              org-pandoc-export-to-html5-and-open
@@ -312,7 +312,6 @@
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
 (use-package ox-hugo
-  :if (and sp-load-extras (locate-library "ox-hugo"))
   :defer t  ;; Defer loading until needed for Hugo export
   :commands (org-hugo-export-as-md
              org-hugo-export-to-md
@@ -339,7 +338,6 @@
 
 ;;;; Org Html Conversion
 (use-package htmlize
-  :if (and sp-load-extras (locate-library "htmlize"))
   :commands (htmlize-buffer))
 
 ;;;; Clipboard conversion through Pandoc 

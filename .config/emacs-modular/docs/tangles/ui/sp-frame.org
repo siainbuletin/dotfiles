@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module configures Emacs frames, meaning the top-level windows managed by the operating system. It produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars, recentres new frames, adds small window margins everywhere, and turns on =keycast= in the header line. Some basic frame settings live in =early-init.el= instead, for faster startup.
 
-It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS when =sp-load-extras= is set. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
+It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
 
 The commentary at the top of the module says:
 
@@ -163,13 +163,13 @@ For each new frame, selects it and applies the margins. Selecting the frame from
 
 ** ns-auto-titlebar
 
-On macOS, when extras are enabled and the package is installed, =ns-auto-titlebar-mode= keeps the native title bar's light or dark appearance in sync with the current theme. The linked issue explains why this is needed for emacs-plus builds.
+On macOS, =ns-auto-titlebar-mode= keeps the native title bar's light or dark appearance in sync with the current theme. The linked issue explains why this is needed for emacs-plus builds.
 
 #+begin_src emacs-lisp -i
 ;;;;; Fix titlebar titling colors
 ;; see also https://github.com/d12frosted/homebrew-emacs-plus/issues/55
 (use-package ns-auto-titlebar
-  :when (and sp-load-extras (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
+  :when (eq system-type 'darwin)
   :commands ns-auto-titlebar-mode
   :init (ns-auto-titlebar-mode))
 #+end_src

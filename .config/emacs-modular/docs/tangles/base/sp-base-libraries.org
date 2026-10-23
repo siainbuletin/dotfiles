@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This is one of the first modules loaded in every profile. It installs or declares the small libraries many other packages and =sp-= modules rely on (=subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others), and then collects a number of general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
 
-Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= and =sp-load-extras= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
 
 The commentary at the top of the module says:
 
@@ -164,7 +164,7 @@ Installs and loads =transient= immediately so =transient-define-prefix= is avail
 
 ** Crux
 
-Installs =crux=, a set of handy commands from Emacs Prelude, when extras are enabled and the library is available. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
+Installs =crux=, a set of handy commands from Emacs Prelude. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
 
 #+begin_src emacs-lisp -i
 ;;;; CRUX
@@ -176,7 +176,6 @@ Installs =crux=, a set of handy commands from Emacs Prelude, when extras are ena
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)
