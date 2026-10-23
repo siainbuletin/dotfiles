@@ -186,7 +186,7 @@ agenda."
 
 ** Provide
 
-Makes the module available as =sp-denote=.
+Provides the =sp-denote= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-denote)

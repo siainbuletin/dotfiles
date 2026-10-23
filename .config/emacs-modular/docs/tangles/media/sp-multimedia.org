@@ -70,9 +70,7 @@ Installs =listen=, another music player for Emacs, without configuration.
 
 * Provide
 
-** Provide
-
-Provides =sp-multimedia=, matching the file name.
+Provides the =sp-multimedia= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-multimedia)

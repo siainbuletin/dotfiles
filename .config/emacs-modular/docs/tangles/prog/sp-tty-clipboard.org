@@ -128,9 +128,9 @@ Sets =interprogram-cut-function= globally, so every kill and copy goes through t
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-tty-clipboard=.
+Provides the =sp-tty-clipboard= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

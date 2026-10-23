@@ -171,9 +171,7 @@ INITIAL-INPUT can be given as the initial minibuffer input."
 
 * Provide
 
-** Provide feature
-
-Provides =sp-search=.
+Provides the =sp-search= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-search)

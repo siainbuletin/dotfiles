@@ -84,9 +84,7 @@ Adds two entries to =org-capture-templates=, after any set by earlier modules: =
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-para= feature so =sp-org-ext= can require it.
+Provides the =sp-vulpea-para= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

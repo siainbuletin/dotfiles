@@ -805,9 +805,9 @@ Installs =keycast=, which can display each key and command as it is used (useful
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-keys= so the module loader can =require= it.
+Provides the =sp-keys= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-keys)

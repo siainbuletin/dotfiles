@@ -25,10 +25,6 @@
         (call-process-shell-command
          (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
 
-;;;; Calling emacs-reader
-(use-package emacs-reader
-  :ensure (:type git :url "https://codeberg.org/MonadicSheep/emacs-reader.git"))
-
 ;;; Provide:
 
 (provide 'sp-pdfprocess)

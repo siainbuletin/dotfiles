@@ -200,9 +200,9 @@ Installs =suggest=, which lets you enter example inputs and a desired output and
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-lisp= for the module loader.
+Provides the =sp-lisp= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

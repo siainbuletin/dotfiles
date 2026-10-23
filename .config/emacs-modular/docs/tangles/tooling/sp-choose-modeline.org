@@ -127,9 +127,7 @@ For =lambda-line=, the package is installed from Codeberg and configured with a 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-choose-modeline= feature.
+Provides the =sp-choose-modeline= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

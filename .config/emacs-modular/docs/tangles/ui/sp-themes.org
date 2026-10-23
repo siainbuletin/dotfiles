@@ -369,9 +369,7 @@ Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after ever
 
 * Provide
 
-** Provide form
-
-Makes the module available as =sp-themes=.
+Provides the =sp-themes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide

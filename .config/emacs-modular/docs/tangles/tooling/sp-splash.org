@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-splash.el=. Every line of the 
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a menu of boxed buttons with nested agendas, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =lambda-splash.txt=).
+This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a menu of boxed buttons with nested agendas, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =images/lambda-splash.txt=).
 
 It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
 
@@ -182,7 +182,7 @@ Outline header for the variables section.
 
 * Art layers
 
-The graphical splash draws text art behind the menu instead of the PNG logo: the lambda in =libraries/lambda-splash.txt= and text banner 3 of the =dashboard= package. A layer only fills blanks, so the welcome text and the buttons stay on top of it, and a layer that comes first in =sp-splash-art-layers= covers the ones after it. Art is in =sp-splash-art-face= or =sp-splash-banner-face=, whose colour is chosen by the background of the theme, so the same layers serve dark and light themes.
+The graphical splash draws text art behind the menu instead of the PNG logo: the lambda in =libraries/images/lambda-splash.txt= and the EMACS block-letter banner in =libraries/images/dashboard-banner-3.txt= (a local copy of banner 3 of the =dashboard= package, so it can be edited freely). A layer only fills blanks, so the welcome text and the buttons stay on top of it, and a layer that comes first in =sp-splash-art-layers= covers the ones after it. Art is in =sp-splash-art-face= or =sp-splash-banner-face=, whose colour is chosen by the background of the theme, so the same layers serve dark and light themes.
 
 ** Faces and section marker
 
@@ -212,17 +212,21 @@ with `load-theme' the next time the splash is drawn."
 
 ** Layers and steps
 
-=sp-splash-art-layers= lists the layers, topmost first. Each is =(NAME :file FILE :x X :y Y :face FACE)=. =FILE= is a text file (a relative name is looked up in =sp-library-dir=) or =(dashboard-banner . N)= for banner N of the =dashboard= package. The art is centred on the window and then moved by =X= columns and =Y= lines (negative is left and up). The default puts the lambda centred vertically and 50 columns left, and the banner 30 columns right and 8 lines above the centre. Remove a layer from the list to hide it; set the list to nil to get the PNG logo back. The two step options set how far each nudge command moves a layer, and =sp-splash-art-layer= remembers which layer the nudge commands move.
+=sp-splash-art-layers= lists the layers, topmost first. Each is =(NAME :file FILE :x X :y Y :face FACE)=. =FILE= is a text file; a relative name is looked up in =sp-splash-art-directory= (=images/= under =sp-library-dir=). The art is centred on the window and then moved by =X= columns and =Y= lines (negative is left and up). The default puts the lambda centred vertically and 50 columns left, and the banner 30 columns right and 8 lines above the centre. Remove a layer from the list to hide it; set the list to nil to get the PNG logo back. The two step options set how far each nudge command moves a layer, and =sp-splash-art-layer= remembers which layer the nudge commands move.
 
 #+begin_src emacs-lisp -i
+(defcustom sp-splash-art-directory "images/"
+  "Folder of the splash art files; relative to `sp-library-dir'."
+  :type 'directory
+  :group 'sp-splash)
+
 (defcustom sp-splash-art-layers
   (copy-tree
-   '((banner :file (dashboard-banner . 3) :x 30 :y -8 :face sp-splash-banner-face)
+   '((banner :file "dashboard-banner-3.txt" :x 30 :y -8 :face sp-splash-banner-face)
      (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-splash-art-face)))
   "Art drawn behind the splash menu, topmost layer first.
 Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
-file (a relative name is looked up in `sp-library-dir'), or
-\(dashboard-banner . N) for text banner N of the `dashboard' package.  X and
+file (a relative name is looked up in `sp-splash-art-directory').  X and
 Y move the art right and down from the centre of the window, in columns
 and lines (negative: left and up).  Remove an element to hide its layer."
   :type '(alist :key-type symbol :value-type plist)
@@ -250,24 +254,15 @@ and lines (negative: left and up).  Remove an element to hide its layer."
 
 ** Finding the art
 
-=sp-splash--layer-file= resolves a layer's file. For a dashboard banner it looks in =dashboard-banners-directory= (or the =banners/= folder next to the =dashboard= library) and falls back to the copy =libraries/dashboard-banner-3.txt=, taken from the package, so the splash still works where the package is not installed. =sp-splash--art-lines= reads the file and drops trailing blank lines. =sp-splash--layer-box= gives the place a layer takes in the window, which =sp-splash-content-layer= (the banner) uses: the title, the version line and the menu are centred on that layer's middle column and start two lines below it, so they stay under the banner when it is moved. =sp-splash--content-column= returns that column, or the window's middle when there is no such layer.
+=sp-splash--layer-file= resolves a layer's file in =sp-splash-art-directory=; both the lambda and the banner are plain files there, so they can be changed or replaced. The terminal splash reads =lambda-splash.txt= from the same folder. =sp-splash--art-lines= reads the file and drops trailing blank lines. =sp-splash--layer-box= gives the place a layer takes in the window, which =sp-splash-content-layer= (the banner) uses: the title, the version line and the menu are centred on that layer's middle column and start two lines below it, so they stay under the banner when it is moved. =sp-splash--content-column= returns that column, or the window's middle when there is no such layer.
 
 #+begin_src emacs-lisp -i
 (defun sp-splash--layer-file (file)
-  "Return the path of the art FILE of a layer, or nil when it is missing."
-  (let ((path (if (consp file)
-                  (let ((dir (or (and (boundp 'dashboard-banners-directory)
-                                      dashboard-banners-directory)
-                                 (when-let* ((lib (locate-library "dashboard")))
-                                   (expand-file-name "banners/" (file-name-directory lib))))))
-                    (and dir (expand-file-name (format "%s.txt" (cdr file)) dir)))
-                (expand-file-name file sp-library-dir))))
-    (cond ((and path (file-regular-p path)) path)
-          ;; Banner N of the package, in case the package is not installed
-          ((consp file)
-           (let ((copy (expand-file-name (format "dashboard-banner-%s.txt" (cdr file))
-                                         sp-library-dir)))
-             (and (file-regular-p copy) copy))))))
+  "Return the path of the art FILE of a layer, or nil when it is missing.
+A relative FILE is looked up in `sp-splash-art-directory'."
+  (let ((path (expand-file-name file (expand-file-name sp-splash-art-directory
+                                                       sp-library-dir))))
+    (and (file-regular-p path) path)))
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -733,7 +728,9 @@ Outline header for the functions that build the splash buffer.
 	           (width (/ (window-width) 2))
                ;; Original ascii image from here:
                ;; https://github.com/Triagle/emax/blob/master/boot.txt
-               (banner (sp-get-string-from-file (concat sp-library-dir "lambda-splash.txt"))))
+               (banner (sp-get-string-from-file (expand-file-name "lambda-splash.txt"
+                                                          (expand-file-name sp-splash-art-directory
+                                                                            sp-library-dir)))))
 
           (with-current-buffer splash-buffer
             ;; Buffer local settings
@@ -1168,9 +1165,7 @@ Adds the setup function to =window-setup-hook=, which runs after the frame param
 
 * Provide
 
-** Provide feature
-
-Provides the =sp-splash= feature.
+Provides the =sp-splash= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

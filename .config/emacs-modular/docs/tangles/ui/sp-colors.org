@@ -51,9 +51,7 @@ Turns on =rainbow-mode= in all programming modes, so colour strings such as =#ff
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-colors= feature for =init.el=.
+Provides the =sp-colors= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

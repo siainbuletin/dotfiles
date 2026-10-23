@@ -75,6 +75,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
@@ -206,7 +207,7 @@ Currently, the sub-libraries live in different subfolders (which makes things a 
 3. Academic :: this is more of a /core/ module, as it's the main reason why I use Emacs in the first place
 4. Programming modules :: language servers and separate language-related modes for editing
 
-Deciding on the order should end up being not the most trivial task.
+Deciding on the order is not trivial: [[file:load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
 
 * Tasks
 ** TODO Reduce the verbosity of the documentation in the modules
@@ -256,6 +257,10 @@ This is essential for getting the multi-Org file compilation process. By default
      (R . t))
 )
 #+end_src
+
+** Writing the Provide section of a module doc
+
+Every module doc ends its module with a =Provide= heading. Keep it short: one sentence saying which feature the module provides, then a single source block holding the whole =;;; Provide= segment, that is the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together. Do not give the marker, the form and the footer a sub-heading and a block each. When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level. Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
 
 * Protocol for replicating the configuration across machines
 

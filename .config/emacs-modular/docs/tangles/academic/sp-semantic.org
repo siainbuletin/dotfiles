@@ -67,7 +67,7 @@ In every results buffer =next-error-follow-minor-mode= is turned on, so moving o
 
 ** Provide
 
-Registers the =sp-semantic= feature.
+Provides the =sp-semantic= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
