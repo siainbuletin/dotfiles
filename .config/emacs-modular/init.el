@@ -305,6 +305,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-colors
                     'sp-faces
                     'sp-fonts
+                    'sp-emoji-font ;; colour emoji font (after sp-fonts)
 
                     'sp-textui
                     'sp-themes
@@ -368,6 +369,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
+                    'sp-tag-emoji ;; tags as emoji in the modeline and on links
                     'sp-csv
 
                     ;; Notes (the rest of the academic modules are late)
