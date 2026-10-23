@@ -17,8 +17,12 @@
 (require 'sp-org-node-mem)
 
 ;;;;; Vulpea
-(require 'sp-vulpea)
-(require 'sp-collection-query-tables) ;; my own table modules, kept out of the vulpea group
+(require 'sp-vulpea-base)
+(require 'sp-vulpea-ui)
+(require 'sp-vulpea-para)
+(require 'sp-vulpea-schemas)
+(require 'sp-vulpea-ext)
+(require 'sp-collection-query-tables) ;; my own table modules
 
 ;;;;; Other extensions
 

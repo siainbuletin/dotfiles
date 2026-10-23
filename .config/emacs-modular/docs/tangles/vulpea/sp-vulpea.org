@@ -1,16 +1,15 @@
-#+TITLE: sp-vulpea: the Vulpea catch-all module and its sub-modules
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/vulpea/sp-vulpea.el :comments no :padline yes :noweb no :mkdirp yes
+#+TITLE: The Vulpea modules
+#+PROPERTY: header-args:emacs-lisp :tangle no :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for the Vulpea modules in =libraries/modules/vulpea/=. This one file tangles eleven =.el= files: the catch-all module =sp-vulpea.el= and the ten modules it gathers. Each module keeps its own file and its own =provide=; =sp-vulpea= loads them with =require= (most of them through =sp-vulpea-ext=), so =sp-org-ext= needs one line for all of Vulpea. The =:tangle= path of each part is set in the =:header-args:emacs-lisp+:= property of its top-level heading (the =#+PROPERTY= line above is the default, for the catch-all module); see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for the Vulpea modules in =libraries/modules/vulpea/=. This one file tangles ten =.el= files, one per module, each with its own =provide=; there is no module that loads them as a group, =sp-org-ext= requires them. The =:tangle= path of each part is set in the =:header-args:emacs-lisp+:= property of its top-level heading (the =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written); see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
 The sub-modules are not new: they were =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, =sp-vulpea-ext-back= and =sp-vulpea-split= in =libraries/modules/text/=, and =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-org-ql= in =libraries/modules/funct/=, each with its own doc. The code is unchanged. Most of the files have no newline after their last line, and Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after =sp-vulpea=.
+The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after these.
 
 | Part | File | What it holds |
 |------+------+---------------|
-| [[*sp-vulpea.el]] | =libraries/modules/vulpea/sp-vulpea.el= | the catch-all module: requires the five below |
 | [[*sp-vulpea-base.el]] | =libraries/modules/vulpea/sp-vulpea-base.el= | Database, vui and note naming |
 | [[*sp-vulpea-ui.el]] | =libraries/modules/vulpea/sp-vulpea-ui.el= | Sidebar and collection views |
 | [[*sp-vulpea-para.el]] | =libraries/modules/vulpea/sp-vulpea-para.el= | PARA agenda files |
@@ -22,51 +21,16 @@ The table modules (=sp-collection-query-tables=, a custom module of mine) are de
 | [[*sp-vulpea-split.el]] | =libraries/modules/vulpea/sp-vulpea-split.el= | Splitting headings into notes |
 | [[*sp-vulpea-org-ql.el]] | =libraries/modules/vulpea/sp-vulpea-org-ql.el= | org-ql query draft (not loaded) |
 
-Load order: =sp-vulpea= requires =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas= and =sp-vulpea-ext= in that order, as =sp-org-ext= used to. =sp-vulpea-ext= in turn requires =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-split=. =sp-vulpea-ext-back= (an empty slot) and =sp-vulpea-org-ql= (a draft that runs a query when loaded) are not required by anything; they are tangled so the files stay in step with their docs.
+Load order: =sp-org-ext= requires =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas= and =sp-vulpea-ext= in that order, then =sp-collection-query-tables=. =sp-vulpea-ext= in turn requires =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-split=. =sp-vulpea-ext-back= (an empty slot) and =sp-vulpea-org-ql= (a draft that runs a query when loaded) are not required by anything; they are tangled so the files stay in step with their docs.
 
 The old split doc, =sp-vulpea-split-old.org=, is kept beside this file; it is a note and tangles nothing.
-
-* sp-vulpea.el
-
-The catch-all module for Vulpea, the note database and library behind the notes. A profile or another module that needs the Vulpea setup requires =sp-vulpea= and gets the database and =vui= (=sp-vulpea-base=), the sidebar (=sp-vulpea-ui=), the PARA agenda wiring (=sp-vulpea-para=), the note schemas (=sp-vulpea-schemas=) and the extensions (=sp-vulpea-ext=). It holds no configuration of its own.
-
-** Header and requires
-
-The file header, then the five =require= forms in the order =sp-org-ext= used to have them.
-
-#+begin_src emacs-lisp -i
-;;; sp-vulpea.el --- Vulpea: the catch-all module -*- lexical-binding: t; -*-
-
-;;; Commentary:
-
-;; Loads everything about Vulpea except the table modules (sp-collection-query-tables),
-;; which are a separate custom module: the database and vui (sp-vulpea-base),
-;; the sidebar (sp-vulpea-ui), the PARA agenda wiring (sp-vulpea-para), the
-;; note schemas (sp-vulpea-schemas) and the extensions (sp-vulpea-ext).
-
-;;; Code:
-
-(require 'sp-vulpea-base)
-(require 'sp-vulpea-ui)
-(require 'sp-vulpea-para)
-(require 'sp-vulpea-schemas)
-(require 'sp-vulpea-ext)
-#+end_src
-
-** Provide
-
-#+begin_src emacs-lisp -i
-
-(provide 'sp-vulpea)
-;;; sp-vulpea.el ends here
-#+end_src
 
 * sp-vulpea-base.el
 :PROPERTIES:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-base.el
 :END:
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-vulpea=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
@@ -84,7 +48,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; This module sets up `vulpea', a library and database layer for Org-based
 ;; notes (an alternative to org-roam), together with `vui', the UI component
 ;; library used by other Vulpea modules such as `sp-vulpea-vui-table'. It is
-;; required from `sp-vulpea', and the further Vulpea extensions live in
+;; required from `sp-org-ext', and the further Vulpea extensions live in
 ;; `sp-vulpea-ext'.
 
 ;;; Code:
@@ -218,7 +182,7 @@ Provides the =sp-vulpea-base= feature and closes the file.
 
 This module configures =vulpea-ui=, the user interface layer for the Vulpea note database: a sidebar showing the current note's outline and backlinks, and collection views that render filtered tables of notes. Later modules such as =sp-collection-query-tables-views= build on the rendering and settings established here, together with the schemas in =sp-vulpea-schemas=.
 
-It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-vulpea=.
+It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-org-ext=.
 
 The commentary at the top of the module says:
 
@@ -447,7 +411,7 @@ Provides the =sp-vulpea-ui= feature and closes the file.
 
 This module wires the =vulpea-para= library into Org's agenda. vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database; a copy of it is kept under =libraries/modules/cloned/vulpea-para/=. Here it decides which files are agenda files: =vulpea-para-agenda-mode= keeps an =agenda= tag on every vault file that holds open work, and sets =org-agenda-files= from the database before each agenda, so Emacs does not visit every file to find out. Notes tagged =cemetery= are kept out. This is the only place that controls the agenda files; see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]].
 
-It is required by =sp-vulpea=. The agenda line prefix is set in =sp-org-agenda=, the capture templates in =sp-org-capture= and the views in =sp-agenda-views=, so none of them is touched here.
+It is required by =sp-org-ext=. The agenda line prefix is set in =sp-org-agenda=, the capture templates in =sp-org-capture= and the views in =sp-agenda-views=, so none of them is touched here.
 
 The commentary at the top of the module says:
 
@@ -601,7 +565,7 @@ A fake note is a plist of tags; headless, =vulpea-para=, =vulpea= and the keywor
 
 Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
 
-The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions. The module is required from =sp-vulpea= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
 
 The commentary at the top of the module says:
 
@@ -879,9 +843,9 @@ Provides the =sp-vulpea-schemas= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ext.el
 :END:
 
-A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split. The table modules (=sp-collection-query-tables=) are not loaded from here; =sp-org-ext= requires them after =sp-vulpea=. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
+A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split. The table modules (=sp-collection-query-tables=) are not loaded from here; =sp-org-ext= requires them after the Vulpea modules. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
 
-It is required from =sp-vulpea=, alongside =sp-vulpea-schemas=. Most of the required modules live under =libraries/modules/funct/=, which is why the file first makes sure every subdirectory of =libraries/modules/= is on the =load-path=.
+It is required from =sp-org-ext=, after =sp-vulpea-schemas=. The first lines of the file make sure every subdirectory of =libraries/modules/= is on the =load-path=.
 
 ** Setup
 
@@ -898,7 +862,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
 ;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
-;; from here; sp-org-ext requires them after sp-vulpea.
+;; from here; sp-org-ext requires them after the Vulpea modules.
 
 ;;; Code:
 #+end_src

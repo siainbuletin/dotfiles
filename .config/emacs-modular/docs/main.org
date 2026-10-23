@@ -201,7 +201,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** vulpea/
 
-- [[file:tangles/vulpea/sp-vulpea.org][sp-vulpea]] :: Vulpea: the catch-all module ([[file:../libraries/modules/vulpea/sp-vulpea.el][sp-vulpea.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-base.el][sp-vulpea-base]] :: Vulpea note database basics ([[file:../libraries/modules/vulpea/sp-vulpea-base.el][sp-vulpea-base.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-convert-properties.el][sp-vulpea-convert-properties]] :: Convert Org drawer properties to Vulpea meta lines ([[file:../libraries/modules/vulpea/sp-vulpea-convert-properties.el][sp-vulpea-convert-properties.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-ext.el][sp-vulpea-ext]] :: Vulpea extensions loader ([[file:../libraries/modules/vulpea/sp-vulpea-ext.el][sp-vulpea-ext.el]])

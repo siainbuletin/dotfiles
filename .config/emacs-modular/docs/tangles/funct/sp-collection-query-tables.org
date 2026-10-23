@@ -9,7 +9,7 @@ A table of Vulpea notes, like a Dataview query: choose the notes (by tag, direct
 
 * Layout
 
-All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= requires right after =sp-vulpea= (it is not part of that group).
+All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= requires right after the Vulpea modules (it is not part of that group).
 
 | File                       | Role                                                        |
 |----------------------------+-------------------------------------------------------------|
@@ -106,7 +106,7 @@ Try a spec without saving anything: evaluate with =C-c C-c=.
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-The only file the rest of the configuration requires (=sp-org-ext= does, after =sp-vulpea=). It loads the core, the views, the Org output and the menu, picks a renderer, installs exc through Elpaca, and binds the keys. The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
+The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It loads the core, the views, the Org output and the menu, picks a renderer, installs exc through Elpaca, and binds the keys. The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
 
 ** Header and requires
 
