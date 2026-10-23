@@ -1,7 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-bookmarks.el --- Bookmark management
+;;; sp-bookmarks.el --- Bookmark management -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; A tiny module that configures Emacs' built-in `bookmark' library. It has no
+;; external dependencies and is loaded from `init.el' as part of the general
+;; tooling modules.
 
 ;;; Code:
 

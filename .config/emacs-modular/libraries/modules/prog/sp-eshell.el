@@ -1,5 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-eshell.el --- eshell setup             
+;;; sp-eshell.el --- Eshell setup, prompt, aliases and helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configuration for Eshell, Emacs's built-in shell written in Lisp.
+
+;;; Code:
 
 ;; Define required faces FIRST, before any other code
 (eval-and-compile
@@ -33,9 +38,9 @@
 ;; from those of shell or ansi-terminal. It is closer to something like bash or
 ;; zsh than it is to a terminal emulator like vterm.
 
-;;; Continuing code:
+;;;; Continuing code:
 
-;;;; Eshell Settings
+;;;;; Eshell Settings
 (use-package esh-mode
   :ensure nil
   :after eshell
@@ -113,23 +118,23 @@
                      "nmtui" "alsamixer" "htop" "el" "elinks" "tail" "top" "nano" "ssh"))
     (add-to-list 'eshell-visual-commands command)))
 
-;;;; Eshell Pcomplete
+;;;;; Eshell Pcomplete
 
 (use-package pcmpl-homebrew
-  :when (and sp-load-extras (locate-library "pcmpl-homebrew"))
+  :ensure t
   :after eshell)
 
 (use-package pcmpl-args
-  :when (and sp-load-extras (locate-library "pcmpl-args"))
+  :ensure t
   :after eshell)
 
 (use-package pcomplete-extension
-  :when (and sp-load-extras (locate-library "pcomplete-extension"))
+  :ensure t
   :after eshell)
 
 ;; Provide help support -- see also the info function below
 (use-package esh-help
-  :when (and sp-load-extras (locate-library "esh-help"))
+  :ensure t
   :after eshell
   :config
   ;; Eldoc support.
@@ -137,12 +142,12 @@
 
 ;; Dir navigation -- see also dir jumping below
 (use-package eshell-up
-  :when (and sp-load-extras (locate-library "eshell-up"))
+  :ensure t
   :commands (eshell-up)
   :config
   (defalias 'eshell/up #'eshell-up))
 
-;;;; Eshell Prompt
+;;;;; Eshell Prompt
 ;; See http://www.modernemacs.com/post/custom-eshell/
 ;; https://github.com/zwild/eshell-prompt-extras
 ;; https://www.bytedude.com/custom-eshell-prompts/
@@ -249,7 +254,7 @@ PWD is not in a git repo (or the git command is not found)."
 
 (setq eshell-prompt-function #'lem-eshell-config--prompt-function)
 
-;;;; Aliases
+;;;;; Aliases
 ;; It's nicer to type (range 0 3) in eshell.
 (defalias 'eshell/range #'number-sequence)
 (defalias 'range #'number-sequence)
@@ -350,15 +355,15 @@ ALIASES is a flat list of alias -> command pairs. e.g.
         (append eshell-command-aliases-list
                 lem-eshell-aliases)))
 
-;;;; Syntax Highlighting
+;;;;; Syntax Highlighting
 (use-package eshell-syntax-highlighting
-  :when (and sp-load-extras (locate-library "eshell-syntax-highlighting"))
+  :ensure t
   :after eshell
   :config
   ;; Enable in all Eshell buffers.
   (eshell-syntax-highlighting-global-mode +1))
 
-;;;; Better File Listing (ls)
+;;;;; Better File Listing (ls)
 ;; https://github.com/mnewt/dotemacs/blob/master/init.el
 ;; Make files and dirs clickable as well as prettyfied w/icons and suffixes
 
@@ -426,9 +431,9 @@ This function is meant to be used as advice around
 
 (advice-add #'eshell-ls-annotate :filter-return #'lem-eshell-better-ls)
 
-;;;; Useful Functions
+;;;;; Useful Functions
 
-;;;;; Toggle Eshell
+;;;;;; Toggle Eshell
 ;; Open eshell in $HOME
 (defun lem-eshell-home ()
   "Open eshell in home dir."
@@ -492,13 +497,13 @@ If open and in eshell, toggle closed."
 ;; Make old call obsolete
 (define-obsolete-function-alias 'lem-call-eshell 'lem-toggle-eshell "Lambda-Emacs 0.4")
 
-;;;;; New Eshell
+;;;;;; New Eshell
 (defun lem-new-eshell()
   "Open a new instance of eshell."
   (interactive)
   (eshell 'N))
 
-;;;;; Clear Eshell
+;;;;;; Clear Eshell
 ;; Make eshell act like a standard unix terminal.
 (defun eshell-clear-buffer ()
   "Clear terminal"
@@ -507,7 +512,7 @@ If open and in eshell, toggle closed."
     (erase-buffer)
     (eshell-send-input)))
 
-;;;;; Eshell Info
+;;;;;; Eshell Info
 (defun eshell/info (subject)
   "Read the Info manual on SUBJECT."
   (let ((buf (current-buffer)))
@@ -522,7 +527,7 @@ If open and in eshell, toggle closed."
 			                  subject))
 	    1))))
 
-;;;;; Eshell Less
+;;;;;; Eshell Less
 (defun eshell/less (&rest args)
   "Invoke `view-file' on a file. \"less +42 foo\" will go to line 42 in
       the buffer for foo."
@@ -535,21 +540,21 @@ If open and in eshell, toggle closed."
       (lem-eshell-view-file (pop args)))))
 (defalias 'eshell/more 'eshell/less)
 
-;;;;; Eshell Make Dir/CD
+;;;;;; Eshell Make Dir/CD
 
 (defun eshell/mkdir-and-cd (dir)
   "Create a directory then cd into it."
   (make-directory dir t)
   (eshell/cd dir))
 
-;;;;; Git Status
+;;;;;; Git Status
 ;; Used as an eshell/alias, the current directory isn't registered, so we must
 ;; use a function.
 (defun eshell/gst (&rest args)
   (magit-status (pop args) nil)
   (eshell/echo)) ;; The echo command suppresses output
 
-;;;;; Jump Directories (w/Consult & Consult-Dir)
+;;;;;; Jump Directories (w/Consult & Consult-Dir)
 (defun eshell/z (&optional regexp)
   "Navigate to a previously visited directory in eshell, or to
 any directory proferred by `consult-dir'."
@@ -571,10 +576,10 @@ any directory proferred by `consult-dir'."
                      (completing-read "cd: " eshell-dirs)))))))
 
 
-;;;;; Jump to Project Root
+;;;;;; Jump to Project Root
 (defun eshell/cg () (interactive) (eshell/cd (vc-git-root ".")))
 
-;;;;; Open in iTerm
+;;;;;; Open in iTerm
 (defun eshell/iterm ()
   "Open the current directory of the eshell buffer in iTerm."
   (interactive)
@@ -585,7 +590,7 @@ any directory proferred by `consult-dir'."
                        iterm-brew-path)))
     (shell-command (concat "open -a " iterm-path " ."))))
 
-;;;;; Remote Directory Change
+;;;;;; Remote Directory Change
 ;; https://github.com/dakra/dmacs/blob/master/init.org#eshell
 (defun eshell/rcd (&optional directory)
   "Like regular 'cd' but don't jump out of a tramp directory.
@@ -600,7 +605,7 @@ So if we're connected with sudo to 'remotehost'
      (tramp-make-tramp-file-name
       method user nil host nil (or directory "") hop))))
 
-;;;;; View Files
+;;;;;; View Files
 
 (defun lem-eshell-view-file (file)
   "A version of `view-file' which properly respects the eshell prompt."
@@ -620,7 +625,7 @@ So if we're connected with sudo to 'remotehost'
 	    (view-mode-enter (cons (selected-window) (cons nil undo-window))
 			             'kill-buffer)))))
 
-;;;; Setup Hooks
+;;;;; Setup Hooks
 (defun sp-eshell ()
   (interactive)
   ;; Clear eshell keybind
@@ -649,6 +654,5 @@ So if we're connected with sudo to 'remotehost'
   (eshell/ls "-X"))
 (add-hook 'eshell-directory-change-hook #'lem-eshell-list-files-on-cd)
 
-;;; End Shell
-;;; Provide Eshell
+;;;; End Shell
 (provide 'sp-eshell)

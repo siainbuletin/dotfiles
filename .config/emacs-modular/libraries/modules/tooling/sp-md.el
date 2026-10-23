@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-md.el --- Markdown settings
+;;; sp-md.el --- Markdown editing -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -81,8 +80,6 @@
 ;; macro: delete backslashes in paragraph to cleanup markdown conversion
 (fset 'lem-md-delete-backslash
       (lambda (&optional arg) "Keyboard macro." (interactive "p") (funcall (kmacro "\361\361f\\x" 0 "%d") arg)))
-
-;;; Provide:
 
 (provide 'sp-md)
 ;; sp-md.el ends here.

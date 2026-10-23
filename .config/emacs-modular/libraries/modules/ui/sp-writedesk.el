@@ -1,10 +1,11 @@
-;; -*- lexical-binding: t -*-
-;; sp-writedesk.el
+;;; sp-writedesk.el --- Writing desk: Olivetti and Writeroom -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This sub-library is called 'writedesk' because it's supposed to set up the space specifically
 ;; for longform writing within org-mode.
+
+;;; Code:
 
 ;; Olivetti makes sure that every org buffer is being wrapped properly.
 (use-package olivetti
@@ -49,6 +50,7 @@ and moves point to the last location."
 
 ;;;; Writeroom
 (use-package writeroom-mode
+  :ensure t
   :commands (writeroom-mode)
 
   :config
@@ -68,8 +70,6 @@ and moves point to the last location."
                 scroll-conservatively 0
                 maximum-scroll-margin 0.25
                 scroll-margin 99999)))
-
-;;; Provide:
 
 (provide 'sp-writedesk)
 ;; sp-writedesk.el ends here.

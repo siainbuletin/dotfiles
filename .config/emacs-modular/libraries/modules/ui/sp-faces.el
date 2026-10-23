@@ -1,14 +1,19 @@
-;; -*- lexical-binding: t; -*-
-;; sp-faces.el --- Setup for faces
+;;; sp-faces.el --- Faces, highlighting and visual feedback -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module gathers settings that change how text and the cursor look:
+;; outline heading faces in Lisp files, SVG tags in code, TODO and number
+;; highlighting, a TODO navigation transient, pulsing the current line after
+;; jumps, and highlighting of edited regions with Goggles. It also defines a
+;; small `what-face' helper for inspecting faces.
 
 ;;; Code:
 
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
-  :when (and sp-load-extras (locate-library "outline-minor-faces"))
+  :ensure t
   :after outline
   :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
 
@@ -34,9 +39,10 @@
   (global-reveal-mode))
 
 ;;;; SVG Library (For Tags/Labels/etc.)
-  ;;; SVG Tag Mode
+;;;;; SVG Tag Mode
 (use-package svg-tag-mode
-  :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
+  :ensure t
+  :when (image-type-available-p 'svg)
   :hook (prog-mode . svg-tag-mode)
   :config
   (setq svg-tag-tags
@@ -62,14 +68,14 @@
 
 ;;;;; Highlight Numbers & TODOS
 (use-package highlight-numbers
-  :when (and sp-load-extras (locate-library "highlight-numbers"))
+  :ensure t
   :defer t
   :commands highlight-numbers-mode
   :init
   (add-hook 'prog-mode-hook #'highlight-numbers-mode))
 
 (use-package hl-todo
-  :when (and sp-load-extras (locate-library "hl-todo"))
+  :ensure t
   :defer t
   :commands hl-todo-mode
   :init
@@ -136,7 +142,7 @@
 
 ;;;; Goggles (Highlight Changes)
 (use-package goggles
-  :when (and sp-load-extras (locate-library "goggles"))
+  :ensure t
   :hook ((prog-mode text-mode) . goggles-mode)
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
@@ -145,8 +151,6 @@
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
-
-;;; Provide:
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

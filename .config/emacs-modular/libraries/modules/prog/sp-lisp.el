@@ -1,11 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-lisp.el --- Lisp and Emacs Lisp settings
+;;; sp-lisp.el --- Common Lisp and Emacs Lisp editing -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;;
 
-;;; Code
+;;; Code:
 
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
@@ -109,8 +108,6 @@
         (backward-up-list 1 t t))
       (setq sexp (read (point-marker))))
     (message "%s" (eval sexp))))
-
-;;; Provide:
 
 (provide 'sp-lisp)
 ;; sp-lisp.el ends here.

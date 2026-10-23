@@ -70,12 +70,16 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 
 Custom, bespoke functionality: modules I wrote myself for my own workflow, as opposed to configuration of packages from elsewhere. They live apart from the thematic directories so that it is clear which parts of the configuration are my own code.
 
+- [[file:tangles/custom/sp-dg-positions.org][sp-dg-positions]] :: Position graph and status views for discourse-graphs ([[file:../libraries/modules/custom/sp-dg-positions.el][sp-dg-positions.el]])
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - [[file:tangles/custom/sp-org-normalise.org][sp-org-normalise]] :: Turn checkbox lists under Tasks into headings and normalise TODO keywords across the vault ([[file:../libraries/modules/custom/sp-org-normalise.el][sp-org-normalise.el]])
+- [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
+- [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
@@ -86,11 +90,15 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:../libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
 - [[file:tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:../libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
 - [[file:tangles/funct/sp-vulpea-convert-properties.org][sp-vulpea-convert-properties]] :: Convert Org drawer properties to Vulpea meta lines ([[file:../libraries/modules/funct/sp-vulpea-convert-properties.el][sp-vulpea-convert-properties.el]])
-- [[file:tangles/funct/sp-vulpea-dblock.org][sp-vulpea-dblock]] :: Dataview-style tables of Vulpea notes ([[file:../libraries/modules/funct/sp-vulpea-dblock.el][sp-vulpea-dblock.el]])
 - [[file:tangles/funct/sp-vulpea-grouped-backlinks.org][sp-vulpea-grouped-backlinks]] :: Vulpea backlinks grouped by meta property ([[file:../libraries/modules/funct/sp-vulpea-grouped-backlinks.el][sp-vulpea-grouped-backlinks.el]])
 - [[file:tangles/funct/sp-vulpea-org-ql.org][sp-vulpea-org-ql]] :: Querying vulpea notes with org-ql (draft) ([[file:../libraries/modules/funct/sp-vulpea-org-ql.el][sp-vulpea-org-ql.el]])
-- [[file:tangles/funct/sp-vulpea-table-views.org][sp-vulpea-table-views]] :: Saved views and inline mounting for Vulpea tables ([[file:../libraries/modules/funct/sp-vulpea-table-views.el][sp-vulpea-table-views.el]])
-- [[file:tangles/funct/sp-vulpea-vui-table.org][sp-vulpea-vui-table]] :: Live Vulpea property tables with vui ([[file:../libraries/modules/funct/sp-vulpea-vui-table.el][sp-vulpea-vui-table.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table]] :: Tables of Vulpea notes: entry point ([[file:../libraries/modules/funct/sp-vulpea-table.el][sp-vulpea-table.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-core]] :: Vulpea table specs, queries and cells ([[file:../libraries/modules/funct/sp-vulpea-table-core.el][sp-vulpea-table-core.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-exc]] :: Vulpea tables as exc grids ([[file:../libraries/modules/funct/sp-vulpea-table-exc.el][sp-vulpea-table-exc.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-menu]] :: Transient menu for Vulpea table queries ([[file:../libraries/modules/funct/sp-vulpea-table-menu.el][sp-vulpea-table-menu.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-org]] :: Vulpea table dynamic block and Org buffer ([[file:../libraries/modules/funct/sp-vulpea-table-org.el][sp-vulpea-table-org.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-views]] :: Saved views for Vulpea tables ([[file:../libraries/modules/funct/sp-vulpea-table-views.el][sp-vulpea-table-views.el]])
+- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-vui]] :: Vulpea tables with vui, and inline tables ([[file:../libraries/modules/funct/sp-vulpea-table-vui.el][sp-vulpea-table-vui.el]])
 
 ** media/
 
@@ -188,6 +196,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
 - [[file:tangles/ui/sp-faces.org][sp-faces]] :: Faces, highlighting and visual feedback ([[file:../libraries/modules/ui/sp-faces.el][sp-faces.el]])
 - [[file:tangles/ui/sp-fonts.org][sp-fonts]] :: Fonts, text scaling and line highlighting ([[file:../libraries/modules/ui/sp-fonts.el][sp-fonts.el]])
+- [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
@@ -207,7 +216,7 @@ Currently, the sub-libraries live in different subfolders (which makes things a 
 3. Academic :: this is more of a /core/ module, as it's the main reason why I use Emacs in the first place
 4. Programming modules :: language servers and separate language-related modes for editing
 
-Deciding on the order should end up being not the most trivial task.
+Deciding on the order is not trivial: [[file:load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
 
 * Tasks
 ** TODO Reduce the verbosity of the documentation in the modules
@@ -257,6 +266,10 @@ This is essential for getting the multi-Org file compilation process. By default
      (R . t))
 )
 #+end_src
+
+** Writing the Provide section of a module doc
+
+Every module doc ends its module with a =Provide= heading. Keep it short: one sentence saying which feature the module provides, then a single source block holding the whole =;;; Provide= segment, that is the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together. Do not give the marker, the form and the footer a sub-heading and a block each. When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level. Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
 
 * Protocol for replicating the configuration across machines
 
