@@ -1,0 +1,156 @@
+#+title: A projects sidebar: writing projects and issues beside the work
+
+This page says how to build the view that replaces the =Projects= item of the splash menu: a sidebar that lists my writing projects and the issues of =sp-org-issues=, and stays next to whatever I am editing. It compares the ways Emacs can host a sidebar, picks one that fits this configuration, and says where the data comes from. It is a design only; no code in this page is tangled.
+
+* In short
+
+- Build it as a *left side window* (=display-buffer-in-side-window=) showing one dedicated buffer, =*Projects*=, drawn with =vui=. =vui= is already loaded for =vulpea-ui=, and =sp-tab-inbox= shows how a =vui= component is written here.
+- Keep it a *separate sidebar*, not a widget of the =vulpea-ui= sidebar. That one follows the note at point; this one lists things that don't depend on the current buffer.
+- The layout is then three columns: projects on the left, the work in the middle, =vulpea-ui= on the right (when it is open). Popper pop-ups also use the right side (=sp-buffers=), so the left side stays free.
+- Read writing projects from =vulpea-para= (a =Writing= area, built the way =Issues= is) and issues from the issues file that =sp-org-issues= already names. Neither needs a new store.
+- Put it in a new module, =sp-projects-sidebar=, in =libraries/modules/custom/= with its literate source in =docs/tangles/custom/=. Open it with a key, not at startup, like =sp-treemacs= (=<f9>=).
+
+* What the configuration already has
+
+| Piece                    | Where                                  | What it gives the sidebar                                                                                  |
+|--------------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------|
+| =vulpea-ui= sidebar      | =sp-vulpea-ui=, =sp-tab-inbox=         | A right-hand side window of 0.33 of the frame, widgets in =vui=, =vulpea-ui-register-widget=. Tied to the note at point (=use-vulpea-ui-note=). |
+| =treemacs=               | =sp-treemacs=                          | A file tree in a side window on =<f9>=, 35 columns wide, for the config folder.                            |
+| =popper=                 | =sp-buffers=                           | Pop-ups in a right side window, slot 1, 20 lines.                                                          |
+| =tabspaces= / =tab-bar=  | =sp-tabs=, =sp-workspaces=             | Workspaces as tabs. The old splash item ran =tabspaces-open-or-create-project-and-workspace=.              |
+| =vulpea-para=            | =sp-vulpea-para=                       | =vulpea-para-areas=, =vulpea-para-projects= and =vulpea-para-projects-in-area=, read from the vulpea database. |
+| =sp-org-issues=          | =custom/sp-org-issues=                 | =sp-org-issues-file=, =sp-org-issues-repos=, the capture template =I=, =sp-org-issues-start=.              |
+
+Two of these already put things beside the text, and they are the constraints: =vulpea-ui= owns the right edge, =treemacs= is a left-hand file tree. The new sidebar must live with both.
+
+* How the data is read
+
+** Writing projects
+
+A writing project is a =vulpea-para= project: a heading tagged =project= inside an area. =Issues= is an area for code, so a =Writing= area (a file tagged =area=, with =* Tasks=, =* Notes=, =* Archive=) is the same idea for prose, and =vulpea-para-projects-in-area= returns its projects. This keeps one model for everything that is "a project", and the agenda commands that already understand areas work on it.
+
+The thesis is the first entry. Anything else with the =@writing= tag (see =sp-org-taskman-extra=) can be listed as well by a second query, but I'd start with the area alone.
+
+** Issues
+
+=sp-org-issues= keeps one file (=sp-org-issues-file=). Under =* Tasks= there is a level-2 heading per repository (names in =sp-org-issues-repos=), and each issue is a TODO below it with the keywords =TODO NEXT PROG WAIT | DONE CNCL= and =BRANCH=, =PR=, =THREAD= properties.
+
+For the sidebar I'd read that file directly, with =org-map-entries= or =org-ql= over =(sp-org-issues--agenda-files)=, not the agenda. The query returns, for each open issue: repository, keyword, title, marker, and the =PR= property. It is cheap (one file) and avoids the side effects of building an agenda buffer. The vulpea database is a second option; I have not checked whether it exposes the todo keyword of a heading, so the first version should not depend on it.
+
+** Staying current
+
+Refresh on three triggers: =after-save-hook= of those two files, the =org-capture-after-finalize-hook= (for =C-c c I=), and =g= in the sidebar. A generation counter that the component keys its memo on is the pattern =sp-tab-inbox= uses (=sp-tab-inbox-generation=); reuse it. No timers.
+
+* The options
+
+** 1. A side window with a dedicated buffer (recommended)
+
+=display-buffer-in-side-window= with =(side . left)=, a fixed width, and window parameters =no-delete-other-windows= and =no-other-window= (the second is optional). Side windows survive =C-x 1=, are not touched by =other-window= unless asked, and belong to the frame's window configuration, so each =tab-bar= tab keeps its own sidebar state. That last point matters with =tabspaces=: the sidebar can be open in the "Thesis" workspace and closed in "Notes".
+
+For: the one mechanism =sp-buffers=, =sp-treemacs= and =sp-vc-ai-workbench= already use; no new package; works in terminal Emacs and with macOS tiling (=aerospace=) because it is still one frame; =vui= gives collapsible sections and buttons.
+
+Against: side windows follow strict rules (=window-sides-slots=, a side may hold only side windows), so a stray =delete-window= or a =popper= pop-up on the same side can surprise. Mitigation: the left side is the sidebar's alone.
+
+** 2. A widget in the =vulpea-ui= sidebar
+
+Register two more widgets with =vulpea-ui-register-widget=, as =sp-tab-inbox= does.
+
+For: nothing new to open; same keys and refresh.
+
+Against: the widgets render for the *note at point* and the sidebar closes or empties when point is in a non-note buffer. A project list is global. It would also compete for the 0.33 width with backlinks and outline. Good for "issues about this note"; wrong for "all my projects".
+
+** 3. A treemacs-style tree
+
+Use the treemacs extension API (=treemacs-define-expandable-node=) so projects and issues are nodes of a tree like files.
+
+For: familiar tree keys, icons already set up (=treemacs-nerd-icons=).
+
+Against: treemacs's model is a workspace of file paths. Fitting heading markers and todo keywords into it means working against the package, and =sp-treemacs= only works around its project detection to begin with (the yadm repository root is =$HOME=). Heavier than the problem.
+
+** 4. A dedicated frame or child frame
+
+For: it can't disturb any window layout.
+
+Against: it is a second OS window to manage, with no benefit in a tiling window manager, no use in a terminal, and it sits outside the tab workspaces. =sp-mini-frame= already uses a child frame for a different reason (a transient prompt); a persistent panel is the other case.
+
+** 5. A normal buffer in a split (the agenda way)
+
+Open =*Projects*= with =display-buffer= in a plain split.
+
+For: the least code.
+
+Against: it is a window like any other, so =C-x 1= and the next pop-up remove it. That is the problem a sidebar exists to avoid.
+
+** Comparison
+
+| Option               | Survives =C-x 1= | Per tab | Terminal | Needs new package | Fits global lists |
+|----------------------+------------------+---------+----------+-------------------+-------------------|
+| 1. Side window       | yes              | yes     | yes      | no                | yes               |
+| 2. =vulpea-ui= widget | yes              | yes     | yes      | no                | no                |
+| 3. treemacs nodes    | yes              | partly  | yes      | no                | awkward           |
+| 4. Child frame       | n/a              | no      | no       | no                | yes               |
+| 5. Plain split       | no               | yes     | yes      | no                | yes               |
+
+* Recommendation
+
+Option 1, as its own module.
+
+** Layout
+
+#+begin_example
++-------------+------------------------+--------------+
+| *Projects*  |                        |  vulpea-ui   |
+| (left side, |   the work             |  (right side,|
+|  30 cols)   |   (olivetti / text)    |   0.33)      |
+|             |                        |  popper too  |
++-------------+------------------------+--------------+
+#+end_example
+
+- Width: about 30 columns, a =defcustom= (=sp-projects-sidebar-width=). =treemacs= at 35 is similar; both on the left would stack, so the two share the left side with different slots (=slot= 0 for projects, 1 for the file tree) instead of fighting. Opening one while the other is open shows them one above the other.
+- Writing mode (=sp-writedesk=, Olivetti) centres the text in the middle window, so the sidebars cost nothing there.
+- Open with a key and a command, =sp-projects-sidebar-toggle=. =<f9>= is the tree; a neighbour key (check it is free in =sp-keys=) or the leader map works.
+
+** Content
+
+One buffer, two collapsible sections drawn with =vui=:
+
+#+begin_example
+ Writing
+  ▾ Thesis
+      chapter 2 draft            NEXT
+  ▸ Essay on platforms
+ Issues
+  ▾ dotfiles
+      Fix splash centring        PROG   #45
+      Colour framework           TODO
+  ▸ vulpea-mcp
+#+end_example
+
+Keys: =RET= visits the project or issue (the heading, narrowed, in the window to the right of the sidebar), =TAB= folds, =n= captures a new issue (=org-capture= template =I=) or a new writing project, =s= runs =sp-org-issues-start= on the issue at point, =b= opens its PR link, =g= refreshes. This follows what the =sp-tab-inbox= widget already does with buttons.
+
+** Integration with =sp-workspaces=
+
+Opening a writing project can also open its workspace: a tab named after the project, with the project's note in the main window and the sidebar on the left. That reuses the pattern of =sp-open-notes-in-workspace= (switch to the tab if it exists, otherwise create it), and means the side window state is per project. Opening an issue calls =sp-org-issues-start= as it does today, and Magit in its worktree takes the main window.
+
+** Things to watch
+
+- =popper= sends pop-ups to the right (=popper-display-popup-right=); the left side is free, but check that =*Projects*= is not itself picked up as a pop-up buffer (=popper-reference-buffers= is a whitelist, so it should not be).
+- A side window can't be split by =split-window=, which is what =other-window= users want; =ace-window= (=sp-windows=) lists it unless it is excluded with the =no-other-window= parameter.
+- Do not open it in =after-init-hook=. The splash screen is what the first frame shows.
+- A frame narrower than about 120 columns can't hold both sidebars and a useful text window. The toggle should refuse, or close the right side first, below a =defcustom= threshold.
+
+* Plan, in steps
+
+1. *Skeleton.* =sp-projects-sidebar.el= with the side-window display function, the buffer, a trivial =vui= component, =sp-projects-sidebar-toggle= and the key. No data.
+2. *Issues section.* The query over the issues file, grouped by repository, with the refresh triggers.
+3. *Writing area.* A small =sp-writing= area created like =sp-org-issues-create-area=, and the section that lists its projects.
+4. *Actions.* Visit, capture, start, and the workspace step.
+5. *Splash.* Point whatever replaces the removed =Projects= item at the toggle.
+
+Each step can be its own pull request; steps 2 and 3 do not depend on each other.
+
+* Open questions for me
+
+- Does the =Writing= area replace the thesis entry in the Agenda, or do both show it?
+- Should the sidebar be per workspace tab (as proposed) or one global panel that follows me across tabs?
+- Is a terminal-Emacs layout needed at all, or only the GUI? It changes how much fallback code is worth writing.
