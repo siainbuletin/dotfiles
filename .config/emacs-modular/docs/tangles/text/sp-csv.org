@@ -63,9 +63,7 @@ A commented example call.
 
 * Provide
 
-** Provide feature
-
-Provides =sp-csv=.
+Provides the =sp-csv= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

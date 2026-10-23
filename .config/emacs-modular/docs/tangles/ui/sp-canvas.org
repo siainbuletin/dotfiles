@@ -57,9 +57,7 @@ If Emacs is new enough, supports canvas images and the native =excali-module= ex
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-canvas= feature for =init.el=. The closing comment has a stray =x= at the end, which is harmless.
+Provides the =sp-canvas= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End:

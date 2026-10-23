@@ -148,19 +148,11 @@ Loads =sp-vulpea-split=, which wraps =vulpea-split-heading= so that a heading mo
 
 * Provide
 
-** Provide marker
-
-Section comment.
+Provides the =sp-vulpea-ext= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
-#+end_src
 
-** Provide form
-
-Makes the module available as =sp-vulpea-ext=.
-
-#+begin_src emacs-lisp -i
 (provide 'sp-vulpea-ext)
 ;; sp-vulpea-ext.el
 #+end_src

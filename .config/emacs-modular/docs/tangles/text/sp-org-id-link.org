@@ -127,9 +127,7 @@ A note pointing to =sp-org-create-note-and-link.el= as another link related libr
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-id-link= feature for =init.el=.
+Provides the =sp-org-id-link= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -46,9 +46,7 @@ Selects all vulpea notes whose =relevance-factor= metadata is 4 or higher (notes
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-org-ql= feature, so the module could be loaded with =require= like the others.
+Provides the =sp-vulpea-org-ql= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

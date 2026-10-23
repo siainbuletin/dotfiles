@@ -135,7 +135,7 @@ Uses the default =vulpea-select-annotate=, which shows the primary title and tag
 
 ** Provide
 
-Registers the =sp-vulpea-base= feature.
+Provides the =sp-vulpea-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-base)

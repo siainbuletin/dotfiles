@@ -98,14 +98,18 @@ with `load-theme' the next time the splash is drawn."
   "Face for the dashboard banner art behind the splash menu."
   :group 'faces)
 
+(defcustom sp-splash-art-directory "images/"
+  "Folder of the splash art files; relative to `sp-library-dir'."
+  :type 'directory
+  :group 'sp-splash)
+
 (defcustom sp-splash-art-layers
   (copy-tree
-   '((banner :file (dashboard-banner . 3) :x 30 :y -8 :face sp-splash-banner-face)
+   '((banner :file "dashboard-banner-3.txt" :x 30 :y -8 :face sp-splash-banner-face)
      (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-splash-art-face)))
   "Art drawn behind the splash menu, topmost layer first.
 Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
-file (a relative name is looked up in `sp-library-dir'), or
-\(dashboard-banner . N) for text banner N of the `dashboard' package.  X and
+file (a relative name is looked up in `sp-splash-art-directory').  X and
 Y move the art right and down from the centre of the window, in columns
 and lines (negative: left and up).  Remove an element to hide its layer."
   :type '(alist :key-type symbol :value-type plist)
@@ -125,20 +129,11 @@ and lines (negative: left and up).  Remove an element to hide its layer."
   "Name of the layer the nudge commands move; nil means the first layer.")
 
 (defun sp-splash--layer-file (file)
-  "Return the path of the art FILE of a layer, or nil when it is missing."
-  (let ((path (if (consp file)
-                  (let ((dir (or (and (boundp 'dashboard-banners-directory)
-                                      dashboard-banners-directory)
-                                 (when-let* ((lib (locate-library "dashboard")))
-                                   (expand-file-name "banners/" (file-name-directory lib))))))
-                    (and dir (expand-file-name (format "%s.txt" (cdr file)) dir)))
-                (expand-file-name file sp-library-dir))))
-    (cond ((and path (file-regular-p path)) path)
-          ;; Banner N of the package, in case the package is not installed
-          ((consp file)
-           (let ((copy (expand-file-name (format "dashboard-banner-%s.txt" (cdr file))
-                                         sp-library-dir)))
-             (and (file-regular-p copy) copy))))))
+  "Return the path of the art FILE of a layer, or nil when it is missing.
+A relative FILE is looked up in `sp-splash-art-directory'."
+  (let ((path (expand-file-name file (expand-file-name sp-splash-art-directory
+                                                       sp-library-dir))))
+    (and (file-regular-p path) path)))
 
 (defun sp-splash--art-lines (file)
   "Return the lines of the art FILE of a layer, or nil when unavailable."
@@ -389,7 +384,9 @@ Each row is (TEXT KEY COMMAND HELP)."
 	           (width (/ (window-width) 2))
                ;; Original ascii image from here:
                ;; https://github.com/Triagle/emax/blob/master/boot.txt
-               (banner (sp-get-string-from-file (concat sp-library-dir "lambda-splash.txt"))))
+               (banner (sp-get-string-from-file (expand-file-name "lambda-splash.txt"
+                                                          (expand-file-name sp-splash-art-directory
+                                                                            sp-library-dir)))))
 
           (with-current-buffer splash-buffer
             ;; Buffer local settings

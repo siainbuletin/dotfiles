@@ -57,9 +57,9 @@ Installs the =yasnippet-snippets= collection after =yasnippet=, giving ready-mad
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-snippets=.
+Provides the =sp-snippets= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -278,9 +278,7 @@ Commented-out earlier personal settings for the tab bar, kept for reference: ope
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-tabs= feature for =init.el=.
+Provides the =sp-tabs= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-tabs)

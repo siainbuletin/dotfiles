@@ -177,9 +177,7 @@ Runs the dimming check whenever a minibuffer is set up and undims on every minib
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-mini-frame= feature for =init.el=.
+Provides the =sp-mini-frame= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

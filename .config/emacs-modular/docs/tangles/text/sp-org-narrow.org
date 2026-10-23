@@ -158,7 +158,7 @@ Binds the toggle to =C-x n n= with =bind-key*=, replacing the stock =narrow-to-r
 
 ** Provide
 
-Makes the module available as =sp-org-narrow=.
+Provides the =sp-org-narrow= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-narrow)

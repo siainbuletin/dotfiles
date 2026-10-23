@@ -304,9 +304,7 @@ Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda
 
 * Provide
 
-** Provide
-
-Provides the =sp-academic= feature.
+Provides the =sp-academic= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-academic)

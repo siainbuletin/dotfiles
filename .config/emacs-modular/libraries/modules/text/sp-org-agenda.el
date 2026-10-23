@@ -109,6 +109,12 @@
          :scheduled future
          :order 3))))
 
+;; org-ql requires org-super-agenda, so it has to be declared after it:
+;; the other way round, Elpaca queues org-super-agenda as a dependency first
+;; and warns that the explicit declaration came too late.
+(use-package org-ql
+ :ensure t)
+
 (setq org-agenda-files
         (list
          (sp-path sp-notes-dir "area/")

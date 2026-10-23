@@ -297,9 +297,7 @@ Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-ma
 
 * Provide
 
-** Provide
-
-Provides the =sp-macos= feature.
+Provides the =sp-macos= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

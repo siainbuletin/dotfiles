@@ -28,9 +28,9 @@ A commented-out =use-package= that would have enabled =ox-search-mode= in every 
 ;;  :hook (org-mode . ox-search-mode))
 #+end_src
 
-** Provide feature
+** Provide
 
-Provides =sp-org-navigation=.
+Provides the =sp-org-navigation= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-navigation)

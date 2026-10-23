@@ -441,9 +441,7 @@ sublists travel with their parent item but are not re-sorted."
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-lint= feature for =init.el=.
+Provides the =sp-org-lint= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

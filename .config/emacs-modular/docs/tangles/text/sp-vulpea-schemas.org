@@ -287,9 +287,7 @@ The =album= schema applies to notes tagged =album=. It requires a =creator= link
 
 * Provide
 
-** Provide form
-
-Makes the module available as =sp-vulpea-schemas=.
+Provides the =sp-vulpea-schemas= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-schemas)

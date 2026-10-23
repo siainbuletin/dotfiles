@@ -100,9 +100,7 @@ Settings to try with =C-c C-c= before adopting them. This block is never tangled
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-treemacs= feature for =init.el=.
+Provides the =sp-treemacs= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

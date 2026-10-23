@@ -91,9 +91,7 @@ Installs =eat= (Emulate A Terminal) with default settings. It needs no native mo
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-terminal= feature.
+Provides the =sp-terminal= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

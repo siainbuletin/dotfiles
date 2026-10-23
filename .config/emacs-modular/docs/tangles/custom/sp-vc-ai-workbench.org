@@ -777,6 +777,8 @@ A =transient= menu gathers everything in three columns: tasks, Claude, and plain
 
 ** Provide
 
+Provides the =sp-vc-ai-workbench= feature and closes the file.
+
 #+begin_src emacs-lisp
 (provide 'sp-vc-ai-workbench)
 ;;; sp-vc-ai-workbench.el ends here

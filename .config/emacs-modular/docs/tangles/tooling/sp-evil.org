@@ -141,9 +141,7 @@ This block covers four packages. =evil= is configured before loading: it leaves 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-evil= feature. This is outside the guard so a =require= always succeeds even when nothing was configured.
+Provides the =sp-evil= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
