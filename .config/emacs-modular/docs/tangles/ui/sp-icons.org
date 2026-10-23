@@ -100,7 +100,7 @@ Configures the core package with autoloads for its icon functions. Both helper f
 
 #+begin_src emacs-lisp -i
 (use-package nerd-icons
-
+  :ensure t
   :commands (nerd-icons-octicon
              nerd-icons-faicon
              nerd-icons-mdicon
@@ -129,6 +129,7 @@ Shows file icons next to entries in every dired buffer through =nerd-icons-dired
 #+begin_src emacs-lisp -i
 ;; icons for dired
 (use-package nerd-icons-dired
+  :ensure t
   :defer t
   :commands nerd-icons-dired-mode
   :init
@@ -142,6 +143,7 @@ Turns on =nerd-icons-completion-mode= after startup, adding icons to file, buffe
 #+begin_src emacs-lisp -i
 ;; Completion Icons
 (use-package nerd-icons-completion
+  :ensure t
   ;; On MELPA proper, so it installs through `sp-packages-alist' like
   ;; everything else -- no fork or package-vc-install hack needed.
   :hook (emacs-startup . nerd-icons-completion-mode)

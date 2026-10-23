@@ -9,7 +9,6 @@
 
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
-(require 'sp-org-capture)
 (require 'sp-org-babel)
 (require 'sp-org-agenda)
 (require 'sp-org-images)
@@ -21,7 +20,6 @@
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
-(require 'sp-agenda-views) ;; custom agenda views, incl. the PARA view
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 
@@ -29,6 +27,7 @@
 
 ;;;; Org Contrib
 (use-package org-contrib
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -39,9 +38,11 @@
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
+  :ensure t
   :hook (org-mode . org-autolist-mode))
 
 (use-package org-journal
+  :ensure t
   :defer t
   :bind
   (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))

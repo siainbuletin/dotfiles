@@ -1,35 +1,37 @@
-;;; sp-vulpea-para.el --- Vulpea PARA agenda and capture wiring -*- lexical-binding: t; -*-
+;;; sp-vulpea-para.el --- Vulpea PARA agenda files -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; VULPEA PARA SETUP
+;; Vulpea PARA agenda wiring: which files are agenda files.
 
 ;;; Code:
 
 (require 'vulpea-para)
-;; (vulpea-para-setup-defaults)
-;; How can you do the setup defaults manually, instead?
+(require 'sp-org-keywords)
+
+(defun sp-vulpea-para-agenda-note-p (note)
+  "Return non-nil when NOTE may be an agenda file.
+Notes tagged \"cemetery\" are kept out."
+  (not (vulpea-note-tagged-any-p note "cemetery")))
 
 ;; keep a cemetery (or anything) out of the agenda file list
-(setq vulpea-para-agenda-files-filter
-      (lambda (note)
-        (not (vulpea-note-tagged-any-p note "cemetery"))))
+(setq vulpea-para-agenda-files-filter #'sp-vulpea-para-agenda-note-p)
 
-;; the Area > Project prefix in the agenda
-(setq org-agenda-prefix-format
-      '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
-        (todo   . " %(vulpea-para-agenda-category 36) ")))
+(setq vulpea-para-done-keywords (sp-org-keywords-done))
+(setq vulpea-para-open-work-files '("inbox.org"))
 
-;; Wiring org-capture into vulpea-para
-(dolist (template
-         '(("t" "task" entry
-            (file+headline "inbox.org" "Tasks")
-            (function vulpea-para-capture-task-template))
+(vulpea-para-agenda-mode 1)
 
-           ("p" "project" entry
-            (function vulpea-para-capture-project-target)
-            (function vulpea-para-capture-project-template))))
-  (add-to-list 'org-capture-templates template t))
+(defun sp-vulpea-para-refresh-agenda-files ()
+  "Set `org-agenda-files' from the database, ignoring errors."
+  (condition-case err
+      (vulpea-para-agenda-files-update)
+    (error (message "[vulpea-para] agenda files not set yet: %s"
+                    (error-message-string err)))))
+
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-idle-timer 3 nil #'sp-vulpea-para-refresh-agenda-files)))
 
 (provide 'sp-vulpea-para)
 ;; sp-vulpea-para.el ends here.

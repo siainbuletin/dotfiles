@@ -16,6 +16,7 @@
 
 (when siapip/nix-mode-enable
   (use-package nix-mode
+    :ensure t
     :mode "\\.nix\\'"
     :hook (nix-mode . lsp-deferred)
     :bind (:map nix-mode-map

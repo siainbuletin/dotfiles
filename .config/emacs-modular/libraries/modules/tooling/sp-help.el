@@ -137,6 +137,7 @@
 ;;;;; Elisp Demos
 ;; Provide examples of Elisp code
 (use-package elisp-demos
+  :ensure t
   :defer 1
   :config
   ;; inject demos into helpful
@@ -145,6 +146,7 @@
 ;;;;; Better Info
 ;; Better looking info pages
 (use-package info-colors
+  :ensure t
   :hook (Info-selection . info-colors-fontify-node))
 
 ;;;;; Completing-Read Info
@@ -352,9 +354,11 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 ;; this is useful for looking up more information
 
 (use-package define-word
+  :ensure t
   :commands (define-word define-word-at-point))
 
 (use-package osx-dictionary
+  :ensure t
   :commands (osx-dictionary-search-word-at-point osx-dictionary-search-input))
 
 (use-package lexic

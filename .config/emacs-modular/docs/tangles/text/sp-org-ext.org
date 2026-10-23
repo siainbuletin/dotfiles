@@ -36,12 +36,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Core Org extension modules
 
-Requires the appearance, capture, Babel, agenda and image modules. Some of these are also in the module lists, in which case =require= simply does nothing the second time.
+Requires the appearance, Babel, agenda and image modules. Some of these are also in the module lists, in which case =require= simply does nothing the second time. =sp-org-capture= and =sp-agenda-views= are not required here any more: they load last, from the module lists in =init.el=, after everything that feeds them.
 
 #+begin_src emacs-lisp -i
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
-(require 'sp-org-capture)
 (require 'sp-org-babel)
 (require 'sp-org-agenda)
 (require 'sp-org-images)
@@ -58,14 +57,13 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 ** Vulpea modules
 
-Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, the custom agenda views (=sp-agenda-views=, tangled from =sp-org-agenda.org=), schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
+Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
 ;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
-(require 'sp-agenda-views) ;; custom agenda views, incl. the PARA view
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 #+end_src
@@ -81,6 +79,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 ;;;; Org Contrib
 (use-package org-contrib
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -97,6 +96,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
+  :ensure t
   :hook (org-mode . org-autolist-mode))
 #+end_src
 
@@ -106,6 +106,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 #+begin_src emacs-lisp -i
 (use-package org-journal
+  :ensure t
   :defer t
   :bind
   (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))

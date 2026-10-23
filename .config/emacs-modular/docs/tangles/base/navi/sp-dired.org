@@ -56,6 +56,7 @@ Sets the default =dired-listing-switches= to =-alh=, which shows all files with 
 #+begin_src emacs-lisp -i
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
+  :ensure t
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom

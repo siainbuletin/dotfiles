@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; This module holds the task management side of the Org setup: TODO keyword
-;; sequences, the tag list with fast-selection keys, priorities, a helper to
+;; This module holds the task management side of the Org setup: the tag list
+;; with fast-selection keys, priorities, a helper to
 ;; turn a heading into a project, task dependencies with `org-edna',
 ;; highlighting and searching of TODO comments with `hl-todo' and
 ;; `consult-todo', and the `org-gtd' workflow under the `C-c d' prefix.
@@ -14,17 +14,6 @@
 ;; Org-agenda is being treated in a separate file. This is because org-agenda
 ;; has a lot of appearance issues that should be sorted up separately, and
 ;; it's a different component of such a task management system.
-
-;;; Commentary:
-;;;; Org TODO Keywords
-;; What are the TODO keywords that you're actually using?
-;;
-;; How can you harmonize different sequences of keywords?
-(setq org-todo-keywords
-      '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w!)" "|" "DONE" "CNCL")
-        (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
-        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)"))
-        )
 
 ;;;; Set up the org tags
 (setq org-tag-alist
@@ -156,28 +145,26 @@
   (org-edna-mode 1)
 
   :bind 
-  (("C-c d c" . org-gtd-capture)
-   ("C-c d e" . org-gtd-engage)
+  (("C-c d e" . org-gtd-engage)
    ("C-c d p" . org-gtd-process-inbox)
    ("C-c d n" . org-gtd-show-all-next)
    ("C-c d s" . org-gtd-reflect-stuck-projects)
 
    :map org-gtd-clarify-mode-map
-   ("C-c c" . org-gtd-organize) ;; (only works in clarify buffers)
-
-   ;; Quick actions on tasks in agenda views (optional but recommended)
-   :map org-agenda-mode-map
-   ("C-c ." . org-gtd-agenda-transient)))
+   ("C-c c" . org-gtd-organize))) ;; (only works in clarify buffers)
+;; The agenda key of org-gtd (C-c . for `org-gtd-agenda-transient') is
+;; bound in sp-agenda-views, with every other agenda key.
 
 ;;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil
   :commands org-inlinetask-insert-task)
 
-;; Creating different TODO keywords for better readability
 (setq org-confirm-babel-evaluate nil
-        org-todo-keywords '((sequence "TODO" "WAITING" "DOING" "|" "DONE" "CANCELLED"))
         org-modern-todo-faces '(("TODO" :foreground "white" :background "darkgreen" :weight bold)
+                                ("NEXT" :foreground "white" :background "darkcyan" :weight bold)
+                                ("PROG" :foreground "white" :background "orange" :weight bold)
                                 ("DOING" :foreground "white" :background "orange" :weight bold)
+                                ("WAIT" :foreground "white" :background "blue")
                                 ("WAITING" :foreground "white" :background "blue")))
 
 (provide 'sp-org-taskman-extra)

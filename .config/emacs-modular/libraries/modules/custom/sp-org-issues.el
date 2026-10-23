@@ -20,8 +20,9 @@
 ;;   requests of the same repositories (read with the gh client) into one
 ;;   list, and shows it on the first start of Emacs each day.
 ;;
-;; Load it after sp-org-ext: it adds to the capture templates and agenda
-;; commands that sp-vulpea-para sets.
+;; The `I' capture template is defined in sp-org-capture, and the issue
+;; agenda commands (`i i', `i b') and every agenda key are defined in
+;; sp-agenda-views: look there for them.  Load this module before both.
 
 ;;; Code:
 
@@ -204,12 +205,6 @@ repository sets status.showUntrackedFiles to no for the home folder."
   (widen)
   (sp-org-issues--goto-repo (org-capture-get :issue-repo)))
 
-(add-to-list 'org-capture-templates
-             '("I" "Issue" entry
-               (function sp-org-issues-capture-target)
-               (function sp-org-issues-capture-template))
-             t)
-
 ;;;; Agenda
 
 (defun sp-org-issues--agenda-files ()
@@ -225,20 +220,6 @@ repository sets status.showUntrackedFiles to no for the home folder."
          (vulpea-para-agenda-inhibit-files-update t)
          (org-agenda-overriding-header (format "Issues in %s" name)))
     (org-tags-view t tag)))
-
-(dolist (command
-         `(("i" . "Issues")
-           ("ii" "Issue board"
-            ((todo "PROG" ((org-agenda-overriding-header "In progress")))
-             (todo "NEXT" ((org-agenda-overriding-header "Next")))
-             (todo "WAIT" ((org-agenda-overriding-header "Waiting on review or a reply")))
-             (todo "TODO" ((org-agenda-overriding-header "Open"))))
-            ((org-agenda-files (sp-org-issues--agenda-files))
-             (org-agenda-buffer-name "*Issues*")))
-           ("ib" "Issues with a branch" tags-todo "BRANCH<>\"\""
-            ((org-agenda-files (sp-org-issues--agenda-files))
-             (org-agenda-overriding-header "Issues with a branch")))))
-  (add-to-list 'org-agenda-custom-commands command t))
 
 ;;;; Branches and worktrees
 
@@ -762,8 +743,6 @@ NOTES are extra remarks for the top of the list."
     (run-with-idle-timer 2 nil #'sp-org-issues-morning-greet)))
 
 (add-hook 'emacs-startup-hook #'sp-org-issues-morning--schedule)
-
-;;; Provide:
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.

@@ -27,6 +27,7 @@
 
 ;;;; Forge settings
 (use-package forge
+  :ensure t
   :after magit)
 
 (setq auth-sources '("~/.authinfo"))

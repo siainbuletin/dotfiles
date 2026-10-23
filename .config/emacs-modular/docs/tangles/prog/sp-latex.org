@@ -73,27 +73,9 @@ The file header: the first line carries the file name, a short summary and the =
 
 * Packages
 
-** auctex-latexmk
-
-Deferred install of =auctex-latexmk=, which adds a LaTeXMk command to AUCTeX. The form has no =:ensure= and =use-package-always-ensure= is not set, so this only configures the package if it was installed some other way.
-
-#+begin_src emacs-lisp -i
-(use-package auctex-latexmk
-  :defer t)
-#+end_src
-
-** company-auctex
-
-Deferred install of the AUCTeX completion backend for company. The form has no =:ensure= and =use-package-always-ensure= is not set, so this only configures the package if it was installed some other way.
-
-#+begin_src emacs-lisp -i
-(use-package company-auctex
-  :defer t)
-#+end_src
-
 ** AUCTeX
 
-Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX buffers it enables preview, Flyspell and RefTeX. It defaults the engine to XeTeX, turns off auto-save and self-parsing of style information, skips the save prompt before compiling, enables PDF mode, and leaves =TeX-master= nil so AUCTeX asks for the master file. This block is unconditional; a guarded duplicate of it used to follow later and has been removed.
+Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX buffers it enables preview, Flyspell and RefTeX. It defaults the engine to XeTeX, turns off auto-save and self-parsing of style information, skips the save prompt before compiling, enables PDF mode, and leaves =TeX-master= nil so AUCTeX asks for the master file. This block is unconditional; a guarded duplicate of it used to follow later and has been removed. It comes before =auctex-latexmk= and =company-auctex=, which require it, so Elpaca does not queue AUCTeX as their dependency first.
 
 #+begin_src emacs-lisp -i
 (use-package auctex
@@ -112,6 +94,26 @@ Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX bu
           TeX-save-query nil
           TeX-PDF-mode t)
     (setq-default TeX-master nil)))
+#+end_src
+
+** auctex-latexmk
+
+Deferred install of =auctex-latexmk=, which adds a LaTeXMk command to AUCTeX. The form has no =:ensure= and =use-package-always-ensure= is not set, so this only configures the package if it was installed some other way.
+
+#+begin_src emacs-lisp -i
+(use-package auctex-latexmk
+  :ensure t
+  :defer t)
+#+end_src
+
+** company-auctex
+
+Deferred install of the AUCTeX completion backend for company. The form has no =:ensure= and =use-package-always-ensure= is not set, so this only configures the package if it was installed some other way.
+
+#+begin_src emacs-lisp -i
+(use-package company-auctex
+  :ensure t
+  :defer t)
 #+end_src
 
 ** TeX mode bindings and Org LaTeX export

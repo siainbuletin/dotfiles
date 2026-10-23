@@ -1,0 +1,53 @@
+#+title: 0009 One owner per agenda setting, vulpea-para for agenda files
+#+date: 2026-10-23
+#+status: accepted
+
+* Context
+The agenda was configured in about ten places that overwrote each other. =org-agenda-files= was set three times (=sp-org-capture=, =sp-org-agenda= and an =org-mem= hook that ran after each scan and won), =org-todo-keywords= four times, and the capture templates, custom commands and prefix format by =setq= in some modules and =add-to-list= in others, so the result depended on load order. The keyword list that took effect (=TODO WAITING DOING | DONE CANCELLED=) lacked the =NEXT=, =WAIT= and =CNCL= that org-gtd's mapping, the issue tracker and most views use. =vulpea-para='s own agenda mode was never turned on, so its cemetery filter did nothing. The analysis is in the Claude Doc /Org agenda setup: analysis and proposal/.
+
+* Decision
+Every setting has one owner, and the other modules give that owner data instead of setting the variable themselves.
+
+| Setting                        | Owner                | Notes |
+|--------------------------------+----------------------+-------|
+| =org-agenda-files=             | =sp-vulpea-para= (=vulpea-para-agenda-mode=) | Files tagged =agenda= in the database; notes tagged =cemetery= are filtered out; =inbox.org= always counts as open work |
+| =org-todo-keywords=            | =sp-org-keywords=    | One constant per use, joined; =vulpea-para-done-keywords= is derived from it |
+| =org-capture-templates=        | =sp-org-capture=     | One =setq=; the only inbox is =~/notes/inbox.org= |
+| =org-agenda-custom-commands=   | =sp-agenda-views=    | One =setq= from lists defined in the module; the issue views call =sp-org-issues= |
+| Agenda keys                    | =sp-agenda-views=    | =sp-org-issues=, =sp-org-base= and =sp-org-taskman-extra= point there |
+| =org-agenda-prefix-format=     | =sp-org-agenda=      | One alist for agenda, todo, tags and search |
+
+Load order, so the modules stay separate: =sp-org-base=, =sp-org-keywords=, the rest of the Org modules (including =sp-org-ext=, which loads the vulpea stack, and =sp-org-issues=), then =sp-org-capture= and =sp-agenda-views= last. Only the last two depend on the others.
+
+The =org-mem= hook that computed the agenda files is removed. =org-mem= and =org-node= are planned to be sunsetted, and the hook opened the question of which of two systems decides the agenda. Its code is kept below for reference.
+
+#+begin_src emacs-lisp :tangle no
+;; Removed from sp-org-node-mem.el: every indexed file that holds a
+;; timestamp, TODO, SCHEDULED or DEADLINE, except paths with "archive".
+(defun my-set-agenda-files (&rest _)
+  (setq org-agenda-files
+        (cl-loop for file in (org-mem-all-files)
+                 unless (string-search "archive" file)
+                 as entries = (org-mem-entries-in-file file)
+                 when (seq-find (##or (org-mem-entry-active-timestamps %)
+                                      (org-mem-entry-todo-state %)
+                                      (org-mem-entry-scheduled %)
+                                      (org-mem-entry-deadline %))
+                                entries)
+                 collect file)))
+(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
+#+end_src
+
+* Alternatives considered
+- *Keep the org-mem hook and add the cemetery filter to it*: two systems would still compute the same list, and org-mem is going away.
+- *A fixed =org-agenda-files= list of directories*: Emacs visits every file in them, which is what vulpea-para's derived tag avoids.
+- *=vulpea-para-setup-defaults=*: it overwrites the custom commands, prefix format and refile options, which this configuration sets itself.
+
+* Consequences
+- Files that were on the agenda only because org-mem found a timestamp now need the =agenda= tag, which vulpea-para adds when a vault file with open work is saved. Run vulpea-para's backfill commands once. Files outside the vault, such as a Denote note outside =~/notes=, are not tagged.
+- Commands that set =org-agenda-files= themselves must also bind =vulpea-para-agenda-inhibit-files-update=, or the agenda mode puts the PARA files back. The issue views and the inbox block of Planning do.
+- The =sp-denote= hooks that added files to =org-agenda-files= are removed ([[file:0010-phase-out-denote.org][0010]]).
+- Notes that still use =DOING=, =WAITING= or =CANCELLED= keep working through the legacy sequence until they are rewritten.
+- =C-c d c= (org-gtd capture) is unbound, since org-gtd keeps its own inbox. =C-c d p= still processes org-gtd's inbox.
+- The idea capture template now files into =inbox.org= under Thoughts instead of =inbox/thoughts-capture.org=.
+- /untested/: nothing was run on my Mac. The new code was read by Emacs 29.3 and the new unit tests (keywords, cemetery filter) pass headless; the agenda, capture and keys have not been tried with the real packages.

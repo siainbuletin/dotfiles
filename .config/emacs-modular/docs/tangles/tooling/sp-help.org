@@ -241,6 +241,7 @@ A transient menu that gathers help commands in one place, bound to the leader pr
 ;;;;; Elisp Demos
 ;; Provide examples of Elisp code
 (use-package elisp-demos
+  :ensure t
   :defer 1
   :config
   ;; inject demos into helpful
@@ -255,6 +256,7 @@ A transient menu that gathers help commands in one place, bound to the leader pr
 ;;;;; Better Info
 ;; Better looking info pages
 (use-package info-colors
+  :ensure t
   :hook (Info-selection . info-colors-fontify-node))
 #+end_src
 
@@ -524,6 +526,7 @@ Provides =define-word= and =define-word-at-point=, which fetch definitions from 
 
 #+begin_src emacs-lisp -i
 (use-package define-word
+  :ensure t
   :commands (define-word define-word-at-point))
 #+end_src
 
@@ -533,6 +536,7 @@ Provides commands that look up words in the macOS Dictionary app's data, either 
 
 #+begin_src emacs-lisp -i
 (use-package osx-dictionary
+  :ensure t
   :commands (osx-dictionary-search-word-at-point osx-dictionary-search-input))
 #+end_src
 
