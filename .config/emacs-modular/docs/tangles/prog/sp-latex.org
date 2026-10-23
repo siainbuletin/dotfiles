@@ -362,9 +362,9 @@ Adds a "DVI to PDF" entry to =TeX-command-list= that runs =dvipdfmx= on the DVI 
     fname-or-url))
 #+end_src
 
-** Provide the feature
+** Provide
 
-Provides =sp-latex=, which the module loader looks for. The form was missing, so the loader logged the module as failed even though its code had run.
+Provides the =sp-latex= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-latex)

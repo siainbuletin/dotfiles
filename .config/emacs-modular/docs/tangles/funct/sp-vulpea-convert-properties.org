@@ -523,9 +523,9 @@ Binds =C-c w c= globally to =sp-vulpea-convert-properties-at-point=.
 (keymap-global-set "C-c w c" #'sp-vulpea-convert-properties-at-point)
 #+end_src
 
-** Provide feature
+** Provide
 
-Provides =sp-vulpea-convert-properties=.
+Provides the =sp-vulpea-convert-properties= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-convert-properties)

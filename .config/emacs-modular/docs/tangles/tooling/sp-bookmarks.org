@@ -40,7 +40,7 @@ The standard file header enabling lexical binding, followed by empty =Commentary
 
 ** Provide
 
-Registers the feature so =(require 'sp-bookmarks)= succeeds.
+Provides the =sp-bookmarks= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-bookmarks)

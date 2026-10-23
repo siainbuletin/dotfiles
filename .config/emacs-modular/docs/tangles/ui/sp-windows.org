@@ -524,9 +524,9 @@ Binds =sp-goto-minibuffer-window= to =C-c m=.
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-windows= for the module loader.
+Provides the =sp-windows= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -913,9 +913,7 @@ Adds the setup function to =window-setup-hook=, which runs after the frame param
 
 * Provide
 
-** Provide feature
-
-Provides the =sp-splash= feature.
+Provides the =sp-splash= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

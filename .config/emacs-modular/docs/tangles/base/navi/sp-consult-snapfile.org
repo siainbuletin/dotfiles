@@ -51,9 +51,9 @@ Limits each query to 100 results.
 (setq consult-snapfile-max-results 100)
 #+end_src
 
-** Provide feature
+** Provide
 
-Provides =sp-consult-snapfile=.
+Provides the =sp-consult-snapfile= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -327,9 +327,7 @@ Installs that function as =:before= advice on =insert-for-yank=, the function un
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-text-manipulation= feature for =init.el=.
+Provides the =sp-text-manipulation= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

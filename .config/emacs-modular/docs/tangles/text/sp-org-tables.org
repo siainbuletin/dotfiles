@@ -242,9 +242,9 @@ A `font-lock-keywords' function that searches up to LIMIT."
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-org-tables= for the module loader.
+Provides the =sp-org-tables= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
