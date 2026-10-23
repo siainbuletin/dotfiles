@@ -38,7 +38,7 @@ digraph modules {
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
     o3 [label="sp-org-agenda\ndeclares first: org-super-agenda\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext,\nsp-vulpea-table"];
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext,\nsp-collection-query-tables"];
     o6 [label="sp-org-issues"];
     o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)\nsp-csv  sp-trails"];
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;

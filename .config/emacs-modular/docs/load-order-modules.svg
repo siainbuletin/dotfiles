@@ -232,7 +232,7 @@
 <text text-anchor="middle" x="182" y="-909.2" font-family="Helvetica,sans-Serif" font-size="11.00">requires: org&#45;node&#45;mem, vulpea&#45;base,</text>
 <text text-anchor="middle" x="182" y="-897.2" font-family="Helvetica,sans-Serif" font-size="11.00">vulpea&#45;ui, vulpea&#45;para,</text>
 <text text-anchor="middle" x="182" y="-885.2" font-family="Helvetica,sans-Serif" font-size="11.00">vulpea&#45;schemas, vulpea&#45;ext,</text>
-<text text-anchor="middle" x="182" y="-873.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;vulpea&#45;table</text>
+<text text-anchor="middle" x="182" y="-873.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;collection&#45;query&#45;tables</text>
 </g>
 <!-- o4&#45;&gt;o5 -->
 <g id="edge11" class="edge">
