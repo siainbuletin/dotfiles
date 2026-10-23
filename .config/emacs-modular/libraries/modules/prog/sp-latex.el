@@ -1,4 +1,13 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-latex.el --- LaTeX editing with AUCTeX and Org LaTeX export -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk,
+;; configures Org's LaTeX exporter to compile with XeLaTeX through latexmk, and
+;; adds a few spelling, indentation and BibTeX tweaks. It is listed in the
+;; `plus-programming' profile in `sp-config-profiles.el'.
+
+;;; Code:
 
 (defun sia/latex-setup ()
   "Setup the latex environment"
@@ -28,12 +37,6 @@
         (TeX-next-error)
       (minibuffer-message "latexmk-done"))))
 
-(use-package auctex-latexmk
-  :defer t)
-
-(use-package company-auctex
-  :defer t)
-
 (use-package auctex
   :ensure t
   :mode (("\\.tex\\'" . latex-mode)
@@ -50,6 +53,14 @@
           TeX-save-query nil
           TeX-PDF-mode t)
     (setq-default TeX-master nil)))
+
+(use-package auctex-latexmk
+  :ensure t
+  :defer t)
+
+(use-package company-auctex
+  :ensure t
+  :defer t)
 
 (use-package latex
   :ensure nil

@@ -1,10 +1,25 @@
-#+TITLE: sp-academic.el: Academic workflow: bibliography and citations
+#+TITLE: sp-academic: the academic master module and its four sub-modules
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-academic.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-academic.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for the academic modules in =libraries/modules/academic/=. This one file tangles five =.el= files: the master module =sp-academic.el= and its four sub-modules =sp-bibprocess.el=, =sp-pdfprocess.el=, =sp-citations.el= and =sp-litnotes.el=. Each module keeps its own file and its own =provide=, and =sp-academic= still loads the others with =require=, so a profile only lists =sp-academic=. The =:tangle= path of each part is set in the =:header-args:emacs-lisp+:= property of its top-level heading (the =#+PROPERTY= line above is the default, for the master module); see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+The files have no newline after their last line (except where noted). Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+| Part | File | What it holds |
+|------+------+---------------|
+| [[*sp-academic.el]] | =libraries/modules/academic/sp-academic.el= | the master module: requires the four below and configures lookup and BibTeX |
+| [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, lookup and attachment checks |
+| [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
+| [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
+| [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-denote and citar-vulpea |
+
+Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes= in that order, before its own code.
+
+* sp-academic.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-academic.el
+:END:
 
 This is the umbrella module for academic work. It loads four sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes=) so they can be enabled together, and then configures bibliography lookup and BibTeX handling directly: =biblio= for looking up references online, BibTeX citation-key generation, =org-ref= set up to insert =org-cite= citations, =helm-bibtex= paths, a few =citar= file options, the =citar-org-node= bridge, and the =binder= package for Scrivener-like manuscript work.
 
@@ -12,17 +27,59 @@ The long commentary is a roadmap more than a description. It lists planned piece
 
 The file shows signs of accumulated config: BibTeX key settings are made twice with different values (the later ones win), and the =C-c w b b= binding points at a command that is not defined anywhere in the repository.
 
-* Header and roadmap
+The commentary at the top of the module says:
+
+#+begin_quote
+This needs to be defined a little better.
+
+This file should deal with bibliography management, as well as provide
+guidance for where the files should be found. In the future, I want some
+sort of DEVONthink integration that's genuinely useful.
+
+The academic module was created with several submodules in mind.
+
+They can be enabled and disabled together for ease of use.
+
+Components:
+- registering/processing BibTeX files
+- citation framework (citar)
+   - need to rework the citar integration (both with Denote and now with vulpea)
+   - literature notes still created with citar-denote
+   - anything pertaining to ROAM_REFS is done with vulpea-citar
+- PDF processing and integration
+   - waiting on emacs-reader (Canvas emacs patch)
+   - deep linking to PDFs
+   - integration with DEVONthink
+   - perhaps semantic search over PDFs
+- bibliographic search and database
+   - fetch papers from sci-hub
+   - integration with annas-archive
+Citar has been plugged into Denote at first, because it helps in creating literature notes
+But I would like to have a workflow similar to the BibTeX one that you get with org-roam.
+This would have to be emulated with vulpea.
+I need to test out the features provided by citar-vulpea, in this case
+
+The sp-academic.el file is created with several submodules that I can refer to independently.
+One has to create literature notes
+The other part is just for citations
+And handling the BibTeX backend
+there should also be a way to handle PDFs, especially if we're doing deeplinking with DEVONthink,
+but these details will have to be worked out later on.
+#+end_quote
+
+** Header and roadmap
 
 Comments describing what the academic module is meant to cover and how its parts relate.
 
-** Header and commentary
+*** Header and commentary
 
 File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also explains the current split between =citar-denote= for literature notes and =vulpea-citar= for =ROAM_REFS=.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
@@ -60,10 +117,11 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+
 ;;;; Requiring sub-libraries
 #+end_src
 
-** Loading the sub-modules
+*** Loading the sub-modules
 
 Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, and =sp-litnotes= for literature notes.
 
@@ -74,16 +132,16 @@ Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files, =sp-pd
 (require 'sp-litnotes)
 #+end_src
 
-* Looking up sources
+** Looking up sources
 
-** biblio
+*** biblio
 
 Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sp-bibtex-biblio-lookup=, defined in =sp-bibprocess= (which this module requires). The binding used to point at =sia-bibtex-biblio-lookup=, a name that is not defined anywhere, so the key signalled an error.
 
 #+begin_src emacs-lisp -i
 ;;;; Setting up the proper variables
 
-;;; Looking up academic sources 
+;;;; Looking up academic sources 
 
 (use-package biblio
   :ensure t
@@ -93,7 +151,7 @@ Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX 
 )
 #+end_src
 
-** Google Scholar backend and helper libraries
+*** Google Scholar backend and helper libraries
 
 Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It also installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
 
@@ -108,9 +166,9 @@ Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It 
   :ensure t)
 #+end_src
 
-* BibTeX key generation
+** BibTeX key generation
 
-** First set of autokey options
+*** First set of autokey options
 
 Configures =bibtex-generate-autokey= with a list of title words to skip (articles in English and German, plus lowercase and non-alphanumeric words). A comment notes that On was removed from the ignore list. The year length, separators and title-word counts are not set here: they were set in this block and again in the second block below, which overwrote them, so they are now set only in the second block.
 
@@ -122,32 +180,32 @@ Configures =bibtex-generate-autokey= with a list of title words to skip (article
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 #+end_src
 
-* org-ref
+** org-ref
 
-** Installing org-ref
+*** Installing org-ref
 
 Installs =org-ref=, loaded after =ox-pandoc=.
 
 #+begin_src emacs-lisp -i
-;;; Org-ref
+;;;; Org-ref
 (use-package org-ref
   :ensure t
   :after (ox-pandoc)
 )
 #+end_src
 
-** Use org-cite for insertion
+*** Use org-cite for insertion
 
 Sets =org-ref-insert-cite-function= so that inserting a citation through org-ref calls =org-cite-insert= and produces native =[cite:...]= syntax rather than org-ref links.
 
 #+begin_src emacs-lisp -i
-;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+;;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
 (setq org-ref-insert-cite-function
       (lambda ()
 	(org-cite-insert nil)))
 #+end_src
 
-** Showing cite keys in descriptive links
+*** Showing cite keys in descriptive links
 
 =org-ref-make-org-link-cite-key-visible= runs after =org-activate-bracket-links= highlights a link. When the link target starts with one of =org-ref-cite-types=, it removes the invisibility from the whole link and colours it with =org-ref-cite-color=, so the cite key stays visible even when the link has a description. It uses =-sort= from =dash= to try longer cite types first.
 
@@ -175,7 +233,7 @@ Sets =org-ref-insert-cite-function= so that inserting a citation through org-ref
      `(face (:foreground ,org-ref-cite-color)))))))
 #+end_src
 
-** Advice
+*** Advice
 
 Attaches that function as =:after= advice on =org-activate-bracket-links=.
 
@@ -183,7 +241,7 @@ Attaches that function as =:after= advice on =org-activate-bracket-links=.
 (advice-add 'org-activate-bracket-links :after #'org-ref-make-org-link-cite-key-visible)
 #+end_src
 
-** helm-bibtex
+*** helm-bibtex
 
 Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumably because later settings or modules expect its variables to exist.
 
@@ -192,7 +250,7 @@ Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumabl
   :ensure (:wait t))
 #+end_src
 
-** org-ref paths
+*** org-ref paths
 
 Points =org-ref= at =~/bibliography/master.bib= and at =~/Documents/literature/= for PDFs. These variable names are from older org-ref versions.
 
@@ -201,9 +259,9 @@ Points =org-ref= at =~/bibliography/master.bib= and at =~/Documents/literature/=
       org-ref-pdf-directory sp-literature-dir)
 #+end_src
 
-* Citar and bibtex-completion files
+** Citar and bibtex-completion files
 
-** citar library paths (disabled)
+*** citar library paths (disabled)
 
 A commented-out setting for =citar-library-paths=, with a note that it must be a list of directories to work.
 
@@ -212,7 +270,7 @@ A commented-out setting for =citar-library-paths=, with a note that it must be a
 ;; this has to be a list of directories in order to work
 #+end_src
 
-** citar file options
+*** citar file options
 
 Lets =citar= treat PDF and JPG files as attachments and uses a hyphen as the separator for additional files belonging to the same key.
 
@@ -221,7 +279,7 @@ Lets =citar= treat PDF and JPG files as attachments and uses a hyphen as the sep
       citar-file-additional-files-separator "-")
 #+end_src
 
-** bibtex-completion paths
+*** bibtex-completion paths
 
 Sets the =.bib= files used by =helm-bibtex= and friends (a master file plus several topic and thesis bibliographies), the PDF directory, the notes directory =~/notes/=, and a template for notes that creates a heading with author, title, journal, year and type, followed by a =cite:= link.
 
@@ -235,9 +293,9 @@ Sets the =.bib= files used by =helm-bibtex= and friends (a master file plus seve
         bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 #+end_src
 
-* BibTeX mode
+** BibTeX mode
 
-** Second set of autokey options
+*** Second set of autokey options
 
 Loads =bibtex= and sets the autokey options: four-digit years, hyphen separators, and two title words (stretchable by one) of at most five characters. These are the only values for these options; an earlier block used to set them too (with three title words of up to eight characters), but this block ran later and overwrote them.
 
@@ -254,7 +312,7 @@ Loads =bibtex= and sets the autokey options: four-digit years, hyphen separators
       bibtex-autokey-titleword-length 5)
 #+end_src
 
-** Hydra key
+*** Hydra key
 
 Binds =H-b= in =bibtex-mode-map= to the org-ref BibTeX hydra, which offers actions on the entry at point. It needs a Hyper modifier key to be available.
 
@@ -262,9 +320,9 @@ Binds =H-b= in =bibtex-mode-map= to the org-ref BibTeX hydra, which offers actio
 (define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
 #+end_src
 
-* Other packages
+** Other packages
 
-** citar-org-node
+*** citar-org-node
 
 Installs =citar-org-node= from GitHub using the =:vc= keyword rather than Elpaca's =:ensure= recipes used elsewhere in this file. It connects =citar= to org-node notes.
 
@@ -274,7 +332,7 @@ Installs =citar-org-node= from GitHub using the =:vc= keyword rather than Elpaca
         :rev :newest))
 #+end_src
 
-** binder
+*** binder
 
 Installs =binder=, which groups files into a manuscript project in the style of Scrivener.
 
@@ -283,14 +341,14 @@ Installs =binder=, which groups files into a manuscript project in the style of 
   :ensure t)
 #+end_src
 
-* Citation variables
+** Citation variables
 
-** User options
+*** User options
 
 Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda= group, all nil by default. =sp-citations= uses the last two for the =citar= notes path and note template. They are defined here, after that module is required, so they only take effect if the =citar= configuration runs later.
 
 #+begin_src emacs-lisp -i
-;;;; Citation Variables
+;;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
   :group 'sia-lambda
   :tag "Lambda-Emacs User Bibliography")
@@ -302,12 +360,667 @@ Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda
   :tag "Lambda-Emacs Citar Notes Template")
 #+end_src
 
-* Provide
-
 ** Provide
 
-Provides the =sp-academic= feature.
+Provides the =sp-academic= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-academic)
 #+end_src
+
+* sp-bibprocess.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-bibprocess.el
+:END:
+
+This module manages the BibTeX bibliography that the academic modules build on. It defines where the =.bib= files live (=sp-bibtex-dir=, =~/bibliography/= by default), keeps a list of them that is shared with Org's citation system (=org-cite-global-bibliography=) and with =citar= (=citar-bibliography=), configures the built-in =bibtex= mode for BibLaTeX, and adds commands to look up new entries online with the =biblio= package and to audit attachments.
+
+It is not listed directly in the module profiles; instead =sp-academic= loads it with =require=. The second half of the file repeats the variable, the register command and the lookup helper verbatim under a "BIBLIOGRAPHY" heading, apparently pasted in from another source; the repeats are harmless (the later =defvar= is a no-op and the function bodies are identical) but could be removed.
+
+** Bibliography location and registration
+
+*** File header
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-bibprocess.el --- BibTeX files, lookup and attachment checks -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module manages the BibTeX bibliography that the academic modules build
+;; on.
+
+;;; Code:
+
+;;;; Defining variables
+#+end_src
+
+*** Bibliography directory
+
+=sp-bibtex-dir= is a user option pointing at the folder holding BibTeX files and their attachments, =~/bibliography/= under the home directory. The concatenation produces a doubled slash, which Emacs normalises when the path is expanded.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-bibtex-dir
+  sp-bibliography-dir
+  "Location of BibTeX files and attachments."
+  :group 'siapip
+  :type 'directory)
+#+end_src
+
+*** List of BibTeX files
+
+=sp-bibtex-files= is filled at load time with every =.bib= file in the directory whose name starts with a letter or digit, or left =nil= if the directory does not exist. The regular expression is loose (the =|= inside the brackets and the unescaped dot are matched literally or as any character) but works for ordinary names.
+
+#+begin_src emacs-lisp -i
+(defvar sp-bibtex-files
+  (when (file-exists-p sp-bibtex-dir)
+    (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))
+  "List of BibTeX files. Use `sp-bibtex-register' to configure.")
+#+end_src
+
+*** Register BibTeX files
+
+=sp-bibtex-register= rescans =sp-bibtex-dir= and sets =sp-bibtex-files=, =org-cite-global-bibliography= and =citar-bibliography= to the same list, then echoes the registered files. Run it after adding or removing a =.bib= file so citations and =citar= see the change.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-bibtex-register ()
+  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  (interactive)
+  (when (file-exists-p sp-bibtex-dir)
+    (let ((bib-files (directory-files sp-bibtex-dir t
+				      "^[A-Z|a-z|0-9].+.bib$")))
+      (setq sp-bibtex-files bib-files
+  	    org-cite-global-bibliography bib-files
+	    citar-bibliography bib-files)))
+  (message "Registered:\n%s" (mapconcat #'identity sp-bibtex-files "\n")))
+#+end_src
+
+*** Combined biblio lookup
+
+=sp--bibtex-combined-biblio-lookup= offers the backends known to =biblio= (such as CrossRef or arXiv) plus an extra "DOI" entry in one completion prompt. Choosing DOI asks for a DOI and inserts its BibTeX directly; any other backend starts an interactive =biblio-lookup= search. It relies on the internal =biblio--named-backends=.
+
+#+begin_src emacs-lisp -i
+(defun sp--bibtex-combined-biblio-lookup ()
+  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
+  (require 'biblio)
+  (let* ((dbs (biblio--named-backends))
+         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
+         (db-selected (biblio-completing-read-alist
+                       "Backend:"
+                       db-list)))
+    (if (eq db-selected 'biblio-doi-backend)
+        (let ((doi (read-string "DOI: ")))
+          (biblio-doi-insert-bibtex doi))
+      (biblio-lookup db-selected))))
+#+end_src
+
+** BibTeX mode settings
+
+*** Citation key format
+
+These =bibtex-autokey-= settings shape the keys generated by =bibtex-clean-entry= and friends: the first author's name directly followed by a four-digit year, with no separators and no title words, giving keys like =smith2020=.
+
+#+begin_src emacs-lisp -i
+(setq bibtex-autokey-name-separator nil
+      bibtex-autokey-name-year-separator nil
+      bibtex-autokey-year-length 4
+      bibtex-autokey-names 1
+      bibtex-autokey-names-stretch 1
+      bibtex-autokey-titlewords 0)
+#+end_src
+
+*** bibtex
+
+Configures the built-in =bibtex= mode: the BibLaTeX dialect, two extra optional fields offered when creating entries (=keywords= and =file= for attachments), and alignment of field values at the equals sign. =bibtex-aux-opt-alist= carries the same two fields; it used to be saved by Customize in =init.el= and is now set here. After =bibtex= loads it registers the bibliography files, and =C-c w b r= runs =sp-bibtex-register= at any time.
+
+#+begin_src emacs-lisp -i
+(use-package bibtex
+  :ensure nil
+  :custom
+  (bibtex-dialect 'biblatex)
+  (bibtex-user-optional-fields
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file"     "Relative or absolute path to attachments" "" )))
+  (bibtex-align-at-equal-sign t)
+  (bibtex-aux-opt-alist
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file" "Relative or absolute path to attachments" "")))
+  :config
+  (sp-bibtex-register)
+  :bind
+  (("C-c w b r" . sp-bibtex-register))
+)
+#+end_src
+
+** Repeated definitions and lookups
+
+This part starts by redefining three items from above with identical code, then adds the commands that use them.
+
+*** Repeated variable, register command and lookup helper
+
+Exact copies of =sp-bibtex-files=, =sp-bibtex-register= and =sp--bibtex-combined-biblio-lookup= from earlier in the file. The second =defvar= has no effect because the variable is already bound, and the function redefinitions replace identical bodies, so behaviour does not change.
+
+#+begin_src emacs-lisp -i
+;;;; Other:
+
+;;;; BIBLIOGRAPHY
+(defvar sp-bibtex-files
+  (when (file-exists-p sp-bibtex-dir)
+    (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))
+  "List of BibTeX files. Use `sp-bibtex-register' to configure.")
+
+;;;###autoload
+(defun sp-bibtex-register ()
+  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  (interactive)
+  (when (file-exists-p sp-bibtex-dir)
+    (let ((bib-files (directory-files sp-bibtex-dir t
+				      "^[A-Z|a-z|0-9].+.bib$")))
+      (setq sp-bibtex-files bib-files
+  	    org-cite-global-bibliography bib-files
+	    citar-bibliography bib-files)))
+  (message "Registered:\n%s" (mapconcat #'identity sp-bibtex-files "\n")))
+
+(defun sp--bibtex-combined-biblio-lookup ()
+  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
+  (require 'biblio)
+  (let* ((dbs (biblio--named-backends))
+         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
+         (db-selected (biblio-completing-read-alist
+                       "Backend:"
+                       db-list)))
+    (if (eq db-selected 'biblio-doi-backend)
+        (let ((doi (read-string "DOI: ")))
+          (biblio-doi-insert-bibtex doi))
+      (biblio-lookup db-selected))))
+#+end_src
+
+*** Insert a lookup into a bibliography
+
+=sp-bibtex-biblio-lookup= picks the target =.bib= file: the only one if there is a single file, the current buffer if already in =bibtex-mode=, or a completion prompt otherwise. It opens that file, moves to the end, runs the combined lookup and saves. If no BibTeX files are registered it just reports that.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-bibtex-biblio-lookup ()
+  "Insert Biblio search results into current buffer or select BibTeX file."
+  (interactive)
+  (if-let* ((current-mode major-mode)
+	   sp-bibtex-files
+	   (bibfiles (length sp-bibtex-files))
+	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
+			  ((equal major-mode 'bibtex-mode)
+			   (buffer-file-name))
+			  (t (completing-read
+			      "Select BibTeX file:" sp-bibtex-files)))))
+      (progn (find-file bibfile)
+	     (goto-char (point-max))
+	     (sp--bibtex-combined-biblio-lookup)
+	     (save-buffer))
+    (message "No BibTeX file(s) defined.")))
+#+end_src
+
+** Auditing attachments
+
+Two reports that compare the files stored in =sp-bibtex-dir= against the =file= fields in the BibTeX entries.
+
+*** Collect attachment paths from entries
+
+=sp--bibtex-extract-attachments= re-registers the bibliography and scans each =.bib= file for =file = {...}= fields, splitting multiple attachments on semicolons and expanding each path relative to =sp-bibtex-dir=.
+
+#+begin_src emacs-lisp -i
+;; Search for missing BibTeX attachments and filenames
+(defun sp--bibtex-extract-attachments ()
+  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
+  (sp-bibtex-register)
+  (let ((attachments '()))
+    (dolist (bibtex-file sp-bibtex-files)
+      (with-temp-buffer
+        (insert-file-contents bibtex-file)
+        (goto-char (point-min))
+        (while (re-search-forward "file.*=.*{\\([^}]+\\)}" nil t)
+          (let ((file-paths (split-string (match-string 1)
+                                          "[[:space:]]*;[[:space:]]*")))
+            (dolist (file-path file-paths)
+              (push (expand-file-name (string-trim file-path)
+                                      sp-bibtex-dir)
+                    attachments))))))
+    attachments))
+#+end_src
+
+*** Collect files on disk
+
+=sp--bibtex-extract-files= lists every file under =sp-bibtex-dir= recursively, leaving out =.bib= and =.csl= files.
+
+#+begin_src emacs-lisp -i
+(defun sp--bibtex-extract-files ()
+  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
+  (seq-remove (lambda (file)
+                (or (string-suffix-p ".bib" file)
+                    (string-suffix-p ".csl" file)))
+              (mapcar 'expand-file-name
+                      (directory-files-recursively sp-bibtex-dir ""))))
+#+end_src
+
+*** Files with no entry
+
+=sp-bibtex-missing-files= reports files on disk that no BibTeX entry refers to, printing the count and each path to the =*Messages*= buffer.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-bibtex-missing-files ()
+  "List BibTeX attachments not listed in a BibTeX file entry."
+  (interactive)
+  (let* ((files (sp--bibtex-extract-files))
+         (attachments (sp--bibtex-extract-attachments))
+         (missing (cl-remove-if
+                   (lambda (f) (member f attachments)) files)))
+    (message "%s files not registered in bibliography" (length missing))
+    (dolist (file missing)
+      (message file))))
+#+end_src
+
+*** Entries with no file
+
+=sp-bibtex-missing-attachments= does the reverse: it lists attachment paths named in entries that do not exist on disk. The count message calls them "BibTeX files", although it is counting attachment paths. Both reports pass each path to =message= as a format string, so a file name containing a percent sign would be misprinted.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-bibtex-missing-attachments ()
+  "List BibTeX file entries with missing attachment(s)."
+  (interactive)
+  (let* ((files (sp--bibtex-extract-files))
+         (attachments (sp--bibtex-extract-attachments))
+         (missing (cl-remove-if
+                   (lambda (f) (member f files)) attachments)))
+    (message "%s BibTeX files without matching attachment." (length missing))
+    (dolist (file missing)
+      (message file))))
+#+end_src
+
+** Footer
+
+*** Provide
+
+Provides the =sp-bibprocess= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-bibprocess)
+;; sp-bibprocess.el ends here
+#+end_src
+
+* sp-pdfprocess.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-pdfprocess.el
+:END:
+
+Utilities for working with PDF files in the academic setup. It has a command that writes a reference's title and author from the Citar bibliography into the PDF's metadata using the external =exiftool= program, and it installs the =emacs-reader= document viewer from Codeberg.
+
+It is required by =sp-academic=. The metadata command depends on Citar (configured in =sp-citations=) and on =sia-citar-library-backup-path=, which =sp-citations= defines as =~/Documents/literature/backup=.
+
+** Overview
+
+*** File header
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-pdfprocess.el --- PDF metadata and the emacs-reader viewer -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Utilities for working with PDF files in the academic setup. It has a command
+;; that writes a reference's title and author from the Citar bibliography into
+;; the PDF's metadata using the external `exiftool' program, and it installs
+;; the `emacs-reader' document viewer from Codeberg.
+
+;;; Code:
+#+end_src
+
+** PDF metadata from Citar
+
+*** Writing title and author into a PDF
+
+=sia-citar-update-pdf-metadata= asks you to pick a reference with =citar-select-ref=, checks that =citar-library-paths= is set, and finds the PDF files attached to that key. If there is more than one it lets you choose. It takes the title from the bibliography and the author, falling back to the editor with " (ed.)" appended. It then copies the PDF into the backup directory and runs =exiftool= to overwrite the Title and Author fields in place.
+
+The =let*= used to refer to =cite-key= (with a hyphen) although the argument is =citekey=, which signalled a void-variable error; it now uses =citekey=. One weakness remains: the shell command is built by string concatenation with single quotes, so a title containing an apostrophe or a path with spaces would break it.
+
+#+begin_src emacs-lisp -i
+;;;; Working with PDF metadata from citar
+(defun sia-citar-update-pdf-metadata (citekey)
+  (interactive (list (citar-select-ref)))
+  (citar--check-configuration 'citar-library-paths)
+  (unless citar-library-paths
+    (user-error "Make sure `citar-library-paths' is non-nil"))
+  (let* ((files (gethash citekey (citar-get-files citekey))))
+    (unless files
+      (user-error (format "There are no PDF files associated with %s" citekey)))
+    (let ((file (or (unless (cdr files) (car files)) (completing-read "Please select a PDF file: " files)))
+          (title (citar-get-value 'title citekey))
+          (author (cond ((citar-get-value 'author citekey)
+                         (citar-get-value 'author citekey))
+                        ((citar-get-value 'editor citekey)
+                         (concat (citar-get-value 'editor citekey) " (ed.)")))))
+      (progn
+        (copy-file file sia-citar-library-backup-path 1)
+        (call-process-shell-command
+         (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
+#+end_src
+
+** PDF viewer
+
+** Provide
+
+Provides the =sp-pdfprocess= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-pdfprocess)
+;; sp-pdfprocess.el ends here.
+#+end_src
+
+* sp-citations.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-citations.el
+:END:
+
+This module configures citation handling: Org's built-in =oc= citation framework, CSL-based export through =oc-csl= and the =citeproc= library, and =citar= as the interactive front end for inserting, following and acting on citations. It is required from =sp-academic=.
+
+It depends on several user variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=). Citar and citeproc are configured unconditionally. CSL styles and locales must be present on disk under =~/.local/share/csl/=. Icons come from =nerd-icons= and at-point actions from =embark=.
+
+** Org-cite
+
+*** Header and natbib processor
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-citations.el --- Citations with org-cite, CSL and Citar -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures citation handling: Org's built-in `oc' citation
+;; framework, CSL-based export through `oc-csl' and the `citeproc' library, and
+;; `citar' as the interactive front end for inserting, following and acting on
+;; citations. It is required from `sp-academic'.
+
+;;; Code:
+
+(require 'oc-natbib)
+;; (require 'oc-csl) -- this is already declared with use-package and all the settings
+#+end_src
+
+*** The oc package
+
+Configures the built-in =oc= after Org loads. All export back ends (Beamer, LaTeX and everything else) use the CSL processor, so citations are rendered by citeproc rather than BibLaTeX. =org-cite-global-bibliography= comes from =sp-bibtex-files=. Inserting, following and fontifying citations are all delegated to Citar.
+
+#+begin_src emacs-lisp -i
+;;;; Org-Cite
+;; built-in package -- set up proper configuration
+(use-package oc
+  :ensure nil
+  :after org
+
+  :custom
+  (org-cite-export-processors
+        '((beamer csl)
+          (latex csl)
+          (t csl)))
+  (org-cite-global-bibliography sp-bibtex-files)
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar)
+)
+#+end_src
+
+*** CSL styles and locales
+
+=oc-csl= is deferred until one of its rendering commands is needed. Once =oc= loads, the style and locale directories are pointed at =~/.local/share/csl/styles= and =~/.local/share/csl/locales=; without those files CSL export cannot find the requested style.
+
+#+begin_src emacs-lisp -i
+;; Use csl
+;; needs to have CSL installed on the system
+(use-package oc-csl
+  :ensure nil
+  :defer t  ;; Defer loading until actually needed
+  :commands (org-cite-csl-activate
+             org-cite-csl-render-bibliography
+             org-cite-csl-render-item)
+  :init
+  ;; Set these variables early so they're available when needed
+  (with-eval-after-load 'oc
+    (setq org-cite-csl-styles-dir (sp-path sp-data-home "csl/styles"))
+    (setq org-cite-csl-locales-dir (sp-path sp-data-home "csl/locales"))))
+#+end_src
+
+** Citeproc and Citar
+
+*** Citeproc
+
+The Emacs Lisp CSL engine that =oc-csl= uses. It stays deferred until needed.
+
+#+begin_src emacs-lisp -i
+;;;; Citeproc
+(use-package citeproc
+  :ensure t
+  :defer t  ;; Defer loading until oc-csl needs it
+  :after oc)
+#+end_src
+
+*** Citar
+
+Citar provides completing-read based selection of bibliography entries. Under =:custom= it sets the bibliography for both Org-cite and Citar to =sp-bibliography= (overriding the =sp-bibtex-files= value used above when Citar loads), repeats the processor settings, makes Embark the at-point action, adds DOI and URL as extra fields, and defines the display templates, with the note template taken from =sp-citar-note=.
+
+Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
+
+A *gotcha*: the =when= form setting =citar-symbols= and the =setq= of =citar-notes-paths= are written inside =:custom=, which expects pairs of variable and value. use-package will treat them as attempts to customise variables literally named when and setq, so the icons and notes path are most likely never applied. They would work if moved to =:config=.
+
+#+begin_src emacs-lisp -i
+;;;; Citar
+;; Do you really need to make use of citar?
+(use-package citar
+  :ensure t
+  :commands (citar-open-notes
+             citar-insert-citation)
+  
+  :custom
+  ;; Use with org citation
+  (org-cite-global-bibliography `(,sp-bibliography))
+  (citar-bibliography `(,sp-bibliography))
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar)
+  
+  ;; Working at point
+  (citar-at-point-function 'embark-act) ;; use embark with at-point
+
+  (citar-additional-fields 
+    '("doi"
+      "url"))   ;; What exactly can you do with these additional fields?
+
+  (citar-templates
+        `((main . " ${=key= id:15} ${title:48}")
+          (suffix . "${author editor:30}  ${=type=:12}  ${=beref=:12} ${tags keywords:*}")
+          (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
+          (note . ,sp-citar-note)))
+
+  (when (display-graphic-p)
+    ;; nerd-icons has no octicon PDF/text glyph, so those two use
+    ;; FontAwesome; link-external maps to the octicon directly.
+    (setq citar-symbols
+          `((file ,(nerd-icons-faicon  "nf-fa-file_pdf_o"     :face 'error)   . " ")
+            (note ,(nerd-icons-faicon  "nf-fa-file_text_o"    :face 'warning) . " ")
+            (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
+  ;; edit notes
+  (setq citar-notes-paths `(,sp-bib-notes))
+
+  :bind
+         (("C-c w b o" . citar-open))
+         (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
+         
+         :hook
+         (LaTeX-mode . citar-capf-setup)
+         (org-mode . citar-capf-setup)
+         (markdown-mode . citar-capf-setup)
+)
+#+end_src
+
+*** Library file extensions
+
+Sets =citar-library-file-extensions= to nil, meaning Citar does not filter library files by extension and will offer any attached file. This runs at load time regardless of whether Citar is configured.
+
+#+begin_src emacs-lisp -i
+(setq citar-library-file-extensions nil)
+#+end_src
+
+*** citar-embark
+
+Once both Citar and Embark are loaded, =citar-embark-mode= adds citation-specific Embark actions (open notes, open files, copy keys and so on) on citation keys.
+
+#+begin_src emacs-lisp -i
+;; Acting on citations (and jumping across the files better)
+(use-package citar-embark
+  :ensure t
+  :after (citar embark)
+  :no-require
+  :config (citar-embark-mode)
+  )
+#+end_src
+
+*** Library backup path
+
+Defines =sia-citar-library-backup-path= pointing to =~/Documents/literature/backup=. Nothing in this module uses it; presumably other code backs up the PDF library there.
+
+#+begin_src emacs-lisp -i
+(defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
+#+end_src
+
+** Provide
+
+Provides the =sp-citations= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-citations)
+;; sp-citations.el ends here
+#+end_src
+
+* sp-litnotes.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-litnotes.el
+:END:
+
+This academic module connects bibliography entries to notes. =citar-denote= creates one Denote file per reference (file-level literature notes) in a =litnotes= subdirectory, and =citar-vulpea= supports literature notes as Vulpea nodes inside larger files. Both mark notes with the =litnote= keyword.
+
+It builds on Citar (configured in the citation module) and on Denote and Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
+
+** File-level literature notes
+
+*** citar-denote
+
+Installs and enables =citar-denote-mode=, which makes Citar use Denote files as notes, and has Citar always create a note when you open notes for a reference that has none. Global keys: =C-c w b c= creates a note, =C-c w b n= opens one, and =C-c w b x= adds a nocite reference. In Org buffers, =C-c w b k= and =C-c w b K= add or remove a citekey from the current note, =C-c w b d= runs the do-what-I-mean command, and =C-c w b e= opens the bibliography entry.
+
+#+begin_src emacs-lisp -i
+;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This academic module connects bibliography entries to notes. `citar-denote'
+;; creates one Denote file per reference (file-level literature notes) in a
+;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
+;; Vulpea nodes inside larger files.
+
+;;; Code:
+
+;;;; File-level literature notes
+(use-package citar-denote
+  :ensure (:wait t)
+
+  :custom
+  (citar-open-always-create-notes t)
+  
+  :init
+  (citar-denote-mode)
+  
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-denote-open-note)
+   ("C-c w b x" . citar-denote-nocite)
+   
+   :map org-mode-map
+   ("C-c w b k" . citar-denote-add-citekey)
+   ("C-c w b K" . citar-denote-remove-citekey)
+   ("C-c w b d" . citar-denote-dwim)
+   ("C-c w b e" . citar-denote-open-reference-entry)))
+#+end_src
+
+*** Note title format
+
+New literature notes are titled with author, year and title.
+
+#+begin_src emacs-lisp -i
+(setq citar-denote-title-format 'author-year-title)
+#+end_src
+
+*** Authors in titles
+
+At most two author names are used in the generated title.
+
+#+begin_src emacs-lisp -i
+(setq citar-denote-title-format-authors '2)
+#+end_src
+
+*** Literature note keyword
+
+Tags literature notes with the Denote keyword =litnote=.
+
+#+begin_src emacs-lisp -i
+(setq citar-denote-keyword "litnote")
+#+end_src
+
+*** Subdirectory
+
+Stores new literature notes in the =litnotes= subdirectory of the Denote directory.
+
+#+begin_src emacs-lisp -i
+(setq citar-denote-subdir "litnotes")
+#+end_src
+
+** Node-level literature notes
+
+*** citar-vulpea
+
+Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be linked to Vulpea nodes. Notes use the =litnote= tag, store citation keys in a =REFERENCES= property, are titled "author (date) title", and live in =~/notes/litnotes=. A comment says the title template still needs to match the citar-denote convention.
+
+#+begin_src emacs-lisp -i
+;;;; Node-level literature note configuration
+(use-package citar-vulpea
+  :ensure t
+  :after (citar vulpea)
+  
+  :custom
+  ;; Tag used to identify bibliographic notes
+  (citar-vulpea-keyword "litnote")
+  
+  ;; Name of the property used for citation keys
+  (citar-vulpea-references-property "REFERENCES")
+  
+  ;; Template for new note titles
+  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
+
+  (citar-vulpea-notes-directory (sp-path sp-notes-dir "litnotes/")) ;; Directory to store notes (nil uses vulpea-default-notes-directory)
+)
+#+end_src
+
+** Provide
+
+Provides the =sp-litnotes= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-litnotes)
+;; sp-litnotes.el ends here
+#+end_src
+

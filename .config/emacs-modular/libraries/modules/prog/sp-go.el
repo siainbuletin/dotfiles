@@ -1,18 +1,15 @@
-;; -*- lexical-binding: t; -*-
-(use-package go-guru
-  :defer t)
-(use-package go-eldoc
-  :defer t)
-(use-package godoctor
-  :defer t)
-(use-package go-scratch
-  :defer t)
-(use-package go-playground
-  :defer t)
-(use-package flycheck-golangci-lint
-  :defer t)
-(use-package go-complete
-  :defer t)
+;;; sp-go.el --- Go development setup -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up Go development: a set of helper packages (`go-guru',
+;; `go-eldoc', `godoctor', `go-scratch', `go-playground',
+;; `flycheck-golangci-lint', `go-complete'), a command that installs the
+;; external Go tools with `go install', and a `go-mode' configuration that
+;; formats with `goimports' on save, starts `lsp-mode' with `gopls', and uses
+;; `company' for completion.
+
+;;; Code:
 
 (defun ox-install-go-dependencies ()
   "Install go-mode dependencies"
@@ -30,6 +27,7 @@
       (message "Completed: %s" cmd))
     (message "All Go dependencies installed!")))
 (use-package go-mode
+  :ensure t
   :defer t
   :bind
   (:map go-mode-map
@@ -62,3 +60,26 @@
   (setq go-godoc-reuse-buffer t)
   (setq godoc-at-point-function 'godoc-gogetdoc)
   (setq godoc-use-completing-read t))
+
+;; After `go-mode', which most of these require.
+(use-package go-guru
+  :ensure t
+  :defer t)
+(use-package go-eldoc
+  :ensure t
+  :defer t)
+(use-package godoctor
+  :ensure t
+  :defer t)
+(use-package go-scratch
+  :ensure t
+  :defer t)
+(use-package go-playground
+  :ensure t
+  :defer t)
+(use-package flycheck-golangci-lint
+  :ensure t
+  :defer t)
+(use-package go-complete
+  :ensure t
+  :defer t)

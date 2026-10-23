@@ -12,11 +12,10 @@ External pieces it expects: =flyspell= and =hl-todo= for the mode hook, an Emacs
 
 ** File header
 
-The file header, an empty commentary and the start of the code section.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-md.el --- Markdown settings
+;;; sp-md.el --- Markdown editing -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -138,12 +137,9 @@ Installs =markdown-toc= and enables =markdown-toc-mode= in Markdown buffers, whi
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-md= feature for =init.el=.
+Provides the =sp-md= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-md)
 ;; sp-md.el ends here.

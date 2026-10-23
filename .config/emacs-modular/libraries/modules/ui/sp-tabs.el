@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-tabs.el
+;;; sp-tabs.el --- Tab bar and tabspaces workspaces -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,6 +8,8 @@
 ;; of windows. A workspace or "tabspace" (see the package below) is just a tab
 ;; with an isolated set of buffers (see also the consult function). 𝛌-Emacs (and
 ;; 𝛌-Themes) sets things up so that these tabs/workspaces are nicely displayed.
+
+;;; Code:
 
 ;;;; Tab Bar
 ;; Use tab-bar for window grouping and configuration within a project (replaces eyebrowse)
@@ -108,9 +109,8 @@ questions.  Otherwise use completion to select the tab."
 ;;;; Tab Workspaces
 (use-package tabspaces
   :ensure t
-  ;; :hook
-  ;; (after-init . tabspaces-mode) ;; use this only if you want the minor-mode loaded at startup.
-  
+  ;; The session is only saved and restored while `tabspaces-mode' is on.
+  :hook (after-init . tabspaces-mode)
   :commands (tabspaces-switch-or-create-workspace
              tabspaces-open-or-create-project-and-workspace)
   
@@ -125,6 +125,7 @@ questions.  Otherwise use completion to select the tab."
   ;; sessions
   (tabspaces-session t)
   (tabspaces-session-auto-restore t)
+  (tabspaces-session-file (expand-file-name "tabspaces-session.eld" sp-var-dir))
   
   ;; additional options
   (tabspaces-fully-resolve-paths t)  ; Resolve relative project paths to absolute

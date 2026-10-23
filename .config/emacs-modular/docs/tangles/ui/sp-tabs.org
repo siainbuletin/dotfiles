@@ -8,7 +8,18 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module configures the built-in =tab-bar= and the =tabspaces= package so that tabs act as workspaces: each tab holds a window layout and its own isolated set of buffers, usually tied to a project. It adds numbered tab names using circled digits, a do-what-I-mean tab switcher, a keymap of tabspaces commands and a consult buffer source limited to the current workspace.
 
-The setup is inherited from Lambda Emacs (hence the =lem-= prefix). It is loaded in the window-management part of =init.el=, after =sp-buffers= and =sp-windows=. Note that nothing in the config turns on =tab-bar-mode= or =tabspaces-mode=, and =tab-bar-show= is nil, so most of this stays dormant until those modes are enabled by hand. The consult integration needs =consult= and the tabspaces predicate =tabspaces--local-buffer-p=.
+The setup is inherited from Lambda Emacs (hence the =lem-= prefix). It is loaded in the window-management part of =init.el=, after =sp-buffers= and =sp-windows=. =tabspaces-mode= starts after init, so workspaces and their sessions are live; =tab-bar-show= is nil, so the tab bar itself stays hidden. The consult integration needs =consult= and the tabspaces predicate =tabspaces--local-buffer-p=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Tabs -- in some ways tabs are not very Emacsy, but tab-bar is great for
+window & buffer management. The setup for tabs here is focused on tabs for
+window configurations related to a "workspace" -- i.e. a project or other set
+of windows. A workspace or "tabspace" (see the package below) is just a tab
+with an isolated set of buffers (see also the consult function). 𝛌-Emacs (and
+𝛌-Themes) sets things up so that these tabs/workspaces are nicely displayed.
+#+end_quote
 
 * Header
 
@@ -17,8 +28,7 @@ The setup is inherited from Lambda Emacs (hence the =lem-= prefix). It is loaded
 Lexical binding and the commentary, which explains the idea: tab-bar tabs are used for window configurations belonging to a workspace (a project or another set of windows), and a tabspace is a tab with an isolated set of buffers.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-tabs.el
+;;; sp-tabs.el --- Tab bar and tabspaces workspaces -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -28,6 +38,8 @@ Lexical binding and the commentary, which explains the idea: tab-bar tabs are us
 ;; of windows. A workspace or "tabspace" (see the package below) is just a tab
 ;; with an isolated set of buffers (see also the consult function). 𝛌-Emacs (and
 ;; 𝛌-Themes) sets things up so that these tabs/workspaces are nicely displayed.
+
+;;; Code:
 #+end_src
 
 * Tab bar
@@ -153,15 +165,14 @@ questions.  Otherwise use completion to select the tab."
 
 ** tabspaces package
 
-Installs =tabspaces= and makes its main commands autoload. Buffer lists are filtered to the current workspace by default, the default tab is called =Home=, removed buffers go back to it, and =*scratch*= is included in every workspace. Opening a project creates a =project-todo.org= file, workspaces are saved as a session and restored automatically, project paths are resolved to absolute ones, and =*Messages*= and =*Compile-Log*= are left out of workspaces. The commented-out hook would start =tabspaces-mode= at startup; it is not enabled anywhere in the config.
+Installs =tabspaces= and makes its main commands autoload. Buffer lists are filtered to the current workspace by default, the default tab is called =Home=, removed buffers go back to it, and =*scratch*= is included in every workspace. Opening a project creates a =project-todo.org= file, workspaces are saved as a session and restored automatically, project paths are resolved to absolute ones, and =*Messages*= and =*Compile-Log*= are left out of workspaces. =tabspaces-mode= starts from =after-init=; without it the session options do nothing. The session (the file-visiting buffers of each workspace) is stored in =tabspaces-session.eld= in =sp-var-dir=; =tabspaces-save-session= and =tabspaces-restore-session= do it by hand.
 
 #+begin_src emacs-lisp -i
 ;;;; Tab Workspaces
 (use-package tabspaces
   :ensure t
-  ;; :hook
-  ;; (after-init . tabspaces-mode) ;; use this only if you want the minor-mode loaded at startup.
-  
+  ;; The session is only saved and restored while `tabspaces-mode' is on.
+  :hook (after-init . tabspaces-mode)
   :commands (tabspaces-switch-or-create-workspace
              tabspaces-open-or-create-project-and-workspace)
   
@@ -176,6 +187,7 @@ Installs =tabspaces= and makes its main commands autoload. Buffer lists are filt
   ;; sessions
   (tabspaces-session t)
   (tabspaces-session-auto-restore t)
+  (tabspaces-session-file (expand-file-name "tabspaces-session.eld" sp-var-dir))
   
   ;; additional options
   (tabspaces-fully-resolve-paths t)  ; Resolve relative project paths to absolute
@@ -278,9 +290,7 @@ Commented-out earlier personal settings for the tab bar, kept for reference: ope
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-tabs= feature for =init.el=.
+Provides the =sp-tabs= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-tabs)

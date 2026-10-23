@@ -12,10 +12,19 @@ The module is currently commented out in both module lists of =init.el=. It also
 
 ** Lexical binding
 
-Enables lexical binding for the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-exwm.el --- EXWM window manager (opt-in) -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module would run Emacs as the X11 window manager using EXWM, based on
+;; the examples in the EXWM wiki. Everything is guarded by the option
+;; `siapip/use-exwm', which defaults to nil, so loading the file normally does
+;; nothing beyond defining that option.
+
+;;; Code:
 #+end_src
 
 ** Optional EXWM setup

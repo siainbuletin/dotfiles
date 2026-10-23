@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-help.el
+;;; sp-help.el --- Help, Info, dialogs and dictionaries -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -42,7 +41,6 @@
 ;;;; Helpful package:
 (use-package helpful
   :ensure t
-  :when (and sp-load-extras (locate-library "helpful"))
   :bind
   (;; Remap standard commands.
    ([remap display-local-help] . helpful-at-point)
@@ -139,7 +137,7 @@
 ;;;;; Elisp Demos
 ;; Provide examples of Elisp code
 (use-package elisp-demos
-  :when (and sp-load-extras (locate-library "elisp-demos"))
+  :ensure t
   :defer 1
   :config
   ;; inject demos into helpful
@@ -148,7 +146,7 @@
 ;;;;; Better Info
 ;; Better looking info pages
 (use-package info-colors
-  :when (and sp-load-extras (locate-library "info-colors"))
+  :ensure t
   :hook (Info-selection . info-colors-fontify-node))
 
 ;;;;; Completing-Read Info
@@ -356,11 +354,11 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 ;; this is useful for looking up more information
 
 (use-package define-word
-  :when (and sp-load-extras (locate-library "define-word"))
+  :ensure t
   :commands (define-word define-word-at-point))
 
 (use-package osx-dictionary
-  :when (and sp-load-extras (locate-library "osx-dictionary"))
+  :ensure t
   :commands (osx-dictionary-search-word-at-point osx-dictionary-search-input))
 
 (use-package lexic
@@ -373,6 +371,5 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 (use-package devdocs
     :ensure (:wait t))
 
-;;; Provide
 (provide 'sp-help)
 ;;; sp-help.el ends here

@@ -1,4 +1,15 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-refile.el --- Org refile targets and caching -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures Org's refile command (`C-c C-w'), which moves the
+;; heading at point under another heading. It sets the list of possible targets
+;; (open Org buffers, the current file, and the agenda files), makes the
+;; completion show full outline paths in one step, allows creating new parent
+;; headings, and caches the target list, rebuilding it in the background when
+;; Emacs is idle.
+
+;;; Code:
 
 ;;;; Org Refile
 

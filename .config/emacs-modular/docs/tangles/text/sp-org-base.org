@@ -12,6 +12,17 @@ Org itself is the built-in package (=:ensure nil=). Extra packages pulled in her
 
 The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This file only sets up the very basic extensions for org mode.
+I also use many other packages, they will be required later on.
+This includes the:
+- vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
+- org-node (and the org-mem package)
+- all the org-agenda stuff that will help with taks management (see also taskman.el)
+#+end_quote
+
 * File header
 
 ** Lexical binding and overview
@@ -19,7 +30,9 @@ The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*=
 The file enables lexical binding and opens with a comment listing the Org-related packages that live in other modules: the vulpea ecosystem, org-node with org-mem, and the agenda and task-management setup.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-base.el --- Core Org mode and text-mode settings -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This file only sets up the very basic extensions for org mode.
 ;; I also use many other packages, they will be required later on.
@@ -27,6 +40,8 @@ The file enables lexical binding and opens with a comment listing the Org-relate
 ;; - vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
 ;; - org-node (and the org-mem package)
 ;; - all the org-agenda stuff that will help with taks management (see also taskman.el)
+
+;;; Code:
 #+end_src
 
 * Basic text editing
@@ -60,7 +75,7 @@ A commented-out hook would delete trailing whitespace on every save. The comment
 =sp-single-space-after-periods= simply sets =sentence-end-double-space= to nil; it is called from =sp-helper-funct=. The block also enables =show-paren-mode= and =delete-selection-mode= globally (the latter is already turned on in the =text-mode= block above).
 
 #+begin_src emacs-lisp -i
-;;; Should be default settings for writing (also called linting)
+;;;; Should be default settings for writing (also called linting)
 ;; (add-hook 'before-save-hook
 ;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 ;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
@@ -71,7 +86,7 @@ A commented-out hook would delete trailing whitespace on every save. The comment
 periods. This ain't a typewriter."
   (setq sentence-end-double-space nil))
   
-;;; Useful writing functions 
+;;;; Useful writing functions 
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 #+end_src
@@ -125,7 +140,7 @@ Removes the global binding of =C-x t i= (part of the =tab-bar= prefix) so that t
 The main Org setup, using the built-in Org and associating =.org= files with =org-mode=.
 
 Keybindings:
-- =C-c a= opens =org-agenda= globally.
+- =C-c a= (and =C-c o a=) open =org-agenda= globally; both are bound in =sp-agenda-views=, which holds every agenda key.
 - =C-M-h/j/k/l= move or promote subtrees (=org-meta*=) and =M-H/J/K/L= are the shift variants, in a vim-like layout.
 - =C-x s t= runs =sp-split-leave-parents= to split a heading into its own vulpea note.
 - =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
@@ -152,9 +167,6 @@ In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the Emacs Lisp
   :mode (("\\.org$" . org-mode))
  
   :bind
-  (:map global-map
-   ("C-c a" . org-agenda))
- 
   (:map org-mode-map
    ("C-M-k" . org-metaup)
    ("C-M-j" . org-metadown)
@@ -592,7 +604,7 @@ Once Org is loaded, adds =org-habit= (habit tracking in the agenda), =org-tempo=
 
 #+begin_src emacs-lisp -i
 ;; What does this eval after load mean?
-;;;; Org Modules
+;;;;; Org Modules
 (with-eval-after-load 'org
 ;; Load additional org modules
 (add-to-list 'org-modules 'org-habit t)
@@ -605,7 +617,7 @@ Once Org is loaded, adds =org-habit= (habit tracking in the agenda), =org-tempo=
 Opening links to =.docx=, =.mm= and HTML files hands them to the system's default application, while PDFs and anything with a known major mode open inside Emacs.
 
 #+begin_src emacs-lisp -i
-;;;; Open Files in Default Application
+;;;;; Open Files in Default Application
 ;;Open files in their default applications (ms word being the prime example)
 (customize-set-variable 'org-file-apps
                         '(("\\.docx\\'" . default)
@@ -620,7 +632,7 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 =sp-goto-org-files= runs =find-file= starting in =org-directory=. The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching. They build paths with =concat= and no separator, which works because =org-directory= ends in a slash (with the earlier value =~/notes= they pointed at the wrong file names, for example =~/notesinbox.org=).
 
 #+begin_src emacs-lisp -i
-;;;;; Goto Org Files
+;;;;;; Goto Org Files
 (defun sp-goto-org-files ()
   "goto org-files directory"
   (interactive)
@@ -669,7 +681,7 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 =sp-org-checkbox-from-list= is a keyboard macro meant to turn a list item into a checkbox by inserting =[ ]=. The key sequence (=a=, escape, then =M-x=) looks like it was recorded with vim-style modal editing, so with plain Emacs bindings it probably does not do what its name says.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Create Check Box From List Item
+;;;;;; Org Create Check Box From List Item
 ;; A useful macro for converting list items to checkboxes
 (fset 'sp-org-checkbox-from-list
       [?a ?  ?\[ ?  ?\] escape ?\M-x return])
@@ -680,7 +692,7 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 =sp-org-select-tags-completing-read= offers the buffer's tags with =completing-read-multiple= and toggles the chosen ones: selected tags that the heading already has are removed and the rest are added. It depends on the dash list functions and the =alet= macro from the anaphora package, which this config does not install explicitly.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Tag Selection
+;;;;;; Org Tag Selection
 
 (defun sp-org-select-tags-completing-read ()
   "Select tags to add to headline."
@@ -697,7 +709,7 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 =sp-copy-and-uncheck= copies the active region to the kill ring with every =[X]= replaced by =[ ]=, which is handy for carrying a weekly checklist forward.
 
 #+begin_src emacs-lisp -i
-;;;;; Uncheck Org boxes
+;;;;;; Uncheck Org boxes
 ;;see https://www.reddit.com/r/emacs/comments/r107bg/comment/hlx54vf/?utm_source=share&utm_medium=web2x&context=3
 (defun sp-copy-and-uncheck (start end)
   "copy a region of regularly repeating checkbox items forward from
@@ -712,7 +724,7 @@ one week to the next, unchecking them at the same time"
 =sp-org-tree-to-new-file= cuts the current subtree, prompts for a file, opens it in another window and pastes the subtree there.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Tree/Heading to New File
+;;;;;; Org Tree/Heading to New File
 (defun sp-org-tree-to-new-file ()
   "Move an org subtree to a new file"
   (interactive)
@@ -727,7 +739,7 @@ one week to the next, unchecking them at the same time"
 =org-block-wrap= asks for a single key and wraps the active region in the matching block (ascii, comment, center, example, emacs-lisp src, html, LaTeX, notes, quote, src or verse). Without a region it inserts an empty block at point. When point is in a table it instead runs =org-table-rotate-recalc-marks=. It is not bound to a key in this module.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Wrap in Block Template
+;;;;;; Org Wrap in Block Template
 ;; A helpful function I found for wrapping text in a block template.
 ;; http://pragmaticemacs.com/emacs/wrap-text-in-an-org-mode-block/
 
@@ -787,7 +799,7 @@ one week to the next, unchecking them at the same time"
 =sp-org-point-strictly-in-link-p= returns non-nil only when point is inside a link, not on its first character, its end or the blanks after it.
 
 #+begin_src emacs-lisp -i
-;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
+;;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
 (defun sp-org-point-strictly-in-link-p ()
   "Non-nil if point is inside a link, not at its edges or trailing blanks."
   (let ((ctx (org-element-context)))
@@ -811,12 +823,9 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-base= feature so =init.el= can require it.
+Provides the =sp-org-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

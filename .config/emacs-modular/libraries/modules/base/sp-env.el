@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-env.el --- Shell environment and shell helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -86,18 +86,16 @@
 
 (keymap-global-set "C-M-|" 'sp-replace-with-shell)
 
-;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
+;;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
 (use-package inheritenv
-  :straight (:type git :host github :repo "purcell/inheritenv"))
+  :ensure t)
 
-;;; Environment variable so yadm can work as dotfiles in Emacs
+;;;; Environment variable so yadm can work as dotfiles in Emacs
 (dolist (var '("ASPELL_CONF"
                ...
                "STARDICT_DATA_DIR"
                "GIT_CEILING_DIRECTORIES"))
   (exec-path-from-shell-copy-env var))
-
-;;; Provide:
 
 (provide 'sp-env)
 ;; sp-env.el ends here.

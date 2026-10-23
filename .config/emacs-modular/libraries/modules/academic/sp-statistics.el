@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-statistics.el
+;;; sp-statistics.el --- ESS for statistics -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

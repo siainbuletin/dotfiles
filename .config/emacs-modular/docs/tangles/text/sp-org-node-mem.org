@@ -6,18 +6,27 @@ Literate source for =libraries/modules/text/sp-org-node-mem.el=. Every line of t
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module sets up =org-mem=, a fast in-memory index of Org files, and =org-node=, which builds note-taking commands (find, insert link, backlinks) on top of it, for the notes in =~/notes/=. It also uses the index to compute =org-agenda-files= automatically from files that contain anything agenda-relevant.
+This module sets up =org-mem=, a fast in-memory index of Org files, and =org-node=, which builds note-taking commands (find, insert link, backlinks) on top of it, for the notes in =~/notes/=. It no longer computes =org-agenda-files=: =vulpea-para= does (see =sp-vulpea-para= and [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]], which keeps the old hook for reference). =org-mem= and =org-node= are planned to be removed from the configuration.
 
-Packages: =org-mem=, =org-node= and =inspector= (installed for inspecting Lisp objects, possibly while debugging the index). The agenda function uses the =##= short-lambda macro from the =llama= package, which org-mem and org-node depend on. The module is required by =sp-org-ext=. Note that =sp-vulpea-convert-properties= keeps =CREATED= in drawers specifically so org-node keeps working.
+Packages: =org-mem=, =org-node= and =inspector= (installed for inspecting Lisp objects, possibly while debugging the index). The module is required by =sp-org-ext=. Note that =sp-vulpea-convert-properties= keeps =CREATED= in drawers specifically so org-node keeps working.
 
 * Indexing
 
 ** File header
 
-Enables lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-node-mem.el --- org-node and org-mem note indexing -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up `org-mem', a fast in-memory index of Org files, and
+;; `org-node', which builds note-taking commands (find, insert link, backlinks)
+;; on top of it, for the notes in `~/notes/'. The agenda files are not
+;; computed here: vulpea-para owns them (see sp-vulpea-para and adr/0009).
+
+;;; Code:
 #+end_src
 
 ** org-mem
@@ -80,32 +89,9 @@ Lets org-node alter how completion candidates are displayed, for example by addi
 (setq org-node-alter-candidates t)
 #+end_src
 
-* Agenda files from the index
-
-** Compute agenda files
-
-=my-set-agenda-files= sets =org-agenda-files= to every indexed file, except those whose path contains "archive", that has at least one entry with an active timestamp, a TODO state, a scheduled date or a deadline. It runs after each full org-mem scan via =org-mem-post-full-scan-functions=, so the agenda always reflects the notes collection without maintaining a list by hand. Any value set elsewhere for =org-agenda-files= is overwritten after each scan.
-
-#+begin_src emacs-lisp -i
-(defun my-set-agenda-files (&rest _)
-  (setq org-agenda-files
-        (cl-loop for file in (org-mem-all-files)
-                 unless (string-search "archive" file)
-                 as entries = (org-mem-entries-in-file file)
-                 when (seq-find (##or (org-mem-entry-active-timestamps %)
-                                      (org-mem-entry-todo-state %)
-                                      (org-mem-entry-scheduled %)
-                                      (org-mem-entry-deadline %))
-                                entries)
-                 collect file)))
-(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
-#+end_src
-
 * Provide
 
-** Provide feature
-
-Provides =sp-org-node-mem=.
+Provides the =sp-org-node-mem= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-node-mem)
