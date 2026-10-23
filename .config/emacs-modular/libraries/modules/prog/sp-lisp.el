@@ -9,7 +9,7 @@
 
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
-  :group 'spconfig
+  :group 'spcustom
   :type 'boolean)
 
 ;; This will make the matching parentheses show up faster.

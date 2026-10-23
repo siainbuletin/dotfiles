@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Give every `defcustom' in the config the group `spconfig'.
+"""Give every `defcustom' in the config the group `spcustom'.
 
 Usage: docs/tools/set-defcustom-group.py [--check] [ROOT]
 
 Rewrites the .el files and the literate .org sources under ROOT (default:
 the folder above docs/), so the tangled output stays identical to the
 .el files. An existing `:group' is replaced; a defcustom without one gets
-`:group 'spconfig' before its closing parenthesis. Vendored libraries in
+`:group 'spcustom' before its closing parenthesis. Vendored libraries in
 libraries/modules/cloned/ are left alone, and so are .org files that
 tangle nothing (and sp-appearance-overview.org). With --check nothing is written
 and the exit status is 1 when a file would change. Safe to re-run.
@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-GROUP = "spconfig"
+GROUP = "spcustom"
 TANGLES = re.compile(r"^(#\+property:.*|#\+begin_src.*):tangle (?!no\b)", re.M | re.I)
 # Prot's themes code quoted for reading; its tangle target is a stray file.
 SKIP_FILES = {"sp-appearance-overview.org"}

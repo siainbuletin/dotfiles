@@ -31,12 +31,12 @@
 (defcustom relationship-annotator-live-port 8765
   "Port of the live view, on 127.0.0.1."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom relationship-annotator-live-debounce 0.5
   "Seconds Emacs must be idle after a database change before pages are checked."
   :type 'number
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defconst relationship-annotator-live--address "127.0.0.1"
   "The only address the server listens on.")

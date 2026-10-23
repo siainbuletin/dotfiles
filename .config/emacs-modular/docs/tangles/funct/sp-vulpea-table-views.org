@@ -56,7 +56,7 @@ Views are kept in an alist keyed by name and written to disk as an annotated Lis
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
   "File where named Vulpea table views are persisted."
   :type 'file
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Views alist

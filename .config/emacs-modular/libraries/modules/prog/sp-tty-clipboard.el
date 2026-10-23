@@ -33,7 +33,7 @@ near 4 KB; Blink Shell and iTerm2 are more permissive. The default
 of 100000 raw bytes targets a Blink workflow with tmux. Lower the
 value if a different terminal will receive the sequence."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defun lem--osc52-emit (text frame)
   "Encode TEXT and send the OSC52 sequence to FRAME's terminal.

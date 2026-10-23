@@ -50,13 +50,13 @@
 (defcustom sp-tab-inbox-dir (concat org-directory "/inbox/tabs/")
   "Directory of plain files with unsorted links."
   :type 'directory
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-fill-column 40
   "Wrap width for link inbox results.
 Tune to your sidebar width."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-auto-resources t
   "When non-nil, collect under the note's \"Resources\" heading automatically.
@@ -66,26 +66,26 @@ a file-level note, the narrowed heading otherwise).  If there is no such
 heading, or the choice is ambiguous, you are prompted for one as usual.
 See `sp-tab-inbox--resources-target' for how ties are handled."
   :type 'boolean
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-new-note-body "* Resources\n"
   "Body of a note created by `sp-tab-inbox-send-elsewhere'.
 The default gives the new note a Resources heading, so the hit lands there
 without another prompt.  Set to nil for an empty note."
   :type '(choice (const :tag "Empty note" nil) string)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-see-also-heading "See also"
   "Title of the heading that collects backlinks in the originating note.
 It is a direct child of the subtree the sidebar is scoped to, and the
 last heading in it."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-backlink-context-lines 4
   "Lines of context shown above and below each inbox backlink."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defvar sp-tab-inbox-generation 0
   "Bumped after collecting, so the widget's memo recomputes.")
@@ -404,12 +404,12 @@ Return the target used."
 (defcustom sp-tab-inbox-async-slice 0.05
   "Seconds of work `collect all' does per timer tick before yielding."
   :type 'number
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-async-delay 0.1
   "Seconds Emacs must sit idle before `collect all' does its next slice."
   :type 'number
-  :group 'spconfig)
+  :group 'spcustom)
 
 (cl-defstruct (sp-tab-inbox-job (:constructor sp-tab-inbox-job--make)
                                  (:copier nil))

@@ -41,28 +41,28 @@
 (defcustom sp-trails-file (expand-file-name "trails.org" org-directory)
   "Org file holding the trails."
   :type 'file
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-trails-question-files nil
   "Files searched for QUESTION headings.  nil means `org-agenda-files'."
   :type '(repeat file)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-trails-quote-block "quote"
   "Block type wrapping text selected in the browser."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-trails-monolith-program "monolith"
   "Program used by `sp-trails-snapshot' to save a page as one HTML file."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-trails-chrome-history
   sp-chrome-history-file
   "Chromium-family History database read by `sp-trails-import-chrome'."
   :type 'file
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defvar sp-trails-current nil
   "ID of the trail that receives captured pages.")

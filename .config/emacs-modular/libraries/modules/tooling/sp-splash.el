@@ -61,7 +61,7 @@
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'spconfig)
+  :group 'spcustom)
 
 ;; Banner
 
@@ -69,7 +69,7 @@
 (defcustom sp-splash-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defvar isep "   "
   "Separator for icon and title.")
@@ -92,29 +92,29 @@ with `load-theme' the next time the splash is drawn."
 A relative name is looked up in `sp-library-dir'.  Nil draws the
 lambda logo image instead."
   :type '(choice (const :tag "Use the logo image" nil) file)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-splash-art-x-offset -50
   "Columns to move the art right (negative: left).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-splash-art-y-offset 10
   "Lines to move the art down (negative: up).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-splash-art-x-step 2
   "Columns `sp-splash-art-right' and `sp-splash-art-left' move the art."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-splash-art-y-step 1
   "Lines `sp-splash-art-up' and `sp-splash-art-down' move the art."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defun sp-splash--art-lines ()
   "Return the lines of `sp-splash-art-file', or nil when unavailable."

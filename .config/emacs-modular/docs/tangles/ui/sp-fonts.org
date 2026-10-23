@@ -70,13 +70,13 @@ as accepted by `set-face-attribute'."
 
 ** Customisable default font
 
-=sp-ui-default-font= is a user option in the =sia-lambda= group. Its custom setter applies the font immediately whenever a new non-nil value is set, so setting it through Customize or =custom-set-variables= changes the font at once. The =:key-type:= with a trailing colon in the type is a typo, but only affects the Customize widget.
+=sp-ui-default-font= is a user option in the =spcustom= group. Its custom setter applies the font immediately whenever a new non-nil value is set, so setting it through Customize or =custom-set-variables= changes the font at once. The =:key-type:= with a trailing colon in the type is a typo, but only affects the Customize widget.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-ui-default-font nil
   "The configuration of the `default' face.
 Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'spconfig
+  :group 'spcustom
   :type '(plist :key-type: symbol)
   :tag "Lambda-Emacs Default font"
   :set (lambda (sym val)
@@ -96,7 +96,7 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
 (defcustom sp-ui-variable-width-font nil
   "The configuration of the `default' face.
 Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'spconfig
+  :group 'spcustom
   :type '(plist :key-type: symbol)
   :tag "Lambda-Emacs Variable width font"
   :set (lambda (sym val)

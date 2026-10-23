@@ -148,7 +148,7 @@ Outline header for the variables section.
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Banner
@@ -162,7 +162,7 @@ Outline header for the variables section.
 (defcustom sp-splash-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Separators
@@ -207,7 +207,7 @@ with `load-theme' the next time the splash is drawn."
 A relative name is looked up in `sp-library-dir'.  Nil draws the
 lambda logo image instead."
   :type '(choice (const :tag "Use the logo image" nil) file)
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -215,7 +215,7 @@ lambda logo image instead."
   "Columns to move the art right (negative: left).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -223,21 +223,21 @@ Zero centres the art on the menu."
   "Lines to move the art down (negative: up).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-x-step 2
   "Columns `sp-splash-art-right' and `sp-splash-art-left' move the art."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-y-step 1
   "Lines `sp-splash-art-up' and `sp-splash-art-down' move the art."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Drawing
@@ -751,7 +751,7 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
 
 ** Minor mode
 
-=sp-splash-mode= is a buffer-local minor mode that makes the splash look clean: it disables undo, auto-revert, whitespace mode and line numbers, makes the buffer read-only, hides the cursor, mode line and header line, and removes margins and fringes. It also sets the global =inhibit-startup-screen= family of variables and =truncate-lines=. When Evil is active it switches to Emacs state so the single-key bindings are not shadowed. Its =:group= is =sp-splash=; it used to be =sia-lambda=, which this config never defines.
+=sp-splash-mode= is a buffer-local minor mode that makes the splash look clean: it disables undo, auto-revert, whitespace mode and line numbers, makes the buffer read-only, hides the cursor, mode line and header line, and removes margins and fringes. It also sets the global =inhibit-startup-screen= family of variables and =truncate-lines=. When Evil is active it switches to Emacs state so the single-key bindings are not shadowed. Its =:group= is =sp-splash=; it used to be =spcustom=, which this config never defines.
 
 #+begin_src emacs-lisp -i
 (define-minor-mode sp-splash-mode

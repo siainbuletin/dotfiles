@@ -125,7 +125,7 @@ Declares the =sp-split= customisation group under Applications.
 (defcustom sp-split-denote-names t
   "When non-nil, name split-out notes with Denote's file-naming scheme."
   :type 'boolean
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Footnote option
@@ -138,7 +138,7 @@ Declares the =sp-split= customisation group under Applications.
 Definitions are copied, per heading, into the new note and, for those
 that leave with the subtree, into the source note."
   :type 'boolean
-  :group 'spconfig)
+  :group 'spcustom)
 #+end_src
 
 ** Footnote report

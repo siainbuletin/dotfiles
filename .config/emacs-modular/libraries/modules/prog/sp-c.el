@@ -15,7 +15,7 @@ Each element of this list has the form:
   they are traversed in sequence to locate the nested attribute.
 
 - The second part is the NEW-VALUE to set for that attribute."
-  :group 'spconfig
+  :group 'spcustom
   :type '(repeat (list (repeat symbol) sexp)))
 (defun siapip/google-c-style-set-overrides ()
   "Apply the overrides in `siapip/google-c-style-overrides' to `google-c-style' in place."

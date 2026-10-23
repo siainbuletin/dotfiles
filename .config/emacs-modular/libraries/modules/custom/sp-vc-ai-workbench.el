@@ -29,48 +29,48 @@
 (defcustom sp-workbench-repos nil
   "List of directories, each the root of one extension's git repo."
   :type '(repeat directory)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-scan-root nil
   "If non-nil, every git repo directly under this directory is also an extension."
   :type '(choice (const nil) directory)
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-worktree-root "~/.worktrees/"
   "Directory under which task worktrees are created.
 Layout: ROOT/<extension>/<branch-with-slashes-replaced>."
   :type 'directory
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-branch-prefix "feat/"
   "Prefix proposed when naming a new task branch."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-notes-file ".brainstorm.org"
   "Name of the per-worktree notes file (kept out of git)."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-context-file ".brainstorm-context.md"
   "Name of the per-worktree context file written for Claude (kept out of git)."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-start-claude-on-new-task nil
   "If non-nil, start a Claude Code session when creating a new task."
   :type 'boolean
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-claude-capture-lines 80
   "Lines taken from the end of the Claude buffer when no region is active."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-max-context-chars 12000
   "Upper bound on characters of each context section written for Claude."
   :type 'integer
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defcustom sp-workbench-rules
   "We are brainstorming the design of an Emacs extension.  I am an experienced \
@@ -86,7 +86,7 @@ something you may append it under the `* Claude' heading at the end of \
 implementations.  Be concise and say so when unsure."
   "Ground rules placed at the top of the context file."
   :type 'string
-  :group 'spconfig)
+  :group 'spcustom)
 
 (defun sp-workbench--repos ()
   "Return the list of extension repo roots (absolute, no trailing slash)."
