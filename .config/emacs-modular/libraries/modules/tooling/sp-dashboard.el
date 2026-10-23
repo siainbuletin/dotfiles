@@ -505,7 +505,7 @@ nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
   :type 'integer
   :group 'sp-dashboard)
 
-(defcustom sp-dashboard-agenda-todos-clickable nil
+(defcustom sp-dashboard-agenda-todos-clickable t
   "Non-nil makes the first line of each TODO a button that visits the entry.
 Each one is then another stop for \\`TAB'."
   :type 'boolean
@@ -528,7 +528,7 @@ Each one is then another stop for \\`TAB'."
   :type '(repeat regexp)
   :group 'sp-dashboard)
 
-(defcustom sp-dashboard-public-conditions nil
+(defcustom sp-dashboard-public-conditions '(sp-dashboard-condition-focus)
   "Functions, without arguments, that return non-nil when you are in public.
 In `auto' mode the dashboard is public as soon as one of them returns non-nil,
 or signals an error (a check that cannot run counts as public)."
@@ -567,14 +567,137 @@ Always nil when that list is empty, so it does nothing until configured."
   (seq-some (lambda (name) (zerop (call-process "pgrep" nil nil nil "-x" name)))
             sp-dashboard-screen-share-processes))
 
+(defcustom sp-dashboard-focus-flag-file "~/.cache/sp-dashboard-public-focus"
+  "File whose existence means a Focus is on, for `sp-dashboard-condition-focus'.
+Create it when a Focus turns on and delete it when it turns off, for example
+with a macOS Shortcuts automation that runs `touch' or `rm' on it."
+  :type 'file
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-focus-modes nil
+  "Substrings of the macOS Focus identifiers that count as public.
+nil means any Focus that macOS reports as on."
+  :type '(repeat string)
+  :group 'sp-dashboard)
+
+(defconst sp-dashboard--focus-assertions-file
+  "~/Library/DoNotDisturb/DB/Assertions.json"
+  "Where macOS records the Focus modes that are on.")
+
+(defun sp-dashboard--active-focus-identifiers ()
+  "Return the identifiers of the Focus modes macOS reports as on, or nil.
+Reading the file can need Full Disk Access for Emacs; without it this is nil."
+  (let ((file (expand-file-name sp-dashboard--focus-assertions-file))
+        ids)
+    (when (file-readable-p file)
+      (condition-case nil
+          (let ((json (with-temp-buffer
+                        (insert-file-contents file)
+                        (json-parse-buffer :object-type 'alist :array-type 'list))))
+            (dolist (item (alist-get 'data json))
+              (dolist (record (alist-get 'storeAssertionRecords item))
+                (push (or (let-alist record
+                            .assertionDetails.assertionDetailsModeIdentifier)
+                          "focus")
+                      ids))))
+        (error nil)))
+    ids))
+
+(defun sp-dashboard-condition-focus ()
+  "Return non-nil when a Focus that counts as public is on.
+That is the existence of `sp-dashboard-focus-flag-file', or a macOS Focus
+mode (matching `sp-dashboard-focus-modes') that macOS reports as on."
+  (or (file-exists-p (expand-file-name sp-dashboard-focus-flag-file))
+      (let ((ids (sp-dashboard--active-focus-identifiers)))
+        (and ids
+             (or (null sp-dashboard-focus-modes)
+                 (seq-some (lambda (id)
+                             (seq-some (lambda (mode)
+                                         (string-match-p (regexp-quote mode) id))
+                                       sp-dashboard-focus-modes))
+                           ids))))))
+
+(define-minor-mode sp-dashboard-public-facing-mode
+  "Tell the dashboard you are in public: private entries are hidden.
+This overrides `sp-dashboard-public-mode', and the dashboard redraws."
+  :global t
+  :lighter " Public"
+  :group 'sp-dashboard
+  (sp-dashboard--check-public))
+
+;;;;; Redrawing when the status changes
+;; The dashboard remembers whether it was drawn as public.  A timer and file
+;; watches on the Focus files compare that with the current status while the
+;; Dashboard buffer exists.  A hidden Dashboard is killed instead of redrawn, so
+;; it never comes back showing entries it should no longer show.
+(defcustom sp-dashboard-public-check-interval 30
+  "Seconds between checks of the public status while the Dashboard exists.
+nil turns the timer off; the Focus files are still watched."
+  :type '(choice (const :tag "No timer" nil) integer)
+  :group 'sp-dashboard)
+
+(defvar sp-dashboard--drawn-public nil
+  "Whether the Dashboard was last drawn as public.")
+
+(defvar sp-dashboard--public-timer nil
+  "Timer that checks the public status.")
+
+(defvar sp-dashboard--public-watches nil
+  "File watches on the Focus files.")
+
+(defun sp-dashboard--stop-public-watch ()
+  "Stop the timer and the file watches of the public status."
+  (when sp-dashboard--public-timer
+    (cancel-timer sp-dashboard--public-timer)
+    (setq sp-dashboard--public-timer nil))
+  (dolist (watch sp-dashboard--public-watches)
+    (ignore-errors (file-notify-rm-watch watch)))
+  (setq sp-dashboard--public-watches nil))
+
+(defun sp-dashboard--check-public ()
+  "Redraw the Dashboard when its public status changed since it was drawn."
+  (if (not (get-buffer "Dashboard"))
+      (sp-dashboard--stop-public-watch)
+    (unless (eq (and (sp-dashboard-public-p) t) sp-dashboard--drawn-public)
+      (if-let* ((window (get-buffer-window "Dashboard" t)))
+          (with-selected-window window
+            (sp-dashboard-refresh))
+        (kill-buffer "Dashboard")))))
+
+(defun sp-dashboard--watch-file (file)
+  "Run `sp-dashboard--check-public' when FILE changes, if its folder exists."
+  (let* ((file (expand-file-name file))
+         (name (file-name-nondirectory file)))
+    (when (file-directory-p (file-name-directory file))
+      (ignore-errors
+        (push (file-notify-add-watch
+               (file-name-directory file) '(change)
+               (lambda (event)
+                 (when (string= (file-name-nondirectory (nth 2 event)) name)
+                   (sp-dashboard--check-public))))
+              sp-dashboard--public-watches)))))
+
+(defun sp-dashboard--start-public-watch ()
+  "Start checking the public status, if that is not already going on."
+  (when (and sp-dashboard-public-check-interval (not sp-dashboard--public-timer))
+    (setq sp-dashboard--public-timer
+          (run-with-timer sp-dashboard-public-check-interval
+                          sp-dashboard-public-check-interval
+                          #'sp-dashboard--check-public)))
+  (unless sp-dashboard--public-watches
+    (require 'filenotify)
+    (sp-dashboard--watch-file sp-dashboard-focus-flag-file)
+    (sp-dashboard--watch-file sp-dashboard--focus-assertions-file)))
+
 (defun sp-dashboard-public-p ()
   "Return non-nil when private entries must stay out of the dashboard."
-  (pcase sp-dashboard-public-mode
-    ('public t)
-    ('private nil)
-    (_ (condition-case nil
-           (and (seq-some #'funcall sp-dashboard-public-conditions) t)
-         (error t)))))
+  (or sp-dashboard-public-facing-mode
+      (pcase sp-dashboard-public-mode
+        ('public t)
+        ('private nil)
+        (_ (condition-case nil
+               (and (seq-some #'funcall sp-dashboard-public-conditions) t)
+             (error t))))))
 
 (defun sp-dashboard-toggle-public-mode ()
   "Cycle `sp-dashboard-public-mode' (auto, public, private) and redraw."
@@ -766,7 +889,8 @@ Private entries are left out while `sp-dashboard-public-p'."
       (push (sp-dashboard--agenda-box agenda (or (pop faces) 'sp-dashboard-box-face))
             boxes))
     (setq boxes (nreverse boxes))
-    (when (sp-dashboard-public-p)
+    (setq sp-dashboard--drawn-public (and (sp-dashboard-public-p) t))
+    (when sp-dashboard--drawn-public
       (insert-char ?\s indent)
       (insert (propertize "public: private entries are hidden (P)\n"
                           'face 'sp-dashboard-footer-face)))
@@ -956,6 +1080,7 @@ splash is drawn again with the current settings."
             ;; Insert the menu blocks, in boxes under the banner
             (goto-char (point-max))
             (sp-dashboard--insert-agendas content-col)
+            (sp-dashboard--start-public-watch)
             (sp-dashboard--insert-menu content-col)
 
             ;; Add footer with some space above bottom
