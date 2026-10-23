@@ -50,6 +50,7 @@ and moves point to the last location."
 
 ;;;; Writeroom
 (use-package writeroom-mode
+  :ensure t
   :commands (writeroom-mode)
 
   :config

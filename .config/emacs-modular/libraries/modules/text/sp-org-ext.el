@@ -40,9 +40,11 @@
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
+  :ensure t
   :hook (org-mode . org-autolist-mode))
 
 (use-package org-journal
+  :ensure t
   :defer t
   :bind
   (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))

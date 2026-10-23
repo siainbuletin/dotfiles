@@ -97,6 +97,7 @@ A description of the =palimpsest= minor mode: it sends selected text to the bott
 
 #+begin_src emacs-lisp -i
 (use-package palimpsest
+  :ensure t
   :diminish palimpsest-mode
   :hook ((markdown-mode org-mode) . palimpsest-mode)
   :custom

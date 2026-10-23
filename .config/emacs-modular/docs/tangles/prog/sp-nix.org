@@ -45,6 +45,7 @@ When the option is on, =.nix= files open in =nix-mode= and start LSP lazily. In 
 #+begin_src emacs-lisp -i
 (when siapip/nix-mode-enable
   (use-package nix-mode
+    :ensure t
     :mode "\\.nix\\'"
     :hook (nix-mode . lsp-deferred)
     :bind (:map nix-mode-map
