@@ -72,44 +72,33 @@ Defines the =sp-dashboard= customization group under =applications=.
 
 * Faces
 
-Five faces with no default attributes. They exist so a theme can style the splash; without theme support they look like the default face.
+All the faces of the dashboard are defined here, in one block. The first five (title, header, footer, menu and image) have no colours of their own, so a theme can style them and, without theme support, they look like the default face; the others are described by what they colour. The art, banner and accent faces are recoloured from the current theme by the colour palette (see below), and the colours given here are only the fallback until it runs.
 
-** Title face
-
-=sp-dashboard-title-face= is used for the "Welcome to λ-Emacs" line.
+- =sp-dashboard-title-face= is the "Welcome to λ-Emacs" line.
+- =sp-dashboard-header-face= is the version and init-info lines.
+- =sp-dashboard-footer-face= is the footer text, in italics.
+- =sp-dashboard-menu-face= is the menu text and the clickable menu buttons.
+- =sp-dashboard-box-face= is the lines around a menu block when no accent face is available; it inherits =shadow=, so it follows the theme.
+- =sp-dashboard-image-face= is defined but not referenced anywhere in the module.
+- =sp-dashboard-art-face= is the lambda art, dim grey on a dark background and pale grey on a light one.
+- =sp-dashboard-banner-face= is the EMACS block-letter banner, a little stronger than the art.
+- =sp-dashboard-accent-1-face=, =-2-face= and =-3-face= are the box lines of the first, second and third menu blocks. They inherit three font-lock faces.
+- =sp-dashboard-focus-face= is the button that =TAB= has selected, since the cursor is hidden. It inherits =highlight=.
 
 #+begin_src emacs-lisp -i
 ;;;; Splash Faces
 (defface sp-dashboard-title-face nil
   "Face for splash title."
   :group 'faces)
-#+end_src
 
-** Header face
-
-=sp-dashboard-header-face= is used for the version and init-info lines.
-
-#+begin_src emacs-lisp -i
 (defface sp-dashboard-header-face nil
   "Face for splash header."
   :group 'faces)
-#+end_src
 
-** Footer face
-
-=sp-dashboard-footer-face= is used for the footer text, in italics.
-
-#+begin_src emacs-lisp -i
 (defface sp-dashboard-footer-face '((t :slant italic))
   "Face for splash footer."
   :group 'faces)
-#+end_src
 
-** Menu face
-
-=sp-dashboard-menu-face= is used for the menu text and the clickable menu buttons. =sp-dashboard-box-face= (inheriting =shadow=, so it follows the theme) is used for the lines drawn around each menu block.
-
-#+begin_src emacs-lisp -i
 (defface sp-dashboard-menu-face nil
   "Face for splash menus."
   :group 'faces)
@@ -117,15 +106,39 @@ Five faces with no default attributes. They exist so a theme can style the splas
 (defface sp-dashboard-box-face '((t :inherit shadow))
   "Face for the lines drawn around the splash menu blocks."
   :group 'faces)
-#+end_src
 
-** Image face
-
-=sp-dashboard-image-face= is defined but not referenced anywhere in the module.
-
-#+begin_src emacs-lisp -i
 (defface sp-dashboard-image-face nil
   "Face for splash image."
+  :group 'faces)
+
+(defface sp-dashboard-art-face
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
+  "Face for the lambda art behind the splash menu.
+The colour follows the background of the current theme, so it changes
+with `load-theme' the next time the splash is drawn."
+  :group 'faces)
+
+(defface sp-dashboard-banner-face
+  '((((background dark))  :foreground "#6b7387")
+    (((background light)) :foreground "#9aa1b3"))
+  "Face for the dashboard banner art behind the splash menu."
+  :group 'faces)
+
+(defface sp-dashboard-accent-1-face '((t :inherit font-lock-keyword-face))
+  "First accent of the splash: the line colour of the first menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-2-face '((t :inherit font-lock-function-name-face))
+  "Second accent of the splash: the line colour of the second menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-3-face '((t :inherit font-lock-string-face))
+  "Third accent of the splash: the line colour of the third menu block."
+  :group 'faces)
+
+(defface sp-dashboard-focus-face '((t :inherit highlight))
+  "Face for the splash button that TAB has selected."
   :group 'faces)
 #+end_src
 
@@ -191,30 +204,15 @@ Outline header for the variables section.
 
 The graphical splash draws text art behind the menu instead of the PNG logo: the lambda in =libraries/images/lambda-splash.txt= and the EMACS block-letter banner in =libraries/images/dashboard-banner-3.txt= (a local copy of banner 3 of the =dashboard= package, so it can be edited freely). A layer only fills blanks, so the welcome text and the buttons stay on top of it, and a layer that comes first in =sp-dashboard-art-layers= covers the ones after it. Art is in =sp-dashboard-art-face= or =sp-dashboard-banner-face=, whose colour is chosen by the background of the theme, so the same layers serve dark and light themes.
 
-** Faces and section marker
+** Section marker
 
-The two faces are dim grey on a dark background and pale grey on a light one (the banner is a little stronger). They are resolved when the splash is drawn, so after =load-theme= they are right the next time the splash is refreshed.
+Comment that opens the art section. The art and banner faces are described under Faces; they are resolved when the splash is drawn, so after =load-theme= they are right the next time the splash is refreshed.
 
 #+begin_src emacs-lisp -i
 ;;;; Art layers
 ;; Text art drawn behind the menu.  Each layer only fills blanks, so the title
 ;; and the menu buttons stay on top, and a layer that comes earlier in
 ;; `sp-dashboard-art-layers' covers the ones after it.
-(defface sp-dashboard-art-face
-  '((((background dark))  :foreground "#454b5c")
-    (((background light)) :foreground "#cfd3dc"))
-  "Face for the lambda art behind the splash menu.
-The colour follows the background of the current theme, so it changes
-with `load-theme' the next time the splash is drawn."
-  :group 'faces)
-#+end_src
-
-#+begin_src emacs-lisp -i
-(defface sp-dashboard-banner-face
-  '((((background dark))  :foreground "#6b7387")
-    (((background light)) :foreground "#9aa1b3"))
-  "Face for the dashboard banner art behind the splash menu."
-  :group 'faces)
 #+end_src
 
 ** Layers and steps
@@ -466,28 +464,13 @@ The splash colours follow the theme. Each colour role (the lambda =art=, the =ba
 
 The accents colour the boxes of the menu: block 1 takes =sp-dashboard-accent-1-face=, block 2 the second, and so on (=sp-dashboard-accent-faces=, repeating when there are more blocks). Add roles and faces to the lists to colour more parts of the splash.
 
-When a theme is enabled or disabled, =sp-dashboard--theme-changed= (on =enable-theme-functions= and =disable-theme-functions=) applies the palette and redraws the splash; =sp-dashboard-palette-follow-theme= switches this off. =sp-dashboard-apply-palette= does it by hand and =sp-dashboard-show-palette= shows the colour of each role. The two =defface= forms for art and banner above remain the fallback until the palette is applied.
+When a theme is enabled or disabled, =sp-dashboard--theme-changed= (on =enable-theme-functions= and =disable-theme-functions=) applies the palette and redraws the splash; =sp-dashboard-palette-follow-theme= switches this off. =sp-dashboard-apply-palette= does it by hand and =sp-dashboard-show-palette= shows the colour of each role. The colours in the faces under Faces remain the fallback until the palette is applied.
 
 #+begin_src emacs-lisp -i
 ;;;; Colour palette
 ;; The splash colours follow the theme.  A role (art, banner, accents...) takes
 ;; its colour from a face of the current theme, mixed towards the background,
 ;; unless `sp-dashboard-palettes' names a colour for that theme.
-(defface sp-dashboard-accent-1-face '((t :inherit font-lock-keyword-face))
-  "First accent of the splash: the line colour of the first menu block."
-  :group 'faces)
-#+end_src
-
-#+begin_src emacs-lisp -i
-(defface sp-dashboard-accent-2-face '((t :inherit font-lock-function-name-face))
-  "Second accent of the splash: the line colour of the second menu block."
-  :group 'faces)
-#+end_src
-
-#+begin_src emacs-lisp -i
-(defface sp-dashboard-accent-3-face '((t :inherit font-lock-string-face))
-  "Third accent of the splash: the line colour of the third menu block."
-  :group 'faces)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1102,10 +1085,6 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
       (define-key map (vector event) #'ignore))
     map)
   "Keymap for sp-dashboard-mode.")
-
-(defface sp-dashboard-focus-face '((t :inherit highlight))
-  "Face for the splash button that TAB has selected."
-  :group 'faces)
 
 (defvar-local sp-dashboard--focus-overlay nil
   "Overlay marking the selected button of the splash.")

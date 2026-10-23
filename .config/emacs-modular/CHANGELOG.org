@@ -8,6 +8,8 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Changed
+- =sp-splash= is renamed =sp-dashboard= (module, doc, load lists, and every =sp-splash-*= option, face and command is now =sp-dashboard-*=; the buffer stays =Dashboard=). In the module's doc all the faces are now described under one =Faces= heading instead of a heading each. ([[https://github.com/siainbuletin/dotfiles/pull/64][#64]], Claude)
 ** Added
 - The splash colours follow the theme: each role (art, banner, footer and three accents) takes its colour from a face of the current theme mixed towards the background, and the menu boxes use the accents in turn. =sp-dashboard-palettes= overrides roles for a chosen theme, =sp-dashboard-palette-roles= says how roles are derived, and the splash is recoloured and redrawn when the theme changes. ([[https://github.com/siainbuletin/dotfiles/pull/49][#49]], Claude)
 ** Changed

@@ -49,6 +49,36 @@
   "Face for splash image."
   :group 'faces)
 
+(defface sp-dashboard-art-face
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
+  "Face for the lambda art behind the splash menu.
+The colour follows the background of the current theme, so it changes
+with `load-theme' the next time the splash is drawn."
+  :group 'faces)
+
+(defface sp-dashboard-banner-face
+  '((((background dark))  :foreground "#6b7387")
+    (((background light)) :foreground "#9aa1b3"))
+  "Face for the dashboard banner art behind the splash menu."
+  :group 'faces)
+
+(defface sp-dashboard-accent-1-face '((t :inherit font-lock-keyword-face))
+  "First accent of the splash: the line colour of the first menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-2-face '((t :inherit font-lock-function-name-face))
+  "Second accent of the splash: the line colour of the second menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-3-face '((t :inherit font-lock-string-face))
+  "Third accent of the splash: the line colour of the third menu block."
+  :group 'faces)
+
+(defface sp-dashboard-focus-face '((t :inherit highlight))
+  "Face for the splash button that TAB has selected."
+  :group 'faces)
+
 ;;;; Splash Variables
 
 ;; Init info
@@ -85,19 +115,6 @@
 ;; Text art drawn behind the menu.  Each layer only fills blanks, so the title
 ;; and the menu buttons stay on top, and a layer that comes earlier in
 ;; `sp-dashboard-art-layers' covers the ones after it.
-(defface sp-dashboard-art-face
-  '((((background dark))  :foreground "#454b5c")
-    (((background light)) :foreground "#cfd3dc"))
-  "Face for the lambda art behind the splash menu.
-The colour follows the background of the current theme, so it changes
-with `load-theme' the next time the splash is drawn."
-  :group 'faces)
-
-(defface sp-dashboard-banner-face
-  '((((background dark))  :foreground "#6b7387")
-    (((background light)) :foreground "#9aa1b3"))
-  "Face for the dashboard banner art behind the splash menu."
-  :group 'faces)
 
 (defcustom sp-dashboard-art-directory "images/"
   "Folder of the splash art files; relative to `sp-library-dir'."
@@ -294,17 +311,6 @@ The form is also copied to the kill ring."
 ;; The splash colours follow the theme.  A role (art, banner, accents...) takes
 ;; its colour from a face of the current theme, mixed towards the background,
 ;; unless `sp-dashboard-palettes' names a colour for that theme.
-(defface sp-dashboard-accent-1-face '((t :inherit font-lock-keyword-face))
-  "First accent of the splash: the line colour of the first menu block."
-  :group 'faces)
-
-(defface sp-dashboard-accent-2-face '((t :inherit font-lock-function-name-face))
-  "Second accent of the splash: the line colour of the second menu block."
-  :group 'faces)
-
-(defface sp-dashboard-accent-3-face '((t :inherit font-lock-string-face))
-  "Third accent of the splash: the line colour of the third menu block."
-  :group 'faces)
 
 (defcustom sp-dashboard-accent-faces
   '(sp-dashboard-accent-1-face sp-dashboard-accent-2-face sp-dashboard-accent-3-face)
@@ -795,10 +801,6 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
       (define-key map (vector event) #'ignore))
     map)
   "Keymap for sp-dashboard-mode.")
-
-(defface sp-dashboard-focus-face '((t :inherit highlight))
-  "Face for the splash button that TAB has selected."
-  :group 'faces)
 
 (defvar-local sp-dashboard--focus-overlay nil
   "Overlay marking the selected button of the splash.")
