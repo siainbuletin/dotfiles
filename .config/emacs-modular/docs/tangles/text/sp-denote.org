@@ -10,43 +10,35 @@ Configuration for Protesilaos Stavrou's =denote= package, which names note files
 
 The commentary says this module will be phased out in favour of the ID-based Vulpea workflow, since the long Denote file names are hard to read and are not used for anything. It is still loaded in both module lists in =init.el=, directly after =sp-org-base=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Settings for Prot's denote package.
+
+This will at some point be phased out, as I prefer an ID-based
+workflow for my notes, and I never seem to use the filenames
+for anything. Plus, the filenames are much too long, they become
+a lot harder to parse.
+#+end_quote
+
 * Overview
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-denote.el
-#+end_src
+;;; sp-denote.el --- Denote note-taking setup -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Why this module is on its way out
-
-Explains that Denote is kept for now but the preferred workflow is ID-based, and that Denote's file names are too long to parse comfortably.
-
-#+begin_src emacs-lisp -i
 ;; Settings for Prot's denote package.
 ;;
 ;; This will at some point be phased out, as I prefer an ID-based
 ;; workflow for my notes, and I never seem to use the filenames
 ;; for anything. Plus, the filenames are much too long, they become
 ;; a lot harder to parse.
-#+end_src
 
-** Code marker
-
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;;; Code:
 #+end_src
 

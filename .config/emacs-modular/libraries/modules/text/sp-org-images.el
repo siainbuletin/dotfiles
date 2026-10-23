@@ -1,8 +1,12 @@
-;; -*- lexical-binding: t ; -*-
-;; sp-org-images.el
+;;; sp-org-images.el --- Images in Org with org-download -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Dealing with images in org-mode (embedding them properly)
-;;; Org-Download
+
+;;; Code:
+
+;;;; Org-Download
 ;; Drag and drop images to Emacs org-mode. Courtesy of abo-abo.
 ;; https://github.com/abo-abo/org-download.
 

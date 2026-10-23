@@ -8,15 +8,23 @@ Settings that only make sense on macOS, which the commentary describes as the ma
 
 It depends on the =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, =org-mac-link=, and the variable =sys-mac= set elsewhere in the configuration to detect macOS. The themes it switches between, =ef-dream= and =lambda-light-faded=, must be installed by the theme modules. It is in both the default and minimal module lists in =init.el=. Some parts are unconditional (the key remapping and the two shell commands), so they also run on other systems where they are harmless but not useful.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+MacOS is my main operating system (my most capable and portable computer),
+for this reason, it's important to have it be integrated with the rest of
+the system, including running DEVONthink well enough (although DT support
+is configured elsewhere in this config).
+#+end_quote
+
 * Header
 
 ** Header and commentary
 
-File header with lexical binding and a short commentary explaining why macOS integration matters here. DEVONthink support is mentioned as configured elsewhere.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-macos.el --- settings specific to the MacOS environment.
+;;; sp-macos.el --- macOS integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -162,7 +170,7 @@ The comment explains the design: rather than scheduling theme changes by time, E
 Explanatory comment for the appearance code that follows.
 
 #+begin_src emacs-lisp -i
-;;;;; macOS system-appearance dispatch
+;;;; macOS system-appearance dispatch
 ;; Delegate Light/Dark choice to macOS. The system already does
 ;; sunrise/sunset when set to Auto, and reflects manual flips
 ;; instantly -- following it removes every source of drift between
@@ -245,7 +253,7 @@ A daemon started without a frame never gets appearance-change events, so it woul
 Comment explaining why client frames need their own re-sync.
 
 #+begin_src emacs-lisp -i
-;;;;; Daemon client-frame sync
+;;;; Daemon client-frame sync
 
 ;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
 ;; never receives NS appearance-change events, so the hook above never
@@ -286,7 +294,7 @@ Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-ma
 
 #+begin_src emacs-lisp -i
 ;; taken from Lambda emacs
-;;; Org Mac Link
+;;;; Org Mac Link
 (use-package org-mac-link
     :ensure t
     :after org
@@ -300,7 +308,6 @@ Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-ma
 Provides the =sp-macos= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-macos)
 ;; sp-macos.el ends here.

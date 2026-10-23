@@ -1,8 +1,12 @@
-;;; sp-helper-funct.el --- summary -*- lexical-binding: t -*-
+;;; sp-helper-funct.el --- Assorted helper commands and sensible defaults -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Useful functions
 
-;;;;; Call an emacs instance
+;;; Code:
+
+;;;; Call an emacs instance
 ;; Call an emacs instance for testing
 
 (defun sp-call-emacs ()
@@ -13,7 +17,7 @@
 ;; (executable-find "Emacs")
 ))
 
-;;; Exiting without confirmation
+;;;; Exiting without confirmation
 (setq confirm-kill-processes nil)
 
 ;; Sounds
@@ -79,7 +83,7 @@
   (interactive)
   (load-file (concat user-emacs-directory "init.el")))
 
-;;;; Built-in Functions
+;;;;; Built-in Functions
 ;; These are useful built-in functions, but you have to enable them
 (put 'erase-buffer 'disabled nil)
 (put 'downcase-region 'disabled nil)
@@ -93,8 +97,8 @@
 
 
 
-;;;; Buffer Functions
-;;;;; Blank Buffer New Frame
+;;;;; Buffer Functions
+;;;;;; Blank Buffer New Frame
 ;; Make a blank buffer when opening a new frame. From
 ;; https://stackoverflow.com/a/25792276.
 
@@ -106,7 +110,7 @@
     (display-buffer buffer '(display-buffer-pop-up-frame . nil))))
 
 
-;;;;; Create new buffer
+;;;;;; Create new buffer
 (defun sp-create-new-buffer ()
   "Create a new buffer in the default major mode."
   (interactive)
@@ -115,7 +119,7 @@
     (with-current-buffer buffer
       (funcall (default-value 'major-mode)))))
 
-;;;;; Create New Elisp Buffer
+;;;;;; Create New Elisp Buffer
 (defun sp-create-new-elisp-buffer ()
   "Create a new buffer in `'emacs-lisp-mode'."
   (interactive)
@@ -124,14 +128,14 @@
     (with-current-buffer buffer
       (emacs-lisp-mode))))
 
-;;;;; Make Temp Buffer
+;;;;;; Make Temp Buffer
 (defun sp-tmp-buffer()
   "Make a temporary buffer and switch to it."
   (interactive)
   (switch-to-buffer (get-buffer-create (concat "tmp-" (format-time-string "%m.%dT%H.%M.%S"))))
   (delete-other-windows))
 
-;;;;; Revert all buffers
+;;;;;; Revert all buffers
 ;;
 (defun sp-revert-all-file-buffers ()
   "Refresh all open file buffers without confirmation.
@@ -156,7 +160,7 @@ will be killed."
             (message "Killed non-existing/unreadable file buffer: %s" filename))))))
   (message "Finished reverting buffers containing unmodified files."))
 
-;;;;; Clipboard to/from Buffer
+;;;;;; Clipboard to/from Buffer
 ;; http://stackoverflow.com/a/10216338/4869
 (defun sp-copy-whole-buffer-to-clipboard ()
   "Copy entire buffer to clipboard"
@@ -170,7 +174,7 @@ will be killed."
   (clipboard-yank)
   (deactivate-mark))
 
-;;;;; Useful Buffers
+;;;;;; Useful Buffers
 ;; TODO: make this respect workspace buffers
 (defun sp-user-buffer-q ()
   "Return t if current buffer is a user buffer, else nil.
@@ -214,7 +218,7 @@ will be killed."
                  (setq i (1+ i)))
         (progn (setq i 100))))))
 
-;;;;; Eval emacs buffer until error
+;;;;;; Eval emacs buffer until error
 
 (defun sp-eval-buffer-until-error ()
   "Evaluate emacs buffer until error occured."
@@ -222,7 +226,7 @@ will be killed."
   (goto-char (point-min))
   (while t (eval (read (current-buffer)))))
 
-;;;;; Kill Current Buffer
+;;;;;; Kill Current Buffer
 ;; (kill-this-buffer) is unreliable when not invoked from the menubar. So here's a
 ;; wrapper on (kill-buffer) to kill the current buffer. This is sometimes better
 ;; than (evil-delete-buffer) since it keeps the window.
@@ -231,7 +235,7 @@ will be killed."
   (interactive)
   (kill-buffer))
 
-;;;;; Show Filename of Buffer
+;;;;;; Show Filename of Buffer
 
 ;; http://camdez.com/blog/2013/11/14/emacs-show-buffer-file-name/
 (defun sp-show-and-copy-buffer-full-filename ()
@@ -254,15 +258,15 @@ will be killed."
           (kill-new abbrev-name))
       (error "Buffer not visiting a file"))))
 
-;;;;; Switch previous buffer
+;;;;;; Switch previous buffer
 
 (defun switch-to-previous-buffer ()
   (interactive)
   (switch-to-buffer (other-buffer (current-buffer) 1)))
 
-;;;; File Functions
+;;;;; File Functions
 
-;;;;; Delete Current File
+;;;;;; Delete Current File
 ;; from magnars
 
 (defun sp-delete-current-buffer-file ()
@@ -278,7 +282,7 @@ will be killed."
         (kill-buffer buffer)
         (message "File '%s' successfully removed" filename)))))
 
-;;;;; Get string from file
+;;;;;; Get string from file
 (defun sp-get-string-from-file (filePath)
   "Read a file and return the contents as a string"
   (with-temp-buffer
@@ -286,13 +290,13 @@ will be killed."
     (buffer-string)))
 
 
-;;;;; Duplicate file
+;;;;;; Duplicate file
 ;; Duplicate a file in dired or deer
 (defun sp-duplicate-file ()
   (interactive)
   (dired-do-copy-regexp "\\(.*\\)\\.\\(.*\\)" "\\1 (copy).\\2"))
 
-;;;;; Move File
+;;;;;; Move File
 (defun sp-move-file ()
   "Write this file to a new location, and delete the old one."
   (interactive)
@@ -301,8 +305,8 @@ will be killed."
     (when old-location
       (delete-file old-location))))
 
-;;;; Directory Functions
-;;;;; Make Parent Directory
+;;;;; Directory Functions
+;;;;;; Make Parent Directory
 ;;  Create a directory – or a hierarchy of them – while finding a file in a
 ;;  nonexistent directory. From mbork
 ;;  http://mbork.pl/2016-07-25_Making_directories_on_the_fly
@@ -313,7 +317,7 @@ will be killed."
 
 (add-hook 'find-file-not-found-functions #'make-parent-directory)
 
-;;;;; Insert seconds
+;;;;;; Insert seconds
 ;; Functions for inserting times.
 
 (defun sp-insert-time-string ()
@@ -328,7 +332,7 @@ will be killed."
   (insert (format-time-string "%s")))
 ;; (keymap-global-set "C-c e") ''sp-insert-time-seconds-epoch)
 
-;;;;; Insert Comment Seperator
+;;;;;; Insert Comment Seperator
 ;; ======================================================
 ;; Insert commented seperator like this line
 ;; ======================================================
@@ -353,7 +357,7 @@ will be killed."
     (previous-line)
     ))
 
-;;;;; Insert Weather
+;;;;;; Insert Weather
 ;; From [[https://www.baty.blog/2019/insert-weather-into-emacs-buffer][Jack Baty]] with some slight modifications for formatting. See also [[https://github.com/chubin/wttr.in][wttr.in]].
 (defun sp-insert-weather ()
   "Insert `'wttr.in' weather forecast in buffer."
@@ -364,7 +368,7 @@ will be killed."
                        "\n")))
   (newline))
 
-;;;;; Wrap in Yaml block
+;;;;;; Wrap in Yaml block
 (defun sp-yaml-wrap ()
   "wrap region in --- for a yaml block"
   (interactive)
@@ -375,7 +379,7 @@ will be killed."
     (goto-char start)
     (insert "---" "\n")))
 
-;;;;; Jump to sexp
+;;;;;; Jump to sexp
 
 (defun sp-forward-or-backward-sexp (&optional arg)
   "Go to the matching parenthesis character if one is adjacent to point."
@@ -386,8 +390,8 @@ will be killed."
         ((looking-at "\\s)") (forward-char) (backward-sexp arg))
         ((looking-back "\\s(" 1) (backward-char) (forward-sexp arg))))
 
-;;;; UI Functions
-;;;;; Toggle markup
+;;;;; UI Functions
+;;;;;; Toggle markup
 (defun sp-toggle-display-markup ()
   "Toggle the display of markup in markdown and org modes"
   (interactive)
@@ -397,7 +401,7 @@ will be killed."
         (markdown-toggle-markup-hiding 0)
       (markdown-toggle-markup-hiding))))
 
-;;;;; Quit All the Things!
+;;;;;; Quit All the Things!
 ;; From a great vim migration guide by Juanjo Álvarez
 ;; https://juanjoalvarez.net/en/detail/2014/sep/19/vim-emacsevil-chaotic-migration-guide/
 ;; (original code from davvil) https://github.com/davvil/.emacs.d/blob/master/init.el
@@ -533,7 +537,7 @@ generate links in titlecase for attachments."
       (let ((clean-title (replace-regexp-in-string "\\([a-zA-Z0-9]\\)-\\([a-zA-Z0-9]\\)" "\\1 \\2" title)))
         (format "%s" (titlecase--string clean-title titlecase-style)))))))
 
-;;;; Sensible defaults library
+;;;;; Sensible defaults library
 
 ;;; Code:
 
@@ -631,7 +635,6 @@ insert the text where point is, not where the mouse cursor is."
 (use-package wizard
   :ensure (:type git :host github :repo "jamescherti/wizard.el" :rev :newest))
 
-;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'sp-helper-funct)
 ;;; sp-helper-funct.el ends here

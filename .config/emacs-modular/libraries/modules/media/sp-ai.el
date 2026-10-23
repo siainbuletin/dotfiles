@@ -1,9 +1,15 @@
-;; -*- lexical-binding: t; -*-
-;; sp-ai.el --- AI implementation
+;;; sp-ai.el --- AI and LLM integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
+;; This module installs packages for working with large language models and
+;; coding agents from inside Emacs. Most of them are only installed; apart from
+;; the Anthropic login for `agent-shell' and turning on `vulpea-mcp', none of
+;; them get keybindings, backends or API keys here, so their defaults (or
+;; settings made elsewhere) apply.
+
 ;;; Code:
+
 ;;;; Agents that require an API key
 ;;;; gptel
 (use-package gptel
@@ -39,13 +45,11 @@
 
 (vulpea-mcp-enable)
 
-;;; Enhacing the experience of Claude Code
+;;;; Enhacing the experience of Claude Code
 (use-package monet
   :ensure (:type git :host github :repo "stevemolitor/monet"))
 
-;;; Linking the MCP of DEVONthink
-
-;;; Provide:
+;;;; Linking the MCP of DEVONthink
 
 (provide 'sp-ai)
 ;; sp-ai.el ends here.

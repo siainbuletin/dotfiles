@@ -1,9 +1,8 @@
-;; -*- lexical-binding: t; -*-
-;; sp-choose-modeline.el
+;;; sp-choose-modeline.el --- Choosing a modeline -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This package allows for choosing between different modelines to use and load in Emacs, 
+;; This package allows for choosing between different modelines to use and load in Emacs,
 ;; which overall makes the experience a lot easier
 
 ;; The ~defcustom~ sia/modeline allows to declare what is the modeline style to use
@@ -86,8 +85,6 @@ Options are 'doom-modeline or 'lambda-line."
       (setq-default mode-line-format (list "%_"))
       (setq mode-line-format (list "%_")))))
   )
-
-;;; Provide:
 
 (provide 'sp-choose-modeline)
 ;; sp-choose-modeline.el ends here

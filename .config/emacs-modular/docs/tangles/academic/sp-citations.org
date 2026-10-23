@@ -14,11 +14,19 @@ It depends on several user variables defined elsewhere: =sp-bibtex-files= (from 
 
 ** Header and natbib processor
 
-Loads =oc-natbib=, the natbib export processor for LaTeX. Loading =oc-csl= here is commented out because it is configured by its own =use-package= below.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-citations.el
+;;; sp-citations.el --- Citations with org-cite, CSL and Citar -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures citation handling: Org's built-in `oc' citation
+;; framework, CSL-based export through `oc-csl' and the `citeproc' library, and
+;; `citar' as the interactive front end for inserting, following and acting on
+;; citations. It is required from `sp-academic'.
+
+;;; Code:
 
 (require 'oc-natbib)
 ;; (require 'oc-csl) -- this is already declared with use-package and all the settings
@@ -174,7 +182,6 @@ Defines =sia-citar-library-backup-path= pointing to =~/Documents/literature/back
 Provides the =sp-citations= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-citations)
 ;; sp-citations.el ends here

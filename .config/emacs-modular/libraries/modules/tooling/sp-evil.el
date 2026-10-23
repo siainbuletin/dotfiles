@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*- 
-;; sp-evil.el --- Evil (vim emulation) setup 
+;;; sp-evil.el --- Optional Evil (Vim emulation) layer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -103,6 +102,5 @@
     :config
     (evil-commentary-mode 1)))
 
-;;; Provide:
 (provide 'sp-evil)
 ;;; sp-evil.el ends here

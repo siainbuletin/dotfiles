@@ -1,10 +1,20 @@
-;;; sp-vulpea-vui-table.el --- Interactive Vulpea property tables via vui.el -*- lexical-binding: t; -*-
+;;; sp-vulpea-vui-table.el --- Live Vulpea property tables with vui -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module builds an interactive table of Vulpea notes in its own buffer,
+;; using the declarative component library `vui'. Note titles are buttons that
+;; open the note, columns can be sorted by clicking, and meta properties (the
+;; description-list lines of the form KEY :: value that Vulpea reads as
+;; metadata) are editable fields that write straight back into the note file.
+
+;;; Code:
 
 (require 'vui)
 (require 'vulpea)
 (require 'sp-vulpea-dblock) ; for sia-vulpea--resolve-parent-of / sia-vulpea--note-matches-p
 
-;;; Cross-buffer refresh broadcasting ----------------------------------
+;;;; Cross-buffer refresh broadcasting ----------------------------------
 
 (defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
@@ -35,7 +45,7 @@ stale data, this delay is the first thing to lengthen."
 
 (add-hook 'after-save-hook #'sia-vulpea--schedule-refresh-after-save)
 
-;;; Writing a meta property back to its note ----------------------------
+;;;; Writing a meta property back to its note ----------------------------
 
 (defun sia-vulpea--write-meta (note key value)
   "Set NOTE's meta property KEY to VALUE, in NOTE's own file.

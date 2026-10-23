@@ -12,13 +12,18 @@ It is loaded among the window management UI modules in =init.el=. The ibuffer ic
 
 ** Header and commentary markers
 
-Lexical-binding header with empty =Commentary= and =Code= markers.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-buffers.el --- Buffer setup
+;;; sp-buffers.el --- Buffer lists and pop-up buffers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module covers two things: how the buffer list looks and behaves (the
+;; built-in `ibuffer', with icons from `nerd-icons-ibuffer'), and how transient
+;; pop-up buffers such as help, messages and compilation output are displayed
+;; (Karthik Chikmagalur's `popper' package, using settings adapted from Lambda
+;; Emacs).
 
 ;;; Code:
 #+end_src
@@ -204,7 +209,6 @@ The =:config= block defines four display functions: two that show the pop-up in 
 Provides the =sp-buffers= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-buffers)
 ;; sp-buffers.el ends here.

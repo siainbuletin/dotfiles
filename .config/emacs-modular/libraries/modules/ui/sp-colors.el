@@ -1,4 +1,4 @@
-;;; sp-colors.el --- summary -*- lexical-binding: t -*-
+;;; sp-colors.el --- Colour space and rainbow-mode -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -19,6 +19,5 @@
          (add-hook 'prog-mode-hook 'rainbow-mode))
   )
 
-;;; Provide:
 (provide 'sp-colors)
 ;;; sp-colors.el ends here

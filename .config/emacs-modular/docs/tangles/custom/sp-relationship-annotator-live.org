@@ -3,6 +3,22 @@
 
 Literate source for =libraries/modules/custom/sp-relationship-annotator-live.el=. Every line of the file lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Serves the page of `rel-anno-graph-static' from a small
+HTTP server inside Emacs, bound to 127.0.0.1 only, instead of writing
+an HTML file and opening it from disk.  The page is rendered from the
+vulpea database on each load.  An open page keeps an event stream to
+Emacs and reloads when, and only when, the data it shows has changed.
+
+  M-x rel-anno-graph         ask for a note, start, open
+  M-x rel-anno-live-open     open the last note again
+  M-x rel-anno-live-start    start the server
+  M-x rel-anno-live-stop     stop the server
+  M-x rel-anno-live-refresh  make open pages reload
+#+end_quote
+
 * A live browser view for the relationship annotator
 
 ** Context
@@ -71,7 +87,6 @@ Loaded from =init.el=, in the Academic block of =lem--default-modules=, right af
 
 #+begin_src emacs-lisp
 ;;; sp-relationship-annotator-live.el --- Serve the relationship graph on localhost, and keep it up to date -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:

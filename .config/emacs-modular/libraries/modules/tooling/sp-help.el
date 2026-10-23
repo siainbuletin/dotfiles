@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-help.el
+;;; sp-help.el --- Help, Info, dialogs and dictionaries -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -373,6 +372,5 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 (use-package devdocs
     :ensure (:wait t))
 
-;;; Provide
 (provide 'sp-help)
 ;;; sp-help.el ends here

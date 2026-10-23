@@ -12,13 +12,18 @@ Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =
 
 ** File header
 
-Lexical binding and the module's short description. The commentary section is empty.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-faces.el --- Setup for faces
+;;; sp-faces.el --- Faces, highlighting and visual feedback -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module gathers settings that change how text and the cursor look:
+;; outline heading faces in Lisp files, SVG tags in code, TODO and number
+;; highlighting, a TODO navigation transient, pulsing the current line after
+;; jumps, and highlighting of edited regions with Goggles. It also defines a
+;; small `what-face' helper for inspecting faces.
 
 ;;; Code:
 #+end_src
@@ -83,7 +88,7 @@ In programming buffers, =svg-tag-mode= draws matching text as rounded SVG labels
 
 #+begin_src emacs-lisp -i
 ;;;; SVG Library (For Tags/Labels/etc.)
-  ;;; SVG Tag Mode
+;;;;; SVG Tag Mode
 (use-package svg-tag-mode
   :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
   :hook (prog-mode . svg-tag-mode)
@@ -267,7 +272,6 @@ Turns off the fringe markers for empty lines after the end of the buffer.
 Provides the =sp-faces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

@@ -1,7 +1,7 @@
-;; -*- lexical-binding: t -*-
-;; sp-workspaces.el
+;;; sp-workspaces.el --- Tab-based workspaces and Projectile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;; Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
 ;; with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
 ;; up so that these workspaces are nicely displayed out of the way in the echo
@@ -199,8 +199,6 @@
   (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
-
-;;; Provide:
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.

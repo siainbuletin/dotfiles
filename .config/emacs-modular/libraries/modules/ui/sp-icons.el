@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-icons.el
+;;; sp-icons.el --- Nerd icons for files, dired, completion and ibuffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,8 +8,8 @@
 ;; TODO: completely remove all-the-icons from any call on the system and depend
 ;; on one icons package entirely.
 ;;
-;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched 
-;; font ("Symbols Nerd Font Mono") rather than the six separate fonts 
+;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched
+;; font ("Symbols Nerd Font Mono") rather than the six separate fonts
 ;; all-the-icons shipped.
 ;;
 ;; nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
@@ -85,8 +84,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 (use-package nerd-icons-ibuffer
   :ensure t
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-;;; Provide:
 
 (provide 'sp-icons)
 ;; sp-icons.el ends here.

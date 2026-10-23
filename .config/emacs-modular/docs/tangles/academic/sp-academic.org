@@ -12,6 +12,46 @@ The long commentary is a roadmap more than a description. It lists planned piece
 
 The file shows signs of accumulated config: BibTeX key settings are made twice with different values (the later ones win), and the =C-c w b b= binding points at a command that is not defined anywhere in the repository.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This needs to be defined a little better.
+
+This file should deal with bibliography management, as well as provide
+guidance for where the files should be found. In the future, I want some
+sort of DEVONthink integration that's genuinely useful.
+
+The academic module was created with several submodules in mind.
+
+They can be enabled and disabled together for ease of use.
+
+Components:
+- registering/processing BibTeX files
+- citation framework (citar)
+   - need to rework the citar integration (both with Denote and now with vulpea)
+   - literature notes still created with citar-denote
+   - anything pertaining to ROAM_REFS is done with vulpea-citar
+- PDF processing and integration
+   - waiting on emacs-reader (Canvas emacs patch)
+   - deep linking to PDFs
+   - integration with DEVONthink
+   - perhaps semantic search over PDFs
+- bibliographic search and database
+   - fetch papers from sci-hub
+   - integration with annas-archive
+Citar has been plugged into Denote at first, because it helps in creating literature notes
+But I would like to have a workflow similar to the BibTeX one that you get with org-roam.
+This would have to be emulated with vulpea.
+I need to test out the features provided by citar-vulpea, in this case
+
+The sp-academic.el file is created with several submodules that I can refer to independently.
+One has to create literature notes
+The other part is just for citations
+And handling the BibTeX backend
+there should also be a way to handle PDFs, especially if we're doing deeplinking with DEVONthink,
+but these details will have to be worked out later on.
+#+end_quote
+
 * Header and roadmap
 
 Comments describing what the academic module is meant to cover and how its parts relate.
@@ -21,8 +61,10 @@ Comments describing what the academic module is meant to cover and how its parts
 File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also explains the current split between =citar-denote= for literature notes and =vulpea-citar= for =ROAM_REFS=.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
@@ -60,6 +102,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+
 ;;;; Requiring sub-libraries
 #+end_src
 
@@ -83,7 +126,7 @@ Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX 
 #+begin_src emacs-lisp -i
 ;;;; Setting up the proper variables
 
-;;; Looking up academic sources 
+;;;; Looking up academic sources 
 
 (use-package biblio
   :ensure t
@@ -129,7 +172,7 @@ Configures =bibtex-generate-autokey= with a list of title words to skip (article
 Installs =org-ref=, loaded after =ox-pandoc=.
 
 #+begin_src emacs-lisp -i
-;;; Org-ref
+;;;; Org-ref
 (use-package org-ref
   :ensure t
   :after (ox-pandoc)
@@ -141,7 +184,7 @@ Installs =org-ref=, loaded after =ox-pandoc=.
 Sets =org-ref-insert-cite-function= so that inserting a citation through org-ref calls =org-cite-insert= and produces native =[cite:...]= syntax rather than org-ref links.
 
 #+begin_src emacs-lisp -i
-;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+;;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
 (setq org-ref-insert-cite-function
       (lambda ()
 	(org-cite-insert nil)))
@@ -290,7 +333,7 @@ Installs =binder=, which groups files into a manuscript project in the style of 
 Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda= group, all nil by default. =sp-citations= uses the last two for the =citar= notes path and note template. They are defined here, after that module is required, so they only take effect if the =citar= configuration runs later.
 
 #+begin_src emacs-lisp -i
-;;;; Citation Variables
+;;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
   :group 'sia-lambda
   :tag "Lambda-Emacs User Bibliography")

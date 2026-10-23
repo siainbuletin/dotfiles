@@ -1,14 +1,13 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-time.el --- Settings for org-mode when dealing with time-related issues, specifically.
+;;; sp-org-time.el --- Org time tracking and scheduling tools -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This is also really important for task management, but it lives separately as 
+;; This is also really important for task management, but it lives separately as
 ;; an issue of scheduling, more specifically.
 
 ;;; Code:
 
-;;; Org Pomodoro
+;;;; Org Pomodoro
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro

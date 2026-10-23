@@ -12,10 +12,20 @@ Optional extras (=flyspell-correct= and =consult-flyspell=) load only when =sp-l
 
 ** Header
 
-Enables lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-spelling.el --- Spell checking -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures spell checking with the built-in `ispell' and
+;; `flyspell' libraries, preferring the external `aspell' program when it is
+;; installed. Flyspell is deliberately not switched on automatically: a stalled
+;; speller process once froze the Emacs daemon, so spell checking is used on
+;; demand.
+
+;;; Code:
 #+end_src
 
 ** ispell
@@ -150,7 +160,6 @@ When extras are enabled, =consult-flyspell= lists every misspelled word in the b
 Provides the =sp-spelling= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-spelling)
 ;; sp-spelling.el ends here.

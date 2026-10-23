@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-macos.el --- settings specific to the MacOS environment.
+;;; sp-macos.el --- macOS integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -97,7 +96,7 @@
   (require 'ls-lisp)
   (setq ls-lisp-use-insert-directory-program nil))
 
-;;;;; macOS system-appearance dispatch
+;;;; macOS system-appearance dispatch
 ;; Delegate Light/Dark choice to macOS. The system already does
 ;; sunrise/sunset when set to Auto, and reflects manual flips
 ;; instantly -- following it removes every source of drift between
@@ -152,7 +151,7 @@ is treated as light."
               #'lem--system-apply-theme))
   (lem--system-apply-theme (lem--macos-current-appearance)))
 
-;;;;; Daemon client-frame sync
+;;;; Daemon client-frame sync
 
 ;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
 ;; never receives NS appearance-change events, so the hook above never
@@ -173,15 +172,13 @@ live system appearance instead of the daemon's stale startup value."
   (add-hook 'server-after-make-frame-hook #'lem--sync-theme-on-new-frame))
 
 ;; taken from Lambda emacs
-;;; Org Mac Link
+;;;; Org Mac Link
 (use-package org-mac-link
     :ensure t
     :after org
     :hook (org-mode . (lambda ()
                         (define-key org-mode-map (kbd "C-c g")
                           'org-mac-link-get-link))))
-
-;;; Provide:
 
 (provide 'sp-macos)
 ;; sp-macos.el ends here.

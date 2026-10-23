@@ -3,6 +3,30 @@
 
 Literate source for =libraries/modules/custom/sp-relationship-annotator.el= and its page template =libraries/modules/custom/sp-relationship-annotator.html=. Every line of both files lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each HTML block carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Reads relationships between vulpea notes (the `parent' relation builds
+a hierarchy; others such as `supports' are links) and shows part of
+them, starting from a note you choose:
+
+  M-x rel-anno-graph-static   static HTML page in the browser
+  M-x rel-anno-outline-native buttons in an Emacs buffer
+  M-x rel-anno-outline-vui    the same outline built with vui (trial)
+  M-x rel-anno-svg            static Graphviz SVG (needs `dot')
+
+Each command first asks for a starting note and a depth.  The depth
+counts levels below the starting note.  Notes at the last level show
+how many children they hide.  The browser graph holds
+`relationship-annotator-embed-depth' levels (4) and can't load more, so run
+the command again from another note, or with a bigger depth.  The
+outline expands any node on demand.
+
+Other relations between notes (`supports', `opposes', ...) are drawn
+as labelled links.  See `relationship-annotator-relations' for how to
+declare them and where each one is read from.
+#+end_quote
+
 * Typed relationships between vulpea notes
 
 ** Context
@@ -46,14 +70,10 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 
 *** Header and commentary (lines 1–27)
 
-- Line 1 names the file and turns on =lexical-binding=, which the closures below need.
-- Line 3 declares the minimum versions: Emacs 29.1, vulpea 2.7.0, and vui 1.4.0 for the trial outline.
-- Lines 5-25 are the commentary. It says what the module reads (relationships between notes: =parent= builds a hierarchy, the others are links), lists the four commands, explains that every command asks for a starting note and a depth, and that notes on the last level show how many children they hide. It ends by pointing to =relationship-annotator-relations=.
-- Line 27 marks where the code starts.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp :padline no
 ;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:

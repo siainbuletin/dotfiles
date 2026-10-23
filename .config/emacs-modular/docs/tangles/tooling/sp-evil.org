@@ -8,24 +8,47 @@ This module adds modal, Vim style editing through =evil=, with =evil-collection=
 
 It is opt-in twice over. It is commented out of both module lists in =init.el=, so by default it is not loaded at all, and even when loaded it installs and configures nothing unless =sp-load-extras= is non-nil. Unlike most modules, its packages install themselves with =:ensure t=, so the Evil package set only lands for people who turn it on. The commentary explains that the escape to quit bindings already live elsewhere; in this repository they are in =sp-helper-funct=, guarded by =with-eval-after-load 'evil=, and they wake up when this module loads Evil.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+A basic Evil layer for Lambda-Emacs: modal (vim-style) editing via
+`evil', broad keybinding coverage via `evil-collection', and the
+`evil-surround' / `evil-commentary' operators.
+
+This module is opt-in on two axes, and both must hold before any evil
+package is installed:
+
+  1. `sp-evil' must be loaded (added to your module list); an
+     unloaded file installs nothing.
+  2. `sp-load-extras' must be non-nil.
+
+Unlike most setup modules -- which gate on packages installed
+out-of-band from `sp-packages-alist' -- this one self-installs via
+`:ensure t', so the (fairly heavy) evil package set lands only for
+users who actually turn it on, not as part of the default install.
+The forms are wrapped in `(when sp-load-extras ...)' rather than
+carrying a per-form `:when', because use-package emits its `:ensure'
+install call OUTSIDE any `:when'/`:if' guard; only a wrapping form
+encloses the install so `sp-load-extras' can gate it too. `provide'
+stays outside the guard so `(require 'sp-evil)' always succeeds.
+
+This module is deliberately NOT part of `sp--default-modules', so
+plain lambda-emacs stays non-modal. Escape-to-quit bindings and the
+splash's hand-off to emacs-state already live in sp-setup-functions.el
+and sp-setup-splash.el, so they are not repeated here.
+#+end_quote
+
 * Header and commentary
 
 ** File header
 
-The file header and the start of the commentary.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*- 
-;; sp-evil.el --- Evil (vim emulation) setup 
+;;; sp-evil.el --- Optional Evil (Vim emulation) layer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-#+end_src
 
-** Why the module is gated this way
-
-The commentary explains the two conditions for loading Evil and why the forms are wrapped in a single =when= rather than using per package =:when= keywords: use-package emits the =:ensure= install call outside those guards, so only an enclosing form can stop the install. =provide= sits outside the guard so requiring the module always succeeds. It also notes that the module is deliberately left out of the default modules so the config stays non-modal.
-
-#+begin_src emacs-lisp -i
 ;; A basic Evil layer for Lambda-Emacs: modal (vim-style) editing via
 ;; `evil', broad keybinding coverage via `evil-collection', and the
 ;; `evil-surround' / `evil-commentary' operators.
@@ -144,7 +167,6 @@ This block covers four packages. =evil= is configured before loading: it leaves 
 Provides the =sp-evil= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 (provide 'sp-evil)
 ;;; sp-evil.el ends here
 #+end_src

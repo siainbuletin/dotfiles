@@ -1,7 +1,12 @@
-;; -*- lexical-binding: t; -*-
-;; sp-buffers.el --- Buffer setup
+;;; sp-buffers.el --- Buffer lists and pop-up buffers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module covers two things: how the buffer list looks and behaves (the
+;; built-in `ibuffer', with icons from `nerd-icons-ibuffer'), and how transient
+;; pop-up buffers such as help, messages and compilation output are displayed
+;; (Karthik Chikmagalur's `popper' package, using settings adapted from Lambda
+;; Emacs).
 
 ;;; Code:
 
@@ -122,8 +127,6 @@
        (side . right)
        (slot . 1))))
        )
-
-;;; Provide:
 
 (provide 'sp-buffers)
 ;; sp-buffers.el ends here.

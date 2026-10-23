@@ -1,7 +1,8 @@
-;; -*- lexical-binding: t -*-
-;; lem-dashboard.el
+;;; sp-lem-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; lem-dashboard.el
 
 ;; This is the slightly modified version of Lambda dashboard (adapted for my
 ;; own readability within the code).
@@ -56,11 +57,11 @@
 
 ;; (require 'dashboard)
 
-;;; Cosmetics for the bar
+;;;; Cosmetics for the bar
 
 (setq dashboard-vertically-center-content t)
 
-;;;; Header
+;;;;; Header
 (setq dashboard-startup-banner (concat sp-library-dir
                                   (if (eq (car custom-enabled-themes) 'lambda-dark)
                                       "lambda-logo-white.png"
@@ -69,13 +70,13 @@
 ;; this if loop makes it easy to just choose between the different versons without
 ;; overcomplicating the color scheme that is being chosen
 
-;;;;; Banner
+;;;;;; Banner
 (setq dashboard-banner-logo-title "Welcome to Emacs!")
 (setq dashboard-startup-banner '3)
 (setq dashboard-image-banner-max-width 200)
 (setq dashboard-image-banner-max-height 200)
 
-;;;; Footer
+;;;;; Footer
 (setq dashboard-set-footer t)            
 (setq dashboard-icon-type 'nerd-icons)   ;; Tell dashboard to use the nerd-icons backend for heading/file icons.
 ;; (setq dashboard-footer-icon (nerd-icons-sucicon "nf-custom-emacs"
@@ -84,17 +85,17 @@
 ;;                                           :face 'font-lock-constant-face))
 ;; for some reason, nerd-icons-sucicon errors out.
 
-;;;; Add icons
+;;;;; Add icons
 (setq dashboard-set-heading-icons t)
 (setq dashboard-set-file-icons t)
 
-;;; Dashboard items
+;;;; Dashboard items
 (setq dashboard-items '((recents   . 5)
                         (bookmarks . 5)
                         (agenda    . 7)
                         (registers . 5)))
 
-;;; Shortcuts for reaching the elements
+;;;; Shortcuts for reaching the elements
 (setq dashboard-show-shortcuts t)
 
 (setq dashboard-item-shortcuts '((recents   . "r")
@@ -102,7 +103,7 @@
                                  (agenda    . "a")
                                  (registers . "e")))
 
-;;;; Dashboard Functions
+;;;;; Dashboard Functions
 ;; Hide modeline
 ;; this makes the dashboard a little bit cleaner
 ;; but the important stuff that shows up in the modeline should somehow be supplemented by the dashboard
@@ -129,8 +130,6 @@
   "Goto the dashboard."
   (interactive)
   (switch-to-buffer "*dashboard*"))
-
-;;; Provide:
 
 (provide 'lem-dashboard)
 ;; lem-dashboard.el ends here.

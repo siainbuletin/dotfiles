@@ -10,6 +10,23 @@ This module sets up =nerd-icons= and its companion packages, which add file and 
 
 Most of the packages are only configured when =sp-load-extras= (from =early-init.el=) is non-nil and the library is actually installed. The font check uses =sp-font-available-p= from =sp-fonts=. In a GUI the font has to be installed on the system once with =M-x nerd-icons-install-fonts=. The module is loaded early in the UI section of =init.el=, before =sp-colors= and =sp-fonts=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+The code for icons that was found in Lambda Emacs ~lem-setup-fonts~ now lives in a
+separate file.
+
+TODO: completely remove all-the-icons from any call on the system and depend
+on one icons package entirely.
+
+The reason for choosing nerd-icons instead is that it uses a SINGLE patched
+font ("Symbols Nerd Font Mono") rather than the six separate fonts
+all-the-icons shipped.
+
+nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
+gate -- this omits the (display-graphic-p) condition.
+#+end_quote
+
 * Header
 
 ** File header and commentary
@@ -17,8 +34,7 @@ Most of the packages are only configured when =sp-load-extras= (from =early-init
 Lexical binding and the commentary explaining the switch to nerd-icons. It includes a TODO to remove all remaining uses of all-the-icons, and notes that, unlike the old setup, nothing here is limited to graphical frames.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-icons.el
+;;; sp-icons.el --- Nerd icons for files, dired, completion and ibuffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -28,8 +44,8 @@ Lexical binding and the commentary explaining the switch to nerd-icons. It inclu
 ;; TODO: completely remove all-the-icons from any call on the system and depend
 ;; on one icons package entirely.
 ;;
-;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched 
-;; font ("Symbols Nerd Font Mono") rather than the six separate fonts 
+;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched
+;; font ("Symbols Nerd Font Mono") rather than the six separate fonts
 ;; all-the-icons shipped.
 ;;
 ;; nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
@@ -151,7 +167,6 @@ Adds icons to ibuffer lists. Unlike the packages above it is always installed an
 Provides the =sp-icons= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-icons)
 ;; sp-icons.el ends here.

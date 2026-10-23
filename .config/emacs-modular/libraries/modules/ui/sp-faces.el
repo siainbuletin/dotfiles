@@ -1,7 +1,12 @@
-;; -*- lexical-binding: t; -*-
-;; sp-faces.el --- Setup for faces
+;;; sp-faces.el --- Faces, highlighting and visual feedback -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module gathers settings that change how text and the cursor look:
+;; outline heading faces in Lisp files, SVG tags in code, TODO and number
+;; highlighting, a TODO navigation transient, pulsing the current line after
+;; jumps, and highlighting of edited regions with Goggles. It also defines a
+;; small `what-face' helper for inspecting faces.
 
 ;;; Code:
 
@@ -34,7 +39,7 @@
   (global-reveal-mode))
 
 ;;;; SVG Library (For Tags/Labels/etc.)
-  ;;; SVG Tag Mode
+;;;;; SVG Tag Mode
 (use-package svg-tag-mode
   :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
   :hook (prog-mode . svg-tag-mode)
@@ -145,8 +150,6 @@
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
-
-;;; Provide:
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

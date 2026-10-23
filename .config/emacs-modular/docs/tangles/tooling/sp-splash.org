@@ -10,23 +10,29 @@ This module replaces the stock Emacs startup screen with a =*splash*= buffer sho
 
 It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+ An alternative splash screen:
+this is also including the ascii art of the lambda sign, which will show up in the dashboard
+I gotta test to see if it works with the dashboard
+
+Note: The screen is not shown if there are opened file buffers. For
+      example, if you start emacs with a filename on the command
+      line, the splash is not shown.
+#+end_quote
+
 * Header and commentary
 
 ** File header
 
-Standard file header enabling lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-splash.el --- An alternative splash screen
-#+end_src
+;;; sp-splash.el --- Custom lambda splash screen -*- lexical-binding: t; -*-
 
-** Commentary
-
-The author notes that the splash includes lambda ASCII art and that its interaction with the dashboard still needs testing, and that the splash is skipped when Emacs is started with a file on the command line.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
+
 ;;
 ;;  An alternative splash screen:
 ;; this is also including the ascii art of the lambda sign, which will show up in the dashboard
@@ -35,6 +41,8 @@ The author notes that the splash includes lambda ASCII art and that its interact
 ;; Note: The screen is not shown if there are opened file buffers. For
 ;;       example, if you start emacs with a filename on the command
 ;;       line, the splash is not shown.
+
+;;; Code:
 #+end_src
 
 * Dependencies and customization group
@@ -44,7 +52,6 @@ The author notes that the splash includes lambda ASCII art and that its interact
 Loads =cl-lib= and, only when it can be found on the load path, =nerd-icons=. The guard keeps a minimal boot without nerd-icons from crashing at load time. Note that the graphical renderer still calls =nerd-icons-faicon= unconditionally, so it would fail without the package.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 (require 'cl-lib)
 ;; Guarded require: without this, a sandbox boot with sp-load-extras
 ;; nil and no nerd-icons installed would crash module-load here.
@@ -843,7 +850,6 @@ Adds the setup function to =window-setup-hook=, which runs after the frame param
 Provides the =sp-splash= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-splash)
 ;;; sp-splash.el ends here

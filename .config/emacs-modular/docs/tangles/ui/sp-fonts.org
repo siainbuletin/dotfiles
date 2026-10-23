@@ -16,13 +16,17 @@ The default face is set several times as the file loads (PT Mono at 120 through 
 
 ** Header and commentary markers
 
-Lexical-binding header with empty =Commentary= and =Code= markers.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-fonts.el
+;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module sets up typography: the default, variable-pitch and symbol
+;; fonts, emoji and fallback glyphs, line spacing, text scaling keys, a larger
+;; minibuffer font, `mixed-pitch' for prose buffers, and the `lin'
+;; line-highlighting package.
 
 ;;; Code:
 #+end_src
@@ -500,7 +504,7 @@ Binds ~M-+~ and ~M-=~ to increase and ~M--~ to decrease the font size. These rep
 Installs Protesilaos Stavrou's =lin=, which makes =hl-line-mode= more prominent in list-like buffers.
 
 #+begin_src emacs-lisp -i
-;;; Lin package
+;;;; Lin package
 (use-package lin
   :ensure t)
 #+end_src

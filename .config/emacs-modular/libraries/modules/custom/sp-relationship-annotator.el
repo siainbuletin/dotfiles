@@ -1,5 +1,4 @@
 ;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:
