@@ -3,6 +3,30 @@
 
 Literate source for =libraries/modules/custom/sp-relationship-annotator.el= and its page template =libraries/modules/custom/sp-relationship-annotator.html=. Every line of both files lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each HTML block carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Reads relationships between vulpea notes (the `parent' relation builds
+a hierarchy; others such as `supports' are links) and shows part of
+them, starting from a note you choose:
+
+  M-x rel-anno-graph-static   static HTML page in the browser
+  M-x rel-anno-outline-native buttons in an Emacs buffer
+  M-x rel-anno-outline-vui    the same outline built with vui (trial)
+  M-x rel-anno-svg            static Graphviz SVG (needs `dot')
+
+Each command first asks for a starting note and a depth.  The depth
+counts levels below the starting note.  Notes at the last level show
+how many children they hide.  The browser graph holds
+`relationship-annotator-embed-depth' levels (4) and can't load more, so run
+the command again from another note, or with a bigger depth.  The
+outline expands any node on demand.
+
+Other relations between notes (`supports', `opposes', ...) are drawn
+as labelled links.  See `relationship-annotator-relations' for how to
+declare them and where each one is read from.
+#+end_quote
+
 * Typed relationships between vulpea notes
 
 ** Context
@@ -11,21 +35,22 @@ My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records
 
 Besides =parents=, a note can relate to other notes in other ways: =supports=, =opposes=, =informs=, =answers=, or any relation you declare in =relationship-annotator-relations=. Each relation lists the places it is read from: a metadata key on the note, the inverse of a key on the other note (=children= for =parents=), or a file property such as =DG_SUPPORTS=, which is how =discourse-graphs= stores its relations. Parents and children build the tree. The other relations are drawn as labelled, coloured, dashed links between two notes that are both in view.
 
-Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
+Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box, or Tab to it and Enter, recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
 
-The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =relationship-annotator-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. The old names of the variables and commands still work. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
+The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
 
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
 ** The commands
 
-| Command                                 | What it shows                                                                                                                   |
-|-----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------|
-| =relationship-annotator-graph=          | An interactive graph in the browser: pan, zoom, click a box to recentre, fold with the marker.                                  |
-| =relationship-annotator-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                 |
-| =relationship-annotator-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                     |
-| =relationship-annotator-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                 |
-| =relationship-annotator-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question. |
+| Command                   | What it shows                                                                                                                      |
+|---------------------------+------------------------------------------------------------------------------------------------------------------------------------|
+| =rel-anno-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]]). |
+| =rel-anno-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                               |
+| =rel-anno-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                    |
+| =rel-anno-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                        |
+| =rel-anno-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                    |
+| =rel-anno-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question.    |
 
 Notes on the last level show how many children they hide (=+N= in the browser, a count in the outline). The browser graph can't load more, so run it again with a bigger depth; the outlines expand any note on demand.
 
@@ -45,14 +70,10 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 
 *** Header and commentary (lines 1–27)
 
-- Line 1 names the file and turns on =lexical-binding=, which the closures below need.
-- Line 3 declares the minimum versions: Emacs 29.1, vulpea 2.7.0, and vui 1.4.0 for the trial outline.
-- Lines 5-25 are the commentary. It says what the module reads (relationships between notes: =parent= builds a hierarchy, the others are links), lists the four commands, explains that every command asks for a starting note and a depth, and that notes on the last level show how many children they hide. It ends by pointing to =relationship-annotator-relations=.
-- Line 27 marks where the code starts.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp :padline no
 ;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:
@@ -61,10 +82,10 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 ;; a hierarchy; others such as `supports' are links) and shows part of
 ;; them, starting from a note you choose:
 ;;
-;;   M-x relationship-annotator-graph          interactive graph in the browser (default)
-;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
-;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
-;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
+;;   M-x rel-anno-graph-static   static HTML page in the browser
+;;   M-x rel-anno-outline-native buttons in an Emacs buffer
+;;   M-x rel-anno-outline-vui    the same outline built with vui (trial)
+;;   M-x rel-anno-svg            static Graphviz SVG (needs `dot')
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
@@ -207,12 +228,12 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
-  "Where `relationship-annotator-graph' writes its HTML page."
+  "Where `rel-anno-graph-static' writes its HTML page."
   :type 'file)
 
 (defcustom relationship-annotator-svg-directory
   (expand-file-name "relationship-annotator/" sp-cache-dir)
-  "Directory where `relationship-annotator-svg' writes its SVG files."
+  "Directory where `rel-anno-svg' writes its SVG files."
   :type 'directory)
 
 (defcustom relationship-annotator-rankdir "TB"
@@ -900,7 +921,7 @@ The package shows these results in dynamic blocks inside an Org file. This modul
 
 - Lines 672-673 define a buffer-local variable that keeps the tree the buffer was made from, so the buttons can find their notes.
 - Lines 675-685 define a helper that inserts a button with the title of a note. Pressing it visits the note, and the tooltip shows the file.
-- Lines 687-688 are the autoload cookie and the definition of =relationship-annotator-review=. Its documentation string (lines 690-693) names the three sections.
+- Lines 687-688 are the autoload cookie and the definition of =rel-anno-review=. Its documentation string (lines 690-693) names the three sections.
 - Lines 695-701 build the tree and its context and open the buffer, in =special-mode=.
 - The first section lists the anomalies: the subject, the relation and the object, with the message after them. It says "none" when there are none.
 - The second section goes through every claim in id order, so the list is the same each time, and prints the gaps of those that have any.
@@ -926,7 +947,7 @@ The package shows these results in dynamic blocks inside an Org file. This modul
                                   ""))))
 
 ;;;###autoload
-(defun relationship-annotator-review ()
+(defun rel-anno-review ()
   "List edges that break the type patterns, gaps in claims, and answers.
 Three sections: edges whose note types do not fit the relation, claims
 with gaps in their argument, and each question with its answers and how
@@ -997,7 +1018,7 @@ well each stands.  RET on a title visits the note."
 (defconst relationship-annotator--html-template-file
   (expand-file-name "sp-relationship-annotator.html"
                     (file-name-directory (or load-file-name buffer-file-name)))
-  "File holding the HTML template for `relationship-annotator-graph'.
+  "File holding the HTML template for the graph pages.
 The placeholder `__DATA__' is replaced with the JSON data.")
 
 (defun relationship-annotator--html-template ()
@@ -1166,7 +1187,9 @@ in it and cut the part to show by itself."
                                     (relationship-annotator--html-template)))))
 #+end_src
 
-*** The graph command (lines 890–903)
+*** The static graph command (lines 890–903)
+
+This is the old =rel-anno-graph=, renamed. The name =rel-anno-graph= now belongs to the live view in [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]], which builds the same page.
 
 - Line 890 is the autoload cookie, so the command is available before the module loads, and line 891 defines it.
 - Lines 892-894 are the documentation: the page holds =relationship-annotator-embed-depth= levels below the starting note, and a click on a box recentres the graph on it within those levels.
@@ -1177,8 +1200,8 @@ in it and cut the part to show by itself."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-graph ()
-  "Ask for a starting note and depth, then open the hierarchy in the browser.
+(defun rel-anno-graph-static ()
+  "Ask for a starting note and depth, then open a static HTML page of the hierarchy.
 The page holds `relationship-annotator-embed-depth' levels below the starting
 note.  Clicking a box recentres the graph on it, within those levels."
   (interactive)
@@ -1226,9 +1249,9 @@ All four are buffer-local, so several outline buffers can exist at once.
 (defvar relationship-annotator-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
-    (define-key map (kbd "TAB") #'relationship-annotator-view-toggle)
-    (define-key map (kbd "c") #'relationship-annotator-view-recenter)
-    (define-key map (kbd "g") #'relationship-annotator-view-redraw)
+    (define-key map (kbd "TAB") #'rel-anno-view-toggle)
+    (define-key map (kbd "c") #'rel-anno-view-recenter)
+    (define-key map (kbd "g") #'rel-anno-view-redraw)
     map)
   "Keymap for `relationship-annotator-view-mode'.")
 
@@ -1375,7 +1398,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Line 1020 redraws the buffer.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-toggle ()
+(defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
   (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
@@ -1393,7 +1416,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Line 1027 redraws.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-redraw ()
+(defun rel-anno-view-redraw ()
   "Rebuild the tree from the database and redraw."
   (interactive)
   (setq relationship-annotator--tree (relationship-annotator--build))
@@ -1408,7 +1431,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Lines 1036-1037 expand to the new depth and redraw.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-recenter ()
+(defun rel-anno-view-recenter ()
   "Ask for a new starting note and depth, then redraw."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1431,7 +1454,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-outline-native ()
+(defun rel-anno-outline-native ()
   "Ask for a starting note and depth, then show the hierarchy as buttons."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1539,7 +1562,7 @@ Each note is one component with its own state, so pressing a button redraws only
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-outline-vui ()
+(defun rel-anno-outline-vui ()
   "Ask for a starting note and depth, then show the hierarchy with vui."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1691,7 +1714,7 @@ exports of the same note never overwrite each other."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-svg ()
+(defun rel-anno-svg ()
   "Ask for a starting note and depth, then write and show a Graphviz SVG."
   (interactive)
   (unless (executable-find "dot")
@@ -1709,36 +1732,10 @@ exports of the same note never overwrite each other."
     (pop-to-buffer (find-file-noselect file))))
 #+end_src
 
-*** Old names (lines 1233–1249)
+*** Provide (lines 1233–1234)
 
-- Lines 1235-1236 explain why this section exists: the module used to be called =sp-vulpea-hierarchy=.
-- Lines 1238-1243 make every old customisation variable an obsolete alias of the new one. They are =relations=, =tag-colors=, =default-depth=, =html-file=, =svg-directory=, =rankdir= and =wrap-width=, and the loop builds both names from the same word. A setting you made under the old name keeps working. So does =sp-dg-positions=, which tests =vulpea-hierarchy-rankdir= with =boundp=: an alias is bound whenever its target is.
-- Lines 1245-1249 do the same for the commands =graph=, =outline-native=, =outline-vui= and =svg=. Both loops date the alias 2026-10-20, so the byte compiler warns about the old names.
-
-#+begin_src emacs-lisp
-;;;; Old names
-
-;; The module used to be `sp-vulpea-hierarchy'.  The old names keep
-;; working, which also keeps `sp-dg-positions' reading the same rankdir.
-
-(dolist (name '(relations tag-colors default-depth html-file svg-directory
-                          rankdir wrap-width))
-  (define-obsolete-variable-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
-    "2026-10-20"))
-
-(dolist (name '(graph outline-native outline-vui svg))
-  (define-obsolete-function-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
-    "2026-10-20"))
-#+end_src
-
-*** Provide (lines 1251–1252)
-
-- Line 1251 provides the feature, so =(require 'sp-relationship-annotator)= works.
-- Line 1252 is the conventional end-of-file line.
+- Line 1233 provides the feature, so =(require 'sp-relationship-annotator)= works.
+- Line 1234 is the conventional end-of-file line.
 
 #+begin_src emacs-lisp
 (provide 'sp-relationship-annotator)
@@ -1764,7 +1761,7 @@ The browser graph is a single HTML page with its own style and script. Emacs fil
 <title>relationship annotator</title>
 #+end_src
 
-*** Styles (lines 7–28)
+*** Styles (lines 7–29)
 - Line 8 defines the light colours as variables: background, text, muted text, box, edge and root box.
 - Line 9 switches to dark colours when the browser prefers dark, unless the page asks for light.
 - Line 10 does the same when the page asks for dark.
@@ -1776,9 +1773,10 @@ The browser graph is a single HTML page with its own style and script. Emacs fil
 - Line 18 gives the legend swatches a size and a slight transparency, like the tinted boxes.
 - Line 19 makes the box text ignore the mouse and sets its font.
 - Line 20 styles the fold marker in the corner of a box. It has to come after line 19 and be as specific (=.node text.fold=), because line 19 would otherwise turn off the mouse for the marker as well, and a click on it would recentre the graph instead of folding. The rule turns the mouse back on, and gives the marker a smaller font, the muted colour and a pointer cursor.
-- Line 21 gives the tags and the hidden-children count a muted colour, and line 22 makes the badge (the number in brackets) bold.
-- Line 23 styles the tree lines. Lines 24-25 style the other relations: a dashed line, and a label with an outline in the page colour so it stays readable over the line.
-- Lines 26-27 place the legend at the bottom left and space its entries.
+- Line 21 gives a box focused with Tab the thick outline of the centre, instead of the browser's focus ring.
+- Line 22 gives the tags and the hidden-children count a muted colour, and line 23 makes the badge (the number in brackets) bold.
+- Line 24 styles the tree lines. Lines 25-26 style the other relations: a dashed line, and a label with an outline in the page colour so it stays readable over the line.
+- Lines 27-28 place the legend at the bottom left and space its entries.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
 <style>
@@ -1795,6 +1793,7 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 #legend i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;opacity:.7}
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node text.fold{pointer-events:all;font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
+.node:focus{outline:none}.node:focus rect{stroke-width:2.5}
 .node .tags,.node .more{fill:var(--muted)}
 .node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
@@ -1805,11 +1804,11 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 </style>
 #+end_src
 
-*** Page body (lines 29–34)
-- Line 31 is the header. Its right side (=ctl=) holds the buttons, its left side (=head=) the text, both filled in by the script.
-- Line 32 is the drawing area. The group =vp= holds everything drawn, and it is moved and scaled to pan and zoom.
-- Line 33 is the legend, filled in by the script.
-- Line 34 is a script that Emacs fills with the four vendored libraries (=__LIBS__=): =layout-base=, =cose-base=, =cytoscape= and =cytoscape-fcose=. They give the page the fCoSE layout. See =vendor/relationship-annotator/README.org=.
+*** Page body (lines 30–35)
+- Line 32 is the header. Its right side (=ctl=) holds the buttons, its left side (=head=) the text, both filled in by the script.
+- Line 33 is the drawing area. The group =vp= holds everything drawn, and it is moved and scaled to pan and zoom.
+- Line 34 is the legend, filled in by the script.
+- Line 35 is a script that Emacs fills with the four vendored libraries (=__LIBS__=): =layout-base=, =cose-base=, =cytoscape= and =cytoscape-fcose=. They give the page the fCoSE layout. See =vendor/relationship-annotator/README.org=.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
 </head>
@@ -1820,21 +1819,21 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 <script>__LIBS__</script>
 #+end_src
 
-*** Script: data and state (lines 35–59)
-- Line 36 is where Emacs puts the JSON (=__DATA__=). It holds the tree cut to the embed depth, not only the part first shown.
-- Line 37 is the SVG namespace.
-- Line 38 sets the sizes. =W= is the box width, =PAD= the space left and right of the text, =LINE= the height of one text line, =VPAD= the space above and below the text, =GAPX= and =GAPY= the least space between boxes sideways and vertically.
-- Line 39 is the width left for text inside a box.
-- Lines 40-41 index the notes by id and look up a title.
-- Lines 42-44 group the edges into a table of children for the tree the page holds, and sort each list by title.
-- Line 45 reads the hidden-children counts from the data (none when there are none).
-- Line 46 holds the note the graph is centred on and the depth. They start as the values Emacs chose, and a click changes them.
-- Line 47 holds the part in view: the children of each note down to the depth, and how many children each last-level note hides. Line 48 is the list of earlier centres, for going back.
-- Line 49 is the set of boxes the user folded. Line 50 caches the wrapped text of each box. Line 51 holds the box of each note after the layout: its position and height. Line 52 looks up the label, colour and direction of each relation by name.
-- Line 53 is the current pan and zoom. Line 54 is how strongly a tag colour tints a box.
-- Lines 55-56 find the drawing group and the =svg= element.
-- Lines 57-58 create an off-screen canvas, only to measure text. Its font matches the one in the stylesheet.
-- Line 59 tracks dragging, so that a drag is not taken for a click.
+*** Script: data and state (lines 36–60)
+- Line 37 is where Emacs puts the JSON (=__DATA__=). It holds the tree cut to the embed depth, not only the part first shown.
+- Line 38 is the SVG namespace.
+- Line 39 sets the sizes. =W= is the box width, =PAD= the space left and right of the text, =LINE= the height of one text line, =VPAD= the space above and below the text, =GAPX= and =GAPY= the least space between boxes sideways and vertically.
+- Line 40 is the width left for text inside a box.
+- Lines 41-42 index the notes by id and look up a title.
+- Lines 43-45 group the edges into a table of children for the tree the page holds, and sort each list by title.
+- Line 46 reads the hidden-children counts from the data (none when there are none).
+- Line 47 holds the note the graph is centred on and the depth. They start as the values Emacs chose, and a click changes them.
+- Line 48 holds the part in view: the children of each note down to the depth, and how many children each last-level note hides. Line 49 is the list of earlier centres, for going back.
+- Line 50 is the set of boxes the user folded. Line 51 caches the wrapped text of each box. Line 52 holds the box of each note after the layout: its position and height. Line 53 looks up the label, colour and direction of each relation by name.
+- Line 54 is the current pan and zoom. Line 55 is how strongly a tag colour tints a box.
+- Lines 56-57 find the drawing group and the =svg= element.
+- Lines 58-59 create an off-screen canvas, only to measure text. Its font matches the one in the stylesheet.
+- Line 60 tracks dragging, so that a drag is not taken for a click.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
 <script>
@@ -1864,14 +1863,14 @@ ctx.font = '14px system-ui, sans-serif';
 let dragStart = null, dragged = false;
 #+end_src
 
-*** Script: cutting the part to show (lines 61–77)
+*** Script: cutting the part to show (lines 62–78)
 Lines 61-77 define =cut=, the same breadth-first walk that =relationship-annotator--scope= does in Emacs lisp, now in the page so it can run again after a click.
 
-- Line 62 empties the part in view and the caches, and forgets which boxes were folded.
-- Line 63 marks the centre as seen and queues it at level 0.
-- Lines 64-65 take the next note and its children from the whole tree.
-- Lines 66-71 handle a note above the last level: every child gets an edge (68-69), and a child met for the first time is queued one level down (70). A child met twice still gets its edge, so a note with two parents shows under both.
-- Line 73 reads how many children Emacs cut off the note. Lines 74-75 count the children the depth hides, add the ones Emacs cut off, and put the total in =more= when it isn't zero. A note at the edge of what the page holds has no children in the page, so only the count from Emacs shows.
+- Line 63 empties the part in view and the caches, and forgets which boxes were folded.
+- Line 64 marks the centre as seen and queues it at level 0.
+- Lines 65-66 take the next note and its children from the whole tree.
+- Lines 67-72 handle a note above the last level: every child gets an edge (69-70), and a child met for the first time is queued one level down (71). A child met twice still gets its edge, so a note with two parents shows under both.
+- Line 74 reads how many children Emacs cut off the note. Lines 75-76 count the children the depth hides, add the ones Emacs cut off, and put the total in =more= when it isn't zero. A note at the edge of what the page holds has no children in the page, so only the count from Emacs shows.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function cut() {
@@ -1893,9 +1892,9 @@ function cut() {
 }
 #+end_src
 
-*** Script: recentring and going back (lines 79–88)
-- Lines 79-83 define =recentre=. It optionally saves the current centre in the history (80), sets the new centre and depth, never below 1 (81), then cuts the new part and draws it fitted to the window (82).
-- Lines 85-88 define =back=, which goes to the last saved centre without saving the current one.
+*** Script: recentring and going back (lines 80–89)
+- Lines 80-84 define =recentre=. It optionally saves the current centre in the history (81), sets the new centre and depth, never below 1 (82), then cuts the new part and draws it fitted to the window (83).
+- Lines 86-89 define =back=, which goes to the last saved centre without saving the current one.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function recentre(id, newDepth, remember) {
@@ -1910,10 +1909,10 @@ function back() {
 }
 #+end_src
 
-*** Script: header text and buttons (lines 90–104)
-- Lines 90-94 define =updateHeader=: the centre note, the depth, and a hint about the mouse.
-- Lines 96-103 make three buttons on the right of the header: back, one level less, one level more. The two depth buttons recentre on the same note with another depth, so they cut again.
-- Line 104 makes Backspace go back.
+*** Script: header text and buttons (lines 91–105)
+- Lines 91-95 define =updateHeader=: the centre note, the depth, and a hint about the mouse.
+- Lines 97-104 make three buttons on the right of the header: back, one level less, one level more. The two depth buttons recentre on the same note with another depth, so they cut again.
+- Line 105 makes Backspace go back.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function updateHeader() {
@@ -1933,18 +1932,18 @@ for (const [text, tip, fn] of [['←', 'back (Backspace)', back],
 addEventListener('keydown', e => { if (e.key === 'Backspace') back(); });
 #+end_src
 
-*** Script: measuring text (lines 106–106)
+*** Script: measuring text (lines 107–107)
 Line 106 returns how wide a string is in pixels, using the canvas. The wrapping below depends on it.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function measure(s) { return ctx.measureText(s).width; }
 #+end_src
 
-*** Script: the pieces of a label (lines 108–127)
+*** Script: the pieces of a label (lines 109–128)
 A label is a list of pieces, and a piece is never split across lines unless it is too long for a whole line.
 
-- Lines 108-114 define =tokensOf=. It makes one piece per word of the title (109), then the file tags as one muted piece like =:idea:ethics:= (110), then the badge, the number in brackets that Emacs computed for the note, such as =[2]= (111), then the hidden-children count such as =+3= (112). The =cls= field picks the style.
-- Lines 116-127 define =breakToken=. A piece wider than a line, such as a very long word, is cut into the longest parts that fit (119-124).
+- Lines 109-115 define =tokensOf=. It makes one piece per word of the title (110), then the file tags as one muted piece like =:idea:ethics:= (111), then the badge, the number in brackets that Emacs computed for the note, such as =[2]= (112), then the hidden-children count such as =+3= (113). The =cls= field picks the style.
+- Lines 117-128 define =breakToken=. A piece wider than a line, such as a very long word, is cut into the longest parts that fit (120-125).
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function tokensOf(n) {
@@ -1969,7 +1968,7 @@ function breakToken(tok) {
 }
 #+end_src
 
-*** Script: wrapping (lines 129–142)
+*** Script: wrapping (lines 130–143)
 Lines 129-142 define =wrap=. It places the pieces on lines one at a time, with a space between them (132-139). When the next piece would pass =TEXT_W=, it starts a new line. The result is a list of lines, each a list of pieces.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
@@ -1989,7 +1988,7 @@ function wrap(tokens) {
 }
 #+end_src
 
-*** Script: the size of one box (lines 144–151)
+*** Script: the size of one box (lines 145–152)
 Lines 144-151 define =info=, which returns the node, its wrapped lines and its height. The height is the number of lines times =LINE=, plus =VPAD= above and below (148). Because every box now has its own height, the layout below can't assume a fixed one. The result is cached, so a box is wrapped once however often the view is redrawn.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
@@ -2003,7 +2002,7 @@ function info(id) {
 }
 #+end_src
 
-*** Script: creating SVG elements (lines 153–158)
+*** Script: creating SVG elements (lines 154–159)
 Lines 153-158 define =el=: create an SVG element, set its attributes, add it to a parent and return it.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
@@ -2015,16 +2014,16 @@ function el(tag, attrs, parent) {
 }
 #+end_src
 
-*** Script: children of a node (lines 160–161)
-- Line 160 returns the children of a node, or none if the user folded it.
-- Line 161 tells whether a node has children in view, folded or not, which decides whether it gets a fold marker.
+*** Script: children of a node (lines 161–162)
+- Line 161 returns the children of a node, or none if the user folded it.
+- Line 162 tells whether a node has children in view, folded or not, which decides whether it gets a fold marker.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
 function hasKids(id) { return (kids.get(id) || []).length > 0; }
 #+end_src
 
-*** Script: the notes in view (lines 163–171)
+*** Script: the notes in view (lines 164–172)
 Lines 163-171 define =visible=. It walks down from the centre through the children that are not folded and returns the notes in the order they are met, and the level of each (the number of steps from the centre). A note with two parents appears once, at its first level. Unlike the old layout, which drew such a note under each parent, the new one draws every note once and joins it to all of its parents.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
@@ -2039,17 +2038,17 @@ function visible() {
 }
 #+end_src
 
-*** Script: placement constraints (lines 173–214)
+*** Script: placement constraints (lines 174–215)
 Lines 173-214 define =constraints=, which turns the tree and the links into the rules that fCoSE follows. A rule says that one box is above, below, left of or right of another by at least a gap. A set of rules that contradict each other, such as a cycle, makes the layout fail, so a rule is only added when it doesn't contradict the earlier ones.
 
-- Line 174 holds, for each of the two axes, the pairs already ordered, and the list of rules.
-- Lines 175-185 define =reaches=, which tells whether one box is already known to come before another on an axis, by a depth-first walk over the pairs.
-- Lines 186-191 define =add=. It drops a rule that would contradict the ones before it (187), remembers the new pair (188-189), and writes the rule: =top= and =bottom= for the vertical axis, =left= and =right= for the horizontal one (190).
-- Line 192 is the least vertical distance between the centres of two boxes: half of each height plus =GAPY=.
-- Lines 193-195 make the first rules, from the tree: a parent is above each of its children (194). This is what puts parents above their children.
-- Lines 196-205 make a rule for every link whose two ends are in view. Line 198 reads the direction of the relation, a vector =[dx, dy]= from the subject to the object on the screen (y grows downward). A vector that leans on the horizontal axis (|dx| at least 0.38, about 22 degrees) gives a left or right rule (199-201), and one that leans on the vertical axis gives an above or below rule (202-204). A diagonal direction gives both.
-- Lines 206-212 collect the notes of one level in a row, so they can sit on the same height. A note that is above or below another note of its level, because of a link, is left out of the row (211).
-- Line 213 returns the rules and the rows as =horizontal= alignment groups.
+- Line 175 holds, for each of the two axes, the pairs already ordered, and the list of rules.
+- Lines 176-186 define =reaches=, which tells whether one box is already known to come before another on an axis, by a depth-first walk over the pairs.
+- Lines 187-192 define =add=. It drops a rule that would contradict the ones before it (188), remembers the new pair (189-190), and writes the rule: =top= and =bottom= for the vertical axis, =left= and =right= for the horizontal one (191).
+- Line 193 is the least vertical distance between the centres of two boxes: half of each height plus =GAPY=.
+- Lines 194-196 make the first rules, from the tree: a parent is above each of its children (195). This is what puts parents above their children.
+- Lines 197-206 make a rule for every link whose two ends are in view. Line 199 reads the direction of the relation, a vector =[dx, dy]= from the subject to the object on the screen (y grows downward). A vector that leans on the horizontal axis (|dx| at least 0.38, about 22 degrees) gives a left or right rule (200-202), and one that leans on the vertical axis gives an above or below rule (203-205). A diagonal direction gives both.
+- Lines 207-213 collect the notes of one level in a row, so they can sit on the same height. A note that is above or below another note of its level, because of a link, is left out of the row (212).
+- Line 214 returns the rules and the rows as =horizontal= alignment groups.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function constraints(ids, level) {
@@ -2096,17 +2095,17 @@ function constraints(ids, level) {
 }
 #+end_src
 
-*** Script: placing the boxes (lines 216–245)
+*** Script: placing the boxes (lines 217–246)
 Lines 216-245 define =place=, which asks fCoSE for the position of every box in view. fCoSE is a force-directed layout: boxes push each other apart and edges pull them together, and it also follows the rules above. It is used through =cytoscape=, whose graph model it needs, but the page doesn't use =cytoscape= to draw.
 
-- Line 217 is the set of notes in view.
-- Lines 218-219 create a graph with no window. Each node gets the width and height of its box from its data.
-- Lines 220-225 add the nodes. Each starts at a position by level and order within the level (224), because the layout doesn't start from random places, so the same tree gives the same picture each time.
-- Lines 226-228 add an edge for each tree edge in view. Lines 229-233 add an edge for each link whose ends are in view, so the notes of one component stay together.
-- Line 234 makes the rules.
-- Lines 235-238 run the layout once, without animation and with the best quality setting. =nodeSeparation=, =idealEdgeLength=, =nodeRepulsion= and =gravity= keep the boxes wide apart, and the two last options turn off tiling and packing, which would move boxes around the rules. The rules and the rows go in on line 232.
-- Lines 239-242 read the centre of each node and keep the top left corner of its box.
-- Line 243 frees the graph. Line 244 removes overlaps.
+- Line 218 is the set of notes in view.
+- Lines 219-220 create a graph with no window. Each node gets the width and height of its box from its data.
+- Lines 221-226 add the nodes. Each starts at a position by level and order within the level (225), because the layout doesn't start from random places, so the same tree gives the same picture each time.
+- Lines 227-229 add an edge for each tree edge in view. Lines 230-234 add an edge for each link whose ends are in view, so the notes of one component stay together.
+- Line 235 makes the rules.
+- Lines 236-239 run the layout once, without animation and with the best quality setting. =nodeSeparation=, =idealEdgeLength=, =nodeRepulsion= and =gravity= keep the boxes wide apart, and the two last options turn off tiling and packing, which would move boxes around the rules. The rules and the rows go in on line 233.
+- Lines 240-243 read the centre of each node and keep the top left corner of its box.
+- Line 244 frees the graph. Line 245 removes overlaps.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function place(order, level) {
@@ -2141,14 +2140,14 @@ function place(order, level) {
 }
 #+end_src
 
-*** Script: removing overlaps (lines 247–269)
+*** Script: removing overlaps (lines 248–270)
 The layout treats a box as a point with a size, and it sometimes leaves two boxes touching. Lines 247-269 define =separate=, which pushes such boxes apart.
 
-- Line 248 takes all the boxes. Line 249 starts a pass, at most 80.
-- Lines 251-253 look at each pair of boxes.
-- Lines 254-255 measure how deep they overlap sideways and vertically, with the margin added. Lines 256-257 skip a pair that doesn't overlap, and note that something moved.
-- Lines 258-264 push the pair apart along the axis of least overlap, half to each box. Sideways is preferred (258), so boxes stay in their rows.
-- Line 267 stops when a whole pass moved nothing.
+- Line 249 takes all the boxes. Line 250 starts a pass, at most 80.
+- Lines 252-254 look at each pair of boxes.
+- Lines 255-256 measure how deep they overlap sideways and vertically, with the margin added. Lines 257-258 skip a pair that doesn't overlap, and note that something moved.
+- Lines 259-265 push the pair apart along the axis of least overlap, half to each box. Sideways is preferred (259), so boxes stay in their rows.
+- Line 268 stops when a whole pass moved nothing.
 
 This can break a rule when the graph is crowded. The rules are a request, and no overlap wins.
 
@@ -2178,15 +2177,15 @@ function separate() {
 }
 #+end_src
 
-*** Script: drawing tree edges and boxes (lines 271–307)
-- Lines 271-275 define =drawTreeEdge=. It draws a curve from the bottom middle of the parent to the top middle of the child, bending halfway.
-- Lines 277-307 define =drawNode=, which draws one box.
-- Line 278 gets the wrapped lines and the box. Line 279 makes the group, with the root marked.
-- Line 280 draws the plain box. Lines 281-284 add a tint of the tag colour on top of it, so the box stays opaque and a link line can't show through.
-- Lines 285-291 write the text, one =text= per line. Each piece is a =tspan=, so tags and counts get their own muted style (288).
-- Line 292 adds a tooltip with the file path.
-- Lines 293-296 make every box except the centre clickable. A click recentres the graph on it, with the same depth, unless it was the end of a drag.
-- Lines 297-306 add a fold marker to a box with children. A click on it folds or unfolds the branch (303) and draws again without fitting the view (304), so the picture doesn't jump.
+*** Script: drawing tree edges and boxes (lines 272–313)
+- Lines 272-276 define =drawTreeEdge=. It draws a curve from the bottom middle of the parent to the top middle of the child, bending halfway.
+- Lines 278-313 define =drawNode=, which draws one box.
+- Line 279 gets the wrapped lines and the box. Line 280 makes the group, with the root marked.
+- Line 281 draws the plain box. Lines 282-285 add a tint of the tag colour on top of it, so the box stays opaque and a link line can't show through.
+- Lines 286-292 write the text, one =text= per line. Each piece is a =tspan=, so tags and counts get their own muted style (289).
+- Line 293 adds a tooltip with the file path.
+- Lines 294-302 make every box except the centre clickable and reachable by keyboard. A click recentres the graph on it, with the same depth, unless it was the end of a drag (298). Tab moves between the boxes (=tabindex=, 296), and Enter or Space on a focused box recentres the same way (299-301). The keyboard path doesn't look at =dragged=, which stays true after a drag until the next press.
+- Lines 303-312 add a fold marker to a box with children. A click on it folds or unfolds the branch (309) and draws again without fitting the view (310), so the picture doesn't jump.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function drawTreeEdge(parent, child) {
@@ -2213,7 +2212,12 @@ function drawNode(id) {
   el('title', {}, g).textContent = n.path || n.title;
   if (id !== root) {
     g.style.cursor = 'pointer';
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('role', 'button');
     g.addEventListener('click', () => { if (!dragged) recentre(id, depth, true); });
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); recentre(id, depth, true); }
+    });
   }
   if (hasKids(id)) {
     const f = el('text', { class: 'fold', x: W - 16, y: 14 }, g);
@@ -2228,14 +2232,14 @@ function drawNode(id) {
 }
 #+end_src
 
-*** Script: links between notes (lines 309–341)
-- Lines 309-313 define =border=. It returns the point where the line from the middle of a box to a point leaves the box.
-- Lines 315-322 define =freeSpot=. It tries seven places along a link, starting from the middle, and takes the first that is not near a box, so the label doesn't cover a title (318). If all are taken, it uses the middle.
-- Lines 324-341 define =drawLinks=, which draws the relations other than =parent=. It is called twice: first for the lines, drawn under the boxes, then for the labels, drawn over them.
-- Lines 325-327 take each link and skip it when one end isn't on screen, for example because it is folded.
-- Line 328 finds the relation's label and colour. Lines 329-330 find the two points where the line meets the boxes.
-- Lines 331-333 draw a dashed straight line in the relation's colour, with a tooltip of the relation name. When the link has an =anomaly= (its note types don't fit the relation), the tooltip adds the message (333).
-- Lines 334-339 write the label at the free spot. An anomalous link gets a warning sign after the label (337), and the message as its tooltip (338).
+*** Script: links between notes (lines 315–347)
+- Lines 315-319 define =border=. It returns the point where the line from the middle of a box to a point leaves the box.
+- Lines 321-328 define =freeSpot=. It tries seven places along a link, starting from the middle, and takes the first that is not near a box, so the label doesn't cover a title (324). If all are taken, it uses the middle.
+- Lines 330-347 define =drawLinks=, which draws the relations other than =parent=. It is called twice: first for the lines, drawn under the boxes, then for the labels, drawn over them.
+- Lines 331-333 take each link and skip it when one end isn't on screen, for example because it is folded.
+- Line 334 finds the relation's label and colour. Lines 335-336 find the two points where the line meets the boxes.
+- Lines 337-339 draw a dashed straight line in the relation's colour, with a tooltip of the relation name. When the link has an =anomaly= (its note types don't fit the relation), the tooltip adds the message (339).
+- Lines 340-345 write the label at the free spot. An anomalous link gets a warning sign after the label (343), and the message as its tooltip (344).
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function border(box, toward) {
@@ -2273,10 +2277,10 @@ function drawLinks(labels) {
 }
 #+end_src
 
-*** Script: fitting and drawing (lines 343–371)
-- Lines 343-352 define =fit=. It finds the rectangle around all the boxes (346-347) and sets the zoom so it fits the window, never above 100% (349), and centres it (350-351).
-- Lines 354-367 define =render=. It clears the drawing and the box positions (355-356), finds the notes in view (357) and places them (358), then draws in this order: tree edges (359), link lines (360), boxes (361) and link labels (362). It fits the view only when asked (363), because a fold should not move the picture. It then updates the header and the legend and applies the view.
-- Lines 369-371 define =apply=, which writes the pan and zoom into the group's =transform=.
+*** Script: fitting and drawing (lines 349–377)
+- Lines 349-358 define =fit=. It finds the rectangle around all the boxes (352-353) and sets the zoom so it fits the window, never above 100% (355), and centres it (356-357).
+- Lines 360-373 define =render=. It clears the drawing and the box positions (361-362), finds the notes in view (363) and places them (364), then draws in this order: tree edges (365), link lines (366), boxes (367) and link labels (368). It fits the view only when asked (369), because a fold should not move the picture. It then updates the header and the legend and applies the view.
+- Lines 375-377 define =apply=, which writes the pan and zoom into the group's =transform=.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 function fit() {
@@ -2310,11 +2314,11 @@ function apply() {
 }
 #+end_src
 
-*** Script: zoom and pan (lines 373–390)
-- Lines 373-377 zoom with the wheel, between 0.2 and 4 times.
-- Lines 378-382 start a drag and capture the pointer.
-- Lines 383-389 pan while dragging. Moving more than 4 pixels counts as a drag (385).
-- Line 390 ends the drag.
+*** Script: zoom and pan (lines 379–399)
+- Lines 379-383 zoom with the wheel, between 0.2 and 4 times.
+- Lines 384-387 note where a press started. They don't capture the pointer yet: a captured pointer sends the later =click= to the =svg= instead of the box under it, so no box would ever see a click.
+- Lines 388-398 pan while dragging. Moving more than 4 pixels counts as a drag, and only then (390-393) is the pointer captured, so the drag goes on outside the window. A press that doesn't move leaves the click to the box.
+- Line 399 ends the drag.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
 svg.addEventListener('wheel', e => {
@@ -2325,11 +2329,14 @@ svg.addEventListener('wheel', e => {
 svg.addEventListener('pointerdown', e => {
   dragStart = { x: e.clientX - view.x, y: e.clientY - view.y, cx: e.clientX, cy: e.clientY };
   dragged = false;
-  svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener('pointermove', e => {
   if (!dragStart) return;
-  if (Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) dragged = true;
+  if (!dragged && Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) {
+    dragged = true;
+    svg.setPointerCapture(e.pointerId);
+  }
+  if (!dragged) return;
   view.x = e.clientX - dragStart.x;
   view.y = e.clientY - dragStart.y;
   apply();
@@ -2337,9 +2344,9 @@ svg.addEventListener('pointermove', e => {
 svg.addEventListener('pointerup', () => { dragStart = null; });
 #+end_src
 
-*** Script: legend and start (lines 391–416)
-- Lines 391-411 define =updateLegend=. It collects the colour of every box in view, once per tag (395-398), and shows a swatch with the tag name for each (399-404). It then lists each relation with its colour (405-410).
-- Line 412 cuts the first view from the centre and depth Emacs chose, and line 413 draws it, fitted to the window. Lines 414-416 close the script, the body and the page.
+*** Script: legend and start (lines 400–425)
+- Lines 400-420 define =updateLegend=. It collects the colour of every box in view, once per tag (404-407), and shows a swatch with the tag name for each (408-413). It then lists each relation with its colour (414-419).
+- Line 421 cuts the first view from the centre and depth Emacs chose, and line 422 draws it, fitted to the window. Lines 423-425 close the script, the body and the page.
 
 #+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
 const legend = document.getElementById('legend');
@@ -2374,13 +2381,13 @@ render(true);
 
 Before, the page placed boxes with its own tidy-tree code: depth gave the column, and a parent was centred on its children. That can't say "this relation goes to the right of its subject", because a link joins boxes that the tree has already placed. The page now asks the fCoSE layout for the positions and keeps its own SVG drawing (text wrapping, tags, tints, fold markers, links).
 
-| Gained                                                           | Lost or costs                                                                  |
-|------------------------------------------------------------------+--------------------------------------------------------------------------------|
-| Directions per relation, with diagonals, solved together with the tree | About 560 KB of vendored scripts (=vendor/relationship-annotator/=), pasted into every page |
-| A note with several parents is drawn once, joined to all of them | Layout is heuristic: a crowded graph breaks some direction rules, and the result is not tidy like a tree |
-| Rows of siblings are aligned, and the layout is deterministic    | A layout takes about 0.5 s for 120 boxes and grows quickly above that           |
-| No dependency on the network; the scripts are MIT licensed        | The scripts must be updated by hand (=vendor/relationship-annotator/README.org=)       |
-| Drawing is unchanged, so wrapping, tags and tints still work      | The SVG export (Graphviz) ignores directions                                    |
+| Gained                                                                 | Lost or costs                                                                                            |
+|------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------|
+| Directions per relation, with diagonals, solved together with the tree | About 560 KB of vendored scripts (=vendor/relationship-annotator/=), pasted into every page              |
+| A note with several parents is drawn once, joined to all of them       | Layout is heuristic: a crowded graph breaks some direction rules, and the result is not tidy like a tree |
+| Rows of siblings are aligned, and the layout is deterministic          | A layout takes about 0.5 s for 120 boxes and grows quickly above that                                    |
+| No dependency on the network; the scripts are MIT licensed             | The scripts must be updated by hand (=vendor/relationship-annotator/README.org=)                         |
+| Drawing is unchanged, so wrapping, tags and tints still work           | The SVG export (Graphviz) ignores directions                                                             |
 
 Other backends considered: Cytoscape.js with its own renderer (less control over wrapped text and muted tags), ELK (layered, but one direction for the whole graph), d3-force (smaller, but no hard rules and no rectangles), and Graphviz in the browser (a static layout that can't take rules). fCoSE is the only one with built-in relative placement rules.
 

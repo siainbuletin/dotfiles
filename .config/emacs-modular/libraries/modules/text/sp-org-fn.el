@@ -1,5 +1,6 @@
-;; -*- lexical-binding: t -*-
-;; sp-org-fn.el
+;;; sp-org-fn.el --- Scoped Org footnotes (experimental) -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Commentary:
 
@@ -20,6 +21,8 @@
 ;; Footnotes
 ;; (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
 ;; disabled in favor of new logic
+
+;;; Code:
 
 ;; Autorenumbering for footnotes
 ;; this should only be kept on if you have the proper logic for nested headings working well
@@ -56,8 +59,6 @@
           (apply orig args))))))
 
 (advice-add 'org-footnote-new :around #'sp-org-fn-scoped)
-
-;;; Provide:
 
 (provide 'sp-org-fn)
 ;; sp-org-fn.el ends here.

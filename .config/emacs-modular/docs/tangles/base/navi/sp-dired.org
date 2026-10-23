@@ -6,25 +6,34 @@ Literate source for =libraries/modules/base/navi/sp-dired.el=. Every line of the
 
 This module sets up file management: Dired listing options, a personal sort command, extra highlighting with =diredfl=, an optional =dired-sidebar=, and above all Dirvish, which replaces the Dired interface with previews, a side panel, grouping of files and many menus. It also tries to add an =eza= based directory preview and to open binary files in external programs.
 
-It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el= and the =sp-load-extras= flag, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
+It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el=, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
 
 The eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dispatchers=, which only exist once Dirvish is loaded, and Dirvish itself is loaded later. Both forms therefore sit inside =with-eval-after-load= for =dirvish=, so the rest of the file (including the =provide=) always runs.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Setup code for "navigating" Emacs, in the sense of outlines, goto functions,
+saving place, recent files, etc.
+this file is particularly concerned with good settings for dired.
+#+end_quote
 
 * File header
 
 ** Header and commentary
 
-The commentary describes the file as part of the navigation setup, focused on good Dired settings.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-dired.el --- summary
+;;; sp-dired.el --- Dired and Dirvish file management -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Setup code for "navigating" Emacs, in the sense of outlines, goto functions,
 ;; saving place, recent files, etc.
 ;; this file is particularly concerned with good settings for dired.
+
+;;; Code:
 #+end_src
 
 * Dired basics
@@ -34,7 +43,6 @@ The commentary describes the file as part of the navigation setup, focused on go
 Sets the default =dired-listing-switches= to =-alh=, which shows all files with sizes in KB, MB and so on. This value is overridden twice further down, so it only matters if the later settings are removed.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Helpful functions
 ;; Make-dired-file-sizes-human-readable
 ;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
@@ -43,12 +51,11 @@ Sets the default =dired-listing-switches= to =-alh=, which shows all files with 
 
 ** dired-sidebar
 
-When extras are enabled and the package is installed, =dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
+=dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
 
 #+begin_src emacs-lisp -i
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
-  :when (and sp-load-extras (locate-library "dired-sidebar"))
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom
@@ -137,11 +144,11 @@ The buffer shows version control state, file size, last commit message, subtree 
   (dirvish-side-follow-mode)
 
   :custom
-  ;;;; attributes to show in the dirvish buffer
+  ;; attributes to show in the dirvish buffer
   (dirvish-attributes
   '(vc-state file-size git-msg subtree-state nerd-icons collapse file-time))
 
-  ;;;;; UI settings for dirvish
+  ;; UI settings for dirvish
   (dirvish-mode-line-format
     '(:left (sort symlink)
       :right (vc-info yank index)))
@@ -152,16 +159,16 @@ The buffer shows version control state, file size, last commit message, subtree 
   (dired-listing-switches
    "-l --almost-all --human-readable --group-directories-first")
 
-  ;;;; showing the cursor
+  ;; showing the cursor
   ;; Dirvish by default hides the cursor in Dired buffers and highlights the current line.
   ;; It uses the dirvish-hl-line face for the active window and dirvish-hl-line-inactive for
   ;; inactive windows. To modify this behavior, customize the dirvish-hide-cursor variable.
   (dirvish-hide-cursor t)
 
-  ;;; Customizing the cache dir
+  ;; Customizing the cache dir
   (dirvish-cache-dir (concat sp-cache-dir "dirvish/"))
 
-  ;;;; groups
+  ;; groups
   (dirvish-emerge-groups
    '(("Recent files" (predicate . recent-files-2h))
      ("Documents"    (extensions "pdf" "tex" "bib" "epub"))
@@ -170,7 +177,7 @@ The buffer shows version control state, file size, last commit message, subtree 
      ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
      ("Archives"     (extensions "gz" "rar" "zip"))))
 
-  ;;; Keybindings to move through the buffer
+  ;; Keybindings to move through the buffer
   :bind
   (("C-c f" . dirvish)
    :map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
@@ -200,10 +207,10 @@ The buffer shows version control state, file size, last commit message, subtree 
 A heading notes the aim of a Yazi-like window layout, which is not implemented. =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive. Commented lines mention the preview environment and large-file threshold as things not yet worked out.
 
 #+begin_src emacs-lisp -i
-;;; Windowing Layout for dirvish
+;;;; Windowing Layout for dirvish
 ;; this should make it work like yazi
 
-;;; Preview options
+;;;; Preview options
 (setq dirvish-preview-buffers-max-count 2)
 ;; (dirvish-preview-environment) ;; I don't know how to set this up
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
@@ -236,7 +243,7 @@ A custom preview that runs =eza -al= with colours and icons when the selected en
 =dirvish-open-binaries-externally= is meant for =dirvish-find-entry-hook=: when you open an existing, non-directory file whose extension is in =dirvish-binary-exts=, it opens it with the system's default application via =dired-do-open= (Emacs 30 or later) and returns =t= so Dirvish does not also visit it.
 
 #+begin_src emacs-lisp -i
-;;;; Open binary files externally
+;;;;; Open binary files externally
 (defun dirvish-open-binaries-externally (file fn)
   "When FN is not `dired', open binary FILE externally."
   (when-let* (((not (eq fn 'dired)))
@@ -252,14 +259,11 @@ A custom preview that runs =eza -al= with colours and icons when the selected en
 
 * Provide
 
-** Provide the feature
-
-A separator line, then registration of the =sp-dired= feature.
+Provides the =sp-dired= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Provide
 (provide 'sp-dired)
 
 ;;; sp-dired.el ends here

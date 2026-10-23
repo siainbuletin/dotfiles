@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-issues.el --- An issue tracker for code work, kept as a PARA area
+;;; sp-org-issues.el --- An issue tracker kept as a PARA area -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -352,8 +351,6 @@ WORKTREE on the issue, and moves a TODO or NEXT issue to PROG."
 (with-eval-after-load 'magit
   (add-hook 'magit-status-mode-hook
             #'sp-org-issues--show-untracked-in-yadm-worktrees))
-
-;;; Provide:
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.

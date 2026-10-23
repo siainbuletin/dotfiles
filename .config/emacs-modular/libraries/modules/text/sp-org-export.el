@@ -1,7 +1,10 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-export.el
+;;; sp-org-export.el --- Org export, Pandoc and clipboard conversion -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This should be correlated with the typesetting that I currently have running.
+
+;;; Code:
 
 ;;;; Org Export
 ;; Useful base export settings
@@ -35,12 +38,12 @@
         (setq org-odt-convert-processes '(("LibreOffice" "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
   (sp-odt-org-convert-process))
 
-;;; Org Export Extensions
-;;;; Ox-Pandoc
+;;;; Org Export Extensions
+;;;;; Ox-Pandoc
 ;; Export w/pandoc
 (use-package ox-pandoc
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "ox-pandoc") (executable-find "pandoc"))
+  ;; :if (executable-find "pandoc")
   :defer t  ;; Defer loading until needed for export
   :commands (org-pandoc-export-to-html5
              org-pandoc-export-to-html5-and-open
@@ -56,7 +59,7 @@
   (org-pandoc-options-for-latex-pdf '((pdf-engine . "xelatex")))
   (org-pandoc-format-extensions '(org+smart)))
 
-;;;; Ox-Pandoc Export Menu Options
+;;;;; Ox-Pandoc Export Menu Options
 ;; Set pandoc export options
 (setq org-pandoc-menu-entry
       '(
@@ -182,7 +185,7 @@
         ))
 
 ;; Exporting different regions
-;;;;; Export Headings as Seperate Files
+;;;;;; Export Headings as Seperate Files
 ;; export headlines to separate files
 ;; http://pragmaticemacs.com/emacs/export-org-mode-headlines-to-separate-files/ ; see also:
 ;; http://emacs.stackexchange.com/questions/2259/how-to-export-top-level-headings-of-org-mode-buffer-to-separate-files
@@ -245,7 +248,7 @@
            (set-buffer-modified-p modifiedp)))
        "-noexport" 'region-start-level))))
 
-;;;;; Export Top Level Trees to File
+;;;;;; Export Top Level Trees to File
 ;; From a useful [[https://emacs.stackexchange.com/questions/27226/how-to-export-top-level-trees-in-an-org-file-to-corresponding-files][stack exchange]] post
 (defun lem-org-map-entries (org-file in-tags func)
   (let ((tags (if (stringp in-tags)
@@ -281,7 +284,7 @@
                  (funcall func))
                (end-of-line)))))))
 
-;;;;; Org Export Last Subtree
+;;;;;; Org Export Last Subtree
 ;; bind f5 to keyboard macro of export-last-subtree
 (fset 'export-last-subtree
       "\C-u\C-c\C-e")
@@ -292,7 +295,7 @@
 
 ;; Exporting to HTML
 
-;;;;; Org Export Body to HTML Buffer
+;;;;;; Org Export Body to HTML Buffer
 (defun lem-org-export-to-buffer-html-as-body (&optional async body-only ext-plist)
   "Export org buffer body to html"
   (interactive)
@@ -305,11 +308,10 @@
   (message "HTML copied!"))
 ;; (lem-previous-user-buffer))
 
-;;;; Ox-Hugo
+;;;;; Ox-Hugo
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
 (use-package ox-hugo
-  :if (and sp-load-extras (locate-library "ox-hugo"))
   :defer t  ;; Defer loading until needed for Hugo export
   :commands (org-hugo-export-as-md
              org-hugo-export-to-md
@@ -320,7 +322,7 @@
   ;; Modify this to have a different header for references
   (plist-put org-hugo-citations-plist :bibliography-section-heading "References"))
 
-;;;;; Org-Hugo Links
+;;;;;; Org-Hugo Links
 ;; New link type for Org-Hugo internal links
 (defun org-hugo-link-complete ()
   "Create link with Hugo ref shortcode"
@@ -334,12 +336,11 @@
                            :complete 'org-hugo-link-complete
                            :follow 'org-hugo-follow))
 
-;;; Org Html Conversion
+;;;; Org Html Conversion
 (use-package htmlize
-  :if (and sp-load-extras (locate-library "htmlize"))
   :commands (htmlize-buffer))
 
-;;; Clipboard conversion through Pandoc 
+;;;; Clipboard conversion through Pandoc 
 ;; (initially lived in the file for functions in Lambda Emacs)
 (defun sp-org-to-markdown ()
   "convert clipboard contents from org to markdown and paste"

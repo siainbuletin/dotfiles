@@ -2,6 +2,28 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-org-issues.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
+The commentary at the top of the module says:
+
+#+begin_quote
+One Org file, registered with vulpea-para as an area titled "Issues",
+holds the issues for every code base I work on.  Under its `* Tasks'
+heading there is one heading per repository, and each issue is a
+TODO under its repository.  An issue carries its branch, worktree,
+pull request and Claude thread in its property drawer.
+
+- The file uses the org-gtd keywords (TODO NEXT PROG WAIT DONE CNCL),
+  set with a #+todo: line, so it does not depend on the global
+  `org-todo-keywords'.
+- Every issue is an org-gtd single action (ORG_GTD: Actions), so a
+  NEXT issue shows up in `org-gtd-engage' like any other next action.
+- `sp-org-issues-start' gives an issue its own git worktree and opens
+  Magit there.  For the yadm dotfiles the worktree is added from the
+  yadm repository itself, so the live config in ~ is never touched.
+
+Load it after sp-org-ext: it adds to the capture templates and agenda
+commands that sp-vulpea-para sets.
+#+end_quote
+
 * Preamble
 
 Literate source for =libraries/modules/custom/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
@@ -91,11 +113,10 @@ The keywords mean:
 
 ** File header
 
-The file header and commentary, which repeat the summary above in short.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-issues.el --- An issue tracker for code work, kept as a PARA area
+;;; sp-org-issues.el --- An issue tracker kept as a PARA area -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -116,6 +137,8 @@ The file header and commentary, which repeat the summary above in short.
 ;;
 ;; Load it after sp-org-ext: it adds to the capture templates and agenda
 ;; commands that sp-vulpea-para sets.
+
+;;; Code:
 #+end_src
 
 ** Dependencies
@@ -123,8 +146,6 @@ The file header and commentary, which repeat the summary above in short.
 Loads Org, vulpea and vulpea-para. It also requires =sp-vulpea-para=, which now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there); requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in. Capture, agenda and Magit are only declared, so loading this module does not load them.
 
 #+begin_src emacs-lisp -i
-;;; Code:
-
 (require 'org)
 (require 'vulpea)
 (require 'vulpea-para)
@@ -608,12 +629,9 @@ In a status buffer for a worktree of the yadm repository, this sets =magit-statu
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-issues= feature, loaded from =init.el= right after =sp-org-ext=.
+Provides the =sp-org-issues= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.

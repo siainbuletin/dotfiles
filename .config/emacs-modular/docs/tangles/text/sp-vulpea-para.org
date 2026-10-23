@@ -10,19 +10,26 @@ This module wires the =vulpea-para= library into Org's agenda and capture. vulpe
 
 It is required by =sp-org-ext=, after =sp-org-capture= and =sp-org-agenda=. It adds its capture templates to =org-capture-templates= with =add-to-list=, so the templates earlier modules set stay available; it used to assign the variable with plain =setq=, which replaced them. Its agenda view was moved to =sp-agenda-views=, which adds it to =org-agenda-custom-commands= in the same way. =org-agenda-prefix-format= is still assigned with =setq=, so the value here replaces whatever an earlier module set for it.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+VULPEA PARA SETUP
+#+end_quote
+
 * Header
 
 ** File header
 
-The file header, commentary marker and a section title.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-para.el
+;;; sp-vulpea-para.el --- Vulpea PARA agenda and capture wiring -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; VULPEA PARA SETUP
+
+;;; Code:
 #+end_src
 
 * Vulpea PARA setup
@@ -84,12 +91,9 @@ Adds two entries to =org-capture-templates=, after any set by earlier modules: =
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-para= feature so =sp-org-ext= can require it.
+Provides the =sp-vulpea-para= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-vulpea-para)
 ;; sp-vulpea-para.el ends here.

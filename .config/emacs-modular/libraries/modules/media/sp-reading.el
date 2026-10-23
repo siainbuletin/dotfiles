@@ -1,5 +1,12 @@
-;; -*- lexical-binding: t; -*-
-;; sp-reading.el
+;;; sp-reading.el --- Reading e-books -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up e-book reading: `nov' for reading EPUB files inside
+;; Emacs and `calibredb' for browsing a Calibre library. A third reader is left
+;; commented out.
+
+;;; Code:
 
 (use-package nov
   :ensure t

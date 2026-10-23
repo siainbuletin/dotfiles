@@ -14,10 +14,20 @@ Besides the dynamic block, it provides general helpers that other modules reuse:
 
 ** Header and requirements
 
-Loads Vulpea for the note database and =org-table= for aligning the generated table.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-dblock.el --- Dataview-style property tables, backed by Vulpea -*- lexical-binding: t; -*-
+;;; sp-vulpea-dblock.el --- Dataview-style tables of Vulpea notes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module brings something like Obsidian's Dataview to Org: a dynamic
+;; block type, `vulpea-table', that queries the Vulpea note database and writes
+;; an Org table of matching notes. Notes can be filtered by tags and by a
+;; parent link, and columns can be built-in fields or Vulpea meta keys (the
+;; `KEY :: value' description-list entries inside notes).
+
+;;; Code:
 
 (require 'vulpea)
 (require 'org-table)
@@ -263,9 +273,7 @@ A quick way to get a starting block without hand-typing the
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-dblock= feature.
+Provides the =sp-vulpea-dblock= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-dblock)

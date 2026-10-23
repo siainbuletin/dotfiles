@@ -1,7 +1,8 @@
-;; -*- lexical-binding: t; -*-
-;; sp-embark ---
+;;; sp-embark.el --- Embark contextual actions -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; sp-embark ---
 
 ;;; Code:
 

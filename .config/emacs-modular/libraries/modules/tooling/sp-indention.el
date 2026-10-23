@@ -1,7 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-indention.el --- Indentation
+;;; sp-indention.el --- Tabs, indentation width and indent keys -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module sets global indentation defaults: spaces instead of tab
+;; characters, a width of 4, and keys for inserting a literal tab and shifting
+;; a region by one tab stop. It also registers autoloads for `guess-style', a
+;; library that guesses a file's indentation style.
 
 ;;; Code:
 
@@ -31,8 +35,6 @@
 (autoload 'guess-style-set-variable "guess-style" nil t)
 (autoload 'guess-style-guess-variable "guess-style")
 (autoload 'guess-style-guess-all "guess-style" nil t)
-
-;;; Provide:
 
 (provide 'sp-indention)
 ;; sp-indention.el ends here.

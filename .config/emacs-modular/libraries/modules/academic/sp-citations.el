@@ -1,5 +1,13 @@
-;; -*- lexical-binding: t; -*-
-;; sp-citations.el
+;;; sp-citations.el --- Citations with org-cite, CSL and Citar -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures citation handling: Org's built-in `oc' citation
+;; framework, CSL-based export through `oc-csl' and the `citeproc' library, and
+;; `citar' as the interactive front end for inserting, following and acting on
+;; citations. It is required from `sp-academic'.
+
+;;; Code:
 
 (require 'oc-natbib)
 ;; (require 'oc-csl) -- this is already declared with use-package and all the settings
@@ -37,14 +45,12 @@
 
 ;;;; Citeproc
 (use-package citeproc
-  :if (and sp-load-extras (locate-library "citeproc"))
   :defer t  ;; Defer loading until oc-csl needs it
   :after oc)
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
-  :if (and sp-load-extras (locate-library "citar"))
   :commands (citar-open-notes
              citar-insert-citation)
   
@@ -100,8 +106,6 @@
   )
 
 (defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
-
-;;; Provide:
 
 (provide 'sp-citations)
 ;; sp-citations.el ends here
