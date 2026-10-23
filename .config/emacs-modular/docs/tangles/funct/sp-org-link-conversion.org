@@ -8,21 +8,28 @@ This module provides two interactive commands for linking Org notes by ID. =sp-o
 
 It requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=, and relies on the vulpea database being populated (see =sp-vulpea-base=). It is loaded from the Functions section of =init.el=. Neither command is bound to a key in this module, so they are run with =M-x=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Literate configuration is found in ~sp-org-id-link.el~
+#+end_quote
+
 * Header and dependencies
 
 ** File header
 
-Lexical binding, the file's one-line description and the commentary header. The commentary points to =sp-org-id-link.el= for the literate notes on this topic.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t; -*-
-;; sp-org-link-conversion.el --- Create links at point.
+;;; sp-org-link-conversion.el --- Create notes and convert wikilinks to ID links -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; 
+;;
 ;;
 ;; Literate configuration is found in ~sp-org-id-link.el~
+
+;;; Code:
 #+end_src
 
 ** Required libraries
@@ -30,7 +37,6 @@ Lexical binding, the file's one-line description and the commentary header. The 
 Loads Org, the Org ID library, the common Lisp, sequence and string helpers, and vulpea, all of which the commands below use directly.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Required libraries:
 (require 'org)
 (require 'org-id)
@@ -490,7 +496,6 @@ and `[[Target^block]]' link to the note Target."
 Provides the =sp-org-link-conversion= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-link-conversion)
 ;; sp-org-link-conversion.el ends here.

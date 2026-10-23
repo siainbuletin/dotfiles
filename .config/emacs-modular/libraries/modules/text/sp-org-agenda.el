@@ -1,4 +1,15 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
+;; lines, visual styling of the time grid and tags, scheduling and sorting
+;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 
 (keymap-global-set "C-c o a" 'org-agenda)
 
@@ -48,7 +59,7 @@
 ;; restore them as direct `org-agenda-mode-map' bindings (Spec 09 O7).
 ;; See git history for the prior implementation.
 
-;;; Appearance of the agenda and rendering
+;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
   (setq org-agenda-tags-column 0)           ;; Put tags next to heading
@@ -70,7 +81,7 @@
   (setq org-agenda-window-setup 'only-window)
   (setq org-agenda-restore-windows-after-quit t)
 
-;;; CONFIGURING THE FUNCTIONALITY
+;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
   (setq org-agenda-skip-scheduled-if-done t)
@@ -81,7 +92,7 @@
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   (setq calendar-week-start-day 1) ;; Start week on Monday
 
-;;; EXTENSIONS FOR ORG-AGENDA
+;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
 :after org
   :ensure (:wait t)
@@ -121,7 +132,7 @@
          (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
 ))
 
-;;; Display an agenda file for the current subtree
+;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-sorting-strategy)
@@ -166,8 +177,6 @@
         (org-search-view (if only-todos t nil) "*"))
       (org-agenda-remove-restriction-lock t)
       (message nil))))
-
-;;; Provide:
 
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here

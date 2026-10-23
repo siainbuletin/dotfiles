@@ -1,4 +1,7 @@
-;; -*- lexical-binding: t -*-
+;;; sp-notes.el --- Denote workbook entries and consult-notes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; sia -set-notes.el --- packages for notes
 
 ;; For a framework that looks to bring notes together, you need more settings for different things.
@@ -12,8 +15,6 @@
 ;; This library provides settings fora basic notes workflow using the `Denote' package.
 
 ;;; Code:
-
-
 
 (defun sp-denote-workbook-create-entry ()
   "Create an entry tagged \\='workbook\\=' with the date as its title.
@@ -37,7 +38,7 @@ log/ instead. Kept because old entries still live in workbook/."
 ;; this is taken from Lambda Emacs
 (use-package consult-notes
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "consult-notes")) ;; I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
+  ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
   ;; :after consult
   
   :commands
@@ -69,6 +70,5 @@ log/ instead. Kept because old entries still live in workbook/."
          '(display-buffer-reuse-window)))
     (consult-notes)))
 
-;;; Provide Setup-Notes
 (provide 'sp-notes)
 ;;; sp-notes.el ends here

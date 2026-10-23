@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-fonts.el
+;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -180,7 +179,7 @@ DELTA would be something like 1 or -1.  The next
 (global-set-key (kbd "M-=") 'font-size-increase)
 (global-set-key (kbd "M--") 'font-size-decrease)
 
-;;; Lin package
+;;;; Lin package
 (use-package lin
   :ensure t)
 
@@ -212,4 +211,4 @@ DELTA would be something like 1 or -1.  The next
 
 ;;; Provide
 (provide 'sp-fonts)
-;;; sp-fonts.el ends here
+;; sp-fonts.el ends here.

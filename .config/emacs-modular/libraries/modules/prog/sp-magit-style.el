@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-magit-style.el
+;;; sp-magit-style.el --- Prettier Magit buffers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

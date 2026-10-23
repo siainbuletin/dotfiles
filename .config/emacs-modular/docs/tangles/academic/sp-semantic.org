@@ -10,6 +10,16 @@ This module adds semantic (meaning-based rather than keyword-based) search over 
 
 All its commands live under the ~C-c k~ prefix, and an auto-reindex mode keeps the index up to date as notes are saved.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Oftentimes the search functions that I have enabled in Emacs aren't enough for me to actually
+be able to find something.
+
+There are several packages that are concerned with getting to the information as fast as
+possible, focusing specifically on linking information that may be found in a database.
+#+end_quote
+
 * Purpose
 
 ** Header and commentary
@@ -17,8 +27,7 @@ All its commands live under the ~C-c k~ prefix, and an auto-reindex mode keeps t
 The header and commentary explain the motivation: the regular search commands are often not enough to find something, and several packages aim to link and retrieve information stored in a database quickly.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-semantic.el --- support for semantically indexing information that passes through Emacs
+;;; sp-semantic.el --- Semantic search over notes -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -27,6 +36,8 @@ The header and commentary explain the motivation: the regular search commands ar
 ;;
 ;; There are several packages that are concerned with getting to the information as fast as
 ;; possible, focusing specifically on linking information that may be found in a database.
+
+;;; Code:
 #+end_src
 
 * org-semantic
@@ -44,7 +55,6 @@ Keybindings:
 In every results buffer =next-error-follow-minor-mode= is turned on, so moving over a result shows the matching note in another window. =org-semantic-auto-reindex-mode= is enabled in =:init= so the index is refreshed as notes are saved; because it runs in =:init=, it relies on that function being autoloaded.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; org-semantic
 (use-package org-semantic-results
   :ensure (org-semantic :host github :repo "alberti42/org-semantic")
@@ -70,7 +80,6 @@ In every results buffer =next-error-follow-minor-mode= is turned on, so moving o
 Provides the =sp-semantic= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 (provide 'sp-semantic)
 ;; sp-semantic.el ends here.
 #+end_src

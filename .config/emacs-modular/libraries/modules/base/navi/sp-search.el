@@ -1,18 +1,21 @@
-;; -*- lexical-binding: t; -*-
-;; sp-search.el
+;;; sp-search.el --- Search tools: Consult, grep front-ends and Recoll -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This file is part of the category for /Navigation/ and should be treated as such.
 ;;
 ;; dired-x is necessary for making counsel-fd work
 ;; This module includes packages that help with search within the buffer, in a directory
 ;; or more complicated grep-like searches.
-;; 
+;;
 ;; It should also be somewhat integrated with sp-browsing.el, as it should pull in
 ;; omni-search and similar packages, for bringing in as much information as possible, and perhaps
 ;; acting on it in the future. The possibility of acting on this information is created through
-;; the embark package. 
+;; the embark package.
 ;;
 ;; See also possibilities for the vulpea ecosystem for this.
+
+;;; Code:
 
 (use-package counsel
   :ensure t
@@ -46,7 +49,7 @@
 ;; Acting on searches
 
 ;; Functions written for searches
-;;;;; Search given directory
+;;;; Search given directory
 (defun sp-search-in-input-dir ()
   "Grep for a string in the input directory using completing read function"
   (interactive)

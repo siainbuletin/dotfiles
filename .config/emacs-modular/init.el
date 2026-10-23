@@ -238,6 +238,7 @@ the order of `lem--late-modules', for example when debugging."
     ;; the first file.
     sp-academic
     sp-notes
+    sp-trails ;; For gathering links from browser sessions
     sp-semantic
     ;; several graphing functionality
     sp-dgraphs
@@ -305,6 +306,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-colors
                     'sp-faces
                     'sp-fonts
+                    'sp-emoji-font ;; colour emoji font (after sp-fonts)
 
                     'sp-textui
                     'sp-themes
@@ -368,10 +370,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
+                    'sp-tag-emoji ;; tags as emoji in the modeline and on links
                     'sp-csv
-
-                    ;; Notes (the rest of the academic modules are late)
-                    'sp-trails
 
                     ;; Functions
                     'sp-helper-funct

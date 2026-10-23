@@ -8,17 +8,24 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This is one of the first modules loaded in every profile. It installs or declares the small libraries many other packages and =sp-= modules rely on (=subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others), and then collects a number of general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
 
-Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= and =sp-load-extras= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+This is mostly taken from lem-setup-libraries.el because they're very basic libraries
+used for asynchronous processing string
+manipulation, list manipulation and backward compatibility respectively.
+#+end_quote
 
 * Header
 
 ** File header and commentary
 
-Lexical binding and a note that the core library list is taken from Lambda Emacs, covering async processing, string and list manipulation and backward compatibility.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-base-libraries.el 
+;;; sp-base-libraries.el --- Base libraries and general defaults -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -158,7 +165,7 @@ Installs and loads =transient= immediately so =transient-define-prefix= is avail
 
 ** Crux
 
-Installs =crux=, a set of handy commands from Emacs Prelude, when extras are enabled and the library is available. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
+Installs =crux=, a set of handy commands from Emacs Prelude. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
 
 #+begin_src emacs-lisp -i
 ;;;; CRUX
@@ -170,7 +177,6 @@ Installs =crux=, a set of handy commands from Emacs Prelude, when extras are ena
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)
@@ -192,7 +198,7 @@ Installs the =websocket= library, used by packages such as org-roam-ui.
 Installs =simple-httpd=, a small web server inside Emacs, with its document root set to =/var/www=.
 
 #+begin_src emacs-lisp -i
-;;; HTTP-D
+;;;; HTTP-D
 (use-package simple-httpd
   :ensure t
   :custom
@@ -343,7 +349,7 @@ Installs =try=, which lets you try a package for the current session without ins
 Enables =global-auto-revert-mode= so buffers update when their files change on disk.
 
 #+begin_src emacs-lisp -i
-;;; Buffer functions
+;;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 #+end_src
 
@@ -352,7 +358,7 @@ Enables =global-auto-revert-mode= so buffers update when their files change on d
 Installs and loads Avy for jumping to visible text. =C-:= jumps to a character and =C-M-:= jumps using a timed multi-character input.
 
 #+begin_src emacs-lisp -i
-;;; Avy
+;;;; Avy
 ;; Don't remember what Avy was for, but it's a pretty important library to have.
 (use-package avy
   :ensure t
@@ -366,7 +372,7 @@ Installs and loads Avy for jumping to visible text. =C-:= jumps to a character a
 Installs =casual=, a collection of transient menus for built-in modes such as Dired, Calc and Info. No bindings are set here.
 
 #+begin_src emacs-lisp -i
-;;; Casual package
+;;;; Casual package
 ;; This is transient-based menus for working with built-in packages, like dired.
 (use-package casual
   :ensure t)
