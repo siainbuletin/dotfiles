@@ -260,6 +260,9 @@ the order of `lem--late-modules', for example when debugging."
     sp-ai
     sp-tag-emoji ;; tags as emoji in the modeline and on links
     sp-thesis-dump
+    ;; for linting purposes - shouldn't slow down the init itself
+    sp-org-normalise ;; vault Tasks and TODO keyword normaliser (preview first)
+    sp-org-issues ;; issue tracker area (after sp-org-ext)
     )
   "Modules that can wait until after startup, in dependency order.
 Nothing else requires these features, and their packages are not
@@ -373,7 +376,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-agenda
                     'sp-org-taskman-extra
                     'sp-org-ext
-                    'sp-org-issues ;; issue tracker area (after sp-org-ext)
+
                     'sp-csv
 
                     ;; Functions
