@@ -27,6 +27,11 @@ For motivations of why this configuration is set up in this way, please refer to
 - Many quality-of-life improvements for editing
 - Embark integration for contextual actions
 
+* Design notes
+
+- [[file:projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share and where they differ
+
 * Module tree
 
 The modules live in =libraries/modules/=, one subdirectory per area. The tree below mirrors those subdirectories: each heading is a directory, and each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to. See [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle them.
