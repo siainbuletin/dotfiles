@@ -245,6 +245,7 @@ the order of `lem--late-modules', for example when debugging."
     sp-relationship-annotator
     sp-dyn-graph
     sp-relationship-annotator-live ;; live localhost view of the graph
+    sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
     ;; Version control. `sp-keys' autoloads the magit commands it binds, so
