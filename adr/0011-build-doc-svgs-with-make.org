@@ -1,0 +1,21 @@
+#+title: 0011 Build the doc SVGs with make instead of committing them
+#+date: 2026-10-23
+#+status: accepted
+
+* Context
+The diagrams in =docs/architecture/= are Graphviz =dot= blocks in the Org docs, and their =.svg= output was committed. Every edit of a block re-rendered the file, and the SVG text changes in unrelated places, so open PRs (#54, #58, #72, #73) all conflicted on =load-order-*.svg=.
+
+* Decision
+- The =dot= block in the =.org= file is the only source. =docs/Makefile= extracts each =#+begin_src dot ... :file NAME.svg= block and runs =dot -Tsvg=; =make -C docs docs= writes the SVGs next to the =.org= file. They are in =.gitignore=.
+- A GitHub Actions workflow (=.github/workflows/docs-svg.yml=) runs the same make target. On a PR it only checks that every block renders; on =main= it force-pushes the SVGs to the =docs-assets= branch, which holds nothing else, at the same relative paths.
+- Locally, the =[[file:...svg]]= links in the docs work after =make docs= (or =C-c C-c= on the block). On GitHub the SVGs are on the =docs-assets= branch.
+
+* Alternatives considered
+- Artifact only: nothing shows up in the repo, and artifacts expire.
+- GitHub Pages: a published site, but one more setting to turn on, and the docs are read as Org files, not as a site.
+- Commit the SVGs from CI: the files are back in the history and PRs still conflict.
+- Keep committing them: the status quo.
+
+* Consequences
+- No more =.svg= conflicts between PRs. A PR that touched an SVG keeps only its =dot= change on merging =main=.
+- Graphviz is needed for =make docs=. /Untested/: the workflow has not run yet, and the =docs-assets= branch appears after the first push to =main=.
