@@ -36,9 +36,9 @@ Requires =org-tempo=, which enables the =<= plus key shortcuts for inserting Org
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-templating=.
+Provides the =sp-templating= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

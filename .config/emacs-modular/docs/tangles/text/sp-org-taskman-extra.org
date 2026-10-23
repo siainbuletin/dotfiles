@@ -290,7 +290,7 @@ Turns off confirmation before evaluating Babel source blocks (convenient, but an
 
 ** Provide
 
-Registers the =sp-org-taskman-extra= feature.
+Provides the =sp-org-taskman-extra= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-taskman-extra)

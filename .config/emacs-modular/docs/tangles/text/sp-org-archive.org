@@ -58,9 +58,9 @@ Once Org has loaded, archived subtrees go to =org-archive/archived.org= under =o
    "/CANCELED" 'file))
 #+end_src
 
-** Provide the feature
+** Provide
 
-Registers the =sp-org-archive= feature. It sits before the Palimpsest section, but the rest of the file is still evaluated when it loads.
+Provides the =sp-org-archive= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-archive)

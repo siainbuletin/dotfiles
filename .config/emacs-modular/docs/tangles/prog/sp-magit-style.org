@@ -89,9 +89,9 @@ Sets the heading attributes. They are set directly on the faces rather than thro
     (set-face-attribute 'magit-branch-local nil :box nil)))
 #+end_src
 
-** Hooks, and provide
+** Hooks
 
-Chevron indicators come from =magit-section-visibility-indicators=; the two glyphs are Font Awesome chevron-right and chevron-down from the Nerd Font, so they need the same font as the icons (in a terminal, the terminal's Nerd Font). If they show as boxes, set the variable back to its default. The last lines provide the feature.
+Chevron indicators come from =magit-section-visibility-indicators=; the two glyphs are Font Awesome chevron-right and chevron-down from the Nerd Font, so they need the same font as the icons (in a terminal, the terminal's Nerd Font). If they show as boxes, set the variable back to its default.
 
 #+begin_src emacs-lisp -i
 (with-eval-after-load 'magit-section
@@ -106,6 +106,10 @@ Chevron indicators come from =magit-section-visibility-indicators=; the two glyp
 (with-eval-after-load 'magit
   (setq magit-format-file-function #'sp-magit-style-format-file))
 #+end_src
+
+** Provide
+
+Provides the =sp-magit-style= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-magit-style)

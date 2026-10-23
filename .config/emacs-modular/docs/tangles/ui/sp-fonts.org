@@ -551,7 +551,7 @@ Lists the mode hooks in which lin should be active: Dired, Ibuffer, Magit logs, 
 
 ** Provide
 
-Registers the =sp-fonts= feature.
+Provides the =sp-fonts= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-fonts)

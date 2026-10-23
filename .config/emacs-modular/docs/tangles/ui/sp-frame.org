@@ -188,9 +188,9 @@ On macOS, when extras are enabled and the package is installed, =ns-auto-titleba
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-frame= for the module loader.
+Provides the =sp-frame= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

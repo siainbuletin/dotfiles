@@ -955,9 +955,9 @@ Installs =wizard= from James Cherti's GitHub repository at its newest revision. 
   :ensure (:type git :host github :repo "jamescherti/wizard.el" :rev :newest))
 #+end_src
 
-** Provide the feature
+** Provide
 
-Registers the =sp-helper-funct= feature so =init.el= can require it.
+Provides the =sp-helper-funct= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide

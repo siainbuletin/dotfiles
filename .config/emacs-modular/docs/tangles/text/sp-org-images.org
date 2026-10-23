@@ -49,7 +49,7 @@ Loads lazily on its three entry points =org-download-yank=, =org-download-screen
 
 ** Provide
 
-Makes the module available as =sp-org-images=.
+Provides the =sp-org-images= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-images)

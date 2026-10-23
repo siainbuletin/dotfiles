@@ -93,7 +93,7 @@ The third setting, =code-review-download-dir= (where binary files from a PR are 
 
 ** Provide
 
-The last lines provide the =sp-vcontrol= feature.
+Provides the =sp-vcontrol= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
