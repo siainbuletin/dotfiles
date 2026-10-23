@@ -1,69 +1,62 @@
 ;; -*- lexical-binding: t; -*-
-;; sp-fonts.el
+;;; sp-fonts.el
 
 ;;; Commentary:
+
+;; Typography for the whole configuration.  `fontaine' owns the font
+;; families and sizes: its presets set the `default', `fixed-pitch' and
+;; `variable-pitch' faces, line spacing and the mode line height in one
+;; place, and the latest preset is restored at startup.  The rest of this
+;; file reacts to those faces: symbol and emoji fallbacks, text scaling,
+;; `mixed-pitch' for prose and `lin' for line highlighting.
 
 ;;; Code:
 
 ;;;; Check Fonts
 ;; See https://emacsredux.com/blog/2021/12/22/check-if-a-font-is-available-with-emacs-lisp/
 (defun sp-font-available-p (font-name)
-  "Check if font is available from system instaxlled fonts."
+  "Check if font is available from system installed fonts."
   (member font-name (font-family-list)))
 
-;;;; Set Default & Variable Pitch Fonts
-(defun sp-ui--set-default-font (spec)
-  "Set the default font based on SPEC.
-SPEC is expected to be a plist with the same key names
-as accepted by `set-face-attribute'."
-  (when spec
-    (apply 'set-face-attribute 'default nil spec)))
+(use-package fontaine
+  :ensure (:wait t)
+  :demand t
+  :custom
+  (fontaine-latest-state-file (concat sp-cache-dir "fontaine-latest-state.eld"))
+  (fontaine-presets
+   '((regular
+      :default-family "Aporetic Sans Mono"
+      :default-height 150
+      :variable-pitch-family "Aporetic Serif Mono"
+      :variable-pitch-height 120
+      :mode-line-active-height 150
+      :mode-line-inactive-height 150
+      :line-spacing 0.1)
+     (t
+      :default-weight regular
+      :bold-weight bold
+      :italic-slant italic)))
+  :config
+  (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
+  (fontaine-mode 1))
 
-(defun sp-ui--set-variable-width-font (spec)
-  "Set the default font based on SPEC.
-SPEC is expected to be a plist with the same key names
-as accepted by `set-face-attribute'."
-  (when spec
-    (apply 'set-face-attribute 'variable-pitch nil spec)))
+(set-face-attribute 'link nil
+                  :family "IntoneMono Nerd Font"
+                  :height 150)
 
-(defcustom sp-ui-default-font nil
-  "The configuration of the `default' face.
-Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
-  :type '(plist :key-type: symbol)
-  :tag "Lambda-Emacs Default font"
-  :set (lambda (sym val)
-         (let ((prev-val (if (boundp 'sp-ui-default-font)
-                             sp-ui-default-font
-                           nil)))
-           (set-default sym val)
-           (when (and val (not (eq val prev-val)))
-             (sp-ui--set-default-font val)))))
-
-(defcustom sp-ui-variable-width-font nil
-  "The configuration of the `default' face.
-Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
-  :type '(plist :key-type: symbol)
-  :tag "Lambda-Emacs Variable width font"
-  :set (lambda (sym val)
-         (let ((prev-val (if (boundp 'sp-ui-variable-width-font)
-                             sp-ui-variable-width-font
-                           nil)))
-           (set-default sym val)
-           (when (and val (not (eq val prev-val)))
-             (sp-ui--set-variable-width-font val)))))
+(set-face-attribute 'org-quote nil
+                  :family "Aporetic Serif Mono")
 
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset
   :ensure nil
-  
+
   :custom
   ;; Set this to nil to set symbols entirely separately
   ;; Need it set to `t` in order to display org-modern-indent faces properly
   (use-default-font-for-symbols t)
-  
+
   :config
   ;; Use symbola for proper symbol glyphs, but have some fallbacks
   (cond ((sp-font-available-p "Symbola")
@@ -78,14 +71,14 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
         ((sp-font-available-p "Segoe UI Symbol")
          (set-fontset-font
           t 'symbol "Segoe UI Symbol" nil)))
-  
+
   ;; Use Apple emoji
   ;; NOTE that emoji here may need to be set to unicode to get color emoji
   (when (and (>= emacs-major-version 28)
              (sp-font-available-p "Apple Color Emoji"))
     (set-fontset-font t 'emoji
                       '("Apple Color Emoji" . "iso10646-1") nil 'prepend))
-  
+
   ;; Fall back font for missing glyph
   (defface fallback '((t :family "Fira Code"
                          :inherit fringe)) "Fallback")
@@ -94,14 +87,6 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
   (set-display-table-slot standard-display-table 'wrap
                           (make-glyph-code ?↩ 'fallback)))
 
-;; Set default line spacing. If the value is an integer, it indicates
-;; the number of pixels below each line. A decimal number is a scaling factor
-;; relative to the current window's default line height. The setq-default
-;; function sets this for all buffers. Otherwise, it only applies to the current
-;; open buffer
-(setq-default line-spacing 0.1)
-
-;;;; Font Lock
 (use-package font-lock
   :ensure nil
   :defer 1
@@ -135,7 +120,6 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
   "Make the font in the text buffer generally larger."
   (text-scale-increase 4))
 
-;;;; Mixed pitch
 (use-package mixed-pitch
   :ensure t
 
@@ -146,82 +130,6 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
   :hook (text-mode . mixed-pitch-mode)
 )
 
-;;;; Variables for fonts
-;; This configuration is taken from HA macs and should be adapted better at some point
-;; with better variables, so that it's easier to customize the fonts that are being used.
-(defvar ha-fixed-font
-  (when window-system
-    (or
-     ;; Choose favorite installed font from an ordered list (by preference):
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("Source Code Pro"
-                    "Cousine Nerd Font"
-                    "Cascadia Code NF"         ; Microsoft's offical has Nerds
-                    "CaskaydiaCove Nerd Font"  ; Best Nerd-based font
-                    "NanumGothicCoding"        ; Winner of codingfont.com
-                    "Hack Nerd Font"           ; no litagures!?
-                    "FiraCode Nerd Font"       ; has too much ligatures
-                    "FantasqueSansMono Nerd Font"
-                    "Monoid Nerd Font"
-                    "Hasklig"
-                    )))
-     "monospaced"))
-  "My fixed width font based on what I have installed.")
-
-(defvar ha-variable-font
-  (when window-system
-    (or
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("SN Pro"
-                    "Atkinson Hyperlegible"
-                    "Literata"
-                    "XCharter"
-                    "Charter"
-                    "Serif")))
-     (warn "Cannot find a Serif Font.  Install Source Sans Pro."))))
-
-(defvar ha-variable-header-font
-  (when window-system
-    (or
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("SN Pro" "Overpass" "DejaVu Sans"
-                    "Verdana" "Overpass"
-                    "Source Sans Pro"
-                    "Lucida Grande"
-                    "Sans Serif")))
-     (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-
-(defun ha-set-favorite-font-size (size)
-  "Set the default font size as well as equalize the fixed and variable fonts."
-
-  (let ((fixed-font (format "%s-%d" ha-fixed-font size))
-        (prop-font  (format "%s-%d" ha-variable-font size)))
-    (when (fboundp 'mixed-pitch-mode)
-      (mixed-pitch-mode -1))
-
-    ;; The font specification is the name and the size ... odd enough I guess:
-    (set-face-attribute 'default nil :font fixed-font)
-    (set-face-attribute 'fixed-pitch nil :font fixed-font :inherit 'default
-                        :height 'unspecified)
-    (set-face-attribute 'variable-pitch nil :font prop-font :inherit 'default
-                        :height 'unspecified)))
-
-(set-face-attribute 'default nil
-                  :family "Aporetic Sans Mono"
-                  :height 150)
-
-(set-face-attribute 'link nil
-                  :family "IntoneMono Nerd Font"
-                  :height 150)
-
-(use-package fontaine
-  :ensure (:wait t)
-  :init
-  (fontaine-mode))
-
 (setq prettify-symbols-unprettify-at-point 'right-edge)
 
 (global-prettify-symbols-mode +1)
@@ -229,22 +137,14 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
 
 (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
 
-(set-face-attribute 'org-quote nil
-                  :family "Aporetic Serif Mono")
-
-(set-face-attribute 'mode-line nil :height 150)
-(set-face-attribute 'mode-line-inactive nil :height 150)
-
 (defun font-size-adjust (delta)
-  "Adjust the current frame's font size.
-DELTA would be something like 1 or -1."
+  "Adjust the height of the `default' face by DELTA points.
+DELTA would be something like 1 or -1.  The next
+`fontaine-set-preset' restores the height of the preset."
   (interactive "nFont size difference: ")
-  (when (null delta) (setq delta 1))
-
-  (let* ((font-family (face-attribute 'default :font))
-         (font-size   (font-get font-family :size))
-         (new-size    (+ delta font-size)))
-    (ha-set-favorite-font-size new-size)))
+  (set-face-attribute 'default nil
+                      :height (max 60 (+ (face-attribute 'default :height)
+                                         (* 10 (or delta 1))))))
 
 (defun font-size-increase ()
    "Increase the `default' font size of all frames."
@@ -290,10 +190,6 @@ DELTA would be something like 1 or -1."
         proced-mode-hook
         tabulated-list-mode-hook))
 
-;; The font options are set last so that they win over the `set-face-attribute'
-;; calls above, as they did when `init.el' applied them at the end of startup.
-(setopt sp-ui-default-font '(:font "PT Mono" :height 120)
-        sp-ui-variable-width-font '(:font "Aporetic Serif Mono" :height 120))
-
+;;; Provide
 (provide 'sp-fonts)
-;; sp-fonts.el ends here.
+;;; sp-fonts.el ends here
