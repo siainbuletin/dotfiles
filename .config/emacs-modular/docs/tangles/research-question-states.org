@@ -14,7 +14,7 @@ A question is never "contested". It has answers, and some of those answers are. 
 
 * Setting it up
 
-Put these two lines at the top of the file that holds the questions. They have to be file-local: the global =org-todo-keywords= is overwritten at the end of =sp-org-taskman-extra=, so a keyword set declared here is the only one that survives.
+Put these two lines at the top of the file that holds the questions. The same two sequences are also in the global =org-todo-keywords=, through =sp-org-keywords= (=sp-org-keywords-questions=), so the lines work in a file without them too; keeping them file-local makes the file self-contained.
 
 #+begin_example
 #+todo: QUESTION(q) SCOPING(s) READING(r) SYNTHESIZING(y) | STABLE(t) DROPPED(x)

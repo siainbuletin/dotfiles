@@ -140,7 +140,7 @@ Removes the global binding of =C-x t i= (part of the =tab-bar= prefix) so that t
 The main Org setup, using the built-in Org and associating =.org= files with =org-mode=.
 
 Keybindings:
-- =C-c a= opens =org-agenda= globally.
+- =C-c a= (and =C-c o a=) open =org-agenda= globally; both are bound in =sp-agenda-views=, which holds every agenda key.
 - =C-M-h/j/k/l= move or promote subtrees (=org-meta*=) and =M-H/J/K/L= are the shift variants, in a vim-like layout.
 - =C-x s t= runs =sp-split-leave-parents= to split a heading into its own vulpea note.
 - =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
@@ -167,9 +167,6 @@ In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the Emacs Lisp
   :mode (("\\.org$" . org-mode))
  
   :bind
-  (:map global-map
-   ("C-c a" . org-agenda))
- 
   (:map org-mode-map
    ("C-M-k" . org-metaup)
    ("C-M-j" . org-metadown)

@@ -9,7 +9,6 @@
 
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
-(require 'sp-org-capture)
 (require 'sp-org-babel)
 (require 'sp-org-agenda)
 (require 'sp-org-images)
@@ -21,7 +20,6 @@
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
-(require 'sp-agenda-views) ;; custom agenda views, incl. the PARA view
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 

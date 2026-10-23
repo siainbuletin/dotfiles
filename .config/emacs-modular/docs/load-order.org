@@ -34,13 +34,14 @@ digraph modules {
     e1 -> e2 -> e3 -> e4;
   }
   subgraph cluster_4 { label="4  Org"; style=rounded; color="#999999"; fontname="Helvetica";
-    o1 [label="sp-org-base  sp-denote\nsp-org-appearance  sp-org-capture"];
+    o1 [label="sp-org-base  sp-org-keywords\nsp-denote  sp-org-appearance"];
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
     o3 [label="sp-org-agenda\ndeclares first: org-super-agenda\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para, agenda-views,\nvulpea-schemas, vulpea-ext"];
-    o6 [label="sp-org-issues  sp-csv  sp-trails"];
-    o1 -> o2 -> o3 -> o4 -> o5 -> o6;
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext"];
+    o6 [label="sp-org-issues"];
+    o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)\nsp-csv  sp-trails"];
+    o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions and programming"; style=rounded; color="#999999"; fontname="Helvetica";
     f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-link-conversion  sp-org-lint"];
@@ -60,13 +61,15 @@ digraph modules {
   p3 -> u1 [ltail=cluster_1, lhead=cluster_2];
   u3 -> e1 [ltail=cluster_2, lhead=cluster_3];
   e4 -> o1 [ltail=cluster_3, lhead=cluster_4];
-  o6 -> f1 [ltail=cluster_4, lhead=cluster_5];
+  o7 -> f1 [ltail=cluster_4, lhead=cluster_5];
   g3 -> l1 [ltail=cluster_5, lhead=cluster_6, style=dashed, label="after startup"];
 }
 #+end_src
 
 #+RESULTS:
 [[file:load-order-modules.svg]]
+
+(The Org box above changed with [[file:../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]: =sp-org-keywords= comes after =sp-org-base=, and =sp-org-capture= and =sp-agenda-views= load last in the box. The picture =load-order-modules.svg= has not been redrawn; re-evaluate the block to refresh it.)
 
 Inside a box the modules are independent of each other. An arrow means "has to come before" (it points from the package that is required to the one that requires it, the opposite of a dependency arrow). The parenthesised names are the packages whose position matters.
 
