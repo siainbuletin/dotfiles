@@ -5,7 +5,7 @@
 ;; This module sets up `vulpea', a library and database layer for Org-based
 ;; notes (an alternative to org-roam), together with `vui', the UI component
 ;; library used by other Vulpea modules such as `sp-vulpea-vui-table'. It is
-;; required from `sp-org-ext', and the further Vulpea extensions live in
+;; required from `sp-vulpea', and the further Vulpea extensions live in
 ;; `sp-vulpea-ext'.
 
 ;;; Code:

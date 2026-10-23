@@ -140,7 +140,7 @@ These media workflows should be enabled last, and only loaded when it's actually
 - sp-open-externally.el ::
 - sp-move-region-to-heading.el ::
 
-Vulpea functions --- These are all now 'required' in the vulpea-ext file
+Vulpea functions --- These are all now 'required' by the =sp-vulpea= catch-all module (through =sp-vulpea-ext=), except the table modules, which =sp-org-ext= requires itself.
 
 ** Programming setup (~prog/~)
 

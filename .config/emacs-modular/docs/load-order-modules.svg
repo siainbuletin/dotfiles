@@ -229,9 +229,9 @@
 <title>o5</title>
 <path fill="#f4f4f4" stroke="#555555" d="M283.5,-922C283.5,-922 80.5,-922 80.5,-922 74.5,-922 68.5,-916 68.5,-910 68.5,-910 68.5,-878 68.5,-878 68.5,-872 74.5,-866 80.5,-866 80.5,-866 283.5,-866 283.5,-866 289.5,-866 295.5,-872 295.5,-878 295.5,-878 295.5,-910 295.5,-910 295.5,-916 289.5,-922 283.5,-922"/>
 <text text-anchor="middle" x="182" y="-909.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;org&#45;ext</text>
-<text text-anchor="middle" x="182" y="-897.2" font-family="Helvetica,sans-Serif" font-size="11.00">requires: org&#45;node&#45;mem, vulpea&#45;base,</text>
-<text text-anchor="middle" x="182" y="-885.2" font-family="Helvetica,sans-Serif" font-size="11.00">vulpea&#45;ui, vulpea&#45;para,</text>
-<text text-anchor="middle" x="182" y="-873.2" font-family="Helvetica,sans-Serif" font-size="11.00">vulpea&#45;schemas, vulpea&#45;ext</text>
+<text text-anchor="middle" x="182" y="-897.2" font-family="Helvetica,sans-Serif" font-size="11.00">requires: org&#45;node&#45;mem, sp&#45;vulpea</text>
+<text text-anchor="middle" x="182" y="-885.2" font-family="Helvetica,sans-Serif" font-size="11.00">(vulpea&#45;base, ui, para, schemas, ext),</text>
+<text text-anchor="middle" x="182" y="-873.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;vulpea&#45;table</text>
 </g>
 <!-- o4&#45;&gt;o5 -->
 <g id="edge11" class="edge">

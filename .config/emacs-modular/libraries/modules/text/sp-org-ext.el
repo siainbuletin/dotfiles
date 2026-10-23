@@ -17,11 +17,8 @@
 (require 'sp-org-node-mem)
 
 ;;;;; Vulpea
-(require 'sp-vulpea-base)
-(require 'sp-vulpea-ui)
-(require 'sp-vulpea-para)
-(require 'sp-vulpea-schemas)
-(require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
+(require 'sp-vulpea)
+(require 'sp-vulpea-table) ;; my own table modules, kept out of the vulpea group
 
 ;;;;; Other extensions
 

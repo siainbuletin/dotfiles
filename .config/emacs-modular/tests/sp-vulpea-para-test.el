@@ -18,7 +18,7 @@
         nil t))
 
 (load (expand-file-name
-       "../libraries/modules/text/sp-vulpea-para.el"
+       "../libraries/modules/vulpea/sp-vulpea-para.el"
        (file-name-directory (or load-file-name buffer-file-name)))
       nil t)
 

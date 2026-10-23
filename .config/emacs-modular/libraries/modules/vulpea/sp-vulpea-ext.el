@@ -4,8 +4,9 @@
 
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
-;; own Vulpea extension modules: dataview-style tables, property conversion,
-;; grouped backlinks and a smarter heading split.
+;; own Vulpea extension modules: property conversion, grouped backlinks and a
+;; smarter heading split.  The table modules (sp-vulpea-table) are not loaded
+;; from here; sp-org-ext requires them after sp-vulpea.
 
 ;;; Code:
 
@@ -33,9 +34,6 @@
 (setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
 (setq vulpea-capf-in-brackets t)
 (setq vulpea-capf-annotate-function t)
-
-;; Create dataview-like tables through the vulpea query system
-(require 'sp-vulpea-table)
 
 ;; Batch converting properties to plug into vulpea instead
 

@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-org-ext.el=. Every line of the mo
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=: appearance, capture, Babel, agenda, images, the =org-node= memory workflow, and the Vulpea note database modules (base, UI, PARA, schemas and extras). This means that loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
+This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=: appearance, capture, Babel, agenda, images, the =org-node= memory workflow, and the Vulpea note database modules (through the catch-all module =sp-vulpea=, plus my =sp-vulpea-table= modules). This means that loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
 
 Its second job is to install a handful of smaller Org packages: =org-contrib= (for ignoring headlines on export), =org-autolist=, =org-journal=, =org-ranker=, =org-special-block-extras=, and two local =org-context= libraries from the =cloned= directory. It is loaded near the end of the Org group in both the default and minimal module lists. Citation setup lives elsewhere, as the opening note says.
 
@@ -57,15 +57,12 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 ** Vulpea modules
 
-Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
+Loads the Vulpea stack with one =require= of =sp-vulpea=, the catch-all module (base setup, UI, PARA organisation layer, schemas and the extensions; see [[file:../vulpea/sp-vulpea.org][sp-vulpea.org]]), then =sp-vulpea-table=, which is a separate custom module and so is not part of that group. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
 ;;;;; Vulpea
-(require 'sp-vulpea-base)
-(require 'sp-vulpea-ui)
-(require 'sp-vulpea-para)
-(require 'sp-vulpea-schemas)
-(require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
+(require 'sp-vulpea)
+(require 'sp-vulpea-table) ;; my own table modules, kept out of the vulpea group
 #+end_src
 
 * Other Org packages
