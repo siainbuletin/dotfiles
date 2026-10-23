@@ -70,6 +70,7 @@ emacs-pr 7        # again, later: update to the PR's latest commit and start aga
 emacs-pr rm 7     # remove the worktree, packages, notes copy and fetched ref of PR #7
 emacs-pr reset 7  # give PR #7 a fresh copy of ~/notes next time
 emacs-pr reseed   # drop the package seed (see below)
+emacs-pr --help     # print this usage, with the folders it uses
 #+end_src
 
 From the Emacs you already work in, the module =sp-sandbox= has the same as commands: =M-x sp-sandbox-pr= (the number defaults to the =22= or =#22= at point, so it works on a PR mentioned in a note), =sp-sandbox-remove=, =sp-sandbox-reset-notes= and =sp-sandbox-reseed=. They run the fish function in a process of their own and show its output in =*emacs-pr*=. The sandbox is a separate Emacs process: your live Emacs keeps running and is not touched, so you can note down what needs fixing in the live one while the PR runs next to it.

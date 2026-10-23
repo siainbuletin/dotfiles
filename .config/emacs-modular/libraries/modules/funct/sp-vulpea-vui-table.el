@@ -6,16 +6,16 @@
 
 ;;; Cross-buffer refresh broadcasting ----------------------------------
 
-(defvar sia-vulpea-table-refresh-functions nil
+(defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
 open live Vulpea tables should refresh. Each mounted
-`sia-vulpea-table' instance subscribes to this while it's alive
+`sp-vulpea-table' instance subscribes to this while it's alive
 (via `vui-use-effect') and unsubscribes on unmount.")
 
 (defun sia-vulpea-refresh-all-tables ()
   "Signal every open live Vulpea table to refresh itself."
   (interactive)
-  (run-hook-with-args 'sia-vulpea-table-refresh-functions))
+  (run-hook-with-args 'sp-vulpea-table-refresh-functions))
 
 (defvar sia-vulpea--refresh-after-save-timer nil)
 
@@ -86,7 +86,7 @@ becomes a button rather than plain text."
   "Return a display label for COLUMN."
   (if (keywordp column) (capitalize (substring (symbol-name column) 1)) column))
 
-(vui-defcomponent sia-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
+(vui-defcomponent sp-vulpea-table (tags columns sort-by parent-of parent-prop parent-title)
   "A live, clickable, editable table of Vulpea notes.
 TAGS filters notes (must have all of them). COLUMNS is the
 ordered list of fields to show -- :title is always a button that
@@ -101,7 +101,7 @@ PARENT-PROP/PARENT-TITLE are as in `sia-vulpea--note-matches-p'
 and the parent-display line.
 
 The table also refreshes automatically: it subscribes to
-`sia-vulpea-table-refresh-functions' while mounted, which fires
+`sp-vulpea-table-refresh-functions' while mounted, which fires
 after any note is saved (see `sia-vulpea--schedule-refresh-after-save')."
   :state ((refresh-tick 0)
           (sort-override nil)
@@ -110,8 +110,8 @@ after any note is saved (see `sia-vulpea--schedule-refresh-after-save')."
   (progn
     (vui-use-effect ()
       (let ((fn (lambda () (vui-set-state :refresh-tick #'1+))))
-        (add-hook 'sia-vulpea-table-refresh-functions fn)
-        (lambda () (remove-hook 'sia-vulpea-table-refresh-functions fn))))
+        (add-hook 'sp-vulpea-table-refresh-functions fn)
+        (lambda () (remove-hook 'sp-vulpea-table-refresh-functions fn))))
     (let* ((effective-sort (or sort-override sort-by))
            (notes (vulpea-db-query
                    (lambda (note)
@@ -224,7 +224,7 @@ buffer to refresh against the current state of the Vulpea db."
   (let ((parent-title (and parent-of
                             (let ((note (ignore-errors (vulpea-db-get-by-id parent-of))))
                               (and note (vulpea-note-title note))))))
-    (vui-mount (vui-component 'sia-vulpea-table
+    (vui-mount (vui-component 'sp-vulpea-table
                  :tags tags :columns columns :sort-by sort-by
                  :parent-of parent-of :parent-prop parent-prop :parent-title parent-title)
                (sia-vulpea--table-buffer-name view-name parent-of))))

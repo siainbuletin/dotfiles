@@ -314,9 +314,6 @@ selected instead of creating a new buffer."
   :custom
   (org-inline-anim-loop t))
 
-(use-package org-ql
- :ensure t)
-
 ;; Time logging for org-mode
 
 (setq org-use-fast-todo-selection 'expert) ;; don't use popup window for todos

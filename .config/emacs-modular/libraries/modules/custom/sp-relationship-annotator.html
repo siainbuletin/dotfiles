@@ -18,6 +18,7 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 #legend i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;opacity:.7}
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node text.fold{pointer-events:all;font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
+.node:focus{outline:none}.node:focus rect{stroke-width:2.5}
 .node .tags,.node .more{fill:var(--muted)}
 .node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
@@ -292,7 +293,12 @@ function drawNode(id) {
   el('title', {}, g).textContent = n.path || n.title;
   if (id !== root) {
     g.style.cursor = 'pointer';
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('role', 'button');
     g.addEventListener('click', () => { if (!dragged) recentre(id, depth, true); });
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); recentre(id, depth, true); }
+    });
   }
   if (hasKids(id)) {
     const f = el('text', { class: 'fold', x: W - 16, y: 14 }, g);
@@ -378,11 +384,14 @@ svg.addEventListener('wheel', e => {
 svg.addEventListener('pointerdown', e => {
   dragStart = { x: e.clientX - view.x, y: e.clientY - view.y, cx: e.clientX, cy: e.clientY };
   dragged = false;
-  svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener('pointermove', e => {
   if (!dragStart) return;
-  if (Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) dragged = true;
+  if (!dragged && Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) {
+    dragged = true;
+    svg.setPointerCapture(e.pointerId);
+  }
+  if (!dragged) return;
   view.x = e.clientX - dragStart.x;
   view.y = e.clientY - dragStart.y;
   apply();
