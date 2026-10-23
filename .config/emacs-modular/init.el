@@ -215,6 +215,66 @@ non-nil. A failing module is reported and the rest still load."
                ""))))
 
 ;;; Modular loading without a config.el
+;;;;; Load order
+;; The order of `lem--default-modules' follows the dependencies between the
+;; Elpaca recipes in the modules; docs/load-order.org draws them and says why.
+;; Two rules matter to Elpaca. A package that another package requires has to be
+;; declared *before* that package, otherwise Elpaca has already queued it as a
+;; dependency and warns "X previously queued as dependency of: (Y)". And a
+;; `:wait t' recipe stops init until the queue so far is installed, so the
+;; packages the rest of init needs go first.
+
+(defcustom sp-defer-late-modules t
+  "When non-nil, load the modules in `lem--late-modules' after startup.
+They are required from an idle timer once Elpaca has finished its
+initial queues, so they no longer add to the time Emacs takes to
+become usable. Set to nil to load them with the other modules, in
+the order of `lem--late-modules', for example when debugging."
+  :type 'boolean
+  :group 'sia-lambda)
+
+(defconst lem--late-modules
+  '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
+    ;; the first file.
+    sp-academic
+    sp-notes
+    sp-semantic
+    ;; several graphing functionality
+    sp-dgraphs
+    sp-relationship-annotator
+    sp-dyn-graph
+    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Sandboxed Emacs for pull requests
+    sp-sandbox
+    ;; Version control. `sp-keys' autoloads the magit commands it binds, so
+    ;; the keys work before this loads. `sp-vcontrol' installs magit and
+    ;; `sp-magit-style' styles it, so it comes second.
+    sp-vcontrol
+    sp-magit-style
+    ;; Terminals and shells
+    sp-terminal
+    sp-eshell
+    ;; AI tooling: the most packages of any module
+    sp-ai)
+  "Modules that can wait until after startup, in dependency order.
+Nothing else requires these features, and their packages are not
+needed to open the first buffer.")
+
+(defun lem--load-late-modules ()
+  "Require `lem--late-modules', then let Elpaca process what they queued."
+  (lem--require-modules lem--late-modules)
+  ;; Orders declared after init are only processed on their own when a
+  ;; command is running interactively.
+  (when (fboundp 'elpaca-process-queues)
+    (elpaca-process-queues)))
+
+(defun lem--schedule-late-modules ()
+  "Load `lem--late-modules' now, or once Emacs is idle after Elpaca's init."
+  (if sp-defer-late-modules
+      (add-hook 'elpaca-after-init-hook
+                (lambda () (run-with-idle-timer 0.5 nil #'lem--load-late-modules)))
+    (lem--load-late-modules)))
+
 ;;;;; Load Configuration Modules
 ;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
 ;; loaded is left to the user to set in `config.el', though if there is no
@@ -291,6 +351,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-workspaces
 
                     ;; Org related settings
+                    ;; `sp-org-base' and `sp-org-agenda' come before the other
+                    ;; Org modules: `sp-org-agenda' declares org-super-agenda
+                    ;; and then org-ql, which requires it.
                     'sp-org-base
                     'sp-denote
                     'sp-org-appearance
@@ -305,18 +368,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
-                    'sp-sandbox ;; launch a PR in a sandboxed Emacs
                     'sp-csv
 
-                    ;; Academic
-                    'sp-academic
-                    ;; 'sp-statistics
-                    'sp-dgraphs
-                    'sp-relationship-annotator
-                    'sp-relationship-annotator-live ;; live localhost view of the graph
-                    'sp-notes
-                    'sp-semantic
-                    'sp-dyn-graph
+                    ;; Notes (the rest of the academic modules are late)
                     'sp-trails
 
                     ;; Functions
@@ -329,17 +383,14 @@ Skips modules listed in `(lem-gui-only-modules)' when
 
                     ;; Programming modules
                     'sp-base-code
-                    'sp-prog-misc
-                    'sp-eshell
-                    'sp-vcontrol
-                    'sp-magit-style
-                    'sp-terminal
+                    ;; `sp-lisp' installs paredit, which emr (in
+                    ;; `sp-prog-misc') requires, so it comes first.
                     'sp-lisp
+                    'sp-prog-misc
                     ;; 'sp-vc-ai-workbench
-
-                    ;; Media
-                    'sp-ai
-                    ))))
+                    ))
+   ;; The modules in `lem--late-modules' load once startup is done.
+   (lem--schedule-late-modules)))
 
 (defun lem--minimal-modules ()
   "Load 𝛌-Emacs with a minimal set of modules.

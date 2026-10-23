@@ -1,0 +1,19 @@
+#+title: 0003 Merge PRs on GitHub with merge commits
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+On 2026-10-21, PRs of the #18 to #22 stack were merged locally, =main= was pushed and the branches were deleted. GitHub then showed those PRs as *Closed*, not *Merged*, which loses the link between a PR and its change.
+
+* Decision
+Merge PRs with GitHub's merge button or =gh pr merge N --merge= ("Create a merge commit"), not squash and not by merging locally and pushing =main=. Delete the branch (=--delete-branch= or the button) only once nothing else is based on it. =gh pr create --base main --head BRANCH --fill= and =gh pr view N --web= are the other everyday commands; Forge's =N c p= does the same from Emacs.
+
+* Alternatives considered
+- *Squash merge*: tidy history, but a stacked child then still carries the parent's old commits and conflicts with the squashed copy, forcing the rebase in [[file:0005-update-stacked-prs-by-merging.org][0005]].
+- *Merge locally, push =main=*: what went wrong on 2026-10-21.
+- *Rebase merge*: rewrites commits, same stacking problem.
+
+* Consequences
+- History has merge commits; each stacked branch already contains its parent's commits.
+- GitHub's button does not read =.gitattributes=, so changelog conflicts must be fixed on the branch first ([[file:0006-changelog-keep-both-sides.org][0006]]).
+- /Untested/: whether =gh= finds the repository from =~= (it needs the =~/.git= gitfile of [[file:0001-plain-clone-for-gui-git-tools.org][0001]]); in a clone or worktree it does.
