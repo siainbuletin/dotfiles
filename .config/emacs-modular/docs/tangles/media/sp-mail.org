@@ -40,7 +40,7 @@ The =notmuch= block from the planning notes is here so you can try it. Evaluate 
 
 * Provide
 
-The =provide= form lets =require= and =sp-require-module= load this module by name.
+Provides the =sp-mail= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-mail)

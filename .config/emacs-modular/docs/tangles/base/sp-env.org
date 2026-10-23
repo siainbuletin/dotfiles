@@ -188,9 +188,7 @@ This has problems:
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-env= feature.
+Provides the =sp-env= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

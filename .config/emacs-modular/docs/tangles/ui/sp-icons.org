@@ -148,9 +148,7 @@ Adds icons to ibuffer lists. Unlike the packages above it is always installed an
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-icons= feature for =init.el=.
+Provides the =sp-icons= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

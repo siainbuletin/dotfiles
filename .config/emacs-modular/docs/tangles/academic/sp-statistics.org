@@ -37,9 +37,7 @@ Installs the =ess= package with its default settings. Its modes are set up by th
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-statistics= feature. The =End:= comment before it is just a section marker here, not a local variables block.
+Provides the =sp-statistics= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End:

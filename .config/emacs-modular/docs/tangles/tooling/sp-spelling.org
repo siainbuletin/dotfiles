@@ -147,9 +147,7 @@ When extras are enabled, =consult-flyspell= lists every misspelled word in the b
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-spelling= feature.
+Provides the =sp-spelling= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

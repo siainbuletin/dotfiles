@@ -126,9 +126,7 @@ When extras are enabled and the =goto-last-change= library is installed, binds =
 
 * Provide
 
-** Provide
-
-Provides the =sp-goto= feature.
+Provides the =sp-goto= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

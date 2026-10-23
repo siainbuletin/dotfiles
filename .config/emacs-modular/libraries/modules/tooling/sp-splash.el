@@ -80,8 +80,8 @@
 ;; The lambda in `lambda-splash.txt' is drawn behind the menu: it only fills
 ;; blanks, so the title and the menu buttons stay on top of it.
 (defface sp-splash-art-face
-  '((((background dark))  :foreground "#3a3f4b")
-    (((background light)) :foreground "#d8dbe2"))
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
   "Face for the lambda art behind the splash menu.
 The colour follows the background of the current theme, so it changes
 with `load-theme' the next time the splash is drawn."
@@ -165,7 +165,7 @@ Only plain blanks are replaced, so text, buttons and images are kept."
 (defun sp-splash--put-art-char (col ch)
   "Put CH in the art face at column COL of the current line if it is blank."
   (move-to-column col)
-  (cond ((and (eolp) (< (current-column) col))
+  (cond ((and (eolp) (<= (current-column) col))
          (insert-char ?\s (- col (current-column)))
          (insert (propertize (string ch) 'face 'sp-splash-art-face)))
         ((and (= (current-column) col)
@@ -294,8 +294,12 @@ The form is also copied to the kill ring."
         (sp-splash-mode))))
 
 (defun sp-splash-screen ()
-  "A custom splash screen for Emacs"
+  "A custom splash screen for Emacs.
+Called interactively, it drops an existing *splash* buffer first so the
+splash is drawn again with the current settings."
   (interactive)
+  (when (and (called-interactively-p 'any) (get-buffer "*splash*"))
+    (kill-buffer "*splash*"))
   ;; Switch to or create splash buffer
   (or (when (get-buffer "*splash*")
         (switch-to-buffer "*splash*"))

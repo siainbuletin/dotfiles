@@ -51,9 +51,7 @@ Loads the glue between Embark and Consult once both are present, which adds acti
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-embark= feature.
+Provides the =sp-embark= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-embark)

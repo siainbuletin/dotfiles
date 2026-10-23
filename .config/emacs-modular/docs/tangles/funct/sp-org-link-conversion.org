@@ -487,9 +487,7 @@ and `[[Target^block]]' link to the note Target."
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-link-conversion= feature for =init.el=.
+Provides the =sp-org-link-conversion= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

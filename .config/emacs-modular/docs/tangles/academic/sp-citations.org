@@ -171,9 +171,7 @@ Defines =sia-citar-library-backup-path= pointing to =~/Documents/literature/back
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-citations= feature.
+Provides the =sp-citations= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

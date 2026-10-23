@@ -179,9 +179,7 @@ Installs Company without enabling it globally. Individual modes turn it on, for 
 
 * Provide
 
-** Provide feature
-
-Provides =sp-completion=.
+Provides the =sp-completion= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

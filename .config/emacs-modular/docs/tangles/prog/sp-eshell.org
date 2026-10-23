@@ -1051,9 +1051,7 @@ Runs =ls -X= (grouped by extension) whenever the directory changes, replacing Es
 
 * Provide
 
-** Provide form
-
-Makes the module available as =sp-eshell=.
+Provides the =sp-eshell= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End Shell

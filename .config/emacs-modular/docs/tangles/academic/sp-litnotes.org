@@ -102,9 +102,7 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be lin
 
 * Provide
 
-** Provide feature
-
-Provides =sp-litnotes=.
+Provides the =sp-litnotes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-litnotes)
