@@ -17,22 +17,17 @@
   '((sequence "DOING" "WAITING" "|" "CANCELLED"))
   "Keywords older notes still use; migrate them to the task sequence.")
 
-(defconst sp-org-keywords-trails
-  '((sequence "QUESTION(q)" "REVIEW(v)" "|" "ANSWERED(n)" "DROPPED(x)")
-    (sequence "ACTIVE(a)" "PARKED(k)" "|" "ARCHIVED(A)")
-    (sequence "TOREAD(r)" "|" "READ(d)" "PRUNED(p)"))
-  "Questions, trails and pages of `sp-trails'.")
-
-(defconst sp-org-keywords-questions
-  '((sequence "QUESTION" "SCOPING(s)" "READING" "SYNTHESIZING(y)" "|" "STABLE(t)" "DROPPED")
-    (sequence "UNREAD(u)" "|" "READ" "SKIPPED"))
-  "Questions and reading tasks of the discourse-graphs workflow.")
+(defconst sp-org-keywords-research
+  '((sequence "QUESTION" "SCOPING" "READING" "SYNTHESIZING" "REVIEW"
+              "|" "STABLE" "ANSWERED" "DROPPED")
+    (sequence "ACTIVE" "PARKED" "|" "ARCHIVED")
+    (sequence "TOREAD" "UNREAD" "|" "READ" "PRUNED" "SKIPPED"))
+  "Questions, trails, pages and reading tasks of the research workflow.")
 
 (setq org-todo-keywords
       (append sp-org-keywords-tasks
               sp-org-keywords-legacy
-              sp-org-keywords-trails
-              sp-org-keywords-questions))
+              sp-org-keywords-research))
 
 (defun sp-org-keywords-done ()
   "Return the keywords of `org-todo-keywords' that count as finished."

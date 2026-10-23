@@ -16,10 +16,15 @@ The table lists what each sequence is for, as far as the code shows. The last tw
 |----------------------------------+-------------------------------------------------------------------------+----------------------------------------------------------+----------------------------------------------------------------------------------------+------------------------+-----------------------------|
 | =sp-org-keywords-tasks=          | =TODO NEXT PROG WAIT= \vert{} =DONE CNCL=                                | The issue tracker's =#+todo:= line and org-gtd's mapping | org-gtd (=org-gtd-keyword-mapping=), =sp-org-issues=, the =d=, =n=, =e= and =w= views   |                        |                             |
 | =sp-org-keywords-legacy=         | =DOING WAITING= \vert{} =CANCELLED=                                      | The last =org-todo-keywords= assignment, the one that took effect | Existing notes, =org-journal= carry-over, =org-modern= faces              |                        |                             |
-| =sp-org-keywords-trails=         | =QUESTION REVIEW= \vert{} =ANSWERED DROPPED=; =ACTIVE PARKED= \vert{} =ARCHIVED=; =TOREAD= \vert{} =READ PRUNED= | Header comment of =sp-trails=                            | =sp-trails= (questions, trails, pages)                                                 |                        |                             |
-| =sp-org-keywords-questions=      | =QUESTION SCOPING READING SYNTHESIZING= \vert{} =STABLE DROPPED=; =UNREAD= \vert{} =READ SKIPPED= | =docs/tangles/research-question-states.org=              | =sp-dg-positions=, discourse-graphs                                                    |                        |                             |
+| =sp-org-keywords-research=       | =QUESTION SCOPING READING SYNTHESIZING REVIEW= \vert{} =STABLE ANSWERED DROPPED=; =ACTIVE PARKED= \vert{} =ARCHIVED=; =TOREAD UNREAD= \vert{} =READ PRUNED SKIPPED= | Header comment of =sp-trails= and =docs/tangles/research-question-states.org=, merged | =sp-trails= (questions, trails, pages), =sp-dg-positions= and discourse-graphs (questions and reading tasks) |                        |                             |
 
-Two clashes to decide on. =QUESTION=, =DROPPED= and =READ= appear in both the trails and the questions sequences, so Org treats the first sequence that holds the word as its sequence. And the legacy =WAITING= and the new =WAIT= mean the same thing.
+The research sequences used to be two constants (one for =sp-trails=, one for the discourse-graphs questions) that shared =QUESTION=, =DROPPED= and =READ=, so Org took the first sequence that held the word. They are now one constant, =sp-org-keywords-research=, in which every word appears once:
+
+- *Question:* =QUESTION SCOPING READING SYNTHESIZING REVIEW= then =STABLE ANSWERED DROPPED=. The discourse-graphs states come first; =REVIEW= is the state =sp-trails= puts a question in when a trail is archived, and =ANSWERED= is its finished state; =STABLE= is the discourse-graphs one. Both finished states stay, since each module sets its own.
+- *Trail:* =ACTIVE PARKED= then =ARCHIVED=.
+- *Page or reading task:* =TOREAD UNREAD= then =READ PRUNED SKIPPED=. =TOREAD= (=sp-trails=) and =UNREAD= (discourse-graphs) both mean "not read yet" and =PRUNED= and =SKIPPED= both mean "not going to read it"; the words are kept because each module sets its own, and merging the words needs a change in the module.
+
+The research keywords have no fast keys: they used to repeat =t=, =n=, =p= and =d= from the task sequence. Change them with =S-<right>= or =C-c C-t=. The legacy =WAITING= and the task =WAIT= still mean the same thing, which is for you to decide on.
 
 * Removed settings of the Workflow Status view
 
@@ -107,27 +112,17 @@ The words that were effective before this module, kept so notes that use them st
   "Keywords older notes still use; migrate them to the task sequence.")
 #+end_src
 
-** Research trails
+** Research
 
-The three sequences that =sp-trails= expects.
-
-#+begin_src emacs-lisp -i
-(defconst sp-org-keywords-trails
-  '((sequence "QUESTION(q)" "REVIEW(v)" "|" "ANSWERED(n)" "DROPPED(x)")
-    (sequence "ACTIVE(a)" "PARKED(k)" "|" "ARCHIVED(A)")
-    (sequence "TOREAD(r)" "|" "READ(d)" "PRUNED(p)"))
-  "Questions, trails and pages of `sp-trails'.")
-#+end_src
-
-** Research questions
-
-The two sequences of the discourse-graphs workflow: the state of a question and of the reading tasks under it.
+One constant for the research workflow of =sp-trails= and the discourse-graphs questions (see the use-case table for how the two sets were merged). No word appears twice, and there are no fast keys.
 
 #+begin_src emacs-lisp -i
-(defconst sp-org-keywords-questions
-  '((sequence "QUESTION" "SCOPING(s)" "READING" "SYNTHESIZING(y)" "|" "STABLE(t)" "DROPPED")
-    (sequence "UNREAD(u)" "|" "READ" "SKIPPED"))
-  "Questions and reading tasks of the discourse-graphs workflow.")
+(defconst sp-org-keywords-research
+  '((sequence "QUESTION" "SCOPING" "READING" "SYNTHESIZING" "REVIEW"
+              "|" "STABLE" "ANSWERED" "DROPPED")
+    (sequence "ACTIVE" "PARKED" "|" "ARCHIVED")
+    (sequence "TOREAD" "UNREAD" "|" "READ" "PRUNED" "SKIPPED"))
+  "Questions, trails, pages and reading tasks of the research workflow.")
 #+end_src
 
 * The combined list
@@ -140,8 +135,7 @@ Joins the constants. The task sequence comes first so it is the one new headings
 (setq org-todo-keywords
       (append sp-org-keywords-tasks
               sp-org-keywords-legacy
-              sp-org-keywords-trails
-              sp-org-keywords-questions))
+              sp-org-keywords-research))
 #+end_src
 
 ** Done keywords
@@ -200,8 +194,17 @@ The combined list must start with the task sequence (it is the one new headings 
 
 (ert-deftest sp-org-keywords-test-every-use-case-is-joined ()
   (dolist (seq (append sp-org-keywords-tasks sp-org-keywords-legacy
-                       sp-org-keywords-trails sp-org-keywords-questions))
+                       sp-org-keywords-research))
     (should (member seq org-todo-keywords))))
+
+(ert-deftest sp-org-keywords-test-no-keyword-twice ()
+  (let (words)
+    (dolist (seq org-todo-keywords)
+      (dolist (word (cdr seq))
+        (unless (equal word "|")
+          (push (replace-regexp-in-string "(.*)\\'" "" word) words))))
+    (should (equal (sort (copy-sequence words) #'string<)
+                   (sort (delete-dups (copy-sequence words)) #'string<)))))
 
 (ert-deftest sp-org-keywords-test-done-keywords ()
   (let ((done (sp-org-keywords-done)))

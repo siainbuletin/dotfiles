@@ -14,8 +14,17 @@
 
 (ert-deftest sp-org-keywords-test-every-use-case-is-joined ()
   (dolist (seq (append sp-org-keywords-tasks sp-org-keywords-legacy
-                       sp-org-keywords-trails sp-org-keywords-questions))
+                       sp-org-keywords-research))
     (should (member seq org-todo-keywords))))
+
+(ert-deftest sp-org-keywords-test-no-keyword-twice ()
+  (let (words)
+    (dolist (seq org-todo-keywords)
+      (dolist (word (cdr seq))
+        (unless (equal word "|")
+          (push (replace-regexp-in-string "(.*)\\'" "" word) words))))
+    (should (equal (sort (copy-sequence words) #'string<)
+                   (sort (delete-dups (copy-sequence words)) #'string<)))))
 
 (ert-deftest sp-org-keywords-test-done-keywords ()
   (let ((done (sp-org-keywords-done)))
