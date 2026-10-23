@@ -428,7 +428,7 @@ will be killed."
 (defcustom sia-org-heading-level-capitalise nil
   "Minimum level of Org headings to be capitalised
 Nil implies all levels are capitalised."
-  :group 'ews
+  :group 'spconfig
   :type  '(choice (const :tag "All headings" nil)
 		  (integer :tag "Highest level" 1)))
 

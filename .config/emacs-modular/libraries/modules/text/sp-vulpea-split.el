@@ -62,14 +62,14 @@
 (defcustom sp-split-denote-names t
   "When non-nil, name split-out notes with Denote's file-naming scheme."
   :type 'boolean
-  :group 'sp-split)
+  :group 'spconfig)
 
 (defcustom sp-split-check-footnotes t
   "When non-nil, keep footnote definitions with the headings that cite them.
 Definitions are copied, per heading, into the new note and, for those
 that leave with the subtree, into the source note."
   :type 'boolean
-  :group 'sp-split)
+  :group 'spconfig)
 
 (defvar sp-split--fn-report nil
   "Plist (:into-new N :into-source M :dangling LABELS) for the running split.")

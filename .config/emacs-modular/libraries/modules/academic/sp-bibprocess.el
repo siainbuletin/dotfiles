@@ -9,7 +9,7 @@
 (defcustom sp-bibtex-dir
   sp-bibliography-dir
   "Location of BibTeX files and attachments."
-  :group 'siapip
+  :group 'spconfig
   :type 'directory)
 
 (defvar sp-bibtex-files

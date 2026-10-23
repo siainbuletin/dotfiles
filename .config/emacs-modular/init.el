@@ -231,7 +231,7 @@ initial queues, so they no longer add to the time Emacs takes to
 become usable. Set to nil to load them with the other modules, in
 the order of `lem--late-modules', for example when debugging."
   :type 'boolean
-  :group 'sia-lambda)
+  :group 'spconfig)
 
 (defconst lem--late-modules
   '(;; Academic: bibliography, graphs and notes tooling, not needed to edit

@@ -26,7 +26,7 @@ The file header, with lexical binding enabled.
 (defcustom siapip/nix-mode-enable nil
   "Enable nix-mode with LSP support for editing Nix files."
   :type 'boolean
-  :group 'siapip
+  :group 'spconfig
   :safe #'booleanp)
 #+end_src
 

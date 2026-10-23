@@ -38,7 +38,7 @@ The group, and the shell that has =emacs-pr= defined.
 (defcustom sp-sandbox-shell "fish"
   "Shell that has the `emacs-pr' function defined."
   :type 'string
-  :group 'sp-sandbox)
+  :group 'spconfig)
 #+end_src
 
 * Running the function

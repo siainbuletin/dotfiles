@@ -93,7 +93,8 @@ incoming edges.  SUBJECT-TYPES and OBJECT-TYPES list the node types, from
 `relationship-annotator-node-types', that an edge of this relation
 should connect.  An edge between other types is not refused, only
 reported as an anomaly.  A relation without them accepts any types."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spconfig)
 
 (defcustom relationship-annotator-tag-colors
   '(("root" . "#4e79a7")
@@ -108,36 +109,43 @@ here, in the order the tags are stored.  Notes with no listed tag keep
 the default box colour.  COLOR must be in hex form, such as
 \"#4e79a7\"; the views draw it as a tint, so text stays readable in
 light and dark themes."
-  :type '(alist :key-type string :value-type string))
+  :type '(alist :key-type string :value-type string)
+  :group 'spconfig)
 
 (defcustom relationship-annotator-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
-  :type 'integer)
+  :type 'integer
+  :group 'spconfig)
 
 (defcustom relationship-annotator-embed-depth 4
   "Levels below the starting note that the browser page holds.
 The page recentres and changes depth only within them.  Notes at the
 last level show how many children they hide; run the command again from
 another note to go further.  A larger depth, when you ask for one, wins."
-  :type 'integer)
+  :type 'integer
+  :group 'spconfig)
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
   "Where `rel-anno-graph-static' writes its HTML page."
-  :type 'file)
+  :type 'file
+  :group 'spconfig)
 
 (defcustom relationship-annotator-svg-directory
   (expand-file-name "relationship-annotator/" sp-cache-dir)
   "Directory where `rel-anno-svg' writes its SVG files."
-  :type 'directory)
+  :type 'directory
+  :group 'spconfig)
 
 (defcustom relationship-annotator-rankdir "TB"
   "Graphviz layout direction: \"TB\" (parents on top) or \"LR\" (parents on the left)."
-  :type '(choice (const "LR") (const "TB")))
+  :type '(choice (const "LR") (const "TB"))
+  :group 'spconfig)
 
 (defcustom relationship-annotator-wrap-width 28
   "Number of characters after which node labels wrap in the SVG export."
-  :type 'integer)
+  :type 'integer
+  :group 'spconfig)
 
 ;;;; Tree and scope
 
@@ -314,7 +322,8 @@ relations between two notes that are both in scope."
 A note with a type is drawn in the colour of its type, unless one of its
 file tags has a colour in `relationship-annotator-tag-colors'.  COLOR
 must be in hex form."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spconfig)
 
 (defcustom relationship-annotator-type-sources
   '((property "DG_TYPE") (meta "type") tag)
@@ -324,7 +333,8 @@ metadata field, and `tag' the first file tag that names a type in
 `relationship-annotator-node-types'.  The first source that gives a
 known type wins.  A note whose sources give none has no type, and the
 anomaly check skips its edges."
-  :type '(repeat sexp))
+  :type '(repeat sexp)
+  :group 'spconfig)
 
 (defcustom relationship-annotator-attributes
   '((claim :overlay evidence-score
@@ -352,7 +362,8 @@ RELATION is a relation name, to follow its edges from the note, or the
 :inverse label of a relation, to follow them backwards.  TYPE keeps only
 the related notes of that type, and may be empty.  OP is `count', or
 `sum' and `avg' of the ATTRIBUTE of the related notes."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spconfig)
 
 ;;;;; Types
 

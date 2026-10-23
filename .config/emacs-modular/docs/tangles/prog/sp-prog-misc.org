@@ -144,7 +144,7 @@ Enables =delete-selection-mode=, so typing replaces the selection. The option =s
 (defcustom siapip/focus-follows-mouse t
   "When non-nil, focus follows the mouse pointer."
   :type 'boolean
-  :group 'siapip)
+  :group 'spconfig)
 ;; Negative delay: debounces auto-selection (brushing past a split won't grab
 ;; it) and, crucially, suppresses minibuffer auto-selection so mouse nudges
 ;; don't yank focus out of an active vertico/consult session.
@@ -239,7 +239,7 @@ Defines =siapip/scroll-amount= (5 lines) and two small commands, =up-slightly= a
 (defcustom siapip/scroll-amount 5
   "Scolling up/down will jump by this amount."
   :type 'integer
-  :group 'siapip)
+  :group 'spconfig)
 (defun up-slightly () (interactive) (scroll-up siapip/scroll-amount))
 (defun down-slightly () (interactive) (scroll-down siapip/scroll-amount))
 (global-set-key [mouse-4] 'down-slightly)

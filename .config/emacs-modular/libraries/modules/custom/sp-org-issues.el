@@ -48,7 +48,7 @@
 (defcustom sp-org-issues-area-title "Issues"
   "Title of the vulpea-para area that holds the issues."
   :type 'string
-  :group 'sp-org-issues)
+  :group 'spconfig)
 
 (defcustom sp-org-issues-repos
   `(("dotfiles"
@@ -69,7 +69,7 @@ Each entry is (NAME . PLIST).  NAME is the heading title.  PLIST holds
 repository's git directory), :worktree-root (where issue worktrees
 go), :base (the branch new issue branches start from) and :url."
   :type '(alist :key-type string :value-type plist)
-  :group 'sp-org-issues)
+  :group 'spconfig)
 
 (defcustom sp-org-issues-yadm-repo sp-yadm-repo
   "The yadm repository.
@@ -77,12 +77,12 @@ go), :base (the branch new issue branches start from) and :url."
 Magit lists untracked files in worktrees added from it, although the
 repository sets status.showUntrackedFiles to no for the home folder."
   :type 'directory
-  :group 'sp-org-issues)
+  :group 'spconfig)
 
 (defcustom sp-org-issues-offer-worktree-removal t
   "Non-nil means offer to remove an issue's worktree when it is closed."
   :type 'boolean
-  :group 'sp-org-issues)
+  :group 'spconfig)
 
 (defconst sp-org-issues-todo-line
   "#+todo: TODO(t) NEXT(n) PROG(p!) WAIT(w@/!) | DONE(d!) CNCL(c@)"

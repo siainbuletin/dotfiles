@@ -39,11 +39,13 @@ Status: written without being run. Nothing here has been tested in Emacs yet.
 
 (defcustom sp-magit-style-icons t
   "Show nerd-icons next to files and directories in Magit buffers."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spconfig)
 
 (defcustom sp-magit-style-heading-height 1.15
   "Relative height of Magit section headings."
-  :type 'number)
+  :type 'number
+  :group 'spconfig)
 #+end_src
 
 ** Icons

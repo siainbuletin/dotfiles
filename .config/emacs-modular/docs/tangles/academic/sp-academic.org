@@ -292,13 +292,13 @@ Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda
 #+begin_src emacs-lisp -i
 ;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'sia-lambda
+  :group 'spconfig
   :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory."
-  :group 'sia-lambda
+  :group 'spconfig
   :tag "Lambda-Emacs Citation Notes Directory")
 (defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'sia-lambda
+  :group 'spconfig
   :tag "Lambda-Emacs Citar Notes Template")
 #+end_src
 
