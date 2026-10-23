@@ -29,6 +29,7 @@
 
 ;;;; Org Contrib
 (use-package org-contrib
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag

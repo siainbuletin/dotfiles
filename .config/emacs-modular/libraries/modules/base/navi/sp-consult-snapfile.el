@@ -8,8 +8,15 @@
 
 ;;; Code:
 
+;; `:load-path' reads a list as a list of paths and evaluates each symbol in it as a
+;; variable, so a call to `sp-path' has to go through a variable.
+(defconst sp-consult-snapfile-dir
+  (sp-path sp-clones-dir "cloned-utilities/consult-snapfile/emacs")
+  "Local checkout of the consult-snapfile client.")
+
 (use-package consult-snapfile
-  :load-path (sp-path sp-clones-dir "cloned-utilities/consult-snapfile/emacs")
+  :ensure nil
+  :load-path sp-consult-snapfile-dir
   :after (consult websocket)
   ;; Optional: bind to your preferred key
   :bind ("C-c s f" . consult-snapfile))

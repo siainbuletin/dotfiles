@@ -81,6 +81,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 ;;;; Org Contrib
 (use-package org-contrib
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
