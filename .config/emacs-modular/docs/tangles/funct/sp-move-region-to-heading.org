@@ -322,7 +322,7 @@ Binds the command to =M-a= globally, replacing the default =backward-sentence=.
 
 ** Provide
 
-Makes the module available as =sp-move-region-to-heading=.
+Provides the =sp-move-region-to-heading= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-move-region-to-heading)

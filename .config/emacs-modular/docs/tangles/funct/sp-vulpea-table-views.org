@@ -416,7 +416,7 @@ Binds three global keys under the =C-c w= prefix: =C-c w t= toggles inline table
 
 ** Provide
 
-Provides the =sp-vulpea-table-views= feature.
+Provides the =sp-vulpea-table-views= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-table-views)

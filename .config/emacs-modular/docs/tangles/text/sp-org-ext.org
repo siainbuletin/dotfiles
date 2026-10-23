@@ -159,9 +159,9 @@ Requires a second context library. Its source lives under =cloned/org-context-pe
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-org-ext= for the module loader.
+Provides the =sp-org-ext= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

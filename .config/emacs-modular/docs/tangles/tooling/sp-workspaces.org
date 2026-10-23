@@ -310,9 +310,9 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-workspaces= for the module loader.
+Provides the =sp-workspaces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

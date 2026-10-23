@@ -9,6 +9,7 @@ to fold or unfold it.
 
 * Open pull requests
 ** Module docs
+- The 36 provide subsections inside topical sections of the module docs get the same shape: the heading is just =Provide=, with a one-line summary and one source block. =docs/main.org= and the review guide describe the convention. The tangled =.el= files are unchanged. ([[https://github.com/siainbuletin/dotfiles/pull/56][#56]], Claude)
 - The =Provide= section of 84 literate module docs in =docs/tangles/= is now a one-line summary and a single source block holding the whole =;;; Provide= segment, instead of a sub-heading per form with its own prose. The tangled =.el= files are byte-identical. ([[https://github.com/siainbuletin/dotfiles/pull/52][#52]], Claude)
 - Two files that tangling the docs had written by mistake, =docs/init.el= and =docs/tangles/early-init.el=, are deleted from the repository. ([[https://github.com/siainbuletin/dotfiles/pull/55][#55]], Claude)
 ** Startup and module load order

@@ -351,7 +351,7 @@ buffer to refresh against the current state of the Vulpea db."
 
 ** Provide
 
-Registers the =sp-vulpea-vui-table= feature.
+Provides the =sp-vulpea-vui-table= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-vui-table)
