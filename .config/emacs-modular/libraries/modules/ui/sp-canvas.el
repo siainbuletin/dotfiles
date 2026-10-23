@@ -1,10 +1,9 @@
-;; -*- lexical-binding: t -*-
-;; sp-canvas.el
+;;; sp-canvas.el --- Experimental canvas and Excalidraw support -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Canvas will be useful for Emacs reader more, but there's also
-;; excalidraw and other functions that I'd like to try out in my 
+;; excalidraw and other functions that I'd like to try out in my
 ;; work around Emacs.
 
 ;;; Code:

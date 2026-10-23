@@ -10,14 +10,33 @@ This module shows the backlinks of a Vulpea note in an Org buffer, split into gr
 
 It depends on =vulpea=, =org= and the sibling module =sp-vulpea-dblock= (for =sia-vulpea-select-note=). It is loaded from =sp-vulpea-ext=. The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason, though the docstrings do not actually explain it. The author also flags that the shape of the link data returned by =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+What this does: for a given note, finds every other note linking
+to it, and sorts each link into either "Mentions" (a plain inline
+or body-text [[id:...]] link) or a group named after the meta
+property it was found in -- e.g. a note with
+  - pub-author :: [[id:...][Christopher Arthur]]
+contributes to a "pub-author" group when you look at Christopher
+Arthur's backlinks, distinct from any note that just mentions him
+in passing prose.
+
+NOT YET a real vulpea-ui sidebar widget -- see the top-level
+docstrings below for why, and `sia-vulpea-classify-backlinks' for
+the one point of Vulpea API I couldn't fully confirm.
+#+end_quote
+
 * Header and dependencies
 
 ** Header and commentary
 
-Library header and the commentary describing the Mentions versus meta-key grouping, with an example, and the caveat that this is not yet a sidebar widget.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-grouped-backlinks.el --- Backlinks grouped by mention vs meta-property key -*- lexical-binding: t; -*-
+;;; sp-vulpea-grouped-backlinks.el --- Vulpea backlinks grouped by meta property -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; What this does: for a given note, finds every other note linking
 ;; to it, and sorts each link into either "Mentions" (a plain inline
@@ -31,6 +50,8 @@ Library header and the commentary describing the Mentions versus meta-key groupi
 ;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
 ;; docstrings below for why, and `sia-vulpea-classify-backlinks' for
 ;; the one point of Vulpea API I couldn't fully confirm.
+
+;;; Code:
 #+end_src
 
 ** Requires

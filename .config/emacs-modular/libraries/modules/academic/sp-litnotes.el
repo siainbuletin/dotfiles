@@ -1,7 +1,15 @@
-;; -*- lexical-binding: t; -*-
-;; sp-litnotes.el
+;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
 
-;;; File-level literature notes
+;;; Commentary:
+
+;; This academic module connects bibliography entries to notes. `citar-denote'
+;; creates one Denote file per reference (file-level literature notes) in a
+;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
+;; Vulpea nodes inside larger files.
+
+;;; Code:
+
+;;;; File-level literature notes
 (use-package citar-denote
   :ensure (:wait t)
 
@@ -30,7 +38,7 @@
 
 (setq citar-denote-subdir "litnotes")
 
-;;; Node-level literature note configuration
+;;;; Node-level literature note configuration
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)

@@ -1,9 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-para.el
+;;; sp-vulpea-para.el --- Vulpea PARA agenda and capture wiring -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; VULPEA PARA SETUP
+
+;;; Code:
 
 (require 'vulpea-para)
 ;; (vulpea-para-setup-defaults)
@@ -29,8 +30,6 @@
             (function vulpea-para-capture-project-target)
             (function vulpea-para-capture-project-template))))
   (add-to-list 'org-capture-templates template t))
-
-;;; Provide:
 
 (provide 'sp-vulpea-para)
 ;; sp-vulpea-para.el ends here.

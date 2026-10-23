@@ -10,6 +10,22 @@ A small module for a Denote-based notes workflow, adapted from Lambda Emacs. It 
 
 It needs =denote= (configured in =sp-denote=) and installs =consult-notes=. The comments make clear the workflow has largely moved to ID-based notes with vulpea and org-node, so this module is partly kept for older material. It is loaded in the Academic section of =init.el=. Related bindings live in =sp-keys=, which puts =sp-denote-workbook-create-entry=, =consult-notes= and =consult-notes-search-in-all-notes= on the =n= notes prefix, and =sp-workspaces= calls =sp-denote-notebook=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+sia -set-notes.el --- packages for notes
+
+For a framework that looks to bring notes together, you need more settings for different things.
+This will be called as a module in itself later on
+this is a basic note-taking workflow that's based on denote (at first)
+- this will include calling on features for org-capture
+although the capture mechanism should be living somewhere separate.
+
+This is the configuration that was taken from Lambda Emacs
+
+This library provides settings fora basic notes workflow using the `Denote' package.
+#+end_quote
+
 * Header
 
 ** File header and commentary
@@ -17,7 +33,10 @@ It needs =denote= (configured in =sp-denote=) and installs =consult-notes=. The 
 Lexical binding and several comment paragraphs. They describe the plan for a notes framework that starts from Denote, with capture handled separately, and note that the configuration came from Lambda Emacs. The file's first line still carries an older file name.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
+;;; sp-notes.el --- Denote workbook entries and consult-notes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; sia -set-notes.el --- packages for notes
 
 ;; For a framework that looks to bring notes together, you need more settings for different things.
@@ -29,6 +48,8 @@ Lexical binding and several comment paragraphs. They describe the plan for a not
 ;; This is the configuration that was taken from Lambda Emacs
 
 ;; This library provides settings fora basic notes workflow using the `Denote' package.
+
+;;; Code:
 #+end_src
 
 * Workbook entries
@@ -40,8 +61,6 @@ Creates a Denote note tagged =workbook= whose title is today's date (for example
 The docstring says it is superseded by =sp-denote-log-entry=, but kept because old entries live in =workbook/=. After creating the note it calls =sp-insert-header-and-time-property=, which is not defined anywhere in this repository, so the command ends with an error after the note is created unless that function comes from outside the repo.
 
 #+begin_src emacs-lisp -i
-;;; Code:
-
 
 
 (defun sp-denote-workbook-create-entry ()
@@ -66,7 +85,7 @@ log/ instead. Kept because old entries still live in workbook/."
 
 ** consult-notes
 
-Installs =consult-notes=, a consult interface for picking and searching notes. =C-c w d f= opens the picker and =C-c w d g= searches the text of all notes. Enabling =consult-notes-denote-mode= registers Denote as a source; without a source the picker would be empty. A commented-out =:if= line explains it was not gated on =sp-load-extras= because the package should always be available.
+Installs =consult-notes=, a consult interface for picking and searching notes. =C-c w d f= opens the picker and =C-c w d g= searches the text of all notes. Enabling =consult-notes-denote-mode= registers Denote as a source; without a source the picker would be empty. A commented-out =:if= line explains it was not gated because the package should always be available.
 
 #+begin_src emacs-lisp -i
 ;;;; Consult Notes
@@ -74,7 +93,7 @@ Installs =consult-notes=, a consult interface for picking and searching notes. =
 ;; this is taken from Lambda Emacs
 (use-package consult-notes
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "consult-notes")) ;; I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
+  ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
   ;; :after consult
   
   :commands
@@ -118,7 +137,6 @@ Installs =consult-notes=, a consult interface for picking and searching notes. =
 Provides the =sp-notes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide Setup-Notes
 (provide 'sp-notes)
 ;;; sp-notes.el ends here
 #+end_src

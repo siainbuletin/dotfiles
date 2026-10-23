@@ -10,30 +10,43 @@ An experiment in placing Org footnote definitions inside the subtree they belong
 
 The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable, which would have signalled a void-function error when the file loaded; it is now a =setq=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Commentary:
+
+Org footnotes typically get placed at the end of the file in a footnote section. This
+behaviour is generally very useful, however, in the case of wanting to refile a heading
+to a different file with a function like ~vulpea-split-heading~, the footnotes don't get
+copied over as well, which creates a lot of manual work.
+
+Working with Claude, I want to define custom logic for the footnotes so that I can restrict
+how deep into the sections the footnotes can go, and when to decide when to actually keep
+the regular footnotes at the end of the file (for much smaller files)
+
+The current logic that has been written by Claude doesn't actually do anything and, in fact, it blocks
+the functioning of creating a new footnote, because org-footnote-new is being adviced.
+
+Code:
+
+Footnotes
+(org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
+disabled in favor of new logic
+#+end_quote
+
 * Background
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-org-fn.el
-#+end_src
+;;; sp-org-fn.el --- Scoped Org footnotes (experimental) -*- lexical-binding: t; -*-
 
-** Commentary marker
+;;; Commentary:
 
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;; Commentary:
-#+end_src
 
-** The problem with file-end footnotes
-
-Explains the motivation: footnotes normally collect at the end of the file, so refiling or splitting a heading into another file loses them. The goal is to limit how deep footnote sections can go and to keep the usual file-end behaviour for small files.
-
-#+begin_src emacs-lisp -i
 ;; Org footnotes typically get placed at the end of the file in a footnote section. This
 ;; behaviour is generally very useful, however, in the case of wanting to refile a heading
 ;; to a different file with a function like ~vulpea-split-heading~, the footnotes don't get
@@ -42,36 +55,20 @@ Explains the motivation: footnotes normally collect at the end of the file, so r
 ;; Working with Claude, I want to define custom logic for the footnotes so that I can restrict
 ;; how deep into the sections the footnotes can go, and when to decide when to actually keep
 ;; the regular footnotes at the end of the file (for much smaller files)
-#+end_src
 
-** Known breakage
-
-A warning that the current implementation does nothing useful and breaks =org-footnote-new= through its advice.
-
-#+begin_src emacs-lisp -i
 ;; The current logic that has been written by Claude doesn't actually do anything and, in fact, it blocks
 ;; the functioning of creating a new footnote, because org-footnote-new is being adviced.
-#+end_src
 
-** Code marker
-
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;; Code:
-#+end_src
 
-* Settings
-
-** Global footnote section (disabled)
-
-A commented-out setting for =org-footnote-section=, kept as a note. The question in the comment is whether this could be set per file.
-
-#+begin_src emacs-lisp -i
 ;; Footnotes
 ;; (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
 ;; disabled in favor of new logic
+
+;;; Code:
 #+end_src
+
+* Settings
 
 ** Automatic renumbering
 
@@ -154,7 +151,6 @@ Puts =sp-org-fn-scoped= around =org-footnote-new=, the command behind =C-c C-x f
 Provides the =sp-org-fn= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-fn)
 ;; sp-org-fn.el ends here.
