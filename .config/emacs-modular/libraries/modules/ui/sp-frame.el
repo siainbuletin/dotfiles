@@ -75,7 +75,7 @@ If FRAME is omitted or nil, use currently selected frame."
 ;;;;; Fix titlebar titling colors
 ;; see also https://github.com/d12frosted/homebrew-emacs-plus/issues/55
 (use-package ns-auto-titlebar
-  :when (and (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
+  :when (eq system-type 'darwin)
   :commands ns-auto-titlebar-mode
   :init (ns-auto-titlebar-mode))
 

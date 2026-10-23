@@ -51,12 +51,11 @@ Sets the default =dired-listing-switches= to =-alh=, which shows all files with 
 
 ** dired-sidebar
 
-When extras are enabled and the package is installed, =dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
+=dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
 
 #+begin_src emacs-lisp -i
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
-  :when (locate-library "dired-sidebar")
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom

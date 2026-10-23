@@ -23,7 +23,6 @@
 
 ;; dashboard dependency
 (use-package page-break-lines
-  :if (locate-library "page-break-lines")
   :defer t
   :config
   (set-fontset-font "fontset-default"
@@ -33,9 +32,7 @@
 ;;;; Dashboard
 
 ;; Collapsed from two separate :if keys (use-package silently
-;; dropped the first). Adds a
-;; locate-library check on nerd-icons, which :custom
-;; references via (nerd-icons-sucicon ...).
+;; dropped the first).
 
 (use-package dashboard
   :ensure t

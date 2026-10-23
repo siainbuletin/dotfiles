@@ -29,7 +29,6 @@
 
 ;;;; Org Contrib
 (use-package org-contrib
-  :when (locate-library "org-contrib")
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -40,7 +39,6 @@
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
-  :if (locate-library "org-autolist")
   :hook (org-mode . org-autolist-mode))
 
 (use-package org-journal

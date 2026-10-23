@@ -192,7 +192,6 @@
 
 ;;;; Dim inactive windows
 (use-package dimmer
-  :when (locate-library "dimmer")
   :hook (after-init . dimmer-mode)
   :custom
   (dimmer-prevent-dimming-predicates '(window-minibuffer-p))

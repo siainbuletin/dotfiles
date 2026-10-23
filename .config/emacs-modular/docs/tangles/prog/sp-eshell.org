@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Configuration for Eshell, Emacs's built-in shell written in Lisp. It tunes the built-in Eshell sub-packages (history, globbing, completion, visual commands and so on), adds optional completion and help packages, defines a two-line prompt with time, shortened path, git repository and branch, and a running command counter, sets up a list of aliases, makes =ls= output clickable with icons, and adds many helper commands: a project-aware Eshell toggle, =less=, =info=, =z= directory jumping, a TRAMP-aware =rcd=, and more.
 
-The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Programming group of =init.el=. It uses the Lambda theme faces =lambda-meek=, =lambda-mild= and =lambda-yellow=, with fallbacks if the theme is missing, and =nerd-icons= for listings. Optional packages are guarded by =locate-library=.
+The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Programming group of =init.el=. It uses the Lambda theme faces =lambda-meek=, =lambda-mild= and =lambda-yellow=, with fallbacks if the theme is missing, and =nerd-icons= for listings. 
 
 Several paths are built from =lem-etc-dir=. In this repository that constant appears to be defined only in =claude-early.el=, which =init.el= does not seem to load, so if it is unbound the history, alias and directory-ring settings would signal an error when Eshell first loads. Also note that =sp-workspaces= calls =sp-eshell-home=, which does not exist; the function here is named =lem-eshell-home=.
 
@@ -228,7 +228,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-homebrew
-  :when (locate-library "pcmpl-homebrew")
   :after eshell)
 #+end_src
 
@@ -238,7 +237,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-args
-  :when (locate-library "pcmpl-args")
   :after eshell)
 #+end_src
 
@@ -248,7 +246,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcomplete-extension
-  :when (locate-library "pcomplete-extension")
   :after eshell)
 #+end_src
 
@@ -259,7 +256,6 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Provide help support -- see also the info function below
 (use-package esh-help
-  :when (locate-library "esh-help")
   :after eshell
   :config
   ;; Eldoc support.
@@ -273,7 +269,6 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Dir navigation -- see also dir jumping below
 (use-package eshell-up
-  :when (locate-library "eshell-up")
   :commands (eshell-up)
   :config
   (defalias 'eshell/up #'eshell-up))
@@ -592,7 +587,6 @@ When available, highlights commands as you type in every Eshell buffer, showing 
 #+begin_src emacs-lisp -i
 ;;;;; Syntax Highlighting
 (use-package eshell-syntax-highlighting
-  :when (locate-library "eshell-syntax-highlighting")
   :after eshell
   :config
   ;; Enable in all Eshell buffers.

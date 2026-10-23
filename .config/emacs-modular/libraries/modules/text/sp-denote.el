@@ -13,7 +13,6 @@
 
 (use-package denote
   :ensure t
-  ;; :if (locate-library "denote")
   :commands (denote denote-create-note denote-link-ol-store)
   
   :config

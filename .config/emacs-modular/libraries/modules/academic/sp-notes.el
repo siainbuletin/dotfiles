@@ -38,7 +38,7 @@ log/ instead. Kept because old entries still live in workbook/."
 ;; this is taken from Lambda Emacs
 (use-package consult-notes
   :ensure t
-  ;; :if (locate-library "consult-notes") ;; I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
+  ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
   ;; :after consult
   
   :commands

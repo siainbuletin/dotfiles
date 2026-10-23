@@ -46,7 +46,6 @@
 ;; - Send selected text to a trash file
 
 (use-package palimpsest
-  :when (locate-library "palimpsest")
   :diminish palimpsest-mode
   :hook ((markdown-mode org-mode) . palimpsest-mode)
   :custom

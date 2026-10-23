@@ -11,7 +11,6 @@
 ;; https://github.com/abo-abo/org-download.
 
 (use-package org-download
-  :if (locate-library "org-download")
   :commands (org-download-yank org-download-screenshot org-download-image)
   :custom
   (org-download-method 'directory)

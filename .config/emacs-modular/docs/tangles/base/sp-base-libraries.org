@@ -164,7 +164,7 @@ Installs and loads =transient= immediately so =transient-define-prefix= is avail
 
 ** Crux
 
-Installs =crux=, a set of handy commands from Emacs Prelude, when extras are enabled and the library is available. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
+Installs =crux=, a set of handy commands from Emacs Prelude. It rebinds =C-k= to =crux-smart-kill-line= and =C-a= to =crux-move-beginning-of-line=, which toggles between the first non-blank character and column 0.
 
 #+begin_src emacs-lisp -i
 ;;;; CRUX
@@ -176,7 +176,6 @@ Installs =crux=, a set of handy commands from Emacs Prelude, when extras are ena
 
 (use-package crux
   :ensure t
-  :if (locate-library "crux")
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)

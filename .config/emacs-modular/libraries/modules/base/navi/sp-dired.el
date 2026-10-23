@@ -15,7 +15,6 @@
 
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
-  :when (locate-library "dired-sidebar")
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom

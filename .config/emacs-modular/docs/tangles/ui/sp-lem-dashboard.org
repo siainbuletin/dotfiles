@@ -54,7 +54,7 @@ The commentary explains the Lambda Emacs origin, notes that some Elpaca hooks fr
 
 ** nerd-icons
 
-Loads =nerd-icons= eagerly when it is installed, because the dashboard needs icon functions available as soon as it renders.
+Loads =nerd-icons= eagerly when it can be found, because the dashboard needs icon functions available as soon as it renders.
 
 #+begin_src emacs-lisp -i
 ;;;; Dependencies
@@ -66,12 +66,11 @@ Loads =nerd-icons= eagerly when it is installed, because the dashboard needs ico
 
 ** page-break-lines
 
-Declares =page-break-lines= (which draws form-feed characters as horizontal rules, used by dashboard between sections) when extras are enabled and it is installed. Its config makes the rule character use the default font family so the line has no gaps.
+Declares =page-break-lines= (which draws form-feed characters as horizontal rules, used by dashboard between sections)  Its config makes the rule character use the default font family so the line has no gaps.
 
 #+begin_src emacs-lisp -i
 ;; dashboard dependency
 (use-package page-break-lines
-  :if (locate-library "page-break-lines")
   :defer t
   :config
   (set-fontset-font "fontset-default"
@@ -89,9 +88,7 @@ A maintenance note: two separate =:if= keys used to exist, and use-package silen
 ;;;; Dashboard
 
 ;; Collapsed from two separate :if keys (use-package silently
-;; dropped the first). Adds a
-;; locate-library check on nerd-icons, which :custom
-;; references via (nerd-icons-sucicon ...).
+;; dropped the first).
 #+end_src
 
 ** The dashboard package

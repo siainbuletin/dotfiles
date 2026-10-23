@@ -45,14 +45,12 @@
 
 ;;;; Citeproc
 (use-package citeproc
-  :if (locate-library "citeproc")
   :defer t  ;; Defer loading until oc-csl needs it
   :after oc)
 
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
-  :if (locate-library "citar")
   :commands (citar-open-notes
              citar-insert-citation)
   

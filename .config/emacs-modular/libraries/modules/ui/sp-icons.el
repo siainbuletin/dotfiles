@@ -42,7 +42,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
                       nil 'prepend)))
 
 (use-package nerd-icons
-  :when (locate-library "nerd-icons")
 
   :commands (nerd-icons-octicon
              nerd-icons-faicon
@@ -66,7 +65,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 
 ;; icons for dired
 (use-package nerd-icons-dired
-  :when (locate-library "nerd-icons-dired")
   :defer t
   :commands nerd-icons-dired-mode
   :init
@@ -76,7 +74,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 (use-package nerd-icons-completion
   ;; On MELPA proper, so it installs through `sp-packages-alist' like
   ;; everything else -- no fork or package-vc-install hack needed.
-  :when (locate-library "nerd-icons-completion")
   :hook (emacs-startup . nerd-icons-completion-mode)
   :config
   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))

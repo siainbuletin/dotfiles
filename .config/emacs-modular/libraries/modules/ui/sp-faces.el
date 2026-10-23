@@ -13,7 +13,6 @@
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
-  :when (locate-library "outline-minor-faces")
   :after outline
   :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
 
@@ -41,7 +40,7 @@
 ;;;; SVG Library (For Tags/Labels/etc.)
 ;;;;; SVG Tag Mode
 (use-package svg-tag-mode
-  :when (and (locate-library "svg-tag-mode") (image-type-available-p 'svg))
+  :when (image-type-available-p 'svg)
   :hook (prog-mode . svg-tag-mode)
   :config
   (setq svg-tag-tags
@@ -67,14 +66,12 @@
 
 ;;;;; Highlight Numbers & TODOS
 (use-package highlight-numbers
-  :when (locate-library "highlight-numbers")
   :defer t
   :commands highlight-numbers-mode
   :init
   (add-hook 'prog-mode-hook #'highlight-numbers-mode))
 
 (use-package hl-todo
-  :when (locate-library "hl-todo")
   :defer t
   :commands hl-todo-mode
   :init
@@ -141,7 +138,6 @@
 
 ;;;; Goggles (Highlight Changes)
 (use-package goggles
-  :when (locate-library "goggles")
   :hook ((prog-mode text-mode) . goggles-mode)
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
