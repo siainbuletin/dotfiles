@@ -61,6 +61,9 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
    '(("keywords" "Keywords to describe the entry" "")
      ("file"     "Relative or absolute path to attachments" "" )))
   (bibtex-align-at-equal-sign t)
+  (bibtex-aux-opt-alist
+   '(("keywords" "Keywords to describe the entry" "")
+     ("file" "Relative or absolute path to attachments" "")))
   :config
   (sp-bibtex-register)
   :bind

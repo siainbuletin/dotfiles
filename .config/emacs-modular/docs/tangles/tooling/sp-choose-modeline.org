@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module lets the config switch between two modeline packages, =doom-modeline= and Lambda Emacs's =lambda-line=, through a single customizable variable. The choice is made once at load time with a =cond=, and only the selected package is installed and activated.
 
-The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=; a separate =sp-lambda-line= module is loaded instead, so this file appears to be kept for reference or for switching back to Doom's modeline. The commentary says the default is =doom-modeline=, but the code actually defaults to =lambda-line=.
+The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=; a separate =sp-lambda-line= module is loaded instead, so this file appears to be kept for reference or for switching back to Doom's modeline. The default is =doom-modeline=, as the commentary says (the code used to default to =lambda-line= while a =custom-set-variables= block in =init.el= chose =doom-modeline=; that value now lives here).
 
 The commentary at the top of the module says:
 
@@ -46,10 +46,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** The sia/modeline option
 
-=sia/modeline= is a customizable choice between the symbols =doom-modeline= and =lambda-line=, in the =siapip= group. It defaults to =lambda-line=. Because it is read once when the module loads, changing it requires restarting Emacs or reloading the module.
+=sia/modeline= is a customizable choice between the symbols =doom-modeline= and =lambda-line=, in the =siapip= group. It defaults to =doom-modeline=. Because it is read once when the module loads, changing it requires restarting Emacs or reloading the module.
 
 #+begin_src emacs-lisp -i
-(defcustom sia/modeline 'lambda-line
+(defcustom sia/modeline 'doom-modeline
   "The modeline to use.
 Options are 'doom-modeline or 'lambda-line."
   :type '(choice
