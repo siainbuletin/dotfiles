@@ -19,7 +19,7 @@
 
 (require 'vulpea)
 (require 'org)
-(require 'sp-vulpea-dblock) ; for sia-vulpea-select-note
+(require 'sp-vulpea-table-core) ; for sp-vulpea-table-select-note
 
 (defun sia-vulpea--line-meta-key-at (file pos)
   "If POS in FILE sits on a \"- KEY :: ...\" meta line, return KEY.
