@@ -1,5 +1,12 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-taskman-extra.el --- Task management components needed to make the system work
+;;; sp-org-taskman-extra.el --- Org task management: keywords, tags, projects and GTD -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the task management side of the Org setup: TODO keyword
+;; sequences, the tag list with fast-selection keys, priorities, a helper to
+;; turn a heading into a project, task dependencies with `org-edna',
+;; highlighting and searching of TODO comments with `hl-todo' and
+;; `consult-todo', and the `org-gtd' workflow under the `C-c d' prefix.
 
 ;;; Code:
 
@@ -119,9 +126,9 @@
 
 
 
-;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+;;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
 
-;;; Org-gtd package
+;;;; Org-gtd package
 (use-package org-gtd
   :ensure (:wait t)
   :after org
@@ -162,7 +169,7 @@
    :map org-agenda-mode-map
    ("C-c ." . org-gtd-agenda-transient)))
 
-;;;; Org Inline Tasks
+;;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil
   :commands org-inlinetask-insert-task)
 

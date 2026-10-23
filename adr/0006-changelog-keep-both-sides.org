@@ -1,0 +1,19 @@
+#+title: 0006 Resolve CHANGELOG.org conflicts by keeping both sides
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+Every PR adds an entry at the top of =* Open pull requests= in =.config/emacs-modular/CHANGELOG.org=, so two open PRs always collide there. #25, #23, #29 and #30 each conflicted with =main= in that file only.
+
+* Decision
+- Never use Use Mine / Use Theirs on =CHANGELOG.org=: keep both sides, then skim for duplicates, entries under the wrong heading and broken org syntax.
+- Resolve in Emacs: =smerge-mode= starts on the markers (=C-c ^ a= keeps all, =C-c ^ n= / =C-c ^ p= move, =M-x smerge-ediff= for a 3-way view), save, then stage in SourceGit. SourceGit's own USE BOTH works too.
+- Suggested, not applied: a =.config/emacs-modular/.gitattributes= line =CHANGELOG.org merge=union= so local merges keep both sides by themselves. It cannot see two PRs editing the same line, and GitHub's button ignores it.
+
+* Alternatives considered
+- Build the changelog at release time from PR titles: loses the hand-written wording.
+- One file per PR: more files to maintain.
+
+* Consequences
+- Merged results can leave repeated headings (the file already has repeated =** Changed= headings under Open pull requests); tidying them is a separate change.
+- /Untested/: the =merge=union= line.

@@ -1,9 +1,15 @@
-;; -*- lexical-binding: t; -*-
-;; sp-vcontrol.el
+;;; sp-vcontrol.el --- Version control with Magit -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
+;; A short module that installs Magit, adds a helper for using it with YADM,
+;; the dotfile manager, and sets up Forge so Magit can work with GitHub pull
+;; requests and issues, and installs `code-review' for reviewing pull requests
+;; in Emacs. It depends on the `magit', `transient', `forge' and `code-review'
+;; packages.
+
 ;;; Code:
+
 ;;;; Magit initial installation
 (use-package magit
   :ensure t
@@ -19,7 +25,7 @@
   (interactive)
   (magit-status "~/"))
 
-;;; Forge settings
+;;;; Forge settings
 (use-package forge
   :after magit)
 
@@ -35,10 +41,8 @@
   (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
-;;; For adding emojis
+;;;; For adding emojis
 (add-hook 'code-review-mode-hook #'emojify-mode)
-
-;;; Provide:
 
 (provide 'sp-vcontrol)
 ;; sp-vcontrol.el ends here

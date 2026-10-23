@@ -1,5 +1,4 @@
-;;; sp-vulpea-split.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
-
+;;; sp-vulpea-split.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
 
 ;;; Commentary:
@@ -518,8 +517,6 @@ left."
    'sp-vulpea-split
    "`vulpea-split--write-file' not found; this vulpea version is not supported"))
 (advice-add 'vulpea-split--write-file :around #'sp-split--write-file-advice)
-
-;;; Provide:
 
 (provide 'sp-vulpea-split)
 ;;; sp-vulpea-split.el ends here

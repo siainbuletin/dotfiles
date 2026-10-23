@@ -204,6 +204,12 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
   caches and ephemeral/temporary files. Anything that may need to
   be cleared if there are problems.")
 
+;; Customize must never write to `init.el'. Every setting that used to live in
+;; its `custom-set-variables'/`custom-set-faces' blocks is now hard-coded in the
+;; module that owns it, so this file is deliberately never loaded: it is only
+;; where Customize saves experiments to, until they are moved into a module.
+(setq custom-file (expand-file-name "custom.el" sp-etc-dir))
+
 ;; The default config from Lambda Emacs (lem-default-config) and the 
 ;; Makefile that would generate it hav been deprecated
 
@@ -265,7 +271,6 @@ Any customized libraries not available via standard package repos like elpa or m
 ;; Restoring the variables so the switch in ~init.el~ is actually able to load 
 ;; the different kinds of Emacs configurations.
 (defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'sia-lambda)
-(defcustom sp-load-extras t "Load external-package configuration." :type 'boolean :group 'sia-lambda)
 
 (defconst sp-gui-only-set '(sp-gui sp-macos sp-splash lem-dashboard)
   "Modules that are meaningless without a graphic display.")  ; adjust to your real names
@@ -316,6 +321,5 @@ Any customized libraries not available via standard package repos like elpa or m
     t))
 
 (when (sp-cli-profile-switch "--headless-host") (setq sp-headless-host t))
-(when (sp-cli-profile-switch "--no-extras")     (setq sp-load-extras nil))
 
 ;; early-init.el ends here.

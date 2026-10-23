@@ -1,0 +1,18 @@
+#+title: 0008 sp-vc-ai-workbench is for brainstorming, not for writing code
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+=sp-vc-ai-workbench= (=libraries/modules/custom/sp-vc-ai-workbench.el=, literate source =docs/tangles/custom/sp-vc-ai-workbench.org=) is the Emacs side of working with Claude on my separate extension repositories: one worktree per task under =~/.worktrees/<extension>/<branch>=, a git-ignored =.brainstorm.org= and one Claude Code session per worktree (through =claude-code.el=, so it uses the subscription, not the API). The stack in [[file:0002-sourcegit-for-visual-git.org][0002]] to [[file:0005-update-stacked-prs-by-merging.org][0005]] handles what Claude produces in cloud sessions, mostly PRs against this repository.
+
+* Decision
+- The workbench stays a design-talk tool: the ground rules (=sp-workbench-rules=) tell Claude to ask questions, offer options and not to edit files. That is a convention in the prompt, not enforced.
+- Both sides meet at the git worktree. Magit's worktree commands manage the checkouts, so SourceGit can show them; an extension repo is an ordinary repository, so the yadm restriction of [[file:0001-plain-clone-for-gui-git-tools.org][0001]] does not apply. /Untested/ in SourceGit.
+- Branch names follow [[file:0004-number-prefixed-pr-branches.org][0004]] once a PR exists; set =sp-workbench-branch-prefix= to something neutral if =feat/= gets in the way.
+
+* Alternatives considered
+- Claude through =gptel= and the API: needs API credits, which a Pro plan does not include.
+- Letting Claude implement inside the workbench: the cloud sessions already do this, and PRs are easier to review.
+
+* Consequences
+- *Status:* the module is commented out in =init.el= (=;; 'sp-vc-ai-workbench=). Its own doc says it was balance-checked, not loaded or byte-compiled, and lists seven first-run checks. It has not been run on my Mac.

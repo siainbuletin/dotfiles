@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-dired.el --- summary
+;;; sp-dired.el --- Dired and Dirvish file management -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,6 +7,7 @@
 ;; this file is particularly concerned with good settings for dired.
 
 ;;; Code:
+
 ;;;; Helpful functions
 ;; Make-dired-file-sizes-human-readable
 ;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
@@ -15,7 +15,6 @@
 
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
-  :when (and sp-load-extras (locate-library "dired-sidebar"))
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom
@@ -70,11 +69,11 @@ Works in linux, MacOS, Microsoft Windows."
   (dirvish-side-follow-mode)
 
   :custom
-  ;;;; attributes to show in the dirvish buffer
+  ;; attributes to show in the dirvish buffer
   (dirvish-attributes
   '(vc-state file-size git-msg subtree-state nerd-icons collapse file-time))
 
-  ;;;;; UI settings for dirvish
+  ;; UI settings for dirvish
   (dirvish-mode-line-format
     '(:left (sort symlink)
       :right (vc-info yank index)))
@@ -85,16 +84,16 @@ Works in linux, MacOS, Microsoft Windows."
   (dired-listing-switches
    "-l --almost-all --human-readable --group-directories-first")
 
-  ;;;; showing the cursor
+  ;; showing the cursor
   ;; Dirvish by default hides the cursor in Dired buffers and highlights the current line.
   ;; It uses the dirvish-hl-line face for the active window and dirvish-hl-line-inactive for
   ;; inactive windows. To modify this behavior, customize the dirvish-hide-cursor variable.
   (dirvish-hide-cursor t)
 
-  ;;; Customizing the cache dir
+  ;; Customizing the cache dir
   (dirvish-cache-dir (concat sp-cache-dir "dirvish/"))
 
-  ;;;; groups
+  ;; groups
   (dirvish-emerge-groups
    '(("Recent files" (predicate . recent-files-2h))
      ("Documents"    (extensions "pdf" "tex" "bib" "epub"))
@@ -103,7 +102,7 @@ Works in linux, MacOS, Microsoft Windows."
      ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
      ("Archives"     (extensions "gz" "rar" "zip"))))
 
-  ;;; Keybindings to move through the buffer
+  ;; Keybindings to move through the buffer
   :bind
   (("C-c f" . dirvish)
    :map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
@@ -125,10 +124,10 @@ Works in linux, MacOS, Microsoft Windows."
    ("M-b" . dirvish-history-go-backward)
    ("M-e" . dirvish-emerge-menu)))
 
-;;; Windowing Layout for dirvish
+;;;; Windowing Layout for dirvish
 ;; this should make it work like yazi
 
-;;; Preview options
+;;;; Preview options
 (setq dirvish-preview-buffers-max-count 2)
 ;; (dirvish-preview-environment) ;; I don't know how to set this up
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
@@ -145,7 +144,7 @@ Works in linux, MacOS, Microsoft Windows."
 
   (push 'eza dirvish-preview-dispatchers))
 
-;;;; Open binary files externally
+;;;;; Open binary files externally
 (defun dirvish-open-binaries-externally (file fn)
   "When FN is not `dired', open binary FILE externally."
   (when-let* (((not (eq fn 'dired)))
@@ -160,7 +159,6 @@ Works in linux, MacOS, Microsoft Windows."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Provide
 (provide 'sp-dired)
 
 ;;; sp-dired.el ends here

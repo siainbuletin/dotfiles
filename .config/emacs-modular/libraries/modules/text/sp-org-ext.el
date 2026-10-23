@@ -1,7 +1,11 @@
-;;; -*- lexical-binding: t -*-
+;;; sp-org-ext.el --- Org extensions and sub-module loader -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; NOTE: some org-extensions are set in other setup files:
 ;; - org citations setup is in setup-citation
+
+;;; Code:
 
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
@@ -10,10 +14,10 @@
 (require 'sp-org-agenda)
 (require 'sp-org-images)
 
-;;;;;; ID-based workflows
+;;;;; ID-based workflows
 (require 'sp-org-node-mem)
 
-;;;;;; Vulpea
+;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
@@ -21,22 +25,20 @@
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 
-;;;;;; Other extensions
+;;;;; Other extensions
 
 ;;;; Org Contrib
 (use-package org-contrib
-  :when (and sp-load-extras (locate-library "org-contrib"))
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
   (require 'ox-extra)
   (ox-extras-activate '(ignore-headlines)))
 
-;;; Org Autolist (Smart Lists)
+;;;; Org Autolist (Smart Lists)
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
-  :if (and sp-load-extras (locate-library "org-autolist"))
   :hook (org-mode . org-autolist-mode))
 
 (use-package org-journal
@@ -61,15 +63,13 @@
 (use-package org-special-block-extras
   :ensure t)
 
-;;; org-context
+;;;; org-context
 ;; Allows saving the context of an Org-mode entry, such as when refiling, 
 ;; so that entries can be restored to their original location based on that context.
 (require 'org-context)
 
-;;; Another org context library
+;;;; Another org context library
 (require 'org-context-agen)
-
-;;; Provide:
 
 (provide 'sp-org-ext)
 ;; sp-org-ext.el ends here.

@@ -1,7 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-terminal.el --- Terminal emulator settings
+;;; sp-terminal.el --- Terminal emulators (vterm and eat) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module configures `vterm', a fast terminal emulator built on the
+;; libvterm C library. It requires a compiled native module (so CMake and a C
+;; compiler on the system) and does not work on Windows, as the comment notes.
 
 ;;; Code:
 
@@ -41,8 +44,6 @@
 ;;;; EAT
 (use-package eat
   :ensure t)
-
-;;; Provide:
 
 (provide 'sp-terminal)
 ;; sp-terminal.el ends here.

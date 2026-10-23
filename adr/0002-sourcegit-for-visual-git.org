@@ -1,0 +1,40 @@
+#+title: 0002 Use SourceGit for branches, merges and conflicts
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+Most changes arrive as pull requests written by Claude, often several at once and stacked. Magit's text interface is confusing when I need to see which branch sits on which, or to resolve a conflict. I want something visual, free and close to plain =git merge=.
+
+* Decision
+Use SourceGit (cask =sourcegit=; an unsigned build may need =xattr -cr=) on the plain clone from [[file:0001-plain-clone-for-gui-git-tools.org][0001]] for:
+- the commit graph;
+- Fetch, checkout of a remote branch and Push, as labelled dialogs;
+- Merge with a preview ("can be done without conflicts" or "will cause conflicts"); read the *Into:* field before confirming;
+- the built-in three-pane conflict editor (MINE, THEIRS, RESULT) with USE MINE, USE THEIRS and USE BOTH, then SAVE & STAGE and CONTINUE.
+Magit stays for staging, small commits and messages. For org files I open the conflicted file in Emacs instead (see [[file:0006-changelog-keep-both-sides.org][0006]]).
+
+* Alternatives considered
+"Untested" means I have not used the tool on this repository.
+| Tool                          | For                                                                                  | Against                                                                                         |
+|-------------------------------+--------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------|
+| SourceGit (chosen)            | Free; graph; merge preview; built-in 3-way editor; force push uses =--force-with-lease= | No =rebase --onto=; its editor does not render org; needs the plain clone                      |
+| Graphite (=gt=)               | Made for stacked PRs; restacks children; one command to submit a stack                | Hosted service and account; rewrites history and force-pushes, against [[file:0005-update-stacked-prs-by-merging.org][0005]]; untested |
+| git-branchless                | Undo for any operation; smartlog of the stack; =git sync= restacks                    | Rebase-based; a second mental model over git; no GUI; untested                                 |
+| jj (Jujutsu)                  | Conflicts are first-class; automatic restacking; works on a git repo                  | Different workflow and vocabulary; yadm layout unclear; Magit and Forge do not know it; untested |
+| lazygit                       | Fast terminal UI with a graph and a conflict screen (an empty =.config/lazygit/config.yml= exists) | Text interface again, the thing I am leaving Magit for; untested                      |
+| GitKraken                     | Polished graph and conflict editor                                                    | Cannot open the yadm repository; paid for private repositories                                 |
+| Sublime Merge                 | Fast; good diff and 3-way merge view                                                  | Paid after the trial; less PR-oriented; untested                                               |
+| Fork                          | Clean macOS client; interactive rebase UI                                             | Paid after the evaluation; untested                                                            |
+| Meld                          | Good standalone 3-way merge, usable as the merge tool                                 | Not a git client; awkward to install on macOS; no org rendering                                |
+| VS Code merge editor          | In SourceGit's external tool list; "Accept Both" is one click                         | Raw markers, no org rendering without an extension; a whole editor for one task                |
+| GitHub Desktop                | Simple, official                                                                      | Cannot open the yadm repository; weak on stacks and conflicts                                  |
+| Magit ediff (=e= / =E=)       | Already in Emacs; real org buffers; 3-way view                                        | Text-driven control window, the confusing part that started this; kept as a fallback           |
+| =smerge-mode=                 | One key for "keep both" (=C-c ^ a=)                                                   | Marker-based, one conflict at a time; no branch overview                                       |
+| =consult-gh=                  | PRs and issues from the minibuffer                                                    | Overlaps Forge, already installed; another package and token; untested                         |
+| =magit-stack=                 | Would help with stacked branches in Magit                                             | I could not confirm that it exists as a maintained package; not used                           |
+
+* Consequences
+- SourceGit does plain =git merge= underneath, so it follows the merge-commit rules instead of imposing a rebase workflow, which is why it was preferred over Graphite, git-branchless and jj.
+- No =rebase --onto= in the dialog: the squash-merged-parent case goes to the terminal (see [[file:0005-update-stacked-prs-by-merging.org][0005]]).
+- External merge tools: the macOS list has FileMerge, VS Code, KDiff3, Beyond Compare, P4Merge and Cursor, no Emacs. An ediff wrapper through =git mergetool= is possible but /untested/ (it must block until ediff quits).
+- Button names and menu positions were taken from SourceGit's locale file and source, not from the installed app; check them on first use.

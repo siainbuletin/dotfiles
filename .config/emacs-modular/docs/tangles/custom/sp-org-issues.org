@@ -2,6 +2,28 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-org-issues.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
+The commentary at the top of the module says:
+
+#+begin_quote
+One Org file, registered with vulpea-para as an area titled "Issues",
+holds the issues for every code base I work on.  Under its `* Tasks'
+heading there is one heading per repository, and each issue is a
+TODO under its repository.  An issue carries its branch, worktree,
+pull request and Claude thread in its property drawer.
+
+- The file uses the org-gtd keywords (TODO NEXT PROG WAIT DONE CNCL),
+  set with a #+todo: line, so it does not depend on the global
+  `org-todo-keywords'.
+- Every issue is an org-gtd single action (ORG_GTD: Actions), so a
+  NEXT issue shows up in `org-gtd-engage' like any other next action.
+- `sp-org-issues-start' gives an issue its own git worktree and opens
+  Magit there.  For the yadm dotfiles the worktree is added from the
+  yadm repository itself, so the live config in ~ is never touched.
+
+Load it after sp-org-ext: it adds to the capture templates and agenda
+commands that sp-vulpea-para sets.
+#+end_quote
+
 * Preamble
 
 Literate source for =libraries/modules/custom/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
@@ -14,6 +36,7 @@ This module keeps the issues of my code work (the yadm dotfiles first, vulpea-mc
 - The file uses the org-gtd keywords (=TODO NEXT PROG WAIT | DONE CNCL=, the same ones =org-gtd-keyword-mapping= names in =sp-org-taskman-extra=).
    + They are set with a =#+todo:= line in the file itself, so the issues work even though the global =org-todo-keywords= is currently overwritten at the end of =sp-org-taskman-extra= with a =TODO WAITING DOING= sequence.
 - Every issue carries =ORG_GTD: Actions=, which makes it an org-gtd single action. Once an issue is =NEXT= it appears in =org-gtd-engage= (=C-c d e=) with the other next actions.
+- =M-x sp-org-issues-morning= (and the first start of Emacs each day) ranks the open issues together with the open pull requests of the same repositories into one list of what to do next; see [[*Morning list]].
 - Each issue records =BRANCH=, =WORKTREE=, =PR= and =THREAD= (the Claude thread link) in its drawer, and =sp-org-issues-start= gives it its own git worktree and opens Magit there.
 
 * How the file is laid out
@@ -91,11 +114,10 @@ The keywords mean:
 
 ** File header
 
-The file header and commentary, which repeat the summary above in short.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-issues.el --- An issue tracker for code work, kept as a PARA area
+;;; sp-org-issues.el --- An issue tracker kept as a PARA area -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -113,19 +135,26 @@ The file header and commentary, which repeat the summary above in short.
 ;; - `sp-org-issues-start' gives an issue its own git worktree and opens
 ;;   Magit there.  For the yadm dotfiles the worktree is added from the
 ;;   yadm repository itself, so the live config in ~ is never touched.
+;; - `sp-org-issues-morning' ranks the open issues and the open pull
+;;   requests of the same repositories (read with the gh client) into one
+;;   list, and shows it on the first start of Emacs each day.
 ;;
 ;; Load it after sp-org-ext: it adds to the capture templates and agenda
 ;; commands that sp-vulpea-para sets.
+
+;;; Code:
 #+end_src
 
 ** Dependencies
 
-Loads Org, vulpea and vulpea-para. It also requires =sp-vulpea-para=, which now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there); requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in. Capture, agenda and Magit are only declared, so loading this module does not load them.
+Loads Org, the small libraries the morning list uses (=cl-lib=, =json=, =seq=, =subr-x=), vulpea and vulpea-para. It also requires =sp-vulpea-para=, which now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there); requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in. Capture, agenda and Magit are only declared, so loading this module does not load them.
 
 #+begin_src emacs-lisp -i
-;;; Code:
-
 (require 'org)
+(require 'cl-lib)
+(require 'json)
+(require 'seq)
+(require 'subr-x)
 (require 'vulpea)
 (require 'vulpea-para)
 (require 'sp-vulpea-para)
@@ -606,17 +635,926 @@ In a status buffer for a worktree of the yadm repository, this sets =magit-statu
             #'sp-org-issues--show-untracked-in-yadm-worktrees))
 #+end_src
 
-* Provide
+* Morning list
 
-** Provide the feature
+Every morning, or whenever =M-x sp-org-issues-morning= is run, the module builds one ranked list of what to do next across the issues file and the open pull requests of the same repositories, and shows it in a =*Morning*= buffer. The first time Emacs starts on a new day it shows the list by itself.
 
-Registers the =sp-org-issues= feature, loaded from =init.el= right after =sp-org-ext=.
+** The priority rule
+
+Every item gets a score and the list is sorted by it, highest first. The scores are in =sp-org-issues-morning-scores=, so the order can be changed without touching code. The rule has three ideas:
+
+1. *Things only I can unblock come first.* A pull request whose checks fail, one with a merge conflict and one with requested changes are stopped until I act. An approved pull request with green checks is a merge away, and merging clears the way for those stacked on it. A pull request that just waits for a review comes next.
+2. *Then the work I am doing.* An issue in =PROG= scores above =NEXT=, which scores above =WAIT= (waiting on somebody else) and =TODO= (not yet chosen). A deadline raises an issue: +30 when it is today or past, +15 within three days. A schedule of today or past adds +10.
+3. *A pull request stacked on another waits for it.* Each level of stack costs 15 points, so in #17, #18, #19 the list asks for #17 first and says that the others come after it. Only open pull requests of the same repository count as parents.
+
+On top of the base score, a pull request that is waiting for me gains one point for each day since its last update, up to ten, so that old ones rise.
+
+| Item                                    | Score |
+|-----------------------------------------+-------|
+| Checks failing                          |   100 |
+| Merge conflict                          |    90 |
+| Changes requested                       |    85 |
+| Issue whose pull request is gone        |    75 |
+| Approved, checks green: ready to merge  |    80 |
+| Waiting for my review                   |    70 |
+| Issue in PROG                           |    60 |
+| Issue in NEXT                           |    50 |
+| Checks still running                    |    30 |
+| Issue in WAIT                           |    20 |
+| Draft pull request                      |    10 |
+| Issue in TODO                           |    10 |
+
+An issue that links an open pull request (the =PR= property) is shown once, with the better of the two scores and the reason of the pull request. When the pull request is no longer open but the issue still is, the issue is flagged "no longer open: close the issue", since that is normally a merge that was not recorded.
+
+** Settings
 
 #+begin_src emacs-lisp -i
-;;; Provide:
+;;;; Morning list
+
+(defcustom sp-org-issues-morning-scores
+  '((ci-failed . 100) (conflict . 90) (changes-requested . 85)
+    (ready . 80) (pr-gone . 75) (review . 70)
+    (prog . 60) (next . 50) (ci-pending . 30)
+    (wait . 20) (draft . 10) (todo . 10))
+  "Base score of each kind of item in the morning list.
+The pull request kinds are `ci-failed', `conflict', `changes-requested',
+`ready', `review', `ci-pending' and `draft'.  `pr-gone' is an open issue
+whose pull request is no longer open.  The others are issue states."
+  :type '(alist :key-type symbol :value-type integer)
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-morning-limit 10
+  "Number of items shown under Today; the rest are parked."
+  :type 'integer
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-morning-park-below 25
+  "Items with a lower score than this are always parked."
+  :type 'integer
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-morning-extra-repos nil
+  "GitHub repositories (owner/name) to list besides those in `sp-org-issues-repos'."
+  :type '(repeat string)
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-morning-auto t
+  "Non-nil means show the morning list on the first start of Emacs each day."
+  :type 'boolean
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-morning-stamp-file
+  (expand-file-name "sp-org-issues-morning-day"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
+  "File that remembers the day the morning list was last shown."
+  :type 'file
+  :group 'sp-org-issues)
+
+(defcustom sp-org-issues-gh-program "gh"
+  "The GitHub command line client, logged in with `gh auth login'."
+  :type 'string
+  :group 'sp-org-issues)
+
+(defconst sp-org-issues-morning--pr-fields
+  "number,title,url,isDraft,reviewDecision,mergeable,baseRefName,headRefName,updatedAt,statusCheckRollup"
+  "The fields asked of `gh pr list'.")
+#+end_src
+
+** Reading GitHub's answer
+
+=gh pr list --json= answers with a list of objects. =statusCheckRollup= mixes two shapes: check runs (=status= and =conclusion=) and commit statuses (=state=). A failure anywhere makes the pull request =failure=, even while other checks still run; otherwise anything unfinished makes it =pending=, and an empty list means no checks, which is treated like green.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--ci (rollup)
+  "Return `failure', `pending' or `success' for the check ROLLUP.
+Return nil when ROLLUP is empty."
+  (let (failed pending)
+    (dolist (check rollup)
+      (let ((conclusion (alist-get 'conclusion check))
+            (status (alist-get 'status check))
+            (state (alist-get 'state check)))
+        (cond
+         ((member conclusion '("FAILURE" "TIMED_OUT" "CANCELLED" "ACTION_REQUIRED"
+                               "STARTUP_FAILURE"))
+          (setq failed t))
+         ((member state '("FAILURE" "ERROR")) (setq failed t))
+         ((member state '("PENDING" "EXPECTED")) (setq pending t))
+         ((and status (not (equal status "COMPLETED"))) (setq pending t)))))
+    (cond (failed 'failure) (pending 'pending) (rollup 'success))))
+
+(defun sp-org-issues-morning--parse-prs (json label)
+  "Return the pull requests in the JSON of `gh pr list'.
+Tag each with the repository LABEL."
+  (mapcar (lambda (pr)
+            (list :repo label
+                  :number (alist-get 'number pr)
+                  :title (alist-get 'title pr)
+                  :url (alist-get 'url pr)
+                  :draft (and (alist-get 'isDraft pr) t)
+                  :decision (or (alist-get 'reviewDecision pr) "")
+                  :mergeable (alist-get 'mergeable pr)
+                  :base (alist-get 'baseRefName pr)
+                  :head (alist-get 'headRefName pr)
+                  :updated (alist-get 'updatedAt pr)
+                  :ci (sp-org-issues-morning--ci (alist-get 'statusCheckRollup pr))))
+          (json-parse-string json :object-type 'alist :array-type 'list
+                             :null-object nil :false-object nil)))
+
+(defun sp-org-issues-morning--pr-number (value)
+  "Return the pull request number at the end of VALUE (a URL, #17 or 17), or nil."
+  (when (and value (string-match "\\([0-9]+\\)/?[[:space:]]*\\'" value))
+    (string-to-number (match-string 1 value))))
+
+(defun sp-org-issues-morning--repo-slug (url)
+  "Return owner/name for the GitHub URL, or nil."
+  (when (and url (string-match "github\\.com[/:]\\([^/]+/[^/]+?\\)\\(?:\\.git\\)?/?\\'" url))
+    (match-string 1 url)))
+
+(defun sp-org-issues-morning--repos ()
+  "Return the (LABEL . OWNER/NAME) pairs whose pull requests are listed."
+  (append
+   (delq nil
+         (mapcar (lambda (repo)
+                   (when-let* ((slug (sp-org-issues-morning--repo-slug
+                                      (plist-get (cdr repo) :url))))
+                     (cons (car repo) slug)))
+                 sp-org-issues-repos))
+   (mapcar (lambda (slug) (cons slug slug)) sp-org-issues-morning-extra-repos)))
+#+end_src
+
+** Categories, stacks and scores of pull requests
+
+A pull request is in exactly one category, the first that fits in this order: draft, failing checks, conflict, requested changes, approved (ready when its checks are not still running), checks still running, and otherwise waiting for review. A stack is read from the branch names: a pull request is stacked on another open pull request of the same repository when its base is that one's head. =sp-org-issues-morning--stack-depth= returns the number of levels and the number of the parent, and ends on a cycle.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--pr-category (pr)
+  "Return the category of the pull request PR."
+  (let ((ci (plist-get pr :ci))
+        (decision (plist-get pr :decision)))
+    (cond
+     ((plist-get pr :draft) 'draft)
+     ((eq ci 'failure) 'ci-failed)
+     ((equal (plist-get pr :mergeable) "CONFLICTING") 'conflict)
+     ((equal decision "CHANGES_REQUESTED") 'changes-requested)
+     ((and (equal decision "APPROVED") (not (eq ci 'pending))) 'ready)
+     ((eq ci 'pending) 'ci-pending)
+     (t 'review))))
+
+(defun sp-org-issues-morning--stack-depth (pr prs)
+  "Return (DEPTH . PARENT) of PR among PRS.
+DEPTH is how many open pull requests PR is stacked on and PARENT is the
+number of the one directly below it, or nil."
+  (let ((depth 0) (parent nil) (current pr) (limit (length prs)))
+    (while (and (< depth limit)
+                (when-let* ((below (seq-find
+                                    (lambda (other)
+                                      (and (equal (plist-get other :repo)
+                                                  (plist-get current :repo))
+                                           (equal (plist-get other :head)
+                                                  (plist-get current :base))))
+                                    prs)))
+                  (unless parent (setq parent (plist-get below :number)))
+                  (setq current below)
+                  (cl-incf depth))))
+    (cons depth parent)))
+
+(defconst sp-org-issues-morning--reasons
+  '((ci-failed . "checks are failing")
+    (conflict . "merge conflict")
+    (changes-requested . "changes were requested")
+    (ready . "approved, ready to merge")
+    (review . "waiting for your review")
+    (ci-pending . "checks are still running")
+    (draft . "draft"))
+  "Why a pull request of each category is in the list.")
+
+(defun sp-org-issues-morning--age-days (updated now)
+  "Return the whole days from the ISO time UPDATED to NOW."
+  (if updated
+      (max 0 (floor (/ (float-time (time-subtract now (date-to-time updated)))
+                       86400)))
+    0))
+
+(defun sp-org-issues-morning--pr-score (pr prs now)
+  "Return (SCORE . REASON) of the pull request PR among PRS at NOW."
+  (let* ((category (sp-org-issues-morning--pr-category pr))
+         (stack (sp-org-issues-morning--stack-depth pr prs))
+         (age (if (memq category '(review ready changes-requested))
+                  (min 10 (sp-org-issues-morning--age-days (plist-get pr :updated) now))
+                0))
+         (reason (alist-get category sp-org-issues-morning--reasons)))
+    (cons (+ (alist-get category sp-org-issues-morning-scores)
+             age
+             (* -15 (car stack)))
+          (if (cdr stack)
+              (format "%s, but only after #%d" reason (cdr stack))
+            reason))))
+#+end_src
+
+** Reading the issues
+
+The issues come straight from the file with =org-map-entries=, so the file's own =#+todo:= line decides which headings are issues. Closed ones (=DONE=, =CNCL=) are left out. The repository is the second element of the outline path, which is the heading under =* Tasks=.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--issues-in-buffer ()
+  "Return the open issues of the Org buffer, as plists."
+  (let (issues)
+    (org-with-wide-buffer
+     (org-map-entries
+      (lambda ()
+        (let ((state (org-get-todo-state)))
+          (when (member state '("TODO" "NEXT" "PROG" "WAIT"))
+            (push (list :title (org-get-heading t t t t)
+                        :state (intern (downcase state))
+                        :repo (nth 1 (org-get-outline-path))
+                        :id (org-entry-get nil "ID")
+                        :pr (sp-org-issues-morning--pr-number
+                             (org-entry-get nil "PR"))
+                        :branch (sp-org-issues--nonempty (org-entry-get nil "BRANCH"))
+                        :thread (sp-org-issues--nonempty (org-entry-get nil "THREAD"))
+                        :deadline (when-let* ((d (org-entry-get nil "DEADLINE")))
+                                    (org-time-string-to-time d))
+                        :scheduled (when-let* ((s (org-entry-get nil "SCHEDULED")))
+                                     (org-time-string-to-time s)))
+                  issues))))))
+    (nreverse issues)))
+
+(defun sp-org-issues-morning--issues (file)
+  "Return the open issues of the Org FILE."
+  (with-current-buffer (find-file-noselect file)
+    (sp-org-issues-morning--issues-in-buffer)))
+
+(defun sp-org-issues-morning--days-from (time now)
+  "Return the calendar days from NOW to TIME, negative when TIME is past."
+  (- (time-to-days time) (time-to-days now)))
+
+(defun sp-org-issues-morning--issue-score (issue now)
+  "Return (SCORE . REASON) of the open ISSUE at NOW."
+  (let* ((state (plist-get issue :state))
+         (deadline (plist-get issue :deadline))
+         (scheduled (plist-get issue :scheduled))
+         (deadline-days (and deadline (sp-org-issues-morning--days-from deadline now)))
+         (score (alist-get state sp-org-issues-morning-scores)))
+    (cons (+ score
+             (cond ((null deadline-days) 0)
+                   ((<= deadline-days 0) 30)
+                   ((<= deadline-days 3) 15)
+                   (t 0))
+             (if (and scheduled (<= (sp-org-issues-morning--days-from scheduled now) 0))
+                 10 0))
+          (concat (pcase state
+                    ('prog "in progress") ('next "next action")
+                    ('wait "waiting") ('todo "not started"))
+                  (cond ((null deadline-days) "")
+                        ((< deadline-days 0) ", overdue")
+                        ((= deadline-days 0) ", due today")
+                        ((<= deadline-days 3)
+                         (format ", due in %d day%s" deadline-days
+                                 (if (= deadline-days 1) "" "s")))
+                        (t ""))))))
+#+end_src
+
+** One list
+
+=sp-org-issues-morning--items= turns pull requests and issues into one list of items (plists with =:score=, =:reason=, =:title=, =:repo=, =:number=, =:url= and =:id=), best first. An issue that links an open pull request takes that pull request over: one line, the better score, and the pull request's reason when it is the better one. FETCHED lists the repositories GitHub was reached for; only for those can an issue's missing pull request be called gone. Ties keep the order of the issues file.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--items (issues prs now &optional fetched)
+  "Return the ranked items for ISSUES and PRS at NOW, best first.
+FETCHED lists the repositories whose pull requests were read."
+  (let ((rest-prs (copy-sequence prs))
+        items)
+    (dolist (issue issues)
+      (let* ((repo (plist-get issue :repo))
+             (number (plist-get issue :pr))
+             (pr (and number
+                      (seq-find (lambda (p) (and (equal (plist-get p :repo) repo)
+                                                 (eql (plist-get p :number) number)))
+                                prs)))
+             (own (sp-org-issues-morning--issue-score issue now))
+             (best own))
+        (cond
+         (pr
+          (setq rest-prs (delq pr rest-prs))
+          (let ((theirs (sp-org-issues-morning--pr-score pr prs now)))
+            (when (> (car theirs) (car own)) (setq best theirs))))
+         ((and number (member repo fetched))
+          (setq best (cons (+ (alist-get 'pr-gone sp-org-issues-morning-scores)
+                              (- (car own) (alist-get (plist-get issue :state)
+                                                      sp-org-issues-morning-scores)))
+                           (format "PR #%d is no longer open: close the issue" number)))))
+        (push (list :score (car best) :reason (cdr best)
+                    :title (plist-get issue :title) :repo repo
+                    :number (or number (and pr (plist-get pr :number)))
+                    :url (and pr (plist-get pr :url)) :id (plist-get issue :id))
+              items)))
+    (dolist (pr rest-prs)
+      (let ((score (sp-org-issues-morning--pr-score pr prs now)))
+        (push (list :score (car score) :reason (cdr score)
+                    :title (plist-get pr :title) :repo (plist-get pr :repo)
+                    :number (plist-get pr :number) :url (plist-get pr :url))
+              items)))
+    (seq-sort-by (lambda (item) (plist-get item :score)) #'> (nreverse items))))
+#+end_src
+
+** The text of the list
+
+The list is Org text, so the links work: a pull request links to GitHub (=C-c C-o= or =RET=), an issue to its heading by =id:=. Items score at least =sp-org-issues-morning-park-below= and fill =sp-org-issues-morning-limit= places go under Today, the rest under Parked. NOTES carry anything the reader should know, such as a repository GitHub could not be reached for.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--line (item)
+  "Return the Org list line of ITEM."
+  (let* ((title (plist-get item :title))
+         (id (plist-get item :id))
+         (url (plist-get item :url))
+         (number (plist-get item :number))
+         (repo (plist-get item :repo))
+         (where (cond ((and url number) (format "[[%s][%s #%s]]" url repo number))
+                      (number (format "%s #%s" repo number))
+                      (t repo))))
+    (format "- %s :: %s (%d)"
+            (if id
+                (format "[[id:%s][%s]] (%s)" id title where)
+              (format "%s %s" where title))
+            (plist-get item :reason)
+            (plist-get item :score))))
+
+(defun sp-org-issues-morning--render (items now &optional notes)
+  "Return the Org text of the morning list for ITEMS at NOW, with NOTES."
+  (let* ((today (seq-take (seq-filter (lambda (item)
+                                        (>= (plist-get item :score)
+                                            sp-org-issues-morning-park-below))
+                                      items)
+                          sp-org-issues-morning-limit))
+         (parked (seq-remove (lambda (item) (memq item today)) items)))
+    (concat
+     (format-time-string "#+title: Morning %F %a\n" now)
+     "Ranked by score, see `sp-org-issues-morning-scores'.  Press g to refresh.\n"
+     (mapconcat (lambda (note) (format "\n/%s/\n" note)) notes "")
+     "\n* Today\n"
+     (if today
+         (concat (mapconcat #'sp-org-issues-morning--line today "\n") "\n")
+       "Nothing needs you today.\n")
+     (when parked
+       (concat "\n* Parked\n"
+               (mapconcat #'sp-org-issues-morning--line parked "\n")
+               "\n")))))
+#+end_src
+
+** Fetching the pull requests
+
+One =gh pr list= per repository, run one after the other without blocking Emacs. A repository that fails (not logged in, no access, offline) is reported by its label and the others still count. The standard error of =gh= goes to its own buffer so that a warning cannot corrupt the JSON.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-morning--fetch (repos callback)
+  "Read the open pull requests of REPOS, then call CALLBACK.
+REPOS is a list of (LABEL . OWNER/NAME).  CALLBACK gets the pull requests
+and the labels of the repositories that could not be read."
+  (let ((prs nil) (failed nil) (todo (copy-sequence repos)))
+    (cl-labels
+        ((next ()
+           (if (null todo)
+               (funcall callback prs (nreverse failed))
+             (let* ((repo (pop todo))
+                    (out (generate-new-buffer " *sp-gh*"))
+                    (err (generate-new-buffer " *sp-gh-err*")))
+               (make-process
+                :name "sp-gh" :buffer out :stderr err :noquery t
+                :command (list sp-org-issues-gh-program "pr" "list"
+                               "--repo" (cdr repo) "--state" "open"
+                               "--limit" "50"
+                               "--json" sp-org-issues-morning--pr-fields)
+                :sentinel
+                (lambda (process _event)
+                  (unless (process-live-p process)
+                    (condition-case nil
+                        (if (zerop (process-exit-status process))
+                            (setq prs (append prs (sp-org-issues-morning--parse-prs
+                                                   (with-current-buffer out (buffer-string))
+                                                   (car repo))))
+                          (push (car repo) failed))
+                      (error (push (car repo) failed)))
+                    (kill-buffer out)
+                    (kill-buffer err)
+                    (next))))))))
+      (next))))
+#+end_src
+
+** The buffer, the command and the daily greeting
+
+=sp-org-issues-morning= reads the issues at once and the pull requests in the background, and shows the buffer when they arrive. Without =gh= it shows the issues alone and says so. The greeting is a command run once per day from an idle timer after startup; it writes today's date to =sp-org-issues-morning-stamp-file= before it runs, and an error in it (say, no Issues area yet) is only a message, never a broken startup.
+
+#+begin_src emacs-lisp -i
+(defvar sp-org-issues-morning-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "g" #'sp-org-issues-morning)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap of `sp-org-issues-morning-mode'.")
+
+(define-derived-mode sp-org-issues-morning-mode org-mode "Morning"
+  "Org mode for the read-only morning list.")
+
+(defun sp-org-issues-morning--show (issues prs failed repos &optional notes)
+  "Show the morning list for ISSUES and PRS.
+FAILED lists the repositories that could not be read, out of REPOS.
+NOTES are extra remarks for the top of the list."
+  (let* ((now (current-time))
+         (fetched (seq-remove (lambda (label) (member label failed))
+                              (mapcar #'car repos)))
+         (notes (append (mapcar (lambda (label)
+                                  (format "GitHub could not be read for %s" label))
+                                failed)
+                        notes))
+         (text (sp-org-issues-morning--render
+                (sp-org-issues-morning--items issues prs now fetched) now notes)))
+    (with-current-buffer (get-buffer-create "*Morning*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert text)
+        (sp-org-issues-morning-mode)
+        (goto-char (point-min)))
+      (setq buffer-read-only t)
+      (pop-to-buffer (current-buffer)))))
+
+;;;###autoload
+(defun sp-org-issues-morning ()
+  "Show what to do next: open issues and pull requests, ranked."
+  (interactive)
+  (let ((issues (sp-org-issues-morning--issues (sp-org-issues-file)))
+        (repos (sp-org-issues-morning--repos)))
+    (if (and repos (executable-find sp-org-issues-gh-program))
+        (sp-org-issues-morning--fetch
+         repos (lambda (prs failed)
+                 (sp-org-issues-morning--show issues prs failed repos)))
+      (sp-org-issues-morning--show
+       issues nil nil nil
+       (when repos
+         (list (format "%s was not found, so pull requests are not listed"
+                       sp-org-issues-gh-program)))))))
+
+(defun sp-org-issues-morning-greet ()
+  "Show the morning list when it has not been shown today."
+  (let ((today (format-time-string "%F")))
+    (unless (equal today
+                   (ignore-errors
+                     (with-temp-buffer
+                       (insert-file-contents sp-org-issues-morning-stamp-file)
+                       (string-trim (buffer-string)))))
+      (condition-case err
+          (progn
+            (make-directory (file-name-directory sp-org-issues-morning-stamp-file) t)
+            (write-region today nil sp-org-issues-morning-stamp-file nil 'silent)
+            (sp-org-issues-morning))
+        (error (message "Morning list: %s" (error-message-string err)) nil)))))
+
+(defun sp-org-issues-morning--schedule ()
+  "Greet once Emacs is idle after startup."
+  (when sp-org-issues-morning-auto
+    (run-with-idle-timer 2 nil #'sp-org-issues-morning-greet)))
+
+(add-hook 'emacs-startup-hook #'sp-org-issues-morning--schedule)
+#+end_src
+
+* Provide
+
+Provides the =sp-org-issues= feature and closes the file.
+
+#+begin_src emacs-lisp -i
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-org-issues-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+The morning list was written test first: each block below was run and seen to fail before the code it checks existed. They tangle to =tests/sp-org-issues-test.el=, which runs headless with
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-org-issues-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+from the folder of =init.el=, and from inside Emacs with =M-x ert RET ^sp-org-issues-= after loading the file. The tests never touch the network, your notes or git: a fake =gh= script stands in for GitHub, and the issues come from a buffer made on the spot.
+
+** Test file header
+
+Without a full configuration there is no vulpea, vulpea-para or sp-vulpea-para. A headless run provides those three features as empty ones so that the module loads; inside a running Emacs the real ones are left alone. The module is loaded from the path next to this file, so the tests run against the working copy and not against whatever the configuration loaded.
+
+#+begin_src emacs-lisp -i
+;;; sp-org-issues-test.el --- Tests for sp-org-issues  -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Run headless, from the folder of init.el, with
+;;   emacs -Q --batch -l tests/sp-org-issues-test.el -f ert-run-tests-batch-and-exit
+
+;;; Code:
+
+(require 'ert)
+(require 'cl-lib)
+(require 'org-capture)
+(require 'org-agenda)
+
+(when noninteractive
+  (dolist (feature '(vulpea vulpea-para sp-vulpea-para))
+    (provide feature))
+  (defvar vulpea-para-done-keywords nil))
+
+(load (expand-file-name
+       "../libraries/modules/custom/sp-org-issues.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(defvar sp-org-issues-test--now (date-to-time "2026-10-21T12:00:00Z")
+  "The moment all tests pretend it is.")
+
+(defun sp-org-issues-test--pr (number &rest props)
+  "Return a pull request plist for NUMBER, with PROPS overriding the defaults."
+  (append props
+          (list :repo "dotfiles" :number number
+                :title (format "PR %d" number)
+                :url (format "https://github.com/o/r/pull/%d" number)
+                :draft nil :decision "" :mergeable "MERGEABLE"
+                :base "main" :head (format "branch-%d" number)
+                :ci 'success :updated "2026-10-21T12:00:00Z")))
+
+(defconst sp-org-issues-test--issues-text
+  "#+todo: TODO NEXT PROG WAIT | DONE CNCL
+,* Tasks
+,** dotfiles
+:PROPERTIES:
+:GIT_DIR: /x
+:END:
+,*** PROG Write sp-paths
+:PROPERTIES:
+:ID: aaa
+:PR: https://github.com/o/r/pull/22
+:BRANCH: issue/paths
+:END:
+,*** NEXT Fix the tests
+DEADLINE: <2026-10-21 Wed>
+,*** DONE Old issue
+,*** WAIT Wait for a reply
+,** vulpea-mcp
+,*** TODO Document the tools
+"
+  "A small issues file.")
+
+(defun sp-org-issues-test--issues ()
+  "Return the open issues of `sp-org-issues-test--issues-text'."
+  (with-temp-buffer
+    (insert (replace-regexp-in-string "^," "" sp-org-issues-test--issues-text))
+    (org-mode)
+    (sp-org-issues-morning--issues-in-buffer)))
+
+(defun sp-org-issues-test--issue (title)
+  "Return the issue called TITLE of the small issues file."
+  (seq-find (lambda (issue) (equal (plist-get issue :title) title))
+            (sp-org-issues-test--issues)))
+#+end_src
+
+** Reading GitHub's answer
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-ci-state ()
+  (should (eq 'success (sp-org-issues-morning--ci
+                        '(((conclusion . "SUCCESS") (status . "COMPLETED"))))))
+  (should (eq 'failure (sp-org-issues-morning--ci
+                        '(((conclusion . "SUCCESS") (status . "COMPLETED"))
+                          ((conclusion . "FAILURE") (status . "COMPLETED"))))))
+  (should (eq 'pending (sp-org-issues-morning--ci
+                        '(((conclusion . "") (status . "IN_PROGRESS"))))))
+  (should (eq 'pending (sp-org-issues-morning--ci '(((state . "PENDING"))))))
+  (should (eq 'failure (sp-org-issues-morning--ci '(((state . "ERROR"))))))
+  ;; a failure is reported even while other checks still run
+  (should (eq 'failure (sp-org-issues-morning--ci
+                        '(((conclusion . "FAILURE") (status . "COMPLETED"))
+                          ((conclusion . "") (status . "QUEUED"))))))
+  (should-not (sp-org-issues-morning--ci nil)))
+
+(ert-deftest sp-org-issues-morning-parse-prs ()
+  (let* ((json "[{\"number\":17,\"title\":\"Tint boxes\",
+ \"url\":\"https://github.com/o/r/pull/17\",\"isDraft\":false,
+ \"reviewDecision\":\"APPROVED\",\"mergeable\":\"MERGEABLE\",
+ \"baseRefName\":\"main\",\"headRefName\":\"claude/a\",
+ \"updatedAt\":\"2026-10-20T21:06:23Z\",
+ \"statusCheckRollup\":[{\"conclusion\":\"FAILURE\",\"status\":\"COMPLETED\"}]}]")
+         (pr (car (sp-org-issues-morning--parse-prs json "dotfiles"))))
+    (should (equal (plist-get pr :repo) "dotfiles"))
+    (should (= (plist-get pr :number) 17))
+    (should (equal (plist-get pr :title) "Tint boxes"))
+    (should (equal (plist-get pr :decision) "APPROVED"))
+    (should (equal (plist-get pr :base) "main"))
+    (should (equal (plist-get pr :head) "claude/a"))
+    (should (eq (plist-get pr :ci) 'failure))
+    (should-not (plist-get pr :draft)))
+  (should-not (sp-org-issues-morning--parse-prs "[]" "dotfiles")))
+
+(ert-deftest sp-org-issues-morning-pr-number ()
+  (should (= 4 (sp-org-issues-morning--pr-number "https://github.com/o/r/pull/4")))
+  (should (= 17 (sp-org-issues-morning--pr-number "#17")))
+  (should (= 17 (sp-org-issues-morning--pr-number " 17 ")))
+  (should-not (sp-org-issues-morning--pr-number ""))
+  (should-not (sp-org-issues-morning--pr-number nil)))
+
+(ert-deftest sp-org-issues-morning-repo-slug ()
+  (should (equal "siainbuletin/dotfiles"
+                 (sp-org-issues-morning--repo-slug
+                  "https://github.com/siainbuletin/dotfiles")))
+  (should (equal "o/r" (sp-org-issues-morning--repo-slug "git@github.com:o/r.git")))
+  (should-not (sp-org-issues-morning--repo-slug nil))
+  (should-not (sp-org-issues-morning--repo-slug "https://example.org/o/r")))
+#+end_src
+
+** Categories, stacks and scores
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-pr-category ()
+  (cl-flet ((cat (&rest props)
+              (sp-org-issues-morning--pr-category
+               (apply #'sp-org-issues-test--pr 1 props))))
+    (should (eq 'review (cat)))
+    (should (eq 'review (cat :ci nil)))
+    (should (eq 'draft (cat :draft t :ci 'failure)))
+    (should (eq 'ci-failed (cat :ci 'failure :decision "APPROVED")))
+    (should (eq 'conflict (cat :mergeable "CONFLICTING")))
+    (should (eq 'changes-requested (cat :decision "CHANGES_REQUESTED")))
+    (should (eq 'ready (cat :decision "APPROVED")))
+    (should (eq 'ci-pending (cat :decision "APPROVED" :ci 'pending)))
+    (should (eq 'ci-pending (cat :ci 'pending)))))
+
+(ert-deftest sp-org-issues-morning-stack-depth ()
+  (let* ((a (sp-org-issues-test--pr 17 :head "a"))
+         (b (sp-org-issues-test--pr 18 :base "a" :head "b"))
+         (c (sp-org-issues-test--pr 19 :base "b" :head "c"))
+         (other (sp-org-issues-test--pr 22 :head "x"))
+         (elsewhere (sp-org-issues-test--pr 5 :repo "vulpea-mcp" :base "a"))
+         (prs (list a b c other elsewhere)))
+    (should (equal '(0) (list (car (sp-org-issues-morning--stack-depth a prs)))))
+    (should (equal '(1 . 17) (sp-org-issues-morning--stack-depth b prs)))
+    (should (equal '(2 . 18) (sp-org-issues-morning--stack-depth c prs)))
+    (should (= 0 (car (sp-org-issues-morning--stack-depth other prs))))
+    ;; a branch with the same name in another repository is not a parent
+    (should (= 0 (car (sp-org-issues-morning--stack-depth elsewhere prs))))))
+
+(ert-deftest sp-org-issues-morning-stack-cycle-ends ()
+  (let* ((a (sp-org-issues-test--pr 1 :base "b" :head "a"))
+         (b (sp-org-issues-test--pr 2 :base "a" :head "b")))
+    (should (numberp (car (sp-org-issues-morning--stack-depth a (list a b)))))))
+
+(ert-deftest sp-org-issues-morning-pr-score ()
+  (cl-flet ((score (&rest props)
+              (car (sp-org-issues-morning--pr-score
+                    (apply #'sp-org-issues-test--pr 1 props) nil
+                    sp-org-issues-test--now))))
+    (should (> (score :ci 'failure) (score :mergeable "CONFLICTING")))
+    (should (> (score :mergeable "CONFLICTING") (score :decision "CHANGES_REQUESTED")))
+    (should (> (score :decision "CHANGES_REQUESTED") (score :decision "APPROVED")))
+    (should (> (score :decision "APPROVED") (score)))
+    (should (> (score) (score :ci 'pending)))
+    (should (> (score :ci 'pending) (score :draft t)))
+    ;; a quiet pull request gains a point a day, up to ten
+    (should (= (1+ (score)) (score :updated "2026-10-20T12:00:00Z")))
+    (should (= (+ 10 (score)) (score :updated "2026-01-01T00:00:00Z")))))
+
+(ert-deftest sp-org-issues-morning-stacked-pr-waits-for-its-base ()
+  (let* ((a (sp-org-issues-test--pr 17 :head "a"))
+         (b (sp-org-issues-test--pr 18 :base "a" :head "b"))
+         (prs (list a b)))
+    (pcase-let ((`(,sa . ,_) (sp-org-issues-morning--pr-score a prs sp-org-issues-test--now))
+                (`(,sb . ,rb) (sp-org-issues-morning--pr-score b prs sp-org-issues-test--now)))
+      (should (< sb sa))
+      (should (string-match-p "#17" rb)))))
+#+end_src
+
+** Reading the issues
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-reads-open-issues-only ()
+  (let ((issues (sp-org-issues-test--issues)))
+    (should (equal '("Write sp-paths" "Fix the tests" "Wait for a reply"
+                     "Document the tools")
+                   (mapcar (lambda (i) (plist-get i :title)) issues)))))
+
+(ert-deftest sp-org-issues-morning-reads-issue-fields ()
+  (let ((issue (sp-org-issues-test--issue "Write sp-paths")))
+    (should (eq 'prog (plist-get issue :state)))
+    (should (equal "dotfiles" (plist-get issue :repo)))
+    (should (equal "aaa" (plist-get issue :id)))
+    (should (= 22 (plist-get issue :pr)))
+    (should (equal "issue/paths" (plist-get issue :branch))))
+  (should (equal "vulpea-mcp"
+                 (plist-get (sp-org-issues-test--issue "Document the tools") :repo)))
+  (should (time-equal-p
+           (org-time-string-to-time "<2026-10-21 Wed>")
+           (plist-get (sp-org-issues-test--issue "Fix the tests") :deadline))))
+
+(ert-deftest sp-org-issues-morning-reads-the-issues-file ()
+  (let ((file (make-temp-file "issues" nil ".org"
+                              (replace-regexp-in-string
+                               "^," "" sp-org-issues-test--issues-text))))
+    (unwind-protect
+        (should (= 4 (length (sp-org-issues-morning--issues file))))
+      (kill-buffer (find-buffer-visiting file))
+      (delete-file file))))
+
+(ert-deftest sp-org-issues-morning-issue-score ()
+  (cl-flet ((score (title)
+              (car (sp-org-issues-morning--issue-score
+                    (sp-org-issues-test--issue title) sp-org-issues-test--now))))
+    (should (> (score "Write sp-paths") (score "Wait for a reply")))
+    (should (> (score "Wait for a reply") (score "Document the tools")))
+    ;; NEXT with a deadline today beats PROG
+    (should (> (score "Fix the tests") (score "Write sp-paths"))))
+  (let ((issue (list :state 'todo :title "x")))
+    (cl-flet ((score (&rest props)
+                (car (sp-org-issues-morning--issue-score
+                      (append props issue) sp-org-issues-test--now))))
+      (should (> (score :deadline (date-to-time "2026-10-01T00:00:00Z")) (score)))
+      (should (> (score :deadline (date-to-time "2026-10-23T00:00:00Z")) (score)))
+      (should (= (score) (score :deadline (date-to-time "2026-12-01T00:00:00Z"))))
+      (should (> (score :scheduled (date-to-time "2026-10-21T00:00:00Z")) (score))))))
+#+end_src
+
+** Putting issues and pull requests in one list
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-items-are-ranked ()
+  (let* ((prs (list (sp-org-issues-test--pr 1)
+                    (sp-org-issues-test--pr 2 :ci 'failure)
+                    (sp-org-issues-test--pr 3 :draft t)))
+         (items (sp-org-issues-morning--items nil prs sp-org-issues-test--now)))
+    (should (equal '(2 1 3) (mapcar (lambda (i) (plist-get i :number)) items)))
+    (should (apply #'>= (mapcar (lambda (i) (plist-get i :score)) items)))))
+
+(ert-deftest sp-org-issues-morning-issue-takes-its-pr ()
+  "An issue with an open pull request is one line, and shows the better score."
+  (let* ((prs (list (sp-org-issues-test--pr 22 :ci 'failure)))
+         (items (sp-org-issues-morning--items
+                 (list (sp-org-issues-test--issue "Write sp-paths"))
+                 prs sp-org-issues-test--now)))
+    (should (= 1 (length items)))
+    (should (equal "Write sp-paths" (plist-get (car items) :title)))
+    (should (= 22 (plist-get (car items) :number)))
+    (should (equal "https://github.com/o/r/pull/22" (plist-get (car items) :url)))
+    (should (equal "aaa" (plist-get (car items) :id)))
+    (should (>= (plist-get (car items) :score)
+                (alist-get 'ci-failed sp-org-issues-morning-scores)))))
+
+(ert-deftest sp-org-issues-morning-closed-pr-is-flagged ()
+  (let* ((issue (sp-org-issues-test--issue "Write sp-paths"))
+         (items (sp-org-issues-morning--items
+                 (list issue) nil sp-org-issues-test--now '("dotfiles"))))
+    (should (string-match-p "no longer open" (plist-get (car items) :reason)))
+    (should (>= (plist-get (car items) :score)
+                (alist-get 'pr-gone sp-org-issues-morning-scores))))
+  ;; when GitHub was not reached the pull request stays unknown
+  (let ((items (sp-org-issues-morning--items
+                (list (sp-org-issues-test--issue "Write sp-paths"))
+                nil sp-org-issues-test--now nil)))
+    (should-not (string-match-p "no longer open" (plist-get (car items) :reason)))))
+#+end_src
+
+** The text of the list
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-render ()
+  (let* ((items (sp-org-issues-morning--items
+                 (sp-org-issues-test--issues)
+                 (list (sp-org-issues-test--pr 17 :ci 'failure :title "Tint boxes"))
+                 sp-org-issues-test--now '("dotfiles")))
+         (text (sp-org-issues-morning--render
+                items sp-org-issues-test--now '("GitHub was not reached for x"))))
+    (should (string-match-p "^#\\+title: Morning" text))
+    (should (string-match-p "^\\* Today" text))
+    (should (string-match-p "^\\* Parked" text))
+    (should (string-match-p "GitHub was not reached for x" text))
+    (should (string-match-p "\\[\\[https://github.com/o/r/pull/17\\]\\[dotfiles #17\\]\\] Tint boxes" text))
+    (should (string-match-p "\\[\\[id:aaa\\]\\[Write sp-paths\\]\\]" text))
+    ;; the failing pull request comes before everything else
+    (should (< (string-match "Tint boxes" text) (string-match "Fix the tests" text)))
+    ;; low scores are parked below the Parked heading
+    (should (> (string-match "Document the tools" text) (string-match "^\\* Parked" text)))))
+
+(ert-deftest sp-org-issues-morning-render-respects-the-limit ()
+  (let* ((sp-org-issues-morning-limit 2)
+         (prs (mapcar #'sp-org-issues-test--pr '(1 2 3 4)))
+         (text (sp-org-issues-morning--render
+                (sp-org-issues-morning--items nil prs sp-org-issues-test--now)
+                sp-org-issues-test--now nil)))
+    (should (> (string-match "PR 3" text) (string-match "^\\* Parked" text)))
+    (should (< (string-match "PR 2" text) (string-match "^\\* Parked" text)))))
+
+(ert-deftest sp-org-issues-morning-render-empty ()
+  (should (string-match-p "Nothing"
+                          (sp-org-issues-morning--render nil sp-org-issues-test--now nil))))
+#+end_src
+
+** Fetching with a fake gh
+
+#+begin_src emacs-lisp -i
+(defun sp-org-issues-test--fake-gh ()
+  "Write a script that answers like gh, and return its path.
+It fails for the repository failing/repo."
+  (let ((script (make-temp-file "fake-gh" nil ".sh")))
+    (with-temp-file script
+      (insert "#!/bin/sh\n"
+              "case \"$*\" in *failing/repo*) echo boom >&2; exit 1;; esac\n"
+              "echo 'a warning that must not reach the JSON' >&2\n"
+              "cat <<'EOF'\n"
+              "[{\"number\":7,\"title\":\"Seven\",\"url\":\"u\",\"isDraft\":false,"
+              "\"reviewDecision\":\"\",\"mergeable\":\"MERGEABLE\","
+              "\"baseRefName\":\"main\",\"headRefName\":\"h\","
+              "\"updatedAt\":\"2026-10-21T12:00:00Z\",\"statusCheckRollup\":[]}]\n"
+              "EOF\n"))
+    (set-file-modes script #o755)
+    script))
+
+(defun sp-org-issues-test--fetch (repos)
+  "Fetch REPOS with the fake gh and return (PRS FAILED)."
+  (let ((script (sp-org-issues-test--fake-gh))
+        result)
+    (unwind-protect
+        (let ((sp-org-issues-gh-program script)
+              (deadline (+ (float-time) 10)))
+          (sp-org-issues-morning--fetch
+           repos (lambda (prs failed) (setq result (list prs failed))))
+          (while (and (not result) (< (float-time) deadline))
+            (accept-process-output nil 0.1)))
+      (delete-file script))
+    result))
+
+(ert-deftest sp-org-issues-morning-fetch ()
+  (pcase-let ((`(,prs ,failed)
+               (sp-org-issues-test--fetch
+                '(("dotfiles" . "o/r") ("other" . "o/s") ("bad" . "failing/repo")))))
+    (should (equal '("dotfiles" "other")
+                   (mapcar (lambda (pr) (plist-get pr :repo)) prs)))
+    (should (equal '("bad") failed))))
+
+(ert-deftest sp-org-issues-morning-fetch-nothing ()
+  (should (equal '(nil nil) (sp-org-issues-test--fetch nil))))
+#+end_src
+
+** The command and the greeting
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-org-issues-morning-repos ()
+  (let ((sp-org-issues-repos
+         '(("dotfiles" :url "https://github.com/siainbuletin/dotfiles")
+           ("local-only" :tag "x")))
+        (sp-org-issues-morning-extra-repos '("o/other")))
+    (should (equal '(("dotfiles" . "siainbuletin/dotfiles") ("o/other" . "o/other"))
+                   (sp-org-issues-morning--repos)))))
+
+(ert-deftest sp-org-issues-morning-works-without-gh ()
+  (let* ((file (make-temp-file "issues" nil ".org"
+                               (replace-regexp-in-string
+                                "^," "" sp-org-issues-test--issues-text)))
+         (sp-org-issues-gh-program "no-such-gh-program")
+         (sp-org-issues-repos
+          '(("dotfiles" :url "https://github.com/siainbuletin/dotfiles"))))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-org-issues-file) (lambda () file)))
+          (sp-org-issues-morning)
+          (with-current-buffer "*Morning*"
+            (should (string-match-p "Write sp-paths" (buffer-string)))
+            (should (string-match-p "no-such-gh-program" (buffer-string)))
+            (should buffer-read-only)))
+      (when (get-buffer "*Morning*") (kill-buffer "*Morning*"))
+      (kill-buffer (find-buffer-visiting file))
+      (delete-file file))))
+
+(ert-deftest sp-org-issues-morning-greets-once-a-day ()
+  (let ((sp-org-issues-morning-stamp-file (make-temp-file "morning-stamp"))
+        (calls 0))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-org-issues-morning)
+                   (lambda () (cl-incf calls))))
+          (delete-file sp-org-issues-morning-stamp-file)
+          (sp-org-issues-morning-greet)
+          (sp-org-issues-morning-greet)
+          (should (= 1 calls))
+          (with-temp-file sp-org-issues-morning-stamp-file
+            (insert "2020-01-01"))
+          (sp-org-issues-morning-greet)
+          (should (= 2 calls)))
+      (ignore-errors (delete-file sp-org-issues-morning-stamp-file)))))
+
+(ert-deftest sp-org-issues-morning-greeting-never-breaks-startup ()
+  (let ((sp-org-issues-morning-stamp-file (make-temp-file "morning-stamp")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'sp-org-issues-morning)
+                   (lambda () (user-error "No Issues area yet"))))
+          (delete-file sp-org-issues-morning-stamp-file)
+          (should-not (sp-org-issues-morning-greet)))
+      (ignore-errors (delete-file sp-org-issues-morning-stamp-file)))))
+
+(provide 'sp-org-issues-test)
+;;; sp-org-issues-test.el ends here
 #+end_src
 
 * Sandbox

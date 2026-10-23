@@ -1,4 +1,15 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-c.el --- C, C++ and CMake editing -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up editing for C-family languages and CMake files. It
+;; builds on the `google-c-style' package, adjusting a few of its indentation
+;; settings through a small override mechanism, and enables a stack of minor
+;; modes (`company-mode', `hs-minor-mode', `flycheck-mode',
+;; `rainbow-delimiters-mode') whenever a C or C++ buffer opens.
+
+;;; Code:
+
 (defcustom siapip/google-c-style-overrides
   '(((c-basic-offset) 4)
     ((c-offsets-alist member-init-intro) ++)

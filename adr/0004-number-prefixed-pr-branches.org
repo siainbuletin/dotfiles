@@ -1,0 +1,17 @@
+#+title: 0004 Prefix PR branch names with the PR number
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+Several PRs are open at once and I decide the review and merge order from their numbers. Claude's default branch names (=claude/project-thread-xxxx=) do not show it.
+
+* Decision
+Name every PR branch with the PR number first, e.g. =18-relationship-annotator=. Create the PR first, or take the next number, then name the branch. Never rename a branch that other open PRs use as their base without retargeting those PRs and telling me. Branch names for work that is not yet a PR (including those proposed by =sp-workbench-branch-prefix=, default =feat/=) get the number when the PR is opened.
+
+* Alternatives considered
+- *Descriptive names only* (=claude/...=, =feat/...=): no ordering information.
+- *Date prefixes*: order by creation, not by the order I want to merge.
+
+* Consequences
+- GitHub cannot change the head branch of an open PR, so "rename later" means a new PR; picking the number up front is the practical route.
+- This rule is also in the project instructions that Claude follows.
