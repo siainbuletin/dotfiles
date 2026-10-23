@@ -1,4 +1,4 @@
-;;; -*- lexical-binding: t -*-
+;;; sp-org-capture.el --- Org capture templates and capture frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -42,13 +42,13 @@
 (keymap-global-set "C-c c" #'org-capture)
 
 (setq org-capture-templates
-        '(
+        `(
           ("l" "Listening log" entry
-           (file+datetree "~/notes/inbox/listening-log.org")
+           (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
            "* %U\n %i\n %a")
 
           ("i" "Idea or quick thought to take care of" entry
-           (file "~/notes/inbox/thoughts-capture.org"))
+           (file ,(sp-path sp-notes-dir "inbox/thoughts-capture.org")))
 ))
 
 ;; See also sp-vulpea.el for task capturing 

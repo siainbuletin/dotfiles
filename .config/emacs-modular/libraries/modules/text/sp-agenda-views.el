@@ -1,5 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-agenda-views.el --- Custom agenda views
+;;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Every custom agenda view in one place: the native views and the main PARA
+;; view from `vulpea-para'.
+
+;;; Code:
 
 (require 'org-agenda)
 (require 'vulpea-para)
@@ -27,7 +33,7 @@
                             ((org-agenda-overriding-header "Planning Tasks")))
                  (tags-todo "-{.*}"
                             ((org-agenda-overriding-header "Untagged Tasks")))
-                 (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
+                 (todo ".*" ((org-agenda-files (list (sp-path sp-notes-dir "inbox.org")))
                              (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
            ("D" "Daily Agenda"
@@ -102,6 +108,5 @@
                 ,vulpea-para-agenda-cmd-waiting
                 ,(vulpea-para-agenda-cmd-current-quarter))))
 
-;;; Provide:
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here

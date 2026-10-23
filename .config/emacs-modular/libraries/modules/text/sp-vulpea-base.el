@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-vulpea-base.el --- Vulpea note database basics -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up `vulpea', a library and database layer for Org-based
+;; notes (an alternative to org-roam), together with `vui', the UI component
+;; library used by other Vulpea modules such as `sp-vulpea-vui-table'. It is
+;; required from `sp-org-ext', and the further Vulpea extensions live in
+;; `sp-vulpea-ext'.
+
+;;; Code:
 
 (use-package vui
   :ensure t)
@@ -17,7 +27,7 @@
    ("M-o n a" . vulpea-buffer-alias-add))
 )
 
-(setq vulpea-db-sync-directories '("~/notes/"))
+(setq vulpea-db-sync-directories (list sp-notes-dir))
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 

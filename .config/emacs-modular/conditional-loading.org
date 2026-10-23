@@ -54,7 +54,7 @@ The UI modules here are organised alphabetically, but it should be fine since it
 - sp-windows ::
 - sp-writedesk ::
 
-** Environment settings (env/)
+** Environment settings (now under base/)
 
 - sp-env :: Making exec-path work (mostly tailored to MacOS anyway)
 - sp-macos :: MacOS specific settings

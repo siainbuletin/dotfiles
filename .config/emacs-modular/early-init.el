@@ -265,7 +265,6 @@ Any customized libraries not available via standard package repos like elpa or m
 ;; Restoring the variables so the switch in ~init.el~ is actually able to load 
 ;; the different kinds of Emacs configurations.
 (defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'sia-lambda)
-(defcustom sp-load-extras t "Load external-package configuration." :type 'boolean :group 'sia-lambda)
 
 (defconst sp-gui-only-set '(sp-gui sp-macos sp-splash lem-dashboard)
   "Modules that are meaningless without a graphic display.")  ; adjust to your real names
@@ -316,6 +315,5 @@ Any customized libraries not available via standard package repos like elpa or m
     t))
 
 (when (sp-cli-profile-switch "--headless-host") (setq sp-headless-host t))
-(when (sp-cli-profile-switch "--no-extras")     (setq sp-load-extras nil))
 
 ;; early-init.el ends here.

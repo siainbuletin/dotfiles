@@ -1,7 +1,7 @@
-;; -*- lexical-binding: t -*-
-;; sp-workspaces.el
+;;; sp-workspaces.el --- Tab-based workspaces and Projectile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;; Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
 ;; with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
 ;; up so that these workspaces are nicely displayed out of the way in the echo
@@ -15,7 +15,7 @@
 ;;;;; Startup Workspaces
 (defun sp--workspace-setup ()
   "Set up workspace at startup."
-  ;; Add *Messages* and *splash* to Tab \`Home\'
+  ;; Add *Messages* and Dashboard to Tab \`Home\'
   (progn
     (tab-bar-rename-tab "Home")
     (when (get-buffer "*Messages*")
@@ -23,10 +23,10 @@
                            'buffer-list
                            (cons (get-buffer "*Messages*")
                                  (frame-parameter nil 'buffer-list))))
-    (when (get-buffer "*splash*")
+    (when (get-buffer "Dashboard")
       (set-frame-parameter nil
                            'buffer-list
-                           (cons (get-buffer "*splash*")
+                           (cons (get-buffer "Dashboard")
                                  (frame-parameter nil 'buffer-list))))))
 
 (add-hook 'after-init-hook #'sp--workspace-setup)
@@ -182,8 +182,8 @@
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/Documents/writing/"
-          "~/.config/"))
+        (list (sp-path sp-documents-dir "writing/")
+              "~/.config/"))
   
   :config
   (projectile-mode +1)
@@ -196,11 +196,9 @@
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
-
-;;; Provide:
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.

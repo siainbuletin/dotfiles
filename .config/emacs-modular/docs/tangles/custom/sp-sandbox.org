@@ -1,0 +1,128 @@
+#+TITLE: sp-sandbox.el: Launch a pull request in a sandboxed Emacs
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-sandbox.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/custom/sp-sandbox.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module puts the fish function =emacs-pr= (=~/.config/fish/functions/emacs-pr.fish=, described in [[file:../../../README.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]]) behind =M-x= commands, so a sandbox can be started from the Emacs I already work in. The sandbox is a separate Emacs process, so the live one is untouched and keeps running. The commands run fish in a process of their own and show its output in =*emacs-pr*=; fish and =emacs= must be on Emacs's =exec-path=, which =sp-env= arranges on macOS.
+
+It has no dependencies and is loaded after =sp-org-issues= in the module list of =init.el=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Commands for the fish function `emacs-pr' (see "Testing a pull request in a
+sandbox" in README.org), so a sandbox can be started, reset and removed from
+the Emacs I am already working in.  The sandbox is a second Emacs process with
+its own worktree, packages and copy of the notes; this one is not touched.
+#+end_quote
+
+* Header
+
+** File header and commentary
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-sandbox.el --- Launch a pull request in a sandboxed Emacs -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Commands for the fish function `emacs-pr' (see "Testing a pull request in a
+;; sandbox" in README.org), so a sandbox can be started, reset and removed from
+;; the Emacs I am already working in.  The sandbox is a second Emacs process with
+;; its own worktree, packages and copy of the notes; this one is not touched.
+
+;;; Code:
+#+end_src
+
+* Settings
+
+The group, and the shell that has =emacs-pr= defined.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-sandbox nil
+  "Run pull requests of the dotfiles in a sandboxed Emacs."
+  :group 'tools)
+
+(defcustom sp-sandbox-shell "fish"
+  "Shell that has the `emacs-pr' function defined."
+  :type 'string
+  :group 'sp-sandbox)
+#+end_src
+
+* Running the function
+
+=sp-sandbox--run= quotes its arguments, runs =fish -c "emacs-pr ..."= and shows the output buffer. The function itself starts the sandbox in the background and returns, so the process ends quickly.
+
+#+begin_src emacs-lisp -i
+(defun sp-sandbox--run (&rest args)
+  "Run `emacs-pr' with ARGS in a fish process and show its output."
+  (let ((buffer (get-buffer-create "*emacs-pr*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t)) (erase-buffer)))
+    (make-process
+     :name "emacs-pr"
+     :buffer buffer
+     :command (list sp-sandbox-shell "-c"
+                    (mapconcat #'shell-quote-argument (cons "emacs-pr" args) " "))
+     :noquery t)
+    (display-buffer buffer)))
+
+(defun sp-sandbox--number-at-point ()
+  "Pull request number near point (as in #22 or a bare 22), or nil."
+  (or (thing-at-point 'number)
+      (save-excursion
+        (skip-chars-backward "0-9")
+        (and (eq (char-before) ?#) (thing-at-point 'number)))))
+#+end_src
+
+* Commands
+
+** Start a sandbox
+
+The number defaults to the one at point, written either as =22= or =#22=, so the command can be run on a PR mentioned in a note or in the changelog.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-sandbox-pr (number)
+  "Fetch pull request NUMBER and start a sandboxed Emacs on it.
+Running it again for the same number updates the sandbox to the latest commit."
+  (interactive (list (read-number "Pull request number: "
+                                  (sp-sandbox--number-at-point))))
+  (sp-sandbox--run (number-to-string number)))
+#+end_src
+
+** Remove, reset and reseed
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-sandbox-remove (number)
+  "Remove the sandbox of pull request NUMBER: worktree, packages and notes copy."
+  (interactive (list (read-number "Remove the sandbox of pull request: "
+                                  (sp-sandbox--number-at-point))))
+  (when (y-or-n-p (format "Remove the sandbox of PR #%d? " number))
+    (sp-sandbox--run "rm" (number-to-string number))))
+
+;;;###autoload
+(defun sp-sandbox-reset-notes (number)
+  "Give the sandbox of pull request NUMBER a fresh copy of ~/notes next time."
+  (interactive (list (read-number "Reset the notes of pull request: "
+                                  (sp-sandbox--number-at-point))))
+  (sp-sandbox--run "reset" (number-to-string number)))
+
+;;;###autoload
+(defun sp-sandbox-reseed ()
+  "Drop the package seed, so the next sandbox clones the live packages again."
+  (interactive)
+  (sp-sandbox--run "reseed"))
+#+end_src
+
+* Provide
+
+Provides the =sp-sandbox= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-sandbox)
+;; sp-sandbox.el ends here.
+#+end_src

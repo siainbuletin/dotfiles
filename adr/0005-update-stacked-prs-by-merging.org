@@ -1,0 +1,19 @@
+#+title: 0005 Update stacked PRs by merging, not rebasing
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+PRs #18 to #22 were stacked: each branch is based on its parent. With merge commits ([[file:0003-merge-prs-on-github-with-merge-commits.org][0003]]) each child already contains its parent's commits. Checked on 2026-10-21 with trial merges in a container: the stack itself was clean, and the conflicts came from =CHANGELOG.org= alone.
+
+* Decision
+- After a parent merges, retarget the child's base to =main= on its PR page (Edit next to the title), check the diff shrank to its own commits, then merge. Do not rebase.
+- To update a child, check it out and merge the parent (or =origin/main= once the parent has landed) into it. Work bottom-up. This never needs a force-push. In SourceGit read *Into:* before confirming; do not merge =origin/main= into a child while its parent is open.
+- Mine/theirs in a merge: mine is the branch you are on, theirs is the one coming in. They swap during a rebase.
+- Only if a parent was /squash/-merged: =git rebase --onto origin/main OLD_PARENT child=, or from the top branch with =--update-refs=, then =git push --force-with-lease=. Fetch and look at =git log --graph= first. SourceGit's rebase dialog has no =--onto=, so this is a terminal step (in Magit: =r=, toggle =-u=, then =e= or =s=).
+
+* Alternatives considered
+Graphite, git-branchless and jj restack automatically; they are in the table in [[file:0002-sourcegit-for-visual-git.org][0002]]. They rely on rewriting history and force-pushes, which I do not want for AI-made branches.
+
+* Consequences
+- More merge commits, no surprise force-pushes.
+- /Untested/ on my Mac: none of these commands were run in my clone, Magit or fish.

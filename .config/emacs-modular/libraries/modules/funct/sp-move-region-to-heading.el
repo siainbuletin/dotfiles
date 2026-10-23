@@ -1,6 +1,8 @@
-;;; sp-move-region-to-heading.el --- Move a region under a heading in another file, leaving a link behind -*- lexical-binding: t; -*-
+;;; sp-move-region-to-heading.el --- Move a region under a heading in another note -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; Provides one command, `sp-move-region-to-heading', bound globally to `M-a'.
 
 ;;; Code:
 

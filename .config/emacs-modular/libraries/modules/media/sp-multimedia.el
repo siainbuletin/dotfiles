@@ -1,5 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-multimedia.el --- dedicated specifically to music playback from Emacs --- as far as it can go in the multi-threaded direction
+;;; sp-multimedia.el --- Music and media playback -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module installs several media packages: `emms', `vuiet', `lastfm',
+;; `ready-player' and `listen'. Only `ready-player' gets real configuration.
+
+;;; Code:
 
 (use-package emms
   :ensure t)

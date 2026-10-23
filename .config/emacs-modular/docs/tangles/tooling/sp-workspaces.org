@@ -10,17 +10,27 @@ This module builds named workspaces on top of =tab-bar= and =tabspaces=. A works
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
+with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
+up so that these workspaces are nicely displayed out of the way in the echo
+area rather than as visible tabs in the header tab-line at the top of the
+frame.
+#+end_quote
+
 * Header and commentary
 
 ** File header
 
-Lexical binding and the commentary describing the workspace model: tabs with isolated buffer lists, shown discreetly rather than as a visible tab line.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-workspaces.el
+;;; sp-workspaces.el --- Tab-based workspaces and Projectile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;; Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
 ;; with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
 ;; up so that these workspaces are nicely displayed out of the way in the echo
@@ -38,13 +48,13 @@ Each command follows the same pattern: if a tab with the expected name exists, s
 
 ** Startup workspace
 
-=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =*splash*= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
+=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =Dashboard= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
 
 #+begin_src emacs-lisp -i
 ;;;;; Startup Workspaces
 (defun sp--workspace-setup ()
   "Set up workspace at startup."
-  ;; Add *Messages* and *splash* to Tab \`Home\'
+  ;; Add *Messages* and Dashboard to Tab \`Home\'
   (progn
     (tab-bar-rename-tab "Home")
     (when (get-buffer "*Messages*")
@@ -52,10 +62,10 @@ Each command follows the same pattern: if a tab with the expected name exists, s
                            'buffer-list
                            (cons (get-buffer "*Messages*")
                                  (frame-parameter nil 'buffer-list))))
-    (when (get-buffer "*splash*")
+    (when (get-buffer "Dashboard")
       (set-frame-parameter nil
                            'buffer-list
-                           (cons (get-buffer "*splash*")
+                           (cons (get-buffer "Dashboard")
                                  (frame-parameter nil 'buffer-list))))))
 #+end_src
 
@@ -289,8 +299,8 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/Documents/writing/"
-          "~/.config/"))
+        (list (sp-path sp-documents-dir "writing/")
+              "~/.config/"))
   
   :config
   (projectile-mode +1)
@@ -303,19 +313,18 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
 #+end_src
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-workspaces= for the module loader.
+Provides the =sp-workspaces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.

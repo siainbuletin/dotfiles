@@ -1,13 +1,16 @@
-;; -*- lexical-binding: t; -*-
-;; sp-bibprocess.el
+;;; sp-bibprocess.el --- BibTeX files, lookup and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
+;; This module manages the BibTeX bibliography that the academic modules build
+;; on.
+
 ;;; Code:
+
 ;;;; Defining variables
 
 (defcustom sp-bibtex-dir
-  (concat (file-name-as-directory (getenv "HOME")) "/bibliography/")
+  sp-bibliography-dir
   "Location of BibTeX files and attachments."
   :group 'siapip
   :type 'directory)
@@ -66,7 +69,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 
 ;;;; Other:
 
-;;; BIBLIOGRAPHY
+;;;; BIBLIOGRAPHY
 (defvar sp-bibtex-files
   (when (file-exists-p sp-bibtex-dir)
     (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))

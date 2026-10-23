@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-node-mem.el --- org-node and org-mem note indexing -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up `org-mem', a fast in-memory index of Org files, and
+;; `org-node', which builds note-taking commands (find, insert link, backlinks)
+;; on top of it, for the notes in `~/notes/'. It also uses the index to compute
+;; `org-agenda-files' automatically from files that contain anything
+;; agenda-relevant.
+
+;;; Code:
 
 (use-package org-mem
   :ensure (:wait t)
@@ -7,7 +17,7 @@
   ;; At least one of these two is needed
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
-        (list "~/notes/"))
+        (list sp-notes-dir))
   (org-mem-updater-mode))
 
 (use-package inspector

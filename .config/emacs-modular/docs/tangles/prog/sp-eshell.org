@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Configuration for Eshell, Emacs's built-in shell written in Lisp. It tunes the built-in Eshell sub-packages (history, globbing, completion, visual commands and so on), adds optional completion and help packages, defines a two-line prompt with time, shortened path, git repository and branch, and a running command counter, sets up a list of aliases, makes =ls= output clickable with icons, and adds many helper commands: a project-aware Eshell toggle, =less=, =info=, =z= directory jumping, a TRAMP-aware =rcd=, and more.
 
-The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Programming group of =init.el=. It uses the Lambda theme faces =lambda-meek=, =lambda-mild= and =lambda-yellow=, with fallbacks if the theme is missing, and =nerd-icons= for listings. Optional packages are guarded by =sp-load-extras= and =locate-library=.
+The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Programming group of =init.el=. It uses the Lambda theme faces =lambda-meek=, =lambda-mild= and =lambda-yellow=, with fallbacks if the theme is missing, and =nerd-icons= for listings. 
 
 Several paths are built from =lem-etc-dir=. In this repository that constant appears to be defined only in =claude-early.el=, which =init.el= does not seem to load, so if it is unbound the history, alias and directory-ring settings would signal an error when Eshell first loads. Also note that =sp-workspaces= calls =sp-eshell-home=, which does not exist; the function here is named =lem-eshell-home=.
 
@@ -19,8 +19,13 @@ Several paths are built from =lem-etc-dir=. In this repository that constant app
 Turns on lexical binding, then at both compile and load time tries to load =lambda-themes= and defines fallback versions of the three faces the prompt uses if they do not exist yet: =lambda-meek= and =lambda-mild= inherit =shadow=, and =lambda-yellow= inherits =warning=. This keeps the prompt working with any theme.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-eshell.el --- eshell setup             
+;;; sp-eshell.el --- Eshell setup, prompt, aliases and helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configuration for Eshell, Emacs's built-in shell written in Lisp.
+
+;;; Code:
 
 ;; Define required faces FIRST, before any other code
 (eval-and-compile
@@ -60,7 +65,7 @@ Points to the Mastering Emacs guide and explains that Eshell is an Elisp shell, 
 ;; from those of shell or ansi-terminal. It is closer to something like bash or
 ;; zsh than it is to a terminal emulator like vterm.
 
-;;; Continuing code:
+;;;; Continuing code:
 #+end_src
 
 * Built-in Eshell settings
@@ -72,7 +77,7 @@ Each of these blocks configures one of Eshell's built-in sub-libraries after =es
 Keeps Eshell's data directory under =lem-etc-dir=, truncates buffers at 20000 lines, and scrolls to the bottom on any input or output.
 
 #+begin_src emacs-lisp -i
-;;;; Eshell Settings
+;;;;; Eshell Settings
 (use-package esh-mode
   :ensure nil
   :after eshell
@@ -214,7 +219,7 @@ The program names are added to =eshell-visual-commands= one at a time, because t
 Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
-;;;; Eshell Pcomplete
+;;;;; Eshell Pcomplete
 #+end_src
 
 ** Homebrew completion
@@ -223,7 +228,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-homebrew
-  :when (and sp-load-extras (locate-library "pcmpl-homebrew"))
   :after eshell)
 #+end_src
 
@@ -233,7 +237,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-args
-  :when (and sp-load-extras (locate-library "pcmpl-args"))
   :after eshell)
 #+end_src
 
@@ -243,7 +246,6 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcomplete-extension
-  :when (and sp-load-extras (locate-library "pcomplete-extension"))
   :after eshell)
 #+end_src
 
@@ -254,7 +256,6 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Provide help support -- see also the info function below
 (use-package esh-help
-  :when (and sp-load-extras (locate-library "esh-help"))
   :after eshell
   :config
   ;; Eldoc support.
@@ -268,7 +269,6 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Dir navigation -- see also dir jumping below
 (use-package eshell-up
-  :when (and sp-load-extras (locate-library "eshell-up"))
   :commands (eshell-up)
   :config
   (defalias 'eshell/up #'eshell-up))
@@ -281,7 +281,7 @@ Introduces the optional pcomplete packages.
 Links to several articles and configs on custom Eshell prompts.
 
 #+begin_src emacs-lisp -i
-;;;; Eshell Prompt
+;;;;; Eshell Prompt
 ;; See http://www.modernemacs.com/post/custom-eshell/
 ;; https://github.com/zwild/eshell-prompt-extras
 ;; https://www.bytedude.com/custom-eshell-prompts/
@@ -444,7 +444,7 @@ Makes this function Eshell's prompt.
 Makes =number-sequence= available as =range= both inside Eshell and as a normal Lisp function, so =(range 0 3)= works.
 
 #+begin_src emacs-lisp -i
-;;;; Aliases
+;;;;; Aliases
 ;; It's nicer to type (range 0 3) in eshell.
 (defalias 'eshell/range #'number-sequence)
 (defalias 'range #'number-sequence)
@@ -585,9 +585,8 @@ When =em-alias= loads, it points the aliases file under =lem-etc-dir=, saves the
 When available, highlights commands as you type in every Eshell buffer, showing valid commands, invalid ones and Lisp forms differently.
 
 #+begin_src emacs-lisp -i
-;;;; Syntax Highlighting
+;;;;; Syntax Highlighting
 (use-package eshell-syntax-highlighting
-  :when (and sp-load-extras (locate-library "eshell-syntax-highlighting"))
   :after eshell
   :config
   ;; Enable in all Eshell buffers.
@@ -601,7 +600,7 @@ When available, highlights commands as you type in every Eshell buffer, showing 
 Credits mnewt's config for the idea of clickable, decorated listings.
 
 #+begin_src emacs-lisp -i
-;;;; Better File Listing (ls)
+;;;;; Better File Listing (ls)
 ;; https://github.com/mnewt/dotemacs/blob/master/init.el
 ;; Make files and dirs clickable as well as prettyfied w/icons and suffixes
 #+end_src
@@ -713,7 +712,7 @@ Applies the decoration to the result of =eshell-ls-annotate=.
 Start of the helper commands.
 
 #+begin_src emacs-lisp -i
-;;;; Useful Functions
+;;;;; Useful Functions
 #+end_src
 
 ** Eshell in home
@@ -721,7 +720,7 @@ Start of the helper commands.
 =lem-eshell-home= opens Eshell with =~= as the starting directory.
 
 #+begin_src emacs-lisp -i
-;;;;; Toggle Eshell
+;;;;;; Toggle Eshell
 ;; Open eshell in $HOME
 (defun lem-eshell-home ()
   "Open eshell in home dir."
@@ -809,7 +808,7 @@ Keeps =lem-call-eshell= working as an obsolete alias.
 =lem-new-eshell= always opens a fresh Eshell buffer.
 
 #+begin_src emacs-lisp -i
-;;;;; New Eshell
+;;;;;; New Eshell
 (defun lem-new-eshell()
   "Open a new instance of eshell."
   (interactive)
@@ -821,7 +820,7 @@ Keeps =lem-call-eshell= working as an obsolete alias.
 =eshell-clear-buffer= erases the whole Eshell buffer and redraws the prompt, like =clear= in a Unix terminal. It is bound to =C-l= in Eshell buffers by the mode hook below.
 
 #+begin_src emacs-lisp -i
-;;;;; Clear Eshell
+;;;;;; Clear Eshell
 ;; Make eshell act like a standard unix terminal.
 (defun eshell-clear-buffer ()
   "Clear terminal"
@@ -836,7 +835,7 @@ Keeps =lem-call-eshell= working as an obsolete alias.
 Typing =info SUBJECT= opens that Info manual, or prints a message and returns to Eshell if it does not exist.
 
 #+begin_src emacs-lisp -i
-;;;;; Eshell Info
+;;;;;; Eshell Info
 (defun eshell/info (subject)
   "Read the Info manual on SUBJECT."
   (let ((buf (current-buffer)))
@@ -857,7 +856,7 @@ Typing =info SUBJECT= opens that Info manual, or prints a message and returns to
 =less= and =more= open files in View mode inside Emacs, and =less +42 file= jumps to line 42.
 
 #+begin_src emacs-lisp -i
-;;;;; Eshell Less
+;;;;;; Eshell Less
 (defun eshell/less (&rest args)
   "Invoke `view-file' on a file. \"less +42 foo\" will go to line 42 in
       the buffer for foo."
@@ -876,7 +875,7 @@ Typing =info SUBJECT= opens that Info manual, or prints a message and returns to
 Introduces the mkdir helper.
 
 #+begin_src emacs-lisp -i
-;;;;; Eshell Make Dir/CD
+;;;;;; Eshell Make Dir/CD
 #+end_src
 
 ** mkdir-and-cd
@@ -895,7 +894,7 @@ Creates a directory, including parents, and changes into it.
 =gst= opens =magit-status= for the given directory, or the current one. It is a function rather than an alias because an alias would not see Eshell's current directory. The trailing =echo= suppresses output.
 
 #+begin_src emacs-lisp -i
-;;;;; Git Status
+;;;;;; Git Status
 ;; Used as an eshell/alias, the current directory isn't registered, so we must
 ;; use a function.
 (defun eshell/gst (&rest args)
@@ -908,7 +907,7 @@ Creates a directory, including parents, and changes into it.
 =z= jumps to a previously visited directory. With no argument and =consult-dir= loaded, it adds Eshell's directory history as a source and picks with =consult-dir=. Otherwise it matches a regexp against history or offers plain completion. =cg= jumps to the git root of the current directory.
 
 #+begin_src emacs-lisp -i
-;;;;; Jump Directories (w/Consult & Consult-Dir)
+;;;;;; Jump Directories (w/Consult & Consult-Dir)
 (defun eshell/z (&optional regexp)
   "Navigate to a previously visited directory in eshell, or to
 any directory proferred by `consult-dir'."
@@ -930,7 +929,7 @@ any directory proferred by `consult-dir'."
                      (completing-read "cd: " eshell-dirs)))))))
 
 
-;;;;; Jump to Project Root
+;;;;;; Jump to Project Root
 (defun eshell/cg () (interactive) (eshell/cd (vc-git-root ".")))
 #+end_src
 
@@ -939,7 +938,7 @@ any directory proferred by `consult-dir'."
 =iterm= opens the current directory in iTerm on macOS. The fallback path points at a very old Homebrew Cask location and version, so it only works when iTerm is in =/Applications=.
 
 #+begin_src emacs-lisp -i
-;;;;; Open in iTerm
+;;;;;; Open in iTerm
 (defun eshell/iterm ()
   "Open the current directory of the eshell buffer in iTerm."
   (interactive)
@@ -956,7 +955,7 @@ any directory proferred by `consult-dir'."
 =rcd= works like =cd= but stays on the current TRAMP host, so =rcd /etc= on a remote buffer goes to =/etc= on that host. It errors if the current directory is local. Taken from dakra's config.
 
 #+begin_src emacs-lisp -i
-;;;;; Remote Directory Change
+;;;;;; Remote Directory Change
 ;; https://github.com/dakra/dmacs/blob/master/init.org#eshell
 (defun eshell/rcd (&optional directory)
   "Like regular 'cd' but don't jump out of a tramp directory.
@@ -977,7 +976,7 @@ So if we're connected with sudo to 'remotehost'
 Introduces the file viewer.
 
 #+begin_src emacs-lisp -i
-;;;;; View Files
+;;;;;; View Files
 #+end_src
 
 ** Viewing files from Eshell
@@ -1013,7 +1012,7 @@ Introduces the file viewer.
 Two of these have global side effects: =semantic-mode= is a global mode, so turning it off here disables it everywhere, and =set-display-table-slot= modifies =standard-display-table= for all buffers (and would error if that table is nil).
 
 #+begin_src emacs-lisp -i
-;;;; Setup Hooks
+;;;;; Setup Hooks
 (defun sp-eshell ()
   (interactive)
   ;; Clear eshell keybind
@@ -1051,12 +1050,9 @@ Runs =ls -X= (grouped by extension) whenever the directory changes, replacing Es
 
 * Provide
 
-** Provide form
-
-Makes the module available as =sp-eshell=.
+Provides the =sp-eshell= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; End Shell
-;;; Provide Eshell
+;;;; End Shell
 (provide 'sp-eshell)
 #+end_src

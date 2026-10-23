@@ -12,13 +12,16 @@ A short tooling module for network and remote-file access. It adds a TRAMP metho
 
 ** File header
 
-Lexical binding and empty commentary.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-network.el
+;;; sp-network.el --- Network: TRAMP yadm method and HTTP library -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; A short tooling module for network and remote-file access. It adds a TRAMP
+;; method that opens files inside the `yadm' dotfiles repository environment,
+;; and installs the `plz' HTTP client library for other packages to use.
 
 ;;; Code:
 #+end_src
@@ -53,9 +56,7 @@ Installs =plz=, a curl-based HTTP library that several packages build on.
 
 * Provide
 
-** Provide feature
-
-Provides =sp-network=.
+Provides the =sp-network= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-network)

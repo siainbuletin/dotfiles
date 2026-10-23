@@ -1,7 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-fonts.el
+;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module sets up typography: the default, variable-pitch and symbol
+;; fonts, emoji and fallback glyphs, line spacing, text scaling keys, a larger
+;; minibuffer font, `mixed-pitch' for prose buffers, and the `lin'
+;; line-highlighting package.
 
 ;;; Code:
 
@@ -269,7 +273,7 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "M-=") 'font-size-increase)
 (global-set-key (kbd "M--") 'font-size-decrease)
 
-;;; Lin package
+;;;; Lin package
 (use-package lin
   :ensure t)
 

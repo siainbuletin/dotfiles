@@ -10,6 +10,16 @@ This module sets up =org-capture=: the default inbox file, a handful of capture 
 
 It is required from =sp-org-ext=. It relies on =org-directory= being set elsewhere, on Denote for the note template, and on the commentary's plan to integrate capture with org-gtd and vulpea-para. Task capture lives in the Vulpea modules instead.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This contains important code for later on utilisation of stuff like
+journals for your work. There's the Lambda Emacs function for recording
+the weather at a given point.
+
+org-capture should be well plugged into org-gtd to fit with the workflow.
+#+end_quote
+
 * Overview
 
 ** Header and commentary
@@ -17,7 +27,7 @@ It is required from =sp-org-ext=. It relies on =org-directory= being set elsewhe
 The commentary says this module is the basis for later journal-style workflows, mentions the Lambda Emacs weather recording function, and states the intention that capture should plug into org-gtd.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
+;;; sp-org-capture.el --- Org capture templates and capture frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -95,13 +105,13 @@ Because this is a plain =setq=, it would wipe the Denote template above if =org-
 
 #+begin_src emacs-lisp -i
 (setq org-capture-templates
-        '(
+        `(
           ("l" "Listening log" entry
-           (file+datetree "~/notes/inbox/listening-log.org")
+           (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
            "* %U\n %i\n %a")
 
           ("i" "Idea or quick thought to take care of" entry
-           (file "~/notes/inbox/thoughts-capture.org"))
+           (file ,(sp-path sp-notes-dir "inbox/thoughts-capture.org")))
 ))
 #+end_src
 
@@ -143,7 +153,7 @@ Because this is a plain =setq=, it would wipe the Denote template above if =org-
 
 ** Provide
 
-Registers the =sp-org-capture= feature.
+Provides the =sp-org-capture= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-capture)

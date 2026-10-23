@@ -1,0 +1,101 @@
+#+TITLE: sp-exwm.el: EXWM window manager (opt-in)
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-exwm.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-exwm.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module would run Emacs as the X11 window manager using EXWM, based on the examples in the EXWM wiki. Everything is guarded by the option =siapip/use-exwm=, which defaults to nil, so loading the file normally does nothing beyond defining that option.
+
+The module is currently commented out in both module lists of =init.el=. It also has no =(provide 'sp-exwm)= at the end, so requiring it by feature name would fail with a missing-feature error. When enabled it needs the =exwm= package, an X11 session, and =/usr/bin/slock= for the lock key.
+
+* EXWM
+
+** Lexical binding
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-exwm.el --- EXWM window manager (opt-in) -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module would run Emacs as the X11 window manager using EXWM, based on
+;; the examples in the EXWM wiki. Everything is guarded by the option
+;; `siapip/use-exwm', which defaults to nil, so loading the file normally does
+;; nothing beyond defining that option.
+
+;;; Code:
+#+end_src
+
+** Optional EXWM setup
+
+Defines =siapip/use-exwm=. When it is non-nil, the module turns off mouse focus following (which would fight with EXWM), then loads =exwm= with RandR multi-monitor support and the system tray.
+
+The configuration:
+- creates 10 workspaces;
+- makes a middle click on the mode line toggle full screen for an X window;
+- names X window buffers after their window class, but uses the window title for Java (=sun-awt-X11-=) and GIMP windows;
+- sets global keys: =s-r= resets, =s-w= switches workspace, =s-0= to =s-9= switch to or create that workspace, =s-&= launches a shell command;
+- makes =C-q= in X windows send the next key straight to the application.
+
+The last entry of =exwm-input-global-keys= binds =s-o= to lock the screen with =slock=. It used to be missing its surrounding parentheses, so the vector and the lambda's parts were spliced into the list as separate elements and the binding did not work. Several alternatives, such as =exwm-config= and an =xrandr= screen layout hook, are left commented out. The =exwm-randr-enable= and =exwm-systemtray-enable= calls are the older API; recent EXWM versions use =exwm-randr-mode= and =exwm-systemtray-mode= instead.
+
+#+begin_src emacs-lisp -i
+;; See https://github.com/ch11ng/exwm/wiki
+;; https://github.com/ch11ng/exwm/wiki/Configuration-Example
+(defcustom siapip/use-exwm nil
+  "Non-nil means EXWM will be enabled.
+When this option is enabled, EXWM will be loaded and configured
+as the window manager for this session."
+  :type 'boolean
+  :group 'siapip)
+(when siapip/use-exwm
+  (setq mouse-autoselect-window nil
+        focus-follows-mouse nil)
+  ;;(ido-mode 1)
+  (use-package exwm
+    :config
+    (require 'exwm-randr)
+    (require 'exwm-systemtray)
+    ;;(require 'exwm-config)
+    ;;(exwm-config-ido)
+    ;;(exwm-config-default)
+    ;;(add-hook 'exwm-randr-screen-change-hook
+    ;;        (lambda ()
+    ;;          (start-process-shell-command
+    ;;           "xrandr" nil "xrandr --output VGA1 --left-of LVDS1 --auto")))
+    ;;(use-package exwm-systemtray)
+    (setq exwm-workspace-number 10)
+    ;;(setq mouse-autoselect-window nil)
+    (global-set-key [mode-line mouse-2] 'exwm-layout-toggle-fullscreen)
+    (add-hook 'exwm-update-class-hook
+              (lambda ()
+                (unless (or (string-prefix-p "sun-awt-X11-" exwm-instance-name)
+                            (string= "gimp" exwm-instance-name))
+                  (exwm-workspace-rename-buffer exwm-class-name))))
+    (add-hook 'exwm-update-title-hook
+              (lambda ()
+                (when (or (not exwm-instance-name)
+                          (string-prefix-p "sun-awt-X11-" exwm-instance-name)
+                          (string= "gimp" exwm-instance-name))
+                  (exwm-workspace-rename-buffer exwm-title))))
+    (setq exwm-input-global-keys
+          `(([?\s-r] . exwm-reset)
+            ([?\s-w] . exwm-workspace-switch)
+            ,@(mapcar (lambda (i)
+                        `(,(kbd (format "s-%d" i)) .
+                          (lambda ()
+                            (interactive)
+                            (exwm-workspace-switch-create ,i))))
+                      (number-sequence 0 9))
+            ([?\s-&] . (lambda (command)
+                         (interactive (list (read-shell-command "$ ")))
+                         (start-process-shell-command command nil command)))
+            ([s-o] . (lambda ()
+  		       (interactive)
+  		       (start-process "" nil "/usr/bin/slock")))))
+    (define-key exwm-mode-map [?\C-q] #'exwm-input-send-next-key)
+    (exwm-randr-enable)
+    (exwm-systemtray-enable)
+    (exwm-enable)))
+#+end_src
