@@ -158,7 +158,7 @@ A customization group for the module, and the title the area is created with and
 (defcustom sp-org-issues-area-title "Issues"
   "Title of the vulpea-para area that holds the issues."
   :type 'string
-  :group 'sp-org-issues)
+  :group 'spconfig)
 #+end_src
 
 ** Repositories
@@ -185,7 +185,7 @@ Each entry is (NAME . PLIST).  NAME is the heading title.  PLIST holds
 repository's git directory), :worktree-root (where issue worktrees
 go), :base (the branch new issue branches start from) and :url."
   :type '(alist :key-type string :value-type plist)
-  :group 'sp-org-issues)
+  :group 'spconfig)
 #+end_src
 
 ** The yadm repository, and closing issues
@@ -199,12 +199,12 @@ The yadm repository sets =status.showUntrackedFiles= to =no=, because its worktr
 Magit lists untracked files in worktrees added from it, although the
 repository sets status.showUntrackedFiles to no for the home folder."
   :type 'directory
-  :group 'sp-org-issues)
+  :group 'spconfig)
 
 (defcustom sp-org-issues-offer-worktree-removal t
   "Non-nil means offer to remove an issue's worktree when it is closed."
   :type 'boolean
-  :group 'sp-org-issues)
+  :group 'spconfig)
 #+end_src
 
 ** Keyword line

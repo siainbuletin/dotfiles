@@ -19,7 +19,7 @@
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
   "File where named Vulpea table views are persisted."
   :type 'file
-  :group 'vulpea)
+  :group 'spconfig)
 
 (defvar sp-vulpea-table-views nil
   "Alist of (NAME . (TAGS COLUMNS SORT-BY)) for saved Vulpea table views.")

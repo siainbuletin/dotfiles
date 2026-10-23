@@ -114,7 +114,7 @@ Instead it's simpler to use bash."
   "Shell executable used by `org-babel-eval' to execute Nushell source blocks.
 This shell is used to execute the Nushell command."
   :type 'string
-  :group 'siapip)
+  :group 'spconfig)
 
 (defun org-babel-execute:nushell (body params)
   "Execute a block of nushell code"

@@ -32,7 +32,7 @@ This one block holds most of the module:
   "When non-nil, enable ruff LSP server alongside pyright for live linting.
 Requires lsp-ruff package and `ruff server' in PATH (ruff >= 0.2.0)."
   :type 'boolean
-  :group 'siapip
+  :group 'spconfig
   :safe #'booleanp)
 (defun siapip/python-pytest ()
   (interactive)

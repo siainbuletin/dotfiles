@@ -148,7 +148,7 @@ Outline header for the variables section.
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 ** Banner
@@ -162,7 +162,7 @@ Outline header for the variables section.
 (defcustom sp-splash-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 ** Separators
@@ -207,7 +207,7 @@ with `load-theme' the next time the splash is drawn."
 A relative name is looked up in `sp-library-dir'.  Nil draws the
 lambda logo image instead."
   :type '(choice (const :tag "Use the logo image" nil) file)
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -215,7 +215,7 @@ lambda logo image instead."
   "Columns to move the art right (negative: left).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -223,21 +223,21 @@ Zero centres the art on the menu."
   "Lines to move the art down (negative: up).
 Zero centres the art on the menu."
   :type 'integer
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-x-step 2
   "Columns `sp-splash-art-right' and `sp-splash-art-left' move the art."
   :type 'integer
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defcustom sp-splash-art-y-step 1
   "Lines `sp-splash-art-up' and `sp-splash-art-down' move the art."
   :type 'integer
-  :group 'sp-splash)
+  :group 'spconfig)
 #+end_src
 
 ** Drawing

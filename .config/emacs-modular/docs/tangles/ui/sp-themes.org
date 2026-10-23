@@ -60,7 +60,7 @@ Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one n
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
   "Set a custom themes directory path."
-  :group 'sia-lambda
+  :group 'spconfig
   :type 'string)
 #+end_src
 

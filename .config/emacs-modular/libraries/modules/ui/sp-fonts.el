@@ -29,7 +29,7 @@ as accepted by `set-face-attribute'."
 (defcustom sp-ui-default-font nil
   "The configuration of the `default' face.
 Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
+  :group 'spconfig
   :type '(plist :key-type: symbol)
   :tag "Lambda-Emacs Default font"
   :set (lambda (sym val)
@@ -43,7 +43,7 @@ Use a plist with the same key names as accepted by `set-face-attribute'."
 (defcustom sp-ui-variable-width-font nil
   "The configuration of the `default' face.
 Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
+  :group 'spconfig
   :type '(plist :key-type: symbol)
   :tag "Lambda-Emacs Variable width font"
   :set (lambda (sym val)

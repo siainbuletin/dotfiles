@@ -78,7 +78,7 @@
 ;; taken from EWS
 (defcustom sia-hunspell-dictionaries "en_US"
   "Comma-separated list of Hunspell dictionaries."
-  :group 'siapip
+  :group 'spconfig
   :type 'list)
 
 ;;; Provide:

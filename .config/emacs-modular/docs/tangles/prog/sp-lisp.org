@@ -34,7 +34,7 @@ Lexical binding and the empty commentary and code markers.
 #+begin_src emacs-lisp -i
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
-  :group 'siapip
+  :group 'spconfig
   :type 'boolean)
 #+end_src
 
