@@ -21,6 +21,53 @@ The table lists what each sequence is for, as far as the code shows. The last tw
 
 Two clashes to decide on. =QUESTION=, =DROPPED= and =READ= appear in both the trails and the questions sequences, so Org treats the first sequence that holds the word as its sequence. And the legacy =WAITING= and the new =WAIT= mean the same thing.
 
+* Removed settings of the Workflow Status view
+
+The =w= view of =sp-agenda-views= had a section for each keyword below. No keyword sequence ever defined these words (only =WAIT=, =REVIEW= and =ACTIVE= exist now, through the task and trails sequences), so the sections never matched anything and were removed. They are kept here so you can decide what to do: add the words to a sequence, make a tag of them, or drop them.
+
+| Section header         | Keyword     | Extra setting                                  | Defined by any sequence today |
+|------------------------+-------------+------------------------------------------------+-------------------------------|
+| Waiting on External    | =WAIT=      |                                                | yes, tasks                    |
+| In Review              | =REVIEW=    |                                                | yes, trails                   |
+| In Planning            | =PLAN=      | =org-agenda-todo-list-sublevels= nil           | no                            |
+| Project Backlog        | =BACKLOG=   | =org-agenda-todo-list-sublevels= nil           | no                            |
+| Ready for Work         | =READY=     |                                                | no                            |
+| Active Projects        | =ACTIVE=    |                                                | yes, trails                   |
+| Completed Projects     | =COMPLETED= |                                                | no                            |
+| Cancelled Projects     | =CANCELED=  |                                                | no (=CNCL= and =CANCELLED= are) |
+
+Each section was =(todo "KEYWORD" ((org-agenda-overriding-header "...") (org-agenda-files org-agenda-files)))=; the last setting did nothing, since it bound the variable to its own value. The view now has sections for =PROG=, =WAIT=, =REVIEW= and =ACTIVE=. The original form was:
+
+#+begin_src emacs-lisp :tangle no
+("w" "Workflow Status"
+ ((todo "WAIT"
+        ((org-agenda-overriding-header "Waiting on External")
+         (org-agenda-files org-agenda-files)))
+  (todo "REVIEW"
+        ((org-agenda-overriding-header "In Review")
+         (org-agenda-files org-agenda-files)))
+  (todo "PLAN"
+        ((org-agenda-overriding-header "In Planning")
+         (org-agenda-todo-list-sublevels nil)
+         (org-agenda-files org-agenda-files)))
+  (todo "BACKLOG"
+        ((org-agenda-overriding-header "Project Backlog")
+         (org-agenda-todo-list-sublevels nil)
+         (org-agenda-files org-agenda-files)))
+  (todo "READY"
+        ((org-agenda-overriding-header "Ready for Work")
+         (org-agenda-files org-agenda-files)))
+  (todo "ACTIVE"
+        ((org-agenda-overriding-header "Active Projects")
+         (org-agenda-files org-agenda-files)))
+  (todo "COMPLETED"
+        ((org-agenda-overriding-header "Completed Projects")
+         (org-agenda-files org-agenda-files)))
+  (todo "CANCELED"
+        ((org-agenda-overriding-header "Cancelled Projects")
+         (org-agenda-files org-agenda-files)))))
+#+end_src
+
 * Header
 
 ** File header

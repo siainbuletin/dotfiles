@@ -46,6 +46,7 @@ The =org-mem= hook that computed the agenda files is removed. =org-mem= and =org
 * Consequences
 - Files that were on the agenda only because org-mem found a timestamp now need the =agenda= tag, which vulpea-para adds when a vault file with open work is saved. Run vulpea-para's backfill commands once. Files outside the vault, such as a Denote note outside =~/notes=, are not tagged.
 - Commands that set =org-agenda-files= themselves must also bind =vulpea-para-agenda-inhibit-files-update=, or the agenda mode puts the PARA files back. The issue views and the inbox block of Planning do.
+- The =sp-denote= hooks that added files to =org-agenda-files= are removed ([[file:0010-phase-out-denote.org][0010]]).
 - Notes that still use =DOING=, =WAITING= or =CANCELLED= keep working through the legacy sequence until they are rewritten.
 - =C-c d c= (org-gtd capture) is unbound, since org-gtd keeps its own inbox. =C-c d p= still processes org-gtd's inbox.
 - The idea capture template now files into =inbox.org= under Thoughts instead of =inbox/thoughts-capture.org=.

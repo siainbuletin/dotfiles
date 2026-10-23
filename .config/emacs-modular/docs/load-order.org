@@ -69,7 +69,7 @@ digraph modules {
 #+RESULTS:
 [[file:load-order-modules.svg]]
 
-(The Org box above changed with [[file:../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]: =sp-org-keywords= comes after =sp-org-base=, and =sp-org-capture= and =sp-agenda-views= load last in the box. The picture =load-order-modules.svg= has not been redrawn; re-evaluate the block to refresh it.)
+(The Org box above changed with [[file:../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]: =sp-org-keywords= comes after =sp-org-base=, and =sp-org-capture= and =sp-agenda-views= load last in the box.)
 
 Inside a box the modules are independent of each other. An arrow means "has to come before" (it points from the package that is required to the one that requires it, the opposite of a dependency arrow). The parenthesised names are the packages whose position matters.
 
