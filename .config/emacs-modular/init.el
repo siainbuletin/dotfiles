@@ -351,7 +351,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation
@@ -449,7 +449,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation

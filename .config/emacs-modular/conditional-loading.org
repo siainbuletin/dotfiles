@@ -92,7 +92,7 @@ This is also currently being loaded alphabetically.
 - sp-scratch :: Settings for persistent scratch
 - sp-server :: Emacs client
 - sp-spelling :: Spell checker
-- sp-splash :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
+- sp-dashboard :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
 - sp-templating ::
 - sp-text-manipulation ::
 - sp-workspaces :: This is based on launching separate tabspaces. It's taken from Lambda Emacs
@@ -195,7 +195,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
 
 (measure-time (cl-dolist (mod (list
                                  ;; Splash/Dashboard
-                                 'sp-splash
+                                 'sp-dashboard
                                  'sp-dashboard
 
                                  ;; Completion & Keybinds
@@ -264,7 +264,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
      sp-libraries sp-settings sp-functions sp-server sp-scratch
      ;; UI
      sp-frame sp-windows sp-buffers sp-fonts sp-faces sp-colors
-     sp-completion sp-keys sp-help sp-modeline sp-theme sp-splash
+     sp-completion sp-keys sp-help sp-modeline sp-theme sp-dashboard
      ;; Navigation & search
      sp-dired sp-search
      ;; Projects & workspaces
@@ -280,7 +280,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
     (minimal
      sp-libraries sp-settings sp-functions sp-server sp-scratch
      sp-frame sp-windows sp-buffers sp-completion sp-keys sp-help
-     sp-modeline sp-splash
+     sp-modeline sp-dashboard
      sp-dired sp-search)
     (test sp-test))
   "Alist mapping a profile name to the modules it loads, in order.")
@@ -447,7 +447,7 @@ Modifications to be made by me, a human
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation
@@ -535,7 +535,7 @@ Modifications to be made by me, a human
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation

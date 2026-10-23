@@ -1,0 +1,1250 @@
+#+TITLE: sp-dashboard.el: Dashboard (lambda splash screen)
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-dashboard.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-dashboard.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a menu of boxed buttons with nested agendas, and a footer. There are two renderers: =sp-dashboard-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-dashboard-terminal= for terminal frames (ASCII banner read from =images/lambda-splash.txt=).
+
+It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+ An alternative splash screen:
+this is also including the ascii art of the lambda sign, which will show up in the dashboard
+I gotta test to see if it works with the dashboard
+
+Note: The screen is not shown if there are opened file buffers. For
+      example, if you start emacs with a filename on the command
+      line, the splash is not shown.
+#+end_quote
+
+* Header and commentary
+
+** File header
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-dashboard.el --- Custom lambda splash screen -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;;
+;;  An alternative splash screen:
+;; this is also including the ascii art of the lambda sign, which will show up in the dashboard
+;; I gotta test to see if it works with the dashboard
+
+;; Note: The screen is not shown if there are opened file buffers. For
+;;       example, if you start emacs with a filename on the command
+;;       line, the splash is not shown.
+
+;;; Code:
+#+end_src
+
+* Dependencies and customization group
+
+** Requires
+
+Loads =cl-lib= and, only when it can be found on the load path, =nerd-icons=. The guard keeps a minimal boot without nerd-icons from crashing at load time. Note that the graphical renderer still calls =nerd-icons-faicon= unconditionally, so it would fail without the package.
+
+#+begin_src emacs-lisp -i
+(require 'cl-lib)
+;; Guarded require: without this, a sandbox boot without nerd-icons
+;; installed would crash module-load here.
+;; Spec 02 caught the identical pattern in sp-dashboard.el.
+(when (locate-library "nerd-icons")
+  (require 'nerd-icons))
+#+end_src
+
+** Customization group
+
+Defines the =sp-dashboard= customization group under =applications=.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-dashboard nil
+  "Extensible splash screen."
+  :group 'applications)
+#+end_src
+
+* Faces
+
+All the faces of the dashboard are defined here, in one block. The first five (title, header, footer, menu and image) have no colours of their own, so a theme can style them and, without theme support, they look like the default face; the others are described by what they colour. The art, banner and accent faces are recoloured from the current theme by the colour palette (see below), and the colours given here are only the fallback until it runs.
+
+- =sp-dashboard-title-face= is the "Welcome to λ-Emacs" line.
+- =sp-dashboard-header-face= is the version and init-info lines.
+- =sp-dashboard-footer-face= is the footer text, in italics.
+- =sp-dashboard-menu-face= is the menu text and the clickable menu buttons.
+- =sp-dashboard-box-face= is the lines around a menu block when no accent face is available; it inherits =shadow=, so it follows the theme.
+- =sp-dashboard-image-face= is defined but not referenced anywhere in the module.
+- =sp-dashboard-art-face= is the lambda art, dim grey on a dark background and pale grey on a light one.
+- =sp-dashboard-banner-face= is the EMACS block-letter banner, a little stronger than the art.
+- =sp-dashboard-accent-1-face=, =-2-face= and =-3-face= are the box lines of the first, second and third menu blocks. They inherit three font-lock faces.
+- =sp-dashboard-focus-face= is the button that =TAB= has selected, since the cursor is hidden. It inherits =highlight=.
+
+#+begin_src emacs-lisp -i
+;;;; Splash Faces
+(defface sp-dashboard-title-face nil
+  "Face for splash title."
+  :group 'faces)
+
+(defface sp-dashboard-header-face nil
+  "Face for splash header."
+  :group 'faces)
+
+(defface sp-dashboard-footer-face '((t :slant italic))
+  "Face for splash footer."
+  :group 'faces)
+
+(defface sp-dashboard-menu-face nil
+  "Face for splash menus."
+  :group 'faces)
+
+(defface sp-dashboard-box-face '((t :inherit shadow))
+  "Face for the lines drawn around the splash menu blocks."
+  :group 'faces)
+
+(defface sp-dashboard-image-face nil
+  "Face for splash image."
+  :group 'faces)
+
+(defface sp-dashboard-art-face
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
+  "Face for the lambda art behind the splash menu.
+The colour follows the background of the current theme, so it changes
+with `load-theme' the next time the splash is drawn."
+  :group 'faces)
+
+(defface sp-dashboard-banner-face
+  '((((background dark))  :foreground "#6b7387")
+    (((background light)) :foreground "#9aa1b3"))
+  "Face for the dashboard banner art behind the splash menu."
+  :group 'faces)
+
+(defface sp-dashboard-accent-1-face '((t :inherit font-lock-keyword-face))
+  "First accent of the splash: the line colour of the first menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-2-face '((t :inherit font-lock-function-name-face))
+  "Second accent of the splash: the line colour of the second menu block."
+  :group 'faces)
+
+(defface sp-dashboard-accent-3-face '((t :inherit font-lock-string-face))
+  "Third accent of the splash: the line colour of the third menu block."
+  :group 'faces)
+
+(defface sp-dashboard-focus-face '((t :inherit highlight))
+  "Face for the splash button that TAB has selected."
+  :group 'faces)
+#+end_src
+
+* Variables
+
+** Section marker
+
+Outline header for the variables section.
+
+#+begin_src emacs-lisp -i
+;;;; Splash Variables
+#+end_src
+
+** Init info
+
+=sp-dashboard-init-info= holds a function that returns a summary string such as "42 packages loaded in 1.2s". It counts =package-activated-list= for package.el, or the straight.el profile cache, and falls back to just the init time when no packages are counted. The approach is borrowed from emacs-dashboard and Doom. Its =:group= is =sp-dashboard=, the customization group defined above (it used to be =lambda-splash=, which this config never defines).
+
+#+begin_src emacs-lisp -i
+;; Init info
+;; See https://github.com/emacs-dashboard/emacs-dashboard/blob/master/dashboard-widgets.el
+;; https://github.com/hlissner/doom-emacs/blob/eddaae40e84b5eb1f0136aaba23d918f71b6a986/core/core.el#L479
+(defcustom sp-dashboard-init-info
+  (lambda ()
+    (let ((package-count 0) (time (emacs-init-time)))
+      (cond ((bound-and-true-p package-alist)
+             (setq package-count (length package-activated-list)))
+            ((boundp 'straight--profile-cache)
+             (setq package-count (+ (hash-table-count straight--profile-cache) package-count))))
+      (if (zerop package-count)
+          (format "Emacs started in %s" time)
+        (format "%d packages loaded in %s" package-count time))))
+  "Init info with packages loaded and init time."
+  :type '(function string)
+  :group 'sp-dashboard)
+#+end_src
+
+** Banner
+
+=sp-dashboard-banner= is a picture setting. In practice the terminal renderer only checks whether it is nil: when nil it inserts the ASCII banner, otherwise it inserts nothing. The variable is not used by the graphical renderer.
+
+#+begin_src emacs-lisp -i
+;; Banner
+
+;; Banner
+(defcustom sp-dashboard-banner nil
+  "Banner picture for splash-screen"
+  :type '(string)
+  :group 'sp-dashboard)
+#+end_src
+
+** Separators
+
+=isep= and =ksep= are the spacing strings placed between a menu icon, its label and its key hint. They are global names without a module prefix.
+
+#+begin_src emacs-lisp -i
+(defvar isep "   "
+  "Separator for icon and title.")
+(defvar ksep "   "
+  "Separator for title and key.")
+#+end_src
+
+* Art layers
+
+The graphical splash draws text art behind the menu instead of the PNG logo: the lambda in =libraries/images/lambda-splash.txt= and the EMACS block-letter banner in =libraries/images/dashboard-banner-3.txt= (a local copy of banner 3 of the =dashboard= package, so it can be edited freely). A layer only fills blanks, so the welcome text and the buttons stay on top of it, and a layer that comes first in =sp-dashboard-art-layers= covers the ones after it. Art is in =sp-dashboard-art-face= or =sp-dashboard-banner-face=, whose colour is chosen by the background of the theme, so the same layers serve dark and light themes.
+
+** Section marker
+
+Comment that opens the art section. The art and banner faces are described under Faces; they are resolved when the splash is drawn, so after =load-theme= they are right the next time the splash is refreshed.
+
+#+begin_src emacs-lisp -i
+;;;; Art layers
+;; Text art drawn behind the menu.  Each layer only fills blanks, so the title
+;; and the menu buttons stay on top, and a layer that comes earlier in
+;; `sp-dashboard-art-layers' covers the ones after it.
+#+end_src
+
+** Layers and steps
+
+=sp-dashboard-art-layers= lists the layers, topmost first. Each is =(NAME :file FILE :x X :y Y :face FACE)=. =FILE= is a text file; a relative name is looked up in =sp-dashboard-art-directory= (=images/= under =sp-library-dir=). The art is centred on the window and then moved by =X= columns and =Y= lines (negative is left and up). The default puts the lambda centred vertically and 50 columns left, and the banner 30 columns right and 8 lines above the centre. Remove a layer from the list to hide it; set the list to nil to get the PNG logo back. The two step options set how far each nudge command moves a layer, and =sp-dashboard-art-layer= remembers which layer the nudge commands move.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-art-directory "images/"
+  "Folder of the splash art files; relative to `sp-library-dir'."
+  :type 'directory
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-art-layers
+  (copy-tree
+   '((banner :file "dashboard-banner-3.txt" :x 30 :y -8 :face sp-dashboard-banner-face)
+     (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-dashboard-art-face)))
+  "Art drawn behind the splash menu, topmost layer first.
+Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
+file (a relative name is looked up in `sp-dashboard-art-directory').  X and
+Y move the art right and down from the centre of the window, in columns
+and lines (negative: left and up).  Remove an element to hide its layer."
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-art-x-step 2
+  "Columns the art moves with `sp-dashboard-art-right' and `sp-dashboard-art-left'."
+  :type 'integer
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-art-y-step 1
+  "Lines the art moves with `sp-dashboard-art-up' and `sp-dashboard-art-down'."
+  :type 'integer
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defvar sp-dashboard-art-layer nil
+  "Name of the layer the nudge commands move; nil means the first layer.")
+#+end_src
+
+** Finding the art
+
+=sp-dashboard--layer-file= resolves a layer's file in =sp-dashboard-art-directory=; both the lambda and the banner are plain files there, so they can be changed or replaced. The terminal splash reads =lambda-splash.txt= from the same folder. =sp-dashboard--art-lines= reads the file and drops trailing blank lines. =sp-dashboard--layer-box= gives the place a layer takes in the window, which =sp-dashboard-content-layer= (the banner) uses: the title, the version line and the menu are centred on that layer's middle column and start two lines below it, so they stay under the banner when it is moved. =sp-dashboard--content-column= returns that column, or the window's middle when there is no such layer.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--layer-file (file)
+  "Return the path of the art FILE of a layer, or nil when it is missing.
+A relative FILE is looked up in `sp-dashboard-art-directory'."
+  (let ((path (expand-file-name file (expand-file-name sp-dashboard-art-directory
+                                                       sp-library-dir))))
+    (and (file-regular-p path) path)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--art-lines (file)
+  "Return the lines of the art FILE of a layer, or nil when unavailable."
+  (when-let* ((path (sp-dashboard--layer-file file)))
+    (let ((lines (with-temp-buffer
+                   (insert-file-contents path)
+                   (split-string (buffer-string) "\n"))))
+      ;; Drop blank lines at the end so they don't count as height.
+      (while (and lines (string-blank-p (car (last lines))))
+        (setq lines (butlast lines)))
+      lines)))
+#+end_src
+
+** Drawing
+
+=sp-dashboard--draw-art= runs at the end of =sp-dashboard-screen= and draws each layer with =sp-dashboard--draw-layer=. For each non-blank art character it puts the character in the layer's face, but only on a plain blank: text, buttons and images are never overwritten, and a line shorter than the art is padded. Rows above the first or below the last window line, and columns left of the window, are cut.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-content-layer 'banner
+  "Name of the art layer the title and the menu sit under.
+The text is centred on this layer, below it.  Nil, or a layer that is not
+in `sp-dashboard-art-layers', centres the text on the window."
+  :type '(choice (const :tag "Centre on the window" nil) symbol)
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-footer-layer 'lambda
+  "Name of the art layer the footer text is centred on, as for the menu."
+  :type '(choice (const :tag "Centre on the window" nil) symbol)
+  :group 'sp-dashboard)
+
+(defun sp-dashboard--layer-box (name)
+  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
+  (when-let* ((layer (assq name sp-dashboard-art-layers))
+              (lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
+    (let ((width (apply #'max (mapcar #'length lines)))
+          (height (length lines)))
+      (list (+ (- (/ (window-width) 2) (/ width 2))
+               (or (plist-get (cdr layer) :x) 0))
+            (+ (- (/ (window-body-height) 2) (/ height 2))
+               (or (plist-get (cdr layer) :y) 0))
+            width height))))
+
+(defun sp-dashboard--layer-column (name)
+  "Return the middle column of the art layer NAME, or of the window."
+  (if-let* ((box (sp-dashboard--layer-box name)))
+      (+ (nth 0 box) (/ (nth 2 box) 2))
+    (/ (window-width) 2)))
+
+(defun sp-dashboard--content-column ()
+  "Return the column the title and the menu are centred on."
+  (sp-dashboard--layer-column sp-dashboard-content-layer))
+
+(defun sp-dashboard--put-art-char (col ch face)
+  "Put CH in FACE at column COL of the current line if it is blank."
+  (move-to-column col)
+  (cond ((and (eolp) (<= (current-column) col))
+         (insert-char ?\s (- col (current-column)))
+         (insert (propertize (string ch) 'face face)))
+        ((and (= (current-column) col)
+              (eq (char-after) ?\s)
+              (not (get-text-property (point) 'face))
+              (not (get-text-property (point) 'button))
+              (not (get-text-property (point) 'display)))
+         (delete-char 1)
+         (insert (propertize (string ch) 'face face)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--draw-layer (layer)
+  "Draw the art LAYER, centred on the window and moved by its offsets.
+Only plain blanks are replaced, so text, buttons and images are kept."
+  (when-let* ((lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
+    (let* ((inhibit-read-only t)
+           (indent-tabs-mode nil)
+           (face (or (plist-get (cdr layer) :face) 'sp-dashboard-art-face))
+           (box (sp-dashboard--layer-box (car layer)))
+           (left (nth 0 box))
+           (top (nth 1 box))
+           (max-line (window-body-height))
+           (row 0))
+      (dolist (text lines)
+        (let ((line (+ top row)))
+          (when (and (>= line 1) (<= line max-line))
+            ;; Grow the buffer when the art runs past its last line.
+            (goto-char (point-max))
+            (while (< (line-number-at-pos) line)
+              (insert-char ?\n 1))
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (dotimes (i (length text))
+              (let ((ch (aref text i))
+                    (col (+ left i)))
+                (when (and (/= ch ?\s) (>= col 0))
+                  (sp-dashboard--put-art-char col ch face)
+                  (forward-line 0)))))
+          (setq row (1+ row)))))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--draw-art ()
+  "Draw every art layer behind the menu, the topmost layer first."
+  (dolist (layer sp-dashboard-art-layers)
+    (sp-dashboard--draw-layer layer)))
+#+end_src
+
+** Moving the art
+
+In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= move the current layer and redraw; =l= picks the next layer (=TAB= is for the buttons). The splash rebuilds itself, so the change lasts until Emacs exits. =0= goes back to the defaults and =s= shows (and copies) the =setq= form for the current layers, to paste into the config.
+
+#+begin_src emacs-lisp -i
+;;;; Move the art
+(defun sp-dashboard--current-layer ()
+  "Return the layer the nudge commands move."
+  (or (assq sp-dashboard-art-layer sp-dashboard-art-layers)
+      (car sp-dashboard-art-layers)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-next-layer ()
+  "Select the next art layer for the nudge commands."
+  (interactive)
+  (let* ((names (mapcar #'car sp-dashboard-art-layers))
+         (rest (cdr (memq (car (sp-dashboard--current-layer)) names))))
+    (setq sp-dashboard-art-layer (car (or rest names)))
+    (message "Splash art layer: %s" sp-dashboard-art-layer)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-nudge (dx dy)
+  "Move the current art layer DX columns right and DY lines down, and redraw."
+  (let ((layer (sp-dashboard--current-layer)))
+    (unless layer (user-error "No splash art layers"))
+    (plist-put (cdr layer) :x (+ (or (plist-get (cdr layer) :x) 0) dx))
+    (plist-put (cdr layer) :y (+ (or (plist-get (cdr layer) :y) 0) dy))
+    (message "Splash art %s: x %d, y %d" (car layer)
+             (plist-get (cdr layer) :x) (plist-get (cdr layer) :y)))
+  (sp-dashboard-refresh))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-left ()
+  "Move the splash art left."
+  (interactive)
+  (sp-dashboard-art-nudge (- sp-dashboard-art-x-step) 0))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-right ()
+  "Move the splash art right."
+  (interactive)
+  (sp-dashboard-art-nudge sp-dashboard-art-x-step 0))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-up ()
+  "Move the splash art up."
+  (interactive)
+  (sp-dashboard-art-nudge 0 (- sp-dashboard-art-y-step)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-down ()
+  "Move the splash art down."
+  (interactive)
+  (sp-dashboard-art-nudge 0 sp-dashboard-art-y-step))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-reset ()
+  "Put the art layers back at their default positions."
+  (interactive)
+  (setq sp-dashboard-art-layers
+        (copy-tree (eval (car (get 'sp-dashboard-art-layers 'standard-value)))))
+  (sp-dashboard-refresh))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-art-show-position ()
+  "Show the art layers as a form to paste into the config.
+The form is also copied to the kill ring."
+  (interactive)
+  (let ((form (format "(setq sp-dashboard-art-layers\n      '(%s))"
+                      (mapconcat (lambda (layer) (format "%S" layer))
+                                 sp-dashboard-art-layers "\n        "))))
+    (kill-new form)
+    (message "%s" form)))
+#+end_src
+
+* Colour palette
+
+The splash colours follow the theme. Each colour role (the lambda =art=, the =banner=, the =footer= and three =accent=s) takes its colour from a face of the current theme, mixed towards the default background so the art stays quiet, and is applied to the splash face of that role. =sp-dashboard-palette-roles= says which theme face and how much of it each role uses, so the colours change with whatever theme is loaded, light or dark, with no per-theme code. To choose colours for one theme by hand, list them in =sp-dashboard-palettes=; roles not listed there are still derived.
+
+The accents colour the boxes of the menu: block 1 takes =sp-dashboard-accent-1-face=, block 2 the second, and so on (=sp-dashboard-accent-faces=, repeating when there are more blocks). Add roles and faces to the lists to colour more parts of the splash.
+
+When a theme is enabled or disabled, =sp-dashboard--theme-changed= (on =enable-theme-functions= and =disable-theme-functions=) applies the palette and redraws the splash; =sp-dashboard-palette-follow-theme= switches this off. =sp-dashboard-apply-palette= does it by hand and =sp-dashboard-show-palette= shows the colour of each role. The colours in the faces under Faces remain the fallback until the palette is applied.
+
+#+begin_src emacs-lisp -i
+;;;; Colour palette
+;; The splash colours follow the theme.  A role (art, banner, accents...) takes
+;; its colour from a face of the current theme, mixed towards the background,
+;; unless `sp-dashboard-palettes' names a colour for that theme.
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-accent-faces
+  '(sp-dashboard-accent-1-face sp-dashboard-accent-2-face sp-dashboard-accent-3-face)
+  "Faces that colour the menu blocks in turn, as their box lines."
+  :type '(repeat face)
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-palette-roles
+  '((art      sp-dashboard-art-face      shadow                        :foreground 0.40)
+    (banner   sp-dashboard-banner-face   shadow                        :foreground 0.75)
+    (footer   sp-dashboard-footer-face   shadow                        :foreground 1.00)
+    (accent-1 sp-dashboard-accent-1-face font-lock-keyword-face        :foreground 1.00)
+    (accent-2 sp-dashboard-accent-2-face font-lock-function-name-face  :foreground 1.00)
+    (accent-3 sp-dashboard-accent-3-face font-lock-string-face         :foreground 1.00))
+  "How each colour role of the splash is derived from the theme.
+Each element is (ROLE FACE SOURCE-FACE ATTRIBUTE MIX).  FACE, the splash
+face of the role, gets the ATTRIBUTE of SOURCE-FACE mixed with the default
+background: MIX 1 is the source colour, 0 the background."
+  :type '(repeat (list symbol face face symbol number))
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-palettes nil
+  "Colours chosen by hand for themes, instead of the derived ones.
+An alist of (THEME . COLORS) where COLORS is an alist of (ROLE . COLOR),
+for example:
+#+end_src
+
+#+begin_src emacs-lisp -i
+  \\='((modus-vivendi (art . \"#2a2e3a\") (accent-1 . \"#c678dd\")))
+#+end_src
+
+#+begin_src emacs-lisp -i
+A role that is not listed for the current theme is derived from the
+theme, see `sp-dashboard-palette-roles'."
+  :type '(alist :key-type symbol :value-type (alist :key-type symbol :value-type string))
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-palette-follow-theme t
+  "Non-nil recolours the splash, and redraws it, when the theme changes."
+  :type 'boolean
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--rgb (color)
+  "Return COLOR as a list of red, green and blue between 0 and 1, or nil."
+  (if (and (stringp color) (string-match "\\`#\\([[:xdigit:]]\\{2\\}\\)\\([[:xdigit:]]\\{2\\}\\)\\([[:xdigit:]]\\{2\\}\\)\\'" color))
+      (mapcar (lambda (i) (/ (string-to-number (match-string i color) 16) 255.0))
+              '(1 2 3))
+    (and (stringp color) (color-name-to-rgb color))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--mix (color background amount)
+  "Return COLOR moved AMOUNT (0 to 1) of the way from BACKGROUND, as #rrggbb."
+  (when-let* ((fg (sp-dashboard--rgb color))
+              (bg (sp-dashboard--rgb background)))
+    (apply #'format "#%02x%02x%02x"
+           (cl-mapcar (lambda (f b) (round (* 255 (+ b (* amount (- f b))))))
+                      fg bg))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--role-color (role)
+  "Return the colour of palette ROLE for the current theme, or nil."
+  (or (alist-get role (alist-get (car custom-enabled-themes) sp-dashboard-palettes))
+      (pcase-let ((`(,_ ,_ ,source ,attribute ,mix)
+                   (assq role sp-dashboard-palette-roles)))
+        (when source
+          (sp-dashboard--mix (face-attribute source attribute nil 'default)
+                          (face-attribute 'default :background nil 'default)
+                          mix)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-apply-palette ()
+  "Set the splash faces from the colours of the current theme."
+  (interactive)
+  (dolist (entry sp-dashboard-palette-roles)
+    (when-let* ((color (sp-dashboard--role-color (car entry))))
+      (face-spec-set (nth 1 entry) `((t :foreground ,color)) 'face-override-spec))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--theme-changed (&rest _)
+  "Recolour and redraw the splash after a theme change."
+  (when sp-dashboard-palette-follow-theme
+    (sp-dashboard-apply-palette)
+    (when-let* ((buffer (get-buffer "Dashboard")))
+      (with-current-buffer buffer
+        (sp-dashboard-refresh)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(add-hook 'enable-theme-functions #'sp-dashboard--theme-changed)
+(add-hook 'disable-theme-functions #'sp-dashboard--theme-changed)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-show-palette ()
+  "Show the colour of every role for the current theme."
+  (interactive)
+  (message "%s: %s" (or (car custom-enabled-themes) "no theme")
+           (mapconcat (lambda (entry)
+                        (format "%s %s" (car entry)
+                                (or (sp-dashboard--role-color (car entry)) "-")))
+                      sp-dashboard-palette-roles ", ")))
+#+end_src
+
+
+* Splash menu
+
+The menu under the banner is a list of blocks, =sp-dashboard-menu=. Each block is drawn in a box of lines (=sp-dashboard-box-face=); a block with children, such as Agenda, shows them nested under its heading. All blocks are as wide as the widest row and are centred on the banner. Remove or reorder blocks in the list to change the menu, and bind the keys in =sp-dashboard-mode-map=. A heading without a command (as for Agenda) is plain text; every other row is a button that calls its command.
+
+#+begin_src emacs-lisp -i
+;;;; Menu
+;; The blocks under the banner.  Each element of `sp-dashboard-menu' is drawn as
+;; a box, and a block with children shows them nested under its heading.
+(defcustom sp-dashboard-menu
+  '(("nf-fa-calendar" "Agenda" nil nil "Agendas"
+     (("General agenda" "a" sp-dashboard-open-agenda "Open the general agenda")
+      ("Thesis" "t" sp-dashboard-open-thesis-agenda "Open the thesis agenda")
+      ("Issues" "i" sp-dashboard-open-issues-agenda "Open the issues agenda")
+      ("Deadlines" "d" sp-dashboard-open-deadlines-agenda "Open the coming deadlines")))
+    ("nf-fa-code" "Config" "c" sp-dashboard-open-config "Visit config directory" nil)
+    ("nf-fa-book" "Notes" "n" sp-dashboard-open-notes "Open notes directory" nil))
+  "Blocks of the splash menu, each drawn in a box.
+Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
+`nerd-icons-faicon' name.  CHILDREN, when non-nil, is a list of
+\(LABEL KEY COMMAND HELP) shown nested under the heading, and the heading
+then needs no KEY or COMMAND.  The keys must also be bound in
+`sp-dashboard-mode-map'."
+  :type '(repeat sexp)
+  :group 'sp-dashboard)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--menu-rows (entry)
+  "Return the rows of the menu block ENTRY, heading first.
+Each row is (TEXT KEY COMMAND HELP)."
+  (pcase-let ((`(,icon ,label ,key ,command ,help ,children) entry))
+    (let ((count (length children))
+          (index 0))
+      (cons (list (concat (nerd-icons-faicon icon) isep label) key command help)
+            (mapcar (lambda (child)
+                      (setq index (1+ index))
+                      (cons (concat "  " (if (= index count) "└─ " "├─ ") (car child))
+                            (cdr child)))
+                    children)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--insert-menu (content-col)
+  "Insert the menu blocks in boxes, centred on column CONTENT-COL."
+  (let* ((blocks (mapcar #'sp-dashboard--menu-rows sp-dashboard-menu))
+         (text-width (apply #'max (mapcar (lambda (row) (string-width (car row)))
+                                          (apply #'append blocks))))
+         (body-width (+ text-width (length ksep) 3))
+         (inner-width (+ body-width 2))
+         (indent (max 0 (- content-col (/ (+ inner-width 2) 2))))
+         (faces (copy-sequence sp-dashboard-accent-faces)))
+    (when faces
+      (setcdr (last faces) faces))
+    (dolist (block blocks)
+      (insert-char ?\s indent)
+      (insert (propertize (concat "┌" (make-string inner-width ?─) "┐\n")
+                          'face (or (car faces) 'sp-dashboard-box-face)))
+      (dolist (row block)
+        (pcase-let* ((`(,text ,key ,command ,help) row)
+                     (body (concat text
+                                   (make-string (- text-width (string-width text)) ?\s)
+                                   ksep
+                                   (if key (format "(%s)" key) "   "))))
+          (insert-char ?\s indent)
+          (insert (propertize "│ " 'face (or (car faces) 'sp-dashboard-box-face)))
+          (if command
+              (insert-text-button body
+                                  'action (lambda (_) (funcall command))
+                                  'help-echo help
+                                  'face 'sp-dashboard-menu-face
+                                  'follow-link t)
+            (insert (propertize body 'face 'sp-dashboard-menu-face)))
+          (insert (propertize " │\n" 'face (or (car faces) 'sp-dashboard-box-face)))))
+      (insert-char ?\s indent)
+      (insert (propertize (concat "└" (make-string inner-width ?─) "┘\n")
+                          'face (or (car faces) 'sp-dashboard-box-face)))
+      (insert "\n")
+      (setq faces (cdr faces)))))
+#+end_src
+
+
+* Splash renderers
+
+** Section marker
+
+Outline header for the functions that build the splash buffer.
+
+#+begin_src emacs-lisp -i
+;;;; Define Splash
+#+end_src
+
+** Erase helper
+
+=sp-dashboard--erase= switches to the splash buffer and clears it, but only if the buffer exists. It used to wrap its body in =when-let*=, which only bound =inhibit-read-only= and discarded the =get-buffer= result, so the body always ran and =switch-to-buffer= created the buffer when it was missing. Now =inhibit-read-only= is bound around =erase-buffer= alone. The function is not called anywhere in the module.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--erase ()
+  ;; check if splash exists and switch if so
+  (when (get-buffer "Dashboard")
+    (switch-to-buffer "Dashboard")
+    (let ((inhibit-read-only t))
+      (erase-buffer))))
+#+end_src
+
+** Terminal splash
+
+=sp-dashboard-terminal= builds the splash for terminal frames. If =Dashboard= already exists it just switches to it. Otherwise it creates the buffer, hides the mode line and header line, sets margins and fill column from the window size, disables the menu bar (except on graphical macOS), inserts the ASCII banner from =lambda-splash.txt= in =sp-library-dir=, and inserts the welcome, version and init-info lines as a rectangle roughly in the middle of the window. A footer is added at the bottom and =sp-dashboard-mode= is enabled. The local variables =midp=, =padding-top= and =height= are computed but unused, and the =defvar= of =sp-dashboard-footer= inside the body only provides a fallback value.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-terminal ()
+  "A custom splash screen for terminal Emacs"
+  (interactive)
+  ;; Switch to or create splash buffer
+  (or (when (get-buffer "Dashboard")
+        (switch-to-buffer "Dashboard"))
+      ;; Hide modeline before window-body-height is computed
+      (let* ((splash-buffer (get-buffer-create "Dashboard")))
+        (with-current-buffer splash-buffer
+          (setq header-line-format nil)
+          (setq mode-line-format nil)
+          (erase-buffer))
+
+        (let* ((buffer-read-only t)
+               (midp  (/ (point-max) 2))
+               (padding-top 3)
+               (height (/ (window-height) 2))
+	           (width (/ (window-width) 2))
+               ;; Original ascii image from here:
+               ;; https://github.com/Triagle/emax/blob/master/boot.txt
+               (banner (sp-get-string-from-file (expand-file-name "lambda-splash.txt"
+                                                          (expand-file-name sp-dashboard-art-directory
+                                                                            sp-library-dir)))))
+
+          (with-current-buffer splash-buffer
+            ;; Buffer local settings
+            (if (one-window-p)
+                (setq mode-line-format nil))
+            (setq-local cursor-type nil)
+            (setq vertical-scroll-bar nil)
+            (setq horizontal-scroll-bar nil)
+            (setq fill-column width)
+            (face-remap-add-relative 'link :underline nil)
+            (unless (and (display-graphic-p) sys-mac) (menu-bar-mode 0))
+            ;; Set margin padding locally
+            (setq-local left-margin-width (/ width 6)
+                        right-margin-width (/ width 6))
+            (set-window-buffer nil (current-buffer))
+            ;; Add padding at top
+            (insert-char ?\n 1)
+            (unless sp-dashboard-banner
+              ;; Insert text banner
+              (insert banner))
+            ;; Position point
+            (goto-char (point-min))
+            (forward-line (- (/ (window-height) 2) 10))
+            (end-of-line)
+            ;; Insert header text
+            (insert-rectangle `(,(propertize "           Welcome to 𝛌-Emacs"  'face 'sp-dashboard-title-face)
+                                ,(concat (propertize "         GNU Emacs version" 'face 'sp-dashboard-header-face)
+                                         " "
+                                         (propertize (format "%d.%d" emacs-major-version emacs-minor-version) 'face 'sp-dashboard-header-face))
+                                ,(let ((init-info (funcall sp-dashboard-init-info)))
+                                   (concat " " (propertize init-info 'face 'sp-dashboard-header-face)))))
+            ;; ;; Vertical padding to bottom
+            (goto-char (point-max))
+            ;; Footer text
+            (defvar sp-dashboard-footer "   " "Footer text.")
+            (save-excursion (insert-char ?\s (- (/ (window-width) 4) 10))
+                            (insert
+                             (propertize sp-dashboard-footer 'face 'sp-dashboard-footer-face)))
+            (goto-char (point-min))
+            (display-buffer-same-window splash-buffer nil))
+          (switch-to-buffer "Dashboard"))
+        (sp-dashboard-mode))))
+#+end_src
+
+** Graphical splash
+
+=sp-dashboard-screen= is the GUI renderer. Called interactively it first kills an existing =Dashboard= buffer, because otherwise the command only switches to the old buffer and a changed setting would not show. After the same buffer setup as the terminal version it inserts, centered horizontally:
+- the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section);
+- the welcome text, the Emacs version and the init info;
+- the menu blocks (see the previous section) in boxes, centred under the banner, each row showing its single-key shortcut;
+- a footer pushed toward the bottom of the window, centred on the lambda (=sp-dashboard-footer-layer=) so it sits close to the art;
+- the art layers, drawn last and behind the menu.
+Each button calls its command, and the Config and Notes commands go through =sp-dashboard--workspace-dispatch=, so a missing workspaces module gives a message rather than an error. The Mail and Projects entries are gone; Projects is to be redone.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-screen ()
+  "A custom splash screen for Emacs.
+Called interactively, it drops an existing Dashboard buffer first so the
+splash is drawn again with the current settings."
+  (interactive)
+  (when (and (called-interactively-p 'any) (get-buffer "Dashboard"))
+    (kill-buffer "Dashboard"))
+  (when sp-dashboard-palette-follow-theme
+    (sp-dashboard-apply-palette))
+  ;; Switch to or create splash buffer
+  (or (when (get-buffer "Dashboard")
+        (switch-to-buffer "Dashboard"))
+      ;; Hide modeline before window-body-height is computed
+      (let* ((splash-buffer (get-buffer-create "Dashboard")))
+        (with-current-buffer splash-buffer
+          (setq header-line-format nil)
+          (setq mode-line-format nil)
+          (erase-buffer))
+
+        (let* ((buffer-read-only t)
+               (midp  (/ (point-max) 2))
+               (padding-top 3)
+               (height (/ (window-height) 2))
+	           (width (/ (window-width) 2))
+               (image-scaling-factor 2.2)
+               ;; scale icons
+               (nerd-icons-scale-factor 1.10)
+               (nerd-icons-default-adjust -0.02)
+               (content-col (sp-dashboard--content-column)))
+
+          (with-current-buffer splash-buffer
+            ;; Buffer local settings
+            (if (one-window-p)
+                (setq mode-line-format nil))
+            (setq-local cursor-type nil)
+            (setq vertical-scroll-bar nil)
+            (setq horizontal-scroll-bar nil)
+            (setq fill-column width)
+            (face-remap-add-relative 'link :underline nil)
+            (unless (and (display-graphic-p) sys-mac) (menu-bar-mode 0))
+
+            ;; Set margin padding locally
+            (setq-local left-margin-width 0
+                        right-margin-width (/ width 6))
+            (set-window-buffer nil (current-buffer))
+
+            ;; Add padding at top
+            (insert-char ?\n padding-top)
+
+            ;; Start the title and the menu below the content layer
+            (when-let* ((box (sp-dashboard--layer-box sp-dashboard-content-layer)))
+              (insert-char ?\n (max 0 (- (+ (nth 1 box) (nth 3 box) 2)
+                                         (line-number-at-pos)))))
+            
+            ;; Simple centered layout
+            (let* ((center-col (max 0 (/ (- (window-width) 60) 2))))
+              
+              ;; Add the lambda image, centered and reasonably sized
+              (when (and (> (window-width) 80) (> (window-height) 20)
+                         (null sp-dashboard-art-layers))
+                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                                       (concat sp-library-dir "lambda-logo-white.png")
+                                     (concat sp-library-dir "lambda-logo-black.png")))
+                       (image (create-image image-file 'png nil :width 175 :height 175)))
+                  (insert-char ?\s (+ center-col 19))
+                  (insert-image image)
+                  (insert-char ?\n 2)))
+              
+              (let ((welcome-text "Welcome to λ-Emacs")
+                    (version-text (format "GNU Emacs version %d.%d" emacs-major-version emacs-minor-version))
+                    (init-info (funcall sp-dashboard-init-info)))
+                
+                ;; Welcome text
+                (let ((welcome-center (max 0 (- content-col (/ (length welcome-text) 2)))))
+                  (insert-char ?\s welcome-center)
+                  (insert (propertize welcome-text 'face 'sp-dashboard-title-face))
+                  (insert-char ?\n 2))
+                
+                ;; Version text
+                (let ((version-center (max 0 (- content-col (/ (length version-text) 2)))))
+                  (insert-char ?\s version-center)
+                  (insert (propertize version-text 'face 'sp-dashboard-header-face))
+                  (insert-char ?\n 1))
+                
+                ;; Init info
+                (let ((init-center (max 0 (- content-col (/ (length init-info) 2)))))
+                  (insert-char ?\s init-center)
+                  (insert (propertize init-info 'face 'sp-dashboard-header-face))
+                  (insert-char ?\n 2))))
+
+            ;; Insert the menu blocks, in boxes under the banner
+            (goto-char (point-max))
+            (sp-dashboard--insert-menu content-col)
+
+            ;; Add footer with some space above bottom
+            (goto-char (point-max))
+            (let* ((current-line (line-number-at-pos))
+                   (window-height (window-height))
+                   (footer-padding (max 1 (- window-height current-line 15))))
+              (insert-char ?\n footer-padding))
+            
+            ;; Footer text centered
+            (defvar sp-dashboard-footer "   " "Footer text.")
+            (let ((footer-center (max 0 (- (sp-dashboard--layer-column sp-dashboard-footer-layer)
+                                           (/ (length sp-dashboard-footer) 2)))))
+              (insert-char ?\s footer-center)
+              (insert (propertize sp-dashboard-footer 'face 'sp-dashboard-footer-face)))
+
+            ;; Lambda art behind the menu (a no-op when the art is off)
+            (sp-dashboard--draw-art)
+
+            (goto-char (point-min))
+            (display-buffer-same-window splash-buffer nil))
+          (switch-to-buffer "Dashboard"))
+        (sp-dashboard-mode))))
+#+end_src
+
+** Footer text
+
+Sets the global =sp-dashboard-footer= string shown at the bottom of the splash, under the lambda. The current value is a placeholder.
+
+#+begin_src emacs-lisp -i
+;;;;; Set Splash Footer
+;; Set a footer for the splash screen
+(setq sp-dashboard-footer  "wawawewa")
+#+end_src
+
+** Bury command
+
+=sp-dashboard-screen-bury= buries the current buffer when a splash buffer exists. It acts on the current buffer, so it is intended to be run from inside the splash.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-screen-bury ()
+  "Bury the splash screen buffer (immediately)."
+  (interactive)
+  (when (get-buffer "Dashboard")
+    (bury-buffer)))
+#+end_src
+
+** Kill command
+
+=sp-dashboard-screen-kill= kills the current buffer when a splash buffer exists. As with bury, it is meant to be run from the splash itself.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-screen-kill ()
+  "Kill the splash screen buffer (immediately)."
+  (interactive)
+  (when (get-buffer "Dashboard")
+    (kill-buffer)))
+#+end_src
+
+* Workspace dispatch
+
+Menu actions come from the optional =sp-workspaces= module. These wrappers make each one safe to call when that module is absent.
+
+** Dispatcher
+
+=sp-dashboard--workspace-dispatch= calls a function if it is defined and otherwise prints a message asking the user to enable =sp-workspaces=.
+
+#+begin_src emacs-lisp -i
+;;;; Workspace Dispatch
+(defun sp-dashboard--workspace-dispatch (fn)
+  "Call FN when it is defined, otherwise prompt to enable the workspaces module."
+  (if (fboundp fn)
+      (funcall fn)
+    (message "Enable the workspaces module (sp-workspaces) for this action")))
+#+end_src
+
+** Agendas
+
+The Agenda block of the menu has four agendas: General (=a=), thesis (=t=), issues (=i=) and deadlines (=d=). Each has a variable naming its files: =sp-dashboard-agenda-general-files=, =sp-dashboard-agenda-thesis-files=, =sp-dashboard-agenda-issues-files= and =sp-dashboard-agenda-deadlines-files=. Point them at the right files; while one is nil it uses =org-agenda-files=. =sp-dashboard--open-agenda= shows the agenda of a list of files; for deadlines it shows only deadlines in the next =sp-dashboard-deadlines-days= days. The General agenda keeps opening the agenda workspace (=sp-open-agenda-in-workspace=) while its variable is nil.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-dashboard-agenda-general-files nil
+  "Files of the General agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-thesis-files nil
+  "Files of the thesis agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-issues-files nil
+  "Files of the issues agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-deadlines-files nil
+  "Files searched for the coming deadlines; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-deadlines-days 30
+  "Days ahead the deadlines agenda looks."
+  :type 'integer
+  :group 'sp-dashboard)
+
+(defun sp-dashboard--open-agenda (files &optional deadlines)
+  "Show the agenda of FILES (nil: `org-agenda-files').
+With DEADLINES, show only the deadlines of the next `sp-dashboard-deadlines-days'."
+  (require 'org)
+  (require 'org-agenda)
+  (let ((org-agenda-files (or files org-agenda-files)))
+    (if deadlines
+        (let ((org-agenda-span sp-dashboard-deadlines-days)
+              (org-agenda-entry-types '(:deadline))
+              (org-deadline-warning-days sp-dashboard-deadlines-days))
+          (org-agenda-list))
+      (org-agenda-list))))
+
+(defun sp-dashboard-open-agenda ()
+  "Open the General agenda from the splash screen.
+Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
+  (interactive)
+  (if sp-dashboard-agenda-general-files
+      (sp-dashboard--open-agenda sp-dashboard-agenda-general-files)
+    (sp-dashboard--workspace-dispatch 'sp-open-agenda-in-workspace)))
+
+(defun sp-dashboard-open-thesis-agenda ()
+  "Open the thesis agenda from the splash screen."
+  (interactive)
+  (sp-dashboard--open-agenda sp-dashboard-agenda-thesis-files))
+
+(defun sp-dashboard-open-issues-agenda ()
+  "Open the issues agenda from the splash screen."
+  (interactive)
+  (sp-dashboard--open-agenda sp-dashboard-agenda-issues-files))
+
+(defun sp-dashboard-open-deadlines-agenda ()
+  "Open the coming deadlines from the splash screen."
+  (interactive)
+  (sp-dashboard--open-agenda sp-dashboard-agenda-deadlines-files t))
+#+end_src
+
+** Open config
+
+Interactive wrapper for =sp-open-emacsd-in-workspace=, bound to =c=.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-open-config ()
+  "Open the emacs.d workspace from the splash screen."
+  (interactive)
+  (sp-dashboard--workspace-dispatch 'sp-open-emacsd-in-workspace))
+#+end_src
+
+** Open notes
+
+Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard-open-notes ()
+  "Open the notes workspace from the splash screen."
+  (interactive)
+  (sp-dashboard--workspace-dispatch 'sp-open-notes-in-workspace))
+#+end_src
+
+* Splash minor mode
+
+** Keymap
+
+=sp-dashboard-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-dashboard-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes. Only the buttons are interactive: =sp-dashboard--isolate-menu= marks everything else (the art, the box lines, the title and the footer) =cursor-intangible=, so point can only rest on a button, and puts =sp-dashboard-mode-map= on an overlay over the whole buffer, which ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is. =RET= and a click activate the button.
+
+#+begin_src emacs-lisp -i
+;;;; Define Minor Mode
+;; Custom splash screen
+(defvar sp-dashboard-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") 'sp-dashboard-open-agenda)
+    (define-key map (kbd "c") 'sp-dashboard-open-config)
+    (define-key map (kbd "n") 'sp-dashboard-open-notes)
+    (define-key map (kbd "t") 'sp-dashboard-open-thesis-agenda)
+    (define-key map (kbd "i") 'sp-dashboard-open-issues-agenda)
+    (define-key map (kbd "d") 'sp-dashboard-open-deadlines-agenda)
+    (define-key map (kbd "S-<left>") 'sp-dashboard-art-left)
+    (define-key map (kbd "S-<right>") 'sp-dashboard-art-right)
+    (define-key map (kbd "S-<up>") 'sp-dashboard-art-up)
+    (define-key map (kbd "S-<down>") 'sp-dashboard-art-down)
+    (define-key map (kbd "TAB") 'sp-dashboard-next-button)
+    (define-key map (kbd "RET") 'push-button)
+    (define-key map [mouse-2] 'push-button)
+    (define-key map [follow-link] 'mouse-face)
+    (define-key map (kbd "<backtab>") 'sp-dashboard-previous-button)
+    (define-key map (kbd "l") 'sp-dashboard-art-next-layer)
+    (define-key map (kbd "0") 'sp-dashboard-art-reset)
+    (define-key map (kbd "s") 'sp-dashboard-art-show-position)
+    (define-key map (kbd "q") 'sp-dashboard-screen-kill)
+    (define-key map (kbd "<escape>") 'sp-dashboard-screen-bury)
+    (define-key map (kbd "k") 'sp-dashboard-screen-kill)
+    ;; The splash is not for scrolling, moving the cursor or marking text:
+    ;; only TAB and S-TAB move, between the buttons.
+    (dolist (command '(next-line previous-line forward-char backward-char
+                       forward-word backward-word left-word right-word
+                       beginning-of-line end-of-line move-beginning-of-line
+                       move-end-of-line beginning-of-buffer end-of-buffer
+                       scroll-up-command scroll-down-command scroll-left
+                       scroll-right scroll-other-window recenter
+                       recenter-top-bottom reposition-window
+                       set-mark-command mark-whole-buffer mark-word
+                       mark-paragraph mark-sexp exchange-point-and-mark
+                       mouse-set-region mouse-drag-region mouse-save-then-kill
+                       mouse-set-point mouse-secondary-save-then-kill
+                       mwheel-scroll pixel-scroll-precision
+                       isearch-forward isearch-backward))
+      (define-key map `[remap ,command] #'ignore))
+    (dolist (event '(wheel-up wheel-down wheel-left wheel-right mouse-4 mouse-5
+                     mouse-6 mouse-7 double-wheel-up double-wheel-down
+                     triple-wheel-up triple-wheel-down down-mouse-1
+                     drag-mouse-1 double-mouse-1 triple-mouse-1))
+      (define-key map (vector event) #'ignore))
+    map)
+  "Keymap for sp-dashboard-mode.")
+
+(defvar-local sp-dashboard--focus-overlay nil
+  "Overlay marking the selected button of the splash.")
+
+(defun sp-dashboard-next-button ()
+  "Select the next button of the splash, wrapping around."
+  (interactive)
+  (forward-button 1 t nil t))
+
+(defun sp-dashboard-previous-button ()
+  "Select the previous button of the splash, wrapping around."
+  (interactive)
+  (backward-button 1 t nil t))
+
+(defun sp-dashboard--mark-focus ()
+  "Highlight the button at point, since the cursor is hidden."
+  (when sp-dashboard--focus-overlay
+    (delete-overlay sp-dashboard--focus-overlay))
+  (when-let* ((button (button-at (point))))
+    (setq sp-dashboard--focus-overlay
+          (make-overlay (button-start button) (button-end button)))
+    (overlay-put sp-dashboard--focus-overlay 'face 'sp-dashboard-focus-face)))
+
+(defun sp-dashboard--no-region ()
+  "Drop the region at once: the splash never marks text."
+  (deactivate-mark))
+
+(defun sp-dashboard--isolate-menu ()
+  "Make the buttons the only part of the dashboard that can be reached.
+The rest of the buffer, the art and the text around the buttons, is marked
+`cursor-intangible', so point can only rest on a button.  An overlay over
+the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
+above the other keymaps, so the keys of the dashboard are the same wherever
+point is."
+  (let ((inhibit-read-only t)
+        (position (point-min)))
+    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
+    (let (button)
+      (while (setq button (next-button position))
+        (remove-text-properties (button-start button) (button-end button)
+                                '(cursor-intangible nil))
+        (setq position (button-end button)))))
+  (cursor-intangible-mode 1)
+  (let ((overlay (make-overlay (point-min) (point-max))))
+    (overlay-put overlay 'keymap sp-dashboard-mode-map)
+    (overlay-put overlay 'priority 100)))
+#+end_src
+
+** Minor mode
+
+=sp-dashboard-mode= is a buffer-local minor mode that makes the splash look clean: it disables undo, auto-revert, whitespace mode and line numbers, makes the buffer read-only, hides the cursor, mode line and header line, and removes margins and fringes. It also sets the global =inhibit-startup-screen= family of variables and =truncate-lines=. When Evil is active it switches to Emacs state so the single-key bindings are not shadowed. Its =:group= is =sp-dashboard=; it used to be =sia-lambda=, which this config never defines.
+
+#+begin_src emacs-lisp -i
+(define-minor-mode sp-dashboard-mode
+  "Emacs minor mode for splash screen."
+  :global nil
+  :keymap sp-dashboard-mode-map
+  :group 'sp-dashboard
+  
+  :require 'sp-dashboard
+  (buffer-disable-undo)
+  (auto-revert-mode -1)
+  (whitespace-mode -1)
+  (when (fboundp 'linum-mode)
+    (linum-mode -1))
+  (when (>= emacs-major-version 26)
+    (display-line-numbers-mode -1))
+  
+  (setq-local buffer-read-only t)
+  (setq-local cursor-type nil)
+  (setq-local hl-line-mode -1)
+  (setq-local mode-line-format nil)
+  (setq-local header-line-format nil)
+  
+  ;; No margin or fringe in splash buffer
+  (setq-local left-margin-width nil
+              right-margin-width nil)
+  (set-window-fringes (selected-window) 0 0 nil)
+  (setq inhibit-startup-screen t
+        truncate-lines nil
+        inhibit-startup-message t
+        inhibit-startup-echo-area-message t)
+
+  ;; The splash fills the window and never scrolls or wraps
+  (setq-local truncate-lines t
+              scroll-margin 0
+              scroll-conservatively 0
+              auto-window-vscroll nil
+              shift-select-mode nil
+              mouse-wheel-mode nil)
+  (add-hook 'activate-mark-hook #'sp-dashboard--no-region nil t)
+  (add-hook 'post-command-hook #'sp-dashboard--mark-focus nil t)
+  
+  ;; Use Emacs state if Evil is active so single-key bindings work
+  (when (bound-and-true-p evil-mode)
+    (evil-emacs-state))
+  (sp-dashboard--isolate-menu)
+  (goto-char (point-min))
+  (set-window-start (selected-window) (point-min))
+  (forward-button 1 t nil t)
+  (sp-dashboard--mark-focus))
+#+end_src
+
+* Setup and refresh
+
+** Refresh
+
+=sp-dashboard-refresh= rebuilds the splash when the current buffer is =Dashboard=, by killing it and calling =sp-dashboard-screen= again so it is re-centred for the new window size. It always uses the graphical renderer and swallows errors.
+
+#+begin_src emacs-lisp -i
+;;;; Splash Setup & Refresh Functions
+(defun sp-dashboard-refresh ()
+  "Refresh & recenter splash after window switch."
+  (interactive)
+  (when (string= (buffer-name) "Dashboard")
+    (progn
+      (ignore-errors
+        (sp-dashboard-screen-kill)
+        (sp-dashboard-screen)))))
+#+end_src
+
+** Initial display and hooks
+
+=sp-dashboard--setup-splash-hooks= shows the graphical or terminal splash depending on =display-graphic-p=, then adds =sp-dashboard-refresh= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
+
+#+begin_src emacs-lisp -i
+(defun sp-dashboard--setup-splash-hooks ()
+  "Initialize splash and setup hooks."
+  (progn
+    (if (display-graphic-p)
+        (sp-dashboard-screen)
+      (sp-dashboard-terminal))
+    (add-hook 'window-state-change-hook #'sp-dashboard-refresh)
+    (add-hook 'window-configuration-change-hook  #'sp-dashboard-refresh)
+    (add-hook 'sp-switch-buffer-hook #'sp-dashboard-refresh)))
+#+end_src
+
+** Install on startup
+
+Adds the setup function to =window-setup-hook=, which runs after the frame parameters are applied, unless Emacs was started with =--no-splash=, =--file=, =--insert= or =--find-file=. A plain filename argument is not checked here.
+
+#+begin_src emacs-lisp -i
+;; Install hook after frame parameters have been applied and only if
+;; no option on the command line
+(when (and (not (member "--no-splash" command-line-args))
+           (not (member "--file"      command-line-args))
+           (not (member "--insert"    command-line-args))
+           (not (member "--find-file" command-line-args)))
+  (add-hook 'window-setup-hook #'sp-dashboard--setup-splash-hooks))
+#+end_src
+
+* Provide
+
+Provides the =sp-dashboard= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-dashboard)
+;;; sp-dashboard.el ends here
+#+end_src
