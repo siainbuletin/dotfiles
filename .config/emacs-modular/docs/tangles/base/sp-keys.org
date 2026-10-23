@@ -429,7 +429,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Version control (g)
 
-The four =autoload= calls make the =git-gutter= commands callable before that package is loaded, since it is not declared as a package elsewhere; the comment explains the resulting error behaviour. =lem+vc-keys= then binds Magit status, commit, diff, log, blame and reflog, the git-gutter hunk commands, and =vc-next-action= for a quick commit of the current file.
+The four =autoload= calls make the =git-gutter= commands callable before that package is loaded, since it is not declared as a package elsewhere; the comment explains the resulting error behaviour. =lem+vc-keys= then binds Magit status, commit, diff, log, blame and reflog, the merge picker's graph log (=m=, see [[file:../prog/sp-merge-pick.org][sp-merge-pick]]), the git-gutter hunk commands, and =vc-next-action= for a quick commit of the current file.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Version Control (Git) Keybindings
@@ -443,6 +443,8 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
 (autoload 'git-gutter:next-hunk     "git-gutter" "Move to next hunk."       t)
 (autoload 'git-gutter:previous-hunk "git-gutter" "Move to previous hunk."   t)
 (autoload 'git-gutter-mode          "git-gutter" "Toggle git-gutter-mode."  t)
+;; `sp-merge-pick' loads late, after Emacs is idle; this opens its graph log.
+(autoload 'sp-merge-pick-log        "sp-merge-pick" "Graph log for picking two commits." t)
 (bind-keys :prefix-map  lem+vc-keys
            :prefix (concat sp-prefix " g")
            ("b" .  magit-blame                 )
@@ -452,6 +454,8 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
            ("l" .  magit-log                   )
            ;; show history of selected region
            ("L" .  magit-log-buffer-file       )
+           ;; graph log in which to pick two commits to review or merge
+           ("m" .  sp-merge-pick-log           )
            ("n" .  git-gutter:next-hunk        )
            ("p" .  git-gutter:previous-hunk    )
            ;; quick commit file
