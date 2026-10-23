@@ -237,11 +237,13 @@ the order of `lem--late-modules', for example when debugging."
   '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
     ;; the first file.
     sp-academic
-    sp-dgraphs
-    sp-relationship-annotator
     sp-notes
     sp-semantic
+    ;; several graphing functionality
+    sp-dgraphs
+    sp-relationship-annotator
     sp-dyn-graph
+    sp-relationship-annotator-live ;; live localhost view of the graph
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
     ;; Version control. `sp-keys' autoloads the magit commands it binds, so

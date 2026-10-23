@@ -50,7 +50,7 @@ digraph modules {
     f1 -> g1 -> g2 -> g3;
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
-    l1 [label="sp-academic  sp-dgraphs  sp-relationship-annotator\nsp-notes  sp-semantic  sp-dyn-graph\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+    l1 [label="sp-academic  sp-notes  sp-semantic\nsp-dgraphs  sp-relationship-annotator  sp-dyn-graph\nsp-relationship-annotator-live\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
     l3 [label="sp-vcontrol  →  sp-magit-style\n(magit, forge, code-review)", color="#3a6ea5"];
     l4 [label="sp-terminal  sp-eshell", color="#3a6ea5"];
@@ -137,7 +137,7 @@ The =Package-Requires= headers were read from each package's upstream repository
 =emr= in =sp-prog-misc= requires =paredit=, which =sp-lisp= installs. The two modules swap places. =sp-lisp= does not use anything from =sp-prog-misc=.
 
 ** Late modules
-=sp-academic=, =sp-dgraphs=, =sp-relationship-annotator=, =sp-notes=, =sp-semantic=, =sp-dyn-graph=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell= and =sp-ai= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style=), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
+=sp-academic=, =sp-notes=, =sp-semantic=, =sp-dgraphs=, =sp-relationship-annotator=, =sp-dyn-graph=, =sp-relationship-annotator-live= (which requires =sp-relationship-annotator=, so it has to come after it), =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell= and =sp-ai= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style=), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
 
 - no other module =require=s them, so nothing is left waiting for them;
 - they install the most and the heaviest packages (the AI tools, =org-ref= with its dependencies, =magit= with =forge= and =code-review=);
