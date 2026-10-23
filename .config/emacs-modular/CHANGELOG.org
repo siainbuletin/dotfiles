@@ -8,6 +8,8 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Vault linting
+- =M-x sp-org-lint-footnotes= (in =sp-org-lint=) moves the definitions of a trailing =Footnotes= heading to the heading whose text cites them, for every note in the vulpea database. A second, headless Emacs reads the files one at a time, so Emacs stays usable, and a report buffer fills in as it goes. It is preview-first: =a= in the report applies it, after copying each file to =sp-org-lint-fn-backup-directory=. A footnote cited from several headings is copied to each, with suffixed labels as in =sp-vulpea-split=. Orphan definitions, dangling references and conflicts are reported and never deleted. Checked on a fake vault in a headless Emacs 29 only. ([[https://github.com/siainbuletin/dotfiles/pull/62][#62]], Claude)
 ** Module docs
 - The introduction of each module doc now reflects the module's =;;; Commentary:=: where the introduction did not already say the same, the commentary is quoted at its end (80 docs). ([[https://github.com/siainbuletin/dotfiles/pull/59][#59]], Claude)
 - Outline comments in the modules (and their docs) follow the code: the first headings after =;;; Code:= start at =;;;;=, a heading is at most one level below the one before it, and outline-looking comments inside a form are plain =;;= comments (in =sp-dired=) or moved to column 0 (=sp-org-id-link=, =sp-faces=). ([[https://github.com/siainbuletin/dotfiles/pull/59][#59]], Claude)
