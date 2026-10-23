@@ -96,7 +96,7 @@ def main():
     args = [a for a in sys.argv[1:] if a != "--check"]
     check = "--check" in sys.argv
     root = args[0] if args else os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "..", "..")
+        os.path.dirname(os.path.abspath(__file__)), "..")
     changed = 0
     for d, dirs, files in os.walk(root):
         dirs[:] = [x for x in dirs if x not in SKIP_DIRS]
