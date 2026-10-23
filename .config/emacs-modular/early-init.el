@@ -211,7 +211,7 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
 
 ;; Single customization group for every user option in this configuration
 ;; (`defcustom' forms use `:group 'spcustom'). Keep it first: the options
-;; below and in the modules refer to it. docs/tools/set-defcustom-group.py
+;; below and in the modules refer to it. tools/set-defcustom-group.py
 ;; sets it on new options.
 (defgroup spcustom '()
   "An Emacs distribution with sane defaults, pre-configured packages, and useful functions, aimed at writing and academic work in the humanities."

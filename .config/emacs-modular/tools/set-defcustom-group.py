@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Give every `defcustom' in the config the group `spcustom'.
 
-Usage: docs/tools/set-defcustom-group.py [--check] [ROOT]
+Usage: tools/set-defcustom-group.py [--check] [ROOT]
 
 Rewrites the .el files and the literate .org sources under ROOT (default:
 the folder above docs/), so the tangled output stays identical to the
