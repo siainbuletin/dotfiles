@@ -192,7 +192,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** ui/
 
-- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
+- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard (the old =dashboard= package screen, no longer loaded: the splash screen replaces it) ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
 - [[file:tangles/ui/sp-buffers.org][sp-buffers]] :: Buffer lists and pop-up buffers ([[file:../libraries/modules/ui/sp-buffers.el][sp-buffers.el]])
 - [[file:tangles/ui/sp-canvas.org][sp-canvas]] :: Experimental canvas and Excalidraw support ([[file:../libraries/modules/ui/sp-canvas.el][sp-canvas.el]])
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])

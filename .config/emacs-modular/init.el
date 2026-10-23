@@ -325,7 +325,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-treemacs ;; File tree on <f9>
 
                     'sp-writedesk
-                    'lem-dashboard
 
                     ;;;; Modern settings
                     'sp-canvas
@@ -437,7 +436,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-backups
                     'sp-bookmarks
                     ;; 'sp-choose-modeline
-                    'lem-dashboard
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil

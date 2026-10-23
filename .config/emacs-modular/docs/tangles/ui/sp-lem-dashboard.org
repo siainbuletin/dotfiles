@@ -6,6 +6,8 @@ Literate source for =libraries/modules/ui/lem-dashboard.el=. Every line of the m
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
+*It is not loaded any more*: the splash screen (=sp-splash=, the buffer named =Dashboard=) replaced it, and the agenda entries of the splash run the views of =sp-agenda-views= (see [[file:../../../../adr/0011-dashboard-and-org-ql-views.org][ADR 0011]]). The file stays for reference.
+
 This module configures the =dashboard= package, giving a start page with recent files, bookmarks, agenda items and registers. It is a lightly modified version of the Lambda Emacs dashboard (hence the =lem-= prefix), rewritten for readability.
 
 It depends on =nerd-icons= for icons, optionally =page-break-lines=, and the =sp-library-dir= variable for the banner images. Nothing in this module calls =dashboard-setup-startup-hook=, so the dashboard is opened on demand with =dashboard-open=, =lem-dashboard= or =sp-goto-dashboard= rather than shown automatically at startup. =init.el= lists this module twice in its load list, which is harmless since =require= only loads it once.

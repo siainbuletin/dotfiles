@@ -568,9 +568,12 @@ splash is drawn again with the current settings."
       (funcall fn)
     (message "Enable the workspaces module (sp-workspaces) for this action")))
 
-(defcustom sp-splash-agenda-general-files nil
-  "Files of the General agenda; nil uses `org-agenda-files'."
-  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+(defcustom sp-splash-agenda-commands
+  '((general . " ") (issues . "ii") (deadlines . "l"))
+  "Key of the agenda view each agenda of the splash screen opens.
+The views are `org-agenda-custom-commands' entries defined in
+`sp-agenda-views'."
+  :type '(alist :key-type symbol :value-type string)
   :group 'sp-splash)
 
 (defcustom sp-splash-agenda-thesis-files nil
@@ -578,41 +581,23 @@ splash is drawn again with the current settings."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
   :group 'sp-splash)
 
-(defcustom sp-splash-agenda-issues-files nil
-  "Files of the issues agenda; nil uses `org-agenda-files'."
-  :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-splash)
+(defun sp-splash--agenda-key (name)
+  "Return the agenda view key of the splash agenda NAME."
+  (cdr (assq name sp-splash-agenda-commands)))
 
-(defcustom sp-splash-agenda-deadlines-files nil
-  "Files searched for the coming deadlines; nil uses `org-agenda-files'."
-  :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-splash)
-
-(defcustom sp-splash-deadlines-days 30
-  "Days ahead the deadlines agenda looks."
-  :type 'integer
-  :group 'sp-splash)
-
-(defun sp-splash--open-agenda (files &optional deadlines)
-  "Show the agenda of FILES (nil: `org-agenda-files').
-With DEADLINES, show only the deadlines of the next `sp-splash-deadlines-days'."
+(defun sp-splash--open-agenda (files)
+  "Show the agenda of FILES (nil: `org-agenda-files')."
   (require 'org)
   (require 'org-agenda)
   (let ((org-agenda-files (or files org-agenda-files)))
-    (if deadlines
-        (let ((org-agenda-span sp-splash-deadlines-days)
-              (org-agenda-entry-types '(:deadline))
-              (org-deadline-warning-days sp-splash-deadlines-days))
-          (org-agenda-list))
-      (org-agenda-list))))
+    (org-agenda-list)))
 
 (defun sp-splash-open-agenda ()
-  "Open the General agenda from the splash screen.
-Without `sp-splash-agenda-general-files' this is the agenda workspace."
+  "Open the General agenda, the PARA view, from the splash screen."
   (interactive)
-  (if sp-splash-agenda-general-files
-      (sp-splash--open-agenda sp-splash-agenda-general-files)
-    (sp-splash--workspace-dispatch 'sp-open-agenda-in-workspace)))
+  (if (fboundp 'sp-open-agenda-in-workspace)
+      (sp-open-agenda-in-workspace (sp-splash--agenda-key 'general))
+    (org-agenda nil (sp-splash--agenda-key 'general))))
 
 (defun sp-splash-open-thesis-agenda ()
   "Open the thesis agenda from the splash screen."
@@ -620,14 +605,14 @@ Without `sp-splash-agenda-general-files' this is the agenda workspace."
   (sp-splash--open-agenda sp-splash-agenda-thesis-files))
 
 (defun sp-splash-open-issues-agenda ()
-  "Open the issues agenda from the splash screen."
+  "Open the issue board from the splash screen."
   (interactive)
-  (sp-splash--open-agenda sp-splash-agenda-issues-files))
+  (org-agenda nil (sp-splash--agenda-key 'issues)))
 
 (defun sp-splash-open-deadlines-agenda ()
   "Open the coming deadlines from the splash screen."
   (interactive)
-  (sp-splash--open-agenda sp-splash-agenda-deadlines-files t))
+  (org-agenda nil (sp-splash--agenda-key 'deadlines)))
 
 (defun sp-splash-open-config ()
   "Open the emacs.d workspace from the splash screen."
