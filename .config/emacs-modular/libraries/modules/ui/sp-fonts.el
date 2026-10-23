@@ -32,6 +32,14 @@
       :mode-line-active-height 150
       :mode-line-inactive-height 150
       :line-spacing 0.1)
+     (presentation
+      :default-family "Aporetic Sans Mono"
+      :default-height 220
+      :variable-pitch-family "Charter"
+      :variable-pitch-height 220
+      :mode-line-active-height 220
+      :mode-line-inactive-height 220
+      :line-spacing 0.2)
      (t
       :default-weight regular
       :bold-weight bold
@@ -44,8 +52,20 @@
                   :family "IntoneMono Nerd Font"
                   :height 150)
 
-(set-face-attribute 'org-quote nil
-                  :family "Aporetic Serif Mono")
+(defun sp-fonts-org-faces ()
+  "Set the fonts of the Org title and quote, and keep headings at text size."
+  (set-face-attribute 'org-document-title nil
+                      :family "Atkinson Hyperlegible" :height 1.0)
+  (set-face-attribute 'org-quote nil
+                      :family "Literata" :height 1.0)
+  (dotimes (n 8)
+    (set-face-attribute (intern (format "org-level-%d" (1+ n))) nil
+                        :height 1.0)))
+
+(with-eval-after-load 'org
+  (sp-fonts-org-faces))
+(add-hook 'sp-after-load-theme-hook #'sp-fonts-org-faces)
+(add-hook 'fontaine-set-preset-hook #'sp-fonts-org-faces)
 
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly

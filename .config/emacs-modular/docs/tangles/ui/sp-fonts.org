@@ -56,9 +56,14 @@ The module's own summary: fontaine owns the fonts, and everything else here reac
 
 ** Presets and startup
 
-Installs =fontaine= and waits for it, so the presets exist before the rest of the file runs. There is one preset, =regular=, with =Aporetic Sans Mono= at height 150 (15 points) as the default face. The variable-pitch face uses =Aporetic Serif Mono= at 120 for now, which is what the old =sp-ui-variable-width-font= option set; how the variable fonts should be organised is still open. The =line-spacing= of 0.1 and the mode line height of 150 used to be set separately and now live in the preset.
+Installs =fontaine= and waits for it, so the presets exist before the rest of the file runs. The presets are listed in the table below; =t= holds what every preset shares. =fontaine-set-preset= is called with the preset saved by the last session, or =regular= the first time; the saved choice is kept in =sp-cache-dir=. =fontaine-mode= keeps the faces right when a theme is loaded. There is no =sp-ui-default-font= option any more: change the fonts by editing a preset, or switch with =M-x fontaine-set-preset=.
 
-=fontaine-set-preset= is called with the preset saved by the last session, or =regular= the first time; the saved choice is kept in =sp-cache-dir=. =fontaine-mode= keeps the faces right when a theme is loaded. There is no =sp-ui-default-font= option any more: change the font by editing the preset or by adding another one and calling =fontaine-set-preset=.
+| Preset         | Default face (fixed width)  | Variable-pitch face     | Default height | Variable-pitch height | Mode line | Line spacing |
+|----------------+-----------------------------+-------------------------+----------------+-----------------------+-----------+--------------|
+| =regular=      | Aporetic Sans Mono          | Aporetic Serif Mono     | 150            | 120                   | 150       | 0.1          |
+| =presentation= | Aporetic Sans Mono          | Charter                 | 220            | 220                   | 220       | 0.2          |
+
+Atkinson Hyperlegible and Literata are not part of a preset. They are set on single faces, see the next section.
 
 #+begin_src emacs-lisp -i
 (use-package fontaine
@@ -75,6 +80,14 @@ Installs =fontaine= and waits for it, so the presets exist before the rest of th
       :mode-line-active-height 150
       :mode-line-inactive-height 150
       :line-spacing 0.1)
+     (presentation
+      :default-family "Aporetic Sans Mono"
+      :default-height 220
+      :variable-pitch-family "Charter"
+      :variable-pitch-height 220
+      :mode-line-active-height 220
+      :mode-line-inactive-height 220
+      :line-spacing 0.2)
      (t
       :default-weight regular
       :bold-weight bold
@@ -86,15 +99,31 @@ Installs =fontaine= and waits for it, so the presets exist before the rest of th
 
 ** Faces outside the presets
 
-The =link= face keeps its own family (IntoneMono Nerd Font) and the Org quote face uses Aporetic Serif Mono. Both are set directly because fontaine has no entry for them.
+The =link= face keeps its own family (IntoneMono Nerd Font).
+
+The Org document title, the text after =#+title:=, is the only place that uses Atkinson Hyperlegible. The Org quote face (=#+begin_quote=) uses Literata at height 1.0, which is the size of the default text in the buffer.
+
+Heading sizes must follow the default text, because larger headings hurt readability. Nothing in this configuration sets a height on =org-level-1= to =org-level-8=, and none of the theme options in =sp-themes= does either, but a theme package can still define them (the Lambda, Modus, EF and Doric themes are not read here). So =sp-fonts-org-faces= sets the height of all eight heading faces and of the title to 1.0, and runs after Org loads, after every theme change and after every =fontaine= preset change. If a theme sets a size, this overrides it.
 
 #+begin_src emacs-lisp -i
 (set-face-attribute 'link nil
                   :family "IntoneMono Nerd Font"
                   :height 150)
 
-(set-face-attribute 'org-quote nil
-                  :family "Aporetic Serif Mono")
+(defun sp-fonts-org-faces ()
+  "Set the fonts of the Org title and quote, and keep headings at text size."
+  (set-face-attribute 'org-document-title nil
+                      :family "Atkinson Hyperlegible" :height 1.0)
+  (set-face-attribute 'org-quote nil
+                      :family "Literata" :height 1.0)
+  (dotimes (n 8)
+    (set-face-attribute (intern (format "org-level-%d" (1+ n))) nil
+                        :height 1.0)))
+
+(with-eval-after-load 'org
+  (sp-fonts-org-faces))
+(add-hook 'sp-after-load-theme-hook #'sp-fonts-org-faces)
+(add-hook 'fontaine-set-preset-hook #'sp-fonts-org-faces)
 #+end_src
 
 * Symbols, emoji and fallbacks
@@ -184,7 +213,7 @@ Maximum decoration with no size limit, applied one second after startup.
 
 ** Larger minibuffer text
 
-The minibuffer is scaled up two steps. The comment says three steps is too much and that it would be nice to use finer increments.
+The minibuffer is scaled up two steps, for easier reading on a large screen. The comment says three steps is too much and that it would be nice to use finer increments.
 
 #+begin_src emacs-lisp -i
 ;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
