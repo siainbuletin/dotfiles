@@ -70,6 +70,7 @@ to fold or unfold it.
 ** Fixed
 - Clicking a box in the =relationship-annotator-graph= page now recentres the graph on it (the page captured the pointer, so the click never reached the box). A box can also be focused with =TAB= and recentred with =RET=. ([[https://github.com/siainbuletin/dotfiles/pull/38][#38]], Claude)
 ** Removed
+- =initback=, a backup of an older configuration. ([[https://github.com/siainbuletin/dotfiles/pull/65][#65]], Claude)
 - The Custom block at the end of =init.el= (=custom-set-variables= and =custom-set-faces=) is removed, including the absolute =org-agenda-files= list, so =sp-vulpea-para= decides which agenda files load. The fonts, modeline choice, safe themes and org emphasis faces it held are no longer set. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
 
 * 2026-10-23
