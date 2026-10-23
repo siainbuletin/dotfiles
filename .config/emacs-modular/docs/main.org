@@ -34,13 +34,13 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 ** academic/
 
 - [[file:tangles/academic/sp-academic.org][sp-academic]] :: Academic workflow: bibliography and citations ([[file:../libraries/modules/academic/sp-academic.el][sp-academic.el]])
-- [[file:tangles/academic/sp-bibprocess.org][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
-- [[file:tangles/academic/sp-citations.org][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-bibprocess.el][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-citations.el][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
 - [[file:tangles/academic/sp-dgraphs.org][sp-dgraphs]] :: Discourse Graphs for argument mapping ([[file:../libraries/modules/academic/sp-dgraphs.el][sp-dgraphs.el]])
 - [[file:tangles/academic/sp-dyn-graph.org][sp-dyn-graph]] :: Interactive note graph for Vulpea ([[file:../libraries/modules/academic/sp-dyn-graph.el][sp-dyn-graph.el]])
-- [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
 - [[file:tangles/academic/sp-notes.org][sp-notes]] :: Denote workbook entries and consult-notes ([[file:../libraries/modules/academic/sp-notes.el][sp-notes.el]])
-- [[file:tangles/academic/sp-pdfprocess.org][sp-pdfprocess]] :: PDF metadata and the emacs-reader viewer ([[file:../libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-pdfprocess.el][sp-pdfprocess]] :: PDF metadata and the emacs-reader viewer ([[file:../libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]])
 - [[file:tangles/academic/sp-semantic.org][sp-semantic]] :: Semantic search over notes ([[file:../libraries/modules/academic/sp-semantic.el][sp-semantic.el]])
 - [[file:tangles/academic/sp-statistics.org][sp-statistics]] :: ESS for statistics ([[file:../libraries/modules/academic/sp-statistics.el][sp-statistics.el]])
 
