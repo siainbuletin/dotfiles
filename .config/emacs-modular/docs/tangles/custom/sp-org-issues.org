@@ -608,9 +608,7 @@ In a status buffer for a worktree of the yadm repository, this sets =magit-statu
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-issues= feature, loaded from =init.el= right after =sp-org-ext=.
+Provides the =sp-org-issues= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

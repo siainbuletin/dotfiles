@@ -258,9 +258,7 @@ In the dashboard buffer, r jumps to recents, b to bookmarks, a to the agenda and
 
 * Provide
 
-** Provide the feature
-
-Registers the =lem-dashboard= feature.
+Provides the =lem-dashboard= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

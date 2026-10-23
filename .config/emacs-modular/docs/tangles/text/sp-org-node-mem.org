@@ -103,9 +103,7 @@ Lets org-node alter how completion candidates are displayed, for example by addi
 
 * Provide
 
-** Provide feature
-
-Provides =sp-org-node-mem=.
+Provides the =sp-org-node-mem= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-node-mem)

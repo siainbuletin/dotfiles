@@ -58,9 +58,7 @@ Configures =calibredb=, deferred until used, to point at the Calibre library in 
 
 * Provide
 
-** Provide
-
-Provides the =sp-reading= feature.
+Provides the =sp-reading= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-reading)

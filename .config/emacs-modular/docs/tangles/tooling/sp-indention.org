@@ -78,9 +78,7 @@ Adds a =guess-style= subdirectory of this file's folder to =load-path= and decla
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-indention= feature for =init.el=.
+Provides the =sp-indention= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -820,9 +820,7 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-base= feature so =init.el= can require it.
+Provides the =sp-org-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

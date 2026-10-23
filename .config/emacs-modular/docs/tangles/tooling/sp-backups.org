@@ -136,9 +136,7 @@ Enables =savehist-mode=, which saves minibuffer history between sessions, with t
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-backups= feature for =init.el=.
+Provides the =sp-backups= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

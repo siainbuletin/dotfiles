@@ -211,9 +211,7 @@ A placeholder for a custom widget showing unlinked mentions from a tab folder. T
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-ui= feature.
+Provides the =sp-vulpea-ui= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -752,9 +752,7 @@ Warns if =vulpea-split--write-file= does not exist, which would mean an unsuppor
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-split= feature.
+Provides the =sp-vulpea-split= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -53,9 +53,7 @@ Installs =plz=, a curl-based HTTP library that several packages build on.
 
 * Provide
 
-** Provide feature
-
-Provides =sp-network=.
+Provides the =sp-network= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-network)

@@ -284,9 +284,7 @@ Requires =ob-tangle= right away, which also triggers the post-tangle hooks set u
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-babel= feature so =sp-org-ext= can require it.
+Provides the =sp-org-babel= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

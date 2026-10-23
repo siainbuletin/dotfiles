@@ -130,6 +130,8 @@ The notes, documents, literature, bibliography, org, source and clone folders. E
 
 * Provide
 
+Provides the =sp-paths= feature and closes the file.
+
 #+begin_src emacs-lisp -i
 (provide 'sp-paths)
 ;; sp-paths.el ends here.

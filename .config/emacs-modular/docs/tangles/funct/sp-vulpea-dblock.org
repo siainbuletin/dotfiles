@@ -263,9 +263,7 @@ A quick way to get a starting block without hand-typing the
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-dblock= feature.
+Provides the =sp-vulpea-dblock= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-dblock)

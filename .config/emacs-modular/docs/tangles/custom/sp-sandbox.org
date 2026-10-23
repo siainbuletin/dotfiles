@@ -110,6 +110,8 @@ Running it again for the same number updates the sandbox to the latest commit."
 
 * Provide
 
+Provides the =sp-sandbox= feature and closes the file.
+
 #+begin_src emacs-lisp -i
 (provide 'sp-sandbox)
 ;; sp-sandbox.el ends here.
