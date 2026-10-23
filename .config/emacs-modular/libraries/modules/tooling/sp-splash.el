@@ -94,13 +94,13 @@ lambda logo image instead."
   :type '(choice (const :tag "Use the logo image" nil) file)
   :group 'sp-splash)
 
-(defcustom sp-splash-art-x-offset -12
+(defcustom sp-splash-art-x-offset -50
   "Columns to move the art right (negative: left).
 Zero centres the art on the menu."
   :type 'integer
   :group 'sp-splash)
 
-(defcustom sp-splash-art-y-offset 0
+(defcustom sp-splash-art-y-offset 10
   "Lines to move the art down (negative: up).
 Zero centres the art on the menu."
   :type 'integer
