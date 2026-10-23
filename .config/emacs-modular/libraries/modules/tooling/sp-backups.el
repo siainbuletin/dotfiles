@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-backups.el
+;;; sp-backups.el --- Backups, auto-saving and history -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -64,7 +63,7 @@
       kept-old-versions 3
       version-control t)
 
-;;; Lockfiles unfortunately cause more pain than benefit
+;;;; Lockfiles unfortunately cause more pain than benefit
 (setq create-lockfiles nil)
 
 ;; What do you do with the saved history?
@@ -75,6 +74,5 @@
   :config
   (setq savehist-file (expand-file-name "savehist" sp-var-dir)))
 
-;;; Provide:
 (provide 'sp-backups)
 ;; sp-backups.el ends here.

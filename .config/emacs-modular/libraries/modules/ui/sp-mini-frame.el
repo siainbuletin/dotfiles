@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-mini-frame.el --- Creating a mini-frame that works kind of like a quick switcher
+;;; sp-mini-frame.el --- Centered minibuffer frame with background dimming -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,9 +7,9 @@
 ;; link. Inserting should still be placed somewhere in the bottom, so it can follow what
 ;; I'm writing in the current buffer without interrupting the focus on screen
 
-;;; Code: 
+;;; Code:
 
-;;; Create mini frame for the buffer
+;;;; Create mini frame for the buffer
 
 (require 'color) ;; why is color needed? what is this package?
 
@@ -32,7 +31,7 @@
   (mini-frame-mode 1)
 )
 
-;;; Dimming, only for selected commands
+;;;; Dimming, only for selected commands
 
 (defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
@@ -82,8 +81,6 @@
 
 (add-hook 'minibuffer-setup-hook #'sp-mini-frame--maybe-dim)
 (add-hook 'minibuffer-exit-hook #'sp-mini-frame-undim)
-
-;;; Provide:
 
 (provide 'sp-mini-frame)
 ;; sp-mini-frame.el ends here.

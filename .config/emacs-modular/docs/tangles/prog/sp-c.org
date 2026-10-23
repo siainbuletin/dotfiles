@@ -17,7 +17,18 @@ Rather than copying and editing the whole =google-c-style= definition, the modul
 =siapip/google-c-style-overrides= is a customizable list where each entry is a path of keys into the =google-c-style= alist plus a new value. The defaults set the basic offset to 4, indent member initialiser lists by =++= and outdent access labels (=public:=, =private:=) by =-=. The command =siapip/google-c-style-set-overrides= walks each key path with =assoc= and replaces the value with =setf= on the =cdr=. Note that nothing in this module calls the function, so the overrides only take effect if you run it yourself; also, if a key path is not found, =assoc= returns =nil= and the =setf= will signal an error.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-c.el --- C, C++ and CMake editing -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up editing for C-family languages and CMake files. It
+;; builds on the `google-c-style' package, adjusting a few of its indentation
+;; settings through a small override mechanism, and enables a stack of minor
+;; modes (`company-mode', `hs-minor-mode', `flycheck-mode',
+;; `rainbow-delimiters-mode') whenever a C or C++ buffer opens.
+
+;;; Code:
+
 (defcustom siapip/google-c-style-overrides
   '(((c-basic-offset) 4)
     ((c-offsets-alist member-init-intro) ++)

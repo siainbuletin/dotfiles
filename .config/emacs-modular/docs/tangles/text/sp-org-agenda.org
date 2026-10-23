@@ -7,7 +7,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Configures Org's agenda: the =C-c o a= key, the prefix format of agenda lines, visual styling of the time grid and tags, scheduling and sorting rules, the list of agenda files, and the =org-super-agenda= grouping. It also adds a command to jump to the daily view, automatic refresh of the agenda after a capture, and an alphapapa recipe for showing an agenda limited to the current subtree or region.
 
-It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode=, =org-super-agenda= and =org-other-agenda=. The custom agenda views are no longer defined here: they live in =sp-agenda-views=, described at the end of this file, which =sp-org-ext= loads. =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
+It is loaded in the Org section of both module lists in =init.el=, after =sp-org-capture=, and it installs =elegant-agenda-mode=, =org-super-agenda=, =org-ql= and =org-other-agenda=. The custom agenda views are no longer defined here: they live in =sp-agenda-views=, described at the end of this file, which =sp-org-ext= loads. =org-agenda-files= is also set in =sp-org-capture= and in =sp-denote='s save hook, so the effective list depends on load order.
 
 * Basics
 :PROPERTIES:
@@ -16,10 +16,21 @@ It is loaded in the Org section of both module lists in =init.el=, after =sp-org
 
 ** File header
 
-Turns on lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
+;; lines, visual styling of the time grid and tags, scheduling and sorting
+;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 #+end_src
 
 ** Agenda key
@@ -121,7 +132,7 @@ A note that an earlier two-letter mnemonic menu over =org-agenda-mode-map= was d
 Stops Org from aligning tags, puts agenda tags right after the heading, uses two spaces between breadcrumbs, and replaces the block separator with a blank. The time grid shows hours from 08:00 to 20:00 every two hours with light dotted lines, only on today and only when there are timed items, and the current time is marked with a line ending in "Now".
 
 #+begin_src emacs-lisp -i
-;;; Appearance of the agenda and rendering
+;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
   (setq org-agenda-tags-column 0)           ;; Put tags next to heading
@@ -166,7 +177,7 @@ Sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-o
 Done items are hidden from scheduled and timestamp entries. TODO lists hide tasks scheduled in the future and those with distant deadlines. Every view sorts by time ascending, and the calendar week starts on Monday.
 
 #+begin_src emacs-lisp -i
-;;; CONFIGURING THE FUNCTIONALITY
+;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
   (setq org-agenda-skip-scheduled-if-done t)
@@ -183,7 +194,7 @@ Done items are hidden from scheduled and timestamp entries. TODO lists hide task
 Installs =org-super-agenda= (waiting for it to be built) and sets its date format and groups: overdue DOING items first, then today's tasks (by date and by scheduled date, as two groups with the same name), then habits under "End of Day", then future TODOs, and DONE or CANCELED items last as "Accomplishments". The groups only apply when =org-super-agenda-mode= is enabled, and nothing in the config turns it on, so as it stands this grouping is not used.
 
 #+begin_src emacs-lisp -i
-;;; EXTENSIONS FOR ORG-AGENDA
+;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
 :after org
   :ensure (:wait t)
@@ -212,6 +223,18 @@ Installs =org-super-agenda= (waiting for it to be built) and sets its date forma
          :order 3))))
 #+end_src
 
+** org-ql
+
+Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on. It sits right after =org-super-agenda= on purpose: =org-ql= requires =org-super-agenda=, and if it is declared first, Elpaca queues =org-super-agenda= as a dependency and warns =org-super-agenda previously queued as dependency of: (org-ql)= when the explicit declaration follows. See [[file:../../load-order.org][the load order]].
+
+#+begin_src emacs-lisp -i
+;; org-ql requires org-super-agenda, so it has to be declared after it:
+;; the other way round, Elpaca queues org-super-agenda as a dependency first
+;; and warns that the explicit declaration came too late.
+(use-package org-ql
+ :ensure t)
+#+end_src
+
 ** Agenda files
 
 Uses every Org file in =~/notes/area/= and =~/notes/inbox/= for the agenda. The comment marks the inbox as tasks that were never dealt with. As noted in the intro, other modules also set this variable.
@@ -234,7 +257,7 @@ Uses every Org file in =~/notes/area/= and =~/notes/inbox/= for the agenda. The 
 Declares agenda variables so the byte compiler knows they are special when they are let-bound or set below, before =org-agenda= is loaded. Taken from alphapapa's unpackaged.el.
 
 #+begin_src emacs-lisp -i
-;;; Display an agenda file for the current subtree
+;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-sorting-strategy)
@@ -292,19 +315,10 @@ Shows a search agenda restricted to the current subtree, or to the active region
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/text/sp-org-agenda.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-** Provide marker
-
-Section comment.
+Provides the =sp-org-agenda= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
-#+end_src
 
-** Provide form
-
-Makes the module available as =sp-org-agenda=.
-
-#+begin_src emacs-lisp -i
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here
 #+end_src
@@ -321,8 +335,14 @@ This heading and everything under it is written to =sp-agenda-views.el=, not =sp
 Turns on lexical binding and loads the libraries the views need: =org-agenda= for =org-agenda-custom-commands= and =vulpea-para= for the building blocks of the PARA view.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-agenda-views.el --- Custom agenda views
+;;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Every custom agenda view in one place: the native views and the main PARA
+;; view from `vulpea-para'.
+
+;;; Code:
 
 (require 'org-agenda)
 (require 'vulpea-para)
@@ -452,12 +472,11 @@ Adds a view bound to the space key in the agenda dispatcher, in front of the oth
                 ,(vulpea-para-agenda-cmd-current-quarter))))
 #+end_src
 
-** Provide the feature
+** Provide
 
-Makes the module available as =sp-agenda-views=.
+Provides the =sp-agenda-views= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here
 #+end_src

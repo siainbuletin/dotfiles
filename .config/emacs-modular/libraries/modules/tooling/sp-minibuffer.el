@@ -1,7 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-minibuffer.el --- Minibuffer settings
+;;; sp-minibuffer.el --- Minibuffer and completion packages -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module gathers the packages behind minibuffer and in-buffer completion.
+;; It pulls in `sp-completion' and then installs the `prescient' sorting and
+;; filtering library together with its adapters for Company, Ivy, Selectrum,
+;; Vertico and Corfu, plus Corfu itself and `counsel-fd'.
 
 ;;; Code:
 
@@ -45,8 +49,6 @@
 
 (use-package corfu-prescient
   :ensure (:wait t))
-
-;;; Provide:
 
 (provide 'sp-minibuffer)
 ;; sp-minibuffer.el ends here.

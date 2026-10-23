@@ -17,10 +17,18 @@ It builds on Citar (configured in the citation module) and on Denote and Vulpea.
 Installs and enables =citar-denote-mode=, which makes Citar use Denote files as notes, and has Citar always create a note when you open notes for a reference that has none. Global keys: =C-c w b c= creates a note, =C-c w b n= opens one, and =C-c w b x= adds a nocite reference. In Org buffers, =C-c w b k= and =C-c w b K= add or remove a citekey from the current note, =C-c w b d= runs the do-what-I-mean command, and =C-c w b e= opens the bibliography entry.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-litnotes.el
+;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
 
-;;; File-level literature notes
+;;; Commentary:
+
+;; This academic module connects bibliography entries to notes. `citar-denote'
+;; creates one Denote file per reference (file-level literature notes) in a
+;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
+;; Vulpea nodes inside larger files.
+
+;;; Code:
+
+;;;; File-level literature notes
 (use-package citar-denote
   :ensure (:wait t)
 
@@ -81,7 +89,7 @@ Stores new literature notes in the =litnotes= subdirectory of the Denote directo
 Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be linked to Vulpea nodes. Notes use the =litnote= tag, store citation keys in a =REFERENCES= property, are titled "author (date) title", and live in =~/notes/litnotes=. A comment says the title template still needs to match the citar-denote convention.
 
 #+begin_src emacs-lisp -i
-;;; Node-level literature note configuration
+;;;; Node-level literature note configuration
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)
@@ -102,9 +110,7 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be lin
 
 * Provide
 
-** Provide feature
-
-Provides =sp-litnotes=.
+Provides the =sp-litnotes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-litnotes)
