@@ -306,10 +306,10 @@
 <!-- l1 -->
 <g id="node21" class="node">
 <title>l1</title>
-<path fill="#f4f4f4" stroke="#3a6ea5" d="M320,-348C320,-348 44,-348 44,-348 38,-348 32,-342 32,-336 32,-336 32,-304 32,-304 32,-298 38,-292 44,-292 44,-292 320,-292 320,-292 326,-292 332,-298 332,-304 332,-304 332,-336 332,-336 332,-342 326,-348 320,-348"/>
-<text text-anchor="middle" x="182" y="-335.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;academic &#160;sp&#45;dgraphs &#160;sp&#45;relationship&#45;annotator</text>
-<text text-anchor="middle" x="182" y="-323.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;relationship&#45;annotator&#45;live &#160;sp&#45;notes</text>
-<text text-anchor="middle" x="182" y="-311.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;semantic &#160;sp&#45;dyn&#45;graph</text>
+<path fill="#f4f4f4" stroke="#3a6ea5" d="M321.5,-348C321.5,-348 42.5,-348 42.5,-348 36.5,-348 30.5,-342 30.5,-336 30.5,-336 30.5,-304 30.5,-304 30.5,-298 36.5,-292 42.5,-292 42.5,-292 321.5,-292 321.5,-292 327.5,-292 333.5,-298 333.5,-304 333.5,-304 333.5,-336 333.5,-336 333.5,-342 327.5,-348 321.5,-348"/>
+<text text-anchor="middle" x="182" y="-335.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;academic &#160;sp&#45;notes &#160;sp&#45;semantic</text>
+<text text-anchor="middle" x="182" y="-323.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;dgraphs &#160;sp&#45;relationship&#45;annotator &#160;sp&#45;dyn&#45;graph</text>
+<text text-anchor="middle" x="182" y="-311.2" font-family="Helvetica,sans-Serif" font-size="11.00">sp&#45;relationship&#45;annotator&#45;live</text>
 <text text-anchor="middle" x="182" y="-299.2" font-family="Helvetica,sans-Serif" font-size="11.00">(org&#45;ref, citar&#45;org&#45;node, ...)</text>
 </g>
 <!-- g3&#45;&gt;l1 -->
