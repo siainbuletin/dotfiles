@@ -98,12 +98,14 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
 
 ** Agenda workspace
 
-=sp-open-agenda-in-workspace= switches to an existing "Agenda" tab, shows =*Org Agenda*=, refreshes it with =org-agenda-redo= and makes it the only window. Otherwise it creates the tab and runs =org-agenda-list=.
+=sp-open-agenda-in-workspace= switches to an existing "Agenda" tab, shows =*Org Agenda*=, refreshes it with =org-agenda-redo= and makes it the only window. Otherwise it creates the tab and runs the agenda view whose key is COMMAND (a key of =org-agenda-custom-commands=), or =org-agenda-list= without one. The splash screen passes the key of the PARA view.
 
 #+begin_src emacs-lisp -i
 ;;;;; Open Agenda as Workspace
-(defun sp-open-agenda-in-workspace ()
-  "Open agenda in its own workspace"
+(defun sp-open-agenda-in-workspace (&optional command)
+  "Open agenda in its own workspace.
+With COMMAND, a key of `org-agenda-custom-commands', run that view
+when the workspace is created."
   (interactive)
   (if (member "Agenda" (tabspaces--list-tabspaces))
       (progn
@@ -115,7 +117,9 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Agenda")
       (require 'org)
-      (org-agenda-list))))
+      (if command
+          (org-agenda nil command)
+        (org-agenda-list)))))
 #+end_src
 
 ** Config directory workspace

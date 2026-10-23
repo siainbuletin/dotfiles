@@ -45,8 +45,10 @@
     (project-magit-dir)))
 
 ;;;;; Open Agenda as Workspace
-(defun sp-open-agenda-in-workspace ()
-  "Open agenda in its own workspace"
+(defun sp-open-agenda-in-workspace (&optional command)
+  "Open agenda in its own workspace.
+With COMMAND, a key of `org-agenda-custom-commands', run that view
+when the workspace is created."
   (interactive)
   (if (member "Agenda" (tabspaces--list-tabspaces))
       (progn
@@ -58,7 +60,9 @@
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Agenda")
       (require 'org)
-      (org-agenda-list))))
+      (if command
+          (org-agenda nil command)
+        (org-agenda-list)))))
 
 ;;;;; Open emacs.d in Workspace
 (defun sp-open-emacsd-in-workspace ()
