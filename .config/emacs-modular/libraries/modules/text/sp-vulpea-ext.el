@@ -35,9 +35,7 @@
 (setq vulpea-capf-annotate-function t)
 
 ;; Create dataview-like tables through the vulpea query system
-(require 'sp-vulpea-dblock)
-(require 'sp-vulpea-vui-table)
-(require 'sp-vulpea-table-views)
+(require 'sp-vulpea-table)
 
 ;; Batch converting properties to plug into vulpea instead
 

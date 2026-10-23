@@ -4,150 +4,143 @@
 
 Literate source for =libraries/modules/ui/sp-fonts.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+This module sets up typography around =fontaine=: its presets own the default, fixed-pitch and variable-pitch families, their sizes, line spacing and the mode line height. The rest of the file reacts to those faces: symbol and emoji fallbacks, text scaling, a larger minibuffer font, =mixed-pitch= for prose buffers, font size commands and the =lin= line-highlighting package. The fontset block comes from Lambda Emacs.
 
-This module sets up typography: the default, variable-pitch and symbol fonts, emoji and fallback glyphs, line spacing, text scaling keys, a larger minibuffer font, =mixed-pitch= for prose buffers, and the =lin= line-highlighting package. It mixes code from Lambda Emacs (the =sp-ui-= customisation variables and the fontset block) and from Howard Abrams' configuration (the =ha-= font variables and font-size commands).
+It is loaded early among the UI modules in =init.el=, after =sp-icons=, =sp-colors= and =sp-faces=. Packages it installs: =fontaine=, =mixed-pitch= and =lin=. It expects fonts such as Aporetic Sans Mono, Aporetic Serif Mono and IntoneMono Nerd Font to be installed, with Symbola or Apple Symbols for symbols and Apple Color Emoji for emoji.
 
-It is loaded early among the UI modules in =init.el=, after =sp-icons=, =sp-colors= and =sp-faces=. Packages it installs: =mixed-pitch=, =fontaine= and =lin=. It expects fonts such as PT Mono, Aporetic Sans Mono, Aporetic Serif Mono and IntoneMono Nerd Font to be installed, with Symbola or Apple Symbols for symbols and Apple Color Emoji for emoji.
+Earlier versions had the options =sp-ui-default-font= and =sp-ui-variable-width-font=, the =ha-= font lists from Howard Abrams' configuration and three competing settings of the default face. They are gone: the presets are the one place that decides the fonts.
 
-The default face is set several times as the file loads (PT Mono at 120 through the customisation variable, then Aporetic Sans Mono at 150 directly), so the last setting wins unless =fontaine= restores a preset of its own.
+* Overview
 
-* Checking fonts
-
-** Header and commentary markers
+** File header
 
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
 ;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
+The module's own summary: fontaine owns the fonts, and everything else here reacts to them.
+
+#+begin_src emacs-lisp -i
 ;;; Commentary:
 
-;; This module sets up typography: the default, variable-pitch and symbol
-;; fonts, emoji and fallback glyphs, line spacing, text scaling keys, a larger
-;; minibuffer font, `mixed-pitch' for prose buffers, and the `lin'
-;; line-highlighting package.
+;; Typography for the whole configuration.  `fontaine' owns the font
+;; families and sizes: its presets set the `default', `fixed-pitch' and
+;; `variable-pitch' faces, line spacing and the mode line height in one
+;; place, and the latest preset is restored at startup.  The rest of this
+;; file reacts to those faces: symbol and emoji fallbacks, text scaling,
+;; `mixed-pitch' for prose and `lin' for line highlighting.
 
 ;;; Code:
 #+end_src
 
+* Checking fonts
+
 ** Is a font installed?
 
-=sp-font-available-p= returns non-nil when a font family name appears in =font-family-list=. It is used below to pick symbol and emoji fonts only when they exist. Based on an Emacs Redux post.
+=sp-font-available-p= returns non-nil when a font family name appears in =font-family-list=. It is used below to pick symbol and emoji fonts only when they exist.
 
 #+begin_src emacs-lisp -i
 ;;;; Check Fonts
 ;; See https://emacsredux.com/blog/2021/12/22/check-if-a-font-is-available-with-emacs-lisp/
 (defun sp-font-available-p (font-name)
-  "Check if font is available from system instaxlled fonts."
+  "Check if font is available from system installed fonts."
   (member font-name (font-family-list)))
 #+end_src
 
-* Default and variable pitch fonts
+* Fontaine
 
-** Applying a font spec to the default face
+** Presets and startup
 
-=sp-ui--set-default-font= takes a plist such as one with =:font= and =:height= keys and applies it to the =default= face with =set-face-attribute=.
+Installs =fontaine= and waits for it, so the presets exist before the rest of the file runs. The presets are listed in the table below; =t= holds what every preset shares. =fontaine-set-preset= is called with the preset saved by the last session, or =regular= the first time; the saved choice is kept in =sp-cache-dir=. =fontaine-mode= keeps the faces right when a theme is loaded. There is no =sp-ui-default-font= option any more: change the fonts by editing a preset, or switch with =M-x fontaine-set-preset=.
+
+| Preset         | Default face (fixed width)  | Variable-pitch face     | Default height | Variable-pitch height | Mode line | Line spacing |
+|----------------+-----------------------------+-------------------------+----------------+-----------------------+-----------+--------------|
+| =regular=      | Aporetic Sans Mono          | Aporetic Serif Mono     | 150            | 120                   | 150       | 0.1          |
+| =presentation= | Aporetic Sans Mono          | Charter                 | 220            | 220                   | 220       | 0.2          |
+
+Atkinson Hyperlegible and Literata are not part of a preset. They are set on single faces, see the next section.
 
 #+begin_src emacs-lisp -i
-;;;; Set Default & Variable Pitch Fonts
-(defun sp-ui--set-default-font (spec)
-  "Set the default font based on SPEC.
-SPEC is expected to be a plist with the same key names
-as accepted by `set-face-attribute'."
-  (when spec
-    (apply 'set-face-attribute 'default nil spec)))
+(use-package fontaine
+  :ensure (:wait t)
+  :demand t
+  :custom
+  (fontaine-latest-state-file (concat sp-cache-dir "fontaine-latest-state.eld"))
+  (fontaine-presets
+   '((regular
+      :default-family "Aporetic Sans Mono"
+      :default-height 150
+      :variable-pitch-family "Aporetic Serif Mono"
+      :variable-pitch-height 120
+      :mode-line-active-height 150
+      :mode-line-inactive-height 150
+      :line-spacing 0.1)
+     (presentation
+      :default-family "Aporetic Sans Mono"
+      :default-height 220
+      :variable-pitch-family "Charter"
+      :variable-pitch-height 220
+      :mode-line-active-height 220
+      :mode-line-inactive-height 220
+      :line-spacing 0.2)
+     (t
+      :default-weight regular
+      :bold-weight bold
+      :italic-slant italic)))
+  :config
+  (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
+  (fontaine-mode 1))
 #+end_src
 
-** Applying a font spec to variable-pitch
+** Faces outside the presets
 
-The same helper for the =variable-pitch= face. Its docstring still says default, a copy-paste leftover.
+The =link= face keeps its own family (IntoneMono Nerd Font).
 
-#+begin_src emacs-lisp -i
-(defun sp-ui--set-variable-width-font (spec)
-  "Set the default font based on SPEC.
-SPEC is expected to be a plist with the same key names
-as accepted by `set-face-attribute'."
-  (when spec
-    (apply 'set-face-attribute 'variable-pitch nil spec)))
-#+end_src
+The Org document title, the text after =#+title:=, is the only place that uses Atkinson Hyperlegible. The Org quote face (=#+begin_quote=) uses Literata at height 1.0, which is the size of the default text in the buffer.
 
-** Customisable default font
-
-=sp-ui-default-font= is a user option in the =sia-lambda= group. Its custom setter applies the font immediately whenever a new non-nil value is set, so setting it through Customize or =custom-set-variables= changes the font at once. The =:key-type:= with a trailing colon in the type is a typo, but only affects the Customize widget.
+Heading sizes must follow the default text, because larger headings hurt readability. Nothing in this configuration sets a height on =org-level-1= to =org-level-8=, and none of the theme options in =sp-themes= does either, but a theme package can still define them (the Lambda, Modus, EF and Doric themes are not read here). So =sp-fonts-org-faces= sets the height of all eight heading faces and of the title to 1.0, and runs after Org loads, after every theme change and after every =fontaine= preset change. If a theme sets a size, this overrides it.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-ui-default-font nil
-  "The configuration of the `default' face.
-Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
-  :type '(plist :key-type: symbol)
-  :tag "Lambda-Emacs Default font"
-  :set (lambda (sym val)
-         (let ((prev-val (if (boundp 'sp-ui-default-font)
-                             sp-ui-default-font
-                           nil)))
-           (set-default sym val)
-           (when (and val (not (eq val prev-val)))
-             (sp-ui--set-default-font val)))))
-#+end_src
+(set-face-attribute 'link nil
+                  :family "IntoneMono Nerd Font"
+                  :height 150)
 
-** Customisable variable-width font
+(defun sp-fonts-org-faces ()
+  "Set the fonts of the Org title and quote, and keep headings at text size."
+  (set-face-attribute 'org-document-title nil
+                      :family "Atkinson Hyperlegible" :height 1.0)
+  (set-face-attribute 'org-quote nil
+                      :family "Literata" :height 1.0)
+  (dotimes (n 8)
+    (set-face-attribute (intern (format "org-level-%d" (1+ n))) nil
+                        :height 1.0)))
 
-=sp-ui-variable-width-font= is the matching option for the =variable-pitch= face, with the same immediate-apply setter. The docstring again mentions the default face by mistake.
-
-#+begin_src emacs-lisp -i
-(defcustom sp-ui-variable-width-font nil
-  "The configuration of the `default' face.
-Use a plist with the same key names as accepted by `set-face-attribute'."
-  :group 'sia-lambda
-  :type '(plist :key-type: symbol)
-  :tag "Lambda-Emacs Variable width font"
-  :set (lambda (sym val)
-         (let ((prev-val (if (boundp 'sp-ui-variable-width-font)
-                             sp-ui-variable-width-font
-                           nil)))
-           (set-default sym val)
-           (when (and val (not (eq val prev-val)))
-             (sp-ui--set-variable-width-font val)))))
-#+end_src
-
-** Choosing the default font
-
-Sets the default font to PT Mono at height 120 (12 points) through =custom-set-variables=, which triggers the setter above. This is later overridden in this file.
-
-#+begin_src emacs-lisp -i
-;; Uncomment and set below variables for fonts other than the defaults
-(custom-set-variables
- '(sp-ui-default-font
-   '(:font "PT Mono" :height 120)))
+(with-eval-after-load 'org
+  (sp-fonts-org-faces))
+(add-hook 'sp-after-load-theme-hook #'sp-fonts-org-faces)
+(add-hook 'fontaine-set-preset-hook #'sp-fonts-org-faces)
 #+end_src
 
 * Symbols, emoji and fallbacks
 
-** Variable-pitch font and fontset setup
-
-First sets the variable-pitch font to Aporetic Serif Mono at 120.
+** Fontset setup
 
 The =fontset= block configures glyph fallbacks. =use-default-font-for-symbols= is t so symbols use the default font where it has them, which the comment says =org-modern-indent= needs. For the rest, the first installed font among Symbola, Apple Symbols, Symbol and Segoe UI Symbol is assigned to the symbol script. On Emacs 28 or later, Apple Color Emoji is prepended for the emoji script to get colour emoji.
 
 Finally a face named =fallback= (Fira Code, inheriting from =fringe=) is defined and used for the truncation and wrap indicators in the standard display table, so truncated lines end with an ellipsis and wrapped lines show a return arrow.
 
 #+begin_src emacs-lisp -i
-(custom-set-variables
- '(sp-ui-variable-width-font
-   '(:font "Aporetic Serif Mono" :height 120)))
-   
 ;;;; Set Symbol & Emoji Fonts
 ;; The fontset settings are necessary to make the lambda-line and lambda-dashboard work properly
 (use-package fontset
   :ensure nil
-  
+
   :custom
   ;; Set this to nil to set symbols entirely separately
   ;; Need it set to `t` in order to display org-modern-indent faces properly
   (use-default-font-for-symbols t)
-  
+
   :config
   ;; Use symbola for proper symbol glyphs, but have some fallbacks
   (cond ((sp-font-available-p "Symbola")
@@ -162,14 +155,14 @@ Finally a face named =fallback= (Fira Code, inheriting from =fringe=) is defined
         ((sp-font-available-p "Segoe UI Symbol")
          (set-fontset-font
           t 'symbol "Segoe UI Symbol" nil)))
-  
+
   ;; Use Apple emoji
   ;; NOTE that emoji here may need to be set to unicode to get color emoji
   (when (and (>= emacs-major-version 28)
              (sp-font-available-p "Apple Color Emoji"))
     (set-fontset-font t 'emoji
                       '("Apple Color Emoji" . "iso10646-1") nil 'prepend))
-  
+
   ;; Fall back font for missing glyph
   (defface fallback '((t :family "Fira Code"
                          :inherit fringe)) "Fallback")
@@ -179,27 +172,13 @@ Finally a face named =fallback= (Fira Code, inheriting from =fringe=) is defined
                           (make-glyph-code ?↩ 'fallback)))
 #+end_src
 
-* Spacing and font lock
-
-** Line spacing
-
-Adds 10 percent of the line height as extra spacing below each line in all buffers.
-
-#+begin_src emacs-lisp -i
-;; Set default line spacing. If the value is an integer, it indicates
-;; the number of pixels below each line. A decimal number is a scaling factor
-;; relative to the current window's default line height. The setq-default
-;; function sets this for all buffers. Otherwise, it only applies to the current
-;; open buffer
-(setq-default line-spacing 0.1)
-#+end_src
+* Font lock
 
 ** Font lock
 
-Requests the maximum level of syntax highlighting and removes the buffer size limit for font lock. Loading is deferred by one second, though font lock is normally already loaded.
+Maximum decoration with no size limit, applied one second after startup.
 
 #+begin_src emacs-lisp -i
-;;;; Font Lock
 (use-package font-lock
   :ensure nil
   :defer 1
@@ -214,7 +193,7 @@ Requests the maximum level of syntax highlighting and removes the buffer size li
 
 ** Scale step and keys
 
-Each =text-scale-increase= step grows text by 8 percent, roughly one point. ~s-=~, ~s--~ and ~s-0~ (Super or Command key) increase, decrease and reset the scale; =bind-key*= makes these override any mode-specific bindings. The comment notes the step should ideally adapt to screen resolution.
+=text-scale-mode-step= makes each step about one point. =s-== and =s--= scale up and down and =s-0= adjusts interactively, bound with =bind-key*= so no mode overrides them. The comment notes the step should adapt to the screen resolution.
 
 #+begin_src emacs-lisp -i
 ;;;; Scale Text
@@ -230,7 +209,7 @@ Each =text-scale-increase= step grows text by 8 percent, roughly one point. ~s-=
 
 ** Larger minibuffer text
 
-=sp-minibuffer= enlarges text in the minibuffer by two steps. The comments describe it as a hack that would be better done through faces.
+The minibuffer is scaled up two steps, for easier reading on a large screen. The comment says three steps is too much and that it would be nice to use finer increments.
 
 #+begin_src emacs-lisp -i
 ;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
@@ -244,7 +223,7 @@ Each =text-scale-increase= step grows text by 8 percent, roughly one point. ~s-=
 
 ** Hooking the minibuffer
 
-Runs =sp-minibuffer= every time a minibuffer is entered.
+Applies =sp-minibuffer= whenever the minibuffer starts.
 
 #+begin_src emacs-lisp -i
 (add-hook 'minibuffer-mode-hook 'sp-minibuffer)
@@ -252,7 +231,7 @@ Runs =sp-minibuffer= every time a minibuffer is entered.
 
 ** Larger text buffers
 
-=sp-text-buffer= enlarges text by four steps. It is not used here; =sp-minibuffer.el= adds it to =text-mode-hook=, so all prose buffers get it.
+=sp-text-buffer= scales text up four steps. It is defined but not hooked anywhere in this file.
 
 #+begin_src emacs-lisp -i
 (defun sp-text-buffer ()
@@ -264,10 +243,9 @@ Runs =sp-minibuffer= every time a minibuffer is entered.
 
 ** mixed-pitch
 
-=mixed-pitch-mode= is turned on in every text-mode buffer, so prose is shown in the variable-pitch font while code and tables stay fixed-pitch. Org property values, special keywords (such as SCHEDULED and property names), and comments are added to the faces that stay fixed-pitch.
+Installs =mixed-pitch= and turns it on in text modes, so prose uses the variable-pitch face while code-like parts stay fixed. =org-property-value=, =org-special-keyword= and =font-lock-comment-face= are added to the faces that stay fixed-pitch.
 
 #+begin_src emacs-lisp -i
-;;;; Mixed pitch
 (use-package mixed-pitch
   :ensure t
 
@@ -279,195 +257,47 @@ Runs =sp-minibuffer= every time a minibuffer is entered.
 )
 #+end_src
 
-* Font variables from HA macs
+* Prettify symbols and spacing
 
-This part comes from Howard Abrams' configuration and, as its comment says, still needs adapting. These variables are only used by the font-size commands further down.
+** Prettify symbols
 
-** Fixed-width font choice
-
-=ha-fixed-font= is the first installed font from an ordered list of coding fonts (Source Code Pro, several Nerd Fonts, NanumGothicCoding, Hasklig), falling back to monospaced. It is only computed in a graphical session; in a terminal it is nil.
-
-#+begin_src emacs-lisp -i
-;;;; Variables for fonts
-;; This configuration is taken from HA macs and should be adapted better at some point
-;; with better variables, so that it's easier to customize the fonts that are being used.
-(defvar ha-fixed-font
-  (when window-system
-    (or
-     ;; Choose favorite installed font from an ordered list (by preference):
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("Source Code Pro"
-                    "Cousine Nerd Font"
-                    "Cascadia Code NF"         ; Microsoft's offical has Nerds
-                    "CaskaydiaCove Nerd Font"  ; Best Nerd-based font
-                    "NanumGothicCoding"        ; Winner of codingfont.com
-                    "Hack Nerd Font"           ; no litagures!?
-                    "FiraCode Nerd Font"       ; has too much ligatures
-                    "FantasqueSansMono Nerd Font"
-                    "Monoid Nerd Font"
-                    "Hasklig"
-                    )))
-     "monospaced"))
-  "My fixed width font based on what I have installed.")
-#+end_src
-
-** Variable font choice
-
-=ha-variable-font= picks the first installed serif from SN Pro, Atkinson Hyperlegible, Literata, XCharter, Charter and Serif. If none exists it shows a warning, and the variable then ends up holding the warning text instead of a font name.
-
-#+begin_src emacs-lisp -i
-(defvar ha-variable-font
-  (when window-system
-    (or
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("SN Pro"
-                    "Atkinson Hyperlegible"
-                    "Literata"
-                    "XCharter"
-                    "Charter"
-                    "Serif")))
-     (warn "Cannot find a Serif Font.  Install Source Sans Pro."))))
-#+end_src
-
-** Header font choice
-
-=ha-variable-header-font= does the same for a sans-serif header font. Nothing in this module uses it.
-
-#+begin_src emacs-lisp -i
-(defvar ha-variable-header-font
-  (when window-system
-    (or
-     (seq-first
-      (seq-filter (lambda (font) (when (x-list-fonts font) font))
-                  '("SN Pro" "Overpass" "DejaVu Sans"
-                    "Verdana" "Overpass"
-                    "Source Sans Pro"
-                    "Lucida Grande"
-                    "Sans Serif")))
-     (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-#+end_src
-
-** Setting all fonts to one size
-
-=ha-set-favorite-font-size= turns off =mixed-pitch-mode= in the current buffer, then sets the default and fixed-pitch faces to =ha-fixed-font= and variable-pitch to =ha-variable-font=, all at the given point size.
-
-#+begin_src emacs-lisp -i
-(defun ha-set-favorite-font-size (size)
-  "Set the default font size as well as equalize the fixed and variable fonts."
-
-  (let ((fixed-font (format "%s-%d" ha-fixed-font size))
-        (prop-font  (format "%s-%d" ha-variable-font size)))
-    (when (fboundp 'mixed-pitch-mode)
-      (mixed-pitch-mode -1))
-
-    ;; The font specification is the name and the size ... odd enough I guess:
-    (set-face-attribute 'default nil :font fixed-font)
-    (set-face-attribute 'fixed-pitch nil :font fixed-font :inherit 'default
-                        :height 'unspecified)
-    (set-face-attribute 'variable-pitch nil :font prop-font :inherit 'default
-                        :height 'unspecified)))
-#+end_src
-
-* Direct face settings
-
-** Default face
-
-Sets the default face to Aporetic Sans Mono at height 150, overriding the PT Mono setting above.
-
-#+begin_src emacs-lisp -i
-(set-face-attribute 'default nil
-                  :family "Aporetic Sans Mono"
-                  :height 150)
-#+end_src
-
-** Link face
-
-Shows links in IntoneMono Nerd Font at height 150.
-
-#+begin_src emacs-lisp -i
-(set-face-attribute 'link nil
-                  :family "IntoneMono Nerd Font"
-                  :height 150)
-#+end_src
-
-** Fontaine
-
-Installs =fontaine= and enables =fontaine-mode=, which remembers and restores the last font preset across sessions. No =fontaine-presets= are defined here, so the intent is presumably to add them later.
-
-#+begin_src emacs-lisp -i
-(use-package fontaine
-  :ensure (:wait t)
-  :init
-  (fontaine-mode))
-#+end_src
-
-** Prettify symbols behaviour
-
-When point is on or just after a prettified symbol, it is shown in its original text form so it can be edited.
+Symbols are shown as their prettified form until point reaches the right edge of them, and prettify mode is on globally.
 
 #+begin_src emacs-lisp -i
 (setq prettify-symbols-unprettify-at-point 'right-edge)
-#+end_src
 
-** Enabling prettify symbols
-
-Turns on =global-prettify-symbols-mode=. The additional local =prettify-symbols-mode= call only affects whichever buffer is current at load time, so it is effectively redundant.
-
-#+begin_src emacs-lisp -i
 (global-prettify-symbols-mode +1)
 (prettify-symbols-mode +1)
 #+end_src
 
 ** Line spacing in text buffers
 
-Sets a buffer-local line spacing of 0.1 in text-mode buffers, the same value as the global default above, so it has no visible effect unless the default is changed.
+Text buffers get a line spacing of 0.1 of the line height; other buffers use the value from the fontaine preset.
 
 #+begin_src emacs-lisp -i
 (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
-#+end_src
-
-** Org quote face
-
-Shows Org quote blocks in Aporetic Serif Mono. The =org-quote= face only exists once Org is loaded. If Org has not been loaded yet when this module runs (it sits among the early UI modules), this call signals an invalid face error and the rest of the file is skipped; the safer form would wrap it in =with-eval-after-load= for org. Whether this happens depends on load order and is inferred, not observed.
-
-#+begin_src emacs-lisp -i
-(set-face-attribute 'org-quote nil
-                  :family "Aporetic Serif Mono")
-#+end_src
-
-** Mode line size
-
-Uses height 150 for both active and inactive mode lines so they match the default font.
-
-#+begin_src emacs-lisp -i
-(set-face-attribute 'mode-line nil :height 150)
-(set-face-attribute 'mode-line-inactive nil :height 150)
 #+end_src
 
 * Font size commands
 
 ** Adjusting the font size
 
-=font-size-adjust= reads the current default font size and calls =ha-set-favorite-font-size= with that size plus DELTA. Note that this switches the fonts to =ha-fixed-font= and =ha-variable-font= rather than keeping the Aporetic fonts set above, and turns off =mixed-pitch-mode= in the current buffer.
+=font-size-adjust= changes the height of the =default= face by ten units (one point) per step of DELTA, never below 60. It replaces the old version that rebuilt every face from the =ha-= font lists. The change lasts until the next =fontaine-set-preset=, which applies the preset height again.
 
 #+begin_src emacs-lisp -i
 (defun font-size-adjust (delta)
-  "Adjust the current frame's font size.
-DELTA would be something like 1 or -1."
+  "Adjust the height of the `default' face by DELTA points.
+DELTA would be something like 1 or -1.  The next
+`fontaine-set-preset' restores the height of the preset."
   (interactive "nFont size difference: ")
-  (when (null delta) (setq delta 1))
-
-  (let* ((font-family (face-attribute 'default :font))
-         (font-size   (font-get font-family :size))
-         (new-size    (+ delta font-size)))
-    (ha-set-favorite-font-size new-size)))
+  (set-face-attribute 'default nil
+                      :height (max 60 (+ (face-attribute 'default :height)
+                                         (* 10 (or delta 1))))))
 #+end_src
 
 ** Increase
 
-=font-size-increase= grows the font by one point.
+Makes the font one point larger.
 
 #+begin_src emacs-lisp -i
 (defun font-size-increase ()
@@ -478,7 +308,7 @@ DELTA would be something like 1 or -1."
 
 ** Decrease
 
-=font-size-decrease= shrinks the font by one point.
+Makes the font one point smaller.
 
 #+begin_src emacs-lisp -i
 (defun font-size-decrease ()
@@ -489,7 +319,7 @@ DELTA would be something like 1 or -1."
 
 ** Font size keys
 
-Binds ~M-+~ and ~M-=~ to increase and ~M--~ to decrease the font size. These replace the default ~M-=~ (=count-words-region=) and ~M--~ (=negative-argument=).
+=M-+= and =M-== increase the size and =M--= decreases it.
 
 #+begin_src emacs-lisp -i
 (global-set-key (kbd "M-+") 'font-size-increase)
@@ -501,37 +331,19 @@ Binds ~M-+~ and ~M-=~ to increase and ~M--~ to decrease the font size. These rep
 
 ** The lin package
 
-Installs Protesilaos Stavrou's =lin=, which makes =hl-line-mode= more prominent in list-like buffers.
+Installs =lin=, which highlights the current line in modes where it helps. The face is =lin-blue=, and =lin-mode-hooks= lists the modes it applies to.
 
 #+begin_src emacs-lisp -i
 ;;;; Lin package
 (use-package lin
   :ensure t)
-#+end_src
 
-** Highlight colour
-
-Uses the blue lin face.
-
-#+begin_src emacs-lisp -i
 (setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
-#+end_src
 
-** Live update tip
-
-A comment showing how to change =lin-face= at runtime with =customize-set-variable=, which also refreshes buffers where it is active.
-
-#+begin_src emacs-lisp -i
 ;; You can use this to live update the face:
 ;;
 ;; (customize-set-variable 'lin-face 'lin-green)
-#+end_src
 
-** Where lin applies
-
-Lists the mode hooks in which lin should be active: Dired, Ibuffer, Magit logs, grep and occur, the Org agenda, mail and feed readers, process lists and tabulated lists, among others. This list is only used by =lin-global-mode=, which is not enabled anywhere in the config, so lin currently has no effect.
-
-#+begin_src emacs-lisp -i
 (setq lin-mode-hooks
       '(bongo-mode-hook
         dired-mode-hook
@@ -553,11 +365,12 @@ Lists the mode hooks in which lin should be active: Dired, Ibuffer, Magit logs, 
         tabulated-list-mode-hook))
 #+end_src
 
-** Provide
+* Provide
 
 Provides the =sp-fonts= feature and closes the file.
 
 #+begin_src emacs-lisp -i
+;;; Provide
 (provide 'sp-fonts)
-;; sp-fonts.el ends here.
+;;; sp-fonts.el ends here
 #+end_src

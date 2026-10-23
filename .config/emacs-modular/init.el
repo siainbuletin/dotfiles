@@ -257,7 +257,10 @@ the order of `lem--late-modules', for example when debugging."
     sp-terminal
     sp-eshell
     ;; AI tooling: the most packages of any module
-    sp-ai)
+    sp-ai
+    sp-tag-emoji ;; tags as emoji in the modeline and on links
+    sp-thesis-dump
+    )
   "Modules that can wait until after startup, in dependency order.
 Nothing else requires these features, and their packages are not
 needed to open the first buffer.")
@@ -371,7 +374,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
-                    'sp-tag-emoji ;; tags as emoji in the modeline and on links
                     'sp-csv
 
                     ;; Functions
