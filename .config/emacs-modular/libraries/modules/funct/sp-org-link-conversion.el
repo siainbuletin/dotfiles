@@ -1,13 +1,13 @@
-;;; -*- lexical-binding: t; -*-
-;; sp-org-link-conversion.el --- Create links at point.
+;;; sp-org-link-conversion.el --- Create notes and convert wikilinks to ID links -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; 
+;;
 ;;
 ;; Literate configuration is found in ~sp-org-id-link.el~
 
 ;;; Code:
+
 ;;;; Required libraries:
 (require 'org)
 (require 'org-id)
@@ -314,8 +314,6 @@ and `[[Target^block]]' link to the note Target."
           (delete-overlay (cdr cell)))))
     (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
              auto manual sp-org--wl-created (- (length pending) manual))))
-
-;;; Provide:
 
 (provide 'sp-org-link-conversion)
 ;; sp-org-link-conversion.el ends here.

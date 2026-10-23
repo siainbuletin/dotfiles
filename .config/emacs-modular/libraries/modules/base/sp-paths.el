@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;;; sp-paths.el --- Where my files live
+;;; sp-paths.el --- Where my files live -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

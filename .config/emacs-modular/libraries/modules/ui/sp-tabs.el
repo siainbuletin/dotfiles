@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-tabs.el
+;;; sp-tabs.el --- Tab bar and tabspaces workspaces -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,6 +8,8 @@
 ;; of windows. A workspace or "tabspace" (see the package below) is just a tab
 ;; with an isolated set of buffers (see also the consult function). 𝛌-Emacs (and
 ;; 𝛌-Themes) sets things up so that these tabs/workspaces are nicely displayed.
+
+;;; Code:
 
 ;;;; Tab Bar
 ;; Use tab-bar for window grouping and configuration within a project (replaces eyebrowse)

@@ -1,5 +1,4 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-babel.el
+;;; sp-org-babel.el --- Org Babel languages and tangling -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -139,7 +138,7 @@ This shell is used to execute the Nushell command."
          (command (format "python3 -c %s %s" script code)))
     (org-babel-eval command "")))
 
-;;; Tangling all files at once from the literate configuration
+;;;; Tangling all files at once from the literate configuration
 (require 'ob-tangle)
 
 (defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))
@@ -159,8 +158,6 @@ This shell is used to execute the Nushell command."
              (length tangled)
              (mapconcat #'file-name-nondirectory tangled ", "))
     tangled))
-
-;;; Provide:
 
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.

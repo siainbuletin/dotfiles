@@ -1,0 +1,158 @@
+#+title: Research question states
+#+startup: overview
+
+What state each object in a research workflow should be in, and what has to be true for it to be there. The code that draws and checks it is in [[file:custom/sp-dg-positions.org][sp-dg-positions]]; the discourse-graphs node types underneath are set up in [[file:academic/sp-dgraphs.org][sp-dgraphs]].
+
+* The one rule
+
+Two different things used to share the word /contested/, and they are now kept apart:
+
+- *Where I am in the work* is the state of the *question*. It is an Org TODO keyword, so =org-agenda= can show it. It changes when I do something.
+- *How strong an answer is* is the status of the *position* (the claim that answers). It is never typed. It is computed from the relations around the claim, by the rules in =dg-positions-rules=, and it changes when the notes around it change.
+
+A question is never "contested". It has answers, and some of those answers are. Look at them with =M-x dg-positions-status=.
+
+* Setting it up
+
+Put these two lines at the top of the file that holds the questions. They have to be file-local: the global =org-todo-keywords= is overwritten at the end of =sp-org-taskman-extra=, so a keyword set declared here is the only one that survives.
+
+#+begin_example
+#+todo: QUESTION(q) SCOPING(s) READING(r) SYNTHESIZING(y) | STABLE(t) DROPPED(x)
+#+todo: UNREAD(u) | READ(R) SKIPPED(k)
+#+end_example
+
+The first line is the question. The second is the reading tasks under it. A question is a heading with =:DG_TYPE: question= and an =:ID:=, so discourse-graphs sees it. discourse-graphs leaves the TODO keyword out of the node's title, so changing state does not rename the node.
+
+A question carries three pieces of information that its state is judged against. They are the contract that the iterative workflow rests on, and they live in the zeroth section of the note (=- key :: value= lines):
+
+| =- query ::=    | The name of the saved query that decides which notes count. |
+| =- hub ::=      | The hub note the corpus hangs from.                         |
+| =- last-run ::= | The date of the last run of that query.                     |
+
+* What every object can be
+
+| Object             | Where its state lives                         | Values                                                                   |
+|--------------------+-----------------------------------------------+--------------------------------------------------------------------------|
+| Question           | TODO keyword                                  | =QUESTION= =SCOPING= =READING= =SYNTHESIZING= =STABLE= =DROPPED=         |
+| Reading task       | TODO keyword, a child of the question         | =UNREAD= =READ= =SKIPPED=                                                |
+| Position (claim)   | Computed, never typed                         | =challenged= =contested= =supported= =unsupported=                       |
+| Position, history  | Relation to a newer claim                     | live, or retired once a newer claim =supersedes= it                      |
+| Evidence           | Computed gap                                  | sourced, or =no-source=                                                  |
+| Source             | The reading task that points at it            | =UNREAD= =READ= =SKIPPED=                                                |
+| Relation           | Its name                                      | any name in =dg-positions-rules=; it counts as support, as opposition, or only links |
+
+* The state of a question
+
+Each state says what is true when the question is in it, and what moves it on. If the note does not match its state, the state is wrong, not the note.
+
+** QUESTION
+
+The question is written down and nothing else.
+
+- *True:* it has a title, and it is a discourse-graphs =question= node.
+- *Not yet true:* there is no =query= and no =hub=.
+- *Leaves when:* =query= and =hub= are both filled in. Move to =SCOPING=.
+
+** SCOPING
+
+I am deciding what counts as the corpus.
+
+- *True:* =query= and =hub= exist. The query may not return anything useful yet.
+- *Work:* run the query, read the manifest, adjust the query until what it returns is what I would want to read.
+- *Leaves when:* a run returns at least one note I have not read. Write =last-run=, add a =READ= task for each such note, move to =READING=. If everything returned is already read, move straight to =SYNTHESIZING=.
+
+** READING
+
+There is something unread, and it is in the list.
+
+- *True:* at least one child is =UNREAD=. Every note the last run found and I have not read has a child task.
+- *Work:* read, and record each reading as a discourse-graphs node: sources, the evidence taken from them, and any claim they make, with =supports=, =opposes=, =informs= and the relations from the rules.
+- *Leaves when:* no child is =UNREAD=. Each is =READ=, or =SKIPPED= with a line saying why. Move to =SYNTHESIZING=.
+
+** SYNTHESIZING
+
+Everything found has been read, and I am writing the answer.
+
+- *True:* no =UNREAD= child. At least one claim has an =answers= relation to this question, or is being written.
+- *Work:* write or revise the answer claim. A revised answer is a new claim that =supersedes= the old one, so the history stays.
+- *Leaves when:* the answers pass the test in the next section. Move to =STABLE=. If the answer is not going to be written, move to =DROPPED=.
+
+** STABLE
+
+The question is answered as far as the corpus goes. This is a done state, so it leaves the agenda, but it stays watched.
+
+- *True:* the last run of the query found nothing new. No child is =UNREAD=. At least one live claim answers the question, and none of its live answers is =challenged= or =unsupported=. A =contested= answer is allowed if the opposing side is written up as evidence or claims in the corpus.
+- *Gets reopened when:* a later run of the query finds a note that is not in the last run, or an answer's status falls to =challenged= or =unsupported= (for example because a note it relied on was retired). Move back to =READING=, and add tasks for the new notes.
+- To make it hard to close a question that still has reading to do, give the heading =:BLOCKER: children=. Org-edna then refuses to set a done state while a child is open. This is the one use of org-edna here that does not depend on anything else; I have not set it up in the config.
+
+** DROPPED
+
+I decided not to answer it. This is a done state.
+
+- *True:* a line under the heading says why, and the date. Nothing else is required, and nothing is deleted: claims and evidence stay in the graph.
+- *Can be reopened:* by setting it to =QUESTION= or =SCOPING= again.
+
+** How the states connect
+
+#+begin_example
+QUESTION ──► SCOPING ──► READING ──► SYNTHESIZING ──► STABLE
+                │            ▲             │              │
+                │            └─────────────┼──────────────┘   new notes, or an
+                └──── nothing new to read ─┘                    answer weakens
+                                                      any state ──► DROPPED
+#+end_example
+
+Moves go forward one state at a time, except for the two shortcuts (=SCOPING= to =SYNTHESIZING= when there is nothing to read) and the reopening of a =STABLE= question to =READING=. Moving backward from =SYNTHESIZING= to =READING= is how a question absorbs a note I forgot; it needs a new =UNREAD= task.
+
+* The status of a position
+
+A position is a claim. Its status is computed by =dg-positions-rules=, which count the relations pointing at it. They come from discourse-graphs: the same four names, with the same meaning.
+
+| Status         | Rule                                          | What to do                                                  |
+|----------------+-----------------------------------------------+-------------------------------------------------------------|
+| =supported=    | Support, and nothing opposes it               | Nothing. It can stand as the answer.                        |
+| =contested=    | More support than opposition, and some of both | Make sure the opposing side is written up. This is where a question is interesting. |
+| =challenged=   | Opposition equals or outweighs the support    | Read more on the supporting side, or revise the claim. A new claim that supersedes it is the usual fix. |
+| =unsupported=  | Nothing supports it and nothing opposes it    | It is a hypothesis. Find evidence, or drop the claim.       |
+
+Two details differ from discourse-graphs. It tests "no support" first, so a claim with only objections reads =unsupported=; here the same claim reads =challenged=, which tells me more. And the numbers behind the statuses can be changed by adding relations to the rules (see the next section): a =contests= or =adopts= relation between claims counts toward the target's opposition or support.
+
+A claim that a newer claim =supersedes= is retired. It is not counted and does not appear in the views, unless =dg-positions-show-retired= is on.
+
+** Evidence and sources
+
+Evidence has no status, only one gap: =no-source=, meaning it =informs= no source. Fix it by linking the source. A source has no state of its own; it is read when its reading task is =READ=.
+
+* Auditing: what is wrong with this note?
+
+| I see                                                           | It means                                       | Fix                                           |
+|-----------------------------------------------------------------+------------------------------------------------+-----------------------------------------------|
+| =STABLE=, and a =no-answer= gap on the question                 | Nothing answers it                             | Move back to =SYNTHESIZING=                   |
+| =STABLE=, and an answer that is =challenged= or =unsupported=   | The answer weakened after I closed it          | Move to =READING=                             |
+| =READING=, and no =UNREAD= child                                | The reading is done                            | Move to =SYNTHESIZING=                        |
+| =SYNTHESIZING=, and an =UNREAD= child                           | Something was found that I have not read       | Move back to =READING=                        |
+| =SCOPING=, and a =last-run= date                                | The query has already run                      | Move on                                       |
+| A claim in =Positions that answer no question=                  | It is not attached to anything                 | Add an =answers= relation, or retire it       |
+| A relation in =dg-positions-check= under "without a rule"       | A property exists that no rule knows           | Add a =relation= rule for it                  |
+
+=M-x dg-positions-gaps= shows the first group at once, across all questions.
+
+* One question, start to finish
+
+I ask /does reading precede theory?/ It starts as =QUESTION=. I name the query and the hub, so it becomes =SCOPING=. The first run returns nine notes I have already read, and three I have not, so it becomes =READING= with three =UNREAD= tasks. I read them and the tasks become =READ=. Now the question is =SYNTHESIZING=. I write a claim /reading shapes theory/, it =answers= the question, and the evidence under it makes it =supported=. The question becomes =STABLE=.
+
+A month later the query returns a fourth unread note, which contests my claim. The question goes back to =READING=. Once I record it as a =contests= relation, my claim is =contested=. I write a second claim that =supersedes= the first, to say that reading shapes theory only in some fields. The first claim is retired, the second is =supported=, and the question is =STABLE= again.
+
+* Adding my own
+
+Both the states of a position and the relations between positions are one line each in =dg-positions-rules=. See [[file:custom/sp-dg-positions.org::*The rules][The rules]] for the format. For example, a stricter "settled" status for claims that three pieces of evidence support and nothing opposes, tried before the others:
+
+#+begin_src emacs-lisp :tangle no
+(setq dg-positions-rules
+      (cons '(status settled :for (claim)
+                     :when (and (>= support 3) (= oppose 0))
+                     :color "#a5d6a7")
+            dg-positions-rules))
+#+end_src
+
+The question states are not part of the rules: they are Org keywords, so changing them means changing the two =#+todo:= lines.

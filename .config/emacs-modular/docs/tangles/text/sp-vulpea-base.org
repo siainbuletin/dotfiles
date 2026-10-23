@@ -14,10 +14,20 @@ It configures which directories are indexed, how notes are displayed in the mini
 
 ** Lexical binding
 
-File header enabling lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-vulpea-base.el --- Vulpea note database basics -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up `vulpea', a library and database layer for Org-based
+;; notes (an alternative to org-roam), together with `vui', the UI component
+;; library used by other Vulpea modules such as `sp-vulpea-vui-table'. It is
+;; required from `sp-org-ext', and the further Vulpea extensions live in
+;; `sp-vulpea-ext'.
+
+;;; Code:
 #+end_src
 
 ** vui
@@ -135,7 +145,7 @@ Uses the default =vulpea-select-annotate=, which shows the primary title and tag
 
 ** Provide
 
-Registers the =sp-vulpea-base= feature.
+Provides the =sp-vulpea-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-base)

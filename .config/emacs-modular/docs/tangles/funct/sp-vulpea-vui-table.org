@@ -19,7 +19,17 @@ The docstrings were clearly written with some uncertainty about the vui and Vulp
 Loads =vui=, =vulpea= and =sp-vulpea-dblock=. The last one supplies the note matching and parent resolution helpers so this table filters notes exactly the same way as the dynamic block.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-vui-table.el --- Interactive Vulpea property tables via vui.el -*- lexical-binding: t; -*-
+;;; sp-vulpea-vui-table.el --- Live Vulpea property tables with vui -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module builds an interactive table of Vulpea notes in its own buffer,
+;; using the declarative component library `vui'. Note titles are buttons that
+;; open the note, columns can be sorted by clicking, and meta properties (the
+;; description-list lines of the form KEY :: value that Vulpea reads as
+;; metadata) are editable fields that write straight back into the note file.
+
+;;; Code:
 
 (require 'vui)
 (require 'vulpea)
@@ -35,7 +45,7 @@ Several table buffers can be open at once. Rather than each one watching files, 
 =sp-vulpea-table-refresh-functions= is an abnormal hook of zero-argument functions. Each mounted table adds a function here while it is alive and removes it when it is unmounted.
 
 #+begin_src emacs-lisp -i
-;;; Cross-buffer refresh broadcasting ----------------------------------
+;;;; Cross-buffer refresh broadcasting ----------------------------------
 
 (defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
@@ -98,7 +108,7 @@ Adds the scheduler to the global =after-save-hook=, so it runs after every save 
 Marks the start of the code that writes edits back to note files.
 
 #+begin_src emacs-lisp -i
-;;; Writing a meta property back to its note ----------------------------
+;;;; Writing a meta property back to its note ----------------------------
 #+end_src
 
 ** Writing a meta value into a note
@@ -351,7 +361,7 @@ buffer to refresh against the current state of the Vulpea db."
 
 ** Provide
 
-Registers the =sp-vulpea-vui-table= feature.
+Provides the =sp-vulpea-vui-table= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-vui-table)

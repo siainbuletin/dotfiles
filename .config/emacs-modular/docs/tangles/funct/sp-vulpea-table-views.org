@@ -10,16 +10,30 @@ This module is the third piece of a small set of home-grown Vulpea table tools. 
 
 It is not listed in the module list in =init.el= directly; it is loaded through =sp-vulpea-ext=, which in turn is required by =sp-org-ext=. It requires =vui=, =vulpea= and the two sibling modules above.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Requires the two earlier pieces to already be loaded (either as
+separate files with their own (provide ...), or pasted into
+init.el before this, in order):
+  - sp-vulpea-dblock.el     (org-dblock-write:vulpea-table, the
+                               static-text fallback)
+  - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
+                               sia-vulpea-open-table)
+#+end_quote
+
 * Header and dependencies
 
 The header comment explains that the dblock and vui-table pieces must already be loaded.
 
 ** Header
 
-Library header line and a comment listing the two prerequisite files and what each provides.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-views.el --- Named views + inline mounting for Vulpea vui tables -*- lexical-binding: t; -*-
+;;; sp-vulpea-table-views.el --- Saved views and inline mounting for Vulpea tables -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Requires the two earlier pieces to already be loaded (either as
 ;; separate files with their own (provide ...), or pasted into
@@ -28,6 +42,8 @@ Library header line and a comment listing the two prerequisite files and what ea
 ;;                                static-text fallback)
 ;;   - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
 ;;                                sia-vulpea-open-table)
+
+;;; Code:
 #+end_src
 
 ** Requires
@@ -50,7 +66,7 @@ Views are kept in an alist keyed by name and written to disk as an annotated Lis
 =sp-vulpea-table-views-file= is where saved views are stored, by default =sp-vulpea-table-views.el= in =user-emacs-directory=. Note that this is the same file name as the module itself; if the Emacs directory were ever on the =load-path= ahead of the modules directory, =(require 'sp-vulpea-table-views)= could pick up the data file instead. That is a potential gotcha rather than something visibly happening.
 
 #+begin_src emacs-lisp -i
-;;; Named views ---------------------------------------------------------
+;;;; Named views ---------------------------------------------------------
 
 (defcustom sp-vulpea-table-views-file
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
@@ -250,7 +266,7 @@ These functions replace the text of each =vulpea-table= dynamic block in an Org 
 =sia-vulpea--inline-table-instances= records the marker and =vui= instance of every live table in the buffer. =sia-vulpea--inline-tables-active= says whether live tables should be shown, and is what lets them come back after a save.
 
 #+begin_src emacs-lisp -i
-;;; Inline mounting -------------------------------------------------------
+;;;; Inline mounting -------------------------------------------------------
 
 (defvar-local sia-vulpea--inline-table-instances nil
   "Alist of (MARKER . VUI-INSTANCE) for live inline Vulpea tables
@@ -386,7 +402,7 @@ text instead of ephemeral widget state."
 =sia-vulpea-insert-table-from-view= creates a =vulpea-table= dynamic block at point from a saved view and fills it immediately. A self parent is inserted literally, so the block always tracks the children of the note it lives in.
 
 #+begin_src emacs-lisp -i
-;;; Insert a dblock from a saved view --------------------------------------
+;;;; Insert a dblock from a saved view --------------------------------------
 
 (defun sia-vulpea-insert-table-from-view ()
   "Insert a vulpea-table dblock at point, using a saved view
@@ -416,7 +432,7 @@ Binds three global keys under the =C-c w= prefix: =C-c w t= toggles inline table
 
 ** Provide
 
-Provides the =sp-vulpea-table-views= feature.
+Provides the =sp-vulpea-table-views= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-table-views)

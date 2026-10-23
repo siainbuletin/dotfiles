@@ -1,4 +1,4 @@
-;;; -*- lexical-binding: t -*-
+;;; sp-org-capture.el --- Org capture templates and capture frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

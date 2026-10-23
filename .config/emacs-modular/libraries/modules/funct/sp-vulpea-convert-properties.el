@@ -1,4 +1,14 @@
-;;; sp-vulpea-convert-properties.el --- Convert drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+;;; sp-vulpea-convert-properties.el --- Convert Org drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module migrates note metadata out of Org property drawers and into
+;; Vulpea-style meta lines, i.e. description-list items of the form `- key ::
+;; value' placed just below a node's drawer. It works on one node at point, on
+;; a whole buffer, or across every note Vulpea knows about, with a dry-run
+;; preview and a non-blocking batch runner that shows progress and an ETA.
+
+;;; Code:
 
 (require 'org)
 (require 'vulpea)
@@ -20,7 +30,7 @@ whole notion of \"a node\" depends on it staying a real
 property). Add to this list before running a conversion if your
 notes use other drawer properties something else depends on.")
 
-;;; Low-level: one node at a time ---------------------------------------
+;;;; Low-level: one node at a time ---------------------------------------
 
 (defun sia-vulpea--after-property-drawer-pos ()
   "Return the position right after the property drawer of the node at point.
@@ -134,7 +144,7 @@ converted."
         (message "Converted: %s" (string-join converted ", "))
       (message "Nothing to convert here (all properties are blocklisted, or there are none)"))))
 
-;;; Whole buffer, and every node in it -----------------------------------
+;;;; Whole buffer, and every node in it -----------------------------------
 
 (defun sia-vulpea--node-title ()
   "Return the title of the node at point.
@@ -228,7 +238,7 @@ property converted (empty if none)."
     (save-buffer)
     (nreverse converted-nodes)))
 
-;;; Non-blocking batch processing, with progress + ETA --------------------
+;;;; Non-blocking batch processing, with progress + ETA --------------------
 
 (defun sia-vulpea--format-duration (seconds)
   "Return SECONDS formatted as e.g. \"2m 13s\" or \"45s\"."
@@ -291,7 +301,7 @@ same order as FILES, once every file has been processed."
                (run-with-timer 0 nil #'step)))))
       (step))))
 
-;;; Preview + real run across every Vulpea note ---------------------------
+;;;; Preview + real run across every Vulpea note ---------------------------
 
 (defun sia-vulpea-preview-convert-all-notes-properties ()
   "Report, without changing anything, what a full conversion would do.

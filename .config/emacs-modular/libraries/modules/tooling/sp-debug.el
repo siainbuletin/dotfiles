@@ -1,7 +1,9 @@
-;;; -*- lexical-binding: t -*-
-;; sp-debug.el --- Debugging options for making Emacs run well
+;;; sp-debug.el --- Startup debugging and profiling -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; A very small module for diagnosing Emacs performance. For now it only turns
+;; on use-package's timing statistics.
 
 ;;; Code:
 
@@ -9,8 +11,6 @@
 
 ;; Getting information on the launch time for packages.
 (setq use-package-compute-statistics t)
-
-;;; Provide:
 
 (provide 'sp-debug)
 ;; sp-debug ends here.

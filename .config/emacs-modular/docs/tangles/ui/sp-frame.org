@@ -8,17 +8,23 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module configures Emacs frames, meaning the top-level windows managed by the operating system. It produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars, recentres new frames, adds small window margins everywhere, and turns on =keycast= in the header line. Some basic frame settings live in =early-init.el= instead, for faster startup.
 
-It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS when =sp-load-extras= is set. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
+It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Setup for frames. Note that some basic settings are placed in early-init for
+better startup.
+#+end_quote
 
 * Header and frame title
 
 ** File header
 
-Lexical binding and the commentary, which points to =early-init.el= for the settings applied before the first frame appears.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-frame.el
+;;; sp-frame.el --- Frame appearance, margins and frame helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -100,7 +106,7 @@ Runs =sp-frame-recenter= for every newly created frame. The comment invites disa
 Turns on =keycast-header-line-mode=, which shows the last key and command in the header line of every window. This depends on =keycast= being installed and loaded by =sp-keys=.
 
 #+begin_src emacs-lisp -i
-;;; Enabling keycast header line mode by default
+;;;; Enabling keycast header line mode by default
 (keycast-header-line-mode 1)
 #+end_src
 
@@ -113,7 +119,7 @@ Small left and right margins keep text from touching the window edge now that fr
 =sp-set-window-margins= walks every window in the selected frame and gives each non-minibuffer window a two-column margin on both sides. It overrides margins set by other modes, such as writing modes that centre text.
 
 #+begin_src emacs-lisp -i
-;;;; Window Margins for Text Indentation
+;;;;; Window Margins for Text Indentation
 ;; Add margins to windows to maintain text indentation with smaller frame borders
 (defun sp-set-window-margins ()
   "Set left and right margins for all windows to maintain text indentation."
@@ -157,13 +163,13 @@ For each new frame, selects it and applies the margins. Selecting the frame from
 
 ** ns-auto-titlebar
 
-On macOS, when extras are enabled and the package is installed, =ns-auto-titlebar-mode= keeps the native title bar's light or dark appearance in sync with the current theme. The linked issue explains why this is needed for emacs-plus builds.
+On macOS, =ns-auto-titlebar-mode= keeps the native title bar's light or dark appearance in sync with the current theme. The linked issue explains why this is needed for emacs-plus builds.
 
 #+begin_src emacs-lisp -i
-;;;; Fix titlebar titling colors
+;;;;; Fix titlebar titling colors
 ;; see also https://github.com/d12frosted/homebrew-emacs-plus/issues/55
 (use-package ns-auto-titlebar
-  :when (and sp-load-extras (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
+  :when (eq system-type 'darwin)
   :commands ns-auto-titlebar-mode
   :init (ns-auto-titlebar-mode))
 #+end_src
@@ -175,8 +181,8 @@ On macOS, when extras are enabled and the package is installed, =ns-auto-titleba
 =sp-delete-frame-or-quit= kills all vterm buffers without asking, then deletes the current frame. If that fails because it is the last frame, it falls back to =save-buffers-kill-emacs=. Finally it gives input focus to whatever frame is now selected.
 
 #+begin_src emacs-lisp -i
-;;;; Frame Functions
-;;;;; Delete Frame or Quit
+;;;;; Frame Functions
+;;;;;; Delete Frame or Quit
 (defun sp-delete-frame-or-quit ()
   "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
   (interactive)
@@ -188,12 +194,11 @@ On macOS, when extras are enabled and the package is installed, =ns-auto-titleba
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-frame= for the module loader.
+Provides the =sp-frame= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-frame)
 ;;; sp-frame.el ends here

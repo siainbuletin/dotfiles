@@ -1,4 +1,12 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-base-code.el --- Shared programming setup: completion, LSP and outlines -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the programming setup that other language modules build
+;; on.
+
+;;; Code:
+
 ;; see https://github.com/company-mode/company-mode/issues/525#issuecomment-348635719
 (defun inside-string-q ()
   "Returns non-nil if inside string, else nil.
@@ -125,7 +133,7 @@ Result depends on syntax table's comment character."
     (setq lsp-ui-doc-header t)
     (setq lsp-ui-doc-border "white")))
 
-;;;;; Outline Navigation
+;;;; Outline Navigation
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
@@ -164,12 +172,10 @@ Result depends on syntax table's comment character."
                             (";;;;;; " . 4)
                             (";;;;;;; " . 5))))))
 
-;;;;; Autocomplete changes
+;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)
-
-;;; Provide:
 
 (provide 'sp-base-code)
 ;; sp-base-code.el ends here.
