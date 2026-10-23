@@ -15,7 +15,15 @@ The language modules (for example =sp-go=, =sp-rust=, =sp-nix= and =sp-lisp=) tu
 From a company-mode issue thread. =inside-string-q= and =inside-comment-q= use =syntax-ppss= to report whether point is inside a string or comment; both are interactive and echo their result, so every call prints a message. =semantic-completion-advice= is an around advice that skips the wrapped function when point is in a string or comment, used below to stop Semantic from offering completions there.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-base-code.el --- Shared programming setup: completion, LSP and outlines -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the programming setup that other language modules build
+;; on.
+
+;;; Code:
+
 ;; see https://github.com/company-mode/company-mode/issues/525#issuecomment-348635719
 (defun inside-string-q ()
   "Returns non-nil if inside string, else nil.
@@ -202,7 +210,7 @@ Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode tu
 Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives a quick overview of rigidly indented code. A note says this navigation could move to another module.
 
 #+begin_src emacs-lisp -i
-;;;;; Outline Navigation
+;;;; Outline Navigation
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
@@ -255,7 +263,7 @@ Turns on the built-in =outline-minor-mode= in every programming buffer. In that 
 Turns off =icomplete-mode= and sets =completion-auto-help= so the completions buffer appears when completion is ambiguous. A commented setting for =completion-cycle-threshold= ends with a stray quote.
 
 #+begin_src emacs-lisp -i
-;;;;; Autocomplete changes
+;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)
@@ -266,7 +274,6 @@ Turns off =icomplete-mode= and sets =completion-auto-help= so the completions bu
 Provides the =sp-base-code= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-base-code)
 ;; sp-base-code.el ends here.

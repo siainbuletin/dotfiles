@@ -14,25 +14,15 @@ It depends on =vulpea=, =org-id= and =denote=, all required at the top. It is lo
 
 ** File header
 
-Names the file, summarises it, and turns on lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-move-region-to-heading.el --- Move a region under a heading in another file, leaving a link behind -*- lexical-binding: t; -*-
-#+end_src
+;;; sp-move-region-to-heading.el --- Move a region under a heading in another note -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-An empty commentary section; the explanation lives in the docstrings.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Code marker
+;; Provides one command, `sp-move-region-to-heading', bound globally to `M-a'.
 
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;;; Code:
 #+end_src
 

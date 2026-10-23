@@ -16,11 +16,18 @@ Worth knowing: the keyword sequences set at the top of the file are replaced nea
 
 ** Header and scope
 
-The header and opening comment explain that this file is for task management through Org, while =org-agenda= lives in its own file. The =Code= and =Commentary= markers are in the reverse of the usual order, which is harmless.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-taskman-extra.el --- Task management components needed to make the system work
+;;; sp-org-taskman-extra.el --- Org task management: keywords, tags, projects and GTD -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the task management side of the Org setup: TODO keyword
+;; sequences, the tag list with fast-selection keys, priorities, a helper to
+;; turn a heading into a project, task dependencies with `org-edna',
+;; highlighting and searching of TODO comments with `hl-todo' and
+;; `consult-todo', and the `org-gtd' workflow under the `C-c d' prefix.
 
 ;;; Code:
 
@@ -207,7 +214,7 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 
 
 
-;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+;;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
 #+end_src
 
 * Getting Things Done
@@ -223,7 +230,7 @@ Keybindings:
 - ~C-c .~ in the agenda opens =org-gtd-agenda-transient= for quick actions on tasks.
 
 #+begin_src emacs-lisp -i
-;;; Org-gtd package
+;;;; Org-gtd package
 (use-package org-gtd
   :ensure (:wait t)
   :after org
@@ -270,7 +277,7 @@ Keybindings:
 Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command. Inline tasks are task headings placed deep inside the body of another entry without breaking its structure. Now that the plain =require= above is commented out, this is the only place the library is set up, and it loads on first use.
 
 #+begin_src emacs-lisp -i
-;;;; Org Inline Tasks
+;;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil
   :commands org-inlinetask-insert-task)
 #+end_src

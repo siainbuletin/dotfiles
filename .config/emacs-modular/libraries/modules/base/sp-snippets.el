@@ -1,5 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-snippets.el
+;;; sp-snippets.el --- Snippets with yasnippet -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up `yasnippet' for text snippets, together with the
+;; community `yasnippet-snippets' collection. Personal snippets are looked for
+;; in a `snippets' directory under the Emacs directory.
 
 ;;; Code:
 
@@ -22,8 +27,6 @@
 (use-package yasnippet-snippets
   :after yasnippet
   :ensure (:wait t))
-
-;;; Provide:
 
 (provide 'sp-snippets)
 ;; sp-snippets.el ends here.

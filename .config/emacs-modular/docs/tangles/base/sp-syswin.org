@@ -8,52 +8,41 @@ Platform tweaks for running Emacs natively on Windows. The only code is a guarde
 
 The module is currently commented out in =init.el= ("will be adding the relevant modules later"), so it is not loaded. Because the code is wrapped in a =system-type= check it would be harmless to enable on macOS or Linux.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is the specialized module for dealing with launching Emacs on Windows. Because of issues
+with the way that Windows accesses the native binaries for Emacs, it might be a better idea to
+run Emacs within WSL.
+
+Lambda-Emacs is developed on macOS and Linux; Windows works but needs a little more care. Put
+git (and ideally ripgrep) on your Windows PATH, expect the first-run compilation to take
+noticeably longer, and prefer a recent official Emacs build with native compilation. Restarting
+Emacs to resume installation usually clears transient build failures.
+https://codeberg.org/Lambda-Emacs/lambda-emacs#headline-10
+#+end_quote
+
 * Overview
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*- 
-;; sp-syswin.el
-#+end_src
+;;; sp-syswin.el --- Windows-specific settings -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Why Windows is special
-
-Notes that native Windows has trouble with how Emacs reaches its binaries, and that running Emacs inside WSL may be the better route.
-
-#+begin_src emacs-lisp -i
 ;; This is the specialized module for dealing with launching Emacs on Windows. Because of issues
 ;; with the way that Windows accesses the native binaries for Emacs, it might be a better idea to
 ;; run Emacs within WSL.
-#+end_src
 
-** Lambda-Emacs advice for Windows
-
-Quoted guidance from the Lambda-Emacs README: put git and ripgrep on the Windows =PATH=, expect a slow first compile, prefer a recent official build with native compilation, and restart to clear transient install failures.
-
-#+begin_src emacs-lisp -i
-;; Lambda-Emacs is developed on macOS and Linux; Windows works but needs a little more care. Put 
-;; git (and ideally ripgrep) on your Windows PATH, expect the first-run compilation to take 
-;; noticeably longer, and prefer a recent official Emacs build with native compilation. Restarting 
+;; Lambda-Emacs is developed on macOS and Linux; Windows works but needs a little more care. Put
+;; git (and ideally ripgrep) on your Windows PATH, expect the first-run compilation to take
+;; noticeably longer, and prefer a recent official Emacs build with native compilation. Restarting
 ;; Emacs to resume installation usually clears transient build failures.
 ;; https://codeberg.org/Lambda-Emacs/lambda-emacs#headline-10
-#+end_src
 
-** Code marker
-
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;;; Code:
 #+end_src
 

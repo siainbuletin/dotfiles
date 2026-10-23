@@ -1,6 +1,10 @@
-;;; sp-consult-snapfile.el --- summary -*- lexical-binding: t; -*-
+;;; sp-consult-snapfile.el --- Fast file search with consult-snapfile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This navigation sub-module, loaded by `sp-navi', configures
+;; `consult-snapfile', a Consult front-end that queries a local file-search
+;; server over a websocket.
 
 ;;; Code:
 
@@ -17,6 +21,5 @@
 ;; Max results to return
 (setq consult-snapfile-max-results 100)
 
-;;; Provide:
 (provide 'sp-consult-snapfile)
 ;; sp-consult-snapfile.el ends here.

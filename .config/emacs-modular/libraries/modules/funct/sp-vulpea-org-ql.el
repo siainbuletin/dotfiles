@@ -1,9 +1,8 @@
-;; -*- lexical-binding: t -*-
-;; sp-vulpea-org-ql.el --- Bridge between vulpea and org-ql
+;;; sp-vulpea-org-ql.el --- Querying vulpea notes with org-ql (draft) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; Use-cases: 
+;; Use-cases:
 ;; - for inline querying
 
 ;;; Code:
@@ -15,8 +14,6 @@
        (files (mapcar #'vulpea-note-path notes)))
   (org-ql-select files '(todo "OPENQ")
                  :action #'org-get-heading))
-
-;;; Provide:
 
 (provide 'sp-vulpea-org-ql)
 ;; sp-vulpea-org-ql.el ends here.

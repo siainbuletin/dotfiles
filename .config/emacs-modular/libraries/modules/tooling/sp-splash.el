@@ -1,7 +1,7 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-splash.el --- An alternative splash screen
+;;; sp-splash.el --- Custom lambda splash screen -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;;
 ;;  An alternative splash screen:
 ;; this is also including the ascii art of the lambda sign, which will show up in the dashboard
@@ -12,9 +12,10 @@
 ;;       line, the splash is not shown.
 
 ;;; Code:
+
 (require 'cl-lib)
-;; Guarded require: without this, a sandbox boot with sp-load-extras
-;; nil and no nerd-icons installed would crash module-load here.
+;; Guarded require: without this, a sandbox boot without nerd-icons
+;; installed would crash module-load here.
 ;; Spec 02 caught the identical pattern in sp-dashboard.el.
 (when (locate-library "nerd-icons")
   (require 'nerd-icons))
@@ -789,8 +790,6 @@ Without `sp-splash-agenda-general-files' this is the agenda workspace."
            (not (member "--insert"    command-line-args))
            (not (member "--find-file" command-line-args)))
   (add-hook 'window-setup-hook #'sp-splash--setup-splash-hooks))
-
-;;; Provide:
 
 (provide 'sp-splash)
 ;;; sp-splash.el ends here

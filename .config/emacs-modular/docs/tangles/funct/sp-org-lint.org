@@ -14,10 +14,20 @@ It depends only on built-in libraries: =org=, =org-list=, =org-element= and =sub
 
 ** File header
 
-The file header, with lexical binding enabled.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
+;;; sp-org-lint.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module provides two commands for tidying plain lists in Org buffers,
+;; aimed at lists of links such as reading or resource lists.
+;; `sp-org-lint-list' turns stray paragraph lines into list items, removes
+;; blank lines between items and drops items whose https link already appeared
+;; earlier.
+
+;;; Code:
 #+end_src
 
 ** Required libraries
@@ -61,7 +71,7 @@ These helpers decide which part of the buffer a command works on when no region 
 =sp-org--item-near-point= returns the start of the list item at point. On a blank line it looks at the nearest non-blank text above, then below, so running a command from a gap between items still finds the list. On any other non-list line it returns nil.
 
 #+begin_src emacs-lisp -i
-;;; Region detection
+;;;; Region detection
 
 (defun sp-org--item-near-point ()
   "Return the start of the list item at or near point, or nil.
@@ -170,7 +180,7 @@ end of the last non-blank line belonging to it."
 =sp-org--convertible-line-p= accepts a line only if it is non-blank, not already part of a list item, and parsed by =org-element= as a paragraph. Headings, keywords, drawers, tables, blocks and continuation lines of items are left alone.
 
 #+begin_src emacs-lisp -i
-;;; Step 1: turn plain lines into items
+;;;; Step 1: turn plain lines into items
 
 (defun sp-org--convertible-line-p ()
   "Non-nil if the line at point is plain paragraph text outside any list.
@@ -212,7 +222,7 @@ Return the number of lines converted."
 =sp-org--remove-blank-lines-between-items= finds runs of blank lines and collapses them to a single newline only when the next line starts an item and the previous line belongs to a list (an item or an indented continuation). Blank lines that separate a list from ordinary text are kept.
 
 #+begin_src emacs-lisp -i
-;;; Step 2: remove blank lines between items
+;;;; Step 2: remove blank lines between items
 
 (defun sp-org--remove-blank-lines-between-items (beg end-marker)
   "Delete blank lines between list items from BEG to END-MARKER."
@@ -243,7 +253,7 @@ Return the number of lines converted."
 =sp-org--normalize-url= makes URLs comparable: it strips trailing punctuation, an unmatched closing parenthesis and trailing slashes, and lower-cases the scheme and host while keeping the path's case.
 
 #+begin_src emacs-lisp -i
-;;; Step 3: remove duplicate links
+;;;; Step 3: remove duplicate links
 
 (defun sp-org--normalize-url (url)
   "Return URL in a canonical form for comparison.
@@ -327,7 +337,7 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
 =sp-org--sort-key= produces the text an item is sorted by: the first line without its bullet or checkbox, with links replaced by their descriptions via =org-link-display-format=, trimmed and lower-cased.
 
 #+begin_src emacs-lisp -i
-;;; Step 4: sort
+;;;; Step 4: sort
 
 (defun sp-org--sort-key ()
   "Sort key for the list item at point.
@@ -369,7 +379,7 @@ description, or their target when they have none), lower-cased."
 =sp-org--check-region= signals a user error outside Org mode or for an empty region.
 
 #+begin_src emacs-lisp -i
-;;; Pipeline and commands
+;;;; Pipeline and commands
 
 (defun sp-org--check-region (beg end)
   "Signal an error unless in `org-mode' and BEG/END are usable."
@@ -444,7 +454,6 @@ sublists travel with their parent item but are not re-sorted."
 Provides the =sp-org-lint= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here

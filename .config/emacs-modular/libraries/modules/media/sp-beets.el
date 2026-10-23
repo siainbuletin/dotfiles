@@ -1,7 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-beets.el
+;;; sp-beets.el --- Editing beets metadata in Emacs -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; How should this be plugged in with an actual installation of beets?
+
+;;; Code:
 
 (use-package beets-edit-mode
   :ensure (:host github :repo "emreyolcu/beets-edit-mode")

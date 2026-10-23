@@ -8,20 +8,34 @@ A very small placeholder module for templating. Currently it only loads =org-tem
 
 It is loaded in both the default and minimal module lists. Since =org-tempo= ships with Org, requiring it also loads Org itself at startup if it is not loaded yet.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+TODO
+would be great for expanding templates when
+working in org-mode
+but it could be useful for other contexts as well
+(if I actually start programming)
+#+end_quote
+
 * Template expansion
 
 ** File header and plans
 
-Lexical binding and a TODO about wanting template expansion for Org and other contexts.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-templating.el --- Org structure templates -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; TODO
 ;; would be great for expanding templates when
 ;; working in org-mode
 ;; but it could be useful for other contexts as well
 ;; (if I actually start programming)
+
+;;; Code:
 #+end_src
 
 ** org-tempo
@@ -41,7 +55,6 @@ Requires =org-tempo=, which enables the =<= plus key shortcuts for inserting Org
 Provides the =sp-templating= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-templating)
 ;; sp-templating.el ends here.

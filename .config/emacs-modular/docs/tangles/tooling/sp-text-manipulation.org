@@ -10,15 +10,20 @@ This module collects editing behaviour that applies to text in general: it turns
 
 Everything here is built in to Emacs apart from the external macOS tools =textutil= and =pbcopy= used by =formatted-copy=. It refers to =sp-var-dir= from =early-init.el= for the abbrev file location. The module is loaded with the utility modules in both the default and minimal module lists in =init.el=, so its global key bindings and its save hook are always active.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This creates useful functions for moving around text a lot easier.
+#+end_quote
+
 * Header and CUA mode
 
 ** File header and commentary
 
-The file header, commentary and start of the code section.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-text-manipulation.el --- text functions and better text editing
+;;; sp-text-manipulation.el --- Text editing helpers and whitespace cleanup -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -330,7 +335,6 @@ Installs that function as =:before= advice on =insert-for-yank=, the function un
 Provides the =sp-text-manipulation= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-text-manipulation)
 ;; sp-text-manipulation.el ends here.

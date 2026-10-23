@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-windows.el --- Window setup
+;;; sp-windows.el --- Window layout, movement and helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -193,7 +192,6 @@
 
 ;;;; Dim inactive windows
 (use-package dimmer
-  :when (and sp-load-extras (locate-library "dimmer"))
   :hook (after-init . dimmer-mode)
   :custom
   (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
@@ -329,8 +327,6 @@
 ;;;; Helper functions
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
-
-;;; Provide:
 
 (provide 'sp-windows)
 ;; sp-windows.el ends here.

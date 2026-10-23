@@ -1,5 +1,4 @@
 ;;; sp-relationship-annotator-live.el --- Serve the relationship graph on localhost, and keep it up to date -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:

@@ -12,13 +12,16 @@ Besides styling vterm buffers to resemble the Dracula-style zsh terminal Sia use
 
 ** Header and commentary markers
 
-Lexical-binding header and empty =Commentary= and =Code= markers.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-terminal.el --- Terminal emulator settings
+;;; sp-terminal.el --- Terminal emulators (vterm and eat) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module configures `vterm', a fast terminal emulator built on the
+;; libvterm C library. It requires a compiled native module (so CMake and a C
+;; compiler on the system) and does not work on Windows, as the comment notes.
 
 ;;; Code:
 #+end_src
@@ -94,7 +97,6 @@ Installs =eat= (Emulate A Terminal) with default settings. It needs no native mo
 Provides the =sp-terminal= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-terminal)
 ;; sp-terminal.el ends here.

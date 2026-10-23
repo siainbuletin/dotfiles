@@ -10,16 +10,25 @@ This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk, conf
 
 Packages involved are =auctex=, =auctex-latexmk=, =company-auctex=, =org-pandoc-import= (fetched from GitHub), and the built-in =preview=, =reftex=, =bibtex=, =ox-latex= and =align=. External programs: a TeX distribution with =latexmk=, =xelatex=, =luatex= and =dvipdfmx=. The setup hook also uses =company= and =rainbow-delimiters=.
 
-The file has grown by accretion and has a few rough edges worth knowing: the TeX engine is set to XeTeX by default but to LuaTeX by the setup hook, =org-latex-listings= is set twice. The file ends with =(provide 'sp-latex)=, so the module loader no longer logs it as =[FAILED]=. The =auctex=, =preview= and =reftex= forms used to appear twice (the second copy of =auctex= only differed by an =sp-load-extras= guard); the duplicates are removed.
+The file has grown by accretion and has a few rough edges worth knowing: the TeX engine is set to XeTeX by default but to LuaTeX by the setup hook, =org-latex-listings= is set twice. The file ends with =(provide 'sp-latex)=, so the module loader no longer logs it as =[FAILED]=. The =auctex=, =preview= and =reftex= forms used to appear twice (the second copy of =auctex= only differed by a guard); the duplicates are removed.
 
 * Editing setup and commands
 
 ** File header
 
-Enables lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-latex.el --- LaTeX editing with AUCTeX and Org LaTeX export -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk,
+;; configures Org's LaTeX exporter to compile with XeLaTeX through latexmk, and
+;; adds a few spelling, indentation and BibTeX tweaks. It is listed in the
+;; `plus-programming' profile in `sp-config-profiles.el'.
+
+;;; Code:
 #+end_src
 
 ** Per-buffer LaTeX setup

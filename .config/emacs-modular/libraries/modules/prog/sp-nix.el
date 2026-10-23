@@ -1,4 +1,12 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-nix.el --- Nix editing with the nixd language server -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up editing of Nix files with `nix-mode' and the `nixd'
+;; language server through `lsp-mode'. It is off by default behind a custom
+;; option, `siapip/nix-mode-enable'.
+
+;;; Code:
 
 (defcustom siapip/nix-mode-enable nil
   "Enable nix-mode with LSP support for editing Nix files."
