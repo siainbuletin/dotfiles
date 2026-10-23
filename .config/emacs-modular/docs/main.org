@@ -71,6 +71,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 Custom, bespoke functionality: modules I wrote myself for my own workflow, as opposed to configuration of packages from elsewhere. They live apart from the thematic directories so that it is clear which parts of the configuration are my own code.
 
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
+- [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
@@ -188,6 +189,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
 - [[file:tangles/ui/sp-faces.org][sp-faces]] :: Faces, highlighting and visual feedback ([[file:../libraries/modules/ui/sp-faces.el][sp-faces.el]])
 - [[file:tangles/ui/sp-fonts.org][sp-fonts]] :: Fonts, text scaling and line highlighting ([[file:../libraries/modules/ui/sp-fonts.el][sp-fonts.el]])
+- [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])

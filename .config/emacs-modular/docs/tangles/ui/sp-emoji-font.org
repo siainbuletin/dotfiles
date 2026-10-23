@@ -1,0 +1,164 @@
+#+TITLE: sp-emoji-font.el: Colour emoji in every Emacs frame
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-emoji-font.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+* Preamble
+
+Literate source for =libraries/modules/ui/sp-emoji-font.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* Basic functionality
+
+Emacs picks a font for each emoji from the fontset. The =sp-fonts= module already prepends "Apple Color Emoji" when that family exists, which covers macOS. This module makes the same choice work on Linux, where the Apple font is not installed, and gives one place to say which font to use.
+
+- It walks =sp-emoji-font-families= and prepends the first family that is installed to the =emoji= script of the default fontset. The default list starts with Apple Color Emoji, then Noto Color Emoji, so a Linux machine without the Apple font still shows colour emoji.
+- On Linux, =sp-emoji-font-file= may point at an Apple Color Emoji =.ttf=. If the family is not installed, the module copies the file into =~/.local/share/fonts/sp-emoji/= and runs =fc-cache=, so fontconfig and Emacs find it.
+- =M-x sp-emoji-font-install= does the same on demand for a local file or an =https= URL.
+- Fonts can only be queried in a graphical frame, so nothing is done in a terminal or a daemon without a frame; the font is applied when the first graphical frame is created.
+
+*The Apple font is not bundled.* Apple's licence does not allow redistributing it, so this repository does not carry the file. Supply your own copy. The =Apple Color Emoji.ttc= that ships with macOS is not usable on Linux, because it uses the =sbix= bitmap format that Emacs builds on Linux do not draw. Use a =CBDT=-format conversion of the font (the community "apple-emoji-linux" builds produce an =AppleColorEmoji.ttf=) and set =sp-emoji-font-file= to it. Without it the module falls back to Noto Color Emoji, which is also colour, only drawn in Google's style.
+
+Emacs must be built with Cairo or pgtk to draw colour bitmap glyphs (Emacs 28 and later usually are). *Not tested on a display from the cloud session that wrote this module:* the logic was run in a headless Emacs 29 with a faked font list, and how the glyphs look has to be checked in a graphical frame.
+
+* Header
+
+** File header
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t; -*-
+;; sp-emoji-font.el --- Colour emoji on macOS and Linux
+
+;;; Commentary:
+
+;; Picks the first installed colour emoji family from
+;; `sp-emoji-font-families' and prepends it to the `emoji' script of the
+;; default fontset.  On Linux an Apple Color Emoji .ttf given in
+;; `sp-emoji-font-file' is installed into the user's font directory.
+;; Load it after sp-fonts.
+
+;;; Code:
+
+(require 'url-handlers)
+#+end_src
+
+* Settings
+
+** Options
+
+#+begin_src emacs-lisp -i
+;;;; Settings
+(defgroup sp-emoji-font nil
+  "Colour emoji font selection."
+  :group 'faces
+  :prefix "sp-emoji-font-")
+
+(defcustom sp-emoji-font-families
+  '("Apple Color Emoji" "Noto Color Emoji" "Segoe UI Emoji" "Twemoji Mozilla")
+  "Emoji font families, best first.  The first installed one is used."
+  :type '(repeat string))
+
+(defcustom sp-emoji-font-file nil
+  "Apple Color Emoji font file (.ttf) to install on Linux, or nil.
+It is only installed when the \"Apple Color Emoji\" family is not
+available yet.  See `sp-emoji-font-install'."
+  :type '(choice (const :tag "None" nil) file))
+
+(defcustom sp-emoji-font-install-dir
+  (expand-file-name "fonts/sp-emoji/"
+                    (or (getenv "XDG_DATA_HOME") "~/.local/share"))
+  "Directory the emoji font is installed into on Linux."
+  :type 'directory)
+#+end_src
+
+* Selecting and installing the font
+
+** Helpers
+
+#+begin_src emacs-lisp -i
+;;;; Selecting the font
+(defvar sp-emoji-font--applied nil
+  "The family last prepended to the emoji fontset, or nil.")
+
+(defun sp-emoji-font--available-p (family)
+  "Non-nil when FAMILY is an installed font family."
+  (and (member family (font-family-list)) t))
+
+(defun sp-emoji-font--pick ()
+  "The first installed family of `sp-emoji-font-families', or nil."
+  (seq-find #'sp-emoji-font--available-p sp-emoji-font-families))
+
+(defun sp-emoji-font-apply (&optional frame)
+  "Prepend the best installed emoji family to the default fontset.
+Does nothing when FRAME (default: the selected frame) is not graphical.
+Return the family used, or nil."
+  (when (display-graphic-p frame)
+    (when-let* ((family (sp-emoji-font--pick)))
+      (if (>= emacs-major-version 28)
+          (set-fontset-font t 'emoji (font-spec :family family) nil 'prepend)
+        (set-fontset-font t '(#x1f000 . #x1faff)
+                          (font-spec :family family) nil 'prepend))
+      (setq sp-emoji-font--applied family))))
+#+end_src
+
+** Installing a font on Linux
+
+=sp-emoji-font-install= copies (or downloads) the file into =sp-emoji-font-install-dir=, refreshes fontconfig and re-applies the font.
+
+#+begin_src emacs-lisp -i
+;;;; Installing a font
+(defun sp-emoji-font-install (source)
+  "Install the emoji font file or https URL SOURCE for the current user.
+The file goes into `sp-emoji-font-install-dir', then fontconfig is
+refreshed and the emoji font is applied again.  Linux only: macOS
+already has Apple Color Emoji."
+  (interactive
+   (list (read-string "Emoji font file or URL: " sp-emoji-font-file)))
+  (when (eq system-type 'darwin)
+    (user-error "macOS has Apple Color Emoji built in"))
+  (let* ((name (file-name-nondirectory
+                (replace-regexp-in-string "[?#].*\\'" "" source)))
+         (dest (expand-file-name name sp-emoji-font-install-dir)))
+    (make-directory sp-emoji-font-install-dir t)
+    (if (string-match-p "\\`https?://" source)
+        (url-copy-file source dest t)
+      (copy-file (expand-file-name source) dest t))
+    (if (executable-find "fc-cache")
+        (call-process "fc-cache" nil nil nil "-f" sp-emoji-font-install-dir)
+      (message "fc-cache not found: restart Emacs after refreshing fontconfig"))
+    (clear-font-cache)
+    (message "Installed %s; emoji font: %s" dest (sp-emoji-font-apply))
+    dest))
+#+end_src
+
+** Start-up
+
+On Linux with =sp-emoji-font-file= pointing at an existing local file and no Apple family installed yet, the file is installed once. The font is applied now if the frame is graphical, and for every later frame.
+
+#+begin_src emacs-lisp -i
+;;;; Start-up
+(defun sp-emoji-font--setup (&optional frame)
+  "Install `sp-emoji-font-file' if needed, then apply the font to FRAME."
+  (when (display-graphic-p frame)
+    (when (and (eq system-type 'gnu/linux)
+               sp-emoji-font-file
+               (file-exists-p sp-emoji-font-file)
+               (not (sp-emoji-font--available-p "Apple Color Emoji")))
+      (condition-case err
+          (sp-emoji-font-install sp-emoji-font-file)
+        (error (message "sp-emoji-font: install failed: %s"
+                        (error-message-string err)))))
+    (sp-emoji-font-apply frame)))
+
+(sp-emoji-font--setup)
+(add-hook 'after-make-frame-functions #'sp-emoji-font--setup)
+#+end_src
+
+* Provide
+
+Provides the =sp-emoji-font= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+;;; Provide:
+
+(provide 'sp-emoji-font)
+;; sp-emoji-font.el ends here.
+#+end_src
