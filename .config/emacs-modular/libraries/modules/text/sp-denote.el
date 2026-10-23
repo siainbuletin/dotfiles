@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-denote.el
+;;; sp-denote.el --- Denote note-taking setup -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

@@ -12,12 +12,16 @@ It relies on directory constants defined in =early-init.el= (=sp-emacs-dir=, =sp
 
 ** File header
 
-The standard Emacs Lisp file header with lexical binding enabled, followed by a one line description of the module.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-helper-funct.el --- summary -*- lexical-binding: t -*-
+;;; sp-helper-funct.el --- Assorted helper commands and sensible defaults -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Useful functions
+
+;;; Code:
 #+end_src
 
 ** Launch a test Emacs instance
@@ -960,7 +964,6 @@ Installs =wizard= from James Cherti's GitHub repository at its newest revision. 
 Provides the =sp-helper-funct= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'sp-helper-funct)
 ;;; sp-helper-funct.el ends here

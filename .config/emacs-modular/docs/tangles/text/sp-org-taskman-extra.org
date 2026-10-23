@@ -16,11 +16,18 @@ Worth knowing: the keyword sequences set at the top of the file are replaced nea
 
 ** Header and scope
 
-The header and opening comment explain that this file is for task management through Org, while =org-agenda= lives in its own file. The =Code= and =Commentary= markers are in the reverse of the usual order, which is harmless.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-taskman-extra.el --- Task management components needed to make the system work
+;;; sp-org-taskman-extra.el --- Org task management: keywords, tags, projects and GTD -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the task management side of the Org setup: TODO keyword
+;; sequences, the tag list with fast-selection keys, priorities, a helper to
+;; turn a heading into a project, task dependencies with `org-edna',
+;; highlighting and searching of TODO comments with `hl-todo' and
+;; `consult-todo', and the `org-gtd' workflow under the `C-c d' prefix.
 
 ;;; Code:
 

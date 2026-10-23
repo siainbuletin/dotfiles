@@ -1,4 +1,6 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-base.el --- Core Org mode and text-mode settings -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This file only sets up the very basic extensions for org mode.
 ;; I also use many other packages, they will be required later on.
@@ -6,6 +8,8 @@
 ;; - vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
 ;; - org-node (and the org-mem package)
 ;; - all the org-agenda stuff that will help with taks management (see also taskman.el)
+
+;;; Code:
 
 ;; Basic settings for text-mode - getting text to work well
 (use-package text-mode
@@ -500,8 +504,6 @@ one week to the next, unchecking them at the same time"
          (and org-return-follows-link
               (sp-org-point-strictly-in-link-p))))
     (apply fn args)))
-
-;;; Provide:
 
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

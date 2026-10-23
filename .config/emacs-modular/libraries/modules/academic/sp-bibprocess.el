@@ -1,9 +1,12 @@
-;; -*- lexical-binding: t; -*-
-;; sp-bibprocess.el
+;;; sp-bibprocess.el --- BibTeX files, lookup and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
+;; This module manages the BibTeX bibliography that the academic modules build
+;; on.
+
 ;;; Code:
+
 ;;;; Defining variables
 
 (defcustom sp-bibtex-dir

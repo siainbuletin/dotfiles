@@ -14,16 +14,20 @@ It depends only on Org itself (=org-element=, =org-table= and, for the rendering
 
 ** File header
 
-Lexical binding and a note on the goal: cleaner, more dynamic display of Org tables, possibly with =textui= in the future.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-tables.el --- Org table rendering, wrapping and monospace -*- lexical-binding: t; -*-
 
-;; This is specific functionality for dealing with org-mode tables 
+;;; Commentary:
+
+;; This is specific functionality for dealing with org-mode tables
 ;; better. It would be great if they could be rendered in the manner
 ;; that Dataview tables are in Obsidian (clean, dynamic, so on).
 ;;
 ;; It's worth exploring using ~textui~, as it develops.
+
+;;; Code:
 #+end_src
 
 * Rendering tables as images
@@ -247,7 +251,6 @@ A `font-lock-keywords' function that searches up to LIMIT."
 Provides the =sp-org-tables= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-tables)
 ;; sp-org-tables.el ends here.

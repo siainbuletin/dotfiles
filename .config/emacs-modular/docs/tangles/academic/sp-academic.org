@@ -21,8 +21,10 @@ Comments describing what the academic module is meant to cover and how its parts
 File header, a note that the module needs to be better defined, and the roadmap of components: BibTeX processing, citations through =citar=, PDF processing (waiting on the =emacs-reader= work), and bibliographic search. It also explains the current split between =citar-denote= for literature notes and =vulpea-citar= for =ROAM_REFS=.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
@@ -60,6 +62,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+
 ;;;; Requiring sub-libraries
 #+end_src
 

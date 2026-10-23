@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-dired.el --- summary
+;;; sp-dired.el --- Dired and Dirvish file management -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,6 +7,7 @@
 ;; this file is particularly concerned with good settings for dired.
 
 ;;; Code:
+
 ;;;; Helpful functions
 ;; Make-dired-file-sizes-human-readable
 ;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
@@ -160,7 +160,6 @@ Works in linux, MacOS, Microsoft Windows."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Provide
 (provide 'sp-dired)
 
 ;;; sp-dired.el ends here

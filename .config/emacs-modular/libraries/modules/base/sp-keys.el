@@ -1,5 +1,6 @@
-;; -*- lexical-binding: t; -*-
-;; sp-keys.el
+;;; sp-keys.el --- Keybindings, leader prefix and which-key -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; An overhauled system for dealing with keybindings.
 ;; The general convention is that I use the more modern keymap-global-set instead of global-set-key -- the entire config should be scanned to make sure that the information is added in there.
@@ -7,13 +8,13 @@
 ;; There's also the option of using 'bind-key'.
 ;; 'bind-key' is a poart of use-package
 
-;;; Commentary:
-
 ;; Keybindings for 𝛌-Emacs. This has its disadvantages (e.g. separating
 ;; functions or packages from keybindings) but it also makes it the place to go
 ;; to deal with all keybindings. I use `bind-key' for setting bindings, which
 ;; comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
 ;; specified by `sp-prefix'.
+
+;;; Code:
 
 (defun sp-bind-commenting ()
   "Comment or uncomment a region by hitting M-;."

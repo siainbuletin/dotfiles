@@ -1,4 +1,15 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
+;; lines, visual styling of the time grid and tags, scheduling and sorting
+;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 
 (keymap-global-set "C-c o a" 'org-agenda)
 
@@ -166,8 +177,6 @@
         (org-search-view (if only-todos t nil) "*"))
       (org-agenda-remove-restriction-lock t)
       (message nil))))
-
-;;; Provide:
 
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here

@@ -1,5 +1,7 @@
-;; -*- lexical-binding: t; -*-
-;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
@@ -37,6 +39,7 @@
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)

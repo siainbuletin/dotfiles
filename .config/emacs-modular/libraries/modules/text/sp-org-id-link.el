@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-id-link.el
+;;; sp-org-id-link.el --- Org IDs and link utilities -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -74,8 +73,6 @@ is non-nil."
 
 ;; Other libraries
 ;; - sp-org-create-note-and-link.el
-
-;;; Provide:
 
 (provide 'sp-org-id-link)
 ;; sp-org-id-link.el ends here.

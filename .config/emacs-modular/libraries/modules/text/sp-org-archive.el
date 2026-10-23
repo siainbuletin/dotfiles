@@ -1,4 +1,13 @@
-;; -*- lexical-binding: t -*-
+;;; sp-org-archive.el --- Org archiving and Palimpsest -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets where Org archives completed subtrees, adds a command to
+;; archive every DONE and CANCELED task in the current file at once, and
+;; configures `palimpsest', a minor mode that moves text out of the way instead
+;; of deleting it.
+
+;;; Code:
 
 ;; Tell org where to archive completed tasks. Wrapped in
 ;; with-eval-after-load because `org-directory' is defined by org

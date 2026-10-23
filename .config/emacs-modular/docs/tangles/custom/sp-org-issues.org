@@ -91,11 +91,10 @@ The keywords mean:
 
 ** File header
 
-The file header and commentary, which repeat the summary above in short.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-issues.el --- An issue tracker for code work, kept as a PARA area
+;;; sp-org-issues.el --- An issue tracker kept as a PARA area -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -116,6 +115,8 @@ The file header and commentary, which repeat the summary above in short.
 ;;
 ;; Load it after sp-org-ext: it adds to the capture templates and agenda
 ;; commands that sp-vulpea-para sets.
+
+;;; Code:
 #+end_src
 
 ** Dependencies
@@ -123,8 +124,6 @@ The file header and commentary, which repeat the summary above in short.
 Loads Org, vulpea and vulpea-para. It also requires =sp-vulpea-para=, which now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there); requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in. Capture, agenda and Magit are only declared, so loading this module does not load them.
 
 #+begin_src emacs-lisp -i
-;;; Code:
-
 (require 'org)
 (require 'vulpea)
 (require 'vulpea-para)
@@ -611,7 +610,6 @@ In a status buffer for a worktree of the yadm repository, this sets =magit-statu
 Provides the =sp-org-issues= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.

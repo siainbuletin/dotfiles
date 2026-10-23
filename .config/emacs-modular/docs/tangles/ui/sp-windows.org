@@ -17,8 +17,7 @@ The module is part of the window management group in the default module list, lo
 Lexical binding and the module's commentary. The author notes that window placement should eventually move into a broader window management file, including control of a daemonized Emacs under a Linux tiling window manager.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-windows.el --- Window setup
+;;; sp-windows.el --- Window layout, movement and helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -529,7 +528,6 @@ Binds =sp-goto-minibuffer-window= to =C-c m=.
 Provides the =sp-windows= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-windows)
 ;; sp-windows.el ends here.

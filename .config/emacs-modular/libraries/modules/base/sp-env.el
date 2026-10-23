@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-env.el --- Shell environment and shell helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -96,8 +96,6 @@
                "STARDICT_DATA_DIR"
                "GIT_CEILING_DIRECTORIES"))
   (exec-path-from-shell-copy-env var))
-
-;;; Provide:
 
 (provide 'sp-env)
 ;; sp-env.el ends here.

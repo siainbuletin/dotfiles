@@ -1,6 +1,10 @@
-;;; sp-helper-funct.el --- summary -*- lexical-binding: t -*-
+;;; sp-helper-funct.el --- Assorted helper commands and sensible defaults -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Useful functions
+
+;;; Code:
 
 ;;;;; Call an emacs instance
 ;; Call an emacs instance for testing
@@ -631,7 +635,6 @@ insert the text where point is, not where the mouse cursor is."
 (use-package wizard
   :ensure (:type git :host github :repo "jamescherti/wizard.el" :rev :newest))
 
-;;; Provide
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'sp-helper-funct)
 ;;; sp-helper-funct.el ends here

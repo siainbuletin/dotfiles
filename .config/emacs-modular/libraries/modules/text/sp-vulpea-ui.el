@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-ui.el
+;;; sp-vulpea-ui.el --- Vulpea UI sidebar and collection views -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -12,6 +11,7 @@
 ;; found in sp-vulpea-schemas.el
 
 ;;; Code:
+
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
@@ -114,6 +114,5 @@
 ;;; vulpea-ui get unlinked mentioned without an ID property
 ;; (require 'sp-tab-inbox) ;; this is required in init el so I can see progress for loading
 
-;;; Provide:
 (provide 'sp-vulpea-ui)
 ;; sp-vulpea-ui.el ends here.

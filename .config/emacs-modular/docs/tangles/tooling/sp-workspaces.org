@@ -14,13 +14,13 @@ The module ends with a =projectile= declaration that was moved here from a depre
 
 ** File header
 
-Lexical binding and the commentary describing the workspace model: tabs with isolated buffer lists, shown discreetly rather than as a visible tab line.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-workspaces.el
+;;; sp-workspaces.el --- Tab-based workspaces and Projectile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;; Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
 ;; with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
 ;; up so that these workspaces are nicely displayed out of the way in the echo
@@ -315,7 +315,6 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
 Provides the =sp-workspaces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.

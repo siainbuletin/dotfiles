@@ -15,8 +15,7 @@ The module is part of the window management group in the default module list, lo
 Lexical binding and a short commentary. It explains why the tree is rooted at a fixed folder: the dotfiles are a yadm repository whose root is the home folder, so treemacs' usual "current project" would be all of =$HOME=.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-treemacs.el
+;;; sp-treemacs.el --- A file tree for the emacs-modular folder -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -103,7 +102,6 @@ Settings to try with =C-c C-c= before adopting them. This block is never tangled
 Provides the =sp-treemacs= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-treemacs)
 ;; sp-treemacs.el ends here.

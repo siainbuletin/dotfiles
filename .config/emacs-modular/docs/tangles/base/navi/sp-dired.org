@@ -14,17 +14,18 @@ The eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dis
 
 ** Header and commentary
 
-The commentary describes the file as part of the navigation setup, focused on good Dired settings.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-dired.el --- summary
+;;; sp-dired.el --- Dired and Dirvish file management -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Setup code for "navigating" Emacs, in the sense of outlines, goto functions,
 ;; saving place, recent files, etc.
 ;; this file is particularly concerned with good settings for dired.
+
+;;; Code:
 #+end_src
 
 * Dired basics
@@ -34,7 +35,6 @@ The commentary describes the file as part of the navigation setup, focused on go
 Sets the default =dired-listing-switches= to =-alh=, which shows all files with sizes in KB, MB and so on. This value is overridden twice further down, so it only matters if the later settings are removed.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Helpful functions
 ;; Make-dired-file-sizes-human-readable
 ;; Add file sizes in human-readable units (KB, MB, etc) to dired buffers.
@@ -257,7 +257,6 @@ Provides the =sp-dired= feature and closes the file.
 #+begin_src emacs-lisp -i
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Provide
 (provide 'sp-dired)
 
 ;;; sp-dired.el ends here

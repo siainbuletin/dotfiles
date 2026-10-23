@@ -1,7 +1,11 @@
-;;; -*- lexical-binding: t -*-
+;;; sp-org-ext.el --- Org extensions and sub-module loader -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; NOTE: some org-extensions are set in other setup files:
 ;; - org citations setup is in setup-citation
+
+;;; Code:
 
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
@@ -68,8 +72,6 @@
 
 ;;; Another org context library
 (require 'org-context-agen)
-
-;;; Provide:
 
 (provide 'sp-org-ext)
 ;; sp-org-ext.el ends here.

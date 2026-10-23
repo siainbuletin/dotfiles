@@ -14,10 +14,10 @@ It uses =sp-cache-dir=, defined in =early-init.el= as the =cache/= directory und
 
 ** Header and commentary
 
-Library header and commentary listing the features (a persistent scratch buffer and burying instead of killing) with a link to the Reddit thread that inspired them.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-scratch.el --- better scratch settings -*- lexical-binding: t -*-
+;;; sp-scratch.el --- Persistent scratch buffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -28,7 +28,7 @@ Library header and commentary listing the features (a persistent scratch buffer 
 ;; - Provide options for persistent scratch buffer
 ;; - Don't kill scratch, bury it instead
 ;; - These settings can be enabled/disabled via the relevant variables
-;; 
+;;
 ;; TODO: Bring in the settings from the older configuration
 
 ;;; Code:

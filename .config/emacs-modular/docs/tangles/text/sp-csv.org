@@ -12,11 +12,10 @@ It relies on =parse-csv-string-rows= from the =parse-csv= package and on =cl-lib
 
 ** File header and commentary
 
-Lexical binding and a link to the code this was adapted from.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-csv.el
+;;; sp-csv.el --- Create Org files from a CSV export -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -66,7 +65,6 @@ A commented example call.
 Provides the =sp-csv= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-csv)
 ;; sp-csv.el ends here.

@@ -14,15 +14,14 @@ The module is not required anywhere in the config. It depends on =org-ql=, which
 
 ** File header and commentary
 
-Lexical binding, a one-line description and a commentary listing inline querying as the intended use.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-vulpea-org-ql.el --- Bridge between vulpea and org-ql
+;;; sp-vulpea-org-ql.el --- Querying vulpea notes with org-ql (draft) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; Use-cases: 
+;; Use-cases:
 ;; - for inline querying
 
 ;;; Code:
@@ -49,7 +48,6 @@ Selects all vulpea notes whose =relevance-factor= metadata is 4 or higher (notes
 Provides the =sp-vulpea-org-ql= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-vulpea-org-ql)
 ;; sp-vulpea-org-ql.el ends here.

@@ -15,7 +15,17 @@ The module is not loaded by any module list or profile. The file ends with =(pro
 =siapip/plantuml:enable= is a boolean option whose =:set= function adds =.puml= to =auto-mode-alist= when true and removes it when false. Because =defcustom= runs the =:set= function when the file loads, the association is installed as soon as the module is loaded, and toggling the option through Customize takes effect immediately.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-plantuml.el --- Minimal PlantUML mode with PNG preview -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module defines a small home-made major mode, `siapip/plantuml-mode',
+;; for PlantUML diagram files (`.puml'). Every time such a file is saved it
+;; runs the PlantUML jar through Java to render a PNG next to the source and
+;; shows that image in a preview buffer.
+
+;;; Code:
+
 (defcustom siapip/plantuml:enable t
   "Whether the plantuml mode is enabled."
   :group 'siapip

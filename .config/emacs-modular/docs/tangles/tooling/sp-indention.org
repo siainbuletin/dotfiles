@@ -12,13 +12,17 @@ It is loaded with the utility modules in =init.el=. The =C-<tab>= binding calls 
 
 ** File header
 
-Lexical binding, a one-line description and empty commentary and code headers.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-indention.el --- Indentation
+;;; sp-indention.el --- Tabs, indentation width and indent keys -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module sets global indentation defaults: spaces instead of tab
+;; characters, a width of 4, and keys for inserting a literal tab and shifting
+;; a region by one tab stop. It also registers autoloads for `guess-style', a
+;; library that guesses a file's indentation style.
 
 ;;; Code:
 #+end_src
@@ -81,7 +85,6 @@ Adds a =guess-style= subdirectory of this file's folder to =load-path= and decla
 Provides the =sp-indention= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-indention)
 ;; sp-indention.el ends here.

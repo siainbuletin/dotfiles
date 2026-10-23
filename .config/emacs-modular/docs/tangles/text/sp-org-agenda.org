@@ -16,10 +16,21 @@ It is loaded in the Org section of both module lists in =init.el=, after =sp-org
 
 ** File header
 
-Turns on lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
+;; lines, visual styling of the time grid and tags, scheduling and sorting
+;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 #+end_src
 
 ** Agenda key
@@ -307,7 +318,6 @@ Shows a search agenda restricted to the current subtree, or to the active region
 Provides the =sp-org-agenda= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here
@@ -325,8 +335,14 @@ This heading and everything under it is written to =sp-agenda-views.el=, not =sp
 Turns on lexical binding and loads the libraries the views need: =org-agenda= for =org-agenda-custom-commands= and =vulpea-para= for the building blocks of the PARA view.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-agenda-views.el --- Custom agenda views
+;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Every custom agenda view in one place: the native views and the main PARA
+;; view from `vulpea-para'.
+
+;;; Code:
 
 (require 'org-agenda)
 (require 'vulpea-para)
@@ -461,7 +477,6 @@ Adds a view bound to the space key in the agenda dispatcher, in front of the oth
 Provides the =sp-agenda-views= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here
 #+end_src

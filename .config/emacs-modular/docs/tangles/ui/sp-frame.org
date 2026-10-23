@@ -14,11 +14,10 @@ It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=
 
 ** File header
 
-Lexical binding and the commentary, which points to =early-init.el= for the settings applied before the first frame appears.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-frame.el
+;;; sp-frame.el --- Frame appearance, margins and frame helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -193,7 +192,6 @@ On macOS, when extras are enabled and the package is installed, =ns-auto-titleba
 Provides the =sp-frame= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-frame)
 ;;; sp-frame.el ends here

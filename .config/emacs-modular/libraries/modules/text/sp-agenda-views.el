@@ -1,5 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-agenda-views.el --- Custom agenda views
+;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Every custom agenda view in one place: the native views and the main PARA
+;; view from `vulpea-para'.
+
+;;; Code:
 
 (require 'org-agenda)
 (require 'vulpea-para)
@@ -102,6 +108,5 @@
                 ,vulpea-para-agenda-cmd-waiting
                 ,(vulpea-para-agenda-cmd-current-quarter))))
 
-;;; Provide:
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here

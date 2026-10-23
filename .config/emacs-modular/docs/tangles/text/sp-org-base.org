@@ -19,7 +19,9 @@ The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*=
 The file enables lexical binding and opens with a comment listing the Org-related packages that live in other modules: the vulpea ecosystem, org-node with org-mem, and the agenda and task-management setup.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-base.el --- Core Org mode and text-mode settings -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This file only sets up the very basic extensions for org mode.
 ;; I also use many other packages, they will be required later on.
@@ -27,6 +29,8 @@ The file enables lexical binding and opens with a comment listing the Org-relate
 ;; - vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
 ;; - org-node (and the org-mem package)
 ;; - all the org-agenda stuff that will help with taks management (see also taskman.el)
+
+;;; Code:
 #+end_src
 
 * Basic text editing
@@ -814,7 +818,6 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
 Provides the =sp-org-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

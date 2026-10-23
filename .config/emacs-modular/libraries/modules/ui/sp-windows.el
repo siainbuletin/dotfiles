@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-windows.el --- Window setup
+;;; sp-windows.el --- Window layout, movement and helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -329,8 +328,6 @@
 ;;;; Helper functions
 ;; Redrawing the display when there's graphical errors
 (global-set-key (kbd "<f6>") 'redraw-display)
-
-;;; Provide:
 
 (provide 'sp-windows)
 ;; sp-windows.el ends here.

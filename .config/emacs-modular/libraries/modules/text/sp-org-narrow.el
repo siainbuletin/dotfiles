@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-narrow.el
+;;; sp-org-narrow.el --- Narrowing helpers for long Org buffers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

@@ -1,5 +1,12 @@
-;; -*- lexical-binding: t -*-
-;; sp-server.el --- emacs server configuration 
+;;; sp-server.el --- Emacs server and daemon management -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Starts the Emacs server so `emacsclient' can connect, and provides two
+;; commands for killing stray Emacs processes. It is part of both the default
+;; and minimal module lists in `init.el'.
+
+;;; Code:
 
 ;;; Server
 ;; start server for emacsclient. The original guard was `:if
@@ -34,8 +41,6 @@
 (defun lem-kill-emacs-capture-daemon ()
   (interactive)
   (shell-command-to-string "pkill -f /Applications/Emacs.app/Contents/MacOS/emacs"))
-
-;;; Provide:
 
 (provide 'sp-server)
 ;; sp-server.el ends here

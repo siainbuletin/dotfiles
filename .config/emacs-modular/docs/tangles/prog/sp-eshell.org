@@ -19,8 +19,13 @@ Several paths are built from =lem-etc-dir=. In this repository that constant app
 Turns on lexical binding, then at both compile and load time tries to load =lambda-themes= and defines fallback versions of the three faces the prompt uses if they do not exist yet: =lambda-meek= and =lambda-mild= inherit =shadow=, and =lambda-yellow= inherits =warning=. This keeps the prompt working with any theme.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-eshell.el --- eshell setup             
+;;; sp-eshell.el --- Eshell setup, prompt, aliases and helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configuration for Eshell, Emacs's built-in shell written in Lisp.
+
+;;; Code:
 
 ;; Define required faces FIRST, before any other code
 (eval-and-compile
@@ -1055,6 +1060,5 @@ Provides the =sp-eshell= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End Shell
-;;; Provide Eshell
 (provide 'sp-eshell)
 #+end_src

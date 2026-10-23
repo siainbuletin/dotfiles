@@ -71,7 +71,6 @@ Loaded from =init.el=, in the Academic block of =lem--default-modules=, right af
 
 #+begin_src emacs-lisp
 ;;; sp-relationship-annotator-live.el --- Serve the relationship graph on localhost, and keep it up to date -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1"))
 
 ;;; Commentary:

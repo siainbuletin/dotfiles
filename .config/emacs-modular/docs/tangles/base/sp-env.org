@@ -17,7 +17,7 @@ The commentary explains the reliance on =exec-path-from-shell= for macOS binarie
 It also points to =sp-paths=, which names the folders the other modules use (notes, bibliography, source checkouts) and lets =SP_NOTES_DIR= and its siblings override them. Those variables are read when =sp-paths= loads, before this module imports the shell's environment, so a graphical Emacs only sees them when it is started from a shell or when the graphical session sets them. The module requires =sp-paths= so the dependency is explicit; it does not change any of those folders.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-env.el --- Shell environment and shell helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -191,7 +191,6 @@ This has problems:
 Provides the =sp-env= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-env)
 ;; sp-env.el ends here.

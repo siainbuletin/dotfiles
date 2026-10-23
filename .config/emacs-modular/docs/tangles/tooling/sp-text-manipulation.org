@@ -14,11 +14,10 @@ Everything here is built in to Emacs apart from the external macOS tools =textut
 
 ** File header and commentary
 
-The file header, commentary and start of the code section.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-text-manipulation.el --- text functions and better text editing
+;;; sp-text-manipulation.el --- Text editing helpers and whitespace cleanup -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -330,7 +329,6 @@ Installs that function as =:before= advice on =insert-for-yank=, the function un
 Provides the =sp-text-manipulation= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-text-manipulation)
 ;; sp-text-manipulation.el ends here.

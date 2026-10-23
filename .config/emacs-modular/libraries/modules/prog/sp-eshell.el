@@ -1,5 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-eshell.el --- eshell setup             
+;;; sp-eshell.el --- Eshell setup, prompt, aliases and helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configuration for Eshell, Emacs's built-in shell written in Lisp.
+
+;;; Code:
 
 ;; Define required faces FIRST, before any other code
 (eval-and-compile
@@ -650,5 +655,4 @@ So if we're connected with sudo to 'remotehost'
 (add-hook 'eshell-directory-change-hook #'lem-eshell-list-files-on-cd)
 
 ;;; End Shell
-;;; Provide Eshell
 (provide 'sp-eshell)

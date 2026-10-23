@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;;; sp-navi.el --- summary
+;;; sp-navi.el --- Navigation: files, places and outlines -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -7,6 +6,7 @@
 ;; submodules are recursed within the file
 
 ;;; Code:
+
 ;;;; Require sub-libraries for navigation (organised alphabetically)
 (require 'sp-consult-snapfile)
 (require 'sp-dired)
@@ -93,8 +93,6 @@ directory."
 
 (global-unset-key (kbd "C-x C-f")) ; Rebinding the find-file command.
 (keymap-global-set "C-x C-f" #'sp-find-file)
-
-;;; Provide:
 
 (provide 'sp-navi)
 ;; sp-navi.el ends here.

@@ -15,7 +15,7 @@ Loading the module replaces =interprogram-cut-function= with =lem--osc52-cut-fun
 The commentary explains the design: one function handles both graphical and terminal frames by looking at the frame that displays the buffer where the kill happened, and simply loading the file activates it.
 
 #+begin_src emacs-lisp -i
-;;; sp-tty-clipboard.el --- TTY clipboard via OSC52 -*- lexical-binding: t -*-
+;;; sp-tty-clipboard.el --- Clipboard over OSC52 for terminal frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -133,7 +133,6 @@ Sets =interprogram-cut-function= globally, so every kill and copy goes through t
 Provides the =sp-tty-clipboard= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-tty-clipboard)
 ;;; sp-tty-clipboard.el ends here

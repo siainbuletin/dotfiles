@@ -1,7 +1,10 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-export.el
+;;; sp-org-export.el --- Org export, Pandoc and clipboard conversion -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This should be correlated with the typesetting that I currently have running.
+
+;;; Code:
 
 ;;;; Org Export
 ;; Useful base export settings

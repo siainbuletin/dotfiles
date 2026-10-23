@@ -1,7 +1,8 @@
-;; -*- lexical-binding: t -*-
-;; lem-dashboard.el
+;;; sp-lem-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; lem-dashboard.el
 
 ;; This is the slightly modified version of Lambda dashboard (adapted for my
 ;; own readability within the code).
@@ -129,8 +130,6 @@
   "Goto the dashboard."
   (interactive)
   (switch-to-buffer "*dashboard*"))
-
-;;; Provide:
 
 (provide 'lem-dashboard)
 ;; lem-dashboard.el ends here.

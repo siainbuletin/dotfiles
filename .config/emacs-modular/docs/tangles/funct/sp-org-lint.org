@@ -14,10 +14,20 @@ It depends only on built-in libraries: =org=, =org-list=, =org-element= and =sub
 
 ** File header
 
-The file header, with lexical binding enabled.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
+;;; sp-org-lint.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module provides two commands for tidying plain lists in Org buffers,
+;; aimed at lists of links such as reading or resource lists.
+;; `sp-org-lint-list' turns stray paragraph lines into list items, removes
+;; blank lines between items and drops items whose https link already appeared
+;; earlier.
+
+;;; Code:
 #+end_src
 
 ** Required libraries
@@ -444,7 +454,6 @@ sublists travel with their parent item but are not re-sorted."
 Provides the =sp-org-lint= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here

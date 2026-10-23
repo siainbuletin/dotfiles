@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-spelling.el --- Spell checking -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures spell checking with the built-in `ispell' and
+;; `flyspell' libraries, preferring the external `aspell' program when it is
+;; installed. Flyspell is deliberately not switched on automatically: a stalled
+;; speller process once froze the Emacs daemon, so spell checking is used on
+;; demand.
+
+;;; Code:
 
 ;;;; Spelling
 (use-package ispell
@@ -80,8 +90,6 @@
   "Comma-separated list of Hunspell dictionaries."
   :group 'siapip
   :type 'list)
-
-;;; Provide:
 
 (provide 'sp-spelling)
 ;; sp-spelling.el ends here.

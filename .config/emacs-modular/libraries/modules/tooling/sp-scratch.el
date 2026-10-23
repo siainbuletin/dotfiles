@@ -1,4 +1,4 @@
-;;; sp-scratch.el --- better scratch settings -*- lexical-binding: t -*-
+;;; sp-scratch.el --- Persistent scratch buffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,7 +9,7 @@
 ;; - Provide options for persistent scratch buffer
 ;; - Don't kill scratch, bury it instead
 ;; - These settings can be enabled/disabled via the relevant variables
-;; 
+;;
 ;; TODO: Bring in the settings from the older configuration
 
 ;;; Code:

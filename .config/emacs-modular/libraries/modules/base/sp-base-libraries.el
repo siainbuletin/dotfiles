@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-base-libraries.el 
+;;; sp-base-libraries.el --- Base libraries and general defaults -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

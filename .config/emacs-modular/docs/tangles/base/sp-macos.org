@@ -12,11 +12,10 @@ It depends on the =dwim-shell-command= package, the built-in =proced=, =map= and
 
 ** Header and commentary
 
-File header with lexical binding and a short commentary explaining why macOS integration matters here. DEVONthink support is mentioned as configured elsewhere.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-macos.el --- settings specific to the MacOS environment.
+;;; sp-macos.el --- macOS integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -300,7 +299,6 @@ Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-ma
 Provides the =sp-macos= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-macos)
 ;; sp-macos.el ends here.

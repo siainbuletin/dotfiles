@@ -17,10 +17,11 @@ It depends on =nerd-icons= for icons, optionally =page-break-lines=, the =sp-lib
 The commentary explains the Lambda Emacs origin, notes that some Elpaca hooks from the original setup were dropped, and points to the emacs-include configuration as a reference.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; lem-dashboard.el
+;;; sp-lem-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; lem-dashboard.el
 
 ;; This is the slightly modified version of Lambda dashboard (adapted for my
 ;; own readability within the code).
@@ -261,7 +262,6 @@ In the dashboard buffer, r jumps to recents, b to bookmarks, a to the agenda and
 Provides the =lem-dashboard= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'lem-dashboard)
 ;; lem-dashboard.el ends here.

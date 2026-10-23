@@ -14,29 +14,23 @@ The command depends on =consult= and =consult-omni= and on the macOS =open= prog
 
 ** Header and commentary
 
-Enables lexical binding and states the module's purpose: creating the environment for browsing within Emacs.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-browsing.el --- Web browsing inside Emacs -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Creating the environment for browsing within Emacs.
-#+end_src
 
-* Code outline
-
-** Placeholder sections
-
-Headers for defining variables and for EWW. Both are empty for now.
-
-#+begin_src emacs-lisp -i
 ;;; Code:
 
 ;;;; Defining variables
 
 ;;;; EWW (built-in)
 #+end_src
+
+* Code outline
 
 * EWW helpers
 

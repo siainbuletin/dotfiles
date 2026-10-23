@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t -*-
+;;; sp-org-emphasis.el --- Org emphasis helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Small commands that make Org emphasis behave in a "do what I mean" way: with
+;; no active region they first mark the word at point, then call
+;; `org-emphasize'. The approach is adapted from a Stack Exchange answer and an
+;; Emacs TIL post, and the `lem-' prefixed helpers come from the Lambda Emacs
+;; config.
+
+;;; Code:
 
 ;;;;; Org Emphasis Functions
 ;; Adapted from https://emacs.stackexchange.com/a/14586

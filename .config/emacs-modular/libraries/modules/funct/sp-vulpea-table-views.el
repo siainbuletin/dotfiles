@@ -1,4 +1,6 @@
-;;; sp-vulpea-table-views.el --- Named views + inline mounting for Vulpea vui tables -*- lexical-binding: t; -*-
+;;; sp-vulpea-table-views.el --- Saved views and inline mounting for Vulpea tables -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Requires the two earlier pieces to already be loaded (either as
 ;; separate files with their own (provide ...), or pasted into
@@ -7,6 +9,8 @@
 ;;                                static-text fallback)
 ;;   - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
 ;;                                sia-vulpea-open-table)
+
+;;; Code:
 
 (require 'vui)
 (require 'vulpea)

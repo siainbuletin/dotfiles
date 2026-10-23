@@ -16,9 +16,10 @@ Left alone on purpose: paths inside the configuration's own tree (=~/.config/...
 
 ** File header and commentary
 
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;;; sp-paths.el --- Where my files live
+;;; sp-paths.el --- Where my files live -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -34,6 +35,8 @@ Left alone on purpose: paths inside the configuration's own tree (=~/.config/...
 ;;
 ;; All of them are directories with a trailing slash.  Use `sp-path' to build a
 ;; path below one of them.
+
+;;; Code:
 #+end_src
 
 * Helpers
@@ -41,8 +44,6 @@ Left alone on purpose: paths inside the configuration's own tree (=~/.config/...
 The group, a function that reads an environment variable, and =sp-path=, which joins path components below one of the directories.
 
 #+begin_src emacs-lisp -i
-;;; Code:
-
 (defgroup sp-paths nil
   "Locations of my notes, documents and checkouts."
   :group 'files)

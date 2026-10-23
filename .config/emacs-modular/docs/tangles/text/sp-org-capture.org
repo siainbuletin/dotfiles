@@ -17,7 +17,7 @@ It is required from =sp-org-ext=. It relies on =org-directory= being set elsewhe
 The commentary says this module is the basis for later journal-style workflows, mentions the Lambda Emacs weather recording function, and states the intention that capture should plug into org-gtd.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
+;;; sp-org-capture.el --- Org capture templates and capture frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

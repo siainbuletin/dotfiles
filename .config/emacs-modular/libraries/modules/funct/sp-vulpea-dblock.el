@@ -1,4 +1,14 @@
-;;; sp-vulpea-dblock.el --- Dataview-style property tables, backed by Vulpea -*- lexical-binding: t; -*-
+;;; sp-vulpea-dblock.el --- Dataview-style tables of Vulpea notes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module brings something like Obsidian's Dataview to Org: a dynamic
+;; block type, `vulpea-table', that queries the Vulpea note database and writes
+;; an Org table of matching notes. Notes can be filtered by tags and by a
+;; parent link, and columns can be built-in fields or Vulpea meta keys (the
+;; `KEY :: value' description-list entries inside notes).
+
+;;; Code:
 
 (require 'vulpea)
 (require 'org-table)

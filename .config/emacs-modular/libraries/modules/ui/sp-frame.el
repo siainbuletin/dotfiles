@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-frame.el
+;;; sp-frame.el --- Frame appearance, margins and frame helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -89,8 +88,6 @@ If FRAME is omitted or nil, use currently selected frame."
   (when (condition-case nil (delete-frame)
           (error (save-buffers-kill-emacs))))
   (select-frame-set-input-focus (selected-frame)))
-
-;;; Provide:
 
 (provide 'sp-frame)
 ;;; sp-frame.el ends here

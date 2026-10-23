@@ -14,19 +14,13 @@ It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file=
 
 ** File header
 
-Standard file header enabling lexical binding.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-splash.el --- An alternative splash screen
-#+end_src
+;;; sp-splash.el --- Custom lambda splash screen -*- lexical-binding: t; -*-
 
-** Commentary
-
-The author notes that the splash includes lambda ASCII art and that its interaction with the dashboard still needs testing, and that the splash is skipped when Emacs is started with a file on the command line.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
+
 ;;
 ;;  An alternative splash screen:
 ;; this is also including the ascii art of the lambda sign, which will show up in the dashboard
@@ -35,6 +29,8 @@ The author notes that the splash includes lambda ASCII art and that its interact
 ;; Note: The screen is not shown if there are opened file buffers. For
 ;;       example, if you start emacs with a filename on the command
 ;;       line, the splash is not shown.
+
+;;; Code:
 #+end_src
 
 * Dependencies and customization group
@@ -44,7 +40,6 @@ The author notes that the splash includes lambda ASCII art and that its interact
 Loads =cl-lib= and, only when it can be found on the load path, =nerd-icons=. The guard keeps a minimal boot without nerd-icons from crashing at load time. Note that the graphical renderer still calls =nerd-icons-faicon= unconditionally, so it would fail without the package.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 (require 'cl-lib)
 ;; Guarded require: without this, a sandbox boot with sp-load-extras
 ;; nil and no nerd-icons installed would crash module-load here.
@@ -843,7 +838,6 @@ Adds the setup function to =window-setup-hook=, which runs after the frame param
 Provides the =sp-splash= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-splash)
 ;;; sp-splash.el ends here

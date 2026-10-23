@@ -1,7 +1,7 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-splash.el --- An alternative splash screen
+;;; sp-splash.el --- Custom lambda splash screen -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;;
 ;;  An alternative splash screen:
 ;; this is also including the ascii art of the lambda sign, which will show up in the dashboard
@@ -12,6 +12,7 @@
 ;;       line, the splash is not shown.
 
 ;;; Code:
+
 (require 'cl-lib)
 ;; Guarded require: without this, a sandbox boot with sp-load-extras
 ;; nil and no nerd-icons installed would crash module-load here.
@@ -561,8 +562,6 @@ splash is drawn again with the current settings."
            (not (member "--insert"    command-line-args))
            (not (member "--find-file" command-line-args)))
   (add-hook 'window-setup-hook #'sp-splash--setup-splash-hooks))
-
-;;; Provide:
 
 (provide 'sp-splash)
 ;;; sp-splash.el ends here

@@ -12,15 +12,14 @@ This module installs =vulpea-graph= from the Arenile/vulpea-graph-ui GitHub repo
 
 ** File header
 
-The file header, an empty commentary and the start of the code section.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-dyn-graph.el
+;;; sp-dyn-graph.el --- Interactive note graph for Vulpea -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; 
+;;
 
 ;;; Code:
 #+end_src
@@ -42,7 +41,6 @@ Installs =vulpea-graph= along with its =assets= folder, which holds the browser 
 Provides the =sp-dyn-graph= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-dyn-graph)
 ;; sp-dyn-graph.el ends here.

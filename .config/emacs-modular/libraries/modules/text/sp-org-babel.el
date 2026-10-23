@@ -1,5 +1,4 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-babel.el
+;;; sp-org-babel.el --- Org Babel languages and tangling -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -159,8 +158,6 @@ This shell is used to execute the Nushell command."
              (length tangled)
              (mapconcat #'file-name-nondirectory tangled ", "))
     tangled))
-
-;;; Provide:
 
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.

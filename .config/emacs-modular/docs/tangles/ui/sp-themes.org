@@ -12,31 +12,20 @@ Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=.
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-themes.el
-#+end_src
+;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Origins
-
-Notes that the theme manager is taken from Lambda-Emacs, which ships its own Lambda themes, and recommends the built-in Modus themes.
-
-#+begin_src emacs-lisp -i
 ;; This includes the theme manager from Lambda Emacs
 ;;
 ;; 𝛌-Emacs comes with its own set of themes --
 ;; 𝛌-Themes. The user can of course configure things to use whatever theme they
 ;; like. The Modus themes are especially good and included with Emacs 28+.
+
+;;; Code:
 #+end_src
 
 * Theme loading infrastructure
@@ -46,7 +35,6 @@ Notes that the theme manager is taken from Lambda-Emacs, which ships its own Lam
 Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one never asks for confirmation. The comment questions whether this needs to come first; it does need to be set before any =load-theme= call that would otherwise prompt.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; No-confirm themes
 ;; should this setting really come first?
 (setq custom-safe-themes t)
@@ -372,7 +360,6 @@ Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after ever
 Provides the =sp-themes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide
 (provide 'sp-themes)
 ;;; sp-themes.el ends here
 #+end_src

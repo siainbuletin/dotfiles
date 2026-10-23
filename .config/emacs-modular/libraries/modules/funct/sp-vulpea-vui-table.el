@@ -1,4 +1,14 @@
-;;; sp-vulpea-vui-table.el --- Interactive Vulpea property tables via vui.el -*- lexical-binding: t; -*-
+;;; sp-vulpea-vui-table.el --- Live Vulpea property tables with vui -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module builds an interactive table of Vulpea notes in its own buffer,
+;; using the declarative component library `vui'. Note titles are buttons that
+;; open the note, columns can be sorted by clicking, and meta properties (the
+;; description-list lines of the form KEY :: value that Vulpea reads as
+;; metadata) are editable fields that write straight back into the note file.
+
+;;; Code:
 
 (require 'vui)
 (require 'vulpea)

@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-dgraphs.el
+;;; sp-dgraphs.el --- Discourse Graphs for argument mapping -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,6 +7,7 @@
 ;; Emacs for it to work well.
 
 ;;; Code:
+
 (use-package discourse-graphs
   :ensure (discourse-graphs :type git
                             :host github
@@ -109,8 +109,6 @@
                            :target (question)))
       )
         )
-
-;;; Provide:
 
 (provide 'sp-dgraphs)
 ;; sp-dgraphs.el ends here.

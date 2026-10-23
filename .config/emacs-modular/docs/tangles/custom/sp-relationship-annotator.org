@@ -46,14 +46,10 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 
 *** Header and commentary (lines 1–27)
 
-- Line 1 names the file and turns on =lexical-binding=, which the closures below need.
-- Line 3 declares the minimum versions: Emacs 29.1, vulpea 2.7.0, and vui 1.4.0 for the trial outline.
-- Lines 5-25 are the commentary. It says what the module reads (relationships between notes: =parent= builds a hierarchy, the others are links), lists the four commands, explains that every command asks for a starting note and a depth, and that notes on the last level show how many children they hide. It ends by pointing to =relationship-annotator-relations=.
-- Line 27 marks where the code starts.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp :padline no
 ;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
 
 ;;; Commentary:

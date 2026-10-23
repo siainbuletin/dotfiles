@@ -12,17 +12,16 @@ The scrolling settings are noted as taken from Lambda Emacs. The module is loade
 
 ** Header and commentary
 
-File header and a commentary describing the module as the base layer for mouse and GUI interaction.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
-;; sp-interaction.el
+;;; sp-interaction.el --- Mouse and scrolling -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This is set up for the lowest level of interaction
 ;; with the graphical interface in Emacs. For example,
-;; the mouse support. 
+;; the mouse support.
 
 ;;; Code:
 #+end_src
@@ -106,7 +105,6 @@ A reminder to link to the window management packages and to move the EXWM setup 
 Provides the =sp-interaction= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-interaction)
 ;; sp-interaction.el ends here.

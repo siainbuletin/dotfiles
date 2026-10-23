@@ -1,4 +1,4 @@
-;;; sp-tty-clipboard.el --- TTY clipboard via OSC52 -*- lexical-binding: t -*-
+;;; sp-tty-clipboard.el --- Clipboard over OSC52 for terminal frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -79,8 +79,6 @@ non-nil) it is a no-op."
         (message "lem-osc52: kill stayed local (no live frame)"))))))
 
 (setq interprogram-cut-function 'lem--osc52-cut-function)
-
-;;; Provide:
 
 (provide 'sp-tty-clipboard)
 ;;; sp-tty-clipboard.el ends here

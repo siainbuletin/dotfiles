@@ -1,4 +1,14 @@
-;;; sp-vulpea-convert-properties.el --- Convert drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+;;; sp-vulpea-convert-properties.el --- Convert Org drawer properties to Vulpea meta lines -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module migrates note metadata out of Org property drawers and into
+;; Vulpea-style meta lines, i.e. description-list items of the form `- key ::
+;; value' placed just below a node's drawer. It works on one node at point, on
+;; a whole buffer, or across every note Vulpea knows about, with a dry-run
+;; preview and a non-blocking batch runner that shows progress and an ETA.
+
+;;; Code:
 
 (require 'org)
 (require 'vulpea)

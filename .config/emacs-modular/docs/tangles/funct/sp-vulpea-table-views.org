@@ -16,10 +16,12 @@ The header comment explains that the dblock and vui-table pieces must already be
 
 ** Header
 
-Library header line and a comment listing the two prerequisite files and what each provides.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-views.el --- Named views + inline mounting for Vulpea vui tables -*- lexical-binding: t; -*-
+;;; sp-vulpea-table-views.el --- Saved views and inline mounting for Vulpea tables -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Requires the two earlier pieces to already be loaded (either as
 ;; separate files with their own (provide ...), or pasted into
@@ -28,6 +30,8 @@ Library header line and a comment listing the two prerequisite files and what ea
 ;;                                static-text fallback)
 ;;   - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
 ;;                                sia-vulpea-open-table)
+
+;;; Code:
 #+end_src
 
 ** Requires

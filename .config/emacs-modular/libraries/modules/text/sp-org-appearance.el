@@ -1,5 +1,4 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-appearance.el
+;;; sp-org-appearance.el --- How Org buffers look -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -121,8 +120,6 @@
   "Only apply spacious padding to graphic FRAME."
   (when (display-graphic-p frame)
     (funcall fn frame)))
-
-;;; Provide:
 
 (provide 'sp-org-appearance)
 ;; sp-org-appearance.el ends here.

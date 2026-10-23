@@ -14,25 +14,12 @@ It depends on =vulpea=, =org-id= and =denote= (version 3 or later), and it hooks
 
 ** Header and package requirements
 
-The file header and a Package-Requires line declaring Emacs 28.1 and Denote 3.0.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-split.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
-
+;;; sp-vulpea-split.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
-#+end_src
 
-** Commentary
-
-The commentary is the best summary of the behaviour. On top of the normal split, the command:
-- adds a parents line to the new note linking to the nearest ancestor heading with an ID, or the file-level note, prepending to an existing parents value if there is one,
-- leaves a plain link (not a heading) where the heading used to be, unless called with a prefix argument,
-- renames the new file in Denote's ID, title, keywords format and adds an identifier keyword, while keeping the Org ID so links are unaffected,
-- copies footnote definitions so every heading that cites a footnote has a definition in its own file, with suffixed labels for extra copies.
-
-Steps 1, 2 and 4 only act while =sp-split-leave-parents= runs, so a plain =vulpea-split-heading= is unchanged.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
 
 ;; `sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
@@ -755,7 +742,6 @@ Warns if =vulpea-split--write-file= does not exist, which would mean an unsuppor
 Provides the =sp-vulpea-split= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-vulpea-split)
 ;;; sp-vulpea-split.el ends here

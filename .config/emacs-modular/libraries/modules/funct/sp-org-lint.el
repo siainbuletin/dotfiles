@@ -1,4 +1,14 @@
-;;; sp-org-lint.el --- Lint plain lists in org-mode buffers  -*- lexical-binding: t; -*-
+;;; sp-org-lint.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module provides two commands for tidying plain lists in Org buffers,
+;; aimed at lists of links such as reading or resource lists.
+;; `sp-org-lint-list' turns stray paragraph lines into list items, removes
+;; blank lines between items and drops items whose https link already appeared
+;; earlier.
+
+;;; Code:
 
 (require 'org)
 (require 'org-list)
@@ -278,8 +288,6 @@ Items are sorted case-insensitively by their displayed text.  Nested
 sublists travel with their parent item but are not re-sorted."
   (interactive (sp-org--region-args))
   (sp-org--lint beg end t))
-
-;;; Provide:
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here

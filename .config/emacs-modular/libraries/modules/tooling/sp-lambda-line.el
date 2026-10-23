@@ -1,4 +1,12 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-lambda-line.el --- Lambda-line status line -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module installs and configures `lambda-line', the minimal status line
+;; from the Lambda Emacs project, fetched from Codeberg. It is loaded in both
+;; the default and minimal module lists.
+
+;;; Code:
 
 (use-package lambda-line
     :ensure (:type git :repo "https://codeberg.org/Lambda-Emacs/lambda-line")

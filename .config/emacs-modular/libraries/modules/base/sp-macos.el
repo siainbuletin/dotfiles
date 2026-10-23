@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-macos.el --- settings specific to the MacOS environment.
+;;; sp-macos.el --- macOS integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -180,8 +179,6 @@ live system appearance instead of the daemon's stale startup value."
     :hook (org-mode . (lambda ()
                         (define-key org-mode-map (kbd "C-c g")
                           'org-mac-link-get-link))))
-
-;;; Provide:
 
 (provide 'sp-macos)
 ;; sp-macos.el ends here.

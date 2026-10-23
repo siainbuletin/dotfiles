@@ -12,13 +12,16 @@ External programs matter here: =pandoc= for most conversions, LibreOffice for OD
 
 ** Header
 
-The header plus a note that export should be coordinated with the current typesetting setup.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
-;; sp-org-export.el
+;;; sp-org-export.el --- Org export, Pandoc and clipboard conversion -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; This should be correlated with the typesetting that I currently have running.
+
+;;; Code:
 #+end_src
 
 ** ox

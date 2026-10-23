@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-themes.el
+;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -10,6 +9,7 @@
 ;; like. The Modus themes are especially good and included with Emacs 28+.
 
 ;;; Code:
+
 ;;;; No-confirm themes
 ;; should this setting really come first?
 (setq custom-safe-themes t)
@@ -171,6 +171,5 @@ hook is left untouched; the next macOS Light/Dark change will resync."
   "Run `sp-after-load-theme-hook'."
   (run-hooks 'sp-after-load-theme-hook))
 
-;;; Provide
 (provide 'sp-themes)
 ;;; sp-themes.el ends here

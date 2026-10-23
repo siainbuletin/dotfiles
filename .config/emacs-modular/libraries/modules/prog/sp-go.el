@@ -1,4 +1,16 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-go.el --- Go development setup -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up Go development: a set of helper packages (`go-guru',
+;; `go-eldoc', `godoctor', `go-scratch', `go-playground',
+;; `flycheck-golangci-lint', `go-complete'), a command that installs the
+;; external Go tools with `go install', and a `go-mode' configuration that
+;; formats with `goimports' on save, starts `lsp-mode' with `gopls', and uses
+;; `company' for completion.
+
+;;; Code:
+
 (use-package go-guru
   :defer t)
 (use-package go-eldoc

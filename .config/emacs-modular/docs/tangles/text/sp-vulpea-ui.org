@@ -14,11 +14,10 @@ It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mod
 
 ** Header and commentary
 
-The commentary explains the scope: the sidebar and collection views, and how the author's later table-view code derives from this rendering.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-ui.el
+;;; sp-vulpea-ui.el --- Vulpea UI sidebar and collection views -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -29,6 +28,8 @@ The commentary explains the scope: the sidebar and collection views, and how the
 ;; The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
+
+;;; Code:
 #+end_src
 
 * Sidebar
@@ -38,7 +39,6 @@ The commentary explains the scope: the sidebar and collection views, and how the
 Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty; all settings are made with top-level =setq= forms instead.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
@@ -214,7 +214,6 @@ A placeholder for a custom widget showing unlinked mentions from a tab folder. T
 Provides the =sp-vulpea-ui= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 (provide 'sp-vulpea-ui)
 ;; sp-vulpea-ui.el ends here.
 #+end_src

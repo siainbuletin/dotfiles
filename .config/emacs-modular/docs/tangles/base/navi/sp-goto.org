@@ -14,11 +14,10 @@ It is loaded from =sp-navi=, which requires it, rather than being listed in =ini
 
 ** Header and commentary
 
-File header and a commentary describing =goto-address=: clicking or pressing a key on a URL opens it with =browse-url=, and on an e-mail address starts a message to it.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-goto.el 
+;;; sp-goto.el --- Clickable addresses and quick file jumps -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -129,7 +128,6 @@ When extras are enabled and the =goto-last-change= library is installed, binds =
 Provides the =sp-goto= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-goto)
 ;; sp-goto.el ends here.
