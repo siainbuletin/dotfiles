@@ -117,7 +117,7 @@ This is also currently being loaded alphabetically.
 
 - sp-academic :: contains bibprocess, pdfprocess, and others !@(COMPLETE HERE)!@
 - sp-statistics :: ESS package (currently unconfigured)
-- sp-dgraphs :: Generating networks with the information (should be made to actually be actionable)
+- sp-graphs :: Graphs of notes: discourse-graphs, vulpea-graph and the relationship annotator (should be made to actually be actionable)
 - sp-notes :: other notes-related settings
 
 ** Media work and other workflows (~media/~)
@@ -469,7 +469,7 @@ Modifications to be made by me, a human
         ;; Academic
         sp-academic
         ;; sp-statistics
-        sp-dgraphs
+        sp-graphs
         sp-notes
 
         ;; Functions

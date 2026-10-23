@@ -239,11 +239,9 @@ the order of `lem--late-modules', for example when debugging."
     sp-academic
     sp-notes
     sp-semantic
-    ;; several graphing functionality
-    sp-dgraphs
-    sp-relationship-annotator
-    sp-dyn-graph
-    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
+    ;; annotator and its live localhost view, in one module.
+    sp-graphs
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
     ;; Version control. `sp-keys' autoloads the magit commands it binds, so

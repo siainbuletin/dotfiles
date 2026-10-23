@@ -1,8 +1,8 @@
 #+title: relationship-annotator and discourse-graphs: what each does
 
-=relationship-annotator= (formerly =vulpea-hierarchy=, in =libraries/modules/custom/sp-relationship-annotator.el=) and the =discourse-graphs= package (=dg-=, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]) both read typed relations between notes. They started from different needs. =discourse-graphs= is a tool for writing an argument: you create typed nodes, link them, and ask what is missing. =vulpea-hierarchy= was a viewer for the parent/child tree of a Zettelkasten. =relationship-annotator= keeps the viewer and has taken over the reading, checking and counting of =discourse-graphs=, so the package is no longer needed for those. This page says what is the same, what differs, and what was left out on purpose.
+=relationship-annotator= (formerly =vulpea-hierarchy=, in =libraries/modules/custom/sp-graphs.el=) and the =discourse-graphs= package (=dg-=, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]) both read typed relations between notes. They started from different needs. =discourse-graphs= is a tool for writing an argument: you create typed nodes, link them, and ask what is missing. =vulpea-hierarchy= was a viewer for the parent/child tree of a Zettelkasten. =relationship-annotator= keeps the viewer and has taken over the reading, checking and counting of =discourse-graphs=, so the package is no longer needed for those. This page says what is the same, what differs, and what was left out on purpose.
 
-Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port. Line numbers below refer to that file. The literate source of this module is in [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator.org]].
+Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port. Line numbers below refer to that file. The literate source of this module is in [[file:tangles/custom/sp-graphs.org][sp-graphs.org]].
 
 * In short
 
