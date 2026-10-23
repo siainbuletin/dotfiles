@@ -252,6 +252,7 @@ the order of `lem--late-modules', for example when debugging."
     ;; `sp-magit-style' styles it, so it comes second.
     sp-vcontrol
     sp-magit-style
+    sp-merge-pick ;; graph log: mark two commits, preview or start a merge
     ;; Terminals and shells
     sp-terminal
     sp-eshell

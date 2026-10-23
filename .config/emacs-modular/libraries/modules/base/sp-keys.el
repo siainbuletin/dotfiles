@@ -264,6 +264,8 @@ the line, respectively."
 (autoload 'git-gutter:next-hunk     "git-gutter" "Move to next hunk."       t)
 (autoload 'git-gutter:previous-hunk "git-gutter" "Move to previous hunk."   t)
 (autoload 'git-gutter-mode          "git-gutter" "Toggle git-gutter-mode."  t)
+;; `sp-merge-pick' loads late, after Emacs is idle; this opens its graph log.
+(autoload 'sp-merge-pick-log        "sp-merge-pick" "Graph log for picking two commits." t)
 (bind-keys :prefix-map  lem+vc-keys
            :prefix (concat sp-prefix " g")
            ("b" .  magit-blame                 )
@@ -273,6 +275,8 @@ the line, respectively."
            ("l" .  magit-log                   )
            ;; show history of selected region
            ("L" .  magit-log-buffer-file       )
+           ;; graph log in which to pick two commits to review or merge
+           ("m" .  sp-merge-pick-log           )
            ("n" .  git-gutter:next-hunk        )
            ("p" .  git-gutter:previous-hunk    )
            ;; quick commit file
