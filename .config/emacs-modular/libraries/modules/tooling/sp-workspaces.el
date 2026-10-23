@@ -182,8 +182,8 @@
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/Documents/writing/"
-          "~/.config/"))
+        (list (sp-path sp-documents-dir "writing/")
+              "~/.config/"))
   
   :config
   (projectile-mode +1)
@@ -196,7 +196,7 @@
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
 

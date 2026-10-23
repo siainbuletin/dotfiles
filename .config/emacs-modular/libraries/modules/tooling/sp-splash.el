@@ -76,6 +76,150 @@
 (defvar ksep "   "
   "Separator for title and key.")
 
+;;;; Lambda art
+;; The lambda in `lambda-splash.txt' is drawn behind the menu: it only fills
+;; blanks, so the title and the menu buttons stay on top of it.
+(defface sp-splash-art-face
+  '((((background dark))  :foreground "#454b5c")
+    (((background light)) :foreground "#cfd3dc"))
+  "Face for the lambda art behind the splash menu.
+The colour follows the background of the current theme, so it changes
+with `load-theme' the next time the splash is drawn."
+  :group 'faces)
+
+(defcustom sp-splash-art-file "lambda-splash.txt"
+  "Text file with the art drawn behind the menu.
+A relative name is looked up in `sp-library-dir'.  Nil draws the
+lambda logo image instead."
+  :type '(choice (const :tag "Use the logo image" nil) file)
+  :group 'sp-splash)
+
+(defcustom sp-splash-art-x-offset -12
+  "Columns to move the art right (negative: left).
+Zero centres the art on the menu."
+  :type 'integer
+  :group 'sp-splash)
+
+(defcustom sp-splash-art-y-offset 0
+  "Lines to move the art down (negative: up).
+Zero centres the art on the menu."
+  :type 'integer
+  :group 'sp-splash)
+
+(defcustom sp-splash-art-x-step 2
+  "Columns `sp-splash-art-right' and `sp-splash-art-left' move the art."
+  :type 'integer
+  :group 'sp-splash)
+
+(defcustom sp-splash-art-y-step 1
+  "Lines `sp-splash-art-up' and `sp-splash-art-down' move the art."
+  :type 'integer
+  :group 'sp-splash)
+
+(defun sp-splash--art-lines ()
+  "Return the lines of `sp-splash-art-file', or nil when unavailable."
+  (when sp-splash-art-file
+    (let ((file (expand-file-name sp-splash-art-file sp-library-dir)))
+      (when (file-readable-p file)
+        (let ((lines (with-temp-buffer
+                       (insert-file-contents file)
+                       (split-string (buffer-string) "\n"))))
+          ;; Drop blank lines at the end so they don't count as height.
+          (while (and lines (string-blank-p (car (last lines))))
+            (setq lines (butlast lines)))
+          lines)))))
+
+(defun sp-splash--draw-art (first-line last-line)
+  "Draw the art behind the menu spanning FIRST-LINE to LAST-LINE.
+Only plain blanks are replaced, so text, buttons and images are kept."
+  (when-let* ((lines (sp-splash--art-lines)))
+    (let* ((inhibit-read-only t)
+           (indent-tabs-mode nil)
+           (art-width (apply #'max (mapcar #'length lines)))
+           (menu-middle (/ (+ first-line last-line) 2))
+           (top (+ (- menu-middle (/ (length lines) 2))
+                   sp-splash-art-y-offset))
+           (menu-center (+ (max 0 (/ (- (window-width) (length "Welcome to λ-Emacs")) 2))
+                           9))
+           (left (+ (- menu-center (/ art-width 2))
+                    sp-splash-art-x-offset))
+           (max-line (window-body-height))
+           (row 0))
+      (dolist (text lines)
+        (let ((line (+ top row)))
+          (when (and (>= line 1) (<= line max-line))
+            ;; Grow the buffer when the art runs past its last line.
+            (goto-char (point-max))
+            (while (< (line-number-at-pos) line)
+              (insert-char ?\n 1))
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (dotimes (i (length text))
+              (let ((ch (aref text i))
+                    (col (+ left i)))
+                (when (and (/= ch ?\s) (>= col 0))
+                  (sp-splash--put-art-char col ch)
+                  (forward-line 0)))))
+          (setq row (1+ row)))))))
+
+(defun sp-splash--put-art-char (col ch)
+  "Put CH in the art face at column COL of the current line if it is blank."
+  (move-to-column col)
+  (cond ((and (eolp) (<= (current-column) col))
+         (insert-char ?\s (- col (current-column)))
+         (insert (propertize (string ch) 'face 'sp-splash-art-face)))
+        ((and (= (current-column) col)
+              (eq (char-after) ?\s)
+              (not (get-text-property (point) 'face))
+              (not (get-text-property (point) 'button))
+              (not (get-text-property (point) 'display)))
+         (delete-char 1)
+         (insert (propertize (string ch) 'face 'sp-splash-art-face)))))
+
+;;;; Move the art
+(defun sp-splash-art-nudge (dx dy)
+  "Move the art DX columns right and DY lines down, and redraw the splash."
+  (setq sp-splash-art-x-offset (+ sp-splash-art-x-offset dx)
+        sp-splash-art-y-offset (+ sp-splash-art-y-offset dy))
+  (message "Splash art offset: x %d, y %d" sp-splash-art-x-offset sp-splash-art-y-offset)
+  (sp-splash-refresh))
+
+(defun sp-splash-art-left ()
+  "Move the splash art left."
+  (interactive)
+  (sp-splash-art-nudge (- sp-splash-art-x-step) 0))
+
+(defun sp-splash-art-right ()
+  "Move the splash art right."
+  (interactive)
+  (sp-splash-art-nudge sp-splash-art-x-step 0))
+
+(defun sp-splash-art-up ()
+  "Move the splash art up."
+  (interactive)
+  (sp-splash-art-nudge 0 (- sp-splash-art-y-step)))
+
+(defun sp-splash-art-down ()
+  "Move the splash art down."
+  (interactive)
+  (sp-splash-art-nudge 0 sp-splash-art-y-step))
+
+(defun sp-splash-art-reset ()
+  "Put the splash art back at the default position."
+  (interactive)
+  (setq sp-splash-art-x-offset (eval (car (get 'sp-splash-art-x-offset 'standard-value)))
+        sp-splash-art-y-offset (eval (car (get 'sp-splash-art-y-offset 'standard-value))))
+  (sp-splash-refresh))
+
+(defun sp-splash-art-show-position ()
+  "Show the current art offsets as a form to paste into the config.
+The form is also copied to the kill ring."
+  (interactive)
+  (let ((form (format "(setq sp-splash-art-x-offset %d\n      sp-splash-art-y-offset %d)"
+                      sp-splash-art-x-offset sp-splash-art-y-offset)))
+    (kill-new form)
+    (message "%s" form)))
+
 ;;;; Define Splash
 
 (defun sp-splash--erase ()
@@ -150,8 +294,12 @@
         (sp-splash-mode))))
 
 (defun sp-splash-screen ()
-  "A custom splash screen for Emacs"
+  "A custom splash screen for Emacs.
+Called interactively, it drops an existing *splash* buffer first so the
+splash is drawn again with the current settings."
   (interactive)
+  (when (and (called-interactively-p 'any) (get-buffer "*splash*"))
+    (kill-buffer "*splash*"))
   ;; Switch to or create splash buffer
   (or (when (get-buffer "*splash*")
         (switch-to-buffer "*splash*"))
@@ -168,6 +316,8 @@
                (height (/ (window-height) 2))
 	           (width (/ (window-width) 2))
                (image-scaling-factor 2.2)
+               (menu-first-line 1)
+               (menu-last-line 1)
                ;; scale icons
                (nerd-icons-scale-factor 1.10)
                (nerd-icons-default-adjust -0.02))
@@ -195,7 +345,8 @@
             (let* ((center-col (max 0 (/ (- (window-width) 60) 2))))
               
               ;; Add the lambda image, centered and reasonably sized
-              (when (and (> (window-width) 80) (> (window-height) 20))
+              (when (and (> (window-width) 80) (> (window-height) 20)
+                         (null (sp-splash--art-lines)))
                 (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
@@ -228,6 +379,7 @@
 
             ;; Insert menu buttons - left-aligned as a group, group is centered
             (goto-char (point-max))
+            (setq menu-first-line (line-number-at-pos))
             (let* ((button-indent (max 0 (/ (- (window-width) (length "Welcome to λ-Emacs")) 2)))
                    (button-labels '(("nf-fa-calendar" "Agenda" "a" sp-open-agenda-in-workspace "Open Agenda")
                                     ("nf-fa-code" "Config" "c" sp-open-emacsd-in-workspace "Visit config directory")
@@ -254,6 +406,7 @@
                                       'face 'sp-splash-menu-face
                                       'follow-link t)
                   (insert-char ?\n 1))))
+            (setq menu-last-line (1- (line-number-at-pos)))
 
 
             ;; Add footer with some space above bottom
@@ -268,6 +421,9 @@
             (let ((footer-center (max 0 (/ (- (window-width) (length sp-splash-footer)) 2))))
               (insert-char ?\s footer-center)
               (insert (propertize sp-splash-footer 'face 'sp-splash-footer-face)))
+
+            ;; Lambda art behind the menu (a no-op when the art is off)
+            (sp-splash--draw-art menu-first-line menu-last-line)
 
             (goto-char (point-min))
             (display-buffer-same-window splash-buffer nil))
@@ -331,6 +487,12 @@
     (define-key map (kbd "m") 'sp-splash-open-email)
     (define-key map (kbd "n") 'sp-splash-open-notes)
     (define-key map (kbd "p") 'sp-splash-open-project)
+    (define-key map (kbd "S-<left>") 'sp-splash-art-left)
+    (define-key map (kbd "S-<right>") 'sp-splash-art-right)
+    (define-key map (kbd "S-<up>") 'sp-splash-art-up)
+    (define-key map (kbd "S-<down>") 'sp-splash-art-down)
+    (define-key map (kbd "0") 'sp-splash-art-reset)
+    (define-key map (kbd "s") 'sp-splash-art-show-position)
     (define-key map (kbd "q") 'sp-splash-screen-kill)
     (define-key map (kbd "<escape>") 'sp-splash-screen-bury)
     (define-key map (kbd "k") 'sp-splash-screen-kill)

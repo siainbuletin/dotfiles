@@ -1,0 +1,18 @@
+#+title: 0007 Review and try PRs from Emacs with Forge, code-review and a sandbox
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+I read and discuss PRs in Emacs, and a PR that touches startup code should be started before it is merged, without touching the live config.
+
+* Decision
+- Forge (PR and issue lists in Magit; =N= is its menu, =N c p= creates a PR) and =code-review= (line comments) are configured in the =sp-vcontrol= module (PR #30). Forge needs a classic GitHub token in =auth-source= (setup in =module-docs/review-guide.md= in the project files). =sp-magit-style= only changes how Magit looks.
+- =emacs-pr N= (fish) or =M-x sp-sandbox-pr= starts a second Emacs on PR N in =~/src/dotfiles-wt/pr-N=, with its own packages and its own copy of =~/notes=, next to the live Emacs. Described in the Emacs README, "Testing a pull request in a sandbox".
+
+* Alternatives considered
+- =consult-gh= and =gh= from a shell: see [[file:0002-sourcegit-for-visual-git.org][0002]]; Forge was already installed.
+- Checking the PR out in =~=: swaps the live config while it is out.
+
+* Consequences
+- Forge needs Emacs with SQLite and a token; the sandbox assumes macOS/APFS (=cp -c=).
+- /Untested/ here: nothing in this record was run on my Mac.

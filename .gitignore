@@ -81,3 +81,4 @@ custom-reference.docx
 # Special files based on the system itself
 ## EndeavourOS files
 .eos-*
+*.DS_Store

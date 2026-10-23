@@ -108,25 +108,21 @@
 (use-package helm-bibtex
   :ensure (:wait t))
 
-(setq org-ref-default-bibliography '("~/bibliography/master.bib")
-      org-ref-pdf-directory "~/Documents/literature/")
+(setq org-ref-default-bibliography (list (sp-path sp-bibliography-dir "master.bib"))
+      org-ref-pdf-directory sp-literature-dir)
 
-;; (setq citar-library-paths "~/Documents/literature")
+;; (setq citar-library-paths (list sp-literature-dir))
 ;; this has to be a list of directories in order to work
 
 (setq citar-library-file-extensions (list "pdf" "jpg")
       citar-file-additional-files-separator "-")
 
 (setq bibtex-completion-bibliography
-      '("~/bibliography/master.bib"
-        "~/bibliography/thesis.bib"
-        "~/bibliography/marx.bib"
-        "~/bibliography/hci.bib"
-        "~/bibliography/aesthetics.bib"
-        "~/bibliography/hegel-prezentare.bib"
-        "~/bibliography/modernitate.bib")
-        bibtex-completion-library-path '("~/Documents/literature/")
-        bibtex-completion-notes-path "~/notes/"
+      (mapcar (lambda (bib) (sp-path sp-bibliography-dir bib))
+              '("master.bib" "thesis.bib" "marx.bib" "hci.bib" "aesthetics.bib"
+                "hegel-prezentare.bib" "modernitate.bib"))
+        bibtex-completion-library-path (list sp-literature-dir)
+        bibtex-completion-notes-path sp-notes-dir
         bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 
 ;; Automatically generating BibTeX keys

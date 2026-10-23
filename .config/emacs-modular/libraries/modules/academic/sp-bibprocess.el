@@ -7,7 +7,7 @@
 ;;;; Defining variables
 
 (defcustom sp-bibtex-dir
-  (concat (file-name-as-directory (getenv "HOME")) "/bibliography/")
+  sp-bibliography-dir
   "Location of BibTeX files and attachments."
   :group 'siapip
   :type 'directory)

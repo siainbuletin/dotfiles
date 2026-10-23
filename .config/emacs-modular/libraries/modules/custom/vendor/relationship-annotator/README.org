@@ -1,0 +1,23 @@
+#+title: Vendored scripts for the hierarchy browser view
+
+The browser graph of =sp-relationship-annotator= computes the position of every box with the force-directed layout =fCoSE=, which can place boxes above, below, left or right of each other. The page does the drawing itself. The scripts below are copied unchanged, minified where the package didn't ship a minified build, and pasted into the page by =relationship-annotator--html= so the page works offline. All four are MIT licensed; each licence is next to its script.
+
+| File                      | Package                                 | Version |
+|---------------------------+-----------------------------------------+---------|
+| =layout-base.min.js=      | =layout-base=                           | 2.0.1   |
+| =cose-base.min.js=        | =cose-base=                             | 2.2.0   |
+| =cytoscape.min.js=        | =cytoscape= (the graph model fCoSE uses) | 3.34.4  |
+| =cytoscape-fcose.min.js=  | =cytoscape-fcose=                       | 2.2.0   |
+
+The page loads them in this order: =layout-base=, =cose-base=, =cytoscape=, =cytoscape-fcose=.
+
+* Updating
+
+In an empty directory:
+
+#+begin_src sh
+npm install cytoscape cytoscape-fcose
+npx esbuild --minify node_modules/layout-base/layout-base.js node_modules/cose-base/cose-base.js node_modules/cytoscape-fcose/cytoscape-fcose.js --outdir=min
+#+end_src
+
+Copy =node_modules/cytoscape/dist/cytoscape.min.js= and the three files under =min/= here, keep the =.min.js= names, copy each =LICENSE=, and update the versions in the table above.

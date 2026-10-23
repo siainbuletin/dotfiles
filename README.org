@@ -12,6 +12,33 @@ Most of my operating system needs revolve around Emacs. Although there's a regul
 
 All of the existing configurations and their names (so you can start with Emacs with the proper flair in the terminal, as ~emacs --with-profile=<name>~ can be found declared in ~.emacs.profiles.el~ in the top directory.
 
+** Reviewing and merging AI-made changes on macOS
+
+On my Mac, most changes to this repository are written by Claude in a cloud session and arrive as pull requests, often several at once and sometimes stacked. This section summarises the choices I use now. The reasons, the alternatives I looked at and the consequences are in the decision records in [[file:adr/README.org][adr/]], one file per decision. Nothing here applies to the Arch machines above.
+
+#+begin_quote
+*What has and has not been run.* This was written from a Linux container, not from my Mac. Tool details come from each project's documentation and source; I have not confirmed any SourceGit button name, key or menu against the installed app, and =sp-vc-ai-workbench= has never been loaded. The records mark what I have not tried as /untested/.
+#+end_quote
+
+*** Current choices
+
+| Job                                    | Tool                                  | Decision |
+|----------------------------------------+---------------------------------------+----------|
+| Dotfiles repository, live config in =~= | =yadm= and =fish=                     | [[file:adr/0001-plain-clone-for-gui-git-tools.org][0001]] |
+| Visual branches, merges, conflicts     | SourceGit on the plain clone =~/src/dotfiles-test= | [[file:adr/0001-plain-clone-for-gui-git-tools.org][0001]], [[file:adr/0002-sourcegit-for-visual-git.org][0002]] |
+| Creating and merging PRs               | =gh= and GitHub's merge button, merge commits | [[file:adr/0003-merge-prs-on-github-with-merge-commits.org][0003]] |
+| PR branch names                        | the PR number first, e.g. =18-relationship-annotator= | [[file:adr/0004-number-prefixed-pr-branches.org][0004]] |
+| Stacked PRs                            | merge the parent into the child, never rebase | [[file:adr/0005-update-stacked-prs-by-merging.org][0005]] |
+| =CHANGELOG.org= conflicts              | keep both sides, in Emacs with =smerge-mode= | [[file:adr/0006-changelog-keep-both-sides.org][0006]] |
+| Reading and trying PRs in Emacs        | Forge and =code-review= (=sp-vcontrol=), =emacs-pr= / =sp-sandbox= | [[file:adr/0007-emacs-tooling-for-pr-review.org][0007]] |
+| Brainstorming with Claude in Emacs     | =sp-vc-ai-workbench= (not loaded yet) | [[file:adr/0008-workbench-for-brainstorming-only.org][0008]] |
+
+Magit (styled by =sp-magit-style=) stays for staging, small commits and messages. The alternatives I considered and did not adopt (Graphite, git-branchless, jj, lazygit, GitKraken, Sublime Merge, Fork, Meld, VS Code, GitHub Desktop, Magit ediff, =smerge-mode=, =consult-gh=, =magit-stack=) are in the table in [[file:adr/0002-sourcegit-for-visual-git.org][0002]].
+
+*** How =sp-vc-ai-workbench= fits
+
+=sp-vc-ai-workbench= (=libraries/modules/custom/=, literate source in =docs/tangles/custom/=) gives each task on my extension repositories its own git worktree, notes file and Claude Code session, for brainstorming only. The tools above handle what Claude produces in cloud sessions; both meet at the git worktree. It is commented out in =init.el= and has never been run. See [[file:adr/0008-workbench-for-brainstorming-only.org][0008]].
+
 ** Required software to install
 
 All names for the software are listed as they can be found either in the official Arch Linux repository or in the AUR. All may be downloadable through =pacman= or =paru= (prefered AUR helper in this case).

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>vulpea hierarchy</title>
+<title>relationship annotator</title>
 <style>
 :root{--bg:#fbfbfa;--fg:#222;--muted:#777;--node:#f2f2f0;--edge:#9a9a9a;--root:#d8e6f5}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1d1f21;--fg:#e6e6e6;--muted:#999;--node:#2a2d31;--edge:#666;--root:#2f4a66}}
@@ -18,7 +18,9 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 #legend i{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:2px;opacity:.7}
 .node text{fill:var(--fg);pointer-events:none;font:14px system-ui,sans-serif}
 .node text.fold{pointer-events:all;font:12px system-ui,sans-serif;fill:var(--muted);cursor:pointer}
+.node:focus{outline:none}.node:focus rect{stroke-width:2.5}
 .node .tags,.node .more{fill:var(--muted)}
+.node .badge{font-weight:600}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.2}
 .link{fill:none;stroke-width:1.6;stroke-dasharray:6 4}
 .linklabel{font:12px system-ui,sans-serif;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
@@ -30,10 +32,11 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 <header><span id="ctl"></span><span id="head"></span></header>
 <svg id="v" xmlns="http://www.w3.org/2000/svg"><g id="vp"></g></svg>
 <div id="legend"></div>
+<script>__LIBS__</script>
 <script>
 const D = __DATA__;
 const NS = 'http://www.w3.org/2000/svg';
-const W = 240, PAD = 10, LINE = 18, VPAD = 6, GAP = 10, COL = 300;
+const W = 240, PAD = 10, LINE = 18, VPAD = 6, GAPX = 50, GAPY = 50;
 const TEXT_W = W - 2 * PAD;
 const byId = new Map(D.nodes.map(n => [n.id, n]));
 const title = id => (byId.get(id) || { title: id }).title;
@@ -77,8 +80,7 @@ function cut() {
 function recentre(id, newDepth, remember) {
   if (remember) history.push({ root, depth });
   root = id; depth = Math.max(1, newDepth);
-  Object.assign(view, { x: 40, y: 20, k: 1 });
-  cut(); render();
+  cut(); render(true);
 }
 
 function back() {
@@ -107,6 +109,7 @@ function measure(s) { return ctx.measureText(s).width; }
 function tokensOf(n) {
   const t = n.title.split(/\s+/).filter(Boolean).map(w => ({ text: w, cls: '' }));
   if (n.tags && n.tags.length) t.push({ text: ':' + n.tags.join(':') + ':', cls: 'tags' });
+  if (n.badge) t.push({ text: n.badge, cls: 'badge' });
   if (more.get(n.id)) t.push({ text: '+' + more.get(n.id), cls: 'more' });
   return t;
 }
@@ -158,35 +161,128 @@ function el(tag, attrs, parent) {
 function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
 function hasKids(id) { return (kids.get(id) || []).length > 0; }
 
-function layout(id, depth, path, cursor) {
-  const node = { id, depth, kids: [], y: 0, h: info(id).h };
-  if (!path.includes(id)) {
-    for (const c of childrenOf(id)) node.kids.push(layout(c, depth + 1, [...path, id], cursor));
+function visible() {
+  const level = new Map([[root, 0]]), order = [root];
+  for (let i = 0; i < order.length; i++) {
+    for (const c of childrenOf(order[i])) {
+      if (!level.has(c)) { level.set(c, level.get(order[i]) + 1); order.push(c); }
+    }
   }
-  if (node.kids.length) {
-    const first = node.kids[0], last = node.kids[node.kids.length - 1];
-    node.y = (first.y + first.h / 2 + last.y + last.h / 2) / 2 - node.h / 2;
-    cursor.y = Math.max(cursor.y, node.y + node.h + GAP);
-  } else {
-    node.y = cursor.y;
-    cursor.y += node.h + GAP;
-  }
-  return node;
+  return { order, level };
 }
 
-function topOf(node) { return Math.min(node.y, ...node.kids.map(topOf)); }
-
-function draw(node, parent, shift) {
-  const { n, lines } = info(node.id);
-  const x = node.depth * COL, y = node.y + shift;
-  if (parent) {
-    const px = parent.x + W, py = parent.y + parent.h / 2, cy = y + node.h / 2;
-    el('path', { class: 'edge', d: `M${px},${py} C${px + 40},${py} ${x - 40},${cy} ${x},${cy}` }, vp);
+function constraints(ids, level) {
+  const before = { x: new Map(), y: new Map() }, out = [];
+  const reaches = (axis, from, to) => {
+    const seen = new Set(), stack = [from];
+    while (stack.length) {
+      const n = stack.pop();
+      if (n === to) return true;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      stack.push(...(before[axis].get(n) || []));
+    }
+    return false;
+  };
+  const add = (axis, first, second, gap) => {
+    if (first === second || reaches(axis, second, first)) return;
+    if (!before[axis].has(first)) before[axis].set(first, []);
+    before[axis].get(first).push(second);
+    out.push(axis === 'y' ? { top: first, bottom: second, gap } : { left: first, right: second, gap });
+  };
+  const gapY = (a, b) => (info(a).h + info(b).h) / 2 + GAPY;
+  for (const id of ids) {
+    for (const c of childrenOf(id)) if (ids.has(c) && level.get(c) > level.get(id)) add('y', id, c, gapY(id, c));
   }
-  pos.set(node.id, { x, y, h: node.h });
-  const g = el('g', { class: 'node' + (node.id === root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
-  const rect = el('rect', { width: W, height: node.h, rx: 6 }, g);
-  if (n.color) { rect.style.fill = n.color; rect.style.fillOpacity = opacity; }
+  for (const l of D.links) {
+    if (!ids.has(l.from) || !ids.has(l.to)) continue;
+    const [dx, dy] = (relStyle.get(l.rel) || { direction: [1, 0] }).direction;
+    if (Math.abs(dx) >= 0.38) {
+      if (dx > 0) add('x', l.from, l.to, W + GAPX); else add('x', l.to, l.from, W + GAPX);
+    }
+    if (Math.abs(dy) >= 0.38) {
+      if (dy > 0) add('y', l.from, l.to, gapY(l.from, l.to)); else add('y', l.to, l.from, gapY(l.from, l.to));
+    }
+  }
+  const rows = new Map();
+  for (const id of ids) {
+    const l = level.get(id);
+    if (!rows.has(l)) rows.set(l, []);
+    const row = rows.get(l);
+    if (!row.some(o => reaches('y', id, o) || reaches('y', o, id))) row.push(id);
+  }
+  return { relative: out, align: { horizontal: [...rows.values()].filter(r => r.length > 1) } };
+}
+
+function place(order, level) {
+  const ids = new Set(order);
+  const cy = cytoscape({ headless: true, styleEnabled: true,
+    style: [{ selector: 'node', style: { width: 'data(w)', height: 'data(h)', shape: 'rectangle' } }] });
+  const column = new Map();
+  for (const id of order) {
+    const l = level.get(id), k = column.get(l) || 0;
+    column.set(l, k + 1);
+    cy.add({ group: 'nodes', data: { id, w: W, h: info(id).h }, position: { x: k * (W + GAPX), y: l * 140 } });
+  }
+  for (const id of order) {
+    for (const c of childrenOf(id)) if (ids.has(c)) cy.add({ group: 'edges', data: { source: id, target: c } });
+  }
+  for (const l of D.links) {
+    if (ids.has(l.from) && ids.has(l.to) && l.from !== l.to) {
+      cy.add({ group: 'edges', data: { source: l.from, target: l.to } });
+    }
+  }
+  const cons = constraints(ids, level);
+  cy.layout({ name: 'fcose', animate: false, randomize: false, quality: 'proof', fit: false,
+              nodeSeparation: 120, idealEdgeLength: 200, nodeRepulsion: 200000, gravity: 0.1,
+              packComponents: false, tile: false,
+              relativePlacementConstraint: cons.relative, alignmentConstraint: cons.align }).run();
+  cy.nodes().forEach(n => {
+    const h = info(n.id()).h;
+    pos.set(n.id(), { x: n.position('x') - W / 2, y: n.position('y') - h / 2, h });
+  });
+  cy.destroy();
+  separate();
+}
+
+function separate() {
+  const boxes = [...pos.values()];
+  for (let pass = 0; pass < 80; pass++) {
+    let moved = false;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        const ox = Math.min(a.x, b.x) + W - Math.max(a.x, b.x) + GAPX / 2;
+        const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + GAPY / 4;
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (ox <= oy * 2.5) {
+          const d = ox / 2 * (a.x <= b.x ? 1 : -1);
+          a.x -= d; b.x += d;
+        } else {
+          const d = oy / 2 * (a.y <= b.y ? 1 : -1);
+          a.y -= d; b.y += d;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+function drawTreeEdge(parent, child) {
+  const a = pos.get(parent), b = pos.get(child);
+  const ax = a.x + W / 2, ay = a.y + a.h, bx = b.x + W / 2, by = b.y, my = (ay + by) / 2;
+  el('path', { class: 'edge', d: `M${ax},${ay} C${ax},${my} ${bx},${my} ${bx},${by}` }, vp);
+}
+
+function drawNode(id) {
+  const { n, lines } = info(id), { x, y, h } = pos.get(id);
+  const g = el('g', { class: 'node' + (id === root ? ' root' : ''), transform: `translate(${x},${y})` }, vp);
+  el('rect', { width: W, height: h, rx: 6 }, g);
+  if (n.color) {
+    const tint = el('rect', { width: W, height: h, rx: 6 }, g);
+    tint.style.fill = n.color; tint.style.fillOpacity = opacity;
+  }
   lines.forEach((line, i) => {
     const t = el('text', { x: PAD, y: VPAD + LINE * i + 13 }, g);
     line.forEach((tok, j) => {
@@ -195,52 +291,82 @@ function draw(node, parent, shift) {
     });
   });
   el('title', {}, g).textContent = n.path || n.title;
-  if (node.id !== root) {
+  if (id !== root) {
     g.style.cursor = 'pointer';
-    g.addEventListener('click', () => { if (!dragged) recentre(node.id, depth, true); });
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('role', 'button');
+    g.addEventListener('click', () => { if (!dragged) recentre(id, depth, true); });
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); recentre(id, depth, true); }
+    });
   }
-  if (hasKids(node.id)) {
+  if (hasKids(id)) {
     const f = el('text', { class: 'fold', x: W - 16, y: 14 }, g);
-    f.textContent = collapsed.has(node.id) ? '▸' : '▾';
+    f.textContent = collapsed.has(id) ? '▸' : '▾';
     f.addEventListener('click', e => {
       e.stopPropagation();
       if (dragged) return;
-      if (collapsed.has(node.id)) collapsed.delete(node.id); else collapsed.add(node.id);
-      render();
+      if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+      render(false);
     });
   }
-  for (const k of node.kids) draw(k, { x, y, h: node.h }, shift);
 }
 
-function drawLinks() {
+function border(box, toward) {
+  const cx = box.x + W / 2, cy = box.y + box.h / 2, dx = toward.x - cx, dy = toward.y - cy;
+  const t = Math.min(dx ? (W / 2) / Math.abs(dx) : Infinity, dy ? (box.h / 2) / Math.abs(dy) : Infinity);
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+function freeSpot(p, q) {
+  for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
+    const x = p.x + (q.x - p.x) * t, y = p.y + (q.y - p.y) * t;
+    const clear = ![...pos.values()].some(b => x > b.x - 30 && x < b.x + W + 30 && y > b.y - 8 && y < b.y + b.h + 8);
+    if (clear) return { x, y };
+  }
+  return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+}
+
+function drawLinks(labels) {
   for (const l of D.links) {
     const a = pos.get(l.from), b = pos.get(l.to);
-    if (!a || !b) continue;
+    if (!a || !b || a === b) continue;
     const r = relStyle.get(l.rel) || { label: l.rel, color: '#888' };
-    let d, mx, my;
-    if (a.x === b.x) {
-      const x = a.x + W, ay = a.y + a.h / 2, by = b.y + b.h / 2, bulge = 50;
-      d = `M${x},${ay} C${x + bulge},${ay} ${x + bulge},${by} ${x},${by}`;
-      mx = x + bulge * 0.75; my = (ay + by) / 2;
+    const ca = { x: a.x + W / 2, y: a.y + a.h / 2 }, cb = { x: b.x + W / 2, y: b.y + b.h / 2 };
+    const p = border(a, cb), q = border(b, ca);
+    if (!labels) {
+      const line = el('path', { class: 'link', d: `M${p.x},${p.y} L${q.x},${q.y}`, stroke: r.color }, vp);
+      line.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly ? l.rel + ': ' + l.anomaly : l.rel;
     } else {
-      const [l0, r0] = a.x < b.x ? [a, b] : [b, a];
-      const sx = l0.x + W, sy = l0.y + l0.h / 2, ex = r0.x, ey = r0.y + r0.h / 2;
-      d = `M${sx},${sy} C${sx + 60},${sy} ${ex - 60},${ey} ${ex},${ey}`;
-      mx = (sx + ex) / 2; my = (sy + ey) / 2;
+      const m = freeSpot(p, q);
+      const t = el('text', { class: 'linklabel', x: m.x, y: m.y, 'text-anchor': 'middle', fill: r.color }, vp);
+      t.textContent = l.anomaly ? r.label + ' ⚠' : r.label;
+      if (l.anomaly) t.appendChild(document.createElementNS(NS, 'title')).textContent = l.anomaly;
     }
-    const p = el('path', { class: 'link', d, stroke: r.color }, vp);
-    p.appendChild(document.createElementNS(NS, 'title')).textContent = l.rel;
-    const t = el('text', { class: 'linklabel', x: mx, y: my, 'text-anchor': 'middle', fill: r.color }, vp);
-    t.textContent = r.label;
   }
 }
 
-function render() {
+function fit() {
+  const boxes = [...pos.values()];
+  if (!boxes.length) return;
+  const x0 = Math.min(...boxes.map(b => b.x)), x1 = Math.max(...boxes.map(b => b.x + W));
+  const y0 = Math.min(...boxes.map(b => b.y)), y1 = Math.max(...boxes.map(b => b.y + b.h));
+  const vw = svg.clientWidth || innerWidth, vh = svg.clientHeight || innerHeight - 38;
+  view.k = Math.min(1, (vw - 80) / (x1 - x0), (vh - 80) / (y1 - y0));
+  view.x = (vw - (x1 - x0) * view.k) / 2 - x0 * view.k;
+  view.y = (vh - (y1 - y0) * view.k) / 2 - y0 * view.k;
+}
+
+function render(refit) {
   vp.replaceChildren();
   pos.clear();
-  const top = layout(root, 0, [], { y: 0 });
-  draw(top, null, -topOf(top));
-  drawLinks();
+  const { order, level } = visible();
+  place(order, level);
+  for (const id of order) for (const c of childrenOf(id)) if (pos.has(c)) drawTreeEdge(id, c);
+  drawLinks(false);
+  for (const id of order) drawNode(id);
+  drawLinks(true);
+  if (refit) fit();
   updateHeader();
   updateLegend();
   apply();
@@ -258,11 +384,14 @@ svg.addEventListener('wheel', e => {
 svg.addEventListener('pointerdown', e => {
   dragStart = { x: e.clientX - view.x, y: e.clientY - view.y, cx: e.clientX, cy: e.clientY };
   dragged = false;
-  svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener('pointermove', e => {
   if (!dragStart) return;
-  if (Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) dragged = true;
+  if (!dragged && Math.hypot(e.clientX - dragStart.cx, e.clientY - dragStart.cy) > 4) {
+    dragged = true;
+    svg.setPointerCapture(e.pointerId);
+  }
+  if (!dragged) return;
   view.x = e.clientX - dragStart.x;
   view.y = e.clientY - dragStart.y;
   apply();
@@ -290,7 +419,7 @@ function updateLegend() {
   }
 }
 cut();
-render();
+render(true);
 </script>
 </body>
 </html>
