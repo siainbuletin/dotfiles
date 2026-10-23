@@ -1,8 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-textui.el
+;;; sp-textui.el --- TextUI widgets and Org table widgets -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; TextUI is a new package that is supposed to provide better
 ;; rendering for widgets in the buffer.
+
+;;; Code:
 
 (use-package textui
     :ensure (:host github :repo "yibie/textui"))

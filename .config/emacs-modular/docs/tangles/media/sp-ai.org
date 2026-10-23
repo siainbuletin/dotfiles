@@ -12,13 +12,20 @@ The packages are =gptel= (a general chat client for many LLM providers) with =gp
 
 ** Header and commentary markers
 
-Lexical-binding header and an empty =Commentary= marker.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-ai.el --- AI implementation
+;;; sp-ai.el --- AI and LLM integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module installs packages for working with large language models and
+;; coding agents from inside Emacs. Most of them are only installed; apart from
+;; the Anthropic login for `agent-shell' and turning on `vulpea-mcp', none of
+;; them get keybindings, backends or API keys here, so their defaults (or
+;; settings made elsewhere) apply.
+
+;;; Code:
 #+end_src
 
 * Agents that require an API key
@@ -30,7 +37,6 @@ The section comment groups the clients that talk to a provider's API directly, s
 After the =Code= marker, installs =gptel=. The =(:wait t)= recipe tells Elpaca to finish installing it before continuing, presumably so later packages that build on gptel, such as =gptel-agent= just below, find it available.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Agents that require an API key
 ;;;; gptel
 (use-package gptel
@@ -118,7 +124,7 @@ Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs whi
 Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE protocol over a WebSocket. With it, Claude Code can see the current selection and diagnostics and show proposed changes as diffs in Emacs. It is only installed here, not enabled or hooked into =claude-code=.
 
 #+begin_src emacs-lisp -i
-;;; Enhacing the experience of Claude Code
+;;;; Enhacing the experience of Claude Code
 (use-package monet
   :ensure (:type git :host github :repo "stevemolitor/monet"))
 #+end_src
@@ -128,17 +134,14 @@ Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE pr
 An empty section header for linking the DEVONthink MCP server. No code has been written for it yet.
 
 #+begin_src emacs-lisp -i
-;;; Linking the MCP of DEVONthink
+;;;; Linking the MCP of DEVONthink
 #+end_src
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-ai= feature.
+Provides the =sp-ai= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-ai)
 ;; sp-ai.el ends here.

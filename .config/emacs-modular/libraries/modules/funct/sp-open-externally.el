@@ -1,7 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-open-externally.el
+;;; sp-open-externally.el --- Opening files in external applications -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; De văzut cum fac asta să funcționeze bine
+
+;;; Code:
 
 ;; Taken from Emacs Writing Studio.
 (use-package openwith

@@ -1,0 +1,161 @@
+#+TITLE: sp-python.el: Python development with LSP and ruff
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-python.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/prog/sp-python.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+A Python setup built on =lsp-mode= with basedpyright as the language server, Company for completion, Flycheck for diagnostics, and ruff for formatting and import sorting on save. Tests run through =uv run pytest= in a compilation buffer. It uses a =siapip/= prefix and a =siapip= customization group, which suggests it was written as a self-contained snippet.
+
+The file has no =provide= form and is not listed in =init.el=, so it is not loaded today. It depends on several packages that are configured elsewhere or not at all: =lsp-mode=, =company=, =flycheck=, =highlight-indent-guides=, =rainbow-delimiters= and =yasnippet=. External programs needed are =basedpyright=, =ruff= and =uv=.
+
+* Python mode setup
+
+** Packages, commands and keybindings
+
+This one block holds most of the module:
+
+- =realgud= is installed lazily for debugger front ends.
+- =siapip/python-lsp-ruff-enable= is a boolean option, off by default, that would add ruff's own LSP server alongside pyright for live linting.
+- =siapip/python-pytest= and =siapip/python-pytest-file= run the whole test suite or the current file through =uv run pytest= using =compile=.
+- =siapip/python--setup-keys= defines a large set of keys in the given map: =TAB= for Company completion, =F1=, =F12= and =S-F12= for LSP docs, definition and references, =C-c C-p/r/b/l= to start or send to the Python shell, =C-c h= for help lookups, the standard xref keys =M-.=, =M-,= and =M-?=, =C-c n= and =C-c p= to move between defuns, =C-c e= for Flycheck navigation, =C-c f f= to format with ruff, =C-c i s= to sort imports, and =C-c t t= and =C-c t f= for tests.
+- =siapip/python--setup= is the shared mode hook. It sets fixed yasnippet indentation and turns on Company, Flycheck, indent guides, rainbow delimiters and LSP inlay hints, then applies the keys to =current-local-map=. Since that is the shared mode map, the keys effectively become part of =python-mode-map= or =python-ts-mode-map=.
+- The built-in =python= package runs that setup in both =python-mode= and =python-ts-mode=.
+- =python-docstring= highlights and fills docstrings, with single spaces after sentences.
+- =coverage= shows test coverage overlays, toggled with =C-c t c= and cleared with =C-c t C=.
+- =lsp-pyright= starts LSP in Python buffers, but with =basedpyright= as the server command, auto-import completions on, single-root workspaces, and standard type checking.
+
+#+begin_src emacs-lisp -i
+;;; sp-python.el --- Python development with LSP and ruff -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A Python setup built on `lsp-mode' with basedpyright as the language server,
+;; Company for completion, Flycheck for diagnostics, and ruff for formatting
+;; and import sorting on save. Tests run through `uv run pytest' in a
+;; compilation buffer.
+
+;;; Code:
+
+(use-package realgud
+  :defer t)
+(defcustom siapip/python-lsp-ruff-enable nil
+  "When non-nil, enable ruff LSP server alongside pyright for live linting.
+Requires lsp-ruff package and `ruff server' in PATH (ruff >= 0.2.0)."
+  :type 'boolean
+  :group 'siapip
+  :safe #'booleanp)
+(defun siapip/python-pytest ()
+  (interactive)
+  (compile "uv run pytest"))
+(defun siapip/python-pytest-file ()
+  (interactive)
+  (compile (format "uv run pytest %s" (buffer-file-name))))
+(defun siapip/python--setup-keys (map)
+  "Define shared Python keybindings in MAP."
+  (define-key map [tab]           #'company-indent-or-complete-common)
+  (define-key map [f1]            #'lsp-describe-thing-at-point)
+  (define-key map [f12]           #'lsp-find-definition)
+  (define-key map (kbd "S-<f12>") #'lsp-find-references)
+  (define-key map (kbd "C-c i s") #'ruff-isort-buffer)
+  (define-key map (kbd "C-c C-p") #'run-python)
+  (define-key map (kbd "C-c C-r") #'python-shell-send-region)
+  (define-key map (kbd "C-c C-b") #'python-shell-send-buffer)
+  (define-key map (kbd "C-c C-l") #'python-shell-send-file)
+  (define-key map (kbd "C-c h h") #'python-eldoc-at-point)
+  (define-key map (kbd "C-c h d") #'python-describe-at-point)
+  (define-key map (kbd "C-c h f") #'python-info-lookup-symbol)
+  (define-key map (kbd "M-.")     #'xref-find-definitions)
+  (define-key map (kbd "M-,")     #'xref-go-back)
+  (define-key map (kbd "M-?")     #'xref-find-references)
+  (define-key map (kbd "C-c r")   #'lsp-find-references)
+  (define-key map (kbd "C-M-.")   #'lsp-find-implementation)
+  (define-key map (kbd "C-M-,")   #'lsp-find-type-definition)
+  (define-key map (kbd "C-c n")   #'python-nav-forward-defun)
+  (define-key map (kbd "C-c p")   #'python-nav-backward-defun)
+  (define-key map (kbd "C-c e n") #'flycheck-next-error)
+  (define-key map (kbd "C-c e p") #'flycheck-previous-error)
+  (define-key map (kbd "C-c e l") #'flycheck-list-errors)
+  (define-key map (kbd "C-c e c") #'flycheck-clear)
+  (define-key map (kbd "C-c e v") #'flycheck-verify-setup)
+  (define-key map (kbd "C-c f f") #'ruff-format-buffer)
+  (define-key map (kbd "C-c t t") #'siapip/python-pytest)
+  (define-key map (kbd "C-c t f") #'siapip/python-pytest-file))
+(defun siapip/python--setup ()
+  "Common setup shared between python-mode and python-ts-mode."
+  (setq yas-indent-line 'fixed)
+  (company-mode t)
+  (flycheck-mode t)
+  (highlight-indent-guides-mode t)
+  (rainbow-delimiters-mode t)
+  (lsp-inlay-hints-mode t)
+  (siapip/python--setup-keys (current-local-map)))
+(use-package python
+  :ensure nil
+  :defer t
+  :hook ((python-mode . siapip/python--setup)
+         (python-ts-mode . siapip/python--setup)))
+(use-package python-docstring
+  :defer t
+  :hook ((python-mode . python-docstring-mode)
+         (python-ts-mode . python-docstring-mode))
+  :config
+  (setq python-docstring-sentence-end-double-space nil))
+(use-package coverage
+  :defer t
+  :commands (coverage-mode coverage-clear-overlays)
+  :bind (:map python-mode-map
+              ("C-c t c" . coverage-mode)
+              ("C-c t C" . coverage-clear-overlays)
+         :map python-ts-mode-map
+              ("C-c t c" . coverage-mode)
+              ("C-c t C" . coverage-clear-overlays)))
+(use-package lsp-pyright
+  :defer t
+  :hook ((python-mode . (lambda ()
+                          (require 'lsp-pyright)
+                          (lsp-deferred)))
+         (python-ts-mode . (lambda ()
+                             (require 'lsp-pyright)
+                             (lsp-deferred))))
+  :config
+  (setq lsp-pyright-langserver-command "basedpyright"
+        lsp-pyright-auto-import-completions t
+        lsp-pyright-multi-root nil
+        lsp-pyright-type-checking-mode "standard"))
+#+end_src
+
+** Optional ruff LSP server
+
+Only when =siapip/python-lsp-ruff-enable= is non-nil at load time, configures =lsp-ruff= to start in Python buffers. Because the check happens when the file loads, changing the option later has no effect until restart.
+
+#+begin_src emacs-lisp -i
+(when siapip/python-lsp-ruff-enable
+  (use-package lsp-ruff
+    :defer t
+    :hook ((python-mode . (lambda () (require 'lsp-ruff) (lsp-deferred)))
+           (python-ts-mode . (lambda () (require 'lsp-ruff) (lsp-deferred))))))
+#+end_src
+
+* Formatting on save
+
+** ruff via reformatter
+
+Uses =reformatter= to define two formatters that pipe the buffer through ruff: =ruff-format= (=ruff format=) and =ruff-isort= (=ruff check= limited to the import-sorting rule =I=, applying fixes only). Each definition also creates a command and an on-save minor mode. Both on-save modes are added to the Python mode hooks. As the comment explains, the order of the =add-hook= calls is chosen so imports are sorted first and the code is formatted last on each save.
+
+#+begin_src emacs-lisp -i
+(use-package reformatter
+  :demand t
+  :config
+  (reformatter-define ruff-format
+    :program "ruff"
+    :args '("format" "-"))
+  (reformatter-define ruff-isort
+    :program "ruff"
+    :args '("check" "--select" "I" "--fix" "--fix-only" "-")))
+;; isort added first so it is prepended before format in python-mode-hook,
+;; meaning format ends up at the front and runs last — correct order on save.
+(add-hook 'python-mode-hook #'ruff-isort-on-save-mode)
+(add-hook 'python-mode-hook #'ruff-format-on-save-mode)
+(add-hook 'python-ts-mode-hook #'ruff-isort-on-save-mode)
+(add-hook 'python-ts-mode-hook #'ruff-format-on-save-mode)
+#+end_src

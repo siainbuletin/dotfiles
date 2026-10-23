@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-rss.el --- RSS reading with Elfeed -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up the `elfeed' feed reader, `elfeed-org' for keeping the
+;; feed list in an Org file, and a command for capturing feed entries into Org
+;; through `org-protocol'. It is not in any module list in `init.el', and the
+;; notes in `conditional-loading.org' describe it as unconfigured, so it is a
+;; work in progress that does not currently load.
+
+;;; Code:
 
 (use-package elfeed
   :custom
@@ -13,7 +23,7 @@
   :config
   (elfeed-org)
   :custom
-  (setq sia-elfeed-org-files (list "~/Documents/elfeed.org")))
+  (rmh-elfeed-org-files (list (sp-path sp-documents-dir "elfeed.org"))))
 
 (defun yant/elfeed-capture-entry ()
   "Capture selected entries into inbox."
@@ -24,7 +34,7 @@
     (cl-loop for entry in entries
              do (elfeed-untag entry 'unread)
              when (elfeed-entry-link entry)
-             do (flet ((raise-frame nil nil))
+             do (cl-letf (((symbol-function 'raise-frame) #'ignore))
                   (org-protocol-capture (list :template "B"
                                               :url it
                                               :title (format "%s: %s"
@@ -36,3 +46,5 @@
 
 ;; How can this be made to integrate with general bibliography management?
 ;; It would probably have to be studied in the way that it works for Emacs Writing Studio.
+
+(provide 'sp-rss)

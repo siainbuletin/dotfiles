@@ -1,0 +1,18 @@
+#+title: 0001 Use a plain clone for GUI git tools, keep yadm for the live config
+#+date: 2026-10-21
+#+status: accepted
+
+* Context
+=yadm= keeps the dotfiles in =~/.local/share/yadm/repo.git= with =~= as the work tree (=core.worktree=, =status.showUntrackedFiles=no=). GUI git clients look for a =.git= next to the files, so SourceGit, GitKraken and GitHub Desktop cannot open that layout properly (GitKraken refuses it). Magit works, but only through =(magit-status "~/")=, and the earlier TRAMP route (=/yadm::=) hung on =c c=.
+
+* Decision
+Keep yadm as the way the live config in =~= is managed. For anything done in a GUI, use an ordinary clone, =~/src/dotfiles-test=. Branches travel through GitHub: pushed from the clone, then brought into =~= with =yadm fetch= and =yadm merge= (or =F u= in Magit) after the PR has landed. Branch work that needs a checkout from the yadm repo itself uses linked worktrees in =~/src/dotfiles-wt/=, never a checkout in =~=.
+
+* Alternatives considered
+- *Move to a plain repo and symlinks* (GNU Stow, which this repo used before; chezmoi): removes the problem, but changes the whole layout. Not wanted: I do not want a changed =$HOME= layout or a =~/dotfiles= folder.
+- *A =~/.git= gitfile pointing at the yadm repo* (=gitdir: ~/.local/share/yadm/repo.git=, plus =GIT_CEILING_DIRECTORIES=$HOME=): makes Magit and =gh= work from =~=. The ceiling variable is set in =config.fish= and =sp-env=. It was not shown to make GUI clients work, so it does not replace the clone. /Untested/ with GUI clients.
+- *Only worktrees from the yadm repo*: work with Magit; I have not tried opening them in SourceGit (/untested/).
+
+* Consequences
+- Two repositories on one machine; GitHub is the only thing that synchronises them. Fetch in both places.
+- Merging in the clone never changes the files in =~=.

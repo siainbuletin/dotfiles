@@ -12,6 +12,22 @@ Most of the bound commands are defined elsewhere: =sp-= helpers live in =sp-help
 
 The file has grown in layers: a curated, well-commented part under the leader prefix, followed after the "End keybindings" marker by an older collection of global bindings and package declarations, some of which duplicate earlier settings. It is loaded early in both the default and minimal module lists in =init.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+An overhauled system for dealing with keybindings.
+The general convention is that I use the more modern keymap-global-set instead of global-set-key -- the entire config should be scanned to make sure that the information is added in there.
+
+There's also the option of using 'bind-key'.
+'bind-key' is a poart of use-package
+
+Keybindings for 𝛌-Emacs. This has its disadvantages (e.g. separating
+functions or packages from keybindings) but it also makes it the place to go
+to deal with all keybindings. I use `bind-key' for setting bindings, which
+comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
+specified by `sp-prefix'.
+#+end_quote
+
 * Header and commentary
 
 The file header and the author's notes on the binding conventions: prefer =keymap-global-set= over =global-set-key=, and use =bind-key= for prefix maps.
@@ -21,8 +37,9 @@ The file header and the author's notes on the binding conventions: prefer =keyma
 Lexical binding is enabled and the comments record the conventions for the module. The commentary explains the trade-off of keeping every binding in one file and points to =sp-prefix= as the root of all personal bindings.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-keys.el
+;;; sp-keys.el --- Keybindings, leader prefix and which-key -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; An overhauled system for dealing with keybindings.
 ;; The general convention is that I use the more modern keymap-global-set instead of global-set-key -- the entire config should be scanned to make sure that the information is added in there.
@@ -30,13 +47,13 @@ Lexical binding is enabled and the comments record the conventions for the modul
 ;; There's also the option of using 'bind-key'.
 ;; 'bind-key' is a poart of use-package
 
-;;; Commentary:
-
 ;; Keybindings for 𝛌-Emacs. This has its disadvantages (e.g. separating
 ;; functions or packages from keybindings) but it also makes it the place to go
 ;; to deal with all keybindings. I use `bind-key' for setting bindings, which
 ;; comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
 ;; specified by `sp-prefix'.
+
+;;; Code:
 #+end_src
 
 * Sensible-defaults style helpers
@@ -86,7 +103,7 @@ the line, respectively."
 =ironkey= (installed from GitHub) protects selected global bindings from being shadowed by minor or major mode keymaps. =ironkey-iron-alist= lists =M-.= and the =C-x p= project prefix, both mapped to =nil=, which per the inline comments means "keep the global-map definition". =ironkey-update= runs on =after-init-hook= so it picks up bindings made during startup, and =ironkey-mode= is switched on.
 
 #+begin_src emacs-lisp -i
-;;; ironkey setup
+;;;; ironkey setup
 ;; Protecting keybindings in certain keymaos
 (use-package ironkey
   :ensure (:type git :host github :repo "JimDBh/ironkey")
@@ -106,7 +123,7 @@ the line, respectively."
 =bind-key= is built in (it comes with =use-package=), so =:ensure nil=. Setting =bind-key-describe-special-forms= to =nil= keeps =describe-personal-keybindings= from printing lambda bodies and other special forms in full.
 
 #+begin_src emacs-lisp -i
-;;;; Bind Key
+;;;;; Bind Key
 ;; Note that bind-key comes with use-package
 (use-package bind-key
   :ensure nil
@@ -123,7 +140,7 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 =sp-prefix= is a user option holding the prefix string for all personal keys, =C-x C-SPC= by default. Every prefix map below is built by appending a letter to this string.
 
 #+begin_src emacs-lisp -i
-;;;; Personal Keybindings Prefix
+;;;;; Personal Keybindings Prefix
 (defcustom sp-prefix "C-x C-SPC"
   "Prefix for all personal keybinds."
   :type 'string
@@ -135,7 +152,7 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 =lem+leader-map= is meant as an overriding keymap for a modal-style leader key. Its declared =:type= is ='string= although the value is a keymap, which only matters if it is edited through Customize. The =bind-keys= call then installs this map as the prefix map on =sp-prefix=.
 
 #+begin_src emacs-lisp -i
-;;;; Personal Leader Key
+;;;;; Personal Leader Key
 
 (defcustom lem+leader-map (make-sparse-keymap)
   "An overriding keymap for <leader> key, for use with modal keybindings."
@@ -156,8 +173,8 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+buffer-keys= collects buffer commands: =ibuffer=, =consult-buffer= and its variants, killing and renaming buffers through =crux= and =sp-= helpers, creating new scratch or Elisp buffers, cycling user buffers with =[= and =]=, and switching tab-bar tabs with ={= and =}=. =f= calls =reveal-in-osx-finder=, which only works on macOS with that package installed.
 
 #+begin_src emacs-lisp -i
-;;;; Personal Keybindings by Group
-;;;;; Buffer Keys
+;;;;; Personal Keybindings by Group
+;;;;;; Buffer Keys
 (bind-keys :prefix-map lem+buffer-keys
            :prefix (concat sp-prefix " b")
            ("a" . ibuffer)
@@ -193,7 +210,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+comment-wrap-keys= groups commenting commands (=comment-dwim=, =comment-line=, duplicate-and-comment from =crux=) with two wrapping helpers, =org-block-wrap= and =sp-yaml-wrap=.
 
 #+begin_src emacs-lisp -i
-;;;;; Comment Keybindings
+;;;;;; Comment Keybindings
 (bind-keys :prefix-map lem+comment-wrap-keys
            :prefix (concat sp-prefix " c")
            ("c" . comment-dwim)
@@ -205,15 +222,15 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Config files (C)
 
-=lem+config-keys= jumps to and reloads the configuration: open =init.el=, =early-init.el=, =custom.el= or the Emacs directory, find or search config files, and reload the config. The FIXME notes say the goto helpers should become more generic and that the kill-and-archive command does not yet create an archive file.
+=lem+config-keys= jumps to and reloads the configuration: open =init.el=, =early-init.el=, =custom.el= or the Emacs directory, find or search config files, and reload the config. The FIXME notes say the goto helpers should become more generic and that the kill-and-archive command does not yet create an archive file. =a= runs =sp-kill-and-archive-region= from =sp-helper-funct=; the binding used to name =sp-setup-kill-and-archive-region=, which is not defined anywhere.
 
 #+begin_src emacs-lisp -i
-;;;;; Config Keybindings
+;;;;;; Config Keybindings
 ;; FIXME: fix goto functions to make them more generic
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
-           ("a" . sp-setup-kill-and-archive-region     )
+           ("a" . sp-kill-and-archive-region           )
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
@@ -230,7 +247,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+compile-keys= binds =compile=, =recompile=, =kill-compilation=, =compile-goto-error=, =multi-compile-run= and =sp-compile-next-makefile=. A TODO suggests replacing the makefile helper with project compile.
 
 #+begin_src emacs-lisp -i
-;;;;; Compile Keybindings
+;;;;;; Compile Keybindings
 ;; TODO: remove complile-next-makefile in favor of project compile?
 (bind-keys :prefix-map lem+compile-keys
            :prefix (concat sp-prefix " M")
@@ -247,7 +264,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+eval-keys= gives quick access to =eval-buffer=, =eval-defun=, =eval-last-sexp= and =sp-eval-current-form=.
 
 #+begin_src emacs-lisp -i
-;;;;; Eval Keybindings
+;;;;;; Eval Keybindings
 (bind-keys :prefix-map lem+eval-keys
            :prefix (concat sp-prefix " e")
            ("b"  . eval-buffer )
@@ -261,7 +278,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+file-keys= covers finding, saving and locating files, recent files and bookmarks via =consult=, opening with an external program via =crux-open-with=, and copying the buffer's file name with =sp-show-and-copy-buffer-filename=.
 
 #+begin_src emacs-lisp -i
-;;;;; File Keybindings
+;;;;;; File Keybindings
 (bind-keys :prefix-map lem+file-keys
            :prefix (concat sp-prefix " f")
            ("b" . consult-bookmark                 )
@@ -278,7 +295,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+flymake-keys= starts Flymake, lists diagnostics for the buffer or project (including =consult-flymake=), and runs =package-lint-current-buffer= and =use-package-lint= for Elisp package hygiene.
 
 #+begin_src emacs-lisp -i
-;;;;; Linting (Flymake)
+;;;;;; Linting (Flymake)
 (bind-keys :prefix-map lem+flymake-keys
            :prefix (concat sp-prefix " F"        )
            ("b" . flymake-start                   )
@@ -294,7 +311,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+mail-keys= binds =mu4e= commands for composing and updating mail, plus =cpm-= helpers for jumping to the inbox or unread mail. The =cpm-= functions come from the upstream Lambda Emacs mail setup and must be defined by the mail module for these keys to work.
 
 #+begin_src emacs-lisp -i
-;;;;; Mail Keybindings
+;;;;;; Mail Keybindings
 (bind-keys :prefix-map lem+mail-keys
            :prefix (concat sp-prefix " m")
            ("c" . mu4e-compose-new           )
@@ -310,7 +327,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+notes-keys= binds =denote=, =consult-notes= and its full-text search, and =sp-denote-workbook-create-entry=. A nested map, =lem+bib-keys= under =n b=, binds =citar= and =citar-denote= commands for adding citekeys and creating or opening literature notes.
 
 #+begin_src emacs-lisp -i
-;;;;; Notes
+;;;;;; Notes
 ;; General notes
 (bind-keys :prefix-map lem+notes-keys
            :prefix (concat sp-prefix " n")
@@ -332,7 +349,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+quit-keys= offers ways to leave Emacs: =save-buffers-kill-emacs=, =restart-emacs=, killing the capture daemon, and killing every running Emacs with =sp-kill-all-emacsen=.
 
 #+begin_src emacs-lisp -i
-;;;;; Quit Keybindings
+;;;;;; Quit Keybindings
 (bind-keys :prefix-map lem+quit-keys
            :prefix (concat sp-prefix " q")
            ("d" . sp-kill-emacs-capture-daemon)
@@ -346,7 +363,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+search-keys= collects search and navigation commands, mostly from =consult=: line search, ripgrep in the current directory or a prompted one, Org headings and agenda, marks, the kill ring, and notes. It also binds =vr/query-replace= from visual-regexp, =vertico-repeat=, jumping to the next spelling error, and a todo transient. Both =f= and =s= run =consult-line=.
 
 #+begin_src emacs-lisp -i
-;;;;; Search Keybindings
+;;;;;; Search Keybindings
 (bind-keys :prefix-map lem+search-keys
            :prefix (concat sp-prefix " s")
            ("a" . consult-org-agenda           )
@@ -374,7 +391,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+toggle-keys= switches display and editing modes on and off: line numbers, =hl-line-mode=, Flymake, Flyspell, =git-gutter-mode=, =puni-global-mode=, =writeroom-mode=, the dired sidebar, the imenu list and more. =t= runs =sp-load-theme=; an older binding to a dark/light toggle is left commented out. =z= starts =zone=.
 
 #+begin_src emacs-lisp -i
-;;;;; Toggle Keybindings
+;;;;;; Toggle Keybindings
 (bind-keys :prefix-map lem+toggle-keys
            :prefix (concat sp-prefix " t")
            ("g" . git-gutter-mode             )
@@ -403,7 +420,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 =lem+user-keys= is an empty prefix map reserved for user-specific bindings. The note refers to the upstream =config.el=, which this config has replaced with profiles.
 
 #+begin_src emacs-lisp -i
-;;;;; User Keybindings
+;;;;;; User Keybindings
 ;; NOTE: This keymap is for user-specific keybindings. Define this in your
 ;; `config.el' file.
 (bind-keys :prefix-map lem+user-keys
@@ -415,7 +432,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 The four =autoload= calls make the =git-gutter= commands callable before that package is loaded, since it is not declared as a package elsewhere; the comment explains the resulting error behaviour. =lem+vc-keys= then binds Magit status, commit, diff, log, blame and reflog, the git-gutter hunk commands, and =vc-next-action= for a quick commit of the current file.
 
 #+begin_src emacs-lisp -i
-;;;;; Version Control (Git) Keybindings
+;;;;;; Version Control (Git) Keybindings
 ;; git-gutter is referenced by several bindings here but is not declared
 ;; in `sp-packages-alist'. Autoload the commands we bind so the keymap
 ;; entries are `commandp'-true even on a cold boot before the user
@@ -445,31 +462,31 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
 
 ** Windows (w)
 
-=lem+window-keys= handles window layout: =ace-window=, splitting with or without moving focus, deleting windows, rotating and swapping buffers between windows, toggling split direction, =tear-off-window= into a new frame, and =winner-undo= / =winner-redo=. Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below).
+=lem+window-keys= handles window layout: =ace-window=, splitting with or without moving focus, deleting windows, rotating and swapping buffers between windows, toggling split direction, =tear-off-window= into a new frame, and =winner-undo= / =winner-redo=. Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below). The rotate, split, swap and toggle keys point at the =lem-...= commands defined in =sp-windows=; they used to name =sp-...= versions that do not exist, which left those keys dead. =o= calls the built-in =other-window=, because no =lem-= version of it exists.
 
 #+begin_src emacs-lisp -i
-;;;;; Window Keybindings
+;;;;;; Window Keybindings
 (bind-keys :prefix-map lem+window-keys
            :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
-           ("f" .  sp-toggle-window-split         )
+           ("f" .  lem-toggle-window-split        )
            ("c" .  delete-window                   )
            ("d" .  delete-window                   )
-           ("h" .  sp-split-window-below-and-focus)
+           ("h" .  lem-split-window-below-and-focus)
            ("H" .  split-window-below              )
            ("m" .  delete-other-windows            )
-           ("o" .  sp-other-window                )
-           ("r" .  sp-rotate-windows              )
-           ("R" .  sp-rotate-windows-backward     )
+           ("o" .  other-window                   )
+           ("r" .  lem-rotate-windows            )
+           ("R" .  lem-rotate-windows-backward   )
            ("t" .  tear-off-window                 )
            ("u" .  winner-undo                     )
            ("U" .  winner-redo                     )
-           ("v" .  sp-split-window-right-and-focus)
+           ("v" .  lem-split-window-right-and-focus)
            ("V" .  split-window-right              )
            ("w" .  ace-window                      )
-           ("x" .  sp-window-exchange-buffer      )
+           ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
-           ("_" .  sp-split-window-below-and-focus))
+           ("_" .  lem-split-window-below-and-focus))
 #+end_src
 
 ** Workspaces (W)
@@ -477,7 +494,7 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
 =lem+workspace-keys= binds =tabspaces= commands for switching and creating workspaces, opening projects as workspaces, and managing which buffers belong to the current workspace. =tabspaces= itself is configured in =sp-workspaces=.
 
 #+begin_src emacs-lisp -i
-;;;;; Workspace Keybindings
+;;;;;; Workspace Keybindings
 (bind-keys :prefix-map lem+workspace-keys
            :prefix (concat sp-prefix " W")
            ("b"  .  tabspaces-switch-to-buffer)
@@ -500,7 +517,7 @@ Which-key is part of Emacs since version 29. This section configures it with pla
 =which-key-show-early-on-C-h= lets =C-h= after a prefix pop up the which-key buffer immediately instead of waiting for the idle delay.
 
 #+begin_src emacs-lisp -i
-;;;; Which Key (built-in baseline)
+;;;;; Which Key (built-in baseline)
 ;; EMACS-29+ built-in (which-key was merged into Emacs core in 29,
 ;; not 28). Raw top-level baseline -- C-6 forbids use-package
 ;; wrapping of built-in baselines. `which-key-mode' is autoloaded
@@ -553,9 +570,9 @@ The "Hydras" heading is a leftover: the menus in this section were ported from h
 The comment records that this was adapted from the hydra wiki and ported to transient. =sp-ediff-transient= is a menu for starting ediff sessions on buffers, files (two- or three-way), the current file, VC revisions, or regions linewise and wordwise. It is not bound to a key in this file and is reached with =M-x=.
 
 #+begin_src emacs-lisp -i
-;;;; Hydras
+;;;;; Hydras
 
-;;;; Ediff transient
+;;;;; Ediff transient
 ;; Adapted from the hydra wiki (Emacs#ediff section), ported to
 ;; transient in Spec 09.
 ;; Body color was blue (exit on every suffix); :hint nil meant the
@@ -585,7 +602,7 @@ The comment records that this was adapted from the hydra wiki and ported to tran
 =<leader> .= is bound to =transpose-words=. The comment lists the other transpose commands that remain available through =M-x=, since the earlier wrapping menu was dropped.
 
 #+begin_src emacs-lisp -i
-;;;;; Transpose
+;;;;;; Transpose
 ;; <leader> . binds `transpose-words' (the most common case).
 ;; `transpose-chars', `transpose-lines', `transpose-sentences',
 ;; `transpose-paragraphs', `org-transpose-words',
@@ -600,7 +617,7 @@ The comment records that this was adapted from the hydra wiki and ported to tran
 The comment describes the rectangle transient's lifecycle. =sp-rectangle-toggle-region= is a helper for that menu: if a region is active it deactivates the mark, otherwise it turns on =rectangle-mark-mode=.
 
 #+begin_src emacs-lisp -i
-;;;;; Rectangle transient
+;;;;;; Rectangle transient
 ;; Suffixes stay on press; "g" exits. Setup/teardown:
 ;; `rectangle-mark-mode' is enabled on entry, `deactivate-mark' fires
 ;; on every exit path via a one-shot `transient-exit-hook'. Ported in
@@ -666,7 +683,7 @@ Installs =hydra=, waiting for it to finish (=:wait t=) so later code can use it 
 
 #+begin_src emacs-lisp -i
 ;; TODO: Add org and markdown keybindings
-;;; End keybindings
+;;;; End keybindings
 
 
 
@@ -805,9 +822,9 @@ Installs =keycast=, which can display each key and command as it is used (useful
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-keys= so the module loader can =require= it.
+Provides the =sp-keys= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-keys)

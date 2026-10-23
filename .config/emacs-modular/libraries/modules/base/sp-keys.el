@@ -1,5 +1,6 @@
-;; -*- lexical-binding: t; -*-
-;; sp-keys.el
+;;; sp-keys.el --- Keybindings, leader prefix and which-key -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; An overhauled system for dealing with keybindings.
 ;; The general convention is that I use the more modern keymap-global-set instead of global-set-key -- the entire config should be scanned to make sure that the information is added in there.
@@ -7,13 +8,13 @@
 ;; There's also the option of using 'bind-key'.
 ;; 'bind-key' is a poart of use-package
 
-;;; Commentary:
-
 ;; Keybindings for 𝛌-Emacs. This has its disadvantages (e.g. separating
 ;; functions or packages from keybindings) but it also makes it the place to go
 ;; to deal with all keybindings. I use `bind-key' for setting bindings, which
 ;; comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
 ;; specified by `sp-prefix'.
+
+;;; Code:
 
 (defun sp-bind-commenting ()
   "Comment or uncomment a region by hitting M-;."
@@ -33,7 +34,7 @@ the line, respectively."
   (sp-bind-commenting)
   (sp-bind-home-and-end-keys))
 
-;;; ironkey setup
+;;;; ironkey setup
 ;; Protecting keybindings in certain keymaos
 (use-package ironkey
   :ensure (:type git :host github :repo "JimDBh/ironkey")
@@ -47,20 +48,20 @@ the line, respectively."
                              
   (ironkey-mode t))
 
-;;;; Bind Key
+;;;;; Bind Key
 ;; Note that bind-key comes with use-package
 (use-package bind-key
   :ensure nil
   :config
   (setq bind-key-describe-special-forms nil))
 
-;;;; Personal Keybindings Prefix
+;;;;; Personal Keybindings Prefix
 (defcustom sp-prefix "C-x C-SPC"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'sia-lambda)
 
-;;;; Personal Leader Key
+;;;;; Personal Leader Key
 
 (defcustom lem+leader-map (make-sparse-keymap)
   "An overriding keymap for <leader> key, for use with modal keybindings."
@@ -71,8 +72,8 @@ the line, respectively."
 (bind-keys :prefix-map lem+leader-map
            :prefix sp-prefix)
 
-;;;; Personal Keybindings by Group
-;;;;; Buffer Keys
+;;;;; Personal Keybindings by Group
+;;;;;; Buffer Keys
 (bind-keys :prefix-map lem+buffer-keys
            :prefix (concat sp-prefix " b")
            ("a" . ibuffer)
@@ -102,7 +103,7 @@ the line, respectively."
            ("}" . tab-bar-switch-to-next-tab         )
            ("<backtab>" . crux-switch-to-previous-buffer))
 
-;;;;; Comment Keybindings
+;;;;;; Comment Keybindings
 (bind-keys :prefix-map lem+comment-wrap-keys
            :prefix (concat sp-prefix " c")
            ("c" . comment-dwim)
@@ -111,12 +112,12 @@ the line, respectively."
            ("o" . org-block-wrap)
            ("y" . sp-yaml-wrap))
 
-;;;;; Config Keybindings
+;;;;;; Config Keybindings
 ;; FIXME: fix goto functions to make them more generic
 ;; FIXME: fix kill-and-archive so that it creates an archive file
 (bind-keys :prefix-map lem+config-keys
            :prefix (concat sp-prefix " C")
-           ("a" . sp-setup-kill-and-archive-region     )
+           ("a" . sp-kill-and-archive-region           )
            ("c" . sp-goto-custom.el                    )
            ("d" . sp-goto-emacs-dir                    )
            ("e" . sp-goto-early-init.el                )
@@ -127,7 +128,7 @@ the line, respectively."
            ("o" . sp-goto-org-files                    )
            ("s" . sp-search-lambda-files               ))
 
-;;;;; Compile Keybindings
+;;;;;; Compile Keybindings
 ;; TODO: remove complile-next-makefile in favor of project compile?
 (bind-keys :prefix-map lem+compile-keys
            :prefix (concat sp-prefix " M")
@@ -138,7 +139,7 @@ the line, respectively."
            ("K"  . kill-compilation         )
            ("r"  . recompile                ))
 
-;;;;; Eval Keybindings
+;;;;;; Eval Keybindings
 (bind-keys :prefix-map lem+eval-keys
            :prefix (concat sp-prefix " e")
            ("b"  . eval-buffer )
@@ -146,7 +147,7 @@ the line, respectively."
            ("e"  . eval-last-sexp)
            ("f"  . eval-defun))
 
-;;;;; File Keybindings
+;;;;;; File Keybindings
 (bind-keys :prefix-map lem+file-keys
            :prefix (concat sp-prefix " f")
            ("b" . consult-bookmark                 )
@@ -157,7 +158,7 @@ the line, respectively."
            ("r" . consult-recent-file              )
            ("y" . sp-show-and-copy-buffer-filename))
 
-;;;;; Linting (Flymake)
+;;;;;; Linting (Flymake)
 (bind-keys :prefix-map lem+flymake-keys
            :prefix (concat sp-prefix " F"        )
            ("b" . flymake-start                   )
@@ -167,7 +168,7 @@ the line, respectively."
            ("P" . package-lint-current-buffer     )
            ("u" . use-package-lint                ))
 
-;;;;; Mail Keybindings
+;;;;;; Mail Keybindings
 (bind-keys :prefix-map lem+mail-keys
            :prefix (concat sp-prefix " m")
            ("c" . mu4e-compose-new           )
@@ -177,7 +178,7 @@ the line, respectively."
            ("s" . mu4e-update-mail-and-index )
            ("u" . cpm-go-to-mail-unread      ))
 
-;;;;; Notes
+;;;;;; Notes
 ;; General notes
 (bind-keys :prefix-map lem+notes-keys
            :prefix (concat sp-prefix " n")
@@ -193,7 +194,7 @@ the line, respectively."
            ("o"  .  citar-open-notes)
            ("O"  .  citar-denote-dwim))
 
-;;;;; Quit Keybindings
+;;;;;; Quit Keybindings
 (bind-keys :prefix-map lem+quit-keys
            :prefix (concat sp-prefix " q")
            ("d" . sp-kill-emacs-capture-daemon)
@@ -201,7 +202,7 @@ the line, respectively."
            ("Q" . sp-kill-all-emacsen         )
            ("r" . restart-emacs                ))
 
-;;;;; Search Keybindings
+;;;;;; Search Keybindings
 (bind-keys :prefix-map lem+search-keys
            :prefix (concat sp-prefix " s")
            ("a" . consult-org-agenda           )
@@ -223,7 +224,7 @@ the line, respectively."
            ("t" . sp-todo-transient           )
            ("." . consult-line-symbol-at-point ))
 
-;;;;; Toggle Keybindings
+;;;;;; Toggle Keybindings
 (bind-keys :prefix-map lem+toggle-keys
            :prefix (concat sp-prefix " t")
            ("g" . git-gutter-mode             )
@@ -246,13 +247,13 @@ the line, respectively."
            ("w" . writeroom-mode              )
            ("z" . zone                        ))
 
-;;;;; User Keybindings
+;;;;;; User Keybindings
 ;; NOTE: This keymap is for user-specific keybindings. Define this in your
 ;; `config.el' file.
 (bind-keys :prefix-map lem+user-keys
            :prefix (concat sp-prefix " u"))
 
-;;;;; Version Control (Git) Keybindings
+;;;;;; Version Control (Git) Keybindings
 ;; git-gutter is referenced by several bindings here but is not declared
 ;; in `sp-packages-alist'. Autoload the commands we bind so the keymap
 ;; entries are `commandp'-true even on a cold boot before the user
@@ -279,30 +280,30 @@ the line, respectively."
            ("r" .  magit-reflog                )
            ("s" .  magit-status                ))
 
-;;;;; Window Keybindings
+;;;;;; Window Keybindings
 (bind-keys :prefix-map lem+window-keys
            :prefix (concat sp-prefix " w")
            ("a" .  ace-window                      )
-           ("f" .  sp-toggle-window-split         )
+           ("f" .  lem-toggle-window-split        )
            ("c" .  delete-window                   )
            ("d" .  delete-window                   )
-           ("h" .  sp-split-window-below-and-focus)
+           ("h" .  lem-split-window-below-and-focus)
            ("H" .  split-window-below              )
            ("m" .  delete-other-windows            )
-           ("o" .  sp-other-window                )
-           ("r" .  sp-rotate-windows              )
-           ("R" .  sp-rotate-windows-backward     )
+           ("o" .  other-window                   )
+           ("r" .  lem-rotate-windows            )
+           ("R" .  lem-rotate-windows-backward   )
            ("t" .  tear-off-window                 )
            ("u" .  winner-undo                     )
            ("U" .  winner-redo                     )
-           ("v" .  sp-split-window-right-and-focus)
+           ("v" .  lem-split-window-right-and-focus)
            ("V" .  split-window-right              )
            ("w" .  ace-window                      )
-           ("x" .  sp-window-exchange-buffer      )
+           ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
-           ("_" .  sp-split-window-below-and-focus))
+           ("_" .  lem-split-window-below-and-focus))
 
-;;;;; Workspace Keybindings
+;;;;;; Workspace Keybindings
 (bind-keys :prefix-map lem+workspace-keys
            :prefix (concat sp-prefix " W")
            ("b"  .  tabspaces-switch-to-buffer)
@@ -315,7 +316,7 @@ the line, respectively."
            ("R"  .  tabspaces-remove-selected-buffer)
            ("s"  .  tabspaces-switch-or-create-workspace))
 
-;;;; Which Key (built-in baseline)
+;;;;; Which Key (built-in baseline)
 ;; EMACS-29+ built-in (which-key was merged into Emacs core in 29,
 ;; not 28). Raw top-level baseline -- C-6 forbids use-package
 ;; wrapping of built-in baselines. `which-key-mode' is autoloaded
@@ -346,9 +347,9 @@ the line, respectively."
 (setq which-key-separator " -> ")
 (which-key-mode 1)
 
-;;;; Hydras
+;;;;; Hydras
 
-;;;; Ediff transient
+;;;;; Ediff transient
 ;; Adapted from the hydra wiki (Emacs#ediff section), ported to
 ;; transient in Spec 09.
 ;; Body color was blue (exit on every suffix); :hint nil meant the
@@ -372,7 +373,7 @@ the line, respectively."
     ("l" "Linewise"         ediff-regions-linewise)
     ("w" "Wordwise"         ediff-regions-wordwise)]])
 
-;;;;; Transpose
+;;;;;; Transpose
 ;; <leader> . binds `transpose-words' (the most common case).
 ;; `transpose-chars', `transpose-lines', `transpose-sentences',
 ;; `transpose-paragraphs', `org-transpose-words',
@@ -381,7 +382,7 @@ the line, respectively."
 ;; history for the prior dispatch macro.
 (bind-key (concat sp-prefix " .") #'transpose-words)
 
-;;;;; Rectangle transient
+;;;;;; Rectangle transient
 ;; Suffixes stay on press; "g" exits. Setup/teardown:
 ;; `rectangle-mark-mode' is enabled on entry, `deactivate-mark' fires
 ;; on every exit path via a one-shot `transient-exit-hook'. Ported in
@@ -431,7 +432,7 @@ an inline branching lambda from the prior implementation."
   (transient-setup 'sp-rectangle-transient))
 
 ;; TODO: Add org and markdown keybindings
-;;; End keybindings
+;;;; End keybindings
 
 
 

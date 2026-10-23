@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-denote.el
+;;; sp-denote.el --- Denote note-taking setup -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -14,7 +13,6 @@
 
 (use-package denote
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "denote"))
   :commands (denote denote-create-note denote-link-ol-store)
   
   :config
@@ -54,7 +52,7 @@
       ("C-c w d i" . denote-link-or-create)
       ("C-c w d k" . denote-rename-file-keywords)))
 
-(setq denote-directory (expand-file-name "~/notes/"))
+(setq denote-directory sp-notes-dir)
 
 (setq denote-save-buffers t)
 

@@ -215,6 +215,67 @@ non-nil. A failing module is reported and the rest still load."
                ""))))
 
 ;;; Modular loading without a config.el
+;;;;; Load order
+;; The order of `lem--default-modules' follows the dependencies between the
+;; Elpaca recipes in the modules; docs/load-order.org draws them and says why.
+;; Two rules matter to Elpaca. A package that another package requires has to be
+;; declared *before* that package, otherwise Elpaca has already queued it as a
+;; dependency and warns "X previously queued as dependency of: (Y)". And a
+;; `:wait t' recipe stops init until the queue so far is installed, so the
+;; packages the rest of init needs go first.
+
+(defcustom sp-defer-late-modules t
+  "When non-nil, load the modules in `lem--late-modules' after startup.
+They are required from an idle timer once Elpaca has finished its
+initial queues, so they no longer add to the time Emacs takes to
+become usable. Set to nil to load them with the other modules, in
+the order of `lem--late-modules', for example when debugging."
+  :type 'boolean
+  :group 'sia-lambda)
+
+(defconst lem--late-modules
+  '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
+    ;; the first file.
+    sp-academic
+    sp-notes
+    sp-trails ;; For gathering links from browser sessions
+    sp-semantic
+    ;; several graphing functionality
+    sp-dgraphs
+    sp-relationship-annotator
+    sp-dyn-graph
+    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Sandboxed Emacs for pull requests
+    sp-sandbox
+    ;; Version control. `sp-keys' autoloads the magit commands it binds, so
+    ;; the keys work before this loads. `sp-vcontrol' installs magit and
+    ;; `sp-magit-style' styles it, so it comes second.
+    sp-vcontrol
+    sp-magit-style
+    ;; Terminals and shells
+    sp-terminal
+    sp-eshell
+    ;; AI tooling: the most packages of any module
+    sp-ai)
+  "Modules that can wait until after startup, in dependency order.
+Nothing else requires these features, and their packages are not
+needed to open the first buffer.")
+
+(defun lem--load-late-modules ()
+  "Require `lem--late-modules', then let Elpaca process what they queued."
+  (lem--require-modules lem--late-modules)
+  ;; Orders declared after init are only processed on their own when a
+  ;; command is running interactively.
+  (when (fboundp 'elpaca-process-queues)
+    (elpaca-process-queues)))
+
+(defun lem--schedule-late-modules ()
+  "Load `lem--late-modules' now, or once Emacs is idle after Elpaca's init."
+  (if sp-defer-late-modules
+      (add-hook 'elpaca-after-init-hook
+                (lambda () (run-with-idle-timer 0.5 nil #'lem--load-late-modules)))
+    (lem--load-late-modules)))
+
 ;;;;; Load Configuration Modules
 ;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
 ;; loaded is left to the user to set in `config.el', though if there is no
@@ -231,6 +292,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
    (lem--require-modules
                     (list
                     ;; Core
+                    'sp-paths
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets ;; I don't really make use of snippets yet.
@@ -244,6 +306,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-colors
                     'sp-faces
                     'sp-fonts
+                    'sp-emoji-font ;; colour emoji font (after sp-fonts)
 
                     'sp-textui
                     'sp-themes
@@ -272,7 +335,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-backups
                     'sp-bookmarks
                     ;; 'sp-choose-modeline
-                    'lem-dashboard
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil
@@ -291,6 +353,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-workspaces
 
                     ;; Org related settings
+                    ;; `sp-org-base' and `sp-org-agenda' come before the other
+                    ;; Org modules: `sp-org-agenda' declares org-super-agenda
+                    ;; and then org-ql, which requires it.
                     'sp-org-base
                     'sp-denote
                     'sp-org-appearance
@@ -305,18 +370,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
+                    'sp-tag-emoji ;; tags as emoji in the modeline and on links
                     'sp-csv
-
-                    ;; Academic
-                    'sp-academic
-                    ;; 'sp-statistics
-                    'sp-dgraphs
-                    'sp-vulpea-hierarchy
-                    'sp-dg-positions
-                    'sp-notes
-                    'sp-semantic
-                    'sp-dyn-graph
-                    'sp-trails
 
                     ;; Functions
                     'sp-helper-funct
@@ -328,16 +383,14 @@ Skips modules listed in `(lem-gui-only-modules)' when
 
                     ;; Programming modules
                     'sp-base-code
-                    'sp-prog-misc
-                    'sp-eshell
-                    'sp-vcontrol
-                    'sp-terminal
+                    ;; `sp-lisp' installs paredit, which emr (in
+                    ;; `sp-prog-misc') requires, so it comes first.
                     'sp-lisp
+                    'sp-prog-misc
                     ;; 'sp-vc-ai-workbench
-
-                    ;; Media
-                    'sp-ai
-                    ))))
+                    ))
+   ;; The modules in `lem--late-modules' load once startup is done.
+   (lem--schedule-late-modules)))
 
 (defun lem--minimal-modules ()
   "Load 𝛌-Emacs with a minimal set of modules.
@@ -354,6 +407,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                            (memq m (lem-gui-only-modules))))
                     (list
                      ;; Core
+                    'sp-paths
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets
@@ -478,194 +532,3 @@ Skips modules listed in `(lem-gui-only-modules)' when
                                                  (float-time
                                                   (time-subtract after-init-time before-init-time)) gcs-done))
                                 (put 'narrow-to-page 'disabled nil)))
-
-;; CUSTOM VARIABLES
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(bibtex-aux-opt-alist
-   '(("keywords" "Keywords to describe the entry" "")
-     ("file" "Relative or absolute path to attachments" "")) nil nil "Customized with use-package bibtex")
- '(custom-safe-themes
-   '("8c8a79d60815b0c094ed78a6936d80e01404d6ab48f93ce121206eb0d701e6c0"
-     "1b623b81f373d49bcf057315fe404b30c500c3b5a387cf86c699d83f2f5763f4"
-     "7c0179ef765b9bf1d79612235236d29eebcaca9b4a287ff802959ed20db154b6"
-     "e0fbe5caa6e602975e59cdd381c9773a670a864dd7bb7bf2345414856148098b"
-     "1d18bef9d0e1b7f30a3290c48fdc52465bdca62564e404c1019bb1fcc8cb0c27"
-     "967c23e9ba179b80560774419f081df22e7674aac23c5c550b817e4a1ce7d058"
-     "953a4391d91a93ac734777a53001d1b514c22c4b7233c932ae029a5b01cdf3f7"
-     "854b81231db83bc217b0c8671f23ec92163a96b28f045ff879bba738a9ed88bb"
-     "b8719ba8ddfa912c98d876d5cc530c13bd6589e34b617093848e492aabe2a2dd"
-     "5cb84685a211fb46e47ca355dc91e52adf0c185dc0603cfe27c63855f200dd1f"
-     "d26200309cd01a0b321121be21d9e879c5e0c7bf6c0b9f090fe0f5e486dbb7a5"
-     "998bc02f2e52205ad06df88a14d53168aef1ec1bbcc6fe2b0cd15fed8e5c8dae"
-     "cc8e6619a14298073d987046081c541b8b3854a6446497bdc254c3fad065cc30"
-     "acd363510d3e4b638db178783bde3d4492574c0f5c889f845251949f43567d16"
-     "f2f42f0b7c53736840fc3ff5751235e3b87cc535b04ddaf3423e2926548bfbb4"
-     default))
- '(helm-minibuffer-history-key "M-p")
- '(org-agenda-files
-   '("/Users/siainbuletin/notes/20251214T200359--disco-elysium__game.org"
-     "/Users/siainbuletin/notes/20251221T021303--self-hosted-music-streamer__docs_workflow.org"
-     "/Users/siainbuletin/notes/20250325T120000--curs-modernă-importanța-matematicii__course.org"
-     "/Users/siainbuletin/notes/20251227T153518--dual-booting-on-desktop__linux_process.org"
-     "/Users/siainbuletin/notes/creating_an_annotated_bibliography_in_emacs.org"
-     "/Users/siainbuletin/notes/20260604T192824--nouă-schemă-compendium-musicae__writing.org"
-     "/Users/siainbuletin/notes/20241017T160000--curs-timp-bigelow-și-presentism__course.org"
-     "/Users/siainbuletin/notes/20251117T175720--obsidian-el__package.org"
-     "/Users/siainbuletin/notes/20251220T133450--hegel-and-time__zettel.org"
-     "/Users/siainbuletin/notes/20251203T124136--homo-economicus__concept.org"
-     "/Users/siainbuletin/notes/20251205T041624--pe-urmele-lui-marx__dashboard.org"
-     "/Users/siainbuletin/notes/20251215T002311--scheduling__concept_docs.org"
-     "/Users/siainbuletin/notes/20251124T170334--material-conditional__concept.org"
-     "/Users/siainbuletin/notes/20251204T110449--managing-inboxes__process.org"
-     "/Users/siainbuletin/notes/20251228T144741--flash-modding-my-ipod-7th-gen__hardware_ipod_log_project.org"
-     "/Users/siainbuletin/notes/workflow.org"
-     "/Users/siainbuletin/notes/20251206T173815--version-control__concept.org"
-     "/Users/siainbuletin/notes/20251221T215616--identity__concept.org"
-     "/Users/siainbuletin/notes/20251214T173207--zeița-aletheia-despre-existență-vorbind-prin-parmenide__zettel.org"
-     "/Users/siainbuletin/notes/20251207T233943--camera-lucida__book.org"
-     "/Users/siainbuletin/notes/20251203T010550--streamings-effect-on-music-listening__thesis_zettel.org"
-     "/Users/siainbuletin/notes/20251214T165541--compendium-musicae-impactul-lui-descartes-asupra-muzicii__project_writing.org"
-     "/Users/siainbuletin/notes/20251203T022856--music-streaming-makes-music-disposable-and-deindividualised__thesis_zettel.org"
-     "/Users/siainbuletin/notes/20251204T110428--inboxing-and-indexing-large-collection-of-documents-into-personal-dms__workflow.org"
-     "/Users/siainbuletin/notes/20251224T130547--arch-linux__distro_linux_operatingsystem.org"
-     "/Users/siainbuletin/notes/20251213T155153--personal-identity__concept.org"
-     "/Users/siainbuletin/notes/20251114T232044--clipboard-management-in-linux__docs.org"
-     "/Users/siainbuletin/notes/20251228T004408--temporal-parts__concept.org"
-     "/Users/siainbuletin/notes/20250505T100000--modernă-seminar-schopenhauer__course.org"
-     "/Users/siainbuletin/notes/20251214T173432--thales__person.org"
-     "/Users/siainbuletin/notes/djing_with_the_raspberry_pi.org"
-     "/Users/siainbuletin/notes/20251121T224525--devalorizarea-artei-în-capitalismul-de-platformă__zettel.org"
-     "/Users/siainbuletin/notes/20260121T153908--counterpoint-usages-in-pop-music__zettel.org"
-     "/Users/siainbuletin/notes/20261015T121106--fitness__area_docs.org"
-     "/Users/siainbuletin/notes/20251230T185347--morning-routine__concept_management_personal.org"
-     "/Users/siainbuletin/notes/composing_music_directly_in_emacs.org"
-     "/Users/siainbuletin/notes/hyrolo.org"
-     "/Users/siainbuletin/notes/university.org"
-     "/Users/siainbuletin/notes/book_piracy.org"
-     "/Users/siainbuletin/notes/20251117T173819--text-editing-in-emacs__process.org"
-     "/Users/siainbuletin/notes/20251223T233614--xeft__emacs_package.org"
-     "/Users/siainbuletin/notes/working_with_typst_in_emacs.org"
-     "/Users/siainbuletin/notes/20251225T125809--flash-mod-for-ipod__process.org"
-     "/Users/siainbuletin/notes/20251227T195600--running-macbook-pro-2018-as-a-server__hardware_project.org"
-     "/Users/siainbuletin/notes/20251209T203344--gnu-hyperbole__software.org"
-     "/Users/siainbuletin/notes/20251220T140741--the-pale-and-nothingness-as-longing__zettel.org"
-     "/Users/siainbuletin/notes/20251221T213905--immanent-causation__concept.org"
-     "/Users/siainbuletin/notes/20251214T121824--academic-mobile-usage__academia_workflow.org"
-     "/Users/siainbuletin/notes/20260109T004017--eternal-return__concept.org"
-     "/Users/siainbuletin/notes/20251213T230952--notes-are-your-thinking-and-writing__zettel.org"
-     "/Users/siainbuletin/notes/20251210T222718--organising-dj-libraries__workflow.org"
-     "/Users/siainbuletin/notes/20251216T181129--being-and-time__book.org"
-     "/Users/siainbuletin/notes/vulpea_para.org"
-     "/Users/siainbuletin/notes/20260603T224453--eseu-noica-raționalism__project_writing.org"
-     "/Users/siainbuletin/notes/20251118T192819--emacs-lisp__emacs_language.org"
-     "/Users/siainbuletin/notes/20251210T200613--docker__software.org"
-     "/Users/siainbuletin/notes/raspberry_pi_as_a_nas.org"
-     "/Users/siainbuletin/notes/20251219T022102--evaluation-when-learning__workflow_zettel.org"
-     "/Users/siainbuletin/notes/20251214T203400--temporalitatea-eliziană__zettel.org"
-     "/Users/siainbuletin/notes/20251213T194347--music-markup-language__concept.org"
-     "/Users/siainbuletin/notes/20251114T230911--integrated-task-management-through-emacs__docs_emacs_workflow.org"
-     "/Users/siainbuletin/notes/20260102T190314--mercurial__programming_software.org"
-     "/Users/siainbuletin/notes/20251206T160211--bibliographic-records-in-individual-org-mode-files__docs_emacs_process.org"
-     "/Users/siainbuletin/notes/20251226T121655--opusmodus__music_software.org"
-     "/Users/siainbuletin/notes/20251205T114624--class-consciousness__concept.org"
-     "/Users/siainbuletin/notes/20251213T193154--physical-music-collection__docs_meta.org"
-     "/Users/siainbuletin/notes/20260219T143433--home-inventory-management__workflow.org"
-     "/Users/siainbuletin/notes/20251209T203436--executable-books-project__software.org"
-     "/Users/siainbuletin/notes/20251228T150040--lba28-addressing__docs_ipod.org"
-     "/Users/siainbuletin/notes/20251220T135106--hegels-philosophy-of-history__zettel.org"
-     "/Users/siainbuletin/notes/20251221T020007--torrenting__concept.org"
-     "/Users/siainbuletin/notes/20251117T101810--search-structure-over-org-mode__workflow.org"
-     "/Users/siainbuletin/notes/20251214T232136--analytical-geometry__concept.org"
-     "/Users/siainbuletin/notes/20251221T013826--musicbrainz__software.org"
-     "/Users/siainbuletin/notes/20251228T102344--sense-as-an-abstract-entity-which-explains-cognitive-significance__zettel.org"
-     "/Users/siainbuletin/notes/20251203T020500--marxian-value-theory-applied-to-the-arts__thesis_zettel.org"
-     "/Users/siainbuletin/notes/20251207T215901--pvris-all-we-know-of-heaven-all-we-need-of-hell__music.org"
-     "/Users/siainbuletin/notes/20251216T183952--musical-syntax__concept.org"
-     "/Users/siainbuletin/notes/20251119T155606--dispossession__concept.org"
-     "/Users/siainbuletin/notes/20260326T141233--prezentare-industria-culturală-sandu__project_writing.org"
-     "/Users/siainbuletin/notes/20251213T193722--mixxx__music_software.org"
-     "/Users/siainbuletin/notes/20251213T193056--vinyl-records__docs_meta.org"
-     "/Users/siainbuletin/notes/20251204T103653--full-text-search-over-global-data-repository__emacs_workflow.org"
-     "/Users/siainbuletin/notes/20251214T124428--git-annex__software.org"
-     "/Users/siainbuletin/notes/20251121T211226--emacs-scratch-buffer__concept_emacs.org"
-     "/Users/siainbuletin/notes/litnotes/20260106T183500--most2002heideggers__journalarticle_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20251222T222351--cohen1984quantifyin__book_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20260103T131131--russell1905on-denotin__journalarticle_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20251205T022045--drott2024str-capital__booksection_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20260105T160358--denaci-2010-essay-aesth-death__blogpost_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20251221T171354--jorgensen-2012-descar-music__journalarticle_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20260105T203536--nietzsche1997on-the-use__inbook_litnote.org"
-     "/Users/siainbuletin/notes/litnotes/20251228T015538--prior1959thank-good__journalarticle_litnote.org"
-     "/Users/siainbuletin/notes/20260502T162747--japan-trip__docs_project.org"
-     "/Users/siainbuletin/notes/20251224T100549--audio-over-ip__docs.org"
-     "/Users/siainbuletin/notes/area/sistem_electric_la_apartament.org"
-     "/Users/siainbuletin/notes/area/internet_setup_in_the_apartment.org"
-     "/Users/siainbuletin/notes/area/workflow.org"
-     "/Users/siainbuletin/notes/area/personal.org"
-     "/Users/siainbuletin/notes/area/20260725231503-personal.org"
-     "/Users/siainbuletin/notes/area/inlocuirea_geamurilor.org"
-     "/Users/siainbuletin/notes/area/20260725231532-university.org"
-     "/Users/siainbuletin/notes/area/20261013184440-health.org"
-     "/Users/siainbuletin/notes/area/20260725234202-apartament.org_archive"
-     "/Users/siainbuletin/notes/area/20260725234158-elena_cuza.org"
-     "/Users/siainbuletin/notes/area/university.org"
-     "/Users/siainbuletin/notes/area/20260725231507-emacs.org"
-     "/Users/siainbuletin/notes/area/20261013180641-learning_french.org"
-     "/Users/siainbuletin/notes/area/20260725234202-apartament.org"
-     "/Users/siainbuletin/notes/area/20261012154658-ipod_management.org"
-     "/Users/siainbuletin/notes/area/20260725231512-home_lab.org"
-     "/Users/siainbuletin/notes/area/renovarea_bucatariei.org"
-     "/Users/siainbuletin/notes/area/emacs-config.org"
-     "/Users/siainbuletin/notes/20251214T200352--midterm-disco-elysium__project_writing.org"
-     "/Users/siainbuletin/notes/20251214T171511--gândirea-și-adevărul-poetic-în-grecia-arhaică__project_writing_zettel.org"
-     "/Users/siainbuletin/notes/work.org"
-     "/Users/siainbuletin/notes/20251204T171052--inbox-for-ideas-for-my-thesis__meta.org"
-     "/Users/siainbuletin/notes/20251207T134938--staying-up-to-date__process_workflow.org"
-     "/Users/siainbuletin/notes/20251228T004853--identitate-și-persistență-în-timp-eseu-sea__project_writing.org"
-     "/Users/siainbuletin/notes/20260520T142306--restante-anul-3__docs.org"
-     "/Users/siainbuletin/notes/20251224T172620--timecode-vinyl-control__audio_concept.org"
-     "/Users/siainbuletin/notes/20260126T151414--examen-estetică-oana__course_dash_project.org"
-     "/Users/siainbuletin/notes/20260106T184738--thomas-kuhn__person.org"
-     "/Users/siainbuletin/notes/inbox/inbox-capture.org"
-     "/Users/siainbuletin/notes/inbox/tabs/260924-inbox-4.org"
-     "/Users/siainbuletin/notes/inbox/tabs/251122-inbox.org"
-     "/Users/siainbuletin/notes/inbox/tabs/251118-inbox-3.org"
-     "/Users/siainbuletin/notes/inbox/tabs/supatabs_list_1763152191319.org"
-     "/Users/siainbuletin/notes/20251207T000756--information-foraging__concept.org"
-     "/Users/siainbuletin/notes/20251207T000653--digital-minimalism__concept.org"
-     "/Users/siainbuletin/notes/20251009T223000--version-control-composition__project.org"
-     "/Users/siainbuletin/notes/20251217T000825--midi__format_language.org"
-     "/Users/siainbuletin/notes/20251119T094138--psearch__package.org"
-     "/Users/siainbuletin/notes/20260214T203429--archaic-greece-poetry-and-memory__zettel.org"
-     "/Users/siainbuletin/notes/20251203T011822--flattening-of-music-culture-on-streaming-platforms__thesis_zettel.org"
-     "/Users/siainbuletin/notes/20251213T230044--knowledge-representation__concept.org"
-     "/Users/siainbuletin/notes/20251203T004341--assigning-classes-to-different-documents-of-the-same-format__linux_process.org"
-     "/Users/siainbuletin/notes/20251216T102815--org-node__emacs_package.org"
-     "/Users/siainbuletin/notes/20251203T020106--commodification-of-music__concept_thesis.org"
-     "/Users/siainbuletin/notes/20251229T222445--consuming-less-electricity__process.org"
-     "/Users/siainbuletin/notes/emacs-config.org"
-     "/Users/siainbuletin/notes/journal/2026-06-29.org"
-     "/Users/siainbuletin/notes/20251117T100514--drafting-workflow__workflow.org"))
- '(package-selected-packages '(lambda-themes))
- '(package-vc-selected-packages
-   '((lambda-themes :vc-backend Git :url
-                    "https://codeberg.org/Lambda-Emacs/lambda-themes.git")))
- '(sia/modeline 'doom-modeline)
- '(sp-ui-default-font '(:font "PT Mono" :height 120))
- '(sp-ui-variable-width-font '(:font "Aporetic Serif Mono" :height 120))
- '(transient-show-menu t nil nil "Customized with use-package transient"))
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(org-default ((t (:background "#F0B609" :inherit default))))
- '(org-extra-emphasis ((t (:background "#F0B609" :height 1.0 :inherit default :weight bold :width normal))) t)
- '(org-extra-emphasis-01 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t))))
- '(org-extra-emphasis-02 ((t (:foreground "#003F66" :inherit org-extra-emphasis :underline t)))))

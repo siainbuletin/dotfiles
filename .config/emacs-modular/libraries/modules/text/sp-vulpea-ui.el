@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-ui.el
+;;; sp-vulpea-ui.el --- Vulpea UI sidebar and collection views -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -12,6 +11,7 @@
 ;; found in sp-vulpea-schemas.el
 
 ;;; Code:
+
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
@@ -84,10 +84,10 @@
 			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
 			                :sort ("Modified" . t)))
         
-        ("open-questions" . (:filter (:tags-all ("question)
+        ("open-questions" . (:filter (:tags-all ("question")
                                       :level 1 ;; this will only bring up headings at first
                                       )
-                             :columns (title (meta "q-status) links tags modified)
+                             :columns (title (meta "q-status") links tags modified)
                              :sort ("Modified" . t)
         ))
         
@@ -102,19 +102,17 @@
                                 (meta "year")
                                 (meta "genre")
                                 (meta "genre-influences")
-                                (meta "rating"
+                                (meta "rating")
                                 (meta "review")
                                 context tags modified)
-                     :sort ("title" . t)))
-        )))
+                     :sort ("title" . t)))))
 
 ;; Automatically collapse all widgets
 (setq vulpea-ui-default-widget-collapsed t)
 
 ;;;; Custom vulpea-ui widget for unlinked mentions in a tab folder
-;;; vulpea-ui get unlinked mentioned without an ID property
+;;;; vulpea-ui get unlinked mentioned without an ID property
 ;; (require 'sp-tab-inbox) ;; this is required in init el so I can see progress for loading
 
-;;; Provide:
 (provide 'sp-vulpea-ui)
 ;; sp-vulpea-ui.el ends here.

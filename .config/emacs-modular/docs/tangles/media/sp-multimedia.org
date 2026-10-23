@@ -6,7 +6,7 @@ Literate source for =libraries/modules/media/sp-multimedia.el=. Every line of th
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module installs several media packages: =emms=, =vuiet=, =lastfm=, =ready-player= and =listen=. Only =ready-player= gets real configuration. The header still names the file =sp-music-play.el=, and the =provide= form at the end provides =sp-music-play= rather than =sp-multimedia=, so a =(require 'sp-multimedia)= would fail after loading the file. The module is not in any module list in =init.el=, so it is currently unused.
+This module installs several media packages: =emms=, =vuiet=, =lastfm=, =ready-player= and =listen=. Only =ready-player= gets real configuration. The header and the =provide= form at the end use the name =sp-multimedia= (they still said =sp-music-play=, the module's old name, which made =(require 'sp-multimedia)= fail after loading the file). The module is not in any module list in =init.el=, so it is currently unused.
 
 External players are needed for playback: =ready-player= tries =mpv=, =mplayer=, =ffplay= and =vlc= in that order, and =emms= and =listen= have their own backends.
 
@@ -14,11 +14,17 @@ External players are needed for playback: =ready-player= tries =mpv=, =mplayer=,
 
 ** Header
 
-The header line, which uses the module's old name and describes it as dedicated to music playback from Emacs.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-music-play.el --- dedicated specifically to music playback from Emacs --- as far as it can go in the multi-threaded direction
+;;; sp-multimedia.el --- Music and media playback -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module installs several media packages: `emms', `vuiet', `lastfm',
+;; `ready-player' and `listen'. Only `ready-player' gets real configuration.
+
+;;; Code:
 #+end_src
 
 ** emms, vuiet and lastfm
@@ -70,11 +76,9 @@ Installs =listen=, another music player for Emacs, without configuration.
 
 * Provide
 
-** Provide
-
-Provides =sp-music-play=, the old name, not =sp-multimedia=.
+Provides the =sp-multimedia= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-(provide 'sp-music-play)
-;; sp-music-play.el ends here.
+(provide 'sp-multimedia)
+;; sp-multimedia.el ends here.
 #+end_src

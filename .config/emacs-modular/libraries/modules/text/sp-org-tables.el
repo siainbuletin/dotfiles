@@ -1,10 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-tables.el --- Org table rendering, wrapping and monospace -*- lexical-binding: t; -*-
 
-;; This is specific functionality for dealing with org-mode tables 
+;;; Commentary:
+
+;; This is specific functionality for dealing with org-mode tables
 ;; better. It would be great if they could be rendered in the manner
 ;; that Dataview tables are in Obsidian (clean, dynamic, so on).
 ;;
 ;; It's worth exploring using ~textui~, as it develops.
+
+;;; Code:
 
 (defun sia-render-org-table-at-point ()
   (interactive)
@@ -52,7 +56,7 @@
   (save-excursion
     (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
     
-;;;;; Org Table Wrap
+;;;; Org Table Wrap
 ;; see https://emacs.stackexchange.com/a/30871/11934
 (defun org-table-wrap-to-width (width)
   "Wrap current column to WIDTH."
@@ -107,7 +111,7 @@
          (org-table-align))
     (org-table-fix-formulas "@" nil (1- (org-table-current-dline)) n)))
 
-;;; Force monospace font in org tables
+;;;; Force monospace font in org tables
 ;; If you use variable-pitch (a.k.a. “proportional”) fonts in Org buffers (e.g. using
 ;; org-variable-pitch), you probably use monospace fonts for Org tables, so they align 
 ;; properly. However, other elements in a table (such as links, or perhaps timestamps) 
@@ -171,8 +175,6 @@ A `font-lock-keywords' function that searches up to LIMIT."
              do (setf applied-p t)
              while applied
              finally return applied-p)))
-
-;;; Provide:
 
 (provide 'sp-org-tables)
 ;; sp-org-tables.el ends here.

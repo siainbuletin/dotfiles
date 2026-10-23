@@ -10,15 +10,23 @@ A small navigation module with three parts. It turns on =goto-address-mode= (bui
 
 It is loaded from =sp-navi=, which requires it, rather than being listed in =init.el= itself. The jump commands rely on directory variables defined in =early-init.el=, such as =sp-user-dir=, =sp-project-dir= and =sp-user-elisp-dir=, and on =org-directory=. None of the =sp-goto-= commands are bound to keys here. The similarly named =sp-goto-minibuffer-window= lives in =sp-windows=, not in this file.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This package allows you to click or hit a key sequence while on a
+URL or e-mail address, and either load the URL into a browser of
+your choice using the browse-url package, or if it's an e-mail
+address, to send an e-mail to that address.
+#+end_quote
+
 * Header
 
 ** Header and commentary
 
-File header and a commentary describing =goto-address=: clicking or pressing a key on a URL opens it with =browse-url=, and on an e-mail address starts a message to it.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-goto.el 
+;;; sp-goto.el --- Clickable addresses and quick file jumps -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -72,13 +80,13 @@ Interactive shortcuts for opening specific files and directories, presumably mea
 
 ** Init files
 
-=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives, so that command probably opens the wrong file unless =~/.emacs.d= points here.
+=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is built from =user-emacs-directory=, so it opens the =early-init.el= of the configuration that is running (it used to be hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives).
 
 #+begin_src emacs-lisp -i
 (defun sp-goto-early-init.el ()
   "Open early-init.el file"
   (interactive)
-  (find-file "~/.emacs.d/early-init.el"))
+  (find-file (expand-file-name "early-init.el" user-emacs-directory)))
 
 (defun sp-goto-init.el ()
   "Open init.el file"
@@ -114,24 +122,20 @@ Interactive shortcuts for opening specific files and directories, presumably mea
 
 ** goto-last-change
 
-When extras are enabled and the =goto-last-change= library is installed, binds =C-"= to jump to the position of the most recent edit in the buffer. The package is not installed here; this block only configures it if present.
+Binds =C-"= to jump to the position of the most recent edit in the buffer. The package is not installed here.
 
 #+begin_src emacs-lisp -i
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
   :bind (("C-\"" . #'goto-last-change)))
 #+end_src
 
 * Provide
 
-** Provide
-
-Provides the =sp-goto= feature.
+Provides the =sp-goto= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-goto)
 ;; sp-goto.el ends here.

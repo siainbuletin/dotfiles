@@ -8,32 +8,45 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 An experiment in placing Org footnote definitions inside the subtree they belong to rather than in one section at the end of the file. The motivation is that commands like =vulpea-split-heading= move a heading into a new file but leave its footnotes behind. The plan was to keep file-end footnotes only for small files and otherwise attach a footnote section to the nearest heading no deeper than a configurable level.
 
-The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. There is also a load-time bug: =(org-footnote-auto-adjust t)= is written as a function call, but =org-footnote-auto-adjust= is a variable, so loading the file would signal a void-function error. It probably came from a =:custom= block and was meant to be a =setq=.
+The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable, which would have signalled a void-function error when the file loaded; it is now a =setq=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Commentary:
+
+Org footnotes typically get placed at the end of the file in a footnote section. This
+behaviour is generally very useful, however, in the case of wanting to refile a heading
+to a different file with a function like ~vulpea-split-heading~, the footnotes don't get
+copied over as well, which creates a lot of manual work.
+
+Working with Claude, I want to define custom logic for the footnotes so that I can restrict
+how deep into the sections the footnotes can go, and when to decide when to actually keep
+the regular footnotes at the end of the file (for much smaller files)
+
+The current logic that has been written by Claude doesn't actually do anything and, in fact, it blocks
+the functioning of creating a new footnote, because org-footnote-new is being adviced.
+
+Code:
+
+Footnotes
+(org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
+disabled in favor of new logic
+#+end_quote
 
 * Background
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-org-fn.el
-#+end_src
+;;; sp-org-fn.el --- Scoped Org footnotes (experimental) -*- lexical-binding: t; -*-
 
-** Commentary marker
+;;; Commentary:
 
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;; Commentary:
-#+end_src
 
-** The problem with file-end footnotes
-
-Explains the motivation: footnotes normally collect at the end of the file, so refiling or splitting a heading into another file loses them. The goal is to limit how deep footnote sections can go and to keep the usual file-end behaviour for small files.
-
-#+begin_src emacs-lisp -i
 ;; Org footnotes typically get placed at the end of the file in a footnote section. This
 ;; behaviour is generally very useful, however, in the case of wanting to refile a heading
 ;; to a different file with a function like ~vulpea-split-heading~, the footnotes don't get
@@ -42,47 +55,31 @@ Explains the motivation: footnotes normally collect at the end of the file, so r
 ;; Working with Claude, I want to define custom logic for the footnotes so that I can restrict
 ;; how deep into the sections the footnotes can go, and when to decide when to actually keep
 ;; the regular footnotes at the end of the file (for much smaller files)
-#+end_src
 
-** Known breakage
-
-A warning that the current implementation does nothing useful and breaks =org-footnote-new= through its advice.
-
-#+begin_src emacs-lisp -i
 ;; The current logic that has been written by Claude doesn't actually do anything and, in fact, it blocks
 ;; the functioning of creating a new footnote, because org-footnote-new is being adviced.
-#+end_src
 
-** Code marker
-
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;; Code:
+
+;; Footnotes
+;; (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
+;; disabled in favor of new logic
+
+;;; Code:
 #+end_src
 
 * Settings
 
-** Global footnote section (disabled)
-
-A commented-out setting for =org-footnote-section=, kept as a note. The question in the comment is whether this could be set per file.
-
-#+begin_src emacs-lisp -i
-;; Footnotes
-;; (org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
-;; disabled in favor of new logic
-#+end_src
-
 ** Automatic renumbering
 
-Intended to turn on =org-footnote-auto-adjust=, which renumbers and sorts footnotes after each insertion or deletion. The comment warns this is only safe once nested headings work, since renumbering makes it easy to get references wrong when moving notes. As noted above, this line is a function call on a variable and would error when the file loads.
+Turns on =org-footnote-auto-adjust= with a =setq=, which renumbers and sorts footnotes after each insertion or deletion. The comment warns this is only safe once nested headings work, since renumbering makes it easy to get references wrong when moving notes.
 
 #+begin_src emacs-lisp -i
 ;; Autorenumbering for footnotes
 ;; this should only be kept on if you have the proper logic for nested headings working well
 ;; enough, because it makes sifting through for the correct reference really easy to get wrong
 ;; when trying to move notes around.
-(org-footnote-auto-adjust t) ;; renumber footnotes
+(setq org-footnote-auto-adjust t) ;; renumber footnotes
 #+end_src
 
 ** Maximum heading level
@@ -151,19 +148,10 @@ Puts =sp-org-fn-scoped= around =org-footnote-new=, the command behind =C-c C-x f
 
 * Provide
 
-** Provide marker
-
-Section comment.
+Provides the =sp-org-fn= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
-#+end_src
 
-** Provide form
-
-Makes the module available as =sp-org-fn=.
-
-#+begin_src emacs-lisp -i
 (provide 'sp-org-fn)
 ;; sp-org-fn.el ends here.
 #+end_src

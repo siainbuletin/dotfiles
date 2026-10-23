@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-semantic.el --- support for semantically indexing information that passes through Emacs
+;;; sp-semantic.el --- Semantic search over notes -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -10,11 +9,12 @@
 ;; possible, focusing specifically on linking information that may be found in a database.
 
 ;;; Code:
+
 ;;;; org-semantic
 (use-package org-semantic-results
   :ensure (org-semantic :host github :repo "alberti42/org-semantic")
   :custom 
-  (org-semantic-vault-root "~/notes")
+  (org-semantic-vault-root (directory-file-name sp-notes-dir))
   
   :bind (("C-c k s" . org-semantic-find)
          ("C-c k S" . org-semantic-find-in-directory)
@@ -29,6 +29,5 @@
   :init (org-semantic-auto-reindex-mode 1)
 )
 
-;;; Provide:
 (provide 'sp-semantic)
 ;; sp-semantic.el ends here.

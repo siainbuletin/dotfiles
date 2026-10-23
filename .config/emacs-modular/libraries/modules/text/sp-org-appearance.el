@@ -1,5 +1,4 @@
-;;; -*- lexical-binding: t -*-
-;; sp-org-appearance.el
+;;; sp-org-appearance.el --- How Org buffers look -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,7 +12,7 @@
 ;;; Code:
 
 ;;;; General org basic appearance options
-;;; these were taken initially from Lambda Emacs
+;;;; these were taken initially from Lambda Emacs
 (setq org-cycle-separator-lines 0) ;; no empty lines in collapsed view
 ;; (setq org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
 (setq org-ellipsis " [+]")
@@ -40,9 +39,6 @@
 (setq org-src-fontify-natively t)
 (setq org-fontify-quote-and-verse-blocks t)
 
-;;;;; Emphasis
-;; (setq org-hide-emphasis-markers t)  ;; hide emph markers
-
 ;; show markup at point -- this should be part of org!
 (use-package org-appear
   :ensure (:wait t)
@@ -52,10 +48,10 @@
 
   :custom
   (org-appear-autoemphasis  t)
-  (org-appear-autolinks t)
+  (org-appear-autolinks nil)
   (org-appear-autosubmarkers t))
 
-;;;; Org-modern
+;;;;; Org-modern
 (use-package org-modern
   :ensure t
   :defer t
@@ -75,7 +71,7 @@
   (org-modern-star 'replace)
   (org-modern-replace-stars "⦶⦷⦹⊕⍟⊛⏣❂"))
 
-;;;; List behavior
+;;;;; List behavior
 (use-package org-autolist
   :ensure t)
 
@@ -95,7 +91,7 @@
     1 'org-checkbox-done-text prepend))
  'append)
 
-;;;; Spacious padding --- and other padding settings
+;;;;; Spacious padding --- and other padding settings
 (use-package spacious-padding
   :ensure t
   :init
@@ -124,8 +120,6 @@
   "Only apply spacious padding to graphic FRAME."
   (when (display-graphic-p frame)
     (funcall fn frame)))
-
-;;; Provide:
 
 (provide 'sp-org-appearance)
 ;; sp-org-appearance.el ends here.

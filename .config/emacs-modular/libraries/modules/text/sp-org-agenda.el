@@ -1,4 +1,15 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
+;; lines, visual styling of the time grid and tags, scheduling and sorting
+;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 
 (keymap-global-set "C-c o a" 'org-agenda)
 
@@ -25,109 +36,6 @@
 (use-package org-other-agenda
   :ensure (:host github :repo "yibie/org-other-agenda"))
 
-;; Custom org-agenda views
-;; Agenda Custom Commands
-;; Configure custom agenda views
-;; https://orgmode.org/manual/Storing-searches.html#Storing-searches
-;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/
-
-(setq org-agenda-custom-commands
-      '(("d" "Dashboard"
-        ((agenda "" ((org-agenda-span 'day)))
-        (tags-todo "DEADLINE=\"<today>\""
-                  ((org-agenda-overriding-header "Due Today!")))
-        (tags-todo "+DEADLINE<\"<+5d>\"+DEADLINE>\"<today>\""
-                  ((org-agenda-overriding-header "Due Soon")))
-        (todo "NEXT"
-             ((org-agenda-overriding-header "Next Tasks")))
-        (tags-todo "email" ((org-agenda-overriding-header "Email")))
-          ))
-        
-        ("p" "Planning"
-             ((tags-todo "+@planning"
-                         ((org-agenda-overriding-header "Planning Tasks")))
-              (tags-todo "-{.*}"
-                         ((org-agenda-overriding-header "Untagged Tasks")))
-              (todo ".*" ((org-agenda-files '("~/notes/inbox.org"))
-                          (org-agenda-overriding-header "Unprocessed Inbox Items")))))
-
-        ("d" "Daily Agenda"
-         ((agenda "" ((org-agenda-span 'day)
-                      (org-deadline-warning-days 7)))
-          (tags-todo "+PRIORITY=\"A\""
-                     ((org-agenda-overriding-header "High Priority Tasks")))))
-
-        ("n" "Next Tasks"
-         ((todo "NEXT"
-             ((org-agenda-overriding-header "Next Tasks")))))
-
-        ("W" "Work Tasks" tags-todo "+work")
-
-     ;; Low-effort next actions
-     ("e" tags-todo "+TODO=\"NEXT\"+Effort<15&+Effort>0"
-      ((org-agenda-overriding-header "Low Effort Tasks")
-       (org-agenda-max-todos 20)
-       (org-agenda-files org-agenda-files)))
-
-     ("w" "Workflow Status"
-      ((todo "WAIT"
-             ((org-agenda-overriding-header "Waiting on External")
-              (org-agenda-files org-agenda-files)))
-       (todo "REVIEW"
-             ((org-agenda-overriding-header "In Review")
-              (org-agenda-files org-agenda-files)))
-       (todo "PLAN"
-             ((org-agenda-overriding-header "In Planning")
-              (org-agenda-todo-list-sublevels nil)
-              (org-agenda-files org-agenda-files)))
-       (todo "BACKLOG"
-             ((org-agenda-overriding-header "Project Backlog")
-              (org-agenda-todo-list-sublevels nil)
-              (org-agenda-files org-agenda-files)))
-       (todo "READY"
-             ((org-agenda-overriding-header "Ready for Work")
-              (org-agenda-files org-agenda-files)))
-       (todo "ACTIVE"
-             ((org-agenda-overriding-header "Active Projects")
-              (org-agenda-files org-agenda-files)))
-       (todo "COMPLETED"
-             ((org-agenda-overriding-header "Completed Projects")
-              (org-agenda-files org-agenda-files)))
-       (todo "CANCELED"
-             ((org-agenda-overriding-header "Cancelled Projects")
-              (org-agenda-files org-agenda-files)))))
-
-        ("w" "Weekly Review"
-         ((agenda ""
-                  ((org-agenda-overriding-header "Completed Tasks")
-                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
-                   (org-agenda-span 'week)))
-
-          (agenda ""
-                  ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
-                   (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
-                   (org-agenda-span 'week)))))))
-
-(setq org-agenda-custom-commands
-      '(("r" "Research and university" tags-todo "+@research @reading @uni")))
-
-(setq org-agenda-custom-commands
-      '(("u" "Untagged Tasks" tags-todo "-{.*}")))
-
-(setq org-agenda-custom-commands
-    '(("p" "Planning"
-       ((tags-todo "+@planning"
-                    ((org-agenda-overriding-header "Planning Tasks")))
-        (tags-todo "-{.*}"
-                    ((org-agenda-overriding-header "Untagged Tasks")))))))
-
-(setq org-agenda-custom-commands
-      '(("d" "Daily Agenda"
-         ((agenda "" ((org-agenda-span 'day)
-                      (org-deadline-warning-days 7)))
-          (tags-todo "+PRIORITY=\"A\""
-                     ((org-agenda-overriding-header "High Priority Tasks")))))))
-
 ;;;;; Agenda Jump to Dashboard
 (defun lem-jump-to-org-dashboard ()
   (interactive)
@@ -151,7 +59,7 @@
 ;; restore them as direct `org-agenda-mode-map' bindings (Spec 09 O7).
 ;; See git history for the prior implementation.
 
-;;; Appearance of the agenda and rendering
+;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
   (setq org-agenda-tags-column 0)           ;; Put tags next to heading
@@ -173,7 +81,7 @@
   (setq org-agenda-window-setup 'only-window)
   (setq org-agenda-restore-windows-after-quit t)
 
-;;; CONFIGURING THE FUNCTIONALITY
+;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
   (setq org-agenda-skip-scheduled-if-done t)
@@ -184,7 +92,7 @@
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   (setq calendar-week-start-day 1) ;; Start week on Monday
 
-;;; EXTENSIONS FOR ORG-AGENDA
+;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
 :after org
   :ensure (:wait t)
@@ -212,13 +120,19 @@
          :scheduled future
          :order 3))))
 
+;; org-ql requires org-super-agenda, so it has to be declared after it:
+;; the other way round, Elpaca queues org-super-agenda as a dependency first
+;; and warns that the explicit declaration came too late.
+(use-package org-ql
+ :ensure t)
+
 (setq org-agenda-files
         (list
-         "~/notes/area/"
-         "~/notes/inbox/" ; this is for tasks that I never actually got to deal with
+         (sp-path sp-notes-dir "area/")
+         (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
 ))
 
-;;; Display an agenda file for the current subtree
+;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-sorting-strategy)
@@ -263,8 +177,6 @@
         (org-search-view (if only-todos t nil) "*"))
       (org-agenda-remove-restriction-lock t)
       (message nil))))
-
-;;; Provide:
 
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here

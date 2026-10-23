@@ -48,10 +48,16 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 
 - [[file:tangles/base/sp-base-libraries.org][sp-base-libraries]] :: Base libraries and general defaults ([[file:../libraries/modules/base/sp-base-libraries.el][sp-base-libraries.el]])
 - [[file:tangles/base/sp-encoding.org][sp-encoding]] :: UTF-8 everywhere ([[file:../libraries/modules/base/sp-encoding.el][sp-encoding.el]])
+- [[file:tangles/base/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/base/sp-env.el][sp-env.el]])
+- [[file:tangles/base/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/base/sp-exwm.el][sp-exwm.el]])
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
+- [[file:tangles/base/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/base/sp-macos.el][sp-macos.el]])
 - [[file:tangles/base/sp-navi.org][sp-navi]] :: Navigation: files, places and outlines ([[file:../libraries/modules/base/sp-navi.el][sp-navi.el]])
+- [[file:tangles/base/sp-paths.org][sp-paths]] :: Where my files live: notes, bibliography, checkouts ([[file:../libraries/modules/base/sp-paths.el][sp-paths.el]])
 - [[file:tangles/base/sp-snippets.org][sp-snippets]] :: Snippets with yasnippet ([[file:../libraries/modules/base/sp-snippets.el][sp-snippets.el]])
+- [[file:tangles/base/sp-syslinux.org][sp-syslinux]] :: Linux system integration ([[file:../libraries/modules/base/sp-syslinux.el][sp-syslinux.el]])
+- [[file:tangles/base/sp-syswin.org][sp-syswin]] :: Windows-specific settings ([[file:../libraries/modules/base/sp-syswin.el][sp-syswin.el]])
 
 *** navi/
 
@@ -66,17 +72,13 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 - [[file:tangles/custom/sp-dg-positions.org][sp-dg-positions]] :: Position graph and status views for discourse-graphs ([[file:../libraries/modules/custom/sp-dg-positions.el][sp-dg-positions.el]])
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
+- [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
+- [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
-- [[file:tangles/custom/sp-vulpea-hierarchy.org][sp-vulpea-hierarchy]] :: Parent/child views of vulpea notes ([[file:../libraries/modules/custom/sp-vulpea-hierarchy.el][sp-vulpea-hierarchy.el]])
-
-** env/
-
-- [[file:tangles/env/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/env/sp-env.el][sp-env.el]])
-- [[file:tangles/env/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/env/sp-exwm.el][sp-exwm.el]])
-- [[file:tangles/env/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/env/sp-macos.el][sp-macos.el]])
-- [[file:tangles/env/sp-syslinux.org][sp-syslinux]] :: Linux system integration ([[file:../libraries/modules/env/sp-syslinux.el][sp-syslinux.el]])
-- [[file:tangles/env/sp-syswin.org][sp-syswin]] :: Windows-specific settings ([[file:../libraries/modules/env/sp-syswin.el][sp-syswin.el]])
+- [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
 
@@ -125,9 +127,10 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** text/
 
+- [[file:tangles/text/sp-org-agenda.org][sp-agenda-views]] :: Custom agenda views, including the PARA view; tangled from the same doc as =sp-org-agenda= ([[file:../libraries/modules/text/sp-agenda-views.el][sp-agenda-views.el]])
 - [[file:tangles/text/sp-csv.org][sp-csv]] :: Create Org files from a CSV export ([[file:../libraries/modules/text/sp-csv.el][sp-csv.el]])
 - [[file:tangles/text/sp-denote.org][sp-denote]] :: Denote note-taking setup ([[file:../libraries/modules/text/sp-denote.el][sp-denote.el]])
-- [[file:tangles/text/sp-org-agenda.org][sp-org-agenda]] :: Org agenda views and helpers ([[file:../libraries/modules/text/sp-org-agenda.el][sp-org-agenda.el]])
+- [[file:tangles/text/sp-org-agenda.org][sp-org-agenda]] :: Org agenda settings and helpers ([[file:../libraries/modules/text/sp-org-agenda.el][sp-org-agenda.el]])
 - [[file:tangles/text/sp-org-appearance.org][sp-org-appearance]] :: How Org buffers look ([[file:../libraries/modules/text/sp-org-appearance.el][sp-org-appearance.el]])
 - [[file:tangles/text/sp-org-archive.org][sp-org-archive]] :: Org archiving and Palimpsest ([[file:../libraries/modules/text/sp-org-archive.el][sp-org-archive.el]])
 - [[file:tangles/text/sp-org-babel.org][sp-org-babel]] :: Org Babel languages and tangling ([[file:../libraries/modules/text/sp-org-babel.el][sp-org-babel.el]])
@@ -187,6 +190,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
 - [[file:tangles/ui/sp-faces.org][sp-faces]] :: Faces, highlighting and visual feedback ([[file:../libraries/modules/ui/sp-faces.el][sp-faces.el]])
 - [[file:tangles/ui/sp-fonts.org][sp-fonts]] :: Fonts, text scaling and line highlighting ([[file:../libraries/modules/ui/sp-fonts.el][sp-fonts.el]])
+- [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
@@ -206,7 +210,7 @@ Currently, the sub-libraries live in different subfolders (which makes things a 
 3. Academic :: this is more of a /core/ module, as it's the main reason why I use Emacs in the first place
 4. Programming modules :: language servers and separate language-related modes for editing
 
-Deciding on the order should end up being not the most trivial task.
+Deciding on the order is not trivial: [[file:load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
 
 * Tasks
 ** TODO Reduce the verbosity of the documentation in the modules
@@ -257,6 +261,10 @@ This is essential for getting the multi-Org file compilation process. By default
 )
 #+end_src
 
+** Writing the Provide section of a module doc
+
+Every module doc ends its module with a =Provide= heading. Keep it short: one sentence saying which feature the module provides, then a single source block holding the whole =;;; Provide= segment, that is the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together. Do not give the marker, the form and the footer a sub-heading and a block each. When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level. Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
+
 * Protocol for replicating the configuration across machines
 
 Since I have to frequently make use of different computers running different flavors of Arch Linux (and hopefully, in the future, running NixOS or even GNU Guix), I need to have a process for getting these exported configuration files on the other computer as well.
@@ -281,51 +289,13 @@ If I ever add/remove files, I do this instead:
   ~/Git/Projects/dotfiles $ stow -t $HOME -R emacs
 #+end_src
 
-* The submodules and their explanations
+* The old structure
 
-The files are included based on the order in which they should be loaded.
-
-** Bootstrap
-#+INCLUDE: ~/.config/emacs-include/org-modules/bootstrap.org src org
-
-Deals with the early packages as well as =early-init.el= in just one file. The early init is mostly used for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
-
-*It might actually be a good idea to have the early init in a separate file, but I would like to use the model used by howardism in his own repository.*
-
-** Utility functions for Emacs as a whole
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/utility-functions.org src org
-
-Mostly contains patchwork over the basic Emacs experience. It's pretty necessary for good functioning.
-** Bootstrapping =casual= suite
-
-~/.config/emacs-include/org-modules/casual.org src org
-
-Not actually included anymore because it's really annoying.
-
-** Search structure and completion layer
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/search.org src org
-
-Contains configuration for the completion packages as well as any search framework over the data, like =org-ql= or the implementation of =Xapian=. This means that it also has =vertico= and all of the other modern Emacs completion packages.
-
-** Keybindings
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/keybindings.org src org
-
-For avoiding RSI and developing a system which works across the entire operating system. It's particularly important if you're able to call up =org-protocol=, =org-capture= or Joshua Blais' =universal-launcher= from anywhere on the system.
-
-** File management
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/file-management.org src org
-
-Mostly settings for =dired=, and moving files around more efficiently. [[file:org-modules/file-management.org][(see here)]]
-
-** File back up settings
-
-#+INCLUDE: ~/.config/emacs-include/org-modules/backup-settings.org src org
-
-This is mostly for the native backup functionality that is provided by Emacs.
+- bootstrap.org :: dealt with `early-init.el` settings. Meant for performance-related enhancements. Everything else concerning the configuration goes into =init.el=.
+- utility-functions.org :: mostly this module is now refactored into ~sp-helper-functions.el~
+- search.org :: this defined the search structure and completion layer (ex. ~org-ql~ or the implementation of =Xapian=)
+- file-management.org :: Mostly settings for =dired=, and moving files around more efficiently.
+- backup-settings.org :: native backup functionality that is provided by Emacs.
 
 ** Bookmark management
 

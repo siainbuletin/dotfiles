@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-goto.el 
+;;; sp-goto.el --- Clickable addresses and quick file jumps -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -35,7 +34,7 @@
 (defun sp-goto-early-init.el ()
   "Open early-init.el file"
   (interactive)
-  (find-file "~/.emacs.d/early-init.el"))
+  (find-file (expand-file-name "early-init.el" user-emacs-directory)))
 
 (defun sp-goto-init.el ()
   "Open init.el file"
@@ -63,10 +62,7 @@
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
   :bind (("C-\"" . #'goto-last-change)))
-
-;;; Provide:
 
 (provide 'sp-goto)
 ;; sp-goto.el ends here.

@@ -15,7 +15,19 @@ It builds on the LSP and company defaults from =sp-base-code= and needs the =go=
 Declares seven Go related packages, all deferred: =go-guru= for code queries and identifier highlighting, =go-eldoc= for signatures in the echo area, =godoctor= for refactoring, =go-scratch= and =go-playground= for throwaway code, =flycheck-golangci-lint= for linting, and =go-complete= for completion. Whether they are installed depends on the package manager's default ensure setting, which this file does not set. Note that the upstream =guru= tool has been deprecated by the Go team.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-go.el --- Go development setup -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up Go development: a set of helper packages (`go-guru',
+;; `go-eldoc', `godoctor', `go-scratch', `go-playground',
+;; `flycheck-golangci-lint', `go-complete'), a command that installs the
+;; external Go tools with `go install', and a `go-mode' configuration that
+;; formats with `goimports' on save, starts `lsp-mode' with `gopls', and uses
+;; `company' for completion.
+
+;;; Code:
+
 (use-package go-guru
   :defer t)
 (use-package go-eldoc

@@ -6,21 +6,31 @@ Literate source for =libraries/modules/tooling/sp-workspaces.el=. Every line of 
 
 This module builds named workspaces on top of =tab-bar= and =tabspaces=. A workspace is a tab with its own isolated set of buffers. The functions here open a fixed set of dedicated workspaces (Home, the config directory, the Org agenda, notes, a terminal, email) or switch to them if they already exist, and bind them to number keys under the leader map from =sp-keys=.
 
-=tabspaces= itself is declared in =sp-tabs=; this file only calls its internals such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=. Other dependencies are =project.el=, =magit=, =org=, =mu4e=, =multi-vterm=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=). Two helpers it calls, =project-magit-dir= and =sp-eshell-home=, are not defined anywhere in the repository, so the commands that rely on them stop with an error at that step.
+=tabspaces= itself is declared in =sp-tabs=; this file only calls its internals such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=. Other dependencies are =project.el=, =magit=, =org=, =mu4e=, =multi-vterm=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=). One helper it calls, =project-magit-dir=, is not defined anywhere in the repository, so the command that relies on it stops with an error at that step.
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
+with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
+up so that these workspaces are nicely displayed out of the way in the echo
+area rather than as visible tabs in the header tab-line at the top of the
+frame.
+#+end_quote
 
 * Header and commentary
 
 ** File header
 
-Lexical binding and the commentary describing the workspace model: tabs with isolated buffer lists, shown discreetly rather than as a visible tab line.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-workspaces.el
+;;; sp-workspaces.el --- Tab-based workspaces and Projectile -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
 ;; Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
 ;; with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
 ;; up so that these workspaces are nicely displayed out of the way in the echo
@@ -38,13 +48,13 @@ Each command follows the same pattern: if a tab with the expected name exists, s
 
 ** Startup workspace
 
-=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =*splash*= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
+=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =Dashboard= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
 
 #+begin_src emacs-lisp -i
 ;;;;; Startup Workspaces
 (defun sp--workspace-setup ()
   "Set up workspace at startup."
-  ;; Add *Messages* and *splash* to Tab \`Home\'
+  ;; Add *Messages* and Dashboard to Tab \`Home\'
   (progn
     (tab-bar-rename-tab "Home")
     (when (get-buffer "*Messages*")
@@ -52,10 +62,10 @@ Each command follows the same pattern: if a tab with the expected name exists, s
                            'buffer-list
                            (cons (get-buffer "*Messages*")
                                  (frame-parameter nil 'buffer-list))))
-    (when (get-buffer "*splash*")
+    (when (get-buffer "Dashboard")
       (set-frame-parameter nil
                            'buffer-list
-                           (cons (get-buffer "*splash*")
+                           (cons (get-buffer "Dashboard")
                                  (frame-parameter nil 'buffer-list))))))
 #+end_src
 
@@ -110,7 +120,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
 
 ** Config directory workspace
 
-=sp-open-emacsd-in-workspace= opens =sp-library-dir= in Dired in a new tab, with a second window intended for Magit through the undefined =project-magit-dir=. It checks for a tab called "emacs.d" but names the new tab "emacs-modular-configuration", so the check never matches and each call creates another tab.
+=sp-open-emacsd-in-workspace= opens =sp-library-dir= in Dired in a new tab, with a second window intended for Magit through the undefined =project-magit-dir=. It checks for a tab called "emacs-modular-configuration" and switches to it if it exists. The check used to look for "emacs.d", a name the new tab never had, so it never matched and each call created another tab.
 
 #+begin_src emacs-lisp -i
 ;;;;; Open emacs.d in Workspace
@@ -118,8 +128,8 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
   "Open emacs.d in its own workspace"
   (interactive)
   (require 'tabspaces)
-  (if (member "emacs.d" (tabspaces--list-tabspaces))
-      (tab-bar-switch-to-tab "emacs.d")
+  (if (member "emacs-modular-configuration" (tabspaces--list-tabspaces))
+      (tab-bar-switch-to-tab "emacs-modular-configuration")
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "emacs-modular-configuration")
@@ -150,7 +160,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
 
 ** Eshell workspace
 
-=sp-open-new-eshell-and-workspace= switches to or creates an "Eshell" tab, starts Eshell in the home directory through =sp-eshell-home=, and renames the buffer to =eshell-workspace=. =sp-eshell-home= is not defined in the repository, so creating the tab fails at that point. It is not bound to a key here.
+=sp-open-new-eshell-and-workspace= switches to or creates an "Eshell" tab, starts Eshell in the home directory through =lem-eshell-home= (from =sp-eshell=), and renames the buffer to =eshell-workspace=. It used to call =sp-eshell-home=, which is not defined anywhere, so creating the tab failed at that point. It is not bound to a key here.
 
 #+begin_src emacs-lisp -i
 ;;;;; Eshell Workspace
@@ -162,7 +172,7 @@ The setup runs on =after-init-hook=. =sp-go-home= switches back to the Home tab.
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Eshell")
-      (sp-eshell-home)
+      (lem-eshell-home)
       (rename-buffer "eshell-workspace")
       (delete-other-windows))))
 #+end_src
@@ -289,8 +299,8 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/Documents/writing/"
-          "~/.config/"))
+        (list (sp-path sp-documents-dir "writing/")
+              "~/.config/"))
   
   :config
   (projectile-mode +1)
@@ -303,19 +313,18 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
 #+end_src
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-workspaces= for the module loader.
+Provides the =sp-workspaces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.

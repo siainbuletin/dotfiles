@@ -1,4 +1,14 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-plantuml.el --- Minimal PlantUML mode with PNG preview -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module defines a small home-made major mode, `siapip/plantuml-mode',
+;; for PlantUML diagram files (`.puml'). Every time such a file is saved it
+;; runs the PlantUML jar through Java to render a PNG next to the source and
+;; shows that image in a preview buffer.
+
+;;; Code:
+
 (defcustom siapip/plantuml:enable t
   "Whether the plantuml mode is enabled."
   :group 'siapip
@@ -54,4 +64,4 @@
   :group 'siapip
   (add-hook 'after-save-hook 'siapip/plantuml-save-hook nil t))
 
-(provide 'siapip/plantuml-mode)
+(provide 'sp-plantuml)

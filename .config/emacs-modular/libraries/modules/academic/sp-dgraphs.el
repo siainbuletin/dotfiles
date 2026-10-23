@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-dgraphs.el
+;;; sp-dgraphs.el --- Discourse Graphs for argument mapping -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -8,6 +7,7 @@
 ;; Emacs for it to work well.
 
 ;;; Code:
+
 (use-package discourse-graphs
   :ensure (discourse-graphs :type git
                             :host github
@@ -17,7 +17,7 @@
                             "discourse-graphs-ui/out/assets/*"))
   :config
   (setq dg-directories ;; This is where we scan for nodes
-  '("~/notes/")
+  (list sp-notes-dir)
   )
   (setq dg-recursive t)
   (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
@@ -40,7 +40,7 @@
 (setq dg-overlay-enable t)
 
 ;; Synthesis dashboard file location
-(setq dg-synthesis-file "~/notes/dg-synthesis.org")
+(setq dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
 
 (setq dg-discourse-attributes
       '(
@@ -109,8 +109,6 @@
                            :target (question)))
       )
         )
-
-;;; Provide:
 
 (provide 'sp-dgraphs)
 ;; sp-dgraphs.el ends here.

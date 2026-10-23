@@ -9,9 +9,12 @@ url/ # I actually don't know what the url/ directory is for
 var/
 emms/**
 
-recentef.eld
+recentf.eld
 
 */.DS_Store
+.DS_Store
+
+*/*/.DS_Store
 
 # files created by emacs
 tramp

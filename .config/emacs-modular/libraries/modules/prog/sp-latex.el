@@ -1,4 +1,13 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-latex.el --- LaTeX editing with AUCTeX and Org LaTeX export -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk,
+;; configures Org's LaTeX exporter to compile with XeLaTeX through latexmk, and
+;; adds a few spelling, indentation and BibTeX tweaks. It is listed in the
+;; `plus-programming' profile in `sp-config-profiles.el'.
+
+;;; Code:
 
 (defun sia/latex-setup ()
   "Setup the latex environment"
@@ -60,7 +69,7 @@
               ([tab] . company-indent-or-complete-common)
               ([f1] . company-show-doc-buffer))
   :config
-  (load "latex-compile-on-save.el"))
+  (load (expand-file-name "latex-compile-on-save.el" sp-emacs-dir)))
 
 
 
@@ -147,40 +156,6 @@
   :init
   (setq reftex-plug-into-AUCTeX t))
 
-;;;; Latex Packages
-;; Basic settings
-(use-package auctex
-  :when (and sp-load-extras (locate-library "auctex"))
-  :mode (("\\.tex\\'" . latex-mode)
-         ("\\.latex\\'" . latex-mode))
-  :commands (latex-mode LaTeX-mode plain-tex-mode)
-  :init
-  (progn
-    (add-hook 'LaTeX-mode-hook #'LaTeX-preview-setup)
-    (add-hook 'LaTeX-mode-hook #'flyspell-mode)
-    (add-hook 'LaTeX-mode-hook #'turn-on-reftex)
-    (setq-default TeX-engine 'xetex)
-    (setq TeX-auto-save nil
-          TeX-parse-self nil
-          TeX-save-query nil
-          TeX-PDF-mode t)
-    (setq-default TeX-master nil)))
-
-(use-package preview
-  :ensure nil
-  :after auctex
-  :commands LaTeX-preview-setup
-  :init
-  (progn
-    (setq-default preview-scale 1.4
-                  preview-scale-function '(lambda () (* (/ 10.0 (preview-document-pt)) preview-scale)))))
-
-(use-package reftex
-  :ensure nil
-  :commands turn-on-reftex
-  :init
-  (setq reftex-plug-into-AUCTeX t))
-
 (use-package bibtex
   :ensure nil
   :defer t
@@ -245,3 +220,5 @@
   (if (string= (substring fname-or-url 0 8) "file:///")
       (substring fname-or-url 7)
     fname-or-url))
+
+(provide 'sp-latex)

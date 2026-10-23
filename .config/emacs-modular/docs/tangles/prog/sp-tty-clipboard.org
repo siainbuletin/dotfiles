@@ -8,6 +8,22 @@ This small module connects the kill ring to whichever clipboard belongs to the d
 
 Loading the module replaces =interprogram-cut-function= with =lem--osc52-cut-function=; nothing else in the config needs to call it. It only handles copying out of Emacs, not pasting in. It has no package dependencies. It is not listed in the default or minimal module lists or in =sp-config-profiles.el=, so it has to be required by hand or from a host-specific setup.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Bridge the kill ring to the system clipboard accessible from the
+user's current device. In a graphic frame this means the host's
+native clipboard (via `gui-select-text'). In a tty frame it means
+the outer terminal's clipboard, reached via the OSC52 escape
+sequence forwarded by tmux's clipboard passthrough. The same
+function handles both directions through a single dispatch on the
+frame that displays the source buffer at kill time.
+
+The module is intentionally small. Loading it installs
+`lem--osc52-cut-function' as `interprogram-cut-function'; nothing
+else needs to know it is here.
+#+end_quote
+
 * Header and commentary
 
 ** File header
@@ -15,7 +31,7 @@ Loading the module replaces =interprogram-cut-function= with =lem--osc52-cut-fun
 The commentary explains the design: one function handles both graphical and terminal frames by looking at the frame that displays the buffer where the kill happened, and simply loading the file activates it.
 
 #+begin_src emacs-lisp -i
-;;; sp-tty-clipboard.el --- TTY clipboard via OSC52 -*- lexical-binding: t -*-
+;;; sp-tty-clipboard.el --- Clipboard over OSC52 for terminal frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -128,12 +144,11 @@ Sets =interprogram-cut-function= globally, so every kill and copy goes through t
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-tty-clipboard=.
+Provides the =sp-tty-clipboard= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-tty-clipboard)
 ;;; sp-tty-clipboard.el ends here

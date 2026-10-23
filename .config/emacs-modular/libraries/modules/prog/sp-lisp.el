@@ -1,11 +1,10 @@
-;; -*- lexical-binding: t; -*-
-;; sp-lisp.el --- Lisp and Emacs Lisp settings
+;;; sp-lisp.el --- Common Lisp and Emacs Lisp editing -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;;
 
-;;; Code
+;;; Code:
 
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
@@ -23,11 +22,11 @@
   :init
   (setq inferior-lisp-program "sbcl")
   :config
-  (setq sly-complete-symbol-function 'sly-flex-completions
+  (setq sly-complete-symbol-function 'sly-flex-completions)
   :hook ((lisp-mode . (lambda ()
                         (sly-mode t)))
          (sly-repl-mode . (lambda ()
-                            (company-mode t))))))
+                            (company-mode t)))))
 
 ;;;; Editing modes
 (use-package lisp-mode
@@ -109,8 +108,6 @@
         (backward-up-list 1 t t))
       (setq sexp (read (point-marker))))
     (message "%s" (eval sexp))))
-
-;;; Provide:
 
 (provide 'sp-lisp)
 ;; sp-lisp.el ends here.

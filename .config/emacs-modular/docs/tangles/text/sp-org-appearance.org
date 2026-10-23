@@ -8,15 +8,25 @@ This module sets the visual presentation of Org buffers: folding and ellipsis, s
 
 Fonts are deliberately not set here; the commentary points to =sp-fonts= for that. The settings are plain =setq= forms that take effect when Org loads, and the packages are installed through the config's package manager (the =:ensure= forms with =:wait= are Elpaca style). The module is loaded in the Org block of both module lists in =init.el=, after =sp-org-base= and =sp-denote=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This doesn't include any settings for fonts, as they are declared separately in sp-fonts.
+
+However, the overall appearance of an org buffer is declared here.
+
+It should, in the future, hold a definition for the way that tables appear in a more modern fashion,
+later on.
+#+end_quote
+
 * Header
 
 ** File header and commentary
 
-The file header and commentary. It notes that fonts live elsewhere and that a more modern table appearance is planned but not yet here.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
-;; sp-org-appearance.el
+;;; sp-org-appearance.el --- How Org buffers look -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -38,7 +48,7 @@ Removes blank separator lines in folded views, shows folded content as a =[+]= m
 
 #+begin_src emacs-lisp -i
 ;;;; General org basic appearance options
-;;; these were taken initially from Lambda Emacs
+;;;; these were taken initially from Lambda Emacs
 (setq org-cycle-separator-lines 0) ;; no empty lines in collapsed view
 ;; (setq org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
 (setq org-ellipsis " [+]")
@@ -102,34 +112,22 @@ Fontifies source blocks with their language's major mode. The quote and verse se
 (setq org-fontify-quote-and-verse-blocks t)
 #+end_src
 
-** Hidden emphasis markers
+** org-appear
 
-Hides the markup characters around bold, italic and similar text, showing only the styled text.
-
-#+begin_src emacs-lisp -i
-;;;;; Emphasis
-(setq org-hide-emphasis-markers t)  ;; hide emph markers
-#+end_src
-
-** Disabled org-appear
-
-A commented out =org-appear= configuration, which would reveal hidden emphasis markers and sub and superscript markup when point is on them. The comment says it caused problems with invisible text, so it is off. This means hidden markers stay hidden even at point.
+Enables =org-appear= in Org buffers. It reveals emphasis markers and sub and superscript markup while point is on them (=org-appear-autoemphasis= and =org-appear-autosubmarkers= are on, =org-appear-autolinks= is off). It had been commented out because it was suspected of causing problems with invisible text, and it is now back on. =org-hide-emphasis-markers= is not set, so emphasis markers are always visible and there is nothing for it to reveal there; it matters for sub and superscripts only, since =org-appear-autolinks= is off.
 
 #+begin_src emacs-lisp -i
 ;; show markup at point -- this should be part of org!
-;; it seems that this creates quite a bit of issues with the invisible section, so it's turned off for now
-;; (use-package org-appear
-;;   ;; :if (and sp-load-extras (locate-library "org-appear"))
-;;   :ensure (:wait t)
-;;   :after org
+(use-package org-appear
+  :ensure (:wait t)
+  :after org
 
-;;   :hook
-;;   (org-mode . org-appear-mode)
+  :hook (org-mode . org-appear-mode)
 
-;;   :custom
-;;   (org-appear-autoemphasis  t)
-;;   (org-appear-autolinks nil)
-;;   (org-appear-autosubmarkers t))
+  :custom
+  (org-appear-autoemphasis  t)
+  (org-appear-autolinks nil)
+  (org-appear-autosubmarkers t))
 #+end_src
 
 * Org-modern
@@ -139,7 +137,7 @@ A commented out =org-appear= configuration, which would reveal hidden emphasis m
 Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda is built. Its TODO keyword and tag styling are turned off, labels get a one pixel border, and heading stars are replaced with a sequence of circled and starred symbols, one per level. Hiding leading stars through org-modern is commented out because of the same invisible text issues.
 
 #+begin_src emacs-lisp -i
-;;;; Org-modern
+;;;;; Org-modern
 (use-package org-modern
   :ensure t
   :defer t
@@ -167,7 +165,7 @@ Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda 
 Installs =org-autolist=, which makes RET and backspace behave like a word processor in lists: RET starts a new item and backspace on an empty item removes the bullet. It is installed but no hook enables =org-autolist-mode= in this module, so it may be turned on elsewhere or not at all.
 
 #+begin_src emacs-lisp -i
-;;;; List behavior
+;;;;; List behavior
 (use-package org-autolist
   :ensure t)
 #+end_src
@@ -213,7 +211,7 @@ Adds a font lock rule to Org mode that matches list items whose checkbox is =[X]
 Installs =spacious-padding= and turns on =spacious-padding-mode= immediately, adding space around windows, the mode line and the frame edges.
 
 #+begin_src emacs-lisp -i
-;;;; Spacious padding --- and other padding settings
+;;;;; Spacious padding --- and other padding settings
 (use-package spacious-padding
   :ensure t
   :init
@@ -264,12 +262,9 @@ Around advice on =spacious-padding-set-parameters-of-frame= so padding is applie
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-appearance= feature for =init.el=.
+Provides the =sp-org-appearance= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-appearance)
 ;; sp-org-appearance.el ends here.

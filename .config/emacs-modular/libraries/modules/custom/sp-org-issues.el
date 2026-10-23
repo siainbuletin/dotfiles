@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-org-issues.el --- An issue tracker for code work, kept as a PARA area
+;;; sp-org-issues.el --- An issue tracker kept as a PARA area -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -51,16 +50,16 @@
   :group 'sp-org-issues)
 
 (defcustom sp-org-issues-repos
-  '(("dotfiles"
+  `(("dotfiles"
      :tag "dotfiles"
-     :git-dir "~/.local/share/yadm/repo.git"
-     :worktree-root "~/src/dotfiles-wt/"
+     :git-dir ,sp-yadm-repo
+     :worktree-root ,(sp-path sp-src-dir "dotfiles-wt/")
      :base "main"
      :url "https://github.com/siainbuletin/dotfiles")
     ("vulpea-mcp"
      :tag "vulpea"
-     :git-dir "~/cloned-scan-ai/vulpea-mcp/.git"
-     :worktree-root "~/src/vulpea-mcp-wt/"
+     :git-dir ,(sp-path sp-clones-dir "cloned-scan-ai/vulpea-mcp/.git")
+     :worktree-root ,(sp-path sp-src-dir "vulpea-mcp-wt/")
      :base "main"))
   "Code bases that get a heading in the issues area.
 
@@ -71,7 +70,7 @@ go), :base (the branch new issue branches start from) and :url."
   :type '(alist :key-type string :value-type plist)
   :group 'sp-org-issues)
 
-(defcustom sp-org-issues-yadm-repo "~/.local/share/yadm/repo.git"
+(defcustom sp-org-issues-yadm-repo sp-yadm-repo
   "The yadm repository.
 
 Magit lists untracked files in worktrees added from it, although the
@@ -352,8 +351,6 @@ WORKTREE on the issue, and moves a TODO or NEXT issue to PROG."
 (with-eval-after-load 'magit
   (add-hook 'magit-status-mode-hook
             #'sp-org-issues--show-untracked-in-yadm-worktrees))
-
-;;; Provide:
 
 (provide 'sp-org-issues)
 ;; sp-org-issues.el ends here.
