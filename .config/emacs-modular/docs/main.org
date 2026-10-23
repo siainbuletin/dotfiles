@@ -70,6 +70,7 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 
 Custom, bespoke functionality: modules I wrote myself for my own workflow, as opposed to configuration of packages from elsewhere. They live apart from the thematic directories so that it is clear which parts of the configuration are my own code.
 
+- [[file:tangles/custom/sp-dg-positions.org][sp-dg-positions]] :: Position graph and status views for discourse-graphs ([[file:../libraries/modules/custom/sp-dg-positions.el][sp-dg-positions.el]])
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
