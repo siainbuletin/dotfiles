@@ -591,19 +591,14 @@ theme, see `sp-dashboard-palette-roles'."
 
 * Splash menu
 
-The menu under the banner is a list of blocks, =sp-dashboard-menu=. Each block is drawn in a box of lines (=sp-dashboard-box-face=); a block with children, such as Agenda, shows them nested under its heading. All blocks are as wide as the widest row and are centred on the banner. Remove or reorder blocks in the list to change the menu, and bind the keys in =sp-dashboard-mode-map=. A heading without a command (as for Agenda) is plain text; every other row is a button that calls its command.
+The menu under the banner is a list of blocks, =sp-dashboard-menu=. Each block is drawn in a box of lines (=sp-dashboard-box-face=); a block with children shows them nested under its heading. All blocks are as wide as the widest row and are centred on the banner. Remove or reorder blocks in the list to change the menu, and bind the keys in =sp-dashboard-mode-map=. A heading without a command is plain text; every other row is a button that calls its command. The agendas are not in this list: they have their own boxes, described next.
 
 #+begin_src emacs-lisp -i
 ;;;; Menu
 ;; The blocks under the banner.  Each element of `sp-dashboard-menu' is drawn as
 ;; a box, and a block with children shows them nested under its heading.
 (defcustom sp-dashboard-menu
-  '(("nf-fa-calendar" "Agenda" nil nil "Agendas"
-     (("General agenda" "a" sp-dashboard-open-agenda "Open the general agenda")
-      ("Thesis" "t" sp-dashboard-open-thesis-agenda "Open the thesis agenda")
-      ("Issues" "i" sp-dashboard-open-issues-agenda "Open the issues agenda")
-      ("Deadlines" "d" sp-dashboard-open-deadlines-agenda "Open the coming deadlines")))
-    ("nf-fa-code" "Config" "c" sp-dashboard-open-config "Visit config directory" nil)
+  '(("nf-fa-code" "Config" "c" sp-dashboard-open-config "Visit config directory" nil)
     ("nf-fa-book" "Notes" "n" sp-dashboard-open-notes "Open notes directory" nil))
   "Blocks of the splash menu, each drawn in a box.
 Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
@@ -667,6 +662,339 @@ Each row is (TEXT KEY COMMAND HELP)."
                           'face (or (car faces) 'sp-dashboard-box-face)))
       (insert "\n")
       (setq faces (cdr faces)))))
+#+end_src
+
+
+* Agenda boxes
+
+Each agenda is its own box (=sp-dashboard-agendas=), laid out in a grid of =sp-dashboard-agenda-columns= columns (fewer when the window is narrow) and as wide as =sp-dashboard-agenda-box-width=, so the boxes grow sideways as well as down. A box shows its title button with the key, then the =sp-dashboard-agenda-todo-count= most urgent open TODOs of its files, each wrapped onto at most =sp-dashboard-agenda-todo-lines= lines and cut with an ellipsis. Urgency is the priority, plus a bonus for a near or overdue deadline, for scheduled today or earlier, and for the keywords in =sp-dashboard-urgent-states=. The Deadlines box lists the nearest deadlines within =sp-dashboard-deadlines-days= instead. The files are the =sp-dashboard-agenda-*-files= variables, or =org-agenda-files= when nil. Set =sp-dashboard-agenda-todos-clickable= to make the first line of each TODO a button that visits the entry (each is then a =TAB= stop).
+
+** Privacy
+
+While the dashboard is public, private entries are not drawn at all (they are never put in the buffer, so there is nothing to scroll or copy). An entry is private when it has a tag in =sp-dashboard-private-tags= (=private=, inherited) or is in a file matching =sp-dashboard-private-files=. =sp-dashboard-public-mode= is =auto=, =public= or =private=; =P= cycles it and redraws. In =auto= the dashboard is public as soon as one function in =sp-dashboard-public-conditions= returns non-nil, and a function that signals an error counts as public, so a check that breaks fails closed. The list is empty by default, so nothing is hidden until you add a condition. Two are provided and do nothing until configured: =sp-dashboard-condition-untrusted-network= (Wi-Fi name not in =sp-dashboard-trusted-networks=) and =sp-dashboard-condition-screen-share= (a process in =sp-dashboard-screen-share-processes= is running). The dashboard is drawn when it opens, so a change in the conditions shows after =g= (refresh).
+
+#+begin_src emacs-lisp -i
+;;;; Agenda boxes
+;; One box per agenda, laid out in a grid, each listing its most urgent TODOs.
+(defcustom sp-dashboard-agendas
+  '(("nf-fa-calendar" "General agenda" "a" sp-dashboard-open-agenda
+     "Open the general agenda" sp-dashboard-agenda-general-files urgent)
+    ("nf-fa-graduation_cap" "Thesis" "t" sp-dashboard-open-thesis-agenda
+     "Open the thesis agenda" sp-dashboard-agenda-thesis-files urgent)
+    ("nf-fa-code" "Issues" "i" sp-dashboard-open-issues-agenda
+     "Open the issues agenda" sp-dashboard-agenda-issues-files urgent)
+    ("nf-fa-clock_o" "Deadlines" "d" sp-dashboard-open-deadlines-agenda
+     "Open the coming deadlines" sp-dashboard-agenda-deadlines-files deadline))
+  "Agenda boxes of the dashboard.
+Each element is (ICON LABEL KEY COMMAND HELP FILES-VAR MODE).  FILES-VAR is
+a variable holding the files to read (nil: `org-agenda-files').  MODE is
+`urgent' to list the most urgent open TODOs, or `deadline' to list the
+nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
+  :type '(repeat sexp)
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-box-width 38
+  "Width, in columns, of the text inside an agenda box."
+  :type 'integer
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-columns 2
+  "Agenda boxes side by side; fewer when the window is too narrow."
+  :type 'integer
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-todo-count 3
+  "TODOs listed in each agenda box."
+  :type 'integer
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-todo-lines 2
+  "Lines one TODO may wrap onto before it is cut with an ellipsis."
+  :type 'integer
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-agenda-todos-clickable nil
+  "Non-nil makes the first line of each TODO a button that visits the entry.
+Each one is then another stop for \\`TAB'."
+  :type 'boolean
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-urgent-states '("NEXT" "PROG")
+  "TODO keywords that rank an entry higher among the most urgent."
+  :type '(repeat string)
+  :group 'sp-dashboard)
+
+;;;;; Privacy
+;; Private entries are left out of the boxes while the dashboard is public.
+(defcustom sp-dashboard-private-tags '("private")
+  "Entries with one of these tags (inherited) are private."
+  :type '(repeat string)
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-private-files nil
+  "Regexps of files whose entries are all private."
+  :type '(repeat regexp)
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-public-conditions nil
+  "Functions, without arguments, that return non-nil when you are in public.
+In `auto' mode the dashboard is public as soon as one of them returns non-nil,
+or signals an error (a check that cannot run counts as public)."
+  :type '(repeat function)
+  :group 'sp-dashboard)
+
+(defvar sp-dashboard-public-mode 'auto
+  "Whether the dashboard hides private entries.
+`auto' follows `sp-dashboard-public-conditions', `public' always hides them
+and `private' always shows them.  Cycle it with `sp-dashboard-toggle-public-mode'.")
+
+(defcustom sp-dashboard-trusted-networks nil
+  "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
+  :type '(repeat string)
+  :group 'sp-dashboard)
+
+(defcustom sp-dashboard-screen-share-processes nil
+  "Process names that mean the screen is shared, such as a call app's helper.
+Used by `sp-dashboard-condition-screen-share'."
+  :type '(repeat string)
+  :group 'sp-dashboard)
+
+(defun sp-dashboard-condition-untrusted-network ()
+  "Return non-nil when the Wi-Fi network is not in `sp-dashboard-trusted-networks'.
+Always nil when that list is empty, so it does nothing until configured."
+  (when sp-dashboard-trusted-networks
+    (let ((name (string-trim
+                 (shell-command-to-string
+                  (if sys-mac
+                      "networksetup -getairportnetwork en0 | sed 's/^[^:]*: //'"
+                    "nmcli -t -f active,ssid dev wifi | sed -n 's/^yes://p'")))))
+      (not (member name sp-dashboard-trusted-networks)))))
+
+(defun sp-dashboard-condition-screen-share ()
+  "Return non-nil when a process of `sp-dashboard-screen-share-processes' runs."
+  (seq-some (lambda (name) (zerop (call-process "pgrep" nil nil nil "-x" name)))
+            sp-dashboard-screen-share-processes))
+
+(defun sp-dashboard-public-p ()
+  "Return non-nil when private entries must stay out of the dashboard."
+  (pcase sp-dashboard-public-mode
+    ('public t)
+    ('private nil)
+    (_ (condition-case nil
+           (and (seq-some #'funcall sp-dashboard-public-conditions) t)
+         (error t)))))
+
+(defun sp-dashboard-toggle-public-mode ()
+  "Cycle `sp-dashboard-public-mode' (auto, public, private) and redraw."
+  (interactive)
+  (setq sp-dashboard-public-mode
+        (pcase sp-dashboard-public-mode
+          ('auto 'public) ('public 'private) (_ 'auto)))
+  (message "Dashboard privacy: %s" sp-dashboard-public-mode)
+  (sp-dashboard-refresh))
+
+(defun sp-dashboard--private-p (file tags)
+  "Return non-nil when an entry in FILE with TAGS is private."
+  (or (seq-some (lambda (regexp) (string-match-p regexp file))
+                sp-dashboard-private-files)
+      (seq-some (lambda (tag) (member tag tags)) sp-dashboard-private-tags)))
+
+;;;;; Collecting the TODOs
+(defun sp-dashboard--days-until (timestamp)
+  "Return the days from today to the Org TIMESTAMP string, or nil."
+  (when timestamp
+    (- (org-time-string-to-absolute timestamp) (org-today))))
+
+(defun sp-dashboard--entry ()
+  "Return a plist describing the open TODO at point, or nil."
+  (when (org-entry-is-todo-p)
+    (let ((heading (org-get-heading t t t t)))
+      (list :heading heading
+            :state (org-get-todo-state)
+            :priority (org-get-priority
+                       (buffer-substring (line-beginning-position)
+                                         (line-end-position)))
+            :deadline (sp-dashboard--days-until (org-entry-get nil "DEADLINE"))
+            :scheduled (sp-dashboard--days-until (org-entry-get nil "SCHEDULED"))
+            :tags (org-get-tags)
+            :file buffer-file-name
+            :pos (point)))))
+
+(defun sp-dashboard--score (entry)
+  "Return how urgent ENTRY is; higher is more urgent."
+  (let ((deadline (plist-get entry :deadline))
+        (scheduled (plist-get entry :scheduled)))
+    (+ (plist-get entry :priority)
+       (if deadline (max 0 (- 3000 (* 100 deadline))) 0)
+       (if (and scheduled (<= scheduled 0)) 1000 0)
+       (if (member (plist-get entry :state) sp-dashboard-urgent-states) 500 0))))
+
+(defun sp-dashboard--todos (files mode)
+  "Return the entries of FILES to list for MODE, most urgent first.
+Private entries are left out while `sp-dashboard-public-p'."
+  (require 'org)
+  (let ((public (sp-dashboard-public-p))
+        entries)
+    (dolist (file files)
+      (when (file-readable-p file)
+        (condition-case nil
+            (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
+              (unless (or (null entry)
+                          (and public (sp-dashboard--private-p file (plist-get entry :tags))))
+                (push entry entries)))
+          (error nil))))
+    (when (eq mode 'deadline)
+      (setq entries (seq-filter (lambda (entry)
+                                  (let ((days (plist-get entry :deadline)))
+                                    (and days (<= days sp-dashboard-deadlines-days))))
+                                entries)))
+    (seq-take (if (eq mode 'deadline)
+                  (sort entries (lambda (a b) (< (plist-get a :deadline)
+                                                 (plist-get b :deadline))))
+                (sort entries (lambda (a b) (> (sp-dashboard--score a)
+                                               (sp-dashboard--score b)))))
+              sp-dashboard-agenda-todo-count)))
+
+(defun sp-dashboard--wrap (text width max-lines)
+  "Wrap TEXT to WIDTH columns, at most MAX-LINES lines, the last one cut with an ellipsis."
+  (let ((line "")
+        lines)
+    (dolist (word (split-string text))
+      (while (> (string-width word) width)
+        (let ((cut (truncate-string-to-width word width)))
+          (unless (string= line "")
+            (push line lines)
+            (setq line ""))
+          (push cut lines)
+          (setq word (substring word (length cut)))))
+      (cond ((string= line "") (setq line word))
+            ((<= (+ (string-width line) 1 (string-width word)) width)
+             (setq line (concat line " " word)))
+            (t (push line lines)
+               (setq line word))))
+    (unless (string= line "")
+      (push line lines))
+    (setq lines (nreverse lines))
+    (if (<= (length lines) max-lines)
+        lines
+      (let ((kept (seq-take lines max-lines)))
+        (setcar (last kept)
+                (concat (truncate-string-to-width (car (last kept)) (1- width)) "…"))
+        kept))))
+
+;;;;; Drawing the boxes
+;; A box is a list of lines and a line a list of segments (TEXT FACE BUTTON),
+;; so boxes can be laid side by side before anything is inserted.
+(defun sp-dashboard--visit-entry (file pos)
+  "Visit the entry at POS in FILE."
+  (find-file file)
+  (goto-char pos)
+  (org-reveal))
+
+(defun sp-dashboard--box-line (box-face &rest segments)
+  "Return a box line holding SEGMENTS, padded to `sp-dashboard-agenda-box-width'."
+  (let ((used (apply #'+ (mapcar (lambda (segment) (string-width (car segment)))
+                                 segments))))
+    (append (list (list "│ " box-face))
+            segments
+            (list (list (make-string (max 0 (- sp-dashboard-agenda-box-width used)) ?\s)
+                        'sp-dashboard-menu-face)
+                  (list " │" box-face)))))
+
+(defun sp-dashboard--agenda-box (agenda box-face)
+  "Return AGENDA as a box of lines, drawn with BOX-FACE."
+  (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
+               (width sp-dashboard-agenda-box-width)
+               (rule (make-string (+ width 2) ?─))
+               (title (concat (nerd-icons-faicon icon) isep label))
+               (keytext (format "(%s)" key))
+               (todos (condition-case nil
+                          (sp-dashboard--todos
+                           (or (symbol-value files-var) (org-agenda-files)) mode)
+                        (error nil)))
+               (lines (list (list (list (concat "┌" rule "┐") box-face))
+                            (sp-dashboard--box-line
+                             box-face
+                             (list (concat title
+                                           (make-string (max 1 (- width (string-width title)
+                                                                  (string-width keytext)))
+                                                        ?\s)
+                                           keytext)
+                                   'sp-dashboard-menu-face
+                                   (lambda (_) (funcall command)) help))
+                            (list (list (concat "├" rule "┤") box-face)))))
+    (if (null todos)
+        (setq lines (append lines (list (sp-dashboard--box-line
+                                         box-face (list "  nothing open" 'shadow)))))
+      (dolist (entry todos)
+        (let* ((prefix (if (eq mode 'deadline)
+                           (format-time-string
+                            "%m-%d "
+                            (time-add (current-time)
+                                      (days-to-time (plist-get entry :deadline))))
+                         (concat (plist-get entry :state) " ")))
+               (wrapped (sp-dashboard--wrap (concat prefix (plist-get entry :heading))
+                                            (- width 2)
+                                            sp-dashboard-agenda-todo-lines))
+               (first t))
+          (dolist (text wrapped)
+            (let ((segment (list (concat (if first "• " "  ") text)
+                                 'sp-dashboard-menu-face)))
+              (when (and first sp-dashboard-agenda-todos-clickable)
+                (let ((file (plist-get entry :file))
+                      (pos (plist-get entry :pos)))
+                  (setq segment
+                        (append segment
+                                (list (lambda (_) (sp-dashboard--visit-entry file pos))
+                                      "Visit the entry")))))
+              (setq lines (append lines (list (sp-dashboard--box-line box-face segment)))
+                    first nil))))))
+    (append lines (list (list (list (concat "└" rule "┘") box-face))))))
+
+(defun sp-dashboard--insert-segment (segment)
+  "Insert SEGMENT, a list (TEXT FACE [ACTION HELP])."
+  (pcase-let ((`(,text ,face ,action ,help) segment))
+    (if action
+        (insert-text-button text 'action action 'help-echo help
+                            'face face 'follow-link t)
+      (insert (propertize text 'face face)))))
+
+(defun sp-dashboard--insert-agendas (content-col)
+  "Insert the agenda boxes in a grid, centred on column CONTENT-COL."
+  (let* ((box-width (+ sp-dashboard-agenda-box-width 4))
+         (gap 2)
+         (columns (max 1 (min sp-dashboard-agenda-columns
+                              (/ (+ (window-width) gap) (+ box-width gap)))))
+         (indent (max 0 (- content-col (/ (+ (* columns box-width) (* (1- columns) gap)) 2))))
+         (faces (copy-sequence sp-dashboard-accent-faces))
+         (boxes nil))
+    (when faces
+      (setcdr (last faces) faces))
+    (dolist (agenda sp-dashboard-agendas)
+      (push (sp-dashboard--agenda-box agenda (or (pop faces) 'sp-dashboard-box-face))
+            boxes))
+    (setq boxes (nreverse boxes))
+    (when (sp-dashboard-public-p)
+      (insert-char ?\s indent)
+      (insert (propertize "public: private entries are hidden (P)\n"
+                          'face 'sp-dashboard-footer-face)))
+    (while boxes
+      (let* ((row (seq-take boxes columns))
+             (height (apply #'max (mapcar #'length row))))
+        (setq boxes (seq-drop boxes columns))
+        (dotimes (index height)
+          (insert-char ?\s indent)
+          (let ((first t))
+            (dolist (box row)
+              (unless first
+                (insert-char ?\s gap))
+              (setq first nil)
+              (if-let* ((line (nth index box)))
+                  (dolist (segment line)
+                    (sp-dashboard--insert-segment segment))
+                (insert-char ?\s box-width))))
+          (insert "\n"))
+        (insert "\n")))))
 #+end_src
 
 
@@ -868,6 +1196,7 @@ splash is drawn again with the current settings."
 
             ;; Insert the menu blocks, in boxes under the banner
             (goto-char (point-max))
+            (sp-dashboard--insert-agendas content-col)
             (sp-dashboard--insert-menu content-col)
 
             ;; Add footer with some space above bottom
@@ -1037,7 +1366,7 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
 
 ** Keymap
 
-=sp-dashboard-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-dashboard-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes. Only the buttons are interactive: =sp-dashboard--isolate-menu= marks everything else (the art, the box lines, the title and the footer) =cursor-intangible=, so point can only rest on a button, and puts =sp-dashboard-mode-map= on an overlay over the whole buffer, which ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is. =RET= and a click activate the button.
+=sp-dashboard-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =g= to redraw, =P= to cycle the privacy mode, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-dashboard-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes. Only the buttons are interactive: =sp-dashboard--isolate-menu= marks everything else (the art, the box lines, the title and the footer) =cursor-intangible=, so point can only rest on a button, and puts =sp-dashboard-mode-map= on an overlay over the whole buffer, which ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is. =RET= and a click activate the button.
 
 #+begin_src emacs-lisp -i
 ;;;; Define Minor Mode
@@ -1045,6 +1374,8 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
 (defvar sp-dashboard-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") 'sp-dashboard-open-agenda)
+    (define-key map (kbd "g") 'sp-dashboard-refresh)
+    (define-key map (kbd "P") 'sp-dashboard-toggle-public-mode)
     (define-key map (kbd "c") 'sp-dashboard-open-config)
     (define-key map (kbd "n") 'sp-dashboard-open-notes)
     (define-key map (kbd "t") 'sp-dashboard-open-thesis-agenda)
