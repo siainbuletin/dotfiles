@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-text-manipulation.el --- text functions and better text editing
+;;; sp-text-manipulation.el --- Text editing helpers and whitespace cleanup -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -192,8 +191,6 @@ exist after each headings's drawers."
  :before
  #'set-point-before-yanking-if-in-text-mode)
 ;; http://lists.gnu.org/archive/html/help-gnu-emacs/2007-05/msg00975.html
-
-;;; Provide:
 
 (provide 'sp-text-manipulation)
 ;; sp-text-manipulation.el ends here.

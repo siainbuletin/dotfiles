@@ -10,29 +10,54 @@ This module provides =sp-split-leave-parents=, a wrapper around Vulpea's =vulpea
 
 It depends on =vulpea=, =org-id= and =denote= (version 3 or later), and it hooks into =vulpea-split--write-file=, a private Vulpea function, so a Vulpea update that renames or reshapes that function can break it; the module warns at load time if the function is missing. It is required from =sp-vulpea-ext=. The command is bound to ~C-x s t~ in =org-mode-map= by =sp-org-base=; note that this makes ~C-x s~ a prefix key in Org buffers, which shadows =save-some-buffers= there.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+`sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
+normal split it:
+
+1. Adds a `- parents :: [[id:...][Title]]' meta line to the new note,
+   pointing at the note the heading came from.  The source is the
+   nearest ancestor heading with an ID, else the file-level note (its
+   ID is created when missing).  When the subtree already has a
+   `parents' line, the new link is put in front of the old value,
+   separated by a comma.
+
+2. Leaves a plain link to the new note in the source file, as a line
+   of body text exactly where the heading started (not a heading).
+   With a prefix argument no link is left.
+
+3. Renames the new file with Denote's file-naming scheme
+   (`ID--title__keywords.org'), using `denote-rename-file', so split
+   notes are named like the rest of your Denote files, and adds a
+   matching `#+identifier:' line.  The note keeps its org ID, so
+   links are unaffected.  Disable with
+   `sp-split-denote-names'.
+
+4. Keeps footnotes working across the split (see
+   `sp-split-check-footnotes').  Org labels are unique per file and
+   this setup uses no footnote section, so a heading that moves away
+   from its definitions would lose its sources.  Every heading that
+   cites a footnote gets its own copy of the definition, at the end
+   of its own text, in the new note, and in the source note for
+   definitions that left with the subtree.  Copies after the first
+   get a suffixed label (`[fn:smith]', `[fn:smith-2]', ...).
+
+Steps 1, 2 and 4 hook `vulpea-split--write-file', a private function of
+vulpea, and only act while `sp-split-leave-parents' is running.  A
+plain `vulpea-split-heading' is unchanged.
+#+end_quote
+
 * Overview
 
 ** Header and package requirements
 
-The file header and a Package-Requires line declaring Emacs 28.1 and Denote 3.0.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-split.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
-
+;;; sp-vulpea-split.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
-#+end_src
 
-** Commentary
-
-The commentary is the best summary of the behaviour. On top of the normal split, the command:
-- adds a parents line to the new note linking to the nearest ancestor heading with an ID, or the file-level note, prepending to an existing parents value if there is one,
-- leaves a plain link (not a heading) where the heading used to be, unless called with a prefix argument,
-- renames the new file in Denote's ID, title, keywords format and adds an identifier keyword, while keeping the Org ID so links are unaffected,
-- copies footnote definitions so every heading that cites a footnote has a definition in its own file, with suffixed labels for extra copies.
-
-Steps 1, 2 and 4 only act while =sp-split-leave-parents= runs, so a plain =vulpea-split-heading= is unchanged.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
 
 ;; `sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
@@ -755,7 +780,6 @@ Warns if =vulpea-split--write-file= does not exist, which would mean an unsuppor
 Provides the =sp-vulpea-split= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-vulpea-split)
 ;;; sp-vulpea-split.el ends here

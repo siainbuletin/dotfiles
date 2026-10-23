@@ -1,4 +1,6 @@
-;;; sp-vulpea-table-views.el --- Named views + inline mounting for Vulpea vui tables -*- lexical-binding: t; -*-
+;;; sp-vulpea-table-views.el --- Saved views and inline mounting for Vulpea tables -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; Requires the two earlier pieces to already be loaded (either as
 ;; separate files with their own (provide ...), or pasted into
@@ -8,12 +10,14 @@
 ;;   - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
 ;;                                sia-vulpea-open-table)
 
+;;; Code:
+
 (require 'vui)
 (require 'vulpea)
 (require 'sp-vulpea-vui-table)
 (require 'sp-vulpea-dblock)
 
-;;; Named views ---------------------------------------------------------
+;;;; Named views ---------------------------------------------------------
 
 (defcustom sp-vulpea-table-views-file
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
@@ -143,7 +147,7 @@ over -- same reasoning as in `sia-vulpea-open-table'."
                              parent-prop
                              name))))
 
-;;; Inline mounting -------------------------------------------------------
+;;;; Inline mounting -------------------------------------------------------
 
 (defvar-local sia-vulpea--inline-table-instances nil
   "Alist of (MARKER . VUI-INSTANCE) for live inline Vulpea tables
@@ -241,7 +245,7 @@ text instead of ephemeral widget state."
             (add-hook 'before-save-hook #'sia-vulpea--inline-tables-before-save nil t)
             (add-hook 'after-save-hook #'sia-vulpea--inline-tables-after-save nil t)))
 
-;;; Insert a dblock from a saved view --------------------------------------
+;;;; Insert a dblock from a saved view --------------------------------------
 
 (defun sia-vulpea-insert-table-from-view ()
   "Insert a vulpea-table dblock at point, using a saved view

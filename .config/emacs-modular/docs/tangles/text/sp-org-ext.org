@@ -10,17 +10,28 @@ This module is the hub for Org extensions. Its first job is to load a group of o
 
 Its second job is to install a handful of smaller Org packages: =org-contrib= (for ignoring headlines on export), =org-autolist=, =org-journal=, =org-ranker=, =org-special-block-extras=, and two local =org-context= libraries from the =cloned= directory. It is loaded near the end of the Org group in both the default and minimal module lists. Citation setup lives elsewhere, as the opening note says.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+NOTE: some org-extensions are set in other setup files:
+- org citations setup is in setup-citation
+#+end_quote
+
 * Loading the Org sub-modules
 
 ** File header
 
-Lexical binding and a note that some Org extensions, such as citations, are configured in other files.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; -*- lexical-binding: t -*-
+;;; sp-org-ext.el --- Org extensions and sub-module loader -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; NOTE: some org-extensions are set in other setup files:
 ;; - org citations setup is in setup-citation
+
+;;; Code:
 #+end_src
 
 ** Core Org extension modules
@@ -41,7 +52,7 @@ Requires the appearance, capture, Babel, agenda and image modules. Some of these
 Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 #+begin_src emacs-lisp -i
-;;;;;; ID-based workflows
+;;;;; ID-based workflows
 (require 'sp-org-node-mem)
 #+end_src
 
@@ -50,7 +61,7 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, the custom agenda views (=sp-agenda-views=, tangled from =sp-org-agenda.org=), schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
-;;;;;; Vulpea
+;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
@@ -63,14 +74,13 @@ Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, the cus
 
 ** org-contrib
 
-Only when extras are enabled and the package is installed: after Org loads, =ox-extra= is required and its =ignore-headlines= extra is activated, so headings tagged =:ignore:= are dropped on export while their contents are kept.
+After Org loads, =ox-extra= is required and its =ignore-headlines= extra is activated, so headings tagged =:ignore:= are dropped on export while their contents are kept.
 
 #+begin_src emacs-lisp -i
-;;;;;; Other extensions
+;;;;; Other extensions
 
 ;;;; Org Contrib
 (use-package org-contrib
-  :when (and sp-load-extras (locate-library "org-contrib"))
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -80,14 +90,13 @@ Only when extras are enabled and the package is installed: after Org loads, =ox-
 
 ** org-autolist
 
-Only with extras enabled: =org-autolist-mode= is turned on in Org buffers, so RET continues a list item or checkbox and backspace on an empty item removes it. The comment says the package still needs evaluation.
+=org-autolist-mode= is turned on in Org buffers, so RET continues a list item or checkbox and backspace on an empty item removes it. The comment says the package still needs evaluation.
 
 #+begin_src emacs-lisp -i
-;;; Org Autolist (Smart Lists)
+;;;; Org Autolist (Smart Lists)
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
-  :if (and sp-load-extras (locate-library "org-autolist"))
   :hook (org-mode . org-autolist-mode))
 #+end_src
 
@@ -142,7 +151,7 @@ Installs =org-special-block-extras=, which adds custom special blocks and link t
 Requires the local =org-context= library from the =cloned= directory. Per the comment, it records an entry's context, for example its original location before refiling, so it can be restored later.
 
 #+begin_src emacs-lisp -i
-;;; org-context
+;;;; org-context
 ;; Allows saving the context of an Org-mode entry, such as when refiling, 
 ;; so that entries can be restored to their original location based on that context.
 (require 'org-context)
@@ -153,7 +162,7 @@ Requires the local =org-context= library from the =cloned= directory. Per the co
 Requires a second context library. Its source lives under =cloned/org-context-per-project-old/=, a directory whose name suggests an older version; it loads because the whole =modules/= tree is on =load-path=.
 
 #+begin_src emacs-lisp -i
-;;; Another org context library
+;;;; Another org context library
 (require 'org-context-agen)
 #+end_src
 
@@ -164,7 +173,6 @@ Requires a second context library. Its source lives under =cloned/org-context-pe
 Provides the =sp-org-ext= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-ext)
 ;; sp-org-ext.el ends here.

@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-base-libraries.el 
+;;; sp-base-libraries.el --- Base libraries and general defaults -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -86,7 +85,6 @@
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)
@@ -96,7 +94,7 @@
   :ensure (:wait t)
 )
 
-;;; HTTP-D
+;;;; HTTP-D
 (use-package simple-httpd
   :ensure t
   :custom
@@ -157,10 +155,10 @@
 (use-package try
   :ensure (:wait t))
 
-;;; Buffer functions
+;;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 
-;;; Avy
+;;;; Avy
 ;; Don't remember what Avy was for, but it's a pretty important library to have.
 (use-package avy
   :ensure t
@@ -168,7 +166,7 @@
   :bind (("C-:" . avy-goto-char)
          ("C-M-:" . avy-goto-char-timer)))
 
-;;; Casual package
+;;;; Casual package
 ;; This is transient-based menus for working with built-in packages, like dired.
 (use-package casual
   :ensure t)

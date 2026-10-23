@@ -6,26 +6,30 @@ Literate source for =libraries/modules/text/sp-org-images.el=. Every line of the
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configures =org-download= (by abo-abo), which lets you drag and drop images into Org buffers, paste them from the clipboard, or take screenshots, saving the files to disk and inserting a link. It is required by =sp-org-ext=. The package is only configured when =sp-load-extras= is non-nil and the library is actually installed, so a minimal or sandbox boot skips it cleanly.
+Configures =org-download= (by abo-abo), which lets you drag and drop images into Org buffers, paste them from the clipboard, or take screenshots, saving the files to disk and inserting a link. It is required by =sp-org-ext=. The package is configured unconditionally.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Dealing with images in org-mode (embedding them properly)
+#+end_quote
 
 * Setup
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t ; -*-
-;; sp-org-images.el
-#+end_src
+;;; sp-org-images.el --- Images in Org with org-download -*- lexical-binding: t; -*-
 
-** Commentary
+;;; Commentary:
 
-Notes on the module's purpose and a link to the org-download repository.
-
-#+begin_src emacs-lisp -i
 ;; Dealing with images in org-mode (embedding them properly)
-;;; Org-Download
+
+;;; Code:
+
+;;;; Org-Download
 ;; Drag and drop images to Emacs org-mode. Courtesy of abo-abo.
 ;; https://github.com/abo-abo/org-download.
 #+end_src
@@ -38,7 +42,6 @@ Loads lazily on its three entry points =org-download-yank=, =org-download-screen
 
 #+begin_src emacs-lisp -i
 (use-package org-download
-  :if (and sp-load-extras (locate-library "org-download"))
   :commands (org-download-yank org-download-screenshot org-download-image)
   :custom
   (org-download-method 'directory)

@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-completion.el
+;;; sp-completion.el --- Minibuffer completion with Vertico, Marginalia and Orderless -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -118,8 +117,6 @@
 ;;;; Company
 (use-package company
   :ensure (:wait t))
-
-;;; Provide:
 
 (provide 'sp-completion)
 ;; sp-completion.el ends here.

@@ -1,4 +1,6 @@
-;;; sp-vulpea-grouped-backlinks.el --- Backlinks grouped by mention vs meta-property key -*- lexical-binding: t; -*-
+;;; sp-vulpea-grouped-backlinks.el --- Vulpea backlinks grouped by meta property -*- lexical-binding: t; -*-
+
+;;; Commentary:
 
 ;; What this does: for a given note, finds every other note linking
 ;; to it, and sorts each link into either "Mentions" (a plain inline
@@ -12,6 +14,8 @@
 ;; NOT YET a real vulpea-ui sidebar widget -- see the top-level
 ;; docstrings below for why, and `sia-vulpea-classify-backlinks' for
 ;; the one point of Vulpea API I couldn't fully confirm.
+
+;;; Code:
 
 (require 'vulpea)
 (require 'org)

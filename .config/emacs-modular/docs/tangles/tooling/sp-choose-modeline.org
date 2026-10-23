@@ -10,19 +10,29 @@ This module lets the config switch between two modeline packages, =doom-modeline
 
 The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=; a separate =sp-lambda-line= module is loaded instead, so this file appears to be kept for reference or for switching back to Doom's modeline. The commentary says the default is =doom-modeline=, but the code actually defaults to =lambda-line=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This package allows for choosing between different modelines to use and load in Emacs,
+which overall makes the experience a lot easier
+
+The ~defcustom~ sia/modeline allows to declare what is the modeline style to use
+It currently defaults to the doom-modeline
+Included is also the lambda-emacs modeline
+#+end_quote
+
 * File header
 
 ** Header and commentary
 
-The header and commentary describe the purpose: choosing between modelines via the =sia/modeline= option, with doom-modeline and the Lambda Emacs modeline available.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-choose-modeline.el
+;;; sp-choose-modeline.el --- Choosing a modeline -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This package allows for choosing between different modelines to use and load in Emacs, 
+;; This package allows for choosing between different modelines to use and load in Emacs,
 ;; which overall makes the experience a lot easier
 
 ;; The ~defcustom~ sia/modeline allows to declare what is the modeline style to use
@@ -130,7 +140,6 @@ For =lambda-line=, the package is installed from Codeberg and configured with a 
 Provides the =sp-choose-modeline= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-choose-modeline)
 ;; sp-choose-modeline.el ends here

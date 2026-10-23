@@ -4,6 +4,15 @@
 
 Literate source for =libraries/modules/custom/sp-vc-ai-workbench.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Generated from sp-vc-ai-workbench.org -- edit that file, not this one.
+
+One git worktree per task, one notes file and one Claude Code session
+per worktree.  Entry point: M-x sp-workbench-menu.
+#+end_quote
+
 * Overview
 
 ~sp-vc-ai-workbench~ is a small workbench for developing several Emacs extensions at the same time, with Claude as a brainstorming partner. It combines three ideas.
@@ -100,14 +109,14 @@ A worktree has its own =.git= file, so the project of that directory is the work
 
 ** File header
 
-The header carries the lexical-binding cookie and the dependency list. The commentary points back here, since this org file is the real documentation.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp
 ;;; sp-vc-ai-workbench.el --- Parallel work on many extensions with Magit + Claude Code -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "28.1") (magit "3.3") (transient "0.4") (claude-code "0.1"))
 
 ;;; Commentary:
+
 ;;
 ;; Generated from sp-vc-ai-workbench.org -- edit that file, not this one.
 ;;

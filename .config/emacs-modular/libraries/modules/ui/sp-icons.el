@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;; sp-icons.el
+;;; sp-icons.el --- Nerd icons for files, dired, completion and ibuffer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,8 +8,8 @@
 ;; TODO: completely remove all-the-icons from any call on the system and depend
 ;; on one icons package entirely.
 ;;
-;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched 
-;; font ("Symbols Nerd Font Mono") rather than the six separate fonts 
+;; The reason for choosing nerd-icons instead is that it uses a SINGLE patched
+;; font ("Symbols Nerd Font Mono") rather than the six separate fonts
 ;; all-the-icons shipped.
 ;;
 ;; nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
@@ -43,7 +42,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
                       nil 'prepend)))
 
 (use-package nerd-icons
-  :when (and sp-load-extras (locate-library "nerd-icons"))
 
   :commands (nerd-icons-octicon
              nerd-icons-faicon
@@ -67,7 +65,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 
 ;; icons for dired
 (use-package nerd-icons-dired
-  :when (and sp-load-extras (locate-library "nerd-icons-dired"))
   :defer t
   :commands nerd-icons-dired-mode
   :init
@@ -77,7 +74,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 (use-package nerd-icons-completion
   ;; On MELPA proper, so it installs through `sp-packages-alist' like
   ;; everything else -- no fork or package-vc-install hack needed.
-  :when (and sp-load-extras (locate-library "nerd-icons-completion"))
   :hook (emacs-startup . nerd-icons-completion-mode)
   :config
   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
@@ -85,8 +81,6 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 (use-package nerd-icons-ibuffer
   :ensure t
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-;;; Provide:
 
 (provide 'sp-icons)
 ;; sp-icons.el ends here.

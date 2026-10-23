@@ -6,22 +6,30 @@ Literate source for =libraries/modules/base/sp-navi.el=. Every line of the modul
 
 This is the umbrella module for moving around in Emacs. It pulls in the navigation sub-modules =sp-consult-snapfile=, =sp-dired=, =sp-goto= and =sp-search=, then configures a few navigation essentials of its own: an imenu outline sidebar, remembering point in files, the recent-files list, a heading jumper, and a replacement for =C-x C-f= that lets you pick between several file-listing tools.
 
-It uses =sp-cache-dir= for state files and =sp-load-extras= to gate optional packages. =sp-find-file= shells out to =find=, =fd= or =rg=, so those programs need to be installed for the corresponding choices to work. Consult (installed by =sp-search=) is needed for =lem-jump-in-buffer=.
+It uses =sp-cache-dir= for state files. =sp-find-file= shells out to =find=, =fd= or =rg=, so those programs need to be installed for the corresponding choices to work. Consult (installed by =sp-search=) is needed for =lem-jump-in-buffer=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Contains the general configuration for navigation within Emacs. The relevant
+submodules are recursed within the file
+#+end_quote
 
 * Header
 
 ** File header and commentary
 
-Lexical binding and a note that this module holds the general navigation configuration and loads its sub-modules.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;;; sp-navi.el --- summary
+;;; sp-navi.el --- Navigation: files, places and outlines -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; Contains the general configuration for navigation within Emacs. The relevant
 ;; submodules are recursed within the file
+
+;;; Code:
 #+end_src
 
 ** Sub-modules
@@ -29,7 +37,6 @@ Lexical binding and a note that this module holds the general navigation configu
 Requires the navigation sub-modules in alphabetical order: =sp-consult-snapfile= (a quick file finder), =sp-dired=, =sp-goto= and =sp-search=.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Require sub-libraries for navigation (organised alphabetically)
 (require 'sp-consult-snapfile)
 (require 'sp-dired)
@@ -72,7 +79,6 @@ Configures =imenu-list=, a sidebar that shows the current buffer's imenu entries
 ;; Make a useful outline buffer
 ;; Binding set to toggle "o"
 (use-package imenu-list
-  :when (and sp-load-extras (locate-library "imenu-list"))
   :commands (imenu-list-smart-toggle imenu-list-minor-mode)
 
   :config
@@ -137,7 +143,7 @@ Enables =recentf-mode= after two seconds idle, keeping up to 500 recent files in
 =sp-find-file= first asks which method to use: =find=, =fd= or =rg= to list every file under the current directory, or =find-name-dired= to search by name into a Dired buffer. For the three shell tools it collects the NUL-separated output and offers it with =completing-read=, tagging candidates with the =file= category so Marginalia and Embark treat them as files. Listing every file under a large directory can be slow.
 
 #+begin_src emacs-lisp -i
-;;; Better find-file
+;;;; Better find-file
 (defun sp-find-file ()
   "Find file from current directory in many different ways."
   (interactive)
@@ -177,7 +183,6 @@ Replaces the standard =find-file= binding on =C-x C-f= with =sp-find-file=. The 
 Provides the =sp-navi= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-navi)
 ;; sp-navi.el ends here.

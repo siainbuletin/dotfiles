@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-csv.el
+;;; sp-csv.el --- Create Org files from a CSV export -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -28,8 +27,6 @@
 
 ;; Example usage:
 ;; (create-org-files-from-csv "/path/to/your/file.csv")
-
-;;; Provide:
 
 (provide 'sp-csv)
 ;; sp-csv.el ends here.

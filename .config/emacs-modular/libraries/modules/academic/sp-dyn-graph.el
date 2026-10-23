@@ -1,9 +1,8 @@
-;; -*- lexical-binding: t -*-
-;; sp-dyn-graph.el
+;;; sp-dyn-graph.el --- Interactive note graph for Vulpea -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; 
+;;
 
 ;;; Code:
 
@@ -12,8 +11,6 @@
   :after (websocket simple-httpd)
   :commands
   (vulpea-graph vulpea-graph-mode))
-
-;;; Provide:
 
 (provide 'sp-dyn-graph)
 ;; sp-dyn-graph.el ends here.

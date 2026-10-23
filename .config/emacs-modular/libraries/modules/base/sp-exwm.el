@@ -1,4 +1,13 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-exwm.el --- EXWM window manager (opt-in) -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module would run Emacs as the X11 window manager using EXWM, based on
+;; the examples in the EXWM wiki. Everything is guarded by the option
+;; `siapip/use-exwm', which defaults to nil, so loading the file normally does
+;; nothing beyond defining that option.
+
+;;; Code:
 
 ;; See https://github.com/ch11ng/exwm/wiki
 ;; https://github.com/ch11ng/exwm/wiki/Configuration-Example

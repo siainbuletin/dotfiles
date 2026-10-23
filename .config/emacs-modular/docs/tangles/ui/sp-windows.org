@@ -4,11 +4,23 @@
 
 Literate source for =libraries/modules/ui/sp-windows.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-This module configures how Emacs windows (the panes inside a frame) are split, decorated, moved around and highlighted. Frames are handled separately in =sp-frame=. It installs =balanced-windows=, =ace-window=, =pulsar=, =buffer-move= and, when extras are enabled, =dimmer=, and binds the Emacs 31 window-layout commands.
+This module configures how Emacs windows (the panes inside a frame) are split, decorated, moved around and highlighted. Frames are handled separately in =sp-frame=. It installs =balanced-windows=, =ace-window=, =pulsar=, =buffer-move=, =dimmer=, and binds the Emacs 31 window-layout commands.
 
 The second half defines a set of interactive window helpers adapted from Lambda Emacs (named =lem-...=): toggling dedicated windows, swapping, rotating and re-splitting windows, and splitting with focus. The window prefix map in =sp-keys= binds these =lem-...= commands (rotate, toggle split, split and focus, exchange buffers); it used to name =sp-...= versions that do not exist, which left those leader keys dead.
 
 The module is part of the window management group in the default module list, loaded after =sp-frame= and =sp-buffers=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+This sub-library deals specifically with the issues of Windows in Emacs
+(frames should be treated separately).
+
+Eventually, the entire graphical environment and where information gets
+placed should be moved to a larger file regarding window management,
+and it should include controls for a daemonized Emacs which runs on a
+tiling window manager under Linux.
+#+end_quote
 
 * Header and commentary
 
@@ -17,8 +29,7 @@ The module is part of the window management group in the default module list, lo
 Lexical binding and the module's commentary. The author notes that window placement should eventually move into a broader window management file, including control of a daemonized Emacs under a Linux tiling window manager.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-windows.el --- Window setup
+;;; sp-windows.el --- Window layout, movement and helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -309,12 +320,11 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
 
 ** Dim inactive windows
 
-=dimmer= fades the text of non-selected windows by half to make the active window stand out. It only loads when =sp-load-extras= is non-nil and the package is installed, and starts on =after-init-hook=. The minibuffer is never dimmed, frame focus events are ignored, and the built-in helpers adjust dimming for which-key, Magit, posframe and Vertico.
+=dimmer= fades the text of non-selected windows by half to make the active window stand out. It starts on =after-init-hook=. The minibuffer is never dimmed, frame focus events are ignored, and the built-in helpers adjust dimming for which-key, Magit, posframe and Vertico.
 
 #+begin_src emacs-lisp -i
 ;;;; Dim inactive windows
 (use-package dimmer
-  :when (and sp-load-extras (locate-library "dimmer"))
   :hook (after-init . dimmer-mode)
   :custom
   (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
@@ -529,7 +539,6 @@ Binds =sp-goto-minibuffer-window= to =C-c m=.
 Provides the =sp-windows= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-windows)
 ;; sp-windows.el ends here.
