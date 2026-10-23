@@ -38,6 +38,7 @@ Enables =outline-minor-faces-mode= in Emacs Lisp, Lisp interaction and Lisp buff
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
+  :ensure t
   :after outline
   :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
 #+end_src
@@ -89,6 +90,7 @@ In programming buffers, =svg-tag-mode= draws matching text as rounded SVG labels
 ;;;; SVG Library (For Tags/Labels/etc.)
 ;;;;; SVG Tag Mode
 (use-package svg-tag-mode
+  :ensure t
   :when (image-type-available-p 'svg)
   :hook (prog-mode . svg-tag-mode)
   :config
@@ -129,6 +131,7 @@ Enables =highlight-numbers-mode= in programming buffers, giving numeric literals
 
 ;;;;; Highlight Numbers & TODOS
 (use-package highlight-numbers
+  :ensure t
   :defer t
   :commands highlight-numbers-mode
   :init
@@ -141,6 +144,7 @@ Enables =hl-todo-mode= in programming and Markdown buffers so keywords like TODO
 
 #+begin_src emacs-lisp -i
 (use-package hl-todo
+  :ensure t
   :defer t
   :commands hl-todo-mode
   :init
@@ -247,6 +251,7 @@ Enables =goggles-mode= in programming and text buffers, which briefly highlights
 #+begin_src emacs-lisp -i
 ;;;; Goggles (Highlight Changes)
 (use-package goggles
+  :ensure t
   :hook ((prog-mode text-mode) . goggles-mode)
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing

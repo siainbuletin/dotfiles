@@ -84,6 +84,7 @@ The Emacs Lisp CSL engine that =oc-csl= uses. It stays deferred until needed.
 #+begin_src emacs-lisp -i
 ;;;; Citeproc
 (use-package citeproc
+  :ensure t
   :defer t  ;; Defer loading until oc-csl needs it
   :after oc)
 #+end_src
@@ -100,6 +101,7 @@ A *gotcha*: the =when= form setting =citar-symbols= and the =setq= of =citar-not
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
+  :ensure t
   :commands (citar-open-notes
              citar-insert-citation)
   

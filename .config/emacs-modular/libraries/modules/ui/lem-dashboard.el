@@ -23,6 +23,7 @@
 
 ;; dashboard dependency
 (use-package page-break-lines
+  :ensure t
   :defer t
   :config
   (set-fontset-font "fontset-default"

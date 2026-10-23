@@ -42,6 +42,7 @@ Loads lazily on its three entry points =org-download-yank=, =org-download-screen
 
 #+begin_src emacs-lisp -i
 (use-package org-download
+  :ensure t
   :commands (org-download-yank org-download-screenshot org-download-image)
   :custom
   (org-download-method 'directory)

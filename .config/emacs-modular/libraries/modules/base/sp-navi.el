@@ -27,6 +27,7 @@ directory."
 ;; Make a useful outline buffer
 ;; Binding set to toggle "o"
 (use-package imenu-list
+  :ensure t
   :commands (imenu-list-smart-toggle imenu-list-minor-mode)
 
   :config

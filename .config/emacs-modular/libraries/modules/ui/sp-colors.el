@@ -12,6 +12,7 @@
 ;; https://github.com/emacsmirror/rainbow-mode
 ;; Colorize color names in buffers
 (use-package rainbow-mode
+  :ensure t
   ;; :commands rainbow-mode
   :config
   (progn (setq rainbow-x-colors nil)

@@ -95,13 +95,11 @@ Restricts completion to the inside of =[[...]]= brackets rather than offering no
 
 ** Dataview-like tables
 
-Loads the three table modules in dependency order: =sp-vulpea-dblock= (an Org dynamic block that renders a static property table from Vulpea queries), =sp-vulpea-vui-table= (an interactive table built with vui.el) and =sp-vulpea-table-views= (named views and inline mounting of those tables).
+Loads =sp-vulpea-table=, the entry point of the Vulpea table modules (the =vulpea-table= dynamic block, saved views, a query menu and the exc, vui and Org renderers). The parts it loads are described in [[file:../funct/sp-vulpea-table.org][sp-vulpea-table.org]].
 
 #+begin_src emacs-lisp -i
 ;; Create dataview-like tables through the vulpea query system
-(require 'sp-vulpea-dblock)
-(require 'sp-vulpea-vui-table)
-(require 'sp-vulpea-table-views)
+(require 'sp-vulpea-table)
 #+end_src
 
 ** Property conversion comment

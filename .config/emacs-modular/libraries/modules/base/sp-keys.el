@@ -264,6 +264,8 @@ the line, respectively."
 (autoload 'git-gutter:next-hunk     "git-gutter" "Move to next hunk."       t)
 (autoload 'git-gutter:previous-hunk "git-gutter" "Move to previous hunk."   t)
 (autoload 'git-gutter-mode          "git-gutter" "Toggle git-gutter-mode."  t)
+;; `sp-merge-pick' loads late, after Emacs is idle; this opens its graph log.
+(autoload 'sp-merge-pick-log        "sp-merge-pick" "Graph log for picking two commits." t)
 (bind-keys :prefix-map  lem+vc-keys
            :prefix (concat sp-prefix " g")
            ("b" .  magit-blame                 )
@@ -273,6 +275,8 @@ the line, respectively."
            ("l" .  magit-log                   )
            ;; show history of selected region
            ("L" .  magit-log-buffer-file       )
+           ;; graph log in which to pick two commits to review or merge
+           ("m" .  sp-merge-pick-log           )
            ("n" .  git-gutter:next-hunk        )
            ("p" .  git-gutter:previous-hunk    )
            ;; quick commit file
@@ -345,7 +349,8 @@ the line, respectively."
 ;; ASCII separator. Was U+2192 RIGHTWARDS ARROW; CLAUDE.md forbids
 ;; multi-byte Unicode in source files (AC-8 byte-vs-char check).
 (setq which-key-separator " -> ")
-(which-key-mode 1)
+;; `which-key-mode' is turned on by the `use-package which-key' form below. Calling
+;; it here would load the built-in which-key before Elpaca is activated.
 
 ;;;;; Hydras
 
@@ -456,7 +461,7 @@ an inline branching lambda from the prior implementation."
     (which-key-lighter nil)
     ;; (setq which-key-idle-delay 0.3) ;; no delay so I can actually get the previews in the minibuffer
     ;; (which-key-sort-order 'which-key-order-alpha) ;; error. see what are the actual symbols/options
-    (which-key-mode +1))
+    )
 
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))

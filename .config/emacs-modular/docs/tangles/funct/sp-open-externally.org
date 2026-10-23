@@ -41,6 +41,7 @@ Installs =openwith= and turns on the global =openwith-mode=. Because =openwith-a
 #+begin_src emacs-lisp -i
 ;; Taken from Emacs Writing Studio.
 (use-package openwith
+  :ensure t
   :config
   (openwith-mode t)
   :custom

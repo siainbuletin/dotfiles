@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
 
-The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and =sp-vulpea-table-views= builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-vulpea-table= modules builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
 
 The commentary at the top of the module says:
 

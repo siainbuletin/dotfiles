@@ -69,6 +69,7 @@ Forge needs a token to talk to GitHub. =auth-sources= is set to just =~/.authinf
 #+begin_src emacs-lisp -i
 ;;;; Forge settings
 (use-package forge
+  :ensure t
   :after magit)
 
 (setq auth-sources '("~/.authinfo"))

@@ -228,6 +228,7 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-homebrew
+  :ensure t
   :after eshell)
 #+end_src
 
@@ -237,6 +238,7 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcmpl-args
+  :ensure t
   :after eshell)
 #+end_src
 
@@ -246,6 +248,7 @@ Introduces the optional pcomplete packages.
 
 #+begin_src emacs-lisp -i
 (use-package pcomplete-extension
+  :ensure t
   :after eshell)
 #+end_src
 
@@ -256,6 +259,7 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Provide help support -- see also the info function below
 (use-package esh-help
+  :ensure t
   :after eshell
   :config
   ;; Eldoc support.
@@ -269,6 +273,7 @@ Introduces the optional pcomplete packages.
 #+begin_src emacs-lisp -i
 ;; Dir navigation -- see also dir jumping below
 (use-package eshell-up
+  :ensure t
   :commands (eshell-up)
   :config
   (defalias 'eshell/up #'eshell-up))
@@ -587,6 +592,7 @@ When available, highlights commands as you type in every Eshell buffer, showing 
 #+begin_src emacs-lisp -i
 ;;;;; Syntax Highlighting
 (use-package eshell-syntax-highlighting
+  :ensure t
   :after eshell
   :config
   ;; Enable in all Eshell buffers.
