@@ -80,7 +80,7 @@ Packages come from =use-package= with the Elpaca recipe in =:ensure=, never from
 
 * Old names
 
-The first version's commands still work as obsolete aliases: =sia-vulpea-open-table= (now the menu), =sia-vulpea-open-saved-table=, =sia-vulpea-insert-table-from-view=, =sia-insert-vulpea-table=, =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=), =sia-vulpea-refresh-all-tables=, =sia-vulpea-select-note= and =sia-vulpea-read-parent=. A views file written by the first version is read and converted. The rename to =sp-collection-query-tables= (2026-10-23) keeps the old =sp-vulpea-table-*= settings and main commands as obsolete aliases (the settings =-renderer=, =-install-exc=, =-refresh-delay=, =-link-titles=, =-views-file= and =-exc-column-widths=; the commands =-menu=, =-open=, =-open-view=, =-view-save=, =-view-delete=, =-insert-dblock=, =-inline-toggle=, =-inline-mount=, =-inline-unmount= and =-refresh-all=). The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=; while it does not exist, the old =sp-vulpea-table-views.el= is read instead. The dynamic block is =collection-query-table=; =#+BEGIN: vulpea-table= in existing notes still works. The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone: require =sp-collection-query-tables=. The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
+The first version's commands still work as obsolete aliases: =sia-vulpea-open-table= (now the menu), =sia-vulpea-open-saved-table=, =sia-vulpea-insert-table-from-view=, =sia-insert-vulpea-table=, =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=), =sia-vulpea-refresh-all-tables=, =sia-vulpea-select-note= and =sia-vulpea-read-parent=. A views file written by the first version is read and converted. The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=; while it does not exist, the old =sp-vulpea-table-views.el= is read instead. The dynamic block is =collection-query-table=; =#+BEGIN: vulpea-table= in existing notes still works. The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone: require =sp-collection-query-tables=. The settings and commands of the rename itself (=sp-vulpea-table-*=, now =sp-collec-query-*=) are not aliased: set and call the new names. The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
 
 * What was wrong, and what changed
 
@@ -150,49 +150,9 @@ The header lists the parts. =sp-collec-query-menu= is the front door and =sp-col
 ;;; Code:
 #+end_src
 
-The settings and commands of the module before the rename (=sp-vulpea-table-*=) are obsolete aliases, declared before the first =require= so a value set under an old name before this file loads carries over.
-
 #+begin_src emacs-lisp -i
 (require 'subr-x)
 
-;; Names before the rename.  Settings come first, so a value set under an old
-;; name before this file loads carries over to the new variable.
-(define-obsolete-variable-alias 'sp-vulpea-table-refresh-delay
-  'sp-collec-query-refresh-delay "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-exc-column-widths
-  'sp-collec-query-exc-column-widths "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-link-titles
-  'sp-collec-query-link-titles "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-views-file
-  'sp-collec-query-views-file "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-renderer
-  'sp-collec-query-renderer "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-install-exc
-  'sp-collec-query-install-exc "2026-10-23")
-
-(define-obsolete-function-alias 'sp-vulpea-table-menu
-  #'sp-collec-query-menu "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-open
-  #'sp-collec-query-open "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-open-view
-  #'sp-collec-query-open-view "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-view-save
-  #'sp-collec-query-view-save "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-view-delete
-  #'sp-collec-query-view-delete "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-insert-dblock
-  #'sp-collec-query-insert-dblock "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-toggle
-  #'sp-collec-query-inline-toggle "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-mount
-  #'sp-collec-query-inline-mount "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-unmount
-  #'sp-collec-query-inline-unmount "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-refresh-all
-  #'sp-collec-query-refresh-all "2026-10-23")
-#+end_src
-
-#+begin_src emacs-lisp -i
 (require 'sp-collection-query-tables-core)
 (require 'sp-collection-query-tables-views)
 (require 'sp-collection-query-tables-org)

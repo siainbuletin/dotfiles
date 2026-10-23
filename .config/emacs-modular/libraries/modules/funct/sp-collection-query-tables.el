@@ -22,42 +22,6 @@
 
 (require 'subr-x)
 
-;; Names before the rename.  Settings come first, so a value set under an old
-;; name before this file loads carries over to the new variable.
-(define-obsolete-variable-alias 'sp-vulpea-table-refresh-delay
-  'sp-collec-query-refresh-delay "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-exc-column-widths
-  'sp-collec-query-exc-column-widths "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-link-titles
-  'sp-collec-query-link-titles "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-views-file
-  'sp-collec-query-views-file "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-renderer
-  'sp-collec-query-renderer "2026-10-23")
-(define-obsolete-variable-alias 'sp-vulpea-table-install-exc
-  'sp-collec-query-install-exc "2026-10-23")
-
-(define-obsolete-function-alias 'sp-vulpea-table-menu
-  #'sp-collec-query-menu "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-open
-  #'sp-collec-query-open "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-open-view
-  #'sp-collec-query-open-view "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-view-save
-  #'sp-collec-query-view-save "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-view-delete
-  #'sp-collec-query-view-delete "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-insert-dblock
-  #'sp-collec-query-insert-dblock "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-toggle
-  #'sp-collec-query-inline-toggle "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-mount
-  #'sp-collec-query-inline-mount "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-inline-unmount
-  #'sp-collec-query-inline-unmount "2026-10-23")
-(define-obsolete-function-alias 'sp-vulpea-table-refresh-all
-  #'sp-collec-query-refresh-all "2026-10-23")
-
 (require 'sp-collection-query-tables-core)
 (require 'sp-collection-query-tables-views)
 (require 'sp-collection-query-tables-org)
