@@ -312,6 +312,7 @@
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
 (use-package ox-hugo
+  :ensure t
   :defer t  ;; Defer loading until needed for Hugo export
   :commands (org-hugo-export-as-md
              org-hugo-export-to-md
@@ -338,6 +339,7 @@
 
 ;;;; Org Html Conversion
 (use-package htmlize
+  :ensure t
   :commands (htmlize-buffer))
 
 ;;;; Clipboard conversion through Pandoc 

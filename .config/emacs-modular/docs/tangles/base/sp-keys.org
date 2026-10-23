@@ -551,7 +551,7 @@ The comment explains the trade-off of the idle delay, citing a James Cherti arti
 
 ** Popup placement
 
-The popup is shown as a side window at the top of the frame, using up to half its height, and =which-key-allow-imprecise-window-fit= is off so the window is sized exactly. The separator between key and description is an ASCII arrow (the comment explains that Unicode was removed from source files). Finally =which-key-mode= is enabled.
+The popup is shown as a side window at the top of the frame, using up to half its height, and =which-key-allow-imprecise-window-fit= is off so the window is sized exactly. The separator between key and description is an ASCII arrow (the comment explains that Unicode was removed from source files). =which-key-mode= itself is not called here: the =use-package= block below enables it once Elpaca is active.
 
 #+begin_src emacs-lisp -i
 ;; other witch key settings
@@ -562,7 +562,8 @@ The popup is shown as a side window at the top of the frame, using up to half it
 ;; ASCII separator. Was U+2192 RIGHTWARDS ARROW; CLAUDE.md forbids
 ;; multi-byte Unicode in source files (AC-8 byte-vs-char check).
 (setq which-key-separator " -> ")
-(which-key-mode 1)
+;; `which-key-mode' is turned on by the `use-package which-key' form below. Calling
+;; it here would load the built-in which-key before Elpaca is activated.
 #+end_src
 
 * Transient menus
@@ -706,7 +707,7 @@ Adds the =:hydra= keyword to =use-package=, also installed synchronously.
 
 ** Second which-key declaration
 
-This =use-package= block configures which-key again, on top of the =setq= settings above. It caps description length at 40 characters and hides the mode-line lighter. The last =:custom= entry treats =which-key-mode= as a variable to set to =+1=, which is redundant with the =:config= call; the commented-out lines show settings that were tried and abandoned.
+This =use-package= block configures which-key again, on top of the =setq= settings above. It caps description length at 40 characters and hides the mode-line lighter. The stray =(which-key-mode +1)= entry that used to end =:custom= is gone, since =:config= enables the mode; the commented-out lines show settings that were tried and abandoned.
 
 #+begin_src emacs-lisp -i
 ;; READING MORE ABOUT KEYBINDINGS AND GETTING TO USE THEM
@@ -723,7 +724,7 @@ This =use-package= block configures which-key again, on top of the =setq= settin
     (which-key-lighter nil)
     ;; (setq which-key-idle-delay 0.3) ;; no delay so I can actually get the previews in the minibuffer
     ;; (which-key-sort-order 'which-key-order-alpha) ;; error. see what are the actual symbols/options
-    (which-key-mode +1))
+    )
 #+end_src
 
 ** helm-descbinds

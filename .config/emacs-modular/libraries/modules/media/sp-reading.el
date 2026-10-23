@@ -21,6 +21,7 @@
 ;;  :ensure t)
 
 (use-package calibredb
+  :ensure t
   :defer t
   :config
   (setq calibredb-root-dir (sp-path sp-documents-dir "calibre-library"))

@@ -349,7 +349,8 @@ the line, respectively."
 ;; ASCII separator. Was U+2192 RIGHTWARDS ARROW; CLAUDE.md forbids
 ;; multi-byte Unicode in source files (AC-8 byte-vs-char check).
 (setq which-key-separator " -> ")
-(which-key-mode 1)
+;; `which-key-mode' is turned on by the `use-package which-key' form below. Calling
+;; it here would load the built-in which-key before Elpaca is activated.
 
 ;;;;; Hydras
 
@@ -460,7 +461,7 @@ an inline branching lambda from the prior implementation."
     (which-key-lighter nil)
     ;; (setq which-key-idle-delay 0.3) ;; no delay so I can actually get the previews in the minibuffer
     ;; (which-key-sort-order 'which-key-order-alpha) ;; error. see what are the actual symbols/options
-    (which-key-mode +1))
+    )
 
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))

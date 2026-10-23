@@ -26,11 +26,18 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Package
 
-Loads =consult-snapfile= from the local checkout after Consult and websocket are available, and binds =C-c s f= to =consult-snapfile=. If the directory does not exist, the package will not be found.
+Loads =consult-snapfile= from the local checkout after Consult and websocket are available, and binds =C-c s f= to =consult-snapfile=. If the directory does not exist, the package will not be found. The checkout path goes through the constant =sp-consult-snapfile-dir=, because =use-package= reads a list given to =:load-path= as a list of paths and would evaluate =sp-path= as a variable. =:ensure nil= keeps Elpaca from looking for the package in an archive.
 
 #+begin_src emacs-lisp -i
+;; `:load-path' reads a list as a list of paths and evaluates each symbol in it as a
+;; variable, so a call to `sp-path' has to go through a variable.
+(defconst sp-consult-snapfile-dir
+  (sp-path sp-clones-dir "cloned-utilities/consult-snapfile/emacs")
+  "Local checkout of the consult-snapfile client.")
+
 (use-package consult-snapfile
-  :load-path (sp-path sp-clones-dir "cloned-utilities/consult-snapfile/emacs")
+  :ensure nil
+  :load-path sp-consult-snapfile-dir
   :after (consult websocket)
   ;; Optional: bind to your preferred key
   :bind ("C-c s f" . consult-snapfile))

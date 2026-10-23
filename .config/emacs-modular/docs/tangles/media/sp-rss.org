@@ -36,6 +36,7 @@ Configures =elfeed= with its database in an =elfeed= folder in =user-emacs-direc
 
 #+begin_src emacs-lisp -i
 (use-package elfeed
+  :ensure t
   :custom
   (elfeed-db-directory
    (expand-file-name "elfeed" user-emacs-directory))

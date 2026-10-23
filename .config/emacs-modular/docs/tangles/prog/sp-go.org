@@ -12,7 +12,7 @@ It builds on the LSP and company defaults from =sp-base-code= and needs the =go=
 
 ** Helper packages
 
-Declares seven Go related packages, all deferred: =go-guru= for code queries and identifier highlighting, =go-eldoc= for signatures in the echo area, =godoctor= for refactoring, =go-scratch= and =go-playground= for throwaway code, =flycheck-golangci-lint= for linting, and =go-complete= for completion. Whether they are installed depends on the package manager's default ensure setting, which this file does not set. Note that the upstream =guru= tool has been deprecated by the Go team.
+Declares seven Go related packages, all deferred: =go-guru= for code queries and identifier highlighting, =go-eldoc= for signatures in the echo area, =godoctor= for refactoring, =go-scratch= and =go-playground= for throwaway code, =flycheck-golangci-lint= for linting, and =go-complete= for completion. Note that the upstream =guru= tool has been deprecated by the Go team. The forms sit after =go-mode= in the file, because most of them require it and Elpaca would otherwise queue =go-mode= as a dependency first and warn.
 
 #+begin_src emacs-lisp -i
 ;;; sp-go.el --- Go development setup -*- lexical-binding: t; -*-
@@ -28,20 +28,6 @@ Declares seven Go related packages, all deferred: =go-guru= for code queries and
 
 ;;; Code:
 
-(use-package go-guru
-  :defer t)
-(use-package go-eldoc
-  :defer t)
-(use-package godoctor
-  :defer t)
-(use-package go-scratch
-  :defer t)
-(use-package go-playground
-  :defer t)
-(use-package flycheck-golangci-lint
-  :defer t)
-(use-package go-complete
-  :defer t)
 #+end_src
 
 * Tool installer and go-mode
@@ -69,6 +55,7 @@ In =go-mode=, TAB indents or completes with company, =F1= describes the thing at
       (message "Completed: %s" cmd))
     (message "All Go dependencies installed!")))
 (use-package go-mode
+  :ensure t
   :defer t
   :bind
   (:map go-mode-map
@@ -101,4 +88,27 @@ In =go-mode=, TAB indents or completes with company, =F1= describes the thing at
   (setq go-godoc-reuse-buffer t)
   (setq godoc-at-point-function 'godoc-gogetdoc)
   (setq godoc-use-completing-read t))
+
+;; After `go-mode', which most of these require.
+(use-package go-guru
+  :ensure t
+  :defer t)
+(use-package go-eldoc
+  :ensure t
+  :defer t)
+(use-package godoctor
+  :ensure t
+  :defer t)
+(use-package go-scratch
+  :ensure t
+  :defer t)
+(use-package go-playground
+  :ensure t
+  :defer t)
+(use-package flycheck-golangci-lint
+  :ensure t
+  :defer t)
+(use-package go-complete
+  :ensure t
+  :defer t)
 #+end_src

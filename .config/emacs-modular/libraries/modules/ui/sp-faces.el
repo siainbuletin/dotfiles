@@ -13,6 +13,7 @@
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
+  :ensure t
   :after outline
   :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
 
@@ -40,6 +41,7 @@
 ;;;; SVG Library (For Tags/Labels/etc.)
 ;;;;; SVG Tag Mode
 (use-package svg-tag-mode
+  :ensure t
   :when (image-type-available-p 'svg)
   :hook (prog-mode . svg-tag-mode)
   :config
@@ -66,12 +68,14 @@
 
 ;;;;; Highlight Numbers & TODOS
 (use-package highlight-numbers
+  :ensure t
   :defer t
   :commands highlight-numbers-mode
   :init
   (add-hook 'prog-mode-hook #'highlight-numbers-mode))
 
 (use-package hl-todo
+  :ensure t
   :defer t
   :commands hl-todo-mode
   :init
@@ -138,6 +142,7 @@
 
 ;;;; Goggles (Highlight Changes)
 (use-package goggles
+  :ensure t
   :hook ((prog-mode text-mode) . goggles-mode)
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing

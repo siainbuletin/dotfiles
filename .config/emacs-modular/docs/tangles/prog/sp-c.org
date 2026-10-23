@@ -65,6 +65,7 @@ Installs =cmake-mode= lazily and also associates files named =CMakeInstallTarget
 
 #+begin_src emacs-lisp -i
 (use-package cmake-mode
+  :ensure t
   :defer t
   :mode (("CMakeInstallTargets\\.txt\\'" . cmake-mode))
   :bind (:map cmake-mode-map

@@ -57,6 +57,7 @@ Result depends on syntax table's comment character."
   (global-semantic-idle-completions-mode -1))
 
 (use-package srefactor
+  :ensure t
   :defer t)
 ;(use-package auto-complete
 ;  :init
@@ -67,15 +68,13 @@ Result depends on syntax table's comment character."
 
 ;; (use-package auto-complete-auctex)
 
-(use-package company-quickhelp
-  :defer t)
-
 (defun company-init-quickhelp (b-enable)
   "Initialize company-quickhelp only if company is running"
   (company-quickhelp-mode t)
   (remove-hook 'company-completion-started-hook 'company-init-quickhelp t))
 
 (use-package company
+  :ensure t
   :defer t
 
   :init 
@@ -95,6 +94,7 @@ Result depends on syntax table's comment character."
 ) 
 
 (use-package lsp-mode
+  :ensure t
   :defer t
   :commands (lsp lsp-deferred)
   :config (setq lsp-prefer-flymake nil
@@ -105,6 +105,11 @@ Result depends on syntax table's comment character."
                 lsp-file-watch-threshold 10000)
           (setq lsp-client-packages (delete 'lsp-java lsp-client-packages)))
 
+;; After `company', which it requires.
+(use-package company-quickhelp
+  :ensure t
+  :defer t)
+
 (use-package flycheck
   :ensure t
   :defer t
@@ -112,6 +117,7 @@ Result depends on syntax table's comment character."
   )
   
 (use-package lsp-ui
+  :ensure t
   :defer t
   :bind (:map lsp-ui-doc-frame-mode-map          
     ([mouse-1] . #'ignore)

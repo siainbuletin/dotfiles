@@ -81,6 +81,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 ;;;; Org Contrib
 (use-package org-contrib
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -97,6 +98,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
+  :ensure t
   :hook (org-mode . org-autolist-mode))
 #+end_src
 
@@ -106,6 +108,7 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 #+begin_src emacs-lisp -i
 (use-package org-journal
+  :ensure t
   :defer t
   :bind
   (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))
