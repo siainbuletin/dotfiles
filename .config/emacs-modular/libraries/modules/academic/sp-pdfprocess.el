@@ -1,7 +1,11 @@
-;; -*- lexical-binding: t; -*-
-;; sp-pdfprocess.el
+;;; sp-pdfprocess.el --- PDF metadata and the emacs-reader viewer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; Utilities for working with PDF files in the academic setup. It has a command
+;; that writes a reference's title and author from the Citar bibliography into
+;; the PDF's metadata using the external `exiftool' program, and it installs
+;; the `emacs-reader' document viewer from Codeberg.
 
 ;;; Code:
 
@@ -24,12 +28,6 @@
         (copy-file file sia-citar-library-backup-path 1)
         (call-process-shell-command
          (concat "exiftool -overwrite_original_in_place -Title='" title "' -Author='" author "' " file))))))
-
-;;;; Calling emacs-reader
-(use-package emacs-reader
-  :ensure (:type git :url "https://codeberg.org/MonadicSheep/emacs-reader.git"))
-
-;;; Provide:
 
 (provide 'sp-pdfprocess)
 ;; sp-pdfprocess.el ends here.

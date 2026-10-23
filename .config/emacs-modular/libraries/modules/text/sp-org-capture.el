@@ -1,4 +1,4 @@
-;;; -*- lexical-binding: t -*-
+;;; sp-org-capture.el --- Org capture templates and capture frames -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -7,29 +7,17 @@
 ;; the weather at a given point.
 ;;
 ;; org-capture should be well plugged into org-gtd to fit with the workflow.
+;;
+;; Every capture template is defined here and nowhere else (modules do not
+;; add their own), and the only inbox is ~/notes/inbox.org.
 
 ;;; Code:
 
 ;;;; Capture mechanisms
 
 ;;;;; Org Directories
-;; Set these if you're using org
-;; the org-agenda thing should be adapted so that it reflects the
-;; conventions set by vulpea-para
-(setq org-default-notes-file (concat org-directory "inbox.org")
-      org-agenda-files (list org-directory))
-
-
-;; Org-capture note creation with Denote
-(with-eval-after-load 'org-capture
-  (add-to-list 'org-capture-templates
-               '("n" "New note (with Denote)" plain
-                 (file denote-last-path)
-                 #'denote-org-capture
-                 :no-save t
-                 :immediate-finish nil
-                 :kill-buffer t
-                 :jump-to-captured t)))
+;; The only inbox
+(setq org-default-notes-file (concat org-directory "inbox.org"))
 
 ;; Example note creation function
 (defun lem-insert-header-and-time-property ()
@@ -42,14 +30,33 @@
 (keymap-global-set "C-c c" #'org-capture)
 
 (setq org-capture-templates
-        `(
-          ("l" "Listening log" entry
-           (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
-           "* %U\n %i\n %a")
+      `(("t" "Task" entry
+         (file+headline "inbox.org" "Tasks")
+         (function vulpea-para-capture-task-template))
 
-          ("i" "Idea or quick thought to take care of" entry
-           (file ,(sp-path sp-notes-dir "inbox/thoughts-capture.org")))
-))
+        ("i" "Idea or quick thought" entry
+         (file+headline "inbox.org" "Thoughts")
+         "* %?\n%U")
+
+        ("p" "PARA project" entry
+         (function vulpea-para-capture-project-target)
+         (function vulpea-para-capture-project-template))
+
+        ("I" "Issue" entry
+         (function sp-org-issues-capture-target)
+         (function sp-org-issues-capture-template))
+
+        ("n" "New note (with Denote)" plain
+         (file denote-last-path)
+         #'denote-org-capture
+         :no-save t
+         :immediate-finish nil
+         :kill-buffer t
+         :jump-to-captured t)
+
+        ("l" "Listening log" entry
+         (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
+         "* %U\n %i\n %a")))
 
 ;; See also sp-vulpea.el for task capturing 
 

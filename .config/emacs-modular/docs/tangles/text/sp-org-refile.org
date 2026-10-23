@@ -17,7 +17,18 @@ The approach comes from Aaron Bieber's article and from Lambda Emacs, and the au
 Lexical binding and the author's notes: a link to the source article, a description of the intended behaviour, a doubt about whether the setting from Lambda Emacs still works after being rewritten with =use-package=, and the wish to adapt it to Vulpea.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-org-refile.el --- Org refile targets and caching -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module configures Org's refile command (`C-c C-w'), which moves the
+;; heading at point under another heading. It sets the list of possible targets
+;; (open Org buffers, the current file, and the agenda files), makes the
+;; completion show full outline paths in one step, allows creating new parent
+;; headings, and caches the target list, rebuilding it in the background when
+;; Emacs is idle.
+
+;;; Code:
 
 ;;;; Org Refile
 
@@ -90,9 +101,9 @@ A repeating idle timer runs after 300 seconds of idleness: it clears the refile 
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-org-refile=.
+Provides the =sp-org-refile= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-refile)

@@ -8,40 +8,27 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
 
-The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and =sp-vulpea-table-views= builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-vulpea-table= modules builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+These are all the schemas that are used by vulpea.
+#+end_quote
 
 * Overview
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t -*-
-;; sp-vulpea-schemas.el
-#+end_src
+;;; sp-vulpea-schemas.el --- Vulpea note schemas -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Purpose
-
-States that this file holds every schema Vulpea uses.
-
-#+begin_src emacs-lisp -i
 ;; These are all the schemas that are used by vulpea.
-#+end_src
 
-** Code marker
-
-Start of the code section.
-
-#+begin_src emacs-lisp -i
 ;;; Code:
 #+end_src
 
@@ -287,9 +274,7 @@ The =album= schema applies to notes tagged =album=. It requires a =creator= link
 
 * Provide
 
-** Provide form
-
-Makes the module available as =sp-vulpea-schemas=.
+Provides the =sp-vulpea-schemas= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-schemas)

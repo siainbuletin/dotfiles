@@ -1,4 +1,4 @@
-#+TITLE: sp-vulpea-para.el: Vulpea PARA agenda and capture wiring
+#+TITLE: sp-vulpea-para.el: Vulpea PARA agenda files
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-vulpea-para.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
@@ -6,91 +6,151 @@ Literate source for =libraries/modules/text/sp-vulpea-para.el=. Every line of th
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module wires the =vulpea-para= library into Org's agenda and capture. vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database; a copy of it is kept under =libraries/modules/cloned/vulpea-para/=. Here it filters which notes count as agenda files, sets an Area and Project prefix in agenda lines, and defines task and project capture templates.
+This module wires the =vulpea-para= library into Org's agenda. vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database; a copy of it is kept under =libraries/modules/cloned/vulpea-para/=. Here it decides which files are agenda files: =vulpea-para-agenda-mode= keeps an =agenda= tag on every vault file that holds open work, and sets =org-agenda-files= from the database before each agenda, so Emacs does not visit every file to find out. Notes tagged =cemetery= are kept out. This is the only place that controls the agenda files; see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]].
 
-It is required by =sp-org-ext=, after =sp-org-capture= and =sp-org-agenda=. It adds its capture templates to =org-capture-templates= with =add-to-list=, so the templates earlier modules set stay available; it used to assign the variable with plain =setq=, which replaced them. Its agenda view was moved to =sp-agenda-views=, which adds it to =org-agenda-custom-commands= in the same way. =org-agenda-prefix-format= is still assigned with =setq=, so the value here replaces whatever an earlier module set for it.
+It is required by =sp-org-ext=. The agenda line prefix is set in =sp-org-agenda=, the capture templates in =sp-org-capture= and the views in =sp-agenda-views=, so none of them is touched here.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Vulpea PARA agenda wiring: which files are agenda files.
+#+end_quote
 
 * Header
 
 ** File header
 
-The file header, commentary marker and a section title.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-para.el
+;;; sp-vulpea-para.el --- Vulpea PARA agenda files -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; VULPEA PARA SETUP
+;; Vulpea PARA agenda wiring: which files are agenda files.
+
+;;; Code:
 #+end_src
 
 * Vulpea PARA setup
 
 ** Load vulpea-para
 
-Loads =vulpea-para=. The library's =vulpea-para-setup-defaults= is commented out, with a note asking how to do that setup by hand instead; the rest of this file is that manual setup.
+Loads =vulpea-para= and the keyword module. =vulpea-para-setup-defaults= is not used: it overwrites the custom commands, the prefix format and the refile options, which this configuration sets itself.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea-para)
-;; (vulpea-para-setup-defaults)
-;; How can you do the setup defaults manually, instead?
+(require 'sp-org-keywords)
 #+end_src
 
-** Agenda file filter
+* Agenda files
 
-=vulpea-para-agenda-files-filter= is given a predicate that excludes any note tagged =cemetery=, so retired notes never become agenda files.
+** Cemetery filter
+
+=sp-vulpea-para-agenda-note-p= is the predicate =vulpea-para-agenda-files-filter= calls with each note tagged =agenda=: it returns nil for a note tagged =cemetery=, so retired projects and archived to-dos never become agenda files, even though they still hold the =agenda= tag. vulpea-para's checks for missing files know about the filter and leave those files out on purpose. A named function makes it testable (=tests/sp-vulpea-para-test.el=).
 
 #+begin_src emacs-lisp -i
+(defun sp-vulpea-para-agenda-note-p (note)
+  "Return non-nil when NOTE may be an agenda file.
+Notes tagged \"cemetery\" are kept out."
+  (not (vulpea-note-tagged-any-p note "cemetery")))
+
 ;; keep a cemetery (or anything) out of the agenda file list
-(setq vulpea-para-agenda-files-filter
-      (lambda (note)
-        (not (vulpea-note-tagged-any-p note "cemetery"))))
+(setq vulpea-para-agenda-files-filter #'sp-vulpea-para-agenda-note-p)
 #+end_src
 
-* Agenda
+** Done keywords and the inbox
 
-The main agenda view built from vulpea-para's blocks now lives in =sp-agenda-views= (see =sp-org-agenda.org=); only the agenda line prefix stays here.
-
-** Agenda line prefix
-
-Sets the agenda prefix so each line starts with vulpea-para's category string, its Area and Project path truncated to 36 characters, followed by the time and scheduling information in the agenda view, or just the category in TODO lists.
+The database-side checks of vulpea-para need to know which keywords mean finished; they come from =sp-org-keywords=, so there is one list. =inbox.org= always counts as holding open work, so the inbox stays on the agenda to be emptied.
 
 #+begin_src emacs-lisp -i
-;; the Area > Project prefix in the agenda
-(setq org-agenda-prefix-format
-      '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
-        (todo   . " %(vulpea-para-agenda-category 36) ")))
+(setq vulpea-para-done-keywords (sp-org-keywords-done))
+(setq vulpea-para-open-work-files '("inbox.org"))
 #+end_src
 
-* Capture
+** Agenda mode
 
-** Capture templates
-
-Adds two entries to =org-capture-templates=, after any set by earlier modules: =t= files a task under the Tasks heading of =inbox.org= in =org-directory= using vulpea-para's task template, and =p= creates a project, where both the target location and the template come from vulpea-para functions.
+Turns on =vulpea-para-agenda-mode=: vault buffers maintain their =agenda= tag when saved, and =org-agenda-files= is refreshed from the database before =org-agenda= and =org-todo-list=. Views that restrict the files themselves bind =vulpea-para-agenda-inhibit-files-update= (see =sp-agenda-views=). Entry points that bypass both (the splash, =sp-trails=) read the variable as it was last set, so it is also refreshed once, shortly after start-up, when the database is ready. Files saved before the mode was on get the tag from vulpea-para's backfill commands (run them once).
 
 #+begin_src emacs-lisp -i
-;; Wiring org-capture into vulpea-para
-(dolist (template
-         '(("t" "task" entry
-            (file+headline "inbox.org" "Tasks")
-            (function vulpea-para-capture-task-template))
+(vulpea-para-agenda-mode 1)
 
-           ("p" "project" entry
-            (function vulpea-para-capture-project-target)
-            (function vulpea-para-capture-project-template))))
-  (add-to-list 'org-capture-templates template t))
+(defun sp-vulpea-para-refresh-agenda-files ()
+  "Set `org-agenda-files' from the database, ignoring errors."
+  (condition-case err
+      (vulpea-para-agenda-files-update)
+    (error (message "[vulpea-para] agenda files not set yet: %s"
+                    (error-message-string err)))))
+
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-idle-timer 3 nil #'sp-vulpea-para-refresh-agenda-files)))
 #+end_src
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-vulpea-para= feature so =sp-org-ext= can require it.
+Provides the =sp-vulpea-para= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-vulpea-para)
 ;; sp-vulpea-para.el ends here.
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-vulpea-para-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-vulpea-para-test.el= and run headless, from the folder of =init.el=:
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-vulpea-para-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+** Cemetery filter
+
+A fake note is a plist of tags; headless, =vulpea-para=, =vulpea= and the keyword module are provided as stand-ins, so only the filter and the configuration around it are exercised. A note tagged =cemetery= must not be an agenda file, whatever else it is tagged, and the filter must be what =vulpea-para-agenda-files-filter= holds.
+
+#+begin_src emacs-lisp -i
+;;; sp-vulpea-para-test.el --- Tests for sp-vulpea-para  -*- lexical-binding: t; -*-
+
+;;; Code:
+
+(require 'ert)
+
+(when noninteractive
+  (provide 'vulpea-para)
+  (defvar vulpea-para-agenda-files-filter nil)
+  (defvar vulpea-para-done-keywords nil)
+  (defvar vulpea-para-open-work-files nil)
+  (defun vulpea-para-agenda-mode (&rest _) nil)
+  (defun vulpea-note-tagged-any-p (note &rest tags)
+    (seq-intersection (plist-get note :tags) tags))
+  (load (expand-file-name
+         "../libraries/modules/text/sp-org-keywords.el"
+         (file-name-directory (or load-file-name buffer-file-name)))
+        nil t))
+
+(load (expand-file-name
+       "../libraries/modules/text/sp-vulpea-para.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(ert-deftest sp-vulpea-para-test-cemetery-is-kept-out ()
+  (should-not (sp-vulpea-para-agenda-note-p '(:tags ("cemetery"))))
+  (should-not (sp-vulpea-para-agenda-note-p '(:tags ("agenda" "cemetery")))))
+
+(ert-deftest sp-vulpea-para-test-other-notes-are-kept ()
+  (should (sp-vulpea-para-agenda-note-p '(:tags ("agenda"))))
+  (should (sp-vulpea-para-agenda-note-p '(:tags ("agenda" "project")))))
+
+(ert-deftest sp-vulpea-para-test-filter-is-installed ()
+  (should (eq vulpea-para-agenda-files-filter #'sp-vulpea-para-agenda-note-p)))
+
+(ert-deftest sp-vulpea-para-test-inbox-always-counts-as-open-work ()
+  (should (member "inbox.org" vulpea-para-open-work-files)))
+
+(ert-deftest sp-vulpea-para-test-done-keywords-come-from-the-keyword-module ()
+  (should (equal vulpea-para-done-keywords (sp-org-keywords-done))))
 #+end_src

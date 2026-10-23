@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-browsing.el --- Web browsing inside Emacs -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

@@ -21,7 +21,7 @@ digraph modules {
     p1 -> p2 -> p3;
   }
   subgraph cluster_2 { label="2  UI"; style=rounded; color="#999999"; fontname="Helvetica";
-    u1 [label="sp-icons  sp-colors  sp-faces\nsp-fonts  sp-textui  sp-themes"];
+    u1 [label="sp-icons  sp-colors  sp-faces\nsp-fonts  sp-emoji-font\nsp-textui  sp-themes"];
     u2 [label="sp-frame  sp-buffers  sp-windows\nsp-tabs  sp-mini-frame\n(ace-window)"];
     u3 [label="sp-treemacs  sp-writedesk\nlem-dashboard  sp-canvas"];
     u1 -> u2 -> u3;
@@ -34,13 +34,14 @@ digraph modules {
     e1 -> e2 -> e3 -> e4;
   }
   subgraph cluster_4 { label="4  Org"; style=rounded; color="#999999"; fontname="Helvetica";
-    o1 [label="sp-org-base  sp-denote\nsp-org-appearance  sp-org-capture"];
+    o1 [label="sp-org-base  sp-org-keywords\nsp-denote  sp-org-appearance"];
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
-    o3 [label="sp-org-agenda\ndeclares first: org-super-agenda\nthen: org-ql (requires org-super-agenda)"];
+    o3 [label="sp-org-agenda\n(org-other-agenda, elegant-agenda-mode)\ndeclares first: org-super-agenda (:wait t)\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para, agenda-views,\nvulpea-schemas, vulpea-ext"];
-    o6 [label="sp-org-issues  sp-csv  sp-trails"];
-    o1 -> o2 -> o3 -> o4 -> o5 -> o6;
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext"];
+    o6 [label="sp-csv  sp-org-normalise\nsp-org-issues"];
+    o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)"];
+    o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions and programming"; style=rounded; color="#999999"; fontname="Helvetica";
     f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-link-conversion  sp-org-lint"];
@@ -50,23 +51,26 @@ digraph modules {
     f1 -> g1 -> g2 -> g3;
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
-    l1 [label="sp-academic  sp-notes  sp-semantic\nsp-graphs\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+    l1 [label="sp-academic  sp-notes  sp-trails\nsp-semantic  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
-    l3 [label="sp-vcontrol  →  sp-magit-style\n(magit, forge, code-review)", color="#3a6ea5"];
+    l3 [label="sp-vcontrol  →  sp-magit-style\n→  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
     l4 [label="sp-terminal  sp-eshell", color="#3a6ea5"];
     l5 [label="sp-ai\n(gptel, gptel-agent, claude-code, vulpea-mcp, ...)", color="#3a6ea5"];
-    l1 -> l2 -> l3 -> l4 -> l5;
+    l6 [label="sp-tag-emoji  sp-thesis-dump", color="#3a6ea5"];
+    l1 -> l2 -> l3 -> l4 -> l5 -> l6;
   }
   p3 -> u1 [ltail=cluster_1, lhead=cluster_2];
   u3 -> e1 [ltail=cluster_2, lhead=cluster_3];
   e4 -> o1 [ltail=cluster_3, lhead=cluster_4];
-  o6 -> f1 [ltail=cluster_4, lhead=cluster_5];
+  o7 -> f1 [ltail=cluster_4, lhead=cluster_5];
   g3 -> l1 [ltail=cluster_5, lhead=cluster_6, style=dashed, label="after startup"];
 }
 #+end_src
 
 #+RESULTS:
 [[file:load-order-modules.svg]]
+
+(The Org box above changed with [[file:../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]: =sp-org-keywords= comes after =sp-org-base=, and =sp-org-capture= and =sp-agenda-views= load last in the box.)
 
 Inside a box the modules are independent of each other. An arrow means "has to come before" (it points from the package that is required to the one that requires it, the opposite of a dependency arrow). The parenthesised names are the packages whose position matters.
 
@@ -137,7 +141,7 @@ The =Package-Requires= headers were read from each package's upstream repository
 =emr= in =sp-prog-misc= requires =paredit=, which =sp-lisp= installs. The two modules swap places. =sp-lisp= does not use anything from =sp-prog-misc=.
 
 ** Late modules
-=sp-academic=, =sp-notes=, =sp-semantic=, =sp-graphs= (which holds the four graph modules that were listed one by one before), =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell= and =sp-ai= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style=), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
+=sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-graphs= (which holds the four graph modules that were listed one by one before), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-ai=, =sp-tag-emoji= and =sp-thesis-dump= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=; =sp-embr= after =sp-graphs=, whose live view it shows), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
 
 - no other module =require=s them, so nothing is left waiting for them;
 - they install the most and the heaviest packages (the AI tools, =org-ref= with its dependencies, =magit= with =forge= and =code-review=);

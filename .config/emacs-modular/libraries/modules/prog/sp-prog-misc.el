@@ -1,7 +1,17 @@
-;; -*- lexical-binding: t; -*-
-;; sp-prog-misc.el --- miscellaneous utilities for programming
+;;; sp-prog-misc.el --- Miscellaneous programming packages and editor defaults -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A grab bag of programming-related packages and general editor settings. It
+;; installs a set of major modes for configuration and data formats (YAML,
+;; JSON, Dockerfiles, systemd units and more), visual helpers such as
+;; `rainbow-delimiters' and `git-gutter', and `envrc' for per-directory
+;; environments.
+
+;;; Code:
 
 (use-package emr
+  :ensure t
   :defer t)
 
 (use-package rainbow-delimiters
@@ -10,39 +20,51 @@
          (salt-mode . rainbow-delimiters-mode)))
 
 (use-package x509-mode
+  :ensure t
   :defer t)
 
 (use-package yaml-mode
+  :ensure t
   :defer t)
 
 (use-package dot-mode
+  :ensure t
   :defer t)
 
 (use-package dockerfile-mode
+  :ensure t
   :defer t)
 
 (use-package docker-compose-mode
+  :ensure t
   :defer t)
 
 (use-package json-mode
+  :ensure t
   :defer t)
 
 (use-package elf-mode
+  :ensure t
   :defer t)
 
 (use-package demangle-mode
+  :ensure t
   :defer t)
 
 (use-package systemd
+  :ensure t
   :defer t)
 
 (use-package easy-hugo
+  :ensure t
   :defer t)
 
 (use-package gh-md
+  :ensure t
   :defer t)
 
 (use-package ein
+  :ensure t
   :defer t)
 
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
@@ -197,8 +219,6 @@ mode."
 ;;;; Linting code well enough
 ;; If you save a file that doesn't end with a newline, automatically append one.
 (setq require-final-newline t)
-
-;;; Provide:
 
 (provide 'sp-prog-misc)
 ;; sp-prog-misc.el ends here.

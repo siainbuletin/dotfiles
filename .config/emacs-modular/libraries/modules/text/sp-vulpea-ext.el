@@ -1,7 +1,13 @@
-;; -*- lexical-binding: t; -*-
-;; sp-vulpea-ext.el
+;;; sp-vulpea-ext.el --- Vulpea extensions loader -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
+;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
+;; own Vulpea extension modules: dataview-style tables, property conversion,
+;; grouped backlinks and a smarter heading split.
+
+;;; Code:
 
 ;;;; Recursive loading for the modules
 (let ((default-directory (expand-file-name "modules/" sp-library-dir)))
@@ -10,7 +16,7 @@
 
 ;; Integration with other packages
 
-;;; Code:
+
 
 ;; JOURNALING
 (use-package vulpea-journal
@@ -29,9 +35,7 @@
 (setq vulpea-capf-annotate-function t)
 
 ;; Create dataview-like tables through the vulpea query system
-(require 'sp-vulpea-dblock)
-(require 'sp-vulpea-vui-table)
-(require 'sp-vulpea-table-views)
+(require 'sp-vulpea-table)
 
 ;; Batch converting properties to plug into vulpea instead
 
@@ -41,10 +45,8 @@
 
 (require 'sp-vulpea-grouped-backlinks)
 
-;;; Making vulpea-split-heading smart (ensure backlinks)
+;;;; Making vulpea-split-heading smart (ensure backlinks)
 (require 'sp-vulpea-split)
-
-;;; Provide:
 
 (provide 'sp-vulpea-ext)
 ;; sp-vulpea-ext.el

@@ -1,11 +1,20 @@
-;; -*- lexical-binding: t -*-
+;;; sp-org-archive.el --- Org archiving and Palimpsest -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets where Org archives completed subtrees, adds a command to
+;; archive every DONE and CANCELED task in the current file at once, and
+;; configures `palimpsest', a minor mode that moves text out of the way instead
+;; of deleting it.
+
+;;; Code:
 
 ;; Tell org where to archive completed tasks. Wrapped in
 ;; with-eval-after-load because `org-directory' is defined by org
 ;; and is not bound at require time. Before Spec 02 this ran at
 ;; top-level and crashed module-load with `void-variable
 ;; org-directory' whenever the file was required before org was
-;; loaded (e.g. a cold sandbox boot with sp-load-extras nil).
+;; loaded (e.g. a cold sandbox boot).
 (with-eval-after-load 'org
   (setq org-archive-location (concat org-directory "/org-archive/archived.org::datetree/")))
 
@@ -37,7 +46,7 @@
 ;; - Send selected text to a trash file
 
 (use-package palimpsest
-  :when (and sp-load-extras (locate-library "palimpsest"))
+  :ensure t
   :diminish palimpsest-mode
   :hook ((markdown-mode org-mode) . palimpsest-mode)
   :custom

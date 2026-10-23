@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-frame.el
+;;; sp-frame.el --- Frame appearance, margins and frame helpers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -49,10 +48,10 @@ If FRAME is omitted or nil, use currently selected frame."
 ;; un/comment this hook if you want frames recentered
 (add-hook 'after-make-frame-functions #'sp-frame-recenter)
 
-;;; Enabling keycast header line mode by default
+;;;; Enabling keycast header line mode by default
 (keycast-header-line-mode 1)
 
-;;;; Window Margins for Text Indentation
+;;;;; Window Margins for Text Indentation
 ;; Add margins to windows to maintain text indentation with smaller frame borders
 (defun sp-set-window-margins ()
   "Set left and right margins for all windows to maintain text indentation."
@@ -73,15 +72,16 @@ If FRAME is omitted or nil, use currently selected frame."
             (select-frame frame)
             (sp-set-window-margins)))
 
-;;;; Fix titlebar titling colors
+;;;;; Fix titlebar titling colors
 ;; see also https://github.com/d12frosted/homebrew-emacs-plus/issues/55
 (use-package ns-auto-titlebar
-  :when (and sp-load-extras (locate-library "ns-auto-titlebar") (eq system-type 'darwin))
+  :ensure t
+  :when (eq system-type 'darwin)
   :commands ns-auto-titlebar-mode
   :init (ns-auto-titlebar-mode))
 
-;;;; Frame Functions
-;;;;; Delete Frame or Quit
+;;;;; Frame Functions
+;;;;;; Delete Frame or Quit
 (defun sp-delete-frame-or-quit ()
   "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
   (interactive)
@@ -89,8 +89,6 @@ If FRAME is omitted or nil, use currently selected frame."
   (when (condition-case nil (delete-frame)
           (error (save-buffers-kill-emacs))))
   (select-frame-set-input-focus (selected-frame)))
-
-;;; Provide:
 
 (provide 'sp-frame)
 ;;; sp-frame.el ends here

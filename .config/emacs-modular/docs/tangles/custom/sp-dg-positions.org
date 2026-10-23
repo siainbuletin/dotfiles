@@ -1,0 +1,1092 @@
+#+title: sp-dg-positions
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-dg-positions.el :comments no :padline yes :noweb no :mkdirp yes
+
+Literate source for =libraries/modules/custom/sp-dg-positions.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+* Position graph and status views for discourse-graphs
+
+** Context
+
+=discourse-graphs= (loaded in [[file:sp-graphs.org][sp-graphs]]) stores my research as typed nodes (question, claim, evidence, source) joined by typed relations (=supports=, =opposes=, =informs=, =answers=). It can tell me that a claim is contested, but only through its own dashboards, and its status logic is fixed.
+
+This module adds three things on top of it:
+
+1. *Rules.* One list, =dg-positions-rules=, declares the node types, relations, statuses and gaps. Adding a relation such as =contests= or =reframes= is one line. The rules decide how each relation counts toward a claim's status. The format is explained in [[*The rules]] and every field has a worked example.
+2. *Views.* The same shape as =sp-vulpea-hierarchy=: an outline and a Graphviz graph, plus a view per status (supported, contested, challenged, unsupported) and a view of gaps.
+3. *A shared vocabulary for question states.* The states a research question moves through, and what each object should look like in each state, are in [[file:../research-question-states.org][research-question-states.org]]. The old single =CONTESTED= state is gone: how contested an answer is lives on the answer (its status), not on the question.
+
+The module never writes to a note. It reads =dg-all-nodes= and =dg-all-relations= from the discourse-graphs database, so everything is created and edited with discourse-graphs' own commands (=C-c d c=, =C-c d r=). The one thing it changes in discourse-graphs is the list of relation and node types (see [[*Registering the rules with discourse-graphs]]).
+
+Both view modules share their interface:
+
+| =sp-vulpea-hierarchy=         | =sp-dg-positions=             | What it shows                          |
+|-------------------------------+-------------------------------+----------------------------------------|
+| =vulpea-hierarchy-outline=    | =dg-positions-outline=        | Foldable Org outline of id links       |
+| =vulpea-hierarchy-graph=      | =dg-positions-graph=          | Graphviz graph rendered as SVG         |
+| =vulpea-hierarchy-rankdir=    | =dg-positions-rankdir=        | Layout direction (follows the former)  |
+| =vulpea-hierarchy-graph-file= | =dg-positions-graph-file=     | Where the SVG is written               |
+|                               | =dg-positions-status=         | Outline of one status only             |
+|                               | =dg-positions-gaps=           | Outline of structural gaps             |
+|                               | =dg-positions-check=          | Rule and data problems                 |
+
+They work in tandem because a position (a claim) is a note too. Use the hierarchy views for how ideas nest as parent and child, and the position views for who supports, opposes, extends or contests whom. A note can be in both: give it a =- parents ::= line for the first and a =DG_TYPE= for the second.
+
+** Loading it
+
+The module is loaded from =init.el=, in the Academic block of =lem--default-modules=, after =sp-graphs= and =sp-vulpea-hierarchy=:
+
+#+begin_src emacs-lisp :tangle no
+'sp-dg-positions
+#+end_src
+
+Graph view needs Graphviz (=brew install graphviz= on macOS). After you change the rules, run =M-x dg-positions-install= and then =M-x dg-rebuild-cache=, so that discourse-graphs learns the new relations and re-reads the files.
+
+** The rules
+
+Every rule is a list that starts with its kind. Read each one as a sentence. There are four kinds.
+
+*** =node-type=
+
+#+begin_example
+(node-type NAME "SHORT" :color "x11-color" :desc "what it is")
+#+end_example
+
+Declares a kind of node. =SHORT= is the three-letter label in the graph. =:color= is the fill colour of nodes that have no status.
+
+*** =relation=
+
+#+begin_example
+(relation NAME "Inverse Label"
+          :from (types) :to (types)
+          :counts-as support|oppose
+          :retires t  :grounds t
+          :color "x11-color" :style solid|dashed|dotted)
+#+end_example
+
+Declares that a node can point at another node with =NAME=, so a property =:DG_NAME: target-id= is valid. Read it as "FROM-type NAME TO-type", for example =(relation contests ... :from (claim) :to (claim))= is "a claim contests a claim".
+
+- =Inverse Label= is how the relation reads from the target's side ("Contested By").
+- =:from= and =:to= list the node types the relation normally joins. Other pairs still work; =M-x dg-positions-check= lists them.
+- =:counts-as= decides whether the relation adds to the target's =support= or to its =oppose= count, the two numbers the status rules look at. Leave it out and the relation is only a link: it is drawn and listed but changes no status.
+- =:retires t= means the target is replaced. A retired node, and every edge to or from it, disappears from the views (set =dg-positions-show-retired= to see them). Use it for =supersedes=.
+- =:grounds t= means the target sits underneath the source in the outline, instead of above it. discourse-graphs' =informs= is an example: evidence informs a source, so the source is shown under the evidence it backs up.
+- =:color= and =:style= set the edge in the graph.
+
+*** =status=
+
+#+begin_example
+(status NAME :for (types) :when CONDITION :color "x11-color")
+#+end_example
+
+Declares a status a node can have. Statuses are tried in the order they are written and the first one whose condition holds wins, so write the most specific first. =:for= limits it to those node types. A node that matches no status has none.
+
+*** =gap=
+
+#+begin_example
+(gap NAME :for (types) :when CONDITION :text "what is missing")
+#+end_example
+
+Declares a structural hole worth reading about. Unlike a status, every gap that holds is reported.
+
+*** Writing a condition
+
+A condition is a plain Lisp expression that answers yes or no for one node. Four names are available:
+
+| =support=   | How many relations that count as =support= point at this node. |
+| =oppose=    | How many relations that count as =oppose= point at this node.  |
+| =(in REL)=  | How many =REL= relations point at this node.                   |
+| =(out REL)= | How many =REL= relations this node points at.                  |
+
+and =type= is the node's own type, for conditions that cover several types. Combine them with =and=, =or=, =not=, =<=, =<==, ==, =>=, =>==. For example, "more objections than support":
+
+#+begin_example
+(> oppose support)
+#+end_example
+
+Retired nodes are never counted.
+
+** Customisation
+
+#+begin_src emacs-lisp :tangle no
+(setq dg-positions-rules
+      (append dg-positions-rules
+              '((relation rebuts "Rebutted By"
+                          :from (claim) :to (claim)
+                          :counts-as oppose :color "red" :style dashed))))
+#+end_src
+
+The defaults below are discourse-graphs' own four relations and four statuses, plus the vocabulary for following an idea through the literature (=adopts=, =contests=, =extends=, =reframes=, =appropriates=, =supersedes=). To change a default, copy the whole list into =setq= and edit it; to add one, =append= as above.
+
+The statuses come from discourse-graphs: =supported=, =contested=, =challenged= and =unsupported=. Their meaning is the same; the only difference is the order the conditions are tried. discourse-graphs checks "no support" first, so a claim with only objections reads =unsupported=. Here =challenged= comes first, so the same claim reads =challenged=, which tells me more.
+
+#+begin_src emacs-lisp
+;;; sp-dg-positions.el --- Position graph and status views for discourse-graphs -*- lexical-binding: t; -*-
+
+;; Package-Requires: ((emacs "29.1") (discourse-graphs "1.0.0"))
+
+;;; Commentary:
+
+;; Reads the nodes and relations of discourse-graphs and shows them as
+;; positions: which claims answer which question, what supports,
+;; opposes or contests them, and what is missing.
+;;
+;;   M-x dg-positions-outline  foldable Org outline of id links
+;;   M-x dg-positions-graph    Graphviz graph rendered as SVG
+;;   M-x dg-positions-status   the outline for one status only
+;;   M-x dg-positions-gaps     what each node still lacks
+;;   M-x dg-positions-check    rule and data problems
+;;
+;; Node types, relations, statuses and gaps are declared as readable
+;; rules in `dg-positions-rules'.  The graph view needs `dot' (Graphviz).
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+
+(declare-function dg-all-nodes "discourse-graphs")
+(declare-function dg-all-relations "discourse-graphs")
+(declare-function org-content "org")
+(defvar dg-node-types)
+(defvar dg-relation-types)
+(defvar dg-relation-patterns)
+(defvar dg--relation-map)
+(defvar sp-cache-dir)
+(defvar vulpea-hierarchy-rankdir)
+
+(defgroup dg-positions nil
+  "Position graph and status views for discourse-graphs."
+  :group 'discourse-graphs)
+
+(defcustom dg-positions-rules
+  '(;; Node types
+    (node-type question "QUE" :color "lightblue" :desc "Research question")
+    (node-type claim "CLM" :color "lightyellow" :desc "Assertion or position")
+    (node-type evidence "EVD" :color "lightgreen" :desc "Supporting data")
+    (node-type source "SRC" :color "lightgray" :desc "Reference material")
+
+    ;; Relations that discourse-graphs already has
+    (relation supports "Supported By"
+              :from (evidence claim) :to (claim)
+              :counts-as support :color "green")
+    (relation opposes "Opposed By"
+              :from (evidence claim) :to (claim)
+              :counts-as oppose :color "red" :style dashed)
+    (relation informs "Informed By"
+              :from (evidence) :to (source)
+              :grounds t :color "blue")
+    (relation answers "Answered By"
+              :from (claim) :to (question)
+              :color "purple")
+
+    ;; Following an idea through the literature
+    (relation adopts "Adopted By"
+              :from (claim) :to (claim)
+              :counts-as support :color "darkgreen" :style dotted)
+    (relation contests "Contested By"
+              :from (claim) :to (claim)
+              :counts-as oppose :color "orange" :style dashed)
+    (relation extends "Extended By"
+              :from (claim) :to (claim)
+              :color "teal")
+    (relation reframes "Reframed By"
+              :from (claim) :to (claim)
+              :color "orchid" :style dotted)
+    (relation appropriates "Appropriated By"
+              :from (claim) :to (claim)
+              :color "sienna" :style dashed)
+    (relation supersedes "Superseded By"
+              :from (claim) :to (claim)
+              :retires t :color "gray" :style dotted)
+
+    ;; Statuses of a claim, first match wins
+    (status challenged :for (claim)
+            :when (and (> oppose 0) (<= support oppose))
+            :color "#f8c8c8")
+    (status contested :for (claim)
+            :when (> oppose 0)
+            :color "#fff3b0")
+    (status supported :for (claim)
+            :when (> support 0)
+            :color "#c8e6c9")
+    (status unsupported :for (claim)
+            :when (= support 0)
+            :color "#e0e0e0")
+
+    ;; Gaps, every one that holds is reported
+    (gap no-answer :for (question)
+         :when (= (in answers) 0)
+         :text "No claim answers this question")
+    (gap no-support :for (claim)
+         :when (= support 0)
+         :text "Nothing supports this claim")
+    (gap no-source :for (evidence)
+         :when (= (out informs) 0)
+         :text "This evidence cites no source")
+    (gap unanswered-opposition :for (claim)
+         :when (and (> oppose 0) (<= support oppose))
+         :text "Objections outweigh the support"))
+  "Rules for node types, relations, statuses and gaps.
+Each rule is a list that starts with its kind:
+
+  (node-type NAME \"SHORT\" :color COLOR :desc TEXT)
+  (relation NAME \"Inverse Label\" :from TYPES :to TYPES
+            :counts-as support|oppose :retires t :grounds t
+            :color COLOR :style solid|dashed|dotted)
+  (status NAME :for TYPES :when CONDITION :color COLOR)
+  (gap NAME :for TYPES :when CONDITION :text TEXT)
+
+A CONDITION is a Lisp expression that may use `support' and `oppose'
+\(counts of relations that count as such), `(in REL)' and `(out REL)'
+\(counts of REL relations pointing at, and away from, the node) and
+`type'.  Statuses are tried in order and the first match wins."
+  :type 'sexp)
+
+(defcustom dg-positions-graph-file
+  (expand-file-name "dg-positions.svg"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir temporary-file-directory))
+  "Where `dg-positions-graph' writes its SVG."
+  :type 'file)
+
+(defcustom dg-positions-rankdir
+  (if (boundp 'vulpea-hierarchy-rankdir) vulpea-hierarchy-rankdir "LR")
+  "Graphviz layout direction: \"LR\" (left to right) or \"TB\" (top down).
+Follows `vulpea-hierarchy-rankdir' when that is loaded first."
+  :type '(choice (const "LR") (const "TB")))
+
+(defcustom dg-positions-question-first t
+  "When non-nil, lay questions out first, like parents in the hierarchy graph.
+Arrows keep pointing from the supporting node to the supported one."
+  :type 'boolean)
+
+(defcustom dg-positions-question-type 'question
+  "Node type that roots a cluster of positions."
+  :type 'symbol)
+
+(defcustom dg-positions-show-retired nil
+  "When non-nil, show nodes retired by a `:retires' relation."
+  :type 'boolean)
+
+(defcustom dg-positions-show-isolated nil
+  "When non-nil, the graph also draws nodes that have no relations."
+  :type 'boolean)
+#+end_src
+
+** Reading the rules
+
+Each rule kind has a fixed number of positional arguments after its name, then keyword options. The table below is the single description of that shape and is used both to read the options and to check them.
+
+#+begin_src emacs-lisp
+
+;;; Rules
+
+(defconst dg-positions--rule-shapes
+  '((node-type 2 (:color :desc))
+    (relation 2 (:from :to :counts-as :retires :grounds :color :style))
+    (status 1 (:for :when :color))
+    (gap 1 (:for :when :text)))
+  "For each rule kind: its number of arguments after the kind, and its options.")
+
+(defun dg-positions--plist (rule)
+  "The keyword options of RULE."
+  (nthcdr (1+ (nth 1 (assq (car rule) dg-positions--rule-shapes))) rule))
+
+(defun dg-positions--opt (rule key)
+  "Option KEY of RULE."
+  (plist-get (dg-positions--plist rule) key))
+
+(defun dg-positions--rules (kind)
+  "All rules of KIND, in the order they are written."
+  (seq-filter (lambda (rule) (eq (car rule) kind)) dg-positions-rules))
+
+(defun dg-positions--rule (kind name)
+  "The rule of KIND called NAME, or nil."
+  (seq-find (lambda (rule) (eq (nth 1 rule) name)) (dg-positions--rules kind)))
+
+(defun dg-positions--rel-opt (rel key)
+  "Option KEY of the relation rule for REL, or nil when REL has no rule."
+  (when-let ((rule (dg-positions--rule 'relation rel)))
+    (dg-positions--opt rule key)))
+#+end_src
+
+The check runs when the rules are installed and before every view, so a typo is reported with the rule it is in, not as a confusing failure later.
+
+#+begin_src emacs-lisp
+
+(defun dg-positions-validate-rules (&optional rules)
+  "Signal a `user-error' naming the first malformed rule in RULES.
+RULES defaults to `dg-positions-rules'."
+  (let (seen)
+    (dolist (rule (or rules dg-positions-rules))
+      (let ((shape (assq (car-safe rule) dg-positions--rule-shapes)))
+        (unless shape
+          (user-error "dg-positions: unknown rule kind in %S (use %s)"
+                      rule (mapconcat #'symbol-name
+                                      (mapcar #'car dg-positions--rule-shapes) ", ")))
+        (let ((id (list (car rule) (nth 1 rule)))
+              (options (nthcdr (1+ (nth 1 shape)) rule)))
+          (when (member id seen)
+            (user-error "dg-positions: %s `%s' is declared twice" (car rule) (nth 1 rule)))
+          (push id seen)
+          (unless (symbolp (nth 1 rule))
+            (user-error "dg-positions: the name in %S must be a symbol" rule))
+          (when (and (memq (car rule) '(node-type relation))
+                     (not (stringp (nth 2 rule))))
+            (user-error "dg-positions: %s `%s' needs a string after its name (%s)"
+                        (car rule) (nth 1 rule)
+                        (if (eq (car rule) 'relation) "its inverse label" "its short label")))
+          (unless (zerop (% (length options) 2))
+            (user-error "dg-positions: %s `%s' has an option without a value"
+                        (car rule) (nth 1 rule)))
+          (cl-loop for (key _value) on options by #'cddr
+                   unless (memq key (nth 2 shape))
+                   do (user-error "dg-positions: %s `%s' has unknown option %s (use %s)"
+                                  (car rule) (nth 1 rule) key
+                                  (mapconcat #'symbol-name (nth 2 shape) ", ")))
+          (when (and (eq (car rule) 'relation)
+                     (not (memq (plist-get options :counts-as) '(nil support oppose))))
+            (user-error "dg-positions: relation `%s' has :counts-as %S, use support or oppose"
+                        (nth 1 rule) (plist-get options :counts-as)))
+          (when (and (memq (car rule) '(status gap))
+                     (not (plist-member options :when)))
+            (user-error "dg-positions: %s `%s' needs a :when condition"
+                        (car rule) (nth 1 rule))))))
+    t))
+#+end_src
+
+** The graph
+
+The views never query discourse-graphs while they draw. They read all nodes and relations once into a plain structure, which is also what the tests build by hand. Retired nodes are noted here, and edges to nodes that discourse-graphs doesn't know about are kept apart for =dg-positions-check=.
+
+#+begin_src emacs-lisp
+
+;;; Graph
+
+(defun dg-positions--sym (x)
+  "X as a symbol; discourse-graphs keeps types as strings."
+  (if (stringp x) (intern x) x))
+
+(defun dg-positions--make-graph (nodes relations)
+  "Build a graph from NODES and RELATIONS.
+NODES are plists with :id :type :title.  RELATIONS are plists with
+:from :type :to.  Returns a plist of hash tables keyed by node id."
+  (let ((table (make-hash-table :test #'equal))
+        (in (make-hash-table :test #'equal))
+        (out (make-hash-table :test #'equal))
+        (retired (make-hash-table :test #'equal))
+        dangling)
+    (dolist (node nodes)
+      (puthash (plist-get node :id)
+               (list :id (plist-get node :id)
+                     :type (dg-positions--sym (plist-get node :type))
+                     :title (or (plist-get node :title) ""))
+               table))
+    (dolist (relation relations)
+      (let ((from (plist-get relation :from))
+            (to (plist-get relation :to))
+            (rel (dg-positions--sym (plist-get relation :type))))
+        (if (and (gethash from table) (gethash to table))
+            (progn
+              (push (cons rel to) (gethash from out))
+              (push (cons rel from) (gethash to in))
+              (when (dg-positions--rel-opt rel :retires)
+                (puthash to t retired)))
+          (push relation dangling))))
+    (list :nodes table :in in :out out :retired retired
+          :relations relations :dangling (nreverse dangling))))
+
+(defun dg-positions--read ()
+  "Read the discourse-graphs database into a graph."
+  (unless (fboundp 'dg-all-nodes)
+    (user-error "discourse-graphs is not loaded"))
+  (dg-positions-validate-rules)
+  (dg-positions--make-graph (dg-all-nodes) (dg-all-relations)))
+
+(defun dg-positions--visible-p (graph id)
+  "Non-nil when node ID is shown in GRAPH (not retired, or retired nodes are on)."
+  (or dg-positions-show-retired
+      (not (gethash id (plist-get graph :retired)))))
+
+(defun dg-positions--type (graph id)
+  "Type symbol of node ID."
+  (plist-get (gethash id (plist-get graph :nodes)) :type))
+
+(defun dg-positions--title (graph id)
+  "Title of node ID."
+  (plist-get (gethash id (plist-get graph :nodes)) :title))
+
+(defun dg-positions--edges (graph id direction)
+  "Visible edges of node ID as (REL . OTHER-ID) pairs.
+DIRECTION is `in' (edges pointing at ID) or `out' (edges leaving it).
+A node that is not shown has no edges."
+  (when (dg-positions--visible-p graph id)
+    (seq-filter (lambda (edge) (dg-positions--visible-p graph (cdr edge)))
+                (gethash id (plist-get graph (if (eq direction 'in) :in :out))))))
+
+(defun dg-positions--ids (graph)
+  "Ids of the visible nodes in GRAPH, sorted by title."
+  (let (ids)
+    (maphash (lambda (id _node)
+               (when (dg-positions--visible-p graph id) (push id ids)))
+             (plist-get graph :nodes))
+    (sort ids (lambda (a b) (string< (dg-positions--title graph a)
+                                     (dg-positions--title graph b))))))
+
+(defun dg-positions--questions (graph)
+  "Ids of the visible question nodes in GRAPH, sorted by title."
+  (seq-filter (lambda (id) (eq (dg-positions--type graph id) dg-positions-question-type))
+              (dg-positions--ids graph)))
+#+end_src
+
+** Statuses and gaps
+
+A condition is evaluated with =support= and =oppose= bound to the counts for the node being judged, and with =in= and =out= as local functions. =in= and =out= need to know the graph and the node, which are passed in two dynamic variables so the condition can stay short.
+
+#+begin_src emacs-lisp
+
+;;; Statuses and gaps
+
+(defvar dg-positions--graph nil "Graph a condition is being evaluated against.")
+(defvar dg-positions--id nil "Node a condition is being evaluated for.")
+
+(defun dg-positions--role-count (graph id role)
+  "How many visible relations pointing at ID count as ROLE."
+  (cl-count-if (lambda (edge) (eq (dg-positions--rel-opt (car edge) :counts-as) role))
+               (dg-positions--edges graph id 'in)))
+
+(defun dg-positions--count-rel (direction rel)
+  "Number of REL edges in DIRECTION for the node under evaluation."
+  (cl-count rel (dg-positions--edges dg-positions--graph dg-positions--id direction)
+            :key #'car))
+
+(defun dg-positions--applies-p (rule graph id)
+  "Non-nil when RULE's :for list covers node ID."
+  (let ((types (dg-positions--opt rule :for)))
+    (or (null types) (memq (dg-positions--type graph id) types))))
+
+(defun dg-positions--quote-relations (form)
+  "FORM with the relation names in `(in REL)' and `(out REL)' quoted.
+This lets a rule say `(in answers)' instead of `(in (quote answers))'."
+  (cond ((and (consp form) (memq (car form) '(in out))
+              (proper-list-p form) (= (length form) 2) (symbolp (cadr form)))
+         (list (car form) (list 'quote (cadr form))))
+        ((proper-list-p form)
+         (mapcar #'dg-positions--quote-relations form))
+        (t form)))
+
+(defun dg-positions--holds-p (rule graph id)
+  "Non-nil when the :when condition of RULE holds for node ID."
+  (let ((dg-positions--graph graph)
+        (dg-positions--id id))
+    (condition-case err
+        (eval `(let ((support ,(dg-positions--role-count graph id 'support))
+                     (oppose ,(dg-positions--role-count graph id 'oppose))
+                     (type ',(dg-positions--type graph id)))
+                 (cl-flet ((in (rel) (dg-positions--count-rel 'in rel))
+                           (out (rel) (dg-positions--count-rel 'out rel)))
+                   ,(dg-positions--quote-relations (dg-positions--opt rule :when))))
+              t)
+      (error (user-error "dg-positions: rule `%s' failed on \"%s\": %s"
+                         (nth 1 rule) (dg-positions--title graph id)
+                         (error-message-string err))))))
+
+(defun dg-positions-status-of (graph id)
+  "Status symbol of node ID in GRAPH, or nil.
+The first status rule that applies and holds wins."
+  (cl-loop for rule in (dg-positions--rules 'status)
+           when (and (dg-positions--applies-p rule graph id)
+                     (dg-positions--holds-p rule graph id))
+           return (nth 1 rule)))
+
+(defun dg-positions-gaps-of (graph id)
+  "Names of every gap that holds for node ID in GRAPH."
+  (cl-loop for rule in (dg-positions--rules 'gap)
+           when (and (dg-positions--applies-p rule graph id)
+                     (dg-positions--holds-p rule graph id))
+           collect (nth 1 rule)))
+
+(defun dg-positions--status-color (status)
+  "Fill colour of STATUS."
+  (or (when-let ((rule (dg-positions--rule 'status status)))
+        (dg-positions--opt rule :color))
+      "white"))
+
+(defun dg-positions--type-color (type)
+  "Fill colour of nodes of TYPE."
+  (or (when-let ((rule (dg-positions--rule 'node-type type)))
+        (dg-positions--opt rule :color))
+      "white"))
+
+(defun dg-positions--short (type)
+  "Short label of TYPE."
+  (if-let ((rule (dg-positions--rule 'node-type type)))
+      (nth 2 rule)
+    (upcase (symbol-name type))))
+#+end_src
+
+** Walking down from a question
+
+Both views walk the same tree. Beneath a node sit the nodes that point at it (the claims answering a question, the evidence supporting a claim) and the nodes it grounds (the sources behind evidence). Relations that ground are not also listed from the other side, which would send the walk round in circles.
+
+#+begin_src emacs-lisp
+
+;;; Tree
+
+(defun dg-positions--children (graph id)
+  "Edges (REL . CHILD) shown beneath node ID.
+These are the edges pointing at ID, except grounding ones, plus the
+grounding edges that leave it.  They are ordered by the order of the
+relation rules and then by title."
+  (let* ((rels (mapcar #'cadr (dg-positions--rules 'relation)))
+         (edges (append
+                 (seq-remove (lambda (edge) (dg-positions--rel-opt (car edge) :grounds))
+                             (dg-positions--edges graph id 'in))
+                 (seq-filter (lambda (edge) (dg-positions--rel-opt (car edge) :grounds))
+                             (dg-positions--edges graph id 'out))))
+         (rank (lambda (edge) (or (seq-position rels (car edge)) (length rels)))))
+    (sort (delete-dups (copy-sequence edges))
+          (lambda (a b)
+            (let ((ra (funcall rank a)) (rb (funcall rank b)))
+              (or (< ra rb)
+                  (and (= ra rb)
+                       (string< (dg-positions--title graph (cdr a))
+                                (dg-positions--title graph (cdr b))))))))))
+
+(defun dg-positions--loose-positions (graph)
+  "Ids of nodes that have a status but point at nothing.
+These are positions answering no question and supporting no other."
+  (seq-filter (lambda (id)
+                (and (null (dg-positions--edges graph id 'out))
+                     (dg-positions-status-of graph id)))
+              (dg-positions--ids graph)))
+#+end_src
+
+** Outline views
+
+Headings are Org links to the discourse-graphs nodes (=[[id:…]]=), prefixed by the relation to the heading above and tagged with the status and any gaps, so that =org-agenda= style tag searches and =C-c / m= work in the buffer. A question's heading ends with a count of its answers by status.
+
+#+begin_src emacs-lisp
+
+;;; Outline views
+
+(defun dg-positions--tag (symbol)
+  "SYMBOL as a valid Org tag."
+  (replace-regexp-in-string "[^[:alnum:]_@#%]" "_" (symbol-name symbol)))
+
+(defun dg-positions--tags (graph id)
+  "Org tags for node ID: its status, then its gaps."
+  (mapcar #'dg-positions--tag
+          (delq nil (cons (dg-positions-status-of graph id)
+                          (dg-positions-gaps-of graph id)))))
+
+(defun dg-positions--heading (graph id rel)
+  "Heading text for node ID, reached through REL (or nil at the top)."
+  (format "%s[[id:%s][%s]] (%s)"
+          (if rel (format "[%s] " rel) "")
+          id
+          (replace-regexp-in-string "[][]" "" (dg-positions--title graph id))
+          (dg-positions--short (dg-positions--type graph id))))
+
+(defun dg-positions--summary (graph id)
+  "Count of the children of ID by status, as text, or nil when none has one.
+Statuses are listed in the order of their rules."
+  (let ((statuses (mapcar (lambda (edge) (dg-positions-status-of graph (cdr edge)))
+                          (dg-positions--children graph id)))
+        parts)
+    (dolist (rule (dg-positions--rules 'status))
+      (let ((n (cl-count (nth 1 rule) statuses)))
+        (when (> n 0)
+          (push (format "%d %s" n (nth 1 rule)) parts))))
+    (when parts
+      (concat " {" (string-join (nreverse parts) ", ") "}"))))
+
+(defun dg-positions--insert-line (graph id rel depth)
+  "Insert the heading line for node ID at DEPTH stars."
+  (let ((kids (dg-positions--children graph id))
+        (tags (dg-positions--tags graph id)))
+    (insert (make-string depth ?*) " " (dg-positions--heading graph id rel))
+    (when kids
+      (insert (format " [%d]" (length kids))))
+    (when-let ((summary (and (eq (dg-positions--type graph id) dg-positions-question-type)
+                             (dg-positions--summary graph id))))
+      (insert summary))
+    (when tags
+      (insert " :" (string-join tags ":") ":"))
+    (insert "\n")))
+
+(defun dg-positions--insert-outline (graph id rel depth seen)
+  "Insert node ID and everything beneath it as Org headings at DEPTH.
+SEEN holds the ids above it, and guards against cycles."
+  (dg-positions--insert-line graph id rel depth)
+  (if (member id seen)
+      (insert (make-string (1+ depth) ?*) " cycle back to this note\n")
+    (dolist (edge (dg-positions--children graph id))
+      (dg-positions--insert-outline graph (cdr edge) (car edge) (1+ depth)
+                                    (cons id seen)))))
+
+(defun dg-positions--render-outline (graph buffer-name &optional status)
+  "Show GRAPH in BUFFER-NAME as an outline, limited to STATUS when given.
+The status limits the answers listed under each question, and the
+positions that answer none."
+  (let ((buf (get-buffer-create buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (org-mode)
+        (dolist (question (dg-positions--questions graph))
+          (let* ((answers (dg-positions--children graph question))
+                 (shown (if status
+                            (seq-filter (lambda (edge)
+                                          (eq (dg-positions-status-of graph (cdr edge)) status))
+                                        answers)
+                          answers)))
+            (when (or shown (not status))
+              (dg-positions--insert-line graph question nil 1)
+              (dolist (edge shown)
+                (dg-positions--insert-outline graph (cdr edge) (car edge) 2
+                                              (list question))))))
+        (let ((loose (seq-filter (lambda (id)
+                                   (or (null status)
+                                       (eq (dg-positions-status-of graph id) status)))
+                                 (dg-positions--loose-positions graph))))
+          (when loose
+            (insert "* Positions that answer no question\n")
+            (dolist (id loose)
+              (dg-positions--insert-outline graph id nil 2 nil))))
+        (goto-char (point-min))
+        (org-content 2))
+      (setq buffer-read-only t))
+    (pop-to-buffer buf)))
+
+;;;###autoload
+(defun dg-positions-outline ()
+  "Show every question with its answers, evidence and sources as an Org outline."
+  (interactive)
+  (dg-positions--render-outline (dg-positions--read) "*dg positions*"))
+
+;;;###autoload
+(defun dg-positions-status (status)
+  "Show only the answers whose status is STATUS, grouped by question."
+  (interactive
+   (list (intern (completing-read
+                  "Status: "
+                  (mapcar (lambda (rule) (symbol-name (nth 1 rule)))
+                          (dg-positions--rules 'status))
+                  nil t))))
+  (dg-positions--render-outline (dg-positions--read)
+                                (format "*dg positions: %s*" status)
+                                status))
+#+end_src
+
+** Gaps
+
+#+begin_src emacs-lisp
+
+;;; Gaps view
+
+;;;###autoload
+(defun dg-positions-gaps ()
+  "List what each node still lacks, one section per gap."
+  (interactive)
+  (let* ((graph (dg-positions--read))
+         (buf (get-buffer-create "*dg positions: gaps*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (org-mode)
+        (dolist (rule (dg-positions--rules 'gap))
+          (let ((ids (seq-filter
+                      (lambda (id) (memq (nth 1 rule) (dg-positions-gaps-of graph id)))
+                      (dg-positions--ids graph))))
+            (when ids
+              (insert (format "* %s: %s [%d]\n" (nth 1 rule)
+                              (or (dg-positions--opt rule :text) "") (length ids)))
+              (dolist (id ids)
+                (insert (format "- %s\n" (dg-positions--heading graph id nil)))))))
+        (when (zerop (buffer-size))
+          (insert "No gaps.\n"))
+        (goto-char (point-min))
+        (org-content 2))
+      (setq buffer-read-only t))
+    (pop-to-buffer buf)))
+#+end_src
+
+** Graph view
+
+Each question is a cluster, holding the nodes beneath it. A node that supports claims under two questions is drawn once, in the first cluster that reaches it, and its edges still run across. Claims are filled by status and everything else by type. Edges are coloured and styled by their relation and labelled with its name.
+
+With =dg-positions-question-first= (the default), the layout puts the question on the left like a parent in the hierarchy graph, by laying the edges out reversed and drawing the arrowhead back at the target. Arrows still point from the supporting node to the supported one.
+
+#+begin_src emacs-lisp
+
+;;; Graph view
+
+(defun dg-positions--quote (string)
+  "STRING as a Graphviz quoted string; a newline becomes a line break."
+  (concat "\""
+          (replace-regexp-in-string
+           "\n" "\\\\n"
+           (replace-regexp-in-string "\"" "\\\\\""
+                                     (replace-regexp-in-string "\\\\" "\\\\\\\\" string)))
+          "\""))
+
+(defun dg-positions--wrap (string width)
+  "STRING with line breaks so that lines are about WIDTH characters."
+  (let (lines (line ""))
+    (dolist (word (split-string string))
+      (if (and (> (length line) 0) (> (+ (length line) 1 (length word)) width))
+          (progn (push line lines) (setq line word))
+        (setq line (if (string-empty-p line) word (concat line " " word)))))
+    (push line lines)
+    (string-join (nreverse lines) "\n")))
+
+(defun dg-positions--dot-node (graph id)
+  "Graphviz line for node ID."
+  (let* ((type (dg-positions--type graph id))
+         (status (dg-positions-status-of graph id))
+         (head (if status
+                   (format "%s · %s" (dg-positions--short type) status)
+                 (dg-positions--short type))))
+    (format "    %s [label=%s, fillcolor=%s%s];\n"
+            (dg-positions--quote id)
+            (dg-positions--quote
+             (concat head "\n" (dg-positions--wrap (dg-positions--title graph id) 28)))
+            (dg-positions--quote (if status
+                                     (dg-positions--status-color status)
+                                   (dg-positions--type-color type)))
+            (if (eq type dg-positions-question-type) ", penwidth=2" ""))))
+
+(defun dg-positions--dot-edge (graph from rel to)
+  "Graphviz line for the edge FROM -REL-> TO."
+  (let ((reverse dg-positions-question-first)
+        (color (or (dg-positions--rel-opt rel :color) "gray40"))
+        (style (or (dg-positions--rel-opt rel :style) 'solid)))
+    (ignore graph)
+    (format "  %s -> %s [label=%s, color=%s, fontcolor=%s, style=%s, fontsize=9%s];\n"
+            (dg-positions--quote (if reverse to from))
+            (dg-positions--quote (if reverse from to))
+            (dg-positions--quote (symbol-name rel))
+            (dg-positions--quote color)
+            (dg-positions--quote color)
+            (dg-positions--quote (format "%s" style))
+            (if reverse ", dir=back" ""))))
+
+(defun dg-positions--reach (graph root drawn)
+  "Ids beneath ROOT in GRAPH that are not yet in the hash table DRAWN.
+They are added to DRAWN."
+  (let ((queue (list root)) ids)
+    (while queue
+      (let ((id (pop queue)))
+        (unless (gethash id drawn)
+          (puthash id t drawn)
+          (push id ids)
+          (setq queue (append queue (mapcar #'cdr (dg-positions--children graph id)))))))
+    (nreverse ids)))
+
+(defun dg-positions--dot (graph)
+  "Return Graphviz source for GRAPH, one cluster per question."
+  (let ((drawn (make-hash-table :test #'equal))
+        (n 0))
+    (with-temp-buffer
+      (insert "digraph positions {\n"
+              (format "  rankdir=%s;\n" dg-positions-rankdir)
+              "  node [shape=box, style=\"rounded,filled\", fontname=\"Helvetica\"];\n"
+              "  edge [fontname=\"Helvetica\"];\n")
+      (dolist (question (dg-positions--questions graph))
+        (insert (format "  subgraph cluster_%d {\n    style=\"rounded\"; color=\"#bbbbbb\"; label=%s;\n"
+                        (cl-incf n)
+                        (dg-positions--quote (dg-positions--wrap
+                                              (dg-positions--title graph question) 60))))
+        (dolist (id (dg-positions--reach graph question drawn))
+          (insert (dg-positions--dot-node graph id)))
+        (insert "  }\n"))
+      (let ((rest (seq-filter
+                   (lambda (id)
+                     (and (not (gethash id drawn))
+                          (or dg-positions-show-isolated
+                              (dg-positions--edges graph id 'in)
+                              (dg-positions--edges graph id 'out))))
+                   (dg-positions--ids graph))))
+        (when rest
+          (insert (format "  subgraph cluster_%d {\n    style=\"rounded,dashed\"; color=\"#bbbbbb\"; label=\"Under no question\";\n"
+                          (cl-incf n)))
+          (dolist (id rest)
+            (puthash id t drawn)
+            (insert (dg-positions--dot-node graph id)))
+          (insert "  }\n")))
+      (dolist (id (dg-positions--ids graph))
+        (when (gethash id drawn)
+          (dolist (edge (dg-positions--edges graph id 'out))
+            (when (gethash (cdr edge) drawn)
+              (insert (dg-positions--dot-edge graph id (car edge) (cdr edge)))))))
+      (insert "}\n")
+      (buffer-string))))
+
+;;;###autoload
+(defun dg-positions-graph ()
+  "Render the positions with Graphviz and display the SVG."
+  (interactive)
+  (unless (executable-find "dot")
+    (user-error "Graphviz `dot' not found on PATH"))
+  (let ((dot (dg-positions--dot (dg-positions--read))))
+    (with-temp-buffer
+      (insert dot)
+      (unless (zerop (call-process-region (point-min) (point-max) "dot" nil t nil
+                                          "-Tsvg" "-o" dg-positions-graph-file))
+        (error "Graphviz failed: %s" (buffer-string))))
+    (let ((buf (find-file-noselect dg-positions-graph-file)))
+      (with-current-buffer buf
+        (revert-buffer t t))
+      (pop-to-buffer buf))))
+#+end_src
+
+** Checking the rules against the data
+
+Three things are worth knowing about: relations in the data that no rule declares, edges whose endpoints discourse-graphs doesn't know (a deleted note), and edges between types the rule didn't expect. Only the first two are errors in the data. The last is information: a pair the rule doesn't list still counts.
+
+#+begin_src emacs-lisp
+
+;;; Check
+
+;;;###autoload
+(defun dg-positions-check ()
+  "List relations without a rule, dangling edges and unexpected type pairs."
+  (interactive)
+  (let* ((graph (dg-positions--read))
+         (nodes (plist-get graph :nodes))
+         (unknown nil) (odd nil))
+    (dolist (relation (plist-get graph :relations))
+      (let ((rel (dg-positions--sym (plist-get relation :type))))
+        (unless (dg-positions--rule 'relation rel)
+          (cl-pushnew rel unknown))))
+    (maphash
+     (lambda (from node)
+       (dolist (edge (gethash from (plist-get graph :out)))
+         (let ((from-types (dg-positions--rel-opt (car edge) :from))
+               (to-types (dg-positions--rel-opt (car edge) :to))
+               (to-type (dg-positions--type graph (cdr edge))))
+           (when (or (and from-types (not (memq (plist-get node :type) from-types)))
+                     (and to-types (not (memq to-type to-types))))
+             (push (list from (car edge) (cdr edge)) odd)))))
+     nodes)
+    (let ((buf (get-buffer-create "*dg positions: check*")))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (org-mode)
+          (insert "* Relations without a rule\n")
+          (if unknown
+              (dolist (rel unknown)
+                (insert (format "- %s (add a (relation %s \"Inverse Label\" ...) rule)\n" rel rel)))
+            (insert "None.\n"))
+          (insert "* Edges to nodes that no longer exist\n")
+          (if (plist-get graph :dangling)
+              (dolist (relation (plist-get graph :dangling))
+                (insert (format "- %s -%s-> %s\n" (plist-get relation :from)
+                                (plist-get relation :type) (plist-get relation :to))))
+            (insert "None.\n"))
+          (insert "* Edges between unexpected types\n")
+          (if odd
+              (dolist (edge (nreverse odd))
+                (insert (format "- %s -%s-> %s\n"
+                                (dg-positions--heading graph (nth 0 edge) nil)
+                                (nth 1 edge)
+                                (dg-positions--heading graph (nth 2 edge) nil))))
+            (insert "None.\n"))
+          (goto-char (point-min)))
+        (setq buffer-read-only t))
+      (pop-to-buffer buf))))
+#+end_src
+
+** Registering the rules with discourse-graphs
+
+discourse-graphs reads =DG_<RELATION>= properties for every entry of =dg-relation-types=, so a relation that is declared only here would be silently ignored when the files are scanned. This step copies the node types and relations from the rules into discourse-graphs' own variables, leaving alone any entry it already has. It also adds the new relation names and their inverse labels to =dg--relation-map=, which its query builder uses.
+
+The expected source and target types (=:from= and =:to=) go into =dg-relation-patterns= only for relations discourse-graphs doesn't have, so its own warnings keep working as before. discourse-graphs' =informs= pattern is "source informs evidence", but its code and README example use the opposite direction (evidence points at its source), which is what the rule here follows. Add =(setq dg-warn-relation-anomalies nil)= if it complains.
+
+#+begin_src emacs-lisp
+
+;;; Registering with discourse-graphs
+
+;;;###autoload
+(defun dg-positions-install ()
+  "Copy node types and relations from `dg-positions-rules' into discourse-graphs.
+Entries discourse-graphs already has are left alone.  Run
+`dg-rebuild-cache' afterwards so that the new relations are read."
+  (interactive)
+  (dg-positions-validate-rules)
+  (dolist (rule (dg-positions--rules 'node-type))
+    (unless (assq (nth 1 rule) dg-node-types)
+      (setq dg-node-types
+            (append dg-node-types
+                    (list (cons (nth 1 rule)
+                                (list :short (nth 2 rule)
+                                      :color (or (dg-positions--opt rule :color) "white")
+                                      :desc (or (dg-positions--opt rule :desc) ""))))))))
+  (dolist (rule (dg-positions--rules 'relation))
+    (let ((name (nth 1 rule)))
+      (unless (assq name dg-relation-types)
+        (setq dg-relation-types
+              (append dg-relation-types
+                      (list (cons name (list :inverse (nth 2 rule)
+                                             :color (or (dg-positions--opt rule :color) "gray")
+                                             :style (format "%s" (or (dg-positions--opt rule :style)
+                                                                     'solid))))))))
+      (when (and (boundp 'dg--relation-map)
+                 (not (assoc (nth 2 rule) dg--relation-map)))
+        (setq dg--relation-map
+              (append dg--relation-map
+                      (list (cons (nth 2 rule) (list :rel (symbol-name name) :dir 'incoming))
+                            (cons (symbol-name name) (list :rel (symbol-name name) :dir 'outgoing))))))
+      (when (and (not (assq name dg-relation-patterns))
+                 (or (dg-positions--opt rule :from) (dg-positions--opt rule :to)))
+        (setq dg-relation-patterns
+              (append dg-relation-patterns
+                      (list (cons name (list :source (dg-positions--opt rule :from)
+                                             :target (dg-positions--opt rule :to)))))))))
+  (when (called-interactively-p 'interactive)
+    (message "dg-positions: rules registered; run M-x dg-rebuild-cache to re-read the notes")))
+
+(with-eval-after-load 'discourse-graphs
+  (dg-positions-install))
+
+(provide 'sp-dg-positions)
+;;; sp-dg-positions.el ends here
+#+end_src
+
+** Sandbox
+
+Try the rules on a hand-built graph without discourse-graphs. Evaluate the block with =C-c C-c=; it opens the outline in a buffer. Nothing here is tangled.
+
+#+begin_src emacs-lisp :tangle no
+(let ((graph (dg-positions--make-graph
+              '((:id "q" :type "question" :title "Does reading precede theory?")
+                (:id "a" :type "claim" :title "Reading shapes theory")
+                (:id "b" :type "claim" :title "Theory shapes reading")
+                (:id "e" :type "evidence" :title "Archive study 2019")
+                (:id "s" :type "source" :title "Smith 2019"))
+              '((:from "a" :type "answers" :to "q")
+                (:from "b" :type "answers" :to "q")
+                (:from "e" :type "supports" :to "a")
+                (:from "b" :type "contests" :to "a")
+                (:from "e" :type "informs" :to "s")))))
+  (dg-positions--render-outline graph "*dg positions sandbox*"))
+#+end_src
+
+** Tests
+
+Run with =C-c C-c= on the block (or =M-x ert RET t=). They build small graphs by hand, so they don't need discourse-graphs or its database.
+
+#+name: dg-positions-tests
+#+begin_src emacs-lisp :tangle no
+(require 'ert)
+
+(defun dg-positions-test--graph ()
+  "A graph with one question and four answers of different strength.
+A claim is contested when it has more support than opposition, and
+challenged when the opposition matches or outweighs the support."
+  (dg-positions--make-graph
+   '((:id "q" :type "question" :title "Q")
+     (:id "a" :type "claim" :title "Supported claim")
+     (:id "b" :type "claim" :title "Contested claim")
+     (:id "c" :type "claim" :title "Challenged claim")
+     (:id "d" :type "claim" :title "Bare claim")
+     (:id "old" :type "claim" :title "Retired claim")
+     (:id "e1" :type "evidence" :title "E1")
+     (:id "e2" :type "evidence" :title "E2")
+     (:id "e3" :type "evidence" :title "E3")
+     (:id "e4" :type "evidence" :title "E4")
+     (:id "x" :type "claim" :title "Objector")
+     (:id "s" :type "source" :title "S"))
+   '((:from "a" :type "answers" :to "q")
+     (:from "b" :type "answers" :to "q")
+     (:from "c" :type "answers" :to "q")
+     (:from "d" :type "answers" :to "q")
+     (:from "old" :type "answers" :to "q")
+     (:from "e1" :type "supports" :to "a")
+     (:from "e1" :type "supports" :to "b")
+     (:from "e4" :type "supports" :to "b")
+     (:from "e2" :type "opposes" :to "b")
+     (:from "e3" :type "opposes" :to "c")
+     (:from "x" :type "contests" :to "c")
+     (:from "e1" :type "informs" :to "s")
+     (:from "a" :type "supersedes" :to "old"))))
+
+(ert-deftest dg-positions-statuses ()
+  (let ((g (dg-positions-test--graph)))
+    (should (eq (dg-positions-status-of g "a") 'supported))
+    (should (eq (dg-positions-status-of g "b") 'contested))
+    (should (eq (dg-positions-status-of g "c") 'challenged))
+    (should (eq (dg-positions-status-of g "d") 'unsupported))
+    (should-not (dg-positions-status-of g "e1"))))
+
+(ert-deftest dg-positions-custom-relation-counts ()
+  "`contests' counts as opposition, so the objector adds to c's count."
+  (let ((g (dg-positions-test--graph)))
+    (should (= (dg-positions--role-count g "c" 'oppose) 2))))
+
+(ert-deftest dg-positions-retired-nodes-vanish ()
+  (let ((g (dg-positions-test--graph)))
+    (should-not (member "old" (dg-positions--ids g)))
+    (should-not (assoc 'answers (dg-positions--edges g "old" 'out)))
+    (should (= (length (dg-positions--children g "q")) 4))
+    (let ((dg-positions-show-retired t))
+      (should (member "old" (dg-positions--ids g))))))
+
+(ert-deftest dg-positions-gaps ()
+  (let ((g (dg-positions-test--graph)))
+    (should (equal (dg-positions-gaps-of g "d") '(no-support)))
+    (should (equal (dg-positions-gaps-of g "e2") '(no-source)))
+    (should-not (dg-positions-gaps-of g "e1"))
+    (should (memq 'unanswered-opposition (dg-positions-gaps-of g "c")))))
+
+(ert-deftest dg-positions-grounding-is-not-circular ()
+  "A source sits under its evidence, and the evidence is not repeated under it."
+  (let ((g (dg-positions-test--graph)))
+    (should (equal (dg-positions--children g "e1") '((informs . "s"))))
+    (should-not (dg-positions--children g "s"))))
+
+(ert-deftest dg-positions-in-and-out-take-bare-names ()
+  (should (equal (dg-positions--quote-relations '(and (= (in answers) 0) (> (out informs) 1)))
+                 '(and (= (in 'answers) 0) (> (out 'informs) 1))))
+  (should (equal (dg-positions--quote-relations '(= (in 'answers) 0))
+                 '(= (in 'answers) 0))))
+
+(ert-deftest dg-positions-custom-rule ()
+  "A status added by the user wins when written first."
+  (let ((dg-positions-rules
+         (cons '(status settled :for (claim) :when (and (> support 0) (= oppose 0)))
+               dg-positions-rules)))
+    (should (eq (dg-positions-status-of (dg-positions-test--graph) "a") 'settled))))
+
+(ert-deftest dg-positions-bad-rules-are-reported ()
+  (should-error (dg-positions-validate-rules '((relatoin x "Y"))) :type 'user-error)
+  (should-error (dg-positions-validate-rules '((relation x))) :type 'user-error)
+  (should-error (dg-positions-validate-rules '((relation x "X" :counts-as maybe)))
+                :type 'user-error)
+  (should-error (dg-positions-validate-rules '((relation x "X" :colour "red")))
+                :type 'user-error)
+  (should-error (dg-positions-validate-rules '((status s :for (claim)))) :type 'user-error)
+  (should-error (dg-positions-validate-rules '((status s :when t) (status s :when nil)))
+                :type 'user-error)
+  (should (dg-positions-validate-rules)))
+
+(ert-deftest dg-positions-outline-and-dot ()
+  (let* ((g (dg-positions-test--graph))
+         (outline (with-temp-buffer
+                    (dg-positions--insert-outline g "q" nil 1 nil)
+                    (buffer-string)))
+         (dot (dg-positions--dot g)))
+    (should (string-match-p "{1 challenged, 1 contested, 1 supported, 1 unsupported}"
+                            (with-temp-buffer
+                              (dg-positions--insert-line g "q" nil 1)
+                              (buffer-string))))
+    (should (string-match-p ":contested:" outline))
+    (should (string-match-p "\\[contests\\] \\[\\[id:x\\]" outline))
+    (should (string-match-p "cluster_1" dot))
+    (should (string-match-p "dir=back" dot))
+    (should-not (string-match-p "Retired claim" dot))))
+
+(ert-run-tests-interactively "^dg-positions-")
+#+end_src

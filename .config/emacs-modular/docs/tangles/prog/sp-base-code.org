@@ -15,7 +15,15 @@ The language modules (for example =sp-go=, =sp-rust=, =sp-nix= and =sp-lisp=) tu
 From a company-mode issue thread. =inside-string-q= and =inside-comment-q= use =syntax-ppss= to report whether point is inside a string or comment; both are interactive and echo their result, so every call prints a message. =semantic-completion-advice= is an around advice that skips the wrapped function when point is in a string or comment, used below to stop Semantic from offering completions there.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-base-code.el --- Shared programming setup: completion, LSP and outlines -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module holds the programming setup that other language modules build
+;; on.
+
+;;; Code:
+
 ;; see https://github.com/company-mode/company-mode/issues/525#issuecomment-348635719
 (defun inside-string-q ()
   "Returns non-nil if inside string, else nil.
@@ -94,6 +102,7 @@ Installs =srefactor=, a refactoring tool built on Semantic, deferred with nothin
 
 #+begin_src emacs-lisp -i
 (use-package srefactor
+  :ensure t
   :defer t)
 ;(use-package auto-complete
 ;  :init
@@ -109,10 +118,7 @@ Installs =srefactor=, a refactoring tool built on Semantic, deferred with nothin
 
 Installs =company-quickhelp=, which shows documentation popups next to company candidates, deferred until needed.
 
-#+begin_src emacs-lisp -i
-(use-package company-quickhelp
-  :defer t)
-#+end_src
+The declaration itself sits after =company= in the file, because =company-quickhelp= requires =company= and Elpaca would otherwise queue =company= as a dependency first and warn.
 
 ** Start quickhelp lazily
 
@@ -131,6 +137,7 @@ Company is configured with a 0.2 second idle delay, wrap-around selection, align
 
 #+begin_src emacs-lisp -i
 (use-package company
+  :ensure t
   :defer t
 
   :init 
@@ -150,6 +157,7 @@ Company is configured with a 0.2 second idle delay, wrap-around selection, align
 ) 
 
 (use-package lsp-mode
+  :ensure t
   :defer t
   :commands (lsp lsp-deferred)
   :config (setq lsp-prefer-flymake nil
@@ -159,6 +167,11 @@ Company is configured with a 0.2 second idle delay, wrap-around selection, align
                 lsp-headerline-breadcrumb-enable nil
                 lsp-file-watch-threshold 10000)
           (setq lsp-client-packages (delete 'lsp-java lsp-client-packages)))
+
+;; After `company', which it requires.
+(use-package company-quickhelp
+  :ensure t
+  :defer t)
 #+end_src
 
 ** Flycheck and lsp-ui
@@ -173,6 +186,7 @@ Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode tu
   )
   
 (use-package lsp-ui
+  :ensure t
   :defer t
   :bind (:map lsp-ui-doc-frame-mode-map          
     ([mouse-1] . #'ignore)
@@ -202,7 +216,7 @@ Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode tu
 Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives a quick overview of rigidly indented code. A note says this navigation could move to another module.
 
 #+begin_src emacs-lisp -i
-;;;;; Outline Navigation
+;;;; Outline Navigation
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
@@ -255,7 +269,7 @@ Turns on the built-in =outline-minor-mode= in every programming buffer. In that 
 Turns off =icomplete-mode= and sets =completion-auto-help= so the completions buffer appears when completion is ambiguous. A commented setting for =completion-cycle-threshold= ends with a stray quote.
 
 #+begin_src emacs-lisp -i
-;;;;; Autocomplete changes
+;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)
@@ -263,12 +277,9 @@ Turns off =icomplete-mode= and sets =completion-auto-help= so the completions bu
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-base-code= feature for =init.el=.
+Provides the =sp-base-code= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-base-code)
 ;; sp-base-code.el ends here.

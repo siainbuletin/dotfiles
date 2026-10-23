@@ -1,107 +1,123 @@
-;; -*- lexical-binding: t; -*-
-;; sp-agenda-views.el --- Custom agenda views
+;;; sp-agenda-views.el --- Custom agenda views and agenda keys -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Every custom agenda view and every agenda key in one place.
+;; `org-agenda-custom-commands' is assigned once, here.  Load this module
+;; after sp-vulpea-para and sp-org-issues, whose functions the views call.
+;; Views that restrict `org-agenda-files' themselves also bind
+;; `vulpea-para-agenda-inhibit-files-update', or vulpea-para would put the
+;; PARA agenda files back before the block runs.
+
+;;; Code:
 
 (require 'org-agenda)
 (require 'vulpea-para)
 
-;; Custom org-agenda views
-;; Agenda Custom Commands
-;; Configure custom agenda views
-;; https://orgmode.org/manual/Storing-searches.html#Storing-searches
-;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/
+(declare-function sp-org-issues--agenda-files "sp-org-issues")
+(declare-function org-gtd-agenda-transient "org-gtd")
 
-(dolist (view
-         '(("d" "Dashboard"
-           ((agenda "" ((org-agenda-span 'day)))
-           (tags-todo "DEADLINE=\"<today>\""
-                     ((org-agenda-overriding-header "Due Today!")))
-           (tags-todo "+DEADLINE<\"<+5d>\"+DEADLINE>\"<today>\""
-                     ((org-agenda-overriding-header "Due Soon")))
-           (todo "NEXT"
-                ((org-agenda-overriding-header "Next Tasks")))
-           (tags-todo "email" ((org-agenda-overriding-header "Email")))
-             ))
-        
-           ("p" "Planning"
-                ((tags-todo "+@planning"
-                            ((org-agenda-overriding-header "Planning Tasks")))
-                 (tags-todo "-{.*}"
-                            ((org-agenda-overriding-header "Untagged Tasks")))
-                 (todo ".*" ((org-agenda-files (list (sp-path sp-notes-dir "inbox.org")))
-                             (org-agenda-overriding-header "Unprocessed Inbox Items")))))
+;;;; Keys
+(keymap-global-set "C-c o a" #'org-agenda)
+(keymap-global-set "C-c a" #'org-agenda)
 
-           ("D" "Daily Agenda"
-            ((agenda "" ((org-agenda-span 'day)
-                         (org-deadline-warning-days 7)))
-             (tags-todo "+PRIORITY=\"A\""
-                        ((org-agenda-overriding-header "High Priority Tasks")))))
+(with-eval-after-load 'org-agenda
+  (keymap-set org-agenda-mode-map "C-c ." #'org-gtd-agenda-transient))
 
-           ("n" "Next Tasks"
-            ((todo "NEXT"
-                ((org-agenda-overriding-header "Next Tasks")))))
+(defconst sp-agenda-views-native
+  '(("d" "Dashboard"
+     ((agenda "" ((org-agenda-span 'day)))
+      (tags-todo "DEADLINE=\"<today>\""
+                 ((org-agenda-overriding-header "Due Today!")))
+      (tags-todo "+DEADLINE<\"<+5d>\"+DEADLINE>\"<today>\""
+                 ((org-agenda-overriding-header "Due Soon")))
+      (todo "NEXT"
+            ((org-agenda-overriding-header "Next Tasks")))
+      (tags-todo "email" ((org-agenda-overriding-header "Email")))))
 
-           ("W" "Work Tasks" tags-todo "+work")
+    ("p" "Planning"
+     ((tags-todo "+@planning"
+                 ((org-agenda-overriding-header "Planning Tasks")))
+      (tags-todo "-{.*}"
+                 ((org-agenda-overriding-header "Untagged Tasks")))
+      (todo ".*" ((org-agenda-files (list (sp-path sp-notes-dir "inbox.org")))
+                  (vulpea-para-agenda-inhibit-files-update t)
+                  (org-agenda-overriding-header "Unprocessed Inbox Items")))))
 
-        ;; Low-effort next actions
-        ("e" tags-todo "+TODO=\"NEXT\"+Effort<15&+Effort>0"
-         ((org-agenda-overriding-header "Low Effort Tasks")
-          (org-agenda-max-todos 20)
-          (org-agenda-files org-agenda-files)))
+    ("D" "Daily Agenda"
+     ((agenda "" ((org-agenda-span 'day)
+                  (org-deadline-warning-days 7)))
+      (tags-todo "+PRIORITY=\"A\""
+                 ((org-agenda-overriding-header "High Priority Tasks")))))
 
-        ("w" "Workflow Status"
-         ((todo "WAIT"
-                ((org-agenda-overriding-header "Waiting on External")
-                 (org-agenda-files org-agenda-files)))
-          (todo "REVIEW"
-                ((org-agenda-overriding-header "In Review")
-                 (org-agenda-files org-agenda-files)))
-          (todo "PLAN"
-                ((org-agenda-overriding-header "In Planning")
-                 (org-agenda-todo-list-sublevels nil)
-                 (org-agenda-files org-agenda-files)))
-          (todo "BACKLOG"
-                ((org-agenda-overriding-header "Project Backlog")
-                 (org-agenda-todo-list-sublevels nil)
-                 (org-agenda-files org-agenda-files)))
-          (todo "READY"
-                ((org-agenda-overriding-header "Ready for Work")
-                 (org-agenda-files org-agenda-files)))
-          (todo "ACTIVE"
-                ((org-agenda-overriding-header "Active Projects")
-                 (org-agenda-files org-agenda-files)))
-          (todo "COMPLETED"
-                ((org-agenda-overriding-header "Completed Projects")
-                 (org-agenda-files org-agenda-files)))
-          (todo "CANCELED"
-                ((org-agenda-overriding-header "Cancelled Projects")
-                 (org-agenda-files org-agenda-files)))))
+    ("n" "Next Tasks"
+     ((todo "NEXT"
+            ((org-agenda-overriding-header "Next Tasks")))))
 
-           ("R" "Weekly Review"
-            ((agenda ""
-                     ((org-agenda-overriding-header "Completed Tasks")
-                      (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
-                      (org-agenda-span 'week)))
+    ("W" "Work Tasks" tags-todo "+work")
 
-             (agenda ""
-                     ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
-                      (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
-                      (org-agenda-span 'week)))))
+    ;; Low-effort next actions
+    ("e" tags-todo "+TODO=\"NEXT\"+Effort<15&+Effort>0"
+     ((org-agenda-overriding-header "Low Effort Tasks")
+      (org-agenda-max-todos 20)))
 
-           ("r" "Research and university" tags-todo "+@research @reading @uni")
+    ("w" "Workflow Status"
+     ((todo "PROG"
+            ((org-agenda-overriding-header "In Progress")))
+      (todo "WAIT"
+            ((org-agenda-overriding-header "Waiting on External")))
+      (todo "REVIEW"
+            ((org-agenda-overriding-header "In Review")))
+      (todo "ACTIVE"
+            ((org-agenda-overriding-header "Active Projects")))))
 
-           ("u" "Untagged Tasks" tags-todo "-{.*}")))
-  (add-to-list 'org-agenda-custom-commands view t))
+    ("R" "Weekly Review"
+     ((agenda ""
+              ((org-agenda-overriding-header "Completed Tasks")
+               (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottodo 'done))
+               (org-agenda-span 'week)))
 
-;; Getting the custom agenda view for vulpea-para
-(add-to-list 'org-agenda-custom-commands
-             `(" " "Agenda"
-               (,vulpea-para-agenda-cmd-refile
-                ,vulpea-para-agenda-cmd-today
-                ,vulpea-para-agenda-cmd-focus
-                ,vulpea-para-agenda-cmd-stuck-projects
-                ,vulpea-para-agenda-cmd-waiting
-                ,(vulpea-para-agenda-cmd-current-quarter))))
+      (agenda ""
+              ((org-agenda-overriding-header "Unfinished Scheduled Tasks")
+               (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+               (org-agenda-span 'week)))))
 
-;;; Provide:
+    ("r" "Research and university" tags-todo "+@research @reading @uni")
+
+    ("u" "Untagged Tasks" tags-todo "-{.*}"))
+  "The native views, as `org-agenda-custom-commands' entries.")
+
+(defconst sp-agenda-views-issues
+  '(("i" . "Issues")
+    ("ii" "Issue board"
+     ((todo "PROG" ((org-agenda-overriding-header "In progress")))
+      (todo "NEXT" ((org-agenda-overriding-header "Next")))
+      (todo "WAIT" ((org-agenda-overriding-header "Waiting on review or a reply")))
+      (todo "TODO" ((org-agenda-overriding-header "Open"))))
+     ((org-agenda-files (sp-org-issues--agenda-files))
+      (vulpea-para-agenda-inhibit-files-update t)
+      (org-agenda-buffer-name "*Issues*")))
+    ("ib" "Issues with a branch" tags-todo "BRANCH<>\"\""
+     ((org-agenda-files (sp-org-issues--agenda-files))
+      (vulpea-para-agenda-inhibit-files-update t)
+      (org-agenda-overriding-header "Issues with a branch"))))
+  "The issue views, as `org-agenda-custom-commands' entries.")
+
+(defconst sp-agenda-views-para
+  `((" " "Agenda"
+     (,vulpea-para-agenda-cmd-refile
+      ,vulpea-para-agenda-cmd-today
+      ,vulpea-para-agenda-cmd-focus
+      ,vulpea-para-agenda-cmd-stuck-projects
+      ,vulpea-para-agenda-cmd-waiting
+      ,(vulpea-para-agenda-cmd-current-quarter))))
+  "The main PARA view, as an `org-agenda-custom-commands' entry.")
+
+(setq org-agenda-custom-commands
+      (append sp-agenda-views-para
+              sp-agenda-views-native
+              (when (featurep 'sp-org-issues)
+                sp-agenda-views-issues)))
+
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here

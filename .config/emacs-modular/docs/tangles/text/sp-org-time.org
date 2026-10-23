@@ -10,19 +10,25 @@ This module collects Org packages for time tracking and scheduling: =org-pomodor
 
 No module list in =init.el= and no other module loads it, so these packages are currently inactive. The file ends with =(provide 'sp-org-time)=, so =(require 'sp-org-time)= works once it is added to a module list.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is also really important for task management, but it lives separately as
+an issue of scheduling, more specifically.
+#+end_quote
+
 * Header
 
 ** File header and commentary
 
-The file header and commentary, which explains that time and scheduling settings are kept apart from the general task management modules.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-time.el --- Settings for org-mode when dealing with time-related issues, specifically.
+;;; sp-org-time.el --- Org time tracking and scheduling tools -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This is also really important for task management, but it lives separately as 
+;; This is also really important for task management, but it lives separately as
 ;; an issue of scheduling, more specifically.
 
 ;;; Code:
@@ -32,14 +38,14 @@ The file header and commentary, which explains that time and scheduling settings
 
 ** Org pomodoro
 
-When extras are enabled and the package is installed, =org-pomodoro= is made available as a command, using macOS =afplay= to play its sounds. The comment trails off asking how best to trigger it; no key binding is set.
+=org-pomodoro= is made available as a command, using macOS =afplay= to play its sounds. The comment trails off asking how best to trigger it; no key binding is set.
 
 #+begin_src emacs-lisp -i
-;;; Org Pomodoro
+;;;; Org Pomodoro
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro
-  :if (and sp-load-extras (locate-library "org-pomodoro"))
+  :ensure t
   :commands org-pomodoro
   :init
   (progn
@@ -62,6 +68,7 @@ Configures =org-focus-hud=, bound globally to =C-c f=. Its display refreshes eve
 #+begin_src emacs-lisp -i
 ;; Includes focus for checklists - plugs into org-auto-scheduler
 (use-package org-focus-hud
+  :ensure (:host github :repo "SSD2019/org-focus-hud")
   :bind ("C-c f" . org-focus-hud)
   :config
   ;; Optional: Customize refresh interval in seconds
@@ -72,9 +79,7 @@ Configures =org-focus-hud=, bound globally to =C-c f=. Its display refreshes eve
 
 * Provide
 
-** Provide the feature
-
-Provides =sp-org-time=, matching the file name.
+Provides the =sp-org-time= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-time)

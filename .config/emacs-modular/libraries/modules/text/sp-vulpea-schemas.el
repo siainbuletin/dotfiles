@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-vulpea-schemas.el
+;;; sp-vulpea-schemas.el --- Vulpea note schemas -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
