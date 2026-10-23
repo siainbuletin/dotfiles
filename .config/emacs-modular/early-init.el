@@ -266,7 +266,7 @@ Any customized libraries not available via standard package repos like elpa or m
 ;; the different kinds of Emacs configurations.
 (defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'sia-lambda)
 
-(defconst sp-gui-only-set '(sp-gui sp-macos sp-splash lem-dashboard)
+(defconst sp-gui-only-set '(sp-gui sp-macos sp-dashboard lem-dashboard)
   "Modules that are meaningless without a graphic display.")  ; adjust to your real names
 (defun lem-gui-only-modules () sp-gui-only-set)
 
