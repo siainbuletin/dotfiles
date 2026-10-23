@@ -6,7 +6,7 @@ Literate source for the Vulpea modules in =libraries/modules/vulpea/=. This one 
 
 The sub-modules are not new: they were =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, =sp-vulpea-ext-back= and =sp-vulpea-split= in =libraries/modules/text/=, and =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-org-ql= in =libraries/modules/funct/=, each with its own doc. The code is unchanged. Most of the files have no newline after their last line, and Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-The table modules (=sp-vulpea-table=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-vulpea-table.org=, and are loaded by =sp-org-ext= right after =sp-vulpea=.
+The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after =sp-vulpea=.
 
 | Part | File | What it holds |
 |------+------+---------------|
@@ -39,7 +39,7 @@ The file header, then the five =require= forms in the order =sp-org-ext= used to
 
 ;;; Commentary:
 
-;; Loads everything about Vulpea except the table modules (sp-vulpea-table),
+;; Loads everything about Vulpea except the table modules (sp-collection-query-tables),
 ;; which are a separate custom module: the database and vui (sp-vulpea-base),
 ;; the sidebar (sp-vulpea-ui), the PARA agenda wiring (sp-vulpea-para), the
 ;; note schemas (sp-vulpea-schemas) and the extensions (sp-vulpea-ext).
@@ -66,7 +66,7 @@ The file header, then the five =require= forms in the order =sp-org-ext= used to
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-base.el
 :END:
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-vulpea-table-vui=. It is required from =sp-vulpea=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-vulpea=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
@@ -216,7 +216,7 @@ Provides the =sp-vulpea-base= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ui.el
 :END:
 
-This module configures =vulpea-ui=, the user interface layer for the Vulpea note database: a sidebar showing the current note's outline and backlinks, and collection views that render filtered tables of notes. Later modules such as =sp-vulpea-table-views= build on the rendering and settings established here, together with the schemas in =sp-vulpea-schemas=.
+This module configures =vulpea-ui=, the user interface layer for the Vulpea note database: a sidebar showing the current note's outline and backlinks, and collection views that render filtered tables of notes. Later modules such as =sp-collection-query-tables-views= build on the rendering and settings established here, together with the schemas in =sp-vulpea-schemas=.
 
 It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-vulpea=.
 
@@ -227,7 +227,7 @@ UI functions for vulpea.
 
 This includes the sidebar and the possibility to render collection views.
 
-The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
 are based on this rendering done here, as well as the information that is
 found in sp-vulpea-schemas.el
 #+end_quote
@@ -247,7 +247,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;
 ;; This includes the sidebar and the possibility to render collection views.
 ;;
-;; The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+;; The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
 
@@ -601,7 +601,7 @@ A fake note is a plist of tags; headless, =vulpea-para=, =vulpea= and the keywor
 
 Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
 
-The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-vulpea-table= modules builds on these definitions. The module is required from =sp-vulpea= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions. The module is required from =sp-vulpea= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
 
 The commentary at the top of the module says:
 
@@ -879,7 +879,7 @@ Provides the =sp-vulpea-schemas= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ext.el
 :END:
 
-A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split. The table modules (=sp-vulpea-table=) are not loaded from here; =sp-org-ext= requires them after =sp-vulpea=. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
+A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split. The table modules (=sp-collection-query-tables=) are not loaded from here; =sp-org-ext= requires them after =sp-vulpea=. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
 
 It is required from =sp-vulpea=, alongside =sp-vulpea-schemas=. Most of the required modules live under =libraries/modules/funct/=, which is why the file first makes sure every subdirectory of =libraries/modules/= is on the =load-path=.
 
@@ -897,7 +897,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
-;; smarter heading split.  The table modules (sp-vulpea-table) are not loaded
+;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
 ;; from here; sp-org-ext requires them after sp-vulpea.
 
 ;;; Code:
@@ -1624,7 +1624,7 @@ Provides the =sp-vulpea-convert-properties= feature and closes the file.
 
 This module shows the backlinks of a Vulpea note in an Org buffer, split into groups. A link written in ordinary prose goes into a Mentions group; a link found on a Vulpea meta line of the form =- KEY :: [[id:...]]= goes into a group named after that key. For example, notes listing someone under =pub-author= appear in their own group rather than mixed in with notes that merely mention the person.
 
-It depends on =vulpea=, =org= and the sibling module =sp-vulpea-table-core= (for =sp-vulpea-table-select-note=, formerly =sia-vulpea-select-note=). It is loaded from =sp-vulpea-ext=. The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason, though the docstrings do not actually explain it. The author also flags that the shape of the link data returned by =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
+It depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collection-query-tables-select-note=, formerly =sia-vulpea-select-note=). It is loaded from =sp-vulpea-ext=. The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason, though the docstrings do not actually explain it. The author also flags that the shape of the link data returned by =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
 
 The commentary at the top of the module says:
 
@@ -1672,12 +1672,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Requires
 
-Loads =vulpea=, =org= and =sp-vulpea-table-core=.
+Loads =vulpea=, =org= and =sp-collection-query-tables-core=.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea)
 (require 'org)
-(require 'sp-vulpea-table-core) ; for sp-vulpea-table-select-note
+(require 'sp-collection-query-tables-core) ; for sp-collection-query-tables-select-note
 #+end_src
 
 ** Classifying backlinks

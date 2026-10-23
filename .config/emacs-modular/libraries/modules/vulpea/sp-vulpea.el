@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Loads everything about Vulpea except the table modules (sp-vulpea-table),
+;; Loads everything about Vulpea except the table modules (sp-collection-query-tables),
 ;; which are a separate custom module: the database and vui (sp-vulpea-base),
 ;; the sidebar (sp-vulpea-ui), the PARA agenda wiring (sp-vulpea-para), the
 ;; note schemas (sp-vulpea-schemas) and the extensions (sp-vulpea-ext).

@@ -18,7 +18,7 @@
 
 ;;;;; Vulpea
 (require 'sp-vulpea)
-(require 'sp-vulpea-table) ;; my own table modules, kept out of the vulpea group
+(require 'sp-collection-query-tables) ;; my own table modules, kept out of the vulpea group
 
 ;;;;; Other extensions
 
