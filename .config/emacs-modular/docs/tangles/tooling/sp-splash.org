@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-splash.el=. Every line of the 
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a short menu of buttons, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =images/lambda-splash.txt=).
+This module replaces the stock Emacs startup screen with a =Dashboard= buffer showing a lambda logo, a welcome line, the Emacs version, package count and init time, a menu of boxed buttons with nested agendas, and a footer. There are two renderers: =sp-splash-screen= for graphical frames (PNG logo plus nerd-icons menu buttons) and =sp-splash-terminal= for terminal frames (ASCII banner read from =images/lambda-splash.txt=).
 
 It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
 
@@ -97,21 +97,25 @@ Five faces with no default attributes. They exist so a theme can style the splas
 
 ** Footer face
 
-=sp-splash-footer-face= is used for the footer text.
+=sp-splash-footer-face= is used for the footer text, in italics.
 
 #+begin_src emacs-lisp -i
-(defface sp-splash-footer-face nil
+(defface sp-splash-footer-face '((t :slant italic))
   "Face for splash footer."
   :group 'faces)
 #+end_src
 
 ** Menu face
 
-=sp-splash-menu-face= is used for the clickable menu buttons.
+=sp-splash-menu-face= is used for the menu text and the clickable menu buttons. =sp-splash-box-face= (inheriting =shadow=, so it follows the theme) is used for the lines drawn around each menu block.
 
 #+begin_src emacs-lisp -i
 (defface sp-splash-menu-face nil
   "Face for splash menus."
+  :group 'faces)
+
+(defface sp-splash-box-face '((t :inherit shadow))
+  "Face for the lines drawn around the splash menu blocks."
   :group 'faces)
 #+end_src
 
@@ -293,6 +297,11 @@ in `sp-splash-art-layers', centres the text on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
   :group 'sp-splash)
 
+(defcustom sp-splash-footer-layer 'lambda
+  "Name of the art layer the footer text is centred on, as for the menu."
+  :type '(choice (const :tag "Centre on the window" nil) symbol)
+  :group 'sp-splash)
+
 (defun sp-splash--layer-box (name)
   "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
   (when-let* ((layer (assq name sp-splash-art-layers))
@@ -305,11 +314,15 @@ in `sp-splash-art-layers', centres the text on the window."
                (or (plist-get (cdr layer) :y) 0))
             width height))))
 
-(defun sp-splash--content-column ()
-  "Return the column the title and the menu are centred on."
-  (if-let* ((box (sp-splash--layer-box sp-splash-content-layer)))
+(defun sp-splash--layer-column (name)
+  "Return the middle column of the art layer NAME, or of the window."
+  (if-let* ((box (sp-splash--layer-box name)))
       (+ (nth 0 box) (/ (nth 2 box) 2))
     (/ (window-width) 2)))
+
+(defun sp-splash--content-column ()
+  "Return the column the title and the menu are centred on."
+  (sp-splash--layer-column sp-splash-content-layer))
 
 (defun sp-splash--put-art-char (col ch face)
   "Put CH in FACE at column COL of the current line if it is blank."
@@ -366,7 +379,7 @@ Only plain blanks are replaced, so text, buttons and images are kept."
 
 ** Moving the art
 
-In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= move the current layer and redraw; =TAB= picks the next layer. The splash rebuilds itself, so the change lasts until Emacs exits. =0= goes back to the defaults and =s= shows (and copies) the =setq= form for the current layers, to paste into the config.
+In the splash buffer, =S-<left>=, =S-<right>=, =S-<up>= and =S-<down>= move the current layer and redraw; =l= picks the next layer (=TAB= is for the buttons). The splash rebuilds itself, so the change lasts until Emacs exits. =0= goes back to the defaults and =s= shows (and copies) the =setq= form for the current layers, to paste into the config.
 
 #+begin_src emacs-lisp -i
 ;;;; Move the art
@@ -446,6 +459,83 @@ The form is also copied to the kill ring."
     (kill-new form)
     (message "%s" form)))
 #+end_src
+
+* Splash menu
+
+The menu under the banner is a list of blocks, =sp-splash-menu=. Each block is drawn in a box of lines (=sp-splash-box-face=); a block with children, such as Agenda, shows them nested under its heading. All blocks are as wide as the widest row and are centred on the banner. Remove or reorder blocks in the list to change the menu, and bind the keys in =sp-splash-mode-map=. A heading without a command (as for Agenda) is plain text; every other row is a button that calls its command.
+
+#+begin_src emacs-lisp -i
+;;;; Menu
+;; The blocks under the banner.  Each element of `sp-splash-menu' is drawn as
+;; a box, and a block with children shows them nested under its heading.
+(defcustom sp-splash-menu
+  '(("nf-fa-calendar" "Agenda" nil nil "Agendas"
+     (("General agenda" "a" sp-splash-open-agenda "Open the general agenda")
+      ("Thesis" "t" sp-splash-open-thesis-agenda "Open the thesis agenda")
+      ("Issues" "i" sp-splash-open-issues-agenda "Open the issues agenda")
+      ("Deadlines" "d" sp-splash-open-deadlines-agenda "Open the coming deadlines")))
+    ("nf-fa-code" "Config" "c" sp-splash-open-config "Visit config directory" nil)
+    ("nf-fa-book" "Notes" "n" sp-splash-open-notes "Open notes directory" nil))
+  "Blocks of the splash menu, each drawn in a box.
+Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
+`nerd-icons-faicon' name.  CHILDREN, when non-nil, is a list of
+\(LABEL KEY COMMAND HELP) shown nested under the heading, and the heading
+then needs no KEY or COMMAND.  The keys must also be bound in
+`sp-splash-mode-map'."
+  :type '(repeat sexp)
+  :group 'sp-splash)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-splash--menu-rows (entry)
+  "Return the rows of the menu block ENTRY, heading first.
+Each row is (TEXT KEY COMMAND HELP)."
+  (pcase-let ((`(,icon ,label ,key ,command ,help ,children) entry))
+    (let ((count (length children))
+          (index 0))
+      (cons (list (concat (nerd-icons-faicon icon) isep label) key command help)
+            (mapcar (lambda (child)
+                      (setq index (1+ index))
+                      (cons (concat "  " (if (= index count) "└─ " "├─ ") (car child))
+                            (cdr child)))
+                    children)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-splash--insert-menu (content-col)
+  "Insert the menu blocks in boxes, centred on column CONTENT-COL."
+  (let* ((blocks (mapcar #'sp-splash--menu-rows sp-splash-menu))
+         (text-width (apply #'max (mapcar (lambda (row) (string-width (car row)))
+                                          (apply #'append blocks))))
+         (body-width (+ text-width (length ksep) 3))
+         (inner-width (+ body-width 2))
+         (indent (max 0 (- content-col (/ (+ inner-width 2) 2)))))
+    (dolist (block blocks)
+      (insert-char ?\s indent)
+      (insert (propertize (concat "┌" (make-string inner-width ?─) "┐\n")
+                          'face 'sp-splash-box-face))
+      (dolist (row block)
+        (pcase-let* ((`(,text ,key ,command ,help) row)
+                     (body (concat text
+                                   (make-string (- text-width (string-width text)) ?\s)
+                                   ksep
+                                   (if key (format "(%s)" key) "   "))))
+          (insert-char ?\s indent)
+          (insert (propertize "│ " 'face 'sp-splash-box-face))
+          (if command
+              (insert-text-button body
+                                  'action (lambda (_) (funcall command))
+                                  'help-echo help
+                                  'face 'sp-splash-menu-face
+                                  'follow-link t)
+            (insert (propertize body 'face 'sp-splash-menu-face)))
+          (insert (propertize " │\n" 'face 'sp-splash-box-face))))
+      (insert-char ?\s indent)
+      (insert (propertize (concat "└" (make-string inner-width ?─) "┘\n")
+                          'face 'sp-splash-box-face))
+      (insert "\n"))))
+#+end_src
+
 
 * Splash renderers
 
@@ -547,10 +637,10 @@ Outline header for the functions that build the splash buffer.
 =sp-splash-screen= is the GUI renderer. Called interactively it first kills an existing =Dashboard= buffer, because otherwise the command only switches to the old buffer and a changed setting would not show. After the same buffer setup as the terminal version it inserts, centered horizontally:
 - the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section);
 - the welcome text, the Emacs version and the init info;
-- a menu of text buttons with nerd-icons for Agenda, Config, Mail, Notes and Projects, each showing its single-key shortcut;
-- a footer pushed toward the bottom of the window;
+- the menu blocks (see the previous section) in boxes, centred under the banner, each row showing its single-key shortcut;
+- a footer pushed toward the bottom of the window, centred on the lambda (=sp-splash-footer-layer=) so it sits close to the art;
 - the art layers, drawn last and behind the menu.
-Each button calls its action through =sp-splash--workspace-dispatch=, so a missing workspaces module gives a message rather than an error. The Projects button calls =tabspaces-open-or-create-project-and-workspace=, while the =p= key (below) calls =sp-open-existing-project-and-workspace=, so mouse and keyboard differ there.
+Each button calls its command, and the Config and Notes commands go through =sp-splash--workspace-dispatch=, so a missing workspaces module gives a message rather than an error. The Mail and Projects entries are gone; Projects is to be redone.
 
 #+begin_src emacs-lisp -i
 (defun sp-splash-screen ()
@@ -641,35 +731,9 @@ splash is drawn again with the current settings."
                   (insert (propertize init-info 'face 'sp-splash-header-face))
                   (insert-char ?\n 2))))
 
-            ;; Insert menu buttons - left-aligned as a group, group is centered
+            ;; Insert the menu blocks, in boxes under the banner
             (goto-char (point-max))
-            (let* ((button-indent (max 0 (- content-col (/ (length "Welcome to λ-Emacs") 2))))
-                   (button-labels '(("nf-fa-calendar" "Agenda" "a" sp-open-agenda-in-workspace "Open Agenda")
-                                    ("nf-fa-code" "Config" "c" sp-open-emacsd-in-workspace "Visit config directory")
-                                    ("nf-fa-envelope_o" "Mail" "m" sp-open-email-in-workspace "Open Email in Mu4e")
-                                    ("nf-fa-book" "Notes" "n" sp-open-notes-in-workspace "Open notes directory")
-                                    ("nf-fa-folder" "Projects" "p" tabspaces-open-or-create-project-and-workspace "Open project & workspace")))
-                   (max-label-width (apply 'max (mapcar (lambda (item) (length (nth 1 item))) button-labels))))
-            
-              (dolist (button button-labels)
-                (let* ((icon (nth 0 button))
-                       (label (nth 1 button))
-                       (key (nth 2 button))
-                       (action (nth 3 button))
-                       (help (nth 4 button))
-                       (padded-label (format (format "%%-%ds" max-label-width) label)))
-                  (insert-char ?\s button-indent)
-                  (insert-text-button (concat (nerd-icons-faicon icon)
-                                              isep 
-                                              padded-label 
-                                              ksep 
-                                              "(" key ")")
-                                      'action (lambda (_) (sp-splash--workspace-dispatch action))
-                                      'help-echo help
-                                      'face 'sp-splash-menu-face
-                                      'follow-link t)
-                  (insert-char ?\n 1))))
-
+            (sp-splash--insert-menu content-col)
 
             ;; Add footer with some space above bottom
             (goto-char (point-max))
@@ -680,7 +744,8 @@ splash is drawn again with the current settings."
             
             ;; Footer text centered
             (defvar sp-splash-footer "   " "Footer text.")
-            (let ((footer-center (max 0 (/ (- (window-width) (length sp-splash-footer)) 2))))
+            (let ((footer-center (max 0 (- (sp-splash--layer-column sp-splash-footer-layer)
+                                           (/ (length sp-splash-footer) 2)))))
               (insert-char ?\s footer-center)
               (insert (propertize sp-splash-footer 'face 'sp-splash-footer-face)))
 
@@ -695,7 +760,7 @@ splash is drawn again with the current settings."
 
 ** Footer text
 
-Sets the global =sp-splash-footer= string shown at the bottom of the splash. The current value is a placeholder.
+Sets the global =sp-splash-footer= string shown at the bottom of the splash, under the lambda. The current value is a placeholder.
 
 #+begin_src emacs-lisp -i
 ;;;;; Set Splash Footer
@@ -744,15 +809,71 @@ Menu actions come from the optional =sp-workspaces= module. These wrappers make 
     (message "Enable the workspaces module (sp-workspaces) for this action")))
 #+end_src
 
-** Open agenda
+** Agendas
 
-Interactive wrapper for =sp-open-agenda-in-workspace=, bound to =a= in the splash.
+The Agenda block of the menu has four agendas: General (=a=), thesis (=t=), issues (=i=) and deadlines (=d=). Each has a variable naming its files: =sp-splash-agenda-general-files=, =sp-splash-agenda-thesis-files=, =sp-splash-agenda-issues-files= and =sp-splash-agenda-deadlines-files=. Point them at the right files; while one is nil it uses =org-agenda-files=. =sp-splash--open-agenda= shows the agenda of a list of files; for deadlines it shows only deadlines in the next =sp-splash-deadlines-days= days. The General agenda keeps opening the agenda workspace (=sp-open-agenda-in-workspace=) while its variable is nil.
 
 #+begin_src emacs-lisp -i
+(defcustom sp-splash-agenda-general-files nil
+  "Files of the General agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-thesis-files nil
+  "Files of the thesis agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-issues-files nil
+  "Files of the issues agenda; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-agenda-deadlines-files nil
+  "Files searched for the coming deadlines; nil uses `org-agenda-files'."
+  :type '(choice (const :tag "All agenda files" nil) (repeat file))
+  :group 'sp-splash)
+
+(defcustom sp-splash-deadlines-days 30
+  "Days ahead the deadlines agenda looks."
+  :type 'integer
+  :group 'sp-splash)
+
+(defun sp-splash--open-agenda (files &optional deadlines)
+  "Show the agenda of FILES (nil: `org-agenda-files').
+With DEADLINES, show only the deadlines of the next `sp-splash-deadlines-days'."
+  (require 'org)
+  (require 'org-agenda)
+  (let ((org-agenda-files (or files org-agenda-files)))
+    (if deadlines
+        (let ((org-agenda-span sp-splash-deadlines-days)
+              (org-agenda-entry-types '(:deadline))
+              (org-deadline-warning-days sp-splash-deadlines-days))
+          (org-agenda-list))
+      (org-agenda-list))))
+
 (defun sp-splash-open-agenda ()
-  "Open the agenda workspace from the splash screen."
+  "Open the General agenda from the splash screen.
+Without `sp-splash-agenda-general-files' this is the agenda workspace."
   (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-agenda-in-workspace))
+  (if sp-splash-agenda-general-files
+      (sp-splash--open-agenda sp-splash-agenda-general-files)
+    (sp-splash--workspace-dispatch 'sp-open-agenda-in-workspace)))
+
+(defun sp-splash-open-thesis-agenda ()
+  "Open the thesis agenda from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-thesis-files))
+
+(defun sp-splash-open-issues-agenda ()
+  "Open the issues agenda from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-issues-files))
+
+(defun sp-splash-open-deadlines-agenda ()
+  "Open the coming deadlines from the splash screen."
+  (interactive)
+  (sp-splash--open-agenda sp-splash-agenda-deadlines-files t))
 #+end_src
 
 ** Open config
@@ -766,17 +887,6 @@ Interactive wrapper for =sp-open-emacsd-in-workspace=, bound to =c=.
   (sp-splash--workspace-dispatch 'sp-open-emacsd-in-workspace))
 #+end_src
 
-** Open email
-
-Interactive wrapper for =sp-open-email-in-workspace=, bound to =m=.
-
-#+begin_src emacs-lisp -i
-(defun sp-splash-open-email ()
-  "Open the email workspace from the splash screen."
-  (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-email-in-workspace))
-#+end_src
-
 ** Open notes
 
 Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
@@ -788,22 +898,11 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
   (sp-splash--workspace-dispatch 'sp-open-notes-in-workspace))
 #+end_src
 
-** Open project
-
-Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
-
-#+begin_src emacs-lisp -i
-(defun sp-splash-open-project ()
-  "Open a project workspace from the splash screen."
-  (interactive)
-  (sp-splash--workspace-dispatch 'sp-open-existing-project-and-workspace))
-#+end_src
-
 * Splash minor mode
 
 ** Keymap
 
-=sp-splash-mode-map= gives the splash single-key bindings: =a=, =c=, =m=, =n= and =p= for the menu actions, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =TAB= picks the next layer, =0= resets the layers and =s= shows them.
+=sp-splash-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-splash-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes.
 
 #+begin_src emacs-lisp -i
 ;;;; Define Minor Mode
@@ -812,21 +911,75 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") 'sp-splash-open-agenda)
     (define-key map (kbd "c") 'sp-splash-open-config)
-    (define-key map (kbd "m") 'sp-splash-open-email)
     (define-key map (kbd "n") 'sp-splash-open-notes)
-    (define-key map (kbd "p") 'sp-splash-open-project)
+    (define-key map (kbd "t") 'sp-splash-open-thesis-agenda)
+    (define-key map (kbd "i") 'sp-splash-open-issues-agenda)
+    (define-key map (kbd "d") 'sp-splash-open-deadlines-agenda)
     (define-key map (kbd "S-<left>") 'sp-splash-art-left)
     (define-key map (kbd "S-<right>") 'sp-splash-art-right)
     (define-key map (kbd "S-<up>") 'sp-splash-art-up)
     (define-key map (kbd "S-<down>") 'sp-splash-art-down)
-    (define-key map (kbd "TAB") 'sp-splash-art-next-layer)
+    (define-key map (kbd "TAB") 'sp-splash-next-button)
+    (define-key map (kbd "<backtab>") 'sp-splash-previous-button)
+    (define-key map (kbd "l") 'sp-splash-art-next-layer)
     (define-key map (kbd "0") 'sp-splash-art-reset)
     (define-key map (kbd "s") 'sp-splash-art-show-position)
     (define-key map (kbd "q") 'sp-splash-screen-kill)
     (define-key map (kbd "<escape>") 'sp-splash-screen-bury)
     (define-key map (kbd "k") 'sp-splash-screen-kill)
+    ;; The splash is not for scrolling, moving the cursor or marking text:
+    ;; only TAB and S-TAB move, between the buttons.
+    (dolist (command '(next-line previous-line forward-char backward-char
+                       forward-word backward-word left-word right-word
+                       beginning-of-line end-of-line move-beginning-of-line
+                       move-end-of-line beginning-of-buffer end-of-buffer
+                       scroll-up-command scroll-down-command scroll-left
+                       scroll-right scroll-other-window recenter
+                       recenter-top-bottom reposition-window
+                       set-mark-command mark-whole-buffer mark-word
+                       mark-paragraph mark-sexp exchange-point-and-mark
+                       mouse-set-region mouse-drag-region mouse-save-then-kill
+                       mouse-set-point mouse-secondary-save-then-kill
+                       mwheel-scroll pixel-scroll-precision
+                       isearch-forward isearch-backward))
+      (define-key map `[remap ,command] #'ignore))
+    (dolist (event '(wheel-up wheel-down wheel-left wheel-right mouse-4 mouse-5
+                     mouse-6 mouse-7 double-wheel-up double-wheel-down
+                     triple-wheel-up triple-wheel-down down-mouse-1
+                     drag-mouse-1 double-mouse-1 triple-mouse-1))
+      (define-key map (vector event) #'ignore))
     map)
   "Keymap for sp-splash-mode.")
+
+(defface sp-splash-focus-face '((t :inherit highlight))
+  "Face for the splash button that TAB has selected."
+  :group 'faces)
+
+(defvar-local sp-splash--focus-overlay nil
+  "Overlay marking the selected button of the splash.")
+
+(defun sp-splash-next-button ()
+  "Select the next button of the splash, wrapping around."
+  (interactive)
+  (forward-button 1 t nil t))
+
+(defun sp-splash-previous-button ()
+  "Select the previous button of the splash, wrapping around."
+  (interactive)
+  (backward-button 1 t nil t))
+
+(defun sp-splash--mark-focus ()
+  "Highlight the button at point, since the cursor is hidden."
+  (when sp-splash--focus-overlay
+    (delete-overlay sp-splash--focus-overlay))
+  (when-let* ((button (button-at (point))))
+    (setq sp-splash--focus-overlay
+          (make-overlay (button-start button) (button-end button)))
+    (overlay-put sp-splash--focus-overlay 'face 'sp-splash-focus-face)))
+
+(defun sp-splash--no-region ()
+  "Drop the region at once: the splash never marks text."
+  (deactivate-mark))
 #+end_src
 
 ** Minor mode
@@ -863,11 +1016,24 @@ Interactive wrapper for =sp-open-existing-project-and-workspace=, bound to =p=.
         truncate-lines nil
         inhibit-startup-message t
         inhibit-startup-echo-area-message t)
+
+  ;; The splash fills the window and never scrolls or wraps
+  (setq-local truncate-lines t
+              scroll-margin 0
+              scroll-conservatively 0
+              auto-window-vscroll nil
+              shift-select-mode nil
+              mouse-wheel-mode nil)
+  (add-hook 'activate-mark-hook #'sp-splash--no-region nil t)
+  (add-hook 'post-command-hook #'sp-splash--mark-focus nil t)
   
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
-  (goto-char (point-min)))
+  (goto-char (point-min))
+  (set-window-start (selected-window) (point-min))
+  (forward-button 1 t nil t)
+  (sp-splash--mark-focus))
 #+end_src
 
 * Setup and refresh
