@@ -10,6 +10,13 @@ This module is the hub for Org extensions. Its first job is to load a group of o
 
 Its second job is to install a handful of smaller Org packages: =org-contrib= (for ignoring headlines on export), =org-autolist=, =org-journal=, =org-ranker=, =org-special-block-extras=, and two local =org-context= libraries from the =cloned= directory. It is loaded near the end of the Org group in both the default and minimal module lists. Citation setup lives elsewhere, as the opening note says.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+NOTE: some org-extensions are set in other setup files:
+- org citations setup is in setup-citation
+#+end_quote
+
 * Loading the Org sub-modules
 
 ** File header

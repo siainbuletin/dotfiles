@@ -8,6 +8,20 @@ Platform tweaks for running Emacs natively on Windows. The only code is a guarde
 
 The module is currently commented out in =init.el= ("will be adding the relevant modules later"), so it is not loaded. Because the code is wrapped in a =system-type= check it would be harmless to enable on macOS or Linux.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is the specialized module for dealing with launching Emacs on Windows. Because of issues
+with the way that Windows accesses the native binaries for Emacs, it might be a better idea to
+run Emacs within WSL.
+
+Lambda-Emacs is developed on macOS and Linux; Windows works but needs a little more care. Put
+git (and ideally ripgrep) on your Windows PATH, expect the first-run compilation to take
+noticeably longer, and prefer a recent official Emacs build with native compilation. Restarting
+Emacs to resume installation usually clears transient build failures.
+https://codeberg.org/Lambda-Emacs/lambda-emacs#headline-10
+#+end_quote
+
 * Overview
 
 ** File header

@@ -10,6 +10,14 @@ It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= 
 
 The eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dispatchers=, which only exist once Dirvish is loaded, and Dirvish itself is loaded later. Both forms therefore sit inside =with-eval-after-load= for =dirvish=, so the rest of the file (including the =provide=) always runs.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Setup code for "navigating" Emacs, in the sense of outlines, goto functions,
+saving place, recent files, etc.
+this file is particularly concerned with good settings for dired.
+#+end_quote
+
 * File header
 
 ** Header and commentary

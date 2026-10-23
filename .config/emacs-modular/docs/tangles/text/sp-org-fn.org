@@ -10,6 +10,30 @@ An experiment in placing Org footnote definitions inside the subtree they belong
 
 The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable, which would have signalled a void-function error when the file loaded; it is now a =setq=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Commentary:
+
+Org footnotes typically get placed at the end of the file in a footnote section. This
+behaviour is generally very useful, however, in the case of wanting to refile a heading
+to a different file with a function like ~vulpea-split-heading~, the footnotes don't get
+copied over as well, which creates a lot of manual work.
+
+Working with Claude, I want to define custom logic for the footnotes so that I can restrict
+how deep into the sections the footnotes can go, and when to decide when to actually keep
+the regular footnotes at the end of the file (for much smaller files)
+
+The current logic that has been written by Claude doesn't actually do anything and, in fact, it blocks
+the functioning of creating a new footnote, because org-footnote-new is being adviced.
+
+Code:
+
+Footnotes
+(org-footnote-section t) ;; place footnotes globally. replace with nil if you want to have local footnotes --- can this be set according to the file?
+disabled in favor of new logic
+#+end_quote
+
 * Background
 
 ** File header

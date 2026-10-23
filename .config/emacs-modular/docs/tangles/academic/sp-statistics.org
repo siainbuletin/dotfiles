@@ -8,6 +8,13 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module installs ESS (Emacs Speaks Statistics), which provides editing modes and interactive sessions for R and other statistics languages. It is a single package declaration with no further configuration. It is listed in the Academic block of =init.el= but commented out, so it is not loaded by default.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This sets up the ESS mode (Emacs Speaks Statistics), which will allow for
+working with more complex data within Emacs.
+#+end_quote
+
 * ESS
 
 ** File header and commentary

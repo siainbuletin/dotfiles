@@ -8,6 +8,12 @@ Judging by its name, this file is a backup or staging copy of =sp-vulpea-ext=, t
 
 The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it. The blocks below are a skeleton for when you fill it in. Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-vulpea-ext-back)= would succeed.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Backup or staging copy of sp-vulpea-ext.
+#+end_quote
+
 * File header
 
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.

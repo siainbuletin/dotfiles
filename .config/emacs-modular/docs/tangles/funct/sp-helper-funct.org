@@ -8,6 +8,12 @@ This module is a grab bag of small interactive commands and a few global setting
 
 It relies on directory constants defined in =early-init.el= (=sp-emacs-dir=, =sp-setup-dir=, =sp-user-dir=) and loads several packages lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers, and =evil= for the escape key bindings. Some commands shell out to external programs: =rg= (ripgrep), =curl= and =maim=. Many of the commands defined here are bound under the =sp-prefix= leader in =sp-keys.el=. The module is loaded in the Functions block of the default module list in =init.el= and ends by installing the =wizard= package.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Useful functions
+#+end_quote
+
 * Basic process and bell settings
 
 ** File header

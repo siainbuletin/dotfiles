@@ -8,6 +8,17 @@ This module sets the visual presentation of Org buffers: folding and ellipsis, s
 
 Fonts are deliberately not set here; the commentary points to =sp-fonts= for that. The settings are plain =setq= forms that take effect when Org loads, and the packages are installed through the config's package manager (the =:ensure= forms with =:wait= are Elpaca style). The module is loaded in the Org block of both module lists in =init.el=, after =sp-org-base= and =sp-denote=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This doesn't include any settings for fonts, as they are declared separately in sp-fonts.
+
+However, the overall appearance of an org buffer is declared here.
+
+It should, in the future, hold a definition for the way that tables appear in a more modern fashion,
+later on.
+#+end_quote
+
 * Header
 
 ** File header and commentary

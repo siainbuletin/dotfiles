@@ -10,6 +10,14 @@ This module configures Org Babel: which languages can be executed in source bloc
 
 The module is not listed in =init.el=; it is required from =sp-org-ext=. The ditaa and PlantUML blocks expect jar files under =software/= in =user-emacs-directory=, and the custom languages need the external =nu= program and Python 3 with the =jinja2= library.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This file deals with the tangling aspect of Emacs as well
+this should, in the future, hold a reference to the functions
+that are used for quickly tangling files.
+#+end_quote
+
 * Header
 
 ** File header and commentary

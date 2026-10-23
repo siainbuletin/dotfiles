@@ -10,6 +10,13 @@ This UI module sets up a comfortable space for long-form writing in Org. Olivett
 
 It depends on the =olivetti= and =writeroom-mode= packages. =writeroom-mode= has no =:ensure=, and since =use-package-always-ensure= is not set in =init.el=, it is only configured if it has been installed some other way.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This sub-library is called 'writedesk' because it's supposed to set up the space specifically
+for longform writing within org-mode.
+#+end_quote
+
 * Header
 
 ** File header and commentary

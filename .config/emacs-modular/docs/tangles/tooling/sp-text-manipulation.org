@@ -10,6 +10,12 @@ This module collects editing behaviour that applies to text in general: it turns
 
 Everything here is built in to Emacs apart from the external macOS tools =textutil= and =pbcopy= used by =formatted-copy=. It refers to =sp-var-dir= from =early-init.el= for the abbrev file location. The module is loaded with the utility modules in both the default and minimal module lists in =init.el=, so its global key bindings and its save hook are always active.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This creates useful functions for moving around text a lot easier.
+#+end_quote
+
 * Header and CUA mode
 
 ** File header and commentary

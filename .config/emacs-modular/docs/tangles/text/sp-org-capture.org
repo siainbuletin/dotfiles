@@ -10,6 +10,16 @@ This module sets up =org-capture=: the default inbox file, a handful of capture 
 
 It is required from =sp-org-ext=. It relies on =org-directory= being set elsewhere, on Denote for the note template, and on the commentary's plan to integrate capture with org-gtd and vulpea-para. Task capture lives in the Vulpea modules instead.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This contains important code for later on utilisation of stuff like
+journals for your work. There's the Lambda Emacs function for recording
+the weather at a given point.
+
+org-capture should be well plugged into org-gtd to fit with the workflow.
+#+end_quote
+
 * Overview
 
 ** Header and commentary

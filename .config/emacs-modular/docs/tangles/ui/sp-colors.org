@@ -6,6 +6,12 @@ Literate source for =libraries/modules/ui/sp-colors.el=. Every line of the modul
 
 A small module for how Emacs handles colours. It makes macOS use the sRGB colour space and sets up =rainbow-mode=, which shows colour names and hex codes in their own colour. It is loaded in the UI section of =init.el=, right after =sp-icons=. The =rainbow-mode= setup only runs when the package is installed.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Setup how emacs handles colors
+#+end_quote
+
 * Header
 
 ** File header and commentary

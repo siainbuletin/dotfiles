@@ -10,6 +10,13 @@ A draft bridge between the vulpea note database and =org-ql=, meant for inline q
 
 The module is not required anywhere in the config. It depends on =org-ql=, which =sp-org-base= installs. If the file were loaded, its query would run immediately at load time and fail unless both vulpea and org-ql were already available, so it is best read as a scratch file.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Use-cases:
+- for inline querying
+#+end_quote
+
 * Header
 
 ** File header and commentary

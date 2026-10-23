@@ -10,6 +10,13 @@ This module configures Emacs frames, meaning the top-level windows managed by th
 
 It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Setup for frames. Note that some basic settings are placed in early-init for
+better startup.
+#+end_quote
+
 * Header and frame title
 
 ** File header

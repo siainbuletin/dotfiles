@@ -10,6 +10,14 @@ This is one of the first modules loaded in every profile. It installs or declare
 
 Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is mostly taken from lem-setup-libraries.el because they're very basic libraries
+used for asynchronous processing string
+manipulation, list manipulation and backward compatibility respectively.
+#+end_quote
+
 * Header
 
 ** File header and commentary

@@ -8,6 +8,14 @@ This module handles the lowest level of interaction with the graphical interface
 
 The scrolling settings are noted as taken from Lambda Emacs. The module is loaded early, as part of the core group in both the default and minimal module lists in =init.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is set up for the lowest level of interaction
+with the graphical interface in Emacs. For example,
+the mouse support.
+#+end_quote
+
 * Header
 
 ** Header and commentary

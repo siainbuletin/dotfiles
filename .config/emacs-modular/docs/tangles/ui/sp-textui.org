@@ -8,6 +8,13 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module installs two packages by yibie from GitHub: =textui=, which the comment describes as a new package for better rendering of widgets in a buffer, and =org-table-widget=, which displays Org tables as interactive widgets. It then turns on =org-table-widget-mode= in every Org buffer. The module is in the UI group of the default module list in =init.el=, loaded just before the themes.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+TextUI is a new package that is supposed to provide better
+rendering for widgets in the buffer.
+#+end_quote
+
 * Widget rendering
 
 ** Header and description

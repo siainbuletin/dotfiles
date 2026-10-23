@@ -10,6 +10,13 @@ This module gathers everything about Org IDs and links. It configures the built-
 
 It depends only on Org and on =sp-cache-dir= from =early-init.el=. The module is loaded in the Org block of the default module list in =init.el= (it is not in the minimal list).
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is isolating every function that has to do with ID creation. It also deals
+with links within org-mode.
+#+end_quote
+
 * Header
 
 ** File header and commentary

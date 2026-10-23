@@ -8,6 +8,36 @@ This module adds modal, Vim style editing through =evil=, with =evil-collection=
 
 It is opt-in. It is commented out of both module lists in =init.el=, so by default it is not loaded at all. Unlike most modules, its packages install themselves with =:ensure t=, so the Evil package set only lands for people who turn it on. The commentary explains that the escape to quit bindings already live elsewhere; in this repository they are in =sp-helper-funct=, guarded by =with-eval-after-load 'evil=, and they wake up when this module loads Evil.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+A basic Evil layer for Lambda-Emacs: modal (vim-style) editing via
+`evil', broad keybinding coverage via `evil-collection', and the
+`evil-surround' / `evil-commentary' operators.
+
+This module is opt-in on two axes, and both must hold before any evil
+package is installed:
+
+  1. `sp-evil' must be loaded (added to your module list); an
+     unloaded file installs nothing.
+  2. `sp-load-extras' must be non-nil.
+
+Unlike most setup modules -- which gate on packages installed
+out-of-band from `sp-packages-alist' -- this one self-installs via
+`:ensure t', so the (fairly heavy) evil package set lands only for
+users who actually turn it on, not as part of the default install.
+The forms are wrapped in `(when sp-load-extras ...)' rather than
+carrying a per-form `:when', because use-package emits its `:ensure'
+install call OUTSIDE any `:when'/`:if' guard; only a wrapping form
+encloses the install so `sp-load-extras' can gate it too. `provide'
+stays outside the guard so `(require 'sp-evil)' always succeeds.
+
+This module is deliberately NOT part of `sp--default-modules', so
+plain lambda-emacs stays non-modal. Escape-to-quit bindings and the
+splash's hand-off to emacs-state already live in sp-setup-functions.el
+and sp-setup-splash.el, so they are not repeated here.
+#+end_quote
+
 * Header and commentary
 
 ** File header

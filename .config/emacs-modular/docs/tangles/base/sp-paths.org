@@ -12,6 +12,23 @@ It is the first module in both module lists in =init.el= and in the profiles of 
 
 Left alone on purpose: paths inside the configuration's own tree (=~/.config/...=), the legacy =~/.emacs.d= entries, =~/bin/mark.sh=, =~/opt/plantuml= and the plain =~/= used as a starting directory. They are tool locations rather than data, and are better handled when the Windows and Linux modules are written.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Every place outside the Emacs directory that the modules read or write
+(notes, bibliography, literature, source checkouts) is named here once, so
+that the modules never spell out "~/notes" and the like themselves.  Load it
+before any module that uses one of these variables.
+
+Each location can be overridden from the environment before Emacs starts,
+e.g. SP_NOTES_DIR=/tmp/notes emacs, which is how a test run is kept away from
+the real notes.  The defaults sit under the home folder and are built with
+`expand-file-name', so they are right on macOS, Linux and Windows alike.
+
+All of them are directories with a trailing slash.  Use `sp-path' to build a
+path below one of them.
+#+end_quote
+
 * Header
 
 ** File header and commentary

@@ -10,6 +10,15 @@ This module uses the =mini-frame= package to show the minibuffer in a child fram
 
 The dimming is implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library. It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup. The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions. The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This configuration for emacs-mini-frame.el makes sure that the minibuffer is being
+dimmed and centered when I'm looking for a particular file, or wanting to insert a
+link. Inserting should still be placed somewhere in the bottom, so it can follow what
+I'm writing in the current buffer without interrupting the focus on screen
+#+end_quote
+
 * Header
 
 ** File header and commentary

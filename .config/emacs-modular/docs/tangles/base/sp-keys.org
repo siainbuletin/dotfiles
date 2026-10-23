@@ -12,6 +12,22 @@ Most of the bound commands are defined elsewhere: =sp-= helpers live in =sp-help
 
 The file has grown in layers: a curated, well-commented part under the leader prefix, followed after the "End keybindings" marker by an older collection of global bindings and package declarations, some of which duplicate earlier settings. It is loaded early in both the default and minimal module lists in =init.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+An overhauled system for dealing with keybindings.
+The general convention is that I use the more modern keymap-global-set instead of global-set-key -- the entire config should be scanned to make sure that the information is added in there.
+
+There's also the option of using 'bind-key'.
+'bind-key' is a poart of use-package
+
+Keybindings for 𝛌-Emacs. This has its disadvantages (e.g. separating
+functions or packages from keybindings) but it also makes it the place to go
+to deal with all keybindings. I use `bind-key' for setting bindings, which
+comes with `use-package'. All 𝛌-Emacs keybindings are under the prefix
+specified by `sp-prefix'.
+#+end_quote
+
 * Header and commentary
 
 The file header and the author's notes on the binding conventions: prefer =keymap-global-set= over =global-set-key=, and use =bind-key= for prefix maps.

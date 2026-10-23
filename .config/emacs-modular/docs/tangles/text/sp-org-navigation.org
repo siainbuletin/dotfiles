@@ -8,6 +8,14 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 A placeholder module for Org navigation helpers. Its only configuration is commented out, so loading it does nothing beyond providing the feature. It is not listed in any profile, so it appears to be unused at present.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+(use-package ox-search
+ :ensure nil
+ :hook (org-mode . ox-search-mode))
+#+end_quote
+
 * Org navigation
 
 ** File header

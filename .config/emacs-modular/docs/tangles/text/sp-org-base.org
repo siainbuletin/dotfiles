@@ -12,6 +12,17 @@ Org itself is the built-in package (=:ensure nil=). Extra packages pulled in her
 
 The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This file only sets up the very basic extensions for org mode.
+I also use many other packages, they will be required later on.
+This includes the:
+- vulpea ecosystem (sp-vulpea-base.el) with the actual extensions at sp-vulpea-ext.el
+- org-node (and the org-mem package)
+- all the org-agenda stuff that will help with taks management (see also taskman.el)
+#+end_quote
+
 * File header
 
 ** Lexical binding and overview

@@ -10,6 +10,12 @@ This module sets up the =openwith= package, which intercepts =find-file= and han
 
 It is effectively a placeholder at the moment: the association list is empty, so no file type is actually redirected. The Romanian note near the top reads roughly "have to see how to make this work well", and a later comment mentions wanting to handle PDFs and DEVONthink.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+De văzut cum fac asta să funcționeze bine
+#+end_quote
+
 * File header
 
 ** Header and a to-do note

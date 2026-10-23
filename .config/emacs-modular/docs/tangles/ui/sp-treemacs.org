@@ -8,6 +8,18 @@ This module installs =treemacs= and shows the emacs-modular folder as a file tre
 
 The module is part of the window management group in the default module list, loaded after =sp-mini-frame=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+A file tree in a side window, used to keep the emacs-modular folder in view
+while editing the literate docs in docs/tangles.
+
+Treemacs is opened on demand with <f9>, never at startup. The tree shows a
+single project, `sp-treemacs-root', instead of the project of the current
+buffer: the yadm repository's root is $HOME, so following the current
+project would show the whole home folder.
+#+end_quote
+
 * Header
 
 ** File header and commentary

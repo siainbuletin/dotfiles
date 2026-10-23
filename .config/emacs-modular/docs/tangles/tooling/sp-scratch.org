@@ -10,6 +10,20 @@ This module, inherited from Lambda Emacs (hence the =lem--= function prefix), ma
 
 It uses =sp-cache-dir=, defined in =early-init.el= as the =cache/= directory under the config's var directory, so the saved file is =scratch= in that directory. There are no package dependencies. The module is in both the default and minimal module lists in =init.el=. The commentary leaves a TODO to bring in settings from an older configuration.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Better scratch settings
+See https://www.reddit.com/r/emacs/comments/4cmfwp/scratch_buffer_hacks_to_increase_its_utility/
+
+Features:
+- Provide options for persistent scratch buffer
+- Don't kill scratch, bury it instead
+- These settings can be enabled/disabled via the relevant variables
+
+TODO: Bring in the settings from the older configuration
+#+end_quote
+
 * Header
 
 ** Header and commentary

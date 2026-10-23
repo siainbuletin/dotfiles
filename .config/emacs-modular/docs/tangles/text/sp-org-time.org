@@ -10,6 +10,13 @@ This module collects Org packages for time tracking and scheduling: =org-pomodor
 
 No module list in =init.el= and no other module loads it, so these packages are currently inactive. The file ends with =(provide 'sp-org-time)=, so =(require 'sp-org-time)= works once it is added to a module list.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is also really important for task management, but it lives separately as
+an issue of scheduling, more specifically.
+#+end_quote
+
 * Header
 
 ** File header and commentary

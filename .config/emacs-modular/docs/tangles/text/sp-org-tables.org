@@ -10,6 +10,16 @@ This module collects helpers for working with Org tables. It has three parts: an
 
 It depends only on Org itself (=org-element=, =org-table= and, for the rendering experiment, the LaTeX preview machinery) and =cl-lib=. Nothing here is enabled automatically: there are no hooks or keybindings, so every feature is used through =M-x= or by adding the minor mode to a hook by hand. The author's comment notes the wish for Obsidian Dataview style table rendering and suggests watching the =textui= package for that.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is specific functionality for dealing with org-mode tables
+better. It would be great if they could be rendered in the manner
+that Dataview tables are in Obsidian (clean, dynamic, so on).
+
+It's worth exploring using ~textui~, as it develops.
+#+end_quote
+
 * Header and commentary
 
 ** File header
