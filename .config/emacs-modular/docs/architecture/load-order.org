@@ -49,12 +49,14 @@ digraph modules {
     g3 [label="sp-prog-misc\n(emr)"];
     f1 -> g1 -> g2 -> g3;
   }
-  subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
+  subgraph cluster_6 { label="6  Late (lem--late-modules): loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
     l1 [label="sp-academic  sp-dgraphs  sp-relationship-annotator\nsp-notes  sp-semantic  sp-dyn-graph\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
     l3 [label="sp-vcontrol  →  sp-magit-style\n(magit, forge, code-review)", color="#3a6ea5"];
     l4 [label="sp-terminal  sp-eshell", color="#3a6ea5"];
     l5 [label="sp-ai\n(gptel, gptel-agent, claude-code, vulpea-mcp, ...)", color="#3a6ea5"];
+    lx [label="the list is lem--late-modules\n(sp-defer-late-modules)\nrequired from elpaca-after-init-hook,\nthen elpaca-process-queues", shape=note, fillcolor="#e8f0f8", color="#3a6ea5"];
+    l5 -> lx [style=dotted, arrowhead=none];
     l1 -> l2 -> l3 -> l4 -> l5;
   }
   p3 -> u1 [ltail=cluster_1, lhead=cluster_2];
@@ -137,13 +139,35 @@ The =Package-Requires= headers were read from each package's upstream repository
 =emr= in =sp-prog-misc= requires =paredit=, which =sp-lisp= installs. The two modules swap places. =sp-lisp= does not use anything from =sp-prog-misc=.
 
 ** Late modules
-=sp-academic=, =sp-dgraphs=, =sp-relationship-annotator=, =sp-notes=, =sp-semantic=, =sp-dyn-graph=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell= and =sp-ai= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style=), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
+The list of modules that load after startup is the variable =lem--late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. The variable holds =sp-academic=, =sp-dgraphs=, =sp-relationship-annotator=, =sp-notes=, =sp-semantic=, =sp-dyn-graph=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-terminal=, =sp-eshell= and =sp-ai=, in dependency order (=sp-vcontrol= before =sp-magit-style=, =sp-terminal= before =sp-ai=). =lem--default-modules= requires everything else and then calls =lem--schedule-late-modules=, which:
 
-- no other module =require=s them, so nothing is left waiting for them;
-- they install the most and the heaviest packages (the AI tools, =org-ref= with its dependencies, =magit= with =forge= and =code-review=);
-- the keys that matter before they load are still there: =sp-keys= autoloads the =magit= commands it binds.
+1. adds a function to =elpaca-after-init-hook=, so nothing is queued before Elpaca has finished the packages of the early modules;
+2. from there, waits for Emacs to be idle for 0.5 seconds, then requires each late module (a failing one is logged and the rest still load);
+3. calls =elpaca-process-queues=, because Elpaca only processes orders declared after init on its own when a command is running interactively.
 
-The cost is that their own keys and commands (for example =C-M-g= for =magit=, bound in =sp-vcontrol=) only work from the moment they have loaded, a second or so after startup. To load them with everything else, in the same order as the list, set =sp-defer-late-modules= to =nil=.
+So the packages of a late module are not installed or loaded during startup but by that last step, and the =:config= of its =use-package= forms runs after that, not while the module is read. With =sp-defer-late-modules= set to =nil= the same list is required straight away, in the same order, during init.
+
+They were picked because no other module =require=s them, and because they install the most and the heaviest packages (the AI tools, =org-ref= with its dependencies, =magit= with =forge= and =code-review=).
+
+*** What does not work until they have loaded
+Keys and commands that are defined, or whose package is installed, by a late module only exist from a second or so after startup:
+
+| Binding                                                                              | Where it is bound | Installed by                  |
+|--------------------------------------------------------------------------------------+-------------------+-------------------------------|
+| =C-M-g= (=magit=)                                                                    | =sp-vcontrol=     | =sp-vcontrol=                 |
+| the =magit-*= keys of the version-control prefix (blame, commit, diff, log, status…) | =sp-keys=         | =sp-vcontrol=                 |
+| =consult-notes=, =consult-notes-search-in-all-notes=                                 | =sp-keys=         | =sp-notes=                    |
+| the =citar-*= and =citar-denote-*= keys                                              | =sp-keys=         | =sp-academic=                 |
+| =yadm=                                                                               | =sp-vcontrol=     | =sp-vcontrol=                 |
+| =sp-open-new-eshell-and-workspace=, which calls =lem-eshell-home=                    | =sp-workspaces=   | =sp-eshell=                   |
+
+=sp-keys= only autoloads the =git-gutter= commands, not the =magit=, =consult-notes= or =citar= ones; pressing one of those keys before the late modules have loaded gives a void-function error. Nothing else that loads at startup calls into a late module.
+
+*** Problems found when checking the order
+- *=sp-ai= called =(vulpea-mcp-enable)= at top level.* A deferred module is read after init, when Elpaca has not yet built =vulpea-mcp=, so the call failed and =monet= and the =provide= were never reached. It now runs in the =:config= of the =vulpea-mcp= form.
+- *The first version of this page said =sp-keys= autoloads the =magit= commands.* It does not (see above); the page and the comment in =init.el= are corrected.
+- No module that loads at startup requires a late one, and the late modules only need packages from modules that load earlier (=org-node=, =denote=, =vulpea=, =transient=, =inheritenv=, =consult=), so their order against the rest has no conflict that I found. Within the late list, =vterm= and =eat= (=sp-terminal=) come before =claude-code= (=sp-ai=), which waits for them.
+- =sp-trails=, which stays early, needs =org-ql= from =sp-org-agenda=, which is earlier, so it is not affected.
 
 ** What stays as it was
 The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package (=hl-todo= in =sp-faces= and =sp-org-taskman-extra=, =org-autolist= in =sp-org-appearance= and =sp-org-ext=, =elisp-demos= in =sp-help= and =sp-lisp=, =company= in =sp-completion= and =sp-base-code=) are not an ordering problem and have been left alone. The minimal list (=-minimal=) is as before.
@@ -153,10 +177,10 @@ The order inside the UI, tooling and Org groups is unchanged, because I found no
 1. Find what its packages require (the =Package-Requires= header of each).
 2. If a required package is installed by another module, put the new module after it. If it is a package you install in the same module, declare it first.
 3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =lem--late-modules= instead.
-4. Add it to the graph above and to the module tree in [[file:main.org][main.org]].
+4. Add it to the graph above and to the module tree in [[file:../main.org][main.org]].
 
 * What has been checked
 
 - =init.el= and the changed modules were read back by Emacs 29.3 (all forms read); the late-module functions were run against stubs, which loaded the twelve modules in order and asked Elpaca to process its queues.
 - The dependency edges come from =Package-Requires= headers on GitHub (see above), not from a run of Elpaca: MELPA is not reachable from where this was prepared, so a real startup with the new order, and with =sp-defer-late-modules= on, has not been done.
-- Whether Elpaca installs and configures packages declared after init without further help (the reason =lem--load-late-modules= calls =elpaca-process-queues=) follows from reading =elpaca.el=, and is untested.
+- Whether Elpaca installs and configures packages declared after init without further help (the reason =lem--load-late-modules= calls =elpaca-process-queues=) follows from reading =elpaca.el=, and is untested. The same goes for the =:config= of =vulpea-mcp= now running after the package is loaded.

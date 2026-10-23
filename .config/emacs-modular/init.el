@@ -217,7 +217,7 @@ non-nil. A failing module is reported and the rest still load."
 ;;; Modular loading without a config.el
 ;;;;; Load order
 ;; The order of `lem--default-modules' follows the dependencies between the
-;; Elpaca recipes in the modules; docs/load-order.org draws them and says why.
+;; Elpaca recipes in the modules; docs/architecture/load-order.org draws them and says why.
 ;; Two rules matter to Elpaca. A package that another package requires has to be
 ;; declared *before* that package, otherwise Elpaca has already queued it as a
 ;; dependency and warns "X previously queued as dependency of: (Y)". And a
@@ -244,9 +244,9 @@ the order of `lem--late-modules', for example when debugging."
     sp-dyn-graph
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
-    ;; Version control. `sp-keys' autoloads the magit commands it binds, so
-    ;; the keys work before this loads. `sp-vcontrol' installs magit and
-    ;; `sp-magit-style' styles it, so it comes second.
+    ;; Version control. `sp-vcontrol' installs magit and `sp-magit-style'
+    ;; styles it, so it comes second. The magit keys in `sp-keys' and
+    ;; C-M-g only work once this has loaded.
     sp-vcontrol
     sp-magit-style
     ;; Terminals and shells

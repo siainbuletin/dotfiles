@@ -100,16 +100,14 @@ The comment explains the goal: letting an LLM see the Vulpea notes. =vulpea-mcp=
 ;;;; Working with AI with my knowledge base
 ;; Making an LLM recognise my vulpea notes
 (use-package vulpea-mcp
-  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git"))
+  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git")
+  :config
+  (vulpea-mcp-enable))
 #+end_src
 
 ** Enabling vulpea-mcp
 
-Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs while the module loads, not inside the =use-package= form, so it only works if the function is already available at that point (for example through an autoload). Elpaca normally runs =use-package= bodies later, after the init file, so on a fresh install this call may fail, in which case the rest of the module (including the =provide=) is skipped. Moving it into a =:config= section would avoid that.
-
-#+begin_src emacs-lisp -i
-(vulpea-mcp-enable)
-#+end_src
+=vulpea-mcp-enable= is called from the =:config= of the form above. It used to be called at top level, while the module loaded, which only works if the function is already available then. Elpaca runs =use-package= bodies once the package is built, and since =sp-ai= is one of the late modules (loaded after startup, see [[file:../../architecture/load-order.org][the load order]]) the package is never there yet at that point, so the call failed and the rest of the module (=monet= and the =provide=) was skipped. In =:config= it runs after the package is loaded.
 
 * Claude Code integration
 

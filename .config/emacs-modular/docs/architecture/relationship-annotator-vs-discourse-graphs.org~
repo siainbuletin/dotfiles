@@ -2,24 +2,24 @@
 
 =relationship-annotator= (formerly =vulpea-hierarchy=, in =libraries/modules/custom/sp-relationship-annotator.el=) and the =discourse-graphs= package (=dg-=, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]) both read typed relations between notes. They started from different needs. =discourse-graphs= is a tool for writing an argument: you create typed nodes, link them, and ask what is missing. =vulpea-hierarchy= was a viewer for the parent/child tree of a Zettelkasten. =relationship-annotator= keeps the viewer and has taken over the reading, checking and counting of =discourse-graphs=, so the package is no longer needed for those. This page says what is the same, what differs, and what was left out on purpose.
 
-Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port. Line numbers below refer to that file. The literate source of this module is in [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator.org]].
+Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port. Line numbers below refer to that file. The literate source of this module is in [[file:../tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator.org]].
 
 * In short
 
-| Question                  | =discourse-graphs=                                                   | =relationship-annotator=                                                                     |
-|---------------------------+----------------------------------------------------------------------+----------------------------------------------------------------------------------------------|
-| Where are nodes?          | Org headings with =:ID:= and =:DG_TYPE:=, or files with =#+dg_type:= | Any vulpea note (one note, one file)                                                         |
-| Where is the data kept?   | Its own SQLite cache, filled by scanning =dg-directories=            | vulpea's database; nothing is scanned or stored by the module                                |
-| How is a node typed?      | =DG_TYPE= property or =#+dg_type:= keyword                           | =DG_TYPE= property, a =type= metadata field, or a file tag (configurable)                    |
-| How is a relation stored? | One property per type on the source: =:DG_SUPPORTS: id id=           | Any number of /sources/ per relation: metadata, inverse metadata, property, inverse property |
-| Which relations exist?    | =supports=, =opposes=, =informs=, =answers=                          | The same four, plus =parent=, plus any you declare                                           |
-| Is the tree special?      | No, all relations are alike                                          | Yes: =parent= builds the hierarchy that every view is cut from                               |
-| Pattern check             | Prompts when you create a link that doesn't fit                      | A report and a warning sign in the graph; nothing is refused                                 |
-| Attributes                | Formulas per type, shown as an overlay after the heading             | Formulas per type, shown as a badge after the title in the graph                             |
-| Argument gaps             | Dynamic blocks in an Org file                                        | One review buffer                                                                            |
-| Creating nodes and links  | Commands, a transient menu, extraction of regions                    | Not ported (see below)                                                                       |
-| Views                     | Context buffer beside the note, and a web UI over websockets         | Interactive browser graph, two outlines, a Graphviz SVG                                      |
-| Dependencies              | SQLite, =websocket= (for the UI), =transient=, a Next.js export      | =vulpea=, =vui= (trial outline only), Graphviz (SVG only)                                    |
+| Question                      | =discourse-graphs=                                          | =relationship-annotator=                                            |
+|-------------------------------+-------------------------------------------------------------+---------------------------------------------------------------------|
+| Where are nodes?              | Org headings with =:ID:= and =:DG_TYPE:=, or files with =#+dg_type:= | Any vulpea note (one note, one file)                                |
+| Where is the data kept?       | Its own SQLite cache, filled by scanning =dg-directories=   | vulpea's database; nothing is scanned or stored by the module       |
+| How is a node typed?          | =DG_TYPE= property or =#+dg_type:= keyword                  | =DG_TYPE= property, a =type= metadata field, or a file tag (configurable) |
+| How is a relation stored?     | One property per type on the source: =:DG_SUPPORTS: id id=  | Any number of /sources/ per relation: metadata, inverse metadata, property, inverse property |
+| Which relations exist?        | =supports=, =opposes=, =informs=, =answers=                 | The same four, plus =parent=, plus any you declare                  |
+| Is the tree special?          | No, all relations are alike                                 | Yes: =parent= builds the hierarchy that every view is cut from      |
+| Pattern check                 | Prompts when you create a link that doesn't fit             | A report and a warning sign in the graph; nothing is refused        |
+| Attributes                    | Formulas per type, shown as an overlay after the heading    | Formulas per type, shown as a badge after the title in the graph    |
+| Argument gaps                 | Dynamic blocks in an Org file                               | One review buffer                                                   |
+| Creating nodes and links      | Commands, a transient menu, extraction of regions           | Not ported (see below)                                              |
+| Views                         | Context buffer beside the note, and a web UI over websockets | Interactive browser graph, two outlines, a Graphviz SVG             |
+| Dependencies                  | SQLite, =websocket= (for the UI), =transient=, a Next.js export    | =vulpea=, =vui= (trial outline only), Graphviz (SVG only)            |
 
 * What they share
 
@@ -27,12 +27,12 @@ Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-gr
 
 An edge reads "subject relation object": =evidence supports claim=. The subject holds the information (in =discourse-graphs=, the property is on the subject), the inverse is found by looking backwards. Both name the relation from the object's side too (="Supported By"=), and both use that name in formulas. The default relations, their colours, their inverse labels and the types they connect are the same:
 
-| Relation   | Inverse label | Subject  | Object   |
-|------------+---------------+----------+----------|
-| =supports= | Supported By  | evidence | claim    |
-| =opposes=  | Opposed By    | evidence | claim    |
-| =informs=  | Informed By   | source   | evidence |
-| =answers=  | Answered By   | claim    | question |
+| Relation   | Inverse label  | Subject  | Object   |
+|------------+----------------+----------+----------|
+| =supports= | Supported By   | evidence | claim    |
+| =opposes=  | Opposed By     | evidence | claim    |
+| =informs=  | Informed By    | source   | evidence |
+| =answers=  | Answered By    | claim    | question |
 
 In the package these are =dg-relation-types= and =dg-relation-patterns=. Here both live in one place, =relationship-annotator-relations=, and a relation also carries its direction on the page, its colour, and its sources. Notes written for the package keep working: the property names (=DG_SUPPORTS=, =DG_TYPE=) are the same.
 
@@ -94,15 +94,15 @@ The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-ga
 
 * What was not ported
 
-| =discourse-graphs=                                                                       | Why it was left out                                                                         |
-|------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------|
-| SQLite cache, scanning, incremental rebuild (L252-611, 1791-1985)                        | vulpea is the database                                                                      |
-| Web UI, websocket and HTTP servers (=discourse-graphs-ui.el=)                            | The browser page is self-contained and static                                               |
+| =discourse-graphs=                                              | Why it was left out                                                                |
+|-----------------------------------------------------------------+------------------------------------------------------------------------------------|
+| SQLite cache, scanning, incremental rebuild (L252-611, 1791-1985) | vulpea is the database                                                             |
+| Web UI, websocket and HTTP servers (=discourse-graphs-ui.el=)   | The browser page is self-contained and static                                      |
 | Creating nodes, converting headings, =dg-link=, =dg-remove-relation=, extracting regions | This module reads. Writing metadata should go through vulpea; see the design considerations |
-| Context buffer that follows the cursor, overlays in the buffer                           | The package's overlays work on headings in the current buffer. Not started                  |
-| =dg:= link type, =dg-goto-node=                                                          | =id:= links and vulpea's own selection do this                                              |
-| Dynamic blocks and the transient menu                                                    | Replaced by the review buffer                                                               |
-| =dg-validate= (dangling ids, orphans, missing files)                                     | Not started. A dangling id already shows as =<missing ID>= in the views                     |
+| Context buffer that follows the cursor, overlays in the buffer   | The package's overlays work on headings in the current buffer. Not started          |
+| =dg:= link type, =dg-goto-node=                                  | =id:= links and vulpea's own selection do this                                     |
+| Dynamic blocks and the transient menu                            | Replaced by the review buffer                                                      |
+| =dg-validate= (dangling ids, orphans, missing files)             | Not started. A dangling id already shows as =<missing ID>= in the views            |
 
 "Not started" means not decided against. They are the obvious next steps if the module should also be where you write relations. That question belongs to the design considerations section that follows in the next change.
 
@@ -115,11 +115,11 @@ The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-ga
 
 * Settings that moved
 
-| Old                          | New                                                                 |
-|------------------------------+---------------------------------------------------------------------|
-| =dg-node-types=              | =relationship-annotator-node-types=                                 |
-| =dg-relation-types=          | =relationship-annotator-relations= (=:label=, =:color=, =:inverse=) |
-| =dg-relation-patterns=       | =:subject-types= and =:object-types= of each relation               |
-| =dg-discourse-attributes=    | =relationship-annotator-attributes=                                 |
-| =dg-warn-relation-anomalies= | none: the anomaly check never asks                                  |
-| =vulpea-hierarchy-*=         | =relationship-annotator-*= (the old names still work as aliases)    |
+| Old                         | New                                    |
+|-----------------------------+----------------------------------------|
+| =dg-node-types=             | =relationship-annotator-node-types=    |
+| =dg-relation-types=         | =relationship-annotator-relations= (=:label=, =:color=, =:inverse=) |
+| =dg-relation-patterns=      | =:subject-types= and =:object-types= of each relation |
+| =dg-discourse-attributes=   | =relationship-annotator-attributes=    |
+| =dg-warn-relation-anomalies=| none: the anomaly check never asks     |
+| =vulpea-hierarchy-*=        | =relationship-annotator-*= (the old names still work as aliases) |
