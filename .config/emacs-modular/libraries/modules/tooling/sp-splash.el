@@ -652,14 +652,67 @@ Without `sp-splash-agenda-general-files' this is the agenda workspace."
     (define-key map (kbd "S-<right>") 'sp-splash-art-right)
     (define-key map (kbd "S-<up>") 'sp-splash-art-up)
     (define-key map (kbd "S-<down>") 'sp-splash-art-down)
-    (define-key map (kbd "TAB") 'sp-splash-art-next-layer)
+    (define-key map (kbd "TAB") 'sp-splash-next-button)
+    (define-key map (kbd "<backtab>") 'sp-splash-previous-button)
+    (define-key map (kbd "l") 'sp-splash-art-next-layer)
     (define-key map (kbd "0") 'sp-splash-art-reset)
     (define-key map (kbd "s") 'sp-splash-art-show-position)
     (define-key map (kbd "q") 'sp-splash-screen-kill)
     (define-key map (kbd "<escape>") 'sp-splash-screen-bury)
     (define-key map (kbd "k") 'sp-splash-screen-kill)
+    ;; The splash is not for scrolling, moving the cursor or marking text:
+    ;; only TAB and S-TAB move, between the buttons.
+    (dolist (command '(next-line previous-line forward-char backward-char
+                       forward-word backward-word left-word right-word
+                       beginning-of-line end-of-line move-beginning-of-line
+                       move-end-of-line beginning-of-buffer end-of-buffer
+                       scroll-up-command scroll-down-command scroll-left
+                       scroll-right scroll-other-window recenter
+                       recenter-top-bottom reposition-window
+                       set-mark-command mark-whole-buffer mark-word
+                       mark-paragraph mark-sexp exchange-point-and-mark
+                       mouse-set-region mouse-drag-region mouse-save-then-kill
+                       mouse-set-point mouse-secondary-save-then-kill
+                       mwheel-scroll pixel-scroll-precision
+                       isearch-forward isearch-backward))
+      (define-key map `[remap ,command] #'ignore))
+    (dolist (event '(wheel-up wheel-down wheel-left wheel-right mouse-4 mouse-5
+                     mouse-6 mouse-7 double-wheel-up double-wheel-down
+                     triple-wheel-up triple-wheel-down down-mouse-1
+                     drag-mouse-1 double-mouse-1 triple-mouse-1))
+      (define-key map (vector event) #'ignore))
     map)
   "Keymap for sp-splash-mode.")
+
+(defface sp-splash-focus-face '((t :inherit highlight))
+  "Face for the splash button that TAB has selected."
+  :group 'faces)
+
+(defvar-local sp-splash--focus-overlay nil
+  "Overlay marking the selected button of the splash.")
+
+(defun sp-splash-next-button ()
+  "Select the next button of the splash, wrapping around."
+  (interactive)
+  (forward-button 1 t nil t))
+
+(defun sp-splash-previous-button ()
+  "Select the previous button of the splash, wrapping around."
+  (interactive)
+  (backward-button 1 t nil t))
+
+(defun sp-splash--mark-focus ()
+  "Highlight the button at point, since the cursor is hidden."
+  (when sp-splash--focus-overlay
+    (delete-overlay sp-splash--focus-overlay))
+  (when-let* ((button (button-at (point))))
+    (setq sp-splash--focus-overlay
+          (make-overlay (button-start button) (button-end button)))
+    (overlay-put sp-splash--focus-overlay 'face 'sp-splash-focus-face)))
+
+(defun sp-splash--no-region ()
+  "Drop the region at once: the splash never marks text."
+  (deactivate-mark))
 
 (define-minor-mode sp-splash-mode
   "Emacs minor mode for splash screen."
@@ -690,11 +743,24 @@ Without `sp-splash-agenda-general-files' this is the agenda workspace."
         truncate-lines nil
         inhibit-startup-message t
         inhibit-startup-echo-area-message t)
+
+  ;; The splash fills the window and never scrolls or wraps
+  (setq-local truncate-lines t
+              scroll-margin 0
+              scroll-conservatively 0
+              auto-window-vscroll nil
+              shift-select-mode nil
+              mouse-wheel-mode nil)
+  (add-hook 'activate-mark-hook #'sp-splash--no-region nil t)
+  (add-hook 'post-command-hook #'sp-splash--mark-focus nil t)
   
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
-  (goto-char (point-min)))
+  (goto-char (point-min))
+  (set-window-start (selected-window) (point-min))
+  (forward-button 1 t nil t)
+  (sp-splash--mark-focus))
 
 ;;;; Splash Setup & Refresh Functions
 (defun sp-splash-refresh ()
