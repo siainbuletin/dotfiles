@@ -145,9 +145,7 @@ conversion report."
 
 * Provide
 
-** Provide
-
-Provides the =sp-vulpea-grouped-backlinks= feature.
+Provides the =sp-vulpea-grouped-backlinks= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-grouped-backlinks)

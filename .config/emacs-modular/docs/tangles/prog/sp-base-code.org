@@ -263,9 +263,7 @@ Turns off =icomplete-mode= and sets =completion-auto-help= so the completions bu
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-base-code= feature for =init.el=.
+Provides the =sp-base-code= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

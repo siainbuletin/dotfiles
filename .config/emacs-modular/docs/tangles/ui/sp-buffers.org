@@ -201,9 +201,7 @@ The =:config= block defines four display functions: two that show the pop-up in 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-buffers= feature.
+Provides the =sp-buffers= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

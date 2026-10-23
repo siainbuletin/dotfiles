@@ -159,9 +159,7 @@ When persistence is on, scratch is restored from =after-init-hook=, saved from =
 
 * Provide
 
-** Provide
-
-Provides the =sp-scratch= feature.
+Provides the =sp-scratch= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End Setup-Scratch

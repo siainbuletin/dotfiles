@@ -110,9 +110,7 @@ Installs Corfu, the in-buffer completion popup, and its prescient adapter. Neith
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-minibuffer= feature.
+Provides the =sp-minibuffer= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

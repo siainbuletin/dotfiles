@@ -28,9 +28,7 @@ Opens =.xsd= and =.xslt= files in =nxml-mode=. In nXML buffers it indents with s
 
 * Provide
 
-** Provide the feature
-
-Provides =sp-xml=, so that =require= finds the feature it expects.
+Provides the =sp-xml= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-xml)

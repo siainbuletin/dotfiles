@@ -39,9 +39,7 @@ Installs =vulpea-graph= along with its =assets= folder, which holds the browser 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-dyn-graph= feature for =init.el=.
+Provides the =sp-dyn-graph= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

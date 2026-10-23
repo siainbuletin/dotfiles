@@ -138,9 +138,7 @@ Installs =markdown-toc= and enables =markdown-toc-mode= in Markdown buffers, whi
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-md= feature for =init.el=.
+Provides the =sp-md= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

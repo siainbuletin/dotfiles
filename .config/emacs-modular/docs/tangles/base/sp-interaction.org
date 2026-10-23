@@ -103,9 +103,7 @@ A reminder to link to the window management packages and to move the EXWM setup 
 
 * Provide
 
-** Provide
-
-Provides the =sp-interaction= feature.
+Provides the =sp-interaction= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
