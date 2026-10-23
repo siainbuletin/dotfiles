@@ -72,7 +72,6 @@
 ;; messing up the layout
 (use-package popper
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "popper"))
   :hook (after-init . popper-mode)
   :bind (("M-`"   . popper-toggle-latest)
          ("C-`"   . popper-cycle)

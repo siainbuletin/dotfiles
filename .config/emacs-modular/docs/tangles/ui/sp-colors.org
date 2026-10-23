@@ -4,7 +4,7 @@
 
 Literate source for =libraries/modules/ui/sp-colors.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-A small module for how Emacs handles colours. It makes macOS use the sRGB colour space and sets up =rainbow-mode=, which shows colour names and hex codes in their own colour. It is loaded in the UI section of =init.el=, right after =sp-icons=. The =rainbow-mode= setup only runs when =sp-load-extras= is non-nil and the package is installed.
+A small module for how Emacs handles colours. It makes macOS use the sRGB colour space and sets up =rainbow-mode=, which shows colour names and hex codes in their own colour. It is loaded in the UI section of =init.el=, right after =sp-icons=. The =rainbow-mode= setup always runs.
 
 The commentary at the top of the module says:
 
@@ -47,7 +47,7 @@ Turns on =rainbow-mode= in all programming modes, so colour strings such as =#ff
 ;; https://github.com/emacsmirror/rainbow-mode
 ;; Colorize color names in buffers
 (use-package rainbow-mode
-  :if (and sp-load-extras (locate-library "rainbow-mode"))
+  :ensure t
   ;; :commands rainbow-mode
   :config
   (progn (setq rainbow-x-colors nil)

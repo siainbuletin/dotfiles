@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module sets where Org archives completed subtrees, adds a command to archive every DONE and CANCELED task in the current file at once, and configures =palimpsest=, a minor mode that moves text out of the way instead of deleting it.
 
-It depends on Org and optionally on the =palimpsest= package, which is only used when =sp-load-extras= is non-nil and the library is installed. No module list in =init.el= and no other module requires =sp-org-archive=, so the configuration is currently inactive unless loaded by hand.
+It depends on Org and optionally on the =palimpsest= package, which is configured unconditionally. No module list in =init.el= and no other module requires =sp-org-archive=, so the configuration is currently inactive unless loaded by hand.
 
 * Archiving
 
@@ -39,7 +39,7 @@ Once Org has loaded, archived subtrees go to =org-archive/archived.org= under =o
 ;; and is not bound at require time. Before Spec 02 this ran at
 ;; top-level and crashed module-load with `void-variable
 ;; org-directory' whenever the file was required before org was
-;; loaded (e.g. a cold sandbox boot with sp-load-extras nil).
+;; loaded (e.g. a cold sandbox boot).
 (with-eval-after-load 'org
   (setq org-archive-location (concat org-directory "/org-archive/archived.org::datetree/")))
 #+end_src
@@ -93,11 +93,11 @@ A description of the =palimpsest= minor mode: it sends selected text to the bott
 
 ** Palimpsest setup
 
-When extras are enabled and the library is found, =palimpsest-mode= is turned on in Markdown and Org buffers with its lighter hidden. =C-c C-z= sends the selection to the bottom and =C-c C-a= to the top, and the trash file uses the =.archive= suffix. In Org those keys normally run =org-add-note= and =org-attach=, so the minor mode bindings would shadow them.
+=palimpsest-mode= is turned on in Markdown and Org buffers with its lighter hidden. =C-c C-z= sends the selection to the bottom and =C-c C-a= to the top, and the trash file uses the =.archive= suffix. In Org those keys normally run =org-add-note= and =org-attach=, so the minor mode bindings would shadow them.
 
 #+begin_src emacs-lisp -i
 (use-package palimpsest
-  :when (and sp-load-extras (locate-library "palimpsest"))
+  :ensure t
   :diminish palimpsest-mode
   :hook ((markdown-mode org-mode) . palimpsest-mode)
   :custom

@@ -4,9 +4,8 @@
 
 ;; This module sets up `org-mem', a fast in-memory index of Org files, and
 ;; `org-node', which builds note-taking commands (find, insert link, backlinks)
-;; on top of it, for the notes in `~/notes/'. It also uses the index to compute
-;; `org-agenda-files' automatically from files that contain anything
-;; agenda-relevant.
+;; on top of it, for the notes in `~/notes/'. The agenda files are not
+;; computed here: vulpea-para owns them (see sp-vulpea-para and adr/0009).
 
 ;;; Code:
 
@@ -37,18 +36,5 @@
 (setq org-node-backlink-do-drawers nil)
 
 (setq org-node-alter-candidates t)
-
-(defun my-set-agenda-files (&rest _)
-  (setq org-agenda-files
-        (cl-loop for file in (org-mem-all-files)
-                 unless (string-search "archive" file)
-                 as entries = (org-mem-entries-in-file file)
-                 when (seq-find (##or (org-mem-entry-active-timestamps %)
-                                      (org-mem-entry-todo-state %)
-                                      (org-mem-entry-scheduled %)
-                                      (org-mem-entry-deadline %))
-                                entries)
-                 collect file)))
-(add-hook 'org-mem-post-full-scan-functions #'my-set-agenda-files)
 
 (provide 'sp-org-node-mem)

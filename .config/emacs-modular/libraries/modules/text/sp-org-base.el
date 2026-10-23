@@ -59,9 +59,6 @@ periods. This ain't a typewriter."
   :mode (("\\.org$" . org-mode))
  
   :bind
-  (:map global-map
-   ("C-c a" . org-agenda))
- 
   (:map org-mode-map
    ("C-M-k" . org-metaup)
    ("C-M-j" . org-metadown)

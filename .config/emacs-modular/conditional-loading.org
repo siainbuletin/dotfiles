@@ -92,7 +92,7 @@ This is also currently being loaded alphabetically.
 - sp-scratch :: Settings for persistent scratch
 - sp-server :: Emacs client
 - sp-spelling :: Spell checker
-- sp-splash :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
+- sp-dashboard :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
 - sp-templating ::
 - sp-text-manipulation ::
 - sp-workspaces :: This is based on launching separate tabspaces. It's taken from Lambda Emacs
@@ -115,7 +115,7 @@ This is also currently being loaded alphabetically.
 
 ** Strictly academic work (~academic/~)
 
-- sp-academic :: contains bibprocess, pdfprocess, and others !@(COMPLETE HERE)!@
+- sp-academic :: the academic master module. It requires =sp-bibprocess= (BibTeX files), =sp-pdfprocess= (PDF metadata and viewer), =sp-citations= (org-cite, CSL, Citar) and =sp-litnotes= (literature notes), so profiles list only =sp-academic=. All five are documented and tangled from =docs/tangles/academic/sp-academic.org=.
 - sp-statistics :: ESS package (currently unconfigured)
 - sp-dgraphs :: Generating networks with the information (should be made to actually be actionable)
 - sp-notes :: other notes-related settings
@@ -140,7 +140,7 @@ These media workflows should be enabled last, and only loaded when it's actually
 - sp-open-externally.el ::
 - sp-move-region-to-heading.el ::
 
-Vulpea functions --- These are all now 'required' in the vulpea-ext file
+Vulpea functions --- These are all now 'required' by =sp-org-ext= (some through =sp-vulpea-ext=), the table modules last.
 
 ** Programming setup (~prog/~)
 
@@ -195,7 +195,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
 
 (measure-time (cl-dolist (mod (list
                                  ;; Splash/Dashboard
-                                 'sp-splash
+                                 'sp-dashboard
                                  'sp-dashboard
 
                                  ;; Completion & Keybinds
@@ -264,7 +264,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
      sp-libraries sp-settings sp-functions sp-server sp-scratch
      ;; UI
      sp-frame sp-windows sp-buffers sp-fonts sp-faces sp-colors
-     sp-completion sp-keys sp-help sp-modeline sp-theme sp-splash
+     sp-completion sp-keys sp-help sp-modeline sp-theme sp-dashboard
      ;; Navigation & search
      sp-dired sp-search
      ;; Projects & workspaces
@@ -280,7 +280,7 @@ Vulpea functions --- These are all now 'required' in the vulpea-ext file
     (minimal
      sp-libraries sp-settings sp-functions sp-server sp-scratch
      sp-frame sp-windows sp-buffers sp-completion sp-keys sp-help
-     sp-modeline sp-splash
+     sp-modeline sp-dashboard
      sp-dired sp-search)
     (test sp-test))
   "Alist mapping a profile name to the modules it loads, in order.")
@@ -447,7 +447,7 @@ Modifications to be made by me, a human
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation
@@ -535,7 +535,7 @@ Modifications to be made by me, a human
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation

@@ -38,6 +38,7 @@ Each element of this list has the form:
       (setf (cdr init) (cdr cfg)))))
 
 (use-package cmake-mode
+  :ensure t
   :defer t
   :mode (("CMakeInstallTargets\\.txt\\'" . cmake-mode))
   :bind (:map cmake-mode-map

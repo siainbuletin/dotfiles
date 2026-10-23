@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-org-images.el=. Every line of the
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configures =org-download= (by abo-abo), which lets you drag and drop images into Org buffers, paste them from the clipboard, or take screenshots, saving the files to disk and inserting a link. It is required by =sp-org-ext=. The package is only configured when =sp-load-extras= is non-nil and the library is actually installed, so a minimal or sandbox boot skips it cleanly.
+Configures =org-download= (by abo-abo), which lets you drag and drop images into Org buffers, paste them from the clipboard, or take screenshots, saving the files to disk and inserting a link. It is required by =sp-org-ext=. The package is configured unconditionally.
 
 The commentary at the top of the module says:
 
@@ -42,7 +42,7 @@ Loads lazily on its three entry points =org-download-yank=, =org-download-screen
 
 #+begin_src emacs-lisp -i
 (use-package org-download
-  :if (and sp-load-extras (locate-library "org-download"))
+  :ensure t
   :commands (org-download-yank org-download-screenshot org-download-image)
   :custom
   (org-download-method 'directory)

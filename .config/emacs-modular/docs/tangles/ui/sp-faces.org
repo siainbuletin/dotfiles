@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-faces.el=. Every line of the module
 
 This module gathers settings that change how text and the cursor look: outline heading faces in Lisp files, SVG tags in code, TODO and number highlighting, a TODO navigation transient, pulsing the current line after jumps, and highlighting of edited regions with Goggles. It also defines a small =what-face= helper for inspecting faces.
 
-Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =hl-todo=, =goggles=) are only configured when =sp-load-extras= is non-nil and the library is installed. Built-ins used are =reveal=, =wid-edit=, =pulse= and =transient=. The =sp-todo-transient= defined here is bound under the leader map in =sp-keys=.
+Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =hl-todo=, =goggles=) are configured unconditionally, apart from =svg-tag-mode=, which needs SVG support. Built-ins used are =reveal=, =wid-edit=, =pulse= and =transient=. The =sp-todo-transient= defined here is bound under the leader map in =sp-keys=.
 
 * Header
 
@@ -38,7 +38,7 @@ Enables =outline-minor-faces-mode= in Emacs Lisp, Lisp interaction and Lisp buff
 ;;;; Outline Faces
 ;; Make outline faces look better
 (use-package outline-minor-faces
-  :when (and sp-load-extras (locate-library "outline-minor-faces"))
+  :ensure t
   :after outline
   :hook ((emacs-lisp-mode lisp-interaction-mode lisp-mode) . outline-minor-faces-mode))
 #+end_src
@@ -90,7 +90,8 @@ In programming buffers, =svg-tag-mode= draws matching text as rounded SVG labels
 ;;;; SVG Library (For Tags/Labels/etc.)
 ;;;;; SVG Tag Mode
 (use-package svg-tag-mode
-  :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
+  :ensure t
+  :when (image-type-available-p 'svg)
   :hook (prog-mode . svg-tag-mode)
   :config
   (setq svg-tag-tags
@@ -130,7 +131,7 @@ Enables =highlight-numbers-mode= in programming buffers, giving numeric literals
 
 ;;;;; Highlight Numbers & TODOS
 (use-package highlight-numbers
-  :when (and sp-load-extras (locate-library "highlight-numbers"))
+  :ensure t
   :defer t
   :commands highlight-numbers-mode
   :init
@@ -143,7 +144,7 @@ Enables =hl-todo-mode= in programming and Markdown buffers so keywords like TODO
 
 #+begin_src emacs-lisp -i
 (use-package hl-todo
-  :when (and sp-load-extras (locate-library "hl-todo"))
+  :ensure t
   :defer t
   :commands hl-todo-mode
   :init
@@ -250,7 +251,7 @@ Enables =goggles-mode= in programming and text buffers, which briefly highlights
 #+begin_src emacs-lisp -i
 ;;;; Goggles (Highlight Changes)
 (use-package goggles
-  :when (and sp-load-extras (locate-library "goggles"))
+  :ensure t
   :hook ((prog-mode text-mode) . goggles-mode)
   :config
   (setq-default goggles-pulse t)) ;; set to nil to disable pulsing

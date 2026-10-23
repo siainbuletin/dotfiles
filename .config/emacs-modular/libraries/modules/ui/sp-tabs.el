@@ -109,9 +109,8 @@ questions.  Otherwise use completion to select the tab."
 ;;;; Tab Workspaces
 (use-package tabspaces
   :ensure t
-  ;; :hook
-  ;; (after-init . tabspaces-mode) ;; use this only if you want the minor-mode loaded at startup.
-  
+  ;; The session is only saved and restored while `tabspaces-mode' is on.
+  :hook (after-init . tabspaces-mode)
   :commands (tabspaces-switch-or-create-workspace
              tabspaces-open-or-create-project-and-workspace)
   
@@ -126,6 +125,7 @@ questions.  Otherwise use completion to select the tab."
   ;; sessions
   (tabspaces-session t)
   (tabspaces-session-auto-restore t)
+  (tabspaces-session-file (expand-file-name "tabspaces-session.eld" sp-var-dir))
   
   ;; additional options
   (tabspaces-fully-resolve-paths t)  ; Resolve relative project paths to absolute

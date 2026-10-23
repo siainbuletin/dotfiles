@@ -68,6 +68,7 @@
   (transient-detect-key-conflicts t)
   (transient-force-fixed-pitch t)
   (transient-show-popup t)
+  (transient-show-menu t)
 
   ;; set transient popop to top of window
   (transient-display-buffer-action '(display-buffer-in-side-window
@@ -85,7 +86,6 @@
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)
@@ -102,7 +102,9 @@
   (httpd-root "/var/www"))
 
 (use-package helm
-    :ensure (:wait t))
+    :ensure (:wait t)
+    :custom
+    (helm-minibuffer-history-key "M-p"))
 
 ;; For some reason it causes some backtraces with very basic functions.
 ;; It may be possible that I simply don't understand how this package works very well.

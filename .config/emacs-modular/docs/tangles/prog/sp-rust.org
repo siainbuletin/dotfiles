@@ -26,9 +26,11 @@ References to =racer= are commented out; Racer was the older Rust completion bac
 ;;; Code:
 
 (use-package flycheck-rust
+  :ensure t
   :defer t)
 ;(use-package racer)
 (use-package rust-mode
+  :ensure t
   :defer t
   :config
   (add-hook 'rust-mode-hook

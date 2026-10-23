@@ -48,13 +48,13 @@ Each command follows the same pattern: if a tab with the expected name exists, s
 
 ** Startup workspace
 
-=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =*splash*= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
+=sp--workspace-setup= renames the first tab to "Home" and pushes the =*Messages*= and =Dashboard= buffers onto the frame's buffer list, so =tabspaces= treats them as belonging to the Home workspace.
 
 #+begin_src emacs-lisp -i
 ;;;;; Startup Workspaces
 (defun sp--workspace-setup ()
   "Set up workspace at startup."
-  ;; Add *Messages* and *splash* to Tab \`Home\'
+  ;; Add *Messages* and Dashboard to Tab \`Home\'
   (progn
     (tab-bar-rename-tab "Home")
     (when (get-buffer "*Messages*")
@@ -62,10 +62,10 @@ Each command follows the same pattern: if a tab with the expected name exists, s
                            'buffer-list
                            (cons (get-buffer "*Messages*")
                                  (frame-parameter nil 'buffer-list))))
-    (when (get-buffer "*splash*")
+    (when (get-buffer "Dashboard")
       (set-frame-parameter nil
                            'buffer-list
-                           (cons (get-buffer "*splash*")
+                           (cons (get-buffer "Dashboard")
                                  (frame-parameter nil 'buffer-list))))))
 #+end_src
 

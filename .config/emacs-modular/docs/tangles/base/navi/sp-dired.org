@@ -6,7 +6,7 @@ Literate source for =libraries/modules/base/navi/sp-dired.el=. Every line of the
 
 This module sets up file management: Dired listing options, a personal sort command, extra highlighting with =diredfl=, an optional =dired-sidebar=, and above all Dirvish, which replaces the Dired interface with previews, a side panel, grouping of files and many menus. It also tries to add an =eza= based directory preview and to open binary files in external programs.
 
-It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el= and the =sp-load-extras= flag, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
+It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el=, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
 
 The eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dispatchers=, which only exist once Dirvish is loaded, and Dirvish itself is loaded later. Both forms therefore sit inside =with-eval-after-load= for =dirvish=, so the rest of the file (including the =provide=) always runs.
 
@@ -51,12 +51,12 @@ Sets the default =dired-listing-switches= to =-alh=, which shows all files with 
 
 ** dired-sidebar
 
-When extras are enabled and the package is installed, =dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
+=dired-sidebar= provides =dired-sidebar-toggle-sidebar=, a tree-style file sidebar 40 columns wide that resizes to fit its content when opened. Setting =fit-window-to-buffer-horizontally= to =only= is a global option, so it affects other commands that fit windows to their buffers too.
 
 #+begin_src emacs-lisp -i
 ;;;;; Dired Sidebar
 (use-package dired-sidebar
-  :when (and sp-load-extras (locate-library "dired-sidebar"))
+  :ensure t
   :commands (dired-sidebar-toggle-sidebar)
 
   :custom

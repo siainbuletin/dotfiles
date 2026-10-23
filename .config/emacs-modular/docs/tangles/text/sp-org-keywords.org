@@ -1,0 +1,217 @@
+#+TITLE: sp-org-keywords.el: The one list of Org TODO keywords
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-keywords.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-org-keywords.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module is the only place that sets =org-todo-keywords=. Before it existed, the variable was assigned in four places in =sp-org-taskman-extra= (the last one won), the issue tracker declared its own =#+todo:= line, and the research modules told you to put keyword lines at the top of a file. The sequences are now defined once, one constant per use, and joined into =org-todo-keywords=. See [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]] for why.
+
+It is loaded right after =sp-org-base=, before any module that reads keywords: =sp-vulpea-para= takes its list of done keywords from here, and the agenda views match on these words.
+
+* Use cases of the keyword sequences
+
+The table lists what each sequence is for, as far as the code shows. The last two columns are empty on purpose: fill them in, and then the constants in the module can be renamed, merged or dropped to match.
+
+| Sequence constant                | Keywords                                                                | Where it comes from                                      | Used by                                                                                | What it is for (yours) | Keep, merge or drop (yours) |
+|----------------------------------+-------------------------------------------------------------------------+----------------------------------------------------------+----------------------------------------------------------------------------------------+------------------------+-----------------------------|
+| =sp-org-keywords-tasks=          | =TODO NEXT PROG WAIT= \vert{} =DONE CNCL=                                | The issue tracker's =#+todo:= line and org-gtd's mapping | org-gtd (=org-gtd-keyword-mapping=), =sp-org-issues=, the =d=, =n=, =e= and =w= views   |                        |                             |
+| =sp-org-keywords-legacy=         | =DOING WAITING= \vert{} =CANCELLED=                                      | The last =org-todo-keywords= assignment, the one that took effect | Existing notes, =org-journal= carry-over, =org-modern= faces              |                        |                             |
+| =sp-org-keywords-research=       | =QUESTION SCOPING READING SYNTHESIZING REVIEW= \vert{} =STABLE ANSWERED DROPPED=; =ACTIVE PARKED= \vert{} =ARCHIVED=; =TOREAD UNREAD= \vert{} =READ PRUNED SKIPPED= | Header comment of =sp-trails= and =docs/tangles/research-question-states.org=, merged | =sp-trails= (questions, trails, pages), =sp-dg-positions= and discourse-graphs (questions and reading tasks) |                        |                             |
+
+The research sequences used to be two constants (one for =sp-trails=, one for the discourse-graphs questions) that shared =QUESTION=, =DROPPED= and =READ=, so Org took the first sequence that held the word. They are now one constant, =sp-org-keywords-research=, in which every word appears once:
+
+- *Question:* =QUESTION SCOPING READING SYNTHESIZING REVIEW= then =STABLE ANSWERED DROPPED=. The discourse-graphs states come first; =REVIEW= is the state =sp-trails= puts a question in when a trail is archived, and =ANSWERED= is its finished state; =STABLE= is the discourse-graphs one. Both finished states stay, since each module sets its own.
+- *Trail:* =ACTIVE PARKED= then =ARCHIVED=.
+- *Page or reading task:* =TOREAD UNREAD= then =READ PRUNED SKIPPED=. =TOREAD= (=sp-trails=) and =UNREAD= (discourse-graphs) both mean "not read yet" and =PRUNED= and =SKIPPED= both mean "not going to read it"; the words are kept because each module sets its own, and merging the words needs a change in the module.
+
+The research keywords have no fast keys: they used to repeat =t=, =n=, =p= and =d= from the task sequence. Change them with =S-<right>= or =C-c C-t=. The legacy =WAITING= and the task =WAIT= still mean the same thing, which is for you to decide on.
+
+* Removed settings of the Workflow Status view
+
+The =w= view of =sp-agenda-views= had a section for each keyword below. No keyword sequence ever defined these words (only =WAIT=, =REVIEW= and =ACTIVE= exist now, through the task and trails sequences), so the sections never matched anything and were removed. They are kept here so you can decide what to do: add the words to a sequence, make a tag of them, or drop them.
+
+| Section header         | Keyword     | Extra setting                                  | Defined by any sequence today |
+|------------------------+-------------+------------------------------------------------+-------------------------------|
+| Waiting on External    | =WAIT=      |                                                | yes, tasks                    |
+| In Review              | =REVIEW=    |                                                | yes, trails                   |
+| In Planning            | =PLAN=      | =org-agenda-todo-list-sublevels= nil           | no                            |
+| Project Backlog        | =BACKLOG=   | =org-agenda-todo-list-sublevels= nil           | no                            |
+| Ready for Work         | =READY=     |                                                | no                            |
+| Active Projects        | =ACTIVE=    |                                                | yes, trails                   |
+| Completed Projects     | =COMPLETED= |                                                | no                            |
+| Cancelled Projects     | =CANCELED=  |                                                | no (=CNCL= and =CANCELLED= are) |
+
+Each section was =(todo "KEYWORD" ((org-agenda-overriding-header "...") (org-agenda-files org-agenda-files)))=; the last setting did nothing, since it bound the variable to its own value. The view now has sections for =PROG=, =WAIT=, =REVIEW= and =ACTIVE=. The original form was:
+
+#+begin_src emacs-lisp :tangle no
+("w" "Workflow Status"
+ ((todo "WAIT"
+        ((org-agenda-overriding-header "Waiting on External")
+         (org-agenda-files org-agenda-files)))
+  (todo "REVIEW"
+        ((org-agenda-overriding-header "In Review")
+         (org-agenda-files org-agenda-files)))
+  (todo "PLAN"
+        ((org-agenda-overriding-header "In Planning")
+         (org-agenda-todo-list-sublevels nil)
+         (org-agenda-files org-agenda-files)))
+  (todo "BACKLOG"
+        ((org-agenda-overriding-header "Project Backlog")
+         (org-agenda-todo-list-sublevels nil)
+         (org-agenda-files org-agenda-files)))
+  (todo "READY"
+        ((org-agenda-overriding-header "Ready for Work")
+         (org-agenda-files org-agenda-files)))
+  (todo "ACTIVE"
+        ((org-agenda-overriding-header "Active Projects")
+         (org-agenda-files org-agenda-files)))
+  (todo "COMPLETED"
+        ((org-agenda-overriding-header "Completed Projects")
+         (org-agenda-files org-agenda-files)))
+  (todo "CANCELED"
+        ((org-agenda-overriding-header "Cancelled Projects")
+         (org-agenda-files org-agenda-files)))))
+#+end_src
+
+* Header
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-org-keywords.el --- The one list of Org TODO keywords -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Defines every TODO keyword sequence once, one constant per use, and
+;; joins them into `org-todo-keywords'. No other module sets that
+;; variable. `sp-org-keywords-done' lists the keywords that count as
+;; finished, for code that reasons without a buffer (vulpea-para).
+
+;;; Code:
+#+end_src
+
+* Sequences
+
+** Tasks, projects and issues
+
+The sequence org-gtd maps its states to and the issue tracker uses. Fast keys are on the first letter; =WAIT= asks for a note and a timestamp.
+
+#+begin_src emacs-lisp -i
+(defconst sp-org-keywords-tasks
+  '((sequence "TODO(t)" "NEXT(n)" "PROG(p!)" "WAIT(w@/!)" "|" "DONE(d!)" "CNCL(c@)"))
+  "Tasks, projects and issues; the sequence `org-gtd-keyword-mapping' uses.")
+#+end_src
+
+** Legacy keywords
+
+The words that were effective before this module, kept so notes that use them stay recognised until they are rewritten. They have no fast keys.
+
+#+begin_src emacs-lisp -i
+(defconst sp-org-keywords-legacy
+  '((sequence "DOING" "WAITING" "|" "CANCELLED"))
+  "Keywords older notes still use; migrate them to the task sequence.")
+#+end_src
+
+** Research
+
+One constant for the research workflow of =sp-trails= and the discourse-graphs questions (see the use-case table for how the two sets were merged). No word appears twice, and there are no fast keys.
+
+#+begin_src emacs-lisp -i
+(defconst sp-org-keywords-research
+  '((sequence "QUESTION" "SCOPING" "READING" "SYNTHESIZING" "REVIEW"
+              "|" "STABLE" "ANSWERED" "DROPPED")
+    (sequence "ACTIVE" "PARKED" "|" "ARCHIVED")
+    (sequence "TOREAD" "UNREAD" "|" "READ" "PRUNED" "SKIPPED"))
+  "Questions, trails, pages and reading tasks of the research workflow.")
+#+end_src
+
+* The combined list
+
+** org-todo-keywords
+
+Joins the constants. The task sequence comes first so it is the one new headings cycle through.
+
+#+begin_src emacs-lisp -i
+(setq org-todo-keywords
+      (append sp-org-keywords-tasks
+              sp-org-keywords-legacy
+              sp-org-keywords-research))
+#+end_src
+
+** Done keywords
+
+Returns the keywords that count as finished: those after the =|= of each sequence, without their fast-key suffix. =sp-vulpea-para= assigns it to =vulpea-para-done-keywords=.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-keywords-done ()
+  "Return the keywords of `org-todo-keywords' that count as finished."
+  (let (done)
+    (dolist (seq org-todo-keywords)
+      (let ((words (cdr seq)))
+        (when (member "|" words)
+          (dolist (word (cdr (member "|" words)))
+            (push (replace-regexp-in-string "(.*)\\'" "" word) done)))))
+    (nreverse done)))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-org-keywords)
+;; sp-org-keywords.el ends here.
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-org-keywords-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-org-keywords-test.el= and run headless, from the folder of =init.el=:
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-org-keywords-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+** Keyword tests
+
+The combined list must start with the task sequence (it is the one new headings cycle through), contain every use case, and give the done keywords of all of them, without fast-key suffixes.
+
+#+begin_src emacs-lisp -i
+;;; sp-org-keywords-test.el --- Tests for sp-org-keywords  -*- lexical-binding: t; -*-
+
+;;; Code:
+
+(require 'ert)
+
+(load (expand-file-name
+       "../libraries/modules/text/sp-org-keywords.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(ert-deftest sp-org-keywords-test-tasks-first ()
+  (should (equal (car org-todo-keywords) (car sp-org-keywords-tasks))))
+
+(ert-deftest sp-org-keywords-test-every-use-case-is-joined ()
+  (dolist (seq (append sp-org-keywords-tasks sp-org-keywords-legacy
+                       sp-org-keywords-research))
+    (should (member seq org-todo-keywords))))
+
+(ert-deftest sp-org-keywords-test-no-keyword-twice ()
+  (let (words)
+    (dolist (seq org-todo-keywords)
+      (dolist (word (cdr seq))
+        (unless (equal word "|")
+          (push (replace-regexp-in-string "(.*)\\'" "" word) words))))
+    (should (equal (sort (copy-sequence words) #'string<)
+                   (sort (delete-dups (copy-sequence words)) #'string<)))))
+
+(ert-deftest sp-org-keywords-test-done-keywords ()
+  (let ((done (sp-org-keywords-done)))
+    (dolist (word '("DONE" "CNCL" "CANCELLED" "ANSWERED" "ARCHIVED" "READ"
+                    "STABLE" "SKIPPED"))
+      (should (member word done)))
+    (dolist (word '("TODO" "NEXT" "PROG" "WAIT" "DOING" "WAITING"))
+      (should-not (member word done)))
+    (should-not (seq-find (lambda (w) (string-match-p "(" w)) done))))
+#+end_src

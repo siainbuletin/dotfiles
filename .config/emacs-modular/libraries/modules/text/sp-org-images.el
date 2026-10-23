@@ -11,7 +11,7 @@
 ;; https://github.com/abo-abo/org-download.
 
 (use-package org-download
-  :if (and sp-load-extras (locate-library "org-download"))
+  :ensure t
   :commands (org-download-yank org-download-screenshot org-download-image)
   :custom
   (org-download-method 'directory)

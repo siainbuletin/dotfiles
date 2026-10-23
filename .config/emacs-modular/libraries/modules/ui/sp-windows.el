@@ -161,6 +161,7 @@
 (global-set-key (kbd "S-<f11>") 'siapip/window-toggle-fullscreen)
 
 (use-package buffer-move
+  :ensure t
   :bind
   (("C-M-S-<up>"    . buf-move-up)
    ("C-M-S-<down>"  . buf-move-down)
@@ -192,7 +193,7 @@
 
 ;;;; Dim inactive windows
 (use-package dimmer
-  :when (and sp-load-extras (locate-library "dimmer"))
+  :ensure t
   :hook (after-init . dimmer-mode)
   :custom
   (dimmer-prevent-dimming-predicates '(window-minibuffer-p))

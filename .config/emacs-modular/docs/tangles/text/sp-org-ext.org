@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-org-ext.el=. Every line of the mo
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=: appearance, capture, Babel, agenda, images, the =org-node= memory workflow, and the Vulpea note database modules (base, UI, PARA, schemas and extras). This means that loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
+This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=: appearance, capture, Babel, agenda, images, the =org-node= memory workflow, and the Vulpea note database modules (base, UI, PARA, schemas and extensions, then my =sp-vulpea-table= modules). This means that loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
 
 Its second job is to install a handful of smaller Org packages: =org-contrib= (for ignoring headlines on export), =org-autolist=, =org-journal=, =org-ranker=, =org-special-block-extras=, and two local =org-context= libraries from the =cloned= directory. It is loaded near the end of the Org group in both the default and minimal module lists. Citation setup lives elsewhere, as the opening note says.
 
@@ -36,12 +36,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Core Org extension modules
 
-Requires the appearance, capture, Babel, agenda and image modules. Some of these are also in the module lists, in which case =require= simply does nothing the second time.
+Requires the appearance, Babel, agenda and image modules. Some of these are also in the module lists, in which case =require= simply does nothing the second time. =sp-org-capture= and =sp-agenda-views= are not required here any more: they load last, from the module lists in =init.el=, after everything that feeds them.
 
 #+begin_src emacs-lisp -i
 ;;;; EXTENSION FILES
 (require 'sp-org-appearance)
-(require 'sp-org-capture)
 (require 'sp-org-babel)
 (require 'sp-org-agenda)
 (require 'sp-org-images)
@@ -58,30 +57,30 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 ** Vulpea modules
 
-Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, the custom agenda views (=sp-agenda-views=, tangled from =sp-org-agenda.org=), schemas, and =sp-vulpea-ext= for the remaining extensions. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
+Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions (all described in [[file:../vulpea/sp-vulpea.org][sp-vulpea.org]]), then =sp-vulpea-table=, which is a separate custom module and so is not part of that group. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
 ;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
-(require 'sp-agenda-views) ;; custom agenda views, incl. the PARA view
 (require 'sp-vulpea-schemas)
-(require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
+(require 'sp-vulpea-ext)
+(require 'sp-vulpea-table) ;; my own table modules, kept out of the vulpea group
 #+end_src
 
 * Other Org packages
 
 ** org-contrib
 
-Only when extras are enabled and the package is installed: after Org loads, =ox-extra= is required and its =ignore-headlines= extra is activated, so headings tagged =:ignore:= are dropped on export while their contents are kept.
+After Org loads, =ox-extra= is required and its =ignore-headlines= extra is activated, so headings tagged =:ignore:= are dropped on export while their contents are kept.
 
 #+begin_src emacs-lisp -i
 ;;;;; Other extensions
 
 ;;;; Org Contrib
 (use-package org-contrib
-  :when (and sp-load-extras (locate-library "org-contrib"))
+  :ensure t
   :after org
   :config
   ;; ignore export of headlines marked with :ignore: tag
@@ -91,14 +90,14 @@ Only when extras are enabled and the package is installed: after Org loads, =ox-
 
 ** org-autolist
 
-Only with extras enabled: =org-autolist-mode= is turned on in Org buffers, so RET continues a list item or checkbox and backspace on an empty item removes it. The comment says the package still needs evaluation.
+=org-autolist-mode= is turned on in Org buffers, so RET continues a list item or checkbox and backspace on an empty item removes it. The comment says the package still needs evaluation.
 
 #+begin_src emacs-lisp -i
 ;;;; Org Autolist (Smart Lists)
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
-  :if (and sp-load-extras (locate-library "org-autolist"))
+  :ensure t
   :hook (org-mode . org-autolist-mode))
 #+end_src
 
@@ -108,6 +107,7 @@ Only with extras enabled: =org-autolist-mode= is turned on in Org buffers, so RE
 
 #+begin_src emacs-lisp -i
 (use-package org-journal
+  :ensure t
   :defer t
   :bind
   (("C-M-S-j" . (lambda () (interactive) (org-journal-new-entry nil nil t)))

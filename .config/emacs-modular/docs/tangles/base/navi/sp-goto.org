@@ -122,13 +122,13 @@ Interactive shortcuts for opening specific files and directories, presumably mea
 
 ** goto-last-change
 
-When extras are enabled and the =goto-last-change= library is installed, binds =C-"= to jump to the position of the most recent edit in the buffer. The package is not installed here; this block only configures it if present.
+Binds =C-"= to jump to the position of the most recent edit in the buffer. Elpaca installs the package (=:ensure t=).
 
 #+begin_src emacs-lisp -i
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
+  :ensure t
   :bind (("C-\"" . #'goto-last-change)))
 #+end_src
 

@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-spelling.el=. Every line of th
 
 This module configures spell checking with the built-in =ispell= and =flyspell= libraries, preferring the external =aspell= program when it is installed. Flyspell is deliberately not switched on automatically: a stalled speller process once froze the Emacs daemon, so spell checking is used on demand.
 
-Optional extras (=flyspell-correct= and =consult-flyspell=) load only when =sp-load-extras= is non-nil and the library is actually installed. A transient menu, =lem-spelling-transient=, collects the common commands; it is bound to leader keys in =sp-setup-keybindings.el=. The module is loaded from =init.el= among the utility modules.
+=flyspell-correct= and =consult-flyspell= are configured unconditionally. A transient menu, =lem-spelling-transient=, collects the common commands; it is bound to leader keys in =sp-setup-keybindings.el=. The module is loaded from =init.el= among the utility modules.
 
 * Spell checker backends
 
@@ -71,12 +71,12 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** flyspell-correct
 
-When extras are enabled, =flyspell-correct= adds two keys in =flyspell-mode-map=: =C-;= corrects the previous misspelling and =C-:= corrects the word at point. Corrections are offered through the normal =completing-read= interface, so they show up in whatever minibuffer completion UI is active.
+=flyspell-correct= adds two keys in =flyspell-mode-map=: =C-;= corrects the previous misspelling and =C-:= corrects the word at point. Corrections are offered through the normal =completing-read= interface, so they show up in whatever minibuffer completion UI is active.
 
 #+begin_src emacs-lisp -i
 ;; completion of spellings
 (use-package flyspell-correct
-  :if (and sp-load-extras (locate-library "flyspell-correct"))
+  :ensure t
   :after flyspell
   :bind (:map flyspell-mode-map
          ("C-;" . flyspell-correct-previous)
@@ -112,12 +112,12 @@ When extras are enabled, =flyspell-correct= adds two keys in =flyspell-mode-map=
 
 ** consult-flyspell
 
-When extras are enabled, =consult-flyspell= lists every misspelled word in the buffer through Consult. Selecting a candidate leaves point after the word, runs =flyspell-correct-at-point= on it and then reopens the list, so you can work through the errors in one session. It does not re-check the whole buffer each time it opens.
+=consult-flyspell= lists every misspelled word in the buffer through Consult. Selecting a candidate leaves point after the word, runs =flyspell-correct-at-point= on it and then reopens the list, so you can work through the errors in one session. It does not re-check the whole buffer each time it opens.
 
 #+begin_src emacs-lisp -i
 ;; Completion of misspelled words in buffer
 (use-package consult-flyspell
-  :if (and sp-load-extras (locate-library "consult-flyspell"))
+  :ensure t
   :after flyspell
   :config
   (setq consult-flyspell-set-point-after-word t

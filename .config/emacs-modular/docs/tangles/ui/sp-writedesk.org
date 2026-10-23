@@ -104,6 +104,7 @@ Configures =writeroom-mode= with a 95-column text area, the mode line kept visib
 #+begin_src emacs-lisp -i
 ;;;; Writeroom
 (use-package writeroom-mode
+  :ensure t
   :commands (writeroom-mode)
 
   :config

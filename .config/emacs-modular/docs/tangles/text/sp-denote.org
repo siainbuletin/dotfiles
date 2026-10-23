@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-denote.el=. Every line of the mod
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configuration for Protesilaos Stavrou's =denote= package, which names note files with a timestamp, title and keywords. It sets Org as the file type, adds keybindings under =M-n= and =C-c w d=, enables Denote's Dired and buffer-renaming integrations, keeps notes in =~/notes/=, and adds a small mechanism that puts any Denote note tagged =project= into =org-agenda-files= when saved.
+Configuration for Protesilaos Stavrou's =denote= package, which names note files with a timestamp, title and keywords. It sets Org as the file type, adds keybindings under =M-n= and =C-c w d=, enables Denote's Dired and buffer-renaming integrations, keeps notes in =~/notes/=. It used to add notes tagged =project= to =org-agenda-files= on save; that is removed (see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]]).
 
 The commentary says this module will be phased out in favour of the ID-based Vulpea workflow, since the long Denote file names are hard to read and are not used for anything. It is still loaded in both module lists in =init.el=, directly after =sp-org-base=.
 
@@ -46,7 +46,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** use-package denote
 
-Installs =denote= unconditionally (the =sp-load-extras= guard is commented out) and loads it lazily on =denote=, =denote-create-note= and =denote-link-ol-store=. Once loaded it turns on =denote-rename-buffer-mode=, which renames note buffers to their titles.
+Installs =denote= unconditionally and loads it lazily on =denote=, =denote-create-note= and =denote-link-ol-store=. Once loaded it turns on =denote-rename-buffer-mode=, which renames note buffers to their titles.
 
 Options: dates are prompted with Org's calendar reader, notes are Org files, multi-word keywords are allowed, keywords are sorted, renaming asks for confirmation only before changing the file name and adding front matter, and new notes prompt only for title and keywords. =denote-dired-mode= is enabled in Dired to fontify Denote file names.
 
@@ -58,7 +58,6 @@ Keybindings:
 #+begin_src emacs-lisp -i
 (use-package denote
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "denote"))
   :commands (denote denote-create-note denote-link-ol-store)
   
   :config
@@ -123,58 +122,9 @@ Binds =C-c z= to =list-denotes=. That command comes from the separate =denote-me
 (global-set-key (kbd "C-c z") #'list-denotes)
 #+end_src
 
-* Denote projects in the agenda
+* Denote and the agenda
 
-** Agenda filename pattern
-
-=my-denote-to-agenda-regexp= is the pattern a note's file name must match to be added to the agenda. The default =_project= matches notes carrying the =project= keyword.
-
-#+begin_src emacs-lisp -i
-(defvar my-denote-to-agenda-regexp "_project"
-  "Denote file names that are added to the agenda.
-See `my-add-denote-to-agenda'.")
-#+end_src
-
-** Adding the current note to the agenda
-
-=my-denote-add-to-agenda= checks that the current buffer visits a Denote note whose name matches the pattern and, if so, adds it to =org-agenda-files=. It can be called interactively. The change is in memory only, so it lasts for the session unless the agenda file list is saved elsewhere.
-
-#+begin_src emacs-lisp -i
-(defun my-denote-add-to-agenda ()
-  "Add current file to the `org-agenda-files', if needed.
-The file's name must match the `my-denote-to-agenda-regexp'.
-
-Add this to the `after-save-hook' or call it interactively."
-  (interactive)
-  (when-let* ((file (buffer-file-name))
-              ((denote-file-is-note-p file))
-              ((string-match-p my-denote-to-agenda-regexp (buffer-file-name))))
-    (add-to-list 'org-agenda-files file)))
-#+end_src
-
-** Running it on every save
-
-Adds =my-denote-add-to-agenda= to the global =after-save-hook=, so saving a project note registers it automatically.
-
-#+begin_src emacs-lisp -i
-;; This will add the file automatically
-(add-hook 'after-save-hook #'my-denote-add-to-agenda)
-#+end_src
-
-** Removing the current note from the agenda
-
-=my-denote-remove-from-agenda= is the interactive counterpart, deleting the current file from =org-agenda-files= if its name matches the pattern.
-
-#+begin_src emacs-lisp -i
-(defun my-denote-remove-from-agenda ()
-  "Remove current file from the `org-agenda-files'.
-See `my-denote-add-to-agenda' for how to add files to the Org
-agenda."
-  (interactive)
-  (when-let* ((file (buffer-file-name))
-              ((string-match-p my-denote-to-agenda-regexp (buffer-file-name))))
-    (setq org-agenda-files (delete file org-agenda-files))))
-#+end_src
+Denote no longer touches the agenda. The hooks that added a saved note whose name matches =_project= to =org-agenda-files= (=my-denote-add-to-agenda=, =my-denote-remove-from-agenda= and =my-denote-to-agenda-regexp=) are removed, because =vulpea-para= owns the agenda files and the hooks only changed a list that it rewrites before every agenda. Denote itself is to be phased out; see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]].
 
 ** Provide
 

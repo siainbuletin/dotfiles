@@ -11,7 +11,7 @@
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro
-  :if (and sp-load-extras (locate-library "org-pomodoro"))
+  :ensure t
   :commands org-pomodoro
   :init
   (progn
@@ -22,6 +22,7 @@
 
 ;; Includes focus for checklists - plugs into org-auto-scheduler
 (use-package org-focus-hud
+  :ensure (:host github :repo "SSD2019/org-focus-hud")
   :bind ("C-c f" . org-focus-hud)
   :config
   ;; Optional: Customize refresh interval in seconds
