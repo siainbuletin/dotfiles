@@ -8,10 +8,10 @@
 ;; a hierarchy; others such as `supports' are links) and shows part of
 ;; them, starting from a note you choose:
 ;;
-;;   M-x relationship-annotator-graph-static   static HTML page in the browser
-;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
-;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
-;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
+;;   M-x rel-anno-graph-static   static HTML page in the browser
+;;   M-x rel-anno-outline-native buttons in an Emacs buffer
+;;   M-x rel-anno-outline-vui    the same outline built with vui (trial)
+;;   M-x rel-anno-svg            static Graphviz SVG (needs `dot')
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
@@ -123,12 +123,12 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
-  "Where `relationship-annotator-graph-static' writes its HTML page."
+  "Where `rel-anno-graph-static' writes its HTML page."
   :type 'file)
 
 (defcustom relationship-annotator-svg-directory
   (expand-file-name "relationship-annotator/" sp-cache-dir)
-  "Directory where `relationship-annotator-svg' writes its SVG files."
+  "Directory where `rel-anno-svg' writes its SVG files."
   :type 'directory)
 
 (defcustom relationship-annotator-rankdir "TB"
@@ -685,7 +685,7 @@ One of `unsupported', `challenged', `contested', `supported' or
                                   ""))))
 
 ;;;###autoload
-(defun relationship-annotator-review ()
+(defun rel-anno-review ()
   "List edges that break the type patterns, gaps in claims, and answers.
 Three sections: edges whose note types do not fit the relation, claims
 with gaps in their argument, and each question with its answers and how
@@ -888,7 +888,7 @@ in it and cut the part to show by itself."
                                     (relationship-annotator--html-template)))))
 
 ;;;###autoload
-(defun relationship-annotator-graph-static ()
+(defun rel-anno-graph-static ()
   "Ask for a starting note and depth, then open a static HTML page of the hierarchy.
 The page holds `relationship-annotator-embed-depth' levels below the starting
 note.  Clicking a box recentres the graph on it, within those levels."
@@ -919,9 +919,9 @@ note.  Clicking a box recentres the graph on it, within those levels."
 (defvar relationship-annotator-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
-    (define-key map (kbd "TAB") #'relationship-annotator-view-toggle)
-    (define-key map (kbd "c") #'relationship-annotator-view-recenter)
-    (define-key map (kbd "g") #'relationship-annotator-view-redraw)
+    (define-key map (kbd "TAB") #'rel-anno-view-toggle)
+    (define-key map (kbd "c") #'rel-anno-view-recenter)
+    (define-key map (kbd "g") #'rel-anno-view-redraw)
     map)
   "Keymap for `relationship-annotator-view-mode'.")
 
@@ -1009,7 +1009,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
          (when (vulpea-note-pos note)
            (goto-char (vulpea-note-pos note))))))))
 
-(defun relationship-annotator-view-toggle ()
+(defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
   (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
@@ -1019,14 +1019,14 @@ PATH holds the ancestors, so a cycle stops the recursion."
         (puthash id t relationship-annotator--expanded))
       (relationship-annotator-view--redraw))))
 
-(defun relationship-annotator-view-redraw ()
+(defun rel-anno-view-redraw ()
   "Rebuild the tree from the database and redraw."
   (interactive)
   (setq relationship-annotator--tree (relationship-annotator--build))
   (relationship-annotator-view--expand-to-depth)
   (relationship-annotator-view--redraw))
 
-(defun relationship-annotator-view-recenter ()
+(defun rel-anno-view-recenter ()
   "Ask for a new starting note and depth, then redraw."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1037,7 +1037,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (relationship-annotator-view--redraw)))
 
 ;;;###autoload
-(defun relationship-annotator-outline-native ()
+(defun rel-anno-outline-native ()
   "Ask for a starting note and depth, then show the hierarchy as buttons."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1107,7 +1107,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
      :initially-open (> depth 0))))
 
 ;;;###autoload
-(defun relationship-annotator-outline-vui ()
+(defun rel-anno-outline-vui ()
   "Ask for a starting note and depth, then show the hierarchy with vui."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1213,7 +1213,7 @@ exports of the same note never overwrite each other."
    relationship-annotator-svg-directory))
 
 ;;;###autoload
-(defun relationship-annotator-svg ()
+(defun rel-anno-svg ()
   "Ask for a starting note and depth, then write and show a Graphviz SVG."
   (interactive)
   (unless (executable-find "dot")
@@ -1245,8 +1245,16 @@ exports of the same note never overwrite each other."
 (dolist (name '(graph outline-native outline-vui svg))
   (define-obsolete-function-alias
     (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
+    (intern (format "rel-anno-%s" name))
     "2026-10-20"))
+
+;; The commands have the shorter prefix `rel-anno-'.
+(dolist (name '(graph outline-native outline-vui svg review
+                      view-toggle view-redraw view-recenter))
+  (define-obsolete-function-alias
+    (intern (format "relationship-annotator-%s" name))
+    (intern (format "rel-anno-%s" name))
+    "2026-10-23"))
 
 (provide 'sp-relationship-annotator)
 ;;; sp-relationship-annotator.el ends here

@@ -13,20 +13,20 @@ Besides =parents=, a note can relate to other notes in other ways: =supports=, =
 
 Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
 
-The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =relationship-annotator-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. The old names of the variables and commands still work. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
+The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. The old names of the variables and commands still work. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
 
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
 ** The commands
 
-| Command                                 | What it shows                                                                                                                   |
-|-----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------|
-| =relationship-annotator-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]]). |
-| =relationship-annotator-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                      |
-| =relationship-annotator-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                 |
-| =relationship-annotator-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                     |
-| =relationship-annotator-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                 |
-| =relationship-annotator-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question. |
+| Command                   | What it shows                                                                                                                      |
+|---------------------------+------------------------------------------------------------------------------------------------------------------------------------|
+| =rel-anno-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]]). |
+| =rel-anno-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                               |
+| =rel-anno-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                    |
+| =rel-anno-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                        |
+| =rel-anno-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                    |
+| =rel-anno-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question.    |
 
 Notes on the last level show how many children they hide (=+N= in the browser, a count in the outline). The browser graph can't load more, so run it again with a bigger depth; the outlines expand any note on demand.
 
@@ -62,10 +62,10 @@ Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
 ;; a hierarchy; others such as `supports' are links) and shows part of
 ;; them, starting from a note you choose:
 ;;
-;;   M-x relationship-annotator-graph-static   static HTML page in the browser
-;;   M-x relationship-annotator-outline-native buttons in an Emacs buffer
-;;   M-x relationship-annotator-outline-vui    the same outline built with vui (trial)
-;;   M-x relationship-annotator-svg            static Graphviz SVG (needs `dot')
+;;   M-x rel-anno-graph-static   static HTML page in the browser
+;;   M-x rel-anno-outline-native buttons in an Emacs buffer
+;;   M-x rel-anno-outline-vui    the same outline built with vui (trial)
+;;   M-x rel-anno-svg            static Graphviz SVG (needs `dot')
 ;;
 ;; Each command first asks for a starting note and a depth.  The depth
 ;; counts levels below the starting note.  Notes at the last level show
@@ -208,12 +208,12 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
-  "Where `relationship-annotator-graph-static' writes its HTML page."
+  "Where `rel-anno-graph-static' writes its HTML page."
   :type 'file)
 
 (defcustom relationship-annotator-svg-directory
   (expand-file-name "relationship-annotator/" sp-cache-dir)
-  "Directory where `relationship-annotator-svg' writes its SVG files."
+  "Directory where `rel-anno-svg' writes its SVG files."
   :type 'directory)
 
 (defcustom relationship-annotator-rankdir "TB"
@@ -901,7 +901,7 @@ The package shows these results in dynamic blocks inside an Org file. This modul
 
 - Lines 672-673 define a buffer-local variable that keeps the tree the buffer was made from, so the buttons can find their notes.
 - Lines 675-685 define a helper that inserts a button with the title of a note. Pressing it visits the note, and the tooltip shows the file.
-- Lines 687-688 are the autoload cookie and the definition of =relationship-annotator-review=. Its documentation string (lines 690-693) names the three sections.
+- Lines 687-688 are the autoload cookie and the definition of =rel-anno-review=. Its documentation string (lines 690-693) names the three sections.
 - Lines 695-701 build the tree and its context and open the buffer, in =special-mode=.
 - The first section lists the anomalies: the subject, the relation and the object, with the message after them. It says "none" when there are none.
 - The second section goes through every claim in id order, so the list is the same each time, and prints the gaps of those that have any.
@@ -927,7 +927,7 @@ The package shows these results in dynamic blocks inside an Org file. This modul
                                   ""))))
 
 ;;;###autoload
-(defun relationship-annotator-review ()
+(defun rel-anno-review ()
   "List edges that break the type patterns, gaps in claims, and answers.
 Three sections: edges whose note types do not fit the relation, claims
 with gaps in their argument, and each question with its answers and how
@@ -1169,7 +1169,7 @@ in it and cut the part to show by itself."
 
 *** The static graph command (lines 890–903)
 
-This is the old =relationship-annotator-graph=, renamed. The name =relationship-annotator-graph= now belongs to the live view in [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]], which builds the same page.
+This is the old =rel-anno-graph=, renamed. The name =rel-anno-graph= now belongs to the live view in [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]], which builds the same page.
 
 - Line 890 is the autoload cookie, so the command is available before the module loads, and line 891 defines it.
 - Lines 892-894 are the documentation: the page holds =relationship-annotator-embed-depth= levels below the starting note, and a click on a box recentres the graph on it within those levels.
@@ -1180,7 +1180,7 @@ This is the old =relationship-annotator-graph=, renamed. The name =relationship-
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-graph-static ()
+(defun rel-anno-graph-static ()
   "Ask for a starting note and depth, then open a static HTML page of the hierarchy.
 The page holds `relationship-annotator-embed-depth' levels below the starting
 note.  Clicking a box recentres the graph on it, within those levels."
@@ -1229,9 +1229,9 @@ All four are buffer-local, so several outline buffers can exist at once.
 (defvar relationship-annotator-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
-    (define-key map (kbd "TAB") #'relationship-annotator-view-toggle)
-    (define-key map (kbd "c") #'relationship-annotator-view-recenter)
-    (define-key map (kbd "g") #'relationship-annotator-view-redraw)
+    (define-key map (kbd "TAB") #'rel-anno-view-toggle)
+    (define-key map (kbd "c") #'rel-anno-view-recenter)
+    (define-key map (kbd "g") #'rel-anno-view-redraw)
     map)
   "Keymap for `relationship-annotator-view-mode'.")
 
@@ -1378,7 +1378,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Line 1020 redraws the buffer.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-toggle ()
+(defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
   (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
@@ -1396,7 +1396,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Line 1027 redraws.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-redraw ()
+(defun rel-anno-view-redraw ()
   "Rebuild the tree from the database and redraw."
   (interactive)
   (setq relationship-annotator--tree (relationship-annotator--build))
@@ -1411,7 +1411,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 - Lines 1036-1037 expand to the new depth and redraw.
 
 #+begin_src emacs-lisp
-(defun relationship-annotator-view-recenter ()
+(defun rel-anno-view-recenter ()
   "Ask for a new starting note and depth, then redraw."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1434,7 +1434,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-outline-native ()
+(defun rel-anno-outline-native ()
   "Ask for a starting note and depth, then show the hierarchy as buttons."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1542,7 +1542,7 @@ Each note is one component with its own state, so pressing a button redraws only
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-outline-vui ()
+(defun rel-anno-outline-vui ()
   "Ask for a starting note and depth, then show the hierarchy with vui."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
@@ -1694,7 +1694,7 @@ exports of the same note never overwrite each other."
 
 #+begin_src emacs-lisp
 ;;;###autoload
-(defun relationship-annotator-svg ()
+(defun rel-anno-svg ()
   "Ask for a starting note and depth, then write and show a Graphviz SVG."
   (interactive)
   (unless (executable-find "dot")
@@ -1716,7 +1716,8 @@ exports of the same note never overwrite each other."
 
 - Lines 1235-1236 explain why this section exists: the module used to be called =sp-vulpea-hierarchy=.
 - Lines 1238-1243 make every old customisation variable an obsolete alias of the new one. They are =relations=, =tag-colors=, =default-depth=, =html-file=, =svg-directory=, =rankdir= and =wrap-width=, and the loop builds both names from the same word. A setting you made under the old name keeps working. So does =sp-dg-positions=, which tests =vulpea-hierarchy-rankdir= with =boundp=: an alias is bound whenever its target is.
-- Lines 1245-1249 do the same for the commands =graph=, =outline-native=, =outline-vui= and =svg=. Both loops date the alias 2026-10-20, so the byte compiler warns about the old names.
+- Lines 1245-1249 do the same for the commands =graph=, =outline-native=, =outline-vui= and =svg=, now pointing at their =rel-anno-= names. Both loops date the alias 2026-10-20, so the byte compiler warns about the old names.
+- Lines 1251-1257 make the commands that had the longer prefix, =relationship-annotator-graph=, =-outline-native=, =-outline-vui=, =-svg=, =-review= and the three =-view-= commands, obsolete aliases of their =rel-anno-= names, dated 2026-10-23. Only commands were renamed; variables and internal functions keep the long prefix.
 
 #+begin_src emacs-lisp
 ;;;; Old names
@@ -1734,14 +1735,22 @@ exports of the same note never overwrite each other."
 (dolist (name '(graph outline-native outline-vui svg))
   (define-obsolete-function-alias
     (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
+    (intern (format "rel-anno-%s" name))
     "2026-10-20"))
+
+;; The commands have the shorter prefix `rel-anno-'.
+(dolist (name '(graph outline-native outline-vui svg review
+                      view-toggle view-redraw view-recenter))
+  (define-obsolete-function-alias
+    (intern (format "relationship-annotator-%s" name))
+    (intern (format "rel-anno-%s" name))
+    "2026-10-23"))
 #+end_src
 
-*** Provide (lines 1251–1252)
+*** Provide (lines 1259–1260)
 
-- Line 1251 provides the feature, so =(require 'sp-relationship-annotator)= works.
-- Line 1252 is the conventional end-of-file line.
+- Line 1259 provides the feature, so =(require 'sp-relationship-annotator)= works.
+- Line 1260 is the conventional end-of-file line.
 
 #+begin_src emacs-lisp
 (provide 'sp-relationship-annotator)
@@ -2377,13 +2386,13 @@ render(true);
 
 Before, the page placed boxes with its own tidy-tree code: depth gave the column, and a parent was centred on its children. That can't say "this relation goes to the right of its subject", because a link joins boxes that the tree has already placed. The page now asks the fCoSE layout for the positions and keeps its own SVG drawing (text wrapping, tags, tints, fold markers, links).
 
-| Gained                                                           | Lost or costs                                                                  |
-|------------------------------------------------------------------+--------------------------------------------------------------------------------|
-| Directions per relation, with diagonals, solved together with the tree | About 560 KB of vendored scripts (=vendor/relationship-annotator/=), pasted into every page |
-| A note with several parents is drawn once, joined to all of them | Layout is heuristic: a crowded graph breaks some direction rules, and the result is not tidy like a tree |
-| Rows of siblings are aligned, and the layout is deterministic    | A layout takes about 0.5 s for 120 boxes and grows quickly above that           |
-| No dependency on the network; the scripts are MIT licensed        | The scripts must be updated by hand (=vendor/relationship-annotator/README.org=)       |
-| Drawing is unchanged, so wrapping, tags and tints still work      | The SVG export (Graphviz) ignores directions                                    |
+| Gained                                                                 | Lost or costs                                                                                            |
+|------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------|
+| Directions per relation, with diagonals, solved together with the tree | About 560 KB of vendored scripts (=vendor/relationship-annotator/=), pasted into every page              |
+| A note with several parents is drawn once, joined to all of them       | Layout is heuristic: a crowded graph breaks some direction rules, and the result is not tidy like a tree |
+| Rows of siblings are aligned, and the layout is deterministic          | A layout takes about 0.5 s for 120 boxes and grows quickly above that                                    |
+| No dependency on the network; the scripts are MIT licensed             | The scripts must be updated by hand (=vendor/relationship-annotator/README.org=)                         |
+| Drawing is unchanged, so wrapping, tags and tints still work           | The SVG export (Graphviz) ignores directions                                                             |
 
 Other backends considered: Cytoscape.js with its own renderer (less control over wrapped text and muted tags), ELK (layered, but one direction for the whole graph), d3-force (smaller, but no hard rules and no rectangles), and Graphviz in the browser (a static layout that can't take rules). fCoSE is the only one with built-in relative placement rules.
 

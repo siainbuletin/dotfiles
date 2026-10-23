@@ -4,17 +4,17 @@
 
 ;;; Commentary:
 
-;; Serves the page of `relationship-annotator-graph-static' from a small
+;; Serves the page of `rel-anno-graph-static' from a small
 ;; HTTP server inside Emacs, bound to 127.0.0.1 only, instead of writing
 ;; an HTML file and opening it from disk.  The page is rendered from the
 ;; vulpea database on each load.  An open page keeps an event stream to
 ;; Emacs and reloads when, and only when, the data it shows has changed.
 ;;
-;;   M-x relationship-annotator-graph         ask for a note, start, open
-;;   M-x relationship-annotator-live-open     open the last note again
-;;   M-x relationship-annotator-live-start    start the server
-;;   M-x relationship-annotator-live-stop     stop the server
-;;   M-x relationship-annotator-live-refresh  make open pages reload
+;;   M-x rel-anno-graph         ask for a note, start, open
+;;   M-x rel-anno-live-open     open the last note again
+;;   M-x rel-anno-live-start    start the server
+;;   M-x rel-anno-live-stop     stop the server
+;;   M-x rel-anno-live-refresh  make open pages reload
 
 ;;; Code:
 
@@ -24,7 +24,7 @@
 (require 'filenotify)
 (require 'sp-relationship-annotator)
 
-(defgroup relationship-annotator-live nil
+(defgroup rel-anno-live nil
   "A live view of the relationship graph on localhost."
   :group 'relationship-annotator)
 
@@ -64,7 +64,7 @@
   "The whole tree while a check is running, so it is built once.")
 
 (defun relationship-annotator-live--tree (start depth)
-  "Return the tree below START, cut like `relationship-annotator-graph-static' does."
+  "Return the tree below START, cut like `rel-anno-graph-static' does."
   (relationship-annotator--scope
    (or relationship-annotator-live--full-tree (relationship-annotator--build))
    start (max depth relationship-annotator-embed-depth)))
@@ -86,7 +86,7 @@
   (format "<script>
 (() => {
   const startRoot = %s, startDepth = %d, hash = %s, base = document.title;
-  const key = 'relationship-annotator-live';
+  const key = 'rel-anno-live';
   try {
     const saved = JSON.parse(sessionStorage.getItem(key) || 'null');
     sessionStorage.removeItem(key);
@@ -192,7 +192,7 @@
         (setq relationship-annotator-live--watch
               (file-notify-add-watch (file-name-directory file) '(change)
                                      #'relationship-annotator-live--on-file-change))
-      (error (message "Live graph: cannot watch the database (%s); use relationship-annotator-live-refresh"
+      (error (message "Live graph: cannot watch the database (%s); use rel-anno-live-refresh"
                       (error-message-string err))))))
 
 (defun relationship-annotator-live--watch-stop ()
@@ -258,7 +258,7 @@
       (list "404 Not Found" "text/plain" "Not found"))
      ((null root)
       (list "200 OK" "text/plain"
-            "Run M-x relationship-annotator-graph in Emacs to pick a note."))
+            "Run M-x rel-anno-graph in Emacs to pick a note."))
      ((not (vulpea-db-query-by-ids (list root)))
       (list "404 Not Found" "text/plain" (format "No note with id %s" root)))
      ((equal path "/graph.json")
@@ -317,14 +317,14 @@
           (delq process relationship-annotator-live--clients))))
 
 ;;;###autoload
-(defun relationship-annotator-live-start ()
+(defun rel-anno-live-start ()
   "Start the live view server on 127.0.0.1, at `relationship-annotator-live-port'."
   (interactive)
   (unless (process-live-p relationship-annotator-live--server)
     (setq relationship-annotator-live--server
           (condition-case err
               (make-network-process
-               :name "relationship-annotator-live"
+               :name "rel-anno-live"
                :server t :noquery t :family 'ipv4 :coding 'binary
                :host relationship-annotator-live--address
                :service relationship-annotator-live-port
@@ -340,7 +340,7 @@
            relationship-annotator-live--address relationship-annotator-live-port))
 
 ;;;###autoload
-(defun relationship-annotator-live-stop ()
+(defun rel-anno-live-stop ()
   "Stop the live view server."
   (interactive)
   (relationship-annotator-live--watch-stop)
@@ -358,34 +358,34 @@
           (url-hexify-string start) depth))
 
 ;;;###autoload
-(defun relationship-annotator-live ()
+(defun rel-anno-live ()
   "Ask for a starting note and depth, then show the hierarchy live in the browser.
 The page is served by Emacs on localhost and reloads when its data changes."
   (interactive)
   (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
     (setq relationship-annotator-live--root start
           relationship-annotator-live--depth depth)
-    (relationship-annotator-live-open)))
+    (rel-anno-live-open)))
 
 ;;;###autoload
-(defalias 'relationship-annotator-graph #'relationship-annotator-live)
+(defalias 'rel-anno-graph #'rel-anno-live)
 
 ;;;###autoload
-(defun relationship-annotator-live-open ()
+(defun rel-anno-live-open ()
   "Open the live view in the browser on the last starting note, or ask for one."
   (interactive)
   (unless relationship-annotator-live--root
     (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
       (setq relationship-annotator-live--root start
             relationship-annotator-live--depth depth)))
-  (relationship-annotator-live-start)
+  (rel-anno-live-start)
   (browse-url (relationship-annotator-live--url
                relationship-annotator-live--root
                (or relationship-annotator-live--depth
                    relationship-annotator-default-depth))))
 
 ;;;###autoload
-(defun relationship-annotator-live-refresh ()
+(defun rel-anno-live-refresh ()
   "Make every open live page reload now."
   (interactive)
   (relationship-annotator-live--check-all t))

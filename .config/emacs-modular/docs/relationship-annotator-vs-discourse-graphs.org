@@ -90,7 +90,7 @@ The overlay differs too: the package picks a format per attribute name (such as 
 
 ** Reports
 
-The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-gaps=, =dg-unanswered-opposition=, =dg-synthesis=, =dg-relation-anomalies=, =dg-query=, =dg-node-index=) and has =dg-synthesis-open= and =dg-query-builder= to make them. This module has one buffer, =relationship-annotator-review=, with the anomalies, the claims with gaps, and the questions with the strength of each answer.
+The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-gaps=, =dg-unanswered-opposition=, =dg-synthesis=, =dg-relation-anomalies=, =dg-query=, =dg-node-index=) and has =dg-synthesis-open= and =dg-query-builder= to make them. This module has one buffer, =rel-anno-review=, with the anomalies, the claims with gaps, and the questions with the strength of each answer.
 
 * What was not ported
 
