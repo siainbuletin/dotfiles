@@ -9,7 +9,7 @@ to fold or unfold it.
 
 * Open pull requests
 ** Fixed
-- Workspaces (=tabspaces=) now persist across restarts: =tabspaces-mode= was never turned on, so the session options did nothing. It starts after init, and the session is kept in =var/tabspaces-session.eld=. ([[https://github.com/siainbuletin/dotfiles/pull/NN][#NN]], Claude)
+- Workspaces (=tabspaces=) now persist across restarts: =tabspaces-mode= was never turned on, so the session options did nothing. It starts after init, and the session is kept in =var/tabspaces-session.eld=. ([[https://github.com/siainbuletin/dotfiles/pull/51][#51]], Claude)
 ** Fixed
 - The lambda art behind the splash menu lost every other character, and =M-x sp-splash-screen= only switched to an old =*splash*= buffer, so a changed setting never showed. The art is complete now, the command redraws the splash, and the art colours are a little stronger. Checked in a headless Emacs 29. ([[https://github.com/siainbuletin/dotfiles/pull/44][#44]], Claude)
 ** Added
