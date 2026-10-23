@@ -244,9 +244,9 @@ the order of `lem--late-modules', for example when debugging."
     sp-dyn-graph
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
-    ;; Version control. `sp-keys' autoloads the magit commands it binds, so
-    ;; the keys work before this loads. `sp-vcontrol' installs magit and
-    ;; `sp-magit-style' styles it, so it comes second.
+    ;; Version control. `sp-vcontrol' installs magit and `sp-magit-style'
+    ;; styles it, so it comes second. The magit keys in `sp-keys' and
+    ;; C-M-g only work once this has loaded.
     sp-vcontrol
     sp-magit-style
     ;; Terminals and shells

@@ -35,9 +35,9 @@
 ;;;; Working with AI with my knowledge base
 ;; Making an LLM recognise my vulpea notes
 (use-package vulpea-mcp
-  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git"))
-
-(vulpea-mcp-enable)
+  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git")
+  :config
+  (vulpea-mcp-enable))
 
 ;;; Enhacing the experience of Claude Code
 (use-package monet
