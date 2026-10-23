@@ -117,7 +117,7 @@ This is also currently being loaded alphabetically.
 
 - sp-academic :: the academic master module. It requires =sp-bibprocess= (BibTeX files), =sp-pdfprocess= (PDF metadata and viewer), =sp-citations= (org-cite, CSL, Citar) and =sp-litnotes= (literature notes), so profiles list only =sp-academic=. All five are documented and tangled from =docs/tangles/academic/sp-academic.org=.
 - sp-statistics :: ESS package (currently unconfigured)
-- sp-dgraphs :: Generating networks with the information (should be made to actually be actionable)
+- sp-graphs :: Graphs of notes: discourse-graphs, vulpea-graph and the relationship annotator (should be made to actually be actionable)
 - sp-notes :: other notes-related settings
 
 ** Media work and other workflows (~media/~)
@@ -469,7 +469,7 @@ Modifications to be made by me, a human
         ;; Academic
         sp-academic
         ;; sp-statistics
-        sp-dgraphs
+        sp-graphs
         sp-notes
 
         ;; Functions

@@ -1,35 +1,304 @@
-#+title: sp-relationship-annotator
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-relationship-annotator.el :comments no :padline yes :noweb no :mkdirp yes
+#+TITLE: sp-graphs: graphs of notes, from packages and from my own code
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-graphs.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-relationship-annotator.el= and its page template =libraries/modules/custom/sp-relationship-annotator.html=. Every line of both files lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each HTML block carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-graphs.el= and its page template =libraries/modules/custom/sp-graphs.html=. Every line of both files lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each HTML block carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-The commentary at the top of the module says:
+This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=. They all draw or analyse graphs of notes, but only two of them install a package. The others are code of my own. The file keeps that split, in this order:
 
-#+begin_quote
-Reads relationships between vulpea notes (the `parent' relation builds
-a hierarchy; others such as `supports' are links) and shows part of
-them, starting from a note you choose:
+1. *Installed with =use-package=*: =discourse-graphs= (with all its settings) and =vulpea-graph=. Elpaca fetches both from GitHub with the =:ensure= recipes below. Their code is not in this repository.
+2. *Custom code*: the relationship annotator, which reads relations between Vulpea notes and draws them, and its live view, a small web server inside Emacs that shows the same page and reloads it when the notes change. Both are written here, in full.
 
-  M-x rel-anno-graph-static   static HTML page in the browser
-  M-x rel-anno-outline-native buttons in an Emacs buffer
-  M-x rel-anno-outline-vui    the same outline built with vui (trial)
-  M-x rel-anno-svg            static Graphviz SVG (needs `dot')
+* Overview
 
-Each command first asks for a starting note and a depth.  The depth
-counts levels below the starting note.  Notes at the last level show
-how many children they hide.  The browser graph holds
-`relationship-annotator-embed-depth' levels (4) and can't load more, so run
-the command again from another note, or with a bigger depth.  The
-outline expands any node on demand.
+** The four, side by side
 
-Other relations between notes (`supports', `opposes', ...) are drawn
-as labelled links.  See `relationship-annotator-relations' for how to
-declare them and where each one is read from.
-#+end_quote
+| Part                      | =discourse-graphs=                                                                        | =vulpea-graph=                                                                   | Relationship annotator                                                                                          | Live view                                                                                 |
+|---------------------------+-------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------|
+| Came from                 | =sp-dgraphs=                                                                              | =sp-dyn-graph=                                                                   | =sp-relationship-annotator=                                                                                     | =sp-relationship-annotator-live=                                                          |
+| Kind                      | Package, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]  | Package, [[https://github.com/Arenile/vulpea-graph-ui][Arenile/vulpea-graph-ui]] | My own code (about 1200 lines of Lisp, a page template and vendored scripts)                                    | My own code (about 400 lines of Lisp)                                                     |
+| How it gets installed     | =use-package= with a git recipe in =:ensure=, including the built web UI                  | =use-package= with a git recipe in =:ensure=, including =assets=                 | Not installed. It =require='s =vulpea=, =vulpea-select= and =vui=; =sp-vulpea-base= installs =vulpea= and =vui= | Not installed. It uses =url-util= and =filenotify=, which come with Emacs                 |
+| What a node is            | An Org heading with =:ID:= and =:DG_TYPE:=, or a file with =#+dg_type:=                   | A Vulpea note                                                                    | A Vulpea note                                                                                                   | A Vulpea note (the same tree as the annotator)                                            |
+| Where the data comes from | Its own SQLite database, filled by scanning =dg-directories=                              | Vulpea (I have not read its source; see below)                                   | Vulpea's database: metadata such as =parents ::=, =supports ::=, and file properties like =DG_SUPPORTS=         | Same as the annotator, read again on every page load                                      |
+| Does it write?            | Yes: its database, and notes through its commands                                         | Not checked                                                                      | No. It only reads                                                                                               | No. It only reads                                                                         |
+| What it shows             | A context panel beside the note, overlays after headings, a synthesis dashboard, a web UI | An interactive graph in the browser                                              | A browser graph (HTML file on disk), two outlines, a Graphviz SVG and a review buffer                           | The annotator's browser graph, served from =127.0.0.1= and reloaded when its data changes |
+| Main commands             | =discourse-graphs-mode= and the =dg-= commands                                            | =vulpea-graph=, =vulpea-graph-mode=                                              | =rel-anno-graph-static=, =rel-anno-svg=, =rel-anno-review=, =rel-anno-outline-native=, =rel-anno-outline-vui=   | =rel-anno-graph=, =rel-anno-live=, =rel-anno-live-open=, =-start=, =-stop=, =-refresh=    |
+| Prefix                    | =dg-=                                                                                     | =vulpea-graph-=                                                                  | =relationship-annotator-= for variables, =rel-anno-= for commands                                               | =relationship-annotator-live-= for variables, =rel-anno-live-= for commands               |
+| Needs besides Emacs       | SQLite, =websocket= for the UI                                                            | =websocket= and =simple-httpd=, both from =sp-base-libraries=                    | =vulpea=, =vui= (outline trial only), Graphviz (SVG only)                                                       | The annotator, and a free port (8765)                                                     |
+| Settings in this file     | A lot: directories, database, overlays, node types, relation types, patterns, attributes  | None, only the recipe and the autoloaded commands                                | The =relationship-annotator-*= options                                                                          | =relationship-annotator-live-port= and =-debounce=                                        |
 
-* Typed relationships between vulpea notes
+** How they differ
 
-** Context
+- *Package or my code.* =discourse-graphs= and =vulpea-graph= are other people's code. What I own here is their recipe and, for =discourse-graphs=, their settings. The annotator and the live view are mine, so a bug in them is mine to fix and they are documented line by line below.
+- *Who owns the data.* =discourse-graphs= keeps a database of its own and has to scan the notes to fill it (=dg-rebuild-cache=). The annotator and the live view keep nothing: they ask Vulpea each time. =vulpea-graph= also works on Vulpea notes.
+- *Same vocabulary, different model.* The annotator was written to read the notes that =discourse-graphs= reads: the property names (=DG_TYPE=, =DG_SUPPORTS=), the four relations and the formulas are the same. The differences, and what I did not port, are in [[file:../../architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]]. The settings of =discourse-graphs= below (=dg-node-types=, =dg-relation-types=) and the annotator's (=relationship-annotator-relations=, =relationship-annotator-node-types=) describe the same four relations twice; changing one does not change the other.
+- *Two ways to serve a graph to a browser.* =vulpea-graph= needs =websocket= and =simple-httpd=. The live view uses neither: it has its own server on =make-network-process=, bound to =127.0.0.1=, because =simple-httpd= is one global server that listens on every interface by default (reasons in [[*Why a small server of its own][Why a small server of its own]]).
+- *Static or live.* =rel-anno-graph-static= writes a self-contained HTML file and opens it from disk, a snapshot. =rel-anno-graph= opens the live view. The page, the data and the drawing are the same.
+- *What I could not check.* I did not read the source of =vulpea-graph=, so the table says only what its recipe, its commands and its dependencies show. The =discourse-graphs= column rests on the existing comparison document.
+
+** Loading it
+
+=sp-graphs= is loaded from =init.el= in =lem--late-modules=, where the four modules were listed before, in the same position and the same order: after =sp-semantic= and before =sp-sandbox=. A late module is read once Emacs is idle after startup and Elpaca has finished its initial queues (see [[file:../../architecture/load-order.org][load-order]]), so the two =use-package= forms below are queued by =lem--load-late-modules=, which then runs =elpaca-process-queues=. The commands are not available until then.
+
+#+begin_src emacs-lisp :tangle no
+sp-graphs
+#+end_src
+
+Features: the module provides =sp-graphs= only. The four old features (=sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=) are gone; nothing in the repository required them except =init.el=.
+
+** The Emacs Lisp file
+
+The header, commentary and the start of the code section. The commentary is written for the whole file: it says which parts are packages and which are custom.
+
+#+begin_src emacs-lisp :padline no
+;;; sp-graphs.el --- Graphs of notes: discourse-graphs, vulpea-graph and the relationship annotator -*- lexical-binding: t; -*-
+
+;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
+
+;;; Commentary:
+
+;; Everything that draws or analyses graphs of notes, in one file.
+;;
+;; Installed with `use-package' (Elpaca `:ensure'):
+;;   `discourse-graphs'  typed nodes in Org headings, SQLite cache, context panel
+;;   `vulpea-graph'      interactive graph of Vulpea notes in the browser
+;;
+;; Custom code, written here:
+;;   Relationship annotator  relations between Vulpea notes, as a browser
+;;                           graph, outlines, an SVG and a review buffer
+;;     M-x rel-anno-graph-static   static HTML page in the browser
+;;     M-x rel-anno-outline-native buttons in an Emacs buffer
+;;     M-x rel-anno-outline-vui    the same outline built with vui (trial)
+;;     M-x rel-anno-svg            static Graphviz SVG (needs `dot')
+;;     M-x rel-anno-review         anomalies, gaps and strength of answers
+;;   Live view               the same page served on 127.0.0.1, reloaded
+;;                           when the graph data changes
+;;     M-x rel-anno-graph         ask for a note, start, open
+;;     M-x rel-anno-live-open     open the last note again
+;;     M-x rel-anno-live-start    start the server
+;;     M-x rel-anno-live-stop     stop the server
+;;     M-x rel-anno-live-refresh  make open pages reload
+;;
+;; Each annotator command first asks for a starting note and a depth.  The
+;; depth counts levels below the starting note.  Notes at the last level
+;; show how many children they hide.  The browser graph holds
+;; `relationship-annotator-embed-depth' levels (4) and can't load more, so
+;; run the command again from another note, or with a bigger depth.  The
+;; outline expands any node on demand.
+;;
+;; Other relations between notes (`supports', `opposes', ...) are drawn as
+;; labelled links.  See `relationship-annotator-relations' for how to
+;; declare them and where each one is read from.
+;;
+;; docs/tangles/custom/sp-graphs.org is the source of this file.
+
+;;; Code:
+#+end_src
+
+* Installed with use-package
+
+Two packages, two =use-package= forms. Elpaca fetches both from GitHub; the =:ensure= recipe says from where and which files to build. Nothing else in this file is installed: the custom code below relies on =vulpea= and =vui= (installed by =sp-vulpea-base=), and =vulpea-graph= relies on =websocket= and =simple-httpd= (installed by =sp-base-libraries=).
+
+#+begin_src emacs-lisp
+;;; Installed with use-package
+#+end_src
+
+** discourse-graphs (from =sp-dgraphs=)
+
+This installs and configures =discourse-graphs=, a package by LuciusChen that treats Org headings in a notes directory as typed nodes (questions, claims, evidence, sources, theories) connected by typed relations (supports, opposes, informs, answers), stores them in an SQLite database, and offers a context panel, heading overlays and a browser-based UI. It was kept in a module of its own so it can be set up on its own, and some variables from Lambda Emacs are still needed for it to work well (=sp-notes-dir= and =sp-path=, from =sp-paths=).
+
+The package is fetched from GitHub through Elpaca, including the prebuilt HTML and assets of its web UI. Notes are scanned recursively under =sp-notes-dir= (=~/notes/= unless =SP_NOTES_DIR= says otherwise), with Denote integration turned on. The database is configured to live in =~/.config/emacs-include/=, while a =discourse-graphs.db= file also sits at the root of this repository, which suggests the location has changed at some point.
+
+Everything under this heading is settings and the =use-package= form for the package. None of it is a function of mine.
+
+*** Installing the package
+
+**** use-package discourse-graphs
+
+Installs =discourse-graphs= from GitHub with the Elisp files and the built web UI files. Once loaded, it sets the directories to scan (=~/notes/=), turns on recursive scanning, sets the SQLite database path, and enables the global =discourse-graphs-mode=. The closing parenthesis on its own line ends the =use-package= form.
+
+#+begin_src emacs-lisp -i
+(use-package discourse-graphs
+  :ensure (discourse-graphs :type git
+                            :host github
+                            :repo "LuciusChen/discourse-graphs"
+                            :files ("*.el"
+                            "discourse-graphs-ui/out/*.html"
+                            "discourse-graphs-ui/out/assets/*"))
+  :config
+  (setq dg-directories ;; This is where we scan for nodes
+  (list sp-notes-dir)
+  )
+  (setq dg-recursive t)
+  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+
+(discourse-graphs-mode 1)
+)
+#+end_src
+
+*** Display and behaviour options
+
+These are plain =setq= calls at load time, outside the =use-package= form. They take effect because the package's =defcustom= forms do not override values that are already set.
+
+**** Denote integration
+
+Sets =dg-use-denote= so that nodes are handled as Denote notes.
+
+#+begin_src emacs-lisp -i
+;; Use with denote
+(setq dg-use-denote t)
+#+end_src
+
+**** Context panel
+
+The context panel takes 30 percent of the frame width, updates automatically as point moves between nodes, and shows at most 30 lines per node.
+
+#+begin_src emacs-lisp -i
+(setq dg-context-window-width 0.3)
+
+;; Auto-update context when moving between nodes
+(setq dg-context-auto-update t)
+
+;; Maximum lines to display per node in context panel (nil for unlimited)
+(setq dg-context-max-lines 30)
+#+end_src
+
+**** Overlays and synthesis file
+
+Turns on overlays on node headings and sets the synthesis dashboard file to =~/notes/dg-synthesis.org=.
+
+#+begin_src emacs-lisp -i
+;; Show overlays on headings
+(setq dg-overlay-enable t)
+
+;; Synthesis dashboard file location
+(setq dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
+#+end_src
+
+*** Discourse model
+
+The vocabulary of the graph: computed attributes, node types, relation types, and which node types each relation may connect.
+
+**** Computed attributes
+
+=dg-discourse-attributes= defines formulas over relation counts. Claims get an evidence score (supporting minus opposing evidence) and a robustness score that also counts supporting claims at half weight; the evidence score is shown in the heading overlay. Questions get an answer count, which is their overlay. A comment leaves room for more types.
+
+#+begin_src emacs-lisp -i
+(setq dg-discourse-attributes
+      '(
+        (claim
+         . (
+            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+            (overlay . evidence-score)
+                )
+           )
+
+        (question
+         . (
+          (answer-count . "{count:Answered By:claim}")
+            (overlay . answer-count)
+              )
+         )
+        ;; ... more types
+        )
+)
+#+end_src
+
+**** Node types
+
+=dg-node-types= defines five node types, each with a three-letter tag, a colour and a description: question (QUE), claim (CLM), evidence (EVD), source (SRC, described as reference material or philosophical text) and theory (THY).
+
+#+begin_src emacs-lisp -i
+(setq dg-node-types
+      '(
+        (question . (:short "QUE"
+                          :color "lightblue"
+                          :desc "Research question"))
+        (claim    . (:short "CLM"
+                          :color "lightyellow"
+                          :desc "Assertion, thesis or position in a debate"))
+        (evidence . (:short "EVD"
+                          :color "lightgreen"
+                          :desc "Argument, proof, or supporting empirical data"))
+        (source   . (:short "SRC"
+                          :color "lightgray"
+                          :desc "Reference material / Philosophical text"))
+        (theory   . (:short "THY"
+                                  :color "lightcoral"
+                          :desc "Theoretical framework"))
+        ))
+#+end_src
+
+**** Relation types
+
+=dg-relation-types= defines four relations with the label used for the inverse direction and the colour and line style used when drawing them: supports (green, solid), opposes (red, dashed), informs (blue, solid) and answers (purple, solid).
+
+#+begin_src emacs-lisp -i
+(setq dg-relation-types
+      '(
+      (supports  . (:inverse "Supported By"
+                             :color "green"
+                             :style "solid"))
+      (opposes   . (:inverse "Opposed By"
+                             :color "red"
+                             :style "dashed"))
+      (informs   . (:inverse "Informed By"
+                             :color "blue"
+                             :style "solid"))
+      (answers   . (:inverse "Answered By"
+                             :color "purple"
+                             :style "solid"))
+      )
+      )
+#+end_src
+
+**** Relation patterns
+
+=dg-relation-patterns= restricts which node types each relation connects: evidence supports or opposes claims, sources inform evidence, and claims answer questions. Theory nodes do not appear in any pattern, so as configured they cannot take part in relations.
+
+#+begin_src emacs-lisp -i
+(setq dg-relation-patterns
+      '((supports . (:source (evidence)
+                           :target (claim)))
+      (opposes  . (:source (evidence)
+                           :target (claim)))
+      (informs  . (:source (source)
+                           :target (evidence)))
+      (answers  . (:source (claim)
+                           :target (question)))
+      )
+        )
+#+end_src
+
+** vulpea-graph (from =sp-dyn-graph=)
+
+This installs =vulpea-graph= from the Arenile/vulpea-graph-ui GitHub repository, an interactive graph view of Vulpea notes served to a browser. It needs the =websocket= and =simple-httpd= packages, and builds on the Vulpea setup loaded through =sp-vulpea-base=. The original module's header and its empty commentary are gone; the single =use-package= form is all that was in it.
+
+Installs =vulpea-graph= along with its =assets= folder, which holds the browser side files. The commands =vulpea-graph= and =vulpea-graph-mode= are autoloaded. The =:after= clause holds the configuration back until both =websocket= and =simple-httpd= are loaded; since use-package wraps the whole form, including the autoloads, in that condition, the commands may only become available once those two libraries have been loaded by something else. Both come from =sp-base-libraries=, which loads first, so in practice they are there.
+
+#+begin_src emacs-lisp -i
+(use-package vulpea-graph
+  :ensure (:host github :repo "Arenile/vulpea-graph-ui" :files ("*.el" "assets"))
+  :after (websocket simple-httpd)
+  :commands
+  (vulpea-graph vulpea-graph-mode))
+#+end_src
+
+* Custom code
+
+Everything from here on is written in this file. It is two features: the relationship annotator, which does the reading and the drawing, and the live view, which serves the annotator's page. The live view calls functions of the annotator, so the annotator comes first in the file.
+
+#+begin_src emacs-lisp
+;;; Custom code: the relationship annotator, then its live view
+#+end_src
+
+
+** Relationship annotator (from =sp-relationship-annotator=)
+
+Literate source for the first custom part. The text under this heading is the old document of =sp-relationship-annotator=, with its line numbers removed, because the tangled file is now the whole of =sp-graphs.el= and the numbers would be wrong. The HTML template keeps its line numbers: it is still a file of its own.
+
+*** Context
 
 My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records its parents with a =- parents :: [[id:…][Title]]= line in its zeroth section, and vulpea stores that as metadata. A note can have several parents: either one link after another on the same line, separated by commas, or one =- parents ::= line per parent. =vulpea-graph= doesn't draw this hierarchy (it analyses links for retrieval and shows lists), so this module reads the =parents= metadata and builds the tree itself.
 
@@ -37,79 +306,36 @@ Besides =parents=, a note can relate to other notes in other ways: =supports=, =
 
 Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box, or Tab to it and Enter, recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
 
-The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
+The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. For how this compares with the package, see [[file:../../architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
 
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
-** The commands
+*** The commands
 
-| Command                   | What it shows                                                                                                                      |
-|---------------------------+------------------------------------------------------------------------------------------------------------------------------------|
-| =rel-anno-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]]). |
-| =rel-anno-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                               |
-| =rel-anno-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                    |
-| =rel-anno-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                        |
-| =rel-anno-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                    |
-| =rel-anno-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question.    |
+| Command                   | What it shows                                                                                                                       |
+|---------------------------+-------------------------------------------------------------------------------------------------------------------------------------|
+| =rel-anno-graph=          | The interactive graph, served live on localhost by Emacs and reloaded when the graph changes (see [[*Live view][Live view]] below). |
+| =rel-anno-graph-static=   | The same page as a plain HTML file, opened from disk. A snapshot: run it again after changing notes.                                |
+| =rel-anno-outline-native= | An outline of Emacs buttons. =TAB= or =[+]=/=[-]= expands, =RET= visits a note.                                                     |
+| =rel-anno-outline-vui=    | The same outline built with =vui=. A trial, to compare with the native one.                                                         |
+| =rel-anno-svg=            | A Graphviz SVG file named =<date and time>-<note>-<depth>.svg=.                                                                     |
+| =rel-anno-review=         | A buffer with the edges that break the type patterns, the claims with gaps in their argument, and the answers to each question.     |
 
 Notes on the last level show how many children they hide (=+N= in the browser, a count in the outline). The browser graph can't load more, so run it again with a bigger depth; the outlines expand any note on demand.
 
-** Loading it
+*** The Emacs Lisp, section by section
 
-The module is loaded from =init.el=, in the Academic block of =lem--default-modules=, right after =sp-dgraphs=:
+Each section below is one or more blocks of the file, in order.
 
-#+begin_src org :tangle no
-'sp-relationship-annotator
-#+end_src
+**** Requires
 
-The graph view needs Graphviz (=brew install graphviz= on macOS), and the vui outline needs the =vui= package.
-
-** The Emacs Lisp, line by line
-
-Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.el=.
-
-*** Header and commentary (lines 1–27)
-
-The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
-
-#+begin_src emacs-lisp :padline no
-;;; sp-relationship-annotator.el --- Typed relationships between vulpea notes, as graphs and outlines -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "29.1") (vulpea "2.7.0") (vui "1.4.0"))
-
-;;; Commentary:
-
-;; Reads relationships between vulpea notes (the `parent' relation builds
-;; a hierarchy; others such as `supports' are links) and shows part of
-;; them, starting from a note you choose:
-;;
-;;   M-x rel-anno-graph-static   static HTML page in the browser
-;;   M-x rel-anno-outline-native buttons in an Emacs buffer
-;;   M-x rel-anno-outline-vui    the same outline built with vui (trial)
-;;   M-x rel-anno-svg            static Graphviz SVG (needs `dot')
-;;
-;; Each command first asks for a starting note and a depth.  The depth
-;; counts levels below the starting note.  Notes at the last level show
-;; how many children they hide.  The browser graph holds
-;; `relationship-annotator-embed-depth' levels (4) and can't load more, so run
-;; the command again from another note, or with a bigger depth.  The
-;; outline expands any node on demand.
-;;
-;; Other relations between notes (`supports', `opposes', ...) are drawn
-;; as labelled links.  See `relationship-annotator-relations' for how to
-;; declare them and where each one is read from.
-
-;;; Code:
-#+end_src
-
-*** Requires (lines 29–35)
-
-- Line 29 loads =cl-lib= for =cl-loop= and =cl-incf=.
-- Line 30 loads =subr-x= for =if-let=, =when-let=, =thread-last= and =string-empty-p=.
-- Line 31 loads =seq= for =seq-remove=.
-- Line 32 loads =json= for =json-encode=, which writes the data of the browser page.
-- Line 33 loads =vulpea=, which provides the database queries and the =vulpea-note= struct.
-- Line 34 loads =vulpea-select=, the note picker used to choose the starting note.
-- Line 35 loads =vui=, used only by the trial outline.
+- Loads =cl-lib= for =cl-loop= and =cl-incf=.
+- Loads =subr-x= for =if-let=, =when-let=, =thread-last= and =string-empty-p=.
+- Loads =seq= for =seq-remove=.
+- Loads =json= for =json-encode=, which writes the data of the browser page.
+- Loads =vulpea=, which provides the database queries and the =vulpea-note= struct.
+- Loads =vulpea-select=, the note picker used to choose the starting note.
+- Loads =vui=, used only by the trial outline.
 
 #+begin_src emacs-lisp
 (require 'cl-lib)
@@ -121,22 +347,22 @@ The file header: the first line carries the file name, a short summary and the =
 (require 'vui)
 #+end_src
 
-*** Customisation (lines 37–140)
+**** Customisation
 
-- Lines 37-39 create the =relationship-annotator= group under =vulpea=, so the options show up in =M-x customize-group=.
-- Lines 41-96 define =relationship-annotator-relations=, the list of relations between notes. Each entry has a name, a label, a colour, a direction for the views, the name of its inverse, the node types it should connect, and a list of /sources/ that say where to look for its edges.
-- Lines 42-43 define =parent=, the relation that builds the tree. It has two sources: the =parents= key on a sub-note, and the =children= key on a parent, so a note can list its children as well as its parents. It has no direction, because parents always go above their children, and its inverse is "children".
-- Lines 44-59 define =supports=, =opposes=, =informs= and =answers=, the typed relations that =discourse-graphs= uses. Each reads a metadata key (=- supports :: [[id:…][Title]]=) and the same name as a file property (=DG_SUPPORTS=), so notes written for either work. Each has a =:direction=: where the /object/ of the relation is drawn, seen from its subject. =supports= puts it to the right and =opposes= to the left, so supporters end up on the left of a claim and opponents on its right. =informs= uses an angle of 45 degrees (up and to the right), and =answers= puts the question above its answer.
-- Each of these four also has an =:inverse= label (lines 45, 49, 53 and 57), which is how a formula names the relation seen from its object, and the two lists of types it should connect (lines 46, 50, 54 and 58): =:subject-types= and =:object-types=. These are the /relation patterns/ of =discourse-graphs=: evidence supports or opposes a claim, a source informs evidence, and a claim answers a question.
-- Lines 60-95 are the documentation string: an edge reads "subject name object", the four kinds of source are =meta=, =meta-inverse=, =property= and =property-inverse=, and a direction is =up=, =down=, =left=, =right= or an angle in degrees, where 0 is right and 90 is up. Lines 90-95 explain the inverse name and the types: an edge between other types is not refused, only reported.
-- Line 96 gives the option its type.
-- Lines 98-111 define =relationship-annotator-tag-colors=, which maps a file tag to a colour. A note takes the colour of the first of its tags that is listed (the defaults colour =root=, =idea=, =question=, =claim=, =evidence= and =source=). The colour must be in hex form, because the SVG export adds a transparency to it. Add a pair to colour another tag, for example =("ethics" . "#e15759")=. A note with no listed tag takes the colour of its node type instead (see the discourse layer below).
-- Lines 113-115 define the depth offered by default when the commands ask for one (2).
-- Lines 117-122 define =relationship-annotator-embed-depth= (4): how many levels below the starting note the browser page holds. Emacs cuts the tree there, so the page stays small in a large vault. Recentring and the depth buttons work within those levels, and notes on the last one show how many children they hide. To go further, run the command again from another note. A depth you ask for that is larger wins.
-- Lines 124-126 define where the browser page is written, in =sp-cache-dir=.
-- Lines 129-131 define the directory for SVG exports, also in =sp-cache-dir=. Each export gets its own file name there.
-- Lines 134-135 define the Graphviz layout direction: ="TB"= puts parents on top, ="LR"= puts them on the left. The SVG export ignores the direction of the other relations.
-- Lines 138-140 define =relationship-annotator-wrap-width=, the number of characters after which a label wraps in the SVG export (28). The browser page wraps by measuring the text instead, so it ignores this option.
+- Create the =relationship-annotator= group under =vulpea=, so the options show up in =M-x customize-group=.
+- Define =relationship-annotator-relations=, the list of relations between notes. Each entry has a name, a label, a colour, a direction for the views, the name of its inverse, the node types it should connect, and a list of /sources/ that say where to look for its edges.
+- Define =parent=, the relation that builds the tree. It has two sources: the =parents= key on a sub-note, and the =children= key on a parent, so a note can list its children as well as its parents. It has no direction, because parents always go above their children, and its inverse is "children".
+- Define =supports=, =opposes=, =informs= and =answers=, the typed relations that =discourse-graphs= uses. Each reads a metadata key (=- supports :: [[id:…][Title]]=) and the same name as a file property (=DG_SUPPORTS=), so notes written for either work. Each has a =:direction=: where the /object/ of the relation is drawn, seen from its subject. =supports= puts it to the right and =opposes= to the left, so supporters end up on the left of a claim and opponents on its right. =informs= uses an angle of 45 degrees (up and to the right), and =answers= puts the question above its answer.
+- Each of these four also has an =:inverse= label, which is how a formula names the relation seen from its object, and the two lists of types it should connect: =:subject-types= and =:object-types=. These are the /relation patterns/ of =discourse-graphs=: evidence supports or opposes a claim, a source informs evidence, and a claim answers a question.
+- The documentation string: an edge reads "subject name object", the four kinds of source are =meta=, =meta-inverse=, =property= and =property-inverse=, and a direction is =up=, =down=, =left=, =right= or an angle in degrees, where 0 is right and 90 is up. It explains the inverse name and the types: an edge between other types is not refused, only reported.
+- Gives the option its type.
+- Define =relationship-annotator-tag-colors=, which maps a file tag to a colour. A note takes the colour of the first of its tags that is listed (the defaults colour =root=, =idea=, =question=, =claim=, =evidence= and =source=). The colour must be in hex form, because the SVG export adds a transparency to it. Add a pair to colour another tag, for example =("ethics" . "#e15759")=. A note with no listed tag takes the colour of its node type instead (see the discourse layer below).
+- Define the depth offered by default when the commands ask for one (2).
+- Define =relationship-annotator-embed-depth= (4): how many levels below the starting note the browser page holds. Emacs cuts the tree there, so the page stays small in a large vault. Recentring and the depth buttons work within those levels, and notes on the last one show how many children they hide. To go further, run the command again from another note. A depth you ask for that is larger wins.
+- Define where the browser page is written, in =sp-cache-dir=.
+- Define the directory for SVG exports, also in =sp-cache-dir=. Each export gets its own file name there.
+- Define the Graphviz layout direction: ="TB"= puts parents on top, ="LR"= puts them on the left. The SVG export ignores the direction of the other relations.
+- Define =relationship-annotator-wrap-width=, the number of characters after which a label wraps in the SVG export (28). The browser page wraps by measuring the text instead, so it ignores this option.
 
 #+begin_src emacs-lisp
 (defgroup relationship-annotator nil
@@ -245,11 +471,11 @@ another note to go further.  A larger depth, when you ask for one, wins."
   :type 'integer)
 #+end_src
 
-*** Finding notes and titles (lines 142–155)
+**** Finding notes and titles
 
-- Line 142 starts the section of code that builds the tree and cuts the part to show.
-- Lines 144-149 define =relationship-annotator--note=. It first looks the id up in the =notes= table (146). If it isn't there, it asks the database with =vulpea-db-get-by-id= (147), stores the note in the table (148) and returns it (149). That way a parent that was not loaded up front still gets its title.
-- Lines 151-155 define =relationship-annotator--title=. It returns the note's title (153-154), or =<missing ID>= for a link to a note that no longer exists (155), so a dangling link shows up in the views instead of breaking them.
+- Starts the section of code that builds the tree and cuts the part to show.
+- Define =relationship-annotator--note=. It first looks the id up in the =notes= table (146). If it isn't there, it asks the database with =vulpea-db-get-by-id= (147), stores the note in the table (148) and returns it (149). That way a parent that was not loaded up front still gets its title.
+- Define =relationship-annotator--title=. It returns the note's title (153-154), or =<missing ID>= for a link to a note that no longer exists (155), so a dangling link shows up in the views instead of breaking them.
 
 #+begin_src emacs-lisp
 ;;;; Tree and scope
@@ -268,20 +494,20 @@ another note to go further.  A larger depth, when you ask for one, wins."
     (format "<missing %s>" id)))
 #+end_src
 
-*** Reading the relations of a note (lines 157–213)
+**** Reading the relations of a note
 
 A note may name several parents, or several targets of another relation: either on one line, separated by commas, or on one line per value. vulpea keeps one entry per line, and a comma-separated line stays one entry, so =vulpea-note-meta-get-list= with the =link= type would only return the first link of each. The functions here read every link themselves, and they work for every relation and every kind of source.
 
-- Lines 157-174 define =relationship-annotator--value-ids=. It takes a list of strings and returns the ids in them. It scans each string for every bracket link (165), keeps the ones that start with =id:= (168-169) and moves on after each (170). A string with no link at all is read as bare ids separated by commas or spaces (171-173), which is how a file property usually holds them. Duplicates are dropped (174).
-- Lines 176-183 define =relationship-annotator--source-values=. For a metadata source it returns the strings stored under the key (179-180). For a property source it returns the property's value as a one-element list (181-183). The =-inverse= forms read the same place.
-- Lines 185-192 define =relationship-annotator--source-notes=: the notes that might hold a source. Metadata sources use the database's key index (188-189). The database has no index of properties, so property sources test every note (190-192).
-- Lines 194-213 define =relationship-annotator--edges=, which goes over every relation and every source and returns all the edges as =(subject relation object)=, plus a table of the notes it read.
-- Lines 197-199 bind the notes table, a =seen= table that drops an edge written twice (when a relation is declared both ways), and the list of edges.
-- Lines 200-202 go over each relation, each of its sources, and each note that may hold it.
-- Lines 204-205 get the ids that note names under that source.
-- Lines 206-209 build the edge. For a normal source the note is the subject, and for an inverse source it is the object.
-- Lines 210-212 keep the edge the first time it is seen.
-- Line 213 returns the edges and the notes.
+- Define =relationship-annotator--value-ids=. It takes a list of strings and returns the ids in them. It scans each string for every bracket link (165), keeps the ones that start with =id:= (168-169) and moves on after each (170). A string with no link at all is read as bare ids separated by commas or spaces (171-173), which is how a file property usually holds them. Duplicates are dropped (174).
+- Define =relationship-annotator--source-values=. For a metadata source it returns the strings stored under the key (179-180). For a property source it returns the property's value as a one-element list (181-183). The =-inverse= forms read the same place.
+- Define =relationship-annotator--source-notes=: the notes that might hold a source. Metadata sources use the database's key index (188-189). The database has no index of properties, so property sources test every note (190-192).
+- Define =relationship-annotator--edges=, which goes over every relation and every source and returns all the edges as =(subject relation object)=, plus a table of the notes it read.
+- Bind the notes table, a =seen= table that drops an edge written twice (when a relation is declared both ways), and the list of edges.
+- Go over each relation, each of its sources, and each note that may hold it.
+- Get the ids that note names under that source.
+- Build the edge. For a normal source the note is the subject, and for an inverse source it is the object.
+- Keep the edge the first time it is seen.
+- Returns the edges and the notes.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--value-ids (values)
@@ -343,17 +569,17 @@ The second value is a hash table from id to note."
     (cons (nreverse edges) notes)))
 #+end_src
 
-*** Building the whole tree (lines 215–246)
+**** Building the whole tree
 
 This function returns a plist with four keys: =:notes= (id to note), =:children= (parent id to child ids), =:links= (the edges of every other relation) and =:roots= (parents that have no parent of their own).
 
-- Lines 215-219 define the function and say what it returns.
-- Lines 220-225 read all edges (220) and create the =children= and =has-parent= tables, which use =equal= so UUID strings work as keys, and empty lists for the parent ids, the links and every id met.
-- Lines 226-228 go over each edge and collect both ends.
-- Lines 229-232 handle a =parent= edge: the subject (the child) is marked as having a parent, which keeps it out of the roots (230), is added to its parent's list of children (231), and the parent id is collected (232).
-- Line 233 keeps an edge of any other relation as a link.
-- Lines 234-238 load the notes that only appear as the end of an edge and were not read yet, in one query, so their titles are known.
-- Lines 239-246 return the plist. The roots are the parents that have no parent, sorted by title.
+- Define the function and say what it returns.
+- Read all edges (220) and create the =children= and =has-parent= tables, which use =equal= so UUID strings work as keys, and empty lists for the parent ids, the links and every id met.
+- Go over each edge and collect both ends.
+- Handle a =parent= edge: the subject (the child) is marked as having a parent, which keeps it out of the roots (230), is added to its parent's list of children (231), and the parent id is collected (232).
+- Keeps an edge of any other relation as a link.
+- Load the notes that only appear as the end of an edge and were not read yet, in one query, so their titles are known.
+- Return the plist. The roots are the parents that have no parent, sorted by title.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--build ()
@@ -390,12 +616,12 @@ This function returns a plist with four keys: =:notes= (id to note), =:children=
                                   (relationship-annotator--title b notes)))))))
 #+end_src
 
-*** Sorted children (lines 248–254)
+**** Sorted children
 
-- Line 248 defines the helper, which takes an id and the tree.
-- Line 250 reads the notes table from the tree.
-- Line 251 copies the child list before sorting, so the table isn't changed in place.
-- Lines 252-254 sort by title. Dangling children still sort, because the title helper gives them a marker.
+- Defines the helper, which takes an id and the tree.
+- Reads the notes table from the tree.
+- Copies the child list before sorting, so the table isn't changed in place.
+- Sort by title. Dangling children still sort, because the title helper gives them a marker.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--sorted-children (id tree)
@@ -407,19 +633,19 @@ This function returns a plist with four keys: =:notes= (id to note), =:children=
                      (relationship-annotator--title b notes))))))
 #+end_src
 
-*** Cutting the part to show (lines 256–289)
+**** Cutting the part to show
 
 This function takes the whole tree and keeps only what is within =depth= levels of =start=. It works breadth first.
 
-- Lines 256-261 define the function and describe the result: the same keys as the tree, plus =:more= (how many children a last-level note hides) and =:nodes= (the ids in scope), with =:roots= set to just the start. =:links= keeps only the links between two notes that are in scope.
-- Lines 262-267 set up the state: the shared notes table, a new =children= table for the cut tree, the =more= table, the =seen= table, the list of =nodes= and a queue of =(id . level)= pairs.
-- Line 268 marks the start note as seen.
-- Lines 269-270 take the next pair from the queue.
-- Line 271 gets the note's children, sorted, from the full tree.
-- Lines 272-278 handle a note above the last level: every child gets an edge (273-274). The first time a child is met, it is marked (276), added to the nodes (277) and queued one level down (278). A child that was already seen still gets its edge, so a note with two parents shows under both.
-- Lines 279-280 handle a note on the last level: its children are not shown, only counted in =more=.
-- Line 281 puts the nodes in the order they were found.
-- Lines 282-289 return the cut tree, with the links filtered to the notes that were seen (287-289).
+- Define the function and describe the result: the same keys as the tree, plus =:more= (how many children a last-level note hides) and =:nodes= (the ids in scope), with =:roots= set to just the start. =:links= keeps only the links between two notes that are in scope.
+- Set up the state: the shared notes table, a new =children= table for the cut tree, the =more= table, the =seen= table, the list of =nodes= and a queue of =(id . level)= pairs.
+- Marks the start note as seen.
+- Take the next pair from the queue.
+- Gets the note's children, sorted, from the full tree.
+- Handle a note above the last level: every child gets an edge (273-274). The first time a child is met, it is marked (276), added to the nodes (277) and queued one level down (278). A child that was already seen still gets its edge, so a note with two parents shows under both.
+- Handle a note on the last level: its children are not shown, only counted in =more=.
+- Puts the nodes in the order they were found.
+- Return the cut tree, with the links filtered to the notes that were seen (287-289).
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--scope (tree start depth)
@@ -458,12 +684,12 @@ relations between two notes that are both in scope."
                              (plist-get tree :links)))))
 #+end_src
 
-*** Asking for the starting note and depth (lines 291–297)
+**** Asking for the starting note and depth
 
-- Line 293 asks for a note with =vulpea-select=. =:require-match t= allows only existing notes.
-- Line 294 asks for the depth, offering =relationship-annotator-default-depth=.
-- Lines 295-296 stop with a message when there is no note or the depth is below 1.
-- Line 297 returns the note id and the depth as a pair. Every command starts with this function.
+- Asks for a note with =vulpea-select=. =:require-match t= allows only existing notes.
+- Asks for the depth, offering =relationship-annotator-default-depth=.
+- Stop with a message when there is no note or the depth is below 1.
+- Returns the note id and the depth as a pair. Every command starts with this function.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--read-scope ()
@@ -475,14 +701,14 @@ relations between two notes that are both in scope."
     (cons (vulpea-note-id note) (truncate depth))))
 #+end_src
 
-*** Discourse layer: types and attributes (lines 299–355)
+**** Discourse layer: types and attributes
 
 The module started as a reading of =parents= metadata. This layer ports the core of the =discourse-graphs= package on top of the relations above, so that package is no longer needed to read, check and count a discourse graph. =discourse-graphs= keeps its nodes in an SQLite cache that it fills by scanning files, and keeps them in a plist per node. vulpea already is that database, so nothing here scans or stores anything: every function works on the tree that =relationship-annotator--build= returns.
 
-- Lines 299-306 are the comment that says where the layer comes from.
-- Lines 308-317 define =relationship-annotator-node-types=: for each type (=question=, =claim=, =evidence=, =source=) a short code, a colour and a description. The short code and description are for the review buffer and for your own use. The colour is what a note of that type is drawn in when no file tag has a colour.
-- Lines 319-327 define =relationship-annotator-type-sources=, where a note's type comes from. The package needs a =:DG_TYPE:= property. Here the default tries that property, then a metadata field =- type :: claim=, then a file tag that names a type, so a note tagged =claim= in a Denote or vulpea vault already has a type. The first source that gives a known type wins.
-- Lines 329-355 define =relationship-annotator-attributes=. For each type it lists named numbers, each one a formula, and says which one to show in brackets after the title (=:overlay=). The defaults are the ones of the package: a claim has an =evidence-score= (supporting evidence minus opposing evidence), a =robustness= that also counts claims at half weight, and a =total-support=. The documentation string states the formula language, which is described with the parser below.
+- The comment that says where the layer comes from.
+- Define =relationship-annotator-node-types=: for each type (=question=, =claim=, =evidence=, =source=) a short code, a colour and a description. The short code and description are for the review buffer and for your own use. The colour is what a note of that type is drawn in when no file tag has a colour.
+- Define =relationship-annotator-type-sources=, where a note's type comes from. The package needs a =:DG_TYPE:= property. Here the default tries that property, then a metadata field =- type :: claim=, then a file tag that names a type, so a note tagged =claim= in a Denote or vulpea vault already has a type. The first source that gives a known type wins.
+- Define =relationship-annotator-attributes=. For each type it lists named numbers, each one a formula, and says which one to show in brackets after the title (=:overlay=). The defaults are the ones of the package: a claim has an =evidence-score= (supporting evidence minus opposing evidence), a =robustness= that also counts claims at half weight, and a =total-support=. The documentation string states the formula language, which is described with the parser below.
 
 #+begin_src emacs-lisp
 ;;;; Discourse layer
@@ -544,11 +770,11 @@ the related notes of that type, and may be empty.  OP is `count', or
   :type '(alist :key-type symbol :value-type plist))
 #+end_src
 
-*** Discourse layer: the type of a note (lines 357–385)
+**** Discourse layer: the type of a note
 
-- Lines 359-377 define =relationship-annotator--note-type=. It goes through =relationship-annotator-type-sources= (lines 362-376): a =(property KEY)= source reads the file property, a =(meta KEY)= source takes the first value of the metadata field, and =tag= takes the first file tag that names a type. A value counts only if it names a known type, after trimming and lowercasing it, and the first source that gives one wins. A note with no type gives nil.
-- Lines 379-381 define a helper that reads one setting, such as the colour, of a type.
-- Lines 383-385 define a helper that writes a list of types as "evidence or claim", for the messages.
+- Define =relationship-annotator--note-type=. It goes through =relationship-annotator-type-sources=: a =(property KEY)= source reads the file property, a =(meta KEY)= source takes the first value of the metadata field, and =tag= takes the first file tag that names a type. A value counts only if it names a known type, after trimming and lowercasing it, and the first source that gives one wins. A note with no type gives nil.
+- Define a helper that reads one setting, such as the colour, of a type.
+- Define a helper that writes a list of types as "evidence or claim", for the messages.
 
 #+begin_src emacs-lisp
 ;;;;; Types
@@ -582,11 +808,11 @@ the related notes of that type, and may be empty.  OP is `count', or
   (mapconcat #'symbol-name types " or "))
 #+end_src
 
-*** Discourse layer: the pattern check (lines 387–435)
+**** Discourse layer: the pattern check
 
-- Lines 389-396 define =relationship-annotator--all-edges=. The tree keeps the parent edges apart from the links, as a table from parent to children. This puts them back together as one list of =(SUBJECT RELATION OBJECT)=, so the checks below treat =parent= like every other relation.
-- Lines 398-421 define =relationship-annotator--anomaly=, the check of =discourse-graphs=. It takes the type of the subject, the relation and the type of the object. It reads the two lists of types of the relation (lines 405-406). A side is wrong when the relation lists types, the note has a type, and that type isn't listed (lines 407-411). A note without a type is never wrong, because the package only knows typed notes, and an untyped note is one you haven't classified yet. Lines 412-421 return the message: both sides wrong, only the subject, or only the object. When both fit, or the relation has no patterns, the result is nil.
-- Lines 423-435 define =relationship-annotator--anomalies=, which runs the check on every edge and returns the ones that fail, with their message. The package does the same with a SQL join, and it asks for confirmation when you create such a link. Here nothing creates links, so the check is a report.
+- Define =relationship-annotator--all-edges=. The tree keeps the parent edges apart from the links, as a table from parent to children. This puts them back together as one list of =(SUBJECT RELATION OBJECT)=, so the checks below treat =parent= like every other relation.
+- Define =relationship-annotator--anomaly=, the check of =discourse-graphs=. It takes the type of the subject, the relation and the type of the object. It reads the two lists of types of the relation. A side is wrong when the relation lists types, the note has a type, and that type isn't listed. A note without a type is never wrong, because the package only knows typed notes, and an untyped note is one you haven't classified yet. The result is the message: both sides wrong, only the subject, or only the object. When both fit, or the relation has no patterns, the result is nil.
+- Define =relationship-annotator--anomalies=, which runs the check on every edge and returns the ones that fail, with their message. The package does the same with a SQL join, and it asks for confirmation when you create such a link. Here nothing creates links, so the check is a report.
 
 #+begin_src emacs-lisp
 ;;;;; Edges and the pattern check
@@ -640,13 +866,13 @@ is not checked)."
     (nreverse found)))
 #+end_src
 
-*** Formulas: reading (lines 437–481)
+**** Formulas: reading
 
 This is the formula language of the package: arithmetic with =+ - * /= and parentheses over numbers and terms in braces. The package parses it with a global list of tokens, which can't run twice at once. The version here has no global state.
 
-- Lines 439-440 define a variable that holds the attributes being computed. A formula that refers to itself would otherwise recurse forever (the package has no guard); this list lets the evaluator stop with a message.
-- Lines 442-457 define =relationship-annotator--parse-term=, which turns the text between braces into =(func OP RELATION TYPE ATTRIBUTE)=. The text is split at colons (line 445). The operation is =count=, =sum=, or =avg= (also written =average=), and anything else stops with a message (lines 446-450). A term needs a relation, and =sum= and =avg= need an attribute to add up (lines 451-454). The type and the attribute are optional; an empty one counts as none.
-- Lines 459-481 define =relationship-annotator--tokenize=, which splits a formula into tokens. Blanks are skipped. The characters =+ - * /= become the symbols of the same name, and the parentheses become =open= and =close=. A brace starts a term, which runs to the next closing brace (an unclosed one is an error) and goes through the function above. A number is read as a float. Any other character stops with a message that names it.
+- Define a variable that holds the attributes being computed. A formula that refers to itself would otherwise recurse forever (the package has no guard); this list lets the evaluator stop with a message.
+- Define =relationship-annotator--parse-term=, which turns the text between braces into =(func OP RELATION TYPE ATTRIBUTE)=. The text is split at colons. The operation is =count=, =sum=, or =avg= (also written =average=), and anything else stops with a message. A term needs a relation, and =sum= and =avg= need an attribute to add up. The type and the attribute are optional; an empty one counts as none.
+- Define =relationship-annotator--tokenize=, which splits a formula into tokens. Blanks are skipped. The characters =+ - * /= become the symbols of the same name, and the parentheses become =open= and =close=. A brace starts a term, which runs to the next closing brace (an unclosed one is an error) and goes through the function above. A number is read as a float. Any other character stops with a message that names it.
 
 #+begin_src emacs-lisp
 ;;;;; Formulas
@@ -696,9 +922,9 @@ SPEC is the text between braces."
     (nreverse tokens)))
 #+end_src
 
-*** Formulas: parsing (lines 483–516)
+**** Formulas: parsing
 
-- Lines 483-516 define =relationship-annotator--parse-formula=, a recursive-descent parser that returns a tree. A tree is a number, a term, or =(OPERATOR LEFT RIGHT)=. The local functions =expr=, =term= and =factor= follow the usual precedence: =expr= reads terms joined by =+= and =-=, =term= reads factors joined by =*= and =/=, and =factor= reads a number, a term, a parenthesised expression, or a minus sign followed by a factor (which becomes =0 - factor=). The tokens are kept in a local variable, so the parser can be called again at any time. A leftover token or a missing parenthesis is an error that quotes the formula.
+- Define =relationship-annotator--parse-formula=, a recursive-descent parser that returns a tree. A tree is a number, a term, or =(OPERATOR LEFT RIGHT)=. The local functions =expr=, =term= and =factor= follow the usual precedence: =expr= reads terms joined by =+= and =-=, =term= reads factors joined by =*= and =/=, and =factor= reads a number, a term, a parenthesised expression, or a minus sign followed by a factor (which becomes =0 - factor=). The tokens are kept in a local variable, so the parser can be called again at any time. A leftover token or a missing parenthesis is an error that quotes the formula.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--parse-formula (formula)
@@ -737,13 +963,13 @@ OPERATOR one of + - * /."
         (when tokens (user-error "Unexpected %s in formula %S" (car tokens) formula))))))
 #+end_src
 
-*** Formulas: evaluating (lines 518–586)
+**** Formulas: evaluating
 
-- Lines 518-528 define =relationship-annotator--index=, which stands in for the SQL queries of the package. It makes two tables from the edges: one from =(SUBJECT . RELATION)= to the objects, and one from =(OBJECT . RELATION)= to the subjects. "How many notes does this claim have supporting it" is then one lookup.
-- Lines 530-534 define =relationship-annotator--context=, the bundle a formula runs against: the notes, the index, and a cache of results.
-- Lines 536-539 define a helper that gives the type of a note by id.
-- Lines 541-552 define =relationship-annotator--resolve-relation=. A term names a relation either by its name (follow the edges from the note) or by its =:inverse= label (follow them backwards), ignoring case. The package keeps a table of the four default relations for this; here the names come from =relationship-annotator-relations=, so a relation you declare works in formulas too.
-- Lines 554-586 define =relationship-annotator--eval=, which evaluates a tree for one note. A number is itself. A term looks up the related notes in the right table, keeps those of the requested type, and then counts them, or adds up or averages their attribute (an average of none is 0). An operator evaluates both sides and combines them, and a division by zero gives 0.
+- Define =relationship-annotator--index=, which stands in for the SQL queries of the package. It makes two tables from the edges: one from =(SUBJECT . RELATION)= to the objects, and one from =(OBJECT . RELATION)= to the subjects. "How many notes does this claim have supporting it" is then one lookup.
+- Define =relationship-annotator--context=, the bundle a formula runs against: the notes, the index, and a cache of results.
+- Define a helper that gives the type of a note by id.
+- Define =relationship-annotator--resolve-relation=. A term names a relation either by its name (follow the edges from the note) or by its =:inverse= label (follow them backwards), ignoring case. The package keeps a table of the four default relations for this; here the names come from =relationship-annotator-relations=, so a relation you declare works in formulas too.
+- Define =relationship-annotator--eval=, which evaluates a tree for one note. A number is itself. A term looks up the related notes in the right table, keeps those of the requested type, and then counts them, or adds up or averages their attribute (an average of none is 0). An operator evaluates both sides and combines them, and a division by zero gives 0.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--index (tree)
@@ -817,12 +1043,12 @@ NAME is a relation name, or an :inverse label, ignoring case."
          ('/ (if (zerop b) 0 (/ (float a) b))))))))
 #+end_src
 
-*** Attributes and badges (lines 588–635)
+**** Attributes and badges
 
-- Lines 588-612 define =relationship-annotator--attribute=, which gives one attribute of one note. It finds the formula in =relationship-annotator-attributes= by the type of the note, and a note whose type has no such attribute gets 0 (lines 590-594). If the attribute is already being computed, the formula refers to itself, and it stops with a message (lines 597-598). Otherwise it looks in the cache, parses and evaluates the formula, and stores the result. The cache tells "not computed" apart from a value of 0, which the package does not.
-- Lines 614-620 define =relationship-annotator--attributes=, all the attributes of one note as an alist.
-- Lines 622-626 define a helper that writes a number without a fraction when it is whole.
-- Lines 628-635 define =relationship-annotator--badge=, the attribute to show after the title, in brackets, such as =[2]=, or nil when the type has none. The package picks a format per attribute name (=[+3/-1]= and so on); here the badge is the plain number, and the name of the attribute is the one set by =:overlay=.
+- Define =relationship-annotator--attribute=, which gives one attribute of one note. It finds the formula in =relationship-annotator-attributes= by the type of the note, and a note whose type has no such attribute gets 0. If the attribute is already being computed, the formula refers to itself, and it stops with a message. Otherwise it looks in the cache, parses and evaluates the formula, and stores the result. The cache tells "not computed" apart from a value of 0, which the package does not.
+- Define =relationship-annotator--attributes=, all the attributes of one note as an alist.
+- Define a helper that writes a number without a fraction when it is whole.
+- Define =relationship-annotator--badge=, the attribute to show after the title, in brackets, such as =[2]=, or nil when the type has none. The package picks a format per attribute name (=[+3/-1]= and so on); here the badge is the plain number, and the name of the attribute is the one set by =:overlay=.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--attribute (id name context)
@@ -875,10 +1101,10 @@ A note whose type has no such attribute gets 0."
                       (relationship-annotator--attribute id name context))))))
 #+end_src
 
-*** Argument gaps (lines 637–668)
+**** Argument gaps
 
-- Lines 639-656 define =relationship-annotator--argument-gaps=, for a claim. It lists the gaps in its argument: =no-support= when no evidence supports it, =no-source= when some does but none of that evidence has a source informing it, and =unanswered-opposition= when opposing evidence is at least as plentiful as supporting evidence.
-- Lines 658-668 define =relationship-annotator--strength=, how well a claim stands, as one word: =unsupported= with no support, =challenged= with unanswered opposition, =contested= when there is opposition at all, =supported= when there is support, and =unknown= otherwise. The order of the checks is the one of the package.
+- Define =relationship-annotator--argument-gaps=, for a claim. It lists the gaps in its argument: =no-support= when no evidence supports it, =no-source= when some does but none of that evidence has a source informing it, and =unanswered-opposition= when opposing evidence is at least as plentiful as supporting evidence.
+- Define =relationship-annotator--strength=, how well a claim stands, as one word: =unsupported= with no support, =challenged= with unanswered opposition, =contested= when there is opposition at all, =supported= when there is support, and =unknown= otherwise. The order of the checks is the one of the package.
 
 #+begin_src emacs-lisp
 ;;;;; Argument gaps
@@ -915,14 +1141,14 @@ One of `unsupported', `challenged', `contested', `supported' or
           (t 'unknown))))
 #+end_src
 
-*** The review buffer (lines 670–744)
+**** The review buffer
 
 The package shows these results in dynamic blocks inside an Org file. This module has no such blocks. One command writes a read-only buffer instead.
 
-- Lines 672-673 define a buffer-local variable that keeps the tree the buffer was made from, so the buttons can find their notes.
-- Lines 675-685 define a helper that inserts a button with the title of a note. Pressing it visits the note, and the tooltip shows the file.
-- Lines 687-688 are the autoload cookie and the definition of =rel-anno-review=. Its documentation string (lines 690-693) names the three sections.
-- Lines 695-701 build the tree and its context and open the buffer, in =special-mode=.
+- Define a buffer-local variable that keeps the tree the buffer was made from, so the buttons can find their notes.
+- Define a helper that inserts a button with the title of a note. Pressing it visits the note, and the tooltip shows the file.
+- The autoload cookie and the definition of =rel-anno-review=. Its documentation string names the three sections.
+- Build the tree and its context and open the buffer, in =special-mode=.
 - The first section lists the anomalies: the subject, the relation and the object, with the message after them. It says "none" when there are none.
 - The second section goes through every claim in id order, so the list is the same each time, and prints the gaps of those that have any.
 - The third section goes through every question, lists its answers, and puts the strength of each answer after its title.
@@ -1006,17 +1232,17 @@ well each stands.  RET on a title visits the note."
     (pop-to-buffer buffer)))
 #+end_src
 
-*** Browser view: the template file (lines 746–758)
+**** Browser view: the template file
 
-- Line 746 starts the browser section.
-- Lines 748-752 define the path of the HTML template, which sits next to the module as =sp-relationship-annotator.html=. It is worked out from =load-file-name= when the file is loaded, or =buffer-file-name= when it is evaluated in a buffer.
-- Lines 754-758 define the function that reads the template into a string.
+- Starts the browser section.
+- Define the path of the HTML template, which sits next to the module as =sp-graphs.html=. It is worked out from =load-file-name= when the file is loaded, or =buffer-file-name= when it is evaluated in a buffer.
+- Define the function that reads the template into a string.
 
 #+begin_src emacs-lisp
 ;;;; Browser view
 
 (defconst relationship-annotator--html-template-file
-  (expand-file-name "sp-relationship-annotator.html"
+  (expand-file-name "sp-graphs.html"
                     (file-name-directory (or load-file-name buffer-file-name)))
   "File holding the HTML template for the graph pages.
 The placeholder `__DATA__' is replaced with the JSON data.")
@@ -1028,13 +1254,13 @@ The placeholder `__DATA__' is replaced with the JSON data.")
     (buffer-string)))
 #+end_src
 
-*** Making the data safe for the page (lines 760–785)
+**** Making the data safe for the page
 
-- Lines 760-763 define the directory of the vendored scripts, =vendor/relationship-annotator/= next to the module, worked out like the template path.
-- Lines 765-768 list the four scripts in the order the page must load them: =layout-base=, =cose-base=, =cytoscape=, =cytoscape-fcose=. Each needs the one before it.
-- Lines 770-777 define =relationship-annotator--libraries=, which reads the scripts one after the other into a string, with a newline between them, so the page needs no other file and no network.
-- Line 779 starts =relationship-annotator--json-for-html=. Line 781 turns off pretty-printing, so the JSON stays compact, and line 782 encodes the data with =json-encode=.
-- Lines 783-785 replace =<=, =>= and =&= with Unicode escapes. A note title like =</script>= then can't end the page's script early.
+- Define the directory of the vendored scripts, =vendor/relationship-annotator/= next to the module, worked out like the template path.
+- List the four scripts in the order the page must load them: =layout-base=, =cose-base=, =cytoscape=, =cytoscape-fcose=. Each needs the one before it.
+- Define =relationship-annotator--libraries=, which reads the scripts one after the other into a string, with a newline between them, so the page needs no other file and no network.
+- Starts =relationship-annotator--json-for-html=. It turns off pretty-printing, so the JSON stays compact, and encodes the data with =json-encode=.
+- Replace =<=, =>= and =&= with Unicode escapes. A note title like =</script>= then can't end the page's script early.
 
 #+begin_src emacs-lisp
 (defconst relationship-annotator--vendor-directory
@@ -1065,21 +1291,21 @@ The placeholder `__DATA__' is replaced with the JSON data.")
                  (string-replace "&" "\\u0026"))))
 #+end_src
 
-*** Building the page (lines 787–888)
+**** Building the page
 
 The page holds the tree cut to =relationship-annotator-embed-depth= levels, so it can recentre on any note in it and cut the part to show by itself.
 
-- Lines 787-789 define =relationship-annotator--relation-style=: it reads one setting, such as the label, colour or direction, of a relation from =relationship-annotator-relations=, with a default.
-- Lines 791-798 define =relationship-annotator--direction-vector=, which turns a direction into a vector =[dx dy]= on the screen. A name becomes an angle (right 0, up 90, left 180, down 270), a number is taken as the angle, and anything else counts as right. The cosine gives =dx= and the sine, negated because the screen's y grows downward, gives =dy=. Both are rounded to three decimals, so the JSON stays short.
-- Lines 800-812 define =relationship-annotator--relations-json=. It lists the name, label, colour and direction vector of every relation that has a link, so the page can colour the links, fill its legend and place the boxes.
-- Lines 814-823 define =relationship-annotator--tag-color=. It returns a name and a colour for a note: the first tag of the note that is listed in =relationship-annotator-tag-colors=, together with its colour. When no tag is listed but the note has a type, it returns the type's name and colour instead. Otherwise nothing. Tags win, so you can mark a note by hand; the type colour is the default.
-- Lines 825-829 define the page function: it takes the tree (already cut to the embed depth), the start id and the depth.
-- Line 830 reads the notes table, and line 831 makes the context the formulas need (see the discourse layer).
-- Lines 832-841 collect the id of every note in the tree: the start, every parent and child, and both ends of every link. They are sorted, so the page is the same each time.
-- Lines 842-855 build the nodes. For every id it looks up the note and its colour, and makes an entry with the id, the title, the file path (empty when unknown), the file tags (as a JSON array, empty when there are none), the name that gave the colour, the colour, and the =badge=: the number in brackets that the page writes after the title, or nothing.
-- Lines 856-863 build the edges: the children table is turned into a list of pairs, and every parent and child pair becomes a two-element vector.
-- Lines 864-874 build the links: one object with the subject, the object and the relation name for each link, and an =anomaly= field. The field holds the message of =relationship-annotator--anomaly= for the types of the two notes, or nothing. The page draws a warning sign on the label of such a link.
-- Lines 875-885 collect the root, the depth, the nodes, the edges, the links, the hidden-children counts and the relations into one object. Lines 880-883 turn the =:more= table of the cut into pairs of a note id and the number of children the cut left out, so the page can show =+N= on notes at the edge of what it holds.
+- Define =relationship-annotator--relation-style=: it reads one setting, such as the label, colour or direction, of a relation from =relationship-annotator-relations=, with a default.
+- Define =relationship-annotator--direction-vector=, which turns a direction into a vector =[dx dy]= on the screen. A name becomes an angle (right 0, up 90, left 180, down 270), a number is taken as the angle, and anything else counts as right. The cosine gives =dx= and the sine, negated because the screen's y grows downward, gives =dy=. Both are rounded to three decimals, so the JSON stays short.
+- Define =relationship-annotator--relations-json=. It lists the name, label, colour and direction vector of every relation that has a link, so the page can colour the links, fill its legend and place the boxes.
+- Define =relationship-annotator--tag-color=. It returns a name and a colour for a note: the first tag of the note that is listed in =relationship-annotator-tag-colors=, together with its colour. When no tag is listed but the note has a type, it returns the type's name and colour instead. Otherwise nothing. Tags win, so you can mark a note by hand; the type colour is the default.
+- Define the page function: it takes the tree (already cut to the embed depth), the start id and the depth.
+- Reads the notes table, and makes the context the formulas need (see the discourse layer).
+- Collect the id of every note in the tree: the start, every parent and child, and both ends of every link. They are sorted, so the page is the same each time.
+- Build the nodes. For every id it looks up the note and its colour, and makes an entry with the id, the title, the file path (empty when unknown), the file tags (as a JSON array, empty when there are none), the name that gave the colour, the colour, and the =badge=: the number in brackets that the page writes after the title, or nothing.
+- Build the edges: the children table is turned into a list of pairs, and every parent and child pair becomes a two-element vector.
+- Build the links: one object with the subject, the object and the relation name for each link, and an =anomaly= field. The field holds the message of =relationship-annotator--anomaly= for the types of the two notes, or nothing. The page draws a warning sign on the label of such a link.
+- Collect the root, the depth, the nodes, the edges, the links, the hidden-children counts and the relations into one object. It turns the =:more= table of the cut into pairs of a note id and the number of children the cut left out, so the page can show =+N= on notes at the edge of what it holds.
 - The last lines put the encoded data into the template in place of =__DATA__=, after the scripts have been put in place of =__LIBS__=.
 
 #+begin_src emacs-lisp
@@ -1187,16 +1413,16 @@ in it and cut the part to show by itself."
                                     (relationship-annotator--html-template)))))
 #+end_src
 
-*** The static graph command (lines 890–903)
+**** The static graph command
 
-This is the old =rel-anno-graph=, renamed. The name =rel-anno-graph= now belongs to the live view in [[file:sp-relationship-annotator-live.org][sp-relationship-annotator-live]], which builds the same page.
+This is the old =rel-anno-graph=, renamed. The name =rel-anno-graph= now belongs to the live view in [[*Live view][Live view]], which builds the same page.
 
-- Line 890 is the autoload cookie, so the command is available before the module loads, and line 891 defines it.
-- Lines 892-894 are the documentation: the page holds =relationship-annotator-embed-depth= levels below the starting note, and a click on a box recentres the graph on it within those levels.
-- Line 895 makes it an interactive command.
-- Lines 896-899 ask for the start note and the depth, build the full tree, and cut it to the larger of the depth and the embed depth. The page then cuts the part to show out of that.
-- Lines 900-902 write the page to =relationship-annotator-html-file= as UTF-8. The page contains non-ASCII characters.
-- Line 903 opens the file in the default browser.
+- The autoload cookie, so the command is available before the module loads, and the definition of the command.
+- The documentation: the page holds =relationship-annotator-embed-depth= levels below the starting note, and a click on a box recentres the graph on it within those levels.
+- Makes it an interactive command.
+- Ask for the start note and the depth, build the full tree, and cut it to the larger of the depth and the embed depth. The page then cuts the part to show out of that.
+- Write the page to =relationship-annotator-html-file= as UTF-8. The page contains non-ASCII characters.
+- Opens the file in the default browser.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -1215,13 +1441,13 @@ note.  Clicking a box recentres the graph on it, within those levels."
     (browse-url-of-file relationship-annotator-html-file)))
 #+end_src
 
-*** Native outline: state (lines 905–917)
+**** Native outline: state
 
-- Line 905 starts the section for the outline made of Emacs buttons.
-- Lines 907-908 define the full tree shown in the buffer.
-- Lines 910-911 define the table of ids whose children are shown.
-- Lines 913-914 define the id of the starting note.
-- Lines 916-917 define the depth the view was opened with.
+- Starts the section for the outline made of Emacs buttons.
+- Define the full tree shown in the buffer.
+- Define the table of ids whose children are shown.
+- Define the id of the starting note.
+- Define the depth the view was opened with.
 All four are buffer-local, so several outline buffers can exist at once.
 
 #+begin_src emacs-lisp
@@ -1240,10 +1466,10 @@ All four are buffer-local, so several outline buffers can exist at once.
   "Depth shown when the outline was opened.")
 #+end_src
 
-*** Native outline: mode and keys (lines 919–931)
+**** Native outline: mode and keys
 
-- Lines 919-926 define the keymap. It inherits from =special-mode-map= (921) and adds =TAB= for toggling (922), =c= for a new start and depth (923) and =g= for rebuilding (924).
-- Lines 928-931 define the major mode, derived from =special-mode=, so the buffer is read-only and =q= closes it.
+- Define the keymap. It inherits from =special-mode-map= (921) and adds =TAB= for toggling (922), =c= for a new start and depth (923) and =g= for rebuilding (924).
+- Define the major mode, derived from =special-mode=, so the buffer is read-only and =q= closes it.
 
 #+begin_src emacs-lisp
 (defvar relationship-annotator-view-mode-map
@@ -1261,13 +1487,13 @@ TAB or a [+]/[-] button expands or collapses a note.  RET on a
 title visits the note.  c re-scopes, g rebuilds the view.")
 #+end_src
 
-*** Expanding to the chosen depth (lines 933–942)
+**** Expanding to the chosen depth
 
-- Line 935 starts a queue with the start note at level 0.
-- Lines 936-937 take the next pair.
-- Lines 938-939 act only on notes above the chosen depth that have children.
-- Line 940 marks the note as expanded.
-- Lines 941-942 queue its children one level down.
+- Starts a queue with the start note at level 0.
+- Take the next pair.
+- Act only on notes above the chosen depth that have children.
+- Marks the note as expanded.
+- Queue its children one level down.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator-view--expand-to-depth ()
@@ -1282,16 +1508,16 @@ title visits the note.  c re-scopes, g rebuilds the view.")
             (push (cons kid (1+ level)) queue)))))))
 #+end_src
 
-*** Drawing one note (lines 944–959)
+**** Drawing one note
 
-- Lines 944-946 define the function: it takes an id, an indent level and the path of ancestors.
-- Lines 947-951 work out the children, whether the note is open (it has children and is marked expanded), and the note itself.
-- Line 952 remembers where the line starts.
-- Line 953 adds two spaces of indent per level.
-- Line 954 inserts the buttons of the line.
-- Line 955 puts the note id on the whole line as a text property, so =TAB= works anywhere on it.
-- Line 956 ends the line.
-- Lines 957-959 draw the children one level deeper when the note is open. The path of ancestors stops a cycle.
+- Define the function: it takes an id, an indent level and the path of ancestors.
+- Work out the children, whether the note is open (it has children and is marked expanded), and the note itself.
+- Remembers where the line starts.
+- Adds two spaces of indent per level.
+- Inserts the buttons of the line.
+- Puts the note id on the whole line as a text property, so =TAB= works anywhere on it.
+- Ends the line.
+- Draw the children one level deeper when the note is open. The path of ancestors stops a cycle.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator-view--insert (id level path)
@@ -1312,12 +1538,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
         (relationship-annotator-view--insert kid (1+ level) (cons id path))))))
 #+end_src
 
-*** The buttons of one line (lines 961–979)
+**** The buttons of one line
 
-- Lines 964-971 insert the toggle: a =[-]= or =[+]= button when there are children, or three spaces when there are none. The button calls the action function and remembers its kind (=toggle=) and the id.
-- Line 972 inserts a space.
-- Lines 973-978 insert the title as a button of kind =visit=. Its tooltip shows the file path.
-- Line 979 adds the number of children, in parentheses.
+- Insert the toggle: a =[-]= or =[+]= button when there are children, or three spaces when there are none. The button calls the action function and remembers its kind (=toggle=) and the id.
+- Inserts a space.
+- Insert the title as a button of kind =visit=. Its tooltip shows the file path.
+- Adds the number of children, in parentheses.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator-view--insert-line-body (id kids open note)
@@ -1341,13 +1567,13 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (when kids (insert (format "  (%d)" (length kids))))))
 #+end_src
 
-*** Redrawing the buffer (lines 981–994)
+**** Redrawing the buffer
 
-- Lines 983-984 allow writing to the read-only buffer and remember the current line.
-- Line 985 erases the buffer.
-- Lines 986-991 insert a grey header: the starting note, the depth and the keys.
-- Line 992 draws the starting note and, below it, whatever is open.
-- Lines 993-994 return to the line the cursor was on.
+- Allow writing to the read-only buffer and remember the current line.
+- Erases the buffer.
+- Insert a grey header: the starting note, the depth and the keys.
+- Draws the starting note and, below it, whatever is open.
+- Return to the line the cursor was on.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator-view--redraw ()
@@ -1366,11 +1592,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (forward-line (max 0 (1- line)))))
 #+end_src
 
-*** Pressing a button (lines 996–1010)
+**** Pressing a button
 
-- Line 998 reads the note id from the button.
-- Lines 1000-1004 handle a toggle button: the id is removed from the expanded table, or added to it, and the buffer is redrawn.
-- Lines 1005-1010 handle a title button: the note is looked up (1006), the file is opened (1008) and the cursor goes to the note's position (1009-1010).
+- Reads the note id from the button.
+- Handle a toggle button: the id is removed from the expanded table, or added to it, and the buffer is redrawn.
+- Handle a title button: the note is looked up (1006), the file is opened (1008) and the cursor goes to the note's position (1009-1010).
 
 #+begin_src emacs-lisp
 (defun relationship-annotator-view--button-action (button)
@@ -1390,12 +1616,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
            (goto-char (vulpea-note-pos note))))))))
 #+end_src
 
-*** TAB on a line (lines 1012–1020)
+**** TAB on a line
 
-- Line 1015 reads the id from the line under the cursor.
-- Line 1016 continues only when the note has children.
-- Lines 1017-1019 flip its expanded state.
-- Line 1020 redraws the buffer.
+- Reads the id from the line under the cursor.
+- Continues only when the note has children.
+- Flip its expanded state.
+- Redraws the buffer.
 
 #+begin_src emacs-lisp
 (defun rel-anno-view-toggle ()
@@ -1409,11 +1635,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
       (relationship-annotator-view--redraw))))
 #+end_src
 
-*** Rebuilding the view (lines 1022–1027)
+**** Rebuilding the view
 
-- Line 1025 builds the tree again from the database, so notes added since the view was opened show up.
-- Line 1026 expands to the chosen depth again.
-- Line 1027 redraws.
+- Builds the tree again from the database, so notes added since the view was opened show up.
+- Expands to the chosen depth again.
+- Redraws.
 
 #+begin_src emacs-lisp
 (defun rel-anno-view-redraw ()
@@ -1424,11 +1650,11 @@ PATH holds the ancestors, so a cycle stops the recursion."
   (relationship-annotator-view--redraw))
 #+end_src
 
-*** Changing the start and depth (lines 1029–1037)
+**** Changing the start and depth
 
-- Line 1032 asks for a new start note and depth.
-- Lines 1033-1035 store them and clear the expanded table.
-- Lines 1036-1037 expand to the new depth and redraw.
+- Asks for a new start note and depth.
+- Store them and clear the expanded table.
+- Expand to the new depth and redraw.
 
 #+begin_src emacs-lisp
 (defun rel-anno-view-recenter ()
@@ -1442,15 +1668,15 @@ PATH holds the ancestors, so a cycle stops the recursion."
     (relationship-annotator-view--redraw)))
 #+end_src
 
-*** The native outline command (lines 1039–1053)
+**** The native outline command
 
-- Line 1039 is the autoload cookie.
-- Line 1040 defines the command. It used to be called =relationship-annotator-outline=, and now has the =-native= suffix, so it can be compared with the vui version.
-- Line 1043 asks for the scope.
-- Lines 1044-1046 get or create the buffer =*vulpea hierarchy*= and turn on the mode.
-- Lines 1047-1050 set the tree, start, depth and a new expanded table.
-- Lines 1051-1052 expand to the depth and draw.
-- Line 1053 shows the buffer.
+- The autoload cookie.
+- Defines the command. It used to be called =relationship-annotator-outline=, and now has the =-native= suffix, so it can be compared with the vui version.
+- Asks for the scope.
+- Get or create the buffer =*vulpea hierarchy*= and turn on the mode.
+- Set the tree, start, depth and a new expanded table.
+- Expand to the depth and draw.
+- Shows the buffer.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -1470,12 +1696,12 @@ PATH holds the ancestors, so a cycle stops the recursion."
       (pop-to-buffer buf))))
 #+end_src
 
-*** Outline with vui: visiting a note (lines 1055–1063)
+**** Outline with vui: visiting a note
 
 This section is a trial of the same outline built with =vui=, a component library.
 
-- Line 1055 starts the section.
-- Lines 1057-1063 define a helper that opens a note: it finds the note (1059), stops with a message if it is missing (1060), opens the file (1061) and goes to the note's position (1062-1063).
+- Starts the section.
+- Define a helper that opens a note: it finds the note (1059), stops with a message if it is missing (1060), opens the file (1061) and goes to the note's position (1062-1063).
 
 #+begin_src emacs-lisp
 ;;;; Outline built with vui (trial)
@@ -1489,15 +1715,15 @@ This section is a trial of the same outline built with =vui=, a component librar
       (goto-char (vulpea-note-pos note)))))
 #+end_src
 
-*** Outline with vui: one note (lines 1065–1094)
+**** Outline with vui: one note
 
 Each note is one component with its own state, so pressing a button redraws only that branch.
 
-- Line 1065 defines the component and its props: the id, the indent level, the path of ancestors, the tree, the depth, and whether it starts open.
-- Line 1067 gives it one piece of state, =toggled=, which starts as =nil=.
-- Lines 1069-1072 work out the children, whether the note is open (the starting state flipped by =toggled=), the notes table and the note.
-- Lines 1073-1086 draw the line: indent (1075), a =-= or =+= button when there are children (1076-1079), the title as a button without decoration (1080-1083), and the child count (1084-1086). vui adds the square brackets around buttons itself.
-- Lines 1087-1094 draw the children when the note is open, as a list of components one level deeper (1088-1093). Children above the chosen depth start open (1093).
+- Defines the component and its props: the id, the indent level, the path of ancestors, the tree, the depth, and whether it starts open.
+- Gives it one piece of state, =toggled=, which starts as =nil=.
+- Work out the children, whether the note is open (the starting state flipped by =toggled=), the notes table and the note.
+- Draw the line: indent (1075), a =-= or =+= button when there are children (1076-1079), the title as a button without decoration (1080-1083), and the child count (1084-1086). vui adds the square brackets around buttons itself.
+- Draw the children when the note is open, as a list of components one level deeper (1088-1093). Children above the chosen depth start open (1093).
 
 #+begin_src emacs-lisp
 (vui-defcomponent relationship-annotator-node (id level path tree depth initially-open)
@@ -1532,12 +1758,12 @@ Each note is one component with its own state, so pressing a button redraws only
        (vui-fragment)))))
 #+end_src
 
-*** Outline with vui: the root (lines 1096–1107)
+**** Outline with vui: the root
 
-- Lines 1096-1097 define the root component, which takes the start, the depth and the tree.
-- Lines 1099-1103 draw a grey header with the start note, the depth and the keys.
-- Line 1104 adds an empty line.
-- Lines 1105-1107 draw the starting note. It starts open when the depth is at least 1.
+- Define the root component, which takes the start, the depth and the tree.
+- Draw a grey header with the start note, the depth and the keys.
+- Adds an empty line.
+- Draw the starting note. It starts open when the depth is at least 1.
 
 #+begin_src emacs-lisp
 (vui-defcomponent relationship-annotator-root (start depth tree)
@@ -1554,11 +1780,11 @@ Each note is one component with its own state, so pressing a button redraws only
      :initially-open (> depth 0))))
 #+end_src
 
-*** Outline with vui: the command (lines 1109–1116)
+**** Outline with vui: the command
 
-- Line 1109 is the autoload cookie, and line 1110 defines the command.
-- Line 1113 asks for the scope.
-- Lines 1114-1116 mount the root component in the buffer =*vulpea hierarchy (vui)*=, with a freshly built tree.
+- The autoload cookie and the definition of the command.
+- Asks for the scope.
+- Mount the root component in the buffer =*vulpea hierarchy (vui)*=, with a freshly built tree.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -1571,15 +1797,15 @@ Each note is one component with its own state, so pressing a button redraws only
                "*relationship annotator (vui)*")))
 #+end_src
 
-*** Wrapping and labelling for Graphviz (lines 1118–1156)
+**** Wrapping and labelling for Graphviz
 
 Graphviz doesn't wrap text, so the module does it before writing the label. The browser page does its own wrapping in JavaScript, because only the browser knows how wide the text is.
 
-- Line 1118 is the section comment.
-- Lines 1120-1133 define =relationship-annotator--wrap=, which cuts a text into lines of at most =width= characters. It fills a line word by word, starts a new line when the next word wouldn't fit, and cuts a word that is longer than a whole line.
-- Lines 1135-1140 define =relationship-annotator--label=, which returns the title followed by the file tags of the note, written as =:tag1:tag2:=. A note without tags, or a missing one, gets just the title.
-- Lines 1142-1147 define =relationship-annotator--dot-label=. It wraps that label to =relationship-annotator-wrap-width=, puts a backslash before every double quote and backslash so the text is safe inside a Graphviz string, and joins the lines with the two characters =\n=, which Graphviz reads as a line break.
-- Lines 1149-1156 define =relationship-annotator--dot-fill=, the colour attributes of a node. A note with a coloured tag gets that colour with the hex transparency =66= added (1154), about 40%, so it works as a tint. The centre note gets a thicker border (1156), and a light blue fill when it has no coloured tag (1155).
+- The section comment.
+- Define =relationship-annotator--wrap=, which cuts a text into lines of at most =width= characters. It fills a line word by word, starts a new line when the next word wouldn't fit, and cuts a word that is longer than a whole line.
+- Define =relationship-annotator--label=, which returns the title followed by the file tags of the note, written as =:tag1:tag2:=. A note without tags, or a missing one, gets just the title.
+- Define =relationship-annotator--dot-label=. It wraps that label to =relationship-annotator-wrap-width=, puts a backslash before every double quote and backslash so the text is safe inside a Graphviz string, and joins the lines with the two characters =\n=, which Graphviz reads as a line break.
+- Define =relationship-annotator--dot-fill=, the colour attributes of a node. A note with a coloured tag gets that colour with the hex transparency =66= added (1154), about 40%, so it works as a tint. The centre note gets a thicker border (1156), and a light blue fill when it has no coloured tag (1155).
 
 #+begin_src emacs-lisp
 ;;;; Static SVG export (Graphviz)
@@ -1623,18 +1849,18 @@ thick border, and a blue fill when it has no coloured tag."
             (and rootp ", penwidth=2"))))
 #+end_src
 
-*** Graphviz source (lines 1158–1196)
+**** Graphviz source
 
 This function returns Graphviz (DOT) text for the cut tree.
 
-- Lines 1158-1162 define the function and bind the notes, the children and a =drawn= table, so a note is written once.
-- Lines 1163-1168 write the =digraph= header, the layout direction and the default style of nodes and edges.
-- Lines 1169-1171 loop over the roots (just the start note) and open a hidden cluster for each.
-- Lines 1172-1182 walk the tree breadth first. Each node is written once. Its label comes from =relationship-annotator--dot-label= (1178) and its colours from =relationship-annotator--dot-fill= (1179-1181).
-- Line 1183 closes the cluster.
-- Lines 1184-1187 write one edge per parent and child pair.
-- Lines 1188-1194 write the links of the other relations. Each is dashed, has the relation's label and colour, and has =constraint=false=, so it doesn't pull the layout out of the tree.
-- Lines 1195-1196 close the graph and return the text.
+- Define the function and bind the notes, the children and a =drawn= table, so a note is written once.
+- Write the =digraph= header, the layout direction and the default style of nodes and edges.
+- Loop over the roots (just the start note) and open a hidden cluster for each.
+- Walk the tree breadth first. Each node is written once. Its label comes from =relationship-annotator--dot-label= (1178) and its colours from =relationship-annotator--dot-fill= (1179-1181).
+- Closes the cluster.
+- Write one edge per parent and child pair.
+- Write the links of the other relations. Each is dashed, has the relation's label and colour, and has =constraint=false=, so it doesn't pull the layout out of the tree.
+- Close the graph and return the text.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--dot (tree)
@@ -1678,12 +1904,12 @@ This function returns Graphviz (DOT) text for the cut tree.
       (buffer-string))))
 #+end_src
 
-*** Naming the SVG file (lines 1198–1213)
+**** Naming the SVG file
 
-- Lines 1198-1201 define the slug: the title in lower case, every run of characters that aren't letters or digits replaced by a dash, and dashes trimmed from both ends. ="Value form"= becomes =value-form=.
-- Lines 1203-1206 define the function that names a new file, from the start id, the depth and the notes table.
-- Line 1207 creates the export directory if it doesn't exist.
-- Lines 1208-1213 build the name =<date and time>-<note name>-<depth>.svg=, for example =20261020T163734-ethics-2.svg=, inside the export directory. The time is included so two exports on the same day never overwrite each other.
+- Define the slug: the title in lower case, every run of characters that aren't letters or digits replaced by a dash, and dashes trimmed from both ends. ="Value form"= becomes =value-form=.
+- Define the function that names a new file, from the start id, the depth and the notes table.
+- Creates the export directory if it doesn't exist.
+- Build the name =<date and time>-<note name>-<depth>.svg=, for example =20261020T163734-ethics-2.svg=, inside the export directory. The time is included so two exports on the same day never overwrite each other.
 
 #+begin_src emacs-lisp
 (defun relationship-annotator--slug (title)
@@ -1704,13 +1930,13 @@ exports of the same note never overwrite each other."
    relationship-annotator-svg-directory))
 #+end_src
 
-*** The SVG command (lines 1215–1231)
+**** The SVG command
 
-- Line 1215 is the autoload cookie, and line 1216 defines the command.
-- Lines 1219-1220 stop with a message when Graphviz isn't installed.
-- Lines 1221-1225 ask for the scope, build the tree, cut it, make the DOT text and choose the new file name.
-- Lines 1226-1230 run =dot -Tsvg= on that text and write the SVG. A failure stops with Graphviz's own message.
-- Line 1231 opens the new file. Emacs shows =.svg= files as images.
+- The autoload cookie and the definition of the command.
+- Stop with a message when Graphviz isn't installed.
+- Ask for the scope, build the tree, cut it, make the DOT text and choose the new file name.
+- Run =dot -Tsvg= on that text and write the SVG. A failure stops with Graphviz's own message.
+- Opens the new file. Emacs shows =.svg= files as images.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -1732,27 +1958,17 @@ exports of the same note never overwrite each other."
     (pop-to-buffer (find-file-noselect file))))
 #+end_src
 
-*** Provide (lines 1233–1234)
+*** The page template, line by line
 
-- Line 1233 provides the feature, so =(require 'sp-relationship-annotator)= works.
-- Line 1234 is the conventional end-of-file line.
+The browser graph is a single HTML page with its own style and script. Emacs fills in =__DATA__= (line 36) with the tree cut to the embed depth: every note, edge and link in it, and =__LIBS__= (line 34) with four vendored scripts. The page cuts the part to show by itself, so it can recentre on any note, and it lets the fCoSE layout place the boxes. Line numbers refer to =libraries/modules/custom/sp-graphs.html=.
 
-#+begin_src emacs-lisp
-(provide 'sp-relationship-annotator)
-;;; sp-relationship-annotator.el ends here
-#+end_src
-
-** The page template, line by line
-
-The browser graph is a single HTML page with its own style and script. Emacs fills in =__DATA__= (line 36) with the tree cut to the embed depth: every note, edge and link in it, and =__LIBS__= (line 34) with four vendored scripts. The page cuts the part to show by itself, so it can recentre on any note, and it lets the fCoSE layout place the boxes. Line numbers refer to =libraries/modules/custom/sp-relationship-annotator.html=.
-
-*** Page head (lines 1–6)
+**** Page head (lines 1–6)
 - Line 1 sets the document type and line 2 the language.
 - Line 4 sets UTF-8, which the page needs for the characters =·= and =…=.
 - Line 5 makes the page fit a phone screen.
 - Line 6 sets the browser tab title.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline no :mkdirp yes
 <!doctype html>
 <html lang="en">
 <head>
@@ -1761,7 +1977,7 @@ The browser graph is a single HTML page with its own style and script. Emacs fil
 <title>relationship annotator</title>
 #+end_src
 
-*** Styles (lines 7–29)
+**** Styles (lines 7–29)
 - Line 8 defines the light colours as variables: background, text, muted text, box, edge and root box.
 - Line 9 switches to dark colours when the browser prefers dark, unless the page asks for light.
 - Line 10 does the same when the page asks for dark.
@@ -1778,7 +1994,7 @@ The browser graph is a single HTML page with its own style and script. Emacs fil
 - Line 24 styles the tree lines. Lines 25-26 style the other relations: a dashed line, and a label with an outline in the page colour so it stays readable over the line.
 - Lines 27-28 place the legend at the bottom left and space its entries.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline no :mkdirp yes
 <style>
 :root{--bg:#fbfbfa;--fg:#222;--muted:#777;--node:#f2f2f0;--edge:#9a9a9a;--root:#d8e6f5}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1d1f21;--fg:#e6e6e6;--muted:#999;--node:#2a2d31;--edge:#666;--root:#2f4a66}}
@@ -1804,13 +2020,13 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 </style>
 #+end_src
 
-*** Page body (lines 30–35)
+**** Page body (lines 30–35)
 - Line 32 is the header. Its right side (=ctl=) holds the buttons, its left side (=head=) the text, both filled in by the script.
 - Line 33 is the drawing area. The group =vp= holds everything drawn, and it is moved and scaled to pan and zoom.
 - Line 34 is the legend, filled in by the script.
 - Line 35 is a script that Emacs fills with the four vendored libraries (=__LIBS__=): =layout-base=, =cose-base=, =cytoscape= and =cytoscape-fcose=. They give the page the fCoSE layout. See =vendor/relationship-annotator/README.org=.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline no :mkdirp yes
 </head>
 <body>
 <header><span id="ctl"></span><span id="head"></span></header>
@@ -1819,7 +2035,7 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 <script>__LIBS__</script>
 #+end_src
 
-*** Script: data and state (lines 36–60)
+**** Script: data and state (lines 36–60)
 - Line 37 is where Emacs puts the JSON (=__DATA__=). It holds the tree cut to the embed depth, not only the part first shown.
 - Line 38 is the SVG namespace.
 - Line 39 sets the sizes. =W= is the box width, =PAD= the space left and right of the text, =LINE= the height of one text line, =VPAD= the space above and below the text, =GAPX= and =GAPY= the least space between boxes sideways and vertically.
@@ -1835,7 +2051,7 @@ button{font:inherit;color:var(--fg);background:var(--node);border:1px solid var(
 - Lines 58-59 create an off-screen canvas, only to measure text. Its font matches the one in the stylesheet.
 - Line 60 tracks dragging, so that a drag is not taken for a click.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline no :mkdirp yes
 <script>
 const D = __DATA__;
 const NS = 'http://www.w3.org/2000/svg';
@@ -1863,7 +2079,7 @@ ctx.font = '14px system-ui, sans-serif';
 let dragStart = null, dragged = false;
 #+end_src
 
-*** Script: cutting the part to show (lines 62–78)
+**** Script: cutting the part to show (lines 62–78)
 Lines 61-77 define =cut=, the same breadth-first walk that =relationship-annotator--scope= does in Emacs lisp, now in the page so it can run again after a click.
 
 - Line 63 empties the part in view and the caches, and forgets which boxes were folded.
@@ -1872,7 +2088,7 @@ Lines 61-77 define =cut=, the same breadth-first walk that =relationship-annotat
 - Lines 67-72 handle a note above the last level: every child gets an edge (69-70), and a child met for the first time is queued one level down (71). A child met twice still gets its edge, so a note with two parents shows under both.
 - Line 74 reads how many children Emacs cut off the note. Lines 75-76 count the children the depth hides, add the ones Emacs cut off, and put the total in =more= when it isn't zero. A note at the edge of what the page holds has no children in the page, so only the count from Emacs shows.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function cut() {
   kids = new Map(); more = new Map(); collapsed.clear(); infoCache.clear();
   const seen = new Set([root]), queue = [[root, 0]];
@@ -1892,11 +2108,11 @@ function cut() {
 }
 #+end_src
 
-*** Script: recentring and going back (lines 80–89)
+**** Script: recentring and going back (lines 80–89)
 - Lines 80-84 define =recentre=. It optionally saves the current centre in the history (81), sets the new centre and depth, never below 1 (82), then cuts the new part and draws it fitted to the window (83).
 - Lines 86-89 define =back=, which goes to the last saved centre without saving the current one.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function recentre(id, newDepth, remember) {
   if (remember) history.push({ root, depth });
   root = id; depth = Math.max(1, newDepth);
@@ -1909,12 +2125,12 @@ function back() {
 }
 #+end_src
 
-*** Script: header text and buttons (lines 91–105)
+**** Script: header text and buttons (lines 91–105)
 - Lines 91-95 define =updateHeader=: the centre note, the depth, and a hint about the mouse.
 - Lines 97-104 make three buttons on the right of the header: back, one level less, one level more. The two depth buttons recentre on the same note with another depth, so they cut again.
 - Line 105 makes Backspace go back.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function updateHeader() {
   document.getElementById('head').textContent =
     title(root) + '  ·  depth ' + depth +
@@ -1932,20 +2148,20 @@ for (const [text, tip, fn] of [['←', 'back (Backspace)', back],
 addEventListener('keydown', e => { if (e.key === 'Backspace') back(); });
 #+end_src
 
-*** Script: measuring text (lines 107–107)
+**** Script: measuring text (lines 107–107)
 Line 106 returns how wide a string is in pixels, using the canvas. The wrapping below depends on it.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function measure(s) { return ctx.measureText(s).width; }
 #+end_src
 
-*** Script: the pieces of a label (lines 109–128)
+**** Script: the pieces of a label (lines 109–128)
 A label is a list of pieces, and a piece is never split across lines unless it is too long for a whole line.
 
 - Lines 109-115 define =tokensOf=. It makes one piece per word of the title (110), then the file tags as one muted piece like =:idea:ethics:= (111), then the badge, the number in brackets that Emacs computed for the note, such as =[2]= (112), then the hidden-children count such as =+3= (113). The =cls= field picks the style.
 - Lines 117-128 define =breakToken=. A piece wider than a line, such as a very long word, is cut into the longest parts that fit (120-125).
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function tokensOf(n) {
   const t = n.title.split(/\s+/).filter(Boolean).map(w => ({ text: w, cls: '' }));
   if (n.tags && n.tags.length) t.push({ text: ':' + n.tags.join(':') + ':', cls: 'tags' });
@@ -1968,10 +2184,10 @@ function breakToken(tok) {
 }
 #+end_src
 
-*** Script: wrapping (lines 130–143)
+**** Script: wrapping (lines 130–143)
 Lines 129-142 define =wrap=. It places the pieces on lines one at a time, with a space between them (132-139). When the next piece would pass =TEXT_W=, it starts a new line. The result is a list of lines, each a list of pieces.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function wrap(tokens) {
   const lines = [], space = measure(' ');
   let line = [], width = 0;
@@ -1988,10 +2204,10 @@ function wrap(tokens) {
 }
 #+end_src
 
-*** Script: the size of one box (lines 145–152)
+**** Script: the size of one box (lines 145–152)
 Lines 144-151 define =info=, which returns the node, its wrapped lines and its height. The height is the number of lines times =LINE=, plus =VPAD= above and below (148). Because every box now has its own height, the layout below can't assume a fixed one. The result is cached, so a box is wrapped once however often the view is redrawn.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function info(id) {
   if (!infoCache.has(id)) {
     const n = byId.get(id) || { id, title: id, path: null, tags: [] };
@@ -2002,10 +2218,10 @@ function info(id) {
 }
 #+end_src
 
-*** Script: creating SVG elements (lines 154–159)
+**** Script: creating SVG elements (lines 154–159)
 Lines 153-158 define =el=: create an SVG element, set its attributes, add it to a parent and return it.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function el(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
   for (const k in attrs) e.setAttribute(k, attrs[k]);
@@ -2014,19 +2230,19 @@ function el(tag, attrs, parent) {
 }
 #+end_src
 
-*** Script: children of a node (lines 161–162)
+**** Script: children of a node (lines 161–162)
 - Line 161 returns the children of a node, or none if the user folded it.
 - Line 162 tells whether a node has children in view, folded or not, which decides whether it gets a fold marker.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function childrenOf(id) { return collapsed.has(id) ? [] : (kids.get(id) || []); }
 function hasKids(id) { return (kids.get(id) || []).length > 0; }
 #+end_src
 
-*** Script: the notes in view (lines 164–172)
+**** Script: the notes in view (lines 164–172)
 Lines 163-171 define =visible=. It walks down from the centre through the children that are not folded and returns the notes in the order they are met, and the level of each (the number of steps from the centre). A note with two parents appears once, at its first level. Unlike the old layout, which drew such a note under each parent, the new one draws every note once and joins it to all of its parents.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function visible() {
   const level = new Map([[root, 0]]), order = [root];
   for (let i = 0; i < order.length; i++) {
@@ -2038,7 +2254,7 @@ function visible() {
 }
 #+end_src
 
-*** Script: placement constraints (lines 174–215)
+**** Script: placement constraints (lines 174–215)
 Lines 173-214 define =constraints=, which turns the tree and the links into the rules that fCoSE follows. A rule says that one box is above, below, left of or right of another by at least a gap. A set of rules that contradict each other, such as a cycle, makes the layout fail, so a rule is only added when it doesn't contradict the earlier ones.
 
 - Line 175 holds, for each of the two axes, the pairs already ordered, and the list of rules.
@@ -2050,7 +2266,7 @@ Lines 173-214 define =constraints=, which turns the tree and the links into the 
 - Lines 207-213 collect the notes of one level in a row, so they can sit on the same height. A note that is above or below another note of its level, because of a link, is left out of the row (212).
 - Line 214 returns the rules and the rows as =horizontal= alignment groups.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function constraints(ids, level) {
   const before = { x: new Map(), y: new Map() }, out = [];
   const reaches = (axis, from, to) => {
@@ -2095,7 +2311,7 @@ function constraints(ids, level) {
 }
 #+end_src
 
-*** Script: placing the boxes (lines 217–246)
+**** Script: placing the boxes (lines 217–246)
 Lines 216-245 define =place=, which asks fCoSE for the position of every box in view. fCoSE is a force-directed layout: boxes push each other apart and edges pull them together, and it also follows the rules above. It is used through =cytoscape=, whose graph model it needs, but the page doesn't use =cytoscape= to draw.
 
 - Line 218 is the set of notes in view.
@@ -2107,7 +2323,7 @@ Lines 216-245 define =place=, which asks fCoSE for the position of every box in 
 - Lines 240-243 read the centre of each node and keep the top left corner of its box.
 - Line 244 frees the graph. Line 245 removes overlaps.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function place(order, level) {
   const ids = new Set(order);
   const cy = cytoscape({ headless: true, styleEnabled: true,
@@ -2140,7 +2356,7 @@ function place(order, level) {
 }
 #+end_src
 
-*** Script: removing overlaps (lines 248–270)
+**** Script: removing overlaps (lines 248–270)
 The layout treats a box as a point with a size, and it sometimes leaves two boxes touching. Lines 247-269 define =separate=, which pushes such boxes apart.
 
 - Line 249 takes all the boxes. Line 250 starts a pass, at most 80.
@@ -2151,7 +2367,7 @@ The layout treats a box as a point with a size, and it sometimes leaves two boxe
 
 This can break a rule when the graph is crowded. The rules are a request, and no overlap wins.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function separate() {
   const boxes = [...pos.values()];
   for (let pass = 0; pass < 80; pass++) {
@@ -2177,7 +2393,7 @@ function separate() {
 }
 #+end_src
 
-*** Script: drawing tree edges and boxes (lines 272–313)
+**** Script: drawing tree edges and boxes (lines 272–313)
 - Lines 272-276 define =drawTreeEdge=. It draws a curve from the bottom middle of the parent to the top middle of the child, bending halfway.
 - Lines 278-313 define =drawNode=, which draws one box.
 - Line 279 gets the wrapped lines and the box. Line 280 makes the group, with the root marked.
@@ -2187,7 +2403,7 @@ function separate() {
 - Lines 294-302 make every box except the centre clickable and reachable by keyboard. A click recentres the graph on it, with the same depth, unless it was the end of a drag (298). Tab moves between the boxes (=tabindex=, 296), and Enter or Space on a focused box recentres the same way (299-301). The keyboard path doesn't look at =dragged=, which stays true after a drag until the next press.
 - Lines 303-312 add a fold marker to a box with children. A click on it folds or unfolds the branch (309) and draws again without fitting the view (310), so the picture doesn't jump.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function drawTreeEdge(parent, child) {
   const a = pos.get(parent), b = pos.get(child);
   const ax = a.x + W / 2, ay = a.y + a.h, bx = b.x + W / 2, by = b.y, my = (ay + by) / 2;
@@ -2232,7 +2448,7 @@ function drawNode(id) {
 }
 #+end_src
 
-*** Script: links between notes (lines 315–347)
+**** Script: links between notes (lines 315–347)
 - Lines 315-319 define =border=. It returns the point where the line from the middle of a box to a point leaves the box.
 - Lines 321-328 define =freeSpot=. It tries seven places along a link, starting from the middle, and takes the first that is not near a box, so the label doesn't cover a title (324). If all are taken, it uses the middle.
 - Lines 330-347 define =drawLinks=, which draws the relations other than =parent=. It is called twice: first for the lines, drawn under the boxes, then for the labels, drawn over them.
@@ -2241,7 +2457,7 @@ function drawNode(id) {
 - Lines 337-339 draw a dashed straight line in the relation's colour, with a tooltip of the relation name. When the link has an =anomaly= (its note types don't fit the relation), the tooltip adds the message (339).
 - Lines 340-345 write the label at the free spot. An anomalous link gets a warning sign after the label (343), and the message as its tooltip (344).
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function border(box, toward) {
   const cx = box.x + W / 2, cy = box.y + box.h / 2, dx = toward.x - cx, dy = toward.y - cy;
   const t = Math.min(dx ? (W / 2) / Math.abs(dx) : Infinity, dy ? (box.h / 2) / Math.abs(dy) : Infinity);
@@ -2277,12 +2493,12 @@ function drawLinks(labels) {
 }
 #+end_src
 
-*** Script: fitting and drawing (lines 349–377)
+**** Script: fitting and drawing (lines 349–377)
 - Lines 349-358 define =fit=. It finds the rectangle around all the boxes (352-353) and sets the zoom so it fits the window, never above 100% (355), and centres it (356-357).
 - Lines 360-373 define =render=. It clears the drawing and the box positions (361-362), finds the notes in view (363) and places them (364), then draws in this order: tree edges (365), link lines (366), boxes (367) and link labels (368). It fits the view only when asked (369), because a fold should not move the picture. It then updates the header and the legend and applies the view.
 - Lines 375-377 define =apply=, which writes the pan and zoom into the group's =transform=.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 function fit() {
   const boxes = [...pos.values()];
   if (!boxes.length) return;
@@ -2314,13 +2530,13 @@ function apply() {
 }
 #+end_src
 
-*** Script: zoom and pan (lines 379–399)
+**** Script: zoom and pan (lines 379–399)
 - Lines 379-383 zoom with the wheel, between 0.2 and 4 times.
 - Lines 384-387 note where a press started. They don't capture the pointer yet: a captured pointer sends the later =click= to the =svg= instead of the box under it, so no box would ever see a click.
 - Lines 388-398 pan while dragging. Moving more than 4 pixels counts as a drag, and only then (390-393) is the pointer captured, so the drag goes on outside the window. A press that doesn't move leaves the click to the box.
 - Line 399 ends the drag.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline yes :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline yes :mkdirp yes
 svg.addEventListener('wheel', e => {
   e.preventDefault();
   view.k = Math.min(4, Math.max(0.2, view.k * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
@@ -2344,11 +2560,11 @@ svg.addEventListener('pointermove', e => {
 svg.addEventListener('pointerup', () => { dragStart = null; });
 #+end_src
 
-*** Script: legend and start (lines 400–425)
+**** Script: legend and start (lines 400–425)
 - Lines 400-420 define =updateLegend=. It collects the colour of every box in view, once per tag (404-407), and shows a swatch with the tag name for each (408-413). It then lists each relation with its colour (414-419).
 - Line 421 cuts the first view from the centre and depth Emacs chose, and line 422 draws it, fitted to the window. Lines 423-425 close the script, the body and the page.
 
-#+begin_src html :tangle ../../../libraries/modules/custom/sp-relationship-annotator.html :comments no :padline no :mkdirp yes
+#+begin_src html :tangle ../../../libraries/modules/custom/sp-graphs.html :comments no :padline no :mkdirp yes
 const legend = document.getElementById('legend');
 function updateLegend() {
   legend.replaceChildren();
@@ -2377,7 +2593,7 @@ render(true);
 </html>
 #+end_src
 
-** Layout backend of the browser page: what changed and why
+*** Layout backend of the browser page: what changed and why
 
 Before, the page placed boxes with its own tidy-tree code: depth gave the column, and a parent was centred on its children. That can't say "this relation goes to the right of its subject", because a link joins boxes that the tree has already placed. The page now asks the fCoSE layout for the positions and keeps its own SVG drawing (text wrapping, tags, tints, fold markers, links).
 
@@ -2391,7 +2607,7 @@ Before, the page placed boxes with its own tidy-tree code: depth gave the column
 
 Other backends considered: Cytoscape.js with its own renderer (less control over wrapped text and muted tags), ELK (layered, but one direction for the whole graph), d3-force (smaller, but no hard rules and no rectangles), and Graphviz in the browser (a static layout that can't take rules). fCoSE is the only one with built-in relative placement rules.
 
-** Verification
+*** Verification
 
 Tested on Emacs 29.3 with mock notes, not yet on the real vulpea database:
 
@@ -2413,6 +2629,512 @@ Tested on Emacs 29.3 with mock notes, not yet on the real vulpea database:
 - In headless Chromium the boxes took the colour of their type, the badges =[2]=, =[-1]= and =[0]= were bold after the titles, the warning sign appeared on the anomalous link with its message as a tooltip, and the legend listed =question=, =claim= and =evidence=.
 - Not tested: a real vault. In particular, whether vulpea puts a =DG_TYPE= or =DG_SUPPORTS= file property into =vulpea-note-properties=, which the property sources rely on.
 
-** Design considerations
+*** Design considerations
 
 This section is empty on purpose. It is where the brainstorming about what =relationship-annotator= should become goes: for example whether it should also write relations, not only read them.
+
+
+** Live view (from =sp-relationship-annotator-live=)
+
+Literate source for the second custom part, the live browser view for the annotator.
+
+*** Context
+
+The graph used to be a static HTML file: =rel-anno-graph-static= (see [[*Relationship annotator][Relationship annotator]]) writes a self-contained page to =relationship-annotator-html-file= and opens it from disk. The page is a snapshot: after I edit a note or add a =supports= relation, I have to run the command again and open a new file.
+
+This module serves the same page from Emacs on =http://127.0.0.1:8765/=, and =rel-anno-graph= is now the command that opens it. Every page load is rendered fresh from the vulpea database. An open page holds one connection to Emacs, and Emacs sends a message on it only when the graph that page shows has changed. The page then reloads, on the same note and depth, with its zoom, position, folded branches and the note it was recentred on kept.
+
+**** What "changed" means, without polling
+
+Nothing asks Emacs on a timer. Three steps, each driven by an event:
+
+1. *The database file changes.* Emacs watches the folder of =vulpea-db-location= with =file-notify= (inotify, kqueue or fsevents, whichever the system has) and only looks at the database and its =-wal= file. =vulpea-db-autosync-mode= writes there when a note is saved. The watch records the size and modification time it saw last, so an event that changed nothing (a read) is ignored.
+2. *Emacs waits until it is idle.* The check is an idle timer of =relationship-annotator-live-debounce= seconds, restarted by each new event. A burst of writes, such as a sync of many files, costs one check, and a check never runs while I am typing.
+3. *The graph data is compared.* For each open page Emacs cuts the tree the way the page was cut, serialises the data the page would be given, and compares its SHA-1 with the one the page was rendered from. Only a different hash sends a message. Editing a note that is not in the graph, or its body text, changes the file but not the data, so no page reloads.
+
+The full tree is built once per check, and every open page cuts its own part from it.
+
+**** Why a small server of its own
+
+- The config already has =simple-httpd= (in =sp-base-libraries=) and =websocket= (used by =vulpea-graph=). =simple-httpd= is one global server with its root at =/var/www=, which other things may start or stop, and its default is to listen on every interface. Serving my notes needs a server that is certainly bound to loopback and that nothing else touches.
+- It needs about a hundred and fifty lines with =make-network-process=, adds no dependency, and can be tested without installing any package.
+- A page load is one short request (=Connection: close=). The push channel is a /Server-Sent Events/ stream: a plain HTTP response that stays open, which the browser reads with =EventSource=. It only goes from Emacs to the page, which is all that is needed, and the browser reconnects by itself if Emacs restarts. A websocket would need a handshake and frame encoding for no gain.
+
+**** On =vulpea-graph=
+
+The analysis of =vulpea-graph= (the =vulpea-retrieve= package in =~/cloned-scan-ai=) found no rendering code to reuse: it computes metrics in Python and shows lists in Emacs. The only idea taken from it is the one it does have, the neighbour lookup: a breadth-first walk from a note, already done here by =relationship-annotator--scope=. The drawing stays the existing page (cytoscape's fCoSE layout in SVG). I did not read =vulpea-graph-ui=, which this module installs and which does use =websocket= and =simple-httpd=, so I cannot say how it draws or pushes.
+
+**** What it protects against
+
+- It listens on =127.0.0.1= only. The host is a constant, not an option.
+- It answers =GET= only, and it refuses any request whose =Host= header is not =127.0.0.1=, =localhost= or =[::1]= with the right port. That stops a web page on another site from reaching the server through a rebinding trick.
+- It runs inside Emacs, so building a page or a check blocks Emacs while the tree is built.
+
+*** The commands
+
+| Command                 | What it does                                                                                                 |
+|-------------------------+--------------------------------------------------------------------------------------------------------------|
+| =rel-anno-graph=        | Asks for a start note and depth, starts the server if needed, and opens the live page. An alias of the next. |
+| =rel-anno-live=         | The same command under the module's name.                                                                    |
+| =rel-anno-live-open=    | Opens the page again for the last start note and depth, or asks when there is none.                          |
+| =rel-anno-live-start=   | Starts the server on =relationship-annotator-live-port= and the watch on the database.                       |
+| =rel-anno-live-stop=    | Stops the server, the watch and every open stream.                                                           |
+| =rel-anno-live-refresh= | Makes every open page reload now, for changes the database file cannot show (a changed option, say).         |
+
+| Option                                 | Default | Meaning                                                              |
+|----------------------------------------+---------+----------------------------------------------------------------------|
+| =relationship-annotator-live-port=     |    8765 | The port on 127.0.0.1.                                               |
+| =relationship-annotator-live-debounce= |     0.5 | Seconds of idle time after the last database event before the check. |
+
+*** The Emacs Lisp, block by block
+
+**** Requires and options
+
+- =cl-lib= and =subr-x= are already required by the annotator part, above. =url-util= parses the query string of a request, and =filenotify= watches the database. The page and the tree come from the annotator functions in the same file.
+- The port and the debounce time are the only options. The address is a constant on purpose.
+
+#+begin_src emacs-lisp
+(require 'url-util)
+(require 'filenotify)
+
+(defgroup rel-anno-live nil
+  "A live view of the relationship graph on localhost."
+  :group 'relationship-annotator)
+
+(defcustom relationship-annotator-live-port 8765
+  "Port of the live view, on 127.0.0.1."
+  :type 'integer)
+
+(defcustom relationship-annotator-live-debounce 0.5
+  "Seconds Emacs must be idle after a database change before pages are checked."
+  :type 'number)
+#+end_src
+
+**** State
+
+- =--address= is the loopback address; nothing changes it.
+- =--server= is the listening process. =--clients= are the connections that are kept open as event streams.
+- =--root= and =--depth= are the last start note and depth, so that =-open= and a bare =/= can use them.
+- =--watch= is the =file-notify= descriptor, =--timer= the pending check, and =--seen= the file signature the last event or check saw.
+- =--full-tree= holds the whole tree while a check is running, so that it is built once for all pages.
+
+#+begin_src emacs-lisp
+(defconst relationship-annotator-live--address "127.0.0.1"
+  "The only address the server listens on.")
+
+(defvar relationship-annotator-live--server nil
+  "The listening process, or nil.")
+
+(defvar relationship-annotator-live--clients nil
+  "Connections kept open as event streams.")
+
+(defvar relationship-annotator-live--root nil
+  "Id of the note the live view was last opened on.")
+
+(defvar relationship-annotator-live--depth nil
+  "Depth the live view was last opened with.")
+
+(defvar relationship-annotator-live--watch nil
+  "The `file-notify' descriptor on the folder of the database, or nil.")
+
+(defvar relationship-annotator-live--timer nil
+  "The idle timer that will check the open pages, or nil.")
+
+(defvar relationship-annotator-live--seen nil
+  "Signature of the database files at the last event or check.")
+
+(defvar relationship-annotator-live--full-tree nil
+  "The whole tree while a check is running, so it is built once.")
+#+end_src
+
+**** Pages and data
+
+- =--tree= cuts the tree the way the static command does: down to the larger of the depth and the embed depth. It uses =--full-tree= when a check has already built it.
+- =--json= asks =relationship-annotator--html= with the template and the scripts replaced, so that what comes back is the data alone: root, depth, nodes, edges, links, hidden and relations. =cl-letf= is local to the call. It is the page's data exactly, so it is what is compared.
+- =--hash= is a short SHA-1 of that JSON. A page is rendered from one hash, and a later check compares against it.
+- =--script= goes at the end of every page. It opens the event stream with the hash the page was rendered from. On a =changed= message it saves the note it is centred on, the depth, the pan and zoom and the folded branches in =sessionStorage=, and goes to the address of the page it started as. The new page reads that state back, recentres on the same note and draws the same view. =root=, =depth=, =view=, =collapsed=, =recentre=, =render= and =apply= are the page's own names. While the stream is down the title says so; the browser reconnects by itself and Emacs then compares hashes, so a change made meanwhile is not lost.
+- =--page= renders the page with =relationship-annotator--html= and puts the script before the last =</body>=.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--tree (start depth)
+  "Return the tree below START, cut like `rel-anno-graph-static' does."
+  (relationship-annotator--scope
+   (or relationship-annotator-live--full-tree (relationship-annotator--build))
+   start (max depth relationship-annotator-embed-depth)))
+
+(defun relationship-annotator-live--json (tree start depth)
+  "Return the data of the page for TREE, START and DEPTH, as a JSON string."
+  (cl-letf (((symbol-function 'relationship-annotator--html-template)
+             (lambda () "__DATA__"))
+            ((symbol-function 'relationship-annotator--libraries)
+             (lambda () "")))
+    (relationship-annotator--html tree start depth)))
+
+(defun relationship-annotator-live--hash (json)
+  "Return a short token for JSON."
+  (substring (secure-hash 'sha1 json) 0 12))
+
+(defun relationship-annotator-live--script (start depth hash)
+  "Return the script that follows the data of START and DEPTH, rendered as HASH."
+  (format "<script>
+(() => {
+  const startRoot = %s, startDepth = %d, hash = %s, base = document.title;
+  const key = 'rel-anno-live';
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(key) || 'null');
+    sessionStorage.removeItem(key);
+    if (saved && byId.has(saved.root)) {
+      if (saved.root !== root || saved.depth !== depth) recentre(saved.root, saved.depth, false);
+      saved.collapsed.forEach(id => collapsed.add(id));
+      render(false);
+      Object.assign(view, saved.view);
+      apply();
+    }
+  } catch (e) {}
+  const events = new EventSource('/events?root=' + encodeURIComponent(startRoot)
+                                 + '&depth=' + startDepth + '&since=' + hash);
+  events.onopen = () => { document.title = base; };
+  events.onerror = () => { document.title = base + ' (offline)'; };
+  events.addEventListener('changed', () => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(
+        { root, depth, view, collapsed: [...collapsed] }));
+    } catch (e) {}
+    location.replace('/?root=' + encodeURIComponent(startRoot) + '&depth=' + startDepth);
+  });
+})();
+</script>
+"
+          (json-encode-string start) depth (json-encode-string hash)))
+
+(defun relationship-annotator-live--page (start depth)
+  "Return the page for START and DEPTH, with the script that follows the database."
+  (let* ((tree (relationship-annotator-live--tree start depth))
+         (html (relationship-annotator--html tree start depth))
+         (script (relationship-annotator-live--script
+                  start depth
+                  (relationship-annotator-live--hash
+                   (relationship-annotator-live--json tree start depth))))
+         (end (string-match-p "</body>\\s-*</html>\\s-*\\'" html)))
+    (if end
+        (concat (substring html 0 end) script (substring html end))
+      (concat html script))))
+#+end_src
+
+**** Event streams
+
+- =--notify= sends one =changed= message on a connection.
+- =--check-client= compares the hash of the data the connection's page would get now with the hash it was last given, and sends =changed= only when they differ. A build that fails counts as a change, so the page reloads and shows the error. With FORCE it always sends.
+- =--check-all= does that for every open connection, building the full tree once. Dead connections are dropped first, and nothing is built when none is open.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--notify (process hash)
+  "Tell the page on PROCESS that its data changed, and remember HASH for it."
+  (process-put process :hash hash)
+  (process-send-string process "event: changed\ndata: reload\n\n"))
+
+(defun relationship-annotator-live--check-client (process &optional force)
+  "Send `changed' on PROCESS when its page is out of date, or always with FORCE."
+  (let ((hash (condition-case nil
+                  (let ((root (process-get process :root))
+                        (depth (process-get process :depth)))
+                    (relationship-annotator-live--hash
+                     (relationship-annotator-live--json
+                      (relationship-annotator-live--tree root depth) root depth)))
+                (error "error"))))
+    (when (or force (not (equal hash (process-get process :hash))))
+      (relationship-annotator-live--notify process hash))))
+
+(defun relationship-annotator-live--check-all (&optional force)
+  "Check every open page, building the tree once.  With FORCE, reload them all."
+  (setq relationship-annotator-live--timer nil
+        relationship-annotator-live--clients
+        (seq-filter #'process-live-p relationship-annotator-live--clients))
+  (when relationship-annotator-live--clients
+    (let ((relationship-annotator-live--full-tree
+           (ignore-errors (relationship-annotator--build))))
+      (dolist (process relationship-annotator-live--clients)
+        (relationship-annotator-live--check-client process force)))))
+#+end_src
+
+**** Watching the database
+
+- =--files= lists the database file and its write-ahead log. =--signature= is the modification time and size of those that exist.
+- =--on-file-change= receives every =file-notify= event of the folder. It ignores other files, such as the =-shm= file that readers touch, and events after which the signature is the one already seen. Otherwise it restarts the idle timer.
+- =--watch-start= and =--watch-stop= add and remove the watch. A system without file notification gets a message, and =rel-anno-live-refresh= remains.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--files ()
+  "Return the vulpea database file and its write-ahead log."
+  (when-let* ((db (and (boundp 'vulpea-db-location) vulpea-db-location)))
+    (list (expand-file-name db) (concat (expand-file-name db) "-wal"))))
+
+(defun relationship-annotator-live--signature ()
+  "Return the modification time and size of the database files."
+  (mapcar (lambda (file)
+            (when-let* ((attributes (file-attributes file)))
+              (list (file-attribute-modification-time attributes)
+                    (file-attribute-size attributes))))
+          (relationship-annotator-live--files)))
+
+(defun relationship-annotator-live--on-file-change (event)
+  "React to a `file-notify' EVENT when it changed a database file."
+  (let ((file (nth 2 event)))
+    (when (and file
+               (member (expand-file-name file) (relationship-annotator-live--files))
+               (not (equal (relationship-annotator-live--signature)
+                           relationship-annotator-live--seen)))
+      (setq relationship-annotator-live--seen (relationship-annotator-live--signature))
+      (when (timerp relationship-annotator-live--timer)
+        (cancel-timer relationship-annotator-live--timer))
+      (setq relationship-annotator-live--timer
+            (run-with-idle-timer relationship-annotator-live-debounce nil
+                                 #'relationship-annotator-live--check-all)))))
+
+(defun relationship-annotator-live--watch-start ()
+  "Watch the folder of the vulpea database for changes."
+  (when-let* ((file (car (relationship-annotator-live--files)))
+              ((file-directory-p (file-name-directory file)))
+              ((not relationship-annotator-live--watch)))
+    (setq relationship-annotator-live--seen (relationship-annotator-live--signature))
+    (condition-case err
+        (setq relationship-annotator-live--watch
+              (file-notify-add-watch (file-name-directory file) '(change)
+                                     #'relationship-annotator-live--on-file-change))
+      (error (message "Live graph: cannot watch the database (%s); use rel-anno-live-refresh"
+                      (error-message-string err))))))
+
+(defun relationship-annotator-live--watch-stop ()
+  "Stop watching the database."
+  (when relationship-annotator-live--watch
+    (ignore-errors (file-notify-rm-watch relationship-annotator-live--watch))
+    (setq relationship-annotator-live--watch nil))
+  (when (timerp relationship-annotator-live--timer)
+    (cancel-timer relationship-annotator-live--timer))
+  (setq relationship-annotator-live--timer nil))
+#+end_src
+
+**** Answering a request
+
+- =--respond= builds the status line and headers by hand, encodes the body as UTF-8, sends it, and closes the connection. =Cache-Control: no-store= keeps the browser from showing an old page.
+- =--host-ok= accepts only the three names of the local machine, with this server's port or none.
+- =--params= reads =root= and =depth= from the query, falling back to the last start note. The depth is kept between 1 and 20.
+- =--subscribe= answers =/events= with a stream header and keeps the connection open. It remembers the note, depth and hash the page was rendered from, and checks at once, so a change made while the page was disconnected is caught.
+- =--route= answers the other paths. =/= and =/graph.json= take the note and depth from =--params=. A root that is not in the database gets a 404. The browser's request for =/favicon.ico= gets an empty 204 so that it doesn't show as an error. Anything else is a 404.
+- =--handle= reads the request line and the headers, refuses other methods (405) and other hosts (403), and turns an error in a route into a 500 with the message, which only the local machine can read.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--respond (process status type body)
+  "Send BODY with STATUS and content TYPE on PROCESS, then close it."
+  (let ((bytes (encode-coding-string body 'utf-8)))
+    (process-send-string
+     process
+     (concat
+      (encode-coding-string
+       (format (concat "HTTP/1.1 %s\r\nContent-Type: %s; charset=utf-8\r\n"
+                       "Content-Length: %d\r\nCache-Control: no-store\r\n"
+                       "Connection: close\r\n\r\n")
+               status type (length bytes))
+       'utf-8)
+      bytes))
+    (delete-process process)))
+
+(defun relationship-annotator-live--host-ok (host)
+  "Non-nil when the Host header HOST names this machine and this port."
+  (and host
+       (string-match "\\`\\(localhost\\|127\\.0\\.0\\.1\\|\\[::1\\]\\)\\(?::\\([0-9]+\\)\\)?\\'" host)
+       (let ((port (match-string 2 host)))
+         (or (null port)
+             (= (string-to-number port) relationship-annotator-live-port)))))
+
+(defun relationship-annotator-live--params (query)
+  "Return (ROOT . DEPTH) from the parsed QUERY, or from the last start note."
+  (cons (or (cadr (assoc "root" query)) relationship-annotator-live--root)
+        (max 1 (min 20 (or (and (cadr (assoc "depth" query))
+                                (string-to-number (cadr (assoc "depth" query))))
+                           relationship-annotator-live--depth
+                           relationship-annotator-default-depth)))))
+
+(defun relationship-annotator-live--subscribe (process query)
+  "Keep PROCESS open as an event stream for the page described by QUERY."
+  (pcase-let ((`(,root . ,depth) (relationship-annotator-live--params query)))
+    (process-send-string
+     process (concat "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                     "Cache-Control: no-store\r\nConnection: keep-alive\r\n\r\n"
+                     "retry: 3000\n\n"))
+    (process-put process :root root)
+    (process-put process :depth depth)
+    (process-put process :hash (cadr (assoc "since" query)))
+    (push process relationship-annotator-live--clients)
+    (relationship-annotator-live--check-client process)))
+
+(defun relationship-annotator-live--route (path query)
+  "Return (STATUS TYPE BODY) for PATH and the parsed QUERY."
+  (pcase-let ((`(,root . ,depth) (relationship-annotator-live--params query)))
+    (cond
+     ((equal path "/favicon.ico")
+      (list "204 No Content" "text/plain" ""))
+     ((not (member path '("/" "/graph.json")))
+      (list "404 Not Found" "text/plain" "Not found"))
+     ((null root)
+      (list "200 OK" "text/plain"
+            "Run M-x rel-anno-graph in Emacs to pick a note."))
+     ((not (vulpea-db-query-by-ids (list root)))
+      (list "404 Not Found" "text/plain" (format "No note with id %s" root)))
+     ((equal path "/graph.json")
+      (list "200 OK" "application/json"
+            (relationship-annotator-live--json
+             (relationship-annotator-live--tree root depth) root depth)))
+     (t
+      (list "200 OK" "text/html" (relationship-annotator-live--page root depth))))))
+
+(defun relationship-annotator-live--handle (process request)
+  "Answer REQUEST, the text of a request head, on PROCESS."
+  (let* ((lines (split-string request "\r\n"))
+         (first (split-string (car lines) " "))
+         (method (nth 0 first))
+         (target (or (nth 1 first) ""))
+         (host (cl-some (lambda (line)
+                          (when (string-match "\\`[Hh]ost:[ \t]*\\(.*?\\)[ \t]*\\'" line)
+                            (match-string 1 line)))
+                        (cdr lines)))
+         (parts (split-string target "?"))
+         (query (url-parse-query-string (or (cadr parts) ""))))
+    (cond
+     ((not (equal method "GET"))
+      (relationship-annotator-live--respond
+       process "405 Method Not Allowed" "text/plain" "GET only"))
+     ((not (relationship-annotator-live--host-ok host))
+      (relationship-annotator-live--respond
+       process "403 Forbidden" "text/plain" "Forbidden"))
+     ((equal (car parts) "/events")
+      (relationship-annotator-live--subscribe process query))
+     (t
+      (condition-case err
+          (apply #'relationship-annotator-live--respond process
+                 (relationship-annotator-live--route (car parts) query))
+        (error
+         (relationship-annotator-live--respond
+          process "500 Internal Server Error" "text/plain"
+          (error-message-string err))))))))
+#+end_src
+
+**** The server process
+
+- =--filter= collects the bytes of a connection until the blank line that ends the head, then handles it. A head larger than 16 KB is dropped.
+- =--sentinel= takes a closed connection out of the list of event streams.
+- =-start= opens the listening socket on the loopback address only, with no query on exit, starts the watch on the database, and tells where the page is.
+- =-stop= closes the socket, the watch and every open stream. A port that is already in use is reported as an error.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--filter (process string)
+  "Collect STRING from PROCESS until the request head is complete, then answer."
+  (let ((data (concat (or (process-get process :data) "") string)))
+    (process-put process :data data)
+    (cond
+     ((process-get process :root))
+     ((string-search "\r\n\r\n" data)
+      (process-put process :data nil)
+      (relationship-annotator-live--handle process data))
+     ((> (length data) 16384)
+      (delete-process process)))))
+
+(defun relationship-annotator-live--sentinel (process _event)
+  "Forget PROCESS as an event stream once it is closed."
+  (unless (process-live-p process)
+    (setq relationship-annotator-live--clients
+          (delq process relationship-annotator-live--clients))))
+
+;;;###autoload
+(defun rel-anno-live-start ()
+  "Start the live view server on 127.0.0.1, at `relationship-annotator-live-port'."
+  (interactive)
+  (unless (process-live-p relationship-annotator-live--server)
+    (setq relationship-annotator-live--server
+          (condition-case err
+              (make-network-process
+               :name "rel-anno-live"
+               :server t :noquery t :family 'ipv4 :coding 'binary
+               :host relationship-annotator-live--address
+               :service relationship-annotator-live-port
+               :filter #'relationship-annotator-live--filter
+               :sentinel #'relationship-annotator-live--sentinel)
+            (file-error
+             (user-error "Cannot listen on %s:%d: %s"
+                         relationship-annotator-live--address
+                         relationship-annotator-live-port
+                         (error-message-string err))))))
+  (relationship-annotator-live--watch-start)
+  (message "Relationship graph at http://%s:%d/"
+           relationship-annotator-live--address relationship-annotator-live-port))
+
+;;;###autoload
+(defun rel-anno-live-stop ()
+  "Stop the live view server."
+  (interactive)
+  (relationship-annotator-live--watch-stop)
+  (mapc #'delete-process relationship-annotator-live--clients)
+  (setq relationship-annotator-live--clients nil)
+  (when (process-live-p relationship-annotator-live--server)
+    (delete-process relationship-annotator-live--server))
+  (setq relationship-annotator-live--server nil)
+  (message "Relationship graph server stopped"))
+#+end_src
+
+**** Opening the page, and the graph command
+
+- =--filter= leaves a connection alone once it is an event stream (it has a =:root=), so later bytes are not read as a new request.
+- =--url= builds the address for a start note and depth, with the id encoded.
+- =rel-anno-live= always asks, remembers the answer, and opens. =rel-anno-graph= is an alias of it, with an autoload cookie, so the old command name now opens the live view.
+- =-open= starts the server if needed and sends the browser to the page. With no remembered note it asks, like the other commands, with =relationship-annotator--read-scope=.
+- =-refresh= reloads every open page at once.
+
+#+begin_src emacs-lisp
+(defun relationship-annotator-live--url (start depth)
+  "Return the address of the page for START and DEPTH."
+  (format "http://%s:%d/?root=%s&depth=%d"
+          relationship-annotator-live--address relationship-annotator-live-port
+          (url-hexify-string start) depth))
+
+;;;###autoload
+(defun rel-anno-live ()
+  "Ask for a starting note and depth, then show the hierarchy live in the browser.
+The page is served by Emacs on localhost and reloads when its data changes."
+  (interactive)
+  (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+    (setq relationship-annotator-live--root start
+          relationship-annotator-live--depth depth)
+    (rel-anno-live-open)))
+
+;;;###autoload
+(defalias 'rel-anno-graph #'rel-anno-live)
+
+;;;###autoload
+(defun rel-anno-live-open ()
+  "Open the live view in the browser on the last starting note, or ask for one."
+  (interactive)
+  (unless relationship-annotator-live--root
+    (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
+      (setq relationship-annotator-live--root start
+            relationship-annotator-live--depth depth)))
+  (rel-anno-live-start)
+  (browse-url (relationship-annotator-live--url
+               relationship-annotator-live--root
+               (or relationship-annotator-live--depth
+                   relationship-annotator-default-depth))))
+
+;;;###autoload
+(defun rel-anno-live-refresh ()
+  "Make every open live page reload now."
+  (interactive)
+  (relationship-annotator-live--check-all t))
+#+end_src
+
+* Provide
+
+The one feature of the module. The old file ends were =;;; sp-relationship-annotator.el ends here= and the like; there is now a single one.
+
+#+begin_src emacs-lisp
+(provide 'sp-graphs)
+;;; sp-graphs.el ends here
+#+end_src

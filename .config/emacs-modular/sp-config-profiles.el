@@ -119,7 +119,7 @@
         ;; Academic
         sp-academic
         ;; sp-statistics
-        sp-dgraphs
+        sp-graphs
         sp-notes
 
         ;; Functions

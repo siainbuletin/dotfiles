@@ -19,7 +19,7 @@ Disclosure: many of the modules and functions I included are written with the he
 The current configuration draws heavily from modules from Colin McLear's Lambda Emacs. Noteworthy modifications include:
 - replacing native ~package.el~ utilization with ~elpaca~
 
-For motivations of why this configuration is set up in this way, please refer to"[[file:docs/why-this-literate.org][Why this form of literate configuration?]]".
+For motivations of why this configuration is set up in this way, please refer to"[[file:architecture/why-this-literate.org][Why this form of literate configuration?]]".
 
 * What can this configuration actually do?
 
@@ -39,6 +39,9 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 ** academic/
 
 - [[file:tangles/academic/sp-academic.org][sp-academic]] :: Academic workflow: bibliography and citations ([[file:../libraries/modules/academic/sp-academic.el][sp-academic.el]])
+- [[file:tangles/academic/sp-bibprocess.org][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
+- [[file:tangles/academic/sp-citations.org][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
+- [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-bibprocess.el][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-citations.el][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
 - [[file:tangles/academic/sp-dgraphs.org][sp-dgraphs]] :: Discourse Graphs for argument mapping ([[file:../libraries/modules/academic/sp-dgraphs.el][sp-dgraphs.el]])
@@ -84,9 +87,8 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
-- [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
-- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
-- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
+- [[file:tangles/custom/sp-graphs.org][sp-graphs]] :: Graphs of notes in one module: =discourse-graphs= and =vulpea-graph= from packages, plus my relationship annotator and its live view ([[file:../libraries/modules/custom/sp-graphs.el][sp-graphs.el]])
+- [[file:architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
 
@@ -226,7 +228,7 @@ Currently, the sub-libraries live in different subfolders (which makes things a 
 3. Academic :: this is more of a /core/ module, as it's the main reason why I use Emacs in the first place
 4. Programming modules :: language servers and separate language-related modes for editing
 
-Deciding on the order is not trivial: [[file:load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
+Deciding on the order is not trivial: [[file:architecture/load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
 
 * Tasks
 ** TODO Reduce the verbosity of the documentation in the modules

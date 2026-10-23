@@ -217,7 +217,7 @@ non-nil. A failing module is reported and the rest still load."
 ;;; Modular loading without a config.el
 ;;;;; Load order
 ;; The order of `lem--default-modules' follows the dependencies between the
-;; Elpaca recipes in the modules; docs/load-order.org draws them and says why.
+;; Elpaca recipes in the modules; docs/architecture/load-order.org draws them and says why.
 ;; Two rules matter to Elpaca. A package that another package requires has to be
 ;; declared *before* that package, otherwise Elpaca has already queued it as a
 ;; dependency and warns "X previously queued as dependency of: (Y)". And a
@@ -240,11 +240,9 @@ the order of `lem--late-modules', for example when debugging."
     sp-notes
     sp-trails ;; For gathering links from browser sessions
     sp-semantic
-    ;; several graphing functionality
-    sp-dgraphs
-    sp-relationship-annotator
-    sp-dyn-graph
-    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
+    ;; annotator and its live localhost view, in one module.
+    sp-graphs
     sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
