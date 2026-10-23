@@ -36,7 +36,7 @@ digraph modules {
   subgraph cluster_4 { label="4  Org"; style=rounded; color="#999999"; fontname="Helvetica";
     o1 [label="sp-org-base  sp-denote\nsp-org-appearance  sp-org-capture"];
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
-    o3 [label="sp-org-agenda\n(org-super-agenda, then org-ql)"];
+    o3 [label="sp-org-agenda\ndeclares first: org-super-agenda\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
     o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para, agenda-views,\nvulpea-schemas, vulpea-ext"];
     o6 [label="sp-org-issues  sp-csv  sp-trails"];
@@ -68,7 +68,7 @@ digraph modules {
 #+RESULTS:
 [[file:load-order-modules.svg]]
 
-Inside a box the modules are independent of each other. An arrow means "has to come before". The parenthesised names are the packages whose position matters.
+Inside a box the modules are independent of each other. An arrow means "has to come before" (it points from the package that is required to the one that requires it, the opposite of a dependency arrow). The parenthesised names are the packages whose position matters.
 
 * Why each arrow is there
 
@@ -80,7 +80,7 @@ digraph packages {
   node [shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#555555", fontname="Helvetica", fontsize=10];
   edge [color="#555555", fontname="Helvetica", fontsize=8];
   subgraph cluster_fixed { label="fixed by this reordering"; style="rounded,dashed"; color="#b5472f"; fontcolor="#b5472f"; fontname="Helvetica";
-    "org-super-agenda\n(sp-org-agenda)" -> "org-ql\n(sp-org-agenda)" [color="#b5472f"];
+    "org-super-agenda\n(sp-org-agenda)" -> "org-ql\n(sp-org-agenda)" [color="#b5472f", label="declared before"];
     "paredit\n(sp-lisp)" -> "emr\n(sp-prog-misc)" [color="#b5472f"];
   }
   "cond-let\n(sp-base-libraries)" -> "transient\n(sp-base-libraries)" -> "org-gtd\n(sp-org-taskman-extra)";
