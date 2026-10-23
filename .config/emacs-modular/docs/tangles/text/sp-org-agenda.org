@@ -225,7 +225,7 @@ Installs =org-super-agenda= (waiting for it to be built) and sets its date forma
 
 ** org-ql
 
-Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on. It sits right after =org-super-agenda= on purpose: =org-ql= requires =org-super-agenda=, and if it is declared first, Elpaca queues =org-super-agenda= as a dependency and warns =org-super-agenda previously queued as dependency of: (org-ql)= when the explicit declaration follows. See [[file:../../load-order.org][the load order]].
+Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on. It sits right after =org-super-agenda= on purpose: =org-ql= requires =org-super-agenda=, and if it is declared first, Elpaca queues =org-super-agenda= as a dependency and warns =org-super-agenda previously queued as dependency of: (org-ql)= when the explicit declaration follows. See [[file:../../justifications/load-order.org][the load order]].
 
 #+begin_src emacs-lisp -i
 ;; org-ql requires org-super-agenda, so it has to be declared after it:
