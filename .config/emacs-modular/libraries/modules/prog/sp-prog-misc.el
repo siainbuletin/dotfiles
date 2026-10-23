@@ -11,6 +11,7 @@
 ;;; Code:
 
 (use-package emr
+  :ensure t
   :defer t)
 
 (use-package rainbow-delimiters
@@ -19,39 +20,51 @@
          (salt-mode . rainbow-delimiters-mode)))
 
 (use-package x509-mode
+  :ensure t
   :defer t)
 
 (use-package yaml-mode
+  :ensure t
   :defer t)
 
 (use-package dot-mode
+  :ensure t
   :defer t)
 
 (use-package dockerfile-mode
+  :ensure t
   :defer t)
 
 (use-package docker-compose-mode
+  :ensure t
   :defer t)
 
 (use-package json-mode
+  :ensure t
   :defer t)
 
 (use-package elf-mode
+  :ensure t
   :defer t)
 
 (use-package demangle-mode
+  :ensure t
   :defer t)
 
 (use-package systemd
+  :ensure t
   :defer t)
 
 (use-package easy-hugo
+  :ensure t
   :defer t)
 
 (use-package gh-md
+  :ensure t
   :defer t)
 
 (use-package ein
+  :ensure t
   :defer t)
 
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs

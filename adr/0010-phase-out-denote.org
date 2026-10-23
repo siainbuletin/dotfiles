@@ -1,0 +1,19 @@
+#+title: 0010 Phase out Denote; it does not touch the agenda
+#+date: 2026-10-23
+#+status: accepted
+
+* Context
+=sp-denote= configured Denote and also added any saved note whose file name matched =_project= to =org-agenda-files= (=my-denote-add-to-agenda= on =after-save-hook=, and =my-denote-remove-from-agenda=). Notes are now kept with an ID-based workflow (vulpea, with org-node and org-mem on their way out), and I never use the file names Denote builds, which are long and hard to read. The agenda files are owned by =vulpea-para= ([[file:0009-one-agenda-owner-per-setting.org][0009]]), which rewrites =org-agenda-files= before every agenda, so the hooks could only add files for a moment.
+
+* Decision
+- Denote must not touch the agenda. The two functions, the regexp and the =after-save-hook= entry are removed from =sp-denote=.
+- Denote itself is to be phased out. Nothing new should depend on it. What still uses it is the =n= capture template of =sp-org-capture= (=denote-org-capture=) and =sp-denote= (key bindings, Dired and buffer-renaming integration).
+- The removal of the rest is a later change: the capture template, =sp-denote=, and the =denote-directory= setting go together, once existing Denote-named notes have been renamed or are left as they are.
+
+* Alternatives considered
+- *Keep the hooks until Denote goes*: they overlap with the vulpea-para agenda mode and confuse which of two systems decides the agenda.
+- *Remove Denote now*: existing notes keep Denote file names and the =n= template, so removing it all at once is a larger change than this decision needs.
+
+* Consequences
+- A Denote note named =_project= is on the agenda only if vulpea-para tags it (it must be in the vault and hold open work).
+- /untested/: nothing was run on my Mac.

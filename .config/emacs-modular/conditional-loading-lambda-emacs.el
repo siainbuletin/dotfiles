@@ -39,7 +39,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                     'sp-help
                     'sp-modeline
                     'sp-theme
-                    'sp-splash
+                    'sp-dashboard
 
                     ;; Navigation & Search modules (/navi/)
                     'sp-dired
@@ -97,7 +97,7 @@ Skips modules listed in `(sp-gui-only-modules)' when
                      'sp-keybindings
                      'sp-help
                      'sp-modeline
-                     'sp-splash
+                     'sp-dashboard
 
                      ;; Navigation & Search modules
                      'sp-dired

@@ -9,9 +9,11 @@
 ;;; Code:
 
 (use-package flycheck-rust
+  :ensure t
   :defer t)
 ;(use-package racer)
 (use-package rust-mode
+  :ensure t
   :defer t
   :config
   (add-hook 'rust-mode-hook

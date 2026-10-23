@@ -7,7 +7,7 @@ Literate source for =libraries/modules/custom/sp-dg-positions.el=. Every =emacs-
 
 ** Context
 
-=discourse-graphs= (loaded in [[file:../academic/sp-dgraphs.org][sp-dgraphs]]) stores my research as typed nodes (question, claim, evidence, source) joined by typed relations (=supports=, =opposes=, =informs=, =answers=). It can tell me that a claim is contested, but only through its own dashboards, and its status logic is fixed.
+=discourse-graphs= (loaded in [[file:sp-graphs.org][sp-graphs]]) stores my research as typed nodes (question, claim, evidence, source) joined by typed relations (=supports=, =opposes=, =informs=, =answers=). It can tell me that a claim is contested, but only through its own dashboards, and its status logic is fixed.
 
 This module adds three things on top of it:
 
@@ -33,7 +33,7 @@ They work in tandem because a position (a claim) is a note too. Use the hierarch
 
 ** Loading it
 
-The module is loaded from =init.el=, in the Academic block of =lem--default-modules=, after =sp-dgraphs= and =sp-vulpea-hierarchy=:
+The module is loaded from =init.el=, in the Academic block of =lem--default-modules=, after =sp-graphs= and =sp-vulpea-hierarchy=:
 
 #+begin_src emacs-lisp :tangle no
 'sp-dg-positions

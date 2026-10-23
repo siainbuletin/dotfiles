@@ -62,6 +62,7 @@
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
+  :ensure t
   :bind (("C-\"" . #'goto-last-change)))
 
 (provide 'sp-goto)

@@ -8,6 +8,7 @@
 
 ;; Taken from Emacs Writing Studio.
 (use-package openwith
+  :ensure t
   :config
   (openwith-mode t)
   :custom

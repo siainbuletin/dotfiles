@@ -37,12 +37,6 @@
         (TeX-next-error)
       (minibuffer-message "latexmk-done"))))
 
-(use-package auctex-latexmk
-  :defer t)
-
-(use-package company-auctex
-  :defer t)
-
 (use-package auctex
   :ensure t
   :mode (("\\.tex\\'" . latex-mode)
@@ -59,6 +53,14 @@
           TeX-save-query nil
           TeX-PDF-mode t)
     (setq-default TeX-master nil)))
+
+(use-package auctex-latexmk
+  :ensure t
+  :defer t)
+
+(use-package company-auctex
+  :ensure t
+  :defer t)
 
 (use-package latex
   :ensure nil

@@ -44,6 +44,7 @@ The root is added to the workspace the first time it is shown."
 
 ;;;; Add nerd-icons for treemacs
 (use-package treemacs-nerd-icons
+  :ensure t
   :config
   (treemacs-nerd-icons-config))
 

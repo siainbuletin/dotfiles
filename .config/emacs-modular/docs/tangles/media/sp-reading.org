@@ -56,6 +56,7 @@ Configures =calibredb=, deferred until used, to point at the Calibre library in 
 
 #+begin_src emacs-lisp -i
 (use-package calibredb
+  :ensure t
   :defer t
   :config
   (setq calibredb-root-dir (sp-path sp-documents-dir "calibre-library"))

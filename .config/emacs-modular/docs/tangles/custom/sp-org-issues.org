@@ -20,8 +20,9 @@ pull request and Claude thread in its property drawer.
   Magit there.  For the yadm dotfiles the worktree is added from the
   yadm repository itself, so the live config in ~ is never touched.
 
-Load it after sp-org-ext: it adds to the capture templates and agenda
-commands that sp-vulpea-para sets.
+The `I' capture template is defined in sp-org-capture, and the issue
+agenda commands (`i i', `i b') and every agenda key are defined in
+sp-agenda-views: look there for them.  Load this module before both.
 #+end_quote
 
 * Preamble
@@ -139,8 +140,9 @@ The file header: the first line carries the file name, a short summary and the =
 ;;   requests of the same repositories (read with the gh client) into one
 ;;   list, and shows it on the first start of Emacs each day.
 ;;
-;; Load it after sp-org-ext: it adds to the capture templates and agenda
-;; commands that sp-vulpea-para sets.
+;; The `I' capture template is defined in sp-org-capture, and the issue
+;; agenda commands (`i i', `i b') and every agenda key are defined in
+;; sp-agenda-views: look there for them.  Load this module before both.
 
 ;;; Code:
 #+end_src
@@ -410,15 +412,7 @@ Points the capture at the issues file and moves to the chosen repository heading
 
 ** Template key
 
-Appends the template as =I= ("Issue"), so =C-c c I= files an issue.
-
-#+begin_src emacs-lisp -i
-(add-to-list 'org-capture-templates
-             '("I" "Issue" entry
-               (function sp-org-issues-capture-target)
-               (function sp-org-issues-capture-template))
-             t)
-#+end_src
+The template is not registered here. =sp-org-capture= holds every capture template (no duplication) and files an issue under =I= ("Issue"), so =C-c c I= works, calling =sp-org-issues-capture-target= and =sp-org-issues-capture-template= from this module.
 
 * Agenda
 
@@ -452,28 +446,12 @@ Every issue view is restricted to the issues file, whatever =org-agenda-files= h
 
 ** Custom commands
 
-Adds an =i= prefix to the agenda dispatcher (=C-c o a=):
+The issue views are not registered here. =sp-agenda-views= defines every agenda view and every agenda key in one place, and it adds an =i= prefix to the agenda dispatcher (=C-c o a=) that calls =sp-org-issues--agenda-files= from this module:
 
 - =i i= Issue board: in progress, next, waiting, and open issues, in that order, in a buffer named =*Issues*=.
 - =i b= Issues with a branch: every open issue whose =BRANCH= is set.
 
 From the agenda, =t= changes an issue's state, =:= sets its tags, =C-c C-x p= sets a property such as =PR=, and =RET= jumps to it.
-
-#+begin_src emacs-lisp -i
-(dolist (command
-         `(("i" . "Issues")
-           ("ii" "Issue board"
-            ((todo "PROG" ((org-agenda-overriding-header "In progress")))
-             (todo "NEXT" ((org-agenda-overriding-header "Next")))
-             (todo "WAIT" ((org-agenda-overriding-header "Waiting on review or a reply")))
-             (todo "TODO" ((org-agenda-overriding-header "Open"))))
-            ((org-agenda-files (sp-org-issues--agenda-files))
-             (org-agenda-buffer-name "*Issues*")))
-           ("ib" "Issues with a branch" tags-todo "BRANCH<>\"\""
-            ((org-agenda-files (sp-org-issues--agenda-files))
-             (org-agenda-overriding-header "Issues with a branch")))))
-  (add-to-list 'org-agenda-custom-commands command t))
-#+end_src
 
 * Branches and worktrees
 

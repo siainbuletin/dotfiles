@@ -97,7 +97,7 @@
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation
@@ -119,7 +119,7 @@
         ;; Academic
         sp-academic
         ;; sp-statistics
-        sp-dgraphs
+        sp-graphs
         sp-notes
 
         ;; Functions
@@ -185,7 +185,7 @@
         sp-network
         sp-scratch
         sp-server
-        sp-splash
+        sp-dashboard
         sp-spelling
         sp-templating
         sp-text-manipulation

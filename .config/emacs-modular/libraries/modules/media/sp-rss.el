@@ -11,6 +11,7 @@
 ;;; Code:
 
 (use-package elfeed
+  :ensure t
   :custom
   (elfeed-db-directory
    (expand-file-name "elfeed" user-emacs-directory))

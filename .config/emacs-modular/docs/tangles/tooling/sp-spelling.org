@@ -76,6 +76,7 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 #+begin_src emacs-lisp -i
 ;; completion of spellings
 (use-package flyspell-correct
+  :ensure t
   :after flyspell
   :bind (:map flyspell-mode-map
          ("C-;" . flyspell-correct-previous)
@@ -116,6 +117,7 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 #+begin_src emacs-lisp -i
 ;; Completion of misspelled words in buffer
 (use-package consult-flyspell
+  :ensure t
   :after flyspell
   :config
   (setq consult-flyspell-set-point-after-word t

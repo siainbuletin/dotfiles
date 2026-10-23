@@ -45,6 +45,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro
+  :ensure t
   :commands org-pomodoro
   :init
   (progn
@@ -67,6 +68,7 @@ Configures =org-focus-hud=, bound globally to =C-c f=. Its display refreshes eve
 #+begin_src emacs-lisp -i
 ;; Includes focus for checklists - plugs into org-auto-scheduler
 (use-package org-focus-hud
+  :ensure (:host github :repo "SSD2019/org-focus-hud")
   :bind ("C-c f" . org-focus-hud)
   :config
   ;; Optional: Customize refresh interval in seconds

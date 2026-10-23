@@ -121,16 +121,20 @@
 ;;;;; Eshell Pcomplete
 
 (use-package pcmpl-homebrew
+  :ensure t
   :after eshell)
 
 (use-package pcmpl-args
+  :ensure t
   :after eshell)
 
 (use-package pcomplete-extension
+  :ensure t
   :after eshell)
 
 ;; Provide help support -- see also the info function below
 (use-package esh-help
+  :ensure t
   :after eshell
   :config
   ;; Eldoc support.
@@ -138,6 +142,7 @@
 
 ;; Dir navigation -- see also dir jumping below
 (use-package eshell-up
+  :ensure t
   :commands (eshell-up)
   :config
   (defalias 'eshell/up #'eshell-up))
@@ -352,6 +357,7 @@ ALIASES is a flat list of alias -> command pairs. e.g.
 
 ;;;;; Syntax Highlighting
 (use-package eshell-syntax-highlighting
+  :ensure t
   :after eshell
   :config
   ;; Enable in all Eshell buffers.
