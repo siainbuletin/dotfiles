@@ -854,14 +854,27 @@ result fails the check gets :error instead."
 
 Files are read as UTF-8 and written back as UTF-8. A file with carriage returns is refused rather than rewritten. The text of a file is identified by its SHA-1, which the preview records and the apply step compares, so a file edited after the preview is skipped. The backup is a copy under =sp-org-lint-fn-backup-directory=; if it cannot be made, the file is not written. The new text goes to a temporary file in the same folder and is renamed over the original.
 
+Another Emacs (the one you work in) may have the same files open, so the apply step is careful in these ways:
+
+- The scan never writes. Only the apply step does, and only to files whose text still has the SHA-1 of the preview.
+- Files that the main Emacs has open with unsaved changes are left out before the worker starts; the worker also skips any file with an Emacs lock file (=.#name=), which Emacs creates as soon as a buffer is modified, so edits started after the apply began are covered too.
+- The SHA-1 is checked twice: when the file is read, and again just before the write, after the backup. Whatever happens in the milliseconds between that check and the rename cannot be excluded, but the pre-change copy is in the backup folder, and Emacs itself asks before saving a buffer whose file changed on disk.
+- A file that is a symbolic link is written through the link (the link stays), and its target is what is backed up. A file that is not valid UTF-8, or has carriage returns, is never rewritten.
+- The worker is =emacs -Q=, so it loads the Org that ships with Emacs, not the one Elpaca installed. The check after planning (references, dangling labels, number of definitions) is there so that a difference in parsing cannot change a file silently.
+- Buffers visiting a written file, and without unsaved changes, are reverted afterwards, so a later save cannot write the old text back.
+
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--read (file)
-  "Return the text of FILE, read as UTF-8."
+  "Return the text of FILE, read as UTF-8.
+Signal an error for a file that is not clean UTF-8 or has carriage returns,
+since writing it back could change it."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8))
       (insert-file-contents file))
     (when (search-forward "\r" nil t)
       (error "carriage returns in the file; not touched"))
+    (when (memq 'eight-bit (find-charset-region (point-min) (point-max)))
+      (error "the file is not valid UTF-8; not touched"))
     (buffer-string)))
 
 (defun sp-org-lint-fn-plan-file (file)
@@ -874,7 +887,8 @@ Files are read as UTF-8 and written back as UTF-8. A file with carriage returns 
 
 (defun sp-org-lint-fn--backup (file root)
   "Copy FILE below the folder ROOT, keeping its path.  Return the copy."
-  (let ((dest (expand-file-name
+  (let* ((file (file-truename file))
+         (dest (expand-file-name
                (replace-regexp-in-string "\\`\\(?:[A-Za-z]:\\)?[/\\\\]*" ""
                                          file)
                root)))
@@ -886,9 +900,12 @@ Files are read as UTF-8 and written back as UTF-8. A file with carriage returns 
     dest))
 
 (defun sp-org-lint-fn--write (file text)
-  "Replace the contents of FILE with TEXT, through a temporary file."
-  (let ((tmp (make-temp-file (concat file ".sp-lint-")))
-        (modes (file-modes file)))
+  "Replace the contents of FILE with TEXT, through a temporary file.
+When FILE is a symbolic link the file it points to is replaced, so the link
+stays a link."
+  (let* ((file (file-truename file))
+         (tmp (make-temp-file (concat file ".sp-lint-")))
+         (modes (file-modes file)))
     (condition-case err
         (progn
           (let ((coding-system-for-write 'utf-8-unix))
@@ -916,9 +933,20 @@ and :status, `written' (with :backup and :moves) or `skipped' (with
               (list :file file :status 'skipped :reason "nothing to move"))
              (t
               (let ((backup (sp-org-lint-fn--backup file backup-root)))
-                (sp-org-lint-fn--write file (plist-get plan :text))
-                (list :file file :status 'written :backup backup
-                      :moves (length (plist-get plan :moves)))))))))
+                ;; The last look, just before the write: it leaves a gap
+                ;; of milliseconds for someone else to save the file.
+                (cond
+                 ((file-locked-p file)
+                  (list :file file :status 'skipped
+                        :reason "open with unsaved changes in another Emacs"))
+                 ((not (equal (secure-hash 'sha1 (sp-org-lint-fn--read file))
+                              sha))
+                  (list :file file :status 'skipped
+                        :reason "changed while it was being linted"))
+                 (t
+                  (sp-org-lint-fn--write file (plist-get plan :text))
+                  (list :file file :status 'written :backup backup
+                        :moves (length (plist-get plan :moves)))))))))))
     (error (list :file file :status 'skipped
                  :reason (error-message-string err)))))
 #+end_src
@@ -1498,6 +1526,57 @@ Fixtures are lists of lines, so that no line of the fake vault starts with a sta
       (when buffer (kill-buffer buffer))
       (delete-directory dir t)
       (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-apply-keeps-a-symlink-a-symlink ()
+  (let* ((moving (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""
+                                         "* Footnotes" "[fn:a] Source."))
+         (dir (sp-org-lint-test--vault (cons "real.org" moving)))
+         (backups (make-temp-file "sp-lint-backup-" t))
+         (real (expand-file-name "real.org" dir))
+         (link (expand-file-name "link.org" dir))
+         (plan (progn (make-symbolic-link real link) (sp-org-lint-fn-plan-file link))))
+    (unwind-protect
+        (let ((result (sp-org-lint-fn-apply-file link (plist-get plan :sha) backups)))
+          (should (eq (plist-get result :status) 'written))
+          (should (file-symlink-p link))
+          (should (string-match-p "^\\[fn:a\\] Source\\.$"
+                                  (with-temp-buffer (insert-file-contents real)
+                                                    (buffer-string))))
+          (should-not (string-match-p "^\\* Footnotes"
+                                      (with-temp-buffer (insert-file-contents real)
+                                                        (buffer-string)))))
+      (delete-directory dir t)
+      (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-apply-skips-a-file-locked-by-another-emacs ()
+  (let* ((dir (sp-org-lint-test--vault
+               (cons "a.org" (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""
+                                                     "* Footnotes" "[fn:a] Source."))))
+         (backups (make-temp-file "sp-lint-backup-" t))
+         (file (expand-file-name "a.org" dir))
+         (plan (sp-org-lint-fn-plan-file file))
+         (before (with-temp-buffer (insert-file-contents file) (buffer-string))))
+    (unwind-protect
+        (progn
+          ;; Emacs's own lock file: a link named .#FILE whose target is USER@HOST.PID.
+          (make-symbolic-link "someone@elsewhere.4999999" (expand-file-name ".#a.org" dir))
+          (let ((result (sp-org-lint-fn-apply-file file (plist-get plan :sha) backups)))
+            (should (eq (plist-get result :status) 'skipped))
+            (should (string-match-p "unsaved changes" (plist-get result :reason)))
+            (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                           before))))
+      (delete-directory dir t)
+      (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-refuses-a-file-that-is-not-utf-8 ()
+  (let* ((dir (make-temp-file "sp-lint-vault-" t))
+         (file (expand-file-name "latin.org" dir)))
+    (unwind-protect
+        (progn
+          (let ((coding-system-for-write 'binary))
+            (write-region "* Alpha\nCaf\351.[fn:a]\n\n* Footnotes\n[fn:a] S.\n" nil file))
+          (should (plist-get (sp-org-lint-fn-plan-file file) :error)))
+      (delete-directory dir t))))
 
 (ert-deftest sp-org-lint-footnote-apply-skips-a-file-changed-since-the-preview ()
   (let* ((dir (sp-org-lint-test--vault

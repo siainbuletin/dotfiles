@@ -149,6 +149,57 @@
       (delete-directory dir t)
       (delete-directory backups t))))
 
+(ert-deftest sp-org-lint-footnote-apply-keeps-a-symlink-a-symlink ()
+  (let* ((moving (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""
+                                         "* Footnotes" "[fn:a] Source."))
+         (dir (sp-org-lint-test--vault (cons "real.org" moving)))
+         (backups (make-temp-file "sp-lint-backup-" t))
+         (real (expand-file-name "real.org" dir))
+         (link (expand-file-name "link.org" dir))
+         (plan (progn (make-symbolic-link real link) (sp-org-lint-fn-plan-file link))))
+    (unwind-protect
+        (let ((result (sp-org-lint-fn-apply-file link (plist-get plan :sha) backups)))
+          (should (eq (plist-get result :status) 'written))
+          (should (file-symlink-p link))
+          (should (string-match-p "^\\[fn:a\\] Source\\.$"
+                                  (with-temp-buffer (insert-file-contents real)
+                                                    (buffer-string))))
+          (should-not (string-match-p "^\\* Footnotes"
+                                      (with-temp-buffer (insert-file-contents real)
+                                                        (buffer-string)))))
+      (delete-directory dir t)
+      (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-apply-skips-a-file-locked-by-another-emacs ()
+  (let* ((dir (sp-org-lint-test--vault
+               (cons "a.org" (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""
+                                                     "* Footnotes" "[fn:a] Source."))))
+         (backups (make-temp-file "sp-lint-backup-" t))
+         (file (expand-file-name "a.org" dir))
+         (plan (sp-org-lint-fn-plan-file file))
+         (before (with-temp-buffer (insert-file-contents file) (buffer-string))))
+    (unwind-protect
+        (progn
+          ;; Emacs's own lock file: a link named .#FILE whose target is USER@HOST.PID.
+          (make-symbolic-link "someone@elsewhere.4999999" (expand-file-name ".#a.org" dir))
+          (let ((result (sp-org-lint-fn-apply-file file (plist-get plan :sha) backups)))
+            (should (eq (plist-get result :status) 'skipped))
+            (should (string-match-p "unsaved changes" (plist-get result :reason)))
+            (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                           before))))
+      (delete-directory dir t)
+      (delete-directory backups t))))
+
+(ert-deftest sp-org-lint-footnote-refuses-a-file-that-is-not-utf-8 ()
+  (let* ((dir (make-temp-file "sp-lint-vault-" t))
+         (file (expand-file-name "latin.org" dir)))
+    (unwind-protect
+        (progn
+          (let ((coding-system-for-write 'binary))
+            (write-region "* Alpha\nCaf\351.[fn:a]\n\n* Footnotes\n[fn:a] S.\n" nil file))
+          (should (plist-get (sp-org-lint-fn-plan-file file) :error)))
+      (delete-directory dir t))))
+
 (ert-deftest sp-org-lint-footnote-apply-skips-a-file-changed-since-the-preview ()
   (let* ((dir (sp-org-lint-test--vault
                (cons "a.org" (sp-org-lint-test--text "* Alpha" "Claim.[fn:a]" ""

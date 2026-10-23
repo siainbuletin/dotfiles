@@ -636,12 +636,16 @@ result fails the check gets :error instead."
                     (list :error "the result failed the footnote check; file left alone"))))))))
 
 (defun sp-org-lint-fn--read (file)
-  "Return the text of FILE, read as UTF-8."
+  "Return the text of FILE, read as UTF-8.
+Signal an error for a file that is not clean UTF-8 or has carriage returns,
+since writing it back could change it."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8))
       (insert-file-contents file))
     (when (search-forward "\r" nil t)
       (error "carriage returns in the file; not touched"))
+    (when (memq 'eight-bit (find-charset-region (point-min) (point-max)))
+      (error "the file is not valid UTF-8; not touched"))
     (buffer-string)))
 
 (defun sp-org-lint-fn-plan-file (file)
@@ -654,7 +658,8 @@ result fails the check gets :error instead."
 
 (defun sp-org-lint-fn--backup (file root)
   "Copy FILE below the folder ROOT, keeping its path.  Return the copy."
-  (let ((dest (expand-file-name
+  (let* ((file (file-truename file))
+         (dest (expand-file-name
                (replace-regexp-in-string "\\`\\(?:[A-Za-z]:\\)?[/\\\\]*" ""
                                          file)
                root)))
@@ -666,9 +671,12 @@ result fails the check gets :error instead."
     dest))
 
 (defun sp-org-lint-fn--write (file text)
-  "Replace the contents of FILE with TEXT, through a temporary file."
-  (let ((tmp (make-temp-file (concat file ".sp-lint-")))
-        (modes (file-modes file)))
+  "Replace the contents of FILE with TEXT, through a temporary file.
+When FILE is a symbolic link the file it points to is replaced, so the link
+stays a link."
+  (let* ((file (file-truename file))
+         (tmp (make-temp-file (concat file ".sp-lint-")))
+         (modes (file-modes file)))
     (condition-case err
         (progn
           (let ((coding-system-for-write 'utf-8-unix))
@@ -696,9 +704,20 @@ and :status, `written' (with :backup and :moves) or `skipped' (with
               (list :file file :status 'skipped :reason "nothing to move"))
              (t
               (let ((backup (sp-org-lint-fn--backup file backup-root)))
-                (sp-org-lint-fn--write file (plist-get plan :text))
-                (list :file file :status 'written :backup backup
-                      :moves (length (plist-get plan :moves)))))))))
+                ;; The last look, just before the write: it leaves a gap
+                ;; of milliseconds for someone else to save the file.
+                (cond
+                 ((file-locked-p file)
+                  (list :file file :status 'skipped
+                        :reason "open with unsaved changes in another Emacs"))
+                 ((not (equal (secure-hash 'sha1 (sp-org-lint-fn--read file))
+                              sha))
+                  (list :file file :status 'skipped
+                        :reason "changed while it was being linted"))
+                 (t
+                  (sp-org-lint-fn--write file (plist-get plan :text))
+                  (list :file file :status 'written :backup backup
+                        :moves (length (plist-get plan :moves)))))))))))
     (error (list :file file :status 'skipped
                  :reason (error-message-string err)))))
 
