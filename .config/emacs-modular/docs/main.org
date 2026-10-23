@@ -134,7 +134,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** text/
 
-- [[file:tangles/text/sp-org-agenda.org][sp-agenda-views]] :: Custom agenda views, including the PARA view; tangled from the same doc as =sp-org-agenda= ([[file:../libraries/modules/text/sp-agenda-views.el][sp-agenda-views.el]])
+- [[file:tangles/text/sp-org-agenda.org][sp-agenda-views]] :: Every custom agenda view and every agenda key, including the PARA view; tangled from the same doc as =sp-org-agenda= ([[file:../libraries/modules/text/sp-agenda-views.el][sp-agenda-views.el]])
 - [[file:tangles/text/sp-csv.org][sp-csv]] :: Create Org files from a CSV export ([[file:../libraries/modules/text/sp-csv.el][sp-csv.el]])
 - [[file:tangles/text/sp-denote.org][sp-denote]] :: Denote note-taking setup ([[file:../libraries/modules/text/sp-denote.el][sp-denote.el]])
 - [[file:tangles/text/sp-org-agenda.org][sp-org-agenda]] :: Org agenda settings and helpers ([[file:../libraries/modules/text/sp-org-agenda.el][sp-org-agenda.el]])
@@ -149,6 +149,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/text/sp-org-ext.org][sp-org-ext]] :: Org extensions and sub-module loader ([[file:../libraries/modules/text/sp-org-ext.el][sp-org-ext.el]])
 - [[file:tangles/text/sp-org-fn.org][sp-org-fn]] :: Scoped Org footnotes (experimental) ([[file:../libraries/modules/text/sp-org-fn.el][sp-org-fn.el]])
 - [[file:tangles/text/sp-org-id-link.org][sp-org-id-link]] :: Org IDs and link utilities ([[file:../libraries/modules/text/sp-org-id-link.el][sp-org-id-link.el]])
+- [[file:tangles/text/sp-org-keywords.org][sp-org-keywords]] :: The one list of Org TODO keywords, one constant per use ([[file:../libraries/modules/text/sp-org-keywords.el][sp-org-keywords.el]])
 - [[file:tangles/text/sp-org-images.org][sp-org-images]] :: Images in Org with org-download ([[file:../libraries/modules/text/sp-org-images.el][sp-org-images.el]])
 - [[file:tangles/text/sp-org-narrow.org][sp-org-narrow]] :: Narrowing helpers for long Org buffers ([[file:../libraries/modules/text/sp-org-narrow.el][sp-org-narrow.el]])
 - [[file:tangles/text/sp-org-navigation.org][sp-org-navigation]] :: Org navigation placeholder ([[file:../libraries/modules/text/sp-org-navigation.el][sp-org-navigation.el]])

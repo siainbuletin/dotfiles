@@ -2,16 +2,15 @@
 
 ;;; Commentary:
 
-;; Configures Org's agenda: the `C-c o a' key, the prefix format of agenda
-;; lines, visual styling of the time grid and tags, scheduling and sorting
-;; rules, the list of agenda files, and the `org-super-agenda' grouping. It
+;; Configures Org's agenda: the prefix format of agenda lines, visual styling
+;; of the time grid and tags, scheduling and sorting rules, and the
+;; `org-super-agenda' grouping. The agenda files are owned by vulpea-para
+;; (sp-vulpea-para) and the keys are in sp-agenda-views. It
 ;; also adds a command to jump to the daily view, automatic refresh of the
 ;; agenda after a capture, and an alphapapa recipe for showing an agenda
 ;; limited to the current subtree or region.
 
 ;;; Code:
-
-(keymap-global-set "C-c o a" 'org-agenda)
 
 ;;;; Org Agenda
 ;;;;; Agenda Settings
@@ -22,14 +21,13 @@
   ;; Agenda logging
   (org-agenda-start-with-log-mode t)
 
-  ;; from stack overflow https://stackoverflow.com/a/22900459/6277148
-  ;; note that the formatting is nicer that just using '%b'
+  ;; The Area > Project category is evaluated when an agenda is built, so
+  ;; vulpea-para does not have to be loaded yet.
   (org-agenda-prefix-format
-   '((agenda . " %-18c%?-10t ")
-     (timeline . "  % s")
-     (todo . " ")
-     (tags . " ")
-     (search . " %i %-12:c")))
+   '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
+     (todo   . " %(vulpea-para-agenda-category 36) ")
+     (tags   . " %(vulpea-para-agenda-category 36) ")
+     (search . " %i %(vulpea-para-agenda-category 36) ")))
 )
 
 ;;;; Org other agenda (yibie)
@@ -100,13 +98,13 @@
 (setq org-super-agenda-date-format "%A (%e)"
       org-super-agenda-groups
       '((:name "Accomplishments"
-         :todo ("DONE" "CANCELED")
+         :todo ("DONE" "CNCL" "CANCELLED")
          :order 4)
         (:name "End of Day"
          :habit t
          :order 2)
         (:name "Uncompleted Work"
-         :todo "DOING"
+         :todo ("PROG" "DOING")
          :scheduled past
          :order 0)
         (:name "Today's Tasks"
@@ -125,12 +123,6 @@
 ;; and warns that the explicit declaration came too late.
 (use-package org-ql
  :ensure t)
-
-(setq org-agenda-files
-        (list
-         (sp-path sp-notes-dir "area/")
-         (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
-))
 
 ;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region

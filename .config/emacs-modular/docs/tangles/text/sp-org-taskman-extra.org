@@ -10,7 +10,7 @@ This module holds the task management side of the Org setup: TODO keyword sequen
 
 The module is loaded from =init.el= among the text modules. Packages it installs: =org-edna=, =hl-todo=, =consult-todo= and =org-gtd=. =org-inlinetask= ships with Org.
 
-Worth knowing: the keyword sequences set at the top of the file are replaced near the end by a much shorter list (TODO, WAITING, DOING, DONE, CANCELLED). That later list wins, and it lacks the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= points to.
+Worth knowing: the TODO keywords are not set here any more. =sp-org-keywords= defines every sequence once, and its =TODO NEXT PROG WAIT | DONE CNCL= sequence is the one =org-gtd-keyword-mapping= points to. The org-gtd key that touches the agenda (=C-c .= in the agenda) is bound in =sp-agenda-views=, and org-gtd's own capture key is not bound: the inbox is =~/notes/inbox.org=, filled by the templates of =sp-org-capture=.
 
 * Overview
 
@@ -23,8 +23,8 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;;; Commentary:
 
-;; This module holds the task management side of the Org setup: TODO keyword
-;; sequences, the tag list with fast-selection keys, priorities, a helper to
+;; This module holds the task management side of the Org setup: the tag list
+;; with fast-selection keys, priorities, a helper to
 ;; turn a heading into a project, task dependencies with `org-edna',
 ;; highlighting and searching of TODO comments with `hl-todo' and
 ;; `consult-todo', and the `org-gtd' workflow under the `C-c d' prefix.
@@ -41,25 +41,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** TODO keyword sequences
 
-The comments ask which keywords are really used and how the different sequences could be harmonised. Three sequences are defined:
-- TODO, NEXT, PROG and WAIT, done with DONE or CNCL. This is the set =org-gtd= expects, with fast keys t, n, p and w, and WAIT records a timestamp when entered.
-- A long GTD-like sequence with DOING, NEXT, WAITING, MAYBE and SOMEDAY, done with DONE.
-- WAITING and HOLD, done with CANCELED, which ask for a note on state changes.
-
-The form now parses correctly (an earlier misplaced parenthesis that aborted the module is fixed; the final closing parenthesis sits alone on the next line). Several keywords and fast keys repeat across sequences, for example TODO on t, NEXT on n and both WAIT and WAITING on w, which makes fast selection ambiguous. In any case this value is overwritten by the last form in the file.
-
-#+begin_src emacs-lisp -i
-;;; Commentary:
-;;;; Org TODO Keywords
-;; What are the TODO keywords that you're actually using?
-;;
-;; How can you harmonize different sequences of keywords?
-(setq org-todo-keywords
-      '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w!)" "|" "DONE" "CNCL")
-        (sequence "TODO(t)" "DOING(g)" "NEXT(n)" "WAITING(w@/!)" "MAYBE(m)" "SOMEDAY(s)" "|" "DONE(d)")
-        (sequence "WAITING(w@/!)" "HOLD(h@/!)" "|" "CANCELED(c@/!)"))
-        )
-#+end_src
+The sequences are defined in =sp-org-keywords= (see its table of use cases). Nothing is set here; this module only reads them through =org-gtd-keyword-mapping= and the faces below.
 
 ** Tags
 
@@ -224,10 +206,10 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=. The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning. =org-gtd-keyword-mapping= maps the GTD states to TODO, NEXT, WAIT and CNCL. Adding the GTD directory to the agenda is commented out because it raised an error. =org-edna-mode= is enabled again here since org-gtd relies on it.
 
 Keybindings:
-- ~C-c d c~ captures into the GTD inbox, ~C-c d p~ processes the inbox.
+- ~C-c d p~ processes the GTD inbox. There is no key for org-gtd's own capture (~C-c d c~ was unbound): capture goes to =~/notes/inbox.org= through =sp-org-capture=.
 - ~C-c d e~ opens the engage view, ~C-c d n~ shows all next actions, ~C-c d s~ shows stuck projects.
 - ~C-c c~ in clarify buffers runs =org-gtd-organize=. This shadows the global =org-capture= key only inside those buffers.
-- ~C-c .~ in the agenda opens =org-gtd-agenda-transient= for quick actions on tasks.
+- ~C-c .~ in the agenda opens =org-gtd-agenda-transient= for quick actions on tasks. It is bound in =sp-agenda-views=, where every agenda key lives.
 
 #+begin_src emacs-lisp -i
 ;;;; Org-gtd package
@@ -258,18 +240,15 @@ Keybindings:
   (org-edna-mode 1)
 
   :bind 
-  (("C-c d c" . org-gtd-capture)
-   ("C-c d e" . org-gtd-engage)
+  (("C-c d e" . org-gtd-engage)
    ("C-c d p" . org-gtd-process-inbox)
    ("C-c d n" . org-gtd-show-all-next)
    ("C-c d s" . org-gtd-reflect-stuck-projects)
 
    :map org-gtd-clarify-mode-map
-   ("C-c c" . org-gtd-organize) ;; (only works in clarify buffers)
-
-   ;; Quick actions on tasks in agenda views (optional but recommended)
-   :map org-agenda-mode-map
-   ("C-c ." . org-gtd-agenda-transient)))
+   ("C-c c" . org-gtd-organize))) ;; (only works in clarify buffers)
+;; The agenda key of org-gtd (C-c . for `org-gtd-agenda-transient') is
+;; bound in sp-agenda-views, with every other agenda key.
 #+end_src
 
 ** Lazy inline tasks
@@ -282,16 +261,17 @@ Declares the built-in =org-inlinetask= without installing anything (=:ensure nil
   :commands org-inlinetask-insert-task)
 #+end_src
 
-** Final keyword and display overrides
+** Final display overrides
 
-Turns off confirmation before evaluating Babel source blocks (convenient, but any block in any file runs without asking), hides emphasis markers, and sets =org-todo-keywords= once more, to TODO, WAITING, DOING, DONE and CANCELLED. This overrides the sequences at the top of the file, and it does not contain the NEXT, WAIT and CNCL keywords that =org-gtd-keyword-mapping= expects, so org-gtd actions that set those states would use keywords Org does not know as TODO states here. =org-modern-todo-faces= gives TODO, DOING and WAITING coloured badges in =org-modern=.
+Turns off confirmation before evaluating Babel source blocks (convenient, but any block in any file runs without asking) and gives the task keywords coloured badges in =org-modern=. This used to be the place where =org-todo-keywords= was overwritten; that now happens nowhere.
 
 #+begin_src emacs-lisp -i
-;; Creating different TODO keywords for better readability
 (setq org-confirm-babel-evaluate nil
-        org-todo-keywords '((sequence "TODO" "WAITING" "DOING" "|" "DONE" "CANCELLED"))
         org-modern-todo-faces '(("TODO" :foreground "white" :background "darkgreen" :weight bold)
+                                ("NEXT" :foreground "white" :background "darkcyan" :weight bold)
+                                ("PROG" :foreground "white" :background "orange" :weight bold)
                                 ("DOING" :foreground "white" :background "orange" :weight bold)
+                                ("WAIT" :foreground "white" :background "blue")
                                 ("WAITING" :foreground "white" :background "blue")))
 #+end_src
 

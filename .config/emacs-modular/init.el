@@ -260,10 +260,7 @@ the order of `lem--late-modules', for example when debugging."
     ;; AI tooling: the most packages of any module
     sp-ai
     sp-tag-emoji ;; tags as emoji in the modeline and on links
-    sp-thesis-dump
-    ;; for linting purposes - shouldn't slow down the init itself
-    sp-org-normalise ;; vault Tasks and TODO keyword normaliser (preview first)
-    sp-org-issues ;; issue tracker area (after sp-org-ext)
+    sp-thesis-dump    
     )
   "Modules that can wait until after startup, in dependency order.
 Nothing else requires these features, and their packages are not
@@ -365,9 +362,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Org modules: `sp-org-agenda' declares org-super-agenda
                     ;; and then org-ql, which requires it.
                     'sp-org-base
+                    'sp-org-keywords ;; the one list of TODO keywords
                     'sp-denote
                     'sp-org-appearance
-                    'sp-org-capture
                     'sp-org-export
                     ;; 'sp-org-fn
                     'sp-org-narrow
@@ -376,10 +373,18 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-tables
                     'sp-org-agenda
                     'sp-org-taskman-extra
-                    'sp-org-ext
-
+                    'sp-org-ext                     
                     'sp-csv
 
+                     ;; for linting purposes - shouldn't slow down the init itself
+                     'sp-org-normalise ;; vault Tasks and TODO keyword normaliser (preview first)
+                     'sp-org-issues ;; issue tracker area (after sp-org-ext)
+                     ;; `sp-org-capture' and `sp-agenda-views' load last: each
+                     ;; assigns its variable once, from what the modules above
+                     ;; provide (see adr/0009).
+                     'sp-org-capture
+                     'sp-agenda-views
+                     
                     ;; Functions
                     'sp-helper-funct
                     'sp-open-externally
@@ -452,9 +457,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
 
                     ;; Org related settings
                     'sp-org-base
+                    'sp-org-keywords
                     'sp-denote
                     'sp-org-appearance
-                    'sp-org-capture
                     'sp-org-export
                     ;; 'sp-org-fn
                     'sp-org-narrow
@@ -463,6 +468,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-agenda
                     'sp-org-taskman-extra
                     'sp-org-ext
+                    'sp-org-capture
+                    'sp-agenda-views
                     'sp-csv
                     )))
      (require mod))))
