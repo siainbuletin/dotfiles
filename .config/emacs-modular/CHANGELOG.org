@@ -1,6 +1,6 @@
 #+title: Changelog
 #+startup: overview
-
+            
 Changes to the Emacs configuration, one entry per pull request. Entries are
 grouped by merge date, newest first, using the Keep a Changelog categories
 (Added, Changed, Fixed, Removed). Paths are relative to this folder. Long
@@ -11,6 +11,10 @@ to fold or unfold it.
 ** Fixed
 - The lambda art behind the splash menu lost every other character, and =M-x sp-splash-screen= only switched to an old =*splash*= buffer, so a changed setting never showed. The art is complete now, the command redraws the splash, and the art colours are a little stronger. Checked in a headless Emacs 29. ([[https://github.com/siainbuletin/dotfiles/pull/44][#44]], Claude)
 ** Added
+- =emacs-pr --help= (also =-h=, or no argument) prints the commands and the folders a sandbox uses. ([[https://github.com/siainbuletin/dotfiles/pull/27][#27]], Claude)
+- =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
+** Changed
+- A section in the top-level =README.org= on reviewing and merging AI-made changes on macOS: yadm with a plain clone for SourceGit, =gh= and the merge button, Forge and =code-review=, how =sp-vc-ai-workbench= fits, the merge rules learnt from the #18 to #22 stack, and a table of the alternatives considered. ([[https://github.com/siainbuletin/dotfiles/pull/35][#35]], Claude)
 - =sp-vcontrol= loads =forge= after =magit=, so Magit can work with GitHub pull requests and issues; credentials are read only from =~/.authinfo=. It also installs =code-review= for reviewing pull requests in Emacs. Its doc in =docs/tangles/prog/= covers the Forge setup. ([[https://github.com/siainbuletin/dotfiles/pull/30][#30]], Sia)
 - The splash screen draws the lambda from =libraries/lambda-splash.txt= behind the menu (Agenda, Config, …) instead of the PNG logo, in a face that follows the dark or light theme. =sp-splash-art-x-offset= and =sp-splash-art-y-offset= set its position; in the splash, =S-<arrow>= nudges it, =0= resets it and =s= shows the offsets to copy into the config. ([[https://github.com/siainbuletin/dotfiles/pull/31][#31]], Claude)
 - =sp-paths=, a new first module that names the notes, documents, literature, bibliography, source and yadm locations once. Each can be overridden from the environment (for example =SP_NOTES_DIR=), and the Chrome history path has a default per system. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
@@ -18,17 +22,14 @@ to fold or unfold it.
 - Notes can have a type (=question=, =claim=, =evidence= or =source=) from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can list the types it connects, and the browser graph flags other edges with a warning sign. Boxes take the colour of their type when no tag has one, and an attribute computed from a formula, such as =[2]=, follows the title. =relationship-annotator-review= lists the anomalies, the claims with gaps and the strength of each answer. This ports the logic of =discourse-graphs=; =docs/relationship-annotator-vs-discourse-graphs.org= compares the two. ([[https://github.com/siainbuletin/dotfiles/pull/19][#19]], Claude)
 - Each relation in =vulpea-hierarchy-relations= takes a =:direction= (up, down, left, right or an angle), so the browser graph can put =supports=, =opposes= and the like on a chosen side of a note. ([[https://github.com/siainbuletin/dotfiles/pull/18][#18]], Claude)
 - =sp-sandbox=, a new module in =libraries/modules/custom/= with =M-x sp-sandbox-pr= (and =sp-sandbox-remove=, =sp-sandbox-reset-notes=, =sp-sandbox-reseed=) to start a pull request in a sandboxed Emacs from the Emacs I work in. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
-- =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
-** Changed
+- =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude
 - =emacs-pr= gives every pull request its own packages (a clone of a seed of the live =var/elpaca=) and its own copy of the notes, so several sandboxes can run at once next to the live Emacs. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - =vulpea-hierarchy-tag-colors= tints each box in the browser graph and the SVG export by the first of its file tags that has a colour, and the legend lists the tags in view. ([[https://github.com/siainbuletin/dotfiles/pull/17][#17]], Claude)
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
-** Changed
 - =sp-magit-style=, a new module in =libraries/modules/prog/= that makes Magit buffers prettier: larger bold overlined section headings, chevron fold indicators, and =nerd-icons= icons for files and directories (PR number to be filled in, Claude)
 - =sp-sandbox=, a new module in =libraries/modules/custom/= with =M-x sp-sandbox-pr= (and =sp-sandbox-remove=, =sp-sandbox-reset-notes=, =sp-sandbox-reseed=) to start a pull request in a sandboxed Emacs from the Emacs I work in. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - =vulpea-hierarchy-tag-colors= tints each box in the browser graph and the SVG export by the first of its file tags that has a colour, and the legend lists the tags in view. ([[https://github.com/siainbuletin/dotfiles/pull/17][#17]], Claude)
 - =vulpea-hierarchy-relations= declares relations between notes, each read from one or more sources: a metadata key, the inverse of a key (such as =children ::=), or a file property such as =DG_SUPPORTS=. Relations other than =parent= are drawn as labelled links in the browser graph and the SVG export. ([[https://github.com/siainbuletin/dotfiles/pull/16][#16]], Claude)
-** Changed
 - About thirty modules read their locations from =sp-paths= instead of spelling out =~/notes= and the like, and =sp-env= requires it. ([[https://github.com/siainbuletin/dotfiles/pull/22][#22]], Claude)
   - =academic/=: =sp-academic=, =sp-bibprocess=, =sp-citations=, =sp-dgraphs=, =sp-litnotes=, =sp-semantic=
   - =text/=: =sp-agenda-views=, =sp-denote=, =sp-org-agenda=, =sp-org-base=, =sp-org-capture=, =sp-org-ext=, =sp-org-node-mem=, =sp-org-taskman-extra=, =sp-vulpea-base=
@@ -47,9 +48,12 @@ to fold or unfold it.
 
 * 2026-10-21
 ** Added
+- =sp-sandbox=, a new module in =libraries/modules/custom/= with =M-x sp-sandbox-pr= (and =sp-sandbox-remove=, =sp-sandbox-reset-notes=, =sp-sandbox-reseed=) to start a pull request in a sandboxed Emacs from the Emacs I work in. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 - A section in the top-level =README.org= on reviewing and merging AI-made changes on macOS: yadm with a plain clone for SourceGit, =gh= and the merge button, Forge and =code-review=, how =sp-vc-ai-workbench= fits, the merge rules learnt from the #18 to #22 stack, and a table of the alternatives considered. ([[https://github.com/siainbuletin/dotfiles/pull/35][#35]], Claude)
 - Decision records for the AI workflow in =adr/= at the top of the repository, one file per decision (plain clone for GUI tools, SourceGit, merge commits on GitHub, number-prefixed PR branches, merging stacked PRs, =CHANGELOG.org= conflicts, Emacs PR tooling, =sp-vc-ai-workbench=). The macOS section of the top-level =README.org= now only summarises the choices and links to them. ([[https://github.com/siainbuletin/dotfiles/pull/41][#41]], Claude)
 - =emacs-pr=, a fish function (=~/.config/fish/functions/emacs-pr.fish=) that runs a pull request in a sandboxed Emacs with its own copy of the notes and a shared package cache, documented in =README.org=. ([[https://github.com/siainbuletin/dotfiles/pull/24][#24]], Claude)
+** Changed
+- =emacs-pr= gives every pull request its own packages (a clone of a seed of the live =var/elpaca=) and its own copy of the notes, so several sandboxes can run at once next to the live Emacs. ([[https://github.com/siainbuletin/dotfiles/pull/26][#26]], Claude)
 
 * 2026-10-20
 ** Added
