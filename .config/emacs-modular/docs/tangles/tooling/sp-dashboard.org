@@ -1037,7 +1037,7 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
 
 ** Keymap
 
-=sp-dashboard-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-dashboard-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes.
+=sp-dashboard-mode-map= gives the splash single-key bindings: =a=, =t=, =i= and =d= for the four agendas, =c= and =n= for config and notes, =q= and =k= to kill the splash, and =<escape>= to bury it. =S-<arrow>= moves the current art layer, =l= picks the next layer, =0= resets the layers and =s= shows them. =TAB= and =S-TAB= are the only movement: they step through the buttons (the agendas, config and notes), wrapping around, and the selected button is highlighted with =sp-dashboard-focus-face= since the cursor is hidden. The keys and mouse events that scroll, move the cursor, search or mark a region are bound to =ignore=, so the splash can't be scrolled or marked; it simply fills the window and is redrawn when the window changes. Only the buttons are interactive: =sp-dashboard--isolate-menu= marks everything else (the art, the box lines, the title and the footer) =cursor-intangible=, so point can only rest on a button, and puts =sp-dashboard-mode-map= on an overlay over the whole buffer, which ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is. =RET= and a click activate the button.
 
 #+begin_src emacs-lisp -i
 ;;;; Define Minor Mode
@@ -1055,6 +1055,9 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
     (define-key map (kbd "S-<up>") 'sp-dashboard-art-up)
     (define-key map (kbd "S-<down>") 'sp-dashboard-art-down)
     (define-key map (kbd "TAB") 'sp-dashboard-next-button)
+    (define-key map (kbd "RET") 'push-button)
+    (define-key map [mouse-2] 'push-button)
+    (define-key map [follow-link] 'mouse-face)
     (define-key map (kbd "<backtab>") 'sp-dashboard-previous-button)
     (define-key map (kbd "l") 'sp-dashboard-art-next-layer)
     (define-key map (kbd "0") 'sp-dashboard-art-reset)
@@ -1111,6 +1114,26 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
 (defun sp-dashboard--no-region ()
   "Drop the region at once: the splash never marks text."
   (deactivate-mark))
+
+(defun sp-dashboard--isolate-menu ()
+  "Make the buttons the only part of the dashboard that can be reached.
+The rest of the buffer, the art and the text around the buttons, is marked
+`cursor-intangible', so point can only rest on a button.  An overlay over
+the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
+above the other keymaps, so the keys of the dashboard are the same wherever
+point is."
+  (let ((inhibit-read-only t)
+        (position (point-min)))
+    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
+    (let (button)
+      (while (setq button (next-button position))
+        (remove-text-properties (button-start button) (button-end button)
+                                '(cursor-intangible nil))
+        (setq position (button-end button)))))
+  (cursor-intangible-mode 1)
+  (let ((overlay (make-overlay (point-min) (point-max))))
+    (overlay-put overlay 'keymap sp-dashboard-mode-map)
+    (overlay-put overlay 'priority 100)))
 #+end_src
 
 ** Minor mode
@@ -1161,6 +1184,7 @@ Interactive wrapper for =sp-open-notes-in-workspace=, bound to =n=.
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
+  (sp-dashboard--isolate-menu)
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)

@@ -771,6 +771,9 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
     (define-key map (kbd "S-<up>") 'sp-dashboard-art-up)
     (define-key map (kbd "S-<down>") 'sp-dashboard-art-down)
     (define-key map (kbd "TAB") 'sp-dashboard-next-button)
+    (define-key map (kbd "RET") 'push-button)
+    (define-key map [mouse-2] 'push-button)
+    (define-key map [follow-link] 'mouse-face)
     (define-key map (kbd "<backtab>") 'sp-dashboard-previous-button)
     (define-key map (kbd "l") 'sp-dashboard-art-next-layer)
     (define-key map (kbd "0") 'sp-dashboard-art-reset)
@@ -828,6 +831,26 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
   "Drop the region at once: the splash never marks text."
   (deactivate-mark))
 
+(defun sp-dashboard--isolate-menu ()
+  "Make the buttons the only part of the dashboard that can be reached.
+The rest of the buffer, the art and the text around the buttons, is marked
+`cursor-intangible', so point can only rest on a button.  An overlay over
+the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
+above the other keymaps, so the keys of the dashboard are the same wherever
+point is."
+  (let ((inhibit-read-only t)
+        (position (point-min)))
+    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
+    (let (button)
+      (while (setq button (next-button position))
+        (remove-text-properties (button-start button) (button-end button)
+                                '(cursor-intangible nil))
+        (setq position (button-end button)))))
+  (cursor-intangible-mode 1)
+  (let ((overlay (make-overlay (point-min) (point-max))))
+    (overlay-put overlay 'keymap sp-dashboard-mode-map)
+    (overlay-put overlay 'priority 100)))
+
 (define-minor-mode sp-dashboard-mode
   "Emacs minor mode for splash screen."
   :global nil
@@ -871,6 +894,7 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
+  (sp-dashboard--isolate-menu)
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)
