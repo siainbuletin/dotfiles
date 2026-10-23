@@ -190,7 +190,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/tooling/sp-scratch.org][sp-scratch]] :: Persistent scratch buffer ([[file:../libraries/modules/tooling/sp-scratch.el][sp-scratch.el]])
 - [[file:tangles/tooling/sp-server.org][sp-server]] :: Emacs server and daemon management ([[file:../libraries/modules/tooling/sp-server.el][sp-server.el]])
 - [[file:tangles/tooling/sp-spelling.org][sp-spelling]] :: Spell checking ([[file:../libraries/modules/tooling/sp-spelling.el][sp-spelling.el]])
-- [[file:tangles/tooling/sp-splash.org][sp-splash]] :: Custom lambda splash screen ([[file:../libraries/modules/tooling/sp-splash.el][sp-splash.el]])
+- [[file:tangles/tooling/sp-dashboard.org][sp-dashboard]] :: Dashboard (lambda splash screen) ([[file:../libraries/modules/tooling/sp-dashboard.el][sp-dashboard.el]])
 - [[file:tangles/tooling/sp-templating.org][sp-templating]] :: Org structure templates ([[file:../libraries/modules/tooling/sp-templating.el][sp-templating.el]])
 - [[file:tangles/tooling/sp-text-manipulation.org][sp-text-manipulation]] :: Text editing helpers and whitespace cleanup ([[file:../libraries/modules/tooling/sp-text-manipulation.el][sp-text-manipulation.el]])
 - [[file:tangles/tooling/sp-workspaces.org][sp-workspaces]] :: Tab-based workspaces and Projectile ([[file:../libraries/modules/tooling/sp-workspaces.el][sp-workspaces.el]])
