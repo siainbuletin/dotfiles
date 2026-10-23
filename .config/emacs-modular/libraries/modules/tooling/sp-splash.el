@@ -14,8 +14,8 @@
 ;;; Code:
 
 (require 'cl-lib)
-;; Guarded require: without this, a sandbox boot with sp-load-extras
-;; nil and no nerd-icons installed would crash module-load here.
+;; Guarded require: without this, a sandbox boot without nerd-icons
+;; installed would crash module-load here.
 ;; Spec 02 caught the identical pattern in sp-dashboard.el.
 (when (locate-library "nerd-icons")
   (require 'nerd-icons))

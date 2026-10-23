@@ -23,7 +23,7 @@
 
 ;; dashboard dependency
 (use-package page-break-lines
-  :if (and sp-load-extras (locate-library "page-break-lines"))
+  :if (locate-library "page-break-lines")
   :defer t
   :config
   (set-fontset-font "fontset-default"
@@ -33,13 +33,12 @@
 ;;;; Dashboard
 
 ;; Collapsed from two separate :if keys (use-package silently
-;; dropped the first). Adds sp-load-extras gate and
+;; dropped the first). Adds a
 ;; locate-library check on nerd-icons, which :custom
 ;; references via (nerd-icons-sucicon ...).
 
 (use-package dashboard
   :ensure t
-  ;; :if sp-load-extras
   :commands
   (dashboard-open)
   

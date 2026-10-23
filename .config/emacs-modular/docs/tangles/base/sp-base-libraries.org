@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This is one of the first modules loaded in every profile. It installs or declares the small libraries many other packages and =sp-= modules rely on (=subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others), and then collects a number of general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
 
-Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= and =sp-load-extras= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
 
 * Header
 
@@ -168,7 +168,7 @@ Installs =crux=, a set of handy commands from Emacs Prelude, when extras are ena
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
+  :if (locate-library "crux")
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)

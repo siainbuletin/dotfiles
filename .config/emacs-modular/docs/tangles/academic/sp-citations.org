@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module configures citation handling: Org's built-in =oc= citation framework, CSL-based export through =oc-csl= and the =citeproc= library, and =citar= as the interactive front end for inserting, following and acting on citations. It is required from =sp-academic=.
 
-It depends on several user variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=). Citar and citeproc are only configured when =sp-load-extras= is non-nil and the libraries are installed. CSL styles and locales must be present on disk under =~/.local/share/csl/=. Icons come from =nerd-icons= and at-point actions from =embark=.
+It depends on several user variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=). Citar and citeproc are only configured when the libraries are installed. CSL styles and locales must be present on disk under =~/.local/share/csl/=. Icons come from =nerd-icons= and at-point actions from =embark=.
 
 * Org-cite
 
@@ -84,7 +84,7 @@ The Emacs Lisp CSL engine that =oc-csl= uses. It is only declared when extras ar
 #+begin_src emacs-lisp -i
 ;;;; Citeproc
 (use-package citeproc
-  :if (and sp-load-extras (locate-library "citeproc"))
+  :if (locate-library "citeproc")
   :defer t  ;; Defer loading until oc-csl needs it
   :after oc)
 #+end_src
@@ -101,7 +101,7 @@ A *gotcha*: the =when= form setting =citar-symbols= and the =setq= of =citar-not
 ;;;; Citar
 ;; Do you really need to make use of citar?
 (use-package citar
-  :if (and sp-load-extras (locate-library "citar"))
+  :if (locate-library "citar")
   :commands (citar-open-notes
              citar-insert-citation)
   

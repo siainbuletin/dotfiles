@@ -35,7 +35,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** use-package denote
 
-Installs =denote= unconditionally (the =sp-load-extras= guard is commented out) and loads it lazily on =denote=, =denote-create-note= and =denote-link-ol-store=. Once loaded it turns on =denote-rename-buffer-mode=, which renames note buffers to their titles.
+Installs =denote= unconditionally and loads it lazily on =denote=, =denote-create-note= and =denote-link-ol-store=. Once loaded it turns on =denote-rename-buffer-mode=, which renames note buffers to their titles.
 
 Options: dates are prompted with Org's calendar reader, notes are Org files, multi-word keywords are allowed, keywords are sorted, renaming asks for confirmation only before changing the file name and adding front matter, and new notes prompt only for title and keywords. =denote-dired-mode= is enabled in Dired to fontify Denote file names.
 
@@ -47,7 +47,7 @@ Keybindings:
 #+begin_src emacs-lisp -i
 (use-package denote
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "denote"))
+  ;; :if (locate-library "denote")
   :commands (denote denote-create-note denote-link-ol-store)
   
   :config

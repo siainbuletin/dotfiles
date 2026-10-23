@@ -85,7 +85,7 @@
 
 (use-package crux
   :ensure t
-  :if (and sp-load-extras (locate-library "crux"))
+  :if (locate-library "crux")
   :defer 1
   :bind
   ("C-k"   . crux-smart-kill-line)

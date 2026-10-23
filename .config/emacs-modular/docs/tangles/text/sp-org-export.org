@@ -76,7 +76,7 @@ Installs =ox-pandoc= and loads it when one of the listed export commands is firs
 ;; Export w/pandoc
 (use-package ox-pandoc
   :ensure t
-  ;; :if (and sp-load-extras (locate-library "ox-pandoc") (executable-find "pandoc"))
+  ;; :if (and (locate-library "ox-pandoc") (executable-find "pandoc"))
   :defer t  ;; Defer loading until needed for export
   :commands (org-pandoc-export-to-html5
              org-pandoc-export-to-html5-and-open
@@ -399,7 +399,7 @@ When extras are enabled and the package is installed, =ox-hugo= provides command
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
 (use-package ox-hugo
-  :if (and sp-load-extras (locate-library "ox-hugo"))
+  :if (locate-library "ox-hugo")
   :defer t  ;; Defer loading until needed for Hugo export
   :commands (org-hugo-export-as-md
              org-hugo-export-to-md
@@ -438,7 +438,7 @@ When extras are enabled, =htmlize= is available for converting buffers, with the
 #+begin_src emacs-lisp -i
 ;;;; Org Html Conversion
 (use-package htmlize
-  :if (and sp-load-extras (locate-library "htmlize"))
+  :if (locate-library "htmlize")
   :commands (htmlize-buffer))
 #+end_src
 
