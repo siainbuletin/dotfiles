@@ -8,6 +8,12 @@ This module configures how Org documents are exported. It sets general =ox= opti
 
 External programs matter here: =pandoc= for most conversions, LibreOffice for ODT to DOCX conversion, and the macOS tools =pbpaste=, =pbcopy=, =textutil=, =open= and AppleScript for the clipboard and Mail helpers, so much of the module is macOS-only. Some helpers depend on other modules (=sp-bibliography= from =sp-academic=, =sp-copy-whole-buffer-to-clipboard= from =sp-helper-funct=). Many functions come from the Lambda Emacs config (the =lem-= prefix). The module is loaded from =init.el= with the Org modules. A leading comment notes that the export settings should eventually be aligned with the author's typesetting setup.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This should be correlated with the typesetting that I currently have running.
+#+end_quote
+
 * Base export settings
 
 ** Header

@@ -10,6 +10,17 @@ This module configures the built-in =tab-bar= and the =tabspaces= package so tha
 
 The setup is inherited from Lambda Emacs (hence the =lem-= prefix). It is loaded in the window-management part of =init.el=, after =sp-buffers= and =sp-windows=. Note that nothing in the config turns on =tab-bar-mode= or =tabspaces-mode=, and =tab-bar-show= is nil, so most of this stays dormant until those modes are enabled by hand. The consult integration needs =consult= and the tabspaces predicate =tabspaces--local-buffer-p=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Tabs -- in some ways tabs are not very Emacsy, but tab-bar is great for
+window & buffer management. The setup for tabs here is focused on tabs for
+window configurations related to a "workspace" -- i.e. a project or other set
+of windows. A workspace or "tabspace" (see the package below) is just a tab
+with an isolated set of buffers (see also the consult function). 𝛌-Emacs (and
+𝛌-Themes) sets things up so that these tabs/workspaces are nicely displayed.
+#+end_quote
+
 * Header
 
 ** File header and commentary

@@ -10,6 +10,14 @@ This module is a placeholder for drawing and canvas features, in particular the 
 
 As written, the search path is the literal placeholder =/path/to/excali-mode=, so the condition is never met and the module has no effect. A copy of excali-mode is vendored in this repository under =libraries/modules/cloned/excali-mode=, which is presumably where the path should point. The module is loaded in the UI part of =init.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Canvas will be useful for Emacs reader more, but there's also
+excalidraw and other functions that I'd like to try out in my
+work around Emacs.
+#+end_quote
+
 * Header
 
 ** File header and commentary

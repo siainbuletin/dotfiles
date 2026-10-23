@@ -10,6 +10,23 @@ This module shows the backlinks of a Vulpea note in an Org buffer, split into gr
 
 It depends on =vulpea=, =org= and the sibling module =sp-vulpea-dblock= (for =sia-vulpea-select-note=). It is loaded from =sp-vulpea-ext=. The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason, though the docstrings do not actually explain it. The author also flags that the shape of the link data returned by =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+What this does: for a given note, finds every other note linking
+to it, and sorts each link into either "Mentions" (a plain inline
+or body-text [[id:...]] link) or a group named after the meta
+property it was found in -- e.g. a note with
+  - pub-author :: [[id:...][Christopher Arthur]]
+contributes to a "pub-author" group when you look at Christopher
+Arthur's backlinks, distinct from any note that just mentions him
+in passing prose.
+
+NOT YET a real vulpea-ui sidebar widget -- see the top-level
+docstrings below for why, and `sia-vulpea-classify-backlinks' for
+the one point of Vulpea API I couldn't fully confirm.
+#+end_quote
+
 * Header and dependencies
 
 ** Header and commentary

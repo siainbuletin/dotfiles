@@ -10,6 +10,23 @@ This module sets up =nerd-icons= and its companion packages, which add file and 
 
 Most of the packages are only configured when =sp-load-extras= (from =early-init.el=) is non-nil and the library is actually installed. The font check uses =sp-font-available-p= from =sp-fonts=. In a GUI the font has to be installed on the system once with =M-x nerd-icons-install-fonts=. The module is loaded early in the UI section of =init.el=, before =sp-colors= and =sp-fonts=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+The code for icons that was found in Lambda Emacs ~lem-setup-fonts~ now lives in a
+separate file.
+
+TODO: completely remove all-the-icons from any call on the system and depend
+on one icons package entirely.
+
+The reason for choosing nerd-icons instead is that it uses a SINGLE patched
+font ("Symbols Nerd Font Mono") rather than the six separate fonts
+all-the-icons shipped.
+
+nerd-icons renders in TTY frames, so -- unlike the old all-the-icons
+gate -- this omits the (display-graphic-p) condition.
+#+end_quote
+
 * Header
 
 ** File header and commentary

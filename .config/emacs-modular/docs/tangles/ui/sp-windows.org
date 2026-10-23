@@ -10,6 +10,18 @@ The second half defines a set of interactive window helpers adapted from Lambda 
 
 The module is part of the window management group in the default module list, loaded after =sp-frame= and =sp-buffers=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This sub-library deals specifically with the issues of Windows in Emacs
+(frames should be treated separately).
+
+Eventually, the entire graphical environment and where information gets
+placed should be moved to a larger file regarding window management,
+and it should include controls for a daemonized Emacs which runs on a
+tiling window manager under Linux.
+#+end_quote
+
 * Header and commentary
 
 ** File header

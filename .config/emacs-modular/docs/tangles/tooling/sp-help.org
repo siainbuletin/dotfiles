@@ -10,6 +10,15 @@ This module gathers everything about getting help inside Emacs: how dialogs and 
 
 It relies on several things defined elsewhere: =sys-mac= (from the environment setup), =sp-prefix= (the leader key prefix), =sp-load-extras= (which gates optional packages), and =transient=, which is set up in =sp-base-libraries=. The module is loaded from =init.el= among the utility modules.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This file provides settings for dialogues, popups, help, and info buffers.
+
+Transient menus are set up through the sp-base-libraries.el file, as transient
+is required for a lot of other packages.
+#+end_quote
+
 * File header
 
 ** Header and commentary

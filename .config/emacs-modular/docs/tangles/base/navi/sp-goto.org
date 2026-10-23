@@ -10,6 +10,15 @@ A small navigation module with three parts. It turns on =goto-address-mode= (bui
 
 It is loaded from =sp-navi=, which requires it, rather than being listed in =init.el= itself. The jump commands rely on directory variables defined in =early-init.el=, such as =sp-user-dir=, =sp-project-dir= and =sp-user-elisp-dir=, and on =org-directory=. None of the =sp-goto-= commands are bound to keys here. The similarly named =sp-goto-minibuffer-window= lives in =sp-windows=, not in this file.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This package allows you to click or hit a key sequence while on a
+URL or e-mail address, and either load the URL into a browser of
+your choice using the browse-url package, or if it's an e-mail
+address, to send an e-mail to that address.
+#+end_quote
+
 * Header
 
 ** Header and commentary

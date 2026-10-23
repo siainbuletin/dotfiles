@@ -10,6 +10,18 @@ This module replaces the stock Emacs startup screen with a =*splash*= buffer sho
 
 It depends on =cl-lib=, optionally on =nerd-icons=, on =sp-get-string-from-file= from =sp-helper-funct=, on =sp-library-dir= for the logo and banner files, and on =sys-mac=. The menu actions call workspace functions from the =sp-workspaces= module when it is loaded. The splash is installed on =window-setup-hook= unless the command line asks for a file or =--no-splash=. In =early-init.el= the module is listed in =sp-gui-only-set=, so it is normally only loaded in GUI sessions.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+ An alternative splash screen:
+this is also including the ascii art of the lambda sign, which will show up in the dashboard
+I gotta test to see if it works with the dashboard
+
+Note: The screen is not shown if there are opened file buffers. For
+      example, if you start emacs with a filename on the command
+      line, the splash is not shown.
+#+end_quote
+
 * Header and commentary
 
 ** File header

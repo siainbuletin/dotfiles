@@ -8,6 +8,13 @@ This is the umbrella module for moving around in Emacs. It pulls in the navigati
 
 It uses =sp-cache-dir= for state files and =sp-load-extras= to gate optional packages. =sp-find-file= shells out to =find=, =fd= or =rg=, so those programs need to be installed for the corresponding choices to work. Consult (installed by =sp-search=) is needed for =lem-jump-in-buffer=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Contains the general configuration for navigation within Emacs. The relevant
+submodules are recursed within the file
+#+end_quote
+
 * Header
 
 ** File header and commentary

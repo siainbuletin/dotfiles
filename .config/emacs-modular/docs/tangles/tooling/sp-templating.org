@@ -8,6 +8,16 @@ A very small placeholder module for templating. Currently it only loads =org-tem
 
 It is loaded in both the default and minimal module lists. Since =org-tempo= ships with Org, requiring it also loads Org itself at startup if it is not loaded yet.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+TODO
+would be great for expanding templates when
+working in org-mode
+but it could be useful for other contexts as well
+(if I actually start programming)
+#+end_quote
+
 * Template expansion
 
 ** File header and plans

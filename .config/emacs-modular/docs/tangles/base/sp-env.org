@@ -8,6 +8,22 @@ This module makes Emacs see the same environment as a login shell, which matters
 
 It also keeps a commented-out alternative from the modular configuration it was originally based on, defines a command for piping the region through a shell command, installs =inheritenv= for the Claude Code setup in =sp-ai=, and copies a few more variables needed for using YADM from Emacs. The commentary notes that Windows and Linux still need their own solution.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This prefers using the exec-path-from-shell package in order to deal with all the
+binaries that macOS has to pull.
+
+There needs to be a separate solution for Windows and Linux, respectively, so these
+packages don't get used on every system in part.
+
+The folders my files live in (notes, bibliography, checkouts) are named in
+`sp-paths' and can be overridden by SP_* environment variables.  Those are read
+when `sp-paths' loads, which is before the shell's environment is imported
+below, so a GUI Emacs only sees them when it is started from a shell (or when
+they are set for the graphical session).  Nothing here changes those folders.
+#+end_quote
+
 * Overview
 
 ** Header and commentary

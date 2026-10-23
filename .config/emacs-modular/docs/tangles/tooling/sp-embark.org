@@ -6,6 +6,12 @@ Literate source for =libraries/modules/tooling/sp-embark.el=. Every line of the 
 
 Sets up Embark, which offers a menu of actions for whatever is at point or under the minibuffer cursor (a file, a buffer, a symbol, a URL and so on), together with its Consult integration. It is loaded from =init.el= among the utility modules.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+sp-embark ---
+#+end_quote
+
 * File header
 
 ** Header

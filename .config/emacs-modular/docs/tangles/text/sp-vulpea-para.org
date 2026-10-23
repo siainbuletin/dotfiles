@@ -10,6 +10,12 @@ This module wires the =vulpea-para= library into Org's agenda and capture. vulpe
 
 It is required by =sp-org-ext=, after =sp-org-capture= and =sp-org-agenda=. It adds its capture templates to =org-capture-templates= with =add-to-list=, so the templates earlier modules set stay available; it used to assign the variable with plain =setq=, which replaced them. Its agenda view was moved to =sp-agenda-views=, which adds it to =org-agenda-custom-commands= in the same way. =org-agenda-prefix-format= is still assigned with =setq=, so the value here replaces whatever an earlier module set for it.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+VULPEA PARA SETUP
+#+end_quote
+
 * Header
 
 ** File header

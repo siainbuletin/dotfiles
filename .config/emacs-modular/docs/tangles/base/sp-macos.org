@@ -8,6 +8,15 @@ Settings that only make sense on macOS, which the commentary describes as the ma
 
 It depends on the =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, =org-mac-link=, and the variable =sys-mac= set elsewhere in the configuration to detect macOS. The themes it switches between, =ef-dream= and =lambda-light-faded=, must be installed by the theme modules. It is in both the default and minimal module lists in =init.el=. Some parts are unconditional (the key remapping and the two shell commands), so they also run on other systems where they are harmless but not useful.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+MacOS is my main operating system (my most capable and portable computer),
+for this reason, it's important to have it be integrated with the rest of
+the system, including running DEVONthink well enough (although DT support
+is configured elsewhere in this config).
+#+end_quote
+
 * Header
 
 ** Header and commentary

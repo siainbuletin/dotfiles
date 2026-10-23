@@ -8,6 +8,15 @@ This module decides where Emacs keeps backup files and auto-save files, turns on
 
 The backup settings are made once, in the final block: backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions, and auto-save files go to =auto-save-files/= under =sp-cache-dir=. The file used to set the backup directory, version counts and lock files several times with different values, where the later assignments won; those earlier, overridden copies are gone, so the effective settings are unchanged. The module is loaded with the utility modules in =init.el=, in both the default and minimal lists.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Emacs leaves a bunch of backup files behind, that I don't actually want
+to have to see.
+
+There should also be a better way to deal with all of these files.
+#+end_quote
+
 * Header
 
 ** File header and commentary

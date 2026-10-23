@@ -10,6 +10,18 @@ This module is the third piece of a small set of home-grown Vulpea table tools. 
 
 It is not listed in the module list in =init.el= directly; it is loaded through =sp-vulpea-ext=, which in turn is required by =sp-org-ext=. It requires =vui=, =vulpea= and the two sibling modules above.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Requires the two earlier pieces to already be loaded (either as
+separate files with their own (provide ...), or pasted into
+init.el before this, in order):
+  - sp-vulpea-dblock.el     (org-dblock-write:vulpea-table, the
+                               static-text fallback)
+  - sp-vulpea-vui-table.el  (the sp-vulpea-table vui component,
+                               sia-vulpea-open-table)
+#+end_quote
+
 * Header and dependencies
 
 The header comment explains that the dblock and vui-table pieces must already be loaded.

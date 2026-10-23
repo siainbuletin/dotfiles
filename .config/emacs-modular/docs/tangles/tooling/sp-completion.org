@@ -10,6 +10,12 @@ This module sets up the minibuffer completion stack: Vertico for the vertical ca
 
 All packages come from elpaca. The Vertico buffer extension is configured with a customised display method, but =vertico-buffer-mode= itself is left off.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+These are the completion frameworks that I plan on using.
+#+end_quote
+
 * Header
 
 ** File header and commentary

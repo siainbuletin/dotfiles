@@ -8,6 +8,16 @@ Sets up how colour themes are found, loaded and switched. It points =custom-them
 
 Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=. The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=). Automatic switching to match the macOS system appearance lives in =sp-macos=, not here. The menubar helpers call an external =dark-mode= command-line tool.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This includes the theme manager from Lambda Emacs
+
+𝛌-Emacs comes with its own set of themes --
+𝛌-Themes. The user can of course configure things to use whatever theme they
+like. The Modus themes are especially good and included with Emacs 28+.
+#+end_quote
+
 * Overview
 
 ** File header

@@ -8,6 +8,12 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module is a placeholder for Docker related configuration. The file contains only its header comments and an end marker; it defines nothing, has no =provide= form, and nothing in =init.el= loads it.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+sp-docker.el ends here
+#+end_quote
+
 * Docker
 
 ** Placeholder file

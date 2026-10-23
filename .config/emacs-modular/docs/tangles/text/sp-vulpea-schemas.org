@@ -10,6 +10,12 @@ Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpe
 
 The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and =sp-vulpea-table-views= builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+These are all the schemas that are used by vulpea.
+#+end_quote
+
 * Overview
 
 ** File header

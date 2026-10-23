@@ -10,6 +10,16 @@ This module builds named workspaces on top of =tab-bar= and =tabspaces=. A works
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Workspaces leveraging tab-bar and project.el. A "workspace" is just a tab
+with an isolated set of buffers (see consult function). 𝛌-Emacs sets things
+up so that these workspaces are nicely displayed out of the way in the echo
+area rather than as visible tabs in the header tab-line at the top of the
+frame.
+#+end_quote
+
 * Header and commentary
 
 ** File header

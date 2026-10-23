@@ -10,6 +10,22 @@ A small module for a Denote-based notes workflow, adapted from Lambda Emacs. It 
 
 It needs =denote= (configured in =sp-denote=) and installs =consult-notes=. The comments make clear the workflow has largely moved to ID-based notes with vulpea and org-node, so this module is partly kept for older material. It is loaded in the Academic section of =init.el=. Related bindings live in =sp-keys=, which puts =sp-denote-workbook-create-entry=, =consult-notes= and =consult-notes-search-in-all-notes= on the =n= notes prefix, and =sp-workspaces= calls =sp-denote-notebook=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+sia -set-notes.el --- packages for notes
+
+For a framework that looks to bring notes together, you need more settings for different things.
+This will be called as a module in itself later on
+this is a basic note-taking workflow that's based on denote (at first)
+- this will include calling on features for org-capture
+although the capture mechanism should be living somewhere separate.
+
+This is the configuration that was taken from Lambda Emacs
+
+This library provides settings fora basic notes workflow using the `Denote' package.
+#+end_quote
+
 * Header
 
 ** File header and commentary

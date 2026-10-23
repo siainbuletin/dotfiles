@@ -8,6 +8,12 @@ This module provides two interactive commands for linking Org notes by ID. =sp-o
 
 It requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=, and relies on the vulpea database being populated (see =sp-vulpea-base=). It is loaded from the Functions section of =init.el=. Neither command is bound to a key in this module, so they are run with =M-x=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Literate configuration is found in ~sp-org-id-link.el~
+#+end_quote
+
 * Header and dependencies
 
 ** File header

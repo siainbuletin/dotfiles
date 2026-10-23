@@ -10,6 +10,18 @@ This module configures =vulpea-ui=, the user interface layer for the Vulpea note
 
 It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-org-ext=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+UI functions for vulpea.
+
+This includes the sidebar and the possibility to render collection views.
+
+The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+are based on this rendering done here, as well as the information that is
+found in sp-vulpea-schemas.el
+#+end_quote
+
 * File header
 
 ** Header and commentary

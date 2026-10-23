@@ -10,6 +10,23 @@ This navigation sub-module, loaded by =sp-navi=, installs the search packages: C
 
 External programs used are =rg= (ripgrep), =ag= (the silver searcher) and =recollq= from Recoll. The commentary sketches future plans to tie search into =sp-browsing= and Embark; those plans are not implemented here.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This file is part of the category for /Navigation/ and should be treated as such.
+
+dired-x is necessary for making counsel-fd work
+This module includes packages that help with search within the buffer, in a directory
+or more complicated grep-like searches.
+
+It should also be somewhat integrated with sp-browsing.el, as it should pull in
+omni-search and similar packages, for bringing in as much information as possible, and perhaps
+acting on it in the future. The possibility of acting on this information is created through
+the embark package.
+
+See also possibilities for the vulpea ecosystem for this.
+#+end_quote
+
 * Header
 
 ** File header and commentary

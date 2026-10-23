@@ -10,6 +10,12 @@ This module is meant to set up an environment for browsing from within Emacs: EW
 
 The command depends on =consult= and =consult-omni= and on the macOS =open= program. The module does not end with a =provide= form and is not listed in =init.el=, so it is currently unused; =sp-search= mentions it as something to integrate with later.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Creating the environment for browsing within Emacs.
+#+end_quote
+
 * File header
 
 ** Header and commentary

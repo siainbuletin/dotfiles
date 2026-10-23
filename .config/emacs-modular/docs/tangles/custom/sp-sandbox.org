@@ -8,6 +8,15 @@ This module puts the fish function =emacs-pr= (=~/.config/fish/functions/emacs-p
 
 It has no dependencies and is loaded after =sp-org-issues= in the module list of =init.el=.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Commands for the fish function `emacs-pr' (see "Testing a pull request in a
+sandbox" in README.org), so a sandbox can be started, reset and removed from
+the Emacs I am already working in.  The sandbox is a second Emacs process with
+its own worktree, packages and copy of the notes; this one is not touched.
+#+end_quote
+
 * Header
 
 ** File header and commentary

@@ -10,6 +10,16 @@ This module adds semantic (meaning-based rather than keyword-based) search over 
 
 All its commands live under the ~C-c k~ prefix, and an auto-reindex mode keeps the index up to date as notes are saved.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Oftentimes the search functions that I have enabled in Emacs aren't enough for me to actually
+be able to find something.
+
+There are several packages that are concerned with getting to the information as fast as
+possible, focusing specifically on linking information that may be found in a database.
+#+end_quote
+
 * Purpose
 
 ** Header and commentary

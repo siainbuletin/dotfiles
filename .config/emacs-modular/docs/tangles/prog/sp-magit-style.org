@@ -10,6 +10,15 @@ This module only changes how Magit looks. Section headings (=magit-section-headi
 
 Status: written without being run. Nothing here has been tested in Emacs yet.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+Visual polish for Magit buffers: larger section headings with an
+overline, chevron indicators for folded/expanded sections, and
+nerd-icons next to files and directories.  Depends only on `magit'
+and (optionally) `nerd-icons'; without icons it still styles headings.
+#+end_quote
+
 * Magit style
 
 ** Header

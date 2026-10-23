@@ -10,6 +10,17 @@ Commands that make it easier to work in long Org (and Markdown) buffers by narro
 
 The commentary notes a future goal of making the =vulpea-ui= sidebar follow the narrowing so it shows only the narrowed context.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is a bunch of functions for better working with longer org-mode buffers,
+which would need employing narrowing.
+
+In the future, they should be somehow correlated with vulpea-ui-sidebar so that
+the sidebar actually follows the narrowing properly and doesn't show any other
+kind of context.
+#+end_quote
+
 * Overview
 
 ** File header
