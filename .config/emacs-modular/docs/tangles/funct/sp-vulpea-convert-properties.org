@@ -71,7 +71,7 @@ These functions operate on the "node at point": the heading at or above point, o
 =sia-vulpea--after-property-drawer-pos= returns the position right after the node's property drawer. For a heading that is after its drawer, or after the heading line when there is none. For the file-level node it also skips any leading =#+KEYWORD:= lines in any order relative to the drawer, so that meta lines never end up above =#+title:= or =#+date:= when the drawer comes first in the file.
 
 #+begin_src emacs-lisp -i
-;;; Low-level: one node at a time ---------------------------------------
+;;;; Low-level: one node at a time ---------------------------------------
 
 (defun sia-vulpea--after-property-drawer-pos ()
   "Return the position right after the property drawer of the node at point.
@@ -217,7 +217,7 @@ converted."
 =sia-vulpea--node-title= returns the heading text, or for the file-level node the =#+title:= value, falling back to the file name. It is used to label entries in the conversion report.
 
 #+begin_src emacs-lisp -i
-;;; Whole buffer, and every node in it -----------------------------------
+;;;; Whole buffer, and every node in it -----------------------------------
 
 (defun sia-vulpea--node-title ()
   "Return the title of the node at point.
@@ -343,7 +343,7 @@ property converted (empty if none)."
 =sia-vulpea--format-duration= formats a number of seconds as "2m 13s" or "45s" for the ETA display.
 
 #+begin_src emacs-lisp -i
-;;; Non-blocking batch processing, with progress + ETA --------------------
+;;;; Non-blocking batch processing, with progress + ETA --------------------
 
 (defun sia-vulpea--format-duration (seconds)
   "Return SECONDS formatted as e.g. \"2m 13s\" or \"45s\"."
@@ -420,7 +420,7 @@ same order as FILES, once every file has been processed."
 =sia-vulpea-preview-convert-all-notes-properties= is a dry run: it pre-filters the note files, then lists for each file the non-blocklisted property names found on nodes with an ID, in a =*vulpea property conversion preview*= buffer. It writes nothing. Unlike the real conversion it does not skip properties with empty values, so the preview can list a little more than would actually be converted.
 
 #+begin_src emacs-lisp -i
-;;; Preview + real run across every Vulpea note ---------------------------
+;;;; Preview + real run across every Vulpea note ---------------------------
 
 (defun sia-vulpea-preview-convert-all-notes-properties ()
   "Report, without changing anything, what a full conversion would do.

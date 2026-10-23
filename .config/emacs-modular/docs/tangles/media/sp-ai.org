@@ -124,7 +124,7 @@ Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs whi
 Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE protocol over a WebSocket. With it, Claude Code can see the current selection and diagnostics and show proposed changes as diffs in Emacs. It is only installed here, not enabled or hooked into =claude-code=.
 
 #+begin_src emacs-lisp -i
-;;; Enhacing the experience of Claude Code
+;;;; Enhacing the experience of Claude Code
 (use-package monet
   :ensure (:type git :host github :repo "stevemolitor/monet"))
 #+end_src
@@ -134,7 +134,7 @@ Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE pr
 An empty section header for linking the DEVONthink MCP server. No code has been written for it yet.
 
 #+begin_src emacs-lisp -i
-;;; Linking the MCP of DEVONthink
+;;;; Linking the MCP of DEVONthink
 #+end_src
 
 * Provide

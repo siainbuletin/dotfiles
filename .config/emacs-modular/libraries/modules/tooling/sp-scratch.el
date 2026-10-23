@@ -34,7 +34,7 @@ User may prefer to set this to `sp-scratch-save-dir'."
   :type 'string)
 
 ;;;; Text to show in the scratch buffer
-;;; NOTE: this was removed, you should look directly in the EWS configuration to see how to do it well.
+;;;; NOTE: this was removed, you should look directly in the EWS configuration to see how to do it well.
 
 (setq initial-major-mode 'org-mode)
       ; initial-scratch-message (concat "#+title: Emacs Writing Studio\n"
@@ -42,7 +42,7 @@ User may prefer to set this to `sp-scratch-save-dir'."
 ;					"The text in this buffer is not saved "
 ;					"when exiting Emacs!\n\n")
 
-;;;; Functions
+;;;;; Functions
 ;; I don't currently know what to do with this or if it's helping the scratch in any way.
 (customize-set-variable 'sp-scratch-default-dir sp-scratch-save-dir)
 
@@ -55,7 +55,7 @@ User may prefer to set this to `sp-scratch-save-dir'."
 
 (add-hook 'kill-buffer-query-functions 'lem--bury-scratch)
 
-;;;; Saving persistent scratch
+;;;;; Saving persistent scratch
 
 (defun lem--save-persistent-scratch ()
   "Save the contents of *scratch*."
@@ -81,6 +81,6 @@ User may prefer to set this to `sp-scratch-save-dir'."
        ;; Save scratch buffer every 5 minutes (300 seconds)
        (run-with-idle-timer 300 t 'lem--save-persistent-scratch)))
 
-;;; End Setup-Scratch
+;;;; End Setup-Scratch
 (provide 'sp-scratch)
 ;;; sp-scratch.el ends here

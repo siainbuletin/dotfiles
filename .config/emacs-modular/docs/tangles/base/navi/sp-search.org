@@ -126,7 +126,7 @@ A heading comment reserved for commands that act on search results; nothing is d
 
 #+begin_src emacs-lisp -i
 ;; Functions written for searches
-;;;;; Search given directory
+;;;; Search given directory
 (defun sp-search-in-input-dir ()
   "Grep for a string in the input directory using completing read function"
   (interactive)

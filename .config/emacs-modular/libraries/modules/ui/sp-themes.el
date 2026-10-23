@@ -81,9 +81,9 @@
   (interactive)
   (shell-command "dark-mode on"))
 
-;;; THEME OPTIONS
+;;;; THEME OPTIONS
 
-;;;; Modus themes
+;;;;; Modus themes
 
 (use-package modus-themes
   :ensure t)
@@ -152,7 +152,7 @@
 (use-package easy-theme-preview
   :ensure t)
 
-;;;; Theme toggle
+;;;;; Theme toggle
 (defun toggle-dark-light-theme ()
   "Flip the active lambda variant between light and dark.
 If neither lambda variant is currently active (the user loaded some
@@ -164,7 +164,7 @@ hook is left untouched; the next macOS Light/Dark change will resync."
     (sp-disable-all-themes)
     (load-theme target t)))
 
-;;;; After Load Theme Hook
+;;;;; After Load Theme Hook
 (defvar sp-after-load-theme-hook nil
   "Hook run after a color theme is loaded using `load-theme'.")
 (define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)

@@ -56,7 +56,7 @@
   (save-excursion
     (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
     
-;;;;; Org Table Wrap
+;;;; Org Table Wrap
 ;; see https://emacs.stackexchange.com/a/30871/11934
 (defun org-table-wrap-to-width (width)
   "Wrap current column to WIDTH."
@@ -111,7 +111,7 @@
          (org-table-align))
     (org-table-fix-formulas "@" nil (1- (org-table-current-dline)) n)))
 
-;;; Force monospace font in org tables
+;;;; Force monospace font in org tables
 ;; If you use variable-pitch (a.k.a. “proportional”) fonts in Org buffers (e.g. using
 ;; org-variable-pitch), you probably use monospace fonts for Org tables, so they align 
 ;; properly. However, other elements in a table (such as links, or perhaps timestamps) 

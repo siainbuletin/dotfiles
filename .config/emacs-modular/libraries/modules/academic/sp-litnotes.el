@@ -9,7 +9,7 @@
 
 ;;; Code:
 
-;;; File-level literature notes
+;;;; File-level literature notes
 (use-package citar-denote
   :ensure (:wait t)
 
@@ -38,7 +38,7 @@
 
 (setq citar-denote-subdir "litnotes")
 
-;;; Node-level literature note configuration
+;;;; Node-level literature note configuration
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)

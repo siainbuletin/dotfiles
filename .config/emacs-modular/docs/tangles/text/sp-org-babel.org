@@ -247,7 +247,7 @@ This shell is used to execute the Nushell command."
 Requires =ob-tangle= right away, which also triggers the post-tangle hooks set up above.
 
 #+begin_src emacs-lisp -i
-;;; Tangling all files at once from the literate configuration
+;;;; Tangling all files at once from the literate configuration
 (require 'ob-tangle)
 #+end_src
 

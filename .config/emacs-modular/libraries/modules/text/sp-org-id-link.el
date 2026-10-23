@@ -43,8 +43,8 @@ is non-nil."
                                  uri)))
                 (setf (buffer-substring uri-start uri-end)
                       (org-link-escape (org-link-decode uri)))))))))))
-                      
-                      ;;;;; Org Copy Link
+
+;;;;; Org Copy Link
 ;; see https://emacs.stackexchange.com/a/63038/11934
 (defun lem-org-link-copy-at-point ()
   (interactive)

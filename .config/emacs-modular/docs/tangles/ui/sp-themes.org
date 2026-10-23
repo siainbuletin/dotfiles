@@ -172,7 +172,7 @@ Introduces the disable-all helper.
 Start of the theme options.
 
 #+begin_src emacs-lisp -i
-;;; THEME OPTIONS
+;;;; THEME OPTIONS
 #+end_src
 
 ** Modus themes comment
@@ -180,7 +180,7 @@ Start of the theme options.
 Introduces the Modus settings.
 
 #+begin_src emacs-lisp -i
-;;;; Modus themes
+;;;;; Modus themes
 #+end_src
 
 ** Installing Modus themes
@@ -329,7 +329,7 @@ Installs =easy-theme-preview=, which makes it easy to preview themes before comm
 =toggle-dark-light-theme= flips between two Ef themes: if =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first. The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code. Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
 
 #+begin_src emacs-lisp -i
-;;;; Theme toggle
+;;;;; Theme toggle
 (defun toggle-dark-light-theme ()
   "Flip the active lambda variant between light and dark.
 If neither lambda variant is currently active (the user loaded some
@@ -347,7 +347,7 @@ hook is left untouched; the next macOS Light/Dark change will resync."
 Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. Nothing else in the config currently adds to this hook.
 
 #+begin_src emacs-lisp -i
-;;;; After Load Theme Hook
+;;;;; After Load Theme Hook
 (defvar sp-after-load-theme-hook nil
   "Hook run after a color theme is loaded using `load-theme'.")
 (define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)

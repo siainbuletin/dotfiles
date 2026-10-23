@@ -49,7 +49,7 @@
 ;; Acting on searches
 
 ;; Functions written for searches
-;;;;; Search given directory
+;;;; Search given directory
 (defun sp-search-in-input-dir ()
   "Grep for a string in the input directory using completing read function"
   (interactive)

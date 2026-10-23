@@ -9,7 +9,7 @@
 
 ;;; Code:
 
-;;; Create mini frame for the buffer
+;;;; Create mini frame for the buffer
 
 (require 'color) ;; why is color needed? what is this package?
 
@@ -31,7 +31,7 @@
   (mini-frame-mode 1)
 )
 
-;;; Dimming, only for selected commands
+;;;; Dimming, only for selected commands
 
 (defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")

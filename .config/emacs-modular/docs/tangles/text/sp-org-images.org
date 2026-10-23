@@ -23,7 +23,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;;; Code:
 
-;;; Org-Download
+;;;; Org-Download
 ;; Drag and drop images to Emacs org-mode. Courtesy of abo-abo.
 ;; https://github.com/abo-abo/org-download.
 #+end_src

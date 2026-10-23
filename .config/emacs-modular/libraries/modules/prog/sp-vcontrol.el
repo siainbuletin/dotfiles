@@ -25,7 +25,7 @@
   (interactive)
   (magit-status "~/"))
 
-;;; Forge settings
+;;;; Forge settings
 (use-package forge
   :after magit)
 
@@ -41,7 +41,7 @@
   (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
-;;; For adding emojis
+;;;; For adding emojis
 (add-hook 'code-review-mode-hook #'emojify-mode)
 
 (provide 'sp-vcontrol)

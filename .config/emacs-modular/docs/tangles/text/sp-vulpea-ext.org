@@ -141,7 +141,7 @@ Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain m
 Loads =sp-vulpea-split=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
 
 #+begin_src emacs-lisp -i
-;;; Making vulpea-split-heading smart (ensure backlinks)
+;;;; Making vulpea-split-heading smart (ensure backlinks)
 (require 'sp-vulpea-split)
 #+end_src
 

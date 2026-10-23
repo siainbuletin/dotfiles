@@ -101,7 +101,7 @@ This block holds two unrelated forms. =sia-render-org-tables-in-buffer= maps =si
   (save-excursion
     (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
     
-;;;;; Org Table Wrap
+;;;; Org Table Wrap
 ;; see https://emacs.stackexchange.com/a/30871/11934
 (defun org-table-wrap-to-width (width)
   "Wrap current column to WIDTH."
@@ -172,7 +172,7 @@ From alphapapa's unpackaged.el. When Org buffers use proportional fonts, links o
 =unpackaged/org-table-face-mode= is a buffer-local minor mode. When enabled it adds a font-lock keyword whose matcher is =unpackaged/org-table-face-matcher= and that applies =org-table=; when disabled it removes it, and in both cases it refontifies the buffer. The commentary suggests adding it to =org-mode-hook=, which this config does not do.
 
 #+begin_src emacs-lisp -i
-;;; Force monospace font in org tables
+;;;; Force monospace font in org tables
 ;; If you use variable-pitch (a.k.a. “proportional”) fonts in Org buffers (e.g. using
 ;; org-variable-pitch), you probably use monospace fonts for Org tables, so they align 
 ;; properly. However, other elements in a table (such as links, or perhaps timestamps) 

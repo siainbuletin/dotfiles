@@ -10,7 +10,7 @@
 
 ;;; Code:
 
-;;;;; Org Emphasis Functions
+;;;; Org Emphasis Functions
 ;; Adapted from https://emacs.stackexchange.com/a/14586
 ;; See https://emacstil.com/til/2021/11/29/org-emphasize-dwim/
 (defun org-emphasize-dwim (&optional char)

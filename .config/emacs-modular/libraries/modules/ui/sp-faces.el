@@ -39,7 +39,7 @@
   (global-reveal-mode))
 
 ;;;; SVG Library (For Tags/Labels/etc.)
-  ;;; SVG Tag Mode
+;;;;; SVG Tag Mode
 (use-package svg-tag-mode
   :when (and sp-load-extras (locate-library "svg-tag-mode") (image-type-available-p 'svg))
   :hook (prog-mode . svg-tag-mode)

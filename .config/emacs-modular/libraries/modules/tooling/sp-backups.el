@@ -63,7 +63,7 @@
       kept-old-versions 3
       version-control t)
 
-;;; Lockfiles unfortunately cause more pain than benefit
+;;;; Lockfiles unfortunately cause more pain than benefit
 (setq create-lockfiles nil)
 
 ;; What do you do with the saved history?

@@ -14,10 +14,10 @@
 (require 'sp-org-agenda)
 (require 'sp-org-images)
 
-;;;;;; ID-based workflows
+;;;;; ID-based workflows
 (require 'sp-org-node-mem)
 
-;;;;;; Vulpea
+;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
 (require 'sp-vulpea-para)
@@ -25,7 +25,7 @@
 (require 'sp-vulpea-schemas)
 (require 'sp-vulpea-ext) ;; these are other vulpea extension files that I didn't include elsewher
 
-;;;;;; Other extensions
+;;;;; Other extensions
 
 ;;;; Org Contrib
 (use-package org-contrib
@@ -36,7 +36,7 @@
   (require 'ox-extra)
   (ox-extras-activate '(ignore-headlines)))
 
-;;; Org Autolist (Smart Lists)
+;;;; Org Autolist (Smart Lists)
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
@@ -65,12 +65,12 @@
 (use-package org-special-block-extras
   :ensure t)
 
-;;; org-context
+;;;; org-context
 ;; Allows saving the context of an Org-mode entry, such as when refiling, 
 ;; so that entries can be restored to their original location based on that context.
 (require 'org-context)
 
-;;; Another org context library
+;;;; Another org context library
 (require 'org-context-agen)
 
 (provide 'sp-org-ext)

@@ -273,7 +273,7 @@ DELTA would be something like 1 or -1."
 (global-set-key (kbd "M-=") 'font-size-increase)
 (global-set-key (kbd "M--") 'font-size-decrease)
 
-;;; Lin package
+;;;; Lin package
 (use-package lin
   :ensure t)
 

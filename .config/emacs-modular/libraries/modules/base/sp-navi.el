@@ -66,7 +66,7 @@ directory."
    (t
     (call-interactively 'consult-outline))))
 
-;;; Better find-file
+;;;; Better find-file
 (defun sp-find-file ()
   "Find file from current directory in many different ways."
   (interactive)

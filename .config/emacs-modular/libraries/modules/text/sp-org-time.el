@@ -7,7 +7,7 @@
 
 ;;; Code:
 
-;;; Org Pomodoro
+;;;; Org Pomodoro
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro

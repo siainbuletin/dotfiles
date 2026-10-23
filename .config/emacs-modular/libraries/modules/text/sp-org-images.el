@@ -6,7 +6,7 @@
 
 ;;; Code:
 
-;;; Org-Download
+;;;; Org-Download
 ;; Drag and drop images to Emacs org-mode. Courtesy of abo-abo.
 ;; https://github.com/abo-abo/org-download.
 

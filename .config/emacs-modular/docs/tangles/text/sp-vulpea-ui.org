@@ -205,7 +205,7 @@ A placeholder for a custom widget showing unlinked mentions from a tab folder. T
 
 #+begin_src emacs-lisp -i
 ;;;; Custom vulpea-ui widget for unlinked mentions in a tab folder
-;;; vulpea-ui get unlinked mentioned without an ID property
+;;;; vulpea-ui get unlinked mentioned without an ID property
 ;; (require 'sp-tab-inbox) ;; this is required in init el so I can see progress for loading
 #+end_src
 

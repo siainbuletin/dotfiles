@@ -8,7 +8,7 @@
 
 ;;; Code:
 
-;;; Server
+;;;; Server
 ;; start server for emacsclient. The original guard was `:if
 ;; window-system', which is nil when emacs starts under launchd as
 ;; `--fg-daemon' before any GUI client connects. That meant the

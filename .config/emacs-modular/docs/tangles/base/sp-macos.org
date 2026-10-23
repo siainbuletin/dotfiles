@@ -161,7 +161,7 @@ The comment explains the design: rather than scheduling theme changes by time, E
 Explanatory comment for the appearance code that follows.
 
 #+begin_src emacs-lisp -i
-;;;;; macOS system-appearance dispatch
+;;;; macOS system-appearance dispatch
 ;; Delegate Light/Dark choice to macOS. The system already does
 ;; sunrise/sunset when set to Auto, and reflects manual flips
 ;; instantly -- following it removes every source of drift between
@@ -244,7 +244,7 @@ A daemon started without a frame never gets appearance-change events, so it woul
 Comment explaining why client frames need their own re-sync.
 
 #+begin_src emacs-lisp -i
-;;;;; Daemon client-frame sync
+;;;; Daemon client-frame sync
 
 ;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
 ;; never receives NS appearance-change events, so the hook above never
@@ -285,7 +285,7 @@ Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-ma
 
 #+begin_src emacs-lisp -i
 ;; taken from Lambda emacs
-;;; Org Mac Link
+;;;; Org Mac Link
 (use-package org-mac-link
     :ensure t
     :after org

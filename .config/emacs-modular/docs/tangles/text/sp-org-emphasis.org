@@ -35,7 +35,7 @@ The file header: the first line carries the file name, a short summary and the =
 =org-emphasize-dwim= marks the current word when no region is active, then calls =org-emphasize= with the optional emphasis character. Without a character, =org-emphasize= prompts for one.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Emphasis Functions
+;;;; Org Emphasis Functions
 ;; Adapted from https://emacs.stackexchange.com/a/14586
 ;; See https://emacstil.com/til/2021/11/29/org-emphasize-dwim/
 (defun org-emphasize-dwim (&optional char)

@@ -126,9 +126,9 @@
 
 
 
-;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+;;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
 
-;;; Org-gtd package
+;;;; Org-gtd package
 (use-package org-gtd
   :ensure (:wait t)
   :after org
@@ -169,7 +169,7 @@
    :map org-agenda-mode-map
    ("C-c ." . org-gtd-agenda-transient)))
 
-;;;; Org Inline Tasks
+;;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil
   :commands org-inlinetask-insert-task)
 

@@ -45,11 +45,11 @@
 
 (vulpea-mcp-enable)
 
-;;; Enhacing the experience of Claude Code
+;;;; Enhacing the experience of Claude Code
 (use-package monet
   :ensure (:type git :host github :repo "stevemolitor/monet"))
 
-;;; Linking the MCP of DEVONthink
+;;;; Linking the MCP of DEVONthink
 
 (provide 'sp-ai)
 ;; sp-ai.el ends here.

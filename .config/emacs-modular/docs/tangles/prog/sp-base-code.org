@@ -210,7 +210,7 @@ Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode tu
 Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives a quick overview of rigidly indented code. A note says this navigation could move to another module.
 
 #+begin_src emacs-lisp -i
-;;;;; Outline Navigation
+;;;; Outline Navigation
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
@@ -263,7 +263,7 @@ Turns on the built-in =outline-minor-mode= in every programming buffer. In that 
 Turns off =icomplete-mode= and sets =completion-auto-help= so the completions buffer appears when completion is ambiguous. A commented setting for =completion-cycle-threshold= ends with a stray quote.
 
 #+begin_src emacs-lisp -i
-;;;;; Autocomplete changes
+;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)

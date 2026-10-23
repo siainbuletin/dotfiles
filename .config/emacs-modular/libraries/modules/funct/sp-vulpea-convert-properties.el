@@ -30,7 +30,7 @@ whole notion of \"a node\" depends on it staying a real
 property). Add to this list before running a conversion if your
 notes use other drawer properties something else depends on.")
 
-;;; Low-level: one node at a time ---------------------------------------
+;;;; Low-level: one node at a time ---------------------------------------
 
 (defun sia-vulpea--after-property-drawer-pos ()
   "Return the position right after the property drawer of the node at point.
@@ -144,7 +144,7 @@ converted."
         (message "Converted: %s" (string-join converted ", "))
       (message "Nothing to convert here (all properties are blocklisted, or there are none)"))))
 
-;;; Whole buffer, and every node in it -----------------------------------
+;;;; Whole buffer, and every node in it -----------------------------------
 
 (defun sia-vulpea--node-title ()
   "Return the title of the node at point.
@@ -238,7 +238,7 @@ property converted (empty if none)."
     (save-buffer)
     (nreverse converted-nodes)))
 
-;;; Non-blocking batch processing, with progress + ETA --------------------
+;;;; Non-blocking batch processing, with progress + ETA --------------------
 
 (defun sia-vulpea--format-duration (seconds)
   "Return SECONDS formatted as e.g. \"2m 13s\" or \"45s\"."
@@ -301,7 +301,7 @@ same order as FILES, once every file has been processed."
                (run-with-timer 0 nil #'step)))))
       (step))))
 
-;;; Preview + real run across every Vulpea note ---------------------------
+;;;; Preview + real run across every Vulpea note ---------------------------
 
 (defun sia-vulpea-preview-convert-all-notes-properties ()
   "Report, without changing anything, what a full conversion would do.

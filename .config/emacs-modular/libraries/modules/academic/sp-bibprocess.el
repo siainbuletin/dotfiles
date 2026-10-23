@@ -69,7 +69,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 
 ;;;; Other:
 
-;;; BIBLIOGRAPHY
+;;;; BIBLIOGRAPHY
 (defvar sp-bibtex-files
   (when (file-exists-p sp-bibtex-dir)
     (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))

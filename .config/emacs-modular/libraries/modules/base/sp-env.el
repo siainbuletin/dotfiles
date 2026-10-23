@@ -86,11 +86,11 @@
 
 (keymap-global-set "C-M-|" 'sp-replace-with-shell)
 
-;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
+;;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
 (use-package inheritenv
   :straight (:type git :host github :repo "purcell/inheritenv"))
 
-;;; Environment variable so yadm can work as dotfiles in Emacs
+;;;; Environment variable so yadm can work as dotfiles in Emacs
 (dolist (var '("ASPELL_CONF"
                ...
                "STARDICT_DATA_DIR"

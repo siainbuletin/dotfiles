@@ -67,7 +67,7 @@ Installs =forge= once =magit= has loaded. Forge adds GitHub (and other forge) pu
 Forge needs a token to talk to GitHub. =auth-sources= is set to just =~/.authinfo=, which replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain. The token entry in that file is the user's to add, for example =machine api.github.com login USERNAME^forge password TOKEN=; nothing secret is stored in this config.
 
 #+begin_src emacs-lisp -i
-;;; Forge settings
+;;;; Forge settings
 (use-package forge
   :after magit)
 
@@ -93,7 +93,7 @@ The third setting, =code-review-download-dir= (where binary files from a PR are 
   (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
-;;; For adding emojis
+;;;; For adding emojis
 (add-hook 'code-review-mode-hook #'emojify-mode)
 #+end_src
 

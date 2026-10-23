@@ -136,7 +136,7 @@ Exact copies of =sp-bibtex-files=, =sp-bibtex-register= and =sp--bibtex-combined
 #+begin_src emacs-lisp -i
 ;;;; Other:
 
-;;; BIBLIOGRAPHY
+;;;; BIBLIOGRAPHY
 (defvar sp-bibtex-files
   (when (file-exists-p sp-bibtex-dir)
     (directory-files sp-bibtex-dir t "^[A-Z|a-z|0-9].+.bib$"))

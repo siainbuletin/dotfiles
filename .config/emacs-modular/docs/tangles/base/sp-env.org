@@ -163,7 +163,7 @@ The comment credits a blog post on Claude Code in Emacs and points at =sp-termin
 The recipe is given with =:straight=, but this config uses Elpaca, not straight.el. =use-package= does not recognise that keyword, so it most likely reports a parse error and does not install inheritenv. Since =claude-code= is declared =:after= inheritenv, it would then never be configured. Replacing =:straight= with =:ensure= and the same recipe would fix this.
 
 #+begin_src emacs-lisp -i
-;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
+;;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
 (use-package inheritenv
   :straight (:type git :host github :repo "purcell/inheritenv"))
 #+end_src
@@ -178,7 +178,7 @@ This has problems:
 - Adding =GIT_CEILING_DIRECTORIES= to the list in the =use-package= form above would avoid all of this.
 
 #+begin_src emacs-lisp -i
-;;; Environment variable so yadm can work as dotfiles in Emacs
+;;;; Environment variable so yadm can work as dotfiles in Emacs
 (dolist (var '("ASPELL_CONF"
                ...
                "STARDICT_DATA_DIR"

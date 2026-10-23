@@ -86,7 +86,7 @@ Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX 
 #+begin_src emacs-lisp -i
 ;;;; Setting up the proper variables
 
-;;; Looking up academic sources 
+;;;; Looking up academic sources 
 
 (use-package biblio
   :ensure t
@@ -132,7 +132,7 @@ Configures =bibtex-generate-autokey= with a list of title words to skip (article
 Installs =org-ref=, loaded after =ox-pandoc=.
 
 #+begin_src emacs-lisp -i
-;;; Org-ref
+;;;; Org-ref
 (use-package org-ref
   :ensure t
   :after (ox-pandoc)
@@ -144,7 +144,7 @@ Installs =org-ref=, loaded after =ox-pandoc=.
 Sets =org-ref-insert-cite-function= so that inserting a citation through org-ref calls =org-cite-insert= and produces native =[cite:...]= syntax rather than org-ref links.
 
 #+begin_src emacs-lisp -i
-;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+;;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
 (setq org-ref-insert-cite-function
       (lambda ()
 	(org-cite-insert nil)))
@@ -293,7 +293,7 @@ Installs =binder=, which groups files into a manuscript project in the style of 
 Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda= group, all nil by default. =sp-citations= uses the last two for the =citar= notes path and note template. They are defined here, after that module is required, so they only take effect if the =citar= configuration runs later.
 
 #+begin_src emacs-lisp -i
-;;;; Citation Variables
+;;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
   :group 'sia-lambda
   :tag "Lambda-Emacs User Bibliography")

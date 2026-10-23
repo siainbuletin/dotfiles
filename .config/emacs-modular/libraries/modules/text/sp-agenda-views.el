@@ -1,4 +1,4 @@
-;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
+;;;; sp-agenda-views.el --- Custom agenda views -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

@@ -190,7 +190,7 @@ Installs the =websocket= library, used by packages such as org-roam-ui.
 Installs =simple-httpd=, a small web server inside Emacs, with its document root set to =/var/www=.
 
 #+begin_src emacs-lisp -i
-;;; HTTP-D
+;;;; HTTP-D
 (use-package simple-httpd
   :ensure t
   :custom
@@ -339,7 +339,7 @@ Installs =try=, which lets you try a package for the current session without ins
 Enables =global-auto-revert-mode= so buffers update when their files change on disk.
 
 #+begin_src emacs-lisp -i
-;;; Buffer functions
+;;;; Buffer functions
 (global-auto-revert-mode t) ;; If the file has changed on the disk, then update the buffer as well
 #+end_src
 
@@ -348,7 +348,7 @@ Enables =global-auto-revert-mode= so buffers update when their files change on d
 Installs and loads Avy for jumping to visible text. =C-:= jumps to a character and =C-M-:= jumps using a timed multi-character input.
 
 #+begin_src emacs-lisp -i
-;;; Avy
+;;;; Avy
 ;; Don't remember what Avy was for, but it's a pretty important library to have.
 (use-package avy
   :ensure t
@@ -362,7 +362,7 @@ Installs and loads Avy for jumping to visible text. =C-:= jumps to a character a
 Installs =casual=, a collection of transient menus for built-in modes such as Dired, Calc and Info. No bindings are set here.
 
 #+begin_src emacs-lisp -i
-;;; Casual package
+;;;; Casual package
 ;; This is transient-based menus for working with built-in packages, like dired.
 (use-package casual
   :ensure t)

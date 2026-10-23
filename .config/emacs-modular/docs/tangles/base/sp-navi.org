@@ -137,7 +137,7 @@ Enables =recentf-mode= after two seconds idle, keeping up to 500 recent files in
 =sp-find-file= first asks which method to use: =find=, =fd= or =rg= to list every file under the current directory, or =find-name-dired= to search by name into a Dired buffer. For the three shell tools it collects the NUL-separated output and offers it with =completing-read=, tagging candidates with the =file= category so Marginalia and Embark treat them as files. Listing every file under a large directory can be slow.
 
 #+begin_src emacs-lisp -i
-;;; Better find-file
+;;;; Better find-file
 (defun sp-find-file ()
   "Find file from current directory in many different ways."
   (interactive)

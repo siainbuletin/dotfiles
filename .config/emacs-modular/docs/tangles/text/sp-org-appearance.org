@@ -37,7 +37,7 @@ Removes blank separator lines in folded views, shows folded content as a =[+]= m
 
 #+begin_src emacs-lisp -i
 ;;;; General org basic appearance options
-;;; these were taken initially from Lambda Emacs
+;;;; these were taken initially from Lambda Emacs
 (setq org-cycle-separator-lines 0) ;; no empty lines in collapsed view
 ;; (setq org-ellipsis "…") ;; nicer elipses "↷" "↴" "▼"
 (setq org-ellipsis " [+]")
@@ -126,7 +126,7 @@ Enables =org-appear= in Org buffers. It reveals emphasis markers and sub and sup
 Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda is built. Its TODO keyword and tag styling are turned off, labels get a one pixel border, and heading stars are replaced with a sequence of circled and starred symbols, one per level. Hiding leading stars through org-modern is commented out because of the same invisible text issues.
 
 #+begin_src emacs-lisp -i
-;;;; Org-modern
+;;;;; Org-modern
 (use-package org-modern
   :ensure t
   :defer t
@@ -154,7 +154,7 @@ Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda 
 Installs =org-autolist=, which makes RET and backspace behave like a word processor in lists: RET starts a new item and backspace on an empty item removes the bullet. It is installed but no hook enables =org-autolist-mode= in this module, so it may be turned on elsewhere or not at all.
 
 #+begin_src emacs-lisp -i
-;;;; List behavior
+;;;;; List behavior
 (use-package org-autolist
   :ensure t)
 #+end_src
@@ -200,7 +200,7 @@ Adds a font lock rule to Org mode that matches list items whose checkbox is =[X]
 Installs =spacious-padding= and turns on =spacious-padding-mode= immediately, adding space around windows, the mode line and the frame edges.
 
 #+begin_src emacs-lisp -i
-;;;; Spacious padding --- and other padding settings
+;;;;; Spacious padding --- and other padding settings
 (use-package spacious-padding
   :ensure t
   :init

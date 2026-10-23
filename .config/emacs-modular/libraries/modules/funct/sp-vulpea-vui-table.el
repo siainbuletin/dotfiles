@@ -14,7 +14,7 @@
 (require 'vulpea)
 (require 'sp-vulpea-dblock) ; for sia-vulpea--resolve-parent-of / sia-vulpea--note-matches-p
 
-;;; Cross-buffer refresh broadcasting ----------------------------------
+;;;; Cross-buffer refresh broadcasting ----------------------------------
 
 (defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
@@ -45,7 +45,7 @@ stale data, this delay is the first thing to lengthen."
 
 (add-hook 'after-save-hook #'sia-vulpea--schedule-refresh-after-save)
 
-;;; Writing a meta property back to its note ----------------------------
+;;;; Writing a meta property back to its note ----------------------------
 
 (defun sia-vulpea--write-meta (note key value)
   "Set NOTE's meta property KEY to VALUE, in NOTE's own file.

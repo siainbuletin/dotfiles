@@ -133,7 +133,7 @@ Result depends on syntax table's comment character."
     (setq lsp-ui-doc-header t)
     (setq lsp-ui-doc-border "white")))
 
-;;;;; Outline Navigation
+;;;; Outline Navigation
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
@@ -172,7 +172,7 @@ Result depends on syntax table's comment character."
                             (";;;;;; " . 4)
                             (";;;;;;; " . 5))))))
 
-;;;;; Autocomplete changes
+;;;; Autocomplete changes
 (icomplete-mode -1)
 ;; (setq completion-cycle-threshold t)"
 (setq completion-auto-help t)

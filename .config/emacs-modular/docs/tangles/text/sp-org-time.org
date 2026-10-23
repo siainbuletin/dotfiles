@@ -34,7 +34,7 @@ The file header: the first line carries the file name, a short summary and the =
 When extras are enabled and the package is installed, =org-pomodoro= is made available as a command, using macOS =afplay= to play its sounds. The comment trails off asking how best to trigger it; no key binding is set.
 
 #+begin_src emacs-lisp -i
-;;; Org Pomodoro
+;;;; Org Pomodoro
 ;; Helps with time tracking
 ;; But how exactly can you trigger this we
 (use-package org-pomodoro

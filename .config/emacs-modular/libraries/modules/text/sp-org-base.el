@@ -25,7 +25,7 @@
 
   (add-hook 'org-mode-hook #'org-num-mode)
 
-;;; Should be default settings for writing (also called linting)
+;;;; Should be default settings for writing (also called linting)
 ;; (add-hook 'before-save-hook
 ;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 ;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
@@ -36,7 +36,7 @@
 periods. This ain't a typewriter."
   (setq sentence-end-double-space nil))
   
-;;; Useful writing functions 
+;;;; Useful writing functions 
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
@@ -345,14 +345,14 @@ selected instead of creating a new buffer."
 ;; https://systemcrafters.cc/emacs-from-scratch/organize-your-life-with-org-mode/#capture-templates
 
 ;; What does this eval after load mean?
-;;;; Org Modules
+;;;;; Org Modules
 (with-eval-after-load 'org
 ;; Load additional org modules
 (add-to-list 'org-modules 'org-habit t)
 (add-to-list 'org-modules 'org-tempo t)
 (add-to-list 'org-modules 'org-protocol t))
 
-;;;; Open Files in Default Application
+;;;;; Open Files in Default Application
 ;;Open files in their default applications (ms word being the prime example)
 (customize-set-variable 'org-file-apps
                         '(("\\.docx\\'" . default)
@@ -361,7 +361,7 @@ selected instead of creating a new buffer."
                           ("\\.pdf\\'" . emacs)
                           (auto-mode . emacs)))
 
-;;;;; Goto Org Files
+;;;;;; Goto Org Files
 (defun sp-goto-org-files ()
   "goto org-files directory"
   (interactive)
@@ -404,12 +404,12 @@ selected instead of creating a new buffer."
   (interactive)
   (find-file (concat org-directory "teaching.org")))
 
-;;;;; Org Create Check Box From List Item
+;;;;;; Org Create Check Box From List Item
 ;; A useful macro for converting list items to checkboxes
 (fset 'sp-org-checkbox-from-list
       [?a ?  ?\[ ?  ?\] escape ?\M-x return])
 
-;;;;; Org Tag Selection
+;;;;;; Org Tag Selection
 
 (defun sp-org-select-tags-completing-read ()
   "Select tags to add to headline."
@@ -420,7 +420,7 @@ selected instead of creating a new buffer."
                          (-difference selected current)))
       (org-set-tags it))))
 
-;;;;; Uncheck Org boxes
+;;;;;; Uncheck Org boxes
 ;;see https://www.reddit.com/r/emacs/comments/r107bg/comment/hlx54vf/?utm_source=share&utm_medium=web2x&context=3
 (defun sp-copy-and-uncheck (start end)
   "copy a region of regularly repeating checkbox items forward from
@@ -429,7 +429,7 @@ one week to the next, unchecking them at the same time"
   (kill-new (replace-regexp-in-string (rx "[X]") "[ ]" (buffer-substring start end)))
   (setq deactivate-mark t))
 
-;;;;; Org Tree/Heading to New File
+;;;;;; Org Tree/Heading to New File
 (defun sp-org-tree-to-new-file ()
   "Move an org subtree to a new file"
   (interactive)
@@ -438,7 +438,7 @@ one week to the next, unchecking them at the same time"
    (read-file-name "Move subtree to file:" ))
   (org-paste-subtree))
 
-;;;;; Org Wrap in Block Template
+;;;;;; Org Wrap in Block Template
 ;; A helpful function I found for wrapping text in a block template.
 ;; http://pragmaticemacs.com/emacs/wrap-text-in-an-org-mode-block/
 
@@ -490,7 +490,7 @@ one week to the next, unchecking them at the same time"
               (insert "#+begin_" choice "\n")
               (save-excursion (insert "#+end_" choice))))))))))
 
-;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
+;;;; Only follow links in org-mode if it's strictly in the link itself, not at the edges
 (defun sp-org-point-strictly-in-link-p ()
   "Non-nil if point is inside a link, not at its edges or trailing blanks."
   (let ((ctx (org-element-context)))

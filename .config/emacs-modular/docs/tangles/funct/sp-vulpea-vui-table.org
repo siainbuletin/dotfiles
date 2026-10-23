@@ -45,7 +45,7 @@ Several table buffers can be open at once. Rather than each one watching files, 
 =sp-vulpea-table-refresh-functions= is an abnormal hook of zero-argument functions. Each mounted table adds a function here while it is alive and removes it when it is unmounted.
 
 #+begin_src emacs-lisp -i
-;;; Cross-buffer refresh broadcasting ----------------------------------
+;;;; Cross-buffer refresh broadcasting ----------------------------------
 
 (defvar sp-vulpea-table-refresh-functions nil
   "Abnormal hook: functions called with no arguments to signal that
@@ -108,7 +108,7 @@ Adds the scheduler to the global =after-save-hook=, so it runs after every save 
 Marks the start of the code that writes edits back to note files.
 
 #+begin_src emacs-lisp -i
-;;; Writing a meta property back to its note ----------------------------
+;;;; Writing a meta property back to its note ----------------------------
 #+end_src
 
 ** Writing a meta value into a note

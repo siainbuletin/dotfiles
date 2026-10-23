@@ -138,7 +138,7 @@ This shell is used to execute the Nushell command."
          (command (format "python3 -c %s %s" script code)))
     (org-babel-eval command "")))
 
-;;; Tangling all files at once from the literate configuration
+;;;; Tangling all files at once from the literate configuration
 (require 'ob-tangle)
 
 (defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))

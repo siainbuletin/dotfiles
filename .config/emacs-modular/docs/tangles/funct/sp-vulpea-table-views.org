@@ -54,7 +54,7 @@ Views are kept in an alist keyed by name and written to disk as an annotated Lis
 =sp-vulpea-table-views-file= is where saved views are stored, by default =sp-vulpea-table-views.el= in =user-emacs-directory=. Note that this is the same file name as the module itself; if the Emacs directory were ever on the =load-path= ahead of the modules directory, =(require 'sp-vulpea-table-views)= could pick up the data file instead. That is a potential gotcha rather than something visibly happening.
 
 #+begin_src emacs-lisp -i
-;;; Named views ---------------------------------------------------------
+;;;; Named views ---------------------------------------------------------
 
 (defcustom sp-vulpea-table-views-file
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
@@ -254,7 +254,7 @@ These functions replace the text of each =vulpea-table= dynamic block in an Org 
 =sia-vulpea--inline-table-instances= records the marker and =vui= instance of every live table in the buffer. =sia-vulpea--inline-tables-active= says whether live tables should be shown, and is what lets them come back after a save.
 
 #+begin_src emacs-lisp -i
-;;; Inline mounting -------------------------------------------------------
+;;;; Inline mounting -------------------------------------------------------
 
 (defvar-local sia-vulpea--inline-table-instances nil
   "Alist of (MARKER . VUI-INSTANCE) for live inline Vulpea tables
@@ -390,7 +390,7 @@ text instead of ephemeral widget state."
 =sia-vulpea-insert-table-from-view= creates a =vulpea-table= dynamic block at point from a saved view and fills it immediately. A self parent is inserted literally, so the block always tracks the children of the note it lives in.
 
 #+begin_src emacs-lisp -i
-;;; Insert a dblock from a saved view --------------------------------------
+;;;; Insert a dblock from a saved view --------------------------------------
 
 (defun sia-vulpea-insert-table-from-view ()
   "Insert a vulpea-table dblock at point, using a saved view

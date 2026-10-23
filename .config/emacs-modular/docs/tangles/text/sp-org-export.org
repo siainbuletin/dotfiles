@@ -71,8 +71,8 @@ Configures the built-in export framework once Org loads. It drops the default hy
 Installs =ox-pandoc= and loads it when one of the listed export commands is first called. The path to =pandoc= is looked up when the options are applied, so if Pandoc is not on the path at that moment the command will be =nil=. Output is standalone by default except for DOCX, PDFs are produced with XeLaTeX, and Org input is read with the smart typography extension. A commented-out =:if= line would make the whole package conditional on extras and Pandoc being available.
 
 #+begin_src emacs-lisp -i
-;;; Org Export Extensions
-;;;; Ox-Pandoc
+;;;; Org Export Extensions
+;;;;; Ox-Pandoc
 ;; Export w/pandoc
 (use-package ox-pandoc
   :ensure t
@@ -98,7 +98,7 @@ Installs =ox-pandoc= and loads it when one of the listed export commands is firs
 =org-pandoc-menu-entry= controls which formats appear in the Pandoc section of the =C-c C-e= export dispatcher and which key selects each one. Many formats are kept but commented out to keep the menu short. Those left enabled include HTML5 and HTML5-PDF, OPML, slide formats (Slideous, Slidy, DZSlides, reveal.js, Beamer), ms-PDF, ConTeXt-PDF, LaTeX-PDF, DocBook, EPUB3, GitHub-flavoured Markdown and Markdown, HTML4, ICML, JSON, man, Pandoc native, ODT, PPTX, RTF, DokuWiki, MediaWiki and DOCX. Lowercase keys generally export to a file and open it, and uppercase keys export to a buffer or a file without opening.
 
 #+begin_src emacs-lisp -i
-;;;; Ox-Pandoc Export Menu Options
+;;;;; Ox-Pandoc Export Menu Options
 ;; Set pandoc export options
 (setq org-pandoc-menu-entry
       '(
@@ -232,7 +232,7 @@ Links to the Pragmatic Emacs post and Stack Exchange question that the following
 
 #+begin_src emacs-lisp -i
 ;; Exporting different regions
-;;;;; Export Headings as Seperate Files
+;;;;;; Export Headings as Seperate Files
 ;; export headlines to separate files
 ;; http://pragmaticemacs.com/emacs/export-org-mode-headlines-to-separate-files/ ; see also:
 ;; http://emacs.stackexchange.com/questions/2259/how-to-export-top-level-headings-of-org-mode-buffer-to-separate-files
@@ -313,7 +313,7 @@ Links to the Pragmatic Emacs post and Stack Exchange question that the following
 =lem-org-map-entries= reads an Org file into a temporary buffer and calls a function at every top-level heading that carries all the given tags. Tags can be given as a single string or a list. It is a simpler, file-based relative of =org-map-entries= taken from a Stack Exchange answer. Nothing in this module calls it.
 
 #+begin_src emacs-lisp -i
-;;;;; Export Top Level Trees to File
+;;;;;; Export Top Level Trees to File
 ;; From a useful [[https://emacs.stackexchange.com/questions/27226/how-to-export-top-level-trees-in-an-org-file-to-corresponding-files][stack exchange]] post
 (defun lem-org-map-entries (org-file in-tags func)
   (let ((tags (if (stringp in-tags)
@@ -355,7 +355,7 @@ Links to the Pragmatic Emacs post and Stack Exchange question that the following
 =export-last-subtree= is a keyboard macro for =C-u C-c C-e=, which repeats the most recent export with the same settings. It is bound to =F5= in Org buffers once Org loads. The name suggests it is about subtrees, but it repeats whatever the last export was.
 
 #+begin_src emacs-lisp -i
-;;;;; Org Export Last Subtree
+;;;;;; Org Export Last Subtree
 ;; bind f5 to keyboard macro of export-last-subtree
 (fset 'export-last-subtree
       "\C-u\C-c\C-e")
@@ -374,7 +374,7 @@ Links to the Pragmatic Emacs post and Stack Exchange question that the following
 #+begin_src emacs-lisp -i
 ;; Exporting to HTML
 
-;;;;; Org Export Body to HTML Buffer
+;;;;;; Org Export Body to HTML Buffer
 (defun lem-org-export-to-buffer-html-as-body (&optional async body-only ext-plist)
   "Export org buffer body to html"
   (interactive)
@@ -395,7 +395,7 @@ Links to the Pragmatic Emacs post and Stack Exchange question that the following
 When extras are enabled and the package is installed, =ox-hugo= provides commands for exporting Org to Markdown for the Hugo static site generator. The bibliography section heading for citations in exported posts is set to References.
 
 #+begin_src emacs-lisp -i
-;;;; Ox-Hugo
+;;;;; Ox-Hugo
 ;; Export to Hugo with Org
 ;; https://github.com/kaushalmodi/ox-hugo
 (use-package ox-hugo
@@ -416,7 +416,7 @@ When extras are enabled and the package is installed, =ox-hugo= provides command
 Defines an Org link type =hugo:= for links between pages of a Hugo site. When you insert such a link with completion, =org-hugo-link-complete= asks for a file and produces a Hugo =ref= shortcode with its relative path; following the link with =org-hugo-follow= opens that file. The link type is registered once Org loads.
 
 #+begin_src emacs-lisp -i
-;;;;; Org-Hugo Links
+;;;;;; Org-Hugo Links
 ;; New link type for Org-Hugo internal links
 (defun org-hugo-link-complete ()
   "Create link with Hugo ref shortcode"
@@ -436,7 +436,7 @@ Defines an Org link type =hugo:= for links between pages of a Hugo site. When yo
 When extras are enabled, =htmlize= is available for converting buffers, with their syntax colours, to HTML. Org's HTML export uses it to colour source blocks.
 
 #+begin_src emacs-lisp -i
-;;; Org Html Conversion
+;;;; Org Html Conversion
 (use-package htmlize
   :if (and sp-load-extras (locate-library "htmlize"))
   :commands (htmlize-buffer))
@@ -451,7 +451,7 @@ These commands, carried over from Lambda Emacs's helper functions, read the macO
 =sp-org-to-markdown= converts the clipboard from Org to Markdown and pastes it.
 
 #+begin_src emacs-lisp -i
-;;; Clipboard conversion through Pandoc 
+;;;; Clipboard conversion through Pandoc 
 ;; (initially lived in the file for functions in Lambda Emacs)
 (defun sp-org-to-markdown ()
   "convert clipboard contents from org to markdown and paste"

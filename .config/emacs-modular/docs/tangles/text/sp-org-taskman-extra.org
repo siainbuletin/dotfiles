@@ -214,7 +214,7 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 
 
 
-;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
+;;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)
 #+end_src
 
 * Getting Things Done
@@ -230,7 +230,7 @@ Keybindings:
 - ~C-c .~ in the agenda opens =org-gtd-agenda-transient= for quick actions on tasks.
 
 #+begin_src emacs-lisp -i
-;;; Org-gtd package
+;;;; Org-gtd package
 (use-package org-gtd
   :ensure (:wait t)
   :after org
@@ -277,7 +277,7 @@ Keybindings:
 Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command. Inline tasks are task headings placed deep inside the body of another entry without breaking its structure. Now that the plain =require= above is commented out, this is the only place the library is set up, and it loads on first use.
 
 #+begin_src emacs-lisp -i
-;;;; Org Inline Tasks
+;;;;; Org Inline Tasks
 (use-package org-inlinetask :ensure nil
   :commands org-inlinetask-insert-task)
 #+end_src

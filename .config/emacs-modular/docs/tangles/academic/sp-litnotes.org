@@ -28,7 +28,7 @@ Installs and enables =citar-denote-mode=, which makes Citar use Denote files as 
 
 ;;; Code:
 
-;;; File-level literature notes
+;;;; File-level literature notes
 (use-package citar-denote
   :ensure (:wait t)
 
@@ -89,7 +89,7 @@ Stores new literature notes in the =litnotes= subdirectory of the Denote directo
 Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be linked to Vulpea nodes. Notes use the =litnote= tag, store citation keys in a =REFERENCES= property, are titled "author (date) title", and live in =~/notes/litnotes=. A comment says the title template still needs to match the citar-denote convention.
 
 #+begin_src emacs-lisp -i
-;;; Node-level literature note configuration
+;;;; Node-level literature note configuration
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)

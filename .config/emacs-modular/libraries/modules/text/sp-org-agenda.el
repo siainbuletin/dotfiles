@@ -59,7 +59,7 @@
 ;; restore them as direct `org-agenda-mode-map' bindings (Spec 09 O7).
 ;; See git history for the prior implementation.
 
-;;; Appearance of the agenda and rendering
+;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
   (setq org-agenda-tags-column 0)           ;; Put tags next to heading
@@ -81,7 +81,7 @@
   (setq org-agenda-window-setup 'only-window)
   (setq org-agenda-restore-windows-after-quit t)
 
-;;; CONFIGURING THE FUNCTIONALITY
+;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
   (setq org-agenda-skip-scheduled-if-done t)
@@ -92,7 +92,7 @@
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   (setq calendar-week-start-day 1) ;; Start week on Monday
 
-;;; EXTENSIONS FOR ORG-AGENDA
+;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
 :after org
   :ensure (:wait t)
@@ -132,7 +132,7 @@
          (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
 ))
 
-;;; Display an agenda file for the current subtree
+;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-sorting-strategy)

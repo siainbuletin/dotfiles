@@ -24,7 +24,7 @@ A bare `*' only counts when indented, so headings are not mistaken for items.")
   "Match an https:// URL.
 Change `https://' to `https?://' to also treat http links as links.")
 
-;;; Region detection
+;;;; Region detection
 
 (defun sp-org--item-near-point ()
   "Return the start of the list item at or near point, or nil.
@@ -95,7 +95,7 @@ end of the last non-blank line belonging to it."
     (goto-char (car bounds))
     (push-mark (cdr bounds) nil t)))
 
-;;; Step 1: turn plain lines into items
+;;;; Step 1: turn plain lines into items
 
 (defun sp-org--convertible-line-p ()
   "Non-nil if the line at point is plain paragraph text outside any list.
@@ -123,7 +123,7 @@ Return the number of lines converted."
           (set-marker next nil))))
     count))
 
-;;; Step 2: remove blank lines between items
+;;;; Step 2: remove blank lines between items
 
 (defun sp-org--remove-blank-lines-between-items (beg end-marker)
   "Delete blank lines between list items from BEG to END-MARKER."
@@ -146,7 +146,7 @@ Return the number of lines converted."
                      (looking-at-p "[ \t]+[^ \t\n]"))))
           (replace-match "\n"))))))
 
-;;; Step 3: remove duplicate links
+;;;; Step 3: remove duplicate links
 
 (defun sp-org--normalize-url (url)
   "Return URL in a canonical form for comparison.
@@ -210,7 +210,7 @@ Return (REMOVED . KEPT-BECAUSE-NESTED)."
               (setq removed (1+ removed))))))))
     (cons removed kept)))
 
-;;; Step 4: sort
+;;;; Step 4: sort
 
 (defun sp-org--sort-key ()
   "Sort key for the list item at point.
@@ -238,7 +238,7 @@ description, or their target when they have none), lower-cased."
           (goto-char bottom)
           (set-marker bottom nil))))))
 
-;;; Pipeline and commands
+;;;; Pipeline and commands
 
 (defun sp-org--check-region (beg end)
   "Signal an error unless in `org-mode' and BEG/END are usable."
