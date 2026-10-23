@@ -1230,31 +1230,5 @@ exports of the same note never overwrite each other."
         (error "Graphviz failed: %s" (buffer-string))))
     (pop-to-buffer (find-file-noselect file))))
 
-;;;; Old names
-
-;; The module used to be `sp-vulpea-hierarchy'.  The old names keep
-;; working, which also keeps `sp-dg-positions' reading the same rankdir.
-
-(dolist (name '(relations tag-colors default-depth html-file svg-directory
-                          rankdir wrap-width))
-  (define-obsolete-variable-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
-    "2026-10-20"))
-
-(dolist (name '(graph outline-native outline-vui svg))
-  (define-obsolete-function-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "rel-anno-%s" name))
-    "2026-10-20"))
-
-;; The commands have the shorter prefix `rel-anno-'.
-(dolist (name '(graph outline-native outline-vui svg review
-                      view-toggle view-redraw view-recenter))
-  (define-obsolete-function-alias
-    (intern (format "relationship-annotator-%s" name))
-    (intern (format "rel-anno-%s" name))
-    "2026-10-23"))
-
 (provide 'sp-relationship-annotator)
 ;;; sp-relationship-annotator.el ends here

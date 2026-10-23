@@ -13,7 +13,7 @@ Besides =parents=, a note can relate to other notes in other ways: =supports=, =
 
 Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
 
-The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. The old names of the variables and commands still work. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
+The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. For how this compares with the package, see [[file:../../relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
 
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
@@ -1712,45 +1712,10 @@ exports of the same note never overwrite each other."
     (pop-to-buffer (find-file-noselect file))))
 #+end_src
 
-*** Old names (lines 1233–1249)
+*** Provide (lines 1233–1234)
 
-- Lines 1235-1236 explain why this section exists: the module used to be called =sp-vulpea-hierarchy=.
-- Lines 1238-1243 make every old customisation variable an obsolete alias of the new one. They are =relations=, =tag-colors=, =default-depth=, =html-file=, =svg-directory=, =rankdir= and =wrap-width=, and the loop builds both names from the same word. A setting you made under the old name keeps working. So does =sp-dg-positions=, which tests =vulpea-hierarchy-rankdir= with =boundp=: an alias is bound whenever its target is.
-- Lines 1245-1249 do the same for the commands =graph=, =outline-native=, =outline-vui= and =svg=, now pointing at their =rel-anno-= names. Both loops date the alias 2026-10-20, so the byte compiler warns about the old names.
-- Lines 1251-1257 make the commands that had the longer prefix, =relationship-annotator-graph=, =-outline-native=, =-outline-vui=, =-svg=, =-review= and the three =-view-= commands, obsolete aliases of their =rel-anno-= names, dated 2026-10-23. Only commands were renamed; variables and internal functions keep the long prefix.
-
-#+begin_src emacs-lisp
-;;;; Old names
-
-;; The module used to be `sp-vulpea-hierarchy'.  The old names keep
-;; working, which also keeps `sp-dg-positions' reading the same rankdir.
-
-(dolist (name '(relations tag-colors default-depth html-file svg-directory
-                          rankdir wrap-width))
-  (define-obsolete-variable-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "relationship-annotator-%s" name))
-    "2026-10-20"))
-
-(dolist (name '(graph outline-native outline-vui svg))
-  (define-obsolete-function-alias
-    (intern (format "vulpea-hierarchy-%s" name))
-    (intern (format "rel-anno-%s" name))
-    "2026-10-20"))
-
-;; The commands have the shorter prefix `rel-anno-'.
-(dolist (name '(graph outline-native outline-vui svg review
-                      view-toggle view-redraw view-recenter))
-  (define-obsolete-function-alias
-    (intern (format "relationship-annotator-%s" name))
-    (intern (format "rel-anno-%s" name))
-    "2026-10-23"))
-#+end_src
-
-*** Provide (lines 1259–1260)
-
-- Line 1259 provides the feature, so =(require 'sp-relationship-annotator)= works.
-- Line 1260 is the conventional end-of-file line.
+- Line 1233 provides the feature, so =(require 'sp-relationship-annotator)= works.
+- Line 1234 is the conventional end-of-file line.
 
 #+begin_src emacs-lisp
 (provide 'sp-relationship-annotator)
