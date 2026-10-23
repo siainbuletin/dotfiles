@@ -42,7 +42,7 @@ periods. This ain't a typewriter."
 
 (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
 
-(setq org-directory "~/notes/")
+(setq org-directory sp-notes-dir)
 
 (global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
 
@@ -313,9 +313,6 @@ selected instead of creating a new buffer."
   :ensure (:wait t)
   :custom
   (org-inline-anim-loop t))
-
-(use-package org-ql
- :ensure t)
 
 ;; Time logging for org-mode
 

@@ -39,7 +39,7 @@ Write candidate settings in this block and evaluate them with =C-c C-c= to try t
 
 * Provide
 
-The =provide= form lets =require= and =sp-require-module= load this module by name.
+Provides the =sp-vulpea-ext-back= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-vulpea-ext-back)

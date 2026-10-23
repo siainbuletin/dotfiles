@@ -67,31 +67,13 @@ The =let*= used to refer to =cite-key= (with a hyphen) although the argument is 
 
 * PDF viewer
 
-** emacs-reader
-
-Installs =emacs-reader= directly from its Codeberg git repository using Elpaca's =:ensure= recipe. It is a document reader for Emacs backed by a native rendering library. No configuration is applied here.
-
-#+begin_src emacs-lisp -i
-;;;; Calling emacs-reader
-(use-package emacs-reader
-  :ensure (:type git :url "https://codeberg.org/MonadicSheep/emacs-reader.git"))
-#+end_src
-
 * Provide
 
-** Provide marker
-
-Section comment.
+Provides the =sp-pdfprocess= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
-#+end_src
 
-** Provide form
-
-Makes the module available as =sp-pdfprocess=.
-
-#+begin_src emacs-lisp -i
 (provide 'sp-pdfprocess)
 ;; sp-pdfprocess.el ends here.
 #+end_src

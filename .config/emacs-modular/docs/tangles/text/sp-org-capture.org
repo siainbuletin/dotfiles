@@ -95,13 +95,13 @@ Because this is a plain =setq=, it would wipe the Denote template above if =org-
 
 #+begin_src emacs-lisp -i
 (setq org-capture-templates
-        '(
+        `(
           ("l" "Listening log" entry
-           (file+datetree "~/notes/inbox/listening-log.org")
+           (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
            "* %U\n %i\n %a")
 
           ("i" "Idea or quick thought to take care of" entry
-           (file "~/notes/inbox/thoughts-capture.org"))
+           (file ,(sp-path sp-notes-dir "inbox/thoughts-capture.org")))
 ))
 #+end_src
 
@@ -143,7 +143,7 @@ Because this is a plain =setq=, it would wipe the Denote template above if =org-
 
 ** Provide
 
-Registers the =sp-org-capture= feature.
+Provides the =sp-org-capture= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-capture)

@@ -115,9 +115,7 @@ Installs =consult-notes=, a consult interface for picking and searching notes. =
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-notes= feature for =init.el=.
+Provides the =sp-notes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide Setup-Notes

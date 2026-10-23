@@ -36,9 +36,7 @@ Sets UTF-8 as the default for new buffers, file names and processes, puts it fir
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-encoding= feature for =init.el=.
+Provides the =sp-encoding= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

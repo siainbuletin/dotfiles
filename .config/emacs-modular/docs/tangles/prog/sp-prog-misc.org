@@ -379,9 +379,7 @@ Ensures every saved file ends with a newline.
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-prog-misc= feature for =init.el=.
+Provides the =sp-prog-misc= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

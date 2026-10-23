@@ -60,7 +60,7 @@ Default is to persist."
   :group 'sia-lambda
   :type 'string)
 
-(defcustom sp-scratch-default-dir (concat (getenv "HOME") "/")
+(defcustom sp-scratch-default-dir (expand-file-name "~/")
   "Default directory for scratch buffer.
 User may prefer to set this to `sp-scratch-save-dir'."
   :group 'sia-lambda
@@ -159,9 +159,7 @@ When persistence is on, scratch is restored from =after-init-hook=, saved from =
 
 * Provide
 
-** Provide
-
-Provides the =sp-scratch= feature.
+Provides the =sp-scratch= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; End Setup-Scratch

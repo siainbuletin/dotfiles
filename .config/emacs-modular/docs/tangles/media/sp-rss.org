@@ -44,7 +44,7 @@ Installs =elfeed-org= and runs =(elfeed-org)= to read the feed list from Org fil
   :config
   (elfeed-org)
   :custom
-  (rmh-elfeed-org-files (list "~/Documents/elfeed.org")))
+  (rmh-elfeed-org-files (list (sp-path sp-documents-dir "elfeed.org"))))
 #+end_src
 
 * Capturing entries
@@ -85,9 +85,7 @@ A note asking how RSS could be integrated with bibliography management.
 
 * Provide
 
-** Provide the feature
-
-Provides =sp-rss=, so that =(require 'sp-rss)= works once the module is added to a module list.
+Provides the =sp-rss= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-rss)

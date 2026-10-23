@@ -197,8 +197,8 @@ Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumabl
 Points =org-ref= at =~/bibliography/master.bib= and at =~/Documents/literature/= for PDFs. These variable names are from older org-ref versions.
 
 #+begin_src emacs-lisp -i
-(setq org-ref-default-bibliography '("~/bibliography/master.bib")
-      org-ref-pdf-directory "~/Documents/literature/")
+(setq org-ref-default-bibliography (list (sp-path sp-bibliography-dir "master.bib"))
+      org-ref-pdf-directory sp-literature-dir)
 #+end_src
 
 * Citar and bibtex-completion files
@@ -208,7 +208,7 @@ Points =org-ref= at =~/bibliography/master.bib= and at =~/Documents/literature/=
 A commented-out setting for =citar-library-paths=, with a note that it must be a list of directories to work.
 
 #+begin_src emacs-lisp -i
-;; (setq citar-library-paths "~/Documents/literature")
+;; (setq citar-library-paths (list sp-literature-dir))
 ;; this has to be a list of directories in order to work
 #+end_src
 
@@ -227,15 +227,11 @@ Sets the =.bib= files used by =helm-bibtex= and friends (a master file plus seve
 
 #+begin_src emacs-lisp -i
 (setq bibtex-completion-bibliography
-      '("~/bibliography/master.bib"
-        "~/bibliography/thesis.bib"
-        "~/bibliography/marx.bib"
-        "~/bibliography/hci.bib"
-        "~/bibliography/aesthetics.bib"
-        "~/bibliography/hegel-prezentare.bib"
-        "~/bibliography/modernitate.bib")
-        bibtex-completion-library-path '("~/Documents/literature/")
-        bibtex-completion-notes-path "~/notes/"
+      (mapcar (lambda (bib) (sp-path sp-bibliography-dir bib))
+              '("master.bib" "thesis.bib" "marx.bib" "hci.bib" "aesthetics.bib"
+                "hegel-prezentare.bib" "modernitate.bib"))
+        bibtex-completion-library-path (list sp-literature-dir)
+        bibtex-completion-notes-path sp-notes-dir
         bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 #+end_src
 
@@ -308,9 +304,7 @@ Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =sia-lambda
 
 * Provide
 
-** Provide
-
-Provides the =sp-academic= feature.
+Provides the =sp-academic= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-academic)

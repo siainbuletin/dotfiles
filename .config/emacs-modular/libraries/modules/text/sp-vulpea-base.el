@@ -17,7 +17,7 @@
    ("M-o n a" . vulpea-buffer-alias-add))
 )
 
-(setq vulpea-db-sync-directories '("~/notes/"))
+(setq vulpea-db-sync-directories (list sp-notes-dir))
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 

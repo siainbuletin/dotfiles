@@ -252,9 +252,7 @@ A custom preview that runs =eza -al= with colours and icons when the selected en
 
 * Provide
 
-** Provide the feature
-
-A separator line, then registration of the =sp-dired= feature.
+Provides the =sp-dired= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -374,9 +374,7 @@ Installs =casual=, a collection of transient menus for built-in modes such as Di
 
 * Provide
 
-** Provide feature
-
-Provides =sp-base-libraries=.
+Provides the =sp-base-libraries= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-base-libraries)

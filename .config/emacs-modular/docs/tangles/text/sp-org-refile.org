@@ -90,9 +90,9 @@ A repeating idle timer runs after 300 seconds of idleness: it clears the refile 
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-org-refile=.
+Provides the =sp-org-refile= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-refile)

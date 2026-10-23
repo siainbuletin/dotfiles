@@ -8,7 +8,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module sets up the basic writing environment for =text-mode= and the core of Org mode: keybindings, indentation, lists, source blocks, logging, deadline highlighting, custom IDs for headings, quick-jump commands to the main Org files and a handful of small editing helpers. It is loaded from the Org section of =init.el= (both the default and minimal module lists), before the other Org modules such as =sp-org-appearance=, =sp-org-capture= and =sp-org-agenda=.
 
-Org itself is the built-in package (=:ensure nil=). Extra packages pulled in here are =company-math=, =math-preview=, =org-fragtog=, =org-inline-anim= and =org-ql=. Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends come from =sp-org-emphasis=, and =sp-split-leave-parents= comes from =sp-vulpea-split=. The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
+Org itself is the built-in package (=:ensure nil=). Extra packages pulled in here are =company-math=, =math-preview=, =org-fragtog=, and =org-inline-anim=. (=org-ql= used to be installed here; it now lives in =sp-org-agenda=, see [[file:sp-org-agenda.org][sp-org-agenda]].) Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends come from =sp-org-emphasis=, and =sp-split-leave-parents= comes from =sp-vulpea-split=. The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
 
 The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
 
@@ -107,7 +107,7 @@ When storing a link interactively to an Org heading, Org creates an =ID= propert
 Sets =org-directory= to =~/notes/=. The trailing slash matters because several places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=); without it they produced names like =~/notesinbox.org=. Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
 
 #+begin_src emacs-lisp -i
-(setq org-directory "~/notes/")
+(setq org-directory sp-notes-dir)
 #+end_src
 
 ** Free up C-x t i
@@ -530,15 +530,6 @@ Installs =org-inline-anim= so inline animated GIFs can play in Org buffers, loop
   (org-inline-anim-loop t))
 #+end_src
 
-** org-ql
-
-Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on.
-
-#+begin_src emacs-lisp -i
-(use-package org-ql
- :ensure t)
-#+end_src
-
 * Tasks and logging
 
 ** Section comment
@@ -820,9 +811,7 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-base= feature so =init.el= can require it.
+Provides the =sp-org-base= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

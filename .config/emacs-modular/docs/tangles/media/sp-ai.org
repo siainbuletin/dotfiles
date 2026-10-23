@@ -133,9 +133,7 @@ An empty section header for linking the DEVONthink MCP server. No code has been 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-ai= feature.
+Provides the =sp-ai= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

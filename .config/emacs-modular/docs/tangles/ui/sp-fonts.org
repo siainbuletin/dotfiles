@@ -545,7 +545,7 @@ Sets the default font to PT Mono and the variable-pitch font to Aporetic Serif M
 
 ** Provide
 
-Registers the =sp-fonts= feature.
+Provides the =sp-fonts= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-fonts)

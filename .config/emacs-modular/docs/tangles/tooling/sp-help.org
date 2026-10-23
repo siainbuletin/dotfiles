@@ -559,9 +559,7 @@ Installs =tldr=, which shows community-written short examples for command-line p
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-help= feature.
+Provides the =sp-help= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide

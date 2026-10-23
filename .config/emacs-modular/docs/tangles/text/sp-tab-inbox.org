@@ -1305,9 +1305,7 @@ Registers it as =link-inbox-backlinks= at order 370, directly after the link inb
 
 * Provide
 
-** Feature
-
-Provides the =sp-tab-inbox= feature.
+Provides the =sp-tab-inbox= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide

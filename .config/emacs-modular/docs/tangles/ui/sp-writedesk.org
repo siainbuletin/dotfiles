@@ -125,9 +125,7 @@ Configures =writeroom-mode= with a 95-column text area, the mode line kept visib
 
 * Provide
 
-** Provide feature
-
-Provides =sp-writedesk=.
+Provides the =sp-writedesk= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

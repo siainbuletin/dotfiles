@@ -51,16 +51,14 @@ Configures =calibredb=, deferred until used, to point at the Calibre library in 
 (use-package calibredb
   :defer t
   :config
-  (setq calibredb-root-dir "~/Documents/calibre-library")
-  (setq calibredb-db-dir "~/Documents/calibre-library/metadata.db")
+  (setq calibredb-root-dir (sp-path sp-documents-dir "calibre-library"))
+  (setq calibredb-db-dir (sp-path sp-documents-dir "calibre-library/metadata.db"))
   )
 #+end_src
 
 * Provide
 
-** Provide
-
-Provides the =sp-reading= feature.
+Provides the =sp-reading= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-reading)

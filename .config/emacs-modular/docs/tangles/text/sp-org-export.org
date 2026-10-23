@@ -598,9 +598,7 @@ These commands, carried over from Lambda Emacs's helper functions, read the macO
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-export= feature.
+Provides the =sp-org-export= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-export)

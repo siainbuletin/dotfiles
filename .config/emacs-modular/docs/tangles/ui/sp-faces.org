@@ -264,9 +264,7 @@ Turns off the fringe markers for empty lines after the end of the buffer.
 
 * Provide
 
-** Provide feature
-
-Provides =sp-faces=.
+Provides the =sp-faces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

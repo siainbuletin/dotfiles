@@ -44,9 +44,7 @@ Setting =use-package-compute-statistics= makes use-package record how long each 
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-debug= feature.
+Provides the =sp-debug= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

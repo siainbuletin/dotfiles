@@ -252,9 +252,7 @@ Around advice on =spacious-padding-set-parameters-of-frame= so padding is applie
 
 * Provide
 
-** Provide the feature
-
-Registers the =sp-org-appearance= feature for =init.el=.
+Provides the =sp-org-appearance= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

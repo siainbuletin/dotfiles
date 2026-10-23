@@ -1,0 +1,138 @@
+#+TITLE: sp-paths.el: Where my files live
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-paths.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-paths.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This module names, once, every place outside the Emacs directory that the other modules read or write: the notes, the bibliography, the literature folder, the source checkouts and the yadm repository. Before it existed, about thirty modules spelled out =~/notes= and similar paths themselves, which made the configuration depend on one machine's layout. A module now says =sp-notes-dir= or =(sp-path sp-notes-dir "inbox/")= instead, so moving to another layout (or to Linux or Windows) is a matter of changing the defaults here.
+
+Each location can be overridden from the environment before Emacs starts, for example =SP_NOTES_DIR=/tmp/notes emacs=. That is how a test run (a sandbox for a pull request, say) is kept away from the real notes. The defaults are built with =expand-file-name= from =~=, so they follow the home folder of whichever system Emacs runs on.
+
+It is the first module in both module lists in =init.el= and in the profiles of =sp-config-profiles.el=, because the modules that use these variables read them while they load. It depends on nothing.
+
+Left alone on purpose: paths inside the configuration's own tree (=~/.config/...=), the legacy =~/.emacs.d= entries, =~/bin/mark.sh=, =~/opt/plantuml= and the plain =~/= used as a starting directory. They are tool locations rather than data, and are better handled when the Windows and Linux modules are written.
+
+* Header
+
+** File header and commentary
+
+#+begin_src emacs-lisp -i
+;; -*- lexical-binding: t -*-
+;;; sp-paths.el --- Where my files live
+
+;;; Commentary:
+
+;; Every place outside the Emacs directory that the modules read or write
+;; (notes, bibliography, literature, source checkouts) is named here once, so
+;; that the modules never spell out "~/notes" and the like themselves.  Load it
+;; before any module that uses one of these variables.
+;;
+;; Each location can be overridden from the environment before Emacs starts,
+;; e.g. SP_NOTES_DIR=/tmp/notes emacs, which is how a test run is kept away from
+;; the real notes.  The defaults sit under the home folder and are built with
+;; `expand-file-name', so they are right on macOS, Linux and Windows alike.
+;;
+;; All of them are directories with a trailing slash.  Use `sp-path' to build a
+;; path below one of them.
+#+end_src
+
+* Helpers
+
+The group, a function that reads an environment variable, and =sp-path=, which joins path components below one of the directories.
+
+#+begin_src emacs-lisp -i
+;;; Code:
+
+(defgroup sp-paths nil
+  "Locations of my notes, documents and checkouts."
+  :group 'files)
+
+(defun sp-paths--dir (env default)
+  "Directory named by environment variable ENV, or DEFAULT (relative to ~)."
+  (file-name-as-directory
+   (expand-file-name (or (getenv env) default))))
+
+(defun sp-path (dir &rest parts)
+  "Join PARTS below the directory DIR (a variable's value) into one path."
+  (let ((path (expand-file-name dir)))
+    (dolist (part parts path)
+      (setq path (expand-file-name part path)))))
+#+end_src
+
+* Locations
+
+The notes, documents, literature, bibliography, org, source and clone folders. Each is a directory with a trailing slash.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-notes-dir (sp-paths--dir "SP_NOTES_DIR" "~/notes")
+  "Root of the notes (the Zettelkasten, inbox, areas)."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-documents-dir (sp-paths--dir "SP_DOCUMENTS_DIR" "~/Documents")
+  "The documents folder (calibre library, writing, elfeed.org)."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-literature-dir (sp-path sp-documents-dir "literature/")
+  "Folder with the PDFs and attachments of the bibliography."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/bibliography")
+  "Folder with the .bib files."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-org-dir (sp-paths--dir "SP_ORG_DIR" "~/org")
+  "Folder for org files kept outside the notes (the journal)."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-src-dir (sp-paths--dir "SP_SRC_DIR" "~/src")
+  "Where source checkouts and git worktrees live."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-git-dir (sp-paths--dir "SP_GIT_DIR" "~/git")
+  "Where my own git projects live."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~")
+  "Folder holding the cloned-utilities and cloned-scan-ai checkouts."
+  :type 'directory :group 'sp-paths)
+#+end_src
+
+* Data home and yadm
+
+=sp-data-home= follows =XDG_DATA_HOME=; the yadm repository and the CSL styles of =sp-citations= are found below it.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-data-home
+  (sp-paths--dir "XDG_DATA_HOME" "~/.local/share")
+  "The user data folder (XDG_DATA_HOME, defaulting to ~/.local/share)."
+  :type 'directory :group 'sp-paths)
+
+(defcustom sp-yadm-repo (sp-path sp-data-home "yadm/repo.git")
+  "The bare repository of the yadm dotfiles."
+  :type 'directory :group 'sp-paths)
+#+end_src
+
+* Chrome history
+
+=sp-trails= imports the browsing history from Chrome, whose database sits in a different place on each system.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-chrome-history-file
+  (expand-file-name
+   (pcase system-type
+     ('darwin "~/Library/Application Support/Google/Chrome/Default/History")
+     ('windows-nt (concat (or (getenv "LOCALAPPDATA") "~/AppData/Local")
+                          "/Google/Chrome/User Data/Default/History"))
+     (_ "~/.config/google-chrome/Default/History")))
+  "Chrome's browsing history database."
+  :type 'file :group 'sp-paths)
+#+end_src
+
+* Provide
+
+Provides the =sp-paths= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-paths)
+;; sp-paths.el ends here.
+#+end_src

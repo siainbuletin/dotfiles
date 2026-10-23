@@ -289,8 +289,8 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
   :ensure t
   :init
   (setq projectile-project-search-path
-        '("~/Documents/writing/"
-          "~/.config/"))
+        (list (sp-path sp-documents-dir "writing/")
+              "~/.config/"))
   
   :config
   (projectile-mode +1)
@@ -303,16 +303,16 @@ Enables =projectile-mode= globally with caching. Its command map is on =C-c p= a
          ("<f6>" . projectile-run-project))
 
   :custom
-  (projectile-project-search-path '("~/git" "~/src"))
+  (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
   )
 #+end_src
 
 * Footer
 
-** Provide the feature
+** Provide
 
-Provides =sp-workspaces= for the module loader.
+Provides the =sp-workspaces= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:

@@ -32,7 +32,7 @@ Installs =org-mem= and, once it loads, makes it sync with =org-id= locations, wa
   ;; At least one of these two is needed
   (setq org-mem-do-sync-with-org-id t)
   (setq org-mem-watch-dirs
-        (list "~/notes/"))
+        (list sp-notes-dir))
   (org-mem-updater-mode))
 #+end_src
 
@@ -103,9 +103,7 @@ Lets org-node alter how completion candidates are displayed, for example by addi
 
 * Provide
 
-** Provide feature
-
-Provides =sp-org-node-mem=.
+Provides the =sp-org-node-mem= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 (provide 'sp-org-node-mem)

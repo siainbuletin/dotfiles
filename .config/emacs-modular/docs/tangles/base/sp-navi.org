@@ -174,9 +174,7 @@ Replaces the standard =find-file= binding on =C-x C-f= with =sp-find-file=. The 
 
 * Provide
 
-** Provide feature
-
-Provides =sp-navi=.
+Provides the =sp-navi= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 ;;; Provide:
