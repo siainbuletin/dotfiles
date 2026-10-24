@@ -34,6 +34,7 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
@@ -199,7 +200,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** ui/
 
-- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard (the old =dashboard= package screen, no longer loaded: the splash screen replaces it) ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
 - [[file:tangles/ui/sp-buffers.org][sp-buffers]] :: Buffer lists and pop-up buffers ([[file:../libraries/modules/ui/sp-buffers.el][sp-buffers.el]])
 - [[file:tangles/ui/sp-canvas.org][sp-canvas]] :: Experimental canvas and Excalidraw support ([[file:../libraries/modules/ui/sp-canvas.el][sp-canvas.el]])
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
@@ -211,7 +211,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
-- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme management and theme packages ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
+- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme folders, families and =sp-load-theme= ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
 - [[file:tangles/ui/sp-treemacs.org][sp-treemacs]] :: A file tree for the emacs-modular folder ([[file:../libraries/modules/ui/sp-treemacs.el][sp-treemacs.el]])
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
 - [[file:tangles/ui/sp-writedesk.org][sp-writedesk]] :: Writing desk: Olivetti and Writeroom ([[file:../libraries/modules/ui/sp-writedesk.el][sp-writedesk.el]])

@@ -1054,7 +1054,7 @@ splash is drawn again with the current settings."
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
-                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                (let* ((image-file (if (sp-theme-dark-p)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
                        (image (create-image image-file 'png nil :width 175 :height 175)))

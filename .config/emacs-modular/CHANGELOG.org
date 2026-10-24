@@ -4,6 +4,7 @@
 Changes to the Emacs configuration, grouped by the feature they build or fix. Within a set the pull requests follow the order they depend on each other, the base first. For the reason behind a change, open the pull request or the decision record linked from the set. Paths are relative to this folder. Each line starts with what happened (Added, Changed, Fixed, Removed); the category headings are not repeated.
 
 * Open pull requests
+- Changed the themes to be vendored in =libraries/themes/= (engines in =lib/=, the seven themes in use in =active/=, all others in =library/=, no Elpaca), grouped in four families (hard light, faded light, faded dark, hard dark) and loaded only by =sp-load-theme=: no confirmation, the old theme is disabled only after the new one loads, =T= loads a family. Removed =lem-dashboard=, =sp-archived-configs.el=, the dead Modus options and the theme-resetting =sp-disable-all-themes=; =sp-macos=, the toggle and the dashboard logo go through =sp-themes=. Added a list of the Modus faces a palette-only system would leave out. ([[https://github.com/siainbuletin/dotfiles/pull/89][#89]], Claude)
 - Added =sp-typst=: a PDF of the literate docs through =ox-typst= and Typst. ([[https://github.com/siainbuletin/dotfiles/pull/79][#79]], Claude)
 
 * Relationship annotator and the graph modules
