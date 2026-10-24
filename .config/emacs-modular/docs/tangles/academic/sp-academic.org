@@ -51,10 +51,10 @@ The long commentary is a roadmap more than a description.
 
 Every entry in a plain BibTeX file gets its key from =bibtex-generate-autokey=, with one scheme everywhere. The options are set once, in =sp-bibprocess=.
 
-- Shape: first author's family name, four-digit year, first significant title word, with nothing between the parts and all in lower case, for example =smith2020attention=.
-- Several authors: only the first one is used, so a paper by Smith and Jones is still =smith2020attention=.
+- Shape: first author's family name, four-digit year and the first two significant title words, each cut to five letters and joined by hyphens, all in lower case, for example =smith-2017-atten-is= (Attention Is All You Need) or =muller-2020-origin-species= (On the Origin of Species). A third word is added when the second is short (=bibtex-autokey-titlewords-stretch= is 1).
+- Several authors: only the first one is used, so a paper by Smith and Jones is still =smith-2017-...=.
 - Accents are stripped to plain ASCII (=Müller= becomes =muller=) so keys survive any tool.
-- The title word skips articles (English and German) and "On". It had taken "On" off the ignore list; with a single title word that would turn every "On ..." title into =...on=, so it is skipped again. Remove it from =bibtex-autokey-titleword-ignore= in =sp-bibprocess= to revert.
+- The title words skip articles (English and German), "On" and "on" (added to the ignore list at your request), and any word that is not capitalised or has odd characters.
 - Three ways to apply it: =C-c C-c= in =bibtex-mode= cleans an entry (=C-u C-c C-c= also makes a new key), =biblio= entries get one on insertion (=biblio-bibtex-use-autokey=), and the key is checked against every registered =.bib= file so duplicates are noticed.
 - Existing keys are left alone. Changing a key breaks the =cite:= links and =ROAM_REFS= that mention it, so regenerate only entries you have not cited yet.
 
@@ -416,8 +416,8 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 Configures the built-in =bibtex= mode:
 
 - the BibLaTeX dialect,
-- the key scheme (see [[*Citation keys]] in the first part of this document): first author, four-digit year and the first significant title word, in lower case and without separators, such as =smith2020attention=,
-- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "On",
+- the key scheme (see [[*Citation keys]] in the first part of this document): first author, four-digit year and two title words of at most five letters, in lower case and joined by hyphens, such as =smith-2017-atten-is=,
+- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "On" and "on",
 - what cleaning an entry does: =opts-or-alts= (drop empty optional fields), =page-dashes= (=10-20= to =10--20=), =whitespace=, =realign=, =last-comma=, =delimiters=, =unify-case= and =braces=. =required-fields= and =numerical-fields= are left out so that an incomplete entry from a look-up is not rejected,
 - a duplicate check across all registered files,
 - two extra optional fields offered when creating entries (=keywords= and =file= for attachments),
@@ -437,23 +437,23 @@ Also:
   :custom
   (bibtex-dialect 'biblatex)
 
-  ;; Keys: smith2020attention
+  ;; Keys: smith-2017-atten-is
   (bibtex-autokey-names 1)
   (bibtex-autokey-names-stretch 0)
   (bibtex-autokey-name-separator "")
-  (bibtex-autokey-name-year-separator "")
+  (bibtex-autokey-name-year-separator "-")
   (bibtex-autokey-year-length 4)
-  (bibtex-autokey-year-title-separator "")
-  (bibtex-autokey-titlewords 1)
-  (bibtex-autokey-titlewords-stretch 0)
-  (bibtex-autokey-titleword-length nil)
-  (bibtex-autokey-titleword-separator "")
+  (bibtex-autokey-year-title-separator "-")
+  (bibtex-autokey-titlewords 2)
+  (bibtex-autokey-titlewords-stretch 1)
+  (bibtex-autokey-titleword-length 5)
+  (bibtex-autokey-titleword-separator "-")
   (bibtex-autokey-name-case-convert-function #'downcase)
   (bibtex-autokey-titleword-case-convert-function #'downcase)
   (bibtex-autokey-before-presentation-function #'sp-bibtex-ascii-key)
   (bibtex-autokey-edit-before-use t)
   (bibtex-autokey-titleword-ignore
-   '("A" "An" "The" "On" "Eine?" "Der" "Die" "Das"
+   '("A" "An" "The" "On" "on" "Eine?" "Der" "Die" "Das"
      "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
   ;; Cleaning and duplicates

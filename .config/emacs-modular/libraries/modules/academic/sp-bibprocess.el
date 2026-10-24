@@ -55,23 +55,23 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   :custom
   (bibtex-dialect 'biblatex)
 
-  ;; Keys: smith2020attention
+  ;; Keys: smith-2017-atten-is
   (bibtex-autokey-names 1)
   (bibtex-autokey-names-stretch 0)
   (bibtex-autokey-name-separator "")
-  (bibtex-autokey-name-year-separator "")
+  (bibtex-autokey-name-year-separator "-")
   (bibtex-autokey-year-length 4)
-  (bibtex-autokey-year-title-separator "")
-  (bibtex-autokey-titlewords 1)
-  (bibtex-autokey-titlewords-stretch 0)
-  (bibtex-autokey-titleword-length nil)
-  (bibtex-autokey-titleword-separator "")
+  (bibtex-autokey-year-title-separator "-")
+  (bibtex-autokey-titlewords 2)
+  (bibtex-autokey-titlewords-stretch 1)
+  (bibtex-autokey-titleword-length 5)
+  (bibtex-autokey-titleword-separator "-")
   (bibtex-autokey-name-case-convert-function #'downcase)
   (bibtex-autokey-titleword-case-convert-function #'downcase)
   (bibtex-autokey-before-presentation-function #'sp-bibtex-ascii-key)
   (bibtex-autokey-edit-before-use t)
   (bibtex-autokey-titleword-ignore
-   '("A" "An" "The" "On" "Eine?" "Der" "Die" "Das"
+   '("A" "An" "The" "On" "on" "Eine?" "Der" "Die" "Das"
      "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
   ;; Cleaning and duplicates
