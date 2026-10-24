@@ -217,7 +217,7 @@ non-nil. A failing module is reported and the rest still load."
 ;;; Modular loading without a config.el
 ;;;;; Load order
 ;; The order of `lem--default-modules' follows the dependencies between the
-;; Elpaca recipes in the modules; docs/load-order.org draws them and says why.
+;; Elpaca recipes in the modules; docs/architecture/load-order.org draws them and says why.
 ;; Two rules matter to Elpaca. A package that another package requires has to be
 ;; declared *before* that package, otherwise Elpaca has already queued it as a
 ;; dependency and warns "X previously queued as dependency of: (Y)". And a
@@ -225,40 +225,36 @@ non-nil. A failing module is reported and the rest still load."
 ;; packages the rest of init needs go first.
 
 (defcustom sp-defer-late-modules t
-  "When non-nil, load the modules in `lem--late-modules' after startup.
+  "When non-nil, load the modules in `sp-late-modules' after startup.
 They are required from an idle timer once Elpaca has finished its
 initial queues, so they no longer add to the time Emacs takes to
 become usable. Set to nil to load them with the other modules, in
-the order of `lem--late-modules', for example when debugging."
+the order of `sp-late-modules', for example when debugging."
   :type 'boolean
   :group 'sia-lambda)
 
-(defconst lem--late-modules
+(defconst sp-late-modules
   '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
     ;; the first file.
     sp-academic
     sp-notes
     sp-trails ;; For gathering links from browser sessions
     sp-semantic
-    ;; several graphing functionality
-    sp-dgraphs
-    sp-relationship-annotator
-    sp-dyn-graph
-    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
+    ;; annotator and its live localhost view, in one module.
+    sp-graphs
     sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
-    ;; Version control. `sp-keys' autoloads the magit commands it binds, so
-    ;; the keys work before this loads. `sp-vcontrol' installs magit and
-    ;; `sp-magit-style' styles it, so it comes second.
+    ;; Version control. `sp-vcontrol' installs magit and `sp-magit-style'
+    ;; styles it, so it comes second. The magit keys in `sp-keys' and
+    ;; C-M-g only work once this has loaded.
     sp-vcontrol
     sp-magit-style
     sp-merge-pick ;; graph log: mark two commits, preview or start a merge
     ;; Terminals and shells
     sp-terminal
     sp-eshell
-    ;; AI tooling: the most packages of any module
-    sp-ai
     sp-tag-emoji ;; tags as emoji in the modeline and on links
     sp-thesis-dump    
     )
@@ -266,20 +262,20 @@ the order of `lem--late-modules', for example when debugging."
 Nothing else requires these features, and their packages are not
 needed to open the first buffer.")
 
-(defun lem--load-late-modules ()
-  "Require `lem--late-modules', then let Elpaca process what they queued."
-  (lem--require-modules lem--late-modules)
+(defun sp-load-late-modules ()
+  "Require `sp-late-modules', then let Elpaca process what they queued."
+  (lem--require-modules sp-late-modules)
   ;; Orders declared after init are only processed on their own when a
   ;; command is running interactively.
   (when (fboundp 'elpaca-process-queues)
     (elpaca-process-queues)))
 
-(defun lem--schedule-late-modules ()
-  "Load `lem--late-modules' now, or once Emacs is idle after Elpaca's init."
+(defun sp-schedule-late-modules ()
+  "Load `sp-late-modules' now, or once Emacs is idle after Elpaca's init."
   (if sp-defer-late-modules
       (add-hook 'elpaca-after-init-hook
-                (lambda () (run-with-idle-timer 0.5 nil #'lem--load-late-modules)))
-    (lem--load-late-modules)))
+                (lambda () (run-with-idle-timer 0.5 nil #'sp-load-late-modules)))
+    (sp-load-late-modules)))
 
 ;;;;; Load Configuration Modules
 ;; Lambda-Emacs loads a series of lisp-libraries or 'modules'. Which modules are
@@ -350,7 +346,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation
@@ -399,9 +395,15 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-lisp
                     'sp-prog-misc
                     ;; 'sp-vc-ai-workbench
+
+                    ;; AI tooling. Not late: it starts the vulpea-mcp and
+                    ;; org-mcp servers that Claude connects to through
+                    ;; emacsclient, so they have to be up as soon as the
+                    ;; daemon is.
+                    'sp-ai
                     ))
-   ;; The modules in `lem--late-modules' load once startup is done.
-   (lem--schedule-late-modules)))
+   ;; The modules in `sp-late-modules' load once startup is done.
+   (sp-schedule-late-modules)))
 
 (defun lem--minimal-modules ()
   "Load 𝛌-Emacs with a minimal set of modules.
@@ -447,7 +449,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation

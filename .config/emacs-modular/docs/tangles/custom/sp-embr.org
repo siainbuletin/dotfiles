@@ -6,7 +6,7 @@ Literate source for =libraries/modules/custom/sp-embr.el=. Every =emacs-lisp= bl
 
 * Overview
 
-~sp-embr~ shows the live graph view of =sp-relationship-annotator-live= (a page served on =127.0.0.1= by Emacs itself) inside an Emacs buffer. The live module keeps its own command, =rel-anno-live= (also =rel-anno-graph=), which opens the page in the normal browser through =browse-url=; this module adds two more ways to look at the same page, and a third command that shows both at once:
+~sp-embr~ shows the live graph view of the live view in =sp-graphs= (a page served on =127.0.0.1= by Emacs itself) inside an Emacs buffer. The live module keeps its own command, =rel-anno-live= (also =rel-anno-graph=), which opens the page in the normal browser through =browse-url=; this module adds two more ways to look at the same page, and a third command that shows both at once:
 
 - =M-x rel-anno-live-embr=: in a buffer, with [[https://github.com/emacs-os/embr.el][embr.el]] (a headless Chromium).
 - =M-x rel-anno-live-xwidget=: in a buffer, with Emacs's own =xwidget-webkit=.
@@ -48,7 +48,7 @@ None of this was run on a Mac, or with embr at all. The container that wrote it 
 
 ;; Generated from sp-embr.org -- edit that file, not this one.
 ;;
-;; Shows the live view of `sp-relationship-annotator-live' in an Emacs buffer:
+;; Shows the live view of `sp-graphs' (its live view) in an Emacs buffer:
 ;;
 ;;   M-x rel-anno-live-embr      with embr.el (headless Chromium, Emacs 30+)
 ;;   M-x rel-anno-live-xwidget   with `xwidget-webkit' (needs xwidgets)
@@ -67,7 +67,7 @@ None of this was run on a Mac, or with embr at all. The container that wrote it 
 
 Elpaca installs embr from GitHub, as for the other packages with a recipe in this configuration. embr needs Emacs 30.1, so the =use-package= form sits inside a =when=: use-package starts the install outside any =:when=, so only an enclosing form can stop it on an older Emacs. The =:files= list is the one from the embr README: it ships Python and shell scripts that must be part of the build.
 
-=:defer t= keeps embr from loading at startup, and the settings go in =:custom= so they apply when it loads. The values are embr's defaults except for the engine, which is the plain Chromium: it is the open source one and the one that can use the Chrome Web Store. Change =embr-browser-engine= back to ='cloakbrowser= if you prefer it. After installing, run =M-x embr-install-or-update-chromium= once. The module is in =lem--late-modules= (after the live view), so the install is queued once startup is done.
+=:defer t= keeps embr from loading at startup, and the settings go in =:custom= so they apply when it loads. The values are embr's defaults except for the engine, which is the plain Chromium: it is the open source one and the one that can use the Chrome Web Store. Change =embr-browser-engine= back to ='cloakbrowser= if you prefer it. After installing, run =M-x embr-install-or-update-chromium= once. The module is in =sp-late-modules= (after the live view), so the install is queued once startup is done.
 
 #+begin_src emacs-lisp -i
 (when (>= emacs-major-version 30)
@@ -152,7 +152,7 @@ The same page can be shown with Emacs's own =xwidget-webkit= instead. =sp-embr-o
 
 * The live view in a buffer
 
-The live module (=sp-relationship-annotator-live=) owns the server, the port and the URL. =sp-embr--live-url= does what =rel-anno-live-open= does before it calls =browse-url=: it asks for a starting note and depth the first time (=relationship-annotator--read-scope=), remembers them, starts the server and returns the address. The commands below call it and give the address to a viewer instead. =rel-anno-live= itself is not changed and keeps opening the normal browser.
+The live view (in =sp-graphs=) owns the server, the port and the URL. =sp-embr--live-url= does what =rel-anno-live-open= does before it calls =browse-url=: it asks for a starting note and depth the first time (=relationship-annotator--read-scope=), remembers them, starts the server and returns the address. The commands below call it and give the address to a viewer instead. =rel-anno-live= itself is not changed and keeps opening the normal browser.
 
 The names of these commands use the =rel-anno-= prefix, like the other commands that start the live view. The live module's variables and internal functions are used here because both modules belong together; if their names change, this is the one place to update.
 
@@ -170,14 +170,14 @@ What to look at when comparing:
 (defvar relationship-annotator-live--root)
 (defvar relationship-annotator-live--depth)
 (defvar relationship-annotator-default-depth)
-(declare-function relationship-annotator--read-scope "sp-relationship-annotator")
-(declare-function relationship-annotator-live--url "sp-relationship-annotator-live")
-(declare-function rel-anno-live-start "sp-relationship-annotator-live")
+(declare-function relationship-annotator--read-scope "sp-graphs")
+(declare-function relationship-annotator-live--url "sp-graphs")
+(declare-function rel-anno-live-start "sp-graphs")
 
 (defun sp-embr--live-url ()
   "Start the live view server and return its address.
 Asks for a starting note and depth when there is none yet."
-  (require 'sp-relationship-annotator-live)
+  (require 'sp-graphs)
   (unless relationship-annotator-live--root
     (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
       (setq relationship-annotator-live--root start
