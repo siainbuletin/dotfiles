@@ -52,7 +52,7 @@ Lexical binding and a short commentary. It explains why the tree is rooted at a 
 (defcustom sp-treemacs-root user-emacs-directory
   "Folder shown in the treemacs side window by `sp-treemacs-toggle'."
   :type 'directory
-  :group 'sia-lambda)
+  :group 'spcustom)
 #+end_src
 
 ** treemacs

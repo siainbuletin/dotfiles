@@ -18,7 +18,8 @@
 
 (defcustom oxci--build-subdir
   "build"
-  "Default build directory name")
+  "Default build directory name"
+  :group 'spcustom)
 
 (defvar oxci--project-map
   (oxci--make-hash-table)

@@ -1,0 +1,21 @@
+#+title: 0011 The splash screen is the dashboard and runs the agenda views; org-ql blocks in the agenda
+#+date: 2026-10-23
+#+status: accepted
+
+* Context
+Two start screens existed: =lem-dashboard= (the =dashboard= package, with its own agenda box that read =org-agenda-files=) and the splash screen =sp-splash= (the =Dashboard= buffer with the lambda art). The splash had four agenda entries, each with its own list of files, and deadline logic of its own, which duplicated what the agenda views and =vulpea-para= already decide. The request said "=sp-dashboard= in =sp-dashboard.el="; no such module is on main (the rename of =sp-splash= to =sp-dashboard= was a pull request that was closed unmerged), so the link was made to =sp-splash=, whose buffer is called =Dashboard=.
+
+* Decision
+- =lem-dashboard= is no longer loaded (its module and doc stay for reference). The splash screen is the start page.
+- The agenda entries of the splash run views of =sp-agenda-views= instead of agendas of their own. =sp-splash-agenda-commands= names the key of each: General the PARA view (=SPC=, opened in the Agenda workspace), issues the issue board (=ii=), deadlines the new =l= view (the next 30 days). The thesis entry has no view yet and keeps its own file variable. The three other file variables and =sp-splash-deadlines-days= are removed.
+- =sp-open-agenda-in-workspace= takes an optional view key.
+- =org-ql= is part of the agenda through =org-ql-block= blocks in a custom command: =q= shows next actions without a date, everything waiting, and what was finished in the last seven days. Blocks search =org-agenda-files=, so the =vulpea-para= file list applies ([[file:0009-one-agenda-owner-per-setting.org][0009]]).
+
+* Alternatives considered
+- *Keep a file variable per splash agenda*: a second place that decides the agenda files, against 0009.
+- *Rename =sp-splash= to =sp-dashboard= here*: a separate change that was already tried in a closed pull request.
+- *org-ql for every view*: the PARA blocks of =vulpea-para= are written as match strings and skip functions; rewriting them would change vulpea-para's behaviour.
+
+* Consequences
+- =lem-dashboard='s agenda box, bookmarks, recent files and registers are no longer shown at start-up.
+- The =org-ql= blocks are /untested/: =org-ql-block= follows the form in the =org-ql= README, and the predicates (=todo=, =scheduled=, =deadline=, =done=, =closed=) are from its documentation. Nothing was run on my Mac.

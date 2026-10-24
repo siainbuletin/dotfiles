@@ -17,7 +17,7 @@
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
   "Set a custom themes directory path."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 ;;;;; Make the custom themes dir.

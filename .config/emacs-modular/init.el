@@ -231,7 +231,7 @@ initial queues, so they no longer add to the time Emacs takes to
 become usable. Set to nil to load them with the other modules, in
 the order of `sp-late-modules', for example when debugging."
   :type 'boolean
-  :group 'sia-lambda)
+  :group 'spcustom)
 
 (defconst sp-late-modules
   '(;; Academic: bibliography, graphs and notes tooling, not needed to edit
@@ -321,7 +321,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-treemacs ;; File tree on <f9>
 
                     'sp-writedesk
-                    'lem-dashboard
 
                     ;;;; Modern settings
                     'sp-canvas
@@ -439,7 +438,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-backups
                     'sp-bookmarks
                     ;; 'sp-choose-modeline
-                    'lem-dashboard
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil

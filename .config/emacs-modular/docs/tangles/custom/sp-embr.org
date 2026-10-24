@@ -93,7 +93,7 @@ The host and port are those of the live view (=relationship-annotator-live-port=
 (defcustom sp-embr-fallback-function #'browse-url
   "Function called with the URL when embr or xwidget-webkit cannot be used."
   :type 'function
-  :group 'sp-embr)
+  :group 'spcustom)
 #+end_src
 
 * Showing a URL

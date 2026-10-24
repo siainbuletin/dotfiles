@@ -1,0 +1,19 @@
+#+title: 0012 org-super-agenda is on, with groups set per view
+#+date: 2026-10-23
+#+status: accepted
+
+* Context
+=org-super-agenda= was installed and its groups were set globally, but =org-super-agenda-mode= was never enabled, so nothing was grouped. The question was whether it can be used with =vulpea-para= or whether they conflict. From the package's README: the mode filters the result of =org-agenda-finalize-entries=, which runs just before the items of a block are inserted, for =org-agenda-list=, =org-tags-view=, =org-todo-list= and =org-search-view=; =org-super-agenda-groups= applies to every block built while it is set, and can be set in the settings of one custom command or one block. =vulpea-para= touches the agenda in three other places: it sets =org-agenda-files= before =org-agenda= and =org-todo-list=, it supplies the category string for =org-agenda-prefix-format=, and its blocks use skip functions, =org-agenda-todo-ignore-*= settings and sorting strategies. None of these runs at the stage where super-agenda works.
+
+* Decision
+There is no conflict in mechanism, so the mode is on (=sp-org-agenda=). There is a conflict in scope: global groups would split every block of the PARA view (refile, today, focus, stuck projects, waiting, quarter), whose sorting and "ignore if scheduled" settings assume one plain list per block, and items that match no group would be listed under a catch-all header. So =org-super-agenda-groups= stays nil globally, and a view that wants groups sets them itself. The Daily Agenda (=D=) does: the groups that used to be global, updated to the keywords of =sp-org-keywords= (=sp-agenda-views-day-groups=).
+
+* Alternatives considered
+- *Global groups*: the conflict above.
+- *Leave the mode off*: the groups were dead code, and the day view is where grouping helps.
+- *Groups in the PARA view*: vulpea-para's blocks are meant to be used as they are.
+
+* Consequences
+- Views other than =D= look as before. Adding groups to another view is one setting in its block.
+- The package notes that item order may change after grouping (=org-super-agenda-keep-order= restores it) and that the =:todo= selector does not work in search views.
+- /untested/: I read the package's README, not its code, and did not run it. Check =D= and the PARA view (=SPC=) after enabling.

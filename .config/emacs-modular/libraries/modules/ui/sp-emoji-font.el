@@ -22,19 +22,22 @@
 (defcustom sp-emoji-font-families
   '("Apple Color Emoji" "Noto Color Emoji" "Segoe UI Emoji" "Twemoji Mozilla")
   "Emoji font families, best first.  The first installed one is used."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-emoji-font-file nil
   "Apple Color Emoji font file (.ttf) to install on Linux, or nil.
 It is only installed when the \"Apple Color Emoji\" family is not
 available yet.  See `sp-emoji-font-install'."
-  :type '(choice (const :tag "None" nil) file))
+  :type '(choice (const :tag "None" nil) file)
+  :group 'spcustom)
 
 (defcustom sp-emoji-font-install-dir
   (expand-file-name "fonts/sp-emoji/"
                     (or (getenv "XDG_DATA_HOME") "~/.local/share"))
   "Directory the emoji font is installed into on Linux."
-  :type 'directory)
+  :type 'directory
+  :group 'spcustom)
 
 ;;;; Selecting the font
 (defvar sp-emoji-font--applied nil

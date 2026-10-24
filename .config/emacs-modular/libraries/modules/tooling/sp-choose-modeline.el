@@ -17,7 +17,7 @@ Options are 'doom-modeline or 'lambda-line."
   :type '(choice
           (const :tag "Doom modeline" doom-modeline)
           (const :tag "Lambda Emacs modeline" lambda-line))
-  :group 'siapip)
+  :group 'spcustom)
 
 (cond
  ((eq sia/modeline 'doom-modeline)

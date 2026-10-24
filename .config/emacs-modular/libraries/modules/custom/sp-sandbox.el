@@ -16,7 +16,7 @@
 (defcustom sp-sandbox-shell "fish"
   "Shell that has the `emacs-pr' function defined."
   :type 'string
-  :group 'sp-sandbox)
+  :group 'spcustom)
 
 (defun sp-sandbox--run (&rest args)
   "Run `emacs-pr' with ARGS in a fish process and show its output."

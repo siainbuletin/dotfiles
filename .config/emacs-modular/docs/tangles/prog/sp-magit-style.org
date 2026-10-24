@@ -49,11 +49,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 (defcustom sp-magit-style-icons t
   "Show nerd-icons next to files and directories in Magit buffers."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-magit-style-heading-height 1.15
   "Relative height of Magit section headings."
-  :type 'number)
+  :type 'number
+  :group 'spcustom)
 #+end_src
 
 ** Icons

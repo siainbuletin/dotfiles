@@ -20,3 +20,6 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0009-one-agenda-owner-per-setting.org][0009]] | One owner per agenda setting; vulpea-para controls the agenda files | accepted |
 | [[file:0010-phase-out-denote.org][0010]] | Phase out Denote; it does not touch the agenda | accepted |
 | [[file:0011-build-doc-svgs-with-make.org][0011]] | Build the doc SVGs with make instead of committing them | accepted |
+| [[file:0011-dashboard-and-org-ql-views.org][0011]] | The splash screen is the dashboard and runs the agenda views; org-ql blocks | accepted |
+| [[file:0012-org-super-agenda-per-view.org][0012]] | org-super-agenda is on, with groups set per view | accepted |
+| [[file:0013-org-gtd-keywords-and-inbox.org][0013]] | org-gtd: drop the keyword mapping; proposal for processing the inbox | accepted, inbox proposed |
