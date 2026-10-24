@@ -186,11 +186,7 @@ The order inside the UI, tooling and Org groups is unchanged, because I found no
 
 1. Find what its packages require (the =Package-Requires= header of each).
 2. If a required package is installed by another module, put the new module after it. If it is a package you install in the same module, declare it first.
-<<<<<<< HEAD
 3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =sp-late-modules= instead.
-=======
-3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =lem--late-modules= instead.
->>>>>>> main
 4. Add it to the graph above and to the module tree in [[file:../main.org][main.org]].
 
 * What has been checked
