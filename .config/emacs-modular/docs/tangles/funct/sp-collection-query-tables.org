@@ -1,7 +1,7 @@
-#+TITLE: sp-vulpea-table: tables of Vulpea notes
+#+TITLE: sp-collec-query: tables of Vulpea notes
 #+STARTUP: content
 
-Literate source for the =sp-vulpea-table= family in =libraries/modules/funct/=: seven modules written from this one file, each under its own heading below. The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README. This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-vulpea-table-views.org=.
+Literate source for the =sp-collection-query-tables= family in =libraries/modules/funct/=: seven modules written from this one file, each under its own heading below. The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README. This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
 
 * What it is for
 
@@ -9,17 +9,25 @@ A table of Vulpea notes, like a Dataview query: choose the notes (by tag, direct
 
 * Layout
 
-All of it is loaded from =sp-vulpea-table.el=, which =sp-org-ext= requires right after =sp-vulpea= (it is not part of that group).
+All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= requires right after the Vulpea modules (it is not part of that group).
 
 | File                       | Role                                                        |
 |----------------------------+-------------------------------------------------------------|
-| =sp-vulpea-table=          | Entry point, renderer choice, keys, Elpaca recipes          |
-| =sp-vulpea-table-core=     | Spec, query, cells, sorting, writing meta back, refreshing  |
-| =sp-vulpea-table-views=    | Saved views on disk                                         |
-| =sp-vulpea-table-org=      | =vulpea-table= dynamic block, Org buffer renderer           |
-| =sp-vulpea-table-menu=     | Transient menu that builds a spec                           |
-| =sp-vulpea-table-exc=      | exc grid renderer (loaded on first use)                     |
-| =sp-vulpea-table-vui=      | vui renderer and inline tables (loaded on first use)        |
+| =sp-collection-query-tables= | Entry point, renderer choice, keys, Elpaca recipes          |
+| =sp-collection-query-tables-core= | Spec, query, cells, sorting, writing meta back, refreshing  |
+| =sp-collection-query-tables-views= | Saved views on disk                                         |
+| =sp-collection-query-tables-org= | =collection-query-table= dynamic block, Org buffer renderer           |
+| =sp-collection-query-tables-menu= | Transient menu that builds a spec                           |
+| =sp-collection-query-tables-exc= | exc grid renderer (loaded on first use)                     |
+| =sp-collection-query-tables-vui= | vui renderer and inline tables (loaded on first use)        |
+
+* Names: why the prefix is =sp-collec-query-=
+
+The files and features keep the full name, =sp-collection-query-tables=, so that =require= and the file list say what the module is. The symbols (commands, settings, functions and the customize group) use the abbreviation =sp-collec-query-=, because with the full name the longest of them reached 45 characters (=sp-collection-query-tables-menu--d-tags-none=) and the commands were tiresome to type or read in =M-x=.
+
+What it stands for: /collec/ is /collection/, the set of notes a query is run against (the notes in the Vulpea database; the name does not tie the module to Vulpea, any source of notes could be put behind =sp-collec-query-query=); /query/ is the spec that selects notes and columns; and the tables are how the result is shown. The trailing /tables/ is dropped from the prefix because every renderer here shows a table.
+
+This breaks the Emacs Lisp habit that a prefix equals the feature name on purpose. Two things follow. Completing =sp-collec-query-= in =M-x= lists every command of the family. A module and a command can look alike: =sp-collec-query-menu= is the transient command, =sp-collection-query-tables-menu= the file that defines it. The customize group is =sp-collec-query= and its =:prefix= says so.
 
 * The spec
 
@@ -41,7 +49,7 @@ A plist. Every filter is optional and the filters are combined with /and/.
 In a note, the same spec is the parameter list of a dynamic block:
 
 #+begin_example
-,#+BEGIN: vulpea-table :tags ("book") :columns (:title "author" "rating") :sort-by "rating"
+,#+BEGIN: collection-query-table :tags ("book") :columns (:title "author" "rating") :sort-by "rating"
 ,#+END:
 #+end_example
 
@@ -51,16 +59,16 @@ In a note, the same spec is the parameter list of a dynamic block:
 
 | Key       | Command                          | What it does                                         |
 |-----------+----------------------------------+------------------------------------------------------|
-| =C-c w T= | =sp-vulpea-table-menu=           | Build a query                                        |
-| =C-c w v= | =sp-vulpea-table-open-view=      | Open a saved view                                    |
-| =C-c w V= | =sp-vulpea-table-view-save=      | Open the menu to save a view (was: prompts)          |
-| =C-c w t= | =sp-vulpea-table-inline-toggle=  | Live inline tables in this note (vui)                |
+| =C-c w T= | =sp-collec-query-menu=           | Build a query                                        |
+| =C-c w v= | =sp-collec-query-open-view=      | Open a saved view                                    |
+| =C-c w V= | =sp-collec-query-view-save=      | Open the menu to save a view (was: prompts)          |
+| =C-c w t= | =sp-collec-query-inline-toggle=  | Live inline tables in this note (vui)                |
 
 In an exc table: =C-c o= opens the note in the row, =C-c q= edits the query in the menu and redraws the table, =C-c C-u= runs the query again. Meta columns are edited in place and written to the note; titles, tags and the other built-in columns are read-only.
 
 * Renderers
 
-=sp-vulpea-table-renderer= picks one: =auto= (the first that loads of exc, vui, org), =exc=, =vui= or =org=.
+=sp-collec-query-renderer= picks one: =auto= (the first that loads of exc, vui, org), =exc=, =vui= or =org=.
 
 - *exc* is https://github.com/yibie/grid-table (package name =exc= since 0.5.1), a spreadsheet drawn with ETAF. It is not part of emacs-taf; the organization at https://github.com/emacs-taf provides ETAF (=ecss=, =ebox=, =etaf=, =etaf-ui=). Checked on 2026-10-21 against exc 0.5.1, ecss 0.1.0, ebox 3.1.1 and etaf 0.3.1: it needs Emacs 29.1 or later and the three ETAF libraries, none of which is on a package archive. Only the rows and columns that fit the window are drawn.
 - *vui* is the component library the first version used.
@@ -68,11 +76,11 @@ In an exc table: =C-c o= opens the note in the row, =C-c q= edits the query in t
 
 * Installing
 
-Packages come from =use-package= with the Elpaca recipe in =:ensure=, never from clones put on =load-path=. The entry file declares =ecss=, =ebox=, =etaf= and =exc= that way when =sp-vulpea-table-install-exc= is non-nil (the default). The ETAF repositories keep their code in =lisp/=, so their recipes say =:files ("*.el" "lisp/*.el")=. exc's README gives =yibie/exc= as its address, but only =yibie/grid-table= resolved when this was written, so the recipe uses that.
+Packages come from =use-package= with the Elpaca recipe in =:ensure=, never from clones put on =load-path=. The entry file declares =ecss=, =ebox=, =etaf= and =exc= that way when =sp-collec-query-install-exc= is non-nil (the default). The ETAF repositories keep their code in =lisp/=, so their recipes say =:files ("*.el" "lisp/*.el")=. exc's README gives =yibie/exc= as its address, but only =yibie/grid-table= resolved when this was written, so the recipe uses that.
 
 * Old names
 
-The first version's commands still work as obsolete aliases: =sia-vulpea-open-table= (now the menu), =sia-vulpea-open-saved-table=, =sia-vulpea-insert-table-from-view=, =sia-insert-vulpea-table=, =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=), =sia-vulpea-refresh-all-tables=, =sia-vulpea-select-note= and =sia-vulpea-read-parent=. A views file written by the first version is read and converted. The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone: require =sp-vulpea-table=. The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
+The first version's commands still work as obsolete aliases: =sia-vulpea-open-table= (now the menu), =sia-vulpea-open-saved-table=, =sia-vulpea-insert-table-from-view=, =sia-insert-vulpea-table=, =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=), =sia-vulpea-refresh-all-tables=, =sia-vulpea-select-note= and =sia-vulpea-read-parent=. A views file written by the first version is read and converted. The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=; while it does not exist, the old =sp-vulpea-table-views.el= is read instead. The dynamic block is =collection-query-table=; =#+BEGIN: vulpea-table= in existing notes still works. The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone: require =sp-collection-query-tables=. The settings and commands of the rename itself (=sp-vulpea-table-*=, now =sp-collec-query-*=) are not aliased: set and call the new names. The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
 
 * What was wrong, and what changed
 
@@ -84,7 +92,7 @@ Found while reading the first version, and fixed here:
 - Mounting inline tables left the buffer marked modified after every save.
 - The saved-view file was a fixed list of positional fields; adding a filter would have broken old files. It is a spec plist now.
 - A =vui= table was the only interactive option and =vui= a hard requirement of the views module; now it is one renderer of three.
-- Three prefixes (=sia-=, =sp-= and unprefixed) became =sp-vulpea-table-=.
+- Three prefixes (=sia-=, =sp-= and unprefixed) became =sp-collec-query-=.
 
 Left as they were: =org-id-get-create= still adds an ID to the file when a "self" parent is resolved in a note without one; =vulpea-db-query= still loads every note and filters in Lisp.
 
@@ -97,23 +105,23 @@ Run in a container on Emacs 29.3 with a real Vulpea database (a handful of notes
 Try a spec without saving anything: evaluate with =C-c C-c=.
 
 #+begin_src emacs-lisp :tangle no :results silent
-(sp-vulpea-table-open '(:tags ("book") :columns (:title "author" "rating") :sort-by "rating"))
+(sp-collec-query-open '(:tags ("book") :columns (:title "author" "rating") :sort-by "rating"))
 #+end_src
 
 
-* Entry point: sp-vulpea-table.el
+* Entry point: sp-collection-query-tables.el
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-The only file the rest of the configuration requires (=sp-org-ext= does, after =sp-vulpea=). It loads the core, the views, the Org output and the menu, picks a renderer, installs exc through Elpaca, and binds the keys. The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
+The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It loads the core, the views, the Org output and the menu, picks a renderer, installs exc through Elpaca, and binds the keys. The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
 
 ** Header and requires
 
-The header lists the parts. =sp-vulpea-table-menu= is the front door and =sp-vulpea-table-open= is the function everything else calls.
+The header lists the parts. =sp-collec-query-menu= is the front door and =sp-collec-query-open= is the function everything else calls.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables.el --- Tables of Vulpea notes: one entry point -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -121,17 +129,21 @@ The header lists the parts. =sp-vulpea-table-menu= is the front door and =sp-vul
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; Everything about Vulpea tables is loaded from here:
+;; Everything about query tables is loaded from here:
 ;;
-;;   sp-vulpea-table-core    spec -> notes -> cells, writing meta back
-;;   sp-vulpea-table-views   saved views
-;;   sp-vulpea-table-org     the `vulpea-table' dynamic block, Org buffer renderer
-;;   sp-vulpea-table-menu    the transient menu that builds a spec
-;;   sp-vulpea-table-exc     exc grid renderer (loaded when first used)
-;;   sp-vulpea-table-vui     vui renderer and inline tables (loaded when first used)
+;;   sp-collection-query-tables-core    spec -> notes -> cells, writing meta back
+;;   sp-collection-query-tables-views   saved views
+;;   sp-collection-query-tables-org     the `collection-query-table' dynamic block, Org buffer renderer
+;;   sp-collection-query-tables-menu    the transient menu that builds a spec
+;;   sp-collection-query-tables-exc     exc grid renderer (loaded when first used)
+;;   sp-collection-query-tables-vui     vui renderer and inline tables (loaded when first used)
 ;;
-;; `sp-vulpea-table-menu' (C-c w T) is the front door; `sp-vulpea-table-open'
+;; `sp-collec-query-menu' (C-c w T) is the front door; `sp-collec-query-open'
 ;; is the function the others call.
+;;
+;; The files and features are called sp-collection-query-tables-*, the
+;; symbols sp-collec-query-* ("collec" is "collection", the set of notes a
+;; query runs against), to keep command names short.
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -140,28 +152,29 @@ The header lists the parts. =sp-vulpea-table-menu= is the front door and =sp-vul
 
 #+begin_src emacs-lisp -i
 (require 'subr-x)
-(require 'sp-vulpea-table-core)
-(require 'sp-vulpea-table-views)
-(require 'sp-vulpea-table-org)
-(require 'sp-vulpea-table-menu)
+
+(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-tables-views)
+(require 'sp-collection-query-tables-org)
+(require 'sp-collection-query-tables-menu)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-vulpea-table-exc-open "sp-vulpea-table-exc")
-(declare-function sp-vulpea-table-exc-available-p "sp-vulpea-table-exc")
-(declare-function sp-vulpea-table-vui-open "sp-vulpea-table-vui")
-(defvar sp-vulpea-table-exc--spec)
+(declare-function sp-collec-query-exc-open "sp-collection-query-tables-exc")
+(declare-function sp-collec-query-exc-available-p "sp-collection-query-tables-exc")
+(declare-function sp-collec-query-vui-open "sp-collection-query-tables-vui")
+(defvar sp-collec-query-exc--spec)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(autoload 'sp-vulpea-table-inline-toggle "sp-vulpea-table-vui" nil t)
-(autoload 'sp-vulpea-table-inline-mount "sp-vulpea-table-vui" nil t)
-(autoload 'sp-vulpea-table-inline-unmount "sp-vulpea-table-vui" nil t)
+(autoload 'sp-collec-query-inline-toggle "sp-collection-query-tables-vui" nil t)
+(autoload 'sp-collec-query-inline-mount "sp-collection-query-tables-vui" nil t)
+(autoload 'sp-collec-query-inline-unmount "sp-collection-query-tables-vui" nil t)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-renderer 'auto
-  "How `sp-vulpea-table-open' shows a table.
+(defcustom sp-collec-query-renderer 'auto
+  "How `sp-collec-query-open' shows a table.
 `exc' is the exc grid (needs Emacs 29.1 and exc, etaf, ebox and ecss),
 `vui' the vui component, `org' a read-only Org buffer.  `auto' takes the
 first of these that can be loaded."
@@ -169,19 +182,19 @@ first of these that can be loaded."
                  (const :tag "exc grid" exc)
                  (const :tag "vui component" vui)
                  (const :tag "Org table buffer" org))
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-install-exc t
+(defcustom sp-collec-query-install-exc t
   "Non-nil to have Elpaca install exc and its ETAF libraries.
 Set it before this module loads; nil leaves installing them to you."
   :type 'boolean
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(when (and sp-vulpea-table-install-exc (fboundp 'elpaca))
+(when (and sp-collec-query-install-exc (fboundp 'elpaca))
   ;; ecss, ebox and etaf keep their code in lisp/, which Elpaca's default
   ;; :files does not copy.  exc is the renamed grid-table; its README says
   ;; yibie/exc but only yibie/grid-table resolves on GitHub (checked 2026-10-21).
@@ -200,104 +213,104 @@ Set it before this module loads; nil leaves installing them to you."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--renderer ()
+(defun sp-collec-query--renderer ()
   "Return the renderer to use: `exc', `vui' or `org'."
-  (if (not (eq sp-vulpea-table-renderer 'auto))
-      sp-vulpea-table-renderer
-    (cond ((progn (require 'sp-vulpea-table-exc)
-                  (sp-vulpea-table-exc-available-p))
+  (if (not (eq sp-collec-query-renderer 'auto))
+      sp-collec-query-renderer
+    (cond ((progn (require 'sp-collection-query-tables-exc)
+                  (sp-collec-query-exc-available-p))
            'exc)
           ((require 'vui nil t) 'vui)
           (t 'org))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--buffer-name (name spec)
+(defun sp-collec-query--buffer-name (name spec)
   "Return the buffer name for the table called NAME with SPEC."
-  (cond (name (format "*vulpea: %s*" name))
+  (cond (name (format "*query-table: %s*" name))
         ((plist-get spec :parent-of)
          (let ((note (ignore-errors (vulpea-db-get-by-id (plist-get spec :parent-of)))))
-           (format "*vulpea: children of %s*"
+           (format "*query-table: children of %s*"
                    (if note (vulpea-note-title note) (plist-get spec :parent-of)))))
-        (t "*vulpea table*")))
+        (t "*query table*")))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-open (spec &optional name target)
-  "Show the table SPEC describes, in the renderer `sp-vulpea-table-renderer' picks.
+(defun sp-collec-query-open (spec &optional name target)
+  "Show the table SPEC describes, in the renderer `sp-collec-query-renderer' picks.
 A \"self\" :parent-of is resolved against the current buffer first.  NAME
 (a view name) names the buffer; with TARGET, an exc table buffer, that
 buffer is redrawn with SPEC instead of opening another."
-  (let* ((spec (sp-vulpea-table-resolve-spec spec))
-         (renderer (sp-vulpea-table--renderer)))
+  (let* ((spec (sp-collec-query-resolve-spec spec))
+         (renderer (sp-collec-query--renderer)))
     (if (and (eq renderer 'exc) target (buffer-live-p target)
-             (buffer-local-value 'sp-vulpea-table-exc--spec target))
-        (progn (require 'sp-vulpea-table-exc)
-               (with-current-buffer target (sp-vulpea-table-exc--draw spec))
+             (buffer-local-value 'sp-collec-query-exc--spec target))
+        (progn (require 'sp-collection-query-tables-exc)
+               (with-current-buffer target (sp-collec-query-exc--draw spec))
                (pop-to-buffer target))
-      (let ((buffer-name (sp-vulpea-table--buffer-name name spec)))
+      (let ((buffer-name (sp-collec-query--buffer-name name spec)))
         (pcase renderer
-          ('exc (require 'sp-vulpea-table-exc)
-                (sp-vulpea-table-exc-open spec buffer-name))
-          ('vui (require 'sp-vulpea-table-vui)
-                (sp-vulpea-table-vui-open spec buffer-name))
-          (_ (sp-vulpea-table-org-open spec buffer-name)))))))
+          ('exc (require 'sp-collection-query-tables-exc)
+                (sp-collec-query-exc-open spec buffer-name))
+          ('vui (require 'sp-collection-query-tables-vui)
+                (sp-collec-query-vui-open spec buffer-name))
+          (_ (sp-collec-query-org-open spec buffer-name)))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-vulpea-table-exc--draw "sp-vulpea-table-exc")
+(declare-function sp-collec-query-exc--draw "sp-collection-query-tables-exc")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-open-view (name)
+(defun sp-collec-query-open-view (name)
   "Open the saved view NAME, picked with completion."
-  (interactive (list (sp-vulpea-table-views-read-name "View: ")))
-  (sp-vulpea-table-open (sp-vulpea-table-views-get name) name))
+  (interactive (list (sp-collec-query-views-read-name "View: ")))
+  (sp-collec-query-open (sp-collec-query-views-get name) name))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-view-save (&optional name spec)
+(defun sp-collec-query-view-save (&optional name spec)
   "Save SPEC as the view NAME.  Without arguments, open the menu to build one."
   (interactive)
   (if (and name spec)
-      (sp-vulpea-table-views-put name spec)
-    (call-interactively #'sp-vulpea-table-menu)))
+      (sp-collec-query-views-put name spec)
+    (call-interactively #'sp-collec-query-menu)))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (define-obsolete-function-alias 'sia-vulpea-open-table
-  #'sp-vulpea-table-menu "2026-10-21")
+  #'sp-collec-query-menu "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-open-saved-table
-  #'sp-vulpea-table-open-view "2026-10-21")
+  #'sp-collec-query-open-view "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-insert-table-from-view
-  #'sp-vulpea-table-insert-dblock "2026-10-21")
+  #'sp-collec-query-insert-dblock "2026-10-21")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(keymap-global-set "C-c w T" #'sp-vulpea-table-menu)
-(keymap-global-set "C-c w v" #'sp-vulpea-table-open-view)
-(keymap-global-set "C-c w V" #'sp-vulpea-table-view-save)
-(keymap-global-set "C-c w t" #'sp-vulpea-table-inline-toggle)
+(keymap-global-set "C-c w T" #'sp-collec-query-menu)
+(keymap-global-set "C-c w v" #'sp-collec-query-open-view)
+(keymap-global-set "C-c w V" #'sp-collec-query-view-save)
+(keymap-global-set "C-c w t" #'sp-collec-query-inline-toggle)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table)
-;;; sp-vulpea-table.el ends here
+(provide 'sp-collection-query-tables)
+;;; sp-collection-query-tables.el ends here
 #+end_src
 
 * Core: specs, queries and cells
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-core.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-core.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-Everything that does not depend on how a table is drawn. A table is a /spec/, a plist; =sp-vulpea-table-query= turns it into notes with one =vulpea-db-query= predicate, and =sp-vulpea-table-cell= turns a note and a column into text. The dynamic block, exc, vui and the Org buffer all call these, so a query behaves the same in all of them.
+Everything that does not depend on how a table is drawn. A table is a /spec/, a plist; =sp-collec-query-query= turns it into notes with one =vulpea-db-query= predicate, and =sp-collec-query-cell= turns a note and a column into text. The dynamic block, exc, vui and the Org buffer all call these, so a query behaves the same in all of them.
 
 ** Header and requires
 
-Group, requires. The group =sp-vulpea-table= holds every option of the module family.
+Group, requires. The group =sp-collec-query= holds every option of the module family.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-core.el --- Query specs and rows for Vulpea tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-core.el --- Query specs and rows for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -305,10 +318,10 @@ Group, requires. The group =sp-vulpea-table= holds every option of the module fa
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; The data layer shared by every Vulpea table renderer (the `vulpea-table'
+;; The data layer shared by every query table renderer (the `collection-query-table'
 ;; dynamic block, the exc grid, the vui table and the plain Org buffer).
-;; A table is described by a "spec", a plist; `sp-vulpea-table-query'
-;; turns it into notes, and `sp-vulpea-table-cell' into the text of one cell.
+;; A table is described by a "spec", a plist; `sp-collec-query-query'
+;; turns it into notes, and `sp-collec-query-cell' into the text of one cell.
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -323,10 +336,10 @@ Group, requires. The group =sp-vulpea-table= holds every option of the module fa
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defgroup sp-vulpea-table nil
+(defgroup sp-collec-query nil
   "Tables of Vulpea notes."
   :group 'vulpea
-  :prefix "sp-vulpea-table-")
+  :prefix "sp-collec-query-")
 #+end_src
 
 ** Specs
@@ -338,7 +351,7 @@ The keys a spec may carry. The filters are all optional and are combined with /a
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defconst sp-vulpea-table-spec-keys
+(defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
     :parent-of :parent-prop :level :title-match
     :columns :sort-by :sort-desc)
@@ -351,22 +364,22 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 \"self\", checked against the meta key :PARENT-PROP (default \"parents\");
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
-keyword (see `sp-vulpea-table-builtin-columns') or the name of a meta key;
+keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
 :SORT-DESC non-nil to sort descending.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defconst sp-vulpea-table-builtin-columns
+(defconst sp-collec-query-builtin-columns
   '(:title :tags :todo :level :priority :id :file :path)
   "Columns that are not meta keys.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-spec-normalize (spec)
+(defun sp-collec-query-spec-normalize (spec)
   "Return SPEC with only known keys, and :columns defaulting to (:title).
 Tags, directories and the like are copied so callers may keep editing SPEC."
   (let (out)
-    (dolist (key sp-vulpea-table-spec-keys)
+    (dolist (key sp-collec-query-spec-keys)
       (when-let* ((cell (plist-member spec key)))
         (setq out (plist-put out key (copy-tree (cadr cell))))))
     (unless (plist-get out :columns)
@@ -375,7 +388,7 @@ Tags, directories and the like are copied so callers may keep editing SPEC."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-resolve-parent-of (parent-of)
+(defun sp-collec-query-resolve-parent-of (parent-of)
   "Resolve PARENT-OF to a literal note ID.
 The string \"self\" (or the symbol `self') becomes the ID of the note the
 current buffer visits, which `org-id-get-create' adds to the file when it
@@ -389,14 +402,14 @@ has none; anything else is returned unchanged."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-resolve-spec (spec)
+(defun sp-collec-query-resolve-spec (spec)
   "Return SPEC with a \"self\" :parent-of resolved against the current buffer.
 Call this in the buffer the table was asked from, before a renderer
 switches buffers."
-  (let ((spec (sp-vulpea-table-spec-normalize spec)))
+  (let ((spec (sp-collec-query-spec-normalize spec)))
     (if (plist-get spec :parent-of)
         (plist-put spec :parent-of
-                   (sp-vulpea-table-resolve-parent-of (plist-get spec :parent-of)))
+                   (sp-collec-query-resolve-parent-of (plist-get spec :parent-of)))
       spec)))
 #+end_src
 
@@ -409,7 +422,7 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--under-directory-p (path directories)
+(defun sp-collec-query--under-directory-p (path directories)
   "Non-nil if PATH lies under one of DIRECTORIES."
   (let ((path (expand-file-name path)))
     (seq-some (lambda (dir)
@@ -419,7 +432,7 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--meta-match-p (note clause)
+(defun sp-collec-query--meta-match-p (note clause)
   "Non-nil if NOTE satisfies the meta CLAUSE, a (KEY . VALUE) cons."
   (let ((values (vulpea-note-meta-get-list note (car clause))))
     (if (cdr clause)
@@ -428,7 +441,7 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-note-matches-p (note spec)
+(defun sp-collec-query-note-matches-p (note spec)
   "Non-nil if NOTE satisfies every filter in SPEC.
 :PARENT-OF in SPEC must already be a literal ID."
   (let ((tags (vulpea-note-tags note))
@@ -438,7 +451,7 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
              (seq-some (lambda (tag) (member tag tags)) (plist-get spec :tags-any)))
          (not (seq-some (lambda (tag) (member tag tags)) (plist-get spec :tags-none)))
          (or (null (plist-get spec :directories))
-             (sp-vulpea-table--under-directory-p (vulpea-note-path note)
+             (sp-collec-query--under-directory-p (vulpea-note-path note)
                                                  (plist-get spec :directories)))
          (or (null (plist-get spec :todo))
              (member (vulpea-note-todo note) (plist-get spec :todo)))
@@ -446,7 +459,7 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
              (let ((dests (mapcar (lambda (l) (plist-get l :dest))
                                   (vulpea-note-links note))))
                (seq-some (lambda (id) (member id dests)) (plist-get spec :links))))
-         (seq-every-p (lambda (clause) (sp-vulpea-table--meta-match-p note clause))
+         (seq-every-p (lambda (clause) (sp-collec-query--meta-match-p note clause))
                       (plist-get spec :meta))
          (or (null parent-of)
              (member parent-of
@@ -463,9 +476,9 @@ One predicate over =vulpea-db-query=, which loads every note and filters in Lisp
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-cell (note column)
+(defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
-COLUMN is a keyword from `sp-vulpea-table-builtin-columns', or a string
+COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
 naming a meta key (several values are joined with \", \")."
   (pcase column
     (:title (or (vulpea-note-title note) ""))
@@ -482,7 +495,7 @@ naming a meta key (several values are joined with \", \")."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-header-label (column)
+(defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (if (keywordp column)
       (capitalize (substring (symbol-name column) 1))
@@ -490,7 +503,7 @@ naming a meta key (several values are joined with \", \")."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--sort-lessp (a b)
+(defun sp-collec-query--sort-lessp (a b)
   "Non-nil if the cell text A sorts before B.
 Numbers sort numerically and before text; empty cells go last."
   (let ((num-a (and (string-match-p "\\`-?[0-9]+\\(?:\\.[0-9]+\\)?\\'" a)
@@ -506,32 +519,32 @@ Numbers sort numerically and before text; empty cells go last."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-sort (notes column &optional descending)
+(defun sp-collec-query-sort (notes column &optional descending)
   "Return NOTES sorted by COLUMN, reversed when DESCENDING."
   (if (null column)
       notes
-    (let ((sorted (seq-sort-by (lambda (n) (sp-vulpea-table-cell n column))
-                               #'sp-vulpea-table--sort-lessp notes)))
+    (let ((sorted (seq-sort-by (lambda (n) (sp-collec-query-cell n column))
+                               #'sp-collec-query--sort-lessp notes)))
       (if descending (reverse sorted) sorted))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-query (spec)
+(defun sp-collec-query-query (spec)
   "Return the notes SPEC asks for, sorted.
 SPEC's :parent-of must be resolved already (see
-`sp-vulpea-table-resolve-spec')."
-  (let ((spec (sp-vulpea-table-spec-normalize spec)))
-    (sp-vulpea-table-sort
-     (vulpea-db-query (lambda (note) (sp-vulpea-table-note-matches-p note spec)))
+`sp-collec-query-resolve-spec')."
+  (let ((spec (sp-collec-query-spec-normalize spec)))
+    (sp-collec-query-sort
+     (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
      (plist-get spec :sort-by)
      (plist-get spec :sort-desc))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-rows (notes columns)
+(defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS."
   (mapcar (lambda (note)
-            (mapcar (lambda (c) (sp-vulpea-table-cell note c)) columns))
+            (mapcar (lambda (c) (sp-collec-query-cell note c)) columns))
           notes))
 #+end_src
 
@@ -544,7 +557,7 @@ A one-line description of a spec, used in the menu header, the exc title and the
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-spec-summary (spec)
+(defun sp-collec-query-spec-summary (spec)
   "Return a one-line description of SPEC, for headers and prompts."
   (let (parts)
     (cl-flet ((add (label value)
@@ -582,7 +595,7 @@ Completion for picking a note, annotated with its tags so that same-titled notes
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--tag-annotation (note)
+(defun sp-collec-query--tag-annotation (note)
   "Return NOTE's tags as an annotation string, or \"\"."
   (if-let* ((tags (vulpea-note-tags note)))
       (propertize (format "  :%s:" (string-join tags ":")) 'face 'org-tag)
@@ -590,19 +603,19 @@ Completion for picking a note, annotated with its tags so that same-titled notes
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-select-note (prompt)
+(defun sp-collec-query-select-note (prompt)
   "Select a note with PROMPT; candidates are annotated with their tags.
 Return the `vulpea-note'."
   (let* ((cands (mapcar (lambda (n) (cons (vulpea-note-title n) n)) (vulpea-db-query)))
          (completion-extra-properties
           (list :annotation-function
                 (lambda (title)
-                  (sp-vulpea-table--tag-annotation (cdr (assoc title cands)))))))
+                  (sp-collec-query--tag-annotation (cdr (assoc title cands)))))))
     (cdr (assoc (completing-read prompt cands nil t) cands))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-read-parent (&optional allow-self)
+(defun sp-collec-query-read-parent (&optional allow-self)
   "Choose a :parent-of value: nil, \"self\" (when ALLOW-SELF) or a note ID."
   (let* ((choices (append '("None")
                           (when allow-self '("Current note (self)"))
@@ -610,7 +623,7 @@ Return the `vulpea-note'."
          (choice (completing-read "Filter to children of: " choices nil t)))
     (cond ((string= choice "None") nil)
           ((string= choice "Current note (self)") "self")
-          (t (when-let* ((note (sp-vulpea-table-select-note "Parent note: ")))
+          (t (when-let* ((note (sp-collec-query-select-note "Parent note: ")))
                (vulpea-note-id note))))))
 #+end_src
 
@@ -623,12 +636,12 @@ Used by the exc and vui renderers when a meta cell is edited. It replaces the fi
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table--last-write nil
-  "Time of the last `sp-vulpea-table-write-meta', or nil.")
+(defvar sp-collec-query--last-write nil
+  "Time of the last `sp-collec-query-write-meta', or nil.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-write-meta (note key value)
+(defun sp-collec-query-write-meta (note key value)
   "Set the meta KEY of the file-level NOTE to VALUE, in NOTE's own file.
 Replaces the first \"- KEY :: ...\" line before the first heading, or adds
 one there (at the end of the file when it has no heading), then saves the
@@ -663,61 +676,61 @@ is refused rather than written to the wrong place."
                 (unless (bolp) (insert "\n"))
                 (insert (format "- %s :: %s\n" key value))))))))
     (save-buffer)
-    (setq sp-vulpea-table--last-write (current-time))))
+    (setq sp-collec-query--last-write (current-time))))
 #+end_src
 
 ** Refreshing open tables
 
-Live tables subscribe to =sp-vulpea-table-refresh-functions= while they are open. Saving an Org note schedules a refresh after =sp-vulpea-table-refresh-delay= seconds, to give Vulpea's autosync time to update the database. A save made by a table's own edit is ignored for two seconds so the cell just edited is not redrawn from a database that has not caught up.
+Live tables subscribe to =sp-collec-query-refresh-functions= while they are open. Saving an Org note schedules a refresh after =sp-collec-query-refresh-delay= seconds, to give Vulpea's autosync time to update the database. A save made by a table's own edit is ignored for two seconds so the cell just edited is not redrawn from a database that has not caught up.
 
 #+begin_src emacs-lisp -i
 ;;;; Refreshing open tables
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-refresh-functions nil
+(defvar sp-collec-query-refresh-functions nil
   "Abnormal hook: functions called with no arguments when open tables
 should run their query again.  A live table adds one while it is open.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table--refresh-timer nil)
+(defvar sp-collec-query--refresh-timer nil)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-refresh-delay 0.5
+(defcustom sp-collec-query-refresh-delay 0.5
   "Seconds after saving a note before open tables run their query again.
 The Vulpea database is updated by its own autosync; if tables sometimes
 show stale data, lengthen this."
   :type 'number
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-refresh-all ()
-  "Tell every open live Vulpea table to run its query again."
+(defun sp-collec-query-refresh-all ()
+  "Tell every open live query table to run its query again."
   (interactive)
-  (run-hooks 'sp-vulpea-table-refresh-functions))
+  (run-hooks 'sp-collec-query-refresh-functions))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--after-save ()
+(defun sp-collec-query--after-save ()
   "Schedule a refresh of open tables after an Org note is saved.
 Skipped for two seconds after a table wrote a value itself, so the cell
 just edited is not redrawn from a database that has not caught up."
   (when (and buffer-file-name
              (derived-mode-p 'org-mode)
-             sp-vulpea-table-refresh-functions
-             (not (and sp-vulpea-table--last-write
-                       (< (float-time (time-since sp-vulpea-table--last-write)) 2))))
-    (when (timerp sp-vulpea-table--refresh-timer)
-      (cancel-timer sp-vulpea-table--refresh-timer))
-    (setq sp-vulpea-table--refresh-timer
-          (run-with-timer sp-vulpea-table-refresh-delay nil #'sp-vulpea-table-refresh-all))))
+             sp-collec-query-refresh-functions
+             (not (and sp-collec-query--last-write
+                       (< (float-time (time-since sp-collec-query--last-write)) 2))))
+    (when (timerp sp-collec-query--refresh-timer)
+      (cancel-timer sp-collec-query--refresh-timer))
+    (setq sp-collec-query--refresh-timer
+          (run-with-timer sp-collec-query-refresh-delay nil #'sp-collec-query-refresh-all))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(add-hook 'after-save-hook #'sp-vulpea-table--after-save)
+(add-hook 'after-save-hook #'sp-collec-query--after-save)
 #+end_src
 
 ** Old names
@@ -730,35 +743,35 @@ The commands and helpers of the first version lived under =sia-vulpea-*=. These 
 
 #+begin_src emacs-lisp -i
 (define-obsolete-function-alias 'sia-vulpea--resolve-parent-of
-  #'sp-vulpea-table-resolve-parent-of "2026-10-21")
+  #'sp-collec-query-resolve-parent-of "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-select-note
-  #'sp-vulpea-table-select-note "2026-10-21")
+  #'sp-collec-query-select-note "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-read-parent
-  #'sp-vulpea-table-read-parent "2026-10-21")
+  #'sp-collec-query-read-parent "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-refresh-all-tables
-  #'sp-vulpea-table-refresh-all "2026-10-21")
+  #'sp-collec-query-refresh-all "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea--note-tag-annotation
-  #'sp-vulpea-table--tag-annotation "2026-10-21")
+  #'sp-collec-query--tag-annotation "2026-10-21")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-core)
-;;; sp-vulpea-table-core.el ends here
+(provide 'sp-collection-query-tables-core)
+;;; sp-collection-query-tables-core.el ends here
 #+end_src
 
 * Saved views
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-views.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-views.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-A view is a name and a spec, kept in =sp-vulpea-table-views-file= as readable Lisp. Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
+A view is a name and a spec, kept in =sp-collec-query-views-file= as readable Lisp. Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
 
 ** Header and requires
 
 The views file, the in-memory alist, the converter for the first-version format, and loading, saving, getting, putting and deleting. The file is read on first use rather than when the module loads, so a module load never fails on a broken views file.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-views.el --- Saved views for Vulpea tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-views.el --- Saved views for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -766,8 +779,8 @@ The views file, the in-memory alist, the converter for the first-version format,
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; A view is a name and a spec (see `sp-vulpea-table-spec-keys').  Views
-;; live in `sp-vulpea-table-views-file' as readable Lisp.  Files written by
+;; A view is a name and a spec (see `sp-collec-query-spec-keys').  Views
+;; live in `sp-collec-query-views-file' as readable Lisp.  Files written by
 ;; the first version of this module, one (NAME TAGS COLUMNS SORT-BY
 ;; PARENT-OF PARENT-PROP) list per view, are read and converted; the next
 ;; save writes the new format.
@@ -780,29 +793,34 @@ The views file, the in-memory alist, the converter for the first-version format,
 #+begin_src emacs-lisp -i
 (require 'pp)
 (require 'subr-x)
-(require 'sp-vulpea-table-core)
+(require 'cl-lib)
+(require 'sp-collection-query-tables-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-views-file
-  (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
-  "File where named Vulpea table views are saved."
+(defcustom sp-collec-query-views-file
+  (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
+  "File where named query table views are saved."
   :type 'file
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-views nil
-  "Alist of (NAME . SPEC) for the saved Vulpea table views.")
+(defconst sp-collec-query-views--legacy-file
+  (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
+  "Where the views were saved before the module was renamed.")
+
+(defvar sp-collec-query-views nil
+  "Alist of (NAME . SPEC) for the saved query table views.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-views--loaded nil
-  "Non-nil once `sp-vulpea-table-views-file' has been read.")
+(defvar sp-collec-query-views--loaded nil
+  "Non-nil once `sp-collec-query-views-file' has been read.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views--legacy-entry-p (entry)
+(defun sp-collec-query-views--legacy-entry-p (entry)
   "Non-nil if ENTRY is a (NAME TAGS COLUMNS ...) list of the first version."
   (and (stringp (car entry))
        (listp (cdr entry))
@@ -810,109 +828,117 @@ The views file, the in-memory alist, the converter for the first-version format,
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views--convert-legacy (entry)
+(defun sp-collec-query-views--convert-legacy (entry)
   "Return the (NAME . SPEC) cons for the first-version ENTRY."
   (pcase-let ((`(,name ,tags ,columns ,sort-by ,parent-of ,parent-prop) entry))
-    (cons name (sp-vulpea-table-spec-normalize
+    (cons name (sp-collec-query-spec-normalize
                 (list :tags tags :columns columns :sort-by sort-by
                       :parent-of parent-of :parent-prop parent-prop)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-load ()
-  "Read the saved views from `sp-vulpea-table-views-file', if present."
+(defun sp-collec-query-views--source ()
+  "Return the file to read the views from, or nil.
+That is `sp-collec-query-views-file'; while it does not exist yet,
+the file the views had before the rename, so saved views carry over."
+  (cl-find-if #'file-exists-p
+              (list sp-collec-query-views-file
+                    sp-collec-query-views--legacy-file)))
+
+(defun sp-collec-query-views-load ()
+  "Read the saved views from `sp-collec-query-views-file', if present."
   (interactive)
-  (setq sp-vulpea-table-views
-        (when (file-exists-p sp-vulpea-table-views-file)
+  (setq sp-collec-query-views
+        (when-let* ((file (sp-collec-query-views--source)))
           (let ((data (with-temp-buffer
-                        (insert-file-contents sp-vulpea-table-views-file)
+                        (insert-file-contents file)
                         (read (current-buffer)))))
             (mapcar (lambda (entry)
-                      (if (sp-vulpea-table-views--legacy-entry-p entry)
-                          (sp-vulpea-table-views--convert-legacy entry)
-                        (cons (car entry) (sp-vulpea-table-spec-normalize (cdr entry)))))
+                      (if (sp-collec-query-views--legacy-entry-p entry)
+                          (sp-collec-query-views--convert-legacy entry)
+                        (cons (car entry) (sp-collec-query-spec-normalize (cdr entry)))))
                     data)))
-        sp-vulpea-table-views--loaded t))
+        sp-collec-query-views--loaded t))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views--ensure-loaded ()
+(defun sp-collec-query-views--ensure-loaded ()
   "Read the views file once."
-  (unless sp-vulpea-table-views--loaded
-    (sp-vulpea-table-views-load)))
+  (unless sp-collec-query-views--loaded
+    (sp-collec-query-views-load)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-save-to-disk ()
-  "Write `sp-vulpea-table-views' to `sp-vulpea-table-views-file'."
-  (make-directory (file-name-directory sp-vulpea-table-views-file) t)
-  (with-temp-file sp-vulpea-table-views-file
-    (insert ";;; Saved Vulpea table views  -*- mode: lisp-data; -*-\n"
-            ";; Written by `sp-vulpea-table-views-save-to-disk'.  Each entry is\n"
-            ";; (NAME . SPEC); SPEC is a plist, see `sp-vulpea-table-spec-keys'.\n")
+(defun sp-collec-query-views-save-to-disk ()
+  "Write `sp-collec-query-views' to `sp-collec-query-views-file'."
+  (make-directory (file-name-directory sp-collec-query-views-file) t)
+  (with-temp-file sp-collec-query-views-file
+    (insert ";;; Saved query table views  -*- mode: lisp-data; -*-\n"
+            ";; Written by `sp-collec-query-views-save-to-disk'.  Each entry is\n"
+            ";; (NAME . SPEC); SPEC is a plist, see `sp-collec-query-spec-keys'.\n")
     (let ((print-length nil) (print-level nil))
-      (pp sp-vulpea-table-views (current-buffer)))))
+      (pp sp-collec-query-views (current-buffer)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-names ()
+(defun sp-collec-query-views-names ()
   "Return the names of the saved views."
-  (sp-vulpea-table-views--ensure-loaded)
-  (mapcar #'car sp-vulpea-table-views))
+  (sp-collec-query-views--ensure-loaded)
+  (mapcar #'car sp-collec-query-views))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-get (name)
+(defun sp-collec-query-views-get (name)
   "Return the spec of the saved view NAME, or nil."
-  (sp-vulpea-table-views--ensure-loaded)
-  (cdr (assoc name sp-vulpea-table-views)))
+  (sp-collec-query-views--ensure-loaded)
+  (cdr (assoc name sp-collec-query-views)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-put (name spec)
+(defun sp-collec-query-views-put (name spec)
   "Save SPEC as the view NAME, replacing a view of that name, and write the file."
-  (sp-vulpea-table-views--ensure-loaded)
-  (setf (alist-get name sp-vulpea-table-views nil nil #'string=)
-        (sp-vulpea-table-spec-normalize spec))
-  (sp-vulpea-table-views-save-to-disk))
+  (sp-collec-query-views--ensure-loaded)
+  (setf (alist-get name sp-collec-query-views nil nil #'string=)
+        (sp-collec-query-spec-normalize spec))
+  (sp-collec-query-views-save-to-disk))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-views-read-name (prompt)
+(defun sp-collec-query-views-read-name (prompt)
   "Ask with PROMPT for the name of a saved view, with completion."
-  (unless (sp-vulpea-table-views-names)
-    (user-error "No saved Vulpea table views yet; build one with `sp-vulpea-table-menu'"))
-  (completing-read prompt (sp-vulpea-table-views-names) nil t))
+  (unless (sp-collec-query-views-names)
+    (user-error "No saved query table views yet; build one with `sp-collec-query-menu'"))
+  (completing-read prompt (sp-collec-query-views-names) nil t))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-view-delete (name)
+(defun sp-collec-query-view-delete (name)
   "Delete the saved view NAME, asked for with completion."
-  (interactive (list (sp-vulpea-table-views-read-name "Delete view: ")))
-  (sp-vulpea-table-views--ensure-loaded)
-  (setq sp-vulpea-table-views (assoc-delete-all name sp-vulpea-table-views))
-  (sp-vulpea-table-views-save-to-disk)
-  (message "Deleted Vulpea table view \"%s\"" name))
+  (interactive (list (sp-collec-query-views-read-name "Delete view: ")))
+  (sp-collec-query-views--ensure-loaded)
+  (setq sp-collec-query-views (assoc-delete-all name sp-collec-query-views))
+  (sp-collec-query-views-save-to-disk)
+  (message "Deleted query table view \"%s\"" name))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-views)
-;;; sp-vulpea-table-views.el ends here
+(provide 'sp-collection-query-tables-views)
+;;; sp-collection-query-tables-views.el ends here
 #+end_src
 
 * Org output: dynamic block and Org buffer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-org.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-org.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-The plain-text side: the =vulpea-table= dynamic block, a command that inserts one, and =org= as a renderer (a read-only Org buffer with the same table). It needs no packages beyond Org, so it is the last fallback.
+The plain-text side: the =collection-query-table= dynamic block, a command that inserts one, and =org= as a renderer (a read-only Org buffer with the same table). It needs no packages beyond Org, so it is the last fallback.
 
 ** Header and requires
 
-The dynamic block and its helpers. Titles become =id:= links (=sp-vulpea-table-link-titles=), and a =|= or a line break in a cell is escaped, which used to break the table.
+The dynamic block and its helpers. Titles become =id:= links (=sp-collec-query-link-titles=), and a =|= or a line break in a cell is escaped, which used to break the table.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-org.el --- Org table output for Vulpea tables -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-org.el --- Org table output for query tables -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -920,7 +946,7 @@ The dynamic block and its helpers. Titles become =id:= links (=sp-vulpea-table-l
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; The plain-text side of Vulpea tables: the `vulpea-table' dynamic block,
+;; The plain-text side of query tables: the `collection-query-table' dynamic block,
 ;; a command that inserts one from a spec, and `org' as a renderer, a
 ;; read-only Org buffer with the same table.  No extra packages are needed,
 ;; so this is also the fallback when neither exc nor vui can be loaded.
@@ -934,23 +960,23 @@ The dynamic block and its helpers. Titles become =id:= links (=sp-vulpea-table-l
 (require 'org)
 (require 'org-table)
 (require 'subr-x)
-(require 'sp-vulpea-table-core)
+(require 'sp-collection-query-tables-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-vulpea-table-views-get "sp-vulpea-table-views")
-(declare-function sp-vulpea-table-views-read-name "sp-vulpea-table-views")
+(declare-function sp-collec-query-views-get "sp-collection-query-tables-views")
+(declare-function sp-collec-query-views-read-name "sp-collection-query-tables-views")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-link-titles t
+(defcustom sp-collec-query-link-titles t
   "Non-nil to write note titles as id: links in Org tables."
   :type 'boolean
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--org-escape (text)
+(defun sp-collec-query--org-escape (text)
   "Return TEXT safe inside an Org table cell: no bars, no line breaks."
   (replace-regexp-in-string
    "|" "\\\\vert{}"
@@ -958,10 +984,10 @@ The dynamic block and its helpers. Titles become =id:= links (=sp-vulpea-table-l
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table--org-cell (note column)
+(defun sp-collec-query--org-cell (note column)
   "Return the Org text of COLUMN for NOTE."
-  (let ((text (sp-vulpea-table--org-escape (sp-vulpea-table-cell note column))))
-    (if (and sp-vulpea-table-link-titles (eq column :title)
+  (let ((text (sp-collec-query--org-escape (sp-collec-query-cell note column))))
+    (if (and sp-collec-query-link-titles (eq column :title)
              (vulpea-note-id note) (not (string-empty-p text)))
         (format "[[id:%s][%s]]" (vulpea-note-id note)
                 (replace-regexp-in-string "[][]" "" text))
@@ -969,18 +995,18 @@ The dynamic block and its helpers. Titles become =id:= links (=sp-vulpea-table-l
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-org-text (spec)
+(defun sp-collec-query-org-text (spec)
   "Return an aligned Org table for SPEC, as a string without final newline.
 SPEC's :parent-of must be resolved already."
-  (let* ((spec (sp-vulpea-table-spec-normalize spec))
+  (let* ((spec (sp-collec-query-spec-normalize spec))
          (columns (plist-get spec :columns))
-         (notes (sp-vulpea-table-query spec)))
+         (notes (sp-collec-query-query spec)))
     (with-temp-buffer
       (delay-mode-hooks (org-mode))
-      (insert "| " (mapconcat #'sp-vulpea-table-header-label columns " | ") " |\n|-\n")
+      (insert "| " (mapconcat #'sp-collec-query-header-label columns " | ") " |\n|-\n")
       (dolist (note notes)
         (insert "| "
-                (mapconcat (lambda (c) (sp-vulpea-table--org-cell note c)) columns " | ")
+                (mapconcat (lambda (c) (sp-collec-query--org-cell note c)) columns " | ")
                 " |\n"))
       (when notes (delete-char -1))
       (org-table-align)
@@ -988,96 +1014,99 @@ SPEC's :parent-of must be resolved already."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun org-dblock-write:vulpea-table (params)
+(defun org-dblock-write:collection-query-table (params)
   "Write a table of Vulpea notes into the current dynamic block.
-PARAMS is a spec, see `sp-vulpea-table-spec-keys'; :parent-of may be
+PARAMS is a spec, see `sp-collec-query-spec-keys'; :parent-of may be
 the string \"self\", resolved on every update to the note the block is in.
 
-  ,#+BEGIN: vulpea-table :tags (\"book\") :columns (:title \"author\" \"rating\") :sort-by \"rating\"
+  ,#+BEGIN: collection-query-table :tags (\"book\") :columns (:title \"author\" \"rating\") :sort-by \"rating\"
   ,#+END:
 
-  ,#+BEGIN: vulpea-table :todo (\"TODO\" \"NEXT\") :columns (:title :todo :tags)
+  ,#+BEGIN: collection-query-table :todo (\"TODO\" \"NEXT\") :columns (:title :todo :tags)
   ,#+END:"
-  (insert (sp-vulpea-table-org-text (sp-vulpea-table-resolve-spec params))))
+  (insert (sp-collec-query-org-text (sp-collec-query-resolve-spec params))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-insert-dblock (spec)
-  "Insert a `vulpea-table' dynamic block for SPEC at point and fill it.
+(defalias 'org-dblock-write:vulpea-table #'org-dblock-write:collection-query-table
+  "Old name of the `collection-query-table' dynamic block, read from existing notes.")
+
+(defun sp-collec-query-insert-dblock (spec)
+  "Insert a `collection-query-table' dynamic block for SPEC at point and fill it.
 SPEC is kept as written, so a \"self\" :parent-of keeps meaning the note
 the block is in.  Interactively, SPEC is a saved view picked with
-completion; the menu (`sp-vulpea-table-menu') inserts its own draft."
+completion; the menu (`sp-collec-query-menu') inserts its own draft."
   (interactive
-   (progn (require 'sp-vulpea-table-views)
-          (list (sp-vulpea-table-views-get
-                 (sp-vulpea-table-views-read-name "Insert view: ")))))
-  (org-create-dblock (append (list :name "vulpea-table")
-                             (sp-vulpea-table-spec-normalize spec)))
+   (progn (require 'sp-collection-query-tables-views)
+          (list (sp-collec-query-views-get
+                 (sp-collec-query-views-read-name "Insert view: ")))))
+  (org-create-dblock (append (list :name "collection-query-table")
+                             (sp-collec-query-spec-normalize spec)))
   (org-update-dblock))
 #+end_src
 
 ** Org buffer renderer
 
-A read-only =sp-vulpea-table-org-mode= buffer; =g= runs the query again.
+A read-only =sp-collec-query-org-mode= buffer; =g= runs the query again.
 
 #+begin_src emacs-lisp -i
 ;;;; Org buffer renderer
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar-local sp-vulpea-table-org--spec nil
+(defvar-local sp-collec-query-org--spec nil
   "The (resolved) spec the current Org table buffer shows.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-org-mode-map
+(defvar sp-collec-query-org-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "g") #'sp-vulpea-table-org-refresh)
+    (define-key map (kbd "g") #'sp-collec-query-org-refresh)
     map)
-  "Keymap of `sp-vulpea-table-org-mode'.")
+  "Keymap of `sp-collec-query-org-mode'.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(define-derived-mode sp-vulpea-table-org-mode org-mode "Vulpea-Table"
+(define-derived-mode sp-collec-query-org-mode org-mode "Query-Table"
   "Read-only Org buffer showing a table of Vulpea notes; `g' refreshes.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-org-refresh ()
+(defun sp-collec-query-org-refresh ()
   "Run the query again and redraw the table."
   (interactive)
   (let ((inhibit-read-only t) (pos (point)))
     (erase-buffer)
-    (insert (format "#+title: %s\n\n" (sp-vulpea-table-spec-summary sp-vulpea-table-org--spec))
-            (sp-vulpea-table-org-text sp-vulpea-table-org--spec) "\n")
+    (insert (format "#+title: %s\n\n" (sp-collec-query-spec-summary sp-collec-query-org--spec))
+            (sp-collec-query-org-text sp-collec-query-org--spec) "\n")
     (goto-char (min pos (point-max)))
     (set-buffer-modified-p nil)
     (setq buffer-read-only t)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-org-open (spec buffer-name)
+(defun sp-collec-query-org-open (spec buffer-name)
   "Show SPEC (resolved) in a read-only Org buffer called BUFFER-NAME."
   (with-current-buffer (get-buffer-create buffer-name)
-    (sp-vulpea-table-org-mode)
-    (setq sp-vulpea-table-org--spec spec)
-    (sp-vulpea-table-org-refresh)
+    (sp-collec-query-org-mode)
+    (setq sp-collec-query-org--spec spec)
+    (sp-collec-query-org-refresh)
     (pop-to-buffer (current-buffer))))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (define-obsolete-function-alias 'sia-insert-vulpea-table
-  #'sp-vulpea-table-insert-dblock "2026-10-21")
+  #'sp-collec-query-insert-dblock "2026-10-21")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-org)
-;;; sp-vulpea-table-org.el ends here
+(provide 'sp-collection-query-tables-org)
+;;; sp-collection-query-tables-org.el ends here
 #+end_src
 
 * Menu: building a query
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-menu.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-menu.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 A transient menu that edits a spec one setting at a time and shows each current value beside its key. Nothing runs until you choose to open, preview, insert or save.
@@ -1087,7 +1116,7 @@ A transient menu that edits a spec one setting at a time and shows each current 
 Header and state: the spec being edited, the name of the view it came from, and the table buffer to redraw when the menu was started from one.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-menu.el --- Transient menu to build Vulpea table queries -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-menu.el --- Transient menu to build query table queries -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1095,7 +1124,7 @@ Header and state: the spec being edited, the name of the view it came from, and 
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; `sp-vulpea-table-menu' edits a spec (see `sp-vulpea-table-spec-keys')
+;; `sp-collec-query-menu' edits a spec (see `sp-collec-query-spec-keys')
 ;; one setting at a time, showing the current value next to every key, and
 ;; then opens the table, previews the count, inserts it as a dynamic block
 ;; or saves it as a named view.  Nothing runs until you ask: the settings
@@ -1110,32 +1139,32 @@ Header and state: the spec being edited, the name of the view it came from, and 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'transient)
-(require 'sp-vulpea-table-core)
-(require 'sp-vulpea-table-views)
-(require 'sp-vulpea-table-org)
+(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-tables-views)
+(require 'sp-collection-query-tables-org)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(declare-function sp-vulpea-table-open "sp-vulpea-table")
+(declare-function sp-collec-query-open "sp-collection-query-tables")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-menu--spec nil
+(defvar sp-collec-query-menu--spec nil
   "The spec the menu is editing.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-menu--name nil
+(defvar sp-collec-query-menu--name nil
   "Name of the saved view the menu's spec came from, if any.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-menu--target nil
+(defvar sp-collec-query-menu--target nil
   "Buffer showing a table that running the menu should redraw, or nil.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-menu--notes nil
+(defvar sp-collec-query-menu--notes nil
   "Notes read for completion while the menu is open.")
 #+end_src
 
@@ -1148,59 +1177,59 @@ Helpers that read a key from the spec, set it (removing the key when the value i
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--get (key)
+(defun sp-collec-query-menu--get (key)
   "Return the setting KEY of the menu's spec."
-  (plist-get sp-vulpea-table-menu--spec key))
+  (plist-get sp-collec-query-menu--spec key))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--set (key value)
+(defun sp-collec-query-menu--set (key value)
   "Set KEY to VALUE in the menu's spec; a nil VALUE removes KEY."
-  (let ((spec (copy-sequence sp-vulpea-table-menu--spec)))
+  (let ((spec (copy-sequence sp-collec-query-menu--spec)))
     (cl-remf spec key)
     (when value (setq spec (plist-put spec key value)))
-    (setq sp-vulpea-table-menu--spec spec)))
+    (setq sp-collec-query-menu--spec spec)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--all-notes ()
+(defun sp-collec-query-menu--all-notes ()
   "Return all notes, read once per menu session."
-  (or sp-vulpea-table-menu--notes
-      (setq sp-vulpea-table-menu--notes (vulpea-db-query))))
+  (or sp-collec-query-menu--notes
+      (setq sp-collec-query-menu--notes (vulpea-db-query))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--candidates (function)
+(defun sp-collec-query-menu--candidates (function)
   "Return the sorted unique non-empty strings FUNCTION gives for the notes."
   (sort (delete-dups
          (seq-remove (lambda (s) (or (null s) (string-empty-p s)))
                      (mapcan (lambda (n) (ensure-list (funcall function n)))
-                             (sp-vulpea-table-menu--all-notes))))
+                             (sp-collec-query-menu--all-notes))))
         #'string<))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--meta-keys ()
+(defun sp-collec-query-menu--meta-keys ()
   "Return every meta key found in the notes."
-  (sp-vulpea-table-menu--candidates
+  (sp-collec-query-menu--candidates
    (lambda (n) (mapcar #'car (vulpea-note-meta n)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--column-candidates ()
+(defun sp-collec-query-menu--column-candidates ()
   "Return the built-in columns and the meta keys, as strings."
-  (append (mapcar #'symbol-name sp-vulpea-table-builtin-columns)
-          (sp-vulpea-table-menu--meta-keys)))
+  (append (mapcar #'symbol-name sp-collec-query-builtin-columns)
+          (sp-collec-query-menu--meta-keys)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--column (string)
+(defun sp-collec-query-menu--column (string)
   "Return the column STRING names: a keyword for a built-in one."
   (if (string-prefix-p ":" string) (intern string) string))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--column-name (column)
+(defun sp-collec-query-menu--column-name (column)
   "Return COLUMN as the text shown and read back in prompts."
   (if (keywordp column) (symbol-name column) column))
 #+end_src
@@ -1214,9 +1243,9 @@ Each key's label shows the current value. The macro defines one description func
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--value-text (key)
+(defun sp-collec-query-menu--value-text (key)
   "Return the text shown for the setting KEY."
-  (let ((value (sp-vulpea-table-menu--get key)))
+  (let ((value (sp-collec-query-menu--get key)))
     (pcase key
       (:links (mapconcat (lambda (id)
                            (if-let* ((n (ignore-errors (vulpea-db-get-by-id id))))
@@ -1225,20 +1254,20 @@ Each key's label shows the current value. The macro defines one description func
                          value ", "))
       (:meta (mapconcat (lambda (c) (if (cdr c) (format "%s=%s" (car c) (cdr c)) (car c)))
                         value ", "))
-      (:columns (mapconcat #'sp-vulpea-table-menu--column-name value " "))
-      (:sort-by (and value (sp-vulpea-table-menu--column-name value)))
+      (:columns (mapconcat #'sp-collec-query-menu--column-name value " "))
+      (:sort-by (and value (sp-collec-query-menu--column-name value)))
       (:sort-desc (and value "descending"))
       (:level (and value (if (eq value 'headings) "headings" "file-level")))
       (:parent-of (and value (format "%s%s" value
-                                     (if-let* ((p (sp-vulpea-table-menu--get :parent-prop)))
+                                     (if-let* ((p (sp-collec-query-menu--get :parent-prop)))
                                          (format " via %s" p) ""))))
       (_ (if (listp value) (string-join value ", ") value)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--describe (label key)
+(defun sp-collec-query-menu--describe (label key)
   "Return LABEL followed by the current value of KEY, highlighted."
-  (let ((text (sp-vulpea-table-menu--value-text key)))
+  (let ((text (sp-collec-query-menu--value-text key)))
     (concat (format "%-16s" label)
             (if (and text (not (string-empty-p text)))
                 (propertize text 'face 'transient-value)
@@ -1246,37 +1275,37 @@ Each key's label shows the current value. The macro defines one description func
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defmacro sp-vulpea-table-menu--defdesc (name label key)
+(defmacro sp-collec-query-menu--defdesc (name label key)
   "Define NAME, a menu description function for the setting KEY with LABEL."
   `(defun ,name (&optional _obj)
-     (sp-vulpea-table-menu--describe ,label ,key)))
+     (sp-collec-query-menu--describe ,label ,key)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-tags "Tags (all)" :tags)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-tags-any "Tags (any)" :tags-any)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-tags-none "Tags (none)" :tags-none)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-dirs "Directories" :directories)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-todo "TODO state" :todo)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-links "Links to" :links)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-meta "Meta" :meta)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-parent "Children of" :parent-of)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-level "Level" :level)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-title "Title matches" :title-match)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-columns "Columns" :columns)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-sort "Sort by" :sort-by)
-(sp-vulpea-table-menu--defdesc sp-vulpea-table-menu--d-desc "Direction" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-tags "Tags (all)" :tags)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-tags-any "Tags (any)" :tags-any)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-tags-none "Tags (none)" :tags-none)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-dirs "Directories" :directories)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-todo "TODO state" :todo)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-links "Links to" :links)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-meta "Meta" :meta)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-parent "Children of" :parent-of)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-level "Level" :level)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-title "Title matches" :title-match)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-columns "Columns" :columns)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-sort "Sort by" :sort-by)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction" :sort-desc)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--header ()
+(defun sp-collec-query-menu--header ()
   "Return the heading of the menu."
-  (concat (propertize (if sp-vulpea-table-menu--name
-                          (format "Vulpea table: %s" sp-vulpea-table-menu--name)
-                        "Vulpea table")
+  (concat (propertize (if sp-collec-query-menu--name
+                          (format "Query table: %s" sp-collec-query-menu--name)
+                        "Query table")
                       'face 'transient-heading)
           "\n"
-          (propertize (sp-vulpea-table-spec-summary sp-vulpea-table-menu--spec)
+          (propertize (sp-collec-query-spec-summary sp-collec-query-menu--spec)
                       'face 'shadow)))
 #+end_src
 
@@ -1289,105 +1318,105 @@ One command per setting. Tags, directories, TODO states and columns use =complet
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-tags (key prompt)
+(defun sp-collec-query-menu-tags (key prompt)
   "Read the tag list for KEY with PROMPT, offering the tags in the database."
-  (sp-vulpea-table-menu--set
+  (sp-collec-query-menu--set
    key
    (completing-read-multiple
     prompt (vulpea-db-query-tags) nil nil
-    (when-let* ((cur (sp-vulpea-table-menu--get key))) (concat (string-join cur ",") ",")))))
+    (when-let* ((cur (sp-collec-query-menu--get key))) (concat (string-join cur ",") ",")))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-tags ()
+(defun sp-collec-query-menu-set-tags ()
   "Set the tags a note must all have."
-  (interactive) (sp-vulpea-table-menu-tags :tags "Tags, all of: "))
+  (interactive) (sp-collec-query-menu-tags :tags "Tags, all of: "))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-tags-any ()
+(defun sp-collec-query-menu-set-tags-any ()
   "Set the tags of which a note must have at least one."
-  (interactive) (sp-vulpea-table-menu-tags :tags-any "Tags, any of: "))
+  (interactive) (sp-collec-query-menu-tags :tags-any "Tags, any of: "))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-tags-none ()
+(defun sp-collec-query-menu-set-tags-none ()
   "Set the tags a note must not have."
-  (interactive) (sp-vulpea-table-menu-tags :tags-none "Tags, none of: "))
+  (interactive) (sp-collec-query-menu-tags :tags-none "Tags, none of: "))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-directories ()
+(defun sp-collec-query-menu-set-directories ()
   "Set the directories a note's file must lie under."
   (interactive)
-  (let ((dirs (sp-vulpea-table-menu--candidates
+  (let ((dirs (sp-collec-query-menu--candidates
                (lambda (n) (abbreviate-file-name
                             (directory-file-name
                              (file-name-directory (vulpea-note-path n))))))))
-    (sp-vulpea-table-menu--set
+    (sp-collec-query-menu--set
      :directories
      (completing-read-multiple
       "Directories (type any path too): " dirs nil nil
-      (when-let* ((cur (plist-get sp-vulpea-table-menu--spec :directories)))
+      (when-let* ((cur (plist-get sp-collec-query-menu--spec :directories)))
         (concat (string-join cur ",") ","))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-todo ()
+(defun sp-collec-query-menu-set-todo ()
   "Set the TODO states a note must be in."
   (interactive)
-  (sp-vulpea-table-menu--set
+  (sp-collec-query-menu--set
    :todo
    (completing-read-multiple
     "TODO states: "
-    (sp-vulpea-table-menu--candidates #'vulpea-note-todo) nil nil
-    (when-let* ((cur (sp-vulpea-table-menu--get :todo))) (concat (string-join cur ",") ",")))))
+    (sp-collec-query-menu--candidates #'vulpea-note-todo) nil nil
+    (when-let* ((cur (sp-collec-query-menu--get :todo))) (concat (string-join cur ",") ",")))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-add-link ()
+(defun sp-collec-query-menu-add-link ()
   "Add a note the table's notes must link to (any of the listed ones)."
   (interactive)
-  (when-let* ((note (sp-vulpea-table-select-note "Links to: ")))
-    (sp-vulpea-table-menu--set
-     :links (cl-adjoin (vulpea-note-id note) (sp-vulpea-table-menu--get :links)
+  (when-let* ((note (sp-collec-query-select-note "Links to: ")))
+    (sp-collec-query-menu--set
+     :links (cl-adjoin (vulpea-note-id note) (sp-collec-query-menu--get :links)
                        :test #'equal))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-clear-links ()
+(defun sp-collec-query-menu-clear-links ()
   "Remove the link filter."
-  (interactive) (sp-vulpea-table-menu--set :links nil))
+  (interactive) (sp-collec-query-menu--set :links nil))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-add-meta ()
+(defun sp-collec-query-menu-add-meta ()
   "Require a meta KEY, optionally with a given value."
   (interactive)
-  (let* ((key (completing-read "Meta key: " (sp-vulpea-table-menu--meta-keys)))
-         (values (sp-vulpea-table-menu--candidates
+  (let* ((key (completing-read "Meta key: " (sp-collec-query-menu--meta-keys)))
+         (values (sp-collec-query-menu--candidates
                   (lambda (n) (vulpea-note-meta-get-list n key))))
          (value (completing-read
                  (format "Value of %s (empty: only require the key): " key) values)))
     (unless (string-empty-p key)
-      (sp-vulpea-table-menu--set
-       :meta (append (assoc-delete-all key (copy-sequence (sp-vulpea-table-menu--get :meta)))
+      (sp-collec-query-menu--set
+       :meta (append (assoc-delete-all key (copy-sequence (sp-collec-query-menu--get :meta)))
                      (list (cons key (unless (string-empty-p value) value))))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-clear-meta ()
+(defun sp-collec-query-menu-clear-meta ()
   "Remove the meta filter."
-  (interactive) (sp-vulpea-table-menu--set :meta nil))
+  (interactive) (sp-collec-query-menu--set :meta nil))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-parent ()
+(defun sp-collec-query-menu-set-parent ()
   "Set the note whose children the table lists, and the meta key that links them."
   (interactive)
-  (let ((parent (sp-vulpea-table-read-parent t)))
-    (sp-vulpea-table-menu--set :parent-of parent)
-    (sp-vulpea-table-menu--set
+  (let ((parent (sp-collec-query-read-parent t)))
+    (sp-collec-query-menu--set :parent-of parent)
+    (sp-collec-query-menu--set
      :parent-prop
      (when parent
        (let ((prop (read-string "Parent meta key (empty for \"parents\"): ")))
@@ -1395,61 +1424,61 @@ One command per setting. Tags, directories, TODO states and columns use =complet
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-level ()
+(defun sp-collec-query-menu-set-level ()
   "Choose between file-level notes, heading notes and both."
   (interactive)
-  (sp-vulpea-table-menu--set
+  (sp-collec-query-menu--set
    :level (pcase (completing-read "Notes: " '("all" "file-level" "headings") nil t)
             ("file-level" 0) ("headings" 'headings))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-title ()
+(defun sp-collec-query-menu-set-title ()
   "Set a regexp the title must match."
   (interactive)
   (let ((re (read-regexp "Title matches (regexp, empty for any): "
-                         (sp-vulpea-table-menu--get :title-match))))
-    (sp-vulpea-table-menu--set :title-match (unless (string-empty-p re) re))))
+                         (sp-collec-query-menu--get :title-match))))
+    (sp-collec-query-menu--set :title-match (unless (string-empty-p re) re))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-columns ()
+(defun sp-collec-query-menu-set-columns ()
   "Set the columns, in order."
   (interactive)
   (let ((cols (completing-read-multiple
                "Columns, in order (:title, :tags, ... or a meta key): "
-               (sp-vulpea-table-menu--column-candidates) nil nil
-               (concat (mapconcat #'sp-vulpea-table-menu--column-name
-                                  (or (sp-vulpea-table-menu--get :columns) '(:title)) ",")
+               (sp-collec-query-menu--column-candidates) nil nil
+               (concat (mapconcat #'sp-collec-query-menu--column-name
+                                  (or (sp-collec-query-menu--get :columns) '(:title)) ",")
                        ","))))
-    (sp-vulpea-table-menu--set
-     :columns (mapcar #'sp-vulpea-table-menu--column cols))))
+    (sp-collec-query-menu--set
+     :columns (mapcar #'sp-collec-query-menu--column cols))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-set-sort ()
+(defun sp-collec-query-menu-set-sort ()
   "Set the column to sort by."
   (interactive)
   (let ((col (completing-read "Sort by (empty for none): "
-                              (or (mapcar #'sp-vulpea-table-menu--column-name
-                                          (sp-vulpea-table-menu--get :columns))
-                                  (sp-vulpea-table-menu--column-candidates)))))
-    (sp-vulpea-table-menu--set
-     :sort-by (unless (string-empty-p col) (sp-vulpea-table-menu--column col)))))
+                              (or (mapcar #'sp-collec-query-menu--column-name
+                                          (sp-collec-query-menu--get :columns))
+                                  (sp-collec-query-menu--column-candidates)))))
+    (sp-collec-query-menu--set
+     :sort-by (unless (string-empty-p col) (sp-collec-query-menu--column col)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-toggle-desc ()
+(defun sp-collec-query-menu-toggle-desc ()
   "Toggle between ascending and descending order."
   (interactive)
-  (sp-vulpea-table-menu--set :sort-desc (not (sp-vulpea-table-menu--get :sort-desc))))
+  (sp-collec-query-menu--set :sort-desc (not (sp-collec-query-menu--get :sort-desc))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-reset ()
+(defun sp-collec-query-menu-reset ()
   "Forget every setting."
   (interactive)
-  (setq sp-vulpea-table-menu--spec nil sp-vulpea-table-menu--name nil))
+  (setq sp-collec-query-menu--spec nil sp-collec-query-menu--name nil))
 #+end_src
 
 ** Commands that use the whole spec
@@ -1461,110 +1490,110 @@ Open (or redraw the table the menu came from), preview the count, insert as a dy
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu--spec-now ()
+(defun sp-collec-query-menu--spec-now ()
   "Return the menu's spec, normalized."
-  (sp-vulpea-table-spec-normalize sp-vulpea-table-menu--spec))
+  (sp-collec-query-spec-normalize sp-collec-query-menu--spec))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-run ()
+(defun sp-collec-query-menu-run ()
   "Open the table, or redraw the table this menu was started from."
   (interactive)
-  (let ((spec (sp-vulpea-table-menu--spec-now))
-        (target sp-vulpea-table-menu--target))
-    (setq sp-vulpea-table-menu--target nil)
-    (sp-vulpea-table-open spec sp-vulpea-table-menu--name target)))
+  (let ((spec (sp-collec-query-menu--spec-now))
+        (target sp-collec-query-menu--target))
+    (setq sp-collec-query-menu--target nil)
+    (sp-collec-query-open spec sp-collec-query-menu--name target)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-preview ()
+(defun sp-collec-query-menu-preview ()
   "Say how many notes the spec matches."
   (interactive)
-  (let ((spec (sp-vulpea-table-resolve-spec sp-vulpea-table-menu--spec)))
-    (message "%d notes: %s" (length (sp-vulpea-table-query spec))
-             (sp-vulpea-table-spec-summary spec))))
+  (let ((spec (sp-collec-query-resolve-spec sp-collec-query-menu--spec)))
+    (message "%d notes: %s" (length (sp-collec-query-query spec))
+             (sp-collec-query-spec-summary spec))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-insert ()
+(defun sp-collec-query-menu-insert ()
   "Insert the spec at point in the Org buffer the menu was started from."
   (interactive)
   (unless (derived-mode-p 'org-mode) (user-error "Not in an Org buffer"))
-  (sp-vulpea-table-insert-dblock (sp-vulpea-table-menu--spec-now)))
+  (sp-collec-query-insert-dblock (sp-collec-query-menu--spec-now)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-save ()
+(defun sp-collec-query-menu-save ()
   "Save the spec as a named view."
   (interactive)
-  (let ((name (read-string "Save view as: " sp-vulpea-table-menu--name)))
+  (let ((name (read-string "Save view as: " sp-collec-query-menu--name)))
     (when (string-empty-p name) (user-error "A view needs a name"))
-    (when (or (not (member name (sp-vulpea-table-views-names)))
-              (string= name sp-vulpea-table-menu--name)
+    (when (or (not (member name (sp-collec-query-views-names)))
+              (string= name sp-collec-query-menu--name)
               (y-or-n-p (format "Replace the view \"%s\"? " name)))
-      (sp-vulpea-table-views-put name (sp-vulpea-table-menu--spec-now))
-      (setq sp-vulpea-table-menu--name name)
-      (message "Saved Vulpea table view \"%s\"" name))))
+      (sp-collec-query-views-put name (sp-collec-query-menu--spec-now))
+      (setq sp-collec-query-menu--name name)
+      (message "Saved query table view \"%s\"" name))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-load ()
+(defun sp-collec-query-menu-load ()
   "Load a saved view into the menu."
   (interactive)
-  (let ((name (sp-vulpea-table-views-read-name "Load view: ")))
-    (setq sp-vulpea-table-menu--spec (copy-tree (sp-vulpea-table-views-get name))
-          sp-vulpea-table-menu--name name)))
+  (let ((name (sp-collec-query-views-read-name "Load view: ")))
+    (setq sp-collec-query-menu--spec (copy-tree (sp-collec-query-views-get name))
+          sp-collec-query-menu--name name)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-menu-delete ()
+(defun sp-collec-query-menu-delete ()
   "Delete a saved view."
   (interactive)
-  (call-interactively #'sp-vulpea-table-view-delete))
+  (call-interactively #'sp-collec-query-view-delete))
 #+end_src
 
 #+begin_src emacs-lisp -i
-;;;###autoload (autoload 'sp-vulpea-table-menu "sp-vulpea-table-menu" nil t)
-(transient-define-prefix sp-vulpea-table-menu ()
+;;;###autoload (autoload 'sp-collec-query-menu "sp-collection-query-tables-menu" nil t)
+(transient-define-prefix sp-collec-query-menu ()
   "Build, run and save a table of Vulpea notes."
-  [:description sp-vulpea-table-menu--header
+  [:description sp-collec-query-menu--header
    :class transient-columns
    ["Filter"
-    ("t" sp-vulpea-table-menu-set-tags :description sp-vulpea-table-menu--d-tags :transient t)
-    ("a" sp-vulpea-table-menu-set-tags-any :description sp-vulpea-table-menu--d-tags-any :transient t)
-    ("x" sp-vulpea-table-menu-set-tags-none :description sp-vulpea-table-menu--d-tags-none :transient t)
-    ("d" sp-vulpea-table-menu-set-directories :description sp-vulpea-table-menu--d-dirs :transient t)
-    ("s" sp-vulpea-table-menu-set-todo :description sp-vulpea-table-menu--d-todo :transient t)
-    ("l" sp-vulpea-table-menu-add-link :description sp-vulpea-table-menu--d-links :transient t)
-    ("L" "  clear links" sp-vulpea-table-menu-clear-links :transient t)
-    ("m" sp-vulpea-table-menu-add-meta :description sp-vulpea-table-menu--d-meta :transient t)
-    ("M" "  clear meta" sp-vulpea-table-menu-clear-meta :transient t)
-    ("p" sp-vulpea-table-menu-set-parent :description sp-vulpea-table-menu--d-parent :transient t)
-    ("v" sp-vulpea-table-menu-set-level :description sp-vulpea-table-menu--d-level :transient t)
-    ("r" sp-vulpea-table-menu-set-title :description sp-vulpea-table-menu--d-title :transient t)]
+    ("t" sp-collec-query-menu-set-tags :description sp-collec-query-menu--d-tags :transient t)
+    ("a" sp-collec-query-menu-set-tags-any :description sp-collec-query-menu--d-tags-any :transient t)
+    ("x" sp-collec-query-menu-set-tags-none :description sp-collec-query-menu--d-tags-none :transient t)
+    ("d" sp-collec-query-menu-set-directories :description sp-collec-query-menu--d-dirs :transient t)
+    ("s" sp-collec-query-menu-set-todo :description sp-collec-query-menu--d-todo :transient t)
+    ("l" sp-collec-query-menu-add-link :description sp-collec-query-menu--d-links :transient t)
+    ("L" "  clear links" sp-collec-query-menu-clear-links :transient t)
+    ("m" sp-collec-query-menu-add-meta :description sp-collec-query-menu--d-meta :transient t)
+    ("M" "  clear meta" sp-collec-query-menu-clear-meta :transient t)
+    ("p" sp-collec-query-menu-set-parent :description sp-collec-query-menu--d-parent :transient t)
+    ("v" sp-collec-query-menu-set-level :description sp-collec-query-menu--d-level :transient t)
+    ("r" sp-collec-query-menu-set-title :description sp-collec-query-menu--d-title :transient t)]
    ["Shape"
-     ("c" sp-vulpea-table-menu-set-columns :description sp-vulpea-table-menu--d-columns :transient t)
-     ("o" sp-vulpea-table-menu-set-sort :description sp-vulpea-table-menu--d-sort :transient t)
-     ("O" sp-vulpea-table-menu-toggle-desc :description sp-vulpea-table-menu--d-desc :transient t)]
+     ("c" sp-collec-query-menu-set-columns :description sp-collec-query-menu--d-columns :transient t)
+     ("o" sp-collec-query-menu-set-sort :description sp-collec-query-menu--d-sort :transient t)
+     ("O" sp-collec-query-menu-toggle-desc :description sp-collec-query-menu--d-desc :transient t)]
    ["Views"
-     ("S" "Save view" sp-vulpea-table-menu-save :transient t)
-     ("V" "Load view" sp-vulpea-table-menu-load :transient t)
-     ("D" "Delete view" sp-vulpea-table-menu-delete :transient t)]
+     ("S" "Save view" sp-collec-query-menu-save :transient t)
+     ("V" "Load view" sp-collec-query-menu-load :transient t)
+     ("D" "Delete view" sp-collec-query-menu-delete :transient t)]
    ["Run"
-     ("RET" "Open table" sp-vulpea-table-menu-run)
-     ("P" "Preview count" sp-vulpea-table-menu-preview :transient t)
-     ("i" "Insert as dblock" sp-vulpea-table-menu-insert)
-     ("R" "Reset" sp-vulpea-table-menu-reset :transient t)]])
+     ("RET" "Open table" sp-collec-query-menu-run)
+     ("P" "Preview count" sp-collec-query-menu-preview :transient t)
+     ("i" "Insert as dblock" sp-collec-query-menu-insert)
+     ("R" "Reset" sp-collec-query-menu-reset :transient t)]])
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-menu)
-;;; sp-vulpea-table-menu.el ends here
+(provide 'sp-collection-query-tables-menu)
+;;; sp-collection-query-tables-menu.el ends here
 #+end_src
 
 * exc renderer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-exc.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-exc.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
 Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF from emacs-taf. The first row holds the column names and is frozen. Meta columns are editable: the text is written to the note's file first, then the cell changes. The other columns are read-only.
@@ -1574,7 +1603,7 @@ Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF 
 Header, declarations, the column-width option and the buffer-local state. The state is =permanent-local= because exc re-initialises the major mode every time it redraws.
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-exc.el --- Vulpea tables as exc grids -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-exc.el --- Query tables as exc grids -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1582,7 +1611,7 @@ Header, declarations, the column-width option and the buffer-local state. The st
 #+end_src
 
 #+begin_src emacs-lisp -i
-;; Shows a Vulpea table in exc (https://github.com/yibie/exc), the
+;; Shows a query table in exc (https://github.com/yibie/exc), the
 ;; spreadsheet drawn with ETAF (https://github.com/emacs-taf).  exc needs
 ;; Emacs 29.1 and the ecss, ebox and etaf checkouts on `load-path'.
 ;;
@@ -1599,7 +1628,7 @@ Header, declarations, the column-width option and the buffer-local state. The st
 #+begin_src emacs-lisp -i
 (require 'cl-lib)
 (require 'subr-x)
-(require 'sp-vulpea-table-core)
+(require 'sp-collection-query-tables-core)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1611,52 +1640,52 @@ Header, declarations, the column-width option and the buffer-local state. The st
 (declare-function exc-set-column-width "exc")
 (declare-function exc-get-cell-at-point "exc")
 (declare-function exc-etaf-goto "exc-etaf")
-(declare-function sp-vulpea-table-menu "sp-vulpea-table-menu")
+(declare-function sp-collec-query-menu "sp-collection-query-tables-menu")
 (defvar exc--data-source)
-(defvar sp-vulpea-table-menu--spec)
-(defvar sp-vulpea-table-menu--target)
+(defvar sp-collec-query-menu--spec)
+(defvar sp-collec-query-menu--target)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defcustom sp-vulpea-table-exc-column-widths
+(defcustom sp-collec-query-exc-column-widths
   '((:title . 42) (:tags . 24) (:id . 38) (:path . 50) (t . 20))
   "Width in characters of each column in an exc table.
 A column not listed uses the entry for t."
   :type '(alist :key-type (choice symbol string) :value-type integer)
-  :group 'sp-vulpea-table)
+  :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar-local sp-vulpea-table-exc--spec nil
+(defvar-local sp-collec-query-exc--spec nil
   "The resolved spec the current exc table shows.")
-(defvar-local sp-vulpea-table-exc--notes nil
+(defvar-local sp-collec-query-exc--notes nil
   "Vector of the notes in the current exc table, one per data row.")
-(defvar-local sp-vulpea-table-exc--refresher nil
-  "The function this buffer subscribed to `sp-vulpea-table-refresh-functions'.")
-(dolist (var '(sp-vulpea-table-exc--spec sp-vulpea-table-exc--notes
-               sp-vulpea-table-exc--refresher))
+(defvar-local sp-collec-query-exc--refresher nil
+  "The function this buffer subscribed to `sp-collec-query-refresh-functions'.")
+(dolist (var '(sp-collec-query-exc--spec sp-collec-query-exc--notes
+               sp-collec-query-exc--refresher))
   (put var 'permanent-local t))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc-available-p ()
+(defun sp-collec-query-exc-available-p ()
   "Non-nil if exc and ETAF can be loaded."
   (and (require 'exc nil t) (locate-library "exc-etaf")
        (require 'etaf nil t)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--require ()
+(defun sp-collec-query-exc--require ()
   "Load exc, or say what is missing."
-  (unless (sp-vulpea-table-exc-available-p)
-    (user-error "exc is not available: it needs Emacs 29.1 and the ecss, ebox, etaf and exc checkouts on `load-path' (see `sp-vulpea-table-renderer')")))
+  (unless (sp-collec-query-exc-available-p)
+    (user-error "exc is not available: it needs Emacs 29.1 and the ecss, ebox, etaf and exc checkouts on `load-path' (see `sp-collec-query-renderer')")))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--width (column)
+(defun sp-collec-query-exc--width (column)
   "Return the width for COLUMN."
-  (or (alist-get column sp-vulpea-table-exc-column-widths nil nil #'equal)
-      (alist-get t sp-vulpea-table-exc-column-widths)
+  (or (alist-get column sp-collec-query-exc-column-widths nil nil #'equal)
+      (alist-get t sp-collec-query-exc-column-widths)
       20))
 #+end_src
 
@@ -1669,7 +1698,7 @@ The data source holds the header row and one row per note. =:set-raw-value-at= i
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--guard (source columns notes)
+(defun sp-collec-query-exc--guard (source columns notes)
   "Make SOURCE write meta cells to their notes and refuse other edits.
 COLUMNS are the table's columns and NOTES a vector of its notes."
   (let ((original (gethash :set-raw-value-at source))
@@ -1682,27 +1711,27 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
                  (user-error "Outside the table"))
                 ((not (stringp (nth col columns)))
                  (user-error "The %s column is read-only"
-                             (sp-vulpea-table-header-label (nth col columns))))
-                (t (sp-vulpea-table-write-meta (aref notes (1- row)) (nth col columns) value)
+                             (sp-collec-query-header-label (nth col columns))))
+                (t (sp-collec-query-write-meta (aref notes (1- row)) (nth col columns) value)
                    (funcall original s row col value))))
              source)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--source (spec notes)
+(defun sp-collec-query-exc--source (spec notes)
   "Return an exc data source for SPEC and the list NOTES."
   (let* ((columns (plist-get spec :columns))
-         (labels (mapcar #'sp-vulpea-table-header-label columns))
+         (labels (mapcar #'sp-collec-query-header-label columns))
          (source (make-exc-default-data-source
                   labels
-                  (cons labels (sp-vulpea-table-rows notes columns))
-                  (sp-vulpea-table-spec-summary spec))))
+                  (cons labels (sp-collec-query-rows notes columns))
+                  (sp-collec-query-spec-summary spec))))
     (cl-loop for column in columns
              for i from 0
              do (exc-set-style-at source 0 i '(:bold t))
-             do (exc-set-column-width source i (sp-vulpea-table-exc--width column)))
+             do (exc-set-column-width source i (sp-collec-query-exc--width column)))
     (exc-set-frozen source 1 0)
-    (sp-vulpea-table-exc--guard source columns (vconcat notes))
+    (sp-collec-query-exc--guard source columns (vconcat notes))
     source))
 #+end_src
 
@@ -1715,92 +1744,92 @@ A minor mode with its own keymap (=C-c o= open the note, =C-c q= edit the query 
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-vulpea-table-exc-mode-map
+(defvar sp-collec-query-exc-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c o") #'sp-vulpea-table-exc-open-note)
-    (define-key map (kbd "C-c q") #'sp-vulpea-table-exc-edit-query)
-    (define-key map (kbd "C-c C-u") #'sp-vulpea-table-exc-refresh)
+    (define-key map (kbd "C-c o") #'sp-collec-query-exc-open-note)
+    (define-key map (kbd "C-c q") #'sp-collec-query-exc-edit-query)
+    (define-key map (kbd "C-c C-u") #'sp-collec-query-exc-refresh)
     map)
-  "Keymap of `sp-vulpea-table-exc-mode'.")
+  "Keymap of `sp-collec-query-exc-mode'.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(define-minor-mode sp-vulpea-table-exc-mode
-  "Keys for an exc grid that shows a Vulpea table.
-\\{sp-vulpea-table-exc-mode-map}"
+(define-minor-mode sp-collec-query-exc-mode
+  "Keys for an exc grid that shows a query table.
+\\{sp-collec-query-exc-mode-map}"
   :lighter " VTable"
-  :keymap sp-vulpea-table-exc-mode-map)
+  :keymap sp-collec-query-exc-mode-map)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--draw (spec)
+(defun sp-collec-query-exc--draw (spec)
   "Run SPEC and draw the result in the current buffer."
-  (let* ((notes (sp-vulpea-table-query spec))
-         (source (sp-vulpea-table-exc--source spec notes)))
-    (exc--show-grid-in-current-buffer source (sp-vulpea-table-spec-summary spec))
-    (setq sp-vulpea-table-exc--spec spec
-          sp-vulpea-table-exc--notes (vconcat notes))
-    (sp-vulpea-table-exc-mode 1)
-    (sp-vulpea-table-exc--subscribe)
+  (let* ((notes (sp-collec-query-query spec))
+         (source (sp-collec-query-exc--source spec notes)))
+    (exc--show-grid-in-current-buffer source (sp-collec-query-spec-summary spec))
+    (setq sp-collec-query-exc--spec spec
+          sp-collec-query-exc--notes (vconcat notes))
+    (sp-collec-query-exc-mode 1)
+    (sp-collec-query-exc--subscribe)
     (length notes)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--subscribe ()
-  "Refresh this buffer when `sp-vulpea-table-refresh-functions' run."
-  (unless sp-vulpea-table-exc--refresher
+(defun sp-collec-query-exc--subscribe ()
+  "Refresh this buffer when `sp-collec-query-refresh-functions' run."
+  (unless sp-collec-query-exc--refresher
     (let ((buffer (current-buffer)))
-      (setq sp-vulpea-table-exc--refresher
+      (setq sp-collec-query-exc--refresher
             (lambda ()
               (if (buffer-live-p buffer)
-                  (with-current-buffer buffer (sp-vulpea-table-exc-refresh))
-                (remove-hook 'sp-vulpea-table-refresh-functions
-                             sp-vulpea-table-exc--refresher))))
-      (add-hook 'sp-vulpea-table-refresh-functions sp-vulpea-table-exc--refresher)
+                  (with-current-buffer buffer (sp-collec-query-exc-refresh))
+                (remove-hook 'sp-collec-query-refresh-functions
+                             sp-collec-query-exc--refresher))))
+      (add-hook 'sp-collec-query-refresh-functions sp-collec-query-exc--refresher)
       (add-hook 'kill-buffer-hook
                 (lambda ()
-                  (remove-hook 'sp-vulpea-table-refresh-functions
-                               sp-vulpea-table-exc--refresher))
+                  (remove-hook 'sp-collec-query-refresh-functions
+                               sp-collec-query-exc--refresher))
                 nil t))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc-open (spec buffer-name)
+(defun sp-collec-query-exc-open (spec buffer-name)
   "Show SPEC, already resolved, in an exc grid called BUFFER-NAME."
-  (sp-vulpea-table-exc--require)
+  (sp-collec-query-exc--require)
   (let ((buffer (get-buffer-create buffer-name)))
     (with-current-buffer buffer
-      (sp-vulpea-table-exc--draw spec))
+      (sp-collec-query-exc--draw spec))
     (switch-to-buffer buffer)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc-refresh ()
+(defun sp-collec-query-exc-refresh ()
   "Run the table's query again and redraw the grid."
   (interactive)
-  (unless sp-vulpea-table-exc--spec
-    (user-error "Not a Vulpea table"))
+  (unless sp-collec-query-exc--spec
+    (user-error "Not a query table"))
   (let ((cell (ignore-errors (exc-get-cell-at-point))))
-    (sp-vulpea-table-exc--draw sp-vulpea-table-exc--spec)
+    (sp-collec-query-exc--draw sp-collec-query-exc--spec)
     (when cell
       (ignore-errors
         (exc-etaf-goto (plist-get cell :slice-row) (1- (plist-get cell :slice-col)))))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc--note-at-point ()
+(defun sp-collec-query-exc--note-at-point ()
   "Return the note in the row at point, or nil on the header row."
   (let* ((cell (exc-get-cell-at-point))
          (row (plist-get cell :slice-row)))
-    (when (and row (>= row 1) (<= row (length sp-vulpea-table-exc--notes)))
-      (aref sp-vulpea-table-exc--notes (1- row)))))
+    (when (and row (>= row 1) (<= row (length sp-collec-query-exc--notes)))
+      (aref sp-collec-query-exc--notes (1- row)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc-open-note ()
+(defun sp-collec-query-exc-open-note ()
   "Visit the note in the row at point."
   (interactive)
-  (if-let* ((note (sp-vulpea-table-exc--note-at-point)))
+  (if-let* ((note (sp-collec-query-exc--note-at-point)))
       (progn (find-file (vulpea-note-path note))
              (when (> (or (vulpea-note-level note) 0) 0)
                (goto-char (vulpea-note-pos note))))
@@ -1808,33 +1837,33 @@ A minor mode with its own keymap (=C-c o= open the note, =C-c q= edit the query 
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-exc-edit-query ()
+(defun sp-collec-query-exc-edit-query ()
   "Change this table's query in the menu; running it redraws this buffer."
   (interactive)
-  (require 'sp-vulpea-table-menu)
-  (setq sp-vulpea-table-menu--spec (copy-tree sp-vulpea-table-exc--spec)
-        sp-vulpea-table-menu--target (current-buffer))
-  (sp-vulpea-table-menu))
+  (require 'sp-collection-query-tables-menu)
+  (setq sp-collec-query-menu--spec (copy-tree sp-collec-query-exc--spec)
+        sp-collec-query-menu--target (current-buffer))
+  (sp-collec-query-menu))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-exc)
-;;; sp-vulpea-table-exc.el ends here
+(provide 'sp-collection-query-tables-exc)
+;;; sp-collection-query-tables-exc.el ends here
 #+end_src
 
 * vui renderer and inline tables
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-vulpea-table-vui.el :comments no :padline yes :noweb no :mkdirp yes
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-vui.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-The original renderer, ported to specs: a live table in its own buffer, and inline tables that replace the content of =vulpea-table= dynamic blocks while you work in a note. It stays as the fallback for when exc or ETAF cannot be loaded.
+The original renderer, ported to specs: a live table in its own buffer, and inline tables that replace the content of =collection-query-table= dynamic blocks while you work in a note. It stays as the fallback for when exc or ETAF cannot be loaded.
 
 ** Header and requires
 
 The component. Titles are buttons, meta columns are editable fields, and the "Sort by" row re-sorts live. Sorting by =:title= now works (it did nothing before).
 
 #+begin_src emacs-lisp -i
-;;; sp-vulpea-table-vui.el --- Vulpea tables as vui components -*- lexical-binding: t; -*-
+;;; sp-collection-query-tables-vui.el --- Query tables as vui components -*- lexical-binding: t; -*-
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1843,9 +1872,9 @@ The component. Titles are buttons, meta columns are editable fields, and the "So
 
 #+begin_src emacs-lisp -i
 ;; The vui renderer: a live table in its own buffer, and tables mounted
-;; inline in place of the `vulpea-table' dynamic blocks of a note.  It
+;; inline in place of the `collection-query-table' dynamic blocks of a note.  It
 ;; was the only renderer before exc and stays as the fallback for when exc
-;; or ETAF cannot be loaded (see `sp-vulpea-table-renderer').
+;; or ETAF cannot be loaded (see `sp-collec-query-renderer').
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1855,12 +1884,12 @@ The component. Titles are buttons, meta columns are editable fields, and the "So
 #+begin_src emacs-lisp -i
 (require 'subr-x)
 (require 'vui)
-(require 'sp-vulpea-table-core)
-(require 'sp-vulpea-table-org)
+(require 'sp-collection-query-tables-core)
+(require 'sp-collection-query-tables-org)
 #+end_src
 
 #+begin_src emacs-lisp -i
-(vui-defcomponent sp-vulpea-table (spec)
+(vui-defcomponent sp-collec-query (spec)
   "A live table of the notes SPEC asks for, with clickable titles.
 Meta columns are editable fields that write back to their note.  Click a
 column in the \"Sort by\" row to sort by it, and again to reverse."
@@ -1871,13 +1900,13 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
   (progn
     (vui-use-effect ()
       (let ((fn (lambda () (vui-set-state :refresh-tick #'1+))))
-        (add-hook 'sp-vulpea-table-refresh-functions fn)
-        (lambda () (remove-hook 'sp-vulpea-table-refresh-functions fn))))
+        (add-hook 'sp-collec-query-refresh-functions fn)
+        (lambda () (remove-hook 'sp-collec-query-refresh-functions fn))))
     (let* ((columns (plist-get spec :columns))
            (effective-sort (or sort-override (plist-get spec :sort-by)))
            (descending (if sort-override sort-desc (plist-get spec :sort-desc)))
-           (notes (sp-vulpea-table-sort
-                   (sp-vulpea-table-query (plist-put (copy-sequence spec) :sort-by nil))
+           (notes (sp-collec-query-sort
+                   (sp-collec-query-query (plist-put (copy-sequence spec) :sort-by nil))
                    effective-sort descending))
            (rows (mapcar
                   (lambda (note)
@@ -1887,16 +1916,16 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
                         ((eq c :title)
                          (vui-button (or (vulpea-note-title note) "")
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
-                        ((keywordp c) (sp-vulpea-table-cell note c))
+                        ((keywordp c) (sp-collec-query-cell note c))
                         (t (vui-field
                             :value (or (car (vulpea-note-meta-get-list note c)) "")
                             :on-change (lambda (val)
-                                         (sp-vulpea-table-write-meta note c val)
+                                         (sp-collec-query-write-meta note c val)
                                          (vui-set-state :refresh-tick #'1+))))))
                      columns))
                   notes)))
       (vui-vstack
-       (vui-text (sp-vulpea-table-spec-summary spec) :face 'bold)
+       (vui-text (sp-collec-query-spec-summary spec) :face 'bold)
        (vui-text (format "%d note%s" (length notes) (if (= (length notes) 1) "" "s"))
                  :face 'shadow)
        (vui-newline)
@@ -1905,7 +1934,7 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
               (mapcar
                (lambda (c)
                  (vui-button
-                  (concat (sp-vulpea-table-header-label c)
+                  (concat (sp-collec-query-header-label c)
                           (cond ((not (equal effective-sort c)) "")
                                 (descending " ↓") (t " ↑")))
                   :on-click (lambda ()
@@ -1917,16 +1946,16 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
                columns))
        (vui-newline)
        (vui-table :columns (mapcar (lambda (c)
-                                     (list :header (sp-vulpea-table-header-label c)
+                                     (list :header (sp-collec-query-header-label c)
                                            :width 24))
                                    columns)
                   :rows rows :border :ascii)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-vui-open (spec buffer-name)
+(defun sp-collec-query-vui-open (spec buffer-name)
   "Show SPEC, already resolved, as a live vui table in BUFFER-NAME."
-  (vui-mount (vui-component 'sp-vulpea-table :spec spec) buffer-name))
+  (vui-mount (vui-component 'sp-collec-query :spec spec) buffer-name))
 #+end_src
 
 ** Inline mounting
@@ -1938,22 +1967,22 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar-local sp-vulpea-table-vui--instances nil
+(defvar-local sp-collec-query-vui--instances nil
   "Live inline tables mounted in this buffer.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar-local sp-vulpea-table-vui--active nil
+(defvar-local sp-collec-query-vui--active nil
   "Non-nil if inline tables should stay live in this buffer across saves.")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-vui--dblock-regions ()
-  "Return (SPEC CONTENT-BEGIN CONTENT-END) for each vulpea-table dblock."
+(defun sp-collec-query-vui--dblock-regions ()
+  "Return (SPEC CONTENT-BEGIN CONTENT-END) for each query table dblock."
   (let (blocks)
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+vulpea-table\\(.*\\)$" nil t)
+      (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+\\(?:collection-query-table\\|vulpea-table\\)\\(.*\\)$" nil t)
         (let* ((params (ignore-errors (car (read-from-string (format "(%s)" (match-string 1))))))
                (begin (progn (forward-line 1) (point)))
                (end (if (re-search-forward "^[ \t]*#\\+END:" nil t)
@@ -1964,15 +1993,15 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-vui--clear ()
+(defun sp-collec-query-vui--clear ()
   "Unmount the inline tables and write the plain dblock text back."
-  (dolist (instance sp-vulpea-table-vui--instances)
+  (dolist (instance sp-collec-query-vui--instances)
     (vui-unmount instance))
-  (setq sp-vulpea-table-vui--instances nil)
+  (setq sp-collec-query-vui--instances nil)
   (let ((modified (buffer-modified-p)))
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+vulpea-table" nil t)
+      (while (re-search-forward "^[ \t]*#\\+BEGIN:[ \t]+\\(?:collection-query-table\\|vulpea-table\\)" nil t)
         (beginning-of-line)
         (ignore-errors (org-dblock-update))
         (forward-line 1)))
@@ -1980,72 +2009,72 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-inline-mount ()
-  "Replace the content of every vulpea-table dblock with a live table."
+(defun sp-collec-query-inline-mount ()
+  "Replace the content of every query table dblock with a live table."
   (interactive)
-  (sp-vulpea-table-vui--clear)
+  (sp-collec-query-vui--clear)
   (let ((modified (buffer-modified-p)))
-    (dolist (block (reverse (sp-vulpea-table-vui--dblock-regions)))
+    (dolist (block (reverse (sp-collec-query-vui--dblock-regions)))
       (pcase-let ((`(,params ,begin ,end) block))
         ;; Resolved here, in the note's own buffer, so "self" is this note.
-        (let ((spec (sp-vulpea-table-resolve-spec params)))
+        (let ((spec (sp-collec-query-resolve-spec params)))
           (goto-char begin)
           (delete-region begin end)
-          (push (vui-mount-inline (vui-component 'sp-vulpea-table :spec spec))
-                sp-vulpea-table-vui--instances))))
+          (push (vui-mount-inline (vui-component 'sp-collec-query :spec spec))
+                sp-collec-query-vui--instances))))
     (restore-buffer-modified-p modified))
-  (setq sp-vulpea-table-vui--active t))
+  (setq sp-collec-query-vui--active t))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-inline-unmount ()
+(defun sp-collec-query-inline-unmount ()
   "Unmount the inline tables, restoring plain dblock text."
   (interactive)
-  (sp-vulpea-table-vui--clear)
-  (setq sp-vulpea-table-vui--active nil))
+  (sp-collec-query-vui--clear)
+  (setq sp-collec-query-vui--active nil))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-inline-toggle ()
-  "Toggle live inline Vulpea tables in the current buffer."
+(defun sp-collec-query-inline-toggle ()
+  "Toggle live inline query tables in the current buffer."
   (interactive)
-  (if sp-vulpea-table-vui--active
-      (progn (sp-vulpea-table-inline-unmount) (message "Inline Vulpea tables: off"))
-    (sp-vulpea-table-inline-mount)
-    (message "Inline Vulpea tables: on")))
+  (if sp-collec-query-vui--active
+      (progn (sp-collec-query-inline-unmount) (message "Inline query tables: off"))
+    (sp-collec-query-inline-mount)
+    (message "Inline query tables: on")))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-vui--before-save ()
+(defun sp-collec-query-vui--before-save ()
   "Put real text in the buffer before it is saved."
-  (when sp-vulpea-table-vui--instances
-    (sp-vulpea-table-vui--clear)))
+  (when sp-collec-query-vui--instances
+    (sp-collec-query-vui--clear)))
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-vulpea-table-vui--after-save ()
+(defun sp-collec-query-vui--after-save ()
   "Mount the inline tables again after a save, if they were on."
-  (when sp-vulpea-table-vui--active
-    (sp-vulpea-table-inline-mount)))
+  (when sp-collec-query-vui--active
+    (sp-collec-query-inline-mount)))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (add-hook 'org-mode-hook
           (lambda ()
-            (add-hook 'before-save-hook #'sp-vulpea-table-vui--before-save nil t)
-            (add-hook 'after-save-hook #'sp-vulpea-table-vui--after-save nil t)))
+            (add-hook 'before-save-hook #'sp-collec-query-vui--before-save nil t)
+            (add-hook 'after-save-hook #'sp-collec-query-vui--after-save nil t)))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (define-obsolete-function-alias 'sia-vulpea-inline-tables-toggle
-  #'sp-vulpea-table-inline-toggle "2026-10-21")
+  #'sp-collec-query-inline-toggle "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-inline-tables-mount
-  #'sp-vulpea-table-inline-mount "2026-10-21")
+  #'sp-collec-query-inline-mount "2026-10-21")
 (define-obsolete-function-alias 'sia-vulpea-inline-tables-unmount
-  #'sp-vulpea-table-inline-unmount "2026-10-21")
+  #'sp-collec-query-inline-unmount "2026-10-21")
 #+end_src
 
 #+begin_src emacs-lisp -i
-(provide 'sp-vulpea-table-vui)
-;;; sp-vulpea-table-vui.el ends here
+(provide 'sp-collection-query-tables-vui)
+;;; sp-collection-query-tables-vui.el ends here
 #+end_src

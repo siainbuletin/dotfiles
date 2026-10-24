@@ -5,7 +5,7 @@
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
-;; smarter heading split.  The table modules (sp-vulpea-table) are not loaded
+;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
 ;; from here; sp-org-ext requires them after the Vulpea modules.
 
 ;;; Code:
