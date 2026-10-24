@@ -59,7 +59,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 Installs =denote= unconditionally and loads it lazily on =denote=, =denote-create-note= and =denote-link-ol-store=. Once loaded it turns on =denote-rename-buffer-mode=, which renames note buffers to their titles.
 
-Options: dates are prompted with Org's calendar reader, notes are Org files, multi-word keywords are allowed, keywords are sorted, renaming asks for confirmation only before changing the file name and adding front matter, and new notes prompt only for title and keywords. =denote-dired-mode= is enabled in Dired to fontify Denote file names.
+Options (all in =:custom=):
+- Dates are prompted with Org's calendar reader, notes are Org files, multi-word keywords are allowed, keywords are sorted, renaming asks for confirmation only before changing the file name and adding front matter, and new notes prompt only for title and keywords.
+- =denote-directory= is =sp-notes-dir= (=~/notes/=), the same directory used by the rest of the Org setup.
+- =denote-save-buffers= is on, so Denote saves buffers it modifies (for example after renaming or adding front matter) instead of leaving them unsaved.
+
+=denote-dired-mode= is enabled in Dired to fontify Denote file names.
 
 Keybindings:
 - Global: =M-n c= open or create a note, =M-n r= rename a file, =M-n f= rename from front matter.
@@ -84,7 +89,9 @@ Keybindings:
 
   ;; Set default prompts for note creation
   (denote-prompts '(title keywords))
-  
+  (denote-directory sp-notes-dir)
+  (denote-save-buffers t)
+
   :hook
   (dired-mode . denote-dired-mode)
 
@@ -107,22 +114,6 @@ Keybindings:
       ("C-c w d l" . denote-find-link)
       ("C-c w d i" . denote-link-or-create)
       ("C-c w d k" . denote-rename-file-keywords)))
-#+end_src
-
-** Notes directory
-
-Keeps Denote notes in =~/notes/=, the same directory used by the rest of the Org setup.
-
-#+begin_src emacs-lisp -i
-(setq denote-directory sp-notes-dir)
-#+end_src
-
-** Save buffers automatically
-
-With =denote-save-buffers= on, Denote saves buffers it modifies (for example after renaming or adding front matter) instead of leaving them unsaved.
-
-#+begin_src emacs-lisp -i
-(setq denote-save-buffers t)
 #+end_src
 
 ** Listing notes

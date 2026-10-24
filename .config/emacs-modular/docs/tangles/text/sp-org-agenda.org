@@ -74,6 +74,7 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
 - Every kind of agenda line starts with vulpea-para's category (the Area and Project path, 36 characters wide).
 - The main agenda adds the time slot and the scheduling information. Search results get an icon.
 - It used to be set twice (here and in =sp-vulpea-para=), and the second assignment dropped the =tags= and =search= entries.
+- All the other =org-agenda-= options of this module (styling, display and scheduling, described under /Appearance/ and /Behaviour/ below) are in the same =:custom= block. They used to be =setq= forms further down the file.
 
 #+begin_src emacs-lisp -i
 ;;;; Org Agenda
@@ -92,6 +93,25 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
      (todo   . " %(vulpea-para-agenda-category 36) ")
      (tags   . " %(vulpea-para-agenda-category 36) ")
      (search . " %i %(vulpea-para-agenda-category 36) ")))
+  (org-agenda-tags-column 0)  ;; Put tags next to heading
+  (org-agenda-breadcrumbs-separator "  ")
+  (org-agenda-block-separator " ")  ;; No default block seperator
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string
+   "–––––––––––––– Now")
+  (org-agenda-tags-column org-tags-column)
+  (org-agenda-show-inherited-tags nil)
+  (org-agenda-window-setup 'only-window)
+  (org-agenda-restore-windows-after-quit t)
+  (org-agenda-skip-scheduled-if-done t)
+  (org-agenda-skip-timestamp-if-done t)
+  (org-agenda-todo-ignore-scheduled 'future)
+  (org-agenda-todo-ignore-deadlines 'far)
+  (org-agenda-sorting-strategy
+   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
 )
 #+end_src
 
@@ -158,7 +178,7 @@ A note that an earlier two-letter mnemonic menu over =org-agenda-mode-map= was d
 
 ** Agenda styling
 
-Tags and time grid:
+Tags and time grid. All but the first item are =:custom= entries of the =org-agenda= =use-package= above; the one =setq= left in this section is =org-auto-align-tags=, which belongs to Org itself, not to the agenda:
 
 - Stops Org from aligning tags.
 - Puts agenda tags right after the heading.
@@ -172,15 +192,6 @@ Tags and time grid:
 ;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
-  (setq org-agenda-tags-column 0)           ;; Put tags next to heading
-  (setq org-agenda-breadcrumbs-separator "  ")
-  (setq org-agenda-block-separator " ")     ;; No default block seperator
-  (setq org-agenda-time-grid
-   '((daily today require-timed)
-     (800 1000 1200 1400 1600 1800 2000)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (setq org-agenda-current-time-string
-   "–––––––––––––– Now")
 #+end_src
 
 ** elegant-agenda-mode
@@ -194,14 +205,10 @@ Installs =elegant-agenda-mode=, a package that restyles the agenda with a cleane
 
 ** Display properties
 
-Sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-org-appearance= sets to 0, so the result is the same). Inherited tags are hidden in the agenda, the agenda takes over the whole frame, and the previous window layout comes back on quit.
+Another =:custom= entry sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-org-appearance= sets to 0, so the result is the same). Inherited tags are hidden in the agenda, the agenda takes over the whole frame, and the previous window layout comes back on quit.
 
 #+begin_src emacs-lisp -i
 ;; Display properties
-  (setq org-agenda-tags-column org-tags-column)
-  (setq org-agenda-show-inherited-tags nil)
-  (setq org-agenda-window-setup 'only-window)
-  (setq org-agenda-restore-windows-after-quit t)
 #+end_src
 
 * Behaviour
@@ -211,7 +218,7 @@ Sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-o
 
 ** Scheduling and sorting
 
-Visibility and sorting:
+Visibility and sorting. All but the last item are =:custom= entries of the =org-agenda= =use-package=; the week start is a Calendar variable, so it stays a =setq=:
 
 - Done items are hidden from scheduled and timestamp entries.
 - TODO lists hide tasks scheduled in the future and those with distant deadlines.
@@ -222,12 +229,6 @@ Visibility and sorting:
 ;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
-  (setq org-agenda-skip-scheduled-if-done t)
-  (setq org-agenda-skip-timestamp-if-done t)
-  (setq org-agenda-todo-ignore-scheduled 'future)
-  (setq org-agenda-todo-ignore-deadlines 'far)
-  (setq org-agenda-sorting-strategy
-   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   (setq calendar-week-start-day 1) ;; Start week on Monday
 #+end_src
 

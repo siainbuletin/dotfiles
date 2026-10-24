@@ -28,7 +28,9 @@
 
   ;; Set default prompts for note creation
   (denote-prompts '(title keywords))
-  
+  (denote-directory sp-notes-dir)
+  (denote-save-buffers t)
+
   :hook
   (dired-mode . denote-dired-mode)
 
@@ -51,10 +53,6 @@
       ("C-c w d l" . denote-find-link)
       ("C-c w d i" . denote-link-or-create)
       ("C-c w d k" . denote-rename-file-keywords)))
-
-(setq denote-directory sp-notes-dir)
-
-(setq denote-save-buffers t)
 
 (global-set-key (kbd "C-c z") #'list-denotes)
 

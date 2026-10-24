@@ -86,6 +86,7 @@
             (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
   ;; edit notes
   (setq citar-notes-paths `(,sp-bib-notes))
+  (citar-library-file-extensions nil)
 
   :bind
          (("C-c w b o" . citar-open))
@@ -96,8 +97,6 @@
          (org-mode . citar-capf-setup)
          (markdown-mode . citar-capf-setup)
 )
-
-(setq citar-library-file-extensions nil)
 
 ;; Acting on citations (and jumping across the files better)
 (use-package citar-embark

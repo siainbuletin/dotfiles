@@ -46,13 +46,6 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
           (biblio-doi-insert-bibtex doi))
       (biblio-lookup db-selected))))
 
-(setq bibtex-autokey-name-separator nil
-      bibtex-autokey-name-year-separator nil
-      bibtex-autokey-year-length 4
-      bibtex-autokey-names 1
-      bibtex-autokey-names-stretch 1
-      bibtex-autokey-titlewords 0)
-
 (use-package bibtex
   :ensure nil
   :custom
@@ -64,6 +57,12 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   (bibtex-aux-opt-alist
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")))
+  (bibtex-autokey-name-separator nil)
+  (bibtex-autokey-name-year-separator nil)
+  (bibtex-autokey-year-length 4)
+  (bibtex-autokey-names 1)
+  (bibtex-autokey-names-stretch 1)
+  (bibtex-autokey-titlewords 0)
   :config
   (sp-bibtex-register)
   :bind

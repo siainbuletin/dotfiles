@@ -270,7 +270,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Installing vulpea-ui
 
-Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty; all settings are made with top-level =setq= forms instead.
+Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty. All =vulpea-ui-= options are set in =:custom= (they used to be top-level =setq= forms after the =use-package=), and the sections below describe them. Because of =:after vulpea=, they are applied once Vulpea has loaded.
 
 #+begin_src emacs-lisp -i
 ;;;; Calling the initial packages
@@ -278,6 +278,68 @@ Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the se
   :ensure (:wait t)
   :after vulpea
   
+  :custom
+  ;; Position: 'right (default), 'left, 'top, 'bottom
+  (vulpea-ui-sidebar-position 'right)
+  ;; Size as fraction of frame (0.0-1.0)
+  (vulpea-ui-sidebar-size 0.33)
+  ;; Maximum heading depth (nil = unlimited)
+  (vulpea-ui-outline-max-depth 3)
+  ;; Utility functions for vulpea-ui
+  (vulpea-ui-auto-refresh t)  ;; So you don't have to constantly do a manual refresh.
+  ;; Respect narrowing in the sidebar
+  (vulpea-ui-respect-narrowing t)
+  ;; Show/hide content previews
+  (vulpea-ui-backlinks-show-preview t)
+  ;; Characters before/after link in prose previews
+  (vulpea-ui-backlinks-prose-chars-before 30)
+  (vulpea-ui-backlinks-prose-chars-after 50)
+  ;; Filter which notes appear in backlinks
+  ;; (function receiving vulpea-note, return non-nil to include)
+  (vulpea-ui-backlinks-note-filter
+   (lambda (note)
+     (not (member "archive" (vulpea-note-tags note)))))
+  ;; Filter by context type
+  ;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
+  (vulpea-ui-backlinks-context-types t)
+  ;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
+  (vulpea-ui-backlinks-sort 'title-asc)
+  ;; Collection views
+  (vulpea-ui-collection-views
+         '(
+           ("thesis-reading-list" . (:filter (:tags-all ("book")
+   					                          :level 0 ;; this is what will bring file-level notes
+   					                          ;; :meta ("read-status" . t) ;; this one doesn't work yet for some reason
+                                       :meta ("bib-project" . "[[ID:806b08ac-3ed1-4338-a26e-3af9e0e9328c][Devalorizarea artei în capitalismul de platformă]]")
+                                       )
+   			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
+   			                :sort ("Modified" . t)))
+        
+           ("open-questions" . (:filter (:tags-all ("question")
+                                         :level 1 ;; this will only bring up headings at first
+                                         )
+                                :columns (title (meta "q-status") links tags modified)
+                                :sort ("Modified" . t)
+           ))
+        
+           ("music" . (:filter (:tags-all ("music")
+                               :level 0)
+                       :columns (title (meta "year") (meta "genre") tags modified)
+                       :sort ("title" . t)))
+        
+           ("albums" . (:filter (:tags-all ("album"))
+                        :columns (title
+                                   (meta "creator" :width 60)
+                                   (meta "year")
+                                   (meta "genre")
+                                   (meta "genre-influences")
+                                   (meta "rating")
+                                   (meta "review")
+                                   context tags modified)
+                        :sort ("title" . t)))))
+  ;; Automatically collapse all widgets
+  (vulpea-ui-default-widget-collapsed t)
+
   :config
   )
 #+end_src
@@ -293,21 +355,8 @@ Binds =C-x t s= globally to =vulpea-ui-sidebar-toggle=. This sits in the =C-x t=
 
 *** Sidebar layout and refresh
 
-The sidebar opens on the right, takes a third of the frame, shows headings in its outline down to level 3, and refreshes automatically so it follows the current note without manual refreshes.
+The =:custom= block makes the sidebar open on the right, take a third of the frame, show headings in its outline down to level 3, and refresh automatically so it follows the current note without manual refreshes.
 
-#+begin_src emacs-lisp -i
-;; Position: 'right (default), 'left, 'top, 'bottom
-(setq vulpea-ui-sidebar-position 'right)
-
-;; Size as fraction of frame (0.0-1.0)
-(setq vulpea-ui-sidebar-size 0.33)
-
-;; Maximum heading depth (nil = unlimited)
-(setq vulpea-ui-outline-max-depth 3)
-
-;; Utility functions for vulpea-ui
-(setq vulpea-ui-auto-refresh t) ;; So you don't have to constantly do a manual refresh.
-#+end_src
 
 ** Narrowed Org buffers
 
@@ -317,9 +366,6 @@ With =vulpea-ui-respect-narrowing= on, the sidebar only reflects the visible, na
 
 #+begin_src emacs-lisp -i
 ;; Dealing with narrowed Org files
-
-;; Respect narrowing in the sidebar
-(setq vulpea-ui-respect-narrowing t)
 
 ;; Emacs has no narrowing hook, so the sidebar notices a narrow or widen on the next idle
 ;; refresh. If you want it instantly, refresh right after toggling:
@@ -346,93 +392,33 @@ With =vulpea-ui-respect-narrowing= on, the sidebar only reflects the visible, na
 
 *** Previews
 
-Backlinks show a preview of their context, with 30 characters before and 50 after the link for links that occur in prose.
+In =:custom=, backlinks show a preview of their context, with 30 characters before and 50 after the link for links that occur in prose.
 
 #+begin_src emacs-lisp -i
 ;; the backlinks widget
-
-;; Show/hide content previews
-(setq vulpea-ui-backlinks-show-preview t)
-
-;; Characters before/after link in prose previews
-(setq vulpea-ui-backlinks-prose-chars-before 30)
-(setq vulpea-ui-backlinks-prose-chars-after 50)
 #+end_src
 
 *** Filtering and sorting
 
-Notes tagged =archive= are excluded from backlinks. Links from every kind of context (metadata, headers, tables, lists, quotes, code, footnotes and prose) are included, and backlinks are sorted by title, A to Z.
+Also in =:custom=: notes tagged =archive= are excluded from backlinks. Links from every kind of context (metadata, headers, tables, lists, quotes, code, footnotes and prose) are included, and backlinks are sorted by title, A to Z.
 
-#+begin_src emacs-lisp -i
-;; Filter which notes appear in backlinks
-;; (function receiving vulpea-note, return non-nil to include)
-(setq vulpea-ui-backlinks-note-filter
-      (lambda (note)
-        (not (member "archive" (vulpea-note-tags note)))))
-
-;; Filter by context type
-;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
-(setq vulpea-ui-backlinks-context-types t)
-
-;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
-(setq vulpea-ui-backlinks-sort 'title-asc)
-#+end_src
 
 ** Collection views
 
 *** Named collection views
 
-=vulpea-ui-collection-views= defines four named tables, each with a filter, a list of columns and a sort order.
+=vulpea-ui-collection-views= (in =:custom=) defines four named tables, each with a filter, a list of columns and a sort order.
 
 - =thesis-reading-list=: file-level notes tagged =book= whose =bib-project= metadata links to a specific thesis note, showing title, publication title, author, read status, links, tags and modification time, newest first. A commented-out filter on =read-status= is noted as not working yet.
 - =open-questions=: first-level headings tagged =question=, showing their =q-status=, links, tags and modification time. Two closing quotes used to be missing (after =question= and after =q-status=), so the reader swallowed the =:level= and =:columns= text into one long tag string and the view matched nothing useful.
 - =music=: file-level notes tagged =music=, showing year and genre, sorted by title.
 - =albums=: notes tagged =album= with creator, year, genre, influences, rating and review columns. The =(meta "rating")= column used to be missing its closing parenthesis, which nested the remaining columns and the =:sort= clause inside it.
 
-#+begin_src emacs-lisp -i
-;; Collection views
-(setq vulpea-ui-collection-views
-      '(
-        ("thesis-reading-list" . (:filter (:tags-all ("book")
-					                          :level 0 ;; this is what will bring file-level notes
-					                          ;; :meta ("read-status" . t) ;; this one doesn't work yet for some reason
-                                    :meta ("bib-project" . "[[ID:806b08ac-3ed1-4338-a26e-3af9e0e9328c][Devalorizarea artei în capitalismul de platformă]]")
-                                    )
-			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
-			                :sort ("Modified" . t)))
-        
-        ("open-questions" . (:filter (:tags-all ("question")
-                                      :level 1 ;; this will only bring up headings at first
-                                      )
-                             :columns (title (meta "q-status") links tags modified)
-                             :sort ("Modified" . t)
-        ))
-        
-        ("music" . (:filter (:tags-all ("music")
-                            :level 0)
-                    :columns (title (meta "year") (meta "genre") tags modified)
-                    :sort ("title" . t)))
-        
-        ("albums" . (:filter (:tags-all ("album"))
-                     :columns (title
-                                (meta "creator" :width 60)
-                                (meta "year")
-                                (meta "genre")
-                                (meta "genre-influences")
-                                (meta "rating")
-                                (meta "review")
-                                context tags modified)
-                     :sort ("title" . t)))))
-#+end_src
 
 *** Collapsed widgets
 
-All sidebar widgets start collapsed.
+All sidebar widgets start collapsed (=vulpea-ui-default-widget-collapsed= in =:custom=).
 
-#+begin_src emacs-lisp -i
-;; Automatically collapse all widgets
-(setq vulpea-ui-default-widget-collapsed t)
-#+end_src
 
 ** Unlinked mentions widget
 
@@ -991,8 +977,6 @@ A comment introducing the package integrations.
 
 Start of the code section.
 
-#+begin_src emacs-lisp -i
-#+end_src
 
 ** Vulpea add-on packages
 
@@ -1017,18 +1001,17 @@ Installs =vulpea-capf= from GitHub (neonmei/vulpea-capf) and turns on =vulpea-ca
 (use-package vulpea-capf
   :ensure (:host github :repo "neonmei/vulpea-capf")
   :hook (org-mode . vulpea-capf-mode)
-)
+
+  :custom
+  (vulpea-capf-everywhere nil)  ; only complete inside [[...]]
+  (vulpea-capf-in-brackets t)
+  (vulpea-capf-annotate-function t))
 #+end_src
 
 *** vulpea-capf options
 
-Restricts completion to the inside of =[[...]]= brackets rather than offering note titles everywhere, and turns on annotations in the completion popup. These are plain =setq= calls at top level, so they take effect even before the package loads.
+Restricts completion to the inside of =[[...]]= brackets rather than offering note titles everywhere, and turns on annotations in the completion popup. All three options (=vulpea-capf-everywhere=, =vulpea-capf-in-brackets= and =vulpea-capf-annotate-function=) are in the =:custom= block of the =use-package= above; they used to be plain =setq= calls after it.
 
-#+begin_src emacs-lisp -i
-(setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
-(setq vulpea-capf-in-brackets t)
-(setq vulpea-capf-annotate-function t)
-#+end_src
 
 ** Config extension modules
 
