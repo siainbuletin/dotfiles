@@ -12,10 +12,18 @@ It builds on the LSP and company setup in =sp-base-code= and needs the =nixd= ex
 
 ** File header
 
-The file header, with lexical binding enabled.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-nix.el --- Nix editing with the nixd language server -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module sets up editing of Nix files with `nix-mode' and the `nixd'
+;; language server through `lsp-mode'. It is off by default behind a custom
+;; option, `siapip/nix-mode-enable'.
+
+;;; Code:
 #+end_src
 
 ** Enable option
@@ -37,6 +45,7 @@ When the option is on, =.nix= files open in =nix-mode= and start LSP lazily. In 
 #+begin_src emacs-lisp -i
 (when siapip/nix-mode-enable
   (use-package nix-mode
+    :ensure t
     :mode "\\.nix\\'"
     :hook (nix-mode . lsp-deferred)
     :bind (:map nix-mode-map

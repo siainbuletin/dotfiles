@@ -1,6 +1,16 @@
-;; -*- lexical-binding: t; -*-
+;;; sp-org-agenda.el --- Org agenda settings and views -*- lexical-binding: t; -*-
 
-(keymap-global-set "C-c o a" 'org-agenda)
+;;; Commentary:
+
+;; Configures Org's agenda: the prefix format of agenda lines, visual styling
+;; of the time grid and tags, scheduling and sorting rules, and the
+;; `org-super-agenda' grouping. The agenda files are owned by vulpea-para
+;; (sp-vulpea-para) and the keys are in sp-agenda-views. It
+;; also adds a command to jump to the daily view, automatic refresh of the
+;; agenda after a capture, and an alphapapa recipe for showing an agenda
+;; limited to the current subtree or region.
+
+;;; Code:
 
 ;;;; Org Agenda
 ;;;;; Agenda Settings
@@ -11,14 +21,13 @@
   ;; Agenda logging
   (org-agenda-start-with-log-mode t)
 
-  ;; from stack overflow https://stackoverflow.com/a/22900459/6277148
-  ;; note that the formatting is nicer that just using '%b'
+  ;; The Area > Project category is evaluated when an agenda is built, so
+  ;; vulpea-para does not have to be loaded yet.
   (org-agenda-prefix-format
-   '((agenda . " %-18c%?-10t ")
-     (timeline . "  % s")
-     (todo . " ")
-     (tags . " ")
-     (search . " %i %-12:c")))
+   '((agenda . " %(vulpea-para-agenda-category 36) %?-12t %12s")
+     (todo   . " %(vulpea-para-agenda-category 36) ")
+     (tags   . " %(vulpea-para-agenda-category 36) ")
+     (search . " %i %(vulpea-para-agenda-category 36) ")))
 )
 
 ;;;; Org other agenda (yibie)
@@ -48,7 +57,7 @@
 ;; restore them as direct `org-agenda-mode-map' bindings (Spec 09 O7).
 ;; See git history for the prior implementation.
 
-;;; Appearance of the agenda and rendering
+;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
   (setq org-agenda-tags-column 0)           ;; Put tags next to heading
@@ -70,7 +79,7 @@
   (setq org-agenda-window-setup 'only-window)
   (setq org-agenda-restore-windows-after-quit t)
 
-;;; CONFIGURING THE FUNCTIONALITY
+;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
   (setq org-agenda-skip-scheduled-if-done t)
@@ -81,7 +90,7 @@
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   (setq calendar-week-start-day 1) ;; Start week on Monday
 
-;;; EXTENSIONS FOR ORG-AGENDA
+;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
 :after org
   :ensure (:wait t)
@@ -89,13 +98,13 @@
 (setq org-super-agenda-date-format "%A (%e)"
       org-super-agenda-groups
       '((:name "Accomplishments"
-         :todo ("DONE" "CANCELED")
+         :todo ("DONE" "CNCL" "CANCELLED")
          :order 4)
         (:name "End of Day"
          :habit t
          :order 2)
         (:name "Uncompleted Work"
-         :todo "DOING"
+         :todo ("PROG" "DOING")
          :scheduled past
          :order 0)
         (:name "Today's Tasks"
@@ -115,13 +124,7 @@
 (use-package org-ql
  :ensure t)
 
-(setq org-agenda-files
-        (list
-         (sp-path sp-notes-dir "area/")
-         (sp-path sp-notes-dir "inbox/") ; this is for tasks that I never actually got to deal with
-))
-
-;;; Display an agenda file for the current subtree
+;;;; Display an agenda file for the current subtree
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-sorting-strategy)
@@ -166,8 +169,6 @@
         (org-search-view (if only-todos t nil) "*"))
       (org-agenda-remove-restriction-lock t)
       (message nil))))
-
-;;; Provide:
 
 (provide 'sp-org-agenda)
 ;; sp-org-agenda.el ends here

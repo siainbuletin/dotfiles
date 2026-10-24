@@ -8,35 +8,34 @@ Sets up how colour themes are found, loaded and switched. It points =custom-them
 
 Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=. The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=). Automatic switching to match the macOS system appearance lives in =sp-macos=, not here. The menubar helpers call an external =dark-mode= command-line tool.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This includes the theme manager from Lambda Emacs
+
+𝛌-Emacs comes with its own set of themes --
+𝛌-Themes. The user can of course configure things to use whatever theme they
+like. The Modus themes are especially good and included with Emacs 28+.
+#+end_quote
+
 * Overview
 
 ** File header
 
-Turns on lexical binding and names the file.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;;; sp-themes.el
-#+end_src
+;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
 
-** Commentary marker
-
-Start of the commentary section.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
-#+end_src
 
-** Origins
-
-Notes that the theme manager is taken from Lambda-Emacs, which ships its own Lambda themes, and recommends the built-in Modus themes.
-
-#+begin_src emacs-lisp -i
 ;; This includes the theme manager from Lambda Emacs
 ;;
 ;; 𝛌-Emacs comes with its own set of themes --
 ;; 𝛌-Themes. The user can of course configure things to use whatever theme they
 ;; like. The Modus themes are especially good and included with Emacs 28+.
+
+;;; Code:
 #+end_src
 
 * Theme loading infrastructure
@@ -46,7 +45,6 @@ Notes that the theme manager is taken from Lambda-Emacs, which ships its own Lam
 Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one never asks for confirmation. The comment questions whether this needs to come first; it does need to be set before any =load-theme= call that would otherwise prompt.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; No-confirm themes
 ;; should this setting really come first?
 (setq custom-safe-themes t)
@@ -184,7 +182,7 @@ Introduces the disable-all helper.
 Start of the theme options.
 
 #+begin_src emacs-lisp -i
-;;; THEME OPTIONS
+;;;; THEME OPTIONS
 #+end_src
 
 ** Modus themes comment
@@ -192,7 +190,7 @@ Start of the theme options.
 Introduces the Modus settings.
 
 #+begin_src emacs-lisp -i
-;;;; Modus themes
+;;;;; Modus themes
 #+end_src
 
 ** Installing Modus themes
@@ -272,6 +270,14 @@ Installs Prot's minimalist =doric-themes= and loads them immediately with =:dema
   :demand t)
 #+end_src
 
+** Catppuccin
+
+#+begin_src emacs-lisp -i
+;;; Catppuccin
+(use-package catppuccin-theme
+  :ensure t)
+#+end_src
+
 ** Lambda themes
 
 Installs =lambda-themes= from GitHub (the comment above it mislabels it as Modus). A commented-out line shows how to load =lambda-light= at startup; in practice the initial theme is chosen by the macOS appearance logic in =sp-macos=.
@@ -341,7 +347,7 @@ Installs =easy-theme-preview=, which makes it easy to preview themes before comm
 =toggle-dark-light-theme= flips between two Ef themes: if =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first. The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code. Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
 
 #+begin_src emacs-lisp -i
-;;;; Theme toggle
+;;;;; Theme toggle
 (defun toggle-dark-light-theme ()
   "Flip the active lambda variant between light and dark.
 If neither lambda variant is currently active (the user loaded some
@@ -359,7 +365,7 @@ hook is left untouched; the next macOS Light/Dark change will resync."
 Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. Nothing else in the config currently adds to this hook.
 
 #+begin_src emacs-lisp -i
-;;;; After Load Theme Hook
+;;;;; After Load Theme Hook
 (defvar sp-after-load-theme-hook nil
   "Hook run after a color theme is loaded using `load-theme'.")
 (define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
@@ -372,7 +378,6 @@ Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after ever
 Provides the =sp-themes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide
 (provide 'sp-themes)
 ;;; sp-themes.el ends here
 #+end_src

@@ -1,8 +1,8 @@
 ;;; sp-vc-ai-workbench.el --- Parallel work on many extensions with Magit + Claude Code -*- lexical-binding: t; -*-
-
 ;; Package-Requires: ((emacs "28.1") (magit "3.3") (transient "0.4") (claude-code "0.1"))
 
 ;;; Commentary:
+
 ;;
 ;; Generated from sp-vc-ai-workbench.org -- edit that file, not this one.
 ;;

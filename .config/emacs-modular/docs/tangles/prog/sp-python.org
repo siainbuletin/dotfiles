@@ -25,7 +25,17 @@ This one block holds most of the module:
 - =lsp-pyright= starts LSP in Python buffers, but with =basedpyright= as the server command, auto-import completions on, single-root workspaces, and standard type checking.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-python.el --- Python development with LSP and ruff -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A Python setup built on `lsp-mode' with basedpyright as the language server,
+;; Company for completion, Flycheck for diagnostics, and ruff for formatting
+;; and import sorting on save. Tests run through `uv run pytest' in a
+;; compilation buffer.
+
+;;; Code:
+
 (use-package realgud
   :defer t)
 (defcustom siapip/python-lsp-ruff-enable nil

@@ -10,6 +10,42 @@ The inbox files are never added to the vulpea database; everything is found by r
 
 A large part of the code deals with picking the right target heading automatically: when the note has a Resources heading, hits go there without a prompt, and duplicated Resources or See also headings are merged in place when that is safe.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+A `vulpea-ui' sidebar widget that searches a directory of plain files
+(the "link inbox") for mentions of the current note's title and aliases,
+without adding those files to the vulpea database.
+
+- Each hit is shown on its own lines, with the body text word-wrapped.
+- Hits whose only match sits inside an id: link into the current note's
+  file (the note itself or any heading with an :ID:) are filtered out.
+- `collect' moves a hit under a heading of the current note using
+  `sp-move-region-to-heading', keeping the list bullet in both places and
+  leaving a link behind.  `collect all' does this for every hit, asking for
+  the heading once.
+- `collect all' runs in the background: it works in short slices while Emacs
+  is idle, so you can keep editing (also in the note being collected into),
+  and saves everything once at the end.  `sp-tab-inbox-cancel-collect'
+  stops it.
+- `send' (or `sp-tab-inbox-send-elsewhere') sends a hit to another
+  note you pick or create, for when the match is about something else.
+  At that prompt, an embark action ("L", see `sp-tab-inbox-embark-map')
+  also links that note under "See also" in the note you searched from.
+- A second widget, `Inbox backlinks', lists the lines of the inbox files that
+  link to the current note (e.g. the links `collect' leaves behind), with
+  several lines of context, again without indexing the files.
+- Inbox files that were not already open are saved and killed afterwards.
+
+Load it after vulpea-ui, e.g.:
+
+  (with-eval-after-load 'vulpea-ui
+    (require 'sp-tab-inbox))
+
+and set `sp-tab-inbox-dir' to your inbox directory.  Press `g' in the
+sidebar to refresh.
+#+end_quote
+
 * File header
 
 The standard package header, the package requirements, and the module's own commentary, which summarises the user-facing behaviour described above.
@@ -19,8 +55,7 @@ The standard package header, the package requirements, and the module's own comm
 Library header line with lexical binding, the =Package-Requires= line, and the long commentary block. The commentary notes that =collect all= runs in the background and can be stopped with =sp-tab-inbox-cancel-collect=, that the module should be loaded after =vulpea-ui=, and that =g= in the sidebar refreshes the widgets.
 
 #+begin_src emacs-lisp -i
-;;; sp-tab-inbox.el --- Link inbox widget for vulpea-ui -*- lexical-binding: t; -*-
-
+;;; sp-tab-inbox.el --- Link inbox sidebar widgets for vulpea-ui -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2") (vulpea-ui "0") (vui "0"))
 
 ;;; Commentary:
@@ -1308,7 +1343,6 @@ Registers it as =link-inbox-backlinks= at order 370, directly after the link inb
 Provides the =sp-tab-inbox= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide
 
 (provide 'sp-tab-inbox)
 ;;; sp-tab-inbox.el ends here

@@ -1,5 +1,4 @@
-;;; sp-tab-inbox.el --- Link inbox widget for vulpea-ui -*- lexical-binding: t; -*-
-
+;;; sp-tab-inbox.el --- Link inbox sidebar widgets for vulpea-ui -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "29.1") (vulpea "2") (vulpea-ui "0") (vui "0"))
 
 ;;; Commentary:
@@ -922,8 +921,6 @@ Lines in HIT-LINES are shown in bold, the rest in the context face."
 (vulpea-ui-register-widget 'link-inbox-backlinks
   :component 'sp-tab-inbox-backlinks-widget
   :order 370) ; right after the link inbox widget (360)
-
-;;; Provide
 
 (provide 'sp-tab-inbox)
 ;;; sp-tab-inbox.el ends here

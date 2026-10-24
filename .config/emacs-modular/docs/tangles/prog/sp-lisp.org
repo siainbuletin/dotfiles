@@ -14,17 +14,16 @@ This module sets up editing for Lisp languages: Common Lisp through the =sly= RE
 
 ** File header
 
-Lexical binding and the empty commentary and code markers.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-lisp.el --- Lisp and Emacs Lisp settings
+;;; sp-lisp.el --- Common Lisp and Emacs Lisp editing -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;;
 
-;;; Code
+;;; Code:
 #+end_src
 
 ** Paredit option
@@ -205,7 +204,6 @@ Installs =suggest=, which lets you enter example inputs and a desired output and
 Provides the =sp-lisp= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-lisp)
 ;; sp-lisp.el ends here.

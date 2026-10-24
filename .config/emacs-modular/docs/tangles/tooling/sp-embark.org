@@ -6,17 +6,24 @@ Literate source for =libraries/modules/tooling/sp-embark.el=. Every line of the 
 
 Sets up Embark, which offers a menu of actions for whatever is at point or under the minibuffer cursor (a file, a buffer, a symbol, a URL and so on), together with its Consult integration. It is loaded from =init.el= among the utility modules.
 
+The commentary at the top of the module says:
+
+#+begin_quote
+sp-embark ---
+#+end_quote
+
 * File header
 
 ** Header
 
-Standard header with lexical binding. The Commentary section is empty.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-embark ---
+;;; sp-embark.el --- Embark contextual actions -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; sp-embark ---
 
 ;;; Code:
 #+end_src

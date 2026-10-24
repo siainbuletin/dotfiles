@@ -12,13 +12,20 @@ The packages are =gptel= (a general chat client for many LLM providers) with =gp
 
 ** Header and commentary markers
 
-Lexical-binding header and an empty =Commentary= marker.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-ai.el --- AI implementation
+;;; sp-ai.el --- AI and LLM integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
+
+;; This module installs packages for working with large language models and
+;; coding agents from inside Emacs. Most of them are only installed; apart from
+;; the Anthropic login for `agent-shell' and turning on `vulpea-mcp', none of
+;; them get keybindings, backends or API keys here, so their defaults (or
+;; settings made elsewhere) apply.
+
+;;; Code:
 #+end_src
 
 * Agents that require an API key
@@ -30,7 +37,6 @@ The section comment groups the clients that talk to a provider's API directly, s
 After the =Code= marker, installs =gptel=. The =(:wait t)= recipe tells Elpaca to finish installing it before continuing, presumably so later packages that build on gptel, such as =gptel-agent= just below, find it available.
 
 #+begin_src emacs-lisp -i
-;;; Code:
 ;;;; Agents that require an API key
 ;;;; gptel
 (use-package gptel
@@ -92,24 +98,81 @@ Installs =efrit= from GitHub. Efrit is an AI coding agent that lets Claude carry
 
 * Working with AI with my knowledge base
 
-** vulpea-mcp
+Claude connects to two MCP servers that live inside Emacs: =vulpea-mcp= (search and read the notes, create a note) and =org-mcp= (change existing notes and TODO states). Neither has a network port. Claude Code starts the stdio wrapper =emacs-mcp-stdio.sh= (in this folder), which passes every JSON-RPC line to a running Emacs through =emacsclient=, so what is needed is any Emacs with a server socket: the GUI one, or a headless daemon. =sp-ai= is therefore in the startup list of =init.el=, not among the late modules, so the servers are up as soon as the daemon is.
 
-The comment explains the goal: letting an LLM see the Vulpea notes. =vulpea-mcp= is installed straight from its Codeberg git repository and serves the Vulpea database to MCP-capable agents.
+** mcp-server-lib
+
+Both servers are built on =mcp-server-lib=. It is declared before them so that Elpaca doesn't queue it as their dependency and warn about it later (see [[file:../../architecture/load-order.org][the load order]]), and =mcp-server-lib-start= is called in its =:config=. Registering the tools (=vulpea-mcp-enable=, =org-mcp-enable=) does not start the server; leaving the start out gives the =No active MCP server, start server with 'mcp-server-lib-start' first= error that made the first registration fail with =CONNECTION_CLOSED=.
 
 #+begin_src emacs-lisp -i
 ;;;; Working with AI with my knowledge base
-;; Making an LLM recognise my vulpea notes
-(use-package vulpea-mcp
-  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git"))
+;; Claude reaches the two MCP servers below through the stdio wrapper
+;; `emacs-mcp-stdio.sh', which talks to a running Emacs with `emacsclient'. That
+;; Emacs can be a headless daemon: see "Running the MCP servers without a GUI" in
+;; docs/tangles/media/sp-ai.org.
+
+;; The server library goes first, so that Elpaca does not queue it as a
+;; dependency of vulpea-mcp and org-mcp. It only answers `emacsclient' requests;
+;; it opens no port.
+(use-package mcp-server-lib
+  :ensure t
+  :config
+  (mcp-server-lib-start))
 #+end_src
 
-** Enabling vulpea-mcp
+** vulpea-mcp
 
-Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs while the module loads, not inside the =use-package= form, so it only works if the function is already available at that point (for example through an autoload). Elpaca normally runs =use-package= bodies later, after the init file, so on a fresh install this call may fail, in which case the rest of the module (including the =provide=) is skipped. Moving it into a =:config= section would avoid that.
+=vulpea-mcp= is installed straight from its Codeberg git repository and serves the Vulpea database to MCP-capable agents. =vulpea-mcp-enable= is called from the =:config= of the form. It used to be called at top level, while the module loaded, which fails because Elpaca has not built the package at that point (the module is read during or after init, and use-package bodies run once the package is built), and the rest of the module (=monet= and the =provide=) was skipped.
 
 #+begin_src emacs-lisp -i
-(vulpea-mcp-enable)
+;; Making an LLM recognise my vulpea notes
+(use-package vulpea-mcp
+  :ensure (:type git :repo "https://codeberg.org/nicolas-graves/vulpea-mcp.git")
+  :config
+  (vulpea-mcp-enable))
 #+end_src
+
+** org-mcp
+
+=org-mcp= is the server for editing: it can change existing headings, TODO states, properties and bodies, add and archive headings, and read the agenda. It only touches the files in =org-mcp-allowed-files=, which has to be a list of absolute file names. =sp-org-mcp-files= builds it from the Org files directly in =area/= and =inbox/= of the notes directory, the same two folders the agenda reads. Anything Claude can reach through =org-mcp= can be changed without a prompt from Emacs, so keep this list as short as you want to trust it; after adding a file, run =(setq org-mcp-allowed-files (sp-org-mcp-files))= again.
+
+#+begin_src emacs-lisp -i
+;; Editing existing notes and TODO states, which vulpea-mcp cannot do. org-mcp
+;; only touches the files in `org-mcp-allowed-files'.
+(defun sp-org-mcp-files ()
+  "Org files that org-mcp may read and change: those in the agenda directories."
+  (cl-loop for dir in (list (sp-path sp-notes-dir "area/")
+                            (sp-path sp-notes-dir "inbox/"))
+           when (file-directory-p dir)
+           append (directory-files dir t "\\.org\\'")))
+
+(use-package org-mcp
+  :ensure t
+  :config
+  (setq org-mcp-allowed-files (sp-org-mcp-files))
+  (org-mcp-enable))
+#+end_src
+
+** Running the MCP servers without a GUI
+
+Nothing here needs a window. Start a daemon of its own for Claude, with the headless switch so the GUI-only modules (=sp-macos=, =sp-splash=, =lem-dashboard=) are skipped, and register the wrapper against its socket:
+
+#+begin_src fish :tangle no
+# start (once per login; a launchd agent or `brew services` can run the same command)
+emacs --daemon=mcp --headless-host
+
+# check it, and find the socket
+emacsclient -s mcp -e '(mcp-server-lib-server-registered-p "vulpea")'
+set sock (emacsclient -s mcp -e '(expand-file-name server-name server-socket-dir)' | string trim -c '"')
+
+# register (user scope), no --init-function or --stop-function
+claude mcp add -s user -t stdio vulpea -- ~/.config/emacs-modular/emacs-mcp-stdio.sh --server-id=vulpea --socket=$sock
+claude mcp add -s user -t stdio org-mcp -- ~/.config/emacs-modular/emacs-mcp-stdio.sh --server-id=org-mcp --socket=$sock
+#+end_src
+
+What makes this work, from reading =emacs-mcp-stdio.sh=, =mcp-server-lib= and =org-mcp=: the daemon runs the whole of =init.el=, so =sp-ai= registers both servers and starts the library; =sp-server= starts the Emacs server in a daemon (its =:if= is =(or window-system (daemonp))=), under the name given after =--daemon=; and the wrapper only needs the socket. A daemon named =mcp= keeps Claude's servers apart from the Emacs you work in, so you can restart either without the other. If you would rather use the GUI Emacs, drop =--socket=: the wrapper then uses the default socket, and both servers are served by it while it runs.
+
+Not tested: none of this has been run against a real daemon from here. Two things to look at the first time: that the daemon's init finishes without the GUI modules (the headless switch only skips four modules, so fonts and themes still load), and that =emacsclient -s mcp -e t= answers before the wrapper is registered. =vulpea-mcp-explainer.md= in the project files has the troubleshooting table for the =CONNECTION_CLOSED= case.
 
 * Claude Code integration
 
@@ -118,7 +181,7 @@ Calls =vulpea-mcp-enable= at top level to start serving the notes. This runs whi
 Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE protocol over a WebSocket. With it, Claude Code can see the current selection and diagnostics and show proposed changes as diffs in Emacs. It is only installed here, not enabled or hooked into =claude-code=.
 
 #+begin_src emacs-lisp -i
-;;; Enhacing the experience of Claude Code
+;;;; Enhacing the experience of Claude Code
 (use-package monet
   :ensure (:type git :host github :repo "stevemolitor/monet"))
 #+end_src
@@ -128,7 +191,7 @@ Installs =monet=, also by Steve Molitor, which implements the Claude Code IDE pr
 An empty section header for linking the DEVONthink MCP server. No code has been written for it yet.
 
 #+begin_src emacs-lisp -i
-;;; Linking the MCP of DEVONthink
+;;;; Linking the MCP of DEVONthink
 #+end_src
 
 * Provide
@@ -136,7 +199,6 @@ An empty section header for linking the DEVONthink MCP server. No code has been 
 Provides the =sp-ai= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-ai)
 ;; sp-ai.el ends here.

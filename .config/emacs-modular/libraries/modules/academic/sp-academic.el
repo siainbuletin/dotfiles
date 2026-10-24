@@ -1,5 +1,7 @@
-;; -*- lexical-binding: t; -*-
-;; sp-academic.el --- General declarations for the academic workflow within Emacs
+;;; sp-academic.el --- Academic workflow: bibliography and citations -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
 ;; This needs to be defined a little better.
 
 ;; This file should deal with bibliography management, as well as provide
@@ -37,6 +39,7 @@
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+
 ;;;; Requiring sub-libraries
 
 (require 'sp-bibprocess)
@@ -46,7 +49,7 @@
 
 ;;;; Setting up the proper variables
 
-;;; Looking up academic sources 
+;;;; Looking up academic sources 
 
 (use-package biblio
   :ensure t
@@ -70,13 +73,13 @@
 (setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
         '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
-;;; Org-ref
+;;;; Org-ref
 (use-package org-ref
   :ensure t
   :after (ox-pandoc)
 )
 
-;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
+;;;; Forcing org-ref to recognize org-cite citation syntax instead of org-ref blocks
 (setq org-ref-insert-cite-function
       (lambda ()
 	(org-cite-insert nil)))
@@ -145,7 +148,7 @@
 (use-package binder ;; for stuff that looks like scrivener
   :ensure t)
 
-;;;; Citation Variables
+;;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
   :group 'spcustom
   :tag "Lambda-Emacs User Bibliography")

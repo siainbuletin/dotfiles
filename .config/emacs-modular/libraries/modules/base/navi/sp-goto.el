@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;; sp-goto.el 
+;;; sp-goto.el --- Clickable addresses and quick file jumps -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -63,10 +62,8 @@
 ;;;; Go To Change
 ;; Easily go to last change
 (use-package goto-last-change
-  :when (and sp-load-extras (locate-library "goto-last-change"))
+  :ensure t
   :bind (("C-\"" . #'goto-last-change)))
-
-;;; Provide:
 
 (provide 'sp-goto)
 ;; sp-goto.el ends here.

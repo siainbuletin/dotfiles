@@ -8,17 +8,25 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module gathers everything about getting help inside Emacs: how dialogs and popups behave, the menu bar, the =helpful= package as a replacement for the built-in describe commands, a large transient menu of help commands, completion-based navigation of Info manuals, and dictionary and documentation lookup tools (=define-word=, =osx-dictionary=, =lexic=, =tldr=, =devdocs=).
 
-It relies on several things defined elsewhere: =sys-mac= (from the environment setup), =sp-prefix= (the leader key prefix), =sp-load-extras= (which gates optional packages), and =transient=, which is set up in =sp-base-libraries=. The module is loaded from =init.el= among the utility modules.
+It relies on several things defined elsewhere: =sys-mac= (from the environment setup), =sp-prefix= (the leader key prefix), and =transient=, which is set up in =sp-base-libraries=. The module is loaded from =init.el= among the utility modules.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+This file provides settings for dialogues, popups, help, and info buffers.
+
+Transient menus are set up through the sp-base-libraries.el file, as transient
+is required for a lot of other packages.
+#+end_quote
 
 * File header
 
 ** Header and commentary
 
-The commentary describes the scope (dialogues, popups, help and Info) and notes that transient itself is configured in =sp-base-libraries.el=.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-help.el
+;;; sp-help.el --- Help, Info, dialogs and dictionaries -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -91,7 +99,7 @@ Configures =help-at-pt= to display help text after 0.1 seconds of idle time, but
 
 ** helpful
 
-When extras are enabled and =helpful= is installed, its richer help buffers replace the built-in ones for =display-local-help= and =describe-symbol=. =C-h C-l= runs =find-library= and =C-h C-c= shows a library's commentary section. Remaps for describe-function, variable, key and command are commented out here because the next block binds them directly.
+Its richer help buffers replace the built-in ones for =display-local-help= and =describe-symbol=. =C-h C-l= runs =find-library= and =C-h C-c= shows a library's commentary section. Remaps for describe-function, variable, key and command are commented out here because the next block binds them directly.
 
 The binding of =C-h f= to =helpful-function= sits outside the main =:bind= list, after it has closed, which looks like a misplaced parenthesis; in any case it is overridden by the next block. Note also that =:ensure t= has no effect when the =:when= test requires the library to be present already.
 
@@ -99,7 +107,6 @@ The binding of =C-h f= to =helpful-function= sits outside the main =:bind= list,
 ;;;; Helpful package:
 (use-package helpful
   :ensure t
-  :when (and sp-load-extras (locate-library "helpful"))
   :bind
   (;; Remap standard commands.
    ([remap display-local-help] . helpful-at-point)
@@ -228,13 +235,13 @@ A transient menu that gathers help commands in one place, bound to the leader pr
 
 ** elisp-demos
 
-When extras are enabled, =elisp-demos= adds example code snippets to helpful buffers by advising =helpful-update=. It is loaded one second after startup.
+=elisp-demos= adds example code snippets to helpful buffers by advising =helpful-update=. It is loaded one second after startup.
 
 #+begin_src emacs-lisp -i
 ;;;;; Elisp Demos
 ;; Provide examples of Elisp code
 (use-package elisp-demos
-  :when (and sp-load-extras (locate-library "elisp-demos"))
+  :ensure t
   :defer 1
   :config
   ;; inject demos into helpful
@@ -243,13 +250,13 @@ When extras are enabled, =elisp-demos= adds example code snippets to helpful buf
 
 ** info-colors
 
-When extras are enabled, =info-colors= adds syntax colouring to Info pages each time a node is displayed.
+=info-colors= adds syntax colouring to Info pages each time a node is displayed.
 
 #+begin_src emacs-lisp -i
 ;;;;; Better Info
 ;; Better looking info pages
 (use-package info-colors
-  :when (and sp-load-extras (locate-library "info-colors"))
+  :ensure t
   :hook (Info-selection . info-colors-fontify-node))
 #+end_src
 
@@ -515,21 +522,21 @@ Introduces the word lookup tools.
 
 ** define-word
 
-When extras are enabled, provides =define-word= and =define-word-at-point=, which fetch definitions from an online dictionary.
+Provides =define-word= and =define-word-at-point=, which fetch definitions from an online dictionary.
 
 #+begin_src emacs-lisp -i
 (use-package define-word
-  :when (and sp-load-extras (locate-library "define-word"))
+  :ensure t
   :commands (define-word define-word-at-point))
 #+end_src
 
 ** osx-dictionary
 
-When extras are enabled, provides commands that look up words in the macOS Dictionary app's data, either at point or from typed input. It only works on macOS.
+Provides commands that look up words in the macOS Dictionary app's data, either at point or from typed input. It only works on macOS.
 
 #+begin_src emacs-lisp -i
 (use-package osx-dictionary
-  :when (and sp-load-extras (locate-library "osx-dictionary"))
+  :ensure t
   :commands (osx-dictionary-search-word-at-point osx-dictionary-search-input))
 #+end_src
 
@@ -562,7 +569,6 @@ Installs =tldr=, which shows community-written short examples for command-line p
 Provides the =sp-help= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide
 (provide 'sp-help)
 ;;; sp-help.el ends here
 #+end_src

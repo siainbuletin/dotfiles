@@ -10,15 +10,21 @@ This module gathers everything about Org IDs and links. It configures the built-
 
 It depends only on Org and on =sp-cache-dir= from =early-init.el=. The module is loaded in the Org block of the default module list in =init.el= (it is not in the minimal list).
 
+The commentary at the top of the module says:
+
+#+begin_quote
+This is isolating every function that has to do with ID creation. It also deals
+with links within org-mode.
+#+end_quote
+
 * Header
 
 ** File header and commentary
 
-The file header and a commentary saying this module isolates ID creation and link handling.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-org-id-link.el
+;;; sp-org-id-link.el --- Org IDs and link utilities -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -81,8 +87,8 @@ is non-nil."
                                  uri)))
                 (setf (buffer-substring uri-start uri-end)
                       (org-link-escape (org-link-decode uri)))))))))))
-                      
-                      ;;;;; Org Copy Link
+
+;;;;; Org Copy Link
 ;; see https://emacs.stackexchange.com/a/63038/11934
 (defun lem-org-link-copy-at-point ()
   (interactive)
@@ -130,7 +136,6 @@ A note pointing to =sp-org-create-note-and-link.el= as another link related libr
 Provides the =sp-org-id-link= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-org-id-link)
 ;; sp-org-id-link.el ends here.

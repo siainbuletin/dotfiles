@@ -15,11 +15,22 @@ The whole module is one block. It installs =flycheck-rust= and =rust-mode= lazil
 References to =racer= are commented out; Racer was the older Rust completion backend, now superseded by =rust-analyzer=. The final =setq= tells =lsp-mode= to start the server with the plain =rust-analyzer= command found on the =PATH=.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
+;;; sp-rust.el --- Rust editing -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Configures `rust-mode' with completion, Flycheck and LSP via
+;; `rust-analyzer'. It depends on `flycheck-rust', `company', `lsp-mode' and
+;; the external `rust-analyzer' binary.
+
+;;; Code:
+
 (use-package flycheck-rust
+  :ensure t
   :defer t)
 ;(use-package racer)
 (use-package rust-mode
+  :ensure t
   :defer t
   :config
   (add-hook 'rust-mode-hook

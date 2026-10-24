@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t; -*-
-;;; sp-themes.el
+;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -10,6 +9,7 @@
 ;; like. The Modus themes are especially good and included with Emacs 28+.
 
 ;;; Code:
+
 ;;;; No-confirm themes
 ;; should this setting really come first?
 (setq custom-safe-themes t)
@@ -81,9 +81,9 @@
   (interactive)
   (shell-command "dark-mode on"))
 
-;;; THEME OPTIONS
+;;;; THEME OPTIONS
 
-;;;; Modus themes
+;;;;; Modus themes
 
 (use-package modus-themes
   :ensure t)
@@ -135,6 +135,10 @@
   ;; (load-theme 'lambda-light)
 )
 
+;;; Catppuccin
+(use-package catppuccin-theme
+  :ensure t)
+
 ;; Lambda themes options
 (setopt lambda-themes-set-italic-comments t)
 (setopt lambda-themes-set-italic-keywords t)
@@ -152,7 +156,7 @@
 (use-package easy-theme-preview
   :ensure t)
 
-;;;; Theme toggle
+;;;;; Theme toggle
 (defun toggle-dark-light-theme ()
   "Flip the active lambda variant between light and dark.
 If neither lambda variant is currently active (the user loaded some
@@ -164,13 +168,12 @@ hook is left untouched; the next macOS Light/Dark change will resync."
     (sp-disable-all-themes)
     (load-theme target t)))
 
-;;;; After Load Theme Hook
+;;;;; After Load Theme Hook
 (defvar sp-after-load-theme-hook nil
   "Hook run after a color theme is loaded using `load-theme'.")
 (define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
   "Run `sp-after-load-theme-hook'."
   (run-hooks 'sp-after-load-theme-hook))
 
-;;; Provide
 (provide 'sp-themes)
 ;;; sp-themes.el ends here

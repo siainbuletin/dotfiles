@@ -1,5 +1,4 @@
-;; -*- lexical-binding: t -*-
-;;; sp-sandbox.el --- Launch a pull request in a sandboxed Emacs
+;;; sp-sandbox.el --- Launch a pull request in a sandboxed Emacs -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 

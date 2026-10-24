@@ -14,11 +14,20 @@ It is loaded in the Programming section of =init.el=, after =sp-base-code=. Pack
 
 ** File header
 
-Lexical binding and the module's one-line description.
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;; -*- lexical-binding: t; -*-
-;; sp-prog-misc.el --- miscellaneous utilities for programming
+;;; sp-prog-misc.el --- Miscellaneous programming packages and editor defaults -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A grab bag of programming-related packages and general editor settings. It
+;; installs a set of major modes for configuration and data formats (YAML,
+;; JSON, Dockerfiles, systemd units and more), visual helpers such as
+;; `rainbow-delimiters' and `git-gutter', and `envrc' for per-directory
+;; environments.
+
+;;; Code:
 #+end_src
 
 ** emr
@@ -27,6 +36,7 @@ Installs =emr= (Emacs Refactor), which offers refactoring commands for Lisp and 
 
 #+begin_src emacs-lisp -i
 (use-package emr
+  :ensure t
   :defer t)
 #+end_src
 
@@ -52,30 +62,39 @@ Installs a set of deferred major modes, each loaded only when a matching file is
 
 #+begin_src emacs-lisp -i
 (use-package x509-mode
+  :ensure t
   :defer t)
 
 (use-package yaml-mode
+  :ensure t
   :defer t)
 
 (use-package dot-mode
+  :ensure t
   :defer t)
 
 (use-package dockerfile-mode
+  :ensure t
   :defer t)
 
 (use-package docker-compose-mode
+  :ensure t
   :defer t)
 
 (use-package json-mode
+  :ensure t
   :defer t)
 
 (use-package elf-mode
+  :ensure t
   :defer t)
 
 (use-package demangle-mode
+  :ensure t
   :defer t)
 
 (use-package systemd
+  :ensure t
   :defer t)
 #+end_src
 
@@ -85,12 +104,15 @@ Installs =easy-hugo= for managing a Hugo blog, =gh-md= for rendering Markdown th
 
 #+begin_src emacs-lisp -i
 (use-package easy-hugo
+  :ensure t
   :defer t)
 
 (use-package gh-md
+  :ensure t
   :defer t)
 
 (use-package ein
+  :ensure t
   :defer t)
 #+end_src
 
@@ -382,7 +404,6 @@ Ensures every saved file ends with a newline.
 Provides the =sp-prog-misc= feature and closes the file.
 
 #+begin_src emacs-lisp -i
-;;; Provide:
 
 (provide 'sp-prog-misc)
 ;; sp-prog-misc.el ends here.

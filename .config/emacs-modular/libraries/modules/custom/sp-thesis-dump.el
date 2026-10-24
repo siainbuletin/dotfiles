@@ -1,0 +1,748 @@
+;; -*- lexical-binding: t -*-
+;;; sp-thesis-dump.el --- Brain-dump thesis ideas, get annotated Org tasks and citekeys
+
+;; Version: 0.1
+;; Package-Requires: ((emacs "28.1") (org "9.5"))
+;; Keywords: outlines, tools
+
+;;; Commentary:
+
+;; M-x sp-thesis-dump opens a buffer for a brain dump.  C-c C-c sends it to
+;; Claude (`claude -p'), which returns annotated Org tasks, the citekeys they
+;; need and questions.  The answer is shown for review; C-c C-c there files it
+;; under `sp-thesis-dump-heading' in `sp-thesis-dump-tasks-file'.
+;;
+;; The module has no dependencies besides Emacs, Org and the `claude' command,
+;; and is meant to be used from several projects.  What differs per project
+;; (task file, heading, bibliography, keywords, citekey style) is asked for when
+;; missing and can be saved in the project's .dir-locals.el.  What is about the
+;; machine (the `claude' command, MCP settings) is global and is never read from
+;; .dir-locals.el, so a repository cannot choose what is run.
+;;
+;; With a prefix argument, M-x sp-thesis-dump asks for all the project
+;; variables again.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'org)
+(require 'json)
+(require 'subr-x)
+(require 'project)
+
+(defgroup sp-thesis-dump nil
+  "Turn a brain dump into annotated Org tasks and citekeys with Claude."
+  :group 'org
+  :prefix "sp-thesis-dump-")
+
+(defcustom sp-thesis-dump-claude-command "claude"
+  "Claude Code executable.  It is run as `claude -p' in the project directory."
+  :type 'string
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-claude-model nil
+  "Model passed to `--model', or nil for Claude Code's default."
+  :type '(choice (const :tag "Default" nil) string)
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-claude-mcp-config nil
+  "File passed to `--mcp-config' (relative to the project root), or nil.
+Use it when the org-mcp server is not registered with `claude mcp add'."
+  :type '(choice (const :tag "None" nil) file)
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-claude-allowed-tools nil
+  "Tools Claude may use without asking, passed to `--allowedTools'.
+For example (\"mcp__org-mcp__*\") lets it read through the org-mcp server.
+Give read-only tools: the answer is filed by Emacs, not by Claude."
+  :type '(repeat string)
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-claude-extra-args nil
+  "Further arguments for the `claude' command."
+  :type '(repeat string)
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-project-root nil
+  "Fixed project directory, or nil to find it from the current buffer.
+It is then the directory with a .dir-locals.el above this one, else the
+`project-current' root, else the last one used."
+  :type '(choice (const nil) directory)
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-save-after-insert t
+  "Save the task file after the tasks have been filed."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-max-known-keys 1500
+  "Most bibliography keys to list in the prompt."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-context-max-chars 6000
+  "Most characters of the context file to put in the prompt."
+  :type 'integer
+  :group 'spcustom)
+
+(defun sp-thesis-dump--list-of-strings-p (value)
+  "Non-nil when VALUE is a list of strings."
+  (and (listp value) (seq-every-p #'stringp value)))
+
+(defcustom sp-thesis-dump-tasks-file nil
+  "Org file that receives the tasks (relative to the project root).
+nil means ask."
+  :type '(choice (const :tag "Ask" nil) file)
+  :safe #'stringp
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-heading "Brain dumps"
+  "Heading in the task file that receives each dump.
+Write A/B for the heading B below A.  Missing headings are created."
+  :type 'string
+  :safe #'stringp
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-bib-files :ask
+  "BibTeX files (relative to the project root) whose keys count as known.
+:ask means ask once; nil means there is no bibliography."
+  :type '(choice (const :tag "Ask" :ask) (repeat file))
+  :safe (lambda (v) (or (eq v :ask) (sp-thesis-dump--list-of-strings-p v)))
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-keywords '("TODO")
+  "TODO keywords Claude may give a new task.  The first is the default."
+  :type '(repeat string)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-tags '("thesis")
+  "Tags that every new task gets."
+  :type '(repeat string)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-cite-style 'org-cite
+  "How the citekeys of a task are written in its body.
+org-cite is [cite:@a;@b], org-ref is cite:a,b, pandoc is [@a; @b] and plain is
+a, b."
+  :type '(choice (const org-cite) (const org-ref) (const pandoc) (const plain))
+  :safe #'symbolp
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-citekey-style
+  "first author's surname in lowercase followed by the year, such as smith2020"
+  "Description of the keys Claude should invent for sources not yet known."
+  :type 'string
+  :safe #'stringp
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-context-file nil
+  "Optional file (relative to the project root) describing the thesis.
+Its start goes into the prompt so tasks fit the structure of the thesis."
+  :type '(choice (const nil) file)
+  :safe #'stringp
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-language nil
+  "Language of the tasks, or nil for the language of the dump."
+  :type '(choice (const nil) string)
+  :safe (lambda (v) (or (null v) (stringp v)))
+  :group 'spcustom)
+
+(defcustom sp-thesis-dump-keep-raw t
+  "Keep the original dump under the filed tasks, in a Raw dump section."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'spcustom)
+
+(defconst sp-thesis-dump--project-variables
+  '(sp-thesis-dump-tasks-file sp-thesis-dump-heading sp-thesis-dump-bib-files
+    sp-thesis-dump-keywords sp-thesis-dump-tags sp-thesis-dump-cite-style
+    sp-thesis-dump-citekey-style sp-thesis-dump-context-file
+    sp-thesis-dump-language sp-thesis-dump-keep-raw)
+  "Variables that belong to a project, in the order they are asked.")
+
+(defvar sp-thesis-dump--last-root nil
+  "Project directory of the last dump.")
+
+(defun sp-thesis-dump--root (force)
+  "Project directory; ask when FORCE or when none is found."
+  (let ((found (or sp-thesis-dump-project-root
+                   (locate-dominating-file default-directory ".dir-locals.el")
+                   (when-let ((project (project-current)))
+                     (project-root project))
+                   sp-thesis-dump--last-root)))
+    (file-name-as-directory
+     (expand-file-name
+      (if (or force (null found))
+          (read-directory-name "Thesis project directory: " found nil t)
+        found)))))
+
+(defun sp-thesis-dump--local-values (root)
+  "Alist of the project variables as they are for files in ROOT."
+  (with-temp-buffer
+    (setq default-directory root)
+    (hack-dir-local-variables-non-file-buffer)
+    (mapcar (lambda (var) (cons var (buffer-local-value var (current-buffer))))
+            sp-thesis-dump--project-variables)))
+
+(defun sp-thesis-dump--split (string separator)
+  "Split STRING at the regexp SEPARATOR, trimming and dropping empty parts."
+  (seq-remove #'string-empty-p
+              (mapcar #'string-trim (split-string string separator t))))
+
+(defun sp-thesis-dump--ask (var current root)
+  "Ask for the new value of VAR, whose CURRENT value is shown; ROOT is the project."
+  (pcase var
+    ('sp-thesis-dump-tasks-file
+     (file-relative-name
+      (read-file-name "Org file that receives the tasks: " root
+                      (expand-file-name (or current "thesis-tasks.org") root))
+      root))
+    ('sp-thesis-dump-heading
+     (read-string "Heading for the dumps (A/B for a nested one): " current))
+    ('sp-thesis-dump-bib-files
+     (sp-thesis-dump--split
+      (read-string "BibTeX files, comma separated, relative to the project (empty for none): "
+                   (string-join (if (listp current)
+                                    current
+                                  (directory-files root nil "\\.bib\\'"))
+                                ", "))
+      ","))
+    ('sp-thesis-dump-keywords
+     (sp-thesis-dump--split
+      (read-string "TODO keywords for new tasks, the first is the default: "
+                   (string-join current " "))
+      "[, ]+"))
+    ('sp-thesis-dump-tags
+     (sp-thesis-dump--split
+      (read-string "Tags for every new task: " (string-join current " "))
+      "[, ]+"))
+    ('sp-thesis-dump-cite-style
+     (intern (completing-read "Citation style: "
+                              '("org-cite" "org-ref" "pandoc" "plain")
+                              nil t (symbol-name current))))
+    ('sp-thesis-dump-citekey-style
+     (read-string "How are citekeys built? " current))
+    ('sp-thesis-dump-context-file
+     (let ((answer (read-string "File that describes the thesis, relative to the project (empty for none): "
+                                current)))
+       (unless (string-empty-p answer) answer)))
+    ('sp-thesis-dump-language
+     (let ((answer (read-string "Language for the tasks (empty for the language of the dump): "
+                                current)))
+       (unless (string-empty-p answer) answer)))
+    ('sp-thesis-dump-keep-raw
+     (y-or-n-p "Keep the raw dump under the tasks? "))))
+
+(defun sp-thesis-dump--complete (root values force)
+  "Ask for the unset variables of VALUES (all of them when FORCE).
+Return (VALUES . CHANGED), CHANGED being the alist of the new answers."
+  (let (changed)
+    (dolist (var sp-thesis-dump--project-variables)
+      (let ((current (alist-get var values)))
+        (when (or force
+                  (and (eq var 'sp-thesis-dump-tasks-file) (null current))
+                  (and (eq var 'sp-thesis-dump-bib-files) (eq current :ask)))
+          (let ((new (sp-thesis-dump--ask var current root)))
+            (setf (alist-get var values) new)
+            (push (cons var new) changed)))))
+    (cons values (nreverse changed))))
+
+(defun sp-thesis-dump--write-dir-locals (root answers)
+  "Store the alist ANSWERS in the nil entry of ROOT's .dir-locals.el."
+  (let* ((file (expand-file-name ".dir-locals.el" root))
+         (data (when (and (file-exists-p file)
+                          (> (file-attribute-size (file-attributes file)) 0))
+                 (with-temp-buffer
+                   (insert-file-contents file)
+                   (condition-case nil (read (current-buffer))
+                     (end-of-file nil)))))
+         (entry (or (assq nil data) (car (push (cons nil nil) data)))))
+    (dolist (answer answers)
+      (setf (alist-get (car answer) (cdr entry)) (cdr answer)))
+    (with-temp-file file
+      (let ((print-length nil) (print-level nil))
+        (pp data (current-buffer))))
+    (message "Saved %d setting(s) in %s" (length answers) file)))
+
+(defun sp-thesis-dump--context (force)
+  "Plist with the project root and its settings, asking for what is missing.
+FORCE asks for every project variable."
+  (let* ((root (sp-thesis-dump--root force))
+         (done (sp-thesis-dump--complete root (sp-thesis-dump--local-values root) force))
+         (values (car done))
+         (changed (cdr done)))
+    (when (and changed
+               (y-or-n-p (format "Save these answers in %s? "
+                                 (abbreviate-file-name
+                                  (expand-file-name ".dir-locals.el" root)))))
+      (sp-thesis-dump--write-dir-locals root changed))
+    (setq sp-thesis-dump--last-root root)
+    (list :root root
+          :tasks-file (alist-get 'sp-thesis-dump-tasks-file values)
+          :heading (alist-get 'sp-thesis-dump-heading values)
+          :bib-files (alist-get 'sp-thesis-dump-bib-files values)
+          :keywords (alist-get 'sp-thesis-dump-keywords values)
+          :tags (alist-get 'sp-thesis-dump-tags values)
+          :cite-style (alist-get 'sp-thesis-dump-cite-style values)
+          :citekey-style (alist-get 'sp-thesis-dump-citekey-style values)
+          :context-file (alist-get 'sp-thesis-dump-context-file values)
+          :language (alist-get 'sp-thesis-dump-language values)
+          :keep-raw (alist-get 'sp-thesis-dump-keep-raw values))))
+
+(defun sp-thesis-dump--bib-keys (root files)
+  "Citekeys in the BibTeX FILES (relative to ROOT)."
+  (let (keys)
+    (dolist (file files)
+      (let ((path (expand-file-name file root)))
+        (when (file-readable-p path)
+          (with-temp-buffer
+            (insert-file-contents path)
+            (while (re-search-forward
+                    "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*\\([^,[:space:]]+\\)[ \t]*," nil t)
+              (push (match-string-no-properties 1) keys))))))
+    (delete-dups (nreverse keys))))
+
+(defconst sp-thesis-dump--own-headings
+  "\\`\\(Brain dump\\|Citekeys\\|Questions\\|Raw dump\\)"
+  "Headlines written by this module, which do not count as tasks.")
+
+(defun sp-thesis-dump--tasks-path (ctx)
+  "Absolute path of the task file in CTX."
+  (expand-file-name (plist-get ctx :tasks-file) (plist-get ctx :root)))
+
+(defun sp-thesis-dump--olp (ctx)
+  "The heading of CTX as an outline path."
+  (sp-thesis-dump--split (plist-get ctx :heading) "/"))
+
+(defun sp-thesis-dump--existing-tasks (ctx)
+  "Headlines under the target heading of CTX's task file, at most 80."
+  (let ((file (sp-thesis-dump--tasks-path ctx))
+        (olp (sp-thesis-dump--olp ctx)))
+    (when (and (file-readable-p file) olp)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (let ((org-inhibit-startup t) (org-mode-hook nil)
+              (after-change-major-mode-hook nil))
+          (org-mode))
+        (let ((marker (ignore-errors (org-find-olp olp t))) titles)
+          (when marker
+            (goto-char marker)
+            (org-back-to-heading t)
+            (let ((end (save-excursion (org-end-of-subtree t t) (point))))
+              (while (and (outline-next-heading) (< (point) end)
+                          (< (length titles) 80))
+                (let ((title (org-get-heading t t t t)))
+                  (unless (string-match-p sp-thesis-dump--own-headings title)
+                    (push title titles))))))
+          (nreverse titles))))))
+
+(defun sp-thesis-dump--ensure-olp (olp)
+  "Return a marker at the heading OLP of the current buffer, creating headings."
+  (save-excursion
+    (widen)
+    (let (path)
+      (dolist (segment olp)
+        (setq path (append path (list segment)))
+        (unless (ignore-errors (org-find-olp path t))
+          (if (= (length path) 1)
+              (goto-char (point-max))
+            (goto-char (org-find-olp (butlast path) t))
+            (org-end-of-subtree t t))
+          (unless (bolp) (insert "\n"))
+          (insert (make-string (length path) ?*) " " segment "\n"))))
+    (org-find-olp olp t)))
+
+(defconst sp-thesis-dump--instructions
+  "You are helping me plan my thesis.  Below is a brain dump of ideas, loosely
+written.  Turn it into concrete tasks and list the sources I need to look up.
+
+Rules:
+- One task per distinct piece of work.  Merge duplicates and split anything that
+  bundles unrelated work.  Do not invent work the dump does not imply.
+- title: imperative, at most 80 characters.
+- summary: one to three sentences on what has to be done and why.
+- keyword: one of the allowed TODO keywords; the first is the default.
+- tags: optional short lowercase words.
+- effort: an Org effort such as \"0:30\" or \"2:00\", only when the dump gives a
+  basis for it; otherwise leave it out.
+- citekeys: the keys of the sources the task needs.  When a source is in the
+  list of known keys, use exactly that key.  For a source that is not, make a new
+  key in the style given below.  Never give a known key to a different source.
+- lookups: one entry for every key that is NOT in the known list.  reference says
+  what to find (author, title, year, as far as the dump says), why says what it is
+  needed for.  Mark a guess with \"(?)\" and never make up details.
+- questions: what you could not decide from the dump and I should answer.
+- Do not repeat a task that is already under the target heading.
+
+Answer with a single JSON object and nothing else, with no code fence:
+{\"tasks\":[{\"title\":\"\",\"summary\":\"\",\"keyword\":\"\",\"tags\":[],\"effort\":\"\",\"citekeys\":[]}],
+ \"lookups\":[{\"key\":\"\",\"reference\":\"\",\"why\":\"\"}],
+ \"questions\":[\"\"]}"
+  "Fixed part of the prompt.")
+
+(defun sp-thesis-dump--context-text (ctx)
+  "Start of the context file of CTX, or nil."
+  (let ((name (plist-get ctx :context-file)))
+    (when name
+      (let ((path (expand-file-name name (plist-get ctx :root))))
+        (when (file-readable-p path)
+          (with-temp-buffer
+            (insert-file-contents path nil 0 sp-thesis-dump-context-max-chars)
+            (buffer-string)))))))
+
+(defun sp-thesis-dump--prompt (dump ctx)
+  "Prompt for DUMP in the project CTX."
+  (let ((known (plist-get ctx :known))
+        (existing (sp-thesis-dump--existing-tasks ctx))
+        (context (sp-thesis-dump--context-text ctx)))
+    (string-join
+     (delq nil
+           (list
+            sp-thesis-dump--instructions
+            (format "Allowed TODO keywords: %s" (string-join (plist-get ctx :keywords) ", "))
+            (format "Style for new citekeys: %s" (plist-get ctx :citekey-style))
+            (when (plist-get ctx :language)
+              (format "Write titles, summaries and questions in %s." (plist-get ctx :language)))
+            (when (or sp-thesis-dump-claude-allowed-tools sp-thesis-dump-claude-mcp-config)
+              "You may use the org-mcp tools that are available to read my Org files for context.  Do not change anything with them: I file the tasks myself.")
+            (when context (format "Outline of the thesis:\n%s" context))
+            (when existing
+              (format "Already under the target heading:\n%s"
+                      (mapconcat (lambda (title) (concat "- " title)) existing "\n")))
+            (format "Known citekeys (%d%s):\n%s"
+                    (length known)
+                    (if (> (length known) sp-thesis-dump-max-known-keys)
+                        (format ", first %d shown" sp-thesis-dump-max-known-keys)
+                      "")
+                    (if known
+                        (string-join (seq-take known sp-thesis-dump-max-known-keys) " ")
+                      "none"))
+            (format "Brain dump:\n%s" dump)))
+     "\n\n")))
+
+(defun sp-thesis-dump--command (ctx)
+  "The command line that runs Claude for CTX."
+  (let ((mcp sp-thesis-dump-claude-mcp-config))
+    (append (list sp-thesis-dump-claude-command "-p" "--output-format" "json")
+            (when sp-thesis-dump-claude-model
+              (list "--model" sp-thesis-dump-claude-model))
+            (when mcp
+              (list "--mcp-config" (expand-file-name mcp (plist-get ctx :root))))
+            (when sp-thesis-dump-claude-allowed-tools
+              (list "--allowedTools"
+                    (string-join sp-thesis-dump-claude-allowed-tools ",")))
+            sp-thesis-dump-claude-extra-args)))
+
+(defun sp-thesis-dump--show-error (message &rest buffers)
+  "Show MESSAGE and the contents of BUFFERS in an error buffer."
+  (with-current-buffer (get-buffer-create "*thesis-dump-error*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert message "\n")
+      (dolist (buffer buffers)
+        (when (buffer-live-p buffer)
+          (insert "\n--- " (string-trim (buffer-name buffer)) " ---\n")
+          (insert-buffer-substring buffer))))
+    (goto-char (point-min))
+    (display-buffer (current-buffer)))
+  (message "%s" message))
+
+(defun sp-thesis-dump--submit (dump ctx)
+  "Send DUMP to Claude for the project CTX."
+  (unless (executable-find sp-thesis-dump-claude-command)
+    (user-error "Cannot find `%s' on exec-path (a GUI Emacs may need exec-path-from-shell)"
+                sp-thesis-dump-claude-command))
+  (let* ((ctx (plist-put (copy-sequence ctx) :known
+                         (sp-thesis-dump--bib-keys
+                          (plist-get ctx :root)
+                          (when (listp (plist-get ctx :bib-files))
+                            (plist-get ctx :bib-files)))))
+         (prompt (sp-thesis-dump--prompt dump ctx))
+         (out (generate-new-buffer " *thesis-dump-out*"))
+         (err (generate-new-buffer " *thesis-dump-err*"))
+         (default-directory (plist-get ctx :root))
+         (coding-system-for-read 'utf-8)
+         (coding-system-for-write 'utf-8)
+         (process
+          (make-process
+           :name "thesis-dump" :buffer out :stderr err :connection-type 'pipe
+           :command (sp-thesis-dump--command ctx)
+           :noquery t
+           :sentinel (lambda (proc _event)
+                       (when (memq (process-status proc) '(exit signal))
+                         (sp-thesis-dump--finished proc out err ctx dump))))))
+    (process-send-string process prompt)
+    (process-send-eof process)
+    (message "Thesis dump sent to Claude (%d characters); the answer opens in a new buffer."
+             (length prompt))))
+
+(defun sp-thesis-dump--payload (output)
+  "The JSON object Claude answered in the envelope OUTPUT, as an alist.
+Signal an error with a readable message when there is none."
+  (let* ((start (string-match "{" output))
+         (envelope (and start
+                        (json-parse-string (substring output start)
+                                           :object-type 'alist :array-type 'list
+                                           :null-object nil :false-object nil)))
+         (text (alist-get 'result envelope)))
+    (cond ((null envelope) (error "Claude printed no JSON"))
+          ((alist-get 'is_error envelope)
+           (error "Claude reported an error: %s" (or text "(no message)")))
+          ((not (stringp text)) (error "Claude's answer has no result text"))
+          ((not (string-match "{" text)) (error "Claude's answer has no JSON object: %s" text))
+          (t (json-parse-string
+              (substring text (match-beginning 0)
+                         (1+ (string-match "}[^}]*\\'" text (match-beginning 0))))
+              :object-type 'alist :array-type 'list
+              :null-object nil :false-object nil)))))
+
+(defun sp-thesis-dump--finished (process out err ctx dump)
+  "Handle the end of PROCESS, whose output is in OUT and stderr in ERR."
+  (let ((status (process-exit-status process)))
+    (if (not (zerop status))
+        (sp-thesis-dump--show-error
+         (format "Claude exited with status %d" status) err out)
+      (condition-case problem
+          (let ((payload (sp-thesis-dump--payload
+                          (with-current-buffer out (buffer-string)))))
+            (sp-thesis-dump--show-result
+             (sp-thesis-dump--render payload ctx dump) ctx)
+            (kill-buffer out)
+            (kill-buffer err))
+        (error
+         (sp-thesis-dump--show-error
+          (format "Could not read Claude's answer: %s" (error-message-string problem))
+          out err))))))
+
+(defun sp-thesis-dump--clean (value)
+  "VALUE as a trimmed single line, or nil when it is not a string or is blank."
+  (when (stringp value)
+    (let ((text (string-trim (replace-regexp-in-string "[ \t\n\r]+" " " value))))
+      (unless (string-empty-p text) text))))
+
+(defun sp-thesis-dump--text (value)
+  "VALUE as trimmed text in which no line starts a headline, or nil."
+  (when (stringp value)
+    (let ((text (string-trim (replace-regexp-in-string "^\\*" " *" value))))
+      (unless (string-empty-p text) text))))
+
+(defun sp-thesis-dump--keys (keys known)
+  "Clean list of the citekeys KEYS, with the spelling of the KNOWN keys."
+  (delete-dups
+   (delq nil
+         (mapcar (lambda (key)
+                   (when-let ((clean (sp-thesis-dump--clean key)))
+                     (let ((bare (string-remove-prefix "@" clean)))
+                       (or (seq-find (lambda (k) (string= (downcase k) (downcase bare)))
+                                     known)
+                           bare))))
+                 keys))))
+
+(defun sp-thesis-dump--cite-string (style keys)
+  "KEYS written as a citation in STYLE."
+  (pcase style
+    ('org-ref (concat "cite:" (string-join keys ",")))
+    ('pandoc (concat "[" (mapconcat (lambda (k) (concat "@" k)) keys "; ") "]"))
+    ('plain (string-join keys ", "))
+    (_ (concat "[cite:" (mapconcat (lambda (k) (concat "@" k)) keys ";") "]"))))
+
+(defun sp-thesis-dump--render (payload ctx dump)
+  "Org text for the answer PAYLOAD to DUMP in the project CTX."
+  (let* ((known (plist-get ctx :known))
+         (keywords (mapcar #'upcase (or (plist-get ctx :keywords) '("TODO"))))
+         (infos (make-hash-table :test 'equal))   ; key -> lookup alist
+         (needed (make-hash-table :test 'equal))  ; key -> titles of its tasks
+         (missing nil)
+         (found nil))
+    (dolist (lookup (alist-get 'lookups payload))
+      (dolist (key (sp-thesis-dump--keys (list (alist-get 'key lookup)) known))
+        (unless (member key known)
+          (puthash key lookup infos)
+          (cl-pushnew key missing :test #'equal))))
+    (with-temp-buffer
+      (insert (format "* Brain dump %s\n" (format-time-string "[%Y-%m-%d %a %H:%M]")))
+      (dolist (task (alist-get 'tasks payload))
+        (let* ((title (or (sp-thesis-dump--clean (alist-get 'title task)) "Untitled task"))
+               (keyword (let ((k (upcase (or (sp-thesis-dump--clean (alist-get 'keyword task)) ""))))
+                          (if (member k keywords) k (car keywords))))
+               (tags (delete-dups
+                      (delq nil
+                            (mapcar (lambda (tag)
+                                      (when-let ((clean (sp-thesis-dump--clean tag)))
+                                        (replace-regexp-in-string "[^[:alnum:]_@#%]" "_" clean)))
+                                    (append (plist-get ctx :tags) (alist-get 'tags task))))))
+               (effort (let ((e (sp-thesis-dump--clean (alist-get 'effort task))))
+                         (when (and e (string-match-p "\\`[0-9]+:[0-9][0-9]\\'" e)) e)))
+               (summary (sp-thesis-dump--text (alist-get 'summary task)))
+               (keys (sp-thesis-dump--keys (alist-get 'citekeys task) known))
+               (absent (seq-remove (lambda (k) (member k known)) keys))
+               (props (delq nil (list (when effort (format ":EFFORT: %s" effort))
+                                      (when keys (format ":CITEKEYS: %s" (string-join keys " ")))))))
+          (dolist (key keys)
+            (if (member key known)
+                (cl-pushnew key found :test #'equal)
+              (puthash key (append (gethash key needed) (list title)) needed)
+              (cl-pushnew key missing :test #'equal)))
+          (insert (format "** %s %s%s\n" keyword title
+                          (if tags (format " :%s:" (string-join tags ":")) "")))
+          (when props
+            (insert ":PROPERTIES:\n" (string-join props "\n") "\n:END:\n"))
+          (when summary (insert summary "\n"))
+          (when keys
+            (insert "Sources: " (sp-thesis-dump--cite-string (plist-get ctx :cite-style) keys) "\n"))
+          (when absent
+            (insert "To look up: " (string-join absent ", ") "\n"))))
+      (when (or missing found)
+        (insert "** Citekeys\n")
+        (dolist (key (reverse missing))
+          (let ((info (gethash key infos)))
+            (insert (format "- [ ] =%s=" key))
+            (when-let ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
+              (insert " :: " reference))
+            (when-let ((why (sp-thesis-dump--clean (alist-get 'why info))))
+              (insert (if (string-suffix-p "." (buffer-substring (line-beginning-position) (point))) " " ". ") why))
+            (when-let ((titles (gethash key needed)))
+              (insert (format " (for: %s)" (string-join titles "; "))))
+            (insert "\n")))
+        (when found
+          (insert "- Already in the bibliography: " (string-join (reverse found) ", ") "\n")))
+      (when-let ((questions (delq nil (mapcar #'sp-thesis-dump--clean
+                                              (alist-get 'questions payload)))))
+        (insert "** Questions\n")
+        (dolist (question questions) (insert "- [ ] " question "\n")))
+      (when (plist-get ctx :keep-raw)
+        (insert "** Raw dump :raw:\n#+begin_example\n"
+                (replace-regexp-in-string "^\\(\\*\\|#\\+\\)" ",\\1" (string-trim dump))
+                "\n#+end_example\n"))
+      (buffer-string))))
+
+(defvar-local sp-thesis-dump--ctx nil
+  "Project context of this thesis-dump buffer.")
+
+(define-derived-mode sp-thesis-dump-result-mode org-mode "Thesis-Result"
+  "Org buffer with the tasks Claude proposed, to review before filing."
+  (setq header-line-format
+        (substitute-command-keys
+         "\\<sp-thesis-dump-result-mode-map>Review, then \\[sp-thesis-dump-commit] to file the tasks, \\[sp-thesis-dump-discard] to discard")))
+
+(define-key sp-thesis-dump-result-mode-map (kbd "C-c C-c") #'sp-thesis-dump-commit)
+(define-key sp-thesis-dump-result-mode-map (kbd "C-c C-k") #'sp-thesis-dump-discard)
+
+(defun sp-thesis-dump--show-result (org ctx)
+  "Show the Org text ORG in the result buffer, remembering the project CTX."
+  (with-current-buffer (get-buffer-create "*thesis-dump-result*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert org))
+    (sp-thesis-dump-result-mode)
+    (setq sp-thesis-dump--ctx ctx)
+    (goto-char (point-min))
+    (pop-to-buffer (current-buffer))))
+
+(defun sp-thesis-dump--shift (text delta)
+  "TEXT with every headline moved DELTA levels deeper."
+  (replace-regexp-in-string
+   "^\\*+ " (lambda (stars) (concat (make-string delta ?*) stars)) text))
+
+(defun sp-thesis-dump-discard ()
+  "Discard the proposed tasks; the dump stays in its buffer for another try."
+  (interactive)
+  (kill-buffer (current-buffer)))
+
+(defun sp-thesis-dump-commit ()
+  "File the tasks of this buffer under the target heading of the task file."
+  (interactive)
+  (unless sp-thesis-dump--ctx
+    (user-error "This is not a thesis-dump result buffer"))
+  (let ((ctx sp-thesis-dump--ctx)
+        (text (buffer-substring-no-properties (point-min) (point-max)))
+        (result (current-buffer))
+        start)
+    (make-directory (file-name-directory (sp-thesis-dump--tasks-path ctx)) t)
+    (with-current-buffer (find-file-noselect (sp-thesis-dump--tasks-path ctx))
+      (unless (derived-mode-p 'org-mode) (org-mode))
+      (widen)
+      (save-excursion
+        (goto-char (sp-thesis-dump--ensure-olp (sp-thesis-dump--olp ctx)))
+        (org-back-to-heading t)
+        (let ((level (org-current-level)))
+          (org-end-of-subtree t t)
+          (unless (bolp) (insert "\n"))
+          (setq start (point))
+          (insert (sp-thesis-dump--shift text level))
+          (unless (bolp) (insert "\n"))))
+      (when sp-thesis-dump-save-after-insert (save-buffer))
+      (let ((target (current-buffer)))
+        (when (buffer-live-p (plist-get ctx :dump-buffer))
+          (kill-buffer (plist-get ctx :dump-buffer)))
+        (kill-buffer result)
+        (pop-to-buffer target)
+        (goto-char start)
+        (outline-show-subtree)
+        (message "Filed in %s" (buffer-file-name target))))))
+
+(define-derived-mode sp-thesis-dump-mode org-mode "Thesis-Dump"
+  "Org buffer for a thesis brain dump, to be sent to Claude."
+  (setq header-line-format
+        (substitute-command-keys
+         "\\<sp-thesis-dump-mode-map>Brain dump: \\[sp-thesis-dump-send] to send to Claude, \\[sp-thesis-dump-cancel] to cancel")))
+
+(define-key sp-thesis-dump-mode-map (kbd "C-c C-c") #'sp-thesis-dump-send)
+(define-key sp-thesis-dump-mode-map (kbd "C-c C-k") #'sp-thesis-dump-cancel)
+
+(defun sp-thesis-dump-send ()
+  "Send the dump in this buffer to Claude."
+  (interactive)
+  (unless sp-thesis-dump--ctx
+    (user-error "This is not a thesis-dump buffer"))
+  (let ((dump (string-trim (buffer-substring-no-properties (point-min) (point-max)))))
+    (when (string-empty-p dump) (user-error "The dump is empty"))
+    (sp-thesis-dump--submit
+     dump (plist-put (copy-sequence sp-thesis-dump--ctx) :dump-buffer (current-buffer)))))
+
+(defun sp-thesis-dump-cancel ()
+  "Throw the dump in this buffer away."
+  (interactive)
+  (when (or (string-empty-p (string-trim (buffer-string)))
+            (y-or-n-p "Throw this dump away? "))
+    (kill-buffer (current-buffer))))
+
+;;;###autoload
+(defun sp-thesis-dump (&optional reconfigure)
+  "Open a buffer for a thesis brain dump.
+Missing project variables are asked for.  With prefix argument RECONFIGURE,
+ask for all of them again (and offer to save them in .dir-locals.el)."
+  (interactive "P")
+  (let* ((ctx (sp-thesis-dump--context reconfigure))
+         (root (plist-get ctx :root))
+         (buffer (get-buffer-create
+                  (format "*thesis-dump: %s*"
+                          (file-name-nondirectory (directory-file-name root))))))
+    (with-current-buffer buffer
+      (unless (derived-mode-p 'sp-thesis-dump-mode)
+        (sp-thesis-dump-mode))
+      (setq default-directory root
+            sp-thesis-dump--ctx ctx))
+    (pop-to-buffer buffer)
+    (message "Write the brain dump, then C-c C-c.")))
+
+;;;###autoload
+(defun sp-thesis-dump-region (beg end &optional reconfigure)
+  "Send the region from BEG to END as the brain dump, without a dump buffer.
+RECONFIGURE is as for `sp-thesis-dump'."
+  (interactive "r\nP")
+  (sp-thesis-dump--submit
+   (string-trim (buffer-substring-no-properties beg end))
+   (sp-thesis-dump--context reconfigure)))
+
+;;;###autoload
+(defun sp-thesis-dump-configure ()
+  "Ask for all the project variables and offer to save them in .dir-locals.el."
+  (interactive)
+  (sp-thesis-dump--context t))
+
+(provide 'sp-thesis-dump)
+;; sp-thesis-dump.el ends here.
