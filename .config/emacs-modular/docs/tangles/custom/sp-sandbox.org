@@ -2,9 +2,18 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-sandbox.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-sandbox.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-sandbox.el=.
 
-This module puts the fish function =emacs-pr= (=~/.config/fish/functions/emacs-pr.fish=, described in [[file:../../../README.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]]) behind =M-x= commands, so a sandbox can be started from the Emacs I already work in. The sandbox is a separate Emacs process, so the live one is untouched and keeps running. The commands run fish in a process of their own and show its output in =*emacs-pr*=; fish and =emacs= must be on Emacs's =exec-path=, which =sp-env= arranges on macOS.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module puts the fish function =emacs-pr= behind =M-x= commands, so a sandbox can be started from the Emacs I already work in.
+
+- The function is =~/.config/fish/functions/emacs-pr.fish=, described in [[file:../../../README.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]].
+- The sandbox is a separate Emacs process, so the live one is untouched and keeps running.
+- The commands run fish in a process of their own and show its output in =*emacs-pr*=.
+- fish and =emacs= must be on Emacs's =exec-path=, which =sp-env= arranges on macOS.
 
 It has no dependencies and is loaded after =sp-org-issues= in the module list of =init.el=.
 

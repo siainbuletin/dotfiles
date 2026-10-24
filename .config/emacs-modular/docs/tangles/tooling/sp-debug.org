@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-debug.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-debug.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-debug.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -31,7 +35,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** use-package statistics
 
-Setting =use-package-compute-statistics= makes use-package record how long each package took to load and configure. Run =M-x use-package-report= to see the table. It only measures packages declared after this setting takes effect, so its usefulness depends on how early the module is loaded.
+Setting =use-package-compute-statistics= makes use-package record how long each package took to load and configure.
+
+- Run =M-x use-package-report= to see the table.
+- It only measures packages declared after this setting takes effect, so its usefulness depends on how early the module is loaded.
 
 #+begin_src emacs-lisp -i
 ;; Getting information on the launch time for packages.

@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-rss.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/media/sp-rss.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/media/sp-rss.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -47,7 +51,11 @@ Configures =elfeed= with its database in an =elfeed= folder in =user-emacs-direc
 
 ** elfeed-org
 
-Installs =elfeed-org= and runs =(elfeed-org)= to read the feed list from Org files. The =:custom= section sets =rmh-elfeed-org-files=, the variable =elfeed-org= reads, to =~/Documents/elfeed.org=. It used to wrap a =setq= of a made-up variable =sia-elfeed-org-files= in the list, which =use-package= reads as setting a variable called =setq=, so it signalled an error instead of setting the file list.
+Installs =elfeed-org= and runs =(elfeed-org)= to read the feed list from Org files.
+
+- The =:custom= section sets =rmh-elfeed-org-files=, the variable =elfeed-org= reads, to =~/Documents/elfeed.org=.
+- It used to wrap a =setq= of a made-up variable =sia-elfeed-org-files= in the list.
+- =use-package= reads that as setting a variable called =setq=, so it signalled an error instead of setting the file list.
 
 #+begin_src emacs-lisp -i
 (use-package elfeed-org
@@ -62,7 +70,13 @@ Installs =elfeed-org= and runs =(elfeed-org)= to read the feed list from Org fil
 
 ** Capture selected entries
 
-=yant/elfeed-capture-entry=, judging by its prefix adapted from another user's config, tags the selected search entries as opened, marks them read and, for each one with a link, calls =org-protocol-capture= with template =B=, the link, a title combining feed and entry names, and the entry itself. =raise-frame= is temporarily stubbed out so capturing does not pop frames. It then refreshes the entries and moves to the next line. Template =B= must exist in the capture templates. The stub uses =cl-letf= because =flet= is obsolete and no longer available in current Emacs.
+=yant/elfeed-capture-entry= (judging by its prefix, adapted from another user's config):
+
+- Tags the selected search entries as opened and marks them read.
+- For each one with a link, calls =org-protocol-capture= with template =B=, the link, a title combining feed and entry names, and the entry itself.
+- =raise-frame= is temporarily stubbed out so capturing does not pop frames. The stub uses =cl-letf= because =flet= is obsolete and no longer available in current Emacs.
+- Then refreshes the entries and moves to the next line.
+- Template =B= must exist in the capture templates.
 
 #+begin_src emacs-lisp -i
 (defun yant/elfeed-capture-entry ()

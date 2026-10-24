@@ -23,7 +23,12 @@ The problem with this approach is that it introduces performance issues.[fn:1] S
 
 *** Tangling the org configuration with =org-babel-tangle=
 
-The more *optimal* solution, in this case, is to call =org-babel-tangle=, with the org configuration file open (meaning: the _current_ file, =literate-config.org=), which is *evaluated* through =C-c C-v C-t=. This command updates all of the files that are declared as *targets* through the =:tangle= flag. On the next startup --- or through using the =<F5>= [[*Make reloading the config easier][helper function]] that I designed for reloading the =init.el= file on the fly --- Emacs will have the updated configuration that was detailed in the literate config.
+The more *optimal* solution is to call =org-babel-tangle= with the org configuration file open.
+
+- That means the _current_ file, =literate-config.org=, *evaluated* through =C-c C-v C-t=.
+- The command updates all files declared as *targets* through the =:tangle= flag.
+- On the next startup, Emacs has the updated configuration.
+- Alternatively use the =<F5>= [[*Make reloading the config easier][helper function]] that I designed for reloading the =init.el= file on the fly.
 
 *** TODO Making tangling a lot easier with =org-auto-tangle=
 
@@ -49,7 +54,11 @@ Since I want to include several examples for *why* I might be doing things a cer
 
 ** How exactly does a literate configuration manage to be created?
 
-You have a few options for the way that you're going to create your =init.el= file. You can create it as an entire file (so it takes the entirety of =dotemacs.org=, for the case of this document), or it can tangle based on each heading in the org document structure. It can even go as granular as each source block that is declared.
+You have a few options for how to create your =init.el= file:
+
+- Tangle it as an entire file (it takes the entirety of =dotemacs.org=, for this document).
+- Tangle based on each heading in the org document structure.
+- Go as granular as each source block that is declared.
 
 ** How can =org-babel= support actual Emacs Lisp configuration?
 
@@ -97,8 +106,9 @@ You can set the tangle to trigger based on when the file was modified (meaning: 
 
 * Keeping the literate configuration clean
 
-Good strategies for making sure that you don't end up introducing bugs would be
-1. Always try to *evaluate* the code before you commit new changes :: this will make sure that the code properly compiles. You can't depend on an LSP in this case.
+Good strategies for making sure you don't introduce bugs:
+
+1. Always try to *evaluate* the code before you commit new changes. This makes sure the code properly compiles. You can't depend on an LSP in this case.
 
 Evaluating the code will also help with tracking the bugs.
 
@@ -108,13 +118,21 @@ Some longer configurations would benefit just from being converted into separate
 
 You lose some of the helpers like company-mode, paredit-mode when you write code snippet, so naturally you wouldn't write long code.
 
-One of the most common errors that you can have if you're writing your =init.el= through org-mode is that you forget to close parentheses when you're writing between source code blocks. If you've forgotten some parentheses, this will produce the =End of file during parsing= error. This can be easily checked in the =init.el= file that was tangled using =M-x check-parens RET=.[fn:3]
+A common error when writing =init.el= through org-mode:
+
+- You forget to close parentheses between source code blocks.
+- That produces the =End of file during parsing= error.
+- Check the tangled =init.el= with =M-x check-parens RET=.[fn:3]
 
 You can also enable =show-paren-mode=, which will help
 
 * Introduction - The inner workings of this literate configuration
 
-Since I want to be able to treat my code in as modular a way as possible, I am separating the modules of my configuration to different org mode files, which will be later tangled to their respective Emacs Lisp modules. This also includes the possibility for the future to tangle to different Emacs Lisp documents, as for now, everything is centralised into a single =init.el= file.
+Why modules:
+
+- I want to treat my code in as modular a way as possible.
+- So I separate the modules of my configuration into different org mode files, later tangled to their respective Emacs Lisp modules.
+- This also allows tangling to different Emacs Lisp documents in future. For now, everything is centralised into a single =init.el= file.
 
 This will allow much simpler debugging when another package is starting to go haywire and will allow writing down personal Lisp modules more easily.
 

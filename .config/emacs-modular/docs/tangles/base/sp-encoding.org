@@ -2,11 +2,18 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-encoding.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-encoding.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-encoding.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module makes UTF-8 the coding system for files, the terminal and keyboard input. It is the very first module loaded from =init.el=, in both the default and minimal lists, so later modules can assume UTF-8. It has no dependencies.
+This module makes UTF-8 the coding system for files, the terminal and keyboard input.
+
+- It is the very first module loaded from =init.el=, in both the default and minimal lists, so later modules can assume UTF-8.
+- It has no dependencies.
 
 * Encoding
 
@@ -28,7 +35,14 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** UTF-8 defaults
 
-Sets UTF-8 as the default for new buffers, file names and processes, puts it first in the list used to detect a file's encoding, and uses it for terminal output and keyboard input in terminal frames. The language environment is set to English, and =default-buffer-file-coding-system= is set as well, though that name is an obsolete alias of =buffer-file-coding-system=. Because =set-language-environment= runs after the coding settings, it can reset some of them depending on the system locale; calling it first is the usual order.
+Encoding settings:
+
+- Sets UTF-8 as the default for new buffers, file names and processes.
+- Puts it first in the list used to detect a file's encoding.
+- Uses it for terminal output and keyboard input in terminal frames.
+- Sets the language environment to English.
+- Also sets =default-buffer-file-coding-system=, though that name is an obsolete alias of =buffer-file-coding-system=.
+- Caveat: =set-language-environment= runs after the coding settings, so it can reset some of them depending on the system locale. Calling it first is the usual order.
 
 #+begin_src emacs-lisp -i
 (set-default-coding-systems 'utf-8)     ; Default to utf-8 encoding

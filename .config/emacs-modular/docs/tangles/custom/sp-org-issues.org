@@ -27,7 +27,11 @@ sp-agenda-views: look there for them.  Load this module before both.
 
 * Preamble
 
-Literate source for =libraries/modules/custom/sp-org-issues.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-org-issues.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * Basic functionality
 
@@ -48,7 +52,10 @@ A code base is ongoing, so it is not a PARA project (a project has an end); it i
 
 *Managing complexity:* An issue that grows into several steps can be tagged =:project:= on its own, and vulpea-para then treats it as a project.
 
-=M-x sp-org-issues-create-area= writes this file with =vulpea-create=, so it gets a real =ID= and lands in the vulpea database. It goes where vulpea-para puts every new area (=vulpea-para-capture-area-file-name=, =~/notes/area/<timestamp>-issues.org=). This is what it looks like, with one captured issue in it:
+=M-x sp-org-issues-create-area= writes this file with =vulpea-create=, so it gets a real =ID= and lands in the vulpea database.
+
+- It goes where vulpea-para puts every new area (=vulpea-para-capture-area-file-name=, =~/notes/area/<timestamp>-issues.org=).
+- This is what it looks like, with one captured issue in it:
 
 #+begin_src org :tangle no
 :PROPERTIES:
@@ -149,7 +156,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Dependencies
 
-Loads Org, the small libraries the morning list uses (=cl-lib=, =json=, =seq=, =subr-x=), vulpea and vulpea-para. It also requires =sp-vulpea-para=, which now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there); requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in. Capture, agenda and Magit are only declared, so loading this module does not load them.
+Dependencies:
+
+- Loads Org, the small libraries the morning list uses (=cl-lib=, =json=, =seq=, =subr-x=), vulpea and vulpea-para.
+- Also requires =sp-vulpea-para=. It now adds its own entries to =org-capture-templates= and =org-agenda-custom-commands= instead of assigning them with =setq= (it used to wipe whatever was there).
+- Requiring it first still guarantees the issue template and views are added after its entries, whatever order the modules load in.
+- Capture, agenda and Magit are only declared, so loading this module does not load them.
 
 #+begin_src emacs-lisp -i
 (require 'org)
@@ -194,7 +206,10 @@ A customization group for the module, and the title the area is created with and
 
 ** Repositories
 
-=sp-org-issues-repos= lists the code bases that get a heading in a new issues file. The dotfiles entry points at the yadm repository, and its worktrees go under =~/src/dotfiles-wt/=. A repository added here later gets its heading the first time an issue is captured for it.
+=sp-org-issues-repos= lists the code bases that get a heading in a new issues file.
+
+- The dotfiles entry points at the yadm repository, and its worktrees go under =~/src/dotfiles-wt/=.
+- A repository added here later gets its heading the first time an issue is captured for it.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-org-issues-repos
@@ -221,7 +236,12 @@ go), :base (the branch new issue branches start from) and :url."
 
 ** The yadm repository, and closing issues
 
-The yadm repository sets =status.showUntrackedFiles= to =no=, because its worktree is the whole home folder. Worktrees added from it share that setting, so Magit would hide new files there too; this variable is how the module recognises those worktrees (see the last section). The second option turns off the offer to remove a worktree when its issue is closed.
+Worktrees and yadm:
+
+- The yadm repository sets =status.showUntrackedFiles= to =no=, because its worktree is the whole home folder.
+- Worktrees added from it share that setting, so Magit would hide new files there too.
+- This variable is how the module recognises those worktrees (see the last section).
+- The second option turns off the offer to remove a worktree when its issue is closed.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-org-issues-yadm-repo sp-yadm-repo
@@ -325,7 +345,12 @@ The area is found in the vulpea database by its title, so the file can live anyw
 
 ** Creating the area
 
-=sp-org-issues-create-area= is the one-time setup. It creates the file like =vulpea-para-capture-area= does (same file-name template and =area= tag) and adds the keyword and archive lines through =vulpea-create='s =:head=. When the area already exists it just visits it. =sp-org-issues-find= opens the file.
+=sp-org-issues-create-area= is the one-time setup.
+
+- Creates the file like =vulpea-para-capture-area= does (same file-name template and =area= tag).
+- Adds the keyword and archive lines through =vulpea-create='s =:head=.
+- When the area already exists, it just visits it.
+- =sp-org-issues-find= opens the file.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-create-area ()
@@ -375,7 +400,11 @@ Finds the level-2 heading of a repository, or adds it at the end of =* Tasks= wh
 
 ** Issue template
 
-Org runs the template before the target, so the template asks for the repository and stores it on the capture, the same way vulpea-para's project template stores the area. The issue gets an =ID=, a =CREATED= stamp, =ORG_GTD: Actions= and empty =BRANCH=, =PR= and =THREAD= fields. =%^g= offers the file's tags (=emacs=, =vulpea= and so on).
+The capture template:
+
+- Org runs the template before the target. So the template asks for the repository and stores it on the capture, the same way vulpea-para's project template stores the area.
+- The issue gets an =ID=, a =CREATED= stamp, =ORG_GTD: Actions= and empty =BRANCH=, =PR= and =THREAD= fields.
+- =%^g= offers the file's tags (=emacs=, =vulpea= and so on).
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-capture-template ()
@@ -534,7 +563,15 @@ start BRANCH from BASE."
 
 ** Starting an issue
 
-=M-x sp-org-issues-start= on an issue (or its agenda line) asks for a branch name when the issue has none, offering =issue/<title>=, adds the worktree under =WORKTREE_ROOT= when it is missing, writes =BRANCH= and =WORKTREE= into the drawer, moves a =TODO= or =NEXT= issue to =PROG=, and opens =magit-status= in the worktree. Run it again later and it goes straight to Magit.
+=M-x sp-org-issues-start= on an issue (or its agenda line):
+
+- asks for a branch name when the issue has none, offering =issue/<title>=,
+- adds the worktree under =WORKTREE_ROOT= when it is missing,
+- writes =BRANCH= and =WORKTREE= into the drawer,
+- moves a =TODO= or =NEXT= issue to =PROG=,
+- opens =magit-status= in the worktree.
+
+Run it again later and it goes straight to Magit.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-start ()
@@ -573,7 +610,10 @@ WORKTREE on the issue, and moves a TODO or NEXT issue to PROG."
 
 ** Closing an issue
 
-When an issue becomes =DONE= or =CNCL= and still has a worktree, the module offers to remove it. =git worktree remove= refuses when the worktree has uncommitted changes, and the message says so. The branch itself is kept.
+When an issue becomes =DONE= or =CNCL= and still has a worktree, the module offers to remove it.
+
+- =git worktree remove= refuses when the worktree has uncommitted changes, and the message says so.
+- The branch itself is kept.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues--offer-worktree-removal ()
@@ -700,7 +740,13 @@ whose pull request is no longer open.  The others are issue states."
 
 ** Reading GitHub's answer
 
-=gh pr list --json= answers with a list of objects. =statusCheckRollup= mixes two shapes: check runs (=status= and =conclusion=) and commit statuses (=state=). A failure anywhere makes the pull request =failure=, even while other checks still run; otherwise anything unfinished makes it =pending=, and an empty list means no checks, which is treated like green.
+Reading pull request checks:
+
+- =gh pr list --json= answers with a list of objects.
+- =statusCheckRollup= mixes two shapes: check runs (=status= and =conclusion=) and commit statuses (=state=).
+- A failure anywhere makes the pull request =failure=, even while other checks still run.
+- Otherwise anything unfinished makes it =pending=.
+- An empty list means no checks, which is treated like green.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--ci (rollup)
@@ -762,7 +808,18 @@ Tag each with the repository LABEL."
 
 ** Categories, stacks and scores of pull requests
 
-A pull request is in exactly one category, the first that fits in this order: draft, failing checks, conflict, requested changes, approved (ready when its checks are not still running), checks still running, and otherwise waiting for review. A stack is read from the branch names: a pull request is stacked on another open pull request of the same repository when its base is that one's head. =sp-org-issues-morning--stack-depth= returns the number of levels and the number of the parent, and ends on a cycle.
+Categories and stacks:
+
+- A pull request is in exactly one category, the first that fits in this order:
+  1. draft,
+  2. failing checks,
+  3. conflict,
+  4. requested changes,
+  5. approved (ready when its checks are not still running),
+  6. checks still running,
+  7. otherwise, waiting for review.
+- A stack is read from the branch names: a pull request is stacked on another open pull request of the same repository when its base is that one's head.
+- =sp-org-issues-morning--stack-depth= returns the number of levels and the number of the parent, and ends on a cycle.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--pr-category (pr)
@@ -831,7 +888,11 @@ number of the one directly below it, or nil."
 
 ** Reading the issues
 
-The issues come straight from the file with =org-map-entries=, so the file's own =#+todo:= line decides which headings are issues. Closed ones (=DONE=, =CNCL=) are left out. The repository is the second element of the outline path, which is the heading under =* Tasks=.
+Reading the issues:
+
+- They come straight from the file with =org-map-entries=, so the file's own =#+todo:= line decides which headings are issues.
+- Closed ones (=DONE=, =CNCL=) are left out.
+- The repository is the second element of the outline path, which is the heading under =* Tasks=.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--issues-in-buffer ()
@@ -894,7 +955,12 @@ The issues come straight from the file with =org-map-entries=, so the file's own
 
 ** One list
 
-=sp-org-issues-morning--items= turns pull requests and issues into one list of items (plists with =:score=, =:reason=, =:title=, =:repo=, =:number=, =:url= and =:id=), best first. An issue that links an open pull request takes that pull request over: one line, the better score, and the pull request's reason when it is the better one. FETCHED lists the repositories GitHub was reached for; only for those can an issue's missing pull request be called gone. Ties keep the order of the issues file.
+=sp-org-issues-morning--items= turns pull requests and issues into one list of items, best first.
+
+- Items are plists with =:score=, =:reason=, =:title=, =:repo=, =:number=, =:url= and =:id=.
+- An issue that links an open pull request takes that pull request over: one line, the better score, and the pull request's reason when it is the better one.
+- FETCHED lists the repositories GitHub was reached for. Only for those can an issue's missing pull request be called gone.
+- Ties keep the order of the issues file.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--items (issues prs now &optional fetched)
@@ -937,7 +1003,11 @@ FETCHED lists the repositories whose pull requests were read."
 
 ** The text of the list
 
-The list is Org text, so the links work: a pull request links to GitHub (=C-c C-o= or =RET=), an issue to its heading by =id:=. Items score at least =sp-org-issues-morning-park-below= and fill =sp-org-issues-morning-limit= places go under Today, the rest under Parked. NOTES carry anything the reader should know, such as a repository GitHub could not be reached for.
+The list is Org text, so the links work.
+
+- A pull request links to GitHub (=C-c C-o= or =RET=). An issue links to its heading by =id:=.
+- Items that score at least =sp-org-issues-morning-park-below= and fill =sp-org-issues-morning-limit= places go under Today. The rest go under Parked.
+- NOTES carry anything the reader should know, such as a repository GitHub could not be reached for.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--line (item)
@@ -981,7 +1051,11 @@ The list is Org text, so the links work: a pull request links to GitHub (=C-c C-
 
 ** Fetching the pull requests
 
-One =gh pr list= per repository, run one after the other without blocking Emacs. A repository that fails (not logged in, no access, offline) is reported by its label and the others still count. The standard error of =gh= goes to its own buffer so that a warning cannot corrupt the JSON.
+Fetching pull requests:
+
+- One =gh pr list= per repository, run one after the other without blocking Emacs.
+- A repository that fails (not logged in, no access, offline) is reported by its label, and the others still count.
+- The standard error of =gh= goes to its own buffer, so a warning cannot corrupt the JSON.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-issues-morning--fetch (repos callback)
@@ -1020,7 +1094,16 @@ and the labels of the repositories that could not be read."
 
 ** The buffer, the command and the daily greeting
 
-=sp-org-issues-morning= reads the issues at once and the pull requests in the background, and shows the buffer when they arrive. Without =gh= it shows the issues alone and says so. The greeting is a command run once per day from an idle timer after startup; it writes today's date to =sp-org-issues-morning-stamp-file= before it runs, and an error in it (say, no Issues area yet) is only a message, never a broken startup.
+=sp-org-issues-morning=:
+
+- Reads the issues at once and the pull requests in the background, and shows the buffer when they arrive.
+- Without =gh= it shows the issues alone and says so.
+
+The greeting:
+
+- It is a command run once per day from an idle timer after startup.
+- It writes today's date to =sp-org-issues-morning-stamp-file= before it runs.
+- An error in it (say, no Issues area yet) is only a message, never a broken startup.
 
 #+begin_src emacs-lisp -i
 (defvar sp-org-issues-morning-mode-map
@@ -1119,7 +1202,11 @@ from the folder of =init.el=, and from inside Emacs with =M-x ert RET ^sp-org-is
 
 ** Test file header
 
-Without a full configuration there is no vulpea, vulpea-para or sp-vulpea-para. A headless run provides those three features as empty ones so that the module loads; inside a running Emacs the real ones are left alone. The module is loaded from the path next to this file, so the tests run against the working copy and not against whatever the configuration loaded.
+Running the tests headless:
+
+- Without a full configuration there is no vulpea, vulpea-para or sp-vulpea-para.
+- A headless run provides those three features as empty ones, so that the module loads. Inside a running Emacs the real ones are left alone.
+- The module is loaded from the path next to this file, so the tests run against the working copy and not against whatever the configuration loaded.
 
 #+begin_src emacs-lisp -i
 ;;; sp-org-issues-test.el --- Tests for sp-org-issues  -*- lexical-binding: t; -*-

@@ -2,13 +2,21 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-choose-modeline.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-choose-modeline.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-choose-modeline.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module lets the config switch between two modeline packages, =doom-modeline= and Lambda Emacs's =lambda-line=, through a single customizable variable. The choice is made once at load time with a =cond=, and only the selected package is installed and activated.
 
-The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=; a separate =sp-lambda-line= module is loaded instead, so this file appears to be kept for reference or for switching back to Doom's modeline. The default is =doom-modeline=, as the commentary says (the code used to default to =lambda-line= while a =custom-set-variables= block in =init.el= chose =doom-modeline=; that value now lives here).
+Status:
+
+- The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=.
+- A separate =sp-lambda-line= module is loaded instead. So this file appears to be kept for reference, or for switching back to Doom's modeline.
+- The default is =doom-modeline=, as the commentary says. The code used to default to =lambda-line= while a =custom-set-variables= block in =init.el= chose =doom-modeline=; that value now lives here.
 
 The commentary at the top of the module says:
 
@@ -46,7 +54,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** The sia/modeline option
 
-=sia/modeline= is a customizable choice between the symbols =doom-modeline= and =lambda-line=, in the =siapip= group. It defaults to =doom-modeline=. Because it is read once when the module loads, changing it requires restarting Emacs or reloading the module.
+=sia/modeline= is a customizable choice between the symbols =doom-modeline= and =lambda-line=, in the =siapip= group.
+
+- It defaults to =doom-modeline=.
+- It is read once when the module loads, so changing it requires restarting Emacs or reloading the module.
 
 #+begin_src emacs-lisp -i
 (defcustom sia/modeline 'doom-modeline
@@ -62,9 +73,25 @@ Options are 'doom-modeline or 'lambda-line."
 
 ** doom-modeline or lambda-line
 
-For =doom-modeline=, the settings hide the buffer encoding and the minor-mode list, show coloured major-mode, buffer-state and modification icons, set the height to 25 and bar width to 8, enable imenu support, project detection, the LSP icon and word counts, and then turn on =doom-modeline-mode=. =doom-modeline-percent-position= is set twice, first to =t= and then to =nil=, so the second value wins.
+For =doom-modeline=, the settings:
 
-For =lambda-line=, the package is installed from Codeberg and configured with a clock icon (which needs the ClockFace font), placement at the bottom, abbreviated mode names, custom read-only, modified and read-write symbols, vertical padding and Nerd Font icons. After =lambda-line-mode= is activated, if the line is placed at the top the ordinary mode line is reduced to a thin divider. With the current =bottom= setting that branch does not run.
+- hide the buffer encoding and the minor-mode list,
+- show coloured major-mode, buffer-state and modification icons,
+- set the height to 25 and bar width to 8,
+- enable imenu support, project detection, the LSP icon and word counts,
+- then turn on =doom-modeline-mode=.
+
+=doom-modeline-percent-position= is set twice, first to =t= and then to =nil=, so the second value wins.
+
+For =lambda-line=, the package is installed from Codeberg and configured with:
+
+- a clock icon (which needs the ClockFace font),
+- placement at the bottom,
+- abbreviated mode names,
+- custom read-only, modified and read-write symbols,
+- vertical padding and Nerd Font icons.
+
+After =lambda-line-mode= is activated, if the line is placed at the top, the ordinary mode line is reduced to a thin divider. With the current =bottom= setting that branch does not run.
 
 #+begin_src emacs-lisp -i
 (cond

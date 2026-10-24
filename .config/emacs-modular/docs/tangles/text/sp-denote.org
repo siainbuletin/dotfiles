@@ -2,11 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-denote.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-denote.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-denote.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configuration for Protesilaos Stavrou's =denote= package, which names note files with a timestamp, title and keywords. It sets Org as the file type, adds keybindings under =M-n= and =C-c w d=, enables Denote's Dired and buffer-renaming integrations, keeps notes in =~/notes/=. It used to add notes tagged =project= to =org-agenda-files= on save; that is removed (see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]]).
+Configuration for Protesilaos Stavrou's =denote= package, which names note files with a timestamp, title and keywords. It:
+
+- sets Org as the file type,
+- adds keybindings under =M-n= and =C-c w d=,
+- enables Denote's Dired and buffer-renaming integrations,
+- keeps notes in =~/notes/=.
+
+It used to add notes tagged =project= to =org-agenda-files= on save. That is removed (see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]]).
 
 The commentary says this module will be phased out in favour of the ID-based Vulpea workflow, since the long Denote file names are hard to read and are not used for anything. It is still loaded in both module lists in =init.el=, directly after =sp-org-base=.
 
@@ -124,7 +135,11 @@ Binds =C-c z= to =list-denotes=. That command comes from the separate =denote-me
 
 * Denote and the agenda
 
-Denote no longer touches the agenda. The hooks that added a saved note whose name matches =_project= to =org-agenda-files= (=my-denote-add-to-agenda=, =my-denote-remove-from-agenda= and =my-denote-to-agenda-regexp=) are removed, because =vulpea-para= owns the agenda files and the hooks only changed a list that it rewrites before every agenda. Denote itself is to be phased out; see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]].
+Denote no longer touches the agenda.
+
+- Removed hooks: they added a saved note whose name matches =_project= to =org-agenda-files= (=my-denote-add-to-agenda=, =my-denote-remove-from-agenda= and =my-denote-to-agenda-regexp=).
+- Why: =vulpea-para= owns the agenda files, and the hooks only changed a list that it rewrites before every agenda.
+- Denote itself is to be phased out; see [[file:../../../../../adr/0010-phase-out-denote.org][ADR 0010]].
 
 ** Provide
 

@@ -2,11 +2,25 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-magit-style.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-magit-style.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-magit-style.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 Org always ends a tangled file with a newline, which the module file has too.
 
-This module only changes how Magit looks. Section headings (=magit-section-heading=, the "Unstaged changes" lines) become larger, bold and overlined; per-file headings in diffs (=magit-diff-file-heading=) become slightly larger; folded and expanded sections get chevron indicators; and files and directories get a =nerd-icons= icon in front of their name. It depends on =magit= and, for icons, on =nerd-icons= (set up in [[file:../ui/sp-icons.org][sp-icons]]); without =nerd-icons= only the heading styling applies. It is loaded right after =sp-vcontrol= in the Programming group of =init.el=.
+This module only changes how Magit looks.
+
+- Section headings (=magit-section-heading=, the "Unstaged changes" lines) become larger, bold and overlined.
+- Per-file headings in diffs (=magit-diff-file-heading=) become slightly larger.
+- Folded and expanded sections get chevron indicators.
+- Files and directories get a =nerd-icons= icon in front of their name.
+
+Dependencies and loading:
+
+- Depends on =magit=, and for icons on =nerd-icons= (set up in [[file:../ui/sp-icons.org][sp-icons]]). Without =nerd-icons= only the heading styling applies.
+- Loaded right after =sp-vcontrol= in the Programming group of =init.el=.
 
 Status: written without being run. Nothing here has been tested in Emacs yet.
 
@@ -60,7 +74,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Icons
 
-=magit-format-file-function= is called by Magit for every file it lists, with a KIND (=status=, =diff= or =tree=), the file name, a face, and for renames the old name. The function calls Magit's own default formatter and puts an icon in front. A name ending in =/= (an untracked directory) gets a directory icon from =nerd-icons-icon-for-dir=, anything else an icon by file name. Errors from =nerd-icons= are swallowed so a missing font never breaks the status buffer.
+=magit-format-file-function= is called by Magit for every file it lists.
+
+- Arguments: a KIND (=status=, =diff= or =tree=), the file name, a face, and for renames the old name.
+- The function calls Magit's own default formatter and puts an icon in front.
+- A name ending in =/= (an untracked directory) gets a directory icon from =nerd-icons-icon-for-dir=. Anything else gets an icon by file name.
+- Errors from =nerd-icons= are swallowed, so a missing font never breaks the status buffer.
 
 #+begin_src emacs-lisp -i
 (defun sp-magit-style--icon (kind file)

@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-archive.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-archive.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-archive.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -93,7 +97,11 @@ A description of the =palimpsest= minor mode: it sends selected text to the bott
 
 ** Palimpsest setup
 
-=palimpsest-mode= is turned on in Markdown and Org buffers with its lighter hidden. =C-c C-z= sends the selection to the bottom and =C-c C-a= to the top, and the trash file uses the =.archive= suffix. In Org those keys normally run =org-add-note= and =org-attach=, so the minor mode bindings would shadow them.
+=palimpsest-mode= is turned on in Markdown and Org buffers, with its lighter hidden.
+
+- =C-c C-z= sends the selection to the bottom and =C-c C-a= to the top.
+- The trash file uses the =.archive= suffix.
+- In Org those keys normally run =org-add-note= and =org-attach=, so the minor mode bindings would shadow them.
 
 #+begin_src emacs-lisp -i
 (use-package palimpsest

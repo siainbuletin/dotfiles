@@ -2,13 +2,24 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-fn.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-fn.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-fn.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-An experiment in placing Org footnote definitions inside the subtree they belong to rather than in one section at the end of the file. The motivation is that commands like =vulpea-split-heading= move a heading into a new file but leave its footnotes behind. The plan was to keep file-end footnotes only for small files and otherwise attach a footnote section to the nearest heading no deeper than a configurable level.
+An experiment in placing Org footnote definitions inside the subtree they belong to, rather than in one section at the end of the file.
 
-The module's own commentary says the current logic does not work and actually blocks creating new footnotes, because it advises =org-footnote-new=. It is commented out in =init.el=. The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable, which would have signalled a void-function error when the file loaded; it is now a =setq=.
+- Motivation: commands like =vulpea-split-heading= move a heading into a new file but leave its footnotes behind.
+- The plan: keep file-end footnotes only for small files. Otherwise attach a footnote section to the nearest heading no deeper than a configurable level.
+
+Status:
+
+- The module's own commentary says the current logic does not work. It actually blocks creating new footnotes, because it advises =org-footnote-new=.
+- It is commented out in =init.el=.
+- The renumbering line used to be written as a function call, =(org-footnote-auto-adjust t)=, on a variable. That would have signalled a void-function error when the file loaded. It is now a =setq=.
 
 The commentary at the top of the module says:
 
@@ -118,7 +129,11 @@ Turns on =org-footnote-auto-adjust= with a =setq=, which renumbers and sorts foo
 
 ** The around advice
 
-=sp-org-fn-scoped= wraps the original footnote command. In a small file, or when point is before the first heading, it binds =org-footnote-section= to "Footnotes" and calls the original, giving normal file-end behaviour. Otherwise it walks up from the current heading until it reaches =sp-fn-max-lvl=, narrows to that subtree, and calls the original there, hoping Org will place the definition inside the narrowed region.
+=sp-org-fn-scoped= wraps the original footnote command.
+
+- In a small file, or when point is before the first heading, it binds =org-footnote-section= to "Footnotes" and calls the original. This gives normal file-end behaviour.
+- Otherwise it walks up from the current heading until it reaches =sp-fn-max-lvl=, narrows to that subtree, and calls the original there.
+- The hope is that Org will place the definition inside the narrowed region.
 
 Because point is moved inside =save-excursion=, the footnote reference is not inserted where the cursor was, which is likely part of why the author reports that it blocks footnote creation.
 

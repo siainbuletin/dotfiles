@@ -2,11 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-link-conversion.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/funct/sp-org-link-conversion.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/funct/sp-org-link-conversion.el=.
 
-This module provides two interactive commands for linking Org notes by ID. =sp-org-create-note-and-link= writes a new note file into =org-directory= and inserts an =id:= link to it at point, without opening the file. =sp-org-convert-wikilinks= turns Obsidian-style =[[wikilinks]]= in an Org buffer into =id:= links, matching them against notes in the vulpea database and asking about anything it cannot match on its own.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=, and relies on the vulpea database being populated (see =sp-vulpea-base=). It is loaded from the Functions section of =init.el=. Neither command is bound to a key in this module, so they are run with =M-x=.
+This module provides two interactive commands for linking Org notes by ID.
+
+- =sp-org-create-note-and-link= writes a new note file into =org-directory= and inserts an =id:= link to it at point, without opening the file.
+- =sp-org-convert-wikilinks= turns Obsidian-style =[[wikilinks]]= in an Org buffer into =id:= links. It matches them against notes in the vulpea database and asks about anything it cannot match on its own.
+
+Dependencies and use:
+
+- Requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=.
+- Relies on the vulpea database being populated (see =sp-vulpea-base=).
+- Loaded from the Functions section of =init.el=.
+- Neither command is bound to a key in this module, so run them with =M-x=.
 
 The commentary at the top of the module says:
 
@@ -73,7 +85,13 @@ A banner comment for the helpers used by both commands.
 
 ** Write a note file
 
-=sp-org--write-note= creates a new file in =org-directory= named with a timestamp and the slugified title, for example =20261018T101500-my-note.org=. If that name is taken (several notes created in the same second) it appends =-2=, =-3= and so on. The file contains a property drawer with a fresh =ID= and a =#+title:= line, and is written in UTF-8 without visiting it. The ID is then registered and =org-id-locations= is saved, so the new link resolves immediately. It returns the ID.
+=sp-org--write-note= creates a new file in =org-directory=.
+
+- Named with a timestamp and the slugified title, for example =20261018T101500-my-note.org=.
+- If that name is taken (several notes created in the same second), it appends =-2=, =-3= and so on.
+- The file contains a property drawer with a fresh =ID= and a =#+title:= line, and is written in UTF-8 without visiting it.
+- The ID is then registered and =org-id-locations= is saved, so the new link resolves immediately.
+- Returns the ID.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--write-note (title)
@@ -129,7 +147,13 @@ A banner comment for the single-note command.
 
 ** sp-org-create-note-and-link
 
-The interactive command. It takes the active region as the title, or prompts for one, and refuses to run outside Org buffers. Newlines in the title become spaces and an empty title is rejected. If a note with the same title already exists it hands over to the conflict handler; otherwise it writes the new note and inserts the link, replacing the region when there was one.
+The interactive command:
+
+- Takes the active region as the title, or prompts for one.
+- Refuses to run outside Org buffers.
+- Newlines in the title become spaces. An empty title is rejected.
+- If a note with the same title already exists, it hands over to the conflict handler.
+- Otherwise it writes the new note and inserts the link, replacing the region when there was one.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-create-note-and-link (title)
@@ -273,7 +297,14 @@ Two faces for the interactive pass: =sp-org-wikilink-pending= (inheriting =highl
 
 ** Parse a wikilink
 
-=sp-org--wikilink-parts= splits the text inside the brackets into a target and a description. It handles the Obsidian forms =Target|Alias= (also with an escaped pipe), =Target#Heading= and =Target^block=, linking the latter two to the note itself. It returns nil for things that are not note links: typed Org links, paths starting with =./=, =../=, =/= or =~/=, and same-file references starting with =*= or =(=. A bare =#Heading= also yields an empty base and is ignored.
+=sp-org--wikilink-parts= splits the text inside the brackets into a target and a description.
+
+- Handles the Obsidian forms =Target|Alias= (also with an escaped pipe), =Target#Heading= and =Target^block=. The latter two link to the note itself.
+- Returns nil for things that are not note links:
+  - typed Org links,
+  - paths starting with =./=, =../=, =/= or =~/=,
+  - same-file references starting with =*= or =(=.
+- A bare =#Heading= also yields an empty base and is ignored.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--wikilink-parts (raw)
@@ -295,7 +326,11 @@ same-file references such as `#Heading'."
 
 ** Collect wikilinks
 
-=sp-org--collect-wikilinks= scans a range for =[[...]]= and returns, in buffer order, a plist per link with start and end markers, the target and the description. Image embeds (=![[...]]=) and links inside src, example, export and comment blocks are skipped. The start marker advances on insertion so that two adjacent links survive the replacement of the first one.
+=sp-org--collect-wikilinks= scans a range for =[[...]]=.
+
+- Returns, in buffer order, a plist per link with start and end markers, the target and the description.
+- Skips image embeds (=![[...]]=) and links inside src, example, export and comment blocks.
+- The start marker advances on insertion, so two adjacent links survive the replacement of the first one.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--collect-wikilinks (beg end)
@@ -375,7 +410,13 @@ example, export and comment blocks are ignored."
 
 ** Offer to create a missing note
 
-=sp-org--offer-create= asks whether to create a note, skip the link, or quit. Creating lets the user edit the title first. If the edited title matches exactly one existing note, that note is used; if it matches several, the link is skipped to avoid adding yet another duplicate; otherwise a new note is written and counted. Quitting throws to =sp-org-wikilinks-quit=, which keeps everything converted so far.
+=sp-org--offer-create= asks whether to create a note, skip the link, or quit.
+
+- Creating lets the user edit the title first.
+- If the edited title matches exactly one existing note, that note is used.
+- If it matches several, the link is skipped to avoid adding yet another duplicate.
+- Otherwise a new note is written and counted.
+- Quitting throws to =sp-org-wikilinks-quit=, which keeps everything converted so far.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--offer-create (title index resolved)
@@ -401,7 +442,11 @@ example, export and comment blocks are ignored."
 
 ** Resolve one link interactively
 
-=sp-org--resolve-interactively= opens =vulpea-select= pre-filled with the target, without requiring a match. Choosing an existing note returns its ID. Typing a title that does not exist falls through to =sp-org--offer-create=, and an empty answer skips the link.
+=sp-org--resolve-interactively= opens =vulpea-select= pre-filled with the target, without requiring a match.
+
+- Choosing an existing note returns its ID.
+- Typing a title that does not exist falls through to =sp-org--offer-create=.
+- An empty answer skips the link.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--resolve-interactively (entry index resolved)
@@ -426,7 +471,11 @@ The main command, working on the region or the whole accessible buffer of an Org
 - Step 2 highlights the remaining ones and visits them in order with a vulpea prompt.
 - Step 3 offers to create, skip or quit for links without a chosen note.
 
-Answers are remembered per target in the =resolved= table, so a target that appears several times is only asked about once; a skipped target stays skipped for the rest of the run. Overlays are always removed at the end, even after quitting or an error, and a final message reports how many links were converted automatically, resolved by hand, newly created and left alone.
+Bookkeeping:
+
+- Answers are remembered per target in the =resolved= table. A target that appears several times is only asked about once; a skipped target stays skipped for the rest of the run.
+- Overlays are always removed at the end, even after quitting or an error.
+- A final message reports how many links were converted automatically, resolved by hand, newly created and left alone.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-convert-wikilinks ()

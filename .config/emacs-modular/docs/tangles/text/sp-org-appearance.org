@@ -2,11 +2,34 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-appearance.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-appearance.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-appearance.el=.
 
-This module sets the visual presentation of Org buffers: folding and ellipsis, startup visibility, inline images, entity and emphasis display, tag placement, and source block fontification. It also brings in =org-modern= for styled headings and agenda, =org-autolist= and =org-bulletproof= for list behaviour, a strike-through face for finished checkboxes, and =spacious-padding= for roomier frames.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-Fonts are deliberately not set here; the commentary points to =sp-fonts= for that. The settings are plain =setq= forms that take effect when Org loads, and the packages are installed through the config's package manager (the =:ensure= forms with =:wait= are Elpaca style). The module is loaded in the Org block of both module lists in =init.el=, after =sp-org-base= and =sp-denote=.
+This module sets the visual presentation of Org buffers:
+
+- folding and ellipsis,
+- startup visibility,
+- inline images,
+- entity and emphasis display,
+- tag placement,
+- source block fontification.
+
+It also brings in:
+
+- =org-modern= for styled headings and agenda,
+- =org-autolist= and =org-bulletproof= for list behaviour,
+- a strike-through face for finished checkboxes,
+- =spacious-padding= for roomier frames.
+
+Fonts and loading:
+
+- Fonts are deliberately not set here. The commentary points to =sp-fonts= for that.
+- The settings are plain =setq= forms that take effect when Org loads.
+- Packages are installed through the config's package manager (the =:ensure= forms with =:wait= are Elpaca style).
+- The module is loaded in the Org block of both module lists in =init.el=, after =sp-org-base= and =sp-denote=.
 
 The commentary at the top of the module says:
 
@@ -114,7 +137,12 @@ Fontifies source blocks with their language's major mode. The quote and verse se
 
 ** org-appear
 
-Enables =org-appear= in Org buffers. It reveals emphasis markers and sub and superscript markup while point is on them (=org-appear-autoemphasis= and =org-appear-autosubmarkers= are on, =org-appear-autolinks= is off). It had been commented out because it was suspected of causing problems with invisible text, and it is now back on. =org-hide-emphasis-markers= is not set, so emphasis markers are always visible and there is nothing for it to reveal there; it matters for sub and superscripts only, since =org-appear-autolinks= is off.
+Enables =org-appear= in Org buffers.
+
+- It reveals emphasis markers and sub and superscript markup while point is on them. =org-appear-autoemphasis= and =org-appear-autosubmarkers= are on; =org-appear-autolinks= is off.
+- It had been commented out because it was suspected of causing problems with invisible text. It is now back on.
+- =org-hide-emphasis-markers= is not set, so emphasis markers are always visible and there is nothing for it to reveal there.
+- It matters for sub and superscripts only, since =org-appear-autolinks= is off.
 
 #+begin_src emacs-lisp -i
 ;; show markup at point -- this should be part of org!
@@ -134,7 +162,12 @@ Enables =org-appear= in Org buffers. It reveals emphasis markers and sub and sup
 
 ** Org-modern setup
 
-Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda is built. Its TODO keyword and tag styling are turned off, labels get a one pixel border, and heading stars are replaced with a sequence of circled and starred symbols, one per level. Hiding leading stars through org-modern is commented out because of the same invisible text issues.
+Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda is built.
+
+- Its TODO keyword and tag styling are turned off.
+- Labels get a one pixel border.
+- Heading stars are replaced with a sequence of circled and starred symbols, one per level.
+- Hiding leading stars through org-modern is commented out because of the same invisible text issues.
 
 #+begin_src emacs-lisp -i
 ;;;;; Org-modern

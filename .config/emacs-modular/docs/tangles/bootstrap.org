@@ -300,7 +300,11 @@ Also has [[denote:20251120T222251][Emacs Lexical Binding]] enabled.
 
 * Bootstrapping the package manager in =init.el=
 
-See [[file:~/.config/emacs-include/retired/package-management.org][Past package management configurations]] for why we're using =elpaca= and have adopted other frameworks. In short, =elpaca= allows asynchronous downloading for packages and uses a better dependency management system for making sure that packages work well with one another. Also, =elpaca= has a logging system when installing the packages, which makes debugging easier. This is absent in =straight-el=.
+See [[file:~/.config/emacs-include/retired/package-management.org][Past package management configurations]] for why we're using =elpaca= and have adopted other frameworks. In short:
+
+- =elpaca= allows asynchronous downloading for packages.
+- It uses a better dependency management system, making sure packages work well with one another.
+- It has a logging system when installing the packages, which makes debugging easier. This is absent in =straight-el=.
 
 The one thing that's missing from =elpaca= is that it doesn't have lockfiles.
 
@@ -415,7 +419,11 @@ To load personal modules (which are configurations of existing packages), as wel
 
   These modules contain ordinary Emacs Lisp code. At the end of the file there's a call to =provide=, which makes sure that the configurations made are made available to the =init.el= file through =require=.
 
-  A _feature_, in Emacs lingo, is a *variable* whose value is the *entirety* of the file that has the =provide= call within it. Features are *symbols* which are named after the file name (dropping the file extension). For example, if we have a module file called =sia-dark-theme.el=, then the feature it _provides_ for Emacs will be called =sia-dark-theme= and it can be called via =require= within the =init.el= file.
+A _feature_, in Emacs lingo, is a *variable* whose value is the *entirety* of the file that has the =provide= call within it.
+
+- Features are *symbols* named after the file name (dropping the file extension).
+- Example: a module file called =sia-dark-theme.el= provides the feature =sia-dark-theme=.
+- It can then be called via =require= within the =init.el= file.
 
 - =sia-lisp= directory :: This where something more traditionally understood as "packages" may reside.
 
@@ -443,7 +451,11 @@ For some functions, it's a better idea to rely on external commandline software.
 
 ** TODO Adding a function that checks whether software is missing
 
-The =sia-missing-executables= function checks if external software is available on your system. Emacs writes a message in the minibuffer if any of the recommended tools are missing. You can jump to the =Messages= buffer with =C-h e= to review the output. Emacs will function normally when this software is unavailable, but some features might not work.
+The =sia-missing-executables= function checks if external software is available on your system.
+
+- Emacs writes a message in the minibuffer if any of the recommended tools are missing.
+- Jump to the =Messages= buffer with =C-h e= to review the output.
+- Emacs functions normally when this software is unavailable, but some features might not work.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (sia-missing-executables

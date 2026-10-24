@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/lem-dashboard.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/lem-dashboard.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/lem-dashboard.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -10,7 +14,11 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module configures the =dashboard= package, giving a start page with recent files, bookmarks, agenda items and registers. It is a lightly modified version of the Lambda Emacs dashboard (hence the =lem-= prefix), rewritten for readability.
 
-It depends on =nerd-icons= for icons, optionally =page-break-lines=, and the =sp-library-dir= variable for the banner images. Nothing in this module calls =dashboard-setup-startup-hook=, so the dashboard is opened on demand with =dashboard-open=, =lem-dashboard= or =sp-goto-dashboard= rather than shown automatically at startup. =init.el= lists this module twice in its load list, which is harmless since =require= only loads it once.
+Dependencies and use:
+
+- Depends on =nerd-icons= for icons, optionally =page-break-lines=, and the =sp-library-dir= variable for the banner images.
+- Nothing in this module calls =dashboard-setup-startup-hook=. So the dashboard is opened on demand with =dashboard-open=, =lem-dashboard= or =sp-goto-dashboard=, not shown automatically at startup.
+- =init.el= lists this module twice in its load list, which is harmless since =require= only loads it once.
 
 The commentary at the top of the module says:
 
@@ -95,7 +103,12 @@ A maintenance note: two separate =:if= keys used to exist, and use-package silen
 
 ** The dashboard package
 
-Installs =dashboard= and autoloads =dashboard-open=. It shows init information (load time and package count), centres content horizontally, and uses =project.el= for the projects list. The hook that would hide the mode line is commented out.
+Installs =dashboard= and autoloads =dashboard-open=.
+
+- Shows init information (load time and package count).
+- Centres content horizontally.
+- Uses =project.el= for the projects list.
+- The hook that would hide the mode line is commented out.
 
 #+begin_src emacs-lisp -i
 (use-package dashboard
@@ -138,7 +151,10 @@ Centres the dashboard content vertically in the window as well.
 
 ** Theme-dependent logo
 
-Picks the white or black Lambda logo from =sp-library-dir= depending on whether the first enabled theme is =lambda-dark=. The theme is checked once, when the module loads, so switching themes later does not change the logo. This value is overwritten in the next block anyway.
+Picks the white or black Lambda logo from =sp-library-dir=, depending on whether the first enabled theme is =lambda-dark=.
+
+- The theme is checked once, when the module loads, so switching themes later does not change the logo.
+- This value is overwritten in the next block anyway.
 
 #+begin_src emacs-lisp -i
 ;;;;; Header
@@ -226,7 +242,10 @@ In the dashboard buffer, r jumps to recents, b to bookmarks, a to the agenda and
 
 ** Hiding the mode line
 
-=lem-dashboard-hide-modeline= turns off =hl-line-mode= and removes the mode line and header line in the =*dashboard*= buffer. The comments weigh the cleaner look against losing mode line information. It is currently not hooked up anywhere, since the hook in the =use-package= form is commented out.
+=lem-dashboard-hide-modeline= turns off =hl-line-mode= and removes the mode line and header line in the =*dashboard*= buffer.
+
+- The comments weigh the cleaner look against losing mode line information.
+- It is currently not hooked up anywhere, since the hook in the =use-package= form is commented out.
 
 #+begin_src emacs-lisp -i
 ;;;;; Dashboard Functions

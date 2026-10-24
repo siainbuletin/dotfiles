@@ -2,9 +2,16 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-templating.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-templating.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-templating.el=.
 
-A very small placeholder module for templating. Currently it only loads =org-tempo=, the part of Org that expands short keys like =<s= followed by TAB into a source block skeleton (and similarly for quote, example and other blocks). The TODO notes that more template expansion, in Org and possibly in programming modes, would be useful later.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+A very small placeholder module for templating.
+
+- Currently it only loads =org-tempo=, the part of Org that expands short keys like =<s= followed by TAB into a source block skeleton (and similarly for quote, example and other blocks).
+- The TODO notes that more template expansion, in Org and possibly in programming modes, would be useful later.
 
 It is loaded in both the default and minimal module lists. Since =org-tempo= ships with Org, requiring it also loads Org itself at startup if it is not loaded yet.
 

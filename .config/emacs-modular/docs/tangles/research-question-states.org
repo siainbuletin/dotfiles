@@ -14,14 +14,22 @@ A question is never "contested". It has answers, and some of those answers are. 
 
 * Setting it up
 
-Put these two lines at the top of the file that holds the questions. The states of both lines are also in the global =org-todo-keywords=, through =sp-org-keywords= (=sp-org-keywords-research=, which merges them with the =sp-trails= keywords so no word appears twice), so the lines work in a file without them too; keeping them file-local makes the file self-contained.
+Put these two lines at the top of the file that holds the questions.
+
+- The states of both lines are also in the global =org-todo-keywords=, through =sp-org-keywords= (=sp-org-keywords-research=, which merges them with the =sp-trails= keywords so no word appears twice).
+- So the lines work in a file without them too.
+- Keeping them file-local makes the file self-contained.
 
 #+begin_example
 #+todo: QUESTION(q) SCOPING(s) READING(r) SYNTHESIZING(y) | STABLE(t) DROPPED(x)
 #+todo: UNREAD(u) | READ(R) SKIPPED(k)
 #+end_example
 
-The first line is the question. The second is the reading tasks under it. A question is a heading with =:DG_TYPE: question= and an =:ID:=, so discourse-graphs sees it. discourse-graphs leaves the TODO keyword out of the node's title, so changing state does not rename the node.
+The two lines:
+
+- The first line is the question. The second is the reading tasks under it.
+- A question is a heading with =:DG_TYPE: question= and an =:ID:=, so discourse-graphs sees it.
+- discourse-graphs leaves the TODO keyword out of the node's title, so changing state does not rename the node.
 
 A question carries three pieces of information that its state is judged against. They are the contract that the iterative workflow rests on, and they live in the zeroth section of the note (=- key :: value= lines):
 
@@ -115,7 +123,10 @@ A position is a claim. Its status is computed by =dg-positions-rules=, which cou
 | =challenged=   | Opposition equals or outweighs the support    | Read more on the supporting side, or revise the claim. A new claim that supersedes it is the usual fix. |
 | =unsupported=  | Nothing supports it and nothing opposes it    | It is a hypothesis. Find evidence, or drop the claim.       |
 
-Two details differ from discourse-graphs. It tests "no support" first, so a claim with only objections reads =unsupported=; here the same claim reads =challenged=, which tells me more. And the numbers behind the statuses can be changed by adding relations to the rules (see the next section): a =contests= or =adopts= relation between claims counts toward the target's opposition or support.
+Two details differ from discourse-graphs:
+
+- It tests "no support" first, so a claim with only objections reads =unsupported=. Here the same claim reads =challenged=, which tells me more.
+- The numbers behind the statuses can be changed by adding relations to the rules (see the next section): a =contests= or =adopts= relation between claims counts toward the target's opposition or support.
 
 A claim that a newer claim =supersedes= is retired. It is not counted and does not appear in the views, unless =dg-positions-show-retired= is on.
 
@@ -139,13 +150,28 @@ Evidence has no status, only one gap: =no-source=, meaning it =informs= no sourc
 
 * One question, start to finish
 
-I ask /does reading precede theory?/ It starts as =QUESTION=. I name the query and the hub, so it becomes =SCOPING=. The first run returns nine notes I have already read, and three I have not, so it becomes =READING= with three =UNREAD= tasks. I read them and the tasks become =READ=. Now the question is =SYNTHESIZING=. I write a claim /reading shapes theory/, it =answers= the question, and the evidence under it makes it =supported=. The question becomes =STABLE=.
+Worked example: I ask /does reading precede theory?/
 
-A month later the query returns a fourth unread note, which contests my claim. The question goes back to =READING=. Once I record it as a =contests= relation, my claim is =contested=. I write a second claim that =supersedes= the first, to say that reading shapes theory only in some fields. The first claim is retired, the second is =supported=, and the question is =STABLE= again.
+- It starts as =QUESTION=.
+- I name the query and the hub, so it becomes =SCOPING=.
+- The first run returns nine notes I have already read and three I have not. It becomes =READING= with three =UNREAD= tasks.
+- I read them and the tasks become =READ=. Now the question is =SYNTHESIZING=.
+- I write a claim /reading shapes theory/. It =answers= the question, and the evidence under it makes it =supported=.
+- The question becomes =STABLE=.
+
+A month later:
+
+- The query returns a fourth unread note, which contests my claim. The question goes back to =READING=.
+- Once I record it as a =contests= relation, my claim is =contested=.
+- I write a second claim that =supersedes= the first, to say that reading shapes theory only in some fields.
+- The first claim is retired, the second is =supported=, and the question is =STABLE= again.
 
 * Adding my own
 
-Both the states of a position and the relations between positions are one line each in =dg-positions-rules=. See [[file:custom/sp-dg-positions.org::*The rules][The rules]] for the format. For example, a stricter "settled" status for claims that three pieces of evidence support and nothing opposes, tried before the others:
+Both the states of a position and the relations between positions are one line each in =dg-positions-rules=.
+
+- See [[file:custom/sp-dg-positions.org::*The rules][The rules]] for the format.
+- Example: a stricter "settled" status for claims that three pieces of evidence support and nothing opposes, tried before the others:
 
 #+begin_src emacs-lisp :tangle no
 (setq dg-positions-rules

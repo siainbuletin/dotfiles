@@ -2,11 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-paths.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-paths.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-paths.el=.
 
-This module names, once, every place outside the Emacs directory that the other modules read or write: the notes, the bibliography, the literature folder, the source checkouts and the yadm repository. Before it existed, about thirty modules spelled out =~/notes= and similar paths themselves, which made the configuration depend on one machine's layout. A module now says =sp-notes-dir= or =(sp-path sp-notes-dir "inbox/")= instead, so moving to another layout (or to Linux or Windows) is a matter of changing the defaults here.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-Each location can be overridden from the environment before Emacs starts, for example =SP_NOTES_DIR=/tmp/notes emacs=. That is how a test run (a sandbox for a pull request, say) is kept away from the real notes. The defaults are built with =expand-file-name= from =~=, so they follow the home folder of whichever system Emacs runs on.
+This module names, once, every place outside the Emacs directory that the other modules read or write.
+
+- Covers: the notes, the bibliography, the literature folder, the source checkouts and the yadm repository.
+- Before it existed, about thirty modules spelled out =~/notes= and similar paths themselves, which made the configuration depend on one machine's layout.
+- A module now says =sp-notes-dir= or =(sp-path sp-notes-dir "inbox/")= instead.
+- So moving to another layout (or to Linux or Windows) is a matter of changing the defaults here.
+
+Each location can be overridden from the environment before Emacs starts, for example =SP_NOTES_DIR=/tmp/notes emacs=.
+
+- That is how a test run (a sandbox for a pull request, say) is kept away from the real notes.
+- The defaults are built with =expand-file-name= from =~=, so they follow the home folder of whichever system Emacs runs on.
 
 It is the first module in both module lists in =init.el= and in the profiles of =sp-config-profiles.el=, because the modules that use these variables read them while they load. It depends on nothing.
 

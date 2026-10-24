@@ -2,13 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-mini-frame.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-mini-frame.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-mini-frame.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module uses the =mini-frame= package to show the minibuffer in a child frame near the centre of the screen, like a quick switcher. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
 
-The dimming is implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library. It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup. The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions. The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
+Dimming:
+
+- Implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library.
+- It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup.
+- The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions.
+- The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
 
 The commentary at the top of the module says:
 
@@ -23,7 +32,12 @@ I'm writing in the current buffer without interrupting the focus on screen
 
 ** File header and commentary
 
-Lexical binding, a one-line description and the commentary. It describes the goal: a dimmed, centred minibuffer when looking for a file, while prompts such as link insertion should stay near the bottom so they follow the text being written. That second part is not implemented in this file.
+The file has lexical binding, a one-line description and the commentary. The commentary describes the goal:
+
+- a dimmed, centred minibuffer when looking for a file,
+- prompts such as link insertion staying near the bottom, so they follow the text being written.
+
+The second part is not implemented in this file.
 
 #+begin_src emacs-lisp -i
 ;;; sp-mini-frame.el --- Centered minibuffer frame with background dimming -*- lexical-binding: t; -*-
@@ -52,7 +66,13 @@ Loads the built-in =color= library, which the comment asks about. It provides th
 
 ** mini-frame-mode
 
-Installs =mini-frame= and turns on =mini-frame-mode=. The frame is centred horizontally, placed at 40 percent of the parent frame's height so the candidate list has room to grow downward, and takes 60 percent of the width so vertical completion does not fill the screen. It has thin 2-pixel borders. Leaving =mini-frame-resize= as =not-set= lets Emacs handle resizing the frame.
+Installs =mini-frame= and turns on =mini-frame-mode=.
+
+- The frame is centred horizontally.
+- It is placed at 40 percent of the parent frame's height, so the candidate list has room to grow downward.
+- It takes 60 percent of the width, so vertical completion does not fill the screen.
+- It has thin 2-pixel borders.
+- Leaving =mini-frame-resize= as =not-set= lets Emacs handle resizing the frame.
 
 #+begin_src emacs-lisp -i
 (use-package mini-frame
@@ -128,7 +148,11 @@ A comment introducing the dimming code.
 
 ** Dim a frame
 
-=sp-mini-frame-dim= goes through each distinct buffer shown in the frame's windows. For every defined face that has a foreground colour, it adds a buffer-local remap to the blended colour, storing the cookie. A buffer that is already dimmed is left alone. Looping over the whole =face-list= for each buffer makes this somewhat heavy when many faces are defined.
+=sp-mini-frame-dim= goes through each distinct buffer shown in the frame's windows.
+
+- For every defined face that has a foreground colour, it adds a buffer-local remap to the blended colour, storing the cookie.
+- A buffer that is already dimmed is left alone.
+- Looping over the whole =face-list= for each buffer makes this somewhat heavy when many faces are defined.
 
 #+begin_src emacs-lisp -i
 (defun sp-mini-frame-dim (frame)

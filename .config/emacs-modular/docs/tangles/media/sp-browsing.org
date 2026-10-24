@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-browsing.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/media/sp-browsing.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/media/sp-browsing.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -42,7 +46,17 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Open a link in EWW or the system browser
 
-=open-link-at-point-or-minibuffer-with-choice= finds a URL by trying, in order, the URL at point, a =consult= selection over URLs in the buffer, a =consult-omni= search, and finally a plain prompt. It then asks whether to open it in the macOS browser (via the shell =open= command) or in EWW. For EWW it splits the window so the original keeps the top 20% and EWW gets the bottom 80%.
+=open-link-at-point-or-minibuffer-with-choice= finds a URL by trying, in order:
+
+1. the URL at point,
+2. a =consult= selection over URLs in the buffer,
+3. a =consult-omni= search,
+4. a plain prompt.
+
+Then:
+
+- It asks whether to open the URL in the macOS browser (via the shell =open= command) or in EWW.
+- For EWW it splits the window: the original keeps the top 20% and EWW gets the bottom 80%.
 
 Some caveats: =thing-at-point--list= does not appear to be a standard Emacs function, so the second fallback may error; =consult-omni= is called for its return value, which may not be a URL; and the =open= command only works on macOS.
 

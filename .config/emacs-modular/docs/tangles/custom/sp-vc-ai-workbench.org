@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-vc-ai-workbench.el :comments no :padline yes :noweb no :mkdirp yes :results silent
 #+startup: overview
 
-Literate source for =libraries/modules/custom/sp-vc-ai-workbench.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-vc-ai-workbench.el=.
+
+- Every =emacs-lisp= block below goes into that file, except blocks marked =:tangle no=.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The commentary at the top of the module says:
 
@@ -21,23 +25,43 @@ per worktree.  Entry point: M-x sp-workbench-menu.
 2. *One worktree per task.* A task is a feature, a fix or an experiment. Each task is a *git worktree* on its own branch, created under =sp-workbench-worktree-root= (default =~/.worktrees/<extension>/<branch>=). Because worktrees are separate directories, any number of tasks, across any number of extensions, can be in flight without stashing or switching branches. Magit does all the git work.
 3. *One notes file and one Claude session per worktree.* Every worktree gets a private, git-ignored =.brainstorm.org= holding the running design notes, and its own interactive Claude Code session (through =claude-code.el=) rooted in that worktree. Design talk stays attached to the branch it concerns.
 
-Claude is used only for the *brainstorming* part: questions, design options, edge cases, naming and next steps. It is not meant to write the implementation. That is a convention enforced by the prompt, not by the tool.
+Claude is used only for the *brainstorming* part: questions, design options, edge cases, naming and next steps.
+
+- It is not meant to write the implementation.
+- That is a convention enforced by the prompt, not by the tool.
 
 ** Naming
 
-The feature, the file and the tangled output are called =sp-vc-ai-workbench=. Every command and variable uses the shorter prefix =sp-workbench-=, so =(require 'sp-vc-ai-workbench)= provides =sp-workbench-menu=, =sp-workbench-dashboard= and so on. (Package linters would prefer the prefix to match the feature name. This is a personal library, so the shorter prefix wins.)
+Naming:
+
+- The feature, the file and the tangled output are called =sp-vc-ai-workbench=.
+- Every command and variable uses the shorter prefix =sp-workbench-=. So =(require 'sp-vc-ai-workbench)= provides =sp-workbench-menu=, =sp-workbench-dashboard= and so on.
+- Package linters would prefer the prefix to match the feature name. This is a personal library, so the shorter prefix wins.
 
 ** How this file is organised
 
-This is a literate configuration. Every source block below is tangled, in order, into =sp-vc-ai-workbench.el=; run =C-c C-v t= (=org-babel-tangle=) in this buffer to regenerate it. Blocks marked =:tangle no= are examples and are never written out. Edit the org file, never the generated =.el=.
+This is a literate configuration.
+
+- Every source block below is tangled, in order, into =sp-vc-ai-workbench.el=. Run =C-c C-v t= (=org-babel-tangle=) in this buffer to regenerate it.
+- Blocks marked =:tangle no= are examples and are never written out.
+- Edit the org file, never the generated =.el=.
 
 * Requirements and setup
 
 ** Why Claude Code instead of the API
 
-The first version talked to Claude through =gptel= and the Anthropic API. That route needs an API key from the Claude Console, and API usage is billed separately from a Claude Pro subscription: a Pro plan does not include API credits. To stay on the subscription, this library drives *interactive Claude Code* running inside Emacs through =claude-code.el=, and moves information in and out of that session with its own commands. Nothing here calls the API directly.
+Why it drives Claude Code instead of the API:
 
-(Anthropic's rules about how subscription limits apply to programmatic use, such as =claude -p= or the Agent SDK, have been changing. Interactive use is the case this library is built around. Check the current support pages if that matters to you.)
+- The first version talked to Claude through =gptel= and the Anthropic API.
+- That route needs an API key from the Claude Console. API usage is billed separately from a Claude Pro subscription, and a Pro plan does not include API credits.
+- To stay on the subscription, this library drives *interactive Claude Code* running inside Emacs through =claude-code.el=.
+- It moves information in and out of that session with its own commands.
+- Nothing here calls the API directly.
+
+(Anthropic's rules about how subscription limits apply to programmatic use, such as =claude -p= or the Agent SDK, have been changing.
+
+- Interactive use is the case this library is built around.
+- Check the current support pages if that matters to you.)
 
 ** What you need
 
@@ -103,7 +127,11 @@ Each =.brainstorm.org= is created with four headings: Goal, Notes, Open question
 
 ** Per-worktree sessions
 
-A worktree has its own =.git= file, so the project of that directory is the worktree itself. =claude-code= therefore starts a separate session for each task. The dashboard's Claude column shows =live= when one is running, =c= on a row opens it, and finishing a task kills that worktree's session before deleting the directory.
+A worktree has its own =.git= file, so the project of that directory is the worktree itself.
+
+- =claude-code= therefore starts a separate session for each task.
+- The dashboard's Claude column shows =live= when one is running, and =c= on a row opens it.
+- Finishing a task kills that worktree's session before deleting the directory.
 
 * Implementation
 
@@ -219,7 +247,12 @@ implementations.  Be concise and say so when unsure."
 
 ** Repo and worktree discovery
 
-The extension list is the union of the explicit repos and anything with a =.git= directly under the scan root. For each repo, =magit-list-worktrees= gives every worktree; each entry is turned into a small plist with its path, branch and whether it has uncommitted changes. =sp-workbench--all-worktrees= flattens that across all extensions and is the data source for the dashboard and the switcher.
+How worktrees are found:
+
+- The extension list is the union of the explicit repos and anything with a =.git= directly under the scan root.
+- For each repo, =magit-list-worktrees= gives every worktree.
+- Each entry becomes a small plist with its path, branch and whether it has uncommitted changes.
+- =sp-workbench--all-worktrees= flattens that across all extensions. It is the data source for the dashboard and the switcher.
 
 #+begin_src emacs-lisp
 (defun sp-workbench--repos ()
@@ -305,7 +338,11 @@ The prompts are plain =completing-read=, so they work with whatever completion f
 
 ** Notes file
 
-The notes live inside the worktree so they travel with the task, but must never be committed. Git has a per-repository ignore file, =info/exclude=, that is shared by all worktrees and is not itself versioned; =sp-workbench--ignore-local-files= appends the two file names to it (once). It asks git where that file is with =rev-parse --git-path=, which is correct from inside a linked worktree.
+The notes live inside the worktree so they travel with the task, but must never be committed.
+
+- Git has a per-repository ignore file, =info/exclude=. It is shared by all worktrees and is not itself versioned.
+- =sp-workbench--ignore-local-files= appends the two file names to it (once).
+- It asks git where that file is with =rev-parse --git-path=, which is correct from inside a linked worktree.
 
 Because Claude may append to the notes while you have them open, the notes buffer is visited with =auto-revert-mode=.
 
@@ -336,7 +373,10 @@ Because Claude may append to the notes while you have them open, the notes buffe
           (write-region (concat line "\n") nil file t 'silent))))))
 #+end_src
 
-A new notes file gets the title, a creation timestamp and the four headings. The goal you typed when creating the task goes under =* Goal=. If the file already exists it is left alone, so the function is safe to call repeatedly.
+A new notes file gets the title, a creation timestamp and the four headings.
+
+- The goal you typed when creating the task goes under =* Goal=.
+- If the file already exists it is left alone, so the function is safe to call repeatedly.
 
 #+begin_src emacs-lisp
 (defun sp-workbench--init-notes (dir extension branch goal)
@@ -421,7 +461,13 @@ the notes file.  Opens the notes file and Magit status side by side."
 
 *** Finishing a task
 
-Finishing is deliberately conservative. It refuses to run in the main worktree, refuses if there are uncommitted changes, and asks for confirmation if the branch is not an ancestor of the main branch. It then saves the notes buffer, kills the worktree's Claude session without the usual process-kill prompt, and hands the deletion to =magit-worktree-delete=. The notes file is deleted with the directory, so copy anything you want to keep before finishing.
+Finishing is deliberately conservative.
+
+- Refuses to run in the main worktree.
+- Refuses if there are uncommitted changes.
+- Asks for confirmation if the branch is not an ancestor of the main branch.
+- Then it saves the notes buffer, kills the worktree's Claude session without the usual process-kill prompt, and hands the deletion to =magit-worktree-delete=.
+- The notes file is deleted with the directory, so copy anything you want to keep before finishing.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -475,7 +521,24 @@ Any Claude Code session for the worktree is killed first."
 
 ** Dashboard
 
-The dashboard is a =tabulated-list-mode= buffer with one row per worktree: extension, branch, clean or dirty, whether a Claude session is live, and the path. The row id is the worktree path, which is what the row commands use. Keys: =RET= opens the notes, =m= Magit, =c= Claude, =n= a new task, =g= refreshes, =?= opens the menu.
+The dashboard is a =tabulated-list-mode= buffer with one row per worktree. A row shows:
+
+- extension,
+- branch,
+- clean or dirty,
+- whether a Claude session is live,
+- the path.
+
+The row id is the worktree path, which is what the row commands use.
+
+Keys:
+
+- =RET=: open the notes.
+- =m=: Magit.
+- =c=: Claude.
+- =n=: a new task.
+- =g=: refresh.
+- =?=: open the menu.
 
 #+begin_src emacs-lisp
 (defvar sp-workbench-dashboard-mode-map
@@ -550,7 +613,12 @@ The dashboard is a =tabulated-list-mode= buffer with one row per worktree: exten
 
 *** Finding a worktree's session
 
-=claude-code.el= names its buffers =*claude:<directory>*= (optionally with an instance name). To know whether a worktree already has a session, this library searches live buffers for that name pattern. Directory spellings differ (abbreviated =~=, trailing slash, symlink-resolved), so several variants are tried. If nothing matches and =claude-code= provides its own lookup function, that is used as a fallback.
+Finding a worktree's Claude session:
+
+- =claude-code.el= names its buffers =*claude:<directory>*= (optionally with an instance name).
+- This library searches live buffers for that name pattern.
+- Directory spellings differ (abbreviated =~=, trailing slash, symlink-resolved), so several variants are tried.
+- If nothing matches and =claude-code= provides its own lookup function, that is the fallback.
 
 *This is the most version-sensitive part of the library.* If your copy of =claude-code.el= names buffers differently, =sp-workbench--claude-buffers= is the one function to adjust.
 
@@ -589,7 +657,11 @@ The dashboard is a =tabulated-list-mode= buffer with one row per worktree: exten
 
 *** Opening a session
 
-=sp-workbench-claude-open= shows the existing session for the worktree or starts a new one. It binds =default-directory= to the worktree before calling =claude-code=, which roots its session at the project of the current directory. Since a linked worktree has its own =.git= file, that project is the worktree, so each task gets an independent session with the correct working directory. (Check this the first time: the session's directory should be the worktree, not the main checkout.)
+=sp-workbench-claude-open= shows the existing session for the worktree or starts a new one.
+
+- Binds =default-directory= to the worktree before calling =claude-code=, which roots its session at the project of the current directory.
+- A linked worktree has its own =.git= file, so that project is the worktree. Each task gets an independent session with the correct working directory.
+- Check this the first time: the session's directory should be the worktree, not the main checkout.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -607,7 +679,15 @@ DIR defaults to the current worktree."
 
 *** Writing the context file
 
-The context file is what Claude reads. It begins with the ground rules from =sp-workbench-rules=, then lists the extension, branch and base branch, the commits ahead of the base (at most thirty), and a =git diff --stat= against the base. If you had a region selected, it is appended as a fenced code block labelled with its file and line range, truncated to =sp-workbench-max-context-chars=. The file is rewritten on every question, so it always reflects the current state of the branch.
+The context file is what Claude reads. It contains:
+
+- the ground rules from =sp-workbench-rules=,
+- the extension, branch and base branch,
+- the commits ahead of the base (at most thirty),
+- a =git diff --stat= against the base,
+- if you had a region selected, that region as a fenced code block labelled with its file and line range, truncated to =sp-workbench-max-context-chars=.
+
+The file is rewritten on every question, so it always reflects the current state of the branch.
 
 #+begin_src emacs-lisp
 (defun sp-workbench--truncate (s)
@@ -664,7 +744,12 @@ If no session exists, start one and put PROMPT on the kill ring instead."
 
 *** Asking a question
 
-=sp-workbench-claude-ask= ties it together. If a region is active, its text, file and line range are recorded. It makes sure the notes file exists, rewrites the context file, and sends the one-line prompt naming both files and your question. =sp-workbench-claude-kickoff= is the same command with a fixed question about design decisions, hidden assumptions and risks, meant for the start of a task; it relies on the goal you wrote in the notes.
+=sp-workbench-claude-ask= ties it together.
+
+- If a region is active, records its text, file and line range.
+- Makes sure the notes file exists and rewrites the context file.
+- Sends the one-line prompt naming both files and your question.
+- =sp-workbench-claude-kickoff= is the same command with a fixed question about design decisions, hidden assumptions and risks. It is meant for the start of a task and relies on the goal you wrote in the notes.
 
 #+begin_src emacs-lisp
 ;;;###autoload
@@ -718,7 +803,12 @@ Terminal buffers contain screen text, not clean prose, so captured text is clean
     (string-trim (replace-regexp-in-string "\n\\{3,\\}" "\n\n" s))))
 #+end_src
 
-=sp-workbench-claude-capture= works from the Claude buffer or from any buffer in the worktree. If you are in the Claude buffer with an active region, that region is used; otherwise the last =sp-workbench-claude-capture-lines= lines of the session buffer are taken. The cleaned text is appended to the notes as a "Captured from Claude" entry. With a prefix argument the notes are shown afterwards.
+=sp-workbench-claude-capture= works from the Claude buffer or from any buffer in the worktree.
+
+- In the Claude buffer with an active region, that region is used.
+- Otherwise the last =sp-workbench-claude-capture-lines= lines of the session buffer are taken.
+- The cleaned text is appended to the notes as a "Captured from Claude" entry.
+- With a prefix argument the notes are shown afterwards.
 
 In =eat= or =vterm=, entering copy mode lets you set a region in the terminal buffer; that is the way to capture a specific answer rather than the tail of the session.
 

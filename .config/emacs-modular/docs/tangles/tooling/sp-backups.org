@@ -2,11 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-backups.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-backups.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-backups.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module decides where Emacs keeps backup files and auto-save files, turns on aggressive automatic saving of every modified file, disables lock files and enables =savehist= so minibuffer history survives restarts. It relies on the directory constants =sp-var-dir= and =sp-cache-dir= from =early-init.el= and installs the =vc-backup= package.
 
-The backup settings are made once, in the final block: backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions, and auto-save files go to =auto-save-files/= under =sp-cache-dir=. The file used to set the backup directory, version counts and lock files several times with different values, where the later assignments won; those earlier, overridden copies are gone, so the effective settings are unchanged. The module is loaded with the utility modules in =init.el=, in both the default and minimal lists.
+The backup settings are made once, in the final block:
+
+- Backups go to =backups/= under =sp-var-dir=, numbered, keeping the 6 newest and 3 oldest versions.
+- Auto-save files go to =auto-save-files/= under =sp-cache-dir=.
+
+History and loading:
+
+- The file used to set the backup directory, version counts and lock files several times with different values, where the later assignments won. Those earlier, overridden copies are gone, so the effective settings are unchanged.
+- The module is loaded with the utility modules in =init.el=, in both the default and minimal lists.
 
 The commentary at the top of the module says:
 
@@ -102,7 +114,13 @@ Installs =vc-backup=, a VC backend that treats Emacs backup files as a version h
 
 ** Final backup settings
 
-The one place where backups are configured: the default =backup-directory-alist= points to =backups/= under =sp-var-dir=, backups are made by copying and also for version-controlled files, deleted files are moved to the system trash, and 6 new and 3 old numbered versions are kept. The inline comment on =vc-make-backup-files= says the opposite of what the setting does; t means files under version control are backed up too.
+The one place where backups are configured:
+
+- The default =backup-directory-alist= points to =backups/= under =sp-var-dir=.
+- Backups are made by copying, and also for version-controlled files.
+- Deleted files are moved to the system trash.
+- 6 new and 3 old numbered versions are kept.
+- The inline comment on =vc-make-backup-files= says the opposite of what the setting does. t means files under version control are backed up too.
 
 #+begin_src emacs-lisp -i
 (setq-default backup-directory-alist

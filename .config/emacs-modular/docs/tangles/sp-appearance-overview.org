@@ -30,7 +30,11 @@ Why is this configuration so high up in the org file? Apparently I can't make th
 
 * Dimming windows when unfocused
 
-This is also tied to [[file:wm.org][Window management principles for Emacs]]. To make the active window more noticeable, we dim the in-active windows with the dimmer project. You might get issues with =magit= when it comes to dimming, so the settings after =:config= ensure that those windows don't actually get dimmed.[fn:1] As an interesting alternative, check out the =selected-window-accent= project.
+Dimming inactive windows (also tied to [[file:wm.org][Window management principles for Emacs]]):
+
+- To make the active window more noticeable, we dim the in-active windows with the dimmer project.
+- You might get issues with =magit= when it comes to dimming. The settings after =:config= ensure those windows don't actually get dimmed.[fn:1]
+- An interesting alternative: the =selected-window-accent= project.
 
 This is currently turned off, as it's more distracting than actually useful
 
@@ -111,7 +115,11 @@ And if I can’t find the cursor, and don’t want to move it to see it, I can h
 * Fonts
 ** Mixed pitch
 
-Initially I thought that this should reside in the [[file:org-config.org][Org-mode configuration]], but since the appearance file is already bootstrapped earlier than that, this is better. =mixed-pitch= is a minor mode that enables mixing fixed-pitch (also known as fixed-width or monospace) and variable-pitch (AKA “proportional”) fonts. It tries to be smart about which fonts get which face.
+Where it lives:
+
+- Initially I thought this should reside in the [[file:org-config.org][Org-mode configuration]]. The appearance file is bootstrapped earlier than that, so this is better.
+- =mixed-pitch= is a minor mode that enables mixing fixed-pitch (also known as fixed-width or monospace) and variable-pitch (AKA “proportional”) fonts.
+- It tries to be smart about which fonts get which face.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (use-package mixed-pitch
@@ -597,15 +605,17 @@ the =lin-face= in Prot's =lin= package can be configured independently and it wi
 
 =lin= can also be integrated with =neotree= so tht the highlight doesn't get in the way. See this article for how it could be done: https://christiantietze.de/posts/2022/03/hl-line-priority/ (it also looks a lot nicer with the color highlights that you get in MacOS, see https://christiantietze.de/posts/2021/11/lin.el-macos-system-colors/).
 
-https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
-https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
-https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
-https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
-https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
-https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
-https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
-https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
-https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
+Links on highlighting the cursor line:
+
+- https://www.reddit.com/r/emacs/comments/1db21t1/highlight_cursor_position/ | Highlight cursor position : r/emacs
+- https://www.reddit.com/r/emacs/comments/bnnzee/visual_placement_in_diffhlmode/ | Visual placement in diff-hl-mode : r/emacs
+- https://www.reddit.com/r/emacs/comments/2os5jw/hlline_mode_and_the_last_line/ | hl-line mode and the last line : r/emacs
+- https://www.reddit.com/r/emacs/comments/twoh1q/another_hlline/ | another hl-line : r/emacs
+- https://www.reddit.com/r/emacs/comments/15gzr04/hllinemode_in_column_view/ | hl-line-mode in column view : r/emacs
+- https://www.reddit.com/r/emacs/comments/g5xm02/is_there_something_like_hllinemode_but_using_the/ | Is there something like hl-line-mode, but using the fringe? : r/emacs
+- https://www.reddit.com/r/emacs/comments/1n8n5f8/globalhllinemode_and_eat/ | global-hl-line-mode and eat : r/emacs
+- https://www.reddit.com/r/emacs/comments/jya77n/disable_globalhllinemode_for_specific_modes/ | Disable global-hl-line-mode for Specific Modes : r/emacs
+- https://www.reddit.com/r/emacs/comments/6fd0fg/nlinumhl_highlight_current_nlinum_line_number/ | nlinum-hl — Highlight current nlinum line number : r/emacs
 
 * Highlighting task labels
 

@@ -1,8 +1,20 @@
 #+title: relationship-annotator and discourse-graphs: what each does
 
-=relationship-annotator= (formerly =vulpea-hierarchy=, in =libraries/modules/custom/sp-graphs.el=) and the =discourse-graphs= package (=dg-=, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]) both read typed relations between notes. They started from different needs. =discourse-graphs= is a tool for writing an argument: you create typed nodes, link them, and ask what is missing. =vulpea-hierarchy= was a viewer for the parent/child tree of a Zettelkasten. =relationship-annotator= keeps the viewer and has taken over the reading, checking and counting of =discourse-graphs=, so the package is no longer needed for those. This page says what is the same, what differs, and what was left out on purpose.
+=relationship-annotator= (formerly =vulpea-hierarchy=, in =libraries/modules/custom/sp-graphs.el=) and the =discourse-graphs= package (=dg-=, [[https://github.com/LuciusChen/discourse-graphs][LuciusChen/discourse-graphs]]) both read typed relations between notes.
 
-Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port. Line numbers below refer to that file. The literate source of this module is in [[file:../tangles/custom/sp-graphs.org][sp-graphs.org]].
+They started from different needs:
+
+- =discourse-graphs= is a tool for writing an argument: you create typed nodes, link them, and ask what is missing.
+- =vulpea-hierarchy= was a viewer for the parent/child tree of a Zettelkasten.
+- =relationship-annotator= keeps the viewer and has taken over the reading, checking and counting of =discourse-graphs=. The package is no longer needed for those.
+
+This page says what is the same, what differs, and what was left out on purpose.
+
+Source of the package side:
+
+- =discourse-graphs.el= (3299 lines) and =discourse-graphs-ui.el= (450 lines), read as of the version cloned for this port.
+- Line numbers below refer to that file.
+- The literate source of this module is in [[file:../tangles/custom/sp-graphs.org][sp-graphs.org]].
 
 * In short
 
@@ -25,7 +37,11 @@ Source of the package side: =discourse-graphs.el= (3299 lines) and =discourse-gr
 
 ** The relation model
 
-An edge reads "subject relation object": =evidence supports claim=. The subject holds the information (in =discourse-graphs=, the property is on the subject), the inverse is found by looking backwards. Both name the relation from the object's side too (="Supported By"=), and both use that name in formulas. The default relations, their colours, their inverse labels and the types they connect are the same:
+An edge reads "subject relation object": =evidence supports claim=.
+
+- The subject holds the information. In =discourse-graphs= the property is on the subject; the inverse is found by looking backwards.
+- Both name the relation from the object's side too (="Supported By"=), and both use that name in formulas.
+- The default relations, their colours, their inverse labels and the types they connect are the same:
 
 | Relation   | Inverse label | Subject  | Object   |
 |------------+---------------+----------+----------|
@@ -34,11 +50,18 @@ An edge reads "subject relation object": =evidence supports claim=. The subject 
 | =informs=  | Informed By   | source   | evidence |
 | =answers=  | Answered By   | claim    | question |
 
-In the package these are =dg-relation-types= and =dg-relation-patterns=. Here both live in one place, =relationship-annotator-relations=, and a relation also carries its direction on the page, its colour, and its sources. Notes written for the package keep working: the property names (=DG_SUPPORTS=, =DG_TYPE=) are the same.
+Relations:
+
+- In the package these are =dg-relation-types= and =dg-relation-patterns=.
+- Here both live in one place, =relationship-annotator-relations=. A relation also carries its direction on the page, its colour, and its sources.
+- Notes written for the package keep working: the property names (=DG_SUPPORTS=, =DG_TYPE=) are the same.
 
 ** The node types
 
-=question=, =claim=, =evidence= and =source=, with a short code, a colour and a description. In the package the type is a string stored in the cache. Here =relationship-annotator-node-types= keeps them and a note's type is read when needed.
+Node types: =question=, =claim=, =evidence= and =source=, with a short code, a colour and a description.
+
+- In the package the type is a string stored in the cache.
+- Here =relationship-annotator-node-types= keeps them, and a note's type is read when needed.
 
 ** Pattern violations are allowed
 
@@ -46,7 +69,12 @@ A relation with no listed types accepts anything. A pattern that doesn't fit is 
 
 ** The formula language
 
-Both parse =+ - * /=, parentheses, numbers, and terms in braces: ={count:Supported By:evidence}=, ={sum:Supported By:claim:robustness}=, ={avg:...}=. Both let a formula use another attribute of the related notes, and both return 0 for a division by zero. The default attributes (=evidence-score=, =robustness=, =total-support=, =answer-count= and so on) are the package's.
+Formulas:
+
+- Both parse =+ - * /=, parentheses, numbers, and terms in braces: ={count:Supported By:evidence}=, ={sum:Supported By:claim:robustness}=, ={avg:...}=.
+- Both let a formula use another attribute of the related notes.
+- Both return 0 for a division by zero.
+- The default attributes (=evidence-score=, =robustness=, =total-support=, =answer-count= and so on) are the package's.
 
 ** The argument checks
 
@@ -56,27 +84,56 @@ Both parse =+ - * /=, parentheses, numbers, and terms in braces: ={count:Support
 
 ** Storage and scanning
 
-The package scans every Org file under =dg-directories=, opens each with =find-file-noselect=, and writes what it finds to SQLite (tables =nodes=, =relations=, =node_files=). It rebuilds incrementally by file modification time. That is about 700 of its 3300 lines. vulpea already indexes the notes and their metadata and properties, so this module doesn't scan. The cost is that it depends on what vulpea indexes: metadata is indexed by key, but properties are not, so a property source reads every note (=vulpea-db-query= with a predicate). A vault with many notes and a property source pays for that on each run.
+Storage and scanning:
+
+- The package scans every Org file under =dg-directories=, opens each with =find-file-noselect=, and writes what it finds to SQLite (tables =nodes=, =relations=, =node_files=).
+- It rebuilds incrementally by file modification time. That is about 700 of its 3300 lines.
+- vulpea already indexes the notes and their metadata and properties, so this module doesn't scan.
+- The cost: it depends on what vulpea indexes. Metadata is indexed by key, but properties are not, so a property source reads every note (=vulpea-db-query= with a predicate).
+- A vault with many notes and a property source pays for that on each run.
 
 ** Heading nodes and file nodes
 
 The package has two kinds of node: an Org heading with =:ID:= and =:DG_TYPE:= properties, and a file with a header. =relationship-annotator= has one kind, the vulpea note, which is a file or a heading with an ID.
 
-Two details of the package were not carried over because they look like gaps in it. File nodes can't have a relation note (=:DG_SUPPORTS_NOTE:=), and the package ignores Denote =#+filetags= when typing a node, although it writes the Denote keyword when it creates one. Here a file tag can be the type.
+Two details of the package were not carried over, because they look like gaps in it:
+
+- File nodes can't have a relation note (=:DG_SUPPORTS_NOTE:=).
+- The package ignores Denote =#+filetags= when typing a node, although it writes the Denote keyword when it creates one. Here a file tag can be the type.
 
 ** The tree
 
-The package has no tree: a graph in its web UI is a set of nodes and links. =vulpea-hierarchy= was built around the =parents= metadata, and =parent= is still the one relation that is special here. It gives every view its starting point: you choose a note and a depth, and the page shows the tree below it, with the other relations as links between the notes in view. The package shows everything it knows.
+The tree:
+
+- The package has no tree. A graph in its web UI is a set of nodes and links.
+- =vulpea-hierarchy= was built around the =parents= metadata, and =parent= is still the one relation that is special here.
+- It gives every view its starting point: you choose a note and a depth, and the page shows the tree below it, with the other relations as links between the notes in view.
+- The package shows everything it knows.
 
 ** Layout and the graph
 
-The package's web UI is a Next.js export served from Emacs on port 8080, with a websocket on port 35904 that sends the nodes and links and receives "open this node". The page here is one self-contained HTML file with the layout library inside it: it needs no server, no =websocket= package, and no network. In exchange, it is a snapshot: to see a change, run the command again.
+Web UI:
 
-The layout also differs in what you can say about it. Each relation has a =:direction= (up, down, left, right or an angle) that says where its object goes, and parents always go above their children. Boxes take the colour of their file tags, or of their type. A click recentres the graph. The package's UI gets each node's type and each link's style (solid or dashed) in its data; it does not take layout rules.
+- The package's web UI is a Next.js export served from Emacs on port 8080, with a websocket on port 35904. It sends the nodes and links and receives "open this node".
+- The page here is one self-contained HTML file with the layout library inside it. It needs no server, no =websocket= package, and no network.
+- In exchange, it is a snapshot: to see a change, run the command again.
+
+Layout:
+
+- Each relation has a =:direction= (up, down, left, right or an angle) that says where its object goes.
+- Parents always go above their children.
+- Boxes take the colour of their file tags, or of their type.
+- A click recentres the graph.
+- The package's UI gets each node's type and each link's style (solid or dashed) in its data. It does not take layout rules.
 
 ** Anomaly check
 
-The logic is the same function. The package runs it when you create a link, and over the whole cache for its anomaly dynamic block. Here it runs over every edge when the page is built or the review buffer is opened. One difference: a note with no type is never checked here, because a vulpea vault has many notes that were never classified. The package only knows typed notes, so the case doesn't come up there.
+Type checking:
+
+- The logic is the same function.
+- The package runs it when you create a link, and over the whole cache for its anomaly dynamic block.
+- Here it runs over every edge when the page is built or the review buffer is opened.
+- One difference: a note with no type is never checked here, because a vulpea vault has many notes that were never classified. The package only knows typed notes, so the case doesn't come up there.
 
 ** Formulas
 
@@ -90,7 +147,13 @@ The overlay differs too: the package picks a format per attribute name (such as 
 
 ** Reports
 
-The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-gaps=, =dg-unanswered-opposition=, =dg-synthesis=, =dg-relation-anomalies=, =dg-query=, =dg-node-index=) and has =dg-synthesis-open= and =dg-query-builder= to make them. This module has one buffer, =rel-anno-review=, with the anomalies, the claims with gaps, and the questions with the strength of each answer.
+Reports:
+
+- The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-gaps=, =dg-unanswered-opposition=, =dg-synthesis=, =dg-relation-anomalies=, =dg-query=, =dg-node-index=). It has =dg-synthesis-open= and =dg-query-builder= to make them.
+- This module has one buffer, =rel-anno-review=, with:
+  - the anomalies,
+  - the claims with gaps,
+  - the questions with the strength of each answer.
 
 * What was not ported
 
@@ -104,7 +167,10 @@ The package writes reports as Org dynamic blocks (=dg-overview=, =dg-argument-ga
 | Dynamic blocks and the transient menu                                                    | Replaced by the review buffer                                                               |
 | =dg-validate= (dangling ids, orphans, missing files)                                     | Not started. A dangling id already shows as =<missing ID>= in the views                     |
 
-"Not started" means not decided against. They are the obvious next steps if the module should also be where you write relations. That question belongs to the design considerations section that follows in the next change.
+"Not started" means not decided against.
+
+- They are the obvious next steps if the module should also be where you write relations.
+- That question belongs to the design considerations section that follows in the next change.
 
 * What =vulpea-hierarchy= had that the package does not
 

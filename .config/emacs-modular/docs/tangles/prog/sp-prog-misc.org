@@ -2,13 +2,30 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-prog-misc.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-prog-misc.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-prog-misc.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-A grab bag of programming-related packages and general editor settings. It installs a set of major modes for configuration and data formats (YAML, JSON, Dockerfiles, systemd units and more), visual helpers such as =rainbow-delimiters= and =git-gutter=, and =envrc= for per-directory environments. It also sets many global defaults that are not specific to programming: short yes/no answers, focus following the mouse, recent files, ediff layout, mouse scrolling and terminal mouse support.
+A grab bag of programming-related packages and general editor settings.
 
-It is loaded in the Programming section of =init.el=, after =sp-base-code=. Packages are installed through use-package (with elpaca as the package manager elsewhere in the config). =envrc= expects the external =direnv= program, and the ediff settings use the system =diff=.
+It installs:
+
+- a set of major modes for configuration and data formats (YAML, JSON, Dockerfiles, systemd units and more),
+- visual helpers such as =rainbow-delimiters= and =git-gutter=,
+- =envrc= for per-directory environments.
+
+It also sets many global defaults that are not specific to programming: short yes/no answers, focus following the mouse, recent files, ediff layout, mouse scrolling and terminal mouse support.
+
+Loading and dependencies:
+
+- Loaded in the Programming section of =init.el=, after =sp-base-code=.
+- Packages are installed through use-package (with elpaca as the package manager elsewhere in the config).
+- =envrc= expects the external =direnv= program.
+- The ediff settings use the system =diff=.
 
 * Packages and modes
 
@@ -128,7 +145,10 @@ Unbinds =C-z= so it no longer suspends or minimises Emacs by accident.
 
 ** Move lines up and down
 
-Binds =M-<up>= and =M-<down>= to =move-text-up= and =move-text-down=. These commands come from the =move-text= package, which this module does not install, so the keys only work if it is installed elsewhere. A binding for =smart-beginning-of-line= on =<home>= is commented out.
+Binds =M-<up>= and =M-<down>= to =move-text-up= and =move-text-down=.
+
+- These commands come from the =move-text= package, which this module does not install. So the keys only work if it is installed elsewhere.
+- A binding for =smart-beginning-of-line= on =<home>= is commented out.
 
 #+begin_src emacs-lisp -i
 (global-set-key (kbd "<M-up>") 'move-text-up)
@@ -156,7 +176,12 @@ Makes every yes-or-no question accept a single =y= or =n=.
 
 ** Selection and focus follows mouse
 
-Enables =delete-selection-mode=, so typing replaces the selection. The option =siapip/focus-follows-mouse= (default t) drives =focus-follows-mouse=, and =mouse-autoselect-window= is set to a negative delay. As the comment explains, the negative value means a window is only selected once the mouse rests on it, and the minibuffer is never auto-selected, so moving the mouse does not pull focus away from an active completion session.
+Enables =delete-selection-mode=, so typing replaces the selection.
+
+- The option =siapip/focus-follows-mouse= (default t) drives =focus-follows-mouse=.
+- =mouse-autoselect-window= is set to a negative delay.
+- As the comment explains, the negative value means a window is only selected once the mouse rests on it, and the minibuffer is never auto-selected.
+- So moving the mouse does not pull focus away from an active completion session.
 
 #+begin_src emacs-lisp -i
 ;; Selection/Clipboard improvements
@@ -195,7 +220,12 @@ Ediff keeps its control panel in the same frame instead of a separate one, split
 
 ** Diff against the clipboard
 
-=my/ediff-with-clipboard= starts ediff between the current buffer, or a copy of the active region, and a new buffer holding the latest kill or clipboard text. Both sides use the current major mode so they are fontified the same. The comment says it is meant for comparing code with AI-generated versions.
+=my/ediff-with-clipboard= starts ediff between two things:
+
+- the current buffer, or a copy of the active region,
+- a new buffer holding the latest kill or clipboard text.
+
+Both sides use the current major mode so they are fontified the same. The comment says it is meant for comparing code with AI-generated versions.
 
 #+begin_src emacs-lisp -i
 ;;;;; Diffing against the clipboard (for code generated with AI)
@@ -220,7 +250,19 @@ Ediff keeps its control panel in the same frame instead of a separate one, split
 
 ** Display and editing defaults
 
-Turns on syntax highlighting everywhere, transparent editing of compressed files, line and column numbers in the mode line, instant matching paren highlighting, transient mark mode and a highlighted current line. =redisplay-dont-pause= is obsolete in recent Emacs and has no effect. A bar cursor and a silent bell are left commented out.
+Turns on:
+
+- syntax highlighting everywhere,
+- transparent editing of compressed files,
+- line and column numbers in the mode line,
+- instant matching paren highlighting,
+- transient mark mode,
+- a highlighted current line.
+
+Notes:
+
+- =redisplay-dont-pause= is obsolete in recent Emacs and has no effect.
+- A bar cursor and a silent bell are left commented out.
 
 #+begin_src emacs-lisp -i
 ;;;; Other misc settings

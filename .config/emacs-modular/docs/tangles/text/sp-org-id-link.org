@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-id-link.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-id-link.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-id-link.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -56,7 +60,11 @@ After Org loads, =org-id= stores its locations file as =.org-id-locations= in =s
 
 ** Update link syntax and copy a link
 
-=org-update-link-syntax= has the same name as a function that ships with Org, so this copy replaces Org's own version once the module loads. It scans the buffer for bracket links containing old percent escapes (spaces and square brackets) and, after asking for each one unless given a prefix argument, rewrites the URI using the current escaping rules.
+=org-update-link-syntax= has the same name as a function that ships with Org, so this copy replaces Org's own version once the module loads.
+
+- It scans the buffer for bracket links containing old percent escapes (spaces and square brackets).
+- It asks for each one, unless given a prefix argument.
+- It rewrites the URI using the current escaping rules.
 
 =lem-org-link-copy-at-point=, from an Emacs Stack Exchange answer, searches backward for =[[= and forward for a complete bracket link, then puts the whole link text on the kill ring. Because the backward search starts from point, running it when point is not on a link copies the nearest earlier one.
 

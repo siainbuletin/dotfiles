@@ -2,11 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-frame.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-frame.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-frame.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module configures Emacs frames, meaning the top-level windows managed by the operating system. It produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars, recentres new frames, adds small window margins everywhere, and turns on =keycast= in the header line. Some basic frame settings live in =early-init.el= instead, for faster startup.
+This module configures Emacs frames, meaning the top-level windows managed by the operating system. It:
+
+- produces a minimal, undecorated frame with wide internal borders and no tool bar or scroll bars,
+- recentres new frames,
+- adds small window margins everywhere,
+- turns on =keycast= in the header line.
+
+Some basic frame settings live in =early-init.el= instead, for faster startup.
 
 It depends on the built-in =frame= library, on =keycast= (installed in =sp-keys=), and optionally on =ns-auto-titlebar= for macOS. It is loaded with the window management modules, before =sp-buffers= and =sp-windows=.
 
@@ -46,7 +57,19 @@ Sets the window manager title to the current buffer name surrounded by a decorat
 
 ** Minimal frame parameters
 
-Inside the built-in =frame= package, =default-frame-alist= is set so new frames have a 30 pixel internal border, no tool bar, no vertical or horizontal scroll bars, and no window manager decorations (=undecorated=). Per the comment, this makes macOS frames square-cornered and closer to the Linux look. The =frame-title-format= entry is not a real frame parameter and has no effect. Pixel-wise resizing of windows and frames avoids gaps around the edges, and =ns-use-proxy-icon= hides the document icon in the macOS title bar. Note that this replaces any earlier contents of =default-frame-alist= rather than adding to it.
+Inside the built-in =frame= package, =default-frame-alist= is set so new frames have:
+
+- a 30 pixel internal border,
+- no tool bar,
+- no vertical or horizontal scroll bars,
+- no window manager decorations (=undecorated=). Per the comment, this makes macOS frames square-cornered and closer to the Linux look.
+
+Other settings:
+
+- The =frame-title-format= entry is not a real frame parameter and has no effect.
+- Pixel-wise resizing of windows and frames avoids gaps around the edges.
+- =ns-use-proxy-icon= hides the document icon in the macOS title bar.
+- This replaces any earlier contents of =default-frame-alist= rather than adding to it.
 
 #+begin_src emacs-lisp -i
 ;;;; Frame defaults
@@ -79,7 +102,10 @@ Inside the built-in =frame= package, =default-frame-alist= is set so new frames 
 
 ** Recentre a frame
 
-=sp-frame-recenter= moves a frame to the centre of the screen by setting its =top= and =left= parameters to 0.5. It skips frames that are already maximized, using the value Emacs reports, =maximized= (the code used to compare against =maximised=, which never matches). It checks the selected frame rather than FRAME.
+=sp-frame-recenter= moves a frame to the centre of the screen by setting its =top= and =left= parameters to 0.5.
+
+- It skips frames that are already maximized, using the value Emacs reports, =maximized=. The code used to compare against =maximised=, which never matches.
+- It checks the selected frame rather than FRAME.
 
 #+begin_src emacs-lisp -i
 (defun sp-frame-recenter (&optional frame)
@@ -179,7 +205,11 @@ On macOS, =ns-auto-titlebar-mode= keeps the native title bar's light or dark app
 
 ** Delete frame or quit
 
-=sp-delete-frame-or-quit= kills all vterm buffers without asking, then deletes the current frame. If that fails because it is the last frame, it falls back to =save-buffers-kill-emacs=. Finally it gives input focus to whatever frame is now selected.
+=sp-delete-frame-or-quit=:
+
+- Kills all vterm buffers without asking, then deletes the current frame.
+- If that fails because it is the last frame, falls back to =save-buffers-kill-emacs=.
+- Finally gives input focus to whatever frame is now selected.
 
 #+begin_src emacs-lisp -i
 ;;;;; Frame Functions

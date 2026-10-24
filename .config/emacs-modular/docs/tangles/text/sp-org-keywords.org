@@ -2,9 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-keywords.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-keywords.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-keywords.el=.
 
-This module is the only place that sets =org-todo-keywords=. Before it existed, the variable was assigned in four places in =sp-org-taskman-extra= (the last one won), the issue tracker declared its own =#+todo:= line, and the research modules told you to put keyword lines at the top of a file. The sequences are now defined once, one constant per use, and joined into =org-todo-keywords=. See [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]] for why.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is the only place that sets =org-todo-keywords=. Before it existed:
+
+- the variable was assigned in four places in =sp-org-taskman-extra= (the last one won),
+- the issue tracker declared its own =#+todo:= line,
+- the research modules told you to put keyword lines at the top of a file.
+
+Now the sequences are defined once, one constant per use, and joined into =org-todo-keywords=. See [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]] for why.
 
 It is loaded right after =sp-org-base=, before any module that reads keywords: =sp-vulpea-para= takes its list of done keywords from here, and the agenda views match on these words.
 
@@ -24,11 +34,20 @@ The research sequences used to be two constants (one for =sp-trails=, one for th
 - *Trail:* =ACTIVE PARKED= then =ARCHIVED=.
 - *Page or reading task:* =TOREAD UNREAD= then =READ PRUNED SKIPPED=. =TOREAD= (=sp-trails=) and =UNREAD= (discourse-graphs) both mean "not read yet" and =PRUNED= and =SKIPPED= both mean "not going to read it"; the words are kept because each module sets its own, and merging the words needs a change in the module.
 
-The research keywords have no fast keys: they used to repeat =t=, =n=, =p= and =d= from the task sequence. Change them with =S-<right>= or =C-c C-t=. The legacy =WAITING= and the task =WAIT= still mean the same thing, which is for you to decide on.
+Research keywords:
+
+- They have no fast keys. They used to repeat =t=, =n=, =p= and =d= from the task sequence.
+- Change them with =S-<right>= or =C-c C-t=.
+- The legacy =WAITING= and the task =WAIT= still mean the same thing, which is for you to decide on.
 
 * Removed settings of the Workflow Status view
 
-The =w= view of =sp-agenda-views= had a section for each keyword below. No keyword sequence ever defined these words (only =WAIT=, =REVIEW= and =ACTIVE= exist now, through the task and trails sequences), so the sections never matched anything and were removed. They are kept here so you can decide what to do: add the words to a sequence, make a tag of them, or drop them.
+Removed agenda sections:
+
+- The =w= view of =sp-agenda-views= had a section for each keyword below.
+- No keyword sequence ever defined these words. Only =WAIT=, =REVIEW= and =ACTIVE= exist now, through the task and trails sequences.
+- So the sections never matched anything and were removed.
+- The words are kept here so you can decide what to do: add them to a sequence, make a tag of them, or drop them.
 
 | Section header         | Keyword     | Extra setting                                  | Defined by any sequence today |
 |------------------------+-------------+------------------------------------------------+-------------------------------|
@@ -41,7 +60,11 @@ The =w= view of =sp-agenda-views= had a section for each keyword below. No keywo
 | Completed Projects     | =COMPLETED= |                                                | no                            |
 | Cancelled Projects     | =CANCELED=  |                                                | no (=CNCL= and =CANCELLED= are) |
 
-Each section was =(todo "KEYWORD" ((org-agenda-overriding-header "...") (org-agenda-files org-agenda-files)))=; the last setting did nothing, since it bound the variable to its own value. The view now has sections for =PROG=, =WAIT=, =REVIEW= and =ACTIVE=. The original form was:
+Each section was =(todo "KEYWORD" ((org-agenda-overriding-header "...") (org-agenda-files org-agenda-files)))=.
+
+- The last setting did nothing, since it bound the variable to its own value.
+- The view now has sections for =PROG=, =WAIT=, =REVIEW= and =ACTIVE=.
+- The original form was:
 
 #+begin_src emacs-lisp :tangle no
 ("w" "Workflow Status"

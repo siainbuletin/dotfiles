@@ -2,13 +2,28 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-text-manipulation.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-text-manipulation.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-text-manipulation.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module collects editing behaviour that applies to text in general: it turns on CUA mode, cleans whitespace on every save, adds commands for fixing blank lines around Org headings, filling and unfilling paragraphs, copying an Org region as rich text, and makes yanking smarter about surrounding spaces. It also configures the built-in =abbrev= package and rebinds the case commands to their DWIM variants.
+This module collects editing behaviour that applies to text in general. It:
 
-Everything here is built in to Emacs apart from the external macOS tools =textutil= and =pbcopy= used by =formatted-copy=. It refers to =sp-var-dir= from =early-init.el= for the abbrev file location. The module is loaded with the utility modules in both the default and minimal module lists in =init.el=, so its global key bindings and its save hook are always active.
+- turns on CUA mode,
+- cleans whitespace on every save,
+- adds commands for fixing blank lines around Org headings, filling and unfilling paragraphs, and copying an Org region as rich text,
+- makes yanking smarter about surrounding spaces,
+- configures the built-in =abbrev= package,
+- rebinds the case commands to their DWIM variants.
+
+Dependencies and loading:
+
+- Everything here is built in to Emacs, apart from the external macOS tools =textutil= and =pbcopy= used by =formatted-copy=.
+- It refers to =sp-var-dir= from =early-init.el= for the abbrev file location.
+- The module is loaded with the utility modules in both the default and minimal module lists in =init.el=, so its global key bindings and its save hook are always active.
 
 The commentary at the top of the module says:
 
@@ -78,7 +93,12 @@ Works on whole buffer or selection, respects `narrow-to-region'."
 
 ** Run on every save
 
-Adds the cleanup to the global =before-save-hook=, so every file is cleaned on save in every mode. Two consequences follow from the code: if a region is active when you save, only that region is cleaned, and the blank line collapsing also applies inside code and source blocks. Each save also prints the done message.
+Adds the cleanup to the global =before-save-hook=, so every file is cleaned on save in every mode. Two consequences follow from the code:
+
+- If a region is active when you save, only that region is cleaned.
+- The blank line collapsing also applies inside code and source blocks.
+
+Each save also prints the done message.
 
 #+begin_src emacs-lisp -i
 (add-hook 'before-save-hook 'sp-clean-whitespace)
@@ -88,7 +108,11 @@ Adds the cleanup to the global =before-save-hook=, so every file is cleaned on s
 
 ** Fix blank lines
 
-=sp-org-fix-blank-lines=, from alphapapa's unpackaged.el, makes sure there is a blank line before every heading and between a heading (after its planning lines and drawers) and its body text. It acts on the current subtree, or on the whole buffer with a prefix argument. The widened buffer section is needed because =org-map-entries= narrows to each entry, and drawers are skipped with a regexp search because =org-at-drawer-p= misbehaves on hidden text.
+=sp-org-fix-blank-lines=, from alphapapa's unpackaged.el, makes sure there is a blank line before every heading and between a heading (after its planning lines and drawers) and its body text.
+
+- It acts on the current subtree, or on the whole buffer with a prefix argument.
+- The widened buffer section is needed because =org-map-entries= narrows to each entry.
+- Drawers are skipped with a regexp search because =org-at-drawer-p= misbehaves on hidden text.
 
 #+begin_src emacs-lisp -i
 ;;;; Add whitespace before and after heading
@@ -164,7 +188,11 @@ A commented out remap would have replaced =fill-paragraph= with the command abov
 
 ** Unfill a paragraph
 
-=sp-unfill-paragraph=, from Stefan Monnier, joins a multi line paragraph into one line by filling with a =fill-column= as large as the buffer. Binding =emacs-lisp-docstring-fill-column= to t stops Emacs Lisp docstrings from using their own fill column. It is bound globally to =M-Q=, the shifted counterpart of =M-q=.
+=sp-unfill-paragraph=, from Stefan Monnier, joins a multi line paragraph into one line.
+
+- It fills with a =fill-column= as large as the buffer.
+- Binding =emacs-lisp-docstring-fill-column= to t stops Emacs Lisp docstrings from using their own fill column.
+- Bound globally to =M-Q=, the shifted counterpart of =M-q=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Unfill Paragraph
@@ -183,7 +211,13 @@ A commented out remap would have replaced =fill-paragraph= with the command abov
 
 ** Formatted copy
 
-=formatted-copy= exports the active region, or the whole buffer, from Org to HTML in a temporary buffer (body only, visible text only), pipes that HTML through macOS =textutil= to make RTF, and puts the result on the clipboard with =pbcopy=. This lets Org text be pasted with formatting into apps like Mail or Word. It only works on macOS. The local =html= variable is computed but not used.
+=formatted-copy= exports the active region, or the whole buffer, from Org to HTML in a temporary buffer (body only, visible text only).
+
+- Pipes that HTML through macOS =textutil= to make RTF.
+- Puts the result on the clipboard with =pbcopy=.
+- This lets Org text be pasted with formatting into apps like Mail or Word.
+- It only works on macOS.
+- The local =html= variable is computed but not used.
 
 #+begin_src emacs-lisp -i
 ;;;;; Formatted Copy
@@ -213,7 +247,11 @@ Binds =formatted-copy= to =H-w=, which needs a Hyper modifier key to be mapped o
 
 ** Abbrev mode
 
-Configures the built-in =abbrev= package, deferred two seconds after startup. Abbrevs are stored in =abbrev/.abbrev_defs= under =sp-var-dir=, are not saved automatically, and are read in silently if the file exists. Enabling =abbrev-mode= in text buffers is left commented out, so abbrevs only expand where the mode is turned on some other way.
+Configures the built-in =abbrev= package, deferred two seconds after startup.
+
+- Abbrevs are stored in =abbrev/.abbrev_defs= under =sp-var-dir=.
+- They are not saved automatically, and are read in silently if the file exists.
+- Enabling =abbrev-mode= in text buffers is left commented out, so abbrevs only expand where the mode is turned on some other way.
 
 #+begin_src emacs-lisp -i
 ;; Abbreviation
@@ -292,7 +330,12 @@ Marcin Borkowski's smart yanking moves point before a yank so that you do not en
 
 ** Adjust point
 
-=set-point-before-yanking= compares the two: if both the yanked text and the text before point have leading space it moves back over that space, and if both have trailing space it moves forward over it, so the yanked spaces replace the existing ones rather than adding to them. Note that this only moves point; the existing space is not deleted, so the effect is on where the text lands.
+=set-point-before-yanking= compares the yanked text with the text before point:
+
+- If both have leading space, it moves back over that space.
+- If both have trailing space, it moves forward over it.
+- So the yanked spaces replace the existing ones rather than adding to them.
+- It only moves point. The existing space is not deleted, so the effect is on where the text lands.
 
 #+begin_src emacs-lisp -i
 (defun set-point-before-yanking (string)

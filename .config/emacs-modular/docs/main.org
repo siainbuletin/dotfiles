@@ -12,7 +12,11 @@ TODO - this cookie with the export date should be updated to reflect the new doc
 
 The configuration now works by generating different ~.el~ files for different needs and functionalities within Emacs, and it's supposed to be loaded conditionally, based on whatever needs I might have for my configuration (as well as proper debugging).
 
-Keeping a literate configuration allows me to take advantage of the features of org-mode to set tasks for improvement in the overall configuration, and have it mingle with the notes that I might find in my collection of Zettelkasten. For this reason (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
+Why a literate configuration:
+
+- It lets me use the features of org-mode to set tasks for improving the configuration.
+- It lets the configuration mingle with the notes in my Zettelkasten collection.
+- So (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
 
 Disclosure: many of the modules and functions I included are written with the help of Claude (not a programmer) and should be well-documented for readability (so I can actually understand what's going on).
 
@@ -34,7 +38,12 @@ For motivations of why this configuration is set up in this way, please refer to
 
 * Module tree
 
-The modules live in =libraries/modules/=, one subdirectory per area. The tree below mirrors those subdirectories: each heading is a directory, and each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to. See [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle them.
+Where the modules live:
+
+- Modules live in =libraries/modules/=, one subdirectory per area.
+- The tree below mirrors those subdirectories. Each heading is a directory.
+- Each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to.
+- To tangle them, see [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 ** academic/
 
@@ -263,11 +272,18 @@ This can also be relative, you don't have to give the full path to the system di
 
 ** Being careful while editing the literate configuration
 
-If you don't want to overwrite your changes, you need to make all of the changes directly into the =main.org= file. Then use =C-c C-v C-t= (=M-x org-babel-tangle=) if you want to propagate the changes to the files. The "direction" where each file will be sent is thankfully part of the org source block syntax.
+If you don't want to overwrite your changes:
+
+- Make all changes directly in the =main.org= file.
+- Then use =C-c C-v C-t= (=M-x org-babel-tangle=) to propagate the changes to the files.
+- The "direction" where each file will be sent is part of the org source block syntax.
 
 For example, when writing changes to my =early-init.el= file, the source block will be written as such
 
-This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be ootangling from multiple org-mode documents at once.
+This is essential for the multi-Org file compilation process.
+
+- By default, =org-babel= supports tangling to Emacs Lisp.
+- You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (org-babel-do-load-languages
@@ -280,7 +296,16 @@ This is essential for getting the multi-Org file compilation process. By default
 
 ** Writing the Provide section of a module doc
 
-Every module doc ends its module with a =Provide= heading. Keep it short: one sentence saying which feature the module provides, then a single source block holding the whole =;;; Provide= segment, that is the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together. Do not give the marker, the form and the footer a sub-heading and a block each. When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level. Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
+Every module doc ends its module with a =Provide= heading. Keep it short:
+
+- one sentence saying which feature the module provides,
+- then a single source block holding the whole =;;; Provide= segment: the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together.
+
+Rules:
+
+- Do not give the marker, the form and the footer a sub-heading and a block each.
+- When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level.
+- Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
 
 * Protocol for replicating the configuration across machines
 
@@ -352,9 +377,20 @@ disabled: ~/.config/emacs-include/org-modules/howm.org src org
 The zetteldeft module is currently disabled as it creates issues with =(require)=.
 #+end_quote
 
-The initial =zettelkasten.org= file doesn't actually enable any external package, because I'm still trying out to see which system works best for me. The file, instead, describes the workflow and may provide some helper functions. As such, it is loaded after the packages themselves (for now). At first glance, the scope of these packages is to enable functionality that is very close to Obsidian and the way I do my Zettelkasten notes.
+The initial =zettelkasten.org= file:
 
-Before enabling the =zettelkasten.org= file, I need all of the custom functionality that I have also set up specifically for =org-mode=. I strive to have all of my notes in this one format, to facilitate easier communication. The basic =org-mode= configuration has been moved to a separate file which I currently prefer to be loaded separately instead of with all the note-taking packages. This is also because org-mode is really large when it comes to bootstrapping and I prefer doing it properly, rather than fragmenting my configuration elsewhere. All of the notetaking packages should depend on the proper functioning of org-mode anyway.
+- Doesn't actually enable any external package, because I'm still trying to see which system works best for me.
+- Instead it describes the workflow and may provide some helper functions.
+- So it is loaded after the packages themselves (for now).
+- At first glance, the scope of these packages is functionality very close to Obsidian and the way I do my Zettelkasten notes.
+
+Before enabling =zettelkasten.org=:
+
+- I need all the custom functionality I have also set up specifically for =org-mode=.
+- I strive to have all my notes in this one format, to facilitate easier communication.
+- The basic =org-mode= configuration has been moved to a separate file, which I currently prefer to load separately from the note-taking packages.
+- Reason: org-mode is really large when it comes to bootstrapping, and I prefer doing it properly rather than fragmenting my configuration elsewhere.
+- All the notetaking packages should depend on the proper functioning of org-mode anyway.
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/zettelkasten.org src org
 
@@ -376,7 +412,10 @@ This is far from being a workable environment yet, but I want to be able to mana
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/reading.org src org
 
-This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
+This brings my entire reading workflow into Emacs.
+
+- It mainly focuses on bringing my PDFs into a readable state.
+- It contains configurations for =pdf-tools=, =org-noter=, and any other helper function I may find myself needing later on.
 
 ** Project management
 
@@ -406,11 +445,19 @@ Stuff like GNU Info and man pages. This should also enable getting definitions f
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/interleaving.org src org
 
-This configuration is all about spaced repetition, interleaving and testing myself to manage to surface the information I'm working with. Of course, since this entire setup is created to be as searchable as possible, it becomes pretty redundant to practice memory, but this is important especially for *language learning* and *instrument/musical practice*. I need to develop a bunch of _functional cards that I can use for information_, all of which is dynamically surfaced when needed.
+This configuration is about spaced repetition, interleaving and testing myself, to surface the information I'm working with.
+
+- This setup is meant to be as searchable as possible, so practising memory is partly redundant.
+- It stays important especially for *language learning* and *instrument/musical practice*.
+- I need to develop a bunch of _functional cards that I can use for information_, all dynamically surfaced when needed.
 
 The file is called =interleaving.el= because the whole purpose is to integrate this learning environment to the entire computing environment, meaning the creation of learning prompts becomes automatic through curation of content on the system, instead of relying on something like AI.
 
-This is bootstrapped at this point because it needs components from [[file:org-modules/zettelkasten.org][the notetaking system]], [[file:org-modules/manuals.org][the complex documentation system]] (which makes definitions available at point) and _everything_ regarding bibliography management, because I might need to retrieve information from those files as well.
+This is bootstrapped at this point because it needs components from:
+
+- [[file:org-modules/zettelkasten.org][the notetaking system]],
+- [[file:org-modules/manuals.org][the complex documentation system]] (which makes definitions available at point),
+- _everything_ regarding bibliography management, because I might need to retrieve information from those files as well.
 
 ** Web browser integration
 
@@ -496,7 +543,10 @@ This is the part that documents where I need to do more work on the configuratio
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/in-progress.org src org
 
-These are enhancements that I want to be making to my configuration that are not yet finished and are just in the ideation phase. This is mostly treating things that I want to be patching up together by myself. Packages which are currently retired or I have yet to properly try them out (or perhaps I want to be trying them out again in the future) belong in the =retired.org= file.
+Enhancements I want to make that are not yet finished and are just in the ideation phase.
+
+- This is mostly things I want to patch up together by myself.
+- Packages that are currently retired, or that I have yet to try properly (or want to try again in the future), belong in the =retired.org= file.
 
 This file is also different from the [[file:config-tasks.org][improvement tasks file]] that I use as more of a changelog. This file is a scratchpad from where new ideas can bloom and be developed into different modules.
 
@@ -510,7 +560,11 @@ Keeping these configurations for the posterity, mostly.
 
 * The files that get created
 
-Ideally, not everything will live in the =init.el= file, so that Emacs Lisp modules may also be evaluated separately for the purposes of debugging or perhaps keeping the installation leaner. Or even for using the same declarative starting point for a configuration even when I'm using Emacs on the Nokia N900 through postmarketOS, where resources are a lot more scarce.
+Ideally not everything lives in the =init.el= file. Reasons:
+
+- Emacs Lisp modules can be evaluated separately, for debugging.
+- The installation can stay leaner.
+- The same declarative starting point can be used when I'm running Emacs on the Nokia N900 through postmarketOS, where resources are a lot more scarce.
 
 The Emacs Lisp files are organised as such:
 

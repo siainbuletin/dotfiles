@@ -4,11 +4,19 @@
 
 * Preamble
 
-Literate source for =libraries/modules/ui/sp-emoji-font.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-emoji-font.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * Basic functionality
 
-Emacs picks a font for each emoji from the fontset. The =sp-fonts= module already prepends "Apple Color Emoji" when that family exists, which covers macOS. This module makes the same choice work on Linux, where the Apple font is not installed, and gives one place to say which font to use.
+Emacs picks a font for each emoji from the fontset.
+
+- The =sp-fonts= module already prepends "Apple Color Emoji" when that family exists, which covers macOS.
+- This module makes the same choice work on Linux, where the Apple font is not installed.
+- It also gives one place to say which font to use.
 
 - It walks =sp-emoji-font-families= and prepends the first family that is installed to the =emoji= script of the default fontset. The default list starts with Apple Color Emoji, then Noto Color Emoji, so a Linux machine without the Apple font still shows colour emoji.
 - On Linux, =sp-emoji-font-file= may point at an Apple Color Emoji =.ttf=. If the family is not installed, the module copies the file into =~/.local/share/fonts/sp-emoji/= and runs =fc-cache=, so fontconfig and Emacs find it.

@@ -2,9 +2,17 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-graphs.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-graphs.el= and its page template =libraries/modules/custom/sp-graphs.html=. Every line of both files lives in the source blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each HTML block carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-graphs.el= and its page template =libraries/modules/custom/sp-graphs.html=.
 
-This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=. They all draw or analyse graphs of notes, but only two of them install a package. The others are code of my own. The file keeps that split, in this order:
+- Every line of both files lives in the source blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where the Emacs Lisp is written.
+- Each HTML block carries its own path.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=.
+
+- They all draw or analyse graphs of notes. Only two of them install a package. The others are code of my own.
+- The file keeps that split, in this order:
 
 1. *Installed with =use-package=*: =discourse-graphs= (with all its settings) and =vulpea-graph=. Elpaca fetches both from GitHub with the =:ensure= recipes below. Their code is not in this repository.
 2. *Custom code*: the relationship annotator, which reads relations between Vulpea notes and draws them, and its live view, a small web server inside Emacs that shows the same page and reloads it when the notes change. Both are written here, in full.
@@ -38,7 +46,12 @@ This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annota
 
 ** Loading it
 
-=sp-graphs= is loaded from =init.el= in =lem--late-modules=, where the four modules were listed before, in the same position and the same order: after =sp-semantic= and before =sp-sandbox=. A late module is read once Emacs is idle after startup and Elpaca has finished its initial queues (see [[file:../../architecture/load-order.org][load-order]]), so the two =use-package= forms below are queued by =lem--load-late-modules=, which then runs =elpaca-process-queues=. The commands are not available until then.
+Loading:
+
+- =sp-graphs= is loaded from =init.el= in =lem--late-modules=, in the position where the four modules were listed before: after =sp-semantic= and before =sp-sandbox=, in the same order.
+- A late module is read once Emacs is idle after startup and Elpaca has finished its initial queues (see [[file:../../architecture/load-order.org][load-order]]).
+- The two =use-package= forms below are queued by =lem--load-late-modules=, which then runs =elpaca-process-queues=.
+- The commands are not available until then.
 
 #+begin_src emacs-lisp :tangle no
 sp-graphs
@@ -97,7 +110,12 @@ The header, commentary and the start of the code section. The commentary is writ
 
 * Installed with use-package
 
-Two packages, two =use-package= forms. Elpaca fetches both from GitHub; the =:ensure= recipe says from where and which files to build. Nothing else in this file is installed: the custom code below relies on =vulpea= and =vui= (installed by =sp-vulpea-base=), and =vulpea-graph= relies on =websocket= and =simple-httpd= (installed by =sp-base-libraries=).
+Two packages, two =use-package= forms.
+
+- Elpaca fetches both from GitHub. The =:ensure= recipe says from where and which files to build.
+- Nothing else in this file is installed.
+- The custom code below relies on =vulpea= and =vui= (installed by =sp-vulpea-base=).
+- =vulpea-graph= relies on =websocket= and =simple-httpd= (installed by =sp-base-libraries=).
 
 #+begin_src emacs-lisp
 ;;; Installed with use-package
@@ -105,9 +123,21 @@ Two packages, two =use-package= forms. Elpaca fetches both from GitHub; the =:en
 
 ** discourse-graphs (from =sp-dgraphs=)
 
-This installs and configures =discourse-graphs=, a package by LuciusChen that treats Org headings in a notes directory as typed nodes (questions, claims, evidence, sources, theories) connected by typed relations (supports, opposes, informs, answers), stores them in an SQLite database, and offers a context panel, heading overlays and a browser-based UI. It was kept in a module of its own so it can be set up on its own, and some variables from Lambda Emacs are still needed for it to work well (=sp-notes-dir= and =sp-path=, from =sp-paths=).
+This installs and configures =discourse-graphs=, a package by LuciusChen.
 
-The package is fetched from GitHub through Elpaca, including the prebuilt HTML and assets of its web UI. Notes are scanned recursively under =sp-notes-dir= (=~/notes/= unless =SP_NOTES_DIR= says otherwise), with Denote integration turned on. The database is configured to live in =~/.config/emacs-include/=, while a =discourse-graphs.db= file also sits at the root of this repository, which suggests the location has changed at some point.
+- It treats Org headings in a notes directory as typed nodes: questions, claims, evidence, sources, theories.
+- The nodes are connected by typed relations: supports, opposes, informs, answers.
+- It stores them in an SQLite database.
+- It offers a context panel, heading overlays and a browser-based UI.
+- It was kept in a module of its own so it can be set up on its own.
+- Some variables from Lambda Emacs are still needed for it to work well: =sp-notes-dir= and =sp-path=, from =sp-paths=.
+
+Setup:
+
+- The package is fetched from GitHub through Elpaca, including the prebuilt HTML and assets of its web UI.
+- Notes are scanned recursively under =sp-notes-dir= (=~/notes/= unless =SP_NOTES_DIR= says otherwise), with Denote integration turned on.
+- The database is configured to live in =~/.config/emacs-include/=.
+- A =discourse-graphs.db= file also sits at the root of this repository, which suggests the location has changed at some point.
 
 Everything under this heading is settings and the =use-package= form for the package. None of it is a function of mine.
 
@@ -115,7 +145,14 @@ Everything under this heading is settings and the =use-package= form for the pac
 
 **** use-package discourse-graphs
 
-Installs =discourse-graphs= from GitHub with the Elisp files and the built web UI files. Once loaded, it sets the directories to scan (=~/notes/=), turns on recursive scanning, sets the SQLite database path, and enables the global =discourse-graphs-mode=. The closing parenthesis on its own line ends the =use-package= form.
+Installs =discourse-graphs= from GitHub with the Elisp files and the built web UI files. Once loaded, it:
+
+- sets the directories to scan (=~/notes/=),
+- turns on recursive scanning,
+- sets the SQLite database path,
+- enables the global =discourse-graphs-mode=.
+
+The closing parenthesis on its own line ends the =use-package= form.
 
 #+begin_src emacs-lisp -i
 (use-package discourse-graphs
@@ -181,7 +218,11 @@ The vocabulary of the graph: computed attributes, node types, relation types, an
 
 **** Computed attributes
 
-=dg-discourse-attributes= defines formulas over relation counts. Claims get an evidence score (supporting minus opposing evidence) and a robustness score that also counts supporting claims at half weight; the evidence score is shown in the heading overlay. Questions get an answer count, which is their overlay. A comment leaves room for more types.
+=dg-discourse-attributes= defines formulas over relation counts.
+
+- Claims get an evidence score (supporting minus opposing evidence) and a robustness score that also counts supporting claims at half weight. The evidence score is shown in the heading overlay.
+- Questions get an answer count, which is their overlay.
+- A comment leaves room for more types.
 
 #+begin_src emacs-lisp -i
 (setq dg-discourse-attributes
@@ -273,9 +314,19 @@ The vocabulary of the graph: computed attributes, node types, relation types, an
 
 ** vulpea-graph (from =sp-dyn-graph=)
 
-This installs =vulpea-graph= from the Arenile/vulpea-graph-ui GitHub repository, an interactive graph view of Vulpea notes served to a browser. It needs the =websocket= and =simple-httpd= packages, and builds on the Vulpea setup loaded through =sp-vulpea-base=. The original module's header and its empty commentary are gone; the single =use-package= form is all that was in it.
+This installs =vulpea-graph= from the Arenile/vulpea-graph-ui GitHub repository.
 
-Installs =vulpea-graph= along with its =assets= folder, which holds the browser side files. The commands =vulpea-graph= and =vulpea-graph-mode= are autoloaded. The =:after= clause holds the configuration back until both =websocket= and =simple-httpd= are loaded; since use-package wraps the whole form, including the autoloads, in that condition, the commands may only become available once those two libraries have been loaded by something else. Both come from =sp-base-libraries=, which loads first, so in practice they are there.
+- It is an interactive graph view of Vulpea notes, served to a browser.
+- It needs the =websocket= and =simple-httpd= packages.
+- It builds on the Vulpea setup loaded through =sp-vulpea-base=.
+- The original module's header and its empty commentary are gone. The single =use-package= form is all that was in it.
+
+Installs =vulpea-graph= along with its =assets= folder, which holds the browser side files.
+
+- The commands =vulpea-graph= and =vulpea-graph-mode= are autoloaded.
+- The =:after= clause holds the configuration back until both =websocket= and =simple-httpd= are loaded.
+- use-package wraps the whole form, including the autoloads, in that condition. So the commands may only become available once those two libraries have been loaded by something else.
+- Both come from =sp-base-libraries=, which loads first, so in practice they are there.
 
 #+begin_src emacs-lisp -i
 (use-package vulpea-graph
@@ -287,7 +338,12 @@ Installs =vulpea-graph= along with its =assets= folder, which holds the browser 
 
 * Custom code
 
-Everything from here on is written in this file. It is two features: the relationship annotator, which does the reading and the drawing, and the live view, which serves the annotator's page. The live view calls functions of the annotator, so the annotator comes first in the file.
+Everything from here on is written in this file. It is two features:
+
+- the relationship annotator, which does the reading and the drawing,
+- the live view, which serves the annotator's page.
+
+The live view calls functions of the annotator, so the annotator comes first in the file.
 
 #+begin_src emacs-lisp
 ;;; Custom code: the relationship annotator, then its live view
@@ -296,17 +352,56 @@ Everything from here on is written in this file. It is two features: the relatio
 
 ** Relationship annotator (from =sp-relationship-annotator=)
 
-Literate source for the first custom part. The text under this heading is the old document of =sp-relationship-annotator=, with its line numbers removed, because the tangled file is now the whole of =sp-graphs.el= and the numbers would be wrong. The HTML template keeps its line numbers: it is still a file of its own.
+Literate source for the first custom part.
+
+- The text under this heading is the old document of =sp-relationship-annotator=, with its line numbers removed. The tangled file is now the whole of =sp-graphs.el=, and the numbers would be wrong.
+- The HTML template keeps its line numbers: it is still a file of its own.
 
 *** Context
 
-My notes follow a Zettelkasten pattern. One file is one idea. A sub-note records its parents with a =- parents :: [[id:…][Title]]= line in its zeroth section, and vulpea stores that as metadata. A note can have several parents: either one link after another on the same line, separated by commas, or one =- parents ::= line per parent. =vulpea-graph= doesn't draw this hierarchy (it analyses links for retrieval and shows lists), so this module reads the =parents= metadata and builds the tree itself.
+My notes follow a Zettelkasten pattern.
 
-Besides =parents=, a note can relate to other notes in other ways: =supports=, =opposes=, =informs=, =answers=, or any relation you declare in =relationship-annotator-relations=. Each relation lists the places it is read from: a metadata key on the note, the inverse of a key on the other note (=children= for =parents=), or a file property such as =DG_SUPPORTS=, which is how =discourse-graphs= stores its relations. Parents and children build the tree. The other relations are drawn as labelled, coloured, dashed links between two notes that are both in view.
+- One file is one idea.
+- A sub-note records its parents with a =- parents :: [[id:…][Title]]= line in its zeroth section. vulpea stores that as metadata.
+- A note can have several parents: one link after another on the same line separated by commas, or one =- parents ::= line per parent.
+- =vulpea-graph= doesn't draw this hierarchy. It analyses links for retrieval and shows lists.
+- So this module reads the =parents= metadata and builds the tree itself.
 
-Boxes are tinted by file tag. =relationship-annotator-tag-colors= maps a tag to a colour, and a note takes the colour of the first of its tags that is listed. In the browser, the position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=): parents go above their children, and each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=. A click on a box, or Tab to it and Enter, recentres the graph on it and cuts the tree again from there, so the page holds the tree down to =relationship-annotator-embed-depth= levels (4) and the depth buttons and Backspace move through it. Emacs cuts the tree there, so a large vault doesn't make the page large; to go further, run the command again from another note. A small marker on a box folds its branch.
+Besides =parents=, a note can relate to other notes in other ways.
 
-The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package. Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag. A relation can say which types it should connect, so a =supports= edge from a question is flagged as an anomaly (a warning sign in the browser, a line in the review buffer). Notes can have /attributes/, numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=, and one of them is shown in brackets after the title. =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands. For how this compares with the package, see [[file:../../architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
+- Relations: =supports=, =opposes=, =informs=, =answers=, or any relation you declare in =relationship-annotator-relations=.
+- Each relation lists the places it is read from:
+  - a metadata key on the note,
+  - the inverse of a key on the other note (=children= for =parents=),
+  - a file property such as =DG_SUPPORTS=, which is how =discourse-graphs= stores its relations.
+- Parents and children build the tree.
+- The other relations are drawn as labelled, coloured, dashed links between two notes that are both in view.
+
+Tags and tinting:
+
+- Boxes are tinted by file tag.
+- =relationship-annotator-tag-colors= maps a tag to a colour. A note takes the colour of the first of its tags that is listed.
+
+Layout in the browser:
+
+- The position of every box comes from the fCoSE layout (see =vendor/relationship-annotator/README.org=).
+- Parents go above their children.
+- Each relation can say in which direction its object goes, with =:direction= in =relationship-annotator-relations=.
+
+Navigation:
+
+- A click on a box, or Tab to it and Enter, recentres the graph on it and cuts the tree again from there.
+- The page holds the tree down to =relationship-annotator-embed-depth= levels (4). The depth buttons and Backspace move through it.
+- Emacs cuts the tree there, so a large vault doesn't make the page large. To go further, run the command again from another note.
+- A small marker on a box folds its branch.
+
+The module was called =sp-vulpea-hierarchy= until it took over the logic of the =discourse-graphs= package.
+
+- Notes can have a /type/ (=question=, =claim=, =evidence= or =source=), read from a =DG_TYPE= property, a =type= metadata field or a file tag.
+- A relation can say which types it should connect. A =supports= edge from a question is flagged as an anomaly: a warning sign in the browser, a line in the review buffer.
+- Notes can have /attributes/: numbers computed from formulas such as ={count:Supported By:evidence} - {count:Opposed By:evidence}=. One of them is shown in brackets after the title.
+- =rel-anno-review= lists the anomalies, the claims with gaps in their argument, and how well each answer to a question stands.
+- For how this compares with the package, see [[file:../../architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator-vs-discourse-graphs]].
 
 A vault of this size is too large to draw whole. So every command first asks for a *starting note* and a *depth*, and shows only that part: the starting note, its children, their children, down to the depth.
 
@@ -504,7 +599,12 @@ another note to go further.  A larger depth, when you ask for one, wins."
 
 **** Reading the relations of a note
 
-A note may name several parents, or several targets of another relation: either on one line, separated by commas, or on one line per value. vulpea keeps one entry per line, and a comma-separated line stays one entry, so =vulpea-note-meta-get-list= with the =link= type would only return the first link of each. The functions here read every link themselves, and they work for every relation and every kind of source.
+A note may name several parents, or several targets of another relation.
+
+- Either on one line, separated by commas, or on one line per value.
+- vulpea keeps one entry per line, and a comma-separated line stays one entry. So =vulpea-note-meta-get-list= with the =link= type would only return the first link of each.
+- The functions here read every link themselves.
+- They work for every relation and every kind of source.
 
 - Define =relationship-annotator--value-ids=. It takes a list of strings and returns the ids in them. It scans each string for every bracket link (165), keeps the ones that start with =id:= (168-169) and moves on after each (170). A string with no link at all is read as bare ids separated by commas or spaces (171-173), which is how a file property usually holds them. Duplicates are dropped (174).
 - Define =relationship-annotator--source-values=. For a metadata source it returns the strings stored under the key (179-180). For a property source it returns the property's value as a one-element list (181-183). The =-inverse= forms read the same place.
@@ -711,7 +811,13 @@ relations between two notes that are both in scope."
 
 **** Discourse layer: types and attributes
 
-The module started as a reading of =parents= metadata. This layer ports the core of the =discourse-graphs= package on top of the relations above, so that package is no longer needed to read, check and count a discourse graph. =discourse-graphs= keeps its nodes in an SQLite cache that it fills by scanning files, and keeps them in a plist per node. vulpea already is that database, so nothing here scans or stores anything: every function works on the tree that =relationship-annotator--build= returns.
+The module started as a reading of =parents= metadata.
+
+- This layer ports the core of the =discourse-graphs= package on top of the relations above.
+- That package is no longer needed to read, check and count a discourse graph.
+- =discourse-graphs= keeps its nodes in an SQLite cache that it fills by scanning files, as a plist per node.
+- vulpea already is that database, so nothing here scans or stores anything.
+- Every function works on the tree that =relationship-annotator--build= returns.
 
 - The comment that says where the layer comes from.
 - Define =relationship-annotator-node-types=: for each type (=question=, =claim=, =evidence=, =source=) a short code, a colour and a description. The short code and description are for the review buffer and for your own use. The colour is what a note of that type is drawn in when no file tag has a colour.
@@ -879,7 +985,10 @@ is not checked)."
 
 **** Formulas: reading
 
-This is the formula language of the package: arithmetic with =+ - * /= and parentheses over numbers and terms in braces. The package parses it with a global list of tokens, which can't run twice at once. The version here has no global state.
+This is the formula language of the package: arithmetic with =+ - * /= and parentheses over numbers and terms in braces.
+
+- The package parses it with a global list of tokens, which can't run twice at once.
+- The version here has no global state.
 
 - Define a variable that holds the attributes being computed. A formula that refers to itself would otherwise recurse forever (the package has no guard); this list lets the evaluator stop with a message.
 - Define =relationship-annotator--parse-term=, which turns the text between braces into =(func OP RELATION TYPE ATTRIBUTE)=. The text is split at colons. The operation is =count=, =sum=, or =avg= (also written =average=), and anything else stops with a message. A term needs a relation, and =sum= and =avg= need an attribute to add up. The type and the attribute are optional; an empty one counts as none.
@@ -1971,7 +2080,13 @@ exports of the same note never overwrite each other."
 
 *** The page template, line by line
 
-The browser graph is a single HTML page with its own style and script. Emacs fills in =__DATA__= (line 36) with the tree cut to the embed depth: every note, edge and link in it, and =__LIBS__= (line 34) with four vendored scripts. The page cuts the part to show by itself, so it can recentre on any note, and it lets the fCoSE layout place the boxes. Line numbers refer to =libraries/modules/custom/sp-graphs.html=.
+The browser graph is a single HTML page with its own style and script.
+
+- Emacs fills in =__DATA__= (line 36) with the tree cut to the embed depth: every note, edge and link in it.
+- Emacs fills in =__LIBS__= (line 34) with four vendored scripts.
+- The page cuts the part to show by itself, so it can recentre on any note.
+- It lets the fCoSE layout place the boxes.
+- Line numbers refer to =libraries/modules/custom/sp-graphs.html=.
 
 **** Page head (lines 1–6)
 - Line 1 sets the document type and line 2 the language.
@@ -2606,7 +2721,12 @@ render(true);
 
 *** Layout backend of the browser page: what changed and why
 
-Before, the page placed boxes with its own tidy-tree code: depth gave the column, and a parent was centred on its children. That can't say "this relation goes to the right of its subject", because a link joins boxes that the tree has already placed. The page now asks the fCoSE layout for the positions and keeps its own SVG drawing (text wrapping, tags, tints, fold markers, links).
+What changed in the page layout:
+
+- Before, the page placed boxes with its own tidy-tree code: depth gave the column, and a parent was centred on its children.
+- That can't say "this relation goes to the right of its subject", because a link joins boxes that the tree has already placed.
+- Now the page asks the fCoSE layout for the positions.
+- It keeps its own SVG drawing: text wrapping, tags, tints, fold markers, links.
 
 | Gained                                                                 | Lost or costs                                                                                            |
 |------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------|
@@ -2616,7 +2736,14 @@ Before, the page placed boxes with its own tidy-tree code: depth gave the column
 | No dependency on the network; the scripts are MIT licensed             | The scripts must be updated by hand (=vendor/relationship-annotator/README.org=)                         |
 | Drawing is unchanged, so wrapping, tags and tints still work           | The SVG export (Graphviz) ignores directions                                                             |
 
-Other backends considered: Cytoscape.js with its own renderer (less control over wrapped text and muted tags), ELK (layered, but one direction for the whole graph), d3-force (smaller, but no hard rules and no rectangles), and Graphviz in the browser (a static layout that can't take rules). fCoSE is the only one with built-in relative placement rules.
+Other backends considered:
+
+- Cytoscape.js with its own renderer: less control over wrapped text and muted tags.
+- ELK: layered, but one direction for the whole graph.
+- d3-force: smaller, but no hard rules and no rectangles.
+- Graphviz in the browser: a static layout that can't take rules.
+
+fCoSE is the only one with built-in relative placement rules.
 
 *** Verification
 
@@ -2653,7 +2780,12 @@ Literate source for the second custom part, the live browser view for the annota
 
 The graph used to be a static HTML file: =rel-anno-graph-static= (see [[*Relationship annotator][Relationship annotator]]) writes a self-contained page to =relationship-annotator-html-file= and opens it from disk. The page is a snapshot: after I edit a note or add a =supports= relation, I have to run the command again and open a new file.
 
-This module serves the same page from Emacs on =http://127.0.0.1:8765/=, and =rel-anno-graph= is now the command that opens it. Every page load is rendered fresh from the vulpea database. An open page holds one connection to Emacs, and Emacs sends a message on it only when the graph that page shows has changed. The page then reloads, on the same note and depth, with its zoom, position, folded branches and the note it was recentred on kept.
+This module serves the same page from Emacs on =http://127.0.0.1:8765/=.
+
+- =rel-anno-graph= is now the command that opens it.
+- Every page load is rendered fresh from the vulpea database.
+- An open page holds one connection to Emacs. Emacs sends a message on it only when the graph that page shows has changed.
+- The page then reloads, on the same note and depth. Its zoom, position, folded branches and the note it was recentred on are kept.
 
 **** What "changed" means, without polling
 
@@ -2673,7 +2805,12 @@ The full tree is built once per check, and every open page cuts its own part fro
 
 **** On =vulpea-graph=
 
-The analysis of =vulpea-graph= (the =vulpea-retrieve= package in =~/cloned-scan-ai=) found no rendering code to reuse: it computes metrics in Python and shows lists in Emacs. The only idea taken from it is the one it does have, the neighbour lookup: a breadth-first walk from a note, already done here by =relationship-annotator--scope=. The drawing stays the existing page (cytoscape's fCoSE layout in SVG). I did not read =vulpea-graph-ui=, which this module installs and which does use =websocket= and =simple-httpd=, so I cannot say how it draws or pushes.
+Analysis of =vulpea-graph= (the =vulpea-retrieve= package in =~/cloned-scan-ai=):
+
+- It has no rendering code to reuse: it computes metrics in Python and shows lists in Emacs.
+- The only idea taken from it is its neighbour lookup, a breadth-first walk from a note. That is already done here by =relationship-annotator--scope=.
+- The drawing stays the existing page (cytoscape's fCoSE layout in SVG).
+- I did not read =vulpea-graph-ui=, which this module installs and which does use =websocket= and =simple-httpd=. So I cannot say how it draws or pushes.
 
 **** What it protects against
 

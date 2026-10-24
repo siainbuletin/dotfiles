@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-csv.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-csv.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-csv.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 A small utility module with one command that reads a CSV file and plans one Org file per row, named after the row's =date= column and holding its =body= column. The commentary credits jwiegley's =parse-reddit.el= as the source of the idea.
 
@@ -34,7 +38,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** create-org-files-from-csv
 
-Prompts for a CSV file, parses it with comma separators and double-quote quoting, and finds the =date= and =body= columns from the header row. For each row it builds a filename of the form =DATE.org= and messages it. The =with-temp-file= call that would write the body into that file is commented out, so nothing is created yet. Files would be written relative to the current =default-directory=, and a missing =date= or =body= column would cause an error.
+Prompts for a CSV file, parses it with comma separators and double-quote quoting, and finds the =date= and =body= columns from the header row.
+
+- For each row it builds a filename of the form =DATE.org= and messages it.
+- The =with-temp-file= call that would write the body into that file is commented out, so nothing is created yet.
+- Files would be written relative to the current =default-directory=.
+- A missing =date= or =body= column would cause an error.
 
 #+begin_src emacs-lisp -i
 (defun create-org-files-from-csv (csv-file)

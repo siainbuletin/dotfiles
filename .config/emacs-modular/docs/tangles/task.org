@@ -451,7 +451,10 @@ This is taken from Colin McLear's config (the creator of Lambda Emacs).
 
 See [[id:d768d356-1a6f-40d7-a488-9b04576e10d8][Project management in Emacs]]
 
-As was explained by [[id:f0ecfc03-c855-4bbe-9cff-054527e7bf70][Karl Voit]] in [[https://karl-voit.at/2019/11/03/org-projects/][his post]], it's a little hard to have org-mode properly recognise all of the projects (see what I outlined in for the issues). Voit defined a custom function for marking projects with both process cookies from org-mode *and* tagging the headings as ~:project:~.
+As [[id:f0ecfc03-c855-4bbe-9cff-054527e7bf70][Karl Voit]] explained in [[https://karl-voit.at/2019/11/03/org-projects/][his post]]:
+
+- It's a little hard to have org-mode properly recognise all of the projects (see what I outlined for the issues).
+- Voit defined a custom function for marking projects with both progress cookies from org-mode *and* tagging the headings as ~:project:~.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
 (defun my-mark-as-project ()
@@ -496,7 +499,12 @@ How can you still manage to find these tasks again when you'll need them?
 
 Since I work a lot in writing projects that have to deal with a lot of open-ended questions, I find myself needing to just add a task to a paragraph, to signify that the information there is incomplete and needs to be greatly improved.
 
-One may argue that such tasks would be useless because you'd be cluttering up your agenda, but when your goal is to single in on particular subtrees (in this case defined as files, and not in the sense that org-mode uses the terminology), you can go there and see _especially_ all of the dependencies between your tasks (see [[#Dependencies between tasks]]. Everything can be formulated as a task after all, and fragmenting your workflow into such actionable chunks helps for the thinking process and being able to procrastinate a lot less.
+Why tasks that clutter the agenda are still worth it:
+
+- One may argue such tasks are useless because they clutter up your agenda.
+- But when your goal is to single in on particular subtrees (here defined as files, not in the sense org-mode uses the term), you can go there and see _especially_ all of the dependencies between your tasks (see [[#Dependencies between tasks]]).
+- Everything can be formulated as a task, after all.
+- Fragmenting your workflow into such actionable chunks helps the thinking process and helps me procrastinate a lot less.
 
 ** TODO Recording tasks from inline
 
@@ -534,7 +542,10 @@ Blocker in files "indicates conditions which must be met in order for a heading 
 
 * Declaratively including =org-agenda= files
 
-Since you want to have [[denote:20251207T001521][Task management in org-mode using individual files as projects]] (and [[denote:20251117T160008][Collecting tasks from a writing project into org-agenda]]) and be able to have [[denote:20251214T102352][Project management for writing]] as something more integrated into Emacs and your notes, then you want to be able to just quickly declare different questions (see [[denote:20251117T160121][Further research markers in org-mode documents]]) that you may have on a subject directly in the [[denote:20251117T105346][Zettelkasten]] that you're working on.
+Goal: [[denote:20251207T001521][Task management in org-mode using individual files as projects]] (and [[denote:20251117T160008][Collecting tasks from a writing project into org-agenda]]).
+
+- I want [[denote:20251214T102352][Project management for writing]] to be more integrated into Emacs and my notes.
+- So I want to quickly declare different questions (see [[denote:20251117T160121][Further research markers in org-mode documents]]) on a subject, directly in the [[denote:20251117T105346][Zettelkasten]] I'm working on.
 
 One way to get this to work is through [[denote:20251216T173055][org-mem]], which has a faster database than was available until now. It also has the option to parse through the headings that actually have a TODO attached to them and they will provide you with the relevant TODOs in the [[denote:20251117T103026][org-agenda]] views.
 

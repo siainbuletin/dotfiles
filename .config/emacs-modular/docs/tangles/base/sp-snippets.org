@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-snippets.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-snippets.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-snippets.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -30,7 +34,18 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** yasnippet
 
-Installs =yasnippet= synchronously and loads it immediately. In =:config= it first runs =yas-reload-all=, then adds the =snippets= directories under =user-emacs-directory= and =sp-load-path= to =yas-snippet-dirs= and enables =yas-global-mode=. In this config both paths are likely the same directory. Because the reload runs before the directories are added, snippets in those directories may not be picked up until the next =yas-reload-all=. =C-M-S-y= shows the snippet tables for the current mode, and the extra =sh-mode= hook for =yas-minor-mode= is redundant with the global mode.
+Installs =yasnippet= synchronously and loads it immediately. In =:config=:
+
+- First runs =yas-reload-all=.
+- Then adds the =snippets= directories under =user-emacs-directory= and =sp-load-path= to =yas-snippet-dirs=, and enables =yas-global-mode=.
+
+Caveats:
+
+- In this config both paths are likely the same directory.
+- The reload runs before the directories are added, so snippets in those directories may not be picked up until the next =yas-reload-all=.
+- The extra =sh-mode= hook for =yas-minor-mode= is redundant with the global mode.
+
+Key: =C-M-S-y= shows the snippet tables for the current mode.
 
 #+begin_src emacs-lisp -i
 (use-package yasnippet

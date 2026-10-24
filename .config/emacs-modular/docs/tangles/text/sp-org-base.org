@@ -2,13 +2,36 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-base.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-base.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-base.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module sets up the basic writing environment for =text-mode= and the core of Org mode: keybindings, indentation, lists, source blocks, logging, deadline highlighting, custom IDs for headings, quick-jump commands to the main Org files and a handful of small editing helpers. It is loaded from the Org section of =init.el= (both the default and minimal module lists), before the other Org modules such as =sp-org-appearance=, =sp-org-capture= and =sp-org-agenda=.
+This module sets up the basic writing environment for =text-mode= and the core of Org mode. It covers:
 
-Org itself is the built-in package (=:ensure nil=). Extra packages pulled in here are =company-math=, =math-preview=, =org-fragtog=, and =org-inline-anim=. (=org-ql= used to be installed here; it now lives in =sp-org-agenda=, see [[file:sp-org-agenda.org][sp-org-agenda]].) Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends come from =sp-org-emphasis=, and =sp-split-leave-parents= comes from =sp-vulpea-split=. The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
+- keybindings,
+- indentation, lists and source blocks,
+- logging,
+- deadline highlighting,
+- custom IDs for headings,
+- quick-jump commands to the main Org files,
+- a handful of small editing helpers.
+
+Loading: from the Org section of =init.el= (both the default and minimal module lists), before the other Org modules such as =sp-org-appearance=, =sp-org-capture= and =sp-org-agenda=.
+
+Packages:
+
+- Org itself is the built-in package (=:ensure nil=).
+- Extra packages pulled in here: =company-math=, =math-preview=, =org-fragtog=, =org-inline-anim=.
+- =org-ql= used to be installed here. It now lives in =sp-org-agenda=, see [[file:sp-org-agenda.org][sp-org-agenda]].
+
+Dependencies:
+
+- Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends from =sp-org-emphasis=, =sp-split-leave-parents= from =sp-vulpea-split=.
+- The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
 
 The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
 
@@ -48,7 +71,13 @@ The file enables lexical binding and opens with a comment listing the Org-relate
 
 ** text-mode defaults
 
-Turns on =visual-line-mode= in every =text-mode= buffer, which includes Org buffers since =org-mode= derives from =text-mode=. It enables =delete-selection-mode=, disables two spaces after sentences, lets scrolling past the buffer edge move point to the top or bottom instead of erroring (=scroll-error-top-bottom=), and saves the system clipboard to the kill ring before a kill overwrites it.
+Text-mode settings:
+
+- Turns on =visual-line-mode= in every =text-mode= buffer. That includes Org buffers, since =org-mode= derives from =text-mode=.
+- Enables =delete-selection-mode=.
+- Disables two spaces after sentences.
+- Lets scrolling past the buffer edge move point to the top or bottom instead of erroring (=scroll-error-top-bottom=).
+- Saves the system clipboard to the kill ring before a kill overwrites it.
 
 The indented =add-hook= after the form is a separate top-level form that turns on =org-num-mode=, so every Org heading gets an outline number.
 
@@ -119,7 +148,11 @@ When storing a link interactively to an Org heading, Org creates an =ID= propert
 
 ** Org directory
 
-Sets =org-directory= to =~/notes/=. The trailing slash matters because several places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=); without it they produced names like =~/notesinbox.org=. Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
+Sets =org-directory= to =~/notes/=.
+
+- The trailing slash matters: several places build paths with plain =concat= (for example the =sp-goto-*= commands below and =sp-org-capture=).
+- Without it they produced names like =~/notesinbox.org=.
+- Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
 
 #+begin_src emacs-lisp -i
 (setq org-directory sp-notes-dir)
@@ -151,11 +184,26 @@ Keybindings:
 
 In =:init=, =org-emphasis-regexp-components= is widened so emphasis markers work next to more punctuation (including the em dash); this has to be set before Org loads.
 
-The =:custom= section keeps footnotes next to their reference, turns on adaptive and startup indentation, preserves source block indentation, inserts headings after the current subtree, allows alphabetical lists, sets a bullet rotation for demoted list items, enables smart =C-a=/=C-e= on headings, raises imenu depth to 8, and makes source blocks fontify natively, edit in another window and confirm before evaluation.
+The =:custom= section:
+
+- keeps footnotes next to their reference,
+- turns on adaptive and startup indentation,
+- preserves source block indentation,
+- inserts headings after the current subtree,
+- allows alphabetical lists,
+- sets a bullet rotation for demoted list items,
+- enables smart =C-a=/=C-e= on headings,
+- raises imenu depth to 8,
+- makes source blocks fontify natively, edit in another window and confirm before evaluation.
 
 =org-catch-invisible-edits= is set to =show-and-error= here, so editing a folded or hidden region is refused with an error after revealing it (the comment doubts it works). It used to be written as a =setq= inside =:custom=, which expects =(variable value)= pairs, so it did not set the variable.
 
-In =:config= it maps =vimrc= source blocks to =vimrc-mode=, loads the Emacs Lisp, shell, Org and R Babel languages (R blocks need R installed, and usually ESS), and adds a hook so =electric-pair-mode= never auto-pairs =<= in Org buffers, which would break structure templates like =<s=. The hook checks that =electric-pair-inhibit-predicate= is bound first to avoid a void-variable error.
+In =:config=:
+
+- Maps =vimrc= source blocks to =vimrc-mode=.
+- Loads the Emacs Lisp, shell, Org and R Babel languages. R blocks need R installed, and usually ESS.
+- Adds a hook so =electric-pair-mode= never auto-pairs =<= in Org buffers, which would break structure templates like =<s=.
+- The hook checks that =electric-pair-inhibit-predicate= is bound first, to avoid a void-variable error.
 
 #+begin_src emacs-lisp -i
 ;; Use Org from source rather than built in
@@ -323,7 +371,13 @@ Defines =siapip/org-deadline-highlight=, a face with a dark red background used 
 
 ** Find and highlight due headlines
 
-=sp-org-highlight-todays-deadlines= removes previous highlight overlays, parses the buffer's headlines and, for each one that is not in a done state and has a deadline on or before today, puts an overlay with the highlight face over the headline line. Dates are compared as absolute day numbers from =calendar=. It can also be run interactively.
+=sp-org-highlight-todays-deadlines= highlights headlines that are due:
+
+- Removes previous highlight overlays.
+- Parses the buffer's headlines.
+- For each one that is not in a done state and has a deadline on or before today, puts an overlay with the highlight face over the headline line.
+- Dates are compared as absolute day numbers from =calendar=.
+- It can also be run interactively.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-highlight-todays-deadlines ()
@@ -497,7 +551,11 @@ title."
 
 ** Subtree to indirect buffer
 
-=sp-org-tree-to-indirect-buffer= opens the current subtree in an indirect buffer, narrowed to that subtree, and names it after the heading (coloured with the heading's outline face) followed by =::= and the file's buffer name. If a buffer with that name already exists it switches to it instead of making a new one. The interactive prefix argument is accepted but not used.
+=sp-org-tree-to-indirect-buffer= opens the current subtree in an indirect buffer, narrowed to that subtree.
+
+- The buffer is named after the heading (coloured with the heading's outline face), followed by =::= and the file's buffer name.
+- If a buffer with that name already exists, it switches to it instead of making a new one.
+- The interactive prefix argument is accepted but not used.
 
 #+begin_src emacs-lisp -i
 ;; Working with indirect buffers
@@ -629,7 +687,11 @@ Opening links to =.docx=, =.mm= and HTML files hands them to the system's defaul
 
 ** Jump to Org files
 
-=sp-goto-org-files= runs =find-file= starting in =org-directory=. The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching. They build paths with =concat= and no separator, which works because =org-directory= ends in a slash (with the earlier value =~/notes= they pointed at the wrong file names, for example =~/notesinbox.org=).
+=sp-goto-org-files= runs =find-file= starting in =org-directory=.
+
+- The other commands open specific files there: inbox, todo, conferences, referee reports, reference, someday, reading, writing and teaching.
+- They build paths with =concat= and no separator. That works because =org-directory= ends in a slash.
+- With the earlier value =~/notes= they pointed at the wrong file names, for example =~/notesinbox.org=.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Goto Org Files
@@ -736,7 +798,15 @@ one week to the next, unchecking them at the same time"
 
 ** Wrap text in a block
 
-=org-block-wrap= asks for a single key and wraps the active region in the matching block (ascii, comment, center, example, emacs-lisp src, html, LaTeX, notes, quote, src or verse). Without a region it inserts an empty block at point. When point is in a table it instead runs =org-table-rotate-recalc-marks=. It is not bound to a key in this module.
+=org-block-wrap= asks for a single key and wraps the active region in the matching block:
+
+- ascii, comment, center, example, emacs-lisp src, html, LaTeX, notes, quote, src or verse.
+
+Details:
+
+- Without a region it inserts an empty block at point.
+- When point is in a table it instead runs =org-table-rotate-recalc-marks=.
+- It is not bound to a key in this module.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Org Wrap in Block Template

@@ -2,11 +2,25 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-windows.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-windows.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-windows.el=.
 
-This module configures how Emacs windows (the panes inside a frame) are split, decorated, moved around and highlighted. Frames are handled separately in =sp-frame=. It installs =balanced-windows=, =ace-window=, =pulsar=, =buffer-move=, =dimmer=, and binds the Emacs 31 window-layout commands.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-The second half defines a set of interactive window helpers adapted from Lambda Emacs (named =lem-...=): toggling dedicated windows, swapping, rotating and re-splitting windows, and splitting with focus. The window prefix map in =sp-keys= binds these =lem-...= commands (rotate, toggle split, split and focus, exchange buffers); it used to name =sp-...= versions that do not exist, which left those leader keys dead.
+This module configures how Emacs windows (the panes inside a frame) are split, decorated, moved around and highlighted.
+
+- Frames are handled separately in =sp-frame=.
+- It installs =balanced-windows=, =ace-window=, =pulsar=, =buffer-move=, =dimmer=.
+- It binds the Emacs 31 window-layout commands.
+
+The second half defines a set of interactive window helpers adapted from Lambda Emacs (named =lem-...=):
+
+- toggling dedicated windows,
+- swapping, rotating and re-splitting windows,
+- splitting with focus.
+
+The window prefix map in =sp-keys= binds these =lem-...= commands (rotate, toggle split, split and focus, exchange buffers). It used to name =sp-...= versions that do not exist, which left those leader keys dead.
 
 The module is part of the window management group in the default module list, loaded after =sp-frame= and =sp-buffers=.
 
@@ -52,7 +66,17 @@ Commands for reshaping an existing layout without manually splitting and killing
 
 ** Emacs 31 layout commands
 
-Binds the window-layout commands that are new in Emacs 31 under =C-x w=: =t= transposes the layout (swapping horizontal and vertical arrangement), =r= rotates it clockwise, and =f h= / =f v= mirror it left-to-right or top-to-bottom. Buffers stay in their windows. On older Emacs versions these keys point at undefined commands. The TODO says this area still needs work.
+Binds the window-layout commands that are new in Emacs 31 under =C-x w=:
+
+- =t= transposes the layout (swapping horizontal and vertical arrangement).
+- =r= rotates it clockwise.
+- =f h= / =f v= mirror it left-to-right or top-to-bottom.
+- Buffers stay in their windows.
+
+Caveats:
+
+- On older Emacs versions these keys point at undefined commands.
+- The TODO says this area still needs work.
 
 #+begin_src emacs-lisp -i
 ;;;; Moving windows around
@@ -131,7 +155,12 @@ Gives the fringe the same background as the default face so it disappears visual
 
 ** Org link frame setup
 
-=org-link-frame-setup= tells Org which function to use when following links of each type. Here =file= and =denote= links open with plain =find-file= in the current window instead of the default other-window behaviour, and the mail and news link types keep their usual other-frame functions. The comment shows the author was unsure what it does; the setting is Org-specific and arguably belongs in an Org module.
+=org-link-frame-setup= tells Org which function to use when following links of each type.
+
+- Here =file= and =denote= links open with plain =find-file= in the current window, instead of the default other-window behaviour.
+- The mail and news link types keep their usual other-frame functions.
+- The comment shows the author was unsure what it does.
+- The setting is Org-specific and arguably belongs in an Org module.
 
 #+begin_src emacs-lisp -i
 ;; I don't remember what this linking thing actually does
@@ -146,7 +175,11 @@ Gives the fringe the same background as the default face so it disappears visual
 
 ** ace-window
 
-=ace-window= lets you pick a window by a single character label. =aw-dispatch-always= enables the dispatch menu (keys for delete, swap, split and so on) even with few windows, while =aw-dispatch-when-more-than 2= only asks for a label when there are more than two windows. It is bound under the leader window map in =sp-keys=.
+=ace-window= lets you pick a window by a single character label.
+
+- =aw-dispatch-always= enables the dispatch menu (keys for delete, swap, split and so on) even with few windows.
+- =aw-dispatch-when-more-than 2= only asks for a label when there are more than two windows.
+- It is bound under the leader window map in =sp-keys=.
 
 #+begin_src emacs-lisp -i
 (use-package ace-window
@@ -160,7 +193,11 @@ Gives the fringe the same background as the default face so it disappears visual
 
 ** Transpose buffers
 
-=transpose-buffers= swaps the buffers shown in the current window and the next one, moving point along with them; a numeric prefix repeats the swap and a negative one walks backwards with =previous-window=. =sp-keys= binds it to =C-x t b=. It uses =plusp=, which is built in from Emacs 31 and otherwise comes from the cl library.
+=transpose-buffers= swaps the buffers shown in the current window and the next one, moving point along with them.
+
+- A numeric prefix repeats the swap. A negative one walks backwards with =previous-window=.
+- =sp-keys= binds it to =C-x t b=.
+- It uses =plusp=, which is built in from Emacs 31 and otherwise comes from the cl library.
 
 #+begin_src emacs-lisp -i
 (defun transpose-buffers (arg)
@@ -178,7 +215,13 @@ Gives the fringe the same background as the default face so it disappears visual
 
 ** pulsar
 
-=pulsar= briefly highlights the current line after large jumps so the cursor is easy to find. The delay is 0.15 seconds with the generic face, and =<f8>= pulses the line on demand. The =:config= adds many motion commands to =pulsar-pulse-functions=: recentering, scrolling, window and tab commands, bookmark jumps and Org and outline heading motion. It also adds =winner=, =winum=, =ace-window= and =evil= window commands when those are loaded. =ha-new-window= is in the list although it is not defined in this config; it appears to come from another person's setup. Finally =pulsar-global-mode= is turned on.
+=pulsar= briefly highlights the current line after large jumps, so the cursor is easy to find.
+
+- The delay is 0.15 seconds with the generic face. =<f8>= pulses the line on demand.
+- The =:config= adds many motion commands to =pulsar-pulse-functions=: recentering, scrolling, window and tab commands, bookmark jumps, and Org and outline heading motion.
+- It also adds =winner=, =winum=, =ace-window= and =evil= window commands when those are loaded.
+- =ha-new-window= is in the list although it is not defined in this config. It appears to come from another person's setup.
+- Finally =pulsar-global-mode= is turned on.
 
 #+begin_src emacs-lisp -i
 (use-package pulsar
@@ -259,7 +302,13 @@ Gives the fringe the same background as the default face so it disappears visual
 
 ** Toggle a single-window view
 
-=siapip/window-toggle-fullscreen= maximises the current window with =delete-other-windows=, and on the second press restores the previous layout with =winner-undo=. =winner-mode= is enabled here (the =boundp= check is always true in modern Emacs), and the command is bound to =S-<f11>=. The toggle state can drift if other window changes happen between the two presses.
+=siapip/window-toggle-fullscreen=:
+
+- Maximises the current window with =delete-other-windows=.
+- On the second press, restores the previous layout with =winner-undo=.
+- =winner-mode= is enabled here (the =boundp= check is always true in modern Emacs).
+- Bound to =S-<f11>=.
+- The toggle state can drift if other window changes happen between the two presses.
 
 #+begin_src emacs-lisp -i
 (defun siapip/window-toggle-fullscreen ()
@@ -321,7 +370,11 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
 
 ** Dim inactive windows
 
-=dimmer= fades the text of non-selected windows by half to make the active window stand out. It starts on =after-init-hook=. The minibuffer is never dimmed, frame focus events are ignored, and the built-in helpers adjust dimming for which-key, Magit, posframe and Vertico.
+=dimmer= fades the text of non-selected windows by half to make the active window stand out.
+
+- It starts on =after-init-hook=.
+- The minibuffer is never dimmed, and frame focus events are ignored.
+- The built-in helpers adjust dimming for which-key, Magit, posframe and Vertico.
 
 #+begin_src emacs-lisp -i
 ;;;; Dim inactive windows
@@ -343,7 +396,10 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
 
 ** Dimmer support for Vertico
 
-=dimmer-configure-vertico= is not part of =dimmer= itself, so it is defined here. It excludes the Vertico buffer from dimming. It is called from the =:config= block above, which runs only after =dimmer= loads, by which point this definition exists.
+=dimmer-configure-vertico= is not part of =dimmer= itself, so it is defined here.
+
+- It excludes the Vertico buffer from dimming.
+- It is called from the =:config= block above, which runs only after =dimmer= loads, by which point this definition exists.
 
 #+begin_src emacs-lisp -i
 (defun dimmer-configure-vertico ()
@@ -395,7 +451,11 @@ Interactive helpers from Lambda Emacs for managing window layout.
 
 ** Rotate windows
 
-=lem-rotate-windows= cycles the buffers (and their scroll positions) through all non-dedicated windows by COUNT steps, leaving dedicated windows untouched. It comes from Magnar Sveen's config with dedicated-window support by ffevotte. With a single window it just prints a message.
+=lem-rotate-windows= cycles the buffers (and their scroll positions) through all non-dedicated windows by COUNT steps.
+
+- Dedicated windows are left untouched.
+- It comes from Magnar Sveen's config, with dedicated-window support by ffevotte.
+- With a single window it just prints a message.
 
 #+begin_src emacs-lisp -i
 ;;;;; Rotate Windows
@@ -471,7 +531,14 @@ Interactive helpers from Lambda Emacs for managing window layout.
 
 ** Toggle window split
 
-=lem-toggle-window-split= works only when exactly two windows are shown. It notes which buffer is in which window and whether they are arranged side by side or stacked, deletes the other window, re-splits in the other orientation, and puts both buffers back in their original order. With any other number of windows it does nothing.
+=lem-toggle-window-split= works only when exactly two windows are shown. It:
+
+- notes which buffer is in which window, and whether they are arranged side by side or stacked,
+- deletes the other window,
+- re-splits in the other orientation,
+- puts both buffers back in their original order.
+
+With any other number of windows it does nothing.
 
 #+begin_src emacs-lisp -i
 ;;;;; Toggle Window Split

@@ -2,13 +2,21 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-capture.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-capture.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-capture.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module sets up =org-capture=: the default inbox file, a handful of capture templates, the global ~C-c c~ binding, and helper functions (inherited from Lambda Emacs, hence the =lem-= prefix) for running capture in a dedicated frame named capture, for example from an external launcher talking to the Emacs server.
 
-It is one of the last Org modules to load (see the load order in [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]), because it is the only place that sets =org-capture-templates=: every template of every module is here, in one =setq=, with no =add-to-list= elsewhere. The task and project templates call functions from =vulpea-para=, and the issue template calls functions from =sp-org-issues=; they are quoted as =(function ...)=, so they are only looked up when you capture. The only inbox is =~/notes/inbox.org=: tasks, ideas and thoughts all go there.
+It is one of the last Org modules to load (see the load order in [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]).
+
+- It is the only place that sets =org-capture-templates=. Every template of every module is here, in one =setq=, with no =add-to-list= elsewhere.
+- The task and project templates call functions from =vulpea-para=. The issue template calls functions from =sp-org-issues=. They are quoted as =(function ...)=, so they are only looked up when you capture.
+- The only inbox is =~/notes/inbox.org=. Tasks, ideas and thoughts all go there.
 
 The commentary at the top of the module says:
 
@@ -133,7 +141,11 @@ The idea template used to file into =~/notes/inbox/thoughts-capture.org=, a seco
 
 ** Running capture in a capture frame
 
-=lem-activate-capture-frame= is meant to be called through =emacsclient=: it loads Org, selects the frame named capture, switches to a scratch buffer called new and starts =org-capture=. It is not interactive. The comment points to sp-vulpea.el for task capture.
+=lem-activate-capture-frame= is meant to be called through =emacsclient=.
+
+- It loads Org, selects the frame named capture, switches to a scratch buffer called new and starts =org-capture=.
+- It is not interactive.
+- The comment points to sp-vulpea.el for task capture.
 
 #+begin_src emacs-lisp -i
 ;; See also sp-vulpea.el for task capturing 
@@ -151,7 +163,10 @@ The idea template used to file into =~/notes/inbox/thoughts-capture.org=, a seco
 
 ** Weather journal capture
 
-=lem-weather-journal-capture= does the same frame setup and then calls =lem-org-journal= and =lem-insert-weather=. Neither of those functions is defined anywhere in this configuration, so this command currently fails with a void-function error. It is a leftover from Lambda Emacs.
+=lem-weather-journal-capture= does the same frame setup, then calls =lem-org-journal= and =lem-insert-weather=.
+
+- Neither of those functions is defined anywhere in this configuration, so this command currently fails with a void-function error.
+- It is a leftover from Lambda Emacs.
 
 #+begin_src emacs-lisp -i
 ;;;;; Weather Capture Frame
