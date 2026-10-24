@@ -185,7 +185,7 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 
 ** =sp-fetch-academic= loads inside =sp-academic=
 
-=sp-academic= is one late module, but it requires its sub-modules itself, in this order: =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes=, =sp-fetch-academic=. The new one is last because it reads =sp-bibtex-files= and =sp-bibtex-dir= from =sp-bibprocess= and installs =biblio= (which moved there from =sp-academic=, so =biblio= is still queued once). It needs =org-ref= only when its DOI command runs, so it does not have to come after =org-ref=, which =sp-academic= declares further down.
+=sp-academic= is one late module, but it requires its sub-modules itself, in this order: =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes=, =sp-fetch-academic=. The new one is last because it reads =sp-bibtex-files= and =sp-bibliography-dir= from =sp-bibprocess= and installs =biblio= (which moved there from =sp-academic=, so =biblio= is still queued once). It needs =org-ref= only when its DOI command runs, so it does not have to come after =org-ref=, which =sp-academic= declares further down.
 
 ** What stays as it was
 The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package (=hl-todo= in =sp-faces= and =sp-org-taskman-extra=, =org-autolist= in =sp-org-appearance= and =sp-org-ext=, =elisp-demos= in =sp-help= and =sp-lisp=, =company= in =sp-completion= and =sp-base-code=) are not an ordering problem and have been left alone. The minimal list (=-minimal=) is as before.

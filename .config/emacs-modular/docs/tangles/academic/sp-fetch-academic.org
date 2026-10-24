@@ -186,14 +186,14 @@ It signals a =user-error= when no file is registered.
 
 ** Attach a file to an entry
 
-=sp--fetch-academic-attach= writes FILE into the =file= field of the entry at point, as a path relative to =sp-bibtex-dir=. A second file is appended after a semicolon, the separator the attachment audit in =sp-bibprocess= splits on. A new field goes after the last one, adding the comma that was missing if need be. =bibtex-set-field= does not exist in Emacs's =bibtex=, so the field is edited with the =bibtex-search-forward-field= helpers.
+=sp--fetch-academic-attach= writes FILE into the =file= field of the entry at point, as a path relative to =sp-bibliography-dir=. A second file is appended after a semicolon, the separator the attachment audit in =sp-bibprocess= splits on. A new field goes after the last one, adding the comma that was missing if need be. =bibtex-set-field= does not exist in Emacs's =bibtex=, so the field is edited with the =bibtex-search-forward-field= helpers.
 
 #+begin_src emacs-lisp -i
 ;;;; Downloading files
 
 (defun sp--fetch-academic-attach (file)
   "Add FILE to the `file' field of the BibTeX entry at point."
-  (let ((relative (file-relative-name file sp-bibtex-dir)))
+  (let ((relative (file-relative-name file sp-bibliography-dir)))
     (save-excursion
       (bibtex-beginning-of-entry)
       (let ((bounds (bibtex-search-forward-field "file" t)))

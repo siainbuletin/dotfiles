@@ -86,7 +86,7 @@
 
 (defun sp--fetch-academic-attach (file)
   "Add FILE to the `file' field of the BibTeX entry at point."
-  (let ((relative (file-relative-name file sp-bibtex-dir)))
+  (let ((relative (file-relative-name file sp-bibliography-dir)))
     (save-excursion
       (bibtex-beginning-of-entry)
       (let ((bounds (bibtex-search-forward-field "file" t)))
