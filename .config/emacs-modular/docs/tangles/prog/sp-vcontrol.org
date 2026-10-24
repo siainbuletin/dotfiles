@@ -116,17 +116,25 @@ Installs =code-review=, which opens a pull request in its own buffer for reading
 - A new review buffer replaces the current window (=switch-to-buffer=) instead of splitting.
 - A hook turns on =emojify-mode= in review buffers so emoji in comments display. That needs the =emojify= package, which this module does not install.
 
-The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), is written as =(setq ...)= inside =:custom=. =:custom= expects =(variable value)= pairs, so that line probably does not set the variable as intended; it is kept as written and is worth checking.
+The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), used to be written as =(setq ...)= inside =:custom=, which expects =(variable value)= pairs, so it never set the variable. It is a normal entry now.
+
+Order: =:after forge= and the =require= of =emacsql-sqlite= in =:init= make sure the class =emacsql-sqlite-connection= exists before code-review defines its database class on it. Without that, loading it gave =Given parent class emacsql-sqlite-connection is not a class=. This is the usual cause of that message; I could not run Emacs or read the installed versions to confirm it here.
 
 #+begin_src emacs-lisp -i
 ;; code review harness
 (use-package code-review
   :ensure t
-  
+  ;; code-review defines its database class on `emacsql-sqlite-connection',
+  ;; which forge pulls in. Loading code-review before that gives "Given parent
+  ;; class emacsql-sqlite-connection is not a class".
+  :after forge
+  :init
+  (require 'emacsql-sqlite)
+
   :custom
   (code-review-fill-column 80) ;; Define line wrap in comment sections.
   (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
-  (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
+  (code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
 ;;;; For adding emojis

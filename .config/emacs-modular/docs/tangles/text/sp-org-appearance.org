@@ -195,7 +195,7 @@ Enables =org-modern-mode= in Org buffers and =org-modern-agenda= when an agenda 
 
 ** Org-autolist
 
-Installs =org-autolist=, which makes RET and backspace behave like a word processor in lists: RET starts a new item and backspace on an empty item removes the bullet. It is installed but no hook enables =org-autolist-mode= in this module, so it may be turned on elsewhere or not at all.
+Installs =org-autolist=, which makes RET and backspace behave like a word processor in lists: RET starts a new item and backspace on an empty item removes the bullet. It is installed but no hook enables =org-autolist-mode= in this module, so it may be turned on elsewhere or not at all. (It is: =sp-org-ext= adds the Org hook, without installing the package again.)
 
 #+begin_src emacs-lisp -i
 ;;;;; List behavior

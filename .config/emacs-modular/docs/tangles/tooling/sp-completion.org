@@ -10,7 +10,7 @@ Literate source for =libraries/modules/tooling/sp-completion.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module sets up the minibuffer completion stack: Vertico for the vertical candidate list, Marginalia for annotations, Orderless for space-separated, out-of-order matching, and it installs Company for in-buffer completion. It is required by =sp-minibuffer=, which builds further on this base (for example with Consult and Embark).
+This module sets up the minibuffer completion stack: Vertico for the vertical candidate list, Marginalia for annotations, Orderless for space-separated, out-of-order matching, and it installs Company (first, see below) for in-buffer completion. It is required by =sp-minibuffer=, which builds further on this base (for example with Consult and Embark).
 
 All packages come from elpaca. The Vertico buffer extension is configured with a customised display method, but =vertico-buffer-mode= itself is left off.
 
@@ -34,6 +34,23 @@ The file header: the first line carries the file name, a short summary and the =
 ;; These are the completion frameworks that I plan on using.
 
 ;;; Code:
+#+end_src
+
+* In-buffer completion
+
+** Company
+
+Installs Company without enabling it globally. Individual modes turn it on, for example the LaTeX setup in =sp-latex=.
+
+- It is the first package of the file on purpose. =company-math= (in =sp-org-base=) and =company-prescient= (in =sp-minibuffer=) require =company=. If either is declared first, Elpaca queues =company= as their dependency, and the explicit declaration that follows only logs =company previously queued as dependency of: (company-math company-prescient)=, so its =:wait t= is not applied.
+- =sp-base-code= configures Company (backends, timers, =company-tng-mode=) but does not install it again (=:ensure nil=), because a second explicit declaration is logged as =Duplicate item ID queued: company=.
+
+#+begin_src emacs-lisp -i
+;;;; Company
+;; First in the file, so that Elpaca queues it as an explicit package before
+;; `company-math' and `company-prescient', which require it, are declared.
+(use-package company
+  :ensure (:wait t))
 #+end_src
 
 * Vertico
@@ -179,18 +196,6 @@ Makes =orderless= the main completion style, with =basic= as a fallback, so you 
   (completion-category-defaults nil)
   (completion-category-overrides
    '((file (styles partial-completion)))))
-#+end_src
-
-* In-buffer completion
-
-** Company
-
-Installs Company without enabling it globally. Individual modes turn it on, for example the LaTeX setup in =sp-latex=.
-
-#+begin_src emacs-lisp -i
-;;;; Company
-(use-package company
-  :ensure (:wait t))
 #+end_src
 
 * Provide

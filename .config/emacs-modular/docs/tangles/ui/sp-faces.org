@@ -150,9 +150,12 @@ Enables =highlight-numbers-mode= in programming buffers, giving numeric literals
 
 Enables =hl-todo-mode= in programming and Markdown buffers so keywords like TODO and FIXME stand out. Enabling it in Org is commented out, presumably because Org already styles its own TODO keywords.
 
+This form has =:ensure nil=: the package is installed (and its colours and global mode set) by =sp-org-taskman-extra=, and a second explicit declaration is logged by Elpaca as =Duplicate item ID queued: hl-todo=. The hooks are only added here, and the package loads on first use.
+
 #+begin_src emacs-lisp -i
 (use-package hl-todo
-  :ensure t
+  ;; Installed by `sp-org-taskman-extra'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
   :commands hl-todo-mode
   :init

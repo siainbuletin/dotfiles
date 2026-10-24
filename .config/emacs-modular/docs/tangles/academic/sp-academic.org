@@ -138,8 +138,29 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
+#+end_src
 
-;;;; Requiring sub-libraries
+*** Citation variables
+
+Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =spcustom= group, all nil by default.
+
+- =sp-citations= uses them for the =citar= and =org-cite= bibliography, notes path and note template.
+- They are defined before the sub-modules are required. This module is a late module, and Elpaca runs the =:init= and =:custom= of a package as soon as it is installed, which can be while a later part of this file is still loading (the likely cause; not confirmed by running Emacs). With the definitions at the end, that run would read void variables, as in =Symbol's value as variable is void: sp-bibliography= in the =:init= of =citar-denote=.
+
+#+begin_src emacs-lisp -i
+;;;; Citation variables
+;; Defined before the sub-modules are required: their `use-package' forms
+;; read these variables, and Elpaca can run them while a later part of this
+;; file is still being loaded.
+(defcustom sp-bibliography nil "User bibliography for citation."
+  :group 'spcustom
+  :tag "Lambda-Emacs User Bibliography")
+(defcustom sp-bib-notes nil "User citation notes directory."
+  :group 'spcustom
+  :tag "Lambda-Emacs Citation Notes Directory")
+(defcustom sp-citar-note nil "Template for use with citar notes."
+  :group 'spcustom
+  :tag "Lambda-Emacs Citar Notes Template")
 #+end_src
 
 *** Loading the sub-modules
@@ -147,6 +168,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, and =sp-litnotes= for literature notes.
 
 #+begin_src emacs-lisp -i
+;;;; Requiring sub-libraries
 (require 'sp-bibprocess)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
@@ -368,28 +390,6 @@ Installs =binder=, which groups files into a manuscript project in the style of 
 #+begin_src emacs-lisp -i
 (use-package binder ;; for stuff that looks like scrivener
   :ensure t)
-#+end_src
-
-** Citation variables
-
-*** User options
-
-Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =spcustom= group, all nil by default.
-
-- =sp-citations= uses the last two for the =citar= notes path and note template.
-- They are defined here, after that module is required, so they only take effect if the =citar= configuration runs later.
-
-#+begin_src emacs-lisp -i
-;;;;; Citation Variables
-(defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
-(defcustom sp-bib-notes nil "User citation notes directory."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citar Notes Template")
 #+end_src
 
 ** Provide

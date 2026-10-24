@@ -75,7 +75,8 @@
   (add-hook 'prog-mode-hook #'highlight-numbers-mode))
 
 (use-package hl-todo
-  :ensure t
+  ;; Installed by `sp-org-taskman-extra'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
   :commands hl-todo-mode
   :init
