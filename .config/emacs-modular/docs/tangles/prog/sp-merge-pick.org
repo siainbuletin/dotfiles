@@ -98,17 +98,20 @@ The declarations name the Magit functions the module calls, so the byte compiler
   "Arguments of the log `sp-merge-pick-log' shows, besides `--all'.
 Magit colours the graph only up to `magit-log-color-graph-limit' commits
 \(256 by default); raise both to see more history in colour."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-unicode-graph t
   "Draw the lanes of the graph with unicode glyphs instead of ASCII."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-graph-glyphs
   '((?* . "●") (?| . "│") (?/ . "╱") (?\\ . "╲"))
   "Glyph shown for each ASCII character git uses in the graph.
 Only the display changes; the buffer text stays ASCII."
-  :type '(alist :key-type character :value-type string))
+  :type '(alist :key-type character :value-type string)
+  :group 'spcustom)
 
 (defface sp-merge-pick-into
   '((t :inherit highlight :extend t))

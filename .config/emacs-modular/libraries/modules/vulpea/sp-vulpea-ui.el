@@ -6,7 +6,7 @@
 ;;
 ;; This includes the sidebar and the possibility to render collection views.
 ;;
-;; The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+;; The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
 

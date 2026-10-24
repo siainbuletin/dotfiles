@@ -10,7 +10,7 @@ This module holds the task management side of the Org setup: TODO keyword sequen
 
 The module is loaded from =init.el= among the text modules. Packages it installs: =org-edna=, =hl-todo=, =consult-todo= and =org-gtd=. =org-inlinetask= ships with Org.
 
-Worth knowing: the TODO keywords are not set here any more. =sp-org-keywords= defines every sequence once, and its =TODO NEXT PROG WAIT | DONE CNCL= sequence is the one =org-gtd-keyword-mapping= points to. The org-gtd key that touches the agenda (=C-c .= in the agenda) is bound in =sp-agenda-views=, and org-gtd's own capture key is not bound: the inbox is =~/notes/inbox.org=, filled by the templates of =sp-org-capture=.
+Worth knowing: the TODO keywords are not set here any more. =sp-org-keywords= defines every sequence once, and its =TODO NEXT PROG WAIT | DONE CNCL= sequence is the one org-gtd's default keyword mapping points to. The org-gtd key that touches the agenda (=C-c .= in the agenda) is bound in =sp-agenda-views=, and org-gtd's own capture key is not bound: the inbox is =~/notes/inbox.org=, filled by the templates of =sp-org-capture=.
 
 * Overview
 
@@ -203,7 +203,7 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 
 ** org-gtd
 
-Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=. The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning. =org-gtd-keyword-mapping= maps the GTD states to TODO, NEXT, WAIT and CNCL. Adding the GTD directory to the agenda is commented out because it raised an error. =org-edna-mode= is enabled again here since org-gtd relies on it.
+Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=. The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning. =org-gtd-keyword-mapping= is not set any more: org-gtd's default maps its states to =TODO=, =NEXT=, =WAIT=, =DONE= and =CNCL=, which is the task sequence of =sp-org-keywords=, and org-gtd checks that all of them are in one sequence of =org-todo-keywords=. See [[file:../../../../../adr/0013-org-gtd-keywords-and-inbox.org][ADR 0013]]. Adding the GTD directory to the agenda is commented out because it raised an error. =org-edna-mode= is enabled again here since org-gtd relies on it.
 
 Keybindings:
 - ~C-c d p~ processes the GTD inbox. There is no key for org-gtd's own capture (~C-c d c~ was unbound): capture goes to =~/notes/inbox.org= through =sp-org-capture=.
@@ -227,11 +227,9 @@ Keybindings:
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
   ;; TODO keyword are configured elsewhere
 
-  ;; Map GTD semantic states to your keywords
-  (org-gtd-keyword-mapping '((todo . "TODO")
-                             (next . "NEXT")
-                             (wait . "WAIT")
-                             (canceled . "CNCL")))
+  ;; `org-gtd-keyword-mapping' is not set: org-gtd's default (TODO, NEXT,
+  ;; WAIT, DONE, CNCL) is the task sequence of sp-org-keywords, and org-gtd
+  ;; needs all of them in one sequence (adr/0013).
 
   ;; Add org-gtd files to your agenda
   ;; (org-agenda-files (list org-gtd-directory)) ;; this errors out so it's commented

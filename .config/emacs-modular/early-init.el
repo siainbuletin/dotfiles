@@ -215,10 +215,13 @@ straight) and by `sp-etc-dir' and `sp-cache-dir'.")
 
 ;;;; User Configuration Variables
 
-;; Define customization group for Lambda Emacs.
-(defgroup sia-lambda '()
+;; Single customization group for every user option in this configuration
+;; (`defcustom' forms use `:group 'spcustom'). Keep it first: the options
+;; below and in the modules refer to it. tools/set-defcustom-group.py
+;; sets it on new options.
+(defgroup spcustom '()
   "An Emacs distribution with sane defaults, pre-configured packages, and useful functions, aimed at writing and academic work in the humanities."
-  :tag "Lambda-Emacs"
+  :tag "Sia's Emacs configuration"
   :link '(url-link "https://codeberg.org/Lambda-Emacs/lambda-emacs")
   :group 'emacs)
 
@@ -235,14 +238,14 @@ relies on.  Keep this in sync with the git release tag.")
 
 ;; Set user project directory
 (defcustom sp-project-dir nil "Set the directory for user projects."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 ;; Set user elisp project dir
 (defcustom sp-user-elisp-dir t
   "Directory for personal elisp projects.
 Any customized libraries not available via standard package repos like elpa or melpa should go here."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 ;; Elpaca bootstrapping has been moved to init.el, since that's where it's supposed to actually live
@@ -270,7 +273,7 @@ Any customized libraries not available via standard package repos like elpa or m
 
 ;; Restoring the variables so the switch in ~init.el~ is actually able to load 
 ;; the different kinds of Emacs configurations.
-(defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'sia-lambda)
+(defcustom sp-headless-host nil "Skip GUI-only modules." :type 'boolean :group 'spcustom)
 
 (defconst sp-gui-only-set '(sp-gui sp-macos sp-dashboard lem-dashboard)
   "Modules that are meaningless without a graphic display.")  ; adjust to your real names

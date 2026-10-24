@@ -16,7 +16,7 @@
 When this option is enabled, EXWM will be loaded and configured
 as the window manager for this session."
   :type 'boolean
-  :group 'siapip)
+  :group 'spcustom)
 (when siapip/use-exwm
   (setq mouse-autoselect-window nil
         focus-follows-mouse nil)

@@ -59,14 +59,14 @@ the line, respectively."
 (defcustom sp-prefix "C-x C-SPC"
   "Prefix for all personal keybinds."
   :type 'string
-  :group 'sia-lambda)
+  :group 'spcustom)
 
 ;;;;; Personal Leader Key
 
 (defcustom lem+leader-map (make-sparse-keymap)
   "An overriding keymap for <leader> key, for use with modal keybindings."
   :type 'string
-  :group 'sia-lambda)
+  :group 'spcustom)
 
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map

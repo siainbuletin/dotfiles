@@ -30,7 +30,7 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
-- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share and where they differ
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
 
@@ -87,23 +87,24 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
+- [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
 - [[file:tangles/custom/sp-graphs.org][sp-graphs]] :: Graphs of notes in one module: =discourse-graphs= and =vulpea-graph= from packages, plus my relationship annotator and its live view ([[file:../libraries/modules/custom/sp-graphs.el][sp-graphs.el]])
-- [[file:architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
 
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables]] :: Query tables of notes: entry point ([[file:../libraries/modules/funct/sp-collection-query-tables.el][sp-collection-query-tables.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-core]] :: Query table specs, queries and cells ([[file:../libraries/modules/funct/sp-collection-query-tables-core.el][sp-collection-query-tables-core.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-exc]] :: Query tables as exc grids ([[file:../libraries/modules/funct/sp-collection-query-tables-exc.el][sp-collection-query-tables-exc.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-menu]] :: Transient menu for query table queries ([[file:../libraries/modules/funct/sp-collection-query-tables-menu.el][sp-collection-query-tables-menu.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-org]] :: Query table dynamic block and Org buffer ([[file:../libraries/modules/funct/sp-collection-query-tables-org.el][sp-collection-query-tables-org.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-views]] :: Saved views for query tables ([[file:../libraries/modules/funct/sp-collection-query-tables-views.el][sp-collection-query-tables-views.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-vui]] :: Query tables with vui, and inline tables ([[file:../libraries/modules/funct/sp-collection-query-tables-vui.el][sp-collection-query-tables-vui.el]])
 - [[file:tangles/funct/sp-helper-funct.org][sp-helper-funct]] :: Assorted helper commands and sensible defaults ([[file:../libraries/modules/funct/sp-helper-funct.el][sp-helper-funct.el]])
 - [[file:tangles/funct/sp-move-region-to-heading.org][sp-move-region-to-heading]] :: Move a region under a heading in another note ([[file:../libraries/modules/funct/sp-move-region-to-heading.el][sp-move-region-to-heading.el]])
 - [[file:tangles/funct/sp-open-externally.org][sp-open-externally]] :: Opening files in external applications ([[file:../libraries/modules/funct/sp-open-externally.el][sp-open-externally.el]])
 - [[file:tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:../libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
 - [[file:tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:../libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table]] :: Tables of Vulpea notes: entry point ([[file:../libraries/modules/funct/sp-vulpea-table.el][sp-vulpea-table.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-core]] :: Vulpea table specs, queries and cells ([[file:../libraries/modules/funct/sp-vulpea-table-core.el][sp-vulpea-table-core.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-exc]] :: Vulpea tables as exc grids ([[file:../libraries/modules/funct/sp-vulpea-table-exc.el][sp-vulpea-table-exc.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-menu]] :: Transient menu for Vulpea table queries ([[file:../libraries/modules/funct/sp-vulpea-table-menu.el][sp-vulpea-table-menu.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-org]] :: Vulpea table dynamic block and Org buffer ([[file:../libraries/modules/funct/sp-vulpea-table-org.el][sp-vulpea-table-org.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-views]] :: Saved views for Vulpea tables ([[file:../libraries/modules/funct/sp-vulpea-table-views.el][sp-vulpea-table-views.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-vui]] :: Vulpea tables with vui, and inline tables ([[file:../libraries/modules/funct/sp-vulpea-table-vui.el][sp-vulpea-table-vui.el]])
 
 ** media/
 
@@ -189,7 +190,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** ui/
 
-- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
+- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard (the old =dashboard= package screen, no longer loaded: the splash screen replaces it) ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
 - [[file:tangles/ui/sp-buffers.org][sp-buffers]] :: Buffer lists and pop-up buffers ([[file:../libraries/modules/ui/sp-buffers.el][sp-buffers.el]])
 - [[file:tangles/ui/sp-canvas.org][sp-canvas]] :: Experimental canvas and Excalidraw support ([[file:../libraries/modules/ui/sp-canvas.el][sp-canvas.el]])
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
@@ -234,8 +235,6 @@ Deciding on the order is not trivial: [[file:architecture/load-order.org][Module
 ** TODO Reduce the verbosity of the documentation in the modules
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
-
-
 
 * Functionality of the literate configuration
 

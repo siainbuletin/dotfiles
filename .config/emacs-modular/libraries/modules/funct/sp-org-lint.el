@@ -310,20 +310,20 @@ sublists travel with their parent item but are not re-sorted."
 (defcustom sp-org-lint-fn-section-title "Footnotes"
   "Title of the heading whose footnote definitions are moved (case is ignored)."
   :type 'string
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defcustom sp-org-lint-fn-remove-empty-section t
   "When non-nil, remove a footnotes heading that is empty after its moves.
 A heading with children, or with anything but the moved definitions
 \(a property drawer, a paragraph), is kept."
   :type 'boolean
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defcustom sp-org-lint-fn-directory
   (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
   "Folder scanned when the vulpea database is not available."
   :type 'directory
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defcustom sp-org-lint-fn-exclude-regexp
   "\\(?:\\`\\|/\\)\\(?:\\.[^/]+\\|ltximg\\|attach\\|data\\)/"
@@ -331,18 +331,18 @@ A heading with children, or with anything but the moved definitions
 The path is taken relative to the scanned folder when the file is in
 it.  The default skips hidden folders and the usual attachment ones."
   :type 'regexp
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defcustom sp-org-lint-fn-backup-directory
   (expand-file-name "sp-org-lint-backups/" user-emacs-directory)
   "Folder that receives a copy of every file before it is changed."
   :type 'directory
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defcustom sp-org-lint-fn-files-function #'sp-org-lint-fn-vault-files
   "Function returning the list of Org files to lint."
   :type 'function
-  :group 'sp-org-lint)
+  :group 'spcustom)
 
 (defun sp-org-lint-fn--scan ()
   "Scan the current Org buffer for headings and footnotes.

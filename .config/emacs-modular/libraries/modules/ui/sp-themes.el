@@ -17,7 +17,7 @@
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
   "Set a custom themes directory path."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 ;;;;; Make the custom themes dir.
@@ -134,6 +134,10 @@
   ;; load preferred theme 
   ;; (load-theme 'lambda-light)
 )
+
+;;; Catppuccin
+(use-package catppuccin-theme
+  :ensure t)
 
 ;; Lambda themes options
 (setopt lambda-themes-set-italic-comments t)
