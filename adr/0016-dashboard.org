@@ -1,0 +1,36 @@
+#+title: 0016 The start screen is a layered dashboard with agenda boxes and a privacy mode
+#+date: 2026-10-24
+#+status: accepted; agenda wiring of 0011 is missing (see consequences)
+
+* Context
+The splash screen (=sp-splash=, the =Dashboard= buffer) started as a menu in front of a PNG logo. It was extended through ten pull requests, several stacked, and one of them (#64, the rename to =sp-dashboard=) merged into a stacked branch and never reached =main=, so the rename had to be brought in again by #74.
+
+* Decision
+- *Art is text in layers.* The lambda and the EMACS banner are plain text files in =libraries/images/= (#31, #44, #45), drawn behind the text into blank cells only. =sp-dashboard-art-layers= lists each layer's file, offsets and face; =S-<arrow>= moves one, =TAB= picks the next, =s= shows the =setq= form. The title and the menu are centred under the banner and follow it.
+- *Colours come from the theme.* Roles (art, banner, footer, three accents) take the colour of a face of the current theme mixed towards the background; =sp-dashboard-palettes= overrides a role for a theme (#49).
+- *The menu is boxes.* A list of boxed blocks: agendas, then Config and Notes; Mail and Projects are gone (#48). Since #75 each agenda is its own box in a grid, listing its three most urgent open TODOs (priority, deadline, schedule, =NEXT= / =PROG=); since #78 all boxes fill one lane as wide as the banner (=sp-dashboard-lane-width=).
+- *Only buttons are interactive.* Everything else is =cursor-intangible= and a buffer-wide overlay keymap makes =TAB=, =S-TAB= and =RET= the same wherever point is (#74).
+- *Privacy.* Private entries (tag =private=, or files in =sp-dashboard-private-files=) are left out while the dashboard is public. =P= cycles auto / public / private; in auto, =sp-dashboard-public-conditions= decide, and a check that errors counts as public (#75). The default condition follows macOS Focus through a flag file or =Assertions.json=; =sp-dashboard-public-facing-mode= forces public; the dashboard redraws by itself when the status changes and a hidden one is killed instead (#76).
+- *Name.* =sp-splash= became =sp-dashboard= with every option, face and command renamed and no aliases (#64, #74); all faces sit under one heading in the doc.
+
+* Pull requests, in dependency order
+1. #31 lambda art, then #44 which fixed it (every other character was dropped, and the command did not redraw)
+2. #45 art layers and the =Dashboard= buffer name
+3. #48 nested agendas in boxes (stacked on #45)
+4. #49 theme palette (stacked on #48)
+5. #64 rename to =sp-dashboard= (stacked on #49; lost in a stacked merge)
+6. #74 TAB between buttons, and the rename brought into =main=
+7. #75 agenda boxes with top TODOs and the privacy mode
+8. #76 Focus condition, public-facing mode and automatic redraw
+9. #78 one lane (the column was worked out before the margins narrowed the window)
+Related: #70 and [[file:0011-dashboard-and-org-ql-views.org][ADR 0011]] decided that the agendas run the views of =sp-agenda-views=; #47 is a design note for a projects sidebar that would replace the removed Projects item.
+
+* Alternatives considered
+- *The =dashboard= package* (=lem-dashboard=): no longer loaded (0011); only a copy of its banner 3 is kept.
+- *TODO lines as buttons.* Each would be a =TAB= stop; #75 left them off, #76 turned them on by default.
+
+* Consequences
+- *The wiring decided in 0011 is not on =main=.* #70 was written against =sp-splash= and described =sp-splash-agenda-commands= and the removal of the per-agenda file variables. =sp-dashboard.el= has neither: its boxes still use =sp-dashboard-agenda-general-files= and the like, and open agendas through their own commands. The views (=l= deadlines, =q= org-ql) exist in =sp-agenda-views= but the dashboard does not call them. ADR 0011 still describes the old name.
+- Any =sp-splash-*= setting in my own config needs the =sp-dashboard-= prefix.
+- /Untested/ on my Mac: everything was run headless in Emacs 29.3 (frames of 120 to 200 columns). No GUI, no real agenda files or speed on a large =org-agenda-files=, no Wi-Fi or screen-share checks, and the real layout of =~/Library/DoNotDisturb/DB/Assertions.json= (it may need Full Disk Access; the flag file is the reliable route).
+- With the lane at the banner's width (60) a box has about 25 columns of text, so TODOs wrap more; raise =sp-dashboard-lane-width=. With x -50 the lambda is cut off in windows narrower than about 115 columns.

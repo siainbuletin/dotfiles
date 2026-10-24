@@ -1,0 +1,49 @@
+#+title: 0014 One graph module, sp-graphs, with my own relationship annotator and a live view
+#+date: 2026-10-24
+#+status: accepted; the open questions below are not decided
+
+* Context
+Four modules drew graphs of the notes: =sp-dgraphs= (the =discourse-graphs= package), =sp-dyn-graph= (the =vulpea-graph= package), =sp-relationship-annotator= (my own code) and =sp-relationship-annotator-live=. The annotator began as a Graphviz view of the =parent= relation (=sp-vulpea-hierarchy=) and grew, one stacked pull request after another, into a reader of typed relations between notes. Nothing said which parts were packages and which were my code, and the same four relations were declared twice (=dg-relation-types= and =relationship-annotator-relations=).
+
+* Decision
+- The annotator /only reads/ the notes. Relations are declared in =relationship-annotator-relations= and each is read from one or more sources: a metadata key, the inverse of a key, or a file property such as =DG_SUPPORTS= (#16). A relation has a =:direction= and the browser page places boxes with the fCoSE force layout to honour it (#18). Notes have a type (=DG_TYPE=, a =type= field or a file tag) and relations list the types they connect (#19), which is a port of the logic of =discourse-graphs=, not a dependency on it.
+- The browser graph is served from Emacs on =127.0.0.1:8765= by a small server on =make-network-process= and reloads over Server-Sent Events only when the data a page shows has changed (#37). Reasons are in the =sp-graphs= doc, "Why a small server of its own".
+- Interactive commands use the short prefix =rel-anno-=; no aliases for old names are kept (#37).
+- All four modules are one module, =sp-graphs=, with one literate doc that separates what =use-package= installs (=discourse-graphs=, =vulpea-graph=) from my own code (#58). Behaviour and names did not change.
+
+* Pull requests, in dependency order
+1. #13 scoped hierarchy views and a browser graph
+2. #15 file tags and wrapped titles
+3. #16 several relation types, each from several sources
+4. #17 tint by tag, recentre on click
+5. #18 fCoSE layout and relation directions
+6. #19 rename to =relationship-annotator= and port the discourse logic (reverted by #32, restored by #33)
+7. #20 an empty "Design considerations" section
+8. #38 and #40 fix the click that never reached a box
+9. #37 live view and the =rel-anno-= prefix
+10. #39 =sp-embr=: the live view in an Emacs buffer (embr.el, xwidget-webkit)
+11. #58 =sp-graphs=; it replaced #57, closed because its branch carried the wrong number
+Related, not merged into the module: #12 =sp-dg-positions= (a position graph and status views on top of =discourse-graphs=, which reads =vulpea-hierarchy-rankdir= by its old name).
+
+* Alternatives considered
+- *fCoSE against the page's own tidy tree.* The tree could not place a note relative to one in another branch. The cost is 560 KB of vendored scripts in every page, a heuristic layout that breaks some rules in crowded graphs, and no directions in the SVG export. Cytoscape's renderer, ELK, d3-force and Graphviz are compared in the doc, "Layout backend of the browser page".
+- *=simple-httpd= for the live view.* One global server, rooted at =/var/www=, listening on every interface by default.
+- *Write relations from the annotator.* Left to the open questions.
+- *Keep =sp-embr= in its own module.* It is: it needs Emacs 30 and is still a trial.
+
+* Consequences
+- Changing =dg-node-types= does not change =relationship-annotator-node-types=, and the other way round.
+- The page embeds the whole hierarchy (since #17) and a check builds the full tree in Emacs, so a very large vault makes both big.
+- /Untested/ on my Mac: everything was run in a Linux container with mock notes and headless Chromium.
+
+* Open questions (how =sp-graphs= should work, still unclear)
+1. *Does the annotator stay read-only?* The doc's "Design considerations" is empty on purpose. Writing a relation (from the graph, or by a command) is the main thing not decided.
+2. *Which vocabulary is the source of truth?* Node types and relations are declared by =discourse-graphs=, by the annotator, and by =dg-positions-rules= (which copies them into =discourse-graphs= with =dg-positions-install=). Whether to keep the duplicate declarations, generate one from the other, or drop one side.
+3. *Do property sources work on the real vault?* Relations from =DG_TYPE= and =DG_SUPPORTS= assume vulpea puts file properties into =vulpea-note-properties=; this was never checked, and vulpea has no property index, so every note is tested.
+4. *What is =vulpea-graph= for here?* Its source was never read; the doc describes it from its recipe only. Whether it duplicates the annotator's view, and whether to keep it.
+5. *Which viewer wins?* Browser, embr (needs Emacs 30.1, macOS "unknown" upstream) or xwidget-webkit. The comparison checklist in the =sp-embr= doc was not run, and =sp-embr= is not part of =sp-graphs=.
+6. *Does the live reload work on macOS?* Whether =vulpea-db-autosync-mode= writes =vulpea-db-location= or its =-wal= soon after a save, fsevents/kqueue notifications, and the idle timer in an interactive Emacs were never tried.
+7. *Do the buffer outlines recentre too?* #38 fixed the click in the page only. In the native outline RET visits a note and =c= prompts; whether a click or RET should recentre was asked and not answered.
+8. *What was left out of the port?* The SQLite cache, the websocket UI and node/link creation of =discourse-graphs= (see =docs/architecture/relationship-annotator-vs-discourse-graphs.org=). Whether any of it is wanted.
+9. *Directions in the SVG.* The Graphviz export ignores every direction but =rankdir=. Whether it should follow the page.
+10. *Where do positions (=sp-dg-positions=) belong?* It is still its own module, it is not in any module list of =init.el= (#12 said it was loaded from there; nothing requires it now), and it refers to the annotator by its pre-#19 name, =vulpea-hierarchy-rankdir=.

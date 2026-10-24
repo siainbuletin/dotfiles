@@ -1,0 +1,29 @@
+#+title: 0018 emacs-pr builds a sandbox from a PR ref; reloading changed modules in the running Emacs is proposed
+#+date: 2026-10-24
+#+status: accepted (emacs-pr, sp-sandbox); proposed (sp-reload)
+
+* Context
+Trying a PR of the Emacs config meant checking its branch out in =~= and restarting Emacs, and the PR could write to the real notes. Several PRs are open at once, and booting =init.el= in a cloud container stalls because Elpaca needs MELPA and GNU ELPA there. [[file:0007-emacs-tooling-for-pr-review.org][ADR 0007]] chose the sandbox at a high level; this record explains how =emacs-pr= works and what is proposed beyond it.
+
+* Decision
+=emacs-pr N= (the fish function =.config/fish/functions/emacs-pr.fish=) /derives/ a sandbox from the PR number alone; nothing is edited by hand, and running it again converges on the PR's latest commit instead of stacking changes.
+1. *The code is a ref, not a branch.* =yadm fetch origin +pull/N/head:refs/sandbox/pr-N= and a detached worktree at =~/src/dotfiles-wt/pr-N=. Re-running only moves the detached HEAD, so it never collides with a checked-out branch. =emacs-pr rm N= deletes the worktree and the ref.
+2. *Everything the PR can write to is a copy.* =HOME= is a throwaway folder, =~/.cache/emacs-sandbox/home/pr-N=, holding an APFS clone (=cp -c=) of =~/notes=. =var/elpaca= is a clone of a seed that is itself a clone of the live =var/elpaca=, with Elpaca's absolute symlinks repointed at the copy. Any number of sandboxes run next to each other and next to the live Emacs. Only the native-compile cache is shared, which Emacs supports (#26; #24 had shared one package cache and allowed one sandbox at a time).
+3. *Emacs is started on the worktree* with =--init-directory=, and a one-line =--eval= remaps the absolute =/Users/...= paths of =org-agenda-files= into the fake =HOME=.
+4. =reset N= refreshes the notes, =reseed= drops the seed, =--help= prints the commands and the folders (#27).
+5. =sp-sandbox= (#26) runs the same commands from Emacs: =M-x sp-sandbox-pr= (the number defaults to the =22= or =#22= at point), =sp-sandbox-remove=, =sp-sandbox-reset-notes= and =sp-sandbox-reseed=, in a separate process, with the output in =*emacs-pr*=.
+6. *For agents* the =run-emacs-modular= skill (#42) loads every module headless with =use-package= =:ensure= turned into a no-op, evaluates a form, or runs an ERT file on a throwaway copy of the config.
+
+* Proposed, not in the repository: =sp-reload=
+=reload-modules/sp-reload.el= in the project files (23 KB, written but never opened as a PR) adds =M-x sp-reload-changed= to bring the running Emacs to a pulled or checked-out revision. The state it keeps is one git revision, =sp-reload--base-rev= (HEAD at startup, then HEAD after each reload; =C-u= prompts for another). It diffs that revision against the work tree, so it covers pulls, branch switches and uncommitted edits alike, and for each changed module that is already loaded, in original load order, it: switches off the minor modes the file defines using the old definition; undoes the hooks, advice and timers the file registered; resets its =defvar= / =defcustom= values; loads the =.el=; switches the modes back on and re-runs major modes in their buffers; and finally =fmakunbound=s functions no loaded file defines any more. =init.el=, =early-init.el=, =claude-early.el= and =sp-config-profiles.el= are never reloaded and are reported as needing a restart, as are a few heuristics from the diff (for example a removed =define-key=). It can notify, ask or reload after a Magit refresh moves HEAD (=sp-reload-magit-action=).
+
+* Alternatives considered
+- *Chemacs2.* =--init-directory= already gives each worktree its own packages, and the isolation comes from the per-PR =HOME= and clones, which a Chemacs2 profile would not give.
+- *One shared package cache.* Simple, but only one sandbox at a time (#24).
+- *Check the PR out in =~=.* Swaps the live config while it is out.
+- *Restart Emacs after every pull* instead of =sp-reload=: always right, but loses the session.
+
+* Consequences
+- The sandbox needs macOS (APFS, =cp -c=), yadm, git and Emacs 29+.
+- /Untested/: none of it has run with real yadm, Emacs or APFS (the container is Linux); the first run on the Mac is the test. Only checked: =fish -n=, a run against a local stand-in for the yadm repository with stub =emacs= and =cp=, and the Emacs commands in batch against a stub =emacs-pr=.
+- =sp-reload= limits, from its own commentary: hooks, advice and timers are undone only for modules loaded after =sp-reload-enable-tracking= ran, so it must load early in =init.el=; removed =define-key=, =keymap-set=, =add-to-list= and =push= lines leave their effect until restart; macros are not re-expanded in dependents; new packages are queued with =elpaca-process-queues=, untested against every Elpaca version; state in variables the file defines is reset unless =sp-reload-preserve-variables= matches it.

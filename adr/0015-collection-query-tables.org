@@ -1,0 +1,29 @@
+#+title: 0015 Tables of notes come from one query description, and the family is named after the collection
+#+date: 2026-10-24
+#+status: accepted
+
+* Context
+Three Vulpea table modules (=sp-vulpea-dblock=, =sp-vulpea-vui-table=, =sp-vulpea-table-views=) had to be required in order. Saved views were positional, =vui= was the only interactive renderer, and four bugs showed up: sorting by title did nothing, a =|= in a cell broke the Org table, editing a heading's row rewrote the file's top meta, and inline tables left the note modified. The family was also named after Vulpea although it is a personal module for querying a collection of notes, and its files sat apart from the other Vulpea modules.
+
+* Decision
+- One query description, a plist, is shared by the menu, the saved views, the dynamic block and every renderer (#43). The parts are =-core= (the spec, one =vulpea-db-query= predicate, cells, sorting, writing meta back), =-menu=, =-views=, =-org=, =-exc= and =-vui=. =sp-vulpea-table-renderer= is =auto= (exc, then vui, then Org), or one of them.
+- The menu is a transient (=C-c w T=) that shows each setting's value beside its key and can preview the count, insert a block or save a named view.
+- The ten Vulpea modules move to =libraries/modules/vulpea/= with one doc, as the academic ones did (#72). The table family stays out of it: =sp-vulpea-ext= no longer requires it and =sp-org-ext= does.
+- The family is renamed =sp-collection-query-tables= with the prefix =sp-collec-query-= (#73). The prefix breaks the habit that a prefix is the feature name, because the long form reached 45 characters; the doc explains it. No aliases for the old =sp-vulpea-table-*= names; the old views file is read until the new one exists, and =#+BEGIN: vulpea-table= blocks still update.
+- Packages come from =use-package= with Elpaca =:ensure= recipes (ecss, ebox, etaf, and exc from =yibie/grid-table=).
+
+* Pull requests, in dependency order
+1. #43 overhaul: one entry point, a query menu, an exc renderer
+2. #72 gather the Vulpea modules into =libraries/modules/vulpea/=
+3. #73 rename to =sp-collection-query-tables= (stacked on #72)
+Next to it, and independent: #23 =sp-org-issues-morning=, one ranked list of open issues and open pull requests (scores in =sp-org-issues-morning-scores=, read with =gh=, 25 ERT tests written first), which is described in the changelog only.
+
+* Alternatives considered
+- *Keep =vui= as the only interactive renderer.* Opening 1000 notes took 2.8 s with =vui=, 2.1 s with exc and 2.9 s with Org (uncompiled); exc adds a frozen header row and editing a meta cell in place. =vui= stays as the fallback.
+- *Aliases for the old names.* Rejected in #73: the user-facing names changed once and nothing else in the repository used them.
+- *A loader module for the Vulpea modules.* Tried in #72 and removed as asked; =sp-org-ext= requires them one by one as before.
+
+* Consequences
+- A =setq= of an old =sp-vulpea-table-*= setting in my own config must be renamed.
+- =sp-vulpea-grouped-backlinks= still requires =sp-collection-query-tables-core=, so the Vulpea modules pull in one table file.
+- /Untested/ on my Mac: the menu on screen, tables in a graphical frame, mouse use, =vui= field editing, inline tables, Elpaca building ETAF and exc, and the transient version. The comparison plan is =renderer-test-plan.md= in the project files.
