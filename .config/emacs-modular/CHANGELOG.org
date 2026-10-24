@@ -9,7 +9,7 @@ to fold or unfold it.
 
 * Open pull requests
 ** Themes
-- New design note =docs/architecture/theme-system-design.org= comparing =modus-themes=, =ef-themes=, =doric-themes=, =lambda-themes= and =catppuccin-theme= (palettes, options, faces, extension, licences and vendoring), the features worth copying, and a proposal for one themes folder with =sp-load-theme= as the only entry point, in five separable steps. Documentation only: no code changed. (PR_LINK, Claude)
+- New design note =docs/architecture/theme-system-design.org= comparing =modus-themes=, =ef-themes=, =doric-themes=, =lambda-themes= and =catppuccin-theme= (palettes, options, faces, extension, licences and vendoring), the features worth copying, and a proposal for one themes folder with =sp-load-theme= as the only entry point, in five separable steps. Documentation only: no code changed. ([[https://github.com/siainbuletin/dotfiles/pull/80][#80]], Claude)
 ** Docs layout
 - The notes in =docs/= that are not module docs move to =docs/architecture/=: =load-order.org= (with its two SVG graphs), =why-this-literate.org= =relationship-annotator-vs-discourse-graphs.org=, =projects-sidebar-layout.org= and the =skills/= folder of the thesis skill. Only =main.org= and =tangles/= stay in =docs/=. Links in =docs/main.org=, =sp-org-agenda.org=, =sp-relationship-annotator.org= and the comment in =init.el= follow. ([[https://github.com/siainbuletin/dotfiles/pull/66][#66]], Claude)
 ** Documentation diagrams
