@@ -29,7 +29,7 @@ For motivations of why this configuration is set up in this way, please refer to
 
 * Design notes
 
-- [[file:projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share and where they differ
 
 * Module tree

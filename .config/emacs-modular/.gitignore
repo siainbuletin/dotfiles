@@ -33,3 +33,7 @@ temp.org
 
 # backups of configuration files
 *.org#
+
+# diagrams are built from the dot blocks in the docs: see docs/Makefile
+docs/**/*.svg
+docs/.build/

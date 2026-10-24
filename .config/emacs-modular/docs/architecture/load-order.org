@@ -8,6 +8,8 @@ The modules listed in =lem--default-modules= (in =init.el=) are loaded top to bo
 
 * The order
 
+/The diagrams are not committed: run =make -C docs docs= (needs Graphviz) or =C-c C-c= on a block to draw them here; on GitHub they are on the =docs-assets= branch, built by CI ([[file:../../../../adr/0011-build-doc-svgs-with-make.org][ADR 0011]])./
+
 #+begin_src dot :file load-order-modules.svg :exports both :results file
 digraph modules {
   rankdir=TB; compound=true; nodesep=0.25; ranksep=0.45;
