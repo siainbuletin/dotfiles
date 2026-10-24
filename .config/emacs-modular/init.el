@@ -240,11 +240,9 @@ the order of `sp-late-modules', for example when debugging."
     sp-notes
     sp-trails ;; For gathering links from browser sessions
     sp-semantic
-    ;; several graphing functionality
-    sp-dgraphs
-    sp-relationship-annotator
-    sp-dyn-graph
-    sp-relationship-annotator-live ;; live localhost view of the graph
+    ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
+    ;; annotator and its live localhost view, in one module.
+    sp-graphs
     sp-embr ;; live view in an Emacs buffer (embr.el, Emacs 30+)
     ;; Sandboxed Emacs for pull requests
     sp-sandbox
@@ -349,7 +347,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation
@@ -453,7 +451,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-network
                     'sp-scratch
                     'sp-server
-                    'sp-splash
+                    'sp-dashboard
                     'sp-spelling
                     'sp-templating
                     'sp-text-manipulation
