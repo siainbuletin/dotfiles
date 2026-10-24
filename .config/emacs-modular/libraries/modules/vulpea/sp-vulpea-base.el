@@ -31,7 +31,20 @@
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
+;; Skip the scan at startup: the database stays as it was, and the scan runs
+;; once, after the first note of the vault is opened (see below).
+(setq vulpea-db-sync-scan-on-enable nil)
+
 (vulpea-db-autosync-mode +1)
+
+(defun sp-vulpea-scan-once ()
+  "Run the deferred full scan after the first note of the vault opens."
+  (when (and buffer-file-name
+             (vulpea-db-sync-tracked-file-p buffer-file-name))
+    (remove-hook 'find-file-hook #'sp-vulpea-scan-once)
+    (run-with-idle-timer 2 nil #'vulpea-db-sync-full-scan)))
+
+(add-hook 'find-file-hook #'sp-vulpea-scan-once)
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 

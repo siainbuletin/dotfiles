@@ -130,10 +130,23 @@ Sets =vulpea-db-sync-directories= to =~/notes/= only.
 
 *** Automatic database sync
 
-Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change.
+Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change. =vulpea-db-sync-scan-on-enable= is nil, so enabling the mode no longer scans the whole vault at startup: Emacs starts with the database as it was (an empty database is still scanned), the save hook and file watchers work as usual, and =sp-vulpea-scan-once= runs =vulpea-db-sync-full-scan= two idle seconds after the first file of =vulpea-db-sync-directories= is opened. =M-x vulpea-db-sync-full-scan= runs it by hand, and =C-u= forces a re-index. Changes made outside Emacs are picked up at that first scan.
 
 #+begin_src emacs-lisp -i
+;; Skip the scan at startup: the database stays as it was, and the scan runs
+;; once, after the first note of the vault is opened (see below).
+(setq vulpea-db-sync-scan-on-enable nil)
+
 (vulpea-db-autosync-mode +1)
+
+(defun sp-vulpea-scan-once ()
+  "Run the deferred full scan after the first note of the vault opens."
+  (when (and buffer-file-name
+             (vulpea-db-sync-tracked-file-p buffer-file-name))
+    (remove-hook 'find-file-hook #'sp-vulpea-scan-once)
+    (run-with-idle-timer 2 nil #'vulpea-db-sync-full-scan)))
+
+(add-hook 'find-file-hook #'sp-vulpea-scan-once)
 #+end_src
 
 *** Alias property
