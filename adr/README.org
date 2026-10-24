@@ -20,3 +20,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0009-one-agenda-owner-per-setting.org][0009]] | One owner per agenda setting; vulpea-para controls the agenda files | accepted |
 | [[file:0010-phase-out-denote.org][0010]] | Phase out Denote; it does not touch the agenda | accepted |
 | [[file:0011-build-doc-svgs-with-make.org][0011]] | Build the doc SVGs with make instead of committing them | accepted |
+| [[file:0014-typst-for-pdf-of-the-docs.org][0014]] | Typeset the PDF of the docs with Typst, exported from Org by =ox-typst= | accepted |
