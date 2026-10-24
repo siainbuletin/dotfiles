@@ -10,27 +10,21 @@
 
 ;;;; Defining variables
 
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
-
 (defconst sp-bibtex-file-regexp "\\`[[:alnum:]].*\\.bib\\'"
-  "Regexp for the names of the BibTeX files in `sp-bibtex-dir'.")
+  "Regexp for the names of the BibTeX files in `sp-bibliography-dir'.")
 
 (defvar sp-bibtex-files
-  (when (file-exists-p sp-bibtex-dir)
-    (directory-files sp-bibtex-dir t sp-bibtex-file-regexp))
+  (when (file-exists-p sp-bibliography-dir)
+    (directory-files sp-bibliography-dir t sp-bibtex-file-regexp))
   "List of BibTeX files. Use `sp-bibtex-register' to configure.")
 
 ;;;###autoload
 (defun sp-bibtex-register ()
-  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  "Register the contents of the `sp-bibliography-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   (interactive)
-  (when (file-exists-p sp-bibtex-dir)
-    (let ((bib-files (directory-files sp-bibtex-dir t sp-bibtex-file-regexp)))
+  (when (file-exists-p sp-bibliography-dir)
+    (let ((bib-files (directory-files sp-bibliography-dir t sp-bibtex-file-regexp)))
       (setq sp-bibtex-files bib-files
             org-cite-global-bibliography bib-files
             citar-bibliography bib-files
@@ -130,7 +124,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
+  "Extract attachment file names from BibTeX files in `sp-bibliography-dir'."
   (sp-bibtex-register)
   (let ((attachments '()))
     (dolist (bibtex-file sp-bibtex-files)
@@ -142,17 +136,17 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
                                           "[[:space:]]*;[[:space:]]*")))
             (dolist (file-path file-paths)
               (push (expand-file-name (string-trim file-path)
-                                      sp-bibtex-dir)
+                                      sp-bibliography-dir)
                     attachments))))))
     attachments))
 
 (defun sp--bibtex-extract-files ()
-  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
+  "List files recursively in `sp-bibliography-dir', excluding `.bib' and `.csl'."
   (seq-remove (lambda (file)
                 (or (string-suffix-p ".bib" file)
                     (string-suffix-p ".csl" file)))
               (mapcar 'expand-file-name
-                      (directory-files-recursively sp-bibtex-dir ""))))
+                      (directory-files-recursively sp-bibliography-dir ""))))
 
 ;;;###autoload
 (defun sp-bibtex-missing-files ()

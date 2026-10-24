@@ -37,13 +37,13 @@ This is the umbrella module for academic work.
   - =helm-bibtex= library and notes paths,
   - the =citar-org-node= bridge,
   - the =binder= package for Scrivener-like manuscript work.
-- The list of =.bib= files is no longer written here: =sp-bibtex-register= in =sp-bibprocess= finds every =.bib= file in =~/bibliography/= and hands the list to Org, =citar=, =org-ref= and =helm-bibtex= alike.
+- The list of =.bib= files is no longer written here: =sp-bibtex-register= in =sp-bibprocess= finds every =.bib= file in =~/Documents/bibliography/= and hands the list to Org, =citar=, =org-ref= and =helm-bibtex= alike.
 
 The long commentary is a roadmap more than a description.
 
 - Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs, paper fetching.
 - Literature notes are still made with =citar-denote=. =ROAM_REFS= handling goes through =vulpea-citar=.
-- Bibliography files are expected under =~/bibliography/=, PDFs under =~/Documents/literature/=.
+- Bibliography files are expected under =~/Documents/bibliography/=, PDFs under =~/Documents/literature/=.
 - The module appears in the default module list in =init.el= under Academic.
 
 ** Citation keys
@@ -65,7 +65,7 @@ The ones that change how the setup behaves most. All are set in the modules name
 - =bibtex-entry-format= [=sp-bibprocess=]: what cleaning does to an entry (page dashes, whitespace, alignment, trailing comma, braces). Required-field checks are left out so incomplete =biblio= entries are not rejected.
 - =bibtex-search-entry-globally= with =bibtex-files= [=sp-bibprocess=]: key look-ups and duplicate checks span all registered files, not just the open buffer.
 - =bibtex-dialect= [=sp-bibprocess=]: =biblatex=, so =date=, =journaltitle= and =file= are valid fields.
-- =sp-bibtex-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
+- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
 - =org-cite-global-bibliography= and =citar-bibliography= [=sp-citations=]: both read the registered list, so Org and =citar= always see the same files.
 - =citar-library-paths=, =citar-library-file-extensions=, =citar-file-additional-files-separator= [=sp-citations=]: where =citar= looks for PDFs (=~/Documents/literature/=), which extensions count, and the separator for several files per key. The library path was commented out before, so =citar= found no PDFs.
 - =citar-notes-paths= and =citar-templates= [=sp-citations=]: where notes live and how candidates are displayed.
@@ -130,17 +130,13 @@ File header, a note that the module needs to be better defined, and the roadmap 
 
 ** Citation variables
 
-Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =spcustom= group, now before the sub-modules are required so that =sp-citations= finds them bound.
+Defines =sp-bib-notes= and =sp-citar-note= in the =spcustom= group, now before the sub-modules are required so that =sp-citations= finds them bound.
 
 - =sp-bib-notes= is the =citar= notes directory. When it is nil, =sp-citations= falls back to =sp-notes-dir=.
 - =sp-citar-note= is the =citar= note template, nil by default.
-- =sp-bibliography= is obsolete. The bibliography is every =.bib= file in =sp-bibtex-dir=; the option is kept only so an existing customisation does not signal an error.
 
 #+begin_src emacs-lisp -i
 ;;;; Citation variables
-(defcustom sp-bibliography nil "Obsolete: the bibliography is every .bib file in `sp-bibtex-dir'."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory, `sp-notes-dir' when nil."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
@@ -276,7 +272,7 @@ Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumabl
 
 *** org-ref paths
 
-Points =org-ref= at the =~/Documents/literature/= folder for PDFs. The list of =.bib= files is =org-ref-default-bibliography=, which =sp-bibtex-register= sets from =sp-bibtex-dir= (it was =master.bib= only).
+Points =org-ref= at the =~/Documents/literature/= folder for PDFs. The list of =.bib= files is =org-ref-default-bibliography=, which =sp-bibtex-register= sets from =sp-bibliography-dir= (it was =master.bib= only).
 
 #+begin_src emacs-lisp -i
 (setq org-ref-pdf-directory sp-literature-dir)
@@ -329,7 +325,7 @@ Provides the =sp-academic= feature and closes the file.
 
 This module manages the BibTeX bibliography that the academic modules build on. It:
 
-- defines where the =.bib= files live (=sp-bibtex-dir=, =~/bibliography/= by default),
+- defines where the =.bib= files live (=sp-bibliography-dir=, =~/Documents/bibliography/= by default),
 - keeps one list of them and shares it with Org's citation system (=org-cite-global-bibliography=), =citar= (=citar-bibliography=), =org-ref= (=org-ref-default-bibliography=), =helm-bibtex= (=bibtex-completion-bibliography=) and =bibtex-mode= itself (=bibtex-files=),
 - configures the built-in =bibtex= mode for BibLaTeX, including the one scheme for citation keys described under [[*Citation keys]],
 - adds commands to look up new entries online with the =biblio= package and to audit attachments.
@@ -361,15 +357,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Bibliography directory
 
-=sp-bibtex-dir= is a user option pointing at the folder holding BibTeX files and their attachments, =~/bibliography/= under the home directory.
-
-#+begin_src emacs-lisp -i
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
-#+end_src
+The folder holding the BibTeX files and their attachments is =sp-bibliography-dir=, defined in =sp-paths= (=~/Documents/bibliography/= by default, or the folder named by =SP_BIBLIOGRAPHY_DIR=). This module used to define a second option, =sp-bibliography-dir=, that only copied it; there is now one option, and the old name is gone with no alias.
 
 *** List of BibTeX files
 
@@ -379,17 +367,17 @@ The file header: the first line carries the file name, a short summary and the =
 
 #+begin_src emacs-lisp -i
 (defconst sp-bibtex-file-regexp "\\`[[:alnum:]].*\\.bib\\'"
-  "Regexp for the names of the BibTeX files in `sp-bibtex-dir'.")
+  "Regexp for the names of the BibTeX files in `sp-bibliography-dir'.")
 
 (defvar sp-bibtex-files
-  (when (file-exists-p sp-bibtex-dir)
-    (directory-files sp-bibtex-dir t sp-bibtex-file-regexp))
+  (when (file-exists-p sp-bibliography-dir)
+    (directory-files sp-bibliography-dir t sp-bibtex-file-regexp))
   "List of BibTeX files. Use `sp-bibtex-register' to configure.")
 #+end_src
 
 *** Register BibTeX files
 
-=sp-bibtex-register= rescans =sp-bibtex-dir= and gives the same list to every consumer, then echoes the registered files.
+=sp-bibtex-register= rescans =sp-bibliography-dir= and gives the same list to every consumer, then echoes the registered files.
 
 - =sp-bibtex-files=, the list itself.
 - =org-cite-global-bibliography= and =citar-bibliography=, for citations in Org and for =citar=.
@@ -401,11 +389,11 @@ Run it after adding or removing a =.bib= file.
 #+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-bibtex-register ()
-  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  "Register the contents of the `sp-bibliography-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   (interactive)
-  (when (file-exists-p sp-bibtex-dir)
-    (let ((bib-files (directory-files sp-bibtex-dir t sp-bibtex-file-regexp)))
+  (when (file-exists-p sp-bibliography-dir)
+    (let ((bib-files (directory-files sp-bibliography-dir t sp-bibtex-file-regexp)))
       (setq sp-bibtex-files bib-files
             org-cite-global-bibliography bib-files
             citar-bibliography bib-files
@@ -559,16 +547,16 @@ It opens that file, moves to the end, runs the combined lookup and saves. If no 
 
 ** Auditing attachments
 
-Two reports that compare the files stored in =sp-bibtex-dir= against the =file= fields in the BibTeX entries.
+Two reports that compare the files stored in =sp-bibliography-dir= against the =file= fields in the BibTeX entries.
 
 *** Collect attachment paths from entries
 
-=sp--bibtex-extract-attachments= re-registers the bibliography and scans each =.bib= file for =file = {...}= fields, splitting multiple attachments on semicolons and expanding each path relative to =sp-bibtex-dir=.
+=sp--bibtex-extract-attachments= re-registers the bibliography and scans each =.bib= file for =file = {...}= fields, splitting multiple attachments on semicolons and expanding each path relative to =sp-bibliography-dir=.
 
 #+begin_src emacs-lisp -i
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
+  "Extract attachment file names from BibTeX files in `sp-bibliography-dir'."
   (sp-bibtex-register)
   (let ((attachments '()))
     (dolist (bibtex-file sp-bibtex-files)
@@ -580,23 +568,23 @@ Two reports that compare the files stored in =sp-bibtex-dir= against the =file= 
                                           "[[:space:]]*;[[:space:]]*")))
             (dolist (file-path file-paths)
               (push (expand-file-name (string-trim file-path)
-                                      sp-bibtex-dir)
+                                      sp-bibliography-dir)
                     attachments))))))
     attachments))
 #+end_src
 
 *** Collect files on disk
 
-=sp--bibtex-extract-files= lists every file under =sp-bibtex-dir= recursively, leaving out =.bib= and =.csl= files.
+=sp--bibtex-extract-files= lists every file under =sp-bibliography-dir= recursively, leaving out =.bib= and =.csl= files.
 
 #+begin_src emacs-lisp -i
 (defun sp--bibtex-extract-files ()
-  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
+  "List files recursively in `sp-bibliography-dir', excluding `.bib' and `.csl'."
   (seq-remove (lambda (file)
                 (or (string-suffix-p ".bib" file)
                     (string-suffix-p ".csl" file)))
               (mapcar 'expand-file-name
-                      (directory-files-recursively sp-bibtex-dir ""))))
+                      (directory-files-recursively sp-bibliography-dir ""))))
 #+end_src
 
 *** Files with no entry
@@ -734,7 +722,7 @@ This module configures citation handling: Org's built-in =oc= citation framework
 
 Dependencies:
 
-- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=).
+- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=).
 - Citar and citeproc are configured unconditionally.
 - CSL styles and locales must be present on disk under =~/.local/share/csl/=.
 - Icons come from =nerd-icons=, at-point actions from =embark=.
