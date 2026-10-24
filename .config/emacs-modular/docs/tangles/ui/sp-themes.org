@@ -2,11 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-themes.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-themes.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-themes.el=.
 
-Sets up how colour themes are found, loaded and switched. It points =custom-theme-directory= at =libraries/themes/= and adds every subfolder there to the theme load path, provides a clean theme-switching command that disables all active themes first, and installs several theme families: Modus, Ef, Doric and Lambda themes, plus =easy-theme-preview= for trying them out. It also defines a light/dark toggle and a hook that runs after any =load-theme=.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=. The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=). Automatic switching to match the macOS system appearance lives in =sp-macos=, not here. The menubar helpers call an external =dark-mode= command-line tool.
+Sets up how colour themes are found, loaded and switched. It:
+
+- points =custom-theme-directory= at =libraries/themes/= and adds every subfolder there to the theme load path,
+- provides a clean theme-switching command that disables all active themes first,
+- installs several theme families: Modus, Ef, Doric and Lambda themes, plus =easy-theme-preview= for trying them out,
+- defines a light/dark toggle and a hook that runs after any =load-theme=.
+
+Origin and use:
+
+- Much of it comes from Lambda-Emacs.
+- Loaded in the UI section of =init.el=.
+- The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=).
+- Automatic switching to match the macOS system appearance lives in =sp-macos=, not here.
+- The menubar helpers call an external =dark-mode= command-line tool.
 
 The commentary at the top of the module says:
 
@@ -97,7 +112,12 @@ Introduces the disable-all helper.
 
 ** Disabling all themes
 
-=sp-disable-all-themes= disables every enabled theme, which avoids the colour mixing that happens when =load-theme= stacks a new theme on top of old ones. It also turns off =window-divider-mode=, clears the header line, and installs a plain fallback mode line showing buffer name, major mode, a red =(**)= marker for unsaved file buffers or =(RO)= for read-only ones, and line and column. Resetting the mode line is a holdover from Lambda-Emacs; presumably the theme or mode-line package being loaded next replaces it again. The comment at the top shows the author is unsure why this step is needed.
+=sp-disable-all-themes= disables every enabled theme. That avoids the colour mixing that happens when =load-theme= stacks a new theme on top of old ones.
+
+- It also turns off =window-divider-mode= and clears the header line.
+- It installs a plain fallback mode line showing buffer name, major mode, a red =(**)= marker for unsaved file buffers or =(RO)= for read-only ones, and line and column.
+- Resetting the mode line is a holdover from Lambda-Emacs. Presumably the theme or mode-line package being loaded next replaces it again.
+- The comment at the top shows the author is unsure why this step is needed.
 
 #+begin_src emacs-lisp -i
 ;; why is this necessary in order to do sp-load-theme?
@@ -213,7 +233,12 @@ Lets Modus use fixed-pitch faces for code and tables inside variable-pitch buffe
 
 ** Modus appearance options
 
-Italic but not bold constructs, mixed fonts, no variable-pitch UI elements, and =modus-themes-disable-other-themes= so loading a Modus theme turns off others. Minibuffer prompts are italic and bold. In completion lists, matching characters are extra bold and the selected candidate is semibold italic, with the styling applied to its text too.
+Modus theme options:
+
+- Italic but not bold constructs, mixed fonts, no variable-pitch UI elements.
+- =modus-themes-disable-other-themes=, so loading a Modus theme turns off others.
+- Minibuffer prompts are italic and bold.
+- In completion lists, matching characters are extra bold and the selected candidate is semibold italic, with the styling applied to its text too.
 
 #+begin_src emacs-lisp -i
 ;; In all of the following, WEIGHT is a symbol such as `semibold',
@@ -344,7 +369,11 @@ Installs =easy-theme-preview=, which makes it easy to preview themes before comm
 
 ** Light/dark toggle
 
-=toggle-dark-light-theme= flips between two Ef themes: if =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first. The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code. Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
+=toggle-dark-light-theme= flips between two Ef themes.
+
+- If =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first.
+- The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code.
+- Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Theme toggle

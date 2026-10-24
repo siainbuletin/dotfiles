@@ -2,11 +2,21 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-narrow.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-narrow.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-narrow.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Commands that make it easier to work in long Org (and Markdown) buffers by narrowing: a do-what-I-mean narrow/widen toggle, commands to step to the next or previous sibling subtree while staying narrowed, and a command that opens an indirect clone of the buffer narrowed to the current element. It is loaded in both the default and minimal module lists in =init.el=.
+Commands that make it easier to work in long Org (and Markdown) buffers by narrowing:
+
+- a do-what-I-mean narrow/widen toggle,
+- commands to step to the next or previous sibling subtree while staying narrowed,
+- a command that opens an indirect clone of the buffer narrowed to the current element.
+
+Loaded in both the default and minimal module lists in =init.el=.
 
 The commentary notes a future goal of making the =vulpea-ui= sidebar follow the narrowing so it shows only the narrowed context.
 
@@ -49,7 +59,15 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** The do-what-I-mean toggle
 
-=sp-narrow-or-widen-dwim= widens if the buffer is already narrowed. Otherwise it narrows to the most specific thing that applies: the active region; in Org, the source block at point (by opening =org-edit-src-code= in a full-frame window), else the block at point, else the current subtree; in Markdown, the subtree; in LaTeX, the current environment; and anywhere else, the current defun. With a prefix argument it always narrows, even inside an already narrowed buffer, which allows nested narrowing. This is the well-known command from Artur Malabarba's blog.
+=sp-narrow-or-widen-dwim= widens if the buffer is already narrowed. Otherwise it narrows to the most specific thing that applies:
+
+- the active region;
+- in Org: the source block at point (by opening =org-edit-src-code= in a full-frame window), else the block at point, else the current subtree;
+- in Markdown: the subtree;
+- in LaTeX: the current environment;
+- anywhere else: the current defun.
+
+With a prefix argument it always narrows, even inside an already narrowed buffer, which allows nested narrowing. This is the well-known command from Artur Malabarba's blog.
 
 #+begin_src emacs-lisp -i
 (defun sp-narrow-or-widen-dwim (p)
@@ -94,7 +112,10 @@ Binds the toggle to =C-x n n= with =bind-key*=, replacing the stock =narrow-to-r
 
 ** Advance to the next sibling
 
-=sp-org-advance= widens (if narrowed), jumps to the next heading at the same level, and narrows to that subtree. Repeated calls walk through siblings one at a time. It has no keybinding in this module.
+=sp-org-advance= widens (if narrowed), jumps to the next heading at the same level, and narrows to that subtree.
+
+- Repeated calls walk through siblings one at a time.
+- It has no keybinding in this module.
 
 #+begin_src emacs-lisp -i
 ;;;;; Narrow & Advance/Retreat
@@ -126,7 +147,11 @@ Binds the toggle to =C-x n n= with =bind-key*=, replacing the stock =narrow-to-r
 
 ** Indirect clone narrowed to the element
 
-=sp-clone-buffer-and-narrow= creates an indirect buffer in another window, so edits are shared with the original, and narrows it: to the element at point in Org via =org-narrow-to-element=, or to the subtree in Markdown. This lets you focus on one part of a file while keeping the full view open. The final =switch-to-buffer-other-window= may open a further window, since the clone is already shown in one.
+=sp-clone-buffer-and-narrow= creates an indirect buffer in another window, so edits are shared with the original, and narrows it.
+
+- In Org it narrows to the element at point via =org-narrow-to-element=. In Markdown, to the subtree.
+- This lets you focus on one part of a file while keeping the full view open.
+- The final =switch-to-buffer-other-window= may open a further window, since the clone is already shown in one.
 
 #+begin_src emacs-lisp -i
 ;;;;; Clone and Narrow

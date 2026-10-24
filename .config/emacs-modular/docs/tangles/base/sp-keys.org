@@ -2,13 +2,30 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-keys.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-keys.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-keys.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module is the central place for keybindings in the config. Instead of scattering bindings across modules, almost every personal binding lives here, grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-x C-SPC= by default). Bindings are made with =bind-keys= and =bind-key= from the =bind-key= library that ships with =use-package=, and with the built-in =keymap-global-set= for plain global keys.
+This module is the central place for keybindings in the config.
 
-Most of the bound commands are defined elsewhere: =sp-= helpers live in =sp-helper-funct= and other modules, while many targets come from third-party packages such as =consult=, =crux=, =magit=, =git-gutter=, =mu4e=, =denote=, =citar=, =tabspaces=, =ace-window= and =easysession=. A key whose command is not loaded yet simply errors when pressed. The module also installs =ironkey=, =hydra=, =use-package-hydra=, =which-key=, =helm-descbinds= and =keycast=, and defines two =transient= menus (ediff and rectangle editing).
+- Almost every personal binding lives here, instead of being scattered across modules.
+- Bindings are grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-x C-SPC= by default).
+- They are made with =bind-keys= and =bind-key= from the =bind-key= library that ships with =use-package=, and with the built-in =keymap-global-set= for plain global keys.
+
+Where the commands come from:
+
+- Most bound commands are defined elsewhere. =sp-= helpers live in =sp-helper-funct= and other modules.
+- Many targets come from third-party packages: =consult=, =crux=, =magit=, =git-gutter=, =mu4e=, =denote=, =citar=, =tabspaces=, =ace-window=, =easysession=.
+- A key whose command is not loaded yet simply errors when pressed.
+
+What the module installs and defines:
+
+- Installs =ironkey=, =hydra=, =use-package-hydra=, =which-key=, =helm-descbinds= and =keycast=.
+- Defines two =transient= menus (ediff and rectangle editing).
 
 The file has grown in layers: a curated, well-commented part under the leader prefix, followed after the "End keybindings" marker by an older collection of global bindings and package declarations, some of which duplicate earlier settings. It is loaded early in both the default and minimal module lists in =init.el=.
 
@@ -100,7 +117,11 @@ the line, respectively."
 
 ** ironkey
 
-=ironkey= (installed from GitHub) protects selected global bindings from being shadowed by minor or major mode keymaps. =ironkey-iron-alist= lists =M-.= and the =C-x p= project prefix, both mapped to =nil=, which per the inline comments means "keep the global-map definition". =ironkey-update= runs on =after-init-hook= so it picks up bindings made during startup, and =ironkey-mode= is switched on.
+=ironkey= (installed from GitHub) protects selected global bindings from being shadowed by minor or major mode keymaps.
+
+- =ironkey-iron-alist= lists =M-.= and the =C-x p= project prefix, both mapped to =nil=. Per the inline comments, that means "keep the global-map definition".
+- =ironkey-update= runs on =after-init-hook=, so it picks up bindings made during startup.
+- =ironkey-mode= is switched on.
 
 #+begin_src emacs-lisp -i
 ;;;; ironkey setup
@@ -149,7 +170,10 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 
 ** Leader keymap
 
-=lem+leader-map= is meant as an overriding keymap for a modal-style leader key. Its declared =:type= is ='string= although the value is a keymap, which only matters if it is edited through Customize. The =bind-keys= call then installs this map as the prefix map on =sp-prefix=.
+=lem+leader-map= is meant as an overriding keymap for a modal-style leader key.
+
+- Its declared =:type= is ='string= although the value is a keymap. That only matters if it is edited through Customize.
+- The =bind-keys= call then installs this map as the prefix map on =sp-prefix=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Personal Leader Key
@@ -170,7 +194,14 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Buffers (b)
 
-=lem+buffer-keys= collects buffer commands: =ibuffer=, =consult-buffer= and its variants, killing and renaming buffers through =crux= and =sp-= helpers, creating new scratch or Elisp buffers, cycling user buffers with =[= and =]=, and switching tab-bar tabs with ={= and =}=. =f= calls =reveal-in-osx-finder=, which only works on macOS with that package installed.
+=lem+buffer-keys= collects buffer commands:
+
+- =ibuffer=, =consult-buffer= and its variants,
+- killing and renaming buffers through =crux= and =sp-= helpers,
+- creating new scratch or Elisp buffers,
+- cycling user buffers with =[= and =]=,
+- switching tab-bar tabs with ={= and =}=,
+- =f= calls =reveal-in-osx-finder=, which only works on macOS with that package installed.
 
 #+begin_src emacs-lisp -i
 ;;;;; Personal Keybindings by Group
@@ -222,7 +253,16 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Config files (C)
 
-=lem+config-keys= jumps to and reloads the configuration: open =init.el=, =early-init.el=, =custom.el= or the Emacs directory, find or search config files, and reload the config. The FIXME notes say the goto helpers should become more generic and that the kill-and-archive command does not yet create an archive file. =a= runs =sp-kill-and-archive-region= from =sp-helper-funct=; the binding used to name =sp-setup-kill-and-archive-region=, which is not defined anywhere.
+=lem+config-keys= jumps to and reloads the configuration:
+
+- open =init.el=, =early-init.el=, =custom.el= or the Emacs directory,
+- find or search config files,
+- reload the config.
+
+Notes:
+
+- The FIXME notes say the goto helpers should become more generic, and that the kill-and-archive command does not yet create an archive file.
+- =a= runs =sp-kill-and-archive-region= from =sp-helper-funct=. The binding used to name =sp-setup-kill-and-archive-region=, which is not defined anywhere.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Config Keybindings
@@ -360,7 +400,20 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Search (s)
 
-=lem+search-keys= collects search and navigation commands, mostly from =consult=: line search, ripgrep in the current directory or a prompted one, Org headings and agenda, marks, the kill ring, and notes. It also binds =vr/query-replace= from visual-regexp, =vertico-repeat=, jumping to the next spelling error, and a todo transient. Both =f= and =s= run =consult-line=.
+=lem+search-keys= collects search and navigation commands, mostly from =consult=:
+
+- line search,
+- ripgrep in the current directory or a prompted one,
+- Org headings and agenda, marks, the kill ring, and notes.
+
+It also binds:
+
+- =vr/query-replace= from visual-regexp,
+- =vertico-repeat=,
+- jumping to the next spelling error,
+- a todo transient.
+
+Both =f= and =s= run =consult-line=.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Search Keybindings
@@ -388,7 +441,15 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Toggles (t)
 
-=lem+toggle-keys= switches display and editing modes on and off: line numbers, =hl-line-mode=, Flymake, Flyspell, =git-gutter-mode=, =puni-global-mode=, =writeroom-mode=, the dired sidebar, the imenu list and more. =t= runs =sp-load-theme=; an older binding to a dark/light toggle is left commented out. =z= starts =zone=.
+=lem+toggle-keys= switches display and editing modes on and off:
+
+- line numbers, =hl-line-mode=, Flymake, Flyspell, =git-gutter-mode=, =puni-global-mode=, =writeroom-mode=,
+- the dired sidebar, the imenu list and more.
+
+Specific keys:
+
+- =t= runs =sp-load-theme=. An older binding to a dark/light toggle is left commented out.
+- =z= starts =zone=.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Toggle Keybindings
@@ -429,7 +490,14 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
 
 ** Version control (g)
 
-The four =autoload= calls make the =git-gutter= commands callable before that package is loaded, since it is not declared as a package elsewhere; the comment explains the resulting error behaviour. =lem+vc-keys= then binds Magit status, commit, diff, log, blame and reflog, the merge picker's graph log (=m=, see [[file:../prog/sp-merge-pick.org][sp-merge-pick]]), the git-gutter hunk commands, and =vc-next-action= for a quick commit of the current file.
+Version control keys:
+
+- The four =autoload= calls make the =git-gutter= commands callable before that package is loaded, since it is not declared as a package elsewhere. The comment explains the resulting error behaviour.
+- =lem+vc-keys= then binds:
+  - Magit status, commit, diff, log, blame and reflog,
+  - the merge picker's graph log (=m=, see [[file:../prog/sp-merge-pick.org][sp-merge-pick]]),
+  - the git-gutter hunk commands,
+  - =vc-next-action= for a quick commit of the current file.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Version Control (Git) Keybindings
@@ -466,7 +534,21 @@ The four =autoload= calls make the =git-gutter= commands callable before that pa
 
 ** Windows (w)
 
-=lem+window-keys= handles window layout: =ace-window=, splitting with or without moving focus, deleting windows, rotating and swapping buffers between windows, toggling split direction, =tear-off-window= into a new frame, and =winner-undo= / =winner-redo=. Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below). The rotate, split, swap and toggle keys point at the =lem-...= commands defined in =sp-windows=; they used to name =sp-...= versions that do not exist, which left those keys dead. =o= calls the built-in =other-window=, because no =lem-= version of it exists.
+=lem+window-keys= handles window layout:
+
+- =ace-window=,
+- splitting with or without moving focus,
+- deleting windows,
+- rotating and swapping buffers between windows,
+- toggling split direction,
+- =tear-off-window= into a new frame,
+- =winner-undo= / =winner-redo=.
+
+Notes:
+
+- Several keys are deliberate aliases (=c= and =d= both delete, =-= and =_= split below).
+- The rotate, split, swap and toggle keys point at the =lem-...= commands defined in =sp-windows=. They used to name =sp-...= versions that do not exist, which left those keys dead.
+- =o= calls the built-in =other-window=, because no =lem-= version of it exists.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Window Keybindings
@@ -551,7 +633,12 @@ The comment explains the trade-off of the idle delay, citing a James Cherti arti
 
 ** Popup placement
 
-The popup is shown as a side window at the top of the frame, using up to half its height, and =which-key-allow-imprecise-window-fit= is off so the window is sized exactly. The separator between key and description is an ASCII arrow (the comment explains that Unicode was removed from source files). =which-key-mode= itself is not called here: the =use-package= block below enables it once Elpaca is active.
+The which-key popup:
+
+- Shown as a side window at the top of the frame, using up to half its height.
+- =which-key-allow-imprecise-window-fit= is off, so the window is sized exactly.
+- The separator between key and description is an ASCII arrow (the comment explains that Unicode was removed from source files).
+- =which-key-mode= itself is not called here. The =use-package= block below enables it once Elpaca is active.
 
 #+begin_src emacs-lisp -i
 ;; other witch key settings
@@ -572,7 +659,15 @@ The "Hydras" heading is a leftover: the menus in this section were ported from h
 
 ** Ediff menu
 
-The comment records that this was adapted from the hydra wiki and ported to transient. =sp-ediff-transient= is a menu for starting ediff sessions on buffers, files (two- or three-way), the current file, VC revisions, or regions linewise and wordwise. It is not bound to a key in this file and is reached with =M-x=.
+=sp-ediff-transient= is a menu for starting ediff sessions on:
+
+- buffers,
+- files (two- or three-way),
+- the current file,
+- VC revisions,
+- regions, linewise and wordwise.
+
+The comment records that this was adapted from the hydra wiki and ported to transient. It is not bound to a key in this file; reach it with =M-x=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Hydras
@@ -641,7 +736,12 @@ an inline branching lambda from the prior implementation."
 
 ** Rectangle menu
 
-=sp-rectangle-transient= is a persistent menu for rectangle editing. Movement, kill, yank, copy, open, string insert, clear, exchange point and mark, line numbering and undo all stay in the menu (=:transient t=); =g= quits. Its body enables =rectangle-mark-mode= on entry and adds a one-shot =transient-exit-hook= function that deactivates the mark and removes itself, so every exit path leaves a clean region. Like the ediff menu it has no key binding here.
+=sp-rectangle-transient= is a persistent menu for rectangle editing.
+
+- Movement, kill, yank, copy, open, string insert, clear, exchange point and mark, line numbering and undo all stay in the menu (=:transient t=). =g= quits.
+- Its body enables =rectangle-mark-mode= on entry.
+- It adds a one-shot =transient-exit-hook= function that deactivates the mark and removes itself, so every exit path leaves a clean region.
+- Like the ediff menu, it has no key binding here.
 
 #+begin_src emacs-lisp -i
 (transient-define-prefix sp-rectangle-transient ()
@@ -707,7 +807,11 @@ Adds the =:hydra= keyword to =use-package=, also installed synchronously.
 
 ** Second which-key declaration
 
-This =use-package= block configures which-key again, on top of the =setq= settings above. It caps description length at 40 characters and hides the mode-line lighter. The stray =(which-key-mode +1)= entry that used to end =:custom= is gone, since =:config= enables the mode; the commented-out lines show settings that were tried and abandoned.
+This =use-package= block configures which-key again, on top of the =setq= settings above.
+
+- Caps description length at 40 characters and hides the mode-line lighter.
+- The stray =(which-key-mode +1)= entry that used to end =:custom= is gone, since =:config= enables the mode.
+- The commented-out lines show settings that were tried and abandoned.
 
 #+begin_src emacs-lisp -i
 ;; READING MORE ABOUT KEYBINDINGS AND GETTING TO USE THEM

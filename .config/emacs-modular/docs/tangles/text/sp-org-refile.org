@@ -2,13 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-refile.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-refile.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-refile.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module configures Org's refile command (=C-c C-w=), which moves the heading at point under another heading. It sets the list of possible targets (open Org buffers, the current file, and the agenda files), makes the completion show full outline paths in one step, allows creating new parent headings, and caches the target list, rebuilding it in the background when Emacs is idle.
+This module configures Org's refile command (=C-c C-w=), which moves the heading at point under another heading. It:
 
-The approach comes from Aaron Bieber's article and from Lambda Emacs, and the author notes that it would be more useful adapted to Vulpea. It relies on =+org/opened-buffer-files=, defined in =sp-org-base=. The module is currently disabled: it is commented out in the default and minimal module lists and in =sp-config-profiles.el=.
+- sets the list of possible targets (open Org buffers, the current file, and the agenda files),
+- makes the completion show full outline paths in one step,
+- allows creating new parent headings,
+- caches the target list, rebuilding it in the background when Emacs is idle.
+
+Origin and status:
+
+- The approach comes from Aaron Bieber's article and from Lambda Emacs. The author notes it would be more useful adapted to Vulpea.
+- It relies on =+org/opened-buffer-files=, defined in =sp-org-base=.
+- The module is currently disabled: commented out in the default and minimal module lists and in =sp-config-profiles.el=.
 
 * Org refile
 
@@ -61,7 +74,13 @@ After Org loads, =org-outline-path-complete-in-steps= is turned off so the whole
 
 ** Refile targets
 
-=org-refile-targets= offers headings up to level 9 in every Org file currently open (via =+org/opened-buffer-files= from =sp-org-base=), up to level 9 in the current buffer (the =nil= entry), and up to level 8 in =org-agenda-files=. The comment says something is wrong with the syntax, but the form is a valid targets list; any problem is more likely that the helper function is not defined if =sp-org-base= has not been loaded.
+=org-refile-targets= offers:
+
+- headings up to level 9 in every Org file currently open (via =+org/opened-buffer-files= from =sp-org-base=),
+- headings up to level 9 in the current buffer (the =nil= entry),
+- headings up to level 8 in =org-agenda-files=.
+
+The comment says something is wrong with the syntax, but the form is a valid targets list. Any problem is more likely that the helper function is not defined if =sp-org-base= has not been loaded.
 
 #+begin_src emacs-lisp -i
 ;; there is something wrong in the syntax in the way that I wrote it here

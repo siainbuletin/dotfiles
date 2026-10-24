@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-buffers.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-buffers.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-buffers.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module covers two things: how the buffer list looks and behaves (the built-in =ibuffer=, with icons from =nerd-icons-ibuffer=), and how transient pop-up buffers such as help, messages and compilation output are displayed (Karthik Chikmagalur's =popper= package, using settings adapted from Lambda Emacs).
 
@@ -68,7 +72,15 @@ Configures the built-in =ibuffer=:
 
 ** Saved filter groups
 
-Defines a filter group set named Main that sorts buffers into Directories (Dired), Scripts (shell, Lua and batch modes), Markup (Markdown and AsciiDoc), Org, and Emacs Internals (Emacs Lisp plus buffers like =*Help*=, =*Messages*= and =*scratch*=). Nothing in the config calls =ibuffer-switch-to-saved-filter-groups=, so the groups have to be activated by hand with ~/ r~ in ibuffer.
+Defines a filter group set named Main that sorts buffers into:
+
+- Directories (Dired),
+- Scripts (shell, Lua and batch modes),
+- Markup (Markdown and AsciiDoc),
+- Org,
+- Emacs Internals (Emacs Lisp plus buffers like =*Help*=, =*Messages*= and =*scratch*=).
+
+Nothing in the config calls =ibuffer-switch-to-saved-filter-groups=, so the groups have to be activated by hand with ~/ r~ in ibuffer.
 
 #+begin_src emacs-lisp -i
 (setq ibuffer-saved-filter-groups
@@ -139,7 +151,16 @@ Keybindings:
 
 Buffers treated as pop-ups are =*Messages*=, anything ending in Output, =*Async Shell Command*=, and buffers in help, compilation and =vulpea-sidebar-ui-mode=. Pop-ups are grouped by directory (the comment mentions project roots, but the function used is =popper-group-by-directory=).
 
-The =:config= block defines four display functions: two that show the pop-up in a top side window and two that show it in a right side window, each in a select variant (which also moves focus) and a display-only variant. =popper-display-function= is set to the right-hand, focus-moving one, so pop-ups open as a 20-line high side window on the right. The docstrings of the right-hand functions still say top, a copy-paste leftover.
+The =:config= block defines four display functions:
+
+- two that show the pop-up in a top side window,
+- two that show it in a right side window,
+- each in a select variant (which also moves focus) and a display-only variant.
+
+Then:
+
+- =popper-display-function= is set to the right-hand, focus-moving one, so pop-ups open as a 20-line high side window on the right.
+- The docstrings of the right-hand functions still say top, a copy-paste leftover.
 
 #+begin_src emacs-lisp -i
 ;;;; Popper (Pop-up Buffers)

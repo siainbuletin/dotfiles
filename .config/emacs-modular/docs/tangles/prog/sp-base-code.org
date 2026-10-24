@@ -2,9 +2,21 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-base-code.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-base-code.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-base-code.el=.
 
-This module holds the programming setup that other language modules build on. It installs and configures =smartparens= for paired delimiters, =highlight-indent-guides=, the built-in =semantic= analyser for C and C++, =company= with =company-quickhelp= for in-buffer completion, =lsp-mode= and =lsp-ui= for language servers, =flycheck=, and the built-in =outline= library for folding code by comment headings.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module holds the programming setup that other language modules build on. It installs and configures:
+
+- =smartparens= for paired delimiters,
+- =highlight-indent-guides=,
+- the built-in =semantic= analyser for C and C++,
+- =company= with =company-quickhelp= for in-buffer completion,
+- =lsp-mode= and =lsp-ui= for language servers,
+- =flycheck=,
+- the built-in =outline= library for folding code by comment headings.
 
 The language modules (for example =sp-go=, =sp-rust=, =sp-nix= and =sp-lisp=) turn on =company-mode= and call =lsp= or =lsp-deferred= themselves; this module only sets the shared defaults those packages use. It is loaded at the start of the Programming block in the default module list of =init.el=.
 
@@ -12,7 +24,10 @@ The language modules (for example =sp-go=, =sp-rust=, =sp-nix= and =sp-lisp=) tu
 
 ** String and comment predicates
 
-From a company-mode issue thread. =inside-string-q= and =inside-comment-q= use =syntax-ppss= to report whether point is inside a string or comment; both are interactive and echo their result, so every call prints a message. =semantic-completion-advice= is an around advice that skips the wrapped function when point is in a string or comment, used below to stop Semantic from offering completions there.
+From a company-mode issue thread.
+
+- =inside-string-q= and =inside-comment-q= use =syntax-ppss= to report whether point is inside a string or comment. Both are interactive and echo their result, so every call prints a message.
+- =semantic-completion-advice= is an around advice that skips the wrapped function when point is in a string or comment. It is used below to stop Semantic from offering completions there.
 
 #+begin_src emacs-lisp -i
 ;;; sp-base-code.el --- Shared programming setup: completion, LSP and outlines -*- lexical-binding: t; -*-
@@ -49,7 +64,10 @@ Result depends on syntax table's comment character."
 
 ** Indent guides
 
-Installs =highlight-indent-guides= with the fill method and dark gray faces for odd and even indentation levels. Automatic face colouring is turned off so those explicit colours are used. No hook enables the mode, so it has to be turned on per buffer.
+Installs =highlight-indent-guides= with the fill method and dark gray faces for odd and even indentation levels.
+
+- Automatic face colouring is turned off, so those explicit colours are used.
+- No hook enables the mode, so it has to be turned on per buffer.
 
 #+begin_src emacs-lisp -i
 (use-package highlight-indent-guides
@@ -81,7 +99,11 @@ Installs =smartparens= and enables =smartparens-mode= in programming, text and M
 
 ** Semantic for C and C++
 
-Enables the built-in =semantic-mode= in C and C++ buffers. The completion function is wrapped with the string and comment guard above, and =global-semantic-idle-completions-mode= is turned off so Semantic does not pop up completions while idle. The comment wondering whether this is the LSP shows it predates the LSP setup below.
+Enables the built-in =semantic-mode= in C and C++ buffers.
+
+- The completion function is wrapped with the string and comment guard above.
+- =global-semantic-idle-completions-mode= is turned off, so Semantic does not pop up completions while idle.
+- The comment wondering whether this is the LSP shows it predates the LSP setup below.
 
 #+begin_src emacs-lisp -i
 ;; Semantic coding (is this the LSP?)
@@ -122,7 +144,10 @@ The declaration itself sits after =company= in the file, because =company-quickh
 
 ** Start quickhelp lazily
 
-=company-init-quickhelp= turns on =company-quickhelp-mode= the first time a completion starts and then tries to remove itself from =company-completion-started-hook=. Because it is added to the global hook but removed with the buffer local flag, the removal probably does nothing and the mode is simply re-enabled on each completion, which is harmless.
+=company-init-quickhelp= turns on =company-quickhelp-mode= the first time a completion starts, then tries to remove itself from =company-completion-started-hook=.
+
+- It is added to the global hook but removed with the buffer local flag, so the removal probably does nothing.
+- The mode is then simply re-enabled on each completion, which is harmless.
 
 #+begin_src emacs-lisp -i
 (defun company-init-quickhelp (b-enable)
@@ -133,7 +158,26 @@ The declaration itself sits after =company= in the file, because =company-quickh
 
 ** Company and lsp-mode
 
-Company is configured with a 0.2 second idle delay, wrap-around selection, aligned annotations, no forced match and case preserving dabbrev. On load it hooks quickhelp, enables =company-tng-mode= (tab and go, where TAB cycles and inserts candidates) and resets the backends to just =company-capf=, so completion comes from completion at point functions such as the LSP client. =lsp-mode= is deferred until =lsp= or =lsp-deferred= is called. It is set to use flycheck rather than flymake, watch files up to 10000, disable multi-root workspaces, symbol highlighting and the headerline breadcrumb, and drop =lsp-java= from the client packages it loads.
+Company is configured with:
+
+- a 0.2 second idle delay,
+- wrap-around selection,
+- aligned annotations,
+- no forced match,
+- case preserving dabbrev.
+
+On load it:
+
+- hooks quickhelp,
+- enables =company-tng-mode= (tab and go, where TAB cycles and inserts candidates),
+- resets the backends to just =company-capf=, so completion comes from completion at point functions such as the LSP client.
+
+=lsp-mode= is deferred until =lsp= or =lsp-deferred= is called. It is set to:
+
+- use flycheck rather than flymake,
+- watch files up to 10000,
+- disable multi-root workspaces, symbol highlighting and the headerline breadcrumb,
+- drop =lsp-java= from the client packages it loads.
 
 #+begin_src emacs-lisp -i
 (use-package company
@@ -176,7 +220,11 @@ Company is configured with a 0.2 second idle delay, wrap-around selection, align
 
 ** Flycheck and lsp-ui
 
-Installs =flycheck= but leaves =global-flycheck-mode= commented out; lsp-mode turns it on in LSP buffers. =lsp-ui= is configured to show documentation in a child frame at point when the mouse hovers, after half a second, with the signature and a header, up to 150 by 30 characters and a white border. In the documentation frame, left click is ignored, right click hides it and the mouse wheel scrolls it.
+Flycheck and lsp-ui:
+
+- Installs =flycheck= but leaves =global-flycheck-mode= commented out. lsp-mode turns it on in LSP buffers.
+- =lsp-ui= shows documentation in a child frame at point when the mouse hovers, after half a second, with the signature and a header, up to 150 by 30 characters and a white border.
+- In the documentation frame: left click is ignored, right click hides it, and the mouse wheel scrolls it.
 
 #+begin_src emacs-lisp -i
 (use-package flycheck
@@ -229,7 +277,13 @@ Comments pointing at Karthinks' advice: =set-selective-display= (=C-x $=) gives 
 
 ** Outline minor mode for code
 
-Turns on the built-in =outline-minor-mode= in every programming buffer. In that mode =M-j= and =M-k= move a subtree down and up, and =M-h= and =M-l= promote and demote. With =outline-minor-mode-cycle= set, TAB cycles the visibility of the current section and Shift TAB cycles the whole buffer, but only while point is on a heading, so TAB still indents and completes everywhere else. The module used to bind =<tab>= to =outline-cycle= for the whole mode, which took TAB over in every programming buffer. For Emacs Lisp, the outline regexp treats comments starting with three or more semicolons as headings, with levels from the number of semicolons, and =outline-level= is reset so =lispy= cannot override it.
+Turns on the built-in =outline-minor-mode= in every programming buffer.
+
+- =M-j= and =M-k= move a subtree down and up. =M-h= and =M-l= promote and demote.
+- With =outline-minor-mode-cycle= set, TAB cycles the visibility of the current section and Shift TAB cycles the whole buffer. This works only while point is on a heading, so TAB still indents and completes everywhere else.
+- The module used to bind =<tab>= to =outline-cycle= for the whole mode, which took TAB over in every programming buffer.
+- For Emacs Lisp, the outline regexp treats comments starting with three or more semicolons as headings, with levels from the number of semicolons.
+- =outline-level= is reset so =lispy= cannot override it.
 
 #+begin_src emacs-lisp -i
 ;; Navigate elisp files easily. Outline is a built-in library and we can easily

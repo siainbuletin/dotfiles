@@ -2,13 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-scratch.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-scratch.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-scratch.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module, inherited from Lambda Emacs (hence the =lem--= function prefix), makes the =*scratch*= buffer more useful. It starts scratch in =org-mode=, refuses to kill scratch and buries it instead, and when =sp-persistent-scratch= is on it saves scratch to a file in the cache directory on exit and every five minutes of idle time, and restores it at startup.
+This module, inherited from Lambda Emacs (hence the =lem--= function prefix), makes the =*scratch*= buffer more useful.
 
-It uses =sp-cache-dir=, defined in =early-init.el= as the =cache/= directory under the config's var directory, so the saved file is =scratch= in that directory. There are no package dependencies. The module is in both the default and minimal module lists in =init.el=. The commentary leaves a TODO to bring in settings from an older configuration.
+- Starts scratch in =org-mode=.
+- Refuses to kill scratch and buries it instead.
+- When =sp-persistent-scratch= is on, saves scratch to a file in the cache directory on exit and every five minutes of idle time, and restores it at startup.
+
+Details:
+
+- Uses =sp-cache-dir=, defined in =early-init.el= as the =cache/= directory under the config's var directory. The saved file is =scratch= in that directory.
+- No package dependencies.
+- In both the default and minimal module lists in =init.el=.
+- The commentary leaves a TODO to bring in settings from an older configuration.
 
 The commentary at the top of the module says:
 

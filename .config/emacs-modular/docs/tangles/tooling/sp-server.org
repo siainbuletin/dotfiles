@@ -2,9 +2,17 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-server.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-server.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-server.el=.
 
-Starts the Emacs server so =emacsclient= can connect, and provides two commands for killing stray Emacs processes. It is part of both the default and minimal module lists in =init.el=. The kill commands shell out to =pgrep= and =pkill=, and one of them assumes the macOS application path =/Applications/Emacs.app=.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+Starts the Emacs server so =emacsclient= can connect, and provides two commands for killing stray Emacs processes.
+
+- Part of both the default and minimal module lists in =init.el=.
+- The kill commands shell out to =pgrep= and =pkill=.
+- One of them assumes the macOS application path =/Applications/Emacs.app=.
 
 * Server
 
@@ -49,7 +57,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Kill every Emacs
 
-=lem-kill-all-emacsen= lists every process whose name matches "emacs" (case-insensitive, via =pgrep -i=), sends =TERM= to all of them except the current one, and then exits the current Emacs with =save-buffers-kill-emacs= so unsaved buffers get a prompt. Because the match is by name, it also catches anything else with emacs in its name, such as =emacsclient=.
+=lem-kill-all-emacsen=:
+
+- Lists every process whose name matches "emacs" (case-insensitive, via =pgrep -i=).
+- Sends =TERM= to all of them except the current one.
+- Then exits the current Emacs with =save-buffers-kill-emacs=, so unsaved buffers get a prompt.
+- Because the match is by name, it also catches anything else with emacs in its name, such as =emacsclient=.
 
 #+begin_src emacs-lisp -i
 ;; functions for killing server-related emacsen

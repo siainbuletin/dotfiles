@@ -154,11 +154,12 @@ Does this mean that the mode is enabled globally?
 
 * TODO Make reloading the modular Emacs literate configuration from just one function
 
-I basically need to handle three commands with just one.
-1. =org-export-to-org=
-2. switch over to =temp.org= as the buffer that's being evaluated (maybe the temp file could actually be loaded into memory or loaded to =/tmp= just for the purpose of getting this configuration working)
-3. =org-babel-execute-block= for executing all of the block in the =temp.org= (I have already fixed the part about going through all of the checking for each execution of each code block within the buffer)
-4. =org-babel-tangle= for the actual tangling process
+I basically need to handle three commands with just one:
+
+1. =org-export-to-org=.
+2. Switch over to =temp.org= as the buffer that's being evaluated. Maybe the temp file could be loaded into memory, or into =/tmp=, just to get this configuration working.
+3. =org-babel-execute-block= for executing all of the blocks in the =temp.org=. (I have already fixed the part about going through all of the checking for each execution of each code block within the buffer.)
+4. =org-babel-tangle= for the actual tangling process.
 
 Since it's not a good idea to use a lambda (anonymous function) to call the multiple different functions within a single keybinding, it is a better idea to define my own function.
 

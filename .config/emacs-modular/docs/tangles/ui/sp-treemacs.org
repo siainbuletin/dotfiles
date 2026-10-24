@@ -2,9 +2,16 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-treemacs.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-treemacs.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-treemacs.el=.
 
-This module installs =treemacs= and shows the emacs-modular folder as a file tree in a side window, so the modules and their docs in =docs/tangles= stay in view while editing. The tree only opens when asked for, with =<f9>=, which also closes it again. No treemacs extensions are installed.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module installs =treemacs= and shows the emacs-modular folder as a file tree in a side window, so the modules and their docs in =docs/tangles= stay in view while editing.
+
+- The tree only opens when asked for, with =<f9>=, which also closes it again.
+- No treemacs extensions are installed.
 
 The module is part of the window management group in the default module list, loaded after =sp-mini-frame=.
 
@@ -46,7 +53,11 @@ Lexical binding and a short commentary. It explains why the tree is rooted at a 
 
 ** The folder to show
 
-=sp-treemacs-root= is the folder the tree starts from. It defaults to =user-emacs-directory=, which is =~/.config/emacs-modular/=. Set it to another folder, for example ="~/notes/"=, to look at something else; the old folder stays in the treemacs workspace until it is removed there with =C-c C-p r=.
+=sp-treemacs-root= is the folder the tree starts from.
+
+- It defaults to =user-emacs-directory=, which is =~/.config/emacs-modular/=.
+- Set it to another folder, for example ="~/notes/"=, to look at something else.
+- The old folder stays in the treemacs workspace until it is removed there with =C-c C-p r=.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-treemacs-root user-emacs-directory
@@ -57,9 +68,19 @@ Lexical binding and a short commentary. It explains why the tree is rooted at a 
 
 ** treemacs
 
-Installs treemacs through Elpaca and binds =<f9>= globally to =sp-treemacs-toggle=. Until the first press, =<f9>= is only an autoload: pressing it loads treemacs, runs the =:config= section, and then calls the command. The workspace treemacs saves between sessions goes to =sp-cache-dir= (under =var/=), so it doesn't appear as a new file in the config folder. The side window is 35 columns wide, and =treemacs-follow-mode= moves the tree's cursor to whichever file is being edited.
+Installs treemacs through Elpaca and binds =<f9>= globally to =sp-treemacs-toggle=.
 
-=sp-treemacs-toggle= closes the treemacs window when it is visible. Otherwise it adds =sp-treemacs-root= to the workspace (only the first time) and opens the window with point in it. It is defined in =:config= rather than at the top level because =treemacs-is-path= is a macro, which has to exist before the function is read. Inside the tree, =RET= or =TAB= opens a folder, =RET= on a file visits it, and =?= lists the other keys.
+- Until the first press, =<f9>= is only an autoload. Pressing it loads treemacs, runs the =:config= section, then calls the command.
+- The workspace treemacs saves between sessions goes to =sp-cache-dir= (under =var/=), so it doesn't appear as a new file in the config folder.
+- The side window is 35 columns wide.
+- =treemacs-follow-mode= moves the tree's cursor to whichever file is being edited.
+
+=sp-treemacs-toggle=:
+
+- Closes the treemacs window when it is visible.
+- Otherwise adds =sp-treemacs-root= to the workspace (only the first time) and opens the window with point in it.
+- It is defined in =:config= rather than at the top level, because =treemacs-is-path= is a macro, which has to exist before the function is read.
+- Inside the tree: =RET= or =TAB= opens a folder, =RET= on a file visits it, and =?= lists the other keys.
 
 #+begin_src emacs-lisp -i
 (use-package treemacs

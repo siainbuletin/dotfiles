@@ -4,7 +4,11 @@
 
 * Preamble
 
-Literate source for =libraries/modules/custom/sp-tag-emoji.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-tag-emoji.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * Basic functionality
 
@@ -28,15 +32,34 @@ The module decorates Org tags, in the way the Obsidian plugin [[https://github.c
 - =:position= is =prefix= or =suffix= (links only; the default is =sp-tag-emoji-link-position=).
 - =:modeline nil= or =:links nil= keeps a rule out of one of the two places.
 
-When several rules match, the more specific one wins its tags: with =sp-tag-emoji-combo-consumes= (the default) a rule for =("@writing" "deep")= takes both tags, so the single rules for =@writing= and =deep= do not add their own emoji on top. Set it to nil to show every matching rule. The first face found, most specific rule first, is used.
+When several rules match, the more specific one wins its tags.
+
+- With =sp-tag-emoji-combo-consumes= (the default), a rule for =("@writing" "deep")= takes both tags. The single rules for =@writing= and =deep= then do not add their own emoji on top.
+- Set it to nil to show every matching rule.
+- The first face found, most specific rule first, is used.
 
 ** Where the tags come from
 
-=sp-tag-emoji-source= says what the modeline reads: =heading-or-file= (the default: the tags of the heading at point, or the file tags when the heading has none or point is above the first heading), =heading=, =file=, or =both=. =M-x sp-tag-emoji-cycle-source= switches between them. Tags of parent headings count only if =sp-tag-emoji-inherit= is set.
+=sp-tag-emoji-source= says what the modeline reads:
+
+- =heading-or-file= (the default): the tags of the heading at point, or the file tags when the heading has none or point is above the first heading.
+- =heading=.
+- =file=.
+- =both=.
+
+Other points:
+
+- =M-x sp-tag-emoji-cycle-source= switches between them.
+- Tags of parent headings count only if =sp-tag-emoji-inherit= is set.
 
 ** Placing the segment
 
-=sp-tag-emoji-placement= is =mode-line= (the segment is added to =global-mode-string=) or =header-line= (it is the first thing in the header line of Org buffers, which works whatever modeline package draws the bottom line). The modeline in use is lambda-line; whether it prints =global-mode-string= has not been checked, so the header line is the fallback.
+=sp-tag-emoji-placement= is:
+
+- =mode-line=: the segment is added to =global-mode-string=.
+- =header-line=: it is the first thing in the header line of Org buffers, which works whatever modeline package draws the bottom line.
+
+The modeline in use is lambda-line. Whether it prints =global-mode-string= has not been checked, so the header line is the fallback.
 
 ** Tag registry
 
@@ -378,7 +401,12 @@ The default lookup reads the note from the vulpea database by its ID, so it only
 
 ** The face and the emoji
 
-Org asks a link type for its face with =:face= and lets =:activate-func= decorate it. The face function gives the rule's face, the activation function adds the emoji as the =before-string= and =after-string= of an overlay on the link's label, so the buffer text is not changed. The overlays are removed and recreated whenever Org fontifies the link again.
+How the emoji is added to a link:
+
+- Org asks a link type for its face with =:face= and lets =:activate-func= decorate it.
+- The face function gives the rule's face.
+- The activation function adds the emoji as the =before-string= and =after-string= of an overlay on the link's label, so the buffer text is not changed.
+- The overlays are removed and recreated whenever Org fontifies the link again.
 
 #+begin_src emacs-lisp -i
 (defun sp-tag-emoji--link-face (type)

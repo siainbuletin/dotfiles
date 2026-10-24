@@ -2,11 +2,21 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-terminal.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-terminal.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-terminal.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module configures =vterm=, a fast terminal emulator built on the libvterm C library. It requires a compiled native module (so CMake and a C compiler on the system) and does not work on Windows, as the comment notes.
 
-Besides styling vterm buffers to resemble the Dracula-style zsh terminal Sia uses, it adds a small command to open a fresh, uniquely named vterm each time. It also installs =eat=, a terminal emulator written in Emacs Lisp. Both are terminal backends that =claude-code= in =sp-ai= waits for.
+This module does three things:
+
+- Styles vterm buffers to resemble the Dracula-style zsh terminal Sia uses.
+- Adds a small command to open a fresh, uniquely named vterm each time.
+- Installs =eat=, a terminal emulator written in Emacs Lisp.
+
+Both vterm and eat are terminal backends that =claude-code= in =sp-ai= waits for.
 
 * File header
 
@@ -66,7 +76,10 @@ The =vterm-mode= hook gives each terminal a black background and white text thro
 
 ** Opening numbered vterm buffers
 
-=sp-vterm-counter= is incremented on each call, and =siapip/start-vterm= opens a vterm in a buffer named =*vterm-N*=. This way every invocation gives a new terminal instead of switching to an existing one. The counter never resets, so numbers keep growing during a session even if old terminals were killed.
+=sp-vterm-counter= is incremented on each call, and =siapip/start-vterm= opens a vterm in a buffer named =*vterm-N*=.
+
+- Every invocation gives a new terminal instead of switching to an existing one.
+- The counter never resets, so numbers keep growing during a session even if old terminals were killed.
 
 #+begin_src emacs-lisp -i
 ;; Vterm counter

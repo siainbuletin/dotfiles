@@ -2,13 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../../libraries/modules/base/navi/sp-goto.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/navi/sp-goto.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/navi/sp-goto.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 A small navigation module with three parts. It turns on =goto-address-mode= (built in) in text, programming, compilation and shell buffers so URLs and e-mail addresses become clickable, defines a handful of =sp-goto-= commands that open frequently used files and directories, and binds =goto-last-change= when that package is available.
 
-It is loaded from =sp-navi=, which requires it, rather than being listed in =init.el= itself. The jump commands rely on directory variables defined in =early-init.el=, such as =sp-user-dir=, =sp-project-dir= and =sp-user-elisp-dir=, and on =org-directory=. None of the =sp-goto-= commands are bound to keys here. The similarly named =sp-goto-minibuffer-window= lives in =sp-windows=, not in this file.
+Loading and dependencies:
+
+- Loaded from =sp-navi=, which requires it, rather than listed in =init.el= itself.
+- The jump commands rely on directory variables defined in =early-init.el= (such as =sp-user-dir=, =sp-project-dir= and =sp-user-elisp-dir=) and on =org-directory=.
+- None of the =sp-goto-= commands are bound to keys here.
+- The similarly named =sp-goto-minibuffer-window= lives in =sp-windows=, not in this file.
 
 The commentary at the top of the module says:
 
@@ -42,7 +51,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** goto-addr
 
-Configures the built-in =goto-addr= library without installing anything. =goto-address-mode= is enabled in compilation, Eshell, text and shell buffers, and =goto-address-prog-mode= (which only highlights inside comments and strings) in programming buffers. On a highlighted address, =RET= follows it and =M-RET= inserts a newline instead.
+Configures the built-in =goto-addr= library without installing anything.
+
+- =goto-address-mode= is enabled in compilation, Eshell, text and shell buffers.
+- =goto-address-prog-mode= (which only highlights inside comments and strings) is enabled in programming buffers.
+- On a highlighted address, =RET= follows it and =M-RET= inserts a newline instead.
 
 #+begin_src emacs-lisp -i
 (use-package goto-addr
@@ -80,7 +93,10 @@ Interactive shortcuts for opening specific files and directories, presumably mea
 
 ** Init files
 
-=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=. The early init path is built from =user-emacs-directory=, so it opens the =early-init.el= of the configuration that is running (it used to be hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives).
+=sp-goto-early-init.el=, =sp-goto-init.el= and =sp-goto-custom.el= open the early init file, =user-init-file= and =custom-file=.
+
+- The early init path is built from =user-emacs-directory=, so it opens the =early-init.el= of the configuration that is running.
+- It used to be hard-coded to =~/.emacs.d/early-init.el=, which is not where this configuration lives.
 
 #+begin_src emacs-lisp -i
 (defun sp-goto-early-init.el ()

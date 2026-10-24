@@ -2,11 +2,27 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../../libraries/modules/base/navi/sp-dired.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/navi/sp-dired.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/navi/sp-dired.el=.
 
-This module sets up file management: Dired listing options, a personal sort command, extra highlighting with =diredfl=, an optional =dired-sidebar=, and above all Dirvish, which replaces the Dired interface with previews, a side panel, grouping of files and many menus. It also tries to add an =eza= based directory preview and to open binary files in external programs.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It is loaded through =(require 'sp-dired)= in =sp-navi=. It uses =sp-cache-dir= from =early-init.el=, and the eza preview needs the external =eza= program. Several options assume GNU =ls= (for example =--group-directories-first=).
+This module sets up file management:
+
+- Dired listing options,
+- a personal sort command,
+- extra highlighting with =diredfl=,
+- an optional =dired-sidebar=,
+- above all Dirvish, which replaces the Dired interface with previews, a side panel, grouping of files and many menus,
+- an attempt to add an =eza= based directory preview and to open binary files in external programs.
+
+Loading and dependencies:
+
+- Loaded through =(require 'sp-dired)= in =sp-navi=.
+- Uses =sp-cache-dir= from =early-init.el=.
+- The eza preview needs the external =eza= program.
+- Several options assume GNU =ls= (for example =--group-directories-first=).
 
 The eza preview uses the =dirvish-define-preview= macro and =dirvish-preview-dispatchers=, which only exist once Dirvish is loaded, and Dirvish itself is loaded later. Both forms therefore sit inside =with-eval-after-load= for =dirvish=, so the rest of the file (including the =provide=) always runs.
 
@@ -72,7 +88,10 @@ Sets the default =dired-listing-switches= to =-alh=, which shows all files with 
 
 ** sp-dired-sort
 
-=sp-dired-sort= prompts for a sort order (date, size, name, or directories first, defaulting to date) and re-lists the current Dired buffer with the matching =ls= flags through =dired-sort-other=. The docstring claims it works on Linux, macOS and Windows; the directories-first option relies on GNU =ls=. No key is bound here.
+=sp-dired-sort= prompts for a sort order (date, size, name, or directories first, defaulting to date) and re-lists the current Dired buffer with the matching =ls= flags through =dired-sort-other=.
+
+- The docstring claims it works on Linux, macOS and Windows. The directories-first option relies on GNU =ls=.
+- No key is bound here.
 
 #+begin_src emacs-lisp -i
 ;;;; Personal function for sorting
@@ -121,11 +140,26 @@ Replaces the listing switches with =-aghov --group-directories-first=, which hid
 
 ** Dirvish configuration
 
-Dirvish takes over every Dired buffer via =dirvish-override-dired-mode=. Inside Dirvish buffers =dirvish-emerge-mode= groups files into the categories given in =dirvish-emerge-groups= (recent files, documents, video, pictures, audio, archives). =dirvish-peek-mode= adds file previews to the minibuffer while completing file names, and =dirvish-side-follow-mode= keeps the side panel in sync with the current file.
+Dirvish takes over every Dired buffer via =dirvish-override-dired-mode=.
 
-The buffer shows version control state, file size, last commit message, subtree state, Nerd Font icons and file time. The mode line and header line show sort order, path, free space and similar information. The cursor is hidden and the current line highlighted instead. Listing switches are set to long format, all but =.= and =..=, human-readable sizes and directories first.
+- =dirvish-emerge-mode= groups files into the categories given in =dirvish-emerge-groups=: recent files, documents, video, pictures, audio, archives.
+- =dirvish-peek-mode= adds file previews to the minibuffer while completing file names.
+- =dirvish-side-follow-mode= keeps the side panel in sync with the current file.
 
-=C-c f= opens Dirvish globally. Inside Dirvish, =;= goes up a directory, =?= opens the command cheatsheet, and single keys open menus for attributes (=a=), file info (=f=), quick access (=o=), sorting (=s=), history (=r=), ls switches (=l=), version control (=v=), marking (=*=) and yanking (=y=). =N= narrows, =TAB= expands a subtree, =^= goes back in history, =M-f= and =M-b= move through history and =M-e= opens the emerge menu.
+Appearance:
+
+- The buffer shows version control state, file size, last commit message, subtree state, Nerd Font icons and file time.
+- The mode line and header line show sort order, path, free space and similar information.
+- The cursor is hidden and the current line highlighted instead.
+- Listing switches: long format, all but =.= and =..=, human-readable sizes, directories first.
+
+Keys:
+
+- =C-c f= opens Dirvish globally.
+- Inside Dirvish, =;= goes up a directory and =?= opens the command cheatsheet.
+- Single keys open menus for attributes (=a=), file info (=f=), quick access (=o=), sorting (=s=), history (=r=), ls switches (=l=), version control (=v=), marking (=*=) and yanking (=y=).
+- =N= narrows, =TAB= expands a subtree, =^= goes back in history.
+- =M-f= and =M-b= move through history, =M-e= opens the emerge menu.
 
 =dirvish-cache-dir= is set to =sp-cache-dir= plus =dirvish/=. It used to be given a quoted form, which set it to the literal list =(concat sp-cache-dir "dirvish/")= instead of the path string.
 
@@ -205,7 +239,11 @@ The buffer shows version control state, file size, last commit message, subtree 
 
 ** Layout note and preview count
 
-A heading notes the aim of a Yazi-like window layout, which is not implemented. =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive. Commented lines mention the preview environment and large-file threshold as things not yet worked out.
+Layout notes:
+
+- A heading notes the aim of a Yazi-like window layout, which is not implemented.
+- =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive.
+- Commented lines mention the preview environment and large-file threshold as things not yet worked out.
 
 #+begin_src emacs-lisp -i
 ;;;; Windowing Layout for dirvish
@@ -219,9 +257,17 @@ A heading notes the aim of a Yazi-like window layout, which is not implemented. 
 
 ** eza directory preview
 
-A custom preview that runs =eza -al= with colours and icons when the selected entry is a directory, registered at the front of =dirvish-preview-dispatchers=. The =:require= line makes Dirvish check that the =eza= program exists. An earlier version wrote this as a =setq=, which could never work; it now uses =dirvish-define-preview= as intended.
+A custom preview that runs =eza -al= with colours and icons when the selected entry is a directory.
 
-=dirvish-define-preview= is a macro defined in Dirvish and not autoloaded, and the Dirvish =use-package= form above is deferred (=:after dired=, and Elpaca runs package bodies late). Both forms are therefore wrapped in =with-eval-after-load= for =dirvish=; at top level they would signal a void-function error whenever Dirvish was not loaded yet when this file is evaluated, and everything after them would be skipped.
+- Registered at the front of =dirvish-preview-dispatchers=.
+- The =:require= line makes Dirvish check that the =eza= program exists.
+- An earlier version wrote this as a =setq=, which could never work. It now uses =dirvish-define-preview= as intended.
+
+Why both forms are wrapped in =with-eval-after-load= for =dirvish=:
+
+- =dirvish-define-preview= is a macro defined in Dirvish and not autoloaded.
+- The Dirvish =use-package= form above is deferred (=:after dired=, and Elpaca runs package bodies late).
+- At top level, they would signal a void-function error whenever Dirvish was not loaded yet when this file is evaluated, and everything after them would be skipped.
 
 #+begin_src emacs-lisp -i
 ;; Custom preview for directories with 'eza'.  `dirvish-define-preview' is a

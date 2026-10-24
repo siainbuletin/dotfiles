@@ -2,11 +2,18 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-statistics.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-statistics.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/academic/sp-statistics.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module installs ESS (Emacs Speaks Statistics), which provides editing modes and interactive sessions for R and other statistics languages. It is a single package declaration with no further configuration. It is listed in the Academic block of =init.el= but commented out, so it is not loaded by default.
+This module installs ESS (Emacs Speaks Statistics), which provides editing modes and interactive sessions for R and other statistics languages.
+
+- It is a single package declaration with no further configuration.
+- It is listed in the Academic block of =init.el= but commented out, so it is not loaded by default.
 
 The commentary at the top of the module says:
 

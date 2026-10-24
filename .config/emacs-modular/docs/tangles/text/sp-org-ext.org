@@ -2,13 +2,35 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-ext.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-ext.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-ext.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=: appearance, capture, Babel, agenda, images, the =org-node= memory workflow, and the Vulpea note database modules (base, UI, PARA, schemas and extensions, then my =sp-collection-query-tables= modules). This means that loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
+This module is the hub for Org extensions. Its first job is to load a group of other Org modules with =require=:
 
-Its second job is to install a handful of smaller Org packages: =org-contrib= (for ignoring headlines on export), =org-autolist=, =org-journal=, =org-ranker=, =org-special-block-extras=, and two local =org-context= libraries from the =cloned= directory. It is loaded near the end of the Org group in both the default and minimal module lists. Citation setup lives elsewhere, as the opening note says.
+- appearance, capture, Babel, agenda, images,
+- the =org-node= memory workflow,
+- the Vulpea note database modules (base, UI, PARA, schemas and extensions, then my =sp-collection-query-tables= modules).
+
+So loading =sp-org-ext= pulls in several modules that do not appear in the module lists themselves, such as =sp-org-babel=, =sp-org-images= and all of the =sp-vulpea-= files.
+
+Its second job is to install a handful of smaller Org packages:
+
+- =org-contrib= (for ignoring headlines on export),
+- =org-autolist=,
+- =org-journal=,
+- =org-ranker=,
+- =org-special-block-extras=,
+- two local =org-context= libraries from the =cloned= directory.
+
+Loading:
+
+- Loaded near the end of the Org group in both the default and minimal module lists.
+- Citation setup lives elsewhere, as the opening note says.
 
 The commentary at the top of the module says:
 
@@ -36,7 +58,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Core Org extension modules
 
-Requires the appearance, Babel, agenda and image modules. Some of these are also in the module lists, in which case =require= simply does nothing the second time. =sp-org-capture= and =sp-agenda-views= are not required here any more: they load last, from the module lists in =init.el=, after everything that feeds them.
+Requires the appearance, Babel, agenda and image modules.
+
+- Some of these are also in the module lists, in which case =require= simply does nothing the second time.
+- =sp-org-capture= and =sp-agenda-views= are not required here any more. They load last, from the module lists in =init.el=, after everything that feeds them.
 
 #+begin_src emacs-lisp -i
 ;;;; EXTENSION FILES
@@ -57,7 +82,12 @@ Requires =sp-org-node-mem=, the module for ID-based note workflows.
 
 ** Vulpea modules
 
-Loads the Vulpea stack: the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions (all described in [[file:../vulpea/sp-vulpea.org][sp-vulpea.org]]), then =sp-collection-query-tables=, which is a separate custom module and so is not part of that group. Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
+Loads the Vulpea stack:
+
+- the base setup, UI, the PARA organisation layer, schemas, and =sp-vulpea-ext= for the remaining extensions (all described in [[file:../vulpea/sp-vulpea.org][sp-vulpea.org]]),
+- then =sp-collection-query-tables=, which is a separate custom module and so is not part of that group.
+
+Because they are only reached through this file, disabling =sp-org-ext= also disables Vulpea.
 
 #+begin_src emacs-lisp -i
 ;;;;; Vulpea
@@ -103,7 +133,13 @@ After Org loads, =ox-extra= is required and its =ignore-headlines= extra is acti
 
 ** org-journal
 
-=org-journal= keeps dated journal files in =~/org/journal= with ISO dates, shows them in the agenda, and carries unfinished =TODO=, =WAITING= and =DOING= items over to the next day. =C-M-S-i= creates a new entry. =C-M-S-j= calls =org-journal-new-entry= with a third argument set; the intent is inferred to be a variant such as opening the journal without a new entry, and whether it works depends on the installed org-journal version's signature.
+=org-journal=:
+
+- Keeps dated journal files in =~/org/journal= with ISO dates.
+- Shows them in the agenda.
+- Carries unfinished =TODO=, =WAITING= and =DOING= items over to the next day.
+- =C-M-S-i= creates a new entry.
+- =C-M-S-j= calls =org-journal-new-entry= with a third argument set. The intent is inferred to be a variant such as opening the journal without a new entry. Whether it works depends on the installed org-journal version's signature.
 
 #+begin_src emacs-lisp -i
 (use-package org-journal

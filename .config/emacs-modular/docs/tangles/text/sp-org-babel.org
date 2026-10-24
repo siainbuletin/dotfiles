@@ -2,11 +2,24 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-babel.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-babel.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-babel.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module configures Org Babel: which languages can be executed in source blocks, how tangled files are cleaned up, and a command to tangle the literate configuration in one go. Most languages are set up lazily with =use-package= and =:commands=, so each =ob-*= library loads only when a block of that language is first executed. It also defines two custom Babel languages, =nushell= and =jinja=.
+This module configures Org Babel. It sets up:
+
+- which languages can be executed in source blocks,
+- how tangled files are cleaned up,
+- a command to tangle the literate configuration in one go.
+
+Details:
+
+- Most languages are set up lazily with =use-package= and =:commands=, so each =ob-*= library loads only when a block of that language is first executed.
+- It also defines two custom Babel languages, =nushell= and =jinja=.
 
 The module is not listed in =init.el=; it is required from =sp-org-ext=. The ditaa and PlantUML blocks expect jar files under =software/= in =user-emacs-directory=, and the custom languages need the external =nu= program and Python 3 with the =jinja2= library.
 
@@ -74,7 +87,10 @@ Points =org-ditaa-jar-path= at =software/ditaa.jar= inside the Emacs directory, 
 
 ** PlantUML
 
-Points =org-plantuml-jar-path= at =software/plantuml.jar= and advises =org-babel-execute:plantuml= so it always runs with bash as =shell-file-name=. As the docstring explains, under tcsh the =>= redirection refuses to overwrite existing files. Like ditaa, it has no =:commands= of its own.
+Points =org-plantuml-jar-path= at =software/plantuml.jar= and advises =org-babel-execute:plantuml= so it always runs with bash as =shell-file-name=.
+
+- As the docstring explains, under tcsh the =>= redirection refuses to overwrite existing files.
+- Like ditaa, it has no =:commands= of its own.
 
 #+begin_src emacs-lisp -i
 (use-package ob-plantuml

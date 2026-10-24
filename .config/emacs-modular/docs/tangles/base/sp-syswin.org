@@ -2,9 +2,16 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-syswin.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-syswin.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-syswin.el=.
 
-Platform tweaks for running Emacs natively on Windows. The only code is a guarded block of three =w32-= variables that speed up subprocess communication and file access. Everything else is commentary carried over from Lambda-Emacs suggesting WSL as an alternative.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+Platform tweaks for running Emacs natively on Windows.
+
+- The only code is a guarded block of three =w32-= variables that speed up subprocess communication and file access.
+- Everything else is commentary carried over from Lambda-Emacs suggesting WSL as an alternative.
 
 The module is currently commented out in =init.el= ("will be adding the relevant modules later"), so it is not loaded. Because the code is wrapped in a =system-type= check it would be harmless to enable on macOS or Linux.
 
@@ -50,7 +57,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Faster pipes and file attributes on Windows
 
-Only on =windows-nt=, =cygwin= or =ms-dos=: =w32-pipe-read-delay= is set to 0 so Emacs does not wait before reading subprocess output, =w32-get-true-file-attributes= is turned off to avoid expensive file ownership lookups, and =w32-pipe-buffer-size= is raised to 128 KB so subprocess output is read in bigger chunks. These help tools like LSP servers and ripgrep. The block ends with the =provide= form.
+Only on =windows-nt=, =cygwin= or =ms-dos=:
+
+- =w32-pipe-read-delay= is set to 0, so Emacs does not wait before reading subprocess output.
+- =w32-get-true-file-attributes= is turned off, to avoid expensive file ownership lookups.
+- =w32-pipe-buffer-size= is raised to 128 KB, so subprocess output is read in bigger chunks.
+
+These help tools like LSP servers and ripgrep. The block ends with the =provide= form.
 
 #+begin_src emacs-lisp -i
 (when (memq system-type '(windows-nt cygwin ms-dos))

@@ -2,13 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-notes.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/academic/sp-notes.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/academic/sp-notes.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 A small module for a Denote-based notes workflow, adapted from Lambda Emacs. It provides a command that creates a dated workbook entry with Denote, sets up =consult-notes= to search Denote notes, and adds a variant that shows the consult-notes picker in a buffer window instead of the minibuffer.
 
-It needs =denote= (configured in =sp-denote=) and installs =consult-notes=. The comments make clear the workflow has largely moved to ID-based notes with vulpea and org-node, so this module is partly kept for older material. It is loaded in the Academic section of =init.el=. Related bindings live in =sp-keys=, which puts =sp-denote-workbook-create-entry=, =consult-notes= and =consult-notes-search-in-all-notes= on the =n= notes prefix, and =sp-workspaces= calls =sp-denote-notebook=.
+Dependencies and context:
+
+- Needs =denote= (configured in =sp-denote=) and installs =consult-notes=.
+- The comments make clear the workflow has largely moved to ID-based notes with vulpea and org-node, so this module is partly kept for older material.
+- Loaded in the Academic section of =init.el=.
+- Related bindings live in =sp-keys=, which puts =sp-denote-workbook-create-entry=, =consult-notes= and =consult-notes-search-in-all-notes= on the =n= notes prefix.
+- =sp-workspaces= calls =sp-denote-notebook=.
 
 The commentary at the top of the module says:
 
@@ -30,7 +40,11 @@ This library provides settings fora basic notes workflow using the `Denote' pack
 
 ** File header and commentary
 
-Lexical binding and several comment paragraphs. They describe the plan for a notes framework that starts from Denote, with capture handled separately, and note that the configuration came from Lambda Emacs. The file's first line still carries an older file name.
+Lexical binding and several comment paragraphs.
+
+- They describe the plan for a notes framework that starts from Denote, with capture handled separately.
+- They note that the configuration came from Lambda Emacs.
+- The file's first line still carries an older file name.
 
 #+begin_src emacs-lisp -i
 ;;; sp-notes.el --- Denote workbook entries and consult-notes -*- lexical-binding: t; -*-
@@ -85,7 +99,11 @@ log/ instead. Kept because old entries still live in workbook/."
 
 ** consult-notes
 
-Installs =consult-notes=, a consult interface for picking and searching notes. =C-c w d f= opens the picker and =C-c w d g= searches the text of all notes. Enabling =consult-notes-denote-mode= registers Denote as a source; without a source the picker would be empty. A commented-out =:if= line explains it was not gated because the package should always be available.
+Installs =consult-notes=, a consult interface for picking and searching notes.
+
+- =C-c w d f= opens the picker. =C-c w d g= searches the text of all notes.
+- Enabling =consult-notes-denote-mode= registers Denote as a source. Without a source the picker would be empty.
+- A commented-out =:if= line explains it was not gated because the package should always be available.
 
 #+begin_src emacs-lisp -i
 ;;;; Consult Notes

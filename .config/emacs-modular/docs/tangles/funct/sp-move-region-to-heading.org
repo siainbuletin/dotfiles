@@ -2,11 +2,24 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-move-region-to-heading.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/funct/sp-move-region-to-heading.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/funct/sp-move-region-to-heading.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Provides one command, =sp-move-region-to-heading=, bound globally to =M-a=. It cuts the active region, asks for a target note (searched by title through Vulpea, or created on the spot with Denote), asks for a heading inside that note (or creates one), appends the text at the end of that heading's subtree, saves the target file, and leaves an =id:= link to the new location where the text used to be. Headings named "Resources" get special treatment: they are treated as generic buckets, so the link points at their parent or the file instead.
+Provides one command, =sp-move-region-to-heading=, bound globally to =M-a=. It:
+
+- cuts the active region,
+- asks for a target note (searched by title through Vulpea, or created on the spot with Denote),
+- asks for a heading inside that note (or creates one),
+- appends the text at the end of that heading's subtree,
+- saves the target file,
+- leaves an =id:= link to the new location where the text used to be.
+
+Headings named "Resources" get special treatment: they are treated as generic buckets, so the link points at their parent or the file instead.
 
 It depends on =vulpea=, =org-id= and =denote=, all required at the top. It is loaded in the Functions group of =init.el=.
 
@@ -70,7 +83,12 @@ restored once the file path is captured."
 
 ** Selecting or creating the note
 
-=sp--vulpea-select-or-create-file= prompts with =vulpea-select=, the same picker as =vulpea-find=. If an existing note with a file is chosen, its path is returned. Otherwise it works out a title from whatever Vulpea returned (a stub note, a plain string, or nothing, in which case it asks), confirms with =y-or-n-p= that you want a new Denote note with that title, and returns the new file's path. Declining or giving an empty title aborts with "No target selected".
+=sp--vulpea-select-or-create-file= prompts with =vulpea-select=, the same picker as =vulpea-find=.
+
+- If an existing note with a file is chosen, its path is returned.
+- Otherwise it works out a title from whatever Vulpea returned (a stub note, a plain string, or nothing, in which case it asks).
+- It confirms with =y-or-n-p= that you want a new Denote note with that title, and returns the new file's path.
+- Declining or giving an empty title aborts with "No target selected".
 
 #+begin_src emacs-lisp -i
 (defun sp--vulpea-select-or-create-file ()
@@ -142,7 +160,11 @@ Return a cons cell (MARKER . TITLE)."
 
 ** Prompting for the heading
 
-=sp--read-org-heading= offers the headings with completion, with the create option first. If the file has no headings at all it skips the prompt and creates one straight away. It returns the marker and the outline path, which later becomes the link description. The docstring contains a blank line, so this form spans two units.
+=sp--read-org-heading= offers the headings with completion, with the create option first.
+
+- If the file has no headings at all, it skips the prompt and creates one straight away.
+- It returns the marker and the outline path, which later becomes the link description.
+- The docstring contains a blank line, so this form spans two units.
 
 #+begin_src emacs-lisp -i
 (defun sp--read-org-heading (file)
@@ -211,7 +233,13 @@ heading, and is what a whole-file id: link points at."
 
 ** Choosing the link target
 
-=sp--link-target-at-point= returns the ID and description for the link left behind. Normally it gives the target heading an ID (creating one if needed) and uses its outline path as the description. For a Resources heading it adds no ID: a level-1 Resources heading defers to the file's own ID and title, and a deeper one defers to its parent heading, or to the file if it somehow has no parent. The docstring has blank lines, so the form spans two units.
+=sp--link-target-at-point= returns the ID and description for the link left behind.
+
+- Normally it gives the target heading an ID (creating one if needed) and uses its outline path as the description.
+- For a Resources heading it adds no ID:
+  - a level-1 Resources heading defers to the file's own ID and title,
+  - a deeper one defers to its parent heading, or to the file if it somehow has no parent.
+- The docstring has blank lines, so the form spans two units.
 
 #+begin_src emacs-lisp -i
 (defun sp--link-target-at-point (path)
@@ -244,7 +272,12 @@ at all:
 
 ** sp-move-region-to-heading
 
-The interactive spec reads the region bounds, then runs the note and heading prompts described above. The body copies the region text without properties, deletes it, and in the target buffer computes the link target, jumps to the end of the chosen heading's subtree (after its body and any child headings, before the next sibling), inserts the text with a trailing newline, and saves the file. Finally it inserts an =id:= link at the point where the region was.
+The command itself:
+
+- The interactive spec reads the region bounds, then runs the note and heading prompts described above.
+- The body copies the region text without properties and deletes it.
+- In the target buffer it computes the link target, jumps to the end of the chosen heading's subtree (after its body and any child headings, before the next sibling), inserts the text with a trailing newline, and saves the file.
+- Finally it inserts an =id:= link at the point where the region was.
 
 Gotchas:
 - The region is deleted before the target is written, and only the target is saved. If something fails in between, the text is gone from the source buffer, though it is still recoverable with undo.

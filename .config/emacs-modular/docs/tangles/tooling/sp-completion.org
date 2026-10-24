@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-completion.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-completion.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-completion.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -57,9 +61,16 @@ Loads Vertico immediately and turns on =vertico-mode=. It shows up to 13 candida
 
 ** Vertico in a buffer window
 
-Configures the =vertico-buffer= extension, which shows candidates in a normal window instead of the minibuffer. The prompt line is hidden. The large =cl-defmethod= replaces Vertico's own =vertico--setup= method for buffer mode with a near copy of it whose main change is that =header-line-format= is nil, so the candidate window has no header line. Because it redefines an internal method, it may need updating when Vertico changes.
+Configures the =vertico-buffer= extension, which shows candidates in a normal window instead of the minibuffer.
 
-A second =:config= sets the display action to a side window on the right, 12 lines high. The comment there speaks of the top of the frame, but the code uses the right side. =vertico-buffer-mode= is commented out, since the author felt it looked wrong, so none of this is active until that mode is turned on manually.
+- The prompt line is hidden.
+- The large =cl-defmethod= replaces Vertico's own =vertico--setup= method for buffer mode with a near copy of it. Its main change is that =header-line-format= is nil, so the candidate window has no header line.
+- It redefines an internal method, so it may need updating when Vertico changes.
+
+A second =:config= sets the display action to a side window on the right, 12 lines high.
+
+- The comment there speaks of the top of the frame, but the code uses the right side.
+- =vertico-buffer-mode= is commented out, since the author felt it looked wrong. So none of this is active until that mode is turned on manually.
 
 #+begin_src emacs-lisp -i
 ;;;; Vertico extensions

@@ -4,7 +4,12 @@
 
 * Preamble
 
-Literate source for =libraries/modules/custom/sp-org-normalise.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle. The tests at the end of this file tangle to =tests/sp-org-normalise-test.el=.
+Literate source for =libraries/modules/custom/sp-org-normalise.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- The tests at the end of this file tangle to =tests/sp-org-normalise-test.el=.
 
 * Basic functionality
 
@@ -27,7 +32,11 @@ All three scan =sp-org-normalise-directory= (=sp-notes-dir=); with a prefix argu
 
 ** What counts as a keyword
 
-A heading whose first word is two or more characters of =A-Z=, digits, =_= or =-=, starting with a letter (=TODO=, =IN-PROGRESS=, =WIP=). The inventory marks a word as *unrecognised* in a file when neither that file's =#+todo:=/=#+seq_todo:=/=#+typ_todo:= lines nor, if the file has none, the global =org-todo-keywords= declare it. This also catches ordinary capitalised words (=README=, =FAQ=); they show up in the inventory and nothing more, because only words in the mapping table are ever rewritten.
+Which heading words count as keywords:
+
+- A heading whose first word is two or more characters of =A-Z=, digits, =_= or =-=, starting with a letter (=TODO=, =IN-PROGRESS=, =WIP=).
+- The inventory marks a word as *unrecognised* in a file when neither of these declares it: that file's =#+todo:=/=#+seq_todo:=/=#+typ_todo:= lines, or (if the file has none) the global =org-todo-keywords=.
+- This also catches ordinary capitalised words (=README=, =FAQ=). They show up in the inventory and nothing more, because only words in the mapping table are ever rewritten.
 
 Lines inside =#+begin_= blocks and property or logbook drawers are never read.
 
@@ -234,13 +243,23 @@ KEYWORD is the first word if it looks like one, else nil."
 
 * Planning the changes
 
-The plan of a file is a list of plists, each replacing the lines =:start= to =:end= (0-based, inclusive) with the list =:new=. An insertion has =:end= one less than =:start=. A change with no =:new= is only a note (a warning in the report). =:kind= is one of =keyword=, =checkbox=, =promote=, =declare= or =note=.
+The plan of a file is a list of plists, each replacing the lines =:start= to =:end= (0-based, inclusive) with the list =:new=.
+
+- An insertion has =:end= one less than =:start=.
+- A change with no =:new= is only a note (a warning in the report).
+- =:kind= is one of =keyword=, =checkbox=, =promote=, =declare= or =note=.
 
 The planning function is pure: it takes the text of a file and the global keywords, and returns the list. It reads nothing and writes nothing, which is what the tests use.
 
 ** Checkbox items
 
-A checkbox item found under a Tasks heading, and not under a heading that already has a keyword (there the checklist is that task's own subtask list and stays), is a /top/ item: it takes in the lines below it that are indented deeper (and the blank lines between), so a nested checklist stays in the body of its parent. The heading gets one more star than the heading it sits under. The body lines are moved left by the width of the list marker, so that a nested list is a list at the left margin of the new heading.
+Top checklist items:
+
+- A checkbox item found under a Tasks heading, and not under a heading that already has a keyword, is a /top/ item.
+- Under a heading that already has a keyword, the checklist is that task's own subtask list and stays.
+- A top item takes in the lines below it that are indented deeper (and the blank lines between), so a nested checklist stays in the body of its parent.
+- The heading gets one more star than the heading it sits under.
+- The body lines are moved left by the width of the list marker, so a nested list is a list at the left margin of the new heading.
 
 #+begin_src emacs-lisp
 ;;;; Planning
@@ -568,7 +587,11 @@ The report is plain text in a =special-mode= buffer. Each change has its line nu
 
 * Commands
 
-=sp-org-normalise-run= goes through the files one at a time. The choice =c= asks about each change of the file, which is the per-heading confirmation. A file whose buffer was changed after the plan was made is skipped. Applying leaves the buffer modified (see =sp-org-normalise-save-after-apply=).
+=sp-org-normalise-run= goes through the files one at a time.
+
+- The choice =c= asks about each change of the file, which is the per-heading confirmation.
+- A file whose buffer was changed after the plan was made is skipped.
+- Applying leaves the buffer modified (see =sp-org-normalise-save-after-apply=).
 
 #+begin_src emacs-lisp
 ;;;; Commands

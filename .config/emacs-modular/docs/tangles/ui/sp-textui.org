@@ -2,11 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-textui.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-textui.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-textui.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module installs two packages by yibie from GitHub: =textui=, which the comment describes as a new package for better rendering of widgets in a buffer, and =org-table-widget=, which displays Org tables as interactive widgets. It then turns on =org-table-widget-mode= in every Org buffer. The module is in the UI group of the default module list in =init.el=, loaded just before the themes.
+This module installs two packages by yibie from GitHub:
+
+- =textui=, which the comment describes as a new package for better rendering of widgets in a buffer.
+- =org-table-widget=, which displays Org tables as interactive widgets.
+
+Then:
+
+- It turns on =org-table-widget-mode= in every Org buffer.
+- The module is in the UI group of the default module list in =init.el=, loaded just before the themes.
 
 The commentary at the top of the module says:
 

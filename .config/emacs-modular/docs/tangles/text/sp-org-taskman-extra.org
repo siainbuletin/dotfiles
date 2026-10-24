@@ -2,15 +2,33 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-taskman-extra.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-taskman-extra.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-taskman-extra.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module holds the task management side of the Org setup: TODO keyword sequences, the tag list with fast-selection keys, priorities, a helper to turn a heading into a project, task dependencies with =org-edna=, highlighting and searching of TODO comments with =hl-todo= and =consult-todo=, and the =org-gtd= workflow under the ~C-c d~ prefix. The agenda is deliberately kept in a separate module because of its many appearance concerns.
+This module holds the task management side of the Org setup:
+
+- TODO keyword sequences,
+- the tag list with fast-selection keys,
+- priorities,
+- a helper to turn a heading into a project,
+- task dependencies with =org-edna=,
+- highlighting and searching of TODO comments with =hl-todo= and =consult-todo=,
+- the =org-gtd= workflow under the ~C-c d~ prefix.
+
+The agenda is deliberately kept in a separate module because of its many appearance concerns.
 
 The module is loaded from =init.el= among the text modules. Packages it installs: =org-edna=, =hl-todo=, =consult-todo= and =org-gtd=. =org-inlinetask= ships with Org.
 
-Worth knowing: the TODO keywords are not set here any more. =sp-org-keywords= defines every sequence once, and its =TODO NEXT PROG WAIT | DONE CNCL= sequence is the one org-gtd's default keyword mapping points to. The org-gtd key that touches the agenda (=C-c .= in the agenda) is bound in =sp-agenda-views=, and org-gtd's own capture key is not bound: the inbox is =~/notes/inbox.org=, filled by the templates of =sp-org-capture=.
+Worth knowing:
+
+- The TODO keywords are not set here any more. =sp-org-keywords= defines every sequence once. Its =TODO NEXT PROG WAIT | DONE CNCL= sequence is the one org-gtd's default keyword mapping points to.
+- The org-gtd key that touches the agenda (=C-c .= in the agenda) is bound in =sp-agenda-views=.
+- org-gtd's own capture key is not bound: the inbox is =~/notes/inbox.org=, filled by the templates of =sp-org-capture=.
 
 * Overview
 
@@ -89,9 +107,19 @@ Uses numeric priorities from 1 (highest) to 5 (lowest), with 4 as the default fo
 
 ** Marking a heading as a project
 
-=my-mark-as-project= is an interactive command that turns the current heading into a project: it adds the project tag, sets =COOKIE_DATA= to todo recursive (so the progress cookie counts all TODO descendants), and then makes sure the heading has a TODO keyword and a progress cookie, inserting NEXT and/or a [/] cookie as needed and reporting what it found in the echo area.
+=my-mark-as-project= is an interactive command that turns the current heading into a project. It:
 
-There is a subtle bug: it tests the local variable with =bound-and-true-p=, which checks for a dynamic (global) binding. Under lexical binding that test is always false, so the command always behaves as if the heading had no TODO keyword and may insert a second keyword. Using the variable directly instead would fix it. There is no keybinding.
+- adds the project tag,
+- sets =COOKIE_DATA= to todo recursive, so the progress cookie counts all TODO descendants,
+- makes sure the heading has a TODO keyword and a progress cookie, inserting NEXT and/or a [/] cookie as needed,
+- reports what it found in the echo area.
+
+There is a subtle bug in this command:
+
+- It tests the local variable with =bound-and-true-p=, which checks for a dynamic (global) binding.
+- Under lexical binding that test is always false. So the command always behaves as if the heading had no TODO keyword, and may insert a second keyword.
+- Using the variable directly instead would fix it.
+- There is no keybinding.
 
 #+begin_src emacs-lisp -i
 ;;;; Project management
@@ -178,7 +206,11 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 
 ** consult-todo
 
-=consult-todo= lists those keywords across a buffer or project with Consult. The =:init= redefines its narrowing keys so t, f and n narrow to TODO, FIXME and NOTE. An Evil binding is commented out. A trailing comment reserves this spot for Vulpea PARA settings.
+=consult-todo= lists those keywords across a buffer or project with Consult.
+
+- The =:init= redefines its narrowing keys so t, f and n narrow to TODO, FIXME and NOTE.
+- An Evil binding is commented out.
+- A trailing comment reserves this spot for Vulpea PARA settings.
 
 #+begin_src emacs-lisp -i
 ;;;; Consult TODO
@@ -203,7 +235,12 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 
 ** org-gtd
 
-Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=. The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning. =org-gtd-keyword-mapping= is not set any more: org-gtd's default maps its states to =TODO=, =NEXT=, =WAIT=, =DONE= and =CNCL=, which is the task sequence of =sp-org-keywords=, and org-gtd checks that all of them are in one sequence of =org-todo-keywords=. See [[file:../../../../../adr/0013-org-gtd-keywords-and-inbox.org][ADR 0013]]. Adding the GTD directory to the agenda is commented out because it raised an error. =org-edna-mode= is enabled again here since org-gtd relies on it.
+Sets up =org-gtd= (version 4) eagerly after Org, with its files in =~/notes/area/org-gtd/=.
+
+- The upgrade acknowledgement variable is set in =:init= to silence the version 4 upgrade warning.
+- =org-gtd-keyword-mapping= is not set any more. org-gtd's default maps its states to =TODO=, =NEXT=, =WAIT=, =DONE= and =CNCL=, which is the task sequence of =sp-org-keywords=. org-gtd checks that all of them are in one sequence of =org-todo-keywords=. See [[file:../../../../../adr/0013-org-gtd-keywords-and-inbox.org][ADR 0013]].
+- Adding the GTD directory to the agenda is commented out because it raised an error.
+- =org-edna-mode= is enabled again here, since org-gtd relies on it.
 
 Keybindings:
 - ~C-c d p~ processes the GTD inbox. There is no key for org-gtd's own capture (~C-c d c~ was unbound): capture goes to =~/notes/inbox.org= through =sp-org-capture=.
@@ -251,7 +288,10 @@ Keybindings:
 
 ** Lazy inline tasks
 
-Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command. Inline tasks are task headings placed deep inside the body of another entry without breaking its structure. Now that the plain =require= above is commented out, this is the only place the library is set up, and it loads on first use.
+Declares the built-in =org-inlinetask= without installing anything (=:ensure nil=) and makes =org-inlinetask-insert-task= an autoloaded command.
+
+- Inline tasks are task headings placed deep inside the body of another entry without breaking its structure.
+- The plain =require= above is now commented out, so this is the only place the library is set up. It loads on first use.
 
 #+begin_src emacs-lisp -i
 ;;;;; Org Inline Tasks

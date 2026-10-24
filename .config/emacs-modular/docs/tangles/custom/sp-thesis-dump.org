@@ -3,7 +3,11 @@
 #+PROPERTY: header-args:markdown :tangle ../../architecture/skills/thesis-brain-dump/SKILL.md :comments no :padline no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=. Every line of the module lives in the =emacs-lisp= blocks below, in order, and the skill in the =markdown= block at the end. The =:tangle= paths in the =#+PROPERTY= lines at the top say where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order. The skill is in the =markdown= block at the end.
+- The =:tangle= paths in the =#+PROPERTY= lines at the top say where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * What it does
 
@@ -17,7 +21,12 @@ Emacs checks the citekeys itself against the =.bib= files, so a key counts as "t
 
 ** The module is not tied to the dotfiles
 
-The module needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =claude= command. It never mentions =sp-paths=, =vulpea= or any other module of this configuration, so the single file =sp-thesis-dump.el= can be copied into the thesis repo's Emacs setup, or into any other configuration, and loaded with =(require 'sp-thesis-dump)=. What changes between projects is a handful of variables. The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project, so that the thesis repo carries its own settings and every other project carries its own.
+The module is portable.
+
+- It needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =claude= command.
+- It never mentions =sp-paths=, =vulpea= or any other module of this configuration.
+- So the single file =sp-thesis-dump.el= can be copied into the thesis repo's Emacs setup, or into any other configuration, and loaded with =(require 'sp-thesis-dump)=.
+- What changes between projects is a handful of variables. The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project. The thesis repo then carries its own settings, and so does every other project.
 
 #+begin_src emacs-lisp :tangle no
 ;; In the thesis repo, .dir-locals.el (written by M-x sp-thesis-dump when asked):
@@ -33,7 +42,12 @@ The module needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =
 
 ** What "org-mcp" means here
 
-The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the project files) say that =vulpea-mcp= searches and creates notes and that editing existing Org content needs a separate =org-mcp= server. I read "org-mcp" as that: an MCP server that runs inside Emacs and gives Claude tools to read (and edit) Org files. MCP always has the model as the client, so Emacs cannot "send to Claude via org-mcp". The module does it the other way round:
+About "org-mcp":
+
+- The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the project files) say that =vulpea-mcp= searches and creates notes, and that editing existing Org content needs a separate =org-mcp= server.
+- I read "org-mcp" as that: an MCP server that runs inside Emacs and gives Claude tools to read (and edit) Org files.
+- MCP always has the model as the client, so Emacs cannot "send to Claude via org-mcp".
+- The module does it the other way round:
 
 1. Emacs starts =claude -p= (Claude Code's non-interactive mode) in the project directory and gives it the prompt on standard input.
 2. If the =org-mcp= tools are allowed (=sp-thesis-dump-claude-allowed-tools=), Claude may use them to read my task file and notes for context. The prompt tells it not to change anything with them.
@@ -144,7 +158,10 @@ It is then the directory with a .dir-locals.el above this one, else the
 
 ** Project options
 
-These are the variables prompted for and saved in the project's =.dir-locals.el=. Paths are relative to the project root. Each has a =:safe= predicate so Emacs accepts it from =.dir-locals.el= without asking.
+These are the variables prompted for and saved in the project's =.dir-locals.el=.
+
+- Paths are relative to the project root.
+- Each has a =:safe= predicate, so Emacs accepts it from =.dir-locals.el= without asking.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--list-of-strings-p (value)
@@ -526,7 +543,11 @@ Answer with a single JSON object and nothing else, with no code fence:
 
 * Running Claude
 
-=claude -p= reads its prompt from standard input when none is given as an argument, which avoids argument-length and quoting problems. The process runs in the project root so that Claude Code picks up the project's own =CLAUDE.md=, settings and skills. The call is asynchronous: Emacs stays usable and the result buffer appears when Claude is done.
+Calling Claude:
+
+- =claude -p= reads its prompt from standard input when none is given as an argument, which avoids argument-length and quoting problems.
+- The process runs in the project root, so Claude Code picks up the project's own =CLAUDE.md=, settings and skills.
+- The call is asynchronous: Emacs stays usable and the result buffer appears when Claude is done.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--command (ctx)
@@ -632,7 +653,11 @@ Signal an error with a readable message when there is none."
 
 * Turning the answer into Org
 
-The result is rendered with the dump as a level-one heading, so it can be edited as a stand-alone Org document; it is shifted to the right level when filed. A key is *to look up* when it is not in the bibliography, whichever list Claude put it in. A key that differs from a known key only in letter case is replaced by the known one.
+Rendering the result:
+
+- The dump is a level-one heading, so the result can be edited as a stand-alone Org document. It is shifted to the right level when filed.
+- A key is *to look up* when it is not in the bibliography, whichever list Claude put it in.
+- A key that differs from a known key only in letter case is replaced by the known one.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--clean (value)
@@ -911,7 +936,10 @@ Try the pieces without Claude: the first block renders a made-up answer, the sec
 
 * The companion skill
 
-The same procedure for Claude Code itself, for when the dump is typed into a Claude Code session in the thesis repo and not into Emacs. Copy the tangled folder to =.claude/skills/thesis-brain-dump/= in the thesis repo. It uses the =org-mcp= tools when they are connected and edits the Org file otherwise.
+The same procedure for Claude Code itself, for when the dump is typed into a Claude Code session in the thesis repo rather than into Emacs.
+
+- Copy the tangled folder to =.claude/skills/thesis-brain-dump/= in the thesis repo.
+- It uses the =org-mcp= tools when they are connected, and edits the Org file otherwise.
 
 #+begin_src markdown
 ---
@@ -974,7 +1002,19 @@ Use the `org-mcp` edit tools when connected, otherwise edit the file. Keep the u
 
 * Untested
 
-This was written in a container with Emacs 29.3 and without Claude Code. The module byte-compiles without warnings, and its commands were run in batch Emacs against a stand-in =claude= script that returns a made-up answer: reading the settings from =.dir-locals.el=, asking for and saving them, the prompt, the answer parsing (including a code fence around the JSON), the rendering, filing under a nested heading (creating it when missing) and the failure path. Not tried:
+Testing status:
+
+- Written in a container with Emacs 29.3 and without Claude Code.
+- The module byte-compiles without warnings.
+- Its commands were run in batch Emacs against a stand-in =claude= script that returns a made-up answer. Covered:
+  - reading the settings from =.dir-locals.el=,
+  - asking for and saving them,
+  - the prompt,
+  - the answer parsing (including a code fence around the JSON),
+  - the rendering,
+  - filing under a nested heading (creating it when missing),
+  - the failure path.
+- Not tried:
 
 - the real =claude -p --output-format json= envelope (the module expects a =result= string and an =is_error= flag), and reading the prompt from standard input;
 - =--mcp-config= and =--allowedTools=, and the tool names of the =org-mcp= server;

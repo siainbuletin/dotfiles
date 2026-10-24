@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../../libraries/modules/base/navi/sp-search.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/navi/sp-search.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/navi/sp-search.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -152,7 +156,10 @@ A heading comment reserved for commands that act on search results; nothing is d
 
 ** Recoll query function
 
-=counsel-recoll-function= runs =recollq -b= on the input asynchronously once at least three characters have been typed, returning matching file URLs. The search string is placed inside single quotes on the shell command line, so a query containing a quote breaks it. It calls =counsel-more-chars=, which newer Counsel releases have replaced with =ivy-more-chars=, so this may need updating.
+=counsel-recoll-function= runs =recollq -b= on the input asynchronously, once at least three characters have been typed, returning matching file URLs.
+
+- The search string is placed inside single quotes on the shell command line, so a query containing a quote breaks it.
+- It calls =counsel-more-chars=, which newer Counsel releases have replaced with =ivy-more-chars=. It may need updating.
 
 #+begin_src emacs-lisp -i
 ;; More advanced searching
@@ -168,7 +175,10 @@ A heading comment reserved for commands that act on search results; nothing is d
 
 ** Recoll search command
 
-=counsel-recoll= searches the Recoll index with Ivy and opens the selected file. For non-PDF files it then starts =swiper= with the same query, so you land on the matches inside the file. It reuses =counsel-git-grep-history= as its history.
+=counsel-recoll= searches the Recoll index with Ivy and opens the selected file.
+
+- For non-PDF files it then starts =swiper= with the same query, so you land on the matches inside the file.
+- It reuses =counsel-git-grep-history= as its history.
 
 #+begin_src emacs-lisp -i
 (defun counsel-recoll (&optional initial-input)

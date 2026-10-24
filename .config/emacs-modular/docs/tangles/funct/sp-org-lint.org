@@ -2,15 +2,32 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-lint.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/funct/sp-org-lint.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/funct/sp-org-lint.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module provides two commands for tidying plain lists in Org buffers, aimed at lists of links such as reading or resource lists. =sp-org-lint-list= turns stray paragraph lines into list items, removes blank lines between items and drops items whose https link already appeared earlier. =sp-org-lint-resources= does the same and then sorts each top level list alphabetically by its displayed text. A helper command, =sp-org-mark-list=, marks the region the commands would act on.
+This module provides two commands for tidying plain lists in Org buffers, aimed at lists of links such as reading or resource lists.
+
+- =sp-org-lint-list=:
+  - turns stray paragraph lines into list items,
+  - removes blank lines between items,
+  - drops items whose https link already appeared earlier.
+- =sp-org-lint-resources= does the same, then sorts each top level list alphabetically by its displayed text.
+- =sp-org-mark-list= is a helper that marks the region the commands would act on.
 
 A third command, =sp-org-lint-footnotes=, is unrelated to lists: it lints the footnotes of the vulpea vault in the background, see [[*Sectional footnotes][Sectional footnotes]]. It also uses =seq=, =cl-lib= and, when present, =sp-paths=, and starts a second Emacs, so this file must be loadable on its own.
 
-It depends only on built-in libraries: =org=, =org-list=, =org-element= and =subr-x=. The commands work on the active region, or when there is none, on the list at or near point, falling back to the block of consecutive non-blank lines. All edits run inside one =atomic-change-group=, so a single undo reverts a whole lint pass. The module is loaded in the Functions block of =init.el=; no key bindings are set for its commands anywhere in the configuration, so they are run with =M-x=.
+Dependencies and behaviour:
+
+- Depends only on built-in libraries: =org=, =org-list=, =org-element= and =subr-x=.
+- The commands work on the active region. With none, they use the list at or near point, falling back to the block of consecutive non-blank lines.
+- All edits run inside one =atomic-change-group=, so a single undo reverts a whole lint pass.
+- Loaded in the Functions block of =init.el=.
+- No key bindings are set for the commands anywhere in the configuration, so run them with =M-x=.
 
 * Setup and patterns
 
@@ -82,7 +99,10 @@ These helpers decide which part of the buffer a command works on when no region 
 
 ** Item near point
 
-=sp-org--item-near-point= returns the start of the list item at point. On a blank line it looks at the nearest non-blank text above, then below, so running a command from a gap between items still finds the list. On any other non-list line it returns nil.
+=sp-org--item-near-point= returns the start of the list item at point.
+
+- On a blank line, it looks at the nearest non-blank text above, then below. So running a command from a gap between items still finds the list.
+- On any other non-list line, it returns nil.
 
 #+begin_src emacs-lisp -i
 ;;;; Region detection
@@ -208,7 +228,10 @@ are not convertible."
 
 ** Converting lines
 
-=sp-org--convert-lines-to-items= walks the target line by line and calls =org-toggle-item= on each convertible line, returning how many it changed. =mark-active= is bound to nil around the call so that =org-toggle-item= acts on the single line rather than on the whole region. A marker for the next line keeps the walk correct as text is inserted.
+=sp-org--convert-lines-to-items= walks the target line by line and calls =org-toggle-item= on each convertible line, returning how many it changed.
+
+- =mark-active= is bound to nil around the call, so =org-toggle-item= acts on the single line rather than on the whole region.
+- A marker for the next line keeps the walk correct as text is inserted.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--convert-lines-to-items (beg end-marker)
@@ -307,7 +330,12 @@ no such link."
 
 ** Removing duplicate items
 
-=sp-org--remove-duplicate-links= scans items in order, remembering each URL in a hash table. A later item with an already seen URL is deleted, lines and all, unless it has nested children, in which case it is kept and counted so the user can deal with it. Items without links are never removed. It returns the counts of removed and kept duplicates.
+=sp-org--remove-duplicate-links= scans items in order, remembering each URL in a hash table.
+
+- A later item with an already seen URL is deleted, lines and all.
+- The exception: if it has nested children, it is kept and counted so the user can deal with it.
+- Items without links are never removed.
+- It returns the counts of removed and kept duplicates.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--remove-duplicate-links (beg end-marker)
@@ -367,7 +395,10 @@ description, or their target when they have none), lower-cased."
 
 ** Sorting each list
 
-=sp-org--sort-lists= finds each top level list in the target and runs =org-sort-list= with that key function and =string<=. A marker at the list's bottom lets the loop continue after sorting. Nested sublists move with their parent but are not sorted themselves.
+=sp-org--sort-lists= finds each top level list in the target and runs =org-sort-list= with that key function and =string<=.
+
+- A marker at the list's bottom lets the loop continue after sorting.
+- Nested sublists move with their parent but are not sorted themselves.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--sort-lists (beg end-marker)
@@ -405,7 +436,18 @@ description, or their target when they have none), lower-cased."
 
 ** The lint pipeline
 
-=sp-org--lint= runs the steps in order: convert lines, remove blank lines, remove duplicates, and optionally sort. Markers track the start and end of the target as it changes, and the whole pass is wrapped in =atomic-change-group= so that an error rolls everything back and undo treats it as one change. It finishes with a summary message giving the number of lines converted and duplicates removed, plus any duplicates kept because they had children.
+=sp-org--lint= runs the steps in order:
+
+1. convert lines,
+2. remove blank lines,
+3. remove duplicates,
+4. optionally sort.
+
+Details:
+
+- Markers track the start and end of the target as it changes.
+- The whole pass is wrapped in =atomic-change-group=, so an error rolls everything back and undo treats it as one change.
+- It finishes with a summary message: the number of lines converted and duplicates removed, plus any duplicates kept because they had children.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--lint (beg end sort)
@@ -465,7 +507,11 @@ sublists travel with their parent item but are not re-sorted."
 
 * Sectional footnotes
 
-A second feature of the module lints the footnotes of the whole vault. With =org-footnote-section= set to nil (see =sp-org-base=) and the per-heading footnotes of =sp-vulpea-split=, a footnote definition lives at the end of the text of the heading that cites it. Notes that were written with Org's default behaviour have a =Footnotes= heading at the end instead. =sp-org-lint-footnotes= finds those and moves each definition to the heading that contains its reference.
+A second feature of the module lints the footnotes of the whole vault.
+
+- With =org-footnote-section= set to nil (see =sp-org-base=) and the per-heading footnotes of =sp-vulpea-split=, a footnote definition lives at the end of the text of the heading that cites it.
+- Notes written with Org's default behaviour have a =Footnotes= heading at the end instead.
+- =sp-org-lint-footnotes= finds those and moves each definition to the heading that contains its reference.
 
 *Nothing is written without a preview, and nothing blocks Emacs.* The command lists the Org files of the vulpea database, hands them to a second, headless Emacs that reads them one at a time, and shows what it finds in a report buffer while it works. Applying the changes is a separate key in that buffer; it runs in the headless Emacs too, after copying every file to a backup folder.
 
@@ -480,7 +526,11 @@ A second feature of the module lints the footnotes of the whole vault. With =org
 
 ** Settings
 
-The settings are in the group =sp-org-lint=. =sp-org-lint-fn-directory= is only used when the vulpea database is not available (or with a prefix argument, which asks for a folder). The backup folder keeps one sub-folder per run, named by the time, with the full path of each file below it.
+Settings and backups:
+
+- The settings are in the group =sp-org-lint=.
+- =sp-org-lint-fn-directory= is only used when the vulpea database is not available (or with a prefix argument, which asks for a folder).
+- The backup folder keeps one sub-folder per run, named by the time, with the full path of each file below it.
 
 #+begin_src emacs-lisp -i
 ;;;; Sectional footnotes
@@ -634,7 +684,13 @@ These two helpers are the ones of =sp-vulpea-split= (=sp-split--fn-fresh= and =s
 
 ** Planning the moves
 
-=sp-org-lint-fn--plan= decides everything and changes nothing. For each definition in a footnotes section it finds the sections that cite it. It returns the moves for the report, the orphans, dangling labels and conflicts, and the edits to apply: (POSITION LENGTH STRING) replacements, positioned against the buffer as it is now, plus the definitions to add at the end of each section.
+=sp-org-lint-fn--plan= decides everything and changes nothing.
+
+- For each definition in a footnotes section, it finds the sections that cite it.
+- It returns:
+  - the moves for the report,
+  - the orphans, dangling labels and conflicts,
+  - the edits to apply: (POSITION LENGTH STRING) replacements, positioned against the buffer as it is now, plus the definitions to add at the end of each section.
 
 A footnotes heading is removed when what remains of its text, once the moved definitions are taken out, is blank and it has no children. The removal replaces the deletions of its definitions.
 
@@ -761,7 +817,11 @@ check afterwards."
 
 ** Applying the edits to a buffer
 
-This is the edit step of =sp-split--fn-apply=: definitions are added at the end of their section, with a blank line before and after, and everything is applied from the end of the buffer so earlier positions stay valid. When a deletion and an insertion start at the same place (a section ending where a removed heading starts) the deletion goes first, otherwise the insertion would be deleted.
+This is the edit step of =sp-split--fn-apply=.
+
+- Definitions are added at the end of their section, with a blank line before and after.
+- Everything is applied from the end of the buffer, so earlier positions stay valid.
+- When a deletion and an insertion start at the same place (a section ending where a removed heading starts), the deletion goes first. Otherwise the insertion would be deleted.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--apply-edits (heads adds edits)
@@ -794,7 +854,11 @@ Everything is positioned against the buffer as it is now."
 
 ** Planning a text
 
-=sp-org-lint-fn-plan-text= is the pure entry point: text in, plist out, nothing read or written. It plans, applies the edits to a copy in a temp buffer and checks the result as described above. =:text= is the new text and =:changed= says whether it differs. This is what the tests and the headless Emacs use.
+=sp-org-lint-fn-plan-text= is the pure entry point: text in, plist out, nothing read or written.
+
+- It plans, applies the edits to a copy in a temp buffer and checks the result as described above.
+- =:text= is the new text and =:changed= says whether it differs.
+- This is what the tests and the headless Emacs use.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--counts (text)
@@ -852,7 +916,13 @@ result fails the check gets :error instead."
 
 ** Reading and writing files
 
-Files are read as UTF-8 and written back as UTF-8. A file with carriage returns is refused rather than rewritten. The text of a file is identified by its SHA-1, which the preview records and the apply step compares, so a file edited after the preview is skipped. The backup is a copy under =sp-org-lint-fn-backup-directory=; if it cannot be made, the file is not written. The new text goes to a temporary file in the same folder and is renamed over the original.
+File safety:
+
+- Files are read as UTF-8 and written back as UTF-8.
+- A file with carriage returns is refused rather than rewritten.
+- The text of a file is identified by its SHA-1. The preview records it and the apply step compares it, so a file edited after the preview is skipped.
+- The backup is a copy under =sp-org-lint-fn-backup-directory=. If it cannot be made, the file is not written.
+- The new text goes to a temporary file in the same folder and is renamed over the original.
 
 Another Emacs (the one you work in) may have the same files open, so the apply step is careful in these ways:
 
@@ -953,7 +1023,14 @@ and :status, `written' (with :backup and :moves) or `skipped' (with
 
 ** The headless worker
 
-The main Emacs starts =emacs -Q --batch -l sp-org-lint.el --eval (sp-org-lint-fn--batch CONTROL-FILE)=. The control file holds a plist with =:mode= (=plan= or =apply=) and =:files=; for =apply= the files are (FILE . SHA) pairs and =:backup-root= is set. The worker prints one line per file, prefixed with =SPLINT = and written with every non-ASCII character escaped, so the output is the same in any locale, and a last line =(:done t)=. The plan lines do not carry the new text.
+The headless worker:
+
+- The main Emacs starts =emacs -Q --batch -l sp-org-lint.el --eval (sp-org-lint-fn--batch CONTROL-FILE)=.
+- The control file holds a plist with =:mode= (=plan= or =apply=) and =:files=.
+- For =apply=, the files are (FILE . SHA) pairs and =:backup-root= is set.
+- The worker prints one line per file, prefixed with =SPLINT = and written with every non-ASCII character escaped, so the output is the same in any locale.
+- A last line =(:done t)= ends the output.
+- The plan lines do not carry the new text.
 
 #+begin_src emacs-lisp -i
 (defvar sp-org-lint--library (or load-file-name (locate-library "sp-org-lint"))
@@ -987,7 +1064,11 @@ The main Emacs starts =emacs -Q --batch -l sp-org-lint.el --eval (sp-org-lint-fn
 
 ** Finding the files
 
-The files are the paths of the notes in the vulpea database (a note is a file or a heading with an ID, so the paths are de-duplicated). If vulpea is not loaded, or the query fails, the Org files under =sp-org-lint-fn-directory= are used. Only existing =.org= files that do not match the exclude regexp are kept.
+Which files are linted:
+
+- The paths of the notes in the vulpea database (a note is a file or a heading with an ID, so the paths are de-duplicated).
+- If vulpea is not loaded, or the query fails, the Org files under =sp-org-lint-fn-directory= are used.
+- Only existing =.org= files that do not match the exclude regexp are kept.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--org-files (candidates root)
@@ -1156,7 +1237,13 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
 
 ** Running the worker
 
-=sp-org-lint-fn--start= writes the control file, starts the headless Emacs with =make-process= and returns at once. The filter collects the output, cuts it into lines and handles each =SPLINT= line; it only touches the report buffer, so Emacs stays free for other work. A scan result is added to the buffer if it has anything to report; the header line shows the progress. When the process ends, the sentinel finishes the run: a scan gets its summary, an apply reverts the buffers visiting the changed files that have no unsaved edits, and asks vulpea to update those files one at a time while Emacs is idle.
+=sp-org-lint-fn--start= writes the control file, starts the headless Emacs with =make-process= and returns at once.
+
+- The filter collects the output, cuts it into lines and handles each =SPLINT= line. It only touches the report buffer, so Emacs stays free for other work.
+- A scan result is added to the buffer if it has anything to report. The header line shows the progress.
+- When the process ends, the sentinel finishes the run:
+  - a scan gets its summary,
+  - an apply reverts the buffers visiting the changed files that have no unsaved edits, and asks vulpea to update those files one at a time while Emacs is idle.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--handle (item)
@@ -1270,7 +1357,11 @@ EXTRA is a plist merged into the control file."
 
 ** Commands
 
-=sp-org-lint-footnotes= starts a scan. =sp-org-lint-footnotes-apply=, bound to =a= in the report, asks for confirmation, leaves out the files that are open in a buffer with unsaved changes and starts the worker in apply mode on the others. Starting a new scan while a worker runs stops that worker.
+Scan and apply:
+
+- =sp-org-lint-footnotes= starts a scan.
+- =sp-org-lint-footnotes-apply=, bound to =a= in the report, asks for confirmation, leaves out the files that are open in a buffer with unsaved changes, and starts the worker in apply mode on the others.
+- Starting a new scan while a worker runs stops that worker.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-lint-fn--stop ()
@@ -1373,7 +1464,11 @@ Run headless from the folder of =init.el=:
 emacs -Q --batch -L libraries/modules/funct -l tests/sp-org-lint-test.el -f ert-run-tests-batch-and-exit
 #+end_example
 
-Fixtures are lists of lines, so that no line of the fake vault starts with a star in this file. The last two tests start the headless Emacs for real, on a fake vault in a temporary folder, and wait for it. Nothing of the real vault is read.
+Test fixtures:
+
+- Fixtures are lists of lines, so no line of the fake vault starts with a star in this file.
+- The last two tests start the headless Emacs for real, on a fake vault in a temporary folder, and wait for it.
+- Nothing of the real vault is read.
 
 #+begin_src emacs-lisp
 ;;; sp-org-lint-test.el --- Tests for the footnote linter in sp-org-lint -*- lexical-binding: t; -*-

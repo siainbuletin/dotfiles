@@ -2,17 +2,39 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-go.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-go.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-go.el=.
 
-This module sets up Go development: a set of helper packages (=go-guru=, =go-eldoc=, =godoctor=, =go-scratch=, =go-playground=, =flycheck-golangci-lint=, =go-complete=), a command that installs the external Go tools with =go install=, and a =go-mode= configuration that formats with =goimports= on save, starts =lsp-mode= with =gopls=, and uses =company= for completion.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It builds on the LSP and company defaults from =sp-base-code= and needs the =go= toolchain on the path. Nothing in =init.el= or the other modules requires =sp-go= at the moment (the only match is the unrelated =sp-goto=), so this configuration is currently inactive unless loaded by hand. The file also has no =provide= form, so =(require 'sp-go)= would load it and then fail with an error that the feature was not provided.
+This module sets up Go development:
+
+- a set of helper packages (=go-guru=, =go-eldoc=, =godoctor=, =go-scratch=, =go-playground=, =flycheck-golangci-lint=, =go-complete=),
+- a command that installs the external Go tools with =go install=,
+- a =go-mode= configuration that formats with =goimports= on save, starts =lsp-mode= with =gopls=, and uses =company= for completion.
+
+Dependencies and status:
+
+- Builds on the LSP and company defaults from =sp-base-code=.
+- Needs the =go= toolchain on the path.
+- Nothing in =init.el= or the other modules requires =sp-go= at the moment (the only match is the unrelated =sp-goto=). So this configuration is currently inactive unless loaded by hand.
+- The file has no =provide= form, so =(require 'sp-go)= would load it and then fail with an error that the feature was not provided.
 
 * Go packages
 
 ** Helper packages
 
-Declares seven Go related packages, all deferred: =go-guru= for code queries and identifier highlighting, =go-eldoc= for signatures in the echo area, =godoctor= for refactoring, =go-scratch= and =go-playground= for throwaway code, =flycheck-golangci-lint= for linting, and =go-complete= for completion. Note that the upstream =guru= tool has been deprecated by the Go team. The forms sit after =go-mode= in the file, because most of them require it and Elpaca would otherwise queue =go-mode= as a dependency first and warn.
+Declares seven Go related packages, all deferred:
+
+- =go-guru=: code queries and identifier highlighting. The upstream =guru= tool has been deprecated by the Go team.
+- =go-eldoc=: signatures in the echo area.
+- =godoctor=: refactoring.
+- =go-scratch= and =go-playground=: throwaway code.
+- =flycheck-golangci-lint=: linting.
+- =go-complete=: completion.
+
+The forms sit after =go-mode= in the file, because most of them require it. Otherwise Elpaca would queue =go-mode= as a dependency first and warn.
 
 #+begin_src emacs-lisp -i
 ;;; sp-go.el --- Go development setup -*- lexical-binding: t; -*-
@@ -36,7 +58,32 @@ Declares seven Go related packages, all deferred: =go-guru= for code queries and
 
 =ox-install-go-dependencies= runs =go install= for goimports, godoctor, guru, godef, godoc, gogetdoc and gopls one after another with =shell-command=, logging each step. The =ox-= prefix is unusual for this config and seems to be a leftover name.
 
-In =go-mode=, TAB indents or completes with company, =F1= describes the thing at point, =F12= jumps to the definition and =Shift F12= finds references, all through lsp-mode. Each Go buffer gets a tab width of 2, company backends limited to completion at point and file names, =goimports= as the formatter run before every save, guru identifier highlighting, and a deferred LSP start. The same hook also sets the =GOGC= and =GOMEMLIMIT= environment variables for the whole Emacs process (likely to keep gopls memory down) and sets several gopls and lsp options globally: no staticcheck, no eldoc hover, completion of unimported packages with placeholders, no code lenses, a half second idle delay and a lower file watch threshold of 2000, which overrides the 10000 from =sp-base-code= once a Go file has been opened. In the package config, godoc reuses one buffer, uses =gogetdoc= for documentation at point and offers completion when asking for a package.
+Keys in =go-mode=, all through lsp-mode:
+
+- TAB indents or completes with company.
+- =F1= describes the thing at point.
+- =F12= jumps to the definition. =Shift F12= finds references.
+
+Each Go buffer gets:
+
+- a tab width of 2,
+- company backends limited to completion at point and file names,
+- =goimports= as the formatter run before every save,
+- guru identifier highlighting,
+- a deferred LSP start.
+
+The same hook also sets the =GOGC= and =GOMEMLIMIT= environment variables for the whole Emacs process (likely to keep gopls memory down).
+
+It sets several gopls and lsp options globally:
+
+- no staticcheck,
+- no eldoc hover,
+- completion of unimported packages with placeholders,
+- no code lenses,
+- a half second idle delay,
+- a lower file watch threshold of 2000, which overrides the 10000 from =sp-base-code= once a Go file has been opened.
+
+In the package config, godoc reuses one buffer, uses =gogetdoc= for documentation at point and offers completion when asking for a package.
 
 #+begin_src emacs-lisp -i
 (defun ox-install-go-dependencies ()

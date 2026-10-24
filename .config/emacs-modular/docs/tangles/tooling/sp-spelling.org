@@ -2,11 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-spelling.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-spelling.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-spelling.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module configures spell checking with the built-in =ispell= and =flyspell= libraries, preferring the external =aspell= program when it is installed. Flyspell is deliberately not switched on automatically: a stalled speller process once froze the Emacs daemon, so spell checking is used on demand.
 
-=flyspell-correct= and =consult-flyspell= are configured unconditionally. A transient menu, =lem-spelling-transient=, collects the common commands; it is bound to leader keys in =sp-setup-keybindings.el=. The module is loaded from =init.el= among the utility modules.
+Spelling packages and menu:
+
+- =flyspell-correct= and =consult-flyspell= are configured unconditionally.
+- A transient menu, =lem-spelling-transient=, collects the common commands. It is bound to leader keys in =sp-setup-keybindings.el=.
+- The module is loaded from =init.el= among the utility modules.
 
 * Spell checker backends
 
@@ -30,7 +38,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** ispell
 
-Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispell-region= and =ispell-buffer= autoload it. If =aspell= is on the path it becomes the speller, called with ~--sug-mode=ultra~ for fast suggestions and US English as the language. As the comment notes, =ispell-extra-args= are passed straight to the aspell command line.
+Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispell-region= and =ispell-buffer= autoload it.
+
+- If =aspell= is on the path, it becomes the speller. It is called with ~--sug-mode=ultra~ for fast suggestions and US English as the language.
+- As the comment notes, =ispell-extra-args= are passed straight to the aspell command line.
 
 #+begin_src emacs-lisp -i
 ;;;; Spelling
@@ -46,7 +57,12 @@ Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispel
 
 ** flyspell, configured but not enabled
 
-Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=) exists. The long comment explains why it has no =:hook=: flyspell talks to the speller synchronously from the command loop, so a hung aspell process blocks all of Emacs. Use =M-x flyspell-mode=, =flyspell-buffer= or =ispell-buffer= when you want checking. The settings let corrections be saved as abbrevs in the global abbrev table, and silence flyspell's status and welcome messages.
+Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=) exists.
+
+- The long comment explains why it has no =:hook=: flyspell talks to the speller synchronously from the command loop, so a hung aspell process blocks all of Emacs.
+- Use =M-x flyspell-mode=, =flyspell-buffer= or =ispell-buffer= when you want checking.
+- The settings let corrections be saved as abbrevs in the global abbrev table.
+- They silence flyspell's status and welcome messages.
 
 #+begin_src emacs-lisp -i
 ;; Configure flyspell only when a speller exists, but deliberately do
@@ -87,7 +103,12 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** Spelling transient menu
 
-=lem-spelling-transient= is a transient menu with three columns. Under Errors, =<= and =>= jump to the previous and next error and =f= checks the whole buffer; these keep the menu open so you can step through errors. Under Checker, =c= runs =ispell=, =d= changes the dictionary and =m= toggles =flyspell-mode=; these close the menu. =q= quits. The comment notes this replaced an older macro-based implementation, and that the bindings live in =sp-setup-keybindings.el=.
+=lem-spelling-transient= is a transient menu with three columns.
+
+- Errors: =<= and =>= jump to the previous and next error, and =f= checks the whole buffer. These keep the menu open so you can step through errors.
+- Checker: =c= runs =ispell=, =d= changes the dictionary and =m= toggles =flyspell-mode=. These close the menu.
+- =q= quits.
+- The comment notes this replaced an older macro-based implementation, and that the bindings live in =sp-setup-keybindings.el=.
 
 #+begin_src emacs-lisp -i
 ;; Spelling transient. Bound to <leader> b S and <leader> S h in
@@ -112,7 +133,10 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** consult-flyspell
 
-=consult-flyspell= lists every misspelled word in the buffer through Consult. Selecting a candidate leaves point after the word, runs =flyspell-correct-at-point= on it and then reopens the list, so you can work through the errors in one session. It does not re-check the whole buffer each time it opens.
+=consult-flyspell= lists every misspelled word in the buffer through Consult.
+
+- Selecting a candidate leaves point after the word, runs =flyspell-correct-at-point= on it and then reopens the list, so you can work through the errors in one session.
+- It does not re-check the whole buffer each time it opens.
 
 #+begin_src emacs-lisp -i
 ;; Completion of misspelled words in buffer
@@ -145,7 +169,10 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** Hunspell dictionary list
 
-=sia-hunspell-dictionaries= is a customizable string listing Hunspell dictionaries, borrowed from Emacs Writing Studio (EWS). Nothing in this module reads it yet. Its =:type= is declared as =list= although the default value is a string, so the Customize interface may complain about it.
+=sia-hunspell-dictionaries= is a customizable string listing Hunspell dictionaries, borrowed from Emacs Writing Studio (EWS).
+
+- Nothing in this module reads it yet.
+- Its =:type= is declared as =list= although the default value is a string, so the Customize interface may complain about it.
 
 #+begin_src emacs-lisp -i
 ;; taken from EWS

@@ -2,13 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-tabs.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-tabs.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-tabs.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module configures the built-in =tab-bar= and the =tabspaces= package so that tabs act as workspaces: each tab holds a window layout and its own isolated set of buffers, usually tied to a project. It adds numbered tab names using circled digits, a do-what-I-mean tab switcher, a keymap of tabspaces commands and a consult buffer source limited to the current workspace.
+This module configures the built-in =tab-bar= and the =tabspaces= package so that tabs act as workspaces.
 
-The setup is inherited from Lambda Emacs (hence the =lem-= prefix). It is loaded in the window-management part of =init.el=, after =sp-buffers= and =sp-windows=. =tabspaces-mode= starts after init, so workspaces and their sessions are live; =tab-bar-show= is nil, so the tab bar itself stays hidden. The consult integration needs =consult= and the tabspaces predicate =tabspaces--local-buffer-p=.
+- Each tab holds a window layout and its own isolated set of buffers, usually tied to a project.
+- It adds numbered tab names using circled digits, a do-what-I-mean tab switcher, a keymap of tabspaces commands, and a consult buffer source limited to the current workspace.
+
+Origin and loading:
+
+- The setup is inherited from Lambda Emacs (hence the =lem-= prefix).
+- Loaded in the window-management part of =init.el=, after =sp-buffers= and =sp-windows=.
+- =tabspaces-mode= starts after init, so workspaces and their sessions are live.
+- =tab-bar-show= is nil, so the tab bar itself stays hidden.
+- The consult integration needs =consult= and the tabspaces predicate =tabspaces--local-buffer-p=.
 
 The commentary at the top of the module says:
 
@@ -48,7 +61,12 @@ The tab bar replaces the older =eyebrowse= package for grouping window layouts.
 
 ** Numbered tab names
 
-=lem-tab-bar--circle-numbers-alist= maps 0 to 15 to circled Unicode digits. =lem--tab-bar-tab-name-format= uses it to draw each tab as its number, a small gap, the tab name and optionally a close button, with the face given by =tab-bar-tab-face-function=. The number only appears when =tab-bar-tab-hints= is on and the index is below 16. The idea comes from a post by Christian Tietze.
+Numbered tab names:
+
+- =lem-tab-bar--circle-numbers-alist= maps 0 to 15 to circled Unicode digits.
+- =lem--tab-bar-tab-name-format= uses it to draw each tab as its number, a small gap, the tab name and optionally a close button, with the face given by =tab-bar-tab-face-function=.
+- The number only appears when =tab-bar-tab-hints= is on and the index is below 16.
+- The idea comes from a post by Christian Tietze.
 
 #+begin_src emacs-lisp -i
 ;;;; Tab Bar
@@ -108,7 +126,15 @@ of the tab bar."
 
 ** tab-bar settings and DWIM switcher
 
-Configures the built-in =tab-bar= once =project= is loaded. The tab bar is hidden (=tab-bar-show= nil) but tabs show numbers, new tabs open the =*scratch*= buffer and are placed at the far right, =s-1= to =s-9= select tabs by number, closing a tab returns to the most recently used one, and closing the last tab turns =tab-bar-mode= off. The new and close buttons are hidden, tabs keep their natural width, and the bar layout is history buttons, tabs, the suffix space and an add-tab element. =tab-bar-new-button= is set twice, which is harmless.
+Configures the built-in =tab-bar= once =project= is loaded.
+
+- The tab bar is hidden (=tab-bar-show= nil), but tabs show numbers.
+- New tabs open the =*scratch*= buffer and are placed at the far right.
+- =s-1= to =s-9= select tabs by number.
+- Closing a tab returns to the most recently used one. Closing the last tab turns =tab-bar-mode= off.
+- The new and close buttons are hidden, and tabs keep their natural width.
+- The bar layout is history buttons, tabs, the suffix space and an add-tab element.
+- =tab-bar-new-button= is set twice, which is harmless.
 
 =lem-tab-bar-select-tab-dwim= creates a tab when there is only one, switches to the other when there are two, and otherwise asks with completion. It comes from Protesilaos Stavrou and is not bound to a key here.
 
@@ -165,7 +191,15 @@ questions.  Otherwise use completion to select the tab."
 
 ** tabspaces package
 
-Installs =tabspaces= and makes its main commands autoload. Buffer lists are filtered to the current workspace by default, the default tab is called =Home=, removed buffers go back to it, and =*scratch*= is included in every workspace. Opening a project creates a =project-todo.org= file, workspaces are saved as a session and restored automatically, project paths are resolved to absolute ones, and =*Messages*= and =*Compile-Log*= are left out of workspaces. =tabspaces-mode= starts from =after-init=; without it the session options do nothing. The session (the file-visiting buffers of each workspace) is stored in =tabspaces-session.eld= in =sp-var-dir=; =tabspaces-save-session= and =tabspaces-restore-session= do it by hand.
+Installs =tabspaces= and makes its main commands autoload.
+
+- Buffer lists are filtered to the current workspace by default.
+- The default tab is called =Home=. Removed buffers go back to it.
+- =*scratch*= is included in every workspace. =*Messages*= and =*Compile-Log*= are left out.
+- Opening a project creates a =project-todo.org= file.
+- Workspaces are saved as a session and restored automatically. Project paths are resolved to absolute ones.
+- =tabspaces-mode= starts from =after-init=. Without it the session options do nothing.
+- The session (the file-visiting buffers of each workspace) is stored in =tabspaces-session.eld= in =sp-var-dir=. =tabspaces-save-session= and =tabspaces-restore-session= do it by hand.
 
 #+begin_src emacs-lisp -i
 ;;;; Tab Workspaces
@@ -208,7 +242,21 @@ A commented-out setting that would make any directory with a =.project= file cou
 
 ** Tabspaces command map
 
-Defines =tabspaces-command-map= with single-key commands: =s= switch or create a workspace, =o= open a project in a workspace, =b= switch buffer within the workspace, =t= switch to a buffer and its tab, =d= close a workspace, =k= kill its buffers and close it, =n= rename, =r= and =R= remove buffers, =C= clear buffers, =w= show workspaces and =T= toggle echo area display. Because it is defined before tabspaces loads, this map is the one tabspaces uses; it becomes reachable under =tabspaces-keymap-prefix= once =tabspaces-mode= is on.
+Defines =tabspaces-command-map= with single-key commands:
+
+- =s=: switch or create a workspace.
+- =o=: open a project in a workspace.
+- =b=: switch buffer within the workspace.
+- =t=: switch to a buffer and its tab.
+- =d=: close a workspace.
+- =k=: kill its buffers and close it.
+- =n=: rename.
+- =r= and =R=: remove buffers.
+- =C=: clear buffers.
+- =w=: show workspaces.
+- =T=: toggle echo area display.
+
+It is defined before tabspaces loads, so this map is the one tabspaces uses. It becomes reachable under =tabspaces-keymap-prefix= once =tabspaces-mode= is on.
 
 #+begin_src emacs-lisp -i
 ;; Keybindings for tabspaces
@@ -246,7 +294,12 @@ Defines =tabspaces-command-map= with single-key commands: =s= switch or create a
 
 ** Consult source for workspace buffers
 
-After consult loads, the normal buffer source is hidden from =consult-buffer= (still reachable with the =b= narrowing key) and is no longer the default. A new source, =consult-source-workspace=, lists only buffers that belong to the current tabspace, sorted by visibility, under the narrowing key =w=. The new source is not added to =consult-buffer-sources= in this module, so it only shows up if that is done elsewhere; as things stand, hiding the default source means =consult-buffer= lists fewer buffers by default.
+After consult loads:
+
+- The normal buffer source is hidden from =consult-buffer= (still reachable with the =b= narrowing key) and is no longer the default.
+- A new source, =consult-source-workspace=, lists only buffers that belong to the current tabspace, sorted by visibility, under the narrowing key =w=.
+- The new source is not added to =consult-buffer-sources= in this module, so it only shows up if that is done elsewhere.
+- As things stand, hiding the default source means =consult-buffer= lists fewer buffers by default.
 
 #+begin_src emacs-lisp -i
 (with-eval-after-load 'consult

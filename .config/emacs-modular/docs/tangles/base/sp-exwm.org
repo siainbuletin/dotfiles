@@ -2,11 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-exwm.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-exwm.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-exwm.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module would run Emacs as the X11 window manager using EXWM, based on the examples in the EXWM wiki. Everything is guarded by the option =siapip/use-exwm=, which defaults to nil, so loading the file normally does nothing beyond defining that option.
 
-The module is currently commented out in both module lists of =init.el=. It also has no =(provide 'sp-exwm)= at the end, so requiring it by feature name would fail with a missing-feature error. When enabled it needs the =exwm= package, an X11 session, and =/usr/bin/slock= for the lock key.
+Status:
+
+- The module is currently commented out in both module lists of =init.el=.
+- It has no =(provide 'sp-exwm)= at the end, so requiring it by feature name would fail with a missing-feature error.
+- When enabled, it needs the =exwm= package, an X11 session, and =/usr/bin/slock= for the lock key.
 
 * EXWM
 
@@ -38,7 +46,11 @@ The configuration:
 - sets global keys: =s-r= resets, =s-w= switches workspace, =s-0= to =s-9= switch to or create that workspace, =s-&= launches a shell command;
 - makes =C-q= in X windows send the next key straight to the application.
 
-The last entry of =exwm-input-global-keys= binds =s-o= to lock the screen with =slock=. It used to be missing its surrounding parentheses, so the vector and the lambda's parts were spliced into the list as separate elements and the binding did not work. Several alternatives, such as =exwm-config= and an =xrandr= screen layout hook, are left commented out. The =exwm-randr-enable= and =exwm-systemtray-enable= calls are the older API; recent EXWM versions use =exwm-randr-mode= and =exwm-systemtray-mode= instead.
+The last entry of =exwm-input-global-keys= binds =s-o= to lock the screen with =slock=.
+
+- It used to be missing its surrounding parentheses. The vector and the lambda's parts were spliced into the list as separate elements, and the binding did not work.
+- Several alternatives, such as =exwm-config= and an =xrandr= screen layout hook, are left commented out.
+- The =exwm-randr-enable= and =exwm-systemtray-enable= calls are the older API. Recent EXWM versions use =exwm-randr-mode= and =exwm-systemtray-mode= instead.
 
 #+begin_src emacs-lisp -i
 ;; See https://github.com/ch11ng/exwm/wiki

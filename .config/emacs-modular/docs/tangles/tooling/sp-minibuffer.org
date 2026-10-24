@@ -2,11 +2,20 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-minibuffer.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-minibuffer.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-minibuffer.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module gathers the packages behind minibuffer and in-buffer completion. It pulls in =sp-completion= and then installs the =prescient= sorting and filtering library together with its adapters for Company, Ivy, Selectrum, Vertico and Corfu, plus Corfu itself and =counsel-fd=.
 
-Most of the packages are only installed here (with elpaca's =:wait t= so they are available immediately); no adapter modes are switched on in this file, so any activation must happen elsewhere. A comment records an open question about whether this whole stack could be replaced by the improved built-in completion in Emacs 31. The module is loaded from =init.el= as part of the utility modules.
+Notes on the packages:
+
+- Most of the packages are only installed here (with elpaca's =:wait t= so they are available immediately).
+- No adapter modes are switched on in this file, so any activation must happen elsewhere.
+- A comment records an open question about whether this whole stack could be replaced by the improved built-in completion in Emacs 31.
+- The module is loaded from =init.el= as part of the utility modules.
 
 * File header
 
@@ -31,7 +40,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Larger text in text-mode buffers
 
-Adds =sp-text-buffer= to =text-mode-hook=. That function is defined in =sp-fonts= and increases the text scale by four steps, so every text buffer opens with a larger font. It has little to do with the minibuffer and seems to live here for historical reasons; it relies on =sp-fonts= being loaded first.
+Adds =sp-text-buffer= to =text-mode-hook=.
+
+- That function is defined in =sp-fonts= and increases the text scale by four steps, so every text buffer opens with a larger font.
+- It has little to do with the minibuffer and seems to live here for historical reasons.
+- It relies on =sp-fonts= being loaded first.
 
 #+begin_src emacs-lisp -i
 (add-hook 'text-mode-hook 'sp-text-buffer)

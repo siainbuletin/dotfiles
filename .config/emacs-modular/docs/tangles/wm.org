@@ -93,7 +93,12 @@ helpful threads:
 
 * Configuring tab management
 
-What's really good about =tab-bar-mode= in Emacs is that it allows more than one buffer per tab (and you can switch between them), and you can even have a window split set up for each tab. So they're "higher level" than your average tab bar, in reality. A window can be split in multiple ways, and then be given a name to switch to (which is more ergonomic, overall).
+What's really good about =tab-bar-mode= in Emacs:
+
+- It allows more than one buffer per tab (and you can switch between them).
+- You can even have a window split set up for each tab.
+- So they're "higher level" than your average tab bar.
+- A window can be split in multiple ways, and then be given a name to switch to, which is more ergonomic overall.
 
 I want each new tab that I open to actually open in the [[file:dashboard.org][Dashboard mode]].
 
@@ -293,11 +298,18 @@ I need to change this to something that isn't F5 so I don't override reloading m
 
 ** TODO Enabling =perspective-el=
 
-This would basically be better than trying to use the native =switch-to-buffer= functionality or =ibuffer=. For this, you can have different "workspaces", meaning different lists of buffers that you might be working with, which you can set up through =perspective-el=. The package is mostly concerned with the workspace concept.
+Why workspaces:
+
+- This would be better than the native =switch-to-buffer= functionality or =ibuffer=.
+- You can have different "workspaces": different lists of buffers you might be working with, set up through =perspective-el=.
+- The package is mostly concerned with the workspace concept.
 
 Works pretty well with EXWM.[fn:3]
 
-Perspectives are also attached to different frames. If you have multiple frames, each of them will have their own set of buffers. So it would be a lot better if it could be integrated with a tiling window manager (see [[id:5cfcd933-68fe-4f6e-9836-8a4fa5c6d064][Integrating Emacs with a tiling window manager]]).
+Perspectives and frames:
+
+- Perspectives are also attached to different frames. With multiple frames, each has its own set of buffers.
+- So it would be a lot better if it could be integrated with a tiling window manager (see [[id:5cfcd933-68fe-4f6e-9836-8a4fa5c6d064][Integrating Emacs with a tiling window manager]]).
 
 Perspective can also be used for [[id:958d938a-39bf-4c82-b7c5-d9743925ea49][Session management]].
 

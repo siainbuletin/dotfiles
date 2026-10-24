@@ -1,11 +1,21 @@
 #+TITLE: sp-collec-query: tables of Vulpea notes
 #+STARTUP: content
 
-Literate source for the =sp-collection-query-tables= family in =libraries/modules/funct/=: seven modules written from this one file, each under its own heading below. The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README. This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
+Literate source for the =sp-collection-query-tables= family in =libraries/modules/funct/=.
+
+- Seven modules are written from this one file, each under its own heading below.
+- The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
 
 * What it is for
 
-A table of Vulpea notes, like a Dataview query: choose the notes (by tag, directory, TODO state, links, meta keys or parent), choose the columns and the sort, and see the result as a live table, an Org table inside a note, or a saved view you reopen later. Everything is one query description, a /spec/, so the same query can be built in a menu, saved, inserted in a note and shown by any renderer.
+A table of Vulpea notes, like a Dataview query.
+
+- Choose the notes: by tag, directory, TODO state, links, meta keys or parent.
+- Choose the columns and the sort.
+- See the result as a live table, an Org table inside a note, or a saved view you reopen later.
+- Everything is one query description, a /spec/. The same query can be built in a menu, saved, inserted in a note and shown by any renderer.
 
 * Layout
 
@@ -23,11 +33,25 @@ All of it is loaded from =sp-collection-query-tables.el=, which =sp-org-ext= req
 
 * Names: why the prefix is =sp-collec-query-=
 
-The files and features keep the full name, =sp-collection-query-tables=, so that =require= and the file list say what the module is. The symbols (commands, settings, functions and the customize group) use the abbreviation =sp-collec-query-=, because with the full name the longest of them reached 45 characters (=sp-collection-query-tables-menu--d-tags-none=) and the commands were tiresome to type or read in =M-x=.
+Naming:
 
-What it stands for: /collec/ is /collection/, the set of notes a query is run against (the notes in the Vulpea database; the name does not tie the module to Vulpea, any source of notes could be put behind =sp-collec-query-query=); /query/ is the spec that selects notes and columns; and the tables are how the result is shown. The trailing /tables/ is dropped from the prefix because every renderer here shows a table.
+- Files and features keep the full name, =sp-collection-query-tables=, so =require= and the file list say what the module is.
+- Symbols (commands, settings, functions, the customize group) use the abbreviation =sp-collec-query-=.
+- Why: with the full name the longest symbol reached 45 characters (=sp-collection-query-tables-menu--d-tags-none=), and the commands were tiresome to type or read in =M-x=.
 
-This breaks the Emacs Lisp habit that a prefix equals the feature name on purpose. Two things follow. Completing =sp-collec-query-= in =M-x= lists every command of the family. A module and a command can look alike: =sp-collec-query-menu= is the transient command, =sp-collection-query-tables-menu= the file that defines it. The customize group is =sp-collec-query= and its =:prefix= says so.
+What the abbreviation stands for:
+
+- /collec/ is /collection/: the set of notes a query is run against. These are the notes in the Vulpea database. The name does not tie the module to Vulpea; any source of notes could be put behind =sp-collec-query-query=.
+- /query/ is the spec that selects notes and columns.
+- The tables are how the result is shown.
+- The trailing /tables/ is dropped from the prefix because every renderer here shows a table.
+
+This breaks the Emacs Lisp habit that a prefix equals the feature name, on purpose. Two things follow:
+
+- Completing =sp-collec-query-= in =M-x= lists every command of the family.
+- A module and a command can look alike: =sp-collec-query-menu= is the transient command, =sp-collection-query-tables-menu= the file that defines it.
+
+The customize group is =sp-collec-query= and its =:prefix= says so.
 
 * The spec
 
@@ -76,11 +100,38 @@ In an exc table: =C-c o= opens the note in the row, =C-c q= edits the query in t
 
 * Installing
 
-Packages come from =use-package= with the Elpaca recipe in =:ensure=, never from clones put on =load-path=. The entry file declares =ecss=, =ebox=, =etaf= and =exc= that way when =sp-collec-query-install-exc= is non-nil (the default). The ETAF repositories keep their code in =lisp/=, so their recipes say =:files ("*.el" "lisp/*.el")=. exc's README gives =yibie/exc= as its address, but only =yibie/grid-table= resolved when this was written, so the recipe uses that.
+Packages come from =use-package= with the Elpaca recipe in =:ensure=, never from clones put on =load-path=.
+
+- The entry file declares =ecss=, =ebox=, =etaf= and =exc= that way when =sp-collec-query-install-exc= is non-nil (the default).
+- The ETAF repositories keep their code in =lisp/=, so their recipes say =:files ("*.el" "lisp/*.el")=.
+- exc's README gives =yibie/exc= as its address, but only =yibie/grid-table= resolved when this was written, so the recipe uses that.
 
 * Old names
 
-The first version's commands still work as obsolete aliases: =sia-vulpea-open-table= (now the menu), =sia-vulpea-open-saved-table=, =sia-vulpea-insert-table-from-view=, =sia-insert-vulpea-table=, =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=), =sia-vulpea-refresh-all-tables=, =sia-vulpea-select-note= and =sia-vulpea-read-parent=. A views file written by the first version is read and converted. The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=; while it does not exist, the old =sp-vulpea-table-views.el= is read instead. The dynamic block is =collection-query-table=; =#+BEGIN: vulpea-table= in existing notes still works. The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone: require =sp-collection-query-tables=. The settings and commands of the rename itself (=sp-vulpea-table-*=, now =sp-collec-query-*=) are not aliased: set and call the new names. The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
+Compatibility with the first version:
+
+Still working, as obsolete aliases:
+
+- =sia-vulpea-open-table= (now the menu),
+- =sia-vulpea-open-saved-table=,
+- =sia-vulpea-insert-table-from-view=,
+- =sia-insert-vulpea-table=,
+- =sia-vulpea-inline-tables-toggle= (and =-mount=, =-unmount=),
+- =sia-vulpea-refresh-all-tables=,
+- =sia-vulpea-select-note=,
+- =sia-vulpea-read-parent=.
+
+Data and blocks:
+
+- A views file written by the first version is read and converted.
+- The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=. While it does not exist, the old =sp-vulpea-table-views.el= is read instead.
+- The dynamic block is =collection-query-table=. =#+BEGIN: vulpea-table= in existing notes still works.
+
+Gone or not aliased:
+
+- The features =sp-vulpea-dblock=, =sp-vulpea-vui-table= and =sp-vulpea-table-views= (with its old contents) are gone. Require =sp-collection-query-tables=.
+- The settings and commands of the rename itself (=sp-vulpea-table-*=, now =sp-collec-query-*=) are not aliased. Set and call the new names.
+- The functions =sia-vulpea--note-matches-p= and the other double-dash helpers were internal and are not aliased.
 
 * What was wrong, and what changed
 
@@ -98,7 +149,27 @@ Left as they were: =org-id-get-create= still adds an ID to the file when a "self
 
 * Not tested
 
-Run in a container on Emacs 29.3 with a real Vulpea database (a handful of notes, then 1000): queries for every filter, the dynamic block, saved views and the old-format conversion, writing meta back, the Org and vui renderers, the exc grid and its in-place editing, and the menu's commands called directly with the prompts stubbed. Not run: the menu on screen, the exc and vui tables in a graphical frame, mouse use, inline tables, Elpaca building ETAF and exc, anything on your real notes, and macOS. =renderer-test-plan.md= in the project files (not in this repository) lists what to try on the Mac.
+What was tested, in a container on Emacs 29.3 with a real Vulpea database (a handful of notes, then 1000):
+
+- queries for every filter,
+- the dynamic block,
+- saved views and the old-format conversion,
+- writing meta back,
+- the Org and vui renderers,
+- the exc grid and its in-place editing,
+- the menu's commands called directly with the prompts stubbed.
+
+Not run:
+
+- the menu on screen,
+- the exc and vui tables in a graphical frame,
+- mouse use,
+- inline tables,
+- Elpaca building ETAF and exc,
+- anything on your real notes,
+- macOS.
+
+=renderer-test-plan.md= in the project files (not in this repository) lists what to try on the Mac.
 
 * Sandbox
 
@@ -114,7 +185,14 @@ Try a spec without saving anything: evaluate with =C-c C-c=.
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It loads the core, the views, the Org output and the menu, picks a renderer, installs exc through Elpaca, and binds the keys. The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
+The only file the rest of the configuration requires (=sp-org-ext= does, after the Vulpea modules). It:
+
+- loads the core, the views, the Org output and the menu,
+- picks a renderer,
+- installs exc through Elpaca,
+- binds the keys.
+
+The exc and vui parts load the first time they are used, so a missing package never stops Emacs from starting.
 
 ** Header and requires
 
@@ -303,7 +381,12 @@ buffer is redrawn with SPEC instead of opening another."
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-core.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-Everything that does not depend on how a table is drawn. A table is a /spec/, a plist; =sp-collec-query-query= turns it into notes with one =vulpea-db-query= predicate, and =sp-collec-query-cell= turns a note and a column into text. The dynamic block, exc, vui and the Org buffer all call these, so a query behaves the same in all of them.
+Everything that does not depend on how a table is drawn.
+
+- A table is a /spec/, a plist.
+- =sp-collec-query-query= turns it into notes with one =vulpea-db-query= predicate.
+- =sp-collec-query-cell= turns a note and a column into text.
+- The dynamic block, exc, vui and the Org buffer all call these, so a query behaves the same in all of them.
 
 ** Header and requires
 
@@ -344,7 +427,19 @@ Group, requires. The group =sp-collec-query= holds every option of the module fa
 
 ** Specs
 
-The keys a spec may carry. The filters are all optional and are combined with /and/: tags (all, any, none), directories, TODO states, links to notes, meta keys with an optional value, children of a parent note, level, and a title regexp. =:columns=, =:sort-by= and =:sort-desc= shape the table. A "self" parent is resolved against the buffer the table is asked from, because a renderer may switch buffers before it queries.
+The keys a spec may carry:
+
+- The filters are all optional and are combined with /and/:
+  - tags (all, any, none),
+  - directories,
+  - TODO states,
+  - links to notes,
+  - meta keys with an optional value,
+  - children of a parent note,
+  - level,
+  - a title regexp.
+- =:columns=, =:sort-by= and =:sort-desc= shape the table.
+- A "self" parent is resolved against the buffer the table is asked from, because a renderer may switch buffers before it queries.
 
 #+begin_src emacs-lisp -i
 ;;;; Specs
@@ -629,7 +724,12 @@ Return the `vulpea-note'."
 
 ** Writing a meta value back
 
-Used by the exc and vui renderers when a meta cell is edited. It replaces the first =- key :: value= line before the first heading, or adds the key after the last meta line of that block, and saves the file. It refuses notes for headings: before, an edit to a heading's row rewrote the file's top-level meta. Keys are matched case-sensitively, as Vulpea reads them.
+Used by the exc and vui renderers when a meta cell is edited.
+
+- Replaces the first =- key :: value= line before the first heading, or adds the key after the last meta line of that block.
+- Saves the file.
+- Refuses notes for headings. Before, an edit to a heading's row rewrote the file's top-level meta.
+- Keys are matched case-sensitively, as Vulpea reads them.
 
 #+begin_src emacs-lisp -i
 ;;;; Writing a meta value back
@@ -681,7 +781,11 @@ is refused rather than written to the wrong place."
 
 ** Refreshing open tables
 
-Live tables subscribe to =sp-collec-query-refresh-functions= while they are open. Saving an Org note schedules a refresh after =sp-collec-query-refresh-delay= seconds, to give Vulpea's autosync time to update the database. A save made by a table's own edit is ignored for two seconds so the cell just edited is not redrawn from a database that has not caught up.
+Refreshing live tables:
+
+- Live tables subscribe to =sp-collec-query-refresh-functions= while they are open.
+- Saving an Org note schedules a refresh after =sp-collec-query-refresh-delay= seconds, to give Vulpea's autosync time to update the database.
+- A save made by a table's own edit is ignored for two seconds, so the cell just edited is not redrawn from a database that has not caught up.
 
 #+begin_src emacs-lisp -i
 ;;;; Refreshing open tables
@@ -1311,7 +1415,10 @@ Each key's label shows the current value. The macro defines one description func
 
 ** Commands that change one setting
 
-One command per setting. Tags, directories, TODO states and columns use =completing-read-multiple= with the current value as initial input, so editing a list is editing text. Links and meta keys are added one at a time and cleared with their capital letter.
+One command per setting.
+
+- Tags, directories, TODO states and columns use =completing-read-multiple= with the current value as initial input, so editing a list is editing text.
+- Links and meta keys are added one at a time and cleared with their capital letter.
 
 #+begin_src emacs-lisp -i
 ;;;; Commands that change one setting
@@ -1596,7 +1703,11 @@ Open (or redraw the table the menu came from), preview the count, insert as a dy
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-exc.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF from emacs-taf. The first row holds the column names and is frozen. Meta columns are editable: the text is written to the note's file first, then the cell changes. The other columns are read-only.
+Draws a table with exc, the spreadsheet by yibie that is itself drawn with ETAF from emacs-taf.
+
+- The first row holds the column names and is frozen.
+- Meta columns are editable: the text is written to the note's file first, then the cell changes.
+- The other columns are read-only.
 
 ** Header and requires
 

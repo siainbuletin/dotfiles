@@ -1,6 +1,10 @@
 #+title: A projects sidebar: writing projects and issues beside the work
 
-This page says how to build the view that replaces the =Projects= item of the splash menu: a sidebar that lists my writing projects and the issues of =sp-org-issues=, and stays next to whatever I am editing. It compares the ways Emacs can host a sidebar, picks one that fits this configuration, and says where the data comes from. It is a design only; no code in this page is tangled.
+This page says how to build the view that replaces the =Projects= item of the splash menu.
+
+- The view is a sidebar listing my writing projects and the issues of =sp-org-issues=. It stays next to whatever I am editing.
+- It compares the ways Emacs can host a sidebar, picks one that fits this configuration, and says where the data comes from.
+- It is a design only. No code in this page is tangled.
 
 * In short
 
@@ -27,7 +31,12 @@ Two of these already put things beside the text, and they are the constraints: =
 
 ** Writing projects
 
-A writing project is a =vulpea-para= project: a heading tagged =project= inside an area. =Issues= is an area for code, so a =Writing= area (a file tagged =area=, with =* Tasks=, =* Notes=, =* Archive=) is the same idea for prose, and =vulpea-para-projects-in-area= returns its projects. This keeps one model for everything that is "a project", and the agenda commands that already understand areas work on it.
+Writing projects:
+
+- A writing project is a =vulpea-para= project: a heading tagged =project= inside an area.
+- =Issues= is an area for code. A =Writing= area (a file tagged =area=, with =* Tasks=, =* Notes=, =* Archive=) is the same idea for prose.
+- =vulpea-para-projects-in-area= returns its projects.
+- This keeps one model for everything that is "a project". The agenda commands that already understand areas work on it.
 
 The thesis is the first entry. Anything else with the =@writing= tag (see =sp-org-taskman-extra=) can be listed as well by a second query, but I'd start with the area alone.
 
@@ -35,17 +44,33 @@ The thesis is the first entry. Anything else with the =@writing= tag (see =sp-or
 
 =sp-org-issues= keeps one file (=sp-org-issues-file=). Under =* Tasks= there is a level-2 heading per repository (names in =sp-org-issues-repos=), and each issue is a TODO below it with the keywords =TODO NEXT PROG WAIT | DONE CNCL= and =BRANCH=, =PR=, =THREAD= properties.
 
-For the sidebar I'd read that file directly, with =org-map-entries= or =org-ql= over =(sp-org-issues--agenda-files)=, not the agenda. The query returns, for each open issue: repository, keyword, title, marker, and the =PR= property. It is cheap (one file) and avoids the side effects of building an agenda buffer. The vulpea database is a second option; I have not checked whether it exposes the todo keyword of a heading, so the first version should not depend on it.
+Data source for the sidebar:
+
+- Read the issues file directly, with =org-map-entries= or =org-ql= over =(sp-org-issues--agenda-files)=, not the agenda.
+- For each open issue the query returns: repository, keyword, title, marker, and the =PR= property.
+- It is cheap (one file) and avoids the side effects of building an agenda buffer.
+- The vulpea database is a second option. I have not checked whether it exposes the todo keyword of a heading, so the first version should not depend on it.
 
 ** Staying current
 
-Refresh on three triggers: =after-save-hook= of those two files, the =org-capture-after-finalize-hook= (for =C-c c I=), and =g= in the sidebar. A generation counter that the component keys its memo on is the pattern =sp-tab-inbox= uses (=sp-tab-inbox-generation=); reuse it. No timers.
+Refresh on three triggers:
+
+- =after-save-hook= of those two files,
+- the =org-capture-after-finalize-hook= (for =C-c c I=),
+- =g= in the sidebar.
+
+A generation counter that the component keys its memo on is the pattern =sp-tab-inbox= uses (=sp-tab-inbox-generation=). Reuse it. No timers.
 
 * The options
 
 ** 1. A side window with a dedicated buffer (recommended)
 
-=display-buffer-in-side-window= with =(side . left)=, a fixed width, and window parameters =no-delete-other-windows= and =no-other-window= (the second is optional). Side windows survive =C-x 1=, are not touched by =other-window= unless asked, and belong to the frame's window configuration, so each =tab-bar= tab keeps its own sidebar state. That last point matters with =tabspaces=: the sidebar can be open in the "Thesis" workspace and closed in "Notes".
+Hosting: =display-buffer-in-side-window= with =(side . left)=, a fixed width, and window parameters =no-delete-other-windows= and =no-other-window= (the second is optional).
+
+- Side windows survive =C-x 1=.
+- They are not touched by =other-window= unless asked.
+- They belong to the frame's window configuration, so each =tab-bar= tab keeps its own sidebar state.
+- That matters with =tabspaces=: the sidebar can be open in the "Thesis" workspace and closed in "Notes".
 
 For: the one mechanism =sp-buffers=, =sp-treemacs= and =sp-vc-ai-workbench= already use; no new package; works in terminal Emacs and with macOS tiling (=aerospace=) because it is still one frame; =vui= gives collapsible sections and buttons.
 
@@ -57,7 +82,11 @@ Register two more widgets with =vulpea-ui-register-widget=, as =sp-tab-inbox= do
 
 For: nothing new to open; same keys and refresh.
 
-Against: the widgets render for the *note at point* and the sidebar closes or empties when point is in a non-note buffer. A project list is global. It would also compete for the 0.33 width with backlinks and outline. Good for "issues about this note"; wrong for "all my projects".
+Against (vulpea-ui sidebar):
+
+- The widgets render for the *note at point*. The sidebar closes or empties when point is in a non-note buffer. A project list is global.
+- It would also compete for the 0.33 width with backlinks and outline.
+- Good for "issues about this note"; wrong for "all my projects".
 
 ** 3. A treemacs-style tree
 
@@ -65,7 +94,11 @@ Use the treemacs extension API (=treemacs-define-expandable-node=) so projects a
 
 For: familiar tree keys, icons already set up (=treemacs-nerd-icons=).
 
-Against: treemacs's model is a workspace of file paths. Fitting heading markers and todo keywords into it means working against the package, and =sp-treemacs= only works around its project detection to begin with (the yadm repository root is =$HOME=). Heavier than the problem.
+Against (treemacs):
+
+- treemacs's model is a workspace of file paths. Fitting heading markers and todo keywords into it means working against the package.
+- =sp-treemacs= only works around its project detection to begin with (the yadm repository root is =$HOME=).
+- Heavier than the problem.
 
 ** 4. A dedicated frame or child frame
 
@@ -126,11 +159,23 @@ One buffer, two collapsible sections drawn with =vui=:
   ▸ vulpea-mcp
 #+end_example
 
-Keys: =RET= visits the project or issue (the heading, narrowed, in the window to the right of the sidebar), =TAB= folds, =n= captures a new issue (=org-capture= template =I=) or a new writing project, =s= runs =sp-org-issues-start= on the issue at point, =b= opens its PR link, =g= refreshes. This follows what the =sp-tab-inbox= widget already does with buttons.
+Keys (this follows what the =sp-tab-inbox= widget already does with buttons):
+
+- =RET=: visit the project or issue (the heading, narrowed, in the window to the right of the sidebar).
+- =TAB=: fold.
+- =n=: capture a new issue (=org-capture= template =I=) or a new writing project.
+- =s=: run =sp-org-issues-start= on the issue at point.
+- =b=: open its PR link.
+- =g=: refresh.
 
 ** Integration with =sp-workspaces=
 
-Opening a writing project can also open its workspace: a tab named after the project, with the project's note in the main window and the sidebar on the left. That reuses the pattern of =sp-open-notes-in-workspace= (switch to the tab if it exists, otherwise create it), and means the side window state is per project. Opening an issue calls =sp-org-issues-start= as it does today, and Magit in its worktree takes the main window.
+Opening a writing project can also open its workspace:
+
+- A tab named after the project, with the project's note in the main window and the sidebar on the left.
+- It reuses the pattern of =sp-open-notes-in-workspace=: switch to the tab if it exists, otherwise create it.
+- So the side window state is per project.
+- Opening an issue calls =sp-org-issues-start= as it does today, and Magit in its worktree takes the main window.
 
 ** Things to watch
 
