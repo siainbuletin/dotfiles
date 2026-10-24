@@ -1,7 +1,7 @@
 #+title: Architecture decision records
 #+startup: overview
 
-Decisions about how I work with AI-made changes on this repository, one file each. The top-level [[file:../README.org::*Reviewing and merging AI-made changes on macOS][README.org]] only summarises the current choices and links here for the reasons.
+Decisions about this repository, one file each: how I work with AI-made changes (0001 to 0008, 0018) and how the larger features were built (0009 to 0017). The top-level [[file:../README.org::*Reviewing and merging AI-made changes on macOS][README.org]] only summarises the current choices and links here for the reasons.
 
 Each record has a status (accepted, superseded or rejected), the context, the decision, the alternatives that were considered and the consequences. To change a decision, write a new record that supersedes the old one and set the old one's =#+status:= to =superseded by NNNN=; do not rewrite history.
 
@@ -23,3 +23,8 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0011-dashboard-and-org-ql-views.org][0011]] | The splash screen is the dashboard and runs the agenda views; org-ql blocks | accepted |
 | [[file:0012-org-super-agenda-per-view.org][0012]] | org-super-agenda is on, with groups set per view | accepted |
 | [[file:0013-org-gtd-keywords-and-inbox.org][0013]] | org-gtd: drop the keyword mapping; proposal for processing the inbox | accepted, inbox proposed |
+| [[file:0014-sp-graphs-relationship-annotator.org][0014]] | One graph module, =sp-graphs=: the relationship annotator, its live view, and what is still open | accepted, open questions |
+| [[file:0015-collection-query-tables.org][0015]] | Tables of notes come from one query description (=sp-collection-query-tables=) | accepted |
+| [[file:0016-dashboard.org][0016]] | The start screen is a layered dashboard with agenda boxes and a privacy mode | accepted, wiring of 0011 missing |
+| [[file:0017-font-management.org][0017]] | Fontaine presets own the fonts; emoji and tag emoji sit beside them | accepted |
+| [[file:0018-emacs-pr-sandbox-and-reload.org][0018]] | =emacs-pr= builds a sandbox from a PR ref; =sp-reload= is proposed | accepted, reload proposed |
