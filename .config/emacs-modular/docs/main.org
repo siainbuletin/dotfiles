@@ -30,7 +30,7 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
-- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share and where they differ
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
 
@@ -87,8 +87,9 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
+- [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
 - [[file:tangles/custom/sp-graphs.org][sp-graphs]] :: Graphs of notes in one module: =discourse-graphs= and =vulpea-graph= from packages, plus my relationship annotator and its live view ([[file:../libraries/modules/custom/sp-graphs.el][sp-graphs.el]])
-- [[file:architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
 
@@ -234,8 +235,6 @@ Deciding on the order is not trivial: [[file:architecture/load-order.org][Module
 ** TODO Reduce the verbosity of the documentation in the modules
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
-
-
 
 * Functionality of the literate configuration
 

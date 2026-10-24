@@ -67,7 +67,7 @@ None of this was run on a Mac, or with embr at all. The container that wrote it 
 
 Elpaca installs embr from GitHub, as for the other packages with a recipe in this configuration. embr needs Emacs 30.1, so the =use-package= form sits inside a =when=: use-package starts the install outside any =:when=, so only an enclosing form can stop it on an older Emacs. The =:files= list is the one from the embr README: it ships Python and shell scripts that must be part of the build.
 
-=:defer t= keeps embr from loading at startup, and the settings go in =:custom= so they apply when it loads. The values are embr's defaults except for the engine, which is the plain Chromium: it is the open source one and the one that can use the Chrome Web Store. Change =embr-browser-engine= back to ='cloakbrowser= if you prefer it. After installing, run =M-x embr-install-or-update-chromium= once. The module is in =lem--late-modules= (after the live view), so the install is queued once startup is done.
+=:defer t= keeps embr from loading at startup, and the settings go in =:custom= so they apply when it loads. The values are embr's defaults except for the engine, which is the plain Chromium: it is the open source one and the one that can use the Chrome Web Store. Change =embr-browser-engine= back to ='cloakbrowser= if you prefer it. After installing, run =M-x embr-install-or-update-chromium= once. The module is in =sp-late-modules= (after the live view), so the install is queued once startup is done.
 
 #+begin_src emacs-lisp -i
 (when (>= emacs-major-version 30)
