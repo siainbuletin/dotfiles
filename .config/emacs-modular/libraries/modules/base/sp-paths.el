@@ -34,44 +34,44 @@
 
 (defcustom sp-notes-dir (sp-paths--dir "SP_NOTES_DIR" "~/notes")
   "Root of the notes (the Zettelkasten, inbox, areas)."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-documents-dir (sp-paths--dir "SP_DOCUMENTS_DIR" "~/Documents")
   "The documents folder (calibre library, writing, elfeed.org)."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-literature-dir (sp-path sp-documents-dir "literature/")
   "Folder with the PDFs and attachments of the bibliography."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/bibliography")
   "Folder with the .bib files."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-org-dir (sp-paths--dir "SP_ORG_DIR" "~/org")
   "Folder for org files kept outside the notes (the journal)."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-src-dir (sp-paths--dir "SP_SRC_DIR" "~/src")
   "Where source checkouts and git worktrees live."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-git-dir (sp-paths--dir "SP_GIT_DIR" "~/git")
   "Where my own git projects live."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~")
   "Folder holding the cloned-utilities and cloned-scan-ai checkouts."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-data-home
   (sp-paths--dir "XDG_DATA_HOME" "~/.local/share")
   "The user data folder (XDG_DATA_HOME, defaulting to ~/.local/share)."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-yadm-repo (sp-path sp-data-home "yadm/repo.git")
   "The bare repository of the yadm dotfiles."
-  :type 'directory :group 'sp-paths)
+  :type 'directory :group 'spcustom)
 
 (defcustom sp-chrome-history-file
   (expand-file-name
@@ -81,7 +81,7 @@
                           "/Google/Chrome/User Data/Default/History"))
      (_ "~/.config/google-chrome/Default/History")))
   "Chrome's browsing history database."
-  :type 'file :group 'sp-paths)
+  :type 'file :group 'spcustom)
 
 (provide 'sp-paths)
 ;; sp-paths.el ends here.

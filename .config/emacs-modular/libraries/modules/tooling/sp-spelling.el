@@ -88,7 +88,7 @@
 ;; taken from EWS
 (defcustom sia-hunspell-dictionaries "en_US"
   "Comma-separated list of Hunspell dictionaries."
-  :group 'siapip
+  :group 'spcustom
   :type 'list)
 
 (provide 'sp-spelling)

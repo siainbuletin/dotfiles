@@ -11,7 +11,7 @@
 (defcustom siapip/nix-mode-enable nil
   "Enable nix-mode with LSP support for editing Nix files."
   :type 'boolean
-  :group 'siapip
+  :group 'spcustom
   :safe #'booleanp)
 
 (when siapip/nix-mode-enable

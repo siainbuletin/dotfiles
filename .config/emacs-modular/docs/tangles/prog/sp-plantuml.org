@@ -28,7 +28,7 @@ The module is not loaded by any module list or profile. The file ends with =(pro
 
 (defcustom siapip/plantuml:enable t
   "Whether the plantuml mode is enabled."
-  :group 'siapip
+  :group 'spcustom
   :type 'boolean
   :set (lambda (sym val)
          (set-default sym val)
@@ -45,7 +45,7 @@ The module is not loaded by any module list or profile. The file ends with =(pro
 #+begin_src emacs-lisp -i
 (defcustom siapip/plantuml-jar-file "~/opt/plantuml/plantuml.jar"
   "The path to the plantuml jar file."
-  :group 'siapip
+  :group 'spcustom
   :type 'file)
 #+end_src
 

@@ -11,7 +11,7 @@
 
 (defcustom siapip/plantuml:enable t
   "Whether the plantuml mode is enabled."
-  :group 'siapip
+  :group 'spcustom
   :type 'boolean
   :set (lambda (sym val)
          (set-default sym val)
@@ -22,7 +22,7 @@
 
 (defcustom siapip/plantuml-jar-file "~/opt/plantuml/plantuml.jar"
   "The path to the plantuml jar file."
-  :group 'siapip
+  :group 'spcustom
   :type 'file)
 
 (defun siapip/plantuml-generate-png ()

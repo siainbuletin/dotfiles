@@ -4,7 +4,7 @@
 
 ;; Generated from sp-embr.org -- edit that file, not this one.
 ;;
-;; Shows the live view of `sp-relationship-annotator-live' in an Emacs buffer:
+;; Shows the live view of `sp-graphs' (its live view) in an Emacs buffer:
 ;;
 ;;   M-x rel-anno-live-embr      with embr.el (headless Chromium, Emacs 30+)
 ;;   M-x rel-anno-live-xwidget   with `xwidget-webkit' (needs xwidgets)
@@ -35,7 +35,7 @@
 (defcustom sp-embr-fallback-function #'browse-url
   "Function called with the URL when embr or xwidget-webkit cannot be used."
   :type 'function
-  :group 'sp-embr)
+  :group 'spcustom)
 
 (declare-function embr-browse "embr")
 
@@ -80,14 +80,14 @@
 (defvar relationship-annotator-live--root)
 (defvar relationship-annotator-live--depth)
 (defvar relationship-annotator-default-depth)
-(declare-function relationship-annotator--read-scope "sp-relationship-annotator")
-(declare-function relationship-annotator-live--url "sp-relationship-annotator-live")
-(declare-function rel-anno-live-start "sp-relationship-annotator-live")
+(declare-function relationship-annotator--read-scope "sp-graphs")
+(declare-function relationship-annotator-live--url "sp-graphs")
+(declare-function rel-anno-live-start "sp-graphs")
 
 (defun sp-embr--live-url ()
   "Start the live view server and return its address.
 Asks for a starting note and depth when there is none yet."
-  (require 'sp-relationship-annotator-live)
+  (require 'sp-graphs)
   (unless relationship-annotator-live--root
     (pcase-let ((`(,start . ,depth) (relationship-annotator--read-scope)))
       (setq relationship-annotator-live--root start

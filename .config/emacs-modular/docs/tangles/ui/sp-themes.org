@@ -58,7 +58,7 @@ Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one n
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
   "Set a custom themes directory path."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 #+end_src
 
@@ -268,6 +268,14 @@ Installs Prot's minimalist =doric-themes= and loads them immediately with =:dema
 (use-package doric-themes
   :ensure t
   :demand t)
+#+end_src
+
+** Catppuccin
+
+#+begin_src emacs-lisp -i
+;;; Catppuccin
+(use-package catppuccin-theme
+  :ensure t)
 #+end_src
 
 ** Lambda themes

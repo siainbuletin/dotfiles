@@ -15,7 +15,7 @@
 (defcustom sp-treemacs-root user-emacs-directory
   "Folder shown in the treemacs side window by `sp-treemacs-toggle'."
   :type 'directory
-  :group 'sia-lambda)
+  :group 'spcustom)
 
 (use-package treemacs
   :ensure t

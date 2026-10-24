@@ -19,13 +19,18 @@ Disclosure: many of the modules and functions I included are written with the he
 The current configuration draws heavily from modules from Colin McLear's Lambda Emacs. Noteworthy modifications include:
 - replacing native ~package.el~ utilization with ~elpaca~
 
-For motivations of why this configuration is set up in this way, please refer to"[[file:docs/why-this-literate.org][Why this form of literate configuration?]]".
+For motivations of why this configuration is set up in this way, please refer to"[[file:architecture/why-this-literate.org][Why this form of literate configuration?]]".
 
 * What can this configuration actually do?
 
 - Documentation lookup integration
 - Many quality-of-life improvements for editing
 - Embark integration for contextual actions
+
+* Design notes
+
+- [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
 
@@ -36,11 +41,14 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/academic/sp-academic.org][sp-academic]] :: Academic workflow: bibliography and citations ([[file:../libraries/modules/academic/sp-academic.el][sp-academic.el]])
 - [[file:tangles/academic/sp-bibprocess.org][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-citations.org][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
+- [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-bibprocess.el][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-citations.el][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
 - [[file:tangles/academic/sp-dgraphs.org][sp-dgraphs]] :: Discourse Graphs for argument mapping ([[file:../libraries/modules/academic/sp-dgraphs.el][sp-dgraphs.el]])
 - [[file:tangles/academic/sp-dyn-graph.org][sp-dyn-graph]] :: Interactive note graph for Vulpea ([[file:../libraries/modules/academic/sp-dyn-graph.el][sp-dyn-graph.el]])
-- [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-litnotes.el][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
 - [[file:tangles/academic/sp-notes.org][sp-notes]] :: Denote workbook entries and consult-notes ([[file:../libraries/modules/academic/sp-notes.el][sp-notes.el]])
-- [[file:tangles/academic/sp-pdfprocess.org][sp-pdfprocess]] :: PDF metadata and the emacs-reader viewer ([[file:../libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]])
+- [[file:tangles/academic/sp-academic.org::*sp-pdfprocess.el][sp-pdfprocess]] :: PDF metadata and the emacs-reader viewer ([[file:../libraries/modules/academic/sp-pdfprocess.el][sp-pdfprocess.el]])
 - [[file:tangles/academic/sp-semantic.org][sp-semantic]] :: Semantic search over notes ([[file:../libraries/modules/academic/sp-semantic.el][sp-semantic.el]])
 - [[file:tangles/academic/sp-statistics.org][sp-statistics]] :: ESS for statistics ([[file:../libraries/modules/academic/sp-statistics.el][sp-statistics.el]])
 
@@ -81,7 +89,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
 - [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
-- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
+- [[file:tangles/custom/sp-graphs.org][sp-graphs]] :: Graphs of notes in one module: =discourse-graphs= and =vulpea-graph= from packages, plus my relationship annotator and its live view ([[file:../libraries/modules/custom/sp-graphs.el][sp-graphs.el]])
 
 ** funct/
 
@@ -175,7 +183,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/tooling/sp-scratch.org][sp-scratch]] :: Persistent scratch buffer ([[file:../libraries/modules/tooling/sp-scratch.el][sp-scratch.el]])
 - [[file:tangles/tooling/sp-server.org][sp-server]] :: Emacs server and daemon management ([[file:../libraries/modules/tooling/sp-server.el][sp-server.el]])
 - [[file:tangles/tooling/sp-spelling.org][sp-spelling]] :: Spell checking ([[file:../libraries/modules/tooling/sp-spelling.el][sp-spelling.el]])
-- [[file:tangles/tooling/sp-splash.org][sp-splash]] :: Custom lambda splash screen ([[file:../libraries/modules/tooling/sp-splash.el][sp-splash.el]])
+- [[file:tangles/tooling/sp-dashboard.org][sp-dashboard]] :: Dashboard (lambda splash screen) ([[file:../libraries/modules/tooling/sp-dashboard.el][sp-dashboard.el]])
 - [[file:tangles/tooling/sp-templating.org][sp-templating]] :: Org structure templates ([[file:../libraries/modules/tooling/sp-templating.el][sp-templating.el]])
 - [[file:tangles/tooling/sp-text-manipulation.org][sp-text-manipulation]] :: Text editing helpers and whitespace cleanup ([[file:../libraries/modules/tooling/sp-text-manipulation.el][sp-text-manipulation.el]])
 - [[file:tangles/tooling/sp-workspaces.org][sp-workspaces]] :: Tab-based workspaces and Projectile ([[file:../libraries/modules/tooling/sp-workspaces.el][sp-workspaces.el]])
@@ -221,14 +229,12 @@ Currently, the sub-libraries live in different subfolders (which makes things a 
 3. Academic :: this is more of a /core/ module, as it's the main reason why I use Emacs in the first place
 4. Programming modules :: language servers and separate language-related modes for editing
 
-Deciding on the order is not trivial: [[file:load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
+Deciding on the order is not trivial: [[file:architecture/load-order.org][Module load order]] draws the order the modules load in and says why each package has to come before another (it is also the place to look when Elpaca warns that a package was /previously queued as dependency/).
 
 * Tasks
 ** TODO Reduce the verbosity of the documentation in the modules
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
-
-
 
 * Functionality of the literate configuration
 

@@ -105,47 +105,57 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
 `suffix', links only), :modeline and :links (nil keeps the rule out)."
   :type '(repeat (cons (choice (string :tag "Tag")
                                (repeat :tag "All of these tags" string))
-                       (plist :key-type symbol :value-type sexp))))
+                       (plist :key-type symbol :value-type sexp)))
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-combo-consumes t
   "When non-nil, a rule uses up its tags: less specific rules skip them."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-source 'heading-or-file
   "Which tags the modeline segment shows."
   :type '(choice (const :tag "Heading, else file" heading-or-file)
                  (const :tag "Heading only" heading)
                  (const :tag "File only" file)
-                 (const :tag "Heading and file" both)))
+                 (const :tag "Heading and file" both))
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-inherit nil
   "When non-nil, a heading's tags include those of its parents."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-placement 'mode-line
   "Where the modeline segment goes."
   :type '(choice (const :tag "In the modeline (global-mode-string)" mode-line)
-                 (const :tag "In the header line of Org buffers" header-line)))
+                 (const :tag "In the header line of Org buffers" header-line))
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-separator " "
   "String between emoji in the modeline."
-  :type 'string)
+  :type 'string
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-link-types '("id")
   "Link types that are decorated with the emoji of their target's tags."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-link-position 'prefix
   "Default position of the emoji on a link."
-  :type '(choice (const prefix) (const suffix)))
+  :type '(choice (const prefix) (const suffix))
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-link-tags-function #'sp-tag-emoji--vulpea-link-tags
   "Function of TYPE and PATH returning the tags of a link's target."
-  :type 'function)
+  :type 'function
+  :group 'spcustom)
 
 (defcustom sp-tag-emoji-link-cache-seconds 30
   "How long the tags of a link target are remembered."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 #+end_src
 
 * Matching rules
