@@ -75,7 +75,7 @@ with `load-theme' the next time the splash is drawn."
   "Third accent of the splash: the line colour of the third menu block."
   :group 'faces)
 
-(defface sp-dashboard-focus-face '((t :inherit highlight))
+(defface sp-dashboard-focus-face '((t :inherit highlight :extend nil))
   "Face for the splash button that TAB has selected."
   :group 'faces)
 
@@ -1283,36 +1283,17 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
   (deactivate-mark))
 
 (defun sp-dashboard--isolate-menu ()
-  "Make the buttons the only part of the dashboard that can be reached.
-The rest of the buffer, the art and the text around the buttons, is marked
-`cursor-intangible', so point can only rest on a button.  An overlay over
-the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
-above the other keymaps, so the keys of the dashboard are the same wherever
-point is."
-  (let ((inhibit-read-only t)
-        (position (point-min)))
-    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
-    (let (button)
-      (while (setq button (next-button position))
-        (remove-text-properties (button-start button) (button-end button)
-                                '(cursor-intangible nil))
-        (setq position (button-end button)))))
+  "Make the keys of the dashboard the same wherever point is.
+An overlay over the whole buffer carries `sp-dashboard-mode-map' as its
+keymap, which ranks above the other keymaps.  The map binds TAB and S-TAB to
+`sp-dashboard-next-button' and `sp-dashboard-previous-button' and ignores
+the commands that move point, so point only ever rests on a button.  There
+is no `cursor-intangible-mode': its redisplay hook signals
+`wrong-type-argument' whenever it finds no button to move to, which cannot be
+caught from outside (see the doc)."
   (let ((overlay (make-overlay (point-min) (point-max))))
     (overlay-put overlay 'keymap sp-dashboard-mode-map)
-    (overlay-put overlay 'priority 100))
-  (run-with-idle-timer 0.1 nil #'sp-dashboard--enable-intangible
-                       (current-buffer)))
-
-(defun sp-dashboard--enable-intangible (buffer)
-  "Turn on `cursor-intangible-mode' in BUFFER once it is drawn.
-The mode moves point before every redisplay and signals an error when the
-buffer has no button to move to (`cursor-sensor-tangible-pos' returns nil),
-as happens while the dashboard is erased and drawn again.  So it starts from
-an idle timer, after the draw, and only when BUFFER is live and has a button."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (when (next-button (point-min))
-        (cursor-intangible-mode 1)))))
+    (overlay-put overlay 'priority 100)))
 
 (define-minor-mode sp-dashboard-mode
   "Emacs minor mode for splash screen."
@@ -1332,6 +1313,8 @@ an idle timer, after the draw, and only when BUFFER is live and has a button."
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
+  ;; `global-hl-line-mode' ignores the line above and would paint the whole row
+  (setq-local global-hl-line-mode nil)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
   
