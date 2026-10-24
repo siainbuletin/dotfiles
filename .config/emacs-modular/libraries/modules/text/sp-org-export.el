@@ -380,16 +380,21 @@
   (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t latex"))
   (yank))
 
+(defun sp--pandoc-bibliography-args ()
+  "Return Pandoc `--bibliography' flags for every registered BibTeX file."
+  (mapconcat (lambda (file) (concat " --bibliography=" (shell-quote-argument file)))
+             (bound-and-true-p sp-bibtex-files) ""))
+
 (defun sp-cite-to-org ()
   "convert clipboard contents from markdown to org with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc" (sp--pandoc-bibliography-args) " -s -t markdown-native_divs-raw_html-citations | pandoc -f markdown -t org")))
   (yank))
 
 (defun sp-cite-to-markdown ()
   "convert clipboard contents to markdown with citations and paste"
   (interactive)
-  (kill-new (shell-command-to-string (concat "pbpaste | pandoc --bibliography=" sp-bibliography " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
+  (kill-new (shell-command-to-string (concat "pbpaste | pandoc" (sp--pandoc-bibliography-args) " -s -t markdown-native_divs-raw_html-citations --markdown-headings=atx")))
   (yank))
 
 (defun sp-bibtex-to-yaml-reference ()

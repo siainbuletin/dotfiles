@@ -44,7 +44,7 @@
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/bibliography")
+(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/Documents/bibliography")
   "Folder with the .bib files."
   :type 'directory :group 'spcustom)
 

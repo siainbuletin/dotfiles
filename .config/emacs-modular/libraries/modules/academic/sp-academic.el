@@ -41,9 +41,6 @@
 ;;; Code:
 
 ;;;; Citation variables
-(defcustom sp-bibliography nil "Obsolete: the bibliography is every .bib file in `sp-bibtex-dir'."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory, `sp-notes-dir' when nil."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
