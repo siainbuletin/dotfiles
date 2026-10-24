@@ -135,6 +135,10 @@
   ;; (load-theme 'lambda-light)
 )
 
+;;; Catppuccin
+(use-package catppuccin-theme
+  :ensure t)
+
 ;; Lambda themes options
 (setopt lambda-themes-set-italic-comments t)
 (setopt lambda-themes-set-italic-keywords t)
