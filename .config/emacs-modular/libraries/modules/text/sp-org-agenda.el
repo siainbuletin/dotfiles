@@ -4,7 +4,7 @@
 
 ;; Configures Org's agenda: the prefix format of agenda lines, visual styling
 ;; of the time grid and tags, scheduling and sorting rules, and the
-;; `org-super-agenda' grouping. The agenda files are owned by vulpea-para
+;; `org-super-agenda' mode (groups are set per view). The agenda files are owned by vulpea-para
 ;; (sp-vulpea-para) and the keys are in sp-agenda-views. It
 ;; also adds a command to jump to the daily view, automatic refresh of the
 ;; agenda after a capture, and an alphapapa recipe for showing an agenda
@@ -92,31 +92,12 @@
 
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
-:after org
+  :after org
   :ensure (:wait t)
-:init
-(setq org-super-agenda-date-format "%A (%e)"
-      org-super-agenda-groups
-      '((:name "Accomplishments"
-         :todo ("DONE" "CNCL" "CANCELLED")
-         :order 4)
-        (:name "End of Day"
-         :habit t
-         :order 2)
-        (:name "Uncompleted Work"
-         :todo ("PROG" "DOING")
-         :scheduled past
-         :order 0)
-        (:name "Today's Tasks"
-         :date today
-         :order 1)
-        (:name "Today's Tasks"
-         :scheduled today
-         :order 1)
-        (:name "Future Work"
-         :todo "TODO"
-         :scheduled future
-         :order 3))))
+  :init
+  (setq org-super-agenda-date-format "%A (%e)")
+  :config
+  (org-super-agenda-mode 1))
 
 ;; org-ql requires org-super-agenda, so it has to be declared after it:
 ;; the other way round, Elpaca queues org-super-agenda as a dependency first

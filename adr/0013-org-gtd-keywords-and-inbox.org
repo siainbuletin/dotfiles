@@ -1,0 +1,24 @@
+#+title: 0013 org-gtd: drop the keyword mapping, and a proposal for processing the inbox
+#+date: 2026-10-23
+#+status: accepted (keyword mapping); proposed (inbox)
+
+* Context
+=org-gtd-keyword-mapping= in =sp-org-taskman-extra= mapped todo, next, wait and canceled to =TODO=, =NEXT=, =WAIT= and =CNCL=. What I read of org-gtd's source on GitHub (master, not the version Elpaca installed): the default mapping is =TODO=, =NEXT=, =WAIT=, =DONE=, =CNCL=; org-gtd never sets =org-todo-keywords= or file-local =#+TODO= lines; it checks that every mapped keyword is in =org-todo-keywords= and that they all sit in the same sequence, and raises a =user-error= when they do not (the check is skipped while loading). The inbox is a function, =org-gtd-inbox-path=, which returns =org-gtd-directory/inbox.org= (the name is a constant, not an option). =org-gtd-process-inbox= goes through that file and the files in =org-gtd-additional-inbox-files=; for each file it takes the first visible heading of any level and opens it in a clarify buffer, then comes back for the next. =org-gtd-capture= binds =org-capture-templates= to =org-gtd-capture-templates=, two plain-file entries into its own inbox.
+
+* Decision
+- The mapping is removed. Its value was the default without the =done= entry, and the task sequence of =sp-org-keywords= (=TODO NEXT PROG WAIT | DONE CNCL=) holds every mapped keyword in one sequence, as org-gtd requires. =PROG= has no GTD meaning and is an ordinary state. After pulling, check =M-x describe-variable org-gtd-keyword-mapping= on the installed version; if the default differs, set it again.
+- /Proposed, not done:/ process the single inbox, =~/notes/inbox.org=, with org-gtd. What it would look like:
+  1. Capture stays =C-c c t= and =C-c c i= ([[file:0009-one-agenda-owner-per-setting.org][0009]]); =C-c d c= stays unbound.
+  2. Add =~/notes/inbox.org= to =org-gtd-additional-inbox-files=. org-gtd's own =inbox.org= in =area/org-gtd/= stays empty.
+  3. =C-c d p= opens the first heading of the inbox in a clarify buffer; =C-c c= (=org-gtd-organize=) asks what it is, and org-gtd files it in =area/org-gtd/= (the files it names itself, which I did not read).
+  4. The obstacle: the inbox has container headings, =* Tasks= and =* Thoughts=, and org-gtd takes the first heading of any level, so it would offer =Tasks= itself. The fix is to capture top-level entries into =inbox.org= (a =file= target instead of =file+headline=) and to make =vulpea-para-capture-task-template= and the idea template produce top-level entries; the =Tasks= and =Thoughts= headings go. That changes the vulpea-para task template, so it needs its own change and a trial on real notes first.
+- Whether items that org-gtd files into =area/org-gtd/= reach the agenda: they are vault files, so =vulpea-para='s =agenda= tag covers them once they hold open work, and org-gtd's engage views read its directory themselves.
+
+* Alternatives considered
+- *Keep the mapping explicitly*: it repeats the default, and would silently diverge if the default changes.
+- *Point =org-gtd-directory= at =~/notes/=*: =inbox.org= would be org-gtd's inbox, but all its other files (the tasks file, yearly archives) would be created in =~/notes/= as well.
+- *Advice on =org-gtd-inbox-path=*: works, but it overrides a function of the package; the additional-inbox variable is the supported way.
+
+* Consequences
+- /untested/: none of this was run, and the source was read from GitHub, not from the installed package.
+- Until the inbox proposal is done, =C-c d p= processes org-gtd's own, empty inbox.
