@@ -44,6 +44,8 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - Added the macOS Focus condition, =sp-dashboard-public-facing-mode= and automatic redraw. ([[https://github.com/siainbuletin/dotfiles/pull/76][#76]], Claude)
 - Fixed the banner, title and boxes sharing no common lane. ([[https://github.com/siainbuletin/dotfiles/pull/78][#78]], Claude)
 - Changed which agendas the dashboard opens: the views of =sp-agenda-views= were to replace its own, but that wiring is not on =main= (see [[file:../../adr/0016-dashboard.org][ADR 0016]]). ([[https://github.com/siainbuletin/dotfiles/pull/70][#70]], Claude)
+- Fixed the =wrong-type-argument= error of =cursor-intangible-mode= at startup by deferring the vulpea scan to the first note and starting the mode after the draw. Superseded by the next entry for the mode. ([[https://github.com/siainbuletin/dotfiles/pull/85][#85]], Claude)
+- Changed the buttons to keymap jumping: =cursor-intangible-mode= is removed, because its redisplay hook signals =wrong-type-argument= whenever no button is found and nothing outside Emacs can catch it. The focus face stops at the button and =global-hl-line-mode= is off in the buffer. ([[https://github.com/siainbuletin/dotfiles/pull/88][#88]], Claude)
 
 * Font management
 /2026-10-23./ One place decides the fonts, and colour emoji are separate. The decisions are in [[file:../../adr/0017-font-management.org][ADR 0017]].
