@@ -50,10 +50,10 @@ The long commentary is a roadmap more than a description.
 
 Every entry in a plain BibTeX file gets its key from =bibtex-generate-autokey=, with one scheme everywhere. The options are set once, in =sp-bibprocess=.
 
-- Shape: first author's family name, four-digit year and the first two significant title words, each cut to five letters and joined by hyphens, all in lower case, for example =smith-2017-atten-is= (Attention Is All You Need) or =muller-2020-origin-species= (On the Origin of Species). A third word is added when the second is short (=bibtex-autokey-titlewords-stretch= is 1).
-- Several authors: only the first one is used, so a paper by Smith and Jones is still =smith-2017-...=.
+- Shape: the family names of the first two authors, four-digit year and the first two significant title words, each cut to five letters and joined by hyphens, all in lower case, for example =smithjones-2017-atten-all= (Smith and Jones, Attention Is All You Need) or =hegel-1807-phanom-geist= (one author). "Is" is in the ignore list, so it is skipped. A third word is added when the second is short (=bibtex-autokey-titlewords-stretch= is 1).
+- Several authors: the first two are joined without a separator and later ones are dropped, so Smith, Jones and Lee is still =smithjones-2017-...=.
 - Accents are stripped to plain ASCII (=Müller= becomes =muller=) so keys survive any tool.
-- The title words skip articles (English and German), "On" and "on" (added to the ignore list at your request), and any word that is not capitalised or has odd characters.
+- The title words skip articles (English and German), "Is", "the", "a", "On" and "on" (the last five are your additions), and any word that is not capitalised or has odd characters.
 - Three ways to apply it: =C-c C-c= in =bibtex-mode= cleans an entry (=C-u C-c C-c= also makes a new key), =biblio= entries get one on insertion (=biblio-bibtex-use-autokey=), and the key is checked against every registered =.bib= file so duplicates are noticed.
 - Existing keys are left alone. Changing a key breaks the =cite:= links and =ROAM_REFS= that mention it, so regenerate only entries you have not cited yet.
 
@@ -426,8 +426,8 @@ Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
 Configures the built-in =bibtex= mode:
 
 - the BibLaTeX dialect,
-- the key scheme (see [[*Citation keys]] in the first part of this document): first author, four-digit year and two title words of at most five letters, in lower case and joined by hyphens, such as =smith-2017-atten-is=,
-- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "On" and "on",
+- the key scheme (see [[*Citation keys]] in the first part of this document): first two authors, four-digit year and two title words of at most five letters, in lower case, with hyphens between year and title words, such as =smithjones-2017-atten-all=,
+- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "Is", "the", "a", "On" and "on",
 - what cleaning an entry does: =opts-or-alts= (drop empty optional fields), =page-dashes= (=10-20= to =10--20=), =whitespace=, =realign=, =last-comma=, =delimiters=, =unify-case= and =braces=. =required-fields= and =numerical-fields= are left out so that an incomplete entry from a look-up is not rejected,
 - a duplicate check across all registered files,
 - two extra optional fields offered when creating entries (=keywords= and =file= for attachments),
@@ -447,8 +447,8 @@ Also:
   :custom
   (bibtex-dialect 'biblatex)
 
-  ;; Keys: smith-2017-atten-is
-  (bibtex-autokey-names 1)
+  ;; Keys: smith-2017-atten-all
+  (bibtex-autokey-names 2)
   (bibtex-autokey-names-stretch 0)
   (bibtex-autokey-name-separator "")
   (bibtex-autokey-name-year-separator "-")
@@ -463,7 +463,7 @@ Also:
   (bibtex-autokey-before-presentation-function #'sp-bibtex-ascii-key)
   (bibtex-autokey-edit-before-use t)
   (bibtex-autokey-titleword-ignore
-   '("A" "An" "The" "On" "on" "Eine?" "Der" "Die" "Das"
+   '("A" "An" "The" "Is" "the" "a" "On" "on" "Eine?" "Der" "Die" "Das"
      "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
   ;; Cleaning and duplicates
