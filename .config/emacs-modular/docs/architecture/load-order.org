@@ -183,6 +183,10 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 - No module that loads at startup requires a late one, and the late modules only need packages from modules that load earlier (=org-node=, =denote=, =vulpea=, =transient=, =inheritenv=, =consult=), so their order against the rest has no conflict that I found. =claude-code= (in =sp-ai=) says =:after (inheritenv vterm eat)=, and =vterm= and =eat= come from the late =sp-terminal=, so its configuration waits until that has loaded, which is the intended order.
 - =sp-trails= needs =org-ql= from =sp-org-agenda=, which loads earlier, so it is safe as a late module.
 
+** =sp-fetch-academic= loads inside =sp-academic=
+
+=sp-academic= is one late module, but it requires its sub-modules itself, in this order: =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes=, =sp-fetch-academic=. The new one is last because it reads =sp-bibtex-files= and =sp-bibtex-dir= from =sp-bibprocess= and installs =biblio= (which moved there from =sp-academic=, so =biblio= is still queued once). It needs =org-ref= only when its DOI command runs, so it does not have to come after =org-ref=, which =sp-academic= declares further down.
+
 ** What stays as it was
 The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package (=hl-todo= in =sp-faces= and =sp-org-taskman-extra=, =org-autolist= in =sp-org-appearance= and =sp-org-ext=, =elisp-demos= in =sp-help= and =sp-lisp=, =company= in =sp-completion= and =sp-base-code=) are not an ordering problem and have been left alone. The minimal list (=-minimal=) is as before.
 

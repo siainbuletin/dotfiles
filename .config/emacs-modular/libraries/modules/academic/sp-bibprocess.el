@@ -1,10 +1,10 @@
-;;; sp-bibprocess.el --- BibTeX files, citation keys, lookup and attachment checks -*- lexical-binding: t; -*-
+;;; sp-bibprocess.el --- BibTeX files, citation keys and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This module manages the BibTeX bibliography that the academic modules build
 ;; on: where the .bib files are, how citation keys are generated, and the
-;; commands that look up and audit entries.
+;; commands that audit attachments.
 
 ;;; Code:
 
@@ -94,39 +94,6 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
-
-;;;; Looking up entries
-
-(defun sp--bibtex-combined-biblio-lookup ()
-  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
-  (require 'biblio)
-  (let* ((dbs (biblio--named-backends))
-         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
-         (db-selected (biblio-completing-read-alist
-                       "Backend:"
-                       db-list)))
-    (if (eq db-selected 'biblio-doi-backend)
-        (let ((doi (read-string "DOI: ")))
-          (biblio-doi-insert-bibtex doi))
-      (biblio-lookup db-selected))))
-
-;;;###autoload
-(defun sp-bibtex-biblio-lookup ()
-  "Insert Biblio search results into current buffer or select BibTeX file."
-  (interactive)
-  (if-let* ((current-mode major-mode)
-	   sp-bibtex-files
-	   (bibfiles (length sp-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
-			  ((equal major-mode 'bibtex-mode)
-			   (buffer-file-name))
-			  (t (completing-read
-			      "Select BibTeX file:" sp-bibtex-files)))))
-      (progn (find-file bibfile)
-	     (goto-char (point-max))
-	     (sp--bibtex-combined-biblio-lookup)
-	     (save-buffer))
-    (message "No BibTeX file(s) defined.")))
 
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()

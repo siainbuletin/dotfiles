@@ -57,21 +57,7 @@
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
-
-;;;; Looking up academic sources
-
-(use-package biblio
-  :ensure t
-
-  :custom
-  (biblio-bibtex-use-autokey t)
-
-  :bind
-  (("C-c w b b" . sp-bibtex-biblio-lookup))
-)
-
-(use-package biblio-gscholar
-  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+(require 'sp-fetch-academic)
 
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))

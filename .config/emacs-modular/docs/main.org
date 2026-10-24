@@ -50,6 +50,7 @@ Where the modules live:
 - [[file:tangles/academic/sp-academic.org][sp-academic]] :: Academic workflow: bibliography and citations ([[file:../libraries/modules/academic/sp-academic.el][sp-academic.el]])
 - [[file:tangles/academic/sp-bibprocess.org][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-citations.org][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
+- [[file:tangles/academic/sp-fetch-academic.org][sp-fetch-academic]] :: Fetch papers from the web and import them: biblio, DOI look-up, downloads ([[file:../libraries/modules/academic/sp-fetch-academic.el][sp-fetch-academic.el]])
 - [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-bibprocess.el][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-citations.el][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])

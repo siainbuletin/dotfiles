@@ -14,13 +14,15 @@ The files have no newline after their last line (except where noted). Org always
 
 | Part | File | What it holds |
 |------+------+---------------|
-| [[*sp-academic.el]] | =libraries/modules/academic/sp-academic.el= | the master module: requires the four below and configures lookup and BibTeX |
-| [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, lookup and attachment checks |
+| [[*sp-academic.el]] | =libraries/modules/academic/sp-academic.el= | the master module: requires the four below and `sp-fetch-academic`, and configures org-ref and helm-bibtex |
+| [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, citation keys and attachment checks |
 | [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
 | [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-denote and citar-vulpea |
 
-Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes= in that order, before its own code.
+The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
+
+Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes= and =sp-fetch-academic= in that order, before its own code.
 
 * sp-academic.el
 :PROPERTIES:
@@ -29,10 +31,9 @@ Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citatio
 
 This is the umbrella module for academic work.
 
-- Loads four sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes=) so they can be enabled together.
+- Loads five sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes= and =sp-fetch-academic=) so they can be enabled together.
 - Defines the three citation user options before any sub-module needs them.
-- Configures bibliography lookup and the reference managers directly:
-  - =biblio= for looking up references online (its inserted entries get a key from the scheme in [[*Citation keys]]),
+- Configures the reference managers directly:
   - =org-ref= set up to insert =org-cite= citations,
   - =helm-bibtex= library and notes paths,
   - the =citar-org-node= bridge,
@@ -41,7 +42,7 @@ This is the umbrella module for academic work.
 
 The long commentary is a roadmap more than a description.
 
-- Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs, paper fetching.
+- Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs. Paper fetching now has its own sub-module, [[file:sp-fetch-academic.org][sp-fetch-academic]].
 - Literature notes are still made with =citar-denote=. =ROAM_REFS= handling goes through =vulpea-citar=.
 - Bibliography files are expected under =~/bibliography/=, PDFs under =~/Documents/literature/=.
 - The module appears in the default module list in =init.el= under Academic.
@@ -70,7 +71,7 @@ The ones that change how the setup behaves most. All are set in the modules name
 - =citar-library-paths=, =citar-library-file-extensions=, =citar-file-additional-files-separator= [=sp-citations=]: where =citar= looks for PDFs (=~/Documents/literature/=), which extensions count, and the separator for several files per key. The library path was commented out before, so =citar= found no PDFs.
 - =citar-notes-paths= and =citar-templates= [=sp-citations=]: where notes live and how candidates are displayed.
 - =org-cite-export-processors= [=sp-citations=]: CSL for every export format; needs the styles in =sp-data-home=.
-- =biblio-bibtex-use-autokey= [=sp-academic=]: gives entries inserted from CrossRef, arXiv and DOI the same key scheme.
+- =biblio-bibtex-use-autokey= [=sp-fetch-academic=]: gives entries inserted from CrossRef, arXiv and DOI the same key scheme.
 
 The old sections of this document that set BibTeX options twice, repeated three definitions or tried to set Citar options inside =:custom= are fixed below, and each fix says so.
 
@@ -151,7 +152,7 @@ Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =spcustom= 
 
 ** Loading the sub-modules
 
-Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, and =sp-litnotes= for literature notes.
+Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]).
 
 #+begin_src emacs-lisp -i
 ;;;; Requiring sub-libraries
@@ -160,39 +161,16 @@ Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
+(require 'sp-fetch-academic)
 #+end_src
 
-** Looking up sources
+** Helper libraries
 
-*** biblio
+*** asoc and doct
 
-Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sp-bibtex-biblio-lookup=, defined in =sp-bibprocess= (which this module requires).
-
-- =biblio-bibtex-use-autokey= makes every inserted entry go through =bibtex-clean-entry=, so it gets a key from the scheme in [[*Citation keys]] instead of whatever the service returned.
-- The binding used to point at =sia-bibtex-biblio-lookup=, a name that is not defined anywhere, so the key signalled an error.
+=biblio= and the Google Scholar backend moved to =sp-fetch-academic=. This module still installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
 
 #+begin_src emacs-lisp -i
-;;;; Looking up academic sources
-
-(use-package biblio
-  :ensure t
-
-  :custom
-  (biblio-bibtex-use-autokey t)
-
-  :bind
-  (("C-c w b b" . sp-bibtex-biblio-lookup))
-)
-#+end_src
-
-*** Google Scholar backend and helper libraries
-
-Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It also installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
-
-#+begin_src emacs-lisp -i
-(use-package biblio-gscholar
-  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
-
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))
 
@@ -332,7 +310,7 @@ This module manages the BibTeX bibliography that the academic modules build on. 
 - defines where the =.bib= files live (=sp-bibtex-dir=, =~/bibliography/= by default),
 - keeps one list of them and shares it with Org's citation system (=org-cite-global-bibliography=), =citar= (=citar-bibliography=), =org-ref= (=org-ref-default-bibliography=), =helm-bibtex= (=bibtex-completion-bibliography=) and =bibtex-mode= itself (=bibtex-files=),
 - configures the built-in =bibtex= mode for BibLaTeX, including the one scheme for citation keys described under [[*Citation keys]],
-- adds commands to look up new entries online with the =biblio= package and to audit attachments.
+- adds commands to audit attachments. Looking up new entries online (=biblio=) moved to [[file:sp-fetch-academic.org][sp-fetch-academic]].
 
 Loading:
 
@@ -346,13 +324,13 @@ Loading:
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-bibprocess.el --- BibTeX files, citation keys, lookup and attachment checks -*- lexical-binding: t; -*-
+;;; sp-bibprocess.el --- BibTeX files, citation keys and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This module manages the BibTeX bibliography that the academic modules build
 ;; on: where the .bib files are, how citation keys are generated, and the
-;; commands that look up and audit entries.
+;; commands that audit attachments.
 
 ;;; Code:
 
@@ -498,63 +476,6 @@ Also:
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
-#+end_src
-
-** Looking up entries
-
-*** Combined biblio lookup
-
-=sp--bibtex-combined-biblio-lookup= offers the backends known to =biblio= (such as CrossRef or arXiv) plus an extra "DOI" entry in one completion prompt.
-
-- Choosing DOI asks for a DOI and inserts its BibTeX directly.
-- Any other backend starts an interactive =biblio-lookup= search.
-- It relies on the internal =biblio--named-backends=.
-
-#+begin_src emacs-lisp -i
-;;;; Looking up entries
-
-(defun sp--bibtex-combined-biblio-lookup ()
-  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
-  (require 'biblio)
-  (let* ((dbs (biblio--named-backends))
-         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
-         (db-selected (biblio-completing-read-alist
-                       "Backend:"
-                       db-list)))
-    (if (eq db-selected 'biblio-doi-backend)
-        (let ((doi (read-string "DOI: ")))
-          (biblio-doi-insert-bibtex doi))
-      (biblio-lookup db-selected))))
-#+end_src
-
-*** Insert a lookup into a bibliography
-
-=sp-bibtex-biblio-lookup= picks the target =.bib= file:
-
-- the only one, if there is a single file,
-- the current buffer, if already in =bibtex-mode=,
-- a completion prompt otherwise.
-
-It opens that file, moves to the end, runs the combined lookup and saves. If no BibTeX files are registered, it just reports that.
-
-#+begin_src emacs-lisp -i
-;;;###autoload
-(defun sp-bibtex-biblio-lookup ()
-  "Insert Biblio search results into current buffer or select BibTeX file."
-  (interactive)
-  (if-let* ((current-mode major-mode)
-	   sp-bibtex-files
-	   (bibfiles (length sp-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
-			  ((equal major-mode 'bibtex-mode)
-			   (buffer-file-name))
-			  (t (completing-read
-			      "Select BibTeX file:" sp-bibtex-files)))))
-      (progn (find-file bibfile)
-	     (goto-char (point-max))
-	     (sp--bibtex-combined-biblio-lookup)
-	     (save-buffer))
-    (message "No BibTeX file(s) defined.")))
 #+end_src
 
 ** Auditing attachments
