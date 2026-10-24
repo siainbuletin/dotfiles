@@ -1,0 +1,141 @@
+#+TITLE: Theme system: package comparison and one-folder design
+#+STARTUP: content
+
+Research and design note for =libraries/modules/ui/sp-themes.el=. It compares the five theme packages declared there, picks the features worth copying, and proposes one themes folder with =sp-load-theme= as the only way to load a theme. Nothing in the configuration changes with this note; the migration in the last section is a proposal, in steps that can be merged one by one.
+
+Versions compared (upstream =main=, 2026-10-24): =modus-themes= 5.3.0, =ef-themes= 2.2.1, =doric-themes= 1.3.0, =lambda-themes= 0.1, =catppuccin-theme= 1.0.0. Face counts are rough, counted from the source.
+
+* What is declared today
+
+=sp-themes.el= installs six packages with =use-package=: =modus-themes=, =ef-themes=, =doric-themes=, =lambda-themes= (git, Elpaca recipe), =catppuccin-theme= and =easy-theme-preview=. It also already sets up the two things a single folder needs:
+
+- =sp-custom-themes-dir= (=libraries/themes/=, created on load) is =custom-theme-directory=, and each of its sub-folders is added to =custom-theme-load-path=. The folder does not exist in the repository yet, so nothing is vendored today.
+- =sp-load-theme= disables all themes and calls =load-theme= interactively. It only knows about themes that are already on =custom-theme-load-path=, so it offers the 100-odd themes of the packages and nothing else.
+
+Things that bypass it: =toggle-dark-light-theme= (hard-codes =ef-day= and =ef-dream=), =sp-macos.el= (=lem--system-apply-theme=, hard-codes =ef-dream= and =lambda-light-faded=, calls =load-theme= itself), =lem-dashboard.el= and =sp-dashboard.el= (compare against =lambda-dark=), and =sp-archived-configs.el=. The =modus-themes-*= options set in =sp-themes.el= (italic, bold, prompts, completions, =modus-themes-org-blocks=) are set /after/ =use-package=, so they only take effect for the Modus and Ef themes; the Lambda options are set with =setopt= and only matter to Lambda.
+
+* Comparison
+
+** Structure
+
+| | modus-themes | ef-themes | doric-themes | lambda-themes | catppuccin-theme |
+|-+-+-+-+-+-|
+| Themes | 8 (operandi and vivendi, each plain, tinted, deuteranopia, tritanopia) | 38 | 28 | 4 (light, dark, light-faded, dark-faded) | 1 theme, 4 /flavors/ (latte, frappe, macchiato, mocha) |
+| Files | =modus-themes.el= (8,000 lines, holds every palette and the whole face list) plus 8 stubs | =ef-themes.el= (350 lines) plus 38 files of palette only | =doric-themes.el= (2,000 lines) plus 28 files of palette only | =lambda-themes.el= (1,800 lines, holds palettes and every face) plus 4 stubs | =catppuccin-theme.el= (1,500 lines) and =catppuccin-definitions.el= (palettes) |
+| Depends on | Emacs 28.1 | Emacs 28.1 and =modus-themes= 5.0.0 (it calls =modus-themes-theme= and =modus-themes-generate-palette=) | Emacs 29.1 | Emacs 25.1 | Emacs 27.1 |
+| Faces covered | about 2,350 face and variable entries, shared by all eight | none of its own: it inherits the Modus list, so it covers the same ~2,350 | about 225 faces, grouped into /bundles/ (see below) | about 860 | one big face list in one file |
+| Licence | GPLv3, FSF copyright (assigned) | GPLv3, FSF copyright | GPLv3, FSF copyright | GPL header in the source, no licence file, copyright Colin McLear | MIT, Catppuccin organisation |
+
+** Palette structure
+
+- *Modus.* A palette is an alist of about 230 entries per theme: named colours (=red-warmer=, =bg-blue-subtle=, =fg-main=), then /semantic mappings/ that point a name at a colour (=err= → =red=, =fg-heading-1= → =fg-main=). A shared table of about 94 default mappings (=modus-themes-common-palette-mappings=) fills in what a theme does not set. Faces are written against mappings, never against raw hex values, so changing one mapping changes every face that uses it.
+- *Ef.* Same engine, much smaller input. Each theme file writes a /partial/ palette of about 50 named colours; =modus-themes-generate-palette= derives the missing tints (the =-faint=, =-warmer=, =-cooler= and background variants) and the shared mappings (=ef-themes-palette-common=) are appended. So an Ef theme costs one short file.
+- *Doric.* A flat palette of 25 keys: =bg-main=, =fg-main=, =cursor=, =border=, then pairs for six roles (shadow subtle and intense, neutral, accent primary and secondary) and =fg-= and =bg-= for red, green, yellow, blue, magenta and cyan. The faces are not written against the palette one by one; a face is put in a /bundle/ (see below) and the bundle decides how it uses the palette.
+- *Lambda.* Palette of 22 /semantic/ names (=fg=, =bg=, =urgent=, =crucial=, =focus=, =strong=, =meek=, =mild=, =faint=, then colours). The same names exist as faces (=lambda-urgent=, =lambda-crucial=, …). Palettes are duplicated: once as four constants, again inside =lambda-themes-create= as a =cond= over the variant for each of the ~40 colours, which is the main thing /not/ to copy.
+- *Catppuccin.* A fixed 26-colour palette per flavor (rosewater … crust, plus text, subtext, overlay, surface, base, mantle) kept in a flavor alist. Colours are named by their place in the design system, not by role, so the theme file maps them to faces by hand.
+
+** Customisation
+
+| | Mechanism |
+|-+-|
+| modus | Variables read /when the theme is loaded/ (reload to apply): =modus-themes-italic-constructs=, =-bold-constructs=, =-mixed-fonts=, =-variable-pitch-ui=, =-headings= (per level: height, weight, variable pitch). =modus-themes-prompts= and =modus-themes-completions= are obsolete since 5.3.0 (bold follows =-bold-constructs=) and =modus-themes-org-blocks= is no longer defined, so those three settings in =sp-themes.el= do nothing. Palette: =modus-themes-common-palette-overrides= (all themes), =modus-OPERANDI-palette-overrides= (one theme), =modus-themes-common-palette-user= (extra names that overrides can use). Four ready-made override lists: =modus-themes-preset-overrides-faint=, =-intense=, =-cooler=, =-warmer=. |
+| ef | The Modus variables above (it builds on them), plus =ef-themes-common-palette-overrides= and =ef-NAME-palette-overrides= per theme. Its own commands (=ef-themes-select=, =-rotate=, =-toggle=, =-load-random=, =-list-colors=) are the Modus ones produced by =modus-themes-define-derivative-command=. =ef-themes-take-over-modus-themes-mode= makes the Modus commands see only Ef themes. |
+| doric | Almost no options: =doric-themes-to-toggle=, =doric-themes-to-rotate=, =doric-themes-after-load-theme-hook=. Customisation is by editing a palette variable before loading (the palette is a plain =defvar=) or by defining a new theme. |
+| lambda | =lambda-themes-set-italic-comments=, =-italic-keywords=, =-variable-pitch=, =-vibrant=, =-set-evil-cursors=, =-custom-colors= (alist, applied on load). =lambda-themes-set-variable-pitch= reloads the active theme when set through Customize. |
+| catppuccin | =catppuccin-flavor=, =catppuccin-italic-comments=, =-italic-blockquotes=, =-italic-variables=, =-highlight-matches=, =-dark-line-numbers-background=. =catppuccin-set-color= changes a colour of a flavor at run time, then =catppuccin-reload=; =catppuccin-lighten=, =-darken=, =-recolor= for derived shades. |
+
+** Extension mechanisms
+
+- *Modus* is meant as a base: =modus-themes-theme= (a function, despite the name) takes name, family, description, background mode, a palette symbol, a user-palette symbol, an overrides symbol, and optional extra faces and variables. A derivative theme only supplies a palette and gets the whole face list. Extra faces are /appended/ to the Modus list, so they win. Manual: Info node =(modus-themes) Build on top of the Modus themes=.
+- *Ef* is exactly such a derivative. Doric and Lambda cannot be extended this way: Doric's macro =doric-themes-define-theme= takes only a palette (a new Doric theme is a palette plus one line), and Lambda's =lambda-themes-create= is one function with the face list inside.
+- *Registries and metadata.* Modus and Doric attach metadata to the theme itself (=:kind 'color-scheme=, =:background-mode=, =:family=), which is how =modus-themes-get-all-known-themes= finds the themes of a family and how the completing-read annotates "light" or "dark".
+
+** Hooks and side effects
+
+Modus, Ef and Doric each run an after-load hook from their own commands only (=modus-themes-after-load-theme-hook=, =doric-themes-after-load-theme-hook=), so a plain =load-theme= does not run it. Lambda runs its hook inside every theme file. Catppuccin has none. =sp-themes.el= already advises =load-theme= (=sp-after-load-theme-hook=), which is the right level: every route, including =custom-set-variables= and =sp-macos.el=, goes through it.
+
+* Licences and vendoring
+
+- *GPLv3 (Modus, Ef, Doric, Lambda).* Copying the files into the dotfiles repository is allowed. Obligations: keep each file's copyright and licence header, keep a copy of =COPYING= next to the family, and note the origin and version. The repository is public, so the source requirement is met as long as the files stay readable text. Because the whole GPL family is copyleft, files /derived/ from them (a theme built with =modus-themes-theme=, a modified copy of =doric-themes-define-theme=) must also be GPLv3-compatible when distributed. The repository does not state a licence of its own, which is worth fixing when this lands.
+- *MIT (Catppuccin).* Keep =LICENSE= (the copyright and permission notice). The upstream palette values are the Catppuccin organisation's; keep their credit in the theme header.
+- *Lambda* has no licence file; only the GPL header in =lambda-themes.el= (version 2 or later). Keep that header and add the upstream =README.org= when vendoring.
+- *Cost of vendoring.* Updates stop: the files are a snapshot, and Modus 5.x changes face names and palette keys between releases, which would silently break copies of =ef-themes= if only one of the two were updated. Ef /requires/ the Modus engine (and a matching version), so vendoring Ef without Modus is not possible; the two must move together. Disk and repository size are small (the largest, =modus-themes.el=, is 8,000 lines; about 70 theme files in total).
+- *Upstream docs* (=.info=, =.org= manuals, =contrast-ratios.org=, test folders) need not be vendored; link to them.
+
+* What is worth adopting
+
+Ordered by value for this configuration.
+
+1. *A theme registry with metadata* (Modus, Doric). One list of every theme with =:family=, =:background-mode= and a one-line description, built from =custom-available-themes= plus the theme properties the packages already set, and a few fallbacks for themes that set none (Lambda, Catppuccin). It gives =sp-load-theme= a grouped, annotated =completing-read= (light and dark sections, like =modus-themes-select=), a random theme per background, a rotate list, and a reliable "is the current theme dark" test to replace the =(eq … 'lambda-dark)= checks in the dashboards.
+2. *Palette overrides in two layers, plus user colours* (Modus). Keep the Modus rule: shared overrides first, per-theme overrides win, a separate list of extra names. In =sp-themes= that is one =sp-theme-palette-overrides= alist keyed by =common= or a theme name. For Modus and Ef themes this is a thin wrapper over the variables they already have (=modus-themes-common-palette-overrides=, =ef-NAME-palette-overrides=); for the others it is applied by =sp-load-theme= after loading (see Design).
+3. *Presets as plain lists* (Modus). =modus-themes-preset-overrides-faint=, =-intense=, =-cooler= and =-warmer= are lists of overrides that one variable can combine. Reuse them directly for Modus and Ef; a personal preset (for example, "less saturated headings in Org") is another list.
+4. *=with-colors= macro and a colour preview* (Modus, Doric). =modus-themes-with-colors= binds every palette entry of the current theme, so modules that colour their own faces (the dashboard, the splash, the Org table renderers in =sp-vulpea-table=) can ask for =bg-dim= or =red-faint= instead of hard-coding hex. It would replace the per-theme alist in =sp-dashboard.el= (=((modus-vivendi (art . "#2a2e3a") …))=). =modus-themes-list-colors= is the preview buffer to model a palette browser on, and it makes =easy-theme-preview= less necessary.
+5. *Colour helpers* (Modus, Catppuccin). =modus-themes-contrast= (WCAG ratio), =modus-themes-get-readable-foreground=, =modus-themes-adjust-value= and =catppuccin-lighten=, =-darken=: small pure functions, GPL and MIT respectively, easy to copy and test headless.
+6. *Face bundles* (Doric). 225 faces in about 45 groups (=doric-themes-bold-faces=, =-subtle-shadow-faces=, =-diff-added-faces=, …), where a group says "these faces look like this". It is the cheapest way to cover a package a theme does not know: add the face to a bundle and every Doric theme gets it. The right model for the =sp= themes: a few bundles beat the Modus 2,350-line list for a hand-made theme.
+7. *Tiny theme files* (Ef, Doric). A theme is a partial palette plus one macro call. =modus-themes-generate-palette= derives the rest from base colours, with a cooler or warmer bias. This is how new personal themes should be written.
+8. *Run-time flavors* (Catppuccin). One theme with an alist of flavors and =catppuccin-set-color= is a good fit for "try a colour without editing a file", which the override mechanism of item 2 also covers; only the flavor switch and the =set-color= command are worth copying.
+9. *Semantic face names* (Lambda). =lambda-urgent=, =lambda-crucial=, =lambda-meek= are faces that modules can use without knowing the colour. Modus has the equivalent in mappings; adopt this only if a theme-independent vocabulary for the dashboards is wanted.
+10. *Hooks and cursor colours* (Lambda). The evil cursor colour setting is only useful if Evil is used. Not adopted.
+
+Not worth adopting: Lambda's =cond= per variant (it duplicates every colour four times), Catppuccin's one-name-per-colour layout (the faces need to be mapped by hand), and the commands that each package ships (=ef-themes-select=, =doric-themes-toggle=, …), which become redundant once =sp-load-theme= does the job once.
+
+* Design
+
+** Folder layout
+
+=sp-custom-themes-dir= already exists as =libraries/themes/=. Proposed contents:
+
+#+begin_example
+libraries/themes/
+  README.org                  where each file comes from, version, licence
+  modus-themes/               vendored: modus-themes.el + 8 *-theme.el, COPYING
+  ef-themes/                  vendored: ef-themes.el + 38 *-theme.el, COPYING
+  doric-themes/               vendored: doric-themes.el + 28 *-theme.el, COPYING
+  lambda-themes/              vendored: 5 files, README.org
+  catppuccin/                 vendored: 2 files + theme, LICENSE
+  sp/                         our own themes: sp-NAME-theme.el, one per file
+#+end_example
+
+The loader at the top of =sp-themes.el= already adds every sub-folder to =custom-theme-load-path=. Lisp libraries (=modus-themes.el=, …) must also be on =load-path=, which is not done today (Elpaca did it); the new loader would add each family folder to both.
+
+The code that is not a theme goes to one new module, =libraries/modules/ui/sp-theme-core.el=: the registry, overrides, with-colors, colour helpers. =sp-themes.el= keeps the user-facing commands and the per-family options.
+
+** =sp-load-theme= as the single entry
+
+=sp-load-theme= keeps its name, interactive behaviour and key (=t= in the =sp-keys= menu), and gains a non-interactive form =(sp-load-theme THEME &optional NO-RESET)= that is the /only/ place that:
+
+1. finds THEME in the registry (error naming the families searched, if missing);
+2. disables the other themes (the existing =sp-disable-all-themes=);
+3. applies options and overrides for THEME's family, from =sp-theme-options= (one alist: family → plist of variables) and =sp-theme-palette-overrides= (common, then theme-specific);
+4. calls =load-theme= with NO-CONFIRM;
+5. runs =sp-after-load-theme-hook= (already advised on =load-theme=; this step becomes a check that it ran);
+6. records the choice in =sp-theme-current= for the macOS appearance and toggle code.
+
+The callers that bypass it move to it with no change in behaviour: =toggle-dark-light-theme= (pick from =sp-theme-pair=), =lem--system-apply-theme= (=sp-theme-light= and =sp-theme-dark=), the dashboards (a =sp-theme-dark-p= test), and the archived configuration.
+
+** Per-family adaptors
+
+The registry has one entry per family, so the five packages differ in one small record each, not in scattered code:
+
+| Family | How its options and overrides are applied |
+|-+-|
+| modus, ef | Set =modus-themes-common-palette-overrides=, =ef-NAME-palette-overrides=; set the =modus-themes-*= variables; load. Ef needs Modus in the same folder at the matching version. |
+| doric | Bind the palette variable (=doric-NAME-palette=) with the overrides merged in, then load. |
+| lambda | Set =lambda-themes-custom-colors= and the =lambda-themes-set-*= variables, then load. |
+| catppuccin | Set =catppuccin-flavor= and, for overrides, call =catppuccin-set-color= before load. |
+| sp (own) | Written with =modus-themes-theme= (a Modus derivative, so overrides, =with-colors= and the Modus commands work), or, for a theme that is not a derivative, with a ten-line macro that follows =doric-themes-define-theme=. |
+
+** Migration, in steps
+
+Each step is a separate PR and works on its own.
+
+1. *Registry and =sp-load-theme= (no new files in =libraries/themes/=).* Build the registry from the installed packages, rewrite =sp-load-theme= as above, move the callers over. This is the change that makes "single mechanism" true, and the one with the most user-visible value. Risk: low, but it needs a restart test on macOS.
+2. *Options and overrides* in =sp-theme-options= and =sp-theme-palette-overrides=, replacing the loose =setq= forms in =sp-themes.el= (this also fixes the options that currently do not reach Lambda and Catppuccin).
+3. *Own themes.* An =sp= family under =libraries/themes/sp/= built on =modus-themes-theme=, starting with a copy of the current favourite (=ef-dream= and =lambda-light-faded=) with the overrides that are applied today.
+4. *Vendoring.* A script, =libraries/themes/vendor.sh= (or a Makefile target), copies the files of each family at a pinned tag with their licence into the folder and writes =libraries/themes/README.org=. The =use-package= forms for the five packages are replaced by =(require …)= on the vendored paths, and =easy-theme-preview= is removed if the preview buffer from step 1 is enough. Modus and Ef move in the same PR.
+5. *Licence.* Add a =LICENSE= to the repository (GPLv3 is the compatible choice) before step 4 merges.
+
+Open questions for Sia:
+- Should vendoring (step 4) happen at all, or is a registry over the Elpaca-installed packages (steps 1 to 3) enough? It is the same single mechanism with none of the licence and update costs; vendoring only buys independence from the package archives.
+- Which of the 100-odd themes are actually used? Everything outside a short list can stay out of the folder, which keeps step 4 small.
+- Is =lambda-themes= worth keeping? It is the oldest of the five (2020) and its dark and light variants are only used by the dashboard checks and the splash art.

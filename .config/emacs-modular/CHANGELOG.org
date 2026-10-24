@@ -8,6 +8,8 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Themes
+- New design note =docs/architecture/theme-system-design.org= comparing =modus-themes=, =ef-themes=, =doric-themes=, =lambda-themes= and =catppuccin-theme= (palettes, options, faces, extension, licences and vendoring), the features worth copying, and a proposal for one themes folder with =sp-load-theme= as the only entry point, in five separable steps. Documentation only: no code changed. ([[https://github.com/siainbuletin/dotfiles/pull/80][#80]], Claude)
 ** Configuration options
 - Every =defcustom= in the configuration (=early-init.el=, =init.el=, =ox-cmake-ide.el=, the modules in =libraries/modules/= and their docs in =docs/tangles/=) is in one Customize group, =spcustom=, defined first in =early-init.el=; it replaces the group =sia-lambda=, and =siapip= and the per-module groups no longer hold options. =tools/set-defcustom-group.py= sets the group on new options (=--check= lists what is missing). The vendored libraries in =libraries/modules/cloned/= keep their own groups. ([[https://github.com/siainbuletin/dotfiles/pull/63][#63]], Claude)
 ** Docs layout
