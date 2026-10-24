@@ -110,7 +110,7 @@ A column-0 `*' is an Org heading, so it is not treated as a bullet.")
         (ids (list (vulpea-note-id note))))
     (when (and path (file-readable-p path))
       (with-temp-buffer
-        (if-let ((buf (find-buffer-visiting path)))
+        (if-let* ((buf (find-buffer-visiting path)))
             (insert (with-current-buffer buf
                       (save-restriction
                         (widen)
@@ -199,7 +199,7 @@ For a heading-level NOTE (e.g. when the sidebar follows narrowing) this is
 that heading.  For a file-level note, or if the heading can't be found, it
 is the whole file: MARKER at the start of the file and LEVEL 0."
   (or (and (> (or (vulpea-note-level note) 0) 0)
-           (when-let ((m (sp-tab-inbox--heading-marker note)))
+           (when-let* ((m (sp-tab-inbox--heading-marker note)))
              (cons m (with-current-buffer (marker-buffer m)
                        (org-with-wide-buffer
                         (goto-char m)
@@ -425,7 +425,7 @@ Return the target used."
 
 (defun sp-tab-inbox--job-close-file (job)
   "Save and, if JOB opened it, kill the inbox file JOB is working on."
-  (when-let ((buf (sp-tab-inbox-job-buf job)))
+  (when-let* ((buf (sp-tab-inbox-job-buf job)))
     (when (buffer-live-p buf)
       (with-current-buffer buf
         (when (buffer-modified-p) (save-buffer)))
@@ -713,7 +713,7 @@ on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
                    (list file line text origin)
                  (sp-tab-inbox--resolve-hit))))
     (setq sp-tab-inbox--pending (list file line text origin))
-    (when-let ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
+    (when-let* ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
                          (vulpea-select
                           "Send to note"
                           :require-match nil
@@ -802,7 +802,7 @@ the note under the See also heading of the note the search started from."
        (goto-char (car root))
        (org-map-entries
         (lambda ()
-          (when-let ((id (org-entry-get nil "ID")))
+          (when-let* ((id (org-entry-get nil "ID")))
             (push id ids)))
         nil
         (if (zerop (cdr root)) nil 'tree))))

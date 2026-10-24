@@ -309,7 +309,7 @@ The prompts are plain =completing-read=, so they work with whatever completion f
 (defun sp-workbench--read-repo ()
   "Prompt for an extension repo, defaulting to the current one."
   (let* ((repos (sp-workbench--repos))
-         (cur (when-let ((top (magit-toplevel)))
+         (cur (when-let* ((top (magit-toplevel)))
                 (cl-find-if (lambda (r) (file-equal-p r (magit-main-worktree top)))
                             repos)))
          (names (mapcar (lambda (r) (cons (sp-workbench--name r) r)) repos)))
@@ -491,7 +491,7 @@ Any Claude Code session for the worktree is killed first."
                (format "%s is not merged into %s.  Remove anyway? "
                        branch (magit-main-branch)))
         (user-error "Aborted")))
-    (when-let ((buf (get-file-buffer (sp-workbench--notes-path dir))))
+    (when-let* ((buf (get-file-buffer (sp-workbench--notes-path dir))))
       (with-current-buffer buf (save-buffer)))
     (dolist (b (sp-workbench--claude-buffers dir))
       (let ((kill-buffer-query-functions nil))
@@ -672,7 +672,7 @@ DIR defaults to the current worktree."
   (let* ((dir (or dir (sp-workbench--current-worktree)))
          (default-directory (file-name-as-directory dir)))
     (sp-workbench--ignore-local-files dir)
-    (if-let ((buf (car (sp-workbench--claude-buffers dir))))
+    (if-let* ((buf (car (sp-workbench--claude-buffers dir))))
         (pop-to-buffer buf)
       (claude-code))))
 #+end_src

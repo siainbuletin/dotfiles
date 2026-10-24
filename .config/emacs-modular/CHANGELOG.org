@@ -91,6 +91,7 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - Fixed the errors that showed once the guards were gone (missing =:ensure=, =sp-path= in =:load-path=, =which-key= order). ([[https://github.com/siainbuletin/dotfiles/pull/69][#69]], Claude)
 - Changed every =defcustom= into one Customize group, =spcustom=. ([[https://github.com/siainbuletin/dotfiles/pull/63][#63]], Claude)
 - Fixed workspaces not persisting across restarts (=tabspaces-mode= was never turned on). ([[https://github.com/siainbuletin/dotfiles/pull/51][#51]], Claude)
+- Changed =when-let= and =if-let= to =when-let*= and =if-let*= in nine modules and their docs (the old macros are obsolete as of Emacs 31.1); behaviour is the same. ([[https://github.com/siainbuletin/dotfiles/pull/91][#91]], Claude)
 
 * Reviewing and merging in Magit
 /2026-10-21 to 2026-10-23./ Tools and notes for reviewing AI-made changes on the Mac. The decisions are ADRs 0001 to 0008.
