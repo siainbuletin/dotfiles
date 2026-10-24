@@ -546,3 +546,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                                                  (float-time
                                                   (time-subtract after-init-time before-init-time)) gcs-done))
                                 (put 'narrow-to-page 'disabled nil)))
+
+;; Suppress warnings from `vulpea-schema` validation
+(add-to-list 'warning-suppress-types '(vulpea-schema))
+(add-to-list 'warning-suppress-log-types '(vulpea-schema))

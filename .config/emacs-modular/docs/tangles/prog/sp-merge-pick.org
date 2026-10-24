@@ -223,7 +223,7 @@ aligned, so the pattern accepts both."
             (let ((pos (match-beginning 1))
                   (end (match-end 1)))
               (while (< pos end)
-                (when-let ((glyph (alist-get (char-after pos)
+                (when-let* ((glyph (alist-get (char-after pos)
                                              sp-merge-pick-graph-glyphs)))
                   (put-text-property pos (1+ pos) 'display glyph))
                 (setq pos (1+ pos)))))
@@ -231,7 +231,7 @@ aligned, so the pattern accepts both."
 
 (defun sp-merge-pick--mark-overlay (mark face text)
   "Highlight the line of MARK in the buffer with FACE and TEXT at its end."
-  (when-let ((rev (plist-get mark :rev)))
+  (when-let* ((rev (plist-get mark :rev)))
     (save-excursion
       (goto-char (point-min))
       (catch 'found

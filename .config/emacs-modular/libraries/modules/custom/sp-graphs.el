@@ -268,13 +268,13 @@ another note to go further.  A larger depth, when you ask for one, wins."
 (defun relationship-annotator--note (id notes)
   "Return the note with ID from NOTES, loading it from the database if needed."
   (or (gethash id notes)
-      (when-let ((note (vulpea-db-get-by-id id)))
+      (when-let* ((note (vulpea-db-get-by-id id)))
         (puthash id note notes)
         note)))
 
 (defun relationship-annotator--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
-  (if-let ((note (relationship-annotator--note id notes)))
+  (if-let* ((note (relationship-annotator--note id notes)))
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
@@ -303,7 +303,7 @@ read as bare ids separated by commas or spaces."
     ((or `(meta ,key) `(meta-inverse ,key))
      (cdr (assoc key (vulpea-note-meta note))))
     ((or `(property ,key) `(property-inverse ,key))
-     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+     (when-let* ((value (cdr (assoc key (vulpea-note-properties note)))))
        (list value)))))
 
 (defun relationship-annotator--source-notes (source)
@@ -552,7 +552,7 @@ is not checked)."
   (let ((notes (plist-get tree :notes)) found)
     (pcase-dolist (`(,subject ,relation ,object)
                    (relationship-annotator--all-edges tree))
-      (when-let ((message (relationship-annotator--anomaly
+      (when-let* ((message (relationship-annotator--anomaly
                            (relationship-annotator--note-type
                             (relationship-annotator--note subject notes))
                            relation
@@ -807,7 +807,7 @@ One of `unsupported', `challenged', `contested', `supported' or
                              (relationship-annotator--visit
                               id relationship-annotator--review-tree))
                    'follow-link t
-                   'help-echo (or (when-let ((note (relationship-annotator--note id notes)))
+                   'help-echo (or (when-let* ((note (relationship-annotator--note id notes)))
                                     (vulpea-note-path note))
                                   ""))))
 
@@ -841,7 +841,7 @@ well each stands.  RET on a title visits the note."
         (let (any)
           (dolist (id (sort (hash-table-keys notes) #'string<))
             (when (eq (relationship-annotator--type-of id context) 'claim)
-              (when-let ((gaps (relationship-annotator--argument-gaps id context)))
+              (when-let* ((gaps (relationship-annotator--argument-gaps id context)))
                 (setq any t)
                 (insert "  ")
                 (relationship-annotator--insert-note-button id tree)
@@ -1139,7 +1139,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 (defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
-  (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
+  (when-let* ((id (get-text-property (point) 'relationship-annotator-id)))
     (when (relationship-annotator--sorted-children id relationship-annotator--tree)
       (if (gethash id relationship-annotator--expanded)
           (remhash id relationship-annotator--expanded)

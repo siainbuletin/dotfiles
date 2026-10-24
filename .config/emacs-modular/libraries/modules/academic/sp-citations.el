@@ -58,11 +58,14 @@
   
   :custom
   ;; Use with org citation
-  (org-cite-global-bibliography `(,sp-bibliography))
-  (citar-bibliography `(,sp-bibliography))
-  (org-cite-insert-processor 'citar)
-  (org-cite-follow-processor 'citar)
-  (org-cite-activate-processor 'citar)
+  (org-cite-global-bibliography sp-bibtex-files)
+  (citar-bibliography sp-bibtex-files)
+
+  ;; Library and notes
+  (citar-library-paths (list sp-literature-dir))
+  (citar-library-file-extensions '("pdf" "jpg"))
+  (citar-file-additional-files-separator "-")
+  (citar-notes-paths (list (or sp-bib-notes sp-notes-dir)))
   
   ;; Working at point
   (citar-at-point-function 'embark-act) ;; use embark with at-point
@@ -77,6 +80,7 @@
           (preview . "${author editor} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
           (note . ,sp-citar-note)))
 
+  :config
   (when (display-graphic-p)
     ;; nerd-icons has no octicon PDF/text glyph, so those two use
     ;; FontAwesome; link-external maps to the octicon directly.
@@ -84,9 +88,6 @@
           `((file ,(nerd-icons-faicon  "nf-fa-file_pdf_o"     :face 'error)   . " ")
             (note ,(nerd-icons-faicon  "nf-fa-file_text_o"    :face 'warning) . " ")
             (link ,(nerd-icons-octicon "nf-oct-link_external" :face 'org-link) . " "))))
-  ;; edit notes
-  (setq citar-notes-paths `(,sp-bib-notes))
-  (citar-library-file-extensions nil)
 
   :bind
          (("C-c w b o" . citar-open))

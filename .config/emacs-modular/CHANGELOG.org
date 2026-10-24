@@ -4,6 +4,7 @@
 Changes to the Emacs configuration, grouped by the feature they build or fix. Within a set the pull requests follow the order they depend on each other, the base first. For the reason behind a change, open the pull request or the decision record linked from the set. Paths are relative to this folder. Each line starts with what happened (Added, Changed, Fixed, Removed); the category headings are not repeated.
 
 * Open pull requests
+- Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed. ([[https://github.com/siainbuletin/dotfiles/pull/90][#90]], Claude)
 - Added =sp-typst=: a PDF of the literate docs through =ox-typst= and Typst. ([[https://github.com/siainbuletin/dotfiles/pull/79][#79]], Claude)
 - Changed the package options that sat in =setq= forms next to a =use-package= into its =:custom= block, in 14 modules and their docs; the options of built-in features and of packages declared elsewhere stay as they were. ([[https://github.com/siainbuletin/dotfiles/pull/86][#86]], Claude)
 
@@ -45,6 +46,8 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - Added the macOS Focus condition, =sp-dashboard-public-facing-mode= and automatic redraw. ([[https://github.com/siainbuletin/dotfiles/pull/76][#76]], Claude)
 - Fixed the banner, title and boxes sharing no common lane. ([[https://github.com/siainbuletin/dotfiles/pull/78][#78]], Claude)
 - Changed which agendas the dashboard opens: the views of =sp-agenda-views= were to replace its own, but that wiring is not on =main= (see [[file:../../adr/0016-dashboard.org][ADR 0016]]). ([[https://github.com/siainbuletin/dotfiles/pull/70][#70]], Claude)
+- Fixed the =wrong-type-argument= error of =cursor-intangible-mode= at startup by deferring the vulpea scan to the first note and starting the mode after the draw. Superseded by the next entry for the mode. ([[https://github.com/siainbuletin/dotfiles/pull/85][#85]], Claude)
+- Changed the buttons to keymap jumping: =cursor-intangible-mode= is removed, because its redisplay hook signals =wrong-type-argument= whenever no button is found and nothing outside Emacs can catch it. The focus face stops at the button and =global-hl-line-mode= is off in the buffer. ([[https://github.com/siainbuletin/dotfiles/pull/88][#88]], Claude)
 
 * Font management
 /2026-10-23./ One place decides the fonts, and colour emoji are separate. The decisions are in [[file:../../adr/0017-font-management.org][ADR 0017]].
@@ -90,6 +93,7 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - Fixed the errors that showed once the guards were gone (missing =:ensure=, =sp-path= in =:load-path=, =which-key= order). ([[https://github.com/siainbuletin/dotfiles/pull/69][#69]], Claude)
 - Changed every =defcustom= into one Customize group, =spcustom=. ([[https://github.com/siainbuletin/dotfiles/pull/63][#63]], Claude)
 - Fixed workspaces not persisting across restarts (=tabspaces-mode= was never turned on). ([[https://github.com/siainbuletin/dotfiles/pull/51][#51]], Claude)
+- Changed =when-let= and =if-let= to =when-let*= and =if-let*= in nine modules and their docs (the old macros are obsolete as of Emacs 31.1); behaviour is the same. ([[https://github.com/siainbuletin/dotfiles/pull/91][#91]], Claude)
 
 * Reviewing and merging in Magit
 /2026-10-21 to 2026-10-23./ Tools and notes for reviewing AI-made changes on the Mac. The decisions are ADRs 0001 to 0008.
