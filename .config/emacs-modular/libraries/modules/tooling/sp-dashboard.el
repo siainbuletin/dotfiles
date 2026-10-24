@@ -1297,10 +1297,22 @@ point is."
         (remove-text-properties (button-start button) (button-end button)
                                 '(cursor-intangible nil))
         (setq position (button-end button)))))
-  (cursor-intangible-mode 1)
   (let ((overlay (make-overlay (point-min) (point-max))))
     (overlay-put overlay 'keymap sp-dashboard-mode-map)
-    (overlay-put overlay 'priority 100)))
+    (overlay-put overlay 'priority 100))
+  (run-with-idle-timer 0.1 nil #'sp-dashboard--enable-intangible
+                       (current-buffer)))
+
+(defun sp-dashboard--enable-intangible (buffer)
+  "Turn on `cursor-intangible-mode' in BUFFER once it is drawn.
+The mode moves point before every redisplay and signals an error when the
+buffer has no button to move to (`cursor-sensor-tangible-pos' returns nil),
+as happens while the dashboard is erased and drawn again.  So it starts from
+an idle timer, after the draw, and only when BUFFER is live and has a button."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when (next-button (point-min))
+        (cursor-intangible-mode 1)))))
 
 (define-minor-mode sp-dashboard-mode
   "Emacs minor mode for splash screen."
