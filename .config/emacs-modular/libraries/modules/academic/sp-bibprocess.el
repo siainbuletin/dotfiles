@@ -55,8 +55,8 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   :custom
   (bibtex-dialect 'biblatex)
 
-  ;; Keys: smith-2017-atten-is
-  (bibtex-autokey-names 1)
+  ;; Keys: smith-2017-atten-all
+  (bibtex-autokey-names 2)
   (bibtex-autokey-names-stretch 0)
   (bibtex-autokey-name-separator "")
   (bibtex-autokey-name-year-separator "-")
@@ -71,7 +71,7 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   (bibtex-autokey-before-presentation-function #'sp-bibtex-ascii-key)
   (bibtex-autokey-edit-before-use t)
   (bibtex-autokey-titleword-ignore
-   '("A" "An" "The" "On" "on" "Eine?" "Der" "Die" "Das"
+   '("A" "An" "The" "Is" "the" "a" "On" "on" "Eine?" "Der" "Die" "Das"
      "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
   ;; Cleaning and duplicates
