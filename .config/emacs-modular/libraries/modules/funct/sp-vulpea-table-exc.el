@@ -35,7 +35,7 @@
   "Width in characters of each column in an exc table.
 A column not listed uses the entry for t."
   :type '(alist :key-type (choice symbol string) :value-type integer)
-  :group 'sp-vulpea-table)
+  :group 'spcustom)
 
 (defvar-local sp-vulpea-table-exc--spec nil
   "The resolved spec the current exc table shows.")

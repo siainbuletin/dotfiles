@@ -19,18 +19,18 @@
 (defcustom sp-persistent-scratch t
   "If t, make scratch buffer persist across sessions.
 Default is to persist."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'boolean)
 
 (defcustom sp-scratch-save-dir sp-cache-dir
   "Default directory for saving scratch file."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 (defcustom sp-scratch-default-dir (expand-file-name "~/")
   "Default directory for scratch buffer.
 User may prefer to set this to `sp-scratch-save-dir'."
-  :group 'sia-lambda
+  :group 'spcustom
   :type 'string)
 
 ;;;; Text to show in the scratch buffer

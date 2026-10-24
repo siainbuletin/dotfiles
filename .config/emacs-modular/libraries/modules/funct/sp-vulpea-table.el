@@ -40,13 +40,13 @@ first of these that can be loaded."
                  (const :tag "exc grid" exc)
                  (const :tag "vui component" vui)
                  (const :tag "Org table buffer" org))
-  :group 'sp-vulpea-table)
+  :group 'spcustom)
 
 (defcustom sp-vulpea-table-install-exc t
   "Non-nil to have Elpaca install exc and its ETAF libraries.
 Set it before this module loads; nil leaves installing them to you."
   :type 'boolean
-  :group 'sp-vulpea-table)
+  :group 'spcustom)
 
 (when (and sp-vulpea-table-install-exc (fboundp 'elpaca))
   ;; ecss, ebox and etaf keep their code in lisp/, which Elpaca's default

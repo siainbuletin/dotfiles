@@ -150,13 +150,13 @@
 
 ;;;;; Citation Variables
 (defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'sia-lambda
+  :group 'spcustom
   :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory."
-  :group 'sia-lambda
+  :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
 (defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'sia-lambda
+  :group 'spcustom
   :tag "Lambda-Emacs Citar Notes Template")
 
 (provide 'sp-academic)

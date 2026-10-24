@@ -210,7 +210,7 @@ A small custom Babel language for the Nushell shell. A block can pull in code fr
   "Shell executable used by `org-babel-eval' to execute Nushell source blocks.
 This shell is used to execute the Nushell command."
   :type 'string
-  :group 'siapip)
+  :group 'spcustom)
 #+end_src
 
 ** Execute a Nushell block

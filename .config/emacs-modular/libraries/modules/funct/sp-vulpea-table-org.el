@@ -20,7 +20,7 @@
 (defcustom sp-vulpea-table-link-titles t
   "Non-nil to write note titles as id: links in Org tables."
   :type 'boolean
-  :group 'sp-vulpea-table)
+  :group 'spcustom)
 
 (defun sp-vulpea-table--org-escape (text)
   "Return TEXT safe inside an Org table cell: no bars, no line breaks."

@@ -96,7 +96,7 @@ with `load-theme' the next time the splash is drawn."
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 ;; Banner
 
@@ -104,7 +104,7 @@ with `load-theme' the next time the splash is drawn."
 (defcustom sp-dashboard-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar isep "   "
   "Separator for icon and title.")
@@ -119,7 +119,7 @@ with `load-theme' the next time the splash is drawn."
 (defcustom sp-dashboard-art-directory "images/"
   "Folder of the splash art files; relative to `sp-library-dir'."
   :type 'directory
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-layers
   (copy-tree
@@ -131,17 +131,17 @@ file (a relative name is looked up in `sp-dashboard-art-directory').  X and
 Y move the art right and down from the centre of the window, in columns
 and lines (negative: left and up).  Remove an element to hide its layer."
   :type '(alist :key-type symbol :value-type plist)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-x-step 2
   "Columns the art moves with `sp-dashboard-art-right' and `sp-dashboard-art-left'."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-y-step 1
   "Lines the art moves with `sp-dashboard-art-up' and `sp-dashboard-art-down'."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard-art-layer nil
   "Name of the layer the nudge commands move; nil means the first layer.")
@@ -169,12 +169,12 @@ A relative FILE is looked up in `sp-dashboard-art-directory'."
 The text is centred on this layer, below it.  Nil, or a layer that is not
 in `sp-dashboard-art-layers', centres the text on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-footer-layer 'lambda
   "Name of the art layer the footer text is centred on, as for the menu."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard--layer-box (name)
   "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
@@ -316,7 +316,7 @@ The form is also copied to the kill ring."
   '(sp-dashboard-accent-1-face sp-dashboard-accent-2-face sp-dashboard-accent-3-face)
   "Faces that colour the menu blocks in turn, as their box lines."
   :type '(repeat face)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palette-roles
   '((art      sp-dashboard-art-face      shadow                        :foreground 0.40)
@@ -330,7 +330,7 @@ Each element is (ROLE FACE SOURCE-FACE ATTRIBUTE MIX).  FACE, the splash
 face of the role, gets the ATTRIBUTE of SOURCE-FACE mixed with the default
 background: MIX 1 is the source colour, 0 the background."
   :type '(repeat (list symbol face face symbol number))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palettes nil
   "Colours chosen by hand for themes, instead of the derived ones.
@@ -342,12 +342,12 @@ for example:
 A role that is not listed for the current theme is derived from the
 theme, see `sp-dashboard-palette-roles'."
   :type '(alist :key-type symbol :value-type (alist :key-type symbol :value-type string))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palette-follow-theme t
   "Non-nil recolours the splash, and redraws it, when the theme changes."
   :type 'boolean
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard--rgb (color)
   "Return COLOR as a list of red, green and blue between 0 and 1, or nil."
@@ -414,7 +414,7 @@ Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
 then needs no KEY or COMMAND.  The keys must also be bound in
 `sp-dashboard-mode-map'."
   :type '(repeat sexp)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard--menu-rows (entry)
   "Return the rows of the menu block ENTRY, heading first.
@@ -483,57 +483,57 @@ a variable holding the files to read (nil: `org-agenda-files').  MODE is
 `urgent' to list the most urgent open TODOs, or `deadline' to list the
 nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
   :type '(repeat sexp)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-box-width 38
   "Width, in columns, of the text inside an agenda box."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-columns 2
   "Agenda boxes side by side; fewer when the window is too narrow."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todo-count 3
   "TODOs listed in each agenda box."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todo-lines 2
   "Lines one TODO may wrap onto before it is cut with an ellipsis."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todos-clickable t
   "Non-nil makes the first line of each TODO a button that visits the entry.
 Each one is then another stop for \\`TAB'."
   :type 'boolean
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-urgent-states '("NEXT" "PROG")
   "TODO keywords that rank an entry higher among the most urgent."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 ;;;;; Privacy
 ;; Private entries are left out of the boxes while the dashboard is public.
 (defcustom sp-dashboard-private-tags '("private")
   "Entries with one of these tags (inherited) are private."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-private-files nil
   "Regexps of files whose entries are all private."
   :type '(repeat regexp)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-public-conditions '(sp-dashboard-condition-focus)
   "Functions, without arguments, that return non-nil when you are in public.
 In `auto' mode the dashboard is public as soon as one of them returns non-nil,
 or signals an error (a check that cannot run counts as public)."
   :type '(repeat function)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard-public-mode 'auto
   "Whether the dashboard hides private entries.
@@ -543,13 +543,13 @@ and `private' always shows them.  Cycle it with `sp-dashboard-toggle-public-mode
 (defcustom sp-dashboard-trusted-networks nil
   "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-screen-share-processes nil
   "Process names that mean the screen is shared, such as a call app's helper.
 Used by `sp-dashboard-condition-screen-share'."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard-condition-untrusted-network ()
   "Return non-nil when the Wi-Fi network is not in `sp-dashboard-trusted-networks'.
@@ -572,13 +572,13 @@ Always nil when that list is empty, so it does nothing until configured."
 Create it when a Focus turns on and delete it when it turns off, for example
 with a macOS Shortcuts automation that runs `touch' or `rm' on it."
   :type 'file
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-focus-modes nil
   "Substrings of the macOS Focus identifiers that count as public.
 nil means any Focus that macOS reports as on."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defconst sp-dashboard--focus-assertions-file
   "~/Library/DoNotDisturb/DB/Assertions.json"
@@ -634,7 +634,7 @@ This overrides `sp-dashboard-public-mode', and the dashboard redraws."
   "Seconds between checks of the public status while the Dashboard exists.
 nil turns the timer off; the Focus files are still watched."
   :type '(choice (const :tag "No timer" nil) integer)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard--drawn-public nil
   "Whether the Dashboard was last drawn as public.")
@@ -1131,27 +1131,27 @@ splash is drawn again with the current settings."
 (defcustom sp-dashboard-agenda-general-files nil
   "Files of the General agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-thesis-files nil
   "Files of the thesis agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-issues-files nil
   "Files of the issues agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-deadlines-files nil
   "Files searched for the coming deadlines; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-deadlines-days 30
   "Days ahead the deadlines agenda looks."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard--open-agenda (files &optional deadlines)
   "Show the agenda of FILES (nil: `org-agenda-files').

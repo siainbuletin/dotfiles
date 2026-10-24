@@ -15,11 +15,13 @@
 
 (defcustom sp-magit-style-icons t
   "Show nerd-icons next to files and directories in Magit buffers."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-magit-style-heading-height 1.15
   "Relative height of Magit section headings."
-  :type 'number)
+  :type 'number
+  :group 'spcustom)
 
 (defun sp-magit-style--icon (kind file)
   "Return an icon string for FILE (a path) in a Magit buffer of KIND, or nil."

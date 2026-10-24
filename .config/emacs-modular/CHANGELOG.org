@@ -8,6 +8,8 @@ lists of files sit in a sub-list under their entry: press =TAB= on the entry
 to fold or unfold it.
 
 * Open pull requests
+** Configuration options
+- Every =defcustom= in the configuration (=early-init.el=, =init.el=, =ox-cmake-ide.el=, the modules in =libraries/modules/= and their docs in =docs/tangles/=) is in one Customize group, =spcustom=, defined first in =early-init.el=; it replaces the group =sia-lambda=, and =siapip= and the per-module groups no longer hold options. =tools/set-defcustom-group.py= sets the group on new options (=--check= lists what is missing). The vendored libraries in =libraries/modules/cloned/= keep their own groups. ([[https://github.com/siainbuletin/dotfiles/pull/63][#63]], Claude)
 ** Docs layout
 - The notes in =docs/= that are not module docs move to =docs/architecture/=: =load-order.org= (with its two SVG graphs), =why-this-literate.org= =relationship-annotator-vs-discourse-graphs.org=, =projects-sidebar-layout.org= and the =skills/= folder of the thesis skill. Only =main.org= and =tangles/= stay in =docs/=. Links in =docs/main.org=, =sp-org-agenda.org=, =sp-relationship-annotator.org= and the comment in =init.el= follow. ([[https://github.com/siainbuletin/dotfiles/pull/66][#66]], Claude)
 ** Documentation diagrams

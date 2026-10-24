@@ -35,7 +35,7 @@
 (defcustom sp-embr-fallback-function #'browse-url
   "Function called with the URL when embr or xwidget-webkit cannot be used."
   :type 'function
-  :group 'sp-embr)
+  :group 'spcustom)
 
 (declare-function embr-browse "embr")
 

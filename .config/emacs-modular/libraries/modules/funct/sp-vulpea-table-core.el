@@ -299,7 +299,7 @@ should run their query again.  A live table adds one while it is open.")
 The Vulpea database is updated by its own autosync; if tables sometimes
 show stale data, lengthen this."
   :type 'number
-  :group 'sp-vulpea-table)
+  :group 'spcustom)
 
 (defun sp-vulpea-table-refresh-all ()
   "Tell every open live Vulpea table to run its query again."
