@@ -40,13 +40,13 @@ digraph modules {
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
     o3 [label="sp-org-agenda\n(org-other-agenda, elegant-agenda-mode)\ndeclares first: org-super-agenda (:wait t)\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext"];
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext\n(vulpea-ext requires sp-split-leave-parents,\nnow in funct/)"];
     o6 [label="sp-csv  sp-org-normalise\nsp-org-issues"];
     o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)"];
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions, programming and AI"; style=rounded; color="#999999"; fontname="Helvetica";
-    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-link-conversion  sp-org-lint"];
+    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-org-lint"];
     g1 [label="sp-base-code"];
     g2 [label="sp-lisp\n(paredit)"];
     g3 [label="sp-prog-misc\n(emr)"];
