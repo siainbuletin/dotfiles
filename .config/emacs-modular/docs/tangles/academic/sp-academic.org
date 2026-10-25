@@ -124,8 +124,6 @@ File header, a note that the module needs to be better defined, and the roadmap 
 ;; but these details will have to be worked out later on.
 
 ;;; Code:
-
-
 #+end_src
 
 ** Citation variables

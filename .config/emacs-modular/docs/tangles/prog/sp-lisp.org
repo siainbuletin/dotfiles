@@ -149,6 +149,7 @@ Commented-out lines show indent guides and a custom indent function that were tr
 
 - It loads after =helpful= and advises =describe-function-1=, so the built-in help also shows demos.
 - =elisp-demos-add-demo= records a new example for a function.
+- The form has =:ensure nil=: the package is installed in =sp-help=, which loads earlier, and a second explicit declaration is logged by Elpaca as =Duplicate item ID queued: elisp-demos=.
 
 #+begin_src emacs-lisp -i
 ;;;; Show code examples
@@ -156,7 +157,8 @@ Commented-out lines show indent guides and a custom indent function that were tr
 ;; Find a function without a good demonstration? Call elisp-demos-add-demo.
 
 (use-package elisp-demos
-  :ensure t
+  ;; Installed by `sp-help'; a second :ensure t is a duplicate order.
+  :ensure nil
   :after helpful ; this can enhance the `describe-function` call
   :config
   (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))

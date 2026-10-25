@@ -249,7 +249,7 @@ A transient menu that gathers help commands in one place, bound to the leader pr
 
 ** elisp-demos
 
-=elisp-demos= adds example code snippets to helpful buffers by advising =helpful-update=. It is loaded one second after startup.
+=elisp-demos= adds example code snippets to helpful buffers by advising =helpful-update=. It is loaded one second after startup. This is the form that installs it; =sp-lisp= configures it further (=:ensure nil=) so that Elpaca sees only one declaration.
 
 #+begin_src emacs-lisp -i
 ;;;;; Elisp Demos

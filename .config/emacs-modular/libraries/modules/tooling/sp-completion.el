@@ -6,6 +6,12 @@
 
 ;;; Code:
 
+;;;; Company
+;; First in the file, so that Elpaca queues it as an explicit package before
+;; `company-math' and `company-prescient', which require it, are declared.
+(use-package company
+  :ensure (:wait t))
+
 ;;;; Vertico (base)
 (use-package vertico
   :ensure t
@@ -113,10 +119,6 @@
   (completion-category-defaults nil)
   (completion-category-overrides
    '((file (styles partial-completion)))))
-
-;;;; Company
-(use-package company
-  :ensure (:wait t))
 
 (provide 'sp-completion)
 ;; sp-completion.el ends here.

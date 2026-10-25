@@ -52,7 +52,6 @@
   :tag "Lambda-Emacs Citar Notes Template")
 
 ;;;; Requiring sub-libraries
-
 (require 'sp-bibprocess)
 (require 'sp-pdfprocess)
 (require 'sp-citations)

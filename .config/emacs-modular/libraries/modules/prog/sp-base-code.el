@@ -74,7 +74,8 @@ Result depends on syntax table's comment character."
   (remove-hook 'company-completion-started-hook 'company-init-quickhelp t))
 
 (use-package company
-  :ensure t
+  ;; Installed by `sp-completion'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
 
   :init 
