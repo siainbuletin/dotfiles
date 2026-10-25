@@ -12,7 +12,7 @@ This module installs and configures =lambda-line=, the minimal status line from 
 
 - Loaded in both the default and minimal module lists.
 - An alternative, =sp-prot-modeline=, is a native mode line adapted from Prot's. Load only one of the two, because both set =mode-line-format=.
-- =sp-choose-modeline= can also pick between =lambda-line= and =doom-modeline=. It is commented out in those lists.
+- =sp-choose-modeline= (a switch between =lambda-line= and =doom-modeline=) was removed. To read how those two files were written, and to recreate them, look at commit =cfc047b= (the last one that has them): =git show cfc047b:.config/emacs-modular/libraries/modules/tooling/sp-choose-modeline.el= and =git show cfc047b:.config/emacs-modular/docs/tangles/tooling/sp-choose-modeline.org=. The Doom Modeline settings it held are also in =docs/tangles/modeline.org=.
 
 What it does:
 
@@ -40,6 +40,9 @@ The clock icon option relies on the ClockFace font being installed, and the stat
 ;; next to it.  Tag emoji from `sp-tag-emoji' show in the mode line, and the
 ;; faces follow the theme.  It is loaded in both the default and minimal
 ;; module lists.  Alternative: `sp-prot-modeline'.
+;;
+;; The old `sp-choose-modeline' (lambda-line or doom-modeline) was removed; see
+;; commit cfc047b for its code and doc.
 
 ;;; Code:
 

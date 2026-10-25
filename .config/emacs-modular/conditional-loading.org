@@ -78,7 +78,6 @@ This is also currently being loaded alphabetically.
 
 - sp-backups :: For the backup files that Emacs creates
 - sp-bookmarks :: Bookmark management.
-- sp-choose-modeline :: DISABLED. You can choose between 2 modelines.
 - sp-debug :: If you ever need to do deep debugging for Elisp
 - sp-embark :: Specific settings for embark (and acting on items)
 - sp-evil :: DISABLED. Evil mode (currently there just for the sake of it, I don't want it loaded)
@@ -432,7 +431,6 @@ Modifications to be made by me, a human
         ;; Utility misc modules
         sp-backuos
         sp-bookmarks
-        ;; sp-choose-modeline
         sp-debug
         sp-embark
         ;; sp-evil
@@ -518,7 +516,6 @@ Modifications to be made by me, a human
         ;; Utility misc modules
         sp-backups
         sp-bookmarks
-        ;; sp-choose-modeline
         sp-debug
         sp-embark
         ;; sp-evil

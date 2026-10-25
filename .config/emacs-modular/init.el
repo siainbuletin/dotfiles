@@ -334,7 +334,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Utility misc modules
                     'sp-backups
                     'sp-bookmarks
-                    ;; 'sp-choose-modeline
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil
@@ -438,7 +437,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Utility misc modules
                     'sp-backups
                     'sp-bookmarks
-                    ;; 'sp-choose-modeline
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil

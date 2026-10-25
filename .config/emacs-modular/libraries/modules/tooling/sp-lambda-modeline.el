@@ -7,6 +7,9 @@
 ;; next to it.  Tag emoji from `sp-tag-emoji' show in the mode line, and the
 ;; faces follow the theme.  It is loaded in both the default and minimal
 ;; module lists.  Alternative: `sp-prot-modeline'.
+;;
+;; The old `sp-choose-modeline' (lambda-line or doom-modeline) was removed; see
+;; commit cfc047b for its code and doc.
 
 ;;; Code:
 

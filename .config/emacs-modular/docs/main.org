@@ -179,7 +179,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 - [[file:tangles/tooling/sp-backups.org][sp-backups]] :: Backups, auto-saving and history ([[file:../libraries/modules/tooling/sp-backups.el][sp-backups.el]])
 - [[file:tangles/tooling/sp-bookmarks.org][sp-bookmarks]] :: Bookmark management ([[file:../libraries/modules/tooling/sp-bookmarks.el][sp-bookmarks.el]])
-- [[file:tangles/tooling/sp-choose-modeline.org][sp-choose-modeline]] :: Choosing a modeline ([[file:../libraries/modules/tooling/sp-choose-modeline.el][sp-choose-modeline.el]])
 - [[file:tangles/tooling/sp-completion.org][sp-completion]] :: Minibuffer completion with Vertico, Marginalia and Orderless ([[file:../libraries/modules/tooling/sp-completion.el][sp-completion.el]])
 - [[file:tangles/tooling/sp-debug.org][sp-debug]] :: Startup debugging and profiling ([[file:../libraries/modules/tooling/sp-debug.el][sp-debug.el]])
 - [[file:tangles/tooling/sp-embark.org][sp-embark]] :: Embark contextual actions ([[file:../libraries/modules/tooling/sp-embark.el][sp-embark.el]])
