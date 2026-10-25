@@ -23,7 +23,7 @@
 (require 'org-list)
 (require 'org-element)
 (require 'subr-x)
-(require 'sp-paths nil t)
+(require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
 

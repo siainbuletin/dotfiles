@@ -96,74 +96,85 @@
   (require 'ls-lisp)
   (setq ls-lisp-use-insert-directory-program nil))
 
-;;;; macOS system-appearance dispatch
-;; Delegate Light/Dark choice to macOS. The system already does
-;; sunrise/sunset when set to Auto, and reflects manual flips
-;; instantly -- following it removes every source of drift between
-;; Emacs and the rest of the desktop.
-;;
-;; `ns-system-appearance' (symbol `light' or `dark') is set when an NS
-;; frame initializes; `ns-system-appearance-change-functions' fires
-;; when the system flips. The change hook does NOT fire at startup --
-;; the prior version of this code only registered the hook, which is
-;; why initial theme often disagreed with macOS. We apply once at file
-;; load to fix that, falling back to `defaults read' so a frameless
-;; daemon (which has not bound `ns-system-appearance' yet) still picks
-;; the right theme at boot.
-
-(defun lem--system-apply-theme (appearance)
-  "Load the theme matching system APPEARANCE with `sp-load-theme'.
-APPEARANCE is `light' or `dark' from
-`ns-system-appearance-change-functions' or `ns-system-appearance'.
-The themes are in `sp-theme-appearance-themes'."
-  (sp-theme-load-appearance (if (eq appearance 'dark) 'dark 'light)))
-
-(defun lem--macos-current-appearance ()
-  "Return current macOS system appearance as `light' or `dark'.
-Prefers `ns-system-appearance' (set once an NS frame exists); falls
-back to `defaults read -g AppleInterfaceStyle' for frameless daemons.
-`defaults' returns \"Dark\" when dark mode is on and exits non-zero
-when light, so any non-zero exit (or output not containing \"Dark\")
-is treated as light."
+;;;; macOS system appearance
+(defun sp-macos-appearance ()
+  "Return the macOS appearance, `light' or `dark', or nil if unknown."
   (cond
    ((and (boundp 'ns-system-appearance) ns-system-appearance)
     ns-system-appearance)
-   ((and (bound-and-true-p sys-mac)
-         (executable-find "defaults"))
+   ((executable-find "defaults")
     (with-temp-buffer
       (let ((exit (call-process "defaults" nil t nil
                                 "read" "-g" "AppleInterfaceStyle")))
-        (if (and (zerop exit)
-                 (string-match-p "Dark" (buffer-string)))
+        (if (and (zerop exit) (string-match-p "Dark" (buffer-string)))
             'dark
-          'light))))
-   (t 'light)))
+          'light))))))
 
-(when (bound-and-true-p sys-mac)
+(defun sp-macos-watch-appearance (callback)
+  "Call CALLBACK with `light' or `dark' when macOS flips.
+Return the function that stops watching."
   (when (boundp 'ns-system-appearance-change-functions)
-    (add-hook 'ns-system-appearance-change-functions
-              #'lem--system-apply-theme))
-  (lem--system-apply-theme (lem--macos-current-appearance)))
+    (add-hook 'ns-system-appearance-change-functions callback)
+    (lambda ()
+      (remove-hook 'ns-system-appearance-change-functions callback))))
 
-;;;; Daemon client-frame sync
+;;;; macOS ambient light
+(defcustom sp-macos-light-sensor-command nil
+  "Shell command that prints the light level of the room in lux, or nil."
+  :group 'spcustom
+  :type '(choice (const :tag "No sensor" nil) string))
 
-;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
-;; never receives NS appearance-change events, so the hook above never
-;; fires for it -- the daemon freezes on whatever appearance it read at
-;; startup, which is usually stale by the time a client connects (and
-;; leaves `emacsclient -t' frames on the wrong variant). Re-read the
-;; system appearance whenever a client frame is created so every frame
-;; matches the current macOS Light/Dark state. `lem--system-apply-theme'
-;; no-ops when the target theme is already active, so this is cheap.
+(defcustom sp-macos-ambient-levels
+  '((hard-light . 150)
+    (faded-light  . 60)
+    (faded-dark  . 15)
+    (hard-dark   . 0))
+  "The families by light level, an alist of (FAMILY . LUX), brightest first.
+A family applies from LUX up to the LUX of the family before it."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type number))
 
-(defun lem--sync-theme-on-new-frame (&rest _)
-  "Sync the lambda theme to the current macOS appearance.
-For `server-after-make-frame-hook': daemon client frames pick up the
-live system appearance instead of the daemon's stale startup value."
-  (lem--system-apply-theme (lem--macos-current-appearance)))
+(defcustom sp-macos-ambient-margin 0.25
+  "Fraction by which the light must pass a boundary to leave a family."
+  :group 'spcustom
+  :type 'number)
 
-(when (and (bound-and-true-p sys-mac) (daemonp))
-  (add-hook 'server-after-make-frame-hook #'lem--sync-theme-on-new-frame))
+(defvar sp-macos--ambient-family nil
+  "The family `sp-macos-ambient-family' answered last.")
+
+(defun sp-macos-ambient-lux ()
+  "Return the light level in lux from `sp-macos-light-sensor-command', or nil."
+  (when (and sp-macos-light-sensor-command
+             (not (string-empty-p sp-macos-light-sensor-command)))
+    (let ((out (string-trim (shell-command-to-string sp-macos-light-sensor-command))))
+      (when (string-match-p "\\`[0-9]+\\(?:\\.[0-9]*\\)?\\'" out)
+        (string-to-number out)))))
+
+(defun sp-macos--level-for (lux)
+  "Return the family for LUX, holding on to the current one near a boundary."
+  (let* ((levels sp-macos-ambient-levels)
+         (fresh (car (seq-find (lambda (l) (>= lux (cdr l))) levels)))
+         (pos (seq-position levels sp-macos--ambient-family
+                            (lambda (l family) (eq (car l) family)))))
+    (if (null pos)
+        fresh
+      (let* ((upper (and (> pos 0) (cdr (nth (1- pos) levels))))
+             (lower (cdr (nth pos levels)))
+             (m sp-macos-ambient-margin))
+        (if (and (>= lux (* lower (- 1 m)))
+                 (or (null upper) (< lux (* upper (+ 1 m)))))
+            sp-macos--ambient-family
+          fresh)))))
+
+(defun sp-macos-ambient-family ()
+  "Return the family for the light of the room, or nil without a reading."
+  (let ((lux (sp-macos-ambient-lux)))
+    (when lux
+      (setq sp-macos--ambient-family (sp-macos--level-for lux)))))
+
+;;;; macOS system-appearance dispatch
+(when (bound-and-true-p sys-mac)
+  (sp-theme-auto-mode 1))
 
 ;; taken from Lambda emacs
 ;;;; Org Mac Link

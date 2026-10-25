@@ -21,7 +21,7 @@ External programs and dependencies:
 - =pandoc= for most conversions.
 - LibreOffice for ODT to DOCX conversion.
 - The macOS tools =pbpaste=, =pbcopy=, =textutil=, =open= and AppleScript for the clipboard and Mail helpers. So much of the module is macOS-only.
-- Other modules: =sp-bibliography= from =sp-academic=, =sp-copy-whole-buffer-to-clipboard= from =sp-helper-funct=.
+- Other modules: =sp-bibliography= from =sp-globals=, =sp-copy-whole-buffer-to-clipboard= from =sp-helper-funct=.
 - Many functions come from the Lambda Emacs config (the =lem-= prefix).
 
 Loading and notes:
@@ -605,7 +605,7 @@ These commands come from Lambda Emacs's helper functions.
 
 =sp-cite-to-org= is meant to run the clipboard through Pandoc with the user's bibliography, so citations are rendered as formatted text, then convert the result to Org.
 
-- It passes the value of =sp-bibliography= (a =defcustom= in =sp-academic=, =nil= until you set it) to =concat=.
+- It passes the value of =sp-bibliography= (a =defcustom= in =sp-globals=, =nil= until you set it) to =concat=.
 - It used to pass the quoted symbol ='sp-bibliography=, which =concat= rejects, so it always signalled an error.
 - Set =sp-bibliography= to the path of your =.bib= file first.
 

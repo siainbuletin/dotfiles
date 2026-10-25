@@ -10,20 +10,12 @@ Literate source for =libraries/modules/base/sp-syslinux.el=.
 
 This module is the Linux counterpart of =sp-syswin=, which handles running Emacs on Windows.
 
-- It is meant to hold settings that only apply when Emacs runs on Linux: paths, clipboard and desktop integration, or anything that should load only when =system-type= is =gnu/linux=.
-- The purpose is inferred from the name and from =sp-syswin=.
+- It holds what only applies when Emacs runs on Linux (=system-type= is =gnu/linux=).
+- For now that is the light or dark appearance of the desktop, which =sp-theme-auto-mode= (see [[file:../ui/sp-themes.org][sp-themes.org]]) follows. The mode asks for it through =sp-theme-system-providers= and =sp-theme-system-watchers=, and this module fills in the Linux entries, so Linux and Windows can later be used interchangeably with macOS.
 
 Status:
 
-- The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it.
-- The blocks below are a skeleton for when you fill it in.
-- Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-syslinux)= would succeed.
-
-The commentary at the top of the module says:
-
-#+begin_quote
-Settings for Emacs running on Linux.
-#+end_quote
+- Loaded from =init.el=, next to =sp-macos=. Everything it does is guarded by =system-type=, so it is harmless elsewhere.
 
 * File header
 
@@ -34,16 +26,113 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;;; Commentary:
 
-;; Settings for Emacs running on Linux.
+;; Settings for Emacs running on Linux: the desktop appearance that
+;; `sp-theme-auto-mode' follows.
 
 ;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
 #+end_src
 
 * Configuration
 
-How to add settings:
+** The desktop appearance
 
-- Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block.
+The appearance is read from the first of these that answers:
+
+- the freedesktop portal (=org.freedesktop.appearance color-scheme=, asked with =gdbus=), which GNOME 42 and later, KDE Plasma 5.24 and later and others implement: 1 is dark, 2 is light, 0 means no preference (no answer);
+- =gsettings get org.gnome.desktop.interface color-scheme=: =prefer-dark=, =prefer-light= or =default= (light, as in GNOME);
+- the KDE colour scheme name (=kreadconfig6= or =kreadconfig5=), dark when the name contains Dark.
+
+When none of them answers (a window manager without a settings daemon, no D-Bus), the result is nil and the theme follows the time of day.
+
+The watcher listens for the portal's =SettingChanged= signal through Emacs' own =dbus= library, so a change in the desktop settings reaches Emacs at once and no timer is needed. The parsing is kept in small functions so it can be tested without a desktop.
+
+#+begin_src emacs-lisp -i
+;;;; Desktop appearance
+(defun sp-syslinux--parse-portal (output)
+  "Return `light', `dark' or nil from the gdbus OUTPUT of the portal."
+  (when (string-match "uint32 \\([0-9]+\\)" output)
+    (pcase (match-string 1 output)
+      ("1" 'dark)
+      ("2" 'light))))
+
+(defun sp-syslinux--parse-gsettings (output)
+  "Return `light', `dark' or nil from the gsettings color-scheme OUTPUT."
+  (cond ((string-match-p "prefer-dark" output) 'dark)
+        ((string-match-p "prefer-light\\|default" output) 'light)))
+
+(defun sp-syslinux--parse-kde (output)
+  "Return `light', `dark' or nil from the name of a KDE colour scheme."
+  (let ((name (string-trim output)))
+    (unless (string-empty-p name)
+      (if (string-match-p "dark" (downcase name)) 'dark 'light))))
+
+(defun sp-syslinux--run (program &rest args)
+  "Return the output of PROGRAM with ARGS, or nil if it fails or is missing."
+  (when (executable-find program)
+    (with-temp-buffer
+      (when (zerop (apply #'call-process program nil (list (current-buffer) nil) nil args))
+        (buffer-string)))))
+
+(defun sp-syslinux-appearance ()
+  "Return the desktop appearance, `light' or `dark', or nil if unknown."
+  (when (eq system-type 'gnu/linux)
+    (or (let ((out (sp-syslinux--run
+                    "gdbus" "call" "--session"
+                    "--dest" "org.freedesktop.portal.Desktop"
+                    "--object-path" "/org/freedesktop/portal/desktop"
+                    "--method" "org.freedesktop.portal.Settings.Read"
+                    "org.freedesktop.appearance" "color-scheme")))
+          (and out (sp-syslinux--parse-portal out)))
+        (let ((out (sp-syslinux--run "gsettings" "get" "org.gnome.desktop.interface"
+                                     "color-scheme")))
+          (and out (sp-syslinux--parse-gsettings out)))
+        (cl-some (lambda (program)
+                   (let ((out (sp-syslinux--run program "--group" "General"
+                                                "--key" "ColorScheme")))
+                     (and out (sp-syslinux--parse-kde out))))
+                 '("kreadconfig6" "kreadconfig5")))))
+
+(defun sp-syslinux--signal-appearance (value)
+  "Return `light', `dark' or nil for VALUE, the portal's color-scheme."
+  (pcase (if (consp value) (car value) value)
+    (1 'dark)
+    (2 'light)))
+
+(defun sp-syslinux-watch-appearance (callback)
+  "Call CALLBACK with `light' or `dark' when the desktop flips.
+Return the function that stops watching, or nil without D-Bus."
+  (when (and (eq system-type 'gnu/linux)
+             (require 'dbus nil t)
+             (fboundp 'dbus-register-signal)
+             (getenv "DBUS_SESSION_BUS_ADDRESS"))
+    (let ((object
+           (ignore-errors
+             (dbus-register-signal
+              :session "org.freedesktop.portal.Desktop"
+              "/org/freedesktop/portal/desktop"
+              "org.freedesktop.portal.Settings" "SettingChanged"
+              (lambda (namespace key value)
+                (when (and (equal namespace "org.freedesktop.appearance")
+                           (equal key "color-scheme"))
+                  (let ((appearance (sp-syslinux--signal-appearance value)))
+                    (when appearance
+                      (funcall callback appearance)))))))))
+      (when object
+        (lambda () (dbus-unregister-object object))))))
+
+;; Follow the desktop appearance on Linux.
+(when (and (eq system-type 'gnu/linux) (fboundp 'sp-theme-auto-mode))
+  (sp-theme-auto-mode 1))
+#+end_src
+
+** Adding settings
+
+How to add other settings:
+
+- Add other settings here, one heading per package or topic, each with an =emacs-lisp= block.
 - The file's =#+PROPERTY= line already sends each block to =libraries/modules/base/sp-syslinux.el=, so a new block needs no header arguments.
 - Keep the blocks above [[*Provide]] so they tangle before the =provide= form.
 
@@ -64,4 +153,51 @@ Provides the =sp-syslinux= feature and closes the file.
 #+begin_src emacs-lisp -i
 (provide 'sp-syslinux)
 ;;; sp-syslinux.el ends here
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-syslinux-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-syslinux-test.el= and run headless with =emacs -Q --batch -l tests/sp-syslinux-test.el -f ert-run-tests-batch-and-exit= from the folder of =init.el=. They test the parsing of what the desktop prints, not the desktop.
+
+#+begin_src emacs-lisp -i
+;;; sp-syslinux-test.el --- Tests for sp-syslinux  -*- lexical-binding: t; -*-
+
+;;; Code:
+
+(require 'ert)
+(load (expand-file-name
+       "../libraries/modules/base/sp-syslinux.el"
+       (file-name-directory (or load-file-name buffer-file-name)))
+      nil t)
+
+(ert-deftest sp-syslinux-test-portal ()
+  (should (eq (sp-syslinux--parse-portal "(<<uint32 1>>,)") 'dark))
+  (should (eq (sp-syslinux--parse-portal "(<<uint32 2>>,)") 'light))
+  (should-not (sp-syslinux--parse-portal "(<<uint32 0>>,)"))
+  (should-not (sp-syslinux--parse-portal "")))
+
+(ert-deftest sp-syslinux-test-gsettings ()
+  (should (eq (sp-syslinux--parse-gsettings "'prefer-dark'\n") 'dark))
+  (should (eq (sp-syslinux--parse-gsettings "'prefer-light'\n") 'light))
+  (should (eq (sp-syslinux--parse-gsettings "'default'\n") 'light))
+  (should-not (sp-syslinux--parse-gsettings "")))
+
+(ert-deftest sp-syslinux-test-kde ()
+  (should (eq (sp-syslinux--parse-kde "BreezeDark\n") 'dark))
+  (should (eq (sp-syslinux--parse-kde "BreezeLight\n") 'light))
+  (should-not (sp-syslinux--parse-kde "\n")))
+
+(ert-deftest sp-syslinux-test-signal ()
+  (should (eq (sp-syslinux--signal-appearance 1) 'dark))
+  (should (eq (sp-syslinux--signal-appearance '(2)) 'light))
+  (should-not (sp-syslinux--signal-appearance 0)))
+
+(ert-deftest sp-syslinux-test-missing-programs ()
+  (should-not (sp-syslinux--run "no-such-program-here")))
+
+(provide 'sp-syslinux-test)
+;;; sp-syslinux-test.el ends here
 #+end_src

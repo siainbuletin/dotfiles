@@ -68,11 +68,11 @@ Where the modules live:
 - [[file:tangles/base/sp-encoding.org][sp-encoding]] :: UTF-8 everywhere ([[file:../libraries/modules/base/sp-encoding.el][sp-encoding.el]])
 - [[file:tangles/base/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/base/sp-env.el][sp-env.el]])
 - [[file:tangles/base/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/base/sp-exwm.el][sp-exwm.el]])
+- [[file:tangles/base/sp-globals.org][sp-globals]] :: My most important settings in one place, including where my files live (the former sp-paths) ([[file:../libraries/modules/base/sp-globals.el][sp-globals.el]])
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
 - [[file:tangles/base/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/base/sp-macos.el][sp-macos.el]])
 - [[file:tangles/base/sp-navi.org][sp-navi]] :: Navigation: files, places and outlines ([[file:../libraries/modules/base/sp-navi.el][sp-navi.el]])
-- [[file:tangles/base/sp-paths.org][sp-paths]] :: Where my files live: notes, bibliography, checkouts ([[file:../libraries/modules/base/sp-paths.el][sp-paths.el]])
 - [[file:tangles/base/sp-snippets.org][sp-snippets]] :: Snippets with yasnippet ([[file:../libraries/modules/base/sp-snippets.el][sp-snippets.el]])
 - [[file:tangles/base/sp-syslinux.org][sp-syslinux]] :: Linux system integration ([[file:../libraries/modules/base/sp-syslinux.el][sp-syslinux.el]])
 - [[file:tangles/base/sp-syswin.org][sp-syswin]] :: Windows-specific settings ([[file:../libraries/modules/base/sp-syswin.el][sp-syswin.el]])
@@ -114,7 +114,9 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/funct/sp-move-region-to-heading.org][sp-move-region-to-heading]] :: Move a region under a heading in another note ([[file:../libraries/modules/funct/sp-move-region-to-heading.el][sp-move-region-to-heading.el]])
 - [[file:tangles/funct/sp-open-externally.org][sp-open-externally]] :: Opening files in external applications ([[file:../libraries/modules/funct/sp-open-externally.el][sp-open-externally.el]])
 - [[file:tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:../libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
+- [[file:tangles/funct/sp-org-tag-lint.org][sp-org-tag-lint]] :: Lint Org tags against the tag registry, add tags without restarting, prompt for a new note's tags ([[file:../libraries/modules/funct/sp-org-tag-lint.el][sp-org-tag-lint.el]], with the data file [[file:../libraries/modules/funct/sp-org-tag-registry.el][sp-org-tag-registry.el]])
 - [[file:tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:../libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
+- [[file:tangles/funct/sp-org-lint.org::*sp-split-leave-parents.el][sp-split-leave-parents]] :: Split a heading into its own note, keeping parents and a link ([[file:../libraries/modules/funct/sp-split-leave-parents.el][sp-split-leave-parents.el]])
 
 ** media/
 
@@ -211,6 +213,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
+- [[file:tangles/ui/sp-theme-engine.org][sp-theme-engine]] :: Flavors, semantic mappings and the =sp-dark= and =sp-light= themes ([[file:../libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]])
 - [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme folders, families and =sp-load-theme= ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
 - [[file:tangles/ui/sp-treemacs.org][sp-treemacs]] :: A file tree for the emacs-modular folder ([[file:../libraries/modules/ui/sp-treemacs.el][sp-treemacs.el]])
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
@@ -226,7 +229,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-org-ql.el][sp-vulpea-org-ql]] :: Querying vulpea notes with org-ql (draft) ([[file:../libraries/modules/vulpea/sp-vulpea-org-ql.el][sp-vulpea-org-ql.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-para.el][sp-vulpea-para]] :: Vulpea PARA agenda and capture wiring ([[file:../libraries/modules/vulpea/sp-vulpea-para.el][sp-vulpea-para.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-schemas.el][sp-vulpea-schemas]] :: Vulpea note schemas ([[file:../libraries/modules/vulpea/sp-vulpea-schemas.el][sp-vulpea-schemas.el]])
-- [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-split.el][sp-vulpea-split]] :: Splitting Vulpea headings into notes ([[file:../libraries/modules/vulpea/sp-vulpea-split.el][sp-vulpea-split.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-ui.el][sp-vulpea-ui]] :: Vulpea UI sidebar and collection views ([[file:../libraries/modules/vulpea/sp-vulpea-ui.el][sp-vulpea-ui.el]])
 
 * Architecture of the modules

@@ -130,7 +130,7 @@ This installs and configures =discourse-graphs=, a package by LuciusChen.
 - It stores them in an SQLite database.
 - It offers a context panel, heading overlays and a browser-based UI.
 - It was kept in a module of its own so it can be set up on its own.
-- Some variables from Lambda Emacs are still needed for it to work well: =sp-notes-dir= and =sp-path=, from =sp-paths=.
+- Some variables from Lambda Emacs are still needed for it to work well: =sp-notes-dir= and =sp-path=, from =sp-globals= (the former =sp-paths=).
 
 Setup:
 

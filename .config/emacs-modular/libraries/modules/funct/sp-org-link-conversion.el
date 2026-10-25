@@ -15,6 +15,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
+(require 'sp-org-tag-lint)
 
 ;;;; ------------------------------------------------------------------
 ;;;; Shared helpers
@@ -27,9 +28,10 @@
                "-" "-")))
     (if (string-empty-p slug) "note" slug)))
 
-(defun sp-org--write-note (title)
+(defun sp-org--write-note (title &optional tags)
   "Write a new note TITLE into `org-directory' without visiting it.
-Register its ID with org and return the ID."
+TAGS, a list of strings, become its #+filetags: line.  Register its ID
+with org and return the ID."
   (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
          (id   (org-id-new))
          (base (expand-file-name
@@ -45,8 +47,10 @@ Register its ID with org and return the ID."
       (setq n (1+ n)
             file (format "%s-%d.org" base n)))
     (with-temp-file file
-      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
-                      id title)))
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n" id title))
+      (when tags
+        (insert (format "#+filetags: :%s:\n" (string-join tags ":"))))
+      (insert "\n"))
     (org-id-add-location id file)
     (org-id-locations-save)
     id))
@@ -84,7 +88,8 @@ title and is replaced by the link."
     (let ((matches (sp-vulpea-notes-with-title title)))
       (if matches
           (sp-org--handle-title-conflict title matches)
-        (sp-org--create-note-and-insert-link title)))))
+        (sp-org--create-note-and-insert-link
+         title (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))))))
 
 (defun sp-org--handle-title-conflict (title matches)
   "Report that TITLE conflicts with MATCHES and let the user choose what to do."
@@ -104,9 +109,9 @@ title and is replaced by the link."
              (user-error "Pick one of the existing matches"))))
       (_ (message "Aborted")))))
 
-(defun sp-org--create-note-and-insert-link (title)
-  "Write a new note called TITLE to `org-directory' and link to it at point."
-  (let ((id (sp-org--write-note title)))
+(defun sp-org--create-note-and-insert-link (title tags)
+  "Write a new note called TITLE, tagged TAGS, to `org-directory' and link to it."
+  (let ((id (sp-org--write-note title tags)))
     (when (use-region-p)
       (delete-region (region-beginning) (region-end)))
     (insert (org-link-make-string (concat "id:" id) title))
@@ -234,7 +239,13 @@ example, export and comment blocks are ignored."
                 ;; The edited title exists after all: reuse it.
                 ((= (length matches) 1) (vulpea-note-id (car matches)))
                 (matches :skip)         ; ambiguous: don't add another duplicate
-                (t (let ((id (sp-org--write-note title)))
+                (t (let ((id (sp-org--write-note
+                              title
+                              ;; C-g at the tag prompt quits like the choice does.
+                              (condition-case nil
+                                  (sp-org-tag-read-note-tags
+                                   (format "Tags for \"%s\": " title))
+                                (quit (throw 'sp-org-wikilinks-quit nil))))))
                      (cl-incf sp-org--wl-created)
                      (puthash (downcase title) id resolved)
                      id)))))

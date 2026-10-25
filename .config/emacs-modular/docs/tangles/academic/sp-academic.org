@@ -128,23 +128,16 @@ File header, a note that the module needs to be better defined, and the roadmap 
 
 ** Citation variables
 
-Defines =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= in the =spcustom= group, now before the sub-modules are required so that =sp-citations= finds them bound.
+=sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (the bibliography file, the citation notes folder and the note template, all nil by default) are no longer defined here. They moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
 
-- =sp-bib-notes= is the =citar= notes directory. When it is nil, =sp-citations= falls back to =sp-notes-dir=.
-- =sp-citar-note= is the =citar= note template, nil by default.
-- =sp-bibliography= is obsolete. The bibliography is every =.bib= file in =sp-bibtex-dir=; the option is kept only so an existing customisation does not signal an error.
+- =sp-citations= uses them for the =citar= and =org-cite= bibliography, notes path and note template.
+- This module is a late module, and Elpaca runs the =:init= and =:custom= of a package as soon as it is installed, which can be while a later part of this file is still loading (the likely cause; not confirmed by running Emacs). That run read void variables, as in =Symbol's value as variable is void: sp-bibliography= in the =:init= of =citar-denote=. =sp-globals= is the first core module, so the variables exist long before.
 
 #+begin_src emacs-lisp -i
 ;;;; Citation variables
-(defcustom sp-bibliography nil "Obsolete: the bibliography is every .bib file in `sp-bibtex-dir'."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
-(defcustom sp-bib-notes nil "User citation notes directory, `sp-notes-dir' when nil."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citar Notes Template")
+;; Moved to `sp-globals': `sp-bibliography', `sp-bib-notes' and `sp-citar-note'.
+;; That module loads first, so the `use-package' forms below read them even when
+;; Elpaca runs those forms while this file is still being loaded.
 #+end_src
 
 ** Loading the sub-modules
@@ -359,14 +352,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Bibliography directory
 
-=sp-bibtex-dir= is a user option pointing at the folder holding BibTeX files and their attachments, =~/bibliography/= under the home directory.
+=sp-bibtex-dir=, the folder holding BibTeX files and their attachments (=~/bibliography/= under the home directory, the same as =sp-bibliography-dir=), is no longer defined here. It moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
+;; Moved to `sp-globals': `sp-bibtex-dir', the folder of the BibTeX files and
+;; their attachments.
 #+end_src
 
 *** List of BibTeX files
@@ -738,7 +728,7 @@ This module configures citation handling: Org's built-in =oc= citation framework
 
 Dependencies:
 
-- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-academic=).
+- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-globals=).
 - Citar and citeproc are configured unconditionally.
 - CSL styles and locales must be present on disk under =~/.local/share/csl/=.
 - Icons come from =nerd-icons=, at-point actions from =embark=.

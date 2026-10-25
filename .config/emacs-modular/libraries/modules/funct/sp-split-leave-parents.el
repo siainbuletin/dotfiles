@@ -1,4 +1,4 @@
-;;; sp-vulpea-split.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
+;;; sp-split-leave-parents.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
 
 ;;; Commentary:
@@ -61,14 +61,20 @@
 (defcustom sp-split-denote-names t
   "When non-nil, name split-out notes with Denote's file-naming scheme."
   :type 'boolean
-  :group 'spcustom)
+  :group 'sp-split)
+
+(defcustom sp-split-inherit-tags nil
+  "When non-nil, the new note also gets the tags its heading inherits.
+It is the value of `org-use-tag-inheritance' while `sp-split-leave-parents' runs."
+  :type 'boolean
+  :group 'sp-split)
 
 (defcustom sp-split-check-footnotes t
   "When non-nil, keep footnote definitions with the headings that cite them.
 Definitions are copied, per heading, into the new note and, for those
 that leave with the subtree, into the source note."
   :type 'boolean
-  :group 'spcustom)
+  :group 'sp-split)
 
 (defvar sp-split--fn-report nil
   "Plist (:into-new N :into-source M :dangling LABELS) for the running split.")
@@ -506,6 +512,7 @@ left."
          ;; Keep vulpea's own stub option (the prefix argument) out of it.
          (current-prefix-arg nil)
          (sp-split--fn-report nil)
+         (org-use-tag-inheritance sp-split-inherit-tags)
          (note (call-interactively #'vulpea-split-heading)))
     (prog1 (if (and note sp-split-denote-names)
                (sp-split--denote-rename note)
@@ -514,9 +521,9 @@ left."
 
 (unless (fboundp 'vulpea-split--write-file)
   (display-warning
-   'sp-vulpea-split
+   'sp-split-leave-parents
    "`vulpea-split--write-file' not found; this vulpea version is not supported"))
 (advice-add 'vulpea-split--write-file :around #'sp-split--write-file-advice)
 
-(provide 'sp-vulpea-split)
-;;; sp-vulpea-split.el ends here
+(provide 'sp-split-leave-parents)
+;;; sp-split-leave-parents.el ends here

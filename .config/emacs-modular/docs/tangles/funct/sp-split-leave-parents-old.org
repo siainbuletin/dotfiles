@@ -1,4 +1,4 @@
-* Hooking sp-vulpea-split into denote-create
+* Hooking sp-split-leave-parents into denote-create
 
 [2026-10-16 Fri]
 
@@ -26,7 +26,7 @@ Limitations:
 ** Resulting elisp file
 
 #+begin_src elisp
-;;; sp-vulpea-split.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
+;;; sp-split-leave-parents.el --- Split a vulpea heading out with parents and a link left behind -*- lexical-binding: t; -*-
 
 ;; Package-Requires: ((emacs "28.1") (denote "3.0"))
 
@@ -246,17 +246,17 @@ left."
 
 (unless (fboundp 'vulpea-split--write-file)
   (display-warning
-   'sp-vulpea-split
+   'sp-split-leave-parents
    "`vulpea-split--write-file' not found; this vulpea version is not supported"))
 (advice-add 'vulpea-split--write-file :around #'sp-split--write-file-advice)
 
-(provide 'sp-vulpea-split)
-;;; sp-vulpea-split.el ends here
+(provide 'sp-split-leave-parents)
+;;; sp-split-leave-parents.el ends here
 #+end_src
 
 ** Adding the Denote identifier to it (UNTESTED, DOESN'T SEEM TO WORK [2026-10-17 Sat])
 
-I’ve updated ~sp-vulpea-split.el~ so the new note gets a ~#+identifier:~ line.
+I’ve updated ~sp-split-leave-parents.el~ so the new note gets a ~#+identifier:~ line.
 
 After the Denote rename, the module reads the identifier from the new file name with ~denote-retrieve-filename-identifier~, so the line always matches the name. For example, ~20261016T101500--some-heading__tag1_tag2.org~ gets ~#+identifier: 20261016T101500~.
 
@@ -275,7 +275,7 @@ The new note has no ~#+date:~ line, so the front matter is title, filetags and i
 I don't use footnote sections in org-mode. However, when splitting headings into different files, the corresponding footnotes don't always get carried over, and they get lost as the sources from which I got certain information. can you add a checker to this function, which makes sure that repeat occurences of a footnote across different headings receives redundancy, and the source note doesn't lose the footnote definition once it moves to another file, instead getting copied in place for the relevant headings?
 #+end_quote
 
-I’ve added a footnote check to sp-vulpea-split.el. It runs as part of sp-split-leave-parents. I haven’t run any of it, since there’s no Emacs in my sandbox. I only checked that the parentheses balance. Please try it on a throwaway copy of a note first.
+I’ve added a footnote check to sp-split-leave-parents.el. It runs as part of sp-split-leave-parents. I haven’t run any of it, since there’s no Emacs in my sandbox. I only checked that the parentheses balance. Please try it on a throwaway copy of a note first.
 
 *** What it does
 

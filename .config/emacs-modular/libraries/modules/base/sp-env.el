@@ -9,23 +9,25 @@
 ;; packages don't get used on every system in part.
 ;;
 ;; The folders my files live in (notes, bibliography, checkouts) are named in
-;; `sp-paths' and can be overridden by SP_* environment variables.  Those are read
-;; when `sp-paths' loads, which is before the shell's environment is imported
+;; `sp-globals' and can be overridden by SP_* environment variables.  Those are read
+;; when `sp-globals' loads, which is before the shell's environment is imported
 ;; below, so a GUI Emacs only sees them when it is started from a shell (or when
 ;; they are set for the graphical session).  Nothing here changes those folders.
 
 ;;; Code:
 
-(require 'sp-paths)
+(require 'sp-globals)
 
 ;; This configuration of exec-path-from-shell is taken from John Wiegley
 (use-package exec-path-from-shell
   :ensure t
-  :when (memq window-system '(mac ns x pgtk))
+  :if (or (daemonp) (memq window-system '(mac ns x pgtk)))
   :config
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
                  "EDITOR"
+                 ;; So yadm can work as dotfiles in Emacs
+                 "GIT_CEILING_DIRECTORIES"
                  "GNUPGHOME"
                  "NIX_SSL_CERT_FILE"
                  "NODE_EXTRA_CA_CERTS"
@@ -34,9 +36,6 @@
                  "SSL_CERT_FILE"
                  "STARDICT_DATA_DIR"))
     (exec-path-from-shell-copy-env var)))
-
-(when (daemonp)
-  (exec-path-from-shell-initialize))
 
 ;; Configuring the load-path (all of this is now done recursively from the
 ;; variables I have set from the user in ealy-init.el)
@@ -89,13 +88,6 @@
 ;;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
 (use-package inheritenv
   :ensure t)
-
-;;;; Environment variable so yadm can work as dotfiles in Emacs
-(dolist (var '("ASPELL_CONF"
-               ...
-               "STARDICT_DATA_DIR"
-               "GIT_CEILING_DIRECTORIES"))
-  (exec-path-from-shell-copy-env var))
 
 (provide 'sp-env)
 ;; sp-env.el ends here.

@@ -293,7 +293,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
    (lem--require-modules
                     (list
                     ;; Core
-                    'sp-paths
+                    'sp-globals ;; my most important settings, and the locations of my files (the former sp-paths)
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets ;; I don't really make use of snippets yet.
@@ -328,7 +328,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Environment settings (have to come after the UI because of dependencies)
                     'sp-env
                     'sp-macos
-                    ;; 'sp-syswin ;; will be adding the relevant modules later
+                    'sp-syswin
+                    'sp-syslinux
                     ;; 'sp-exwm
 
                     ;; Utility misc modules
@@ -385,6 +386,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-open-externally
                     'sp-move-region-to-heading
                     'sp-tab-inbox
+                    'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
                     'sp-org-lint
 
@@ -420,7 +422,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                            (memq m (lem-gui-only-modules))))
                     (list
                      ;; Core
-                    'sp-paths
+                    'sp-globals ;; my most important settings, and the locations of my files (the former sp-paths)
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets
