@@ -100,8 +100,30 @@ Adds the cleanup to the global =before-save-hook=, so every file is cleaned on s
 
 Each save also prints the done message.
 
+The hook also runs for the idle saves of =auto-save-visited-mode= and =lem-full-auto-save= (every 5 seconds of idle time, see =sp-backups=). Mid-sentence that stripped the space just typed at the end of a line and collapsed blank lines around point, which in an Org buffer moved text and broke the word being written. So the hook now calls =sp-clean-whitespace-before-save=, which skips the cleanup in the modes of =sp-clean-whitespace-autosave-skip-modes= (default =org-mode=, derived modes included) unless the save was asked for: =this-command= is =save-buffer=, =save-some-buffers= or =write-file=. Set the option to =nil= to clean on every save again. Calling =M-x sp-clean-whitespace= is unchanged. Not run in Emacs (none in the cloud container).
+
 #+begin_src emacs-lisp -i
-(add-hook 'before-save-hook 'sp-clean-whitespace)
+(defcustom sp-clean-whitespace-autosave-skip-modes '(org-mode)
+  "Major modes in which saves not asked for by the user skip the cleanup.
+The cleanup runs from `before-save-hook'.  The idle auto-saves of
+`auto-save-visited-mode' and `lem-full-auto-save' also run that hook, so in
+these modes (or modes derived from them) it would strip the space you have
+just typed at the end of a line and collapse blank lines around point while
+you are still writing.  An explicit save (`save-buffer', `save-some-buffers'
+or `write-file') is always cleaned.  The command `sp-clean-whitespace' is
+not affected."
+  :type '(repeat symbol)
+  :group 'spcustom)
+
+(defun sp-clean-whitespace-before-save ()
+  "Run `sp-clean-whitespace' before a save, unless an auto-save is under way.
+See `sp-clean-whitespace-autosave-skip-modes'."
+  (unless (and (apply #'derived-mode-p sp-clean-whitespace-autosave-skip-modes)
+               (not (memq this-command
+                          '(save-buffer save-some-buffers write-file))))
+    (sp-clean-whitespace)))
+
+(add-hook 'before-save-hook #'sp-clean-whitespace-before-save)
 #+end_src
 
 * Blank lines around Org headings
