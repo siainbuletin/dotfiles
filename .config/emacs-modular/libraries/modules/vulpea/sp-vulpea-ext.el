@@ -42,7 +42,7 @@
 (require 'sp-vulpea-grouped-backlinks)
 
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
-(require 'sp-vulpea-split)
+(require 'sp-split-leave-parents)
 
 (provide 'sp-vulpea-ext)
 ;; sp-vulpea-ext.el
