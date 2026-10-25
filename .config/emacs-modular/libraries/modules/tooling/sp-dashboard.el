@@ -1034,10 +1034,13 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
 ;; before the key is one space with an exact pixel width.
 (defun sp-dashboard--heading-pixels (text)
   "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
-Without a graphical frame the width is that of the default font."
-  (if (and (display-graphic-p) (fboundp 'string-pixel-width))
-      (string-pixel-width (propertize text 'face 'sp-dashboard-heading-face))
-    (* (string-width text) (frame-char-width))))
+It counts the characters at the average width of that face, so nothing is
+drawn or measured in a buffer.  Without a graphical frame it is the width of
+the default font."
+  (* (string-width text)
+     (if (display-graphic-p)
+         (window-font-width nil 'sp-dashboard-heading-face)
+       (frame-char-width))))
 
 (defun sp-dashboard--heading-segments (text key command help width)
   "Return the segments of a box title, TEXT with KEY at the right of WIDTH.
@@ -1742,12 +1745,31 @@ caught from outside (see the doc)."
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
   (sp-dashboard--isolate-menu)
+  (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)
   (sp-dashboard--mark-focus))
 
 ;;;; Splash Setup & Refresh Functions
+(defvar-local sp-dashboard--drawn-geometry nil
+  "Pixel size of the window and the font the Dashboard was last drawn for.")
+
+(defun sp-dashboard--window-geometry ()
+  "Return the pixel size of the selected window and the font, to compare draws."
+  (list (window-pixel-width) (window-pixel-height)
+        (frame-char-width) (frame-char-height)))
+
+(defun sp-dashboard--refresh-on-resize ()
+  "Redraw the Dashboard when its window or font size changed since it was drawn.
+The window hooks run for much more than a resize (a key logger, the mode line
+or a message can trigger them), and a redraw drops the selected button, so
+nothing happens while the geometry is the same."
+  (when (and (string= (buffer-name) "Dashboard")
+             (not (equal sp-dashboard--drawn-geometry
+                         (sp-dashboard--window-geometry))))
+    (sp-dashboard-refresh)))
+
 (defun sp-dashboard-refresh ()
   "Refresh & recenter splash after window switch."
   (interactive)
@@ -1763,9 +1785,9 @@ caught from outside (see the doc)."
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
-    (add-hook 'window-state-change-hook #'sp-dashboard-refresh)
-    (add-hook 'window-configuration-change-hook  #'sp-dashboard-refresh)
-    (add-hook 'sp-switch-buffer-hook #'sp-dashboard-refresh)))
+    (add-hook 'window-state-change-hook #'sp-dashboard--refresh-on-resize)
+    (add-hook 'window-configuration-change-hook  #'sp-dashboard--refresh-on-resize)
+    (add-hook 'sp-switch-buffer-hook #'sp-dashboard--refresh-on-resize)))
 
 ;; Install hook after frame parameters have been applied and only if
 ;; no option on the command line
