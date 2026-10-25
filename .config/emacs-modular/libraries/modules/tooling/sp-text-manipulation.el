@@ -36,7 +36,27 @@ Works on whole buffer or selection, respects `narrow-to-region'."
           (while (eq (char-before) 32) (delete-char -1))))))
   (message "done sp-clean-whitespace"))
 
-(add-hook 'before-save-hook 'sp-clean-whitespace)
+(defcustom sp-clean-whitespace-autosave-skip-modes '(org-mode)
+  "Major modes in which saves not asked for by the user skip the cleanup.
+The cleanup runs from `before-save-hook'.  The idle auto-saves of
+`auto-save-visited-mode' and `lem-full-auto-save' also run that hook, so in
+these modes (or modes derived from them) it would strip the space you have
+just typed at the end of a line and collapse blank lines around point while
+you are still writing.  An explicit save (`save-buffer', `save-some-buffers'
+or `write-file') is always cleaned.  The command `sp-clean-whitespace' is
+not affected."
+  :type '(repeat symbol)
+  :group 'spcustom)
+
+(defun sp-clean-whitespace-before-save ()
+  "Run `sp-clean-whitespace' before a save, unless an auto-save is under way.
+See `sp-clean-whitespace-autosave-skip-modes'."
+  (unless (and (apply #'derived-mode-p sp-clean-whitespace-autosave-skip-modes)
+               (not (memq this-command
+                          '(save-buffer save-some-buffers write-file))))
+    (sp-clean-whitespace)))
+
+(add-hook 'before-save-hook #'sp-clean-whitespace-before-save)
 
 ;;;; Add whitespace before and after heading
 ;;
