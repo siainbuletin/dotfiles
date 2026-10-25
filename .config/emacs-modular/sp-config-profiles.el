@@ -52,7 +52,6 @@
 (defvar sp-module-profiles
   '((default
      . (;; Core
-        sp-paths
         sp-globals
         sp-encoding
         sp-base-libraries
@@ -141,7 +140,6 @@
     (plus-programming
      . (;; Core
         sp-package
-        sp-paths
         sp-globals
         sp-encoding
         sp-base-libraries
@@ -203,7 +201,6 @@
     (minimal
      . (;; Core
         sp-package
-        sp-paths
         sp-globals
         sp-encoding
         sp-base-libraries
@@ -235,7 +232,6 @@
     (test
      . (;; Core
         sp-package
-        sp-paths
         sp-globals
         sp-encoding
         sp-base-libraries

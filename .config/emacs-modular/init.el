@@ -293,8 +293,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
    (lem--require-modules
                     (list
                     ;; Core
-                    'sp-paths
-                    'sp-globals ;; my most important settings, right after the paths
+                    'sp-globals ;; my most important settings, and the locations of my files (the former sp-paths)
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets ;; I don't really make use of snippets yet.
@@ -421,8 +420,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                            (memq m (lem-gui-only-modules))))
                     (list
                      ;; Core
-                    'sp-paths
-                    'sp-globals ;; my most important settings, right after the paths
+                    'sp-globals ;; my most important settings, and the locations of my files (the former sp-paths)
                     'sp-encoding
                     'sp-base-libraries
                     ;; 'sp-snippets

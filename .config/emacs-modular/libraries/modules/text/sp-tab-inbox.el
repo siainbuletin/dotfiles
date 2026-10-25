@@ -46,10 +46,8 @@
 (require 'sp-move-region-to-heading)
 
 ;;;; Configuration
-(defcustom sp-tab-inbox-dir (concat org-directory "/inbox/tabs/")
-  "Directory of plain files with unsorted links."
-  :type 'directory
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-tab-inbox-dir', the directory of plain files with
+;; unsorted links.
 
 (defcustom sp-tab-inbox-fill-column 40
   "Wrap width for link inbox results.

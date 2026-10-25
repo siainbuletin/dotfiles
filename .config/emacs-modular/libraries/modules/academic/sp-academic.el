@@ -41,18 +41,9 @@
 ;;; Code:
 
 ;;;; Citation variables
-;; Defined before the sub-modules are required: their `use-package' forms
-;; read these variables, and Elpaca can run them while a later part of this
-;; file is still being loaded.
-(defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
-(defcustom sp-bib-notes nil "User citation notes directory."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citar Notes Template")
+;; Moved to `sp-globals': `sp-bibliography', `sp-bib-notes' and `sp-citar-note'.
+;; That module loads first, so the `use-package' forms below read them even when
+;; Elpaca runs those forms while this file is still being loaded.
 
 ;;;; Requiring sub-libraries
 (require 'sp-bibprocess)

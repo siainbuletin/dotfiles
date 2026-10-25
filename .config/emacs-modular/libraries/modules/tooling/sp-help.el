@@ -11,8 +11,8 @@
 
 ;;;; Dialogs and popups:
 
-(setq use-file-dialog nil)                      ;; No file dialog
-(setq use-dialog-box nil)                       ;; No dialog box
+;; Moved to `sp-globals': `sp-use-file-dialog' and `sp-use-dialog-box' (both
+;; nil: no file dialog and no dialog box).
 (setq confirm-nonexistent-file-or-buffer nil)   ;; No confirmation for visiting non-existent files
 (setq-default pop-up-windows t)                 ;; Set popup windows
 (setq-default pop-up-frames nil)                ;; Set popup frames

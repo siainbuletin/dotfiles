@@ -116,32 +116,32 @@ Installs =vc-backup=, a VC backend that treats Emacs backup files as a version h
 
 The one place where backups are configured:
 
-- The default =backup-directory-alist= points to =backups/= under =sp-var-dir=.
+- The folder (=backup-directory-alist=, =backups/= under =sp-var-dir=) is no longer set here. It moved to [[file:../base/sp-globals.org][sp-globals]] as =sp-backup-directory=, and a comment in the code says so.
 - Backups are made by copying, and also for version-controlled files.
 - Deleted files are moved to the system trash.
 - 6 new and 3 old numbered versions are kept.
 - The inline comment on =vc-make-backup-files= says the opposite of what the setting does. t means files under version control are backed up too.
 
 #+begin_src emacs-lisp -i
-(setq-default backup-directory-alist
-    `(("." . ,(expand-file-name "backups/" sp-var-dir)))
-      make-backup-files t
-      vc-make-backup-files t ; Won't create backup of files that are already under version control
-      backup-by-copying t ; Avoid symlinks
-      delete-old-versions t
-      delete-by-moving-to-trash t ; This makes sure that the files aren't permanently deleted
-      kept-new-versions 6
-      kept-old-versions 3
-      version-control t)
+;; The backup folder (`backup-directory-alist') moved to `sp-globals', as
+;; `sp-backup-directory'.
+(setq-default make-backup-files t
+              vc-make-backup-files t ; Won't create backup of files that are already under version control
+              backup-by-copying t ; Avoid symlinks
+              delete-old-versions t
+              delete-by-moving-to-trash t ; This makes sure that the files aren't permanently deleted
+              kept-new-versions 6
+              kept-old-versions 3
+              version-control t)
 #+end_src
 
 ** No lock files
 
-Disables the =.#file= lock files Emacs creates while a buffer has unsaved changes, which the comment says cause more trouble than they prevent.
+Disables the =.#file= lock files Emacs creates while a buffer has unsaved changes, which the comment says cause more trouble than they prevent. The setting moved to [[file:../base/sp-globals.org][sp-globals]] as =sp-create-lockfiles=, and a comment in the code says so.
 
 #+begin_src emacs-lisp -i
 ;;;; Lockfiles unfortunately cause more pain than benefit
-(setq create-lockfiles nil)
+;; Moved to `sp-globals': `sp-create-lockfiles' (nil: no lock files).
 #+end_src
 
 * History

@@ -20,7 +20,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
-(require 'sp-paths nil t)
+(require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
 

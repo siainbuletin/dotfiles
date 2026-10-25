@@ -9,11 +9,8 @@
 
 ;;;; Defining variables
 
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
+;; Moved to `sp-globals': `sp-bibtex-dir', the folder of the BibTeX files and
+;; their attachments.
 
 (defvar sp-bibtex-files
   (when (file-exists-p sp-bibtex-dir)

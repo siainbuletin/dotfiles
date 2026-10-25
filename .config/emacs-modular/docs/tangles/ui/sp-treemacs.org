@@ -53,17 +53,15 @@ Lexical binding and a short commentary. It explains why the tree is rooted at a 
 
 ** The folder to show
 
-=sp-treemacs-root= is the folder the tree starts from.
+=sp-treemacs-root= is the folder the tree starts from. It is defined in [[file:../base/sp-globals.org][sp-globals]], not here; a comment in the code says so.
 
 - It defaults to =user-emacs-directory=, which is =~/.config/emacs-modular/=.
 - Set it to another folder, for example ="~/notes/"=, to look at something else.
 - The old folder stays in the treemacs workspace until it is removed there with =C-c C-p r=.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-treemacs-root user-emacs-directory
-  "Folder shown in the treemacs side window by `sp-treemacs-toggle'."
-  :type 'directory
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-treemacs-root', the folder shown in the treemacs
+;; side window by `sp-treemacs-toggle'.
 #+end_src
 
 ** treemacs

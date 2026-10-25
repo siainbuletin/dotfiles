@@ -32,12 +32,8 @@ available yet.  See `sp-emoji-font-install'."
   :type '(choice (const :tag "None" nil) file)
   :group 'spcustom)
 
-(defcustom sp-emoji-font-install-dir
-  (expand-file-name "fonts/sp-emoji/"
-                    (or (getenv "XDG_DATA_HOME") "~/.local/share"))
-  "Directory the emoji font is installed into on Linux."
-  :type 'directory
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-emoji-font-install-dir', the directory the emoji
+;; font is installed into on Linux.
 
 ;;;; Selecting the font
 (defvar sp-emoji-font--applied nil

@@ -17,7 +17,7 @@ digraph modules {
   edge [color="#555555", fontname="Helvetica", fontsize=9];
 
   subgraph cluster_1 { label="1  Foundations"; style=rounded; color="#999999"; fontname="Helvetica";
-    p1 [label="sp-paths  sp-globals  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
+    p1 [label="sp-globals  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
     p2 [label="sp-interaction  sp-keys\n(hydra, helm-descbinds)"];
     p3 [label="sp-navi\n(consult)"];
     p1 -> p2 -> p3;

@@ -23,7 +23,7 @@ apt-get update && apt-get install -y emacs-nox   # 29.3 on this image
 One line per module in `lem--default-modules`, ending `== 59 ok, 13 failed` (about 2 s plus the copy). Failures are modules whose external packages are absent (vulpea, org-ql, which-key, ...): compare against that baseline, a new `FAILED` line is a regression.
 
 ```sh
-.claude/skills/run-emacs-modular/driver.sh eval '(sp-path sp-notes-dir "a" "b")' sp-paths
+.claude/skills/run-emacs-modular/driver.sh eval '(sp-path sp-notes-dir "a" "b")' sp-globals
 ```
 Requires the listed modules (after the harness), prints the form's value: `"/tmp/emacs-modular-run/notes/a/b"`.
 

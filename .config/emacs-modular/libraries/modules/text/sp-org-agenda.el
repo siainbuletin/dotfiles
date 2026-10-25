@@ -88,7 +88,7 @@
   (setq org-agenda-todo-ignore-deadlines 'far)
   (setq org-agenda-sorting-strategy
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
-  (setq calendar-week-start-day 1) ;; Start week on Monday
+  ;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
 
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
