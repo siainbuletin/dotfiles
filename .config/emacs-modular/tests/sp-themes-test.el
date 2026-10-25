@@ -92,6 +92,66 @@
     (let ((sp-theme-day-hours '(0 . 0)))
       (should (eq (sp-theme-appearance) 'dark)))))
 
+(ert-deftest sp-themes-test-platform-providers ()
+  (let ((sp-theme-auto-source 'system)
+        (sp-theme-day-hours '(0 . 24)))
+    (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+              ((symbol-function 'sp-test-provider) (lambda () 'dark)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'dark)))
+      ;; No provider for this platform, an error, or nonsense: the time.
+      (let ((sp-theme-system-providers '((macos . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'light)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () (error "boom"))))
+          (should (eq (sp-theme-appearance) 'light)))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () 'purple)))
+          (should (eq (sp-theme-appearance) 'light)))))))
+
+(ert-deftest sp-themes-test-ambient-source ()
+  (sp-themes-test--clean
+   (let ((sp-theme-auto-source 'ambient)
+         (sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-day-hours '(0 . 24))
+         (family 'hard-dark))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'macos))
+               ((symbol-function 'sp-test-ambient) (lambda () family)))
+       (let ((sp-theme-ambient-providers '((macos . sp-test-ambient))))
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-dream)))
+         (setq family 'faded-dark)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-dark-faded)))
+         (setq family 'hard-light)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-light)))
+         ;; An unknown family counts as no reading: the time of day.
+         (setq family 'purple)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-day))))))))
+
+(ert-deftest sp-themes-test-watcher ()
+  (sp-themes-test--clean
+   (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-auto-source 'system)
+         (sp-theme-day-hours '(0 . 24))
+         (stopped nil)
+         (callback nil))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+               ((symbol-function 'sp-test-watch)
+                (lambda (cb) (setq callback cb) (lambda () (setq stopped t)))))
+       (let ((sp-theme-system-providers nil)
+             (sp-theme-system-watchers '((linux . sp-test-watch))))
+         (sp-theme-auto-mode 1)
+         (unwind-protect
+             (progn
+               ;; A watcher replaces the timer.
+               (should-not sp-theme--auto-timer)
+               (funcall callback 'dark)
+               (should (equal custom-enabled-themes '(ef-dream))))
+           (sp-theme-auto-mode -1))
+         (should stopped))))))
+
 (ert-deftest sp-themes-test-load-appearance ()
   (sp-themes-test--clean
    (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
