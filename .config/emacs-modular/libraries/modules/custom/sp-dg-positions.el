@@ -184,7 +184,7 @@ Arrows keep pointing from the supporting node to the supported one."
 
 (defun dg-positions--rel-opt (rel key)
   "Option KEY of the relation rule for REL, or nil when REL has no rule."
-  (when-let ((rule (dg-positions--rule 'relation rel)))
+  (when-let* ((rule (dg-positions--rule 'relation rel)))
     (dg-positions--opt rule key)))
 
 (defun dg-positions-validate-rules (&optional rules)
@@ -367,19 +367,19 @@ The first status rule that applies and holds wins."
 
 (defun dg-positions--status-color (status)
   "Fill colour of STATUS."
-  (or (when-let ((rule (dg-positions--rule 'status status)))
+  (or (when-let* ((rule (dg-positions--rule 'status status)))
         (dg-positions--opt rule :color))
       "white"))
 
 (defun dg-positions--type-color (type)
   "Fill colour of nodes of TYPE."
-  (or (when-let ((rule (dg-positions--rule 'node-type type)))
+  (or (when-let* ((rule (dg-positions--rule 'node-type type)))
         (dg-positions--opt rule :color))
       "white"))
 
 (defun dg-positions--short (type)
   "Short label of TYPE."
-  (if-let ((rule (dg-positions--rule 'node-type type)))
+  (if-let* ((rule (dg-positions--rule 'node-type type)))
       (nth 2 rule)
     (upcase (symbol-name type))))
 
@@ -453,7 +453,7 @@ Statuses are listed in the order of their rules."
     (insert (make-string depth ?*) " " (dg-positions--heading graph id rel))
     (when kids
       (insert (format " [%d]" (length kids))))
-    (when-let ((summary (and (eq (dg-positions--type graph id) dg-positions-question-type)
+    (when-let* ((summary (and (eq (dg-positions--type graph id) dg-positions-question-type)
                              (dg-positions--summary graph id))))
       (insert summary))
     (when tags

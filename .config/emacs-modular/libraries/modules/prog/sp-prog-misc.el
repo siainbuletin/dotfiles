@@ -10,10 +10,6 @@
 
 ;;; Code:
 
-(use-package emr
-  :ensure t
-  :defer t)
-
 (use-package rainbow-delimiters
   :ensure t
   :hook ((prog-mode . rainbow-delimiters-mode)
@@ -32,10 +28,6 @@
   :defer t)
 
 (use-package dockerfile-mode
-  :ensure t
-  :defer t)
-
-(use-package docker-compose-mode
   :ensure t
   :defer t)
 

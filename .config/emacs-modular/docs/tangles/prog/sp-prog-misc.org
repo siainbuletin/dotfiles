@@ -47,16 +47,6 @@ The file header: the first line carries the file name, a short summary and the =
 ;;; Code:
 #+end_src
 
-** emr
-
-Installs =emr= (Emacs Refactor), which offers refactoring commands for Lisp and some other languages through a context menu. It is deferred and nothing binds it here.
-
-#+begin_src emacs-lisp -i
-(use-package emr
-  :ensure t
-  :defer t)
-#+end_src
-
 ** rainbow-delimiters
 
 Colours nested parentheses, brackets and braces by depth in all programming modes and in =salt-mode= (SaltStack files).

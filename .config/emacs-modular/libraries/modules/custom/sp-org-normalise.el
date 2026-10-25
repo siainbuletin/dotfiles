@@ -356,7 +356,7 @@ GLOBAL is the list of globally declared keywords (default: those of
 
 (defun sp-org-normalise--file-text (file)
   "Text of FILE: from its buffer if it is visited, else from disk."
-  (if-let ((buf (find-buffer-visiting file)))
+  (if-let* ((buf (find-buffer-visiting file)))
       (with-current-buffer buf (buffer-substring-no-properties (point-min) (point-max)))
     (with-temp-buffer (insert-file-contents file) (buffer-string))))
 
@@ -451,7 +451,7 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
 (defun sp-org-normalise-visit ()
   "Visit the file and line of the change at point."
   (interactive)
-  (if-let ((loc (get-text-property (point) 'sp-org-normalise-loc)))
+  (if-let* ((loc (get-text-property (point) 'sp-org-normalise-loc)))
       (progn (find-file-other-window (car loc))
              (goto-char (point-min))
              (forward-line (cdr loc)))

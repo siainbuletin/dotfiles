@@ -212,6 +212,9 @@ Keys:
      ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
      ("Archives"     (extensions "gz" "rar" "zip"))))
 
+  ;; Preview options
+  (dirvish-preview-buffers-max-count 2)
+
   ;; Keybindings to move through the buffer
   :bind
   (("C-c f" . dirvish)
@@ -242,7 +245,7 @@ Keys:
 Layout notes:
 
 - A heading notes the aim of a Yazi-like window layout, which is not implemented.
-- =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive.
+- =dirvish-preview-buffers-max-count= keeps at most two preview buffers alive. It is set in the =:custom= block of the =dirvish= =use-package=; it used to be a =setq= in this section.
 - Commented lines mention the preview environment and large-file threshold as things not yet worked out.
 
 #+begin_src emacs-lisp -i
@@ -250,7 +253,6 @@ Layout notes:
 ;; this should make it work like yazi
 
 ;;;; Preview options
-(setq dirvish-preview-buffers-max-count 2)
 ;; (dirvish-preview-environment) ;; I don't know how to set this up
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
 #+end_src

@@ -158,6 +158,8 @@ The declaration itself sits after =company= in the file, because =company-quickh
 
 ** Company and lsp-mode
 
+Company itself is installed in =sp-completion= (which loads earlier, through =sp-minibuffer=); this form has =:ensure nil= and only configures it.
+
 Company is configured with:
 
 - a 0.2 second idle delay,
@@ -181,7 +183,8 @@ On load it:
 
 #+begin_src emacs-lisp -i
 (use-package company
-  :ensure t
+  ;; Installed by `sp-completion'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
 
   :init 

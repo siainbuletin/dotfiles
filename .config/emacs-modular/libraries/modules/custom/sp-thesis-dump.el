@@ -170,7 +170,7 @@ Its start goes into the prompt so tasks fit the structure of the thesis."
   "Project directory; ask when FORCE or when none is found."
   (let ((found (or sp-thesis-dump-project-root
                    (locate-dominating-file default-directory ".dir-locals.el")
-                   (when-let ((project (project-current)))
+                   (when-let* ((project (project-current)))
                      (project-root project))
                    sp-thesis-dump--last-root)))
     (file-name-as-directory
@@ -534,7 +534,7 @@ Signal an error with a readable message when there is none."
   (delete-dups
    (delq nil
          (mapcar (lambda (key)
-                   (when-let ((clean (sp-thesis-dump--clean key)))
+                   (when-let* ((clean (sp-thesis-dump--clean key)))
                      (let ((bare (string-remove-prefix "@" clean)))
                        (or (seq-find (lambda (k) (string= (downcase k) (downcase bare)))
                                      known)
@@ -571,7 +571,7 @@ Signal an error with a readable message when there is none."
                (tags (delete-dups
                       (delq nil
                             (mapcar (lambda (tag)
-                                      (when-let ((clean (sp-thesis-dump--clean tag)))
+                                      (when-let* ((clean (sp-thesis-dump--clean tag)))
                                         (replace-regexp-in-string "[^[:alnum:]_@#%]" "_" clean)))
                                     (append (plist-get ctx :tags) (alist-get 'tags task))))))
                (effort (let ((e (sp-thesis-dump--clean (alist-get 'effort task))))
@@ -600,16 +600,16 @@ Signal an error with a readable message when there is none."
         (dolist (key (reverse missing))
           (let ((info (gethash key infos)))
             (insert (format "- [ ] =%s=" key))
-            (when-let ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
+            (when-let* ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
               (insert " :: " reference))
-            (when-let ((why (sp-thesis-dump--clean (alist-get 'why info))))
+            (when-let* ((why (sp-thesis-dump--clean (alist-get 'why info))))
               (insert (if (string-suffix-p "." (buffer-substring (line-beginning-position) (point))) " " ". ") why))
-            (when-let ((titles (gethash key needed)))
+            (when-let* ((titles (gethash key needed)))
               (insert (format " (for: %s)" (string-join titles "; "))))
             (insert "\n")))
         (when found
           (insert "- Already in the bibliography: " (string-join (reverse found) ", ") "\n")))
-      (when-let ((questions (delq nil (mapcar #'sp-thesis-dump--clean
+      (when-let* ((questions (delq nil (mapcar #'sp-thesis-dump--clean
                                               (alist-get 'questions payload)))))
         (insert "** Questions\n")
         (dolist (question questions) (insert "- [ ] " question "\n")))

@@ -377,38 +377,39 @@ Makes the font one point smaller.
 
 ** The lin package
 
-Installs =lin=, which highlights the current line in modes where it helps. The face is =lin-blue=, and =lin-mode-hooks= lists the modes it applies to.
+Installs =lin=, which highlights the current line in modes where it helps. The face is =lin-blue=, and =lin-mode-hooks= lists the modes it applies to. Both are =:custom= entries; they used to be =setq= forms after the =use-package=.
 
 #+begin_src emacs-lisp -i
 ;;;; Lin package
 (use-package lin
-  :ensure t)
+  :ensure t
 
-(setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+  :custom
+  (lin-face 'lin-blue)  ; this can be set to whatever color I might want otherwise
+  (lin-mode-hooks
+   '(bongo-mode-hook
+     dired-mode-hook
+     elfeed-search-mode-hook
+     git-rebase-mode-hook
+     grep-mode-hook
+     ibuffer-mode-hook
+     ilist-mode-hook
+     ledger-report-mode-hook
+     log-view-mode-hook
+     magit-log-mode-hook
+     mu4e-headers-mode-hook
+     notmuch-search-mode-hook
+     notmuch-tree-mode-hook
+     occur-mode-hook
+     org-agenda-mode-hook
+     pdf-outline-buffer-mode-hook
+     proced-mode-hook
+     tabulated-list-mode-hook)))
 
 ;; You can use this to live update the face:
 ;;
 ;; (customize-set-variable 'lin-face 'lin-green)
 
-(setq lin-mode-hooks
-      '(bongo-mode-hook
-        dired-mode-hook
-        elfeed-search-mode-hook
-        git-rebase-mode-hook
-        grep-mode-hook
-        ibuffer-mode-hook
-        ilist-mode-hook
-        ledger-report-mode-hook
-        log-view-mode-hook
-        magit-log-mode-hook
-        mu4e-headers-mode-hook
-        notmuch-search-mode-hook
-        notmuch-tree-mode-hook
-        occur-mode-hook
-        org-agenda-mode-hook
-        pdf-outline-buffer-mode-hook
-        proced-mode-hook
-        tabulated-list-mode-hook))
 #+end_src
 
 * Provide

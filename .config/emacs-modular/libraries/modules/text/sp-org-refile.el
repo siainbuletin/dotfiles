@@ -31,19 +31,17 @@
 
   :custom
   (org-outline-path-complete-in-steps nil)
-  (org-refile-allow-creating-parent-nodes 'confirm))
-
-;; there is something wrong in the syntax in the way that I wrote it here
-(setq org-refile-targets 
-  '(
-    (+org/opened-buffer-files :maxlevel . 9)
-    (nil :maxlevel . 9)
-    (org-agenda-files :maxlevel . 8)
-  ))
-
-(setq org-refile-use-cache t)
-
-(setq org-refile-use-outline-path 'file)
+  (org-refile-allow-creating-parent-nodes 'confirm)
+  ;; there is something wrong in the syntax in the way that I wrote it here
+  (org-refile-targets 
+   '(
+     (+org/opened-buffer-files :maxlevel . 9)
+     (nil :maxlevel . 9)
+     (org-agenda-files :maxlevel . 8)
+   ))
+  (org-refile-use-cache t)
+  (org-refile-use-outline-path 'file)
+)
 
 (run-with-idle-timer 300 t (lambda ()
                             (org-refile-cache-clear)

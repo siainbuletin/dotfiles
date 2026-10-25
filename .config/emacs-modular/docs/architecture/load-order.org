@@ -32,7 +32,7 @@ digraph modules {
     e1 [label="sp-env  sp-macos\n(inheritenv)"];
     e2 [label="sp-backups  sp-bookmarks  sp-debug\nsp-help  sp-indention  sp-lambda-line\nsp-md  sp-network  sp-scratch  sp-server\nsp-splash  sp-spelling  sp-templating\nsp-text-manipulation  sp-workspaces\n(markdown-mode, projectile)"];
     e3 [label="sp-embark\n(embark-consult)"];
-    e4 [label="sp-minibuffer\n(requires sp-completion:\nvertico, orderless, company, corfu, prescient)"];
+    e4 [label="sp-minibuffer\n(requires sp-completion:\ncompany first, then vertico, orderless,\ncorfu; then prescient and company-prescient)"];
     e1 -> e2 -> e3 -> e4;
   }
   subgraph cluster_4 { label="4  Org"; style=rounded; color="#999999"; fontname="Helvetica";
@@ -183,8 +183,24 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 - No module that loads at startup requires a late one, and the late modules only need packages from modules that load earlier (=org-node=, =denote=, =vulpea=, =transient=, =inheritenv=, =consult=), so their order against the rest has no conflict that I found. =claude-code= (in =sp-ai=) says =:after (inheritenv vterm eat)=, and =vterm= and =eat= come from the late =sp-terminal=, so its configuration waits until that has loaded, which is the intended order.
 - =sp-trails= needs =org-ql= from =sp-org-agenda=, which loads earlier, so it is safe as a late module.
 
+** Packages declared twice, and ones declared too late
+
+Elpaca keeps one order per package. A second =:ensure t= for the same package is logged as =Duplicate item ID queued=, and a package that is queued as a dependency before its explicit declaration is logged as =previously queued as dependency of=. Both were in the startup log, and are fixed this way:
+
+| Package        | Installed by (kept)       | Other declaration, now =:ensure nil= | Why that one stays                                                                 |
+|----------------+---------------------------+--------------------------------------+------------------------------------------------------------------------------------|
+| =hl-todo=      | =sp-org-taskman-extra=    | =sp-faces=                           | colours are read from the theme, which is loaded after =sp-faces=; the form there only adds hooks |
+| =org-autolist= | =sp-org-appearance=       | =sp-org-ext=                         | =sp-org-appearance= loads first; =sp-org-ext= adds the Org hook                    |
+| =elisp-demos=  | =sp-help=                 | =sp-lisp=                            | =sp-help= loads first; =sp-lisp= adds the =describe-function-1= advice            |
+| =company=      | =sp-completion=, now the first form of the file | =sp-base-code=       | =company-math= (=sp-org-base=) and =company-prescient= (=sp-minibuffer=) require =company=, so it has to be queued explicitly before either |
+
+Two further errors in the same log were order problems inside a module:
+
+- *=sp-academic=* defined =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= after it required =sp-citations= and =sp-litnotes=. It is a late module, and Elpaca runs the =:init= of a package once it is installed, which can be while the rest of the file is still loading (this is the likely cause; I could not run Emacs to confirm it), so =citar-denote= read =sp-bibliography= while it was void. The three =defcustom= forms are now the first thing in the file.
+- *=code-review=* is declared after =forge= but loaded without waiting for it, and its database class needs =emacsql-sqlite-connection=. It now has =:after forge= and requires =emacsql-sqlite= first.
+
 ** What stays as it was
-The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package (=hl-todo= in =sp-faces= and =sp-org-taskman-extra=, =org-autolist= in =sp-org-appearance= and =sp-org-ext=, =elisp-demos= in =sp-help= and =sp-lisp=, =company= in =sp-completion= and =sp-base-code=) are not an ordering problem and have been left alone. The minimal list (=-minimal=) is as before.
+The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package were first left alone as "not an ordering problem"; Elpaca logs them, so they are fixed (see above). The minimal list (=-minimal=) is as before.
 
 * How to place a new module
 

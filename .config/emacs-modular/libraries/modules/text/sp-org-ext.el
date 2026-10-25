@@ -39,7 +39,8 @@
 ;; Better list behavior
 ;; this package should be researched a little bit more
 (use-package org-autolist
-  :ensure t
+  ;; Installed by `sp-org-appearance'; a second :ensure t is a duplicate order.
+  :ensure nil
   :hook (org-mode . org-autolist-mode))
 
 (use-package org-journal

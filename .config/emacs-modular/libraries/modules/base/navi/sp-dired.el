@@ -103,6 +103,9 @@ Works in linux, MacOS, Microsoft Windows."
      ("Audio"        (extensions "mp3" "flac" "wav" "ape" "aac"))
      ("Archives"     (extensions "gz" "rar" "zip"))))
 
+  ;; Preview options
+  (dirvish-preview-buffers-max-count 2)
+
   ;; Keybindings to move through the buffer
   :bind
   (("C-c f" . dirvish)
@@ -129,7 +132,6 @@ Works in linux, MacOS, Microsoft Windows."
 ;; this should make it work like yazi
 
 ;;;; Preview options
-(setq dirvish-preview-buffers-max-count 2)
 ;; (dirvish-preview-environment) ;; I don't know how to set this up
 ;; (setq dirvish-preview-large-file-threshold) ;; anything above the default threshold is previewed partially
 
