@@ -239,7 +239,13 @@ example, export and comment blocks are ignored."
                 ;; The edited title exists after all: reuse it.
                 ((= (length matches) 1) (vulpea-note-id (car matches)))
                 (matches :skip)         ; ambiguous: don't add another duplicate
-                (t (let ((id (sp-org--write-note title)))
+                (t (let ((id (sp-org--write-note
+                              title
+                              ;; C-g at the tag prompt quits like the choice does.
+                              (condition-case nil
+                                  (sp-org-tag-read-note-tags
+                                   (format "Tags for \"%s\": " title))
+                                (quit (throw 'sp-org-wikilinks-quit nil))))))
                      (cl-incf sp-org--wl-created)
                      (puthash (downcase title) id resolved)
                      id)))))
