@@ -17,8 +17,6 @@
 
 ;; Integration with other packages
 
-
-
 ;; JOURNALING
 (use-package vulpea-journal
   :ensure t
@@ -29,11 +27,11 @@
 (use-package vulpea-capf
   :ensure (:host github :repo "neonmei/vulpea-capf")
   :hook (org-mode . vulpea-capf-mode)
-)
 
-(setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
-(setq vulpea-capf-in-brackets t)
-(setq vulpea-capf-annotate-function t)
+  :custom
+  (vulpea-capf-everywhere nil)  ; only complete inside [[...]]
+  (vulpea-capf-in-brackets t)
+  (vulpea-capf-annotate-function t))
 
 ;; Batch converting properties to plug into vulpea instead
 

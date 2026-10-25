@@ -181,33 +181,33 @@ DELTA would be something like 1 or -1.  The next
 
 ;;;; Lin package
 (use-package lin
-  :ensure t)
+  :ensure t
 
-(setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+  :custom
+  (lin-face 'lin-blue)  ; this can be set to whatever color I might want otherwise
+  (lin-mode-hooks
+   '(bongo-mode-hook
+     dired-mode-hook
+     elfeed-search-mode-hook
+     git-rebase-mode-hook
+     grep-mode-hook
+     ibuffer-mode-hook
+     ilist-mode-hook
+     ledger-report-mode-hook
+     log-view-mode-hook
+     magit-log-mode-hook
+     mu4e-headers-mode-hook
+     notmuch-search-mode-hook
+     notmuch-tree-mode-hook
+     occur-mode-hook
+     org-agenda-mode-hook
+     pdf-outline-buffer-mode-hook
+     proced-mode-hook
+     tabulated-list-mode-hook)))
 
 ;; You can use this to live update the face:
 ;;
 ;; (customize-set-variable 'lin-face 'lin-green)
-
-(setq lin-mode-hooks
-      '(bongo-mode-hook
-        dired-mode-hook
-        elfeed-search-mode-hook
-        git-rebase-mode-hook
-        grep-mode-hook
-        ibuffer-mode-hook
-        ilist-mode-hook
-        ledger-report-mode-hook
-        log-view-mode-hook
-        magit-log-mode-hook
-        mu4e-headers-mode-hook
-        notmuch-search-mode-hook
-        notmuch-tree-mode-hook
-        occur-mode-hook
-        org-agenda-mode-hook
-        pdf-outline-buffer-mode-hook
-        proced-mode-hook
-        tabulated-list-mode-hook))
 
 ;;; Provide
 (provide 'sp-fonts)

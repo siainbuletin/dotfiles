@@ -91,6 +91,7 @@ These settings are no longer made here. They moved to [[file:../base/sp-globals.
 =sp-kill-and-archive-region= appends the active region to =sp-archived-configs.el= inside =sp-setup-dir= and then deletes it from the buffer.
 
 - It is a quick way to retire a chunk of configuration while keeping a copy.
+- The old archive file =libraries/sp-archived-configs.el= (the previous automatic theme switch, and similar) was deleted. Its last version is in commit [[https://github.com/siainbuletin/dotfiles/blob/21c582ef959fff02ba80899748762e0d279adf32/.config/emacs-modular/libraries/sp-archived-configs.el][21c582e]]. This command writes to a different file, =sp-archived-configs.el= inside =sp-setup-dir=.
 - The docstring mentions setup-archive.el, which is an older file name.
 - =sp-keys.el= binds it under the config prefix (=a=).
 

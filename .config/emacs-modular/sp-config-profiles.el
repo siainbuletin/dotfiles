@@ -64,7 +64,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -85,7 +84,6 @@
         sp-backuos
         sp-bookmarks
         ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
@@ -152,7 +150,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -173,7 +170,6 @@
         sp-backups
         sp-bookmarks
         ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
@@ -213,7 +209,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts

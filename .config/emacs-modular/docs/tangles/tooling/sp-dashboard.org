@@ -111,7 +111,7 @@ All the faces of the dashboard are defined here, in one block.
 - =sp-dashboard-art-face= is the lambda art, dim grey on a dark background and pale grey on a light one.
 - =sp-dashboard-banner-face= is the EMACS block-letter banner, a little stronger than the art.
 - =sp-dashboard-accent-1-face=, =-2-face= and =-3-face= are the box lines of the first, second and third menu blocks. They inherit three font-lock faces.
-- =sp-dashboard-focus-face= is the button that =TAB= has selected, since the cursor is hidden. It inherits =highlight=.
+- =sp-dashboard-focus-face= is the button that =TAB= has selected, since the cursor is hidden. It inherits =highlight= without =:extend=, so it stops at the end of the button.
 
 #+begin_src emacs-lisp -i
 ;;;; Splash Faces
@@ -165,7 +165,7 @@ with `load-theme' the next time the splash is drawn."
   "Third accent of the splash: the line colour of the third menu block."
   :group 'faces)
 
-(defface sp-dashboard-focus-face '((t :inherit highlight))
+(defface sp-dashboard-focus-face '((t :inherit highlight :extend nil))
   "Face for the splash button that TAB has selected."
   :group 'faces)
 #+end_src
@@ -1358,7 +1358,7 @@ Outline header for the functions that build the splash buffer.
 
 - Called interactively, it first kills an existing =Dashboard= buffer. Otherwise the command only switches to the old buffer and a changed setting would not show.
 - After the same buffer setup as the terminal version, it inserts, centered horizontally:
-  - the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section),
+  - the lambda logo PNG (white when =sp-theme-dark-p= is true, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section),
   - the welcome text, the Emacs version and the init info,
   - the menu blocks (see the previous section) in boxes, centred under the banner, each row showing its single-key shortcut,
   - a footer pushed toward the bottom of the window, centred on the lambda (=sp-dashboard-footer-layer=) so it sits close to the art,
@@ -1432,7 +1432,7 @@ splash is drawn again with the current settings."
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
-                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                (let* ((image-file (if (sp-theme-dark-p)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
                        (image (create-image image-file 'png nil :width 175 :height 175)))
@@ -1659,7 +1659,8 @@ Look and feel:
 
 Only buttons are interactive:
 
-- =sp-dashboard--isolate-menu= marks everything else (the art, the box lines, the title and the footer) =cursor-intangible=, so point can only rest on a button. =cursor-intangible-mode= starts once the splash is drawn, from an idle timer in =sp-dashboard--enable-intangible=: its redisplay hook signals =wrong-type-argument= when it runs on a buffer with no button to move to, such as the half-built splash.
+- =sp-dashboard--isolate-menu= puts =sp-dashboard-mode-map= on an overlay over the whole buffer. That ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is. The commands that move point are bound to =ignore=, so the only way to move is =TAB= / =S-TAB=, and point rests on a button.
+- It does not use =cursor-intangible-mode=. Its redisplay hook (=cursor-sensor--move-to-tangible= on =pre-redisplay-functions=) calls =cursor-sensor-tangible-pos=, which returns nil when it finds no tangible position, and then does arithmetic on nil: =(wrong-type-argument number-or-marker-p nil)=. Redisplay runs the hook inside =with-demoted-errors=, so the error is caught and printed there, before any handler of yours runs, on every redisplay while the condition holds. =condition-case=, =debug-on-error= and =warning-suppress-types= cannot reach it, and advising the function or the hook would mean patching Emacs. Starting the mode from an idle timer only narrowed the window: the dashboard is erased and redrawn by =sp-dashboard-refresh= whenever the window state changes, so a redisplay can still see a buffer with nothing tangible.
 - It also puts =sp-dashboard-mode-map= on an overlay over the whole buffer. That ranks above the button's own keymap, so =TAB= is =sp-dashboard-next-button= wherever point is.
 
 #+begin_src emacs-lisp -i
@@ -1741,36 +1742,17 @@ Only buttons are interactive:
   (deactivate-mark))
 
 (defun sp-dashboard--isolate-menu ()
-  "Make the buttons the only part of the dashboard that can be reached.
-The rest of the buffer, the art and the text around the buttons, is marked
-`cursor-intangible', so point can only rest on a button.  An overlay over
-the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
-above the other keymaps, so the keys of the dashboard are the same wherever
-point is."
-  (let ((inhibit-read-only t)
-        (position (point-min)))
-    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
-    (let (button)
-      (while (setq button (next-button position))
-        (remove-text-properties (button-start button) (button-end button)
-                                '(cursor-intangible nil))
-        (setq position (button-end button)))))
+  "Make the keys of the dashboard the same wherever point is.
+An overlay over the whole buffer carries `sp-dashboard-mode-map' as its
+keymap, which ranks above the other keymaps.  The map binds TAB and S-TAB to
+`sp-dashboard-next-button' and `sp-dashboard-previous-button' and ignores
+the commands that move point, so point only ever rests on a button.  There
+is no `cursor-intangible-mode': its redisplay hook signals
+`wrong-type-argument' whenever it finds no button to move to, which cannot be
+caught from outside (see the doc)."
   (let ((overlay (make-overlay (point-min) (point-max))))
     (overlay-put overlay 'keymap sp-dashboard-mode-map)
-    (overlay-put overlay 'priority 100))
-  (run-with-idle-timer 0.1 nil #'sp-dashboard--enable-intangible
-                       (current-buffer)))
-
-(defun sp-dashboard--enable-intangible (buffer)
-  "Turn on `cursor-intangible-mode' in BUFFER once it is drawn.
-The mode moves point before every redisplay and signals an error when the
-buffer has no button to move to (`cursor-sensor-tangible-pos' returns nil),
-as happens while the dashboard is erased and drawn again.  So it starts from
-an idle timer, after the draw, and only when BUFFER is live and has a button."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (when (next-button (point-min))
-        (cursor-intangible-mode 1)))))
+    (overlay-put overlay 'priority 100)))
 #+end_src
 
 ** Minor mode
@@ -1803,6 +1785,8 @@ an idle timer, after the draw, and only when BUFFER is live and has a button."
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
+  ;; `global-hl-line-mode' ignores the line above and would paint the whole row
+  (setq-local global-hl-line-mode nil)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
   

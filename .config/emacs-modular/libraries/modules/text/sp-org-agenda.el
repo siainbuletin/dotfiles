@@ -28,6 +28,25 @@
      (todo   . " %(vulpea-para-agenda-category 36) ")
      (tags   . " %(vulpea-para-agenda-category 36) ")
      (search . " %i %(vulpea-para-agenda-category 36) ")))
+  (org-agenda-tags-column 0)  ;; Put tags next to heading
+  (org-agenda-breadcrumbs-separator "  ")
+  (org-agenda-block-separator " ")  ;; No default block seperator
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string
+   "–––––––––––––– Now")
+  (org-agenda-tags-column org-tags-column)
+  (org-agenda-show-inherited-tags nil)
+  (org-agenda-window-setup 'only-window)
+  (org-agenda-restore-windows-after-quit t)
+  (org-agenda-skip-scheduled-if-done t)
+  (org-agenda-skip-timestamp-if-done t)
+  (org-agenda-todo-ignore-scheduled 'future)
+  (org-agenda-todo-ignore-deadlines 'far)
+  (org-agenda-sorting-strategy
+   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
 )
 
 ;;;; Org other agenda (yibie)
@@ -60,35 +79,22 @@
 ;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
-  (setq org-agenda-tags-column 0)           ;; Put tags next to heading
-  (setq org-agenda-breadcrumbs-separator "  ")
-  (setq org-agenda-block-separator " ")     ;; No default block seperator
-  (setq org-agenda-time-grid
-   '((daily today require-timed)
-     (800 1000 1200 1400 1600 1800 2000)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (setq org-agenda-current-time-string
-   "–––––––––––––– Now")
 
 (use-package elegant-agenda-mode
   :ensure t)
 
 ;; Display properties
-  (setq org-agenda-tags-column org-tags-column)
-  (setq org-agenda-show-inherited-tags nil)
-  (setq org-agenda-window-setup 'only-window)
-  (setq org-agenda-restore-windows-after-quit t)
 
 ;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
-  (setq org-agenda-skip-scheduled-if-done t)
-  (setq org-agenda-skip-timestamp-if-done t)
-  (setq org-agenda-todo-ignore-scheduled 'future)
-  (setq org-agenda-todo-ignore-deadlines 'far)
-  (setq org-agenda-sorting-strategy
-   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
-  ;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-timestamp-if-done t)
+(setq org-agenda-todo-ignore-scheduled 'future)
+(setq org-agenda-todo-ignore-deadlines 'far)
+(setq org-agenda-sorting-strategy
+ '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
+;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
 
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda

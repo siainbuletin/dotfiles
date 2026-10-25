@@ -20,7 +20,7 @@ Dependencies:
 
 - The =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, and =org-mac-link=.
 - The variable =sys-mac=, set elsewhere in the configuration to detect macOS.
-- The themes it switches between, =ef-dream= and =lambda-light-faded=, must be installed by the theme modules.
+- =sp-themes=, which provides =sp-theme-load-appearance= and the themes it switches between (=sp-theme-appearance-themes=).
 
 Loading:
 
@@ -213,25 +213,18 @@ Explanatory comment for the appearance code that follows.
 
 ** Applying a theme for an appearance
 
-=lem--system-apply-theme= maps =dark= to =ef-dream= and anything else to =lambda-light-faded=.
+=lem--system-apply-theme= hands the appearance to =sp-theme-load-appearance= in =sp-themes=, which maps =dark= and =light= to the themes in =sp-theme-appearance-themes= (=ef-dream= and =lambda-light-faded= by default) and loads the target with =sp-load-theme=.
 
-- Disables all enabled themes and loads the target.
 - Does nothing if the target is already the first enabled theme.
-- The docstring calls both lambda variants, though the dark one is actually an ef theme.
+- The function keeps its old name so the hooks below do not change.
 
 #+begin_src emacs-lisp -i
 (defun lem--system-apply-theme (appearance)
-  "Load the lambda variant matching system APPEARANCE.
+  "Load the theme matching system APPEARANCE with `sp-load-theme'.
 APPEARANCE is `light' or `dark' from
 `ns-system-appearance-change-functions' or `ns-system-appearance'.
-No-op when the target is already at the head of
-`custom-enabled-themes'."
-  (let ((target (pcase appearance
-                  ('dark 'ef-dream)
-                  (_     'lambda-light-faded))))
-    (unless (eq target (car custom-enabled-themes))
-      (mapc #'disable-theme custom-enabled-themes)
-      (load-theme target t))))
+The themes are in `sp-theme-appearance-themes'."
+  (sp-theme-load-appearance (if (eq appearance 'dark) 'dark 'light)))
 #+end_src
 
 ** Reading the current appearance

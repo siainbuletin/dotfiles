@@ -102,7 +102,7 @@ greatest key wins (keys are VISITED timestamps, so latest wins)."
        (goto-char trail)
        (org-map-entries
         (lambda ()
-          (when-let ((key (funcall pred)))
+          (when-let* ((key (funcall pred)))
             (when (or (null best-key) (string> key best-key))
               (setq best (point-marker) best-key key))))
         nil 'tree)))

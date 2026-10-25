@@ -204,7 +204,7 @@ Both servers are built on =mcp-server-lib=.
 
 ** Running the MCP servers without a GUI
 
-Nothing here needs a window. Start a daemon of its own for Claude, with the headless switch so the GUI-only modules (=sp-macos=, =sp-splash=, =lem-dashboard=) are skipped, and register the wrapper against its socket:
+Nothing here needs a window. Start a daemon of its own for Claude, with the headless switch so the GUI-only modules (=sp-macos=, =sp-splash=) are skipped, and register the wrapper against its socket:
 
 #+begin_src fish :tangle no
 # start (once per login; a launchd agent or `brew services` can run the same command)

@@ -4,7 +4,7 @@ This is a modular Emacs configuration: =init.el= loads sub-libraries from =libra
 
 * Tangling the literate files
 
-Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org= (and =lem-dashboard.el= from =sp-lem-dashboard.org=). Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
+Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
 
 ** Where a file tangles to
 

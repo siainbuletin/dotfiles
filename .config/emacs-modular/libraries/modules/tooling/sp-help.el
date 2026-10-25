@@ -206,7 +206,7 @@ sections are actually ordered."
               (let* ((node-display-name (match-string 1))
                      (node-actual-name (or (match-string 2) node-display-name)))
                 (push (cons (concat node-display-name
-                                    (if-let ((node-description (match-string 3)))
+                                    (if-let* ((node-description (match-string 3)))
                                         (propertize
                                          (thread-last node-description
                                                       (replace-regexp-in-string "\n" "")
@@ -249,7 +249,7 @@ sections are actually ordered."
               (let* ((node-display-name (match-string-no-properties 1))
                      (node-actual-name (or (match-string-no-properties 2) node-display-name)))
                 (push (cons (concat node-display-name
-                                    (if-let ((node-description (match-string-no-properties 3)))
+                                    (if-let* ((node-description (match-string-no-properties 3)))
                                         (propertize
                                          (thread-last node-description
                                                       (replace-regexp-in-string "\n" "")

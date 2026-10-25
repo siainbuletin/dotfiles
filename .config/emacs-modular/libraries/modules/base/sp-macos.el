@@ -112,17 +112,11 @@
 ;; the right theme at boot.
 
 (defun lem--system-apply-theme (appearance)
-  "Load the lambda variant matching system APPEARANCE.
+  "Load the theme matching system APPEARANCE with `sp-load-theme'.
 APPEARANCE is `light' or `dark' from
 `ns-system-appearance-change-functions' or `ns-system-appearance'.
-No-op when the target is already at the head of
-`custom-enabled-themes'."
-  (let ((target (pcase appearance
-                  ('dark 'ef-dream)
-                  (_     'lambda-light-faded))))
-    (unless (eq target (car custom-enabled-themes))
-      (mapc #'disable-theme custom-enabled-themes)
-      (load-theme target t))))
+The themes are in `sp-theme-appearance-themes'."
+  (sp-theme-load-appearance (if (eq appearance 'dark) 'dark 'light)))
 
 (defun lem--macos-current-appearance ()
   "Return current macOS system appearance as `light' or `dark'.
