@@ -67,7 +67,9 @@ The first THEME of a family is the one `sp-load-theme-family' loads."
 The last three are the numbers of the regexp groups holding that part, or nil.")
 
 (defvar sp-theme-metadata-exceptions
-  '((catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'"))
+  '(
+    ;; (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; catppuccin has been removed
+    )
   "Metadata that a theme file cannot give, an alist of (THEME . PLIST).")
 
 (defun sp-theme--file-metadata (file)

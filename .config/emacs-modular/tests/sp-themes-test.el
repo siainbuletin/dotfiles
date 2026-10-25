@@ -42,7 +42,7 @@
 (ert-deftest sp-themes-test-registry-backgrounds ()
   (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
                   (lambda-light-faded . light) (lambda-dark . dark)
-                  (modus-operandi . light) (catppuccin . dark)
+                  (modus-operandi . light)
                   (sp-dark . dark) (sp-light . light)))
     (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
 
