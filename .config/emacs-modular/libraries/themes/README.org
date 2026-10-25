@@ -6,8 +6,8 @@ Every theme of this configuration lives here, copied from the upstream packages;
 |-+-|
 | =lib/= | The theme engines, on =load-path=: =modus-themes.el=, =ef-themes.el=, =doric-themes.el=, =lambda-themes.el=. Ef needs Modus, and every theme file of a package requires its engine. |
 | =active/= | The theme files in use (7). The families in =sp-theme-families= name these. |
-| =library/= | Every other theme of the packages, one folder per package, to try palettes out with =M-x sp-load-theme=. To use one, copy its file to =active/= and add it to a family. |
-| =sp/= | Themes written for this configuration (none yet). |
+| =library/= | Every other theme of the packages (66), one folder per package, to try palettes out with =M-x sp-load-theme=. To use one, copy its file to =active/= and add it to a family. The colour-blind variants of Modus and Ef (=*-deuteranopia=, =*-tritanopia=) are not kept; the engines still carry their palettes. |
+| =sp/= | Themes written for this configuration: =sp-dark= and =sp-light=, three lines each. Their colours, mappings and faces are in =sp-theme-engine= ([[file:../../docs/tangles/ui/sp-theme-engine.org][docs]]), not here. |
 
 * Where the files come from
 
@@ -21,7 +21,7 @@ Copied unchanged, on 2026-10-24:
 | lambda-themes 0.1 | https://github.com/lambda-emacs/lambda-themes | 715d29f |
 | catppuccin-theme 1.0.0 | https://github.com/catppuccin/emacs | 56c3cbe |
 
-Only the Lisp files are kept, not the manuals, tests or screenshots. Updating a package means copying its files again over the same folder; the Ef themes and the Modus engine must be updated together.
+Only the Lisp files of the themes are kept, not the manuals, tests or screenshots. Updating a package means copying its files again over the same folder; the Ef themes and the Modus engine must be updated together.
 
 * In use
 

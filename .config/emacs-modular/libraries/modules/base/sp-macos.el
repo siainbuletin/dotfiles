@@ -97,73 +97,8 @@
   (setq ls-lisp-use-insert-directory-program nil))
 
 ;;;; macOS system-appearance dispatch
-;; Delegate Light/Dark choice to macOS. The system already does
-;; sunrise/sunset when set to Auto, and reflects manual flips
-;; instantly -- following it removes every source of drift between
-;; Emacs and the rest of the desktop.
-;;
-;; `ns-system-appearance' (symbol `light' or `dark') is set when an NS
-;; frame initializes; `ns-system-appearance-change-functions' fires
-;; when the system flips. The change hook does NOT fire at startup --
-;; the prior version of this code only registered the hook, which is
-;; why initial theme often disagreed with macOS. We apply once at file
-;; load to fix that, falling back to `defaults read' so a frameless
-;; daemon (which has not bound `ns-system-appearance' yet) still picks
-;; the right theme at boot.
-
-(defun lem--system-apply-theme (appearance)
-  "Load the theme matching system APPEARANCE with `sp-load-theme'.
-APPEARANCE is `light' or `dark' from
-`ns-system-appearance-change-functions' or `ns-system-appearance'.
-The themes are in `sp-theme-appearance-themes'."
-  (sp-theme-load-appearance (if (eq appearance 'dark) 'dark 'light)))
-
-(defun lem--macos-current-appearance ()
-  "Return current macOS system appearance as `light' or `dark'.
-Prefers `ns-system-appearance' (set once an NS frame exists); falls
-back to `defaults read -g AppleInterfaceStyle' for frameless daemons.
-`defaults' returns \"Dark\" when dark mode is on and exits non-zero
-when light, so any non-zero exit (or output not containing \"Dark\")
-is treated as light."
-  (cond
-   ((and (boundp 'ns-system-appearance) ns-system-appearance)
-    ns-system-appearance)
-   ((and (bound-and-true-p sys-mac)
-         (executable-find "defaults"))
-    (with-temp-buffer
-      (let ((exit (call-process "defaults" nil t nil
-                                "read" "-g" "AppleInterfaceStyle")))
-        (if (and (zerop exit)
-                 (string-match-p "Dark" (buffer-string)))
-            'dark
-          'light))))
-   (t 'light)))
-
 (when (bound-and-true-p sys-mac)
-  (when (boundp 'ns-system-appearance-change-functions)
-    (add-hook 'ns-system-appearance-change-functions
-              #'lem--system-apply-theme))
-  (lem--system-apply-theme (lem--macos-current-appearance)))
-
-;;;; Daemon client-frame sync
-
-;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
-;; never receives NS appearance-change events, so the hook above never
-;; fires for it -- the daemon freezes on whatever appearance it read at
-;; startup, which is usually stale by the time a client connects (and
-;; leaves `emacsclient -t' frames on the wrong variant). Re-read the
-;; system appearance whenever a client frame is created so every frame
-;; matches the current macOS Light/Dark state. `lem--system-apply-theme'
-;; no-ops when the target theme is already active, so this is cheap.
-
-(defun lem--sync-theme-on-new-frame (&rest _)
-  "Sync the lambda theme to the current macOS appearance.
-For `server-after-make-frame-hook': daemon client frames pick up the
-live system appearance instead of the daemon's stale startup value."
-  (lem--system-apply-theme (lem--macos-current-appearance)))
-
-(when (and (bound-and-true-p sys-mac) (daemonp))
-  (add-hook 'server-after-make-frame-hook #'lem--sync-theme-on-new-frame))
+  (sp-theme-auto-mode 1))
 
 ;; taken from Lambda emacs
 ;;;; Org Mac Link
