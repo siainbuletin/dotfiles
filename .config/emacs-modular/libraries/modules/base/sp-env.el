@@ -9,14 +9,14 @@
 ;; packages don't get used on every system in part.
 ;;
 ;; The folders my files live in (notes, bibliography, checkouts) are named in
-;; `sp-paths' and can be overridden by SP_* environment variables.  Those are read
-;; when `sp-paths' loads, which is before the shell's environment is imported
+;; `sp-globals' and can be overridden by SP_* environment variables.  Those are read
+;; when `sp-globals' loads, which is before the shell's environment is imported
 ;; below, so a GUI Emacs only sees them when it is started from a shell (or when
 ;; they are set for the graphical session).  Nothing here changes those folders.
 
 ;;; Code:
 
-(require 'sp-paths)
+(require 'sp-globals)
 
 ;; This configuration of exec-path-from-shell is taken from John Wiegley
 (use-package exec-path-from-shell

@@ -93,7 +93,7 @@ Installs =forge= once =magit= has loaded.
 
 Forge needs a token to talk to GitHub.
 
-- =auth-sources= is set to just =~/.authinfo=. That replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain.
+- Credentials come from =auth-sources=, which is set in =sp-globals= (the variable =sp-auth-sources=), not here. It used to be a =setq= in this module. It is just =~/.authinfo=: that replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain. =sp-globals= loads early, so the value is in place before Forge asks for it.
 - The token entry in that file is the user's to add, for example =machine api.github.com login USERNAME^forge password TOKEN=.
 - Nothing secret is stored in this config.
 
@@ -102,8 +102,6 @@ Forge needs a token to talk to GitHub.
 (use-package forge
   :ensure t
   :after magit)
-
-(setq auth-sources '("~/.authinfo"))
 #+end_src
 
 * Code review

@@ -30,8 +30,6 @@
   :ensure t
   :after magit)
 
-(setq auth-sources '("~/.authinfo"))
-
 ;; code review harness
 (use-package code-review
   :ensure t
