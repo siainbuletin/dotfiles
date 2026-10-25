@@ -360,7 +360,6 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
 (declare-function vulpea-note-tags "vulpea-note")
 (declare-function vulpea-db-query "vulpea-db-query")
 (declare-function vulpea-select-from "vulpea-select")
-(declare-function vulpea-visit "vulpea")
 (declare-function vulpea-select-cache-drop "vulpea-select")
 (defvar vulpea-select-describe-fn)
 (defvar vulpea-select-annotate-fn)
@@ -441,11 +440,6 @@ title, without the emoji."
   (interactive)
   (sp-tag-emoji--with-tag-column
     (apply #'vulpea-insert args)))
-
-(defun sp-tag-emoji-select-visit ()
-  "Pick a note with `sp-select-note' and visit it."
-  (interactive)
-  (vulpea-visit (sp-select-note "Note" :require-match t)))
 
 (defvar sp-tag-emoji--saved-describe-fn nil
   "Value of `vulpea-select-describe-fn' before `sp-tag-emoji-mode'.")

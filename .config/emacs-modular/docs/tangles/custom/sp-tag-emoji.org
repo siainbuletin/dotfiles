@@ -73,7 +73,7 @@ With =sp-tag-emoji-mode= on, =vulpea-select-describe-fn= is =sp-tag-emoji-descri
 - The tags stay part of the candidate text, so they can be matched: typing =#deep= narrows the list to notes with that tag.
 - A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
-=M-x sp-tag-emoji-select-visit= picks a note with it and visits it. It is not bound to a key. =M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+=M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. No key is bound to either. The commands that link to or pick a note (=sp-org-create-note-and-link=, the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note and the query-table pickers) call them, so every picker looks the same. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
 ** Tag registry
 
@@ -519,7 +519,6 @@ How the emoji is added to a link:
 (declare-function vulpea-note-tags "vulpea-note")
 (declare-function vulpea-db-query "vulpea-db-query")
 (declare-function vulpea-select-from "vulpea-select")
-(declare-function vulpea-visit "vulpea")
 (declare-function vulpea-select-cache-drop "vulpea-select")
 (defvar vulpea-select-describe-fn)
 (defvar vulpea-select-annotate-fn)
@@ -610,11 +609,6 @@ title, without the emoji."
   (interactive)
   (sp-tag-emoji--with-tag-column
     (apply #'vulpea-insert args)))
-
-(defun sp-tag-emoji-select-visit ()
-  "Pick a note with `sp-select-note' and visit it."
-  (interactive)
-  (vulpea-visit (sp-select-note "Note" :require-match t)))
 #+end_src
 
 ** Switching the emoji in front of titles on and off

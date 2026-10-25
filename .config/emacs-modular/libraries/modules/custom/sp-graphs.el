@@ -148,6 +148,7 @@
 (require 'json)
 (require 'vulpea)
 (require 'vulpea-select)
+(require 'sp-tag-emoji)
 (require 'vui)
 
 (defgroup relationship-annotator nil
@@ -414,7 +415,7 @@ relations between two notes that are both in scope."
 
 (defun relationship-annotator--read-scope ()
   "Ask for a starting note and a depth.  Return (START-ID . DEPTH)."
-  (let* ((note (vulpea-select "Start note: " :require-match t))
+  (let* ((note (sp-select-note "Start note: " :require-match t))
          (depth (read-number "Depth: " relationship-annotator-default-depth)))
     (unless (and note (vulpea-note-id note) (>= depth 1))
       (user-error "Need a starting note and a depth of at least 1"))
