@@ -151,7 +151,9 @@ Every theme file, in =active/=, =sp/= and each folder of =library/=, is read the
 The last three are the numbers of the regexp groups holding that part, or nil.")
 
 (defvar sp-theme-metadata-exceptions
-  '((catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'"))
+  '(
+    (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; removed catppuccin, I don't like it
+    )
   "Metadata that a theme file cannot give, an alist of (THEME . PLIST).")
 
 (defun sp-theme--file-metadata (file)
@@ -399,7 +401,8 @@ Interactively, choose among the families first and the library after."
 There is one mechanism for following the light or dark appearance, =sp-theme-auto-mode=, and one place that maps an appearance to a theme.
 
 - =sp-theme-appearance-themes= says which theme goes with =light= and with =dark=. =sp-theme-load-appearance= loads it with =sp-load-theme=, and does nothing when it is already the current theme, which keeps the hooks below from reloading a theme on every notification. The toggle command uses the same function.
-- =sp-theme-appearance= answers "light or dark now?". With =sp-theme-auto-source= set to =system= (the default) it asks the system: =ns-system-appearance= once a macOS frame exists, otherwise, on macOS, =defaults read -g AppleInterfaceStyle=, which prints Dark in dark mode and fails in light mode. On other systems, and with the source set to =time=, it is light between the hours of =sp-theme-day-hours= and dark outside them.
+- =sp-theme-appearance= answers "light or dark now?", from the source in =sp-theme-auto-source=: =system= (the default) asks the operating system, =ambient= asks the light sensor (macOS; see below), and =time= is light between the hours of =sp-theme-day-hours= and dark outside them. A source that has no answer (no provider for this platform, no sensor, a failing command) falls back to the time of day.
+- The system part is per platform. =sp-theme-platform= says which one this is (=macos=, =windows= or =linux=, from =system-type=), and =sp-theme-system-providers= names the function that reads the appearance there. The functions live in the platform modules, =sp-macos=, =sp-syswin= and =sp-syslinux=, so a platform's commands and registry keys stay out of the theme code. Each provider function returns =light=, =dark= or nil. A platform module may also define a watcher (=sp-theme-system-watchers=): a function that takes a callback, calls it with the new appearance when the system changes, and returns a function that stops watching. Where there is no watcher (Windows), the timer polls.
 - =sp-theme-sync= loads the theme for the current appearance.
 
 #+begin_src emacs-lisp -i
@@ -414,10 +417,69 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
 
 (defcustom sp-theme-auto-source 'system
   "Where `sp-theme-auto-mode' reads light or dark from.
-`system' asks the operating system (macOS) and falls back to `time'."
+`system' asks the operating system, `ambient' asks the light sensor
+\(macOS) and loads one of the four families, and `time' uses the time
+of day.  A source that has no
+answer falls back to `time'."
   :group 'spcustom
   :type '(choice (const :tag "The system appearance" system)
+                 (const :tag "The light level in the room (macOS)" ambient)
                  (const :tag "The time of day" time)))
+
+(defcustom sp-theme-system-providers
+  '((macos   . sp-macos-appearance)
+    (windows . sp-syswin-appearance)
+    (linux   . sp-syslinux-appearance))
+  "The function that reads the system appearance, per platform.
+An alist of (PLATFORM . FUNCTION), PLATFORM being what
+`sp-theme-platform' returns.  FUNCTION takes no arguments and returns
+`light', `dark' or nil."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-system-watchers
+  '((macos . sp-macos-watch-appearance)
+    (linux . sp-syslinux-watch-appearance))
+  "The function that watches the system appearance, per platform.
+FUNCTION takes a callback, calls it with `light' or `dark' when the
+system changes, and returns a function that stops watching (or nil
+when it cannot watch)."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-ambient-providers
+  '((macos . sp-macos-ambient-family))
+  "The function that reads the light level of the room, per platform.
+An alist of (PLATFORM . FUNCTION).  FUNCTION takes no arguments and
+returns a family of `sp-theme-families', or nil when it cannot tell."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-ambient-interval 60
+  "Seconds between the checks of the timer when the source is `ambient'."
+  :group 'spcustom
+  :type 'integer)
+
+(defun sp-theme-platform ()
+  "Return `macos', `windows' or `linux' for this system, or nil."
+  (pcase system-type
+    ('darwin 'macos)
+    ((or 'windows-nt 'cygwin 'ms-dos) 'windows)
+    ('gnu/linux 'linux)))
+
+(defun sp-theme--platform-function (alist)
+  "Return the function ALIST has for this platform, if it can be called.
+The platform module is required first, so that this works whatever
+the load order is."
+  (let ((fn (alist-get (sp-theme-platform) alist)))
+    (when fn
+      (unless (fboundp fn)
+        (let ((feature (pcase (sp-theme-platform)
+                         ('macos 'sp-macos)
+                         ('windows 'sp-syswin)
+                         ('linux 'sp-syslinux))))
+          (require feature nil t)))
+      (and (fboundp fn) fn))))
 
 (defcustom sp-theme-day-hours '(7 . 19)
   "The hours (FROM . TO) in which the `time' source says light."
@@ -437,18 +499,24 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
         'light
       'dark)))
 
+(defun sp-theme--provided-appearance (alist)
+  "Return `light' or `dark' from the provider ALIST has for this platform."
+  (let ((fn (sp-theme--platform-function alist)))
+    (when fn
+      (let ((appearance (condition-case nil (funcall fn) (error nil))))
+        (and (memq appearance '(light dark)) appearance)))))
+
 (defun sp-theme--system-appearance ()
   "Return the system appearance, `light' or `dark', or nil if unknown."
-  (cond
-   ((and (boundp 'ns-system-appearance) ns-system-appearance)
-    ns-system-appearance)
-   ((and (eq system-type 'darwin) (executable-find "defaults"))
-    (with-temp-buffer
-      (let ((exit (call-process "defaults" nil t nil
-                                "read" "-g" "AppleInterfaceStyle")))
-        (if (and (zerop exit) (string-match-p "Dark" (buffer-string)))
-            'dark
-          'light))))))
+  (sp-theme--provided-appearance sp-theme-system-providers))
+
+(defun sp-theme--ambient-family ()
+  "Return the family the light level of the room asks for, or nil."
+  (let ((fn (and (eq sp-theme-auto-source 'ambient)
+                 (sp-theme--platform-function sp-theme-ambient-providers))))
+    (when fn
+      (let ((family (condition-case nil (funcall fn) (error nil))))
+        (and (assq family sp-theme-families) family)))))
 
 (defun sp-theme-appearance ()
   "Return `light' or `dark' according to `sp-theme-auto-source'."
@@ -456,9 +524,17 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
       (sp-theme--time-appearance)))
 
 (defun sp-theme-sync (&rest _)
-  "Load the theme for the appearance `sp-theme-appearance' reports."
+  "Load the theme for the light level, or for the appearance.
+With the source `ambient' the family the sensor asks for is loaded;
+without a reading, and with the other sources, the theme for the
+appearance `sp-theme-appearance' reports."
   (interactive)
-  (sp-theme-load-appearance (sp-theme-appearance)))
+  (let ((family (sp-theme--ambient-family)))
+    (if family
+        (let ((theme (cadr (assq family sp-theme-families))))
+          (unless (eq theme (car custom-enabled-themes))
+            (sp-load-theme theme)))
+      (sp-theme-load-appearance (sp-theme-appearance)))))
 
 (defun toggle-dark-light-theme ()
   "Switch between the light and the dark theme of `sp-theme-appearance-themes'."
@@ -470,11 +546,11 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
 
 =sp-theme-auto-mode= is the one switch. When it is on:
 
-- a change of the macOS appearance loads the matching theme (=ns-system-appearance-change-functions=, which does not fire at startup, so the mode also syncs once when it is turned on);
+- a change of the system appearance loads the matching theme, where the platform has a watcher (macOS: =ns-system-appearance-change-functions=; Linux: the freedesktop D-Bus signal), which does not fire at startup, so the mode also syncs once when it is turned on;
 - every new frame syncs, because a daemon that started without a frame never receives appearance events and would keep the appearance it read at boot, and a client frame should match the system as it is now (this is cheap, since a theme that is already current is not loaded again);
-- where there are no appearance events (not macOS) or the source is =time=, a timer syncs every =sp-theme-auto-interval= seconds.
+- where there is no watcher (Windows), or the source is =time= or =ambient=, a timer syncs every =sp-theme-auto-interval= seconds (=sp-theme-ambient-interval= for =ambient=).
 
-=sp-macos= turns the mode on on macOS. On other systems, turn it on with =M-x sp-theme-auto-mode=.
+Each platform module turns the mode on when Emacs runs on its platform: =sp-macos=, =sp-syswin= and =sp-syslinux=. Anywhere else, turn it on with =M-x sp-theme-auto-mode=.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-theme-auto-interval 900
@@ -485,31 +561,43 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
 (defvar sp-theme--auto-timer nil
   "The timer of `sp-theme-auto-mode', if one is running.")
 
+(defvar sp-theme--auto-unwatch nil
+  "The function that stops the system watcher of `sp-theme-auto-mode'.")
+
 (defun sp-theme--on-system-change (appearance)
   "Load the theme for APPEARANCE when the system flips and it is the source."
   (when (eq sp-theme-auto-source 'system)
     (sp-theme-load-appearance appearance)))
 
+(defun sp-theme--stop-auto ()
+  "Stop the timer and the watcher of `sp-theme-auto-mode'."
+  (when (timerp sp-theme--auto-timer)
+    (cancel-timer sp-theme--auto-timer)
+    (setq sp-theme--auto-timer nil))
+  (when (functionp sp-theme--auto-unwatch)
+    (ignore-errors (funcall sp-theme--auto-unwatch)))
+  (setq sp-theme--auto-unwatch nil))
+
 (define-minor-mode sp-theme-auto-mode
   "Load the light or the dark theme as the appearance changes."
   :global t
   :group 'spcustom
-  (when (timerp sp-theme--auto-timer)
-    (cancel-timer sp-theme--auto-timer)
-    (setq sp-theme--auto-timer nil))
+  (sp-theme--stop-auto)
   (if sp-theme-auto-mode
-      (progn
-        (when (boundp 'ns-system-appearance-change-functions)
-          (add-hook 'ns-system-appearance-change-functions #'sp-theme--on-system-change))
+      (let* ((watch (and (eq sp-theme-auto-source 'system)
+                         (sp-theme--platform-function sp-theme-system-watchers)))
+             (unwatch (and watch
+                           (ignore-errors
+                             (funcall watch #'sp-theme--on-system-change))))
+             (interval (if (eq sp-theme-auto-source 'ambient)
+                           sp-theme-ambient-interval
+                         sp-theme-auto-interval)))
+        (setq sp-theme--auto-unwatch unwatch)
         (add-hook 'server-after-make-frame-hook #'sp-theme-sync)
-        (when (or (eq sp-theme-auto-source 'time)
-                  (not (boundp 'ns-system-appearance-change-functions)))
+        (unless unwatch
           (setq sp-theme--auto-timer
-                (run-with-timer sp-theme-auto-interval sp-theme-auto-interval
-                                #'sp-theme-sync)))
+                (run-with-timer interval interval #'sp-theme-sync)))
         (sp-theme-sync))
-    (when (boundp 'ns-system-appearance-change-functions)
-      (remove-hook 'ns-system-appearance-change-functions #'sp-theme--on-system-change))
     (remove-hook 'server-after-make-frame-hook #'sp-theme-sync)))
 #+end_src
 
@@ -650,7 +738,7 @@ Every theme file is read the same way. The themes of the families are all there,
 (ert-deftest sp-themes-test-registry-backgrounds ()
   (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
                   (lambda-light-faded . light) (lambda-dark . dark)
-                  (modus-operandi . light) (catppuccin . dark)
+                  (modus-operandi . light) 
                   (sp-dark . dark) (sp-light . light)))
     (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
 
@@ -711,6 +799,66 @@ The appearance comes from the time of day when the source is =time=. The theme f
       (should (eq (sp-theme-appearance) 'light)))
     (let ((sp-theme-day-hours '(0 . 0)))
       (should (eq (sp-theme-appearance) 'dark)))))
+
+(ert-deftest sp-themes-test-platform-providers ()
+  (let ((sp-theme-auto-source 'system)
+        (sp-theme-day-hours '(0 . 24)))
+    (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+              ((symbol-function 'sp-test-provider) (lambda () 'dark)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'dark)))
+      ;; No provider for this platform, an error, or nonsense: the time.
+      (let ((sp-theme-system-providers '((macos . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'light)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () (error "boom"))))
+          (should (eq (sp-theme-appearance) 'light)))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () 'purple)))
+          (should (eq (sp-theme-appearance) 'light)))))))
+
+(ert-deftest sp-themes-test-ambient-source ()
+  (sp-themes-test--clean
+   (let ((sp-theme-auto-source 'ambient)
+         (sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-day-hours '(0 . 24))
+         (family 'hard-dark))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'macos))
+               ((symbol-function 'sp-test-ambient) (lambda () family)))
+       (let ((sp-theme-ambient-providers '((macos . sp-test-ambient))))
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-dream)))
+         (setq family 'faded-dark)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-dark-faded)))
+         (setq family 'hard-light)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-light)))
+         ;; An unknown family counts as no reading: the time of day.
+         (setq family 'purple)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-day))))))))
+
+(ert-deftest sp-themes-test-watcher ()
+  (sp-themes-test--clean
+   (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-auto-source 'system)
+         (sp-theme-day-hours '(0 . 24))
+         (stopped nil)
+         (callback nil))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+               ((symbol-function 'sp-test-watch)
+                (lambda (cb) (setq callback cb) (lambda () (setq stopped t)))))
+       (let ((sp-theme-system-providers nil)
+             (sp-theme-system-watchers '((linux . sp-test-watch))))
+         (sp-theme-auto-mode 1)
+         (unwind-protect
+             (progn
+               ;; A watcher replaces the timer.
+               (should-not sp-theme--auto-timer)
+               (funcall callback 'dark)
+               (should (equal custom-enabled-themes '(ef-dream))))
+           (sp-theme-auto-mode -1))
+         (should stopped))))))
 
 (ert-deftest sp-themes-test-load-appearance ()
   (sp-themes-test--clean

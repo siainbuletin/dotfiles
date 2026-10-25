@@ -328,7 +328,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Environment settings (have to come after the UI because of dependencies)
                     'sp-env
                     'sp-macos
-                    ;; 'sp-syswin ;; will be adding the relevant modules later
+                    'sp-syswin
+                    'sp-syslinux
                     ;; 'sp-exwm
 
                     ;; Utility misc modules
