@@ -43,6 +43,7 @@
 (require 'vulpea)
 (require 'vulpea-ui)
 (require 'vui)
+(require 'sp-tag-emoji)
 (require 'sp-move-region-to-heading)
 
 ;;;; Configuration
@@ -699,7 +700,7 @@ The hit is the line LINE of FILE with content TEXT, found from ORIGIN, the
 note the sidebar is showing.  Interactively, these are the line at point
 in an inbox file, or a hit you choose from the sidebar's current ones.
 
-The note is chosen with `vulpea-select'; a title that doesn't exist yet
+The note is chosen with `sp-select-note'; a title that doesn't exist yet
 creates a new file-level note (see `sp-tab-inbox-new-note-body').  The
 line then moves under the chosen note's Resources heading like `collect'
 does.  No link back is added here; at the prompt, run the embark action
@@ -712,7 +713,7 @@ on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
                  (sp-tab-inbox--resolve-hit))))
     (setq sp-tab-inbox--pending (list file line text origin))
     (when-let* ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
-                         (vulpea-select
+                         (sp-select-note
                           "Send to note"
                           :require-match nil
                           :filter-fn (lambda (n) (zerop (vulpea-note-level n)))))))

@@ -7,6 +7,7 @@
 ;;; Code:
 
 (require 'vulpea)
+(require 'sp-tag-emoji)
 (require 'org-id)
 (require 'denote)
 
@@ -30,12 +31,13 @@ restored once the file path is captured."
 
 (defun sp--vulpea-select-or-create-file ()
   "Select an existing note via Vulpea, or create one with Denote.
-Uses the same note database and prompt UI as `vulpea-find'. If
+Uses the same note database as `vulpea-find', with the prompt of
+`sp-select-note'. If
 your input at the prompt doesn't match any existing note (i.e.
 nothing in the completion corresponds to an actual file), you're
 asked to confirm creating a new Denote note with that text as
 its title; the new note becomes the target file."
-  (let ((selection (vulpea-select "Move region to note: ")))
+  (let ((selection (sp-select-note "Move region to note: ")))
     (cond
      ;; An existing note was chosen.
      ((and (vulpea-note-p selection) (vulpea-note-path selection))
