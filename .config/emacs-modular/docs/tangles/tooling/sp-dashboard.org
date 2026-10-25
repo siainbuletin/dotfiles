@@ -1382,10 +1382,13 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
 ;; before the key is one space with an exact pixel width.
 (defun sp-dashboard--heading-pixels (text)
   "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
-Without a graphical frame the width is that of the default font."
-  (if (and (display-graphic-p) (fboundp 'string-pixel-width))
-      (string-pixel-width (propertize text 'face 'sp-dashboard-heading-face))
-    (* (string-width text) (frame-char-width))))
+It counts the characters at the average width of that face, so nothing is
+drawn or measured in a buffer.  Without a graphical frame it is the width of
+the default font."
+  (* (string-width text)
+     (if (display-graphic-p)
+         (window-font-width nil 'sp-dashboard-heading-face)
+       (frame-char-width))))
 
 (defun sp-dashboard--heading-segments (text key command help width)
   "Return the segments of a box title, TEXT with KEY at the right of WIDTH.
@@ -2239,6 +2242,7 @@ caught from outside (see the doc)."
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
   (sp-dashboard--isolate-menu)
+  (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)
@@ -2249,10 +2253,28 @@ caught from outside (see the doc)."
 
 ** Refresh
 
-=sp-dashboard-refresh= rebuilds the splash when the current buffer is =Dashboard=, by killing it and calling =sp-dashboard-screen= again so it is re-centred for the new window size. It always uses the graphical renderer and swallows errors.
+=sp-dashboard-refresh= rebuilds the splash when the current buffer is =Dashboard=, by killing it and calling =sp-dashboard-screen= again so it is re-centred for the new window size. It always uses the graphical renderer and swallows errors. The window hooks do not call it directly but through =sp-dashboard--refresh-on-resize=, which redraws only when the pixel size of the window or the font has changed since the last draw. Those hooks also run when something else changes (a key logger, the mode line, a message), and a redraw puts point back on the first title and out of any box, so TAB would seem to do nothing.
 
 #+begin_src emacs-lisp -i
 ;;;; Splash Setup & Refresh Functions
+(defvar-local sp-dashboard--drawn-geometry nil
+  "Pixel size of the window and the font the Dashboard was last drawn for.")
+
+(defun sp-dashboard--window-geometry ()
+  "Return the pixel size of the selected window and the font, to compare draws."
+  (list (window-pixel-width) (window-pixel-height)
+        (frame-char-width) (frame-char-height)))
+
+(defun sp-dashboard--refresh-on-resize ()
+  "Redraw the Dashboard when its window or font size changed since it was drawn.
+The window hooks run for much more than a resize (a key logger, the mode line
+or a message can trigger them), and a redraw drops the selected button, so
+nothing happens while the geometry is the same."
+  (when (and (string= (buffer-name) "Dashboard")
+             (not (equal sp-dashboard--drawn-geometry
+                         (sp-dashboard--window-geometry))))
+    (sp-dashboard-refresh)))
+
 (defun sp-dashboard-refresh ()
   "Refresh & recenter splash after window switch."
   (interactive)
@@ -2265,7 +2287,7 @@ caught from outside (see the doc)."
 
 ** Initial display and hooks
 
-=sp-dashboard--setup-splash-hooks= shows the graphical or terminal splash depending on =display-graphic-p=, then adds =sp-dashboard-refresh= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
+=sp-dashboard--setup-splash-hooks= shows the graphical or terminal splash depending on =display-graphic-p=, then adds =sp-dashboard--refresh-on-resize= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
 
 #+begin_src emacs-lisp -i
 (defun sp-dashboard--setup-splash-hooks ()
@@ -2274,9 +2296,9 @@ caught from outside (see the doc)."
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
-    (add-hook 'window-state-change-hook #'sp-dashboard-refresh)
-    (add-hook 'window-configuration-change-hook  #'sp-dashboard-refresh)
-    (add-hook 'sp-switch-buffer-hook #'sp-dashboard-refresh)))
+    (add-hook 'window-state-change-hook #'sp-dashboard--refresh-on-resize)
+    (add-hook 'window-configuration-change-hook  #'sp-dashboard--refresh-on-resize)
+    (add-hook 'sp-switch-buffer-hook #'sp-dashboard--refresh-on-resize)))
 #+end_src
 
 ** Install on startup
