@@ -48,10 +48,10 @@ The =:custom= block sets the look of the status line:
 
 In =:config=, =lambda-line-mode= is activated.
 
-- When the position is =bottom=, the default and current =mode-line-format= are set to a bare =%_= construct. The comment describes it as a divider line in the footer.
-- The upstream lambda-line examples use this trick when the status line is at the top (in the header line), so that the mode line shrinks to a thin divider.
-- With the position set to =bottom= the condition is inverted, so this may overwrite the format lambda-line has just installed.
-- If the status line ever appears blank, this is the first place to look.
+- Only when the position is =top= (the status line lives in the header line) are the default and current =mode-line-format= set to a bare =%_= construct, so that the mode line shrinks to a thin divider.
+- With the position =bottom=, lambda-line puts its status line /in/ the mode line, so nothing may touch =mode-line-format= after =lambda-line-mode=.
+- This condition used to be =bottom=, which overwrote the format lambda-line had just installed: the mode line was empty, with no buffer name, no major or minor mode and no position. See the CHANGELOG and =sp-modeline= for the diagnosis and for a mode line that also shows minor modes.
+- lambda-line never shows minor modes: its default format composes the status symbol, the buffer name, the major mode name with the VC branch, and the position and time. Use =sp-modeline= if you want them.
 
 #+begin_src emacs-lisp -i
 (use-package lambda-line
@@ -75,8 +75,10 @@ In =:config=, =lambda-line-mode= is activated.
 
     :config
     (lambda-line-mode)  ;; activate lambda-line 
-    ;; set divider line in footer (to differentiate from other things)
-    (when (eq lambda-line-position 'bottom)
+    ;; With the status line at the top (in the header line), shrink the mode
+    ;; line to a thin divider.  At the bottom the status line IS the mode line,
+    ;; so it must be left alone.
+    (when (eq lambda-line-position 'top)
       (setq-default mode-line-format (list "%_"))
       (setq mode-line-format (list "%_"))))
 #+end_src

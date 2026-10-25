@@ -29,8 +29,10 @@
 
     :config
     (lambda-line-mode)  ;; activate lambda-line 
-    ;; set divider line in footer (to differentiate from other things)
-    (when (eq lambda-line-position 'bottom)
+    ;; With the status line at the top (in the header line), shrink the mode
+    ;; line to a thin divider.  At the bottom the status line IS the mode line,
+    ;; so it must be left alone.
+    (when (eq lambda-line-position 'top)
       (setq-default mode-line-format (list "%_"))
       (setq mode-line-format (list "%_"))))
 

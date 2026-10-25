@@ -341,6 +341,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-help
                     'sp-indention
                     'sp-lambda-line
+                    ;; 'sp-modeline ;; alternative to sp-lambda-line (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network
@@ -444,6 +445,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-help
                     'sp-indention
                     'sp-lambda-line
+                    ;; 'sp-modeline ;; alternative to sp-lambda-line (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network

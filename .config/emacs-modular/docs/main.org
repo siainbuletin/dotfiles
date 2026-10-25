@@ -187,6 +187,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/tooling/sp-help.org][sp-help]] :: Help, Info, dialogs and dictionaries ([[file:../libraries/modules/tooling/sp-help.el][sp-help.el]])
 - [[file:tangles/tooling/sp-indention.org][sp-indention]] :: Tabs, indentation width and indent keys ([[file:../libraries/modules/tooling/sp-indention.el][sp-indention.el]])
 - [[file:tangles/tooling/sp-lambda-line.org][sp-lambda-line]] :: Lambda-line status line ([[file:../libraries/modules/tooling/sp-lambda-line.el][sp-lambda-line.el]])
+- [[file:tangles/tooling/sp-modeline.org][sp-modeline]] :: Native mode line adapted from Prot's, with minor modes ([[file:../libraries/modules/tooling/sp-modeline.el][sp-modeline.el]])
 - [[file:tangles/tooling/sp-md.org][sp-md]] :: Markdown editing ([[file:../libraries/modules/tooling/sp-md.el][sp-md.el]])
 - [[file:tangles/tooling/sp-minibuffer.org][sp-minibuffer]] :: Minibuffer and completion packages ([[file:../libraries/modules/tooling/sp-minibuffer.el][sp-minibuffer.el]])
 - [[file:tangles/tooling/sp-network.org][sp-network]] :: Network: TRAMP yadm method and HTTP library ([[file:../libraries/modules/tooling/sp-network.el][sp-network.el]])
