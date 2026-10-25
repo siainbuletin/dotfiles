@@ -8,7 +8,7 @@
 ;; shows the tags of the heading or file at point as emoji in the
 ;; modeline, decorates id: links with the tags of their target note and
 ;; puts the emoji in front of titles in `vulpea-select'.  The selector
-;; `sp-tag-emoji-select' also prints the tags in a right-hand column.
+;; `sp-select-note' also prints the tags in a right-hand column.
 ;; See `sp-tag-emoji-rules'.
 
 ;;; Code:
@@ -110,7 +110,7 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
 
 (defface sp-tag-emoji-select-tags-face
   '((t :inherit shadow :height 0.85))
-  "Face of the tags at the right of a note in `sp-tag-emoji-select'."
+  "Face of the tags at the right of a note in `sp-select-note'."
   :group 'spcustom)
 
 ;;;; Matching rules
@@ -365,6 +365,8 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
 (defvar vulpea-select-describe-fn)
 (defvar vulpea-select-annotate-fn)
 (defvar vulpea-select-annotate-matchable)
+(defvar vulpea-select-cache)
+(declare-function vulpea-insert "vulpea")
 
 (defun sp-tag-emoji--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
@@ -381,7 +383,7 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
     (if (string-empty-p emoji) title (concat emoji " " title))))
 
 (defvar sp-tag-emoji--select-columns nil
-  "Width in columns of the tag column while `sp-tag-emoji-select' runs.")
+  "Width in columns of the tag column while `sp-select-note' runs.")
 
 (defun sp-tag-emoji--select-columns ()
   "Columns for the tag column, from the width of the selected frame."
@@ -408,24 +410,42 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
               (propertize (sp-tag-emoji--tags-text tags columns)
                           'face 'sp-tag-emoji-select-tags-face)))))
 
-(cl-defun sp-tag-emoji-select (prompt &key require-match initial-prompt filter-fn expand-aliases)
+(defmacro sp-tag-emoji--with-tag-column (&rest body)
+  "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
+The candidate cache is bypassed, because the column width is not a
+property of the note."
+  (declare (indent 0))
+  `(let ((sp-tag-emoji--select-columns (sp-tag-emoji--select-columns))
+         (vulpea-select-describe-fn #'sp-tag-emoji-describe-note)
+         (vulpea-select-annotate-fn #'sp-tag-emoji--annotate-note)
+         (vulpea-select-annotate-matchable t)
+         (vulpea-select-cache nil))
+     ,@body))
+
+(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
 INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'."
-  (let ((sp-tag-emoji--select-columns (sp-tag-emoji--select-columns))
-        (vulpea-select-describe-fn #'sp-tag-emoji-describe-note)
-        (vulpea-select-annotate-fn #'sp-tag-emoji--annotate-note)
-        (vulpea-select-annotate-matchable t))
+  (sp-tag-emoji--with-tag-column
     (vulpea-select-from prompt
                         (vulpea-db-query filter-fn)
                         :require-match require-match
                         :initial-prompt initial-prompt
                         :expand-aliases expand-aliases)))
 
-(defun sp-tag-emoji-select-visit ()
-  "Pick a note with `sp-tag-emoji-select' and visit it."
+(defun sp-insert-note (&rest args)
+  "Insert a link to a note chosen with the emoji and the tag column.
+Like `vulpea-insert': ARGS are its keywords (:filter-fn, :candidates-fn,
+:create-fn, :note-fn, :expand-aliases).  The link text is the note's
+title, without the emoji."
   (interactive)
-  (vulpea-visit (sp-tag-emoji-select "Note" :require-match t)))
+  (sp-tag-emoji--with-tag-column
+    (apply #'vulpea-insert args)))
+
+(defun sp-tag-emoji-select-visit ()
+  "Pick a note with `sp-select-note' and visit it."
+  (interactive)
+  (vulpea-visit (sp-select-note "Note" :require-match t)))
 
 (defvar sp-tag-emoji--saved-describe-fn nil
   "Value of `vulpea-select-describe-fn' before `sp-tag-emoji-mode'.")

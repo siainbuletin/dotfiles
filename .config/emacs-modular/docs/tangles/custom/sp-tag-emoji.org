@@ -15,7 +15,7 @@ Literate source for =libraries/modules/custom/sp-tag-emoji.el=.
 The module decorates Org tags, in the way the Obsidian plugin [[https://github.com/mdelobelle/obsidian_supercharged_links][Supercharged Links]] decorates links by tag, property or path: a rule says which tags a note has, and the result is a coloured name, or a symbol put before or after it. Here the same rules are used in three places.
 
 1. *The modeline.* =sp-tag-emoji-mode= shows the tags of the heading at point, or of the file (its =#+filetags:=), as emoji instead of text.
-2. *Note selection.* In =vulpea-select= (and so =vulpea-find=, =vulpea-insert= and everything built on them) the emoji of a note's tags stand in front of its title. =sp-tag-emoji-select= is a selector of my own on top of it that also prints the tags in a column on the right.
+2. *Note selection.* In =vulpea-select= (and so =vulpea-find=, =vulpea-insert= and everything built on them) the emoji of a note's tags stand in front of its title. =sp-select-note= is a selector of my own on top of it that also prints the tags in a column on the right.
 3. *Links.* =id:= links in Org buffers get the emoji of the tags of the note they point to as a prefix or suffix, and the link takes the rule's face (Supercharged Links' "coloured text"). The tags come from the vulpea database.
 
 ** The rules
@@ -66,14 +66,14 @@ The modeline in use is lambda-line. Whether it prints =global-mode-string= has n
 
 With =sp-tag-emoji-mode= on, =vulpea-select-describe-fn= is =sp-tag-emoji-describe-note=, which returns the emoji of the note's tags, a space and the title. It depends on the note alone, so vulpea's candidate cache stays valid (it is dropped once when the mode is turned on or off, so the new strings are built). The tags come from =vulpea-note-tags=, and the rules apply with the =select= context.
 
-=sp-tag-emoji-select= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
+=sp-select-note= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
 
 - The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property. =N= is =sp-tag-emoji-select-column-fraction= of the frame width (a third by default), at least =sp-tag-emoji-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
 - The tags are drawn in =sp-tag-emoji-select-tags-face=, which is smaller than the title (height 0.85) and dimmed. The characters that fit in the column are counted from that height; a longer list ends in an ellipsis.
 - The tags stay part of the candidate text, so they can be matched: typing =#deep= narrows the list to notes with that tag.
 - A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
-=M-x sp-tag-emoji-select-visit= picks a note with it and visits it. It is not bound to a key. Because =sp-tag-emoji-select= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+=M-x sp-tag-emoji-select-visit= picks a note with it and visits it. It is not bound to a key. =M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
 ** Tag registry
 
@@ -100,7 +100,7 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
 ;; shows the tags of the heading or file at point as emoji in the
 ;; modeline, decorates id: links with the tags of their target note and
 ;; puts the emoji in front of titles in `vulpea-select'.  The selector
-;; `sp-tag-emoji-select' also prints the tags in a right-hand column.
+;; `sp-select-note' also prints the tags in a right-hand column.
 ;; See `sp-tag-emoji-rules'.
 
 ;;; Code:
@@ -208,7 +208,7 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
 
 (defface sp-tag-emoji-select-tags-face
   '((t :inherit shadow :height 0.85))
-  "Face of the tags at the right of a note in `sp-tag-emoji-select'."
+  "Face of the tags at the right of a note in `sp-select-note'."
   :group 'spcustom)
 #+end_src
 
@@ -524,6 +524,8 @@ How the emoji is added to a link:
 (defvar vulpea-select-describe-fn)
 (defvar vulpea-select-annotate-fn)
 (defvar vulpea-select-annotate-matchable)
+(defvar vulpea-select-cache)
+(declare-function vulpea-insert "vulpea")
 
 (defun sp-tag-emoji--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
@@ -546,7 +548,7 @@ The width is worked out once per selection and bound while the selector runs. Th
 
 #+begin_src emacs-lisp -i
 (defvar sp-tag-emoji--select-columns nil
-  "Width in columns of the tag column while `sp-tag-emoji-select' runs.")
+  "Width in columns of the tag column while `sp-select-note' runs.")
 
 (defun sp-tag-emoji--select-columns ()
   "Columns for the tag column, from the width of the selected frame."
@@ -577,24 +579,42 @@ The width is worked out once per selection and bound while the selector runs. Th
 ** The selector
 
 #+begin_src emacs-lisp -i
-(cl-defun sp-tag-emoji-select (prompt &key require-match initial-prompt filter-fn expand-aliases)
+(defmacro sp-tag-emoji--with-tag-column (&rest body)
+  "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
+The candidate cache is bypassed, because the column width is not a
+property of the note."
+  (declare (indent 0))
+  `(let ((sp-tag-emoji--select-columns (sp-tag-emoji--select-columns))
+         (vulpea-select-describe-fn #'sp-tag-emoji-describe-note)
+         (vulpea-select-annotate-fn #'sp-tag-emoji--annotate-note)
+         (vulpea-select-annotate-matchable t)
+         (vulpea-select-cache nil))
+     ,@body))
+
+(cl-defun sp-select-note (prompt &key require-match initial-prompt filter-fn expand-aliases)
   "Select a note, like `vulpea-select', with its tags in a column at the right.
 The title has the emoji of its tags in front.  PROMPT, REQUIRE-MATCH,
 INITIAL-PROMPT, FILTER-FN and EXPAND-ALIASES are as for `vulpea-select'."
-  (let ((sp-tag-emoji--select-columns (sp-tag-emoji--select-columns))
-        (vulpea-select-describe-fn #'sp-tag-emoji-describe-note)
-        (vulpea-select-annotate-fn #'sp-tag-emoji--annotate-note)
-        (vulpea-select-annotate-matchable t))
+  (sp-tag-emoji--with-tag-column
     (vulpea-select-from prompt
                         (vulpea-db-query filter-fn)
                         :require-match require-match
                         :initial-prompt initial-prompt
                         :expand-aliases expand-aliases)))
 
-(defun sp-tag-emoji-select-visit ()
-  "Pick a note with `sp-tag-emoji-select' and visit it."
+(defun sp-insert-note (&rest args)
+  "Insert a link to a note chosen with the emoji and the tag column.
+Like `vulpea-insert': ARGS are its keywords (:filter-fn, :candidates-fn,
+:create-fn, :note-fn, :expand-aliases).  The link text is the note's
+title, without the emoji."
   (interactive)
-  (vulpea-visit (sp-tag-emoji-select "Note" :require-match t)))
+  (sp-tag-emoji--with-tag-column
+    (apply #'vulpea-insert args)))
+
+(defun sp-tag-emoji-select-visit ()
+  "Pick a note with `sp-select-note' and visit it."
+  (interactive)
+  (vulpea-visit (sp-select-note "Note" :require-match t)))
 #+end_src
 
 ** Switching the emoji in front of titles on and off
