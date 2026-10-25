@@ -1,0 +1,69 @@
+#+title: 0019 One dotfiles repository, fish on macOS and Linux, PowerShell on Windows
+#+date: 2026-10-25
+#+status: proposed, only the Alacritty part is done
+
+* Context
+Alacritty's =shell.program= was =/usr/bin/fish=, a Linux path; on macOS the file does not exist. Separately, the macOS login shell was still =/bin/zsh=, so Terminal.app opened zsh. Fish lives at =/opt/homebrew/bin/fish= on Apple silicon, =/usr/bin/fish= on Arch, and I want PowerShell on Windows.
+
+* Decision
+Keep one repository. Let each OS pick its own file by name, and keep per-OS facts (shell path, package manager) out of the shared files.
+
+- *Done*: =alacritty.toml= imports =shell.toml=. yadm links the right file from =shell.toml##os.Darwin=, =##os.Linux= or =##os.Windows= (the link is git-ignored).
+- *Proposed*: the same =##os.*= naming for anything else that differs by OS (=config.fish= snippets, =.zprofile=, the Brewfile or package list), and one bootstrap script per OS.
+
+** Sketch
+#+begin_example
+                     github.com/siainbuletin/dotfiles
+                                  |
+        +-------------------------+--------------------------+
+        |                         |                          |
+     macOS                      Linux                     Windows
+ brew install yadm fish     pacman -S yadm fish     winget install Git.Git
+ yadm clone <repo>          yadm clone <repo>       PowerShell.PowerShell
+ yadm bootstrap             yadm bootstrap          git clone --bare, then
+        |                         |                 bootstrap.ps1 (no yadm)
+        v                         v                          v
+ yadm alt: Darwin            yadm alt: Linux          copy/link ##os.Windows
+ chsh -> /opt/homebrew/      chsh -> /usr/bin/fish    files to %APPDATA%,
+        bin/fish                                      $PROFILE = PowerShell
+        |                         |                          |
+        +------- alacritty.toml imports shell.toml ----------+
+#+end_example
+
+** How each system is detected
+| System  | Switch                                   | Where              |
+|---------+------------------------------------------+--------------------|
+| macOS   | yadm alternate =##os.Darwin=             | file name          |
+| Linux   | yadm alternate =##os.Linux=              | file name          |
+| Windows | =##os.Windows= (yadm reports =MINGW...= under Git Bash, so a plain =yadm= is not reliable) | =bootstrap.ps1= does the linking itself |
+| in fish | =switch (uname)= with =Darwin= and =Linux= | =config.fish=      |
+| in PowerShell | =$IsMacOS=, =$IsLinux=, =$IsWindows= | =$PROFILE=         |
+
+** How to clone on each system
+#+begin_src sh
+# macOS
+brew install yadm fish && yadm clone git@github.com:siainbuletin/dotfiles.git
+chsh -s /opt/homebrew/bin/fish        # asks for my password
+
+# Arch / EndeavourOS
+sudo pacman -S yadm fish && yadm clone git@github.com:siainbuletin/dotfiles.git
+chsh -s /usr/bin/fish
+#+end_src
+
+#+begin_src powershell
+# Windows: yadm is not supported natively, so a bare clone plus a script
+winget install Git.Git Microsoft.PowerShell Alacritty.Alacritty
+git clone --bare git@github.com:siainbuletin/dotfiles.git $HOME\.dotfiles
+git --git-dir=$HOME\.dotfiles --work-tree=$HOME checkout
+# proposed bootstrap.ps1: copy shell.toml##os.Windows to $env:APPDATA\alacritty\shell.toml
+#+end_src
+
+* Alternatives considered
+- *One =alacritty.toml= with the OS in it*: Alacritty has no conditionals.
+- *=##template= files*: needs the =envtpl= or =esh= engine on every machine.
+- *Setting only the login shell*: does not fix Alacritty if its shell path is wrong, and Alacritty does not read =$SHELL= when =shell= is set.
+
+* Consequences
+- Unknown systems get no =shell.toml=; Alacritty then logs a warning and uses the login shell.
+- On Windows the config directory is =%APPDATA%\alacritty=, not =~/.config/alacritty=, so the import path in =alacritty.toml= needs a Windows variant too (/untested/).
+- Windows steps are not tried; this was written from a Linux container.
