@@ -34,6 +34,7 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
@@ -67,11 +68,11 @@ Where the modules live:
 - [[file:tangles/base/sp-encoding.org][sp-encoding]] :: UTF-8 everywhere ([[file:../libraries/modules/base/sp-encoding.el][sp-encoding.el]])
 - [[file:tangles/base/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/base/sp-env.el][sp-env.el]])
 - [[file:tangles/base/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/base/sp-exwm.el][sp-exwm.el]])
+- [[file:tangles/base/sp-globals.org][sp-globals]] :: My most important settings in one place, including where my files live (the former sp-paths) ([[file:../libraries/modules/base/sp-globals.el][sp-globals.el]])
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
 - [[file:tangles/base/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/base/sp-macos.el][sp-macos.el]])
 - [[file:tangles/base/sp-navi.org][sp-navi]] :: Navigation: files, places and outlines ([[file:../libraries/modules/base/sp-navi.el][sp-navi.el]])
-- [[file:tangles/base/sp-paths.org][sp-paths]] :: Where my files live: notes, bibliography, checkouts ([[file:../libraries/modules/base/sp-paths.el][sp-paths.el]])
 - [[file:tangles/base/sp-snippets.org][sp-snippets]] :: Snippets with yasnippet ([[file:../libraries/modules/base/sp-snippets.el][sp-snippets.el]])
 - [[file:tangles/base/sp-syslinux.org][sp-syslinux]] :: Linux system integration ([[file:../libraries/modules/base/sp-syslinux.el][sp-syslinux.el]])
 - [[file:tangles/base/sp-syswin.org][sp-syswin]] :: Windows-specific settings ([[file:../libraries/modules/base/sp-syswin.el][sp-syswin.el]])
@@ -199,7 +200,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** ui/
 
-- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard (the old =dashboard= package screen, no longer loaded: the splash screen replaces it) ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
 - [[file:tangles/ui/sp-buffers.org][sp-buffers]] :: Buffer lists and pop-up buffers ([[file:../libraries/modules/ui/sp-buffers.el][sp-buffers.el]])
 - [[file:tangles/ui/sp-canvas.org][sp-canvas]] :: Experimental canvas and Excalidraw support ([[file:../libraries/modules/ui/sp-canvas.el][sp-canvas.el]])
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
@@ -211,7 +211,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
-- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme management and theme packages ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
+- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme folders, families and =sp-load-theme= ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
 - [[file:tangles/ui/sp-treemacs.org][sp-treemacs]] :: A file tree for the emacs-modular folder ([[file:../libraries/modules/ui/sp-treemacs.el][sp-treemacs.el]])
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
 - [[file:tangles/ui/sp-writedesk.org][sp-writedesk]] :: Writing desk: Olivetti and Writeroom ([[file:../libraries/modules/ui/sp-writedesk.el][sp-writedesk.el]])

@@ -587,15 +587,9 @@ Each one is then another stop for \\`TAB'."
 
 ;;;;; Privacy
 ;; Private entries are left out of the boxes while the dashboard is public.
-(defcustom sp-dashboard-private-tags '("private")
-  "Entries with one of these tags (inherited) are private."
-  :type '(repeat string)
-  :group 'spcustom)
-
-(defcustom sp-dashboard-private-files nil
-  "Regexps of files whose entries are all private."
-  :type '(repeat regexp)
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-dashboard-private-tags',
+;; `sp-dashboard-private-files', `sp-dashboard-trusted-networks' and
+;; `sp-dashboard-screen-share-processes'.
 
 (defcustom sp-dashboard-public-conditions '(sp-dashboard-condition-focus)
   "Functions, without arguments, that return non-nil when you are in public.
@@ -608,17 +602,6 @@ or signals an error (a check that cannot run counts as public)."
   "Whether the dashboard hides private entries.
 `auto' follows `sp-dashboard-public-conditions', `public' always hides them
 and `private' always shows them.  Cycle it with `sp-dashboard-toggle-public-mode'.")
-
-(defcustom sp-dashboard-trusted-networks nil
-  "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
-  :type '(repeat string)
-  :group 'spcustom)
-
-(defcustom sp-dashboard-screen-share-processes nil
-  "Process names that mean the screen is shared, such as a call app's helper.
-Used by `sp-dashboard-condition-screen-share'."
-  :type '(repeat string)
-  :group 'spcustom)
 
 (defun sp-dashboard-condition-untrusted-network ()
   "Return non-nil when the Wi-Fi network is not in `sp-dashboard-trusted-networks'.
@@ -1175,7 +1158,7 @@ splash is drawn again with the current settings."
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
-                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                (let* ((image-file (if (sp-theme-dark-p)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
                        (image (create-image image-file 'png nil :width 175 :height 175)))

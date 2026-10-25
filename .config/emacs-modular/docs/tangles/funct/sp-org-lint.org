@@ -19,7 +19,7 @@ This module provides two commands for tidying plain lists in Org buffers, aimed 
 - =sp-org-lint-resources= does the same, then sorts each top level list alphabetically by its displayed text.
 - =sp-org-mark-list= is a helper that marks the region the commands would act on.
 
-A third command, =sp-org-lint-footnotes=, is unrelated to lists: it lints the footnotes of the vulpea vault in the background, see [[*Sectional footnotes][Sectional footnotes]]. It also uses =seq=, =cl-lib= and, when present, =sp-paths=, and starts a second Emacs, so this file must be loadable on its own.
+A third command, =sp-org-lint-footnotes=, is unrelated to lists: it lints the footnotes of the vulpea vault in the background, see [[*Sectional footnotes][Sectional footnotes]]. It also uses =seq=, =cl-lib= and, when present, =sp-globals=, and starts a second Emacs, so this file must be loadable on its own.
 
 Dependencies and behaviour:
 
@@ -58,7 +58,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Required libraries
 
-Loads the Org core, list and element libraries, plus =subr-x= for string helpers such as =string-trim=, =seq= and =cl-lib= for the footnote linter, and =sp-paths= (if present) for the notes folder.
+Loads the Org core, list and element libraries, plus =subr-x= for string helpers such as =string-trim=, =seq= and =cl-lib= for the footnote linter, and =sp-globals= (if present) for the notes folder.
 
 #+begin_src emacs-lisp -i
 (require 'cl-lib)
@@ -67,7 +67,7 @@ Loads the Org core, list and element libraries, plus =subr-x= for string helpers
 (require 'org-list)
 (require 'org-element)
 (require 'subr-x)
-(require 'sp-paths nil t)
+(require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
 #+end_src

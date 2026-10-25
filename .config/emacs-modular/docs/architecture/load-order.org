@@ -17,7 +17,7 @@ digraph modules {
   edge [color="#555555", fontname="Helvetica", fontsize=9];
 
   subgraph cluster_1 { label="1  Foundations"; style=rounded; color="#999999"; fontname="Helvetica";
-    p1 [label="sp-paths  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
+    p1 [label="sp-globals  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
     p2 [label="sp-interaction  sp-keys\n(hydra, helm-descbinds)"];
     p3 [label="sp-navi\n(consult)"];
     p1 -> p2 -> p3;
@@ -25,7 +25,7 @@ digraph modules {
   subgraph cluster_2 { label="2  UI"; style=rounded; color="#999999"; fontname="Helvetica";
     u1 [label="sp-icons  sp-colors  sp-faces\nsp-fonts  sp-emoji-font\nsp-textui  sp-themes"];
     u2 [label="sp-frame  sp-buffers  sp-windows\nsp-tabs  sp-mini-frame\n(ace-window)"];
-    u3 [label="sp-treemacs  sp-writedesk\nlem-dashboard  sp-canvas"];
+    u3 [label="sp-treemacs  sp-writedesk\nsp-canvas"];
     u1 -> u2 -> u3;
   }
   subgraph cluster_3 { label="3  Environment and tooling"; style=rounded; color="#999999"; fontname="Helvetica";

@@ -1,0 +1,3 @@
+# The shell Alacritty starts on Windows (see adr/0019). PowerShell 7.
+[terminal]
+shell = { program = "pwsh", args = ["-NoLogo"] }

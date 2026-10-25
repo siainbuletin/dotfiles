@@ -1,6 +1,8 @@
 #+TITLE: Theme system: package comparison and one-folder design
 #+STARTUP: content
 
+*Status (2026-10-24).* The proposal was taken up with changes by Sia: vendoring from the start (no Elpaca for themes), only the seven themes in use kept in =libraries/themes/active/= and the rest in =libraries/themes/library/=, Lambda kept, four new families (hard light, faded light, faded dark, hard dark) instead of the package families, no LICENSE file (private repository), and the step that disabled the other themes before loading removed. What was built is described in [[file:../tangles/ui/sp-themes.org][sp-themes.org]] and =libraries/themes/README.org=; the rest of this note is the analysis it was based on and is not updated. One correction: Doric sets about 1,300 faces, not 225 (most through its bundles); see [[file:modus-faces-outside-global-system.org][modus-faces-outside-global-system.org]].
+
 Research and design note for =libraries/modules/ui/sp-themes.el=.
 
 - Compares the five theme packages declared there.

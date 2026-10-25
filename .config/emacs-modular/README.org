@@ -4,7 +4,7 @@ This is a modular Emacs configuration: =init.el= loads sub-libraries from =libra
 
 * Tangling the literate files
 
-Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org= (and =lem-dashboard.el= from =sp-lem-dashboard.org=). Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
+Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
 
 ** Where a file tangles to
 
@@ -103,7 +103,7 @@ A fresh worktree has no packages, and elpaca would install all of them again. In
 
 - Anything the configuration reaches by an absolute path other than the agenda files (for example =/Users/siainbuletin/...= in a PR's own code) still points at the real folder.
 - The sandbox shares your network, your =PATH= and your running programs. A PR that starts a server, syncs with GitHub or calls an external tool does so for real.
-- Once the =sp-paths= module is merged, the locations can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
+- The locations (in =sp-globals=, the former =sp-paths=) can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
 
 ** If it goes wrong
 

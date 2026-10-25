@@ -88,7 +88,13 @@
 ;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
-  (setq calendar-week-start-day 1) ;; Start week on Monday
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-timestamp-if-done t)
+(setq org-agenda-todo-ignore-scheduled 'future)
+(setq org-agenda-todo-ignore-deadlines 'far)
+(setq org-agenda-sorting-strategy
+ '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
+;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
 
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
