@@ -53,6 +53,7 @@
   '((default
      . (;; Core
         sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -141,6 +142,7 @@
      . (;; Core
         sp-package
         sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -202,6 +204,7 @@
      . (;; Core
         sp-package
         sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -233,6 +236,7 @@
      . (;; Core
         sp-package
         sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets

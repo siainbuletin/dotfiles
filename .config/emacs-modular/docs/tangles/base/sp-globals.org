@@ -1,0 +1,108 @@
+#+TITLE: sp-globals.el: My most important settings, in one place
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-globals.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-globals.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is the one file to open when one of my own settings has to change. =sp-paths= does the same for locations; this one is for settings that are not paths.
+
+- Each setting is a =defcustom= in the =spcustom= group.
+- Its =:set= function also applies it to the variable it controls, so editing the default here and changing it with Customize have the same effect.
+- Modules that used to set the variable themselves no longer do.
+
+It is loaded right after =sp-paths= in both module lists in =init.el= and in the profiles of =sp-config-profiles.el=, so the values are in place before any module reads them. It depends on nothing.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+The settings that are mine rather than a package's: which credentials file
+Emacs reads, and so on.  They sit here, not in the module that happens to
+use them, so that this is the one file to open when one of them has to
+change.  `sp-paths' does the same for locations.
+#+end_quote
+
+* Header
+
+** File header and commentary
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then the =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-globals.el --- My most important settings, in one place -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; The settings that are mine rather than a package's: which credentials file
+;; Emacs reads, and so on.  They sit here, not in the module that happens to
+;; use them, so that this is the one file to open when one of them has to
+;; change.  `sp-paths' does the same for locations.
+;;
+;; Each setting is a `defcustom' in the `spcustom' group whose :set function
+;; also applies it to the variable it controls, so editing the default below
+;; and changing it with Customize have the same effect.  Load it right after
+;; `sp-paths', before any module that reads one of these.
+
+;;; Code:
+#+end_src
+
+* Settings
+
+** Credentials: =sp-auth-sources=
+
+Sets =auth-sources=, the list of places where Emacs looks for credentials.
+
+- The default is just =~/.authinfo=. That replaces Emacs's own list, so credentials are read only from that plain-text file, and =~/.authinfo.gpg= and the keychain are not looked at.
+- Forge takes its GitHub token from here (a line such as =machine api.github.com login USERNAME^forge password TOKEN=, added by hand). Nothing secret is in this config.
+- It used to be a =setq= in =sp-vcontrol=, which is a late module, so it was only set once that module had loaded.
+- To read an encrypted file as well, change the default to =("~/.authinfo.gpg" "~/.authinfo")=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-auth-sources '("~/.authinfo")
+  "Where Emacs looks for credentials, as in `auth-sources'.
+The default is the plain-text file ~/.authinfo only, so ~/.authinfo.gpg and
+the keychain are not read.  Forge, for example, takes its GitHub token from
+here."
+  :type '(repeat sexp)
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (setq auth-sources value))
+  :group 'spcustom)
+#+end_src
+
+* Provide
+
+Provides the =sp-globals= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-globals)
+;; sp-globals.el ends here.
+#+end_src
+
+* What else could move here
+
+Found by searching the modules; none of these has been moved. Ordered by how much it belongs here.
+
+*Good candidates* (personal, and now spread over modules):
+
+- =sp-bibliography=, =sp-bib-notes=, =sp-citar-note= (=sp-academic=): the user's bibliography file, citation notes folder and note template. They are nil by default, so they are settings waiting to be filled in.
+- Privacy of the dashboard (=sp-dashboard=): =sp-dashboard-private-tags=, =sp-dashboard-private-files=, =sp-dashboard-trusted-networks=, =sp-dashboard-screen-share-processes=.
+- Spelling (=sp-spelling=): the program (=ispell-program-name=) and =sia-hunspell-dictionaries=.
+- The default font family and sizes (=fontaine-presets= in =sp-fonts=) and which theme is loaded (=sp-themes=).
+- Prompts and sounds that are a matter of taste: =confirm-kill-emacs=, =confirm-kill-processes=, =ring-bell-function=, =visible-bell= (=sp-helper-funct=), =use-dialog-box=, =use-file-dialog= (=sp-help=).
+- Backups: =create-lockfiles= and =backup-directory-alist= (=sp-backups=).
+- Identity: =user-full-name= and =user-mail-address= are not set anywhere in the configuration. If you want them (for Org export, commit identities, mail), this is the place.
+- =calendar-week-start-day= (=sp-org-agenda=): Monday.
+- Behaviour switches: =sp-persistent-scratch= and =sp-scratch-default-dir= (=sp-scratch=).
+
+*Belong in =sp-paths= instead* (they are locations): =sp-trails-chrome-history= (a duplicate of =sp-chrome-history-file=), =sp-treemacs-root=, =sp-scratch-save-dir=, =sp-bibtex-dir=, =sp-tab-inbox-dir= and =sp-emoji-font-install-dir=.
+
+*Must stay where they are*:
+
+- =sp-headless-host= (=early-init.el=) and =sp-defer-late-modules= (=init.el=): they are read before the module lists run, so they cannot come from a module.
+- Settings of one package (the =:custom= of a =use-package=), which are documented with the package.
+- Platform settings such as =mac-command-modifier= (=sp-macos=), which belong to their platform module.
+- Values derived from a path, such as =org-directory= and =vulpea-db-sync-directories=: they follow =sp-notes-dir=, so changing the path in =sp-paths= is enough.

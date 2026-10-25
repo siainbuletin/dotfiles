@@ -67,6 +67,7 @@ Where the modules live:
 - [[file:tangles/base/sp-encoding.org][sp-encoding]] :: UTF-8 everywhere ([[file:../libraries/modules/base/sp-encoding.el][sp-encoding.el]])
 - [[file:tangles/base/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/base/sp-env.el][sp-env.el]])
 - [[file:tangles/base/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/base/sp-exwm.el][sp-exwm.el]])
+- [[file:tangles/base/sp-globals.org][sp-globals]] :: My most important settings in one place ([[file:../libraries/modules/base/sp-globals.el][sp-globals.el]])
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
 - [[file:tangles/base/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/base/sp-macos.el][sp-macos.el]])
