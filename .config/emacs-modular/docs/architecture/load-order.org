@@ -30,7 +30,7 @@ digraph modules {
   }
   subgraph cluster_3 { label="3  Environment and tooling"; style=rounded; color="#999999"; fontname="Helvetica";
     e1 [label="sp-env  sp-macos\n(inheritenv)"];
-    e2 [label="sp-backups  sp-bookmarks  sp-debug\nsp-help  sp-indention  sp-lambda-line\nsp-md  sp-network  sp-scratch  sp-server\nsp-splash  sp-spelling  sp-templating\nsp-text-manipulation  sp-workspaces\n(markdown-mode, projectile)"];
+    e2 [label="sp-backups  sp-bookmarks  sp-debug\nsp-help  sp-indention  sp-lambda-modeline\nsp-md  sp-network  sp-scratch  sp-server\nsp-splash  sp-spelling  sp-templating\nsp-text-manipulation  sp-workspaces\n(markdown-mode, projectile)"];
     e3 [label="sp-embark\n(embark-consult)"];
     e4 [label="sp-minibuffer\n(requires sp-completion:\ncompany first, then vertico, orderless,\ncorfu; then prescient and company-prescient)"];
     e1 -> e2 -> e3 -> e4;

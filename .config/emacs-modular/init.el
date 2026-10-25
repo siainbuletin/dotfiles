@@ -335,13 +335,13 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Utility misc modules
                     'sp-backups
                     'sp-bookmarks
-                    ;; 'sp-choose-modeline
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil
                     'sp-help
                     'sp-indention
-                    'sp-lambda-line
+                    'sp-lambda-modeline
+                    ;; 'sp-prot-modeline ;; alternative to sp-lambda-modeline (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network
@@ -439,13 +439,13 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Utility misc modules
                     'sp-backups
                     'sp-bookmarks
-                    ;; 'sp-choose-modeline
                     'sp-debug
                     'sp-embark
                     ;; 'sp-evil
                     'sp-help
                     'sp-indention
-                    'sp-lambda-line
+                    'sp-lambda-modeline
+                    ;; 'sp-prot-modeline ;; alternative to sp-lambda-modeline (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network

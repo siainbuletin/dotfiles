@@ -1,0 +1,273 @@
+#+TITLE: sp-lambda-modeline.el: Lambda-line header line and mode line
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-lambda-modeline.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-lambda-modeline.el=. This module used to be called =sp-lambda-line=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module installs and configures =lambda-line=, the minimal status line from the Lambda Emacs project, fetched from Codeberg, and gives it a header line as well.
+
+- Loaded in both the default and minimal module lists.
+- An alternative, =sp-prot-modeline=, is a native mode line adapted from Prot's. Load only one of the two, because both set =mode-line-format=.
+- =sp-choose-modeline= (a switch between =lambda-line= and =doom-modeline=) was removed. To read how those two files were written, and to recreate them, look at commit =cfc047b= (the last one that has them): =git show cfc047b:.config/emacs-modular/libraries/modules/tooling/sp-choose-modeline.el= and =git show cfc047b:.config/emacs-modular/docs/tangles/tooling/sp-choose-modeline.org=. The Doom Modeline settings it held are also in =docs/tangles/modeline.org=.
+
+What it does:
+
+- *Layout.* lambda-line sits in the mode line at the bottom of each window, and a header line above shows the name of the file. The mode line is never reduced to a divider, and lambda-line's =top= position (everything in the header) is not used.
+- *Header line.* The path of the file (the directory for a buffer with no file) on the left, the project name on the right. It is drawn with =lambda-line-compose=, so it follows the same faces as the mode line.
+- *Keycast.* The keys and commands are shown at the bottom, in the right part of the mode line. =keycast-header-line-mode= (which =sp-frame= used to turn on) is not used: keycast is in the mode line only.
+- *Tag emoji.* lambda-line never displays =global-mode-string=, where =sp-tag-emoji= puts its segment. An advice on =lambda-line-compose= appends =sp-tag-emoji-modeline-string= to the middle (primary) part of every mode line, whatever the major mode. The emoji keep their tooltip, but lambda-line's face for that part replaces their faces.
+- *Theme colours.* =sp-lambda-modeline-theme-faces= sets the lambda-line faces from the faces of the theme in use: the =mode-line= and =mode-line-inactive= faces for the selected and the other windows, =mode-line-buffer-id= for the name and =success=, =warning= and =error= for the status symbol. It runs when the module loads and after each theme loads (=sp-after-load-theme-hook=).
+
+Untested in a running Emacs: the container that wrote it has no Emacs. Things to check are the header line next to keycast, the tag emoji in an Org buffer and the colours after =sp-load-theme=.
+
+The clock icon option relies on the ClockFace font being installed, and the status symbols use non-ASCII glyphs that need a font able to display them.
+
+* Code
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-lambda-modeline.el --- Lambda-line header line and mode line -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module installs and configures `lambda-line', the minimal status line
+;; from the Lambda Emacs project, fetched from Codeberg, with a header line
+;; next to it.  Tag emoji from `sp-tag-emoji' show in the mode line, and the
+;; faces follow the theme.  It is loaded in both the default and minimal
+;; module lists.  Alternative: `sp-prot-modeline'.
+;;
+;; The old `sp-choose-modeline' (lambda-line or doom-modeline) was removed; see
+;; commit cfc047b for its code and doc.
+
+;;; Code:
+
+(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function lambda-line-compose "lambda-line")
+(declare-function project-name "project" (project))
+(defvar lambda-line-position)
+#+end_src
+
+** Options
+
+There is no layout option: the header line and the mode line are always both shown. The group exists for the faces and options of the module.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-lambda-modeline nil
+  "Lambda-line header line and mode line."
+  :group 'mode-line)
+#+end_src
+
+** Header line
+
+The header is composed with =lambda-line-compose=, so it has the same prefix symbol and faces as the mode line. The variable =sp-lambda-modeline--composing-header= tells the tag emoji advice (below) not to add the emoji a second time. The project name is looked up only for local buffers, because asking a remote one for its project can be slow.
+
+#+begin_src emacs-lisp -i
+(defvar sp-lambda-modeline--composing-header nil
+  "Non-nil while the header line is being composed.")
+
+(defun sp-lambda-modeline--path ()
+  "Return the path shown at the left of the header line."
+  (abbreviate-file-name (or buffer-file-name
+                            (and (derived-mode-p 'dired-mode) default-directory)
+                            (buffer-name))))
+
+(defun sp-lambda-modeline--project ()
+  "Return the name of the current project, or an empty string."
+  (or (and (not (file-remote-p default-directory))
+           (when-let* ((project (project-current)))
+             (project-name project)))
+      ""))
+
+(defun sp-lambda-modeline-header ()
+  "Return the header line string: the path and the project name."
+  (let ((sp-lambda-modeline--composing-header t))
+    (lambda-line-compose nil
+                         (sp-lambda-modeline--path)
+                         ""
+                         ""
+                         (sp-lambda-modeline--project))))
+
+(defconst sp-lambda-modeline-header-format
+  '(:eval (sp-lambda-modeline-header))
+  "The `header-line-format' of every window: the name of the file.")
+(put 'sp-lambda-modeline-header-format 'risky-local-variable t)
+#+end_src
+
+** Tag emoji
+
+The advice adds the tag emoji of the heading or file at point to the primary part (the middle one, next to the major mode) of every mode line lambda-line composes. All the mode formats go through =lambda-line-compose=, so no format needs to be rewritten.
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline--add-tag-emoji (args)
+  "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
+  (let ((tags (and (not sp-lambda-modeline--composing-header)
+                   (fboundp 'sp-tag-emoji-modeline-string)
+                   (ignore-errors (sp-tag-emoji-modeline-string)))))
+    (if (and (stringp tags) (not (string-blank-p tags)))
+        (let ((args (copy-sequence args)))
+          (setf (nth 2 args) (concat (or (nth 2 args) "") tags))
+          args)
+      args)))
+#+end_src
+
+** Theme colours
+
+lambda-line defines its faces with fixed colours ("green", "yellow", "red", "grey75"...). This function replaces them with colours read from the theme in use. The selected window uses =mode-line=, the others use =mode-line-inactive=, and the status symbol takes its colour from =success= (read-write), =warning= (read-only) and =error= (modified).
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline--foreground (face fallback)
+  "Return the foreground of FACE in the current theme, or FALLBACK."
+  (let ((color (face-foreground face nil t)))
+    (if (and (stringp color) (not (string-prefix-p "unspecified" color)))
+        color
+      fallback)))
+
+(defun sp-lambda-modeline-theme-faces (&rest _)
+  "Set the lambda-line faces from the faces of the current theme."
+  (when (facep 'lambda-line-active)
+    (set-face-attribute 'lambda-line nil :inherit 'mode-line)
+    (set-face-attribute 'lambda-line-inactive nil
+                        :inherit 'mode-line-inactive
+                        :weight 'unspecified :box 'unspecified
+                        :foreground 'unspecified :background 'unspecified)
+    (set-face-attribute 'lambda-line-active-name nil
+                        :inherit '(mode-line-buffer-id lambda-line))
+    (set-face-attribute 'lambda-line-active-secondary nil
+                        :inherit '(shadow lambda-line))
+    (let ((muted (sp-lambda-modeline--foreground 'shadow "gray50")))
+      (dolist (status '("RO" "RW" "MD"))
+        (set-face-attribute (intern (format "lambda-line-inactive-status-%s" status))
+                            nil :inherit 'lambda-line-inactive :foreground muted)))
+    (set-face-attribute 'lambda-line-active-status-RW nil
+                        :foreground (sp-lambda-modeline--foreground 'success "green"))
+    (set-face-attribute 'lambda-line-active-status-RO nil
+                        :foreground (sp-lambda-modeline--foreground 'warning "yellow"))
+    (set-face-attribute 'lambda-line-active-status-MD nil
+                        :foreground (sp-lambda-modeline--foreground 'error "red"))
+    (force-mode-line-update t)))
+#+end_src
+
+** Keycast
+
+keycast puts its segment into =mode-line-format= after a given element and refuses to start when it cannot find it. lambda-line's format is a single =:eval= form, so an empty anchor variable is added to the end of the format and keycast is told to insert its segment after it. That segment is made to show nothing (its window predicate is =ignore=): keycast is only used to follow the commands. The text itself is built with =keycast-format= and given to lambda-line as its tertiary (right-hand) part, through =lambda-line-default-tertiary-function=, so it is aligned with the position and the clock. It is shown in the selected window only.
+
+#+begin_src emacs-lisp -i
+(defvar keycast-mode-line-format)
+(defvar keycast-mode-line-insert-after)
+(defvar keycast-mode-line-window-predicate)
+(defvar keycast-mode-line-remove-tail-elements)
+(defvar keycast-substitute-alist)
+(defvar keycast-header-line-mode)
+(declare-function keycast-mode-line-mode "keycast")
+(declare-function keycast-header-line-mode "keycast")
+(declare-function keycast-format "keycast")
+
+(defvar sp-lambda-modeline-keycast-anchor ""
+  "Empty element of `mode-line-format' that keycast inserts its segment after.")
+(put 'sp-lambda-modeline-keycast-anchor 'risky-local-variable t)
+
+(defcustom sp-lambda-modeline-keycast t
+  "When non-nil, show the keys and commands (keycast) in the mode line."
+  :type 'boolean
+  :group 'sp-lambda-modeline)
+
+(defun sp-lambda-modeline-keycast-string ()
+  "Return the keycast text for the selected window's mode line, or an empty string."
+  (or (and sp-lambda-modeline-keycast
+           (bound-and-true-p keycast-mode-line-mode)
+           (mode-line-window-selected-p)
+           (keycast-format "%k%c%R "))
+      ""))
+
+(defun sp-lambda-modeline--setup-keycast ()
+  "Start keycast in the mode line and stop it in the header line."
+  (when (and sp-lambda-modeline-keycast (require 'keycast nil t))
+    (when (bound-and-true-p keycast-header-line-mode)
+      (keycast-header-line-mode -1))
+    (setq keycast-mode-line-insert-after 'sp-lambda-modeline-keycast-anchor
+          keycast-mode-line-window-predicate #'ignore
+          keycast-mode-line-remove-tail-elements nil)
+    (dolist (input '(self-insert-command org-self-insert-command))
+      (add-to-list 'keycast-substitute-alist `(,input "." "Typing…")))
+    (dolist (event '("<mouse-event>" "<mouse-movement>" "<mouse-2>" "<drag-mouse-1>"
+                     "<wheel-up>" "<wheel-down>" "<double-wheel-up>" "<double-wheel-down>"
+                     "<triple-wheel-up>" "<triple-wheel-down>" "<wheel-left>" "<wheel-right>"
+                     handle-select-window mouse-set-point mouse-drag-region))
+      (add-to-list 'keycast-substitute-alist `(,event nil nil)))
+    (unless (memq 'sp-lambda-modeline-keycast-anchor
+                  (default-value 'mode-line-format))
+      (setq-default mode-line-format
+                    (append (default-value 'mode-line-format)
+                            '(sp-lambda-modeline-keycast-anchor))))
+    (unless (bound-and-true-p keycast-mode-line-mode)
+      (keycast-mode-line-mode 1))))
+#+end_src
+
+** Layout
+
+The header line is set after =lambda-line-mode=, which clears both formats when it starts. Keycast is set up last, because it edits the mode line format that lambda-line has just installed.
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline-apply-layout ()
+  "Show the file name in the header line and the keys in the mode line."
+  (setq-default header-line-format sp-lambda-modeline-header-format)
+  (sp-lambda-modeline--setup-keycast)
+  (force-mode-line-update t))
+#+end_src
+
+** lambda-line
+
+The =:custom= block sets the look of the status line:
+
+- a clock icon drawn with the ClockFaceRect font face,
+- the line placed at the bottom of each window,
+- abbreviated major mode names,
+- extra horizontal spacing, a prefix symbol with padding, and no inverted colours for the status indicator,
+- custom symbols for read-only, modified and unmodified buffers in graphical frames,
+- vertical padding above and below the line and a small vertical offset for the symbols,
+- keycast as the right-hand part of the line.
+
+In =:config=, the tag emoji advice is added, =lambda-line-mode= is activated, and the header line, keycast and the theme colours are applied. The theme colours are applied again after every theme load.
+
+#+begin_src emacs-lisp -i
+(use-package lambda-line
+    :ensure (:type git :repo "https://codeberg.org/Lambda-Emacs/lambda-line")
+
+    :custom
+    (lambda-line-icon-time t) ;; requires ClockFace font (see below)
+    (lambda-line-clockface-update-fontset "ClockFaceRect") ;; set clock icon
+    (lambda-line-position 'bottom) ;; the status line is the mode line
+    (lambda-line-abbrev t) ;; abbreviate major modes
+    (lambda-line-hspace "  ")  ;; add some cushion
+    (lambda-line-prefix t) ;; use a prefix symbol
+    (lambda-line-prefix-padding t) ;; extra space for prefix
+    (lambda-line-status-invert nil)  ;; no invert colors
+    (lambda-line-gui-ro-symbol  " ⨂") ;; symbols
+    (lambda-line-gui-mod-symbol " ⬤")
+    (lambda-line-gui-rw-symbol  " ◯")
+    (lambda-line-space-top +.70)  ;; padding on top and bottom of line
+    (lambda-line-space-bottom -.70)
+    (lambda-line-default-tertiary-function #'sp-lambda-modeline-keycast-string) ;; keycast, right side
+    (lambda-line-symbol-position 0.1) ;; adjust the vertical placement of symbol
+
+    :config
+    (advice-add 'lambda-line-compose :filter-args
+                #'sp-lambda-modeline--add-tag-emoji)
+    (lambda-line-mode)  ;; activate lambda-line
+    (sp-lambda-modeline-theme-faces)
+    (sp-lambda-modeline-apply-layout)
+    (add-hook 'sp-after-load-theme-hook #'sp-lambda-modeline-theme-faces))
+#+end_src
+
+** Provide
+
+Provides the =sp-lambda-modeline= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-lambda-modeline)
+#+end_src
