@@ -242,8 +242,8 @@ the line, respectively."
            ("r" . rainbow-identifiers-mode    )
            ("s" . flyspell-mode               )
            ("S" . ispell-buffer               )
-           ;; ("t" . toggle-dark-light-theme     )
            ("t" . sp-load-theme              )
+           ("T" . sp-load-theme-family       )
            ("w" . writeroom-mode              )
            ("z" . zone                        ))
 

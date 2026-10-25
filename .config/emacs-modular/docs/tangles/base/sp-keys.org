@@ -448,7 +448,7 @@ Both =f= and =s= run =consult-line=.
 
 Specific keys:
 
-- =t= runs =sp-load-theme=. An older binding to a dark/light toggle is left commented out.
+- =t= runs =sp-load-theme=, =T= runs =sp-load-theme-family=.
 - =z= starts =zone=.
 
 #+begin_src emacs-lisp -i
@@ -470,8 +470,8 @@ Specific keys:
            ("r" . rainbow-identifiers-mode    )
            ("s" . flyspell-mode               )
            ("S" . ispell-buffer               )
-           ;; ("t" . toggle-dark-light-theme     )
            ("t" . sp-load-theme              )
+           ("T" . sp-load-theme-family       )
            ("w" . writeroom-mode              )
            ("z" . zone                        ))
 #+end_src

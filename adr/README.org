@@ -28,3 +28,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0016-dashboard.org][0016]] | The start screen is a layered dashboard with agenda boxes and a privacy mode | accepted, wiring of 0011 missing |
 | [[file:0017-font-management.org][0017]] | Fontaine presets own the fonts; emoji and tag emoji sit beside them | accepted |
 | [[file:0018-emacs-pr-sandbox-and-reload.org][0018]] | =emacs-pr= builds a sandbox from a PR ref; =sp-reload= is proposed | accepted, reload proposed |
+| [[file:0019-cross-platform-shell-setup.org][0019]] | One dotfiles repository, fish on macOS and Linux, PowerShell on Windows | proposed, Alacritty part done |

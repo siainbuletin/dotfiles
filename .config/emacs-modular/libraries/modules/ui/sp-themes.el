@@ -1,68 +1,203 @@
-;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
+;;; sp-themes.el --- Theme folders, families and sp-load-theme -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This includes the theme manager from Lambda Emacs
-;;
-;; 𝛌-Emacs comes with its own set of themes --
-;; 𝛌-Themes. The user can of course configure things to use whatever theme they
-;; like. The Modus themes are especially good and included with Emacs 28+.
+;; Every theme is vendored in `libraries/themes/' (see the README.org
+;; there) and every theme is loaded with `sp-load-theme'.  Themes are
+;; grouped in four families, after the Lambda themes: hard light, faded
+;; light, faded dark and hard dark.
 
 ;;; Code:
 
 ;;;; No-confirm themes
-;; should this setting really come first?
+;; Hard-coded on purpose: custom.el is never loaded (see early-init.el).
 (setq custom-safe-themes t)
 
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
-  "Set a custom themes directory path."
+  "The folder with the vendored themes, see its README.org."
   :group 'spcustom
-  :type 'string)
+  :type 'directory)
 
-;;;;; Make the custom themes dir.
-(mkdir sp-custom-themes-dir t)
 (setq-default custom-theme-directory sp-custom-themes-dir)
 
-;;;;; find all themes recursively in custom-theme-folder
-(let ((basedir custom-theme-directory))
-  (dolist (f (directory-files basedir))
-    (if (and (not (or (equal f ".") (equal f "..")))
-             (file-directory-p (concat basedir f)))
-        (add-to-list 'custom-theme-load-path (concat basedir f)))))
+;;;; Paths
+(defun sp-themes--subdirs (dir)
+  "Return the subfolders of DIR, or nil if DIR does not exist."
+  (when (file-directory-p dir)
+    (seq-filter #'file-directory-p
+                (directory-files dir t directory-files-no-dot-files-regexp))))
 
-;;;; Disable All Custom Themes
+(defun sp-themes-library-dirs ()
+  "Return the package folders of the theme library."
+  (sp-themes--subdirs (expand-file-name "library/" sp-custom-themes-dir)))
 
-;; why is this necessary in order to do sp-load-theme?
-(defun sp-disable-all-themes ()
-  "Disable all active themes & reset mode-line."
+(add-to-list 'load-path (expand-file-name "lib/" sp-custom-themes-dir))
+
+(dolist (dir (append (sp-themes-library-dirs)
+                     (list (expand-file-name "sp/" sp-custom-themes-dir)
+                           (expand-file-name "active/" sp-custom-themes-dir))))
+  (add-to-list 'custom-theme-load-path dir))
+
+;;;; Theme families
+(defcustom sp-theme-families
+  '((hard-light  lambda-light)
+    (faded-light lambda-light-faded ef-day ef-melissa-light)
+    (faded-dark  lambda-dark-faded doric-fire)
+    (hard-dark   ef-dream))
+  "The themes in use, in families: a list of (FAMILY THEME...).
+The first THEME of a family is the one `sp-load-theme-family' loads."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type (repeat symbol)))
+
+(defun sp-themes-library ()
+  "Return an alist of (THEME . PACKAGE) for every theme in the library."
+  (let (themes)
+    (dolist (dir (sp-themes-library-dirs))
+      (dolist (file (directory-files dir nil "-theme\\.el\\'"))
+        (push (cons (intern (string-remove-suffix "-theme.el" file))
+                    (file-name-nondirectory dir))
+              themes)))
+    (sort themes (lambda (a b) (string< (car a) (car b))))))
+
+(defun sp-theme-family (theme)
+  "Return the family of THEME, or nil if it is not in one."
+  (car (seq-find (lambda (family) (memq theme (cdr family)))
+                 sp-theme-families)))
+
+(defun sp-theme-dark-p ()
+  "Return non-nil if the default background is dark."
+  (when-let* ((bg (face-background 'default nil t))
+              (rgb (ignore-errors (color-values bg))))
+    (< (apply #'+ rgb) (* 3 32768))))
+
+;;;; Never ask for confirmation
+(define-advice load-theme (:filter-args (args) sp-no-confirm)
+  "Always pass NO-CONFIRM, so a theme is never refused or asked about."
+  (list (nth 0 args) t (nth 2 args)))
+
+;;;; Options of the theme packages
+;; Modus engine (also used by the Ef themes)
+(setq modus-themes-italic-constructs t
+      modus-themes-bold-constructs nil
+      modus-themes-mixed-fonts t
+      modus-themes-variable-pitch-ui nil)
+
+;; Lambda themes
+(setq lambda-themes-set-italic-comments t
+      lambda-themes-set-italic-keywords t
+      lambda-themes-set-variable-pitch t)
+
+;;;; Palette overrides
+(defcustom sp-theme-palette-overrides nil
+  "Palette overrides per theme, an alist of (THEME . OVERRIDES).
+OVERRIDES is a list of (NAME COLOR) as in `ef-day-palette-overrides'.
+Only the Ef and Modus themes support them."
+  :group 'spcustom
+  :type '(alist :key-type symbol
+                :value-type (repeat (list symbol (choice symbol string)))))
+
+(defun sp-theme--apply-overrides (theme)
+  "Set the palette overrides of THEME, if it has any."
+  (when-let* ((overrides (alist-get theme sp-theme-palette-overrides)))
+    (if (string-match-p "\\`\\(ef\\|modus\\)-" (symbol-name theme))
+        (set (intern (format "%s-palette-overrides" theme)) overrides)
+      (message "sp-themes: %s has no palette overrides, ignoring them" theme))))
+
+;;;; The one way to load a theme
+(defcustom sp-theme-disable-others 'after-load
+  "What `sp-load-theme' does to the themes that were enabled.
+`after-load' disables them once the new theme has loaded.  Nil leaves
+them enabled, so their faces stay under the new theme."
+  :group 'spcustom
+  :type '(choice (const :tag "Disable after the new theme loads" after-load)
+                 (const :tag "Leave enabled" nil)))
+
+(defvar sp-theme-history nil
+  "Minibuffer history of `sp-load-theme'.")
+
+(defun sp-theme--candidates ()
+  "Return an alist of (NAME . GROUP) for the themes `sp-load-theme' offers."
+  (let (cands)
+    (dolist (family sp-theme-families)
+      (dolist (theme (cdr family))
+        (push (cons (symbol-name theme) (symbol-name (car family))) cands)))
+    (dolist (entry (sp-themes-library))
+      (unless (assoc (symbol-name (car entry)) cands)
+        (push (cons (symbol-name (car entry))
+                    (format "library: %s" (cdr entry)))
+              cands)))
+    (nreverse cands)))
+
+(defun sp-theme--read (prompt)
+  "Read a theme name with PROMPT, grouped by family, and return the symbol."
+  (let* ((cands (sp-theme--candidates))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      `(metadata
+                        (display-sort-function . identity)
+                        (cycle-sort-function . identity)
+                        (group-function
+                         . ,(lambda (cand transform)
+                              (if transform cand (cdr (assoc cand cands))))))
+                    (complete-with-action action cands string pred)))))
+    (intern (completing-read prompt table nil t nil 'sp-theme-history
+                             (when custom-enabled-themes
+                               (symbol-name (car custom-enabled-themes)))))))
+
+(defun sp-load-theme (theme)
+  "Load THEME, the one way themes are loaded in this configuration.
+Interactively, choose among the families first and the library after."
+  (interactive (list (sp-theme--read "Load theme: ")))
+  (let ((previous custom-enabled-themes))
+    (sp-theme--apply-overrides theme)
+    (load-theme theme t)
+    (when (eq sp-theme-disable-others 'after-load)
+      (dolist (old (remq theme previous))
+        (disable-theme old)))
+    theme))
+
+(defun sp-load-theme-family (family)
+  "Load the first theme of FAMILY, see `sp-theme-families'."
+  (interactive
+   (list (intern (completing-read "Theme family: "
+                                  (mapcar (lambda (f) (symbol-name (car f)))
+                                          sp-theme-families)
+                                  nil t))))
+  (sp-load-theme (cadr (assq family sp-theme-families))))
+
+;;;; Light and dark
+(defcustom sp-theme-appearance-themes
+  '((light . lambda-light-faded)
+    (dark  . ef-dream))
+  "The theme for the system appearance, an alist of (APPEARANCE . THEME)."
+  :group 'spcustom
+  :type '(alist :key-type (choice (const light) (const dark))
+                :value-type symbol))
+
+(defun sp-theme-load-appearance (appearance)
+  "Load the theme for APPEARANCE, `light' or `dark', unless it is current."
+  (let ((target (alist-get appearance sp-theme-appearance-themes)))
+    (unless (or (null target) (eq target (car custom-enabled-themes)))
+      (sp-load-theme target))))
+
+(defun toggle-dark-light-theme ()
+  "Switch between the light and the dark theme of `sp-theme-appearance-themes'."
   (interactive)
-  (progn
-    (dolist (i custom-enabled-themes)
-      (disable-theme i))
-    ;; disable window-divider mode
-    (window-divider-mode -1)
-    ;; revert to mode line
-    (setq-default header-line-format nil)
-    (setq-default mode-line-format
-                  '((:eval
-                     (list
-                      "%b "
-                      "%m "
-                      (cond ((and buffer-file-name (buffer-modified-p))
-                             (propertize "(**)" 'face `(:foreground "#f08290")))
-                            (buffer-read-only "(RO)" ))
-                      " %l:%c %0"
-                      " "
-                      ))))
-    (force-mode-line-update)))
+  (sp-theme-load-appearance (if (sp-theme-dark-p) 'light 'dark)))
 
-;;;; Load Theme Wrapper
-(defun sp-load-theme ()
-  (interactive)
-  (progn
-    (sp-disable-all-themes)
-    (call-interactively 'load-theme)))
+;;;; After Load Theme Hook
+(defvar sp-after-load-theme-hook nil
+  "Hook run after a color theme is loaded using `load-theme'.")
+(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
+  "Run `sp-after-load-theme-hook'."
+  (run-hooks 'sp-after-load-theme-hook))
+
+(with-eval-after-load 'kind-icon
+  (add-hook 'sp-after-load-theme-hook #'kind-icon-reset-cache))
+
+(use-package easy-theme-preview
+  :ensure t)
 
 ;;;; Toggle Menubar
 ;; toggle menubar to light or dark
@@ -80,100 +215,6 @@
   "Turn dark mode on."
   (interactive)
   (shell-command "dark-mode on"))
-
-;;;; THEME OPTIONS
-
-;;;;; Modus themes
-
-(use-package modus-themes
-  :ensure t)
-
-(setq modus-themes-mixed-fonts t)
-(setq modus-themes-italic-constructs t)
-
-;; In all of the following, WEIGHT is a symbol such as `semibold',
-;; `light', `bold', or anything mentioned in `modus-themes-weights'.
-(setq modus-themes-italic-constructs t
-      modus-themes-bold-constructs nil
-      modus-themes-mixed-fonts t
-      modus-themes-variable-pitch-ui nil
-      modus-themes-disable-other-themes t
-
-      ;; Options for `modus-themes-prompts' are either nil (the
-      ;; default), or a list of properties that may include any of those
-      ;; symbols: `italic', `WEIGHT'
-      modus-themes-prompts '(italic bold)
-
-      ;; The `modus-themes-completions' is an alist that reads two
-      ;; keys: `matches', `selection'.  Each accepts a nil value (or
-      ;; empty list) or a list of properties that can include any of
-      ;; the following (for WEIGHT read further below):
-      ;;
-      ;; `matches'   :: `underline', `italic', `WEIGHT'
-      ;; `selection' :: `underline', `italic', `WEIGHT'
-      modus-themes-completions
-      '((matches . (extrabold))
-        (selection . (semibold italic text-also))))
-
-(setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
-
-;; EF THEMES
-(use-package ef-themes
-  :ensure t)
-
-;; DORIC THEMES
-(use-package doric-themes
-  :ensure t
-  :demand t)
-
-;; MODUS THEMES
-(use-package lambda-themes
-  :ensure (:type git :host github :repo "lambda-emacs/lambda-themes") 
-
-  :config
-  ;; load preferred theme 
-  ;; (load-theme 'lambda-light)
-)
-
-;;; Catppuccin
-(use-package catppuccin-theme
-  :ensure t)
-
-;; Lambda themes options
-(setopt lambda-themes-set-italic-comments t)
-(setopt lambda-themes-set-italic-keywords t)
-(setopt lambda-themes-set-variable-pitch t)
-
-;; kind-icon needs to have its cache flushed after theme change
-(with-eval-after-load 'kind-icon
-  (add-hook 'lambda-themes-after-load-theme-hook #'kind-icon-reset-cache))
-
-;; For the setting which switches the MacOS theme automatically, based on the color of the system
-;; see the sp-macos.el file.
-
-;; For easier preview of themes
-
-(use-package easy-theme-preview
-  :ensure t)
-
-;;;;; Theme toggle
-(defun toggle-dark-light-theme ()
-  "Flip the active lambda variant between light and dark.
-If neither lambda variant is currently active (the user loaded some
-other theme), default to `ef-dream'. The macOS system-appearance
-hook is left untouched; the next macOS Light/Dark change will resync."
-  (interactive)
-  (let* ((current (car custom-enabled-themes))
-         (target (if (eq current 'ef-day) 'ef-dream 'ef-day)))
-    (sp-disable-all-themes)
-    (load-theme target t)))
-
-;;;;; After Load Theme Hook
-(defvar sp-after-load-theme-hook nil
-  "Hook run after a color theme is loaded using `load-theme'.")
-(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
-  "Run `sp-after-load-theme-hook'."
-  (run-hooks 'sp-after-load-theme-hook))
 
 (provide 'sp-themes)
 ;;; sp-themes.el ends here

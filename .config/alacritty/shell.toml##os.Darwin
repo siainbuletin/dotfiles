@@ -1,0 +1,4 @@
+# The shell Alacritty starts. yadm links the file for this OS to shell.toml.
+# Homebrew's fish; a GUI-launched app has no Homebrew PATH, so the path is absolute.
+[terminal]
+shell = { program = "/opt/homebrew/bin/fish" }
