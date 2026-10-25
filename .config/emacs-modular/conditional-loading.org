@@ -43,7 +43,6 @@ The UI modules here are organised alphabetically, but it should be fine since it
 - sp-buffers :: Buffer management and general drawing instructions.
 - sp-canvas :: For modules developed around the new Canvas feature in Emacs 32.
 - sp-colors :: Global color scheme to follow.
-- lem-dashboard :: Load the Lambda variant of the dashboard package (no-frills, well executed).
 - sp-faces ::
 - sp-frame ::
 - sp-fonts ::
@@ -92,7 +91,7 @@ This is also currently being loaded alphabetically.
 - sp-scratch :: Settings for persistent scratch
 - sp-server :: Emacs client
 - sp-spelling :: Spell checker
-- sp-dashboard :: this is the splash screen from lambda emacs - it should probably be combined with the lem-dashboard (from ui/ --- also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards)
+- sp-dashboard :: this is the splash screen from lambda emacs (the older lem-dashboard module is removed) - also move the splash screen to the UI module instead --- though the UI module should be split into essential UI and the cosmetic stuff afterwards
 - sp-templating ::
 - sp-text-manipulation ::
 - sp-workspaces :: This is based on launching separate tabspaces. It's taken from Lambda Emacs
@@ -414,7 +413,6 @@ Modifications to be made by me, a human
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -435,7 +433,6 @@ Modifications to be made by me, a human
         sp-backuos
         sp-bookmarks
         ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
@@ -502,7 +499,6 @@ Modifications to be made by me, a human
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -523,7 +519,6 @@ Modifications to be made by me, a human
         sp-backups
         sp-bookmarks
         ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
@@ -563,7 +558,6 @@ Modifications to be made by me, a human
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts

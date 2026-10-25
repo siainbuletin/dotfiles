@@ -1374,7 +1374,7 @@ Outline header for the functions that build the splash buffer.
 
 - Called interactively, it first kills an existing =Dashboard= buffer. Otherwise the command only switches to the old buffer and a changed setting would not show.
 - After the same buffer setup as the terminal version, it inserts, centered horizontally:
-  - the lambda logo PNG (white for the =lambda-dark= theme, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section),
+  - the lambda logo PNG (white when =sp-theme-dark-p= is true, black otherwise), only when the window is wider than 80 columns and taller than 20 lines and there are no art layers (see the previous section),
   - the welcome text, the Emacs version and the init info,
   - the menu blocks (see the previous section) in boxes, centred under the banner, each row showing its single-key shortcut,
   - a footer pushed toward the bottom of the window, centred on the lambda (=sp-dashboard-footer-layer=) so it sits close to the art,
@@ -1448,7 +1448,7 @@ splash is drawn again with the current settings."
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
-                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                (let* ((image-file (if (sp-theme-dark-p)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
                        (image (create-image image-file 'png nil :width 175 :height 175)))
