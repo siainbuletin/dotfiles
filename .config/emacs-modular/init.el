@@ -340,8 +340,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-evil
                     'sp-help
                     'sp-indention
-                    'sp-header-and-modeline
-                    ;; 'sp-prot-modeline ;; alternative to sp-header-and-modeline (shows minor modes); load one of the two
+                    'sp-lambda-modeline
+                    ;; 'sp-prot-modeline ;; alternative to sp-lambda-modeline (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network
@@ -444,8 +444,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; 'sp-evil
                     'sp-help
                     'sp-indention
-                    'sp-header-and-modeline
-                    ;; 'sp-prot-modeline ;; alternative to sp-header-and-modeline (shows minor modes); load one of the two
+                    'sp-lambda-modeline
+                    ;; 'sp-prot-modeline ;; alternative to sp-lambda-modeline (shows minor modes); load one of the two
                     'sp-md
                     'sp-minibuffer
                     'sp-network

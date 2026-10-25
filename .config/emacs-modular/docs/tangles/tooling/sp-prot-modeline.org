@@ -8,9 +8,9 @@ Literate source for =libraries/modules/tooling/sp-prot-modeline.el=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-This module is an alternative to =sp-header-and-modeline=. It is adapted from =prot-modeline.el= and the mode line section of =prot-emacs-modeline.el= in [[https://github.com/protesilaos/dotfiles][Protesilaos Stavrou's dotfiles]]. It needs no package: it fills =mode-line-format= with a few constructs, the way the default mode line does.
+This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-modeline.el= and the mode line section of =prot-emacs-modeline.el= in [[https://github.com/protesilaos/dotfiles][Protesilaos Stavrou's dotfiles]]. It needs no package: it fills =mode-line-format= with a few constructs, the way the default mode line does.
 
-- It is /not/ loaded by =init.el=. To try it, comment out ='sp-header-and-modeline= in both module lists and add ='sp-prot-modeline= (both are in the file as commented lines). Only one of the two should be active, because both set =mode-line-format=.
+- It is /not/ loaded by =init.el=. To try it, comment out ='sp-lambda-modeline= in both module lists and add ='sp-prot-modeline= (both are in the file as commented lines). Only one of the two should be active, because both set =mode-line-format=.
 - Untested in a running Emacs: the container that wrote it has no Emacs 31.
 
 * What differs from Prot's file
@@ -18,7 +18,7 @@ This module is an alternative to =sp-header-and-modeline=. It is adapted from =p
 - *No =prot-common= or =prot-icons=.* The only function used from =prot-common= (=prot-common-window-narrow-p=) is written out here. Icons are replaced by text, so no font is needed.
 - *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
 - *Minor modes are shown.* Prot's mode line has no minor modes. =sp-prot-modeline-minor-modes= shows their lighters, a count, or nothing (=sp-prot-modeline-minor-modes-style=).
-- *Header line.* The path of the file (the directory for a buffer with no file) is shown in a header line above each window, as in =sp-header-and-modeline=; Prot's own mode line has no header. The buffer name stays in the mode line.
+- *Header line.* The path of the file (the directory for a buffer with no file) is shown in a header line above each window, as in =sp-lambda-modeline=; Prot's own mode line has no header. The buffer name stays in the mode line.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, with =keycast-mode-line-mode=, after the branch, as in Prot's =prot-emacs-modeline.el= (same format, window predicate and substitutions for typing and mouse events). Turn it off with =sp-prot-modeline-keycast=. =keycast-header-line-mode= is turned off, so the keys are not shown twice.
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
 - *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the clock, and the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
@@ -36,7 +36,7 @@ This module is an alternative to =sp-header-and-modeline=. It is adapted from =p
 ;; A mode line made of constructs, adapted from `prot-modeline.el' in
 ;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it shows the lighters
 ;; of the minor modes, needs no other library, and takes its colours from the
-;; theme.  Alternative to `sp-header-and-modeline'; load only one of the two.
+;; theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
 
 ;;; Code:
 

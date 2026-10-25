@@ -5,7 +5,7 @@
 ;; A mode line made of constructs, adapted from `prot-modeline.el' in
 ;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it shows the lighters
 ;; of the minor modes, needs no other library, and takes its colours from the
-;; theme.  Alternative to `sp-header-and-modeline'; load only one of the two.
+;; theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
 
 ;;; Code:
 

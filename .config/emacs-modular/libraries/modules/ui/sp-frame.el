@@ -48,7 +48,7 @@ If FRAME is omitted or nil, use currently selected frame."
 ;; un/comment this hook if you want frames recentered
 (add-hook 'after-make-frame-functions #'sp-frame-recenter)
 
-;;;; Keycast now lives in the mode line (sp-header-and-modeline, sp-prot-modeline)
+;;;; Keycast now lives in the mode line (sp-lambda-modeline, sp-prot-modeline)
 ;; (keycast-header-line-mode 1)
 
 ;;;;; Window Margins for Text Indentation

@@ -15,7 +15,7 @@ This module lets the config switch between two modeline packages, =doom-modeline
 Status:
 
 - The module is currently commented out in the module list in =init.el= and in =sp-config-profiles.el=.
-- A separate =sp-header-and-modeline= module is loaded instead. So this file appears to be kept for reference, or for switching back to Doom's modeline.
+- A separate =sp-lambda-modeline= module is loaded instead. So this file appears to be kept for reference, or for switching back to Doom's modeline.
 - The default is =doom-modeline=, as the commentary says. The code used to default to =lambda-line= while a =custom-set-variables= block in =init.el= chose =doom-modeline=; that value now lives here.
 
 The commentary at the top of the module says:

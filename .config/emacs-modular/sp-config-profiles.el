@@ -89,7 +89,7 @@
         ;; sp-evil
         sp-help
         sp-indention
-        sp-header-and-modeline
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network
@@ -175,7 +175,7 @@
         ;; sp-evil
         sp-help
         sp-indention
-        sp-header-and-modeline
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network
