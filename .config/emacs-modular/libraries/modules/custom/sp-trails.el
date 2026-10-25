@@ -58,11 +58,8 @@
   :type 'string
   :group 'spcustom)
 
-(defcustom sp-trails-chrome-history
-  sp-chrome-history-file
-  "Chromium-family History database read by `sp-trails-import-chrome'."
-  :type 'file
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-trails-chrome-history', the Chromium-family
+;; History database read by `sp-trails-import-chrome'.
 
 (defvar sp-trails-current nil
   "ID of the trail that receives captured pages.")

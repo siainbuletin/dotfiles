@@ -52,19 +52,19 @@
 (use-package vc-backup
   :ensure (:wait t))
 
-(setq-default backup-directory-alist
-    `(("." . ,(expand-file-name "backups/" sp-var-dir)))
-      make-backup-files t
-      vc-make-backup-files t ; Won't create backup of files that are already under version control
-      backup-by-copying t ; Avoid symlinks
-      delete-old-versions t
-      delete-by-moving-to-trash t ; This makes sure that the files aren't permanently deleted
-      kept-new-versions 6
-      kept-old-versions 3
-      version-control t)
+;; The backup folder (`backup-directory-alist') moved to `sp-globals', as
+;; `sp-backup-directory'.
+(setq-default make-backup-files t
+              vc-make-backup-files t ; Won't create backup of files that are already under version control
+              backup-by-copying t ; Avoid symlinks
+              delete-old-versions t
+              delete-by-moving-to-trash t ; This makes sure that the files aren't permanently deleted
+              kept-new-versions 6
+              kept-old-versions 3
+              version-control t)
 
 ;;;; Lockfiles unfortunately cause more pain than benefit
-(setq create-lockfiles nil)
+;; Moved to `sp-globals': `sp-create-lockfiles' (nil: no lock files).
 
 ;; What do you do with the saved history?
 (use-package savehist

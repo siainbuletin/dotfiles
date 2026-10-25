@@ -18,15 +18,11 @@
 ))
 
 ;;;; Exiting without confirmation
-(setq confirm-kill-processes nil)
+;; Moved to `sp-globals': `sp-confirm-kill-processes'.
 
 ;; Sounds
-(setq ring-bell-function 'ignore) ;; Disable the bell sound
-
-;; flash-screen-instead-of-ringing-bell
-;; When you perform a problematic operation, flash the screen
-;; instead of ringing the terminal bell
-(setq visible-bell t)
+;; Moved to `sp-globals': `sp-ring-bell-function' (no bell sound) and
+;; `sp-visible-bell' (flash the screen instead of ringing the bell).
 
 ;;;;; Archive region to setup-archive
 (defun sp-kill-and-archive-region ()
@@ -574,8 +570,7 @@ to (recursively) create the file's parent directories."
   "Turn on transient-mark-mode."
   (transient-mark-mode t))
 
-;; Ask if you're sure that you want to close Emacs.
-(setq confirm-kill-emacs nil)
+;; Moved to `sp-globals': `sp-confirm-kill-emacs' (quit without asking).
 
 (defun sensible-defaults/quiet-startup ()
   "Don't present the usual startup message, and clear the scratch

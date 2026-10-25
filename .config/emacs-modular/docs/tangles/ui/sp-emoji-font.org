@@ -52,6 +52,8 @@ Emacs must be built with Cairo or pgtk to draw colour bitmap glyphs (Emacs 28 an
 
 ** Options
 
+=sp-emoji-font-install-dir=, where the font is installed on Linux, is no longer defined here. It moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
+
 #+begin_src emacs-lisp -i
 ;;;; Settings
 (defgroup sp-emoji-font nil
@@ -72,12 +74,8 @@ available yet.  See `sp-emoji-font-install'."
   :type '(choice (const :tag "None" nil) file)
   :group 'spcustom)
 
-(defcustom sp-emoji-font-install-dir
-  (expand-file-name "fonts/sp-emoji/"
-                    (or (getenv "XDG_DATA_HOME") "~/.local/share"))
-  "Directory the emoji font is installed into on Linux."
-  :type 'directory
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-emoji-font-install-dir', the directory the emoji
+;; font is installed into on Linux.
 #+end_src
 
 * Selecting and installing the font

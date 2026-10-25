@@ -729,15 +729,9 @@ Each one is then another stop for \\`TAB'."
 
 ;;;;; Privacy
 ;; Private entries are left out of the boxes while the dashboard is public.
-(defcustom sp-dashboard-private-tags '("private")
-  "Entries with one of these tags (inherited) are private."
-  :type '(repeat string)
-  :group 'spcustom)
-
-(defcustom sp-dashboard-private-files nil
-  "Regexps of files whose entries are all private."
-  :type '(repeat regexp)
-  :group 'spcustom)
+;; Moved to `sp-globals': `sp-dashboard-private-tags',
+;; `sp-dashboard-private-files', `sp-dashboard-trusted-networks' and
+;; `sp-dashboard-screen-share-processes'.
 
 (defcustom sp-dashboard-public-conditions '(sp-dashboard-condition-focus)
   "Functions, without arguments, that return non-nil when you are in public.
@@ -750,17 +744,6 @@ or signals an error (a check that cannot run counts as public)."
   "Whether the dashboard hides private entries.
 `auto' follows `sp-dashboard-public-conditions', `public' always hides them
 and `private' always shows them.  Cycle it with `sp-dashboard-toggle-public-mode'.")
-
-(defcustom sp-dashboard-trusted-networks nil
-  "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
-  :type '(repeat string)
-  :group 'spcustom)
-
-(defcustom sp-dashboard-screen-share-processes nil
-  "Process names that mean the screen is shared, such as a call app's helper.
-Used by `sp-dashboard-condition-screen-share'."
-  :type '(repeat string)
-  :group 'spcustom)
 
 (defun sp-dashboard-condition-untrusted-network ()
   "Return non-nil when the Wi-Fi network is not in `sp-dashboard-trusted-networks'.

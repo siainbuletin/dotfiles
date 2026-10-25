@@ -103,7 +103,7 @@ A fresh worktree has no packages, and elpaca would install all of them again. In
 
 - Anything the configuration reaches by an absolute path other than the agenda files (for example =/Users/siainbuletin/...= in a PR's own code) still points at the real folder.
 - The sandbox shares your network, your =PATH= and your running programs. A PR that starts a server, syncs with GitHub or calls an external tool does so for real.
-- Once the =sp-paths= module is merged, the locations can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
+- The locations (in =sp-globals=, the former =sp-paths=) can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
 
 ** If it goes wrong
 

@@ -16,22 +16,9 @@
 
 ;;;; Variables
 
-(defcustom sp-persistent-scratch t
-  "If t, make scratch buffer persist across sessions.
-Default is to persist."
-  :group 'spcustom
-  :type 'boolean)
+;; Moved to `sp-globals': `sp-persistent-scratch'.
 
-(defcustom sp-scratch-save-dir sp-cache-dir
-  "Default directory for saving scratch file."
-  :group 'spcustom
-  :type 'string)
-
-(defcustom sp-scratch-default-dir (expand-file-name "~/")
-  "Default directory for scratch buffer.
-User may prefer to set this to `sp-scratch-save-dir'."
-  :group 'spcustom
-  :type 'string)
+;; Moved to `sp-globals': `sp-scratch-save-dir' and `sp-scratch-default-dir'.
 
 ;;;; Text to show in the scratch buffer
 ;;;; NOTE: this was removed, you should look directly in the EWS configuration to see how to do it well.

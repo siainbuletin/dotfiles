@@ -40,7 +40,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispell-region= and =ispell-buffer= autoload it.
 
-- If =aspell= is on the path, it becomes the speller. It is called with ~--sug-mode=ultra~ for fast suggestions and US English as the language.
+- If the program named by =sp-ispell-program= (=aspell=, set in [[file:../base/sp-globals.org][sp-globals]]) is on the path, it becomes the speller. It is called with ~--sug-mode=ultra~ for fast suggestions and US English as the language.
 - As the comment notes, =ispell-extra-args= are passed straight to the aspell command line.
 
 #+begin_src emacs-lisp -i
@@ -49,8 +49,9 @@ Configures the built-in =ispell= (=:ensure nil=) and makes =ispell-word=, =ispel
   :ensure nil
   :commands (ispell-word ispell-region ispell-buffer)
   :config
-  (when (executable-find "aspell")
-    (setq ispell-program-name "aspell")
+  ;; The program, `sp-ispell-program', is set in `sp-globals'.
+  (when (executable-find sp-ispell-program)
+    (setq ispell-program-name sp-ispell-program)
     ;; Please note ispell-extra-args contains ACTUAL parameters passed to aspell
     (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US"))))
 #+end_src
@@ -169,17 +170,13 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** Hunspell dictionary list
 
-=sia-hunspell-dictionaries= is a customizable string listing Hunspell dictionaries, borrowed from Emacs Writing Studio (EWS).
+=sia-hunspell-dictionaries=, a customizable string listing Hunspell dictionaries borrowed from Emacs Writing Studio (EWS), is no longer defined here. It moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
 
 - Nothing in this module reads it yet.
 - Its =:type= is declared as =list= although the default value is a string, so the Customize interface may complain about it.
 
 #+begin_src emacs-lisp -i
-;; taken from EWS
-(defcustom sia-hunspell-dictionaries "en_US"
-  "Comma-separated list of Hunspell dictionaries."
-  :group 'spcustom
-  :type 'list)
+;; Moved to `sp-globals': `sia-hunspell-dictionaries' (taken from EWS).
 #+end_src
 
 * Provide
