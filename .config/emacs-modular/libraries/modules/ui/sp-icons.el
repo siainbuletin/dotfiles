@@ -71,7 +71,14 @@ A no-op in a TTY, where the terminal font handles the glyphs."
   :defer t
   :commands nerd-icons-dired-mode
   :init
-  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode))
+  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode)
+  ;; Dirvish draws its own icons (the `nerd-icons' attribute in
+  ;; `dirvish-attributes'); with this mode on as well each entry has two.
+  (defun sp-icons--dired-off-in-dirvish ()
+    "Turn off `nerd-icons-dired-mode' in Dirvish buffers."
+    (nerd-icons-dired-mode -1))
+  (dolist (hook '(dirvish-mode-hook dirvish-directory-view-mode-hook))
+    (add-hook hook #'sp-icons--dired-off-in-dirvish)))
 
 ;; Completion Icons
 (use-package nerd-icons-completion
