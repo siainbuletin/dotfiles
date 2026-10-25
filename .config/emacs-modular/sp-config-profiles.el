@@ -83,13 +83,12 @@
         ;; Utility misc modules
         sp-backuos
         sp-bookmarks
-        ;; sp-choose-modeline
         sp-debug
         sp-embark
         ;; sp-evil
         sp-help
         sp-indention
-        sp-lambda-line
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network
@@ -169,13 +168,12 @@
         ;; Utility misc modules
         sp-backups
         sp-bookmarks
-        ;; sp-choose-modeline
         sp-debug
         sp-embark
         ;; sp-evil
         sp-help
         sp-indention
-        sp-lambda-line
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network

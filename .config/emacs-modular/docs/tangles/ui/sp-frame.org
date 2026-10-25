@@ -127,13 +127,13 @@ Runs =sp-frame-recenter= for every newly created frame. The comment invites disa
 (add-hook 'after-make-frame-functions #'sp-frame-recenter)
 #+end_src
 
-** Keycast in the header line
+** Keycast in the header line (off)
 
-Turns on =keycast-header-line-mode=, which shows the last key and command in the header line of every window. This depends on =keycast= being installed and loaded by =sp-keys=.
+=keycast-header-line-mode= used to be turned on here. The header line now shows the name of the file, and keycast is shown in the mode line by =sp-lambda-modeline= and =sp-prot-modeline=, so the call is commented out.
 
 #+begin_src emacs-lisp -i
-;;;; Enabling keycast header line mode by default
-(keycast-header-line-mode 1)
+;;;; Keycast now lives in the mode line (sp-lambda-modeline, sp-prot-modeline)
+;; (keycast-header-line-mode 1)
 #+end_src
 
 * Window margins
