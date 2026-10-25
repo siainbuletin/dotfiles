@@ -208,6 +208,8 @@ Change a colour with `sp-theme-set-color'.")
 
 =sp-theme-mappings= is the Modus idea: a face asks for a role (=bg-region=), the mapping says which palette key plays it. A target is a palette key, another role (the chain is followed) or a literal =#rrggbb= string. A flavor's =:mappings= change single roles for that flavor only.
 
+=fg-todo= (red) and =fg-done= (green) colour the TODO keywords: they are the colours of =org-todo= and =org-done=, which the agenda, the org files and the dashboard boxes all use unless =org-todo-keyword-faces= says otherwise. The dashboard's box titles (=sp-dashboard-heading-face=) are a level 1 heading, so they take =fg-heading-1= and the height of level 1 in =sp-theme-headings=.
+
 #+begin_src emacs-lisp -i
 ;;;; Semantic mappings
 (defvar sp-theme-mappings
@@ -231,6 +233,8 @@ Change a colour with `sp-theme-set-color'.")
     (fg-heading-3 . fg-green)
     (fg-heading-4 . fg-blue)
     (fg-heading-other . fg-shadow-intense)
+    (fg-todo . fg-red)
+    (fg-done . fg-green)
     (fg-prose-code . fg-cyan)
     (fg-prose-verbatim . fg-yellow)
     (bg-prose-block . bg-shadow-subtle)
@@ -306,6 +310,9 @@ TARGET is a key of the palette, another role, or a #rrggbb string.")
     (markdown-header-face-4 :foreground fg-heading-4)
     (markdown-header-face-5 :foreground fg-heading-other)
     (markdown-header-face-6 :foreground fg-heading-other)
+    (org-todo :foreground fg-todo :weight bold)
+    (org-done :foreground fg-done :weight bold)
+    (sp-dashboard-heading-face :foreground fg-heading-1)
     (org-code :foreground fg-prose-code)
     (org-verbatim :foreground fg-prose-verbatim)
     (org-block :background bg-prose-block :extend t)
@@ -399,7 +406,8 @@ the levels not listed."
 
 (defvar sp-theme-heading-faces
   '((title org-document-title)
-    (1 org-level-1 outline-1 markdown-header-face-1 info-title-1)
+    (1 org-level-1 outline-1 markdown-header-face-1 info-title-1
+       sp-dashboard-heading-face)
     (2 org-level-2 outline-2 markdown-header-face-2 info-title-2)
     (3 org-level-3 outline-3 markdown-header-face-3 info-title-3)
     (4 org-level-4 outline-4 markdown-header-face-4 info-title-4)

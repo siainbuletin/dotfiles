@@ -42,6 +42,12 @@
   "Face for splash menus."
   :group 'faces)
 
+(defface sp-dashboard-heading-face '((t :inherit org-level-1))
+  "Face for the title of a box (\"General agenda\", \"Thesis\", ...).
+The sp themes colour it with the heading role and size it with
+`sp-theme-headings', so it follows the theme."
+  :group 'faces)
+
 (defface sp-dashboard-box-face '((t :inherit shadow))
   "Face for the lines drawn around the splash menu blocks."
   :group 'faces)
@@ -1023,6 +1029,44 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
         (list body 'sp-dashboard-menu-face (lambda (_) (funcall command)) help)
       (list body 'sp-dashboard-menu-face))))
 
+;; The title of a box is larger than the rows under it.  A larger font makes
+;; every character wider, so the label is measured in pixels and the gap
+;; before the key is one space with an exact pixel width.
+(defun sp-dashboard--heading-pixels (text)
+  "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
+Without a graphical frame the width is that of the default font."
+  (if (and (display-graphic-p) (fboundp 'string-pixel-width))
+      (string-pixel-width (propertize text 'face 'sp-dashboard-heading-face))
+    (* (string-width text) (frame-char-width))))
+
+(defun sp-dashboard--heading-segments (text key command help width)
+  "Return the segments of a box title, TEXT with KEY at the right of WIDTH.
+TEXT is drawn in `sp-dashboard-heading-face'.  It is a button calling
+COMMAND, with HELP, when COMMAND is non-nil."
+  (let* ((keytext (if key (format "(%s)" key) ""))
+         (room (* (- width (string-width keytext) 1) (frame-char-width)))
+         (text (progn
+                 ;; Cut the label until it and one space fit before the key.
+                 (while (and (> (length text) 1)
+                             (> (sp-dashboard--heading-pixels text) room))
+                   (setq text (concat (string-trim-right (substring text 0 -2)) "…")))
+                 text))
+         (count (max 1 (- width (string-width text) (string-width keytext))))
+         (gap (max (frame-char-width)
+                   (- (* (- width (string-width keytext)) (frame-char-width))
+                      (sp-dashboard--heading-pixels text))))
+         (label (if command
+                    (list text 'sp-dashboard-heading-face
+                          (lambda (_) (funcall command)) help)
+                  (list text 'sp-dashboard-heading-face))))
+    (list label
+          (list (propertize (make-string count ?\s) 'display `(space :width (,gap)))
+                'sp-dashboard-menu-face)
+          (if command
+              (list keytext 'sp-dashboard-menu-face
+                    (lambda (_) (funcall command)) help)
+            (list keytext 'sp-dashboard-menu-face)))))
+
 (defun sp-dashboard--menu-box (entry width box-face)
   "Return the menu block ENTRY as a box of text WIDTH, drawn with BOX-FACE."
   (pcase-let* ((`(,icon ,label ,key ,command ,help ,children) entry)
@@ -1030,11 +1074,11 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
                (count (length children))
                (index 0)
                (lines (list (list (list (concat "┌" rule "┐") box-face))
-                            (sp-dashboard--box-line
-                             width box-face
-                             (sp-dashboard--title-segment
-                              (concat (nerd-icons-faicon icon) isep label)
-                              key command help width)))))
+                            (apply #'sp-dashboard--box-line
+                                   width box-face
+                                   (sp-dashboard--heading-segments
+                                    (concat (nerd-icons-faicon icon) " " label)
+                                    key command help width)))))
     (dolist (child children)
       (setq index (1+ index))
       (pcase-let ((`(,child-label ,child-key ,child-command ,child-help) child))
@@ -1047,6 +1091,13 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
                               child-key child-command child-help width)))))))
     (append lines (list (list (list (concat "└" rule "┘") box-face))))))
 
+(defun sp-dashboard--todo-face (state)
+  "Return the face of the TODO keyword STATE.
+It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
+`org-todo' or `org-done', which the sp themes colour."
+  (or (and (fboundp 'org-get-todo-face) (org-get-todo-face state))
+      'org-todo))
+
 (defun sp-dashboard--agenda-box (agenda width box-face)
   "Return AGENDA as a box of text WIDTH, drawn with BOX-FACE."
   (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
@@ -1056,11 +1107,11 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
                            (or (symbol-value files-var) (org-agenda-files)) mode)
                         (error nil)))
                (lines (list (list (list (concat "┌" rule "┐") box-face))
-                            (sp-dashboard--box-line
-                             width box-face
-                             (sp-dashboard--title-segment
-                              (concat (nerd-icons-faicon icon) isep label)
-                              key command help width))
+                            (apply #'sp-dashboard--box-line
+                                   width box-face
+                                   (sp-dashboard--heading-segments
+                                    (concat (nerd-icons-faicon icon) " " label)
+                                    key command help width))
                             (list (list (concat "├" rule "┤") box-face)))))
     (if (null todos)
         (setq lines (append lines (list (sp-dashboard--box-line
@@ -1077,16 +1128,36 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
                                             sp-dashboard-agenda-todo-lines))
                (first t))
           (dolist (text wrapped)
-            (let ((segment (list (concat (if first "• " "  ") text)
-                                 'sp-dashboard-menu-face)))
-              (when (and first sp-dashboard-agenda-todos-clickable)
-                (let ((file (plist-get entry :file))
-                      (pos (plist-get entry :pos)))
-                  (setq segment
-                        (append segment
-                                (list (lambda (_) (sp-dashboard--visit-entry file pos))
-                                      "Visit the entry")))))
-              (setq lines (append lines (list (sp-dashboard--box-line width box-face segment)))
+            (let* ((state (and first (not (eq mode 'deadline)) (plist-get entry :state)))
+                   (state (and state (string-prefix-p state text) state))
+                   (action (and first sp-dashboard-agenda-todos-clickable
+                                (let ((file (plist-get entry :file))
+                                      (pos (plist-get entry :pos)))
+                                  (list (lambda (_) (sp-dashboard--visit-entry file pos))
+                                        "Visit the entry"))))
+                   (visit (and action
+                               (let ((map (make-sparse-keymap))
+                                     (command (car action)))
+                                 (define-key map [mouse-1] command)
+                                 (define-key map (kbd "RET") command)
+                                 map)))
+                   (parts (if state
+                              ;; Only the rest of the row is a button, so TAB
+                              ;; stops once per entry; the bullet and keyword
+                              ;; are clickable through a keymap.
+                              (list (list (propertize "• " 'keymap visit)
+                                          'sp-dashboard-menu-face)
+                                    (list (propertize state 'keymap visit)
+                                          (sp-dashboard--todo-face state))
+                                    (append (list (substring text (length state))
+                                                  'sp-dashboard-menu-face)
+                                            action))
+                            (list (append (list (concat (if first "• " "  ") text)
+                                                'sp-dashboard-menu-face)
+                                          action)))))
+              (setq lines (append lines
+                                  (list (apply #'sp-dashboard--box-line width box-face
+                                               parts)))
                     first nil))))))
     (append lines (list (list (list (concat "└" rule "┘") box-face))))))
 
@@ -1401,26 +1472,44 @@ splash is drawn again with the current settings."
   :type 'integer
   :group 'spcustom)
 
+(defvar org-other-agenda-series)
+(defvar org-other-agenda-settings)
+(defvar org-other-agenda-buffer-name)
+
 (defun sp-dashboard--open-agenda (files &optional deadlines)
   "Show the agenda of FILES (nil: `org-agenda-files').
 With DEADLINES, show only the deadlines of the next `sp-dashboard-deadlines-days'."
   (require 'org)
   (require 'org-agenda)
-  (let ((org-agenda-files (or files org-agenda-files)))
-    (if deadlines
-        (let ((org-agenda-span sp-dashboard-deadlines-days)
-              (org-agenda-entry-types '(:deadline))
-              (org-deadline-warning-days sp-dashboard-deadlines-days))
-          (org-agenda-list))
-      (org-agenda-list))))
+  (let* ((files (or files org-agenda-files))
+         (org-agenda-files files))
+    (if (require 'org-other-agenda nil t)
+        (let* ((days sp-dashboard-deadlines-days)
+               (series (if deadlines
+                           `((agenda "" ((org-agenda-span ,days)
+                                         (org-agenda-entry-types '(:deadline))
+                                         (org-deadline-warning-days ,days))))
+                         org-other-agenda-series))
+               (settings `((org-agenda-files ',files)))
+               (org-other-agenda-series series)
+               (org-other-agenda-settings settings))
+          (org-other-agenda)
+          ;; Refreshing the board later happens outside this `let'.
+          (with-current-buffer org-other-agenda-buffer-name
+            (setq-local org-other-agenda-series series
+                        org-other-agenda-settings settings)))
+      (if deadlines
+          (let ((org-agenda-span sp-dashboard-deadlines-days)
+                (org-agenda-entry-types '(:deadline))
+                (org-deadline-warning-days sp-dashboard-deadlines-days))
+            (org-agenda-list))
+        (org-agenda-list)))))
 
 (defun sp-dashboard-open-agenda ()
   "Open the General agenda from the splash screen.
-Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
+Without `sp-dashboard-agenda-general-files' it covers `org-agenda-files'."
   (interactive)
-  (if sp-dashboard-agenda-general-files
-      (sp-dashboard--open-agenda sp-dashboard-agenda-general-files)
-    (sp-dashboard--workspace-dispatch 'sp-open-agenda-in-workspace)))
+  (sp-dashboard--open-agenda sp-dashboard-agenda-general-files))
 
 (defun sp-dashboard-open-thesis-agenda ()
   "Open the thesis agenda from the splash screen."
