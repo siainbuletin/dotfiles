@@ -125,8 +125,8 @@ Return the function that stops watching."
   :type '(choice (const :tag "No sensor" nil) string))
 
 (defcustom sp-macos-ambient-levels
-  '((faded-light . 150)
-    (hard-light  . 60)
+  '((hard-light . 150)
+    (faded-light  . 60)
     (faded-dark  . 15)
     (hard-dark   . 0))
   "The families by light level, an alist of (FAMILY . LUX), brightest first.
