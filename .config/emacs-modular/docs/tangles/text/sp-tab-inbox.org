@@ -122,6 +122,7 @@ Loads the standard helper libraries plus =vulpea=, =vulpea-ui=, =vui= and =sp-mo
 (require 'vulpea)
 (require 'vulpea-ui)
 (require 'vui)
+(require 'sp-tag-emoji)
 (require 'sp-move-region-to-heading)
 #+end_src
 
@@ -1116,7 +1117,7 @@ note the sidebar is showing."
 
 - Refuses to run while a =collect all= job is going.
 - Stores the hit in =sp-tab-inbox--pending=.
-- Opens =vulpea-select= restricted to file-level notes, allowing a new title.
+- Opens =sp-select-note= (emoji and a tag column) restricted to file-level notes, allowing a new title.
 - The chosen or newly created note then receives the line just as =collect= would, landing under its Resources heading when it has one.
 - No link back is added by this path. That is what the embark =L= action is for.
 - The docstring contains a blank line, which is why this form spans two units.
@@ -1129,7 +1130,7 @@ The hit is the line LINE of FILE with content TEXT, found from ORIGIN, the
 note the sidebar is showing.  Interactively, these are the line at point
 in an inbox file, or a hit you choose from the sidebar's current ones.
 
-The note is chosen with `vulpea-select'; a title that doesn't exist yet
+The note is chosen with `sp-select-note'; a title that doesn't exist yet
 creates a new file-level note (see `sp-tab-inbox-new-note-body').  The
 line then moves under the chosen note's Resources heading like `collect'
 does.  No link back is added here; at the prompt, run the embark action
@@ -1142,7 +1143,7 @@ on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
                  (sp-tab-inbox--resolve-hit))))
     (setq sp-tab-inbox--pending (list file line text origin))
     (when-let* ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
-                         (vulpea-select
+                         (sp-select-note
                           "Send to note"
                           :require-match nil
                           :filter-fn (lambda (n) (zerop (vulpea-note-level n)))))))
