@@ -1,0 +1,3 @@
+# The shell Alacritty starts. yadm links the file for this OS to shell.toml.
+[terminal]
+shell = { program = "/usr/bin/fish" }
