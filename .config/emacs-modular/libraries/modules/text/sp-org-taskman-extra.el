@@ -15,7 +15,7 @@
 ;; has a lot of appearance issues that should be sorted up separately, and
 ;; it's a different component of such a task management system.
 
-;;;; Set up the org tags
+;;;; Set up the org tags (task tags; note tags are in sp-org-tag-registry)
 (setq org-tag-alist
       '(;; Circumstances
         ("@home" . ?H)

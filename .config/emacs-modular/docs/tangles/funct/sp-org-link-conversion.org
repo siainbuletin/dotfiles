@@ -10,12 +10,12 @@ Literate source for =libraries/modules/funct/sp-org-link-conversion.el=.
 
 This module provides two interactive commands for linking Org notes by ID.
 
-- =sp-org-create-note-and-link= writes a new note file into =org-directory= and inserts an =id:= link to it at point, without opening the file.
-- =sp-org-convert-wikilinks= turns Obsidian-style =[[wikilinks]]= in an Org buffer into =id:= links. It matches them against notes in the vulpea database and asks about anything it cannot match on its own.
+- =sp-org-create-note-and-link= writes a new note file into =org-directory= and inserts an =id:= link to it at point, without opening the file. It asks for the note's tags first, from the note tags of the registry (see =sp-org-tag-lint=), and writes them as a =#+filetags:= line, so no new note is left untagged.
+- =sp-org-convert-wikilinks= turns Obsidian-style =[[wikilinks]]= in an Org buffer into =id:= links. It matches them against notes in the vulpea database and asks about anything it cannot match on its own. A note it creates is also tagged: it asks for at least one note tag, as =sp-org-create-note-and-link= does.
 
 Dependencies and use:
 
-- Requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x= and =vulpea=.
+- Requires =org=, =org-id=, =cl-lib=, =seq=, =subr-x=, =vulpea= and =sp-org-tag-lint= (for the tag prompt).
 - Relies on the vulpea database being populated (see =sp-vulpea-base=).
 - Loaded from the Functions section of =init.el=.
 - Neither command is bound to a key in this module, so run them with =M-x=.
@@ -56,6 +56,7 @@ Loads Org, the Org ID library, the common Lisp, sequence and string helpers, and
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
+(require 'sp-org-tag-lint)
 #+end_src
 
 * Shared helpers
@@ -89,14 +90,15 @@ A banner comment for the helpers used by both commands.
 
 - Named with a timestamp and the slugified title, for example =20261018T101500-my-note.org=.
 - If that name is taken (several notes created in the same second), it appends =-2=, =-3= and so on.
-- The file contains a property drawer with a fresh =ID= and a =#+title:= line, and is written in UTF-8 without visiting it.
+- The file contains a property drawer with a fresh =ID= and a =#+title:= line, followed by a =#+filetags:= line when TAGS are given, and is written in UTF-8 without visiting it.
 - The ID is then registered and =org-id-locations= is saved, so the new link resolves immediately.
 - Returns the ID.
 
 #+begin_src emacs-lisp -i
-(defun sp-org--write-note (title)
+(defun sp-org--write-note (title &optional tags)
   "Write a new note TITLE into `org-directory' without visiting it.
-Register its ID with org and return the ID."
+TAGS, a list of strings, become its #+filetags: line.  Register its ID
+with org and return the ID."
   (let* ((dir  (file-name-as-directory (expand-file-name org-directory)))
          (id   (org-id-new))
          (base (expand-file-name
@@ -112,8 +114,10 @@ Register its ID with org and return the ID."
       (setq n (1+ n)
             file (format "%s-%d.org" base n)))
     (with-temp-file file
-      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n\n"
-                      id title)))
+      (insert (format ":PROPERTIES:\n:ID:       %s\n:END:\n#+title: %s\n" id title))
+      (when tags
+        (insert (format "#+filetags: :%s:\n" (string-join tags ":"))))
+      (insert "\n"))
     (org-id-add-location id file)
     (org-id-locations-save)
     id))
@@ -153,7 +157,7 @@ The interactive command:
 - Refuses to run outside Org buffers.
 - Newlines in the title become spaces. An empty title is rejected.
 - If a note with the same title already exists, it hands over to the conflict handler.
-- Otherwise it writes the new note and inserts the link, replacing the region when there was one.
+- Otherwise it asks for the tags of the note with =sp-org-tag-read-note-tags= (at least one, from the note tags of the registry; an unknown tag can be registered on the spot), writes the new note and inserts the link, replacing the region when there was one.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-create-note-and-link (title)
@@ -177,7 +181,8 @@ title and is replaced by the link."
     (let ((matches (sp-vulpea-notes-with-title title)))
       (if matches
           (sp-org--handle-title-conflict title matches)
-        (sp-org--create-note-and-insert-link title)))))
+        (sp-org--create-note-and-insert-link
+         title (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))))))
 #+end_src
 
 ** Title conflict handling
@@ -206,12 +211,12 @@ title and is replaced by the link."
 
 ** Create and insert the link
 
-=sp-org--create-note-and-insert-link= writes the note, deletes the active region if any, and inserts an =id:= link whose description is the title.
+=sp-org--create-note-and-insert-link= writes the note with its tags, deletes the active region if any, and inserts an =id:= link whose description is the title.
 
 #+begin_src emacs-lisp -i
-(defun sp-org--create-note-and-insert-link (title)
-  "Write a new note called TITLE to `org-directory' and link to it at point."
-  (let ((id (sp-org--write-note title)))
+(defun sp-org--create-note-and-insert-link (title tags)
+  "Write a new note called TITLE, tagged TAGS, to `org-directory' and link to it."
+  (let ((id (sp-org--write-note title tags)))
     (when (use-region-p)
       (delete-region (region-beginning) (region-end)))
     (insert (org-link-make-string (concat "id:" id) title))
@@ -415,7 +420,7 @@ example, export and comment blocks are ignored."
 - Creating lets the user edit the title first.
 - If the edited title matches exactly one existing note, that note is used.
 - If it matches several, the link is skipped to avoid adding yet another duplicate.
-- Otherwise a new note is written and counted.
+- Otherwise it asks for the note's tags with =sp-org-tag-read-note-tags= (at least one; =C-g= quits like the choice above), writes the new note with them and counts it.
 - Quitting throws to =sp-org-wikilinks-quit=, which keeps everything converted so far.
 
 #+begin_src emacs-lisp -i
@@ -432,7 +437,13 @@ example, export and comment blocks are ignored."
                 ;; The edited title exists after all: reuse it.
                 ((= (length matches) 1) (vulpea-note-id (car matches)))
                 (matches :skip)         ; ambiguous: don't add another duplicate
-                (t (let ((id (sp-org--write-note title)))
+                (t (let ((id (sp-org--write-note
+                              title
+                              ;; C-g at the tag prompt quits like the choice does.
+                              (condition-case nil
+                                  (sp-org-tag-read-note-tags
+                                   (format "Tags for \"%s\": " title))
+                                (quit (throw 'sp-org-wikilinks-quit nil))))))
                      (cl-incf sp-org--wl-created)
                      (puthash (downcase title) id resolved)
                      id)))))

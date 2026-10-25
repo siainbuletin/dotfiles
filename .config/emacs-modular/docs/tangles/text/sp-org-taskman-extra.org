@@ -65,8 +65,10 @@ The sequences are defined in =sp-org-keywords= (see its table of use cases). Not
 
 =org-tag-alist= defines tags with single-key shortcuts for ~C-c C-q~: contexts (@home, @uni, @waiting), devices (@computer, @phone), activities (planning, configuration, writing, reading, music, research, errands) and effort categories (deep, shallow, time-eater). The inline comment notes that fast-selection keys can only be a single character.
 
+These are the task tags only. The tags of notes (=person=, =album=, ...) are a separate list, =org-tag-persistent-alist=, kept in =sp-org-tag-registry.el= and linted by =sp-org-tag-lint=.
+
 #+begin_src emacs-lisp -i
-;;;; Set up the org tags
+;;;; Set up the org tags (task tags; note tags are in sp-org-tag-registry)
 (setq org-tag-alist
       '(;; Circumstances
         ("@home" . ?H)
