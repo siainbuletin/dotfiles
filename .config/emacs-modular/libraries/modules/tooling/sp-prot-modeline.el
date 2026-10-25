@@ -344,6 +344,28 @@ Add a :box attribute to it to give all of them a border.")
                      sp-prot-modeline-misc-info))
   (put construct 'risky-local-variable t))
 
+(defun sp-prot-modeline--header-path ()
+  "Return the path of the file, or the directory, for the header line."
+  (abbreviate-file-name (or buffer-file-name
+                            (and (derived-mode-p 'dired-mode) default-directory)
+                            (buffer-name))))
+
+(defvar-local sp-prot-modeline-header-path
+    '(:eval
+      (let ((path (sp-prot-modeline--header-path)))
+        (concat
+         " "
+         (propertize path
+                     'face (if (mode-line-window-selected-p) 'bold 'shadow)
+                     'mouse-face 'highlight
+                     'help-echo (format "%s\nDirectory: %s" path default-directory)))))
+  "Header line construct for the path of the file.")
+(put 'sp-prot-modeline-header-path 'risky-local-variable t)
+
+(defvar sp-prot-modeline--saved-header-format nil
+  "The default `header-line-format' before `sp-prot-modeline-mode' was enabled.")
+
+
 (defcustom sp-prot-modeline-keycast t
   "When non-nil, `sp-prot-modeline-mode' also turns on `keycast-mode-line-mode'."
   :type 'boolean
@@ -355,6 +377,8 @@ Add a :box attribute to it to give all of them a border.")
 (defvar keycast-mode-line-remove-tail-elements)
 (defvar keycast-substitute-alist)
 (declare-function keycast-mode-line-mode "keycast")
+(declare-function keycast-header-line-mode "keycast")
+(defvar keycast-header-line-mode)
 
 (with-eval-after-load 'keycast
   (setq keycast-mode-line-format "%2s%k%c%R"
@@ -410,11 +434,16 @@ Add a :box attribute to it to give all of them a border.")
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
         (setq-default mode-line-format sp-prot-modeline-format)
+        (setq sp-prot-modeline--saved-header-format (default-value 'header-line-format))
+        (setq-default header-line-format '("%e" sp-prot-modeline-header-path))
         (when (and sp-prot-modeline-keycast (require 'keycast nil t))
+          (when (bound-and-true-p keycast-header-line-mode)
+            (keycast-header-line-mode -1))
           (keycast-mode-line-mode 1)))
     (when (bound-and-true-p keycast-mode-line-mode)
       (keycast-mode-line-mode -1))
-    (setq-default mode-line-format sp-prot-modeline--saved-format))
+    (setq-default mode-line-format sp-prot-modeline--saved-format)
+    (setq-default header-line-format sp-prot-modeline--saved-header-format))
   (force-mode-line-update t))
 
 (sp-prot-modeline-mode 1)

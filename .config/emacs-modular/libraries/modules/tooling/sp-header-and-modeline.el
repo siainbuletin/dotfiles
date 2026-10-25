@@ -14,22 +14,10 @@
 (declare-function lambda-line-compose "lambda-line")
 (declare-function project-name "project" (project))
 (defvar lambda-line-position)
-(defvar keycast-header-line-mode)
 
 (defgroup sp-header-and-modeline nil
   "Lambda-line header line and mode line."
   :group 'mode-line)
-
-(defcustom sp-header-and-modeline-layout 'both
-  "Where lambda-line is shown.
-`both' puts it in the mode line and adds a header line, `modeline'
-leaves out the header line, and `header' puts everything in the
-header line (lambda-line's `top') and shrinks the mode line to a
-divider."
-  :type '(choice (const :tag "Mode line and header line" both)
-                 (const :tag "Mode line only" modeline)
-                 (const :tag "Header line only" header))
-  :group 'sp-header-and-modeline)
 
 (defvar sp-header-and-modeline--composing-header nil
   "Non-nil while the header line is being composed.")
@@ -58,7 +46,7 @@ divider."
 
 (defconst sp-header-and-modeline-header-format
   '(:eval (sp-header-and-modeline-header))
-  "The `header-line-format' used by the `both' layout.")
+  "The `header-line-format' of every window: the name of the file.")
 (put 'sp-header-and-modeline-header-format 'risky-local-variable t)
 
 (defun sp-header-and-modeline--add-tag-emoji (args)
@@ -103,17 +91,60 @@ divider."
                         :foreground (sp-header-and-modeline--foreground 'error "red"))
     (force-mode-line-update t)))
 
+(defvar keycast-mode-line-format)
+(defvar keycast-mode-line-insert-after)
+(defvar keycast-mode-line-window-predicate)
+(defvar keycast-mode-line-remove-tail-elements)
+(defvar keycast-substitute-alist)
+(defvar keycast-header-line-mode)
+(declare-function keycast-mode-line-mode "keycast")
+(declare-function keycast-header-line-mode "keycast")
+(declare-function keycast-format "keycast")
+
+(defvar sp-header-and-modeline-keycast-anchor ""
+  "Empty element of `mode-line-format' that keycast inserts its segment after.")
+(put 'sp-header-and-modeline-keycast-anchor 'risky-local-variable t)
+
+(defcustom sp-header-and-modeline-keycast t
+  "When non-nil, show the keys and commands (keycast) in the mode line."
+  :type 'boolean
+  :group 'sp-header-and-modeline)
+
+(defun sp-header-and-modeline-keycast-string ()
+  "Return the keycast text for the selected window's mode line, or an empty string."
+  (or (and sp-header-and-modeline-keycast
+           (bound-and-true-p keycast-mode-line-mode)
+           (mode-line-window-selected-p)
+           (keycast-format "%k%c%R "))
+      ""))
+
+(defun sp-header-and-modeline--setup-keycast ()
+  "Start keycast in the mode line and stop it in the header line."
+  (when (and sp-header-and-modeline-keycast (require 'keycast nil t))
+    (when (bound-and-true-p keycast-header-line-mode)
+      (keycast-header-line-mode -1))
+    (setq keycast-mode-line-insert-after 'sp-header-and-modeline-keycast-anchor
+          keycast-mode-line-window-predicate #'ignore
+          keycast-mode-line-remove-tail-elements nil)
+    (dolist (input '(self-insert-command org-self-insert-command))
+      (add-to-list 'keycast-substitute-alist `(,input "." "Typing…")))
+    (dolist (event '("<mouse-event>" "<mouse-movement>" "<mouse-2>" "<drag-mouse-1>"
+                     "<wheel-up>" "<wheel-down>" "<double-wheel-up>" "<double-wheel-down>"
+                     "<triple-wheel-up>" "<triple-wheel-down>" "<wheel-left>" "<wheel-right>"
+                     handle-select-window mouse-set-point mouse-drag-region))
+      (add-to-list 'keycast-substitute-alist `(,event nil nil)))
+    (unless (memq 'sp-header-and-modeline-keycast-anchor
+                  (default-value 'mode-line-format))
+      (setq-default mode-line-format
+                    (append (default-value 'mode-line-format)
+                            '(sp-header-and-modeline-keycast-anchor))))
+    (unless (bound-and-true-p keycast-mode-line-mode)
+      (keycast-mode-line-mode 1))))
+
 (defun sp-header-and-modeline-apply-layout ()
-  "Set the mode line and the header line from `sp-header-and-modeline-layout'."
-  (pcase sp-header-and-modeline-layout
-    ('header
-     (setq-default mode-line-format (list "%_"))
-     (setq mode-line-format (list "%_")))
-    ('both
-     (setq-default header-line-format sp-header-and-modeline-header-format)
-     (when (bound-and-true-p keycast-header-line-mode)
-       (keycast-header-line-mode -1)
-       (keycast-header-line-mode 1))))
+  "Show the file name in the header line and the keys in the mode line."
+  (setq-default header-line-format sp-header-and-modeline-header-format)
+  (sp-header-and-modeline--setup-keycast)
   (force-mode-line-update t))
 
 (use-package lambda-line
@@ -122,7 +153,7 @@ divider."
     :custom
     (lambda-line-icon-time t) ;; requires ClockFace font (see below)
     (lambda-line-clockface-update-fontset "ClockFaceRect") ;; set clock icon
-    (lambda-line-position (if (eq sp-header-and-modeline-layout 'header) 'top 'bottom))
+    (lambda-line-position 'bottom) ;; the status line is the mode line
     (lambda-line-abbrev t) ;; abbreviate major modes
     (lambda-line-hspace "  ")  ;; add some cushion
     (lambda-line-prefix t) ;; use a prefix symbol
@@ -133,6 +164,7 @@ divider."
     (lambda-line-gui-rw-symbol  " ◯")
     (lambda-line-space-top +.70)  ;; padding on top and bottom of line
     (lambda-line-space-bottom -.70)
+    (lambda-line-default-tertiary-function #'sp-header-and-modeline-keycast-string) ;; keycast, right side
     (lambda-line-symbol-position 0.1) ;; adjust the vertical placement of symbol
 
     :config
