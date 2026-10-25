@@ -122,13 +122,12 @@ periods. This ain't a typewriter."
 
 * Links, IDs and directories
 
+The settings for =org-link-search-must-match-exact-headline=, =org-id-link-to-org-use-id= and =org-directory= are =:custom= entries of the main =use-package org= block (see /Main use-package org block/ below). They sat right before it as =setq= forms and have moved into it; the sections here describe what they do. The Counsel setting stays a =setq=, since it belongs to another package.
+
 ** Fuzzy headline link search
 
 With =org-link-search-must-match-exact-headline= set to nil, a link to a headline that does not match exactly falls back to a fuzzy text search in the file.
 
-#+begin_src emacs-lisp -i
-(setq org-link-search-must-match-exact-headline nil)
-#+end_src
 
 ** Counsel outline display
 
@@ -142,9 +141,6 @@ Makes =counsel-outline= show only heading titles, not the full outline path.
 
 When storing a link interactively to an Org heading, Org creates an =ID= property if the heading has none, unless it already has a =CUSTOM_ID=.
 
-#+begin_src emacs-lisp -i
-(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
-#+end_src
 
 ** Org directory
 
@@ -154,9 +150,6 @@ Sets =org-directory= to =~/notes/=.
 - Without it they produced names like =~/notesinbox.org=.
 - Modules such as =sp-org-archive= and =sp-tab-inbox= add a slash of their own, which now gives a harmless double slash.
 
-#+begin_src emacs-lisp -i
-(setq org-directory sp-notes-dir)
-#+end_src
 
 ** Free up C-x t i
 
@@ -306,6 +299,9 @@ In =:config=:
   (org-src-window-setup 'other-window) ;; edit source in other window
   (org-src-tab-acts-natively t) ;; use lang bindings
   (org-confirm-babel-evaluate t) ;; confirm evaluation
+  (org-link-search-must-match-exact-headline nil)
+  (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+  (org-directory sp-notes-dir)
 
   :config
   ;; Map vimrc source blocks to vimrc-mode for correct tangle comment syntax

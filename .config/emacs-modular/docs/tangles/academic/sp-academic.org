@@ -491,6 +491,12 @@ Also:
   (bibtex-aux-opt-alist
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")))
+  (bibtex-autokey-name-separator nil)
+  (bibtex-autokey-name-year-separator nil)
+  (bibtex-autokey-year-length 4)
+  (bibtex-autokey-names 1)
+  (bibtex-autokey-names-stretch 1)
+  (bibtex-autokey-titlewords 0)
   :config
   (sp-bibtex-register)
   :bind
@@ -838,6 +844,8 @@ The icons for files, notes and links are set in =:config=, only on a graphical d
 
 Keybindings: ~C-c w b o~ runs =citar-open= globally, and ~C-c b~ in Org buffers runs =org-cite-insert=. Citar completion at point is added to LaTeX, Org and Markdown buffers.
 
+Also in =:custom=: =citar-library-file-extensions= is nil, meaning Citar does not filter library files by extension and will offer any attached file. It used to be a =setq= after the =use-package=.
+
 #+begin_src emacs-lisp -i
 ;;;; Citar
 ;; Do you really need to make use of citar?
@@ -942,6 +950,9 @@ It builds on Citar (configured in the citation module) and on Denote and Vulpea.
 Installs and enables =citar-denote-mode=, which makes Citar use Denote files as notes.
 
 - Citar always creates a note when you open notes for a reference that has none.
+- New literature notes are titled with author, year and title (=citar-denote-title-format=), using at most two author names (=citar-denote-title-format-authors=).
+- They are tagged with the Denote keyword =litnote= (=citar-denote-keyword=) and stored in the =litnotes= subdirectory of the Denote directory (=citar-denote-subdir=).
+- These four settings used to be =setq= forms after the =use-package=; they are now in its =:custom= block.
 - Global keys:
   - =C-c w b c=: create a note,
   - =C-c w b n=: open one,
@@ -969,7 +980,11 @@ Installs and enables =citar-denote-mode=, which makes Citar use Denote files as 
 
   :custom
   (citar-open-always-create-notes t)
-  
+  (citar-denote-title-format 'author-year-title)
+  (citar-denote-title-format-authors '2)
+  (citar-denote-keyword "litnote")
+  (citar-denote-subdir "litnotes")
+
   :init
   (citar-denote-mode)
   
@@ -983,38 +998,6 @@ Installs and enables =citar-denote-mode=, which makes Citar use Denote files as 
    ("C-c w b K" . citar-denote-remove-citekey)
    ("C-c w b d" . citar-denote-dwim)
    ("C-c w b e" . citar-denote-open-reference-entry)))
-#+end_src
-
-*** Note title format
-
-New literature notes are titled with author, year and title.
-
-#+begin_src emacs-lisp -i
-(setq citar-denote-title-format 'author-year-title)
-#+end_src
-
-*** Authors in titles
-
-At most two author names are used in the generated title.
-
-#+begin_src emacs-lisp -i
-(setq citar-denote-title-format-authors '2)
-#+end_src
-
-*** Literature note keyword
-
-Tags literature notes with the Denote keyword =litnote=.
-
-#+begin_src emacs-lisp -i
-(setq citar-denote-keyword "litnote")
-#+end_src
-
-*** Subdirectory
-
-Stores new literature notes in the =litnotes= subdirectory of the Denote directory.
-
-#+begin_src emacs-lisp -i
-(setq citar-denote-subdir "litnotes")
 #+end_src
 
 ** Node-level literature notes

@@ -19,14 +19,14 @@
   :load-path sp-consult-snapfile-dir
   :after (consult websocket)
   ;; Optional: bind to your preferred key
-  :bind ("C-c s f" . consult-snapfile))
+  :bind ("C-c s f" . consult-snapfile)
 
-;; Server settings
-(setq consult-snapfile-server-port 9876)
-(setq consult-snapfile-server-host "127.0.0.1")
-
-;; Max results to return
-(setq consult-snapfile-max-results 100)
+  :custom
+  ;; Server settings
+  (consult-snapfile-server-port 9876)
+  (consult-snapfile-server-host "127.0.0.1")
+  ;; Max results to return
+  (consult-snapfile-max-results 100))
 
 (provide 'sp-consult-snapfile)
 ;; sp-consult-snapfile.el ends here.

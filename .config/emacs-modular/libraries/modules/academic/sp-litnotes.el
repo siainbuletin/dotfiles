@@ -15,7 +15,11 @@
 
   :custom
   (citar-open-always-create-notes t)
-  
+  (citar-denote-title-format 'author-year-title)
+  (citar-denote-title-format-authors '2)
+  (citar-denote-keyword "litnote")
+  (citar-denote-subdir "litnotes")
+
   :init
   (citar-denote-mode)
   
@@ -29,14 +33,6 @@
    ("C-c w b K" . citar-denote-remove-citekey)
    ("C-c w b d" . citar-denote-dwim)
    ("C-c w b e" . citar-denote-open-reference-entry)))
-
-(setq citar-denote-title-format 'author-year-title)
-
-(setq citar-denote-title-format-authors '2)
-
-(setq citar-denote-keyword "litnote")
-
-(setq citar-denote-subdir "litnotes")
 
 ;;;; Node-level literature note configuration
 (use-package citar-vulpea
