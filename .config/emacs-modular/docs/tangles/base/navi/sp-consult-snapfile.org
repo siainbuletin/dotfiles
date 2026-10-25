@@ -38,6 +38,7 @@ Loads =consult-snapfile= from the local checkout after Consult and websocket are
 - If the directory does not exist, the package will not be found.
 - The checkout path goes through the constant =sp-consult-snapfile-dir=. =use-package= reads a list given to =:load-path= as a list of paths, and would evaluate =sp-path= as a variable.
 - =:ensure nil= keeps Elpaca from looking for the package in an archive.
+- The settings are in =:custom=: the client talks to the snapfile server on =127.0.0.1= port 9876 (=consult-snapfile-server-host=, =consult-snapfile-server-port=), and each query returns at most 100 results (=consult-snapfile-max-results=). Because of =:after=, they are applied once Consult and websocket have loaded.
 
 #+begin_src emacs-lisp -i
 ;; `:load-path' reads a list as a list of paths and evaluates each symbol in it as a
@@ -51,26 +52,14 @@ Loads =consult-snapfile= from the local checkout after Consult and websocket are
   :load-path sp-consult-snapfile-dir
   :after (consult websocket)
   ;; Optional: bind to your preferred key
-  :bind ("C-c s f" . consult-snapfile))
-#+end_src
+  :bind ("C-c s f" . consult-snapfile)
 
-** Server settings
-
-Points the client at the snapfile server on =127.0.0.1= port 9876.
-
-#+begin_src emacs-lisp -i
-;; Server settings
-(setq consult-snapfile-server-port 9876)
-(setq consult-snapfile-server-host "127.0.0.1")
-#+end_src
-
-** Result limit
-
-Limits each query to 100 results.
-
-#+begin_src emacs-lisp -i
-;; Max results to return
-(setq consult-snapfile-max-results 100)
+  :custom
+  ;; Server settings
+  (consult-snapfile-server-port 9876)
+  (consult-snapfile-server-host "127.0.0.1")
+  ;; Max results to return
+  (consult-snapfile-max-results 100))
 #+end_src
 
 ** Provide

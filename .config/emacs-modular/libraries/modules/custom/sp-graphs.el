@@ -50,6 +50,80 @@
                             :files ("*.el"
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
+  :custom
+  ;; Use with denote
+  (dg-use-denote t)
+  (dg-context-window-width 0.3)
+  ;; Auto-update context when moving between nodes
+  (dg-context-auto-update t)
+  ;; Maximum lines to display per node in context panel (nil for unlimited)
+  (dg-context-max-lines 30)
+  ;; Show overlays on headings
+  (dg-overlay-enable t)
+  ;; Synthesis dashboard file location
+  (dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
+  (dg-discourse-attributes
+   '(
+     (claim
+      . (
+         (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+         (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+         (overlay . evidence-score)
+             )
+        )
+
+     (question
+      . (
+       (answer-count . "{count:Answered By:claim}")
+         (overlay . answer-count)
+           )
+      )
+     ;; ... more types
+     ))
+  (dg-node-types
+   '(
+     (question . (:short "QUE"
+                       :color "lightblue"
+                       :desc "Research question"))
+     (claim    . (:short "CLM"
+                       :color "lightyellow"
+                       :desc "Assertion, thesis or position in a debate"))
+     (evidence . (:short "EVD"
+                       :color "lightgreen"
+                       :desc "Argument, proof, or supporting empirical data"))
+     (source   . (:short "SRC"
+                       :color "lightgray"
+                       :desc "Reference material / Philosophical text"))
+     (theory   . (:short "THY"
+                               :color "lightcoral"
+                       :desc "Theoretical framework"))
+     ))
+  (dg-relation-types
+   '(
+   (supports  . (:inverse "Supported By"
+                          :color "green"
+                          :style "solid"))
+   (opposes   . (:inverse "Opposed By"
+                          :color "red"
+                          :style "dashed"))
+   (informs   . (:inverse "Informed By"
+                          :color "blue"
+                          :style "solid"))
+   (answers   . (:inverse "Answered By"
+                          :color "purple"
+                          :style "solid"))
+   ))
+  (dg-relation-patterns
+   '((supports . (:source (evidence)
+                        :target (claim)))
+   (opposes  . (:source (evidence)
+                        :target (claim)))
+   (informs  . (:source (source)
+                        :target (evidence)))
+   (answers  . (:source (claim)
+                        :target (question)))
+   ))
+
   :config
   (setq dg-directories ;; This is where we scan for nodes
   (list sp-notes-dir)
@@ -59,91 +133,6 @@
 
 (discourse-graphs-mode 1)
 )
-
-;; Use with denote
-(setq dg-use-denote t)
-
-(setq dg-context-window-width 0.3)
-
-;; Auto-update context when moving between nodes
-(setq dg-context-auto-update t)
-
-;; Maximum lines to display per node in context panel (nil for unlimited)
-(setq dg-context-max-lines 30)
-
-;; Show overlays on headings
-(setq dg-overlay-enable t)
-
-;; Synthesis dashboard file location
-(setq dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
-
-(setq dg-discourse-attributes
-      '(
-        (claim
-         . (
-            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
-            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
-            (overlay . evidence-score)
-                )
-           )
-
-        (question
-         . (
-          (answer-count . "{count:Answered By:claim}")
-            (overlay . answer-count)
-              )
-         )
-        ;; ... more types
-        )
-)
-
-(setq dg-node-types
-      '(
-        (question . (:short "QUE"
-                          :color "lightblue"
-                          :desc "Research question"))
-        (claim    . (:short "CLM"
-                          :color "lightyellow"
-                          :desc "Assertion, thesis or position in a debate"))
-        (evidence . (:short "EVD"
-                          :color "lightgreen"
-                          :desc "Argument, proof, or supporting empirical data"))
-        (source   . (:short "SRC"
-                          :color "lightgray"
-                          :desc "Reference material / Philosophical text"))
-        (theory   . (:short "THY"
-                                  :color "lightcoral"
-                          :desc "Theoretical framework"))
-        ))
-
-(setq dg-relation-types
-      '(
-      (supports  . (:inverse "Supported By"
-                             :color "green"
-                             :style "solid"))
-      (opposes   . (:inverse "Opposed By"
-                             :color "red"
-                             :style "dashed"))
-      (informs   . (:inverse "Informed By"
-                             :color "blue"
-                             :style "solid"))
-      (answers   . (:inverse "Answered By"
-                             :color "purple"
-                             :style "solid"))
-      )
-      )
-
-(setq dg-relation-patterns
-      '((supports . (:source (evidence)
-                           :target (claim)))
-      (opposes  . (:source (evidence)
-                           :target (claim)))
-      (informs  . (:source (source)
-                           :target (evidence)))
-      (answers  . (:source (claim)
-                           :target (question)))
-      )
-        )
 
 (use-package vulpea-graph
   :ensure (:host github :repo "Arenile/vulpea-graph-ui" :files ("*.el" "assets"))
@@ -279,13 +268,13 @@ another note to go further.  A larger depth, when you ask for one, wins."
 (defun relationship-annotator--note (id notes)
   "Return the note with ID from NOTES, loading it from the database if needed."
   (or (gethash id notes)
-      (when-let ((note (vulpea-db-get-by-id id)))
+      (when-let* ((note (vulpea-db-get-by-id id)))
         (puthash id note notes)
         note)))
 
 (defun relationship-annotator--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
-  (if-let ((note (relationship-annotator--note id notes)))
+  (if-let* ((note (relationship-annotator--note id notes)))
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
@@ -314,7 +303,7 @@ read as bare ids separated by commas or spaces."
     ((or `(meta ,key) `(meta-inverse ,key))
      (cdr (assoc key (vulpea-note-meta note))))
     ((or `(property ,key) `(property-inverse ,key))
-     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+     (when-let* ((value (cdr (assoc key (vulpea-note-properties note)))))
        (list value)))))
 
 (defun relationship-annotator--source-notes (source)
@@ -563,7 +552,7 @@ is not checked)."
   (let ((notes (plist-get tree :notes)) found)
     (pcase-dolist (`(,subject ,relation ,object)
                    (relationship-annotator--all-edges tree))
-      (when-let ((message (relationship-annotator--anomaly
+      (when-let* ((message (relationship-annotator--anomaly
                            (relationship-annotator--note-type
                             (relationship-annotator--note subject notes))
                            relation
@@ -818,7 +807,7 @@ One of `unsupported', `challenged', `contested', `supported' or
                              (relationship-annotator--visit
                               id relationship-annotator--review-tree))
                    'follow-link t
-                   'help-echo (or (when-let ((note (relationship-annotator--note id notes)))
+                   'help-echo (or (when-let* ((note (relationship-annotator--note id notes)))
                                     (vulpea-note-path note))
                                   ""))))
 
@@ -852,7 +841,7 @@ well each stands.  RET on a title visits the note."
         (let (any)
           (dolist (id (sort (hash-table-keys notes) #'string<))
             (when (eq (relationship-annotator--type-of id context) 'claim)
-              (when-let ((gaps (relationship-annotator--argument-gaps id context)))
+              (when-let* ((gaps (relationship-annotator--argument-gaps id context)))
                 (setq any t)
                 (insert "  ")
                 (relationship-annotator--insert-note-button id tree)
@@ -1150,7 +1139,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 (defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
-  (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
+  (when-let* ((id (get-text-property (point) 'relationship-annotator-id)))
     (when (relationship-annotator--sorted-children id relationship-annotator--tree)
       (if (gethash id relationship-annotator--expanded)
           (remhash id relationship-annotator--expanded)

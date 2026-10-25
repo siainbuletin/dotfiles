@@ -31,10 +31,9 @@
   ;; Tip: Try changing these to just "M-o"!
   (keymap-global-set "M-o n n" 'org-node-nodeify-entry)
   (keymap-global-set "M-o n i" 'org-node-insert-link)
-)
 
-(setq org-node-backlink-do-drawers nil)
-
-(setq org-node-alter-candidates t)
+  :custom
+  (org-node-backlink-do-drawers nil)
+  (org-node-alter-candidates t))
 
 (provide 'sp-org-node-mem)

@@ -152,6 +152,8 @@ Installs =discourse-graphs= from GitHub with the Elisp files and the built web U
 - sets the SQLite database path,
 - enables the global =discourse-graphs-mode=.
 
+The options of the package (the =dg-= variables below) are in =:custom=. The directories, recursion and database path stay as =setq= forms in =:config=.
+
 The closing parenthesis on its own line ends the =use-package= form.
 
 #+begin_src emacs-lisp -i
@@ -162,6 +164,80 @@ The closing parenthesis on its own line ends the =use-package= form.
                             :files ("*.el"
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
+  :custom
+  ;; Use with denote
+  (dg-use-denote t)
+  (dg-context-window-width 0.3)
+  ;; Auto-update context when moving between nodes
+  (dg-context-auto-update t)
+  ;; Maximum lines to display per node in context panel (nil for unlimited)
+  (dg-context-max-lines 30)
+  ;; Show overlays on headings
+  (dg-overlay-enable t)
+  ;; Synthesis dashboard file location
+  (dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
+  (dg-discourse-attributes
+   '(
+     (claim
+      . (
+         (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+         (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+         (overlay . evidence-score)
+             )
+        )
+
+     (question
+      . (
+       (answer-count . "{count:Answered By:claim}")
+         (overlay . answer-count)
+           )
+      )
+     ;; ... more types
+     ))
+  (dg-node-types
+   '(
+     (question . (:short "QUE"
+                       :color "lightblue"
+                       :desc "Research question"))
+     (claim    . (:short "CLM"
+                       :color "lightyellow"
+                       :desc "Assertion, thesis or position in a debate"))
+     (evidence . (:short "EVD"
+                       :color "lightgreen"
+                       :desc "Argument, proof, or supporting empirical data"))
+     (source   . (:short "SRC"
+                       :color "lightgray"
+                       :desc "Reference material / Philosophical text"))
+     (theory   . (:short "THY"
+                               :color "lightcoral"
+                       :desc "Theoretical framework"))
+     ))
+  (dg-relation-types
+   '(
+   (supports  . (:inverse "Supported By"
+                          :color "green"
+                          :style "solid"))
+   (opposes   . (:inverse "Opposed By"
+                          :color "red"
+                          :style "dashed"))
+   (informs   . (:inverse "Informed By"
+                          :color "blue"
+                          :style "solid"))
+   (answers   . (:inverse "Answered By"
+                          :color "purple"
+                          :style "solid"))
+   ))
+  (dg-relation-patterns
+   '((supports . (:source (evidence)
+                        :target (claim)))
+   (opposes  . (:source (evidence)
+                        :target (claim)))
+   (informs  . (:source (source)
+                        :target (evidence)))
+   (answers  . (:source (claim)
+                        :target (question)))
+   ))
+
   :config
   (setq dg-directories ;; This is where we scan for nodes
   (list sp-notes-dir)
@@ -175,46 +251,26 @@ The closing parenthesis on its own line ends the =use-package= form.
 
 *** Display and behaviour options
 
-These are plain =setq= calls at load time, outside the =use-package= form. They take effect because the package's =defcustom= forms do not override values that are already set.
+These are in the =:custom= block of the =use-package= form above. They used to be plain =setq= calls after the form, which ran after =discourse-graphs-mode= had been turned on in =:config=; now they are set first. The package's =defcustom= forms do not override values that are already set.
 
 **** Denote integration
 
 Sets =dg-use-denote= so that nodes are handled as Denote notes.
 
-#+begin_src emacs-lisp -i
-;; Use with denote
-(setq dg-use-denote t)
-#+end_src
 
 **** Context panel
 
 The context panel takes 30 percent of the frame width, updates automatically as point moves between nodes, and shows at most 30 lines per node.
 
-#+begin_src emacs-lisp -i
-(setq dg-context-window-width 0.3)
-
-;; Auto-update context when moving between nodes
-(setq dg-context-auto-update t)
-
-;; Maximum lines to display per node in context panel (nil for unlimited)
-(setq dg-context-max-lines 30)
-#+end_src
 
 **** Overlays and synthesis file
 
 Turns on overlays on node headings and sets the synthesis dashboard file to =~/notes/dg-synthesis.org=.
 
-#+begin_src emacs-lisp -i
-;; Show overlays on headings
-(setq dg-overlay-enable t)
-
-;; Synthesis dashboard file location
-(setq dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
-#+end_src
 
 *** Discourse model
 
-The vocabulary of the graph: computed attributes, node types, relation types, and which node types each relation may connect.
+The vocabulary of the graph: computed attributes, node types, relation types, and which node types each relation may connect. These are also =:custom= entries of the =use-package= form above.
 
 **** Computed attributes
 
@@ -224,93 +280,21 @@ The vocabulary of the graph: computed attributes, node types, relation types, an
 - Questions get an answer count, which is their overlay.
 - A comment leaves room for more types.
 
-#+begin_src emacs-lisp -i
-(setq dg-discourse-attributes
-      '(
-        (claim
-         . (
-            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
-            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
-            (overlay . evidence-score)
-                )
-           )
-
-        (question
-         . (
-          (answer-count . "{count:Answered By:claim}")
-            (overlay . answer-count)
-              )
-         )
-        ;; ... more types
-        )
-)
-#+end_src
 
 **** Node types
 
 =dg-node-types= defines five node types, each with a three-letter tag, a colour and a description: question (QUE), claim (CLM), evidence (EVD), source (SRC, described as reference material or philosophical text) and theory (THY).
 
-#+begin_src emacs-lisp -i
-(setq dg-node-types
-      '(
-        (question . (:short "QUE"
-                          :color "lightblue"
-                          :desc "Research question"))
-        (claim    . (:short "CLM"
-                          :color "lightyellow"
-                          :desc "Assertion, thesis or position in a debate"))
-        (evidence . (:short "EVD"
-                          :color "lightgreen"
-                          :desc "Argument, proof, or supporting empirical data"))
-        (source   . (:short "SRC"
-                          :color "lightgray"
-                          :desc "Reference material / Philosophical text"))
-        (theory   . (:short "THY"
-                                  :color "lightcoral"
-                          :desc "Theoretical framework"))
-        ))
-#+end_src
 
 **** Relation types
 
 =dg-relation-types= defines four relations with the label used for the inverse direction and the colour and line style used when drawing them: supports (green, solid), opposes (red, dashed), informs (blue, solid) and answers (purple, solid).
 
-#+begin_src emacs-lisp -i
-(setq dg-relation-types
-      '(
-      (supports  . (:inverse "Supported By"
-                             :color "green"
-                             :style "solid"))
-      (opposes   . (:inverse "Opposed By"
-                             :color "red"
-                             :style "dashed"))
-      (informs   . (:inverse "Informed By"
-                             :color "blue"
-                             :style "solid"))
-      (answers   . (:inverse "Answered By"
-                             :color "purple"
-                             :style "solid"))
-      )
-      )
-#+end_src
 
 **** Relation patterns
 
 =dg-relation-patterns= restricts which node types each relation connects: evidence supports or opposes claims, sources inform evidence, and claims answer questions. Theory nodes do not appear in any pattern, so as configured they cannot take part in relations.
 
-#+begin_src emacs-lisp -i
-(setq dg-relation-patterns
-      '((supports . (:source (evidence)
-                           :target (claim)))
-      (opposes  . (:source (evidence)
-                           :target (claim)))
-      (informs  . (:source (source)
-                           :target (evidence)))
-      (answers  . (:source (claim)
-                           :target (question)))
-      )
-        )
-#+end_src
 
 ** vulpea-graph (from =sp-dyn-graph=)
 
@@ -425,7 +409,7 @@ Each section below is one or more blocks of the file, in order.
 **** Requires
 
 - Loads =cl-lib= for =cl-loop= and =cl-incf=.
-- Loads =subr-x= for =if-let=, =when-let=, =thread-last= and =string-empty-p=.
+- Loads =subr-x= for =if-let*=, =when-let*=, =thread-last= and =string-empty-p=.
 - Loads =seq= for =seq-remove=.
 - Loads =json= for =json-encode=, which writes the data of the browser page.
 - Loads =vulpea=, which provides the database queries and the =vulpea-note= struct.
@@ -586,13 +570,13 @@ another note to go further.  A larger depth, when you ask for one, wins."
 (defun relationship-annotator--note (id notes)
   "Return the note with ID from NOTES, loading it from the database if needed."
   (or (gethash id notes)
-      (when-let ((note (vulpea-db-get-by-id id)))
+      (when-let* ((note (vulpea-db-get-by-id id)))
         (puthash id note notes)
         note)))
 
 (defun relationship-annotator--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
-  (if-let ((note (relationship-annotator--note id notes)))
+  (if-let* ((note (relationship-annotator--note id notes)))
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 #+end_src
@@ -643,7 +627,7 @@ read as bare ids separated by commas or spaces."
     ((or `(meta ,key) `(meta-inverse ,key))
      (cdr (assoc key (vulpea-note-meta note))))
     ((or `(property ,key) `(property-inverse ,key))
-     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+     (when-let* ((value (cdr (assoc key (vulpea-note-properties note)))))
        (list value)))))
 
 (defun relationship-annotator--source-notes (source)
@@ -973,7 +957,7 @@ is not checked)."
   (let ((notes (plist-get tree :notes)) found)
     (pcase-dolist (`(,subject ,relation ,object)
                    (relationship-annotator--all-edges tree))
-      (when-let ((message (relationship-annotator--anomaly
+      (when-let* ((message (relationship-annotator--anomaly
                            (relationship-annotator--note-type
                             (relationship-annotator--note subject notes))
                            relation
@@ -1288,7 +1272,7 @@ The package shows these results in dynamic blocks inside an Org file. This modul
                              (relationship-annotator--visit
                               id relationship-annotator--review-tree))
                    'follow-link t
-                   'help-echo (or (when-let ((note (relationship-annotator--note id notes)))
+                   'help-echo (or (when-let* ((note (relationship-annotator--note id notes)))
                                     (vulpea-note-path note))
                                   ""))))
 
@@ -1322,7 +1306,7 @@ well each stands.  RET on a title visits the note."
         (let (any)
           (dolist (id (sort (hash-table-keys notes) #'string<))
             (when (eq (relationship-annotator--type-of id context) 'claim)
-              (when-let ((gaps (relationship-annotator--argument-gaps id context)))
+              (when-let* ((gaps (relationship-annotator--argument-gaps id context)))
                 (setq any t)
                 (insert "  ")
                 (relationship-annotator--insert-note-button id tree)
@@ -1747,7 +1731,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 (defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
-  (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
+  (when-let* ((id (get-text-property (point) 'relationship-annotator-id)))
     (when (relationship-annotator--sorted-children id relationship-annotator--tree)
       (if (gethash id relationship-annotator--expanded)
           (remhash id relationship-annotator--expanded)

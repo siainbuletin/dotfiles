@@ -41,13 +41,10 @@
 ;;; Code:
 
 ;;;; Citation variables
-;; Defined before the sub-modules are required: their `use-package' forms
-;; read these variables, and Elpaca can run them while a later part of this
-;; file is still being loaded.
-(defcustom sp-bibliography nil "User bibliography for citation."
+(defcustom sp-bibliography nil "Obsolete: the bibliography is every .bib file in `sp-bibtex-dir'."
   :group 'spcustom
   :tag "Lambda-Emacs User Bibliography")
-(defcustom sp-bib-notes nil "User citation notes directory."
+(defcustom sp-bib-notes nil "User citation notes directory, `sp-notes-dir' when nil."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
 (defcustom sp-citar-note nil "Template for use with citar notes."
@@ -60,12 +57,13 @@
 (require 'sp-citations)
 (require 'sp-litnotes)
 
-;;;; Setting up the proper variables
-
-;;;; Looking up academic sources 
+;;;; Looking up academic sources
 
 (use-package biblio
   :ensure t
+
+  :custom
+  (biblio-bibtex-use-autokey t)
 
   :bind
   (("C-c w b b" . sp-bibtex-biblio-lookup))
@@ -79,12 +77,6 @@
 
 (use-package doct
   :ensure t)
-
-;; Citation key generation
-
-;; The length, separator and title-word counts are set once, further down.
-(setq bibtex-autokey-titleword-ignore ;; I took "On" out of this
-        '("A" "An" "The" "Eine?" "Der" "Die" "Das" "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
 ;;;; Org-ref
 (use-package org-ref
@@ -124,39 +116,14 @@
 (use-package helm-bibtex
   :ensure (:wait t))
 
-(setq org-ref-default-bibliography (list (sp-path sp-bibliography-dir "master.bib"))
-      org-ref-pdf-directory sp-literature-dir)
+(setq org-ref-pdf-directory sp-literature-dir)
 
-;; (setq citar-library-paths (list sp-literature-dir))
-;; this has to be a list of directories in order to work
-
-(setq citar-library-file-extensions (list "pdf" "jpg")
-      citar-file-additional-files-separator "-")
-
-(setq bibtex-completion-bibliography
-      (mapcar (lambda (bib) (sp-path sp-bibliography-dir bib))
-              '("master.bib" "thesis.bib" "marx.bib" "hci.bib" "aesthetics.bib"
-                "hegel-prezentare.bib" "modernitate.bib"))
-        bibtex-completion-library-path (list sp-literature-dir)
-        bibtex-completion-notes-path sp-notes-dir
-        bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
-
-;; Automatically generating BibTeX keys
-(require 'bibtex)
-
-(setq bibtex-autokey-year-length 4
-      bibtex-autokey-name-year-separator "-"
-      bibtex-autokey-year-title-separator "-"
-      bibtex-autokey-titleword-separator "-"
-      bibtex-autokey-titlewords 2
-      bibtex-autokey-titlewords-stretch 1
-      bibtex-autokey-titleword-length 5)
-
-(define-key bibtex-mode-map (kbd "H-b") 'org-ref-bibtex-hydra/body)
+(setq bibtex-completion-library-path (list sp-literature-dir)
+      bibtex-completion-notes-path sp-notes-dir
+      bibtex-completion-notes-template-multiple-files "* ${author-or-editor}, ${title}, ${journal}, (${year}) :${=type=}: \n\nSee [[cite:&${=key=}]]\n")
 
 (use-package citar-org-node
-  :vc ( :url "https://github.com/krisbalintona/citar-org-node.git"
-        :rev :newest))
+  :ensure (citar-org-node :host github :repo "krisbalintona/citar-org-node"))
 
 (use-package binder ;; for stuff that looks like scrivener
   :ensure t)
