@@ -114,6 +114,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/funct/sp-move-region-to-heading.org][sp-move-region-to-heading]] :: Move a region under a heading in another note ([[file:../libraries/modules/funct/sp-move-region-to-heading.el][sp-move-region-to-heading.el]])
 - [[file:tangles/funct/sp-open-externally.org][sp-open-externally]] :: Opening files in external applications ([[file:../libraries/modules/funct/sp-open-externally.el][sp-open-externally.el]])
 - [[file:tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:../libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
+- [[file:tangles/funct/sp-org-tag-lint.org][sp-org-tag-lint]] :: Lint Org tags against the tag registry, add tags without restarting, prompt for a new note's tags ([[file:../libraries/modules/funct/sp-org-tag-lint.el][sp-org-tag-lint.el]], with the data file [[file:../libraries/modules/funct/sp-org-tag-registry.el][sp-org-tag-registry.el]])
 - [[file:tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:../libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
 
 ** media/

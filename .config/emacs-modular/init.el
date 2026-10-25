@@ -386,6 +386,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-open-externally
                     'sp-move-region-to-heading
                     'sp-tab-inbox
+                    'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
                     'sp-org-lint
 

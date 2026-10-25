@@ -2102,6 +2102,18 @@ Declares the =sp-split= customisation group under Applications.
   :group 'sp-split)
 #+end_src
 
+*** Tag inheritance option
+
+=sp-split-inherit-tags= decides whether the tags a heading inherits from its parents are copied to the new note. Off by default: after a split the new note stands on its own, and the tags of the file it came from often no longer describe it. The command binds =org-use-tag-inheritance= to this value while Vulpea runs, so the setting everywhere else is untouched.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-split-inherit-tags nil
+  "When non-nil, the new note also gets the tags its heading inherits.
+It is the value of `org-use-tag-inheritance' while `sp-split-leave-parents' runs."
+  :type 'boolean
+  :group 'sp-split)
+#+end_src
+
 *** Footnote option
 
 =sp-split-check-footnotes= turns the footnote copying on or off. On by default.
@@ -2739,7 +2751,7 @@ directory."
 
 The interactive entry point, autoloaded.
 
-- Binds the active flag, the link flag (off with a prefix argument) and a fresh report.
+- Binds the active flag, the link flag (off with a prefix argument), a fresh report and =org-use-tag-inheritance= (to =sp-split-inherit-tags=, off by default).
 - Calls =vulpea-split-heading= interactively.
 - Clears =current-prefix-arg=, so the prefix argument meant for this command does not also trigger Vulpea's own stub option.
 - After the split, renames the file with Denote if enabled and prints the footnote summary.
@@ -2761,6 +2773,7 @@ left."
          ;; Keep vulpea's own stub option (the prefix argument) out of it.
          (current-prefix-arg nil)
          (sp-split--fn-report nil)
+         (org-use-tag-inheritance sp-split-inherit-tags)
          (note (call-interactively #'vulpea-split-heading)))
     (prog1 (if (and note sp-split-denote-names)
                (sp-split--denote-rename note)

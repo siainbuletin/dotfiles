@@ -46,7 +46,7 @@ digraph modules {
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions, programming and AI"; style=rounded; color="#999999"; fontname="Helvetica";
-    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-link-conversion  sp-org-lint"];
+    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-org-lint"];
     g1 [label="sp-base-code"];
     g2 [label="sp-lisp\n(paredit)"];
     g3 [label="sp-prog-misc\n(emr)"];
