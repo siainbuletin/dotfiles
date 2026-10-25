@@ -724,7 +724,7 @@ nil uses the width of the content layer, so the boxes line up with the banner."
 
 (defcustom sp-dashboard-agenda-todos-clickable t
   "Non-nil makes the first line of each TODO a button that visits the entry.
-Each one is then another stop for \\`TAB'."
+Each one is then an entry of its box, reached with \\`<right>' from the title and then \\`TAB'."
   :type 'boolean
   :group 'spcustom)
 
@@ -1057,15 +1057,25 @@ COMMAND, with HELP, when COMMAND is non-nil."
                       (sp-dashboard--heading-pixels text))))
          (label (if command
                     (list text 'sp-dashboard-heading-face
-                          (lambda (_) (funcall command)) help)
-                  (list text 'sp-dashboard-heading-face))))
+                          (lambda (_) (funcall command)) help
+                          (list 'sp-dashboard-level 'title 'sp-dashboard-box key))
+                  (list text 'sp-dashboard-heading-face)))
+         (click (when command
+                  (let ((map (make-sparse-keymap)))
+                    (define-key map [mouse-1] (lambda () (interactive) (funcall command)))
+                    map))))
     (list label
           (list (propertize (make-string count ?\s) 'display `(space :width (,gap)))
                 'sp-dashboard-menu-face)
-          (if command
-              (list keytext 'sp-dashboard-menu-face
-                    (lambda (_) (funcall command)) help)
-            (list keytext 'sp-dashboard-menu-face)))))
+          ;; Not a button: the title is the one TAB stop of the box.
+          (list (propertize keytext 'keymap click) 'sp-dashboard-menu-face))))
+
+;; The buttons are on two levels: the title of each box, and the entries
+;; (TODOs, menu rows) inside it.
+(defun sp-dashboard--item-segment (segment box)
+  "Return SEGMENT, a title segment, marked as an entry of the box with key BOX."
+  (append segment (make-list (max 0 (- 4 (length segment))) nil)
+          (list (list 'sp-dashboard-level 'item 'sp-dashboard-box box))))
 
 (defun sp-dashboard--menu-box (entry width box-face)
   "Return the menu block ENTRY as a box of text WIDTH, drawn with BOX-FACE."
@@ -1086,9 +1096,11 @@ COMMAND, with HELP, when COMMAND is non-nil."
               (append lines
                       (list (sp-dashboard--box-line
                              width box-face
-                             (sp-dashboard--title-segment
-                              (concat "  " (if (= index count) "└─ " "├─ ") child-label)
-                              child-key child-command child-help width)))))))
+                             (sp-dashboard--item-segment
+                              (sp-dashboard--title-segment
+                               (concat "  " (if (= index count) "└─ " "├─ ") child-label)
+                               child-key child-command child-help width)
+                              key)))))))
     (append lines (list (list (list (concat "└" rule "┘") box-face))))))
 
 (defun sp-dashboard--todo-face (state)
@@ -1134,7 +1146,9 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
                                 (let ((file (plist-get entry :file))
                                       (pos (plist-get entry :pos)))
                                   (list (lambda (_) (sp-dashboard--visit-entry file pos))
-                                        "Visit the entry"))))
+                                        "Visit the entry"
+                                        (list 'sp-dashboard-level 'item
+                                              'sp-dashboard-box key)))))
                    (visit (and action
                                (let ((map (make-sparse-keymap))
                                      (command (car action)))
@@ -1162,11 +1176,12 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
     (append lines (list (list (list (concat "└" rule "┘") box-face))))))
 
 (defun sp-dashboard--insert-segment (segment)
-  "Insert SEGMENT, a list (TEXT FACE [ACTION HELP])."
-  (pcase-let ((`(,text ,face ,action ,help) segment))
+  "Insert SEGMENT, a list (TEXT FACE [ACTION HELP PROPERTIES]).
+PROPERTIES are added to the button, see `sp-dashboard--stops'."
+  (pcase-let ((`(,text ,face ,action ,help ,properties) segment))
     (if action
-        (insert-text-button text 'action action 'help-echo help
-                            'face face 'follow-link t)
+        (apply #'insert-text-button text 'action action 'help-echo help
+               'face face 'follow-link t properties)
       (insert (propertize text 'face face)))))
 
 (defun sp-dashboard--lane-width ()
@@ -1176,10 +1191,13 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
            (nth 2 (sp-dashboard--layer-box sp-dashboard-content-layer))
            60)))
 
+(defvar sp-dashboard--scope)
+
 (defun sp-dashboard--insert-boxes (content-col)
   "Insert the agenda and menu boxes in one lane centred on column CONTENT-COL.
 The lane is `sp-dashboard--lane-width' wide, so the outer edges of the boxes
 line up with the banner it is centred on."
+  (setq sp-dashboard--scope nil)
   (let* ((gap 2)
          (lane (sp-dashboard--lane-width))
          (columns (max 1 (min sp-dashboard-agenda-columns
@@ -1557,6 +1575,8 @@ Without `sp-dashboard-agenda-general-files' it covers `org-agenda-files'."
     (define-key map [mouse-2] 'push-button)
     (define-key map [follow-link] 'mouse-face)
     (define-key map (kbd "<backtab>") 'sp-dashboard-previous-button)
+    (define-key map (kbd "<right>") 'sp-dashboard-enter-box)
+    (define-key map (kbd "<left>") 'sp-dashboard-leave-box)
     (define-key map (kbd "l") 'sp-dashboard-art-next-layer)
     (define-key map (kbd "0") 'sp-dashboard-art-reset)
     (define-key map (kbd "s") 'sp-dashboard-art-show-position)
@@ -1590,15 +1610,65 @@ Without `sp-dashboard-agenda-general-files' it covers `org-agenda-files'."
 (defvar-local sp-dashboard--focus-overlay nil
   "Overlay marking the selected button of the splash.")
 
+(defvar-local sp-dashboard--scope nil
+  "Key of the box whose entries TAB walks, or nil while it walks the titles.")
+
+(defun sp-dashboard--stops ()
+  "Return the buttons TAB walks, in buffer order.
+That is the title of each box, or, inside a box (`sp-dashboard--scope'),
+its entries.  A button is a title unless its `sp-dashboard-level' is `item'."
+  (let (stops
+        (button (or (button-at (point-min)) (next-button (point-min)))))
+    (while button
+      (when (if sp-dashboard--scope
+                (and (eq (button-get button 'sp-dashboard-level) 'item)
+                     (equal (button-get button 'sp-dashboard-box) sp-dashboard--scope))
+              (not (eq (button-get button 'sp-dashboard-level) 'item)))
+        (push button stops))
+      (setq button (next-button (button-start button))))
+    (nreverse stops)))
+
+(defun sp-dashboard--step (direction)
+  "Select the next (DIRECTION 1) or previous (-1) stop, wrapping around."
+  (when-let* ((stops (sp-dashboard--stops)))
+    (let* ((here (point))
+           (target (if (> direction 0)
+                       (or (seq-find (lambda (b) (> (button-start b) here)) stops)
+                           (car stops))
+                     (or (seq-find (lambda (b) (< (button-start b) here)) (reverse stops))
+                         (car (last stops))))))
+      (goto-char (button-start target)))))
+
 (defun sp-dashboard-next-button ()
-  "Select the next button of the splash, wrapping around."
+  "Select the next title of the splash, or entry inside a box, wrapping around."
   (interactive)
-  (forward-button 1 t nil t))
+  (sp-dashboard--step 1))
 
 (defun sp-dashboard-previous-button ()
-  "Select the previous button of the splash, wrapping around."
+  "Select the previous title of the splash, or entry inside a box, wrapping around."
   (interactive)
-  (backward-button 1 t nil t))
+  (sp-dashboard--step -1))
+
+(defun sp-dashboard-enter-box ()
+  "Step from the title of a box into its entries, where TAB walks them."
+  (interactive)
+  (let* ((button (button-at (point)))
+         (box (and button (button-get button 'sp-dashboard-box))))
+    (when (and box (not sp-dashboard--scope))
+      (setq sp-dashboard--scope box)
+      (if (sp-dashboard--stops)
+          (sp-dashboard--step 1)
+        (setq sp-dashboard--scope nil)
+        (message "Nothing to select in this box")))))
+
+(defun sp-dashboard-leave-box ()
+  "Step from an entry back to the title of its box, where TAB walks the titles."
+  (interactive)
+  (when-let* ((box sp-dashboard--scope))
+    (setq sp-dashboard--scope nil)
+    (when-let* ((title (seq-find (lambda (b) (equal (button-get b 'sp-dashboard-box) box))
+                                 (sp-dashboard--stops))))
+      (goto-char (button-start title)))))
 
 (defun sp-dashboard--mark-focus ()
   "Highlight the button at point, since the cursor is hidden."
