@@ -14,6 +14,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'xml)
 ;; Guarded require: without this, a sandbox boot without nerd-icons
 ;; installed would crash module-load here.
 ;; Spec 02 caught the identical pattern in sp-dashboard.el.
@@ -123,13 +124,15 @@ with `load-theme' the next time the splash is drawn."
 
 (defcustom sp-dashboard-art-layers
   (copy-tree
-   '((banner :file "dashboard-banner-3.txt" :x 30 :y -8 :face sp-dashboard-banner-face)
-     (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-dashboard-art-face)))
+   '((banner :file "dashboard-banner-3.txt" :x 0 :y 0 :face sp-dashboard-banner-face)
+     (lambda :file "lambda-splash.txt" :x 0 :y 0 :face sp-dashboard-art-face)))
   "Art drawn behind the splash menu, topmost layer first.
 Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
 file (a relative name is looked up in `sp-dashboard-art-directory').  X and
-Y move the art right and down from the centre of the window, in columns
-and lines (negative: left and up).  Remove an element to hide its layer."
+Y move the art right and down from its place, in columns and lines (negative:
+left and up): the side layer, `sp-dashboard-side-layer', is centred in the
+left column and in the window's height, any other layer in the right column.
+Remove an element to hide its layer."
   :type '(alist :key-type symbol :value-type plist)
   :group 'spcustom)
 
@@ -159,10 +162,19 @@ A relative FILE is looked up in `sp-dashboard-art-directory'."
     (let ((lines (with-temp-buffer
                    (insert-file-contents path)
                    (split-string (buffer-string) "\n"))))
-      ;; Drop blank lines at the end so they don't count as height.
+      ;; Drop blank lines at the end so they don't count as height, trailing
+      ;; blanks and the indent every line shares so they don't count as width.
+      (setq lines (mapcar #'string-trim-right lines))
       (while (and lines (string-blank-p (car (last lines))))
         (setq lines (butlast lines)))
-      lines)))
+      (let ((indent (apply #'min most-positive-fixnum
+                           (mapcar (lambda (line) (or (string-match "[^ ]" line)
+                                                      most-positive-fixnum))
+                                   lines))))
+        (if (< 0 indent most-positive-fixnum)
+            (mapcar (lambda (line) (if (> (length line) indent) (substring line indent) ""))
+                    lines)
+          lines)))))
 
 (defcustom sp-dashboard-content-layer 'banner
   "Name of the art layer the title and the menu sit under.
@@ -171,28 +183,164 @@ in `sp-dashboard-art-layers', centres the text on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
   :group 'spcustom)
 
-(defcustom sp-dashboard-footer-layer 'lambda
-  "Name of the art layer the footer text is centred on, as for the menu."
+(defcustom sp-dashboard-footer-layer nil
+  "Name of the art layer the footer text is centred on.
+Nil, or a layer that is not in `sp-dashboard-art-layers', centres the footer
+on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
   :group 'spcustom)
 
-(defun sp-dashboard--layer-box (name)
-  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
+(defcustom sp-dashboard-side-layer 'lambda
+  "Name of the art layer that gets a column of its own, to the left.
+The other layers, the title and the boxes share the column to its right."
+  :type 'symbol
+  :group 'spcustom)
+
+(defcustom sp-dashboard-column-gap 8
+  "Columns between the side column and the content column."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-dashboard-content-top 3
+  "Line the top of the content column's art is on, before the layer's Y."
+  :type 'integer
+  :group 'spcustom)
+
+(defvar sp-dashboard-lane-width)
+
+;;;; Window size
+(defun sp-dashboard--columns ()
+  "Return the columns of the window."
+  (max 1 (window-width)))
+
+(defun sp-dashboard--lines ()
+  "Return the lines of the window."
+  (max 1 (window-body-height)))
+
+;;;; The side layer as an image
+;; Text is drawn at the font's own size.  The lambda is drawn as an SVG image
+;; instead, which scales to the window without touching the text: the image
+;; fills a block of columns by lines and is cut into one slice per line, each
+;; slice taking the place of the blanks of its line, so the lines keep their
+;; height and the other column stays on the character grid.
+(defcustom sp-dashboard-side-as-svg t
+  "Non-nil draws the side layer as a scalable SVG image where Emacs can show one.
+Otherwise, and in a terminal, it is drawn as text at the font's size."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-scale 'auto
+  "How much larger than its text the SVG side layer is drawn.
+`auto' makes it as large as `sp-dashboard-side-fill' of the window allows,
+within `sp-dashboard-side-scale-limits'; a number sets it.  1 is the size the
+text art would have."
+  :type '(choice (const :tag "Fill the window" auto) number)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-scale-limits '(0.4 . 4.0)
+  "Smallest and largest factor `sp-dashboard-side-scale' may pick on its own."
+  :type '(cons number number)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-fill 0.9
+  "Fraction of the window's height, and of the width the right column leaves,
+that the SVG side layer may fill."
+  :type 'number
+  :group 'spcustom)
+
+(defun sp-dashboard--side-svg-p ()
+  "Return non-nil when the side layer is drawn as an SVG image."
+  (and sp-dashboard-side-as-svg
+       (display-graphic-p)
+       (image-type-available-p 'svg)))
+
+(defun sp-dashboard--side-scale (size)
+  "Return the factor to scale the side layer of text SIZE, (WIDTH . HEIGHT), by."
+  (if (numberp sp-dashboard-side-scale)
+      (float sp-dashboard-side-scale)
+    (let* ((room (max 1 (- (sp-dashboard--columns) sp-dashboard-column-gap
+                           (sp-dashboard--right-width))))
+           (fit (min (/ (* sp-dashboard-side-fill (sp-dashboard--lines))
+                        (float (cdr size)))
+                     (/ (* sp-dashboard-side-fill room) (float (car size))))))
+      (max (car sp-dashboard-side-scale-limits)
+           (min (cdr sp-dashboard-side-scale-limits) fit)))))
+
+;;;; Columns
+(defun sp-dashboard--art-size (name)
+  "Return (WIDTH . HEIGHT), in characters, of the text art of the layer NAME, or nil."
   (when-let* ((layer (assq name sp-dashboard-art-layers))
               (lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
-    (let ((width (apply #'max (mapcar #'length lines)))
-          (height (length lines)))
-      (list (+ (- (/ (window-width) 2) (/ width 2))
-               (or (plist-get (cdr layer) :x) 0))
-            (+ (- (/ (window-body-height) 2) (/ height 2))
-               (or (plist-get (cdr layer) :y) 0))
-            width height))))
+    (cons (apply #'max (mapcar #'length lines)) (length lines))))
+
+(defun sp-dashboard--layer-size (name)
+  "Return (WIDTH . HEIGHT), in columns and lines, of the art layer NAME, or nil.
+The side layer drawn as an SVG image takes its scaled size."
+  (when-let* ((size (sp-dashboard--art-size name)))
+    (if (and (eq name sp-dashboard-side-layer) (sp-dashboard--side-svg-p))
+        (let ((scale (sp-dashboard--side-scale size)))
+          (cons (max 1 (round (* scale (car size))))
+                (max 1 (round (* scale (cdr size))))))
+      size)))
+
+(defun sp-dashboard--right-width ()
+  "Return the width of the right column.
+That is the widest layer other than the side layer, or `sp-dashboard-lane-width'."
+  (let ((width (max (or (and (boundp 'sp-dashboard-lane-width)
+                             sp-dashboard-lane-width)
+                        0)
+                    (apply #'max 0
+                           (mapcar (lambda (layer)
+                                     (if (eq (car layer) sp-dashboard-side-layer)
+                                         0
+                                       (or (car (sp-dashboard--art-size (car layer))) 0)))
+                                   sp-dashboard-art-layers)))))
+    (if (zerop width) 60 width)))
+
+(defun sp-dashboard--column-geometry ()
+  "Return (LEFT-START LEFT-WIDTH RIGHT-START RIGHT-WIDTH) of the two columns.
+The side layer is the left column; the right column holds the other layers,
+the title and the boxes, and is as wide as the widest of them or of
+`sp-dashboard-lane-width'.  The two are centred in the window together."
+  (let* ((right-width (sp-dashboard--right-width))
+         (columns (sp-dashboard--columns))
+         (side-width (or (car (sp-dashboard--layer-size sp-dashboard-side-layer)) 0))
+         ;; The side column is dropped when the window is too narrow for both.
+         (left-width (if (<= (+ side-width 2 right-width) columns) side-width 0))
+         (gap (if (> left-width 0)
+                  (min sp-dashboard-column-gap (- columns left-width right-width))
+                0))
+         (left-start (max 0 (/ (- columns (+ left-width gap right-width)) 2))))
+    (list left-start left-width (+ left-start left-width gap) right-width)))
+
+(defun sp-dashboard--layer-box (name)
+  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil.
+The side layer is centred in the left column and vertically in the window, and
+has no box when the window is too narrow for the left column; any other layer
+is centred in the right column, from `sp-dashboard-content-top'."
+  (when-let* ((layer (assq name sp-dashboard-art-layers))
+              (size (sp-dashboard--layer-size name)))
+    (pcase-let* ((`(,left-start ,left-width ,right-start ,right-width)
+                  (sp-dashboard--column-geometry))
+                 (width (car size))
+                 (height (cdr size))
+                 (side (eq name sp-dashboard-side-layer))
+                 (x (or (plist-get (cdr layer) :x) 0))
+                 (y (or (plist-get (cdr layer) :y) 0)))
+      (unless (and side (zerop left-width))
+        (list (+ x (if side
+                       (+ left-start (/ (- left-width width) 2))
+                     (+ right-start (/ (- right-width width) 2))))
+              (+ y (if side
+                       (- (/ (sp-dashboard--lines) 2) (/ height 2))
+                     sp-dashboard-content-top))
+              width height)))))
 
 (defun sp-dashboard--layer-column (name)
   "Return the middle column of the art layer NAME, or of the window."
   (if-let* ((box (sp-dashboard--layer-box name)))
       (+ (nth 0 box) (/ (nth 2 box) 2))
-    (/ (window-width) 2)))
+    (/ (sp-dashboard--columns) 2)))
 
 (defun sp-dashboard--content-column ()
   "Return the column the title and the menu are centred on."
@@ -212,17 +360,121 @@ in `sp-dashboard-art-layers', centres the text on the window."
          (delete-char 1)
          (insert (propertize (string ch) 'face face)))))
 
-(defun sp-dashboard--draw-layer (layer)
-  "Draw the art LAYER, centred on the window and moved by its offsets.
-Only plain blanks are replaced, so text, buttons and images are kept."
+(defun sp-dashboard--face-color (face)
+  "Return the foreground of FACE as a hex colour string."
+  (let ((color (or (face-foreground face nil t)
+                   (face-foreground 'default nil t)
+                   "#808080")))
+    (if (string-prefix-p "#" color)
+        color
+      (if-let* ((values (color-values color)))
+          (apply #'format "#%02x%02x%02x" (mapcar (lambda (value) (/ value 256)) values))
+        "#808080"))))
+
+(defun sp-dashboard--art-svg (lines face)
+  "Return SVG data that draws the text art LINES in FACE.
+One character cell is one unit of width and `frame-char-height' over
+`frame-char-width' units of height, and every run of characters is stretched to
+the cells it takes, so the picture has the shape of the text art in any font."
+  (let* ((width (apply #'max (mapcar #'length lines)))
+         (ratio (/ (float (frame-char-height)) (frame-char-width)))
+         (font-size 1.6)
+         (family (xml-escape-string
+                  (format "%s, monospace" (face-attribute 'default :family nil t))))
+         (row 0)
+         rows)
+    (dolist (text lines)
+      (let ((start 0))
+        ;; One text element for each run of characters between blanks.
+        (while (string-match "[^ ]+" text start)
+          (let ((run (match-string 0 text))
+                (index (match-beginning 0))
+                (end (match-end 0)))
+            (push (format (concat "<text x=\"%d\" y=\"%.3f\" textLength=\"%d\" "
+                                  "lengthAdjust=\"spacing\">%s</text>")
+                          index
+                          (+ (* (+ row 0.5) ratio) (* 0.3 font-size))
+                          (length run)
+                          (xml-escape-string run))
+                  rows)
+            (setq start end))))
+      (setq row (1+ row)))
+    (format (concat "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+                    "width=\"%.1f\" height=\"%.3f\" "
+                    "viewBox=\"-0.3 0 %.1f %.3f\" preserveAspectRatio=\"none\">"
+                    "<g font-family=\"%s\" font-size=\"%.3f\" "
+                    "fill=\"%s\">%s</g></svg>")
+            (+ width 0.6) (* (length lines) ratio) (+ width 0.6) (* (length lines) ratio)
+            family font-size
+            (sp-dashboard--face-color face)
+            (apply #'concat (nreverse rows)))))
+
+(defun sp-dashboard--put-svg-slice (left columns display)
+  "Put DISPLAY on a blank in place of the COLUMNS blanks from column LEFT.
+Works on the current line, and does nothing if those columns hold anything
+but plain blanks."
+  (end-of-line)
+  (when (< (current-column) (+ left columns))
+    (insert-char ?\s (- (+ left columns) (current-column))))
+  (beginning-of-line)
+  (move-to-column left)
+  (let ((start (point)))
+    (move-to-column (+ left columns))
+    (when (and (= (current-column) (+ left columns))
+               (string-match-p "\\` *\\'" (buffer-substring-no-properties start (point)))
+               (not (text-property-not-all start (point) 'face nil))
+               (not (text-property-not-all start (point) 'display nil))
+               (not (text-property-not-all start (point) 'button nil)))
+      (delete-region start (point))
+      (insert (propertize " " 'display display)))))
+
+(defun sp-dashboard--ascent-percent ()
+  "Return how much of a text line, in percent, lies above the baseline."
+  (or (ignore-errors
+        (let* ((info (font-info (face-font 'default nil ?a)))
+               (ascent (aref info 8))
+               (descent (aref info 9)))
+          (round (* 100.0 (/ (float ascent) (+ ascent descent))))))
+      80))
+
+(defun sp-dashboard--draw-side-svg (layer box)
+  "Draw the art LAYER as an SVG image in BOX, one slice on each line it covers."
   (when-let* ((lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
+    (pcase-let* ((`(,left ,top ,columns ,rows) box)
+                 (char-height (frame-char-height))
+                 (pixel-width (* columns (frame-char-width)))
+                 (face (or (plist-get (cdr layer) :face) 'sp-dashboard-art-face))
+                 (image (create-image (sp-dashboard--art-svg lines face) 'svg t
+                                      :width pixel-width
+                                      :height (* rows char-height)
+                                      :scale 1
+                                      :ascent (sp-dashboard--ascent-percent)))
+                 (inhibit-read-only t)
+                 (max-line (sp-dashboard--lines)))
+      (dotimes (row rows)
+        (let ((line (+ top row)))
+          (when (and (>= line 1) (<= line max-line) (>= left 0))
+            (goto-char (point-max))
+            (while (< (line-number-at-pos) line)
+              (insert-char ?\n 1))
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (sp-dashboard--put-svg-slice
+             left columns
+             (list (list 'slice 0 (* row char-height) pixel-width char-height)
+                   image))))))))
+
+(defun sp-dashboard--draw-text-layer (layer)
+  "Draw the text art LAYER in its box, a character for each column.
+Only plain blanks are replaced, so text, buttons and images are kept."
+  (when-let* ((lines (sp-dashboard--art-lines (plist-get (cdr layer) :file)))
+              (box (sp-dashboard--layer-box (car layer))))
     (let* ((inhibit-read-only t)
            (indent-tabs-mode nil)
            (face (or (plist-get (cdr layer) :face) 'sp-dashboard-art-face))
-           (box (sp-dashboard--layer-box (car layer)))
            (left (nth 0 box))
            (top (nth 1 box))
-           (max-line (window-body-height))
+           (max-line (sp-dashboard--lines))
            (row 0))
       (dolist (text lines)
         (let ((line (+ top row)))
@@ -240,6 +492,14 @@ Only plain blanks are replaced, so text, buttons and images are kept."
                   (sp-dashboard--put-art-char col ch face)
                   (forward-line 0)))))
           (setq row (1+ row)))))))
+
+(defun sp-dashboard--draw-layer (layer)
+  "Draw the art LAYER in its box: as an SVG image if it is the side layer and
+Emacs can show one, otherwise as text."
+  (if (and (eq (car layer) sp-dashboard-side-layer) (sp-dashboard--side-svg-p))
+      (when-let* ((box (sp-dashboard--layer-box (car layer))))
+        (sp-dashboard--draw-side-svg layer box))
+    (sp-dashboard--draw-text-layer layer)))
 
 (defun sp-dashboard--draw-art ()
   "Draw every art layer behind the menu, the topmost layer first."
@@ -840,7 +1100,7 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
 
 (defun sp-dashboard--lane-width ()
   "Return the width, in columns, of the lane all the boxes fill."
-  (min (window-width)
+  (min (sp-dashboard--columns)
        (or sp-dashboard-lane-width
            (nth 2 (sp-dashboard--layer-box sp-dashboard-content-layer))
            60)))
@@ -1016,11 +1276,11 @@ splash is drawn again with the current settings."
 
             ;; Set margin padding locally
             (setq-local left-margin-width 0
-                        right-margin-width (/ width 6))
+                        right-margin-width 0)
             (set-window-buffer nil (current-buffer))
-            ;; The margins just set narrowed the window, so find the column
-            ;; again: the art is placed by the same width, and the title and
-            ;; the boxes must be centred on the same column as the banner.
+            ;; The margins are set, so find the column again: the art is placed
+            ;; by the same width, and the title and the boxes must be centred
+            ;; on the banner's column.
             (setq content-col (sp-dashboard--content-column))
 
             ;; Add padding at top
@@ -1075,8 +1335,7 @@ splash is drawn again with the current settings."
             ;; Add footer with some space above bottom
             (goto-char (point-max))
             (let* ((current-line (line-number-at-pos))
-                   (window-height (window-height))
-                   (footer-padding (max 1 (- window-height current-line 15))))
+                   (footer-padding (max 1 (- (sp-dashboard--lines) current-line 2))))
               (insert-char ?\n footer-padding))
             
             ;; Footer text centered
