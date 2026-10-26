@@ -24,11 +24,6 @@
                                 f b)
                      '(2))))))
 
-(defcustom sp-mini-frame-candidates 10
-  "Number of candidates the mini-frame shows; the frame never gets taller than that."
-  :type 'natnum
-  :group 'minibuffer)
-
 (defcustom sp-mini-frame-padding 4
   "Pixels of space around the text of the mini-frame."
   :type 'natnum
@@ -61,7 +56,7 @@
 
 (defun sp-mini-frame--lines ()
   "Return the most lines the mini-frame can have: prompt, candidates, divider."
-  (+ 1 sp-mini-frame-candidates
+  (+ 1 (if (boundp 'vertico-count) vertico-count 10)
      (if (and (sp-mini-frame--nano-p) sp-mini-frame-divider-char) 1 0)))
 
 (defun sp-mini-frame-parameters ()
@@ -86,16 +81,6 @@
       (background-color . ,bg)
       (child-frame-border-width . ,pad)
       (internal-border-width . ,pad))))
-
-(defun sp-mini-frame--limit-candidates ()
-  "Show at most `sp-mini-frame-candidates' candidates in the mini-frame."
-  (when (and (bound-and-true-p mini-frame-mode)
-             (frame-live-p mini-frame-frame)
-             (eq (selected-frame) mini-frame-frame)
-             (boundp 'vertico-count))
-    (setq-local vertico-count sp-mini-frame-candidates)))
-
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--limit-candidates)
 
 (defun sp-mini-frame--divider-color ()
   "Return the colour of the dotted line."
