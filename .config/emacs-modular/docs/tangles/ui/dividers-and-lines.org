@@ -1,0 +1,117 @@
+#+TITLE: Styling the lines between things in Emacs: a guide
+#+STARTUP: content
+
+This page explains how to change the lines that separate things on the screen: the dotted line under =M-x=, the thin line above the mode line and under the header, the divider between windows, the borders of the frame and of the mini-frame. It first says what to change for each line of this configuration, then explains how Emacs draws each kind of line in general. Nothing here needs more than =setq=, =set-face-attribute= or =M-x customize=.
+
+Settings go in your own configuration /before/ the module loads (above the module list in =init.el=) or are set with =M-x customize-variable= and =M-x customize-face=. Faces can be tried first with =M-x customize-face RET face-name RET=, and the faces under the cursor shown with =M-x what-face= (=sp-faces=) or =C-u C-x ==.
+
+* Quick answers for this configuration
+
+** The dotted line under =M-x= (=sp-mini-frame=)
+
+It is a row of one character, drawn after the text you type in the =M-x= prompt (see [[file:sp-mini-frame.org][sp-mini-frame]]).
+
+| What to change         | How                                                                                          |
+|------------------------+----------------------------------------------------------------------------------------------|
+| The character          | =(setq sp-mini-frame-divider-char ?┄)=. Dotted choices: =?┈= (the default), =?┄=, =?╌=, =?·=. A solid line: =?─=. =nil= removes the line. |
+| The colour             | It is the colour of the divider of =sp-nano-style=: =(setq sp-nano-style-divider-color "#888888")=, or the foreground of the face in =sp-nano-style-divider-face= (default =shadow=). |
+| How strong it is       | =(setq sp-nano-style-divider-opacity 0.4)=: 1 is the full colour, 0 invisible. It mixes the colour with the background of the theme, so it follows the theme. |
+| Where it sits          | If it is drawn under the candidates and not between the input and the candidates: =(setq sp-mini-frame-divider-priority 50)= (or =-50=, the other way). Vertico also draws its candidates in an overlay at the end of the input; the overlay with the higher priority wins the order. |
+| Its width              | It is as wide as the minibuffer window when the prompt opens. The frame width is =(width . 0.6)= in =sp-mini-frame-parameters=. |
+
+The frame itself: the padding around the text is =sp-mini-frame-padding= (4 pixels) in the colour of the frame, and =sp-mini-frame-border-color= gives it an outline colour. The number of candidates is Vertico's =vertico-count=.
+
+** The thin line above the mode line and under the header (=sp-nano-style=)
+
+These are not characters but face attributes: an overline on the mode line faces and an underline on =header-line=. So they can be a different colour or thickness, but not dotted.
+
+| What to change         | How                                                                                          |
+|------------------------+----------------------------------------------------------------------------------------------|
+| Turn them off          | =(setq sp-nano-style-divider nil)= (both); =(setq sp-nano-style-header-divider nil)= (only the one under the header). |
+| Fainter                | =(setq sp-nano-style-divider-opacity 0.3)=                                                    |
+| Another colour         | =(setq sp-nano-style-divider-color "#b48ead")=, or =(setq sp-nano-style-divider-face 'font-lock-comment-face)= to take it from a face. |
+| By hand                | =(set-face-attribute 'mode-line nil :overline "#555555")= and the same for =mode-line-inactive=; =(set-face-attribute 'header-line nil :underline '(:color "#555555" :position t))=. |
+| Reapply after a change | =M-x sp-nano-style-apply-divider=. It also runs after each theme load.                        |
+
+If you want a dotted or thicker line there, it has to be made from characters or an image in a line of its own (as the mini-frame does), which costs a line of screen height.
+
+** The divider between windows (=sp-windows=)
+
+=sp-windows= sets =(right-divider-width . 10)= and =(internal-border-width . 10)= for all frames, then =sp-windows-blend-borders= paints the dividers, the fringes and the borders with the background of the theme, so they look like empty space. To see them as lines instead, give the faces a colour after that function runs, for instance from =sp-after-load-theme-hook=:
+
+#+begin_src emacs-lisp :tangle no
+(add-hook 'sp-after-load-theme-hook
+          (lambda ()
+            (set-face-foreground 'window-divider "#444444")
+            (set-face-foreground 'window-divider-first-pixel "#444444")
+            (set-face-foreground 'window-divider-last-pixel "#444444"))
+          95)   ; after sp-windows-blend-borders
+#+end_src
+
+And to make them thin: =(modify-all-frames-parameters '((right-divider-width . 1)))= plus =(setq window-divider-default-right-width 1)=.
+
+* How Emacs draws the lines, in general
+
+** Window dividers (between windows)
+
+Emacs has a built-in divider for the right and the bottom side of a window, drawn in graphical Emacs (and in a terminal as a column of characters).
+
+| Setting                                | What it does                                                                                           |
+|----------------------------------------+--------------------------------------------------------------------------------------------------------|
+| =window-divider-mode=                  | Turns the dividers on. Without it, only the border characters of a terminal or the fringe separate windows. |
+| =window-divider-default-places=        | =t= (right and bottom), =right-only= or =bottom-only=.                                                  |
+| =window-divider-default-right-width=, =-bottom-width= | Thickness in pixels (default 6). =1= is a thin line, a bigger number is empty space with the divider face. |
+| Face =window-divider=                  | The colour (its foreground) of the divider. =window-divider-first-pixel= and =window-divider-last-pixel= colour the first and last pixel row, which can give the divider a border of its own. |
+| Face =vertical-border=                 | The colour of the line between side-by-side windows when the divider is off, and in terminals. In a terminal the character is set with =(set-display-table-slot standard-display-table 'vertical-border ?│)=. |
+
+A typical thin line:
+
+#+begin_src emacs-lisp :tangle no
+(setq window-divider-default-places t
+      window-divider-default-right-width 1
+      window-divider-default-bottom-width 1)
+(window-divider-mode 1)
+(set-face-foreground 'window-divider "#444444")
+(set-face-foreground 'window-divider-first-pixel "#444444")
+(set-face-foreground 'window-divider-last-pixel "#444444")
+#+end_src
+
+A /wide/ divider the colour of the background is a common way to make windows look like cards: this is what =sp-windows= does, with the divider width 10.
+
+** Frame borders
+
+- The frame parameter =internal-border-width= is the space between the windows and the edge of the frame; its colour is the background of the face =internal-border=. Set it with =(modify-all-frames-parameters '((internal-border-width . 10)))= or =(set-frame-parameter nil 'internal-border-width 10)= for one frame.
+- A child frame (the mini-frame is one) has =child-frame-border-width= and the face =child-frame-border=.
+- The fringes (narrow strips at the sides of a window) have the face =fringe=; their width is =(fringe-mode 8)= (pixels) or =(set-fringe-mode 0)= to remove them. The margins inside them are =left-margin-width= and =right-margin-width= (columns), and =set-window-margins= sets them for one window.
+
+** Lines made from face attributes
+
+A line can be an attribute of the text it is next to:
+
+- =:overline COLOR= draws a line above the text, =:underline COLOR= under it. For underline, =(:color "#555" :style line :position t)= puts the line at the bottom of the line box (=:position t= means the descent of the line) and =:style wave= draws a wavy line. Neither can be dotted.
+- =:box (:line-width 1 :color "#555")= draws a rectangle around the text; =(:line-width (4 . 1))= gives different widths for horizontal and vertical sides, and a negative width draws it inside the text.
+- =:extend t= on a face makes its background (and line) reach the end of the window instead of the end of the text; useful for lines under headings.
+
+These are what the mode line divider and the =M-x= prompt box use.
+
+** Lines made from characters
+
+A dotted or dashed line has to be text: a row of =┈=, =┄=, =╌=, =─= or =·=. It can be added to a buffer with an overlay (=before-string= or =after-string=), as the mini-frame does, or with a line of your own in the header or mode line. The character comes from the font, so check that it is drawn: some fonts leave gaps between the box-drawing characters or draw them with a different height. =M-x describe-char= on it shows the font.
+
+** Lines made from images and display properties
+
+An SVG or a stretched space can make any line: =(propertize " " 'display '(space :width (200) :height (1)) 'face '(:background "#555"))= draws a one-pixel line 200 pixels wide. Use =(space :align-to right)= to reach the end of the window. Pixel sizes are written =(N)= and column sizes =N=.
+
+* Finding the face of any line
+
+1. Put point on the line and run =M-x what-face= or =C-u C-x == (=describe-char=). The face is a link to =customize-face=.
+2. =M-x list-faces-display= lists every face, with an example, to search by name (=divider=, =border=, =line=).
+3. =M-x customize-face RET= with a name changes it live and can save it to your custom file. In this configuration themes redraw faces on a theme change, so set faces from =sp-after-load-theme-hook= to keep them.
+
+If a line did not change, a theme or a module sets the face again later: compare the load order (=docs/architecture/load-order.org=) and set it from the hook above.
+
+* Further reading
+
+- The Emacs manual: /Window Dividers/, /Frame Parameters/, /Fringes/, /Face Customization/ (=C-h r= and search for the title).
+- The Emacs Lisp manual: /Face Attributes/ (=:overline=, =:underline=, =:box=, =:extend=), /Display Property/ (=space=), /Child Frames/.
+- Nicolas Rougier's =nano-modeline= (for the mode line divider), the =nano-minibuffer= and =nano-command= files (for the =M-x= frame).
