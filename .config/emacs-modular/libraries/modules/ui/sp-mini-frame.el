@@ -60,9 +60,8 @@
   (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame--lines ()
-  "Return the most lines the mini-frame can have: prompt, candidates, divider."
-  (+ 1 (if (boundp 'vertico-count) vertico-count 10)
-     (if (and (sp-mini-frame--nano-p) sp-mini-frame-divider-char) 1 0)))
+  "Return the lines of the mini-frame: prompt, candidates and the divider."
+  (+ 2 (if (boundp 'vertico-count) vertico-count 10)))
 
 (defun sp-mini-frame--colors (frame)
   "Return the foreground and background of the mini-frame, from the faces of FRAME.
@@ -79,25 +78,15 @@ give text that blends into the background."
 
 (defun sp-mini-frame-parameters ()
   "Return the frame parameters for the prompt of `this-command'."
-  (let* ((parent (selected-frame))
-         (lines (sp-mini-frame--lines))
-         (pad sp-mini-frame-padding)
-         (pixels (+ (* lines (frame-char-height parent)) (* 2 pad)))
-         (top (max 0 (/ (- (frame-pixel-height parent) pixels) 2)))
-         (colors (sp-mini-frame--colors parent))
+  (let* ((pad sp-mini-frame-padding)
+         (colors (sp-mini-frame--colors (selected-frame)))
          (fg (car colors))
-         (bg (cdr colors))
-         (border (or sp-mini-frame-border-color bg)))
-    (setq mini-frame-resize-max-height lines
-          mini-frame-resize-min-height 1
-          mini-frame-internal-border-color border)
-    (when (frame-live-p mini-frame-frame)
-      (set-face-background 'child-frame-border border mini-frame-frame)
-      (set-face-background 'internal-border border mini-frame-frame))
+         (bg (cdr colors)))
+    (setq mini-frame-internal-border-color (or sp-mini-frame-border-color bg))
     `((left . 0.5)
-      (top . ,top)
+      (top . 0.5)
       (width . 0.6)
-      (height . 1)
+      (height . ,(sp-mini-frame--lines))
       (foreground-color . ,fg)
       (background-color . ,bg)
       (child-frame-border-width . ,pad)
@@ -134,7 +123,7 @@ An error is reported in the echo area and does not abort the prompt."
 
   :custom
   (mini-frame-show-parameters #'sp-mini-frame-parameters)
-  (mini-frame-resize t) ; fit the frame to its content, up to the maximum above
+  (mini-frame-resize 'not-set) ; fixed height, no resizing
 
   :config
   (mini-frame-mode 1)
