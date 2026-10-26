@@ -10,7 +10,7 @@ Literate source for =libraries/modules/tooling/sp-nano-style.el=.
 
 This module holds the parts of N Λ N O's modeline (=nano-modeline.el=, by Nicolas Rougier, GPLv3) that =sp-lambda-modeline= and =sp-prot-modeline= share. Both call =sp-nano-style-install=; the module itself loads nothing and changes nothing until they do.
 
-- *Header line.* The blocky header of nano: a block with =RW= (writable, muted), =RO= (read-only, in the warning colour) or =**= (modified, in the error colour), then the name of the buffer in bold and, at the right edge and muted, the name of the project and the time (=hh:mm=, 24 hours). In an Org buffer the name is the =#+title:= of the file, drawn with the =org-document-title= face of the theme. A dedicated window shows =--= in the block. In windows that are not selected the block is muted and the name is not bold. The tooltip of the name gives the file.
+- *Header line.* The blocky header of nano: a block with =RW= (writable, muted), =RO= (read-only, in the warning colour) or =**= (modified, in the error colour), then the name of the buffer in bold and, at the right edge and muted, the name of the project and the time (=hh:mm=, 24 hours). In an Org buffer the name is the text of the =#+title:= of the file, drawn with the face =sp-modeline-title= (defined in =sp-faces=; it does not take the =org-document-title= face of the theme). A dedicated window shows =--= in the block. In windows that are not selected the block is muted and the name is not bold. The tooltip of the name gives the file.
 - *Divider.* Nano shrinks its mode line to a thin line; here the mode line stays whole, and a thin line is drawn between the text of the buffer and the mode line (an overline of the mode line) and between the header and the text (an underline of the header line). It is set on =mode-line=, =mode-line-inactive=, =header-line= and the lambda-line faces, and set again after each theme load. How to make it fainter or turn it off is in the section "Making the divider fainter" below.
 - The colours come from the theme: the block faces inherit =warning=, =error= and =shadow= and invert them.
 
@@ -47,7 +47,7 @@ Examples:
 
 The lines are made of faces, so they can also be changed by hand: the line above the mode line is the =:overline= of =mode-line= and =mode-line-inactive= (and of the lambda-line faces), and the line under the header is the =:underline= of =header-line=. A thicker or dotted line is not possible with them; for that, the line would have to be a row of characters, as the mini-frame does under the =M-x= prompt (see =sp-mini-frame=: =sp-mini-frame-divider-char=).
 
-The look of the header line itself comes from these faces: =sp-nano-style-header-ro=, =-md= and =-rw= (the blocks), =-name=, =-title= (the =#+title:= of an Org buffer, which inherits =org-document-title=) and =-faded= (the right-hand text). To change one, use =M-x customize-face=.
+The look of the header line itself comes from these faces: =sp-nano-style-header-ro=, =-md= and =-rw= (the blocks), =-name=, (and, for the =#+title:= of an Org buffer, =sp-modeline-title=, defined in =sp-faces=) and =-faded= (the right-hand text). To change one, use =M-x customize-face=.
 
 * Code
 
@@ -114,9 +114,11 @@ the theme: 0.4 gives a faint line."
   :type 'boolean
   :group 'sp-nano-style)
 
-(defface sp-nano-style-header-title
-  '((t :inherit org-document-title))
-  "Title of an Org buffer in the header line (its `#+title:').")
+;; The canonical definition is in `sp-faces'; this one is only used when
+;; `sp-faces' has not loaded, and `defface' there replaces it.
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').")
 
 (defface sp-nano-style-header-ro
   '((t :inherit (bold warning) :inverse-video t))
@@ -217,7 +219,7 @@ The status is nano's: =**= when the buffer visits a modified file, =RO= when it 
     (concat prefix
             " "
             (propertize shown
-                        'face (cond (title-p 'sp-nano-style-header-title)
+                        'face (cond (title-p 'sp-modeline-title)
                                     (selected 'sp-nano-style-header-name)
                                     (t 'sp-nano-style-header-faded))
                         'help-echo (or buffer-file-name default-directory))

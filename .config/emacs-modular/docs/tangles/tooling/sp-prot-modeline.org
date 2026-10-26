@@ -17,8 +17,8 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 
 - *No =prot-common= or =prot-icons=.* The only function used from =prot-common= (=prot-common-window-narrow-p=) is written out here. Icons are replaced by text, so no font is needed, except for the major mode.
 - *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
-- *The first five segments are not Prot's.* They are the segments of =sp-modeline-parts=, shared with =sp-lambda-modeline=: the number of the window, the major mode in a box (nerd-icons icon), the word count (text buffers) or line and column, keycast in a fixed slot, and the minor modes as a button with a count. Prot's own buffer name, major mode and minor modes segments are not used. The boxes take the accent colours of the theme (see that module's doc).
-- *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style=, as in =sp-lambda-modeline=: nano-modeline's blocks (=RW=, =RO= or =**=), the name of the buffer (the =#+title:= in Org), the project and the time at the right. The name of the buffer is no longer in the mode line.
+- *The first four segments are not Prot's.* They are the segments of =sp-modeline-parts=, shared with =sp-lambda-modeline=: the number of the window, the major mode in a box (nerd-icons icon), the word count (text buffers) or line and column, and keycast in a fixed slot; the clocked Org task is at the right. Prot's own buffer name, major mode and minor modes segments are not used, and the count of minor modes was dropped (=C-h m=, or a click on the major mode box, lists them). The boxes take the accent colours of the theme (see that module's doc).
+- *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style=, as in =sp-lambda-modeline=: nano-modeline's blocks (=RW=, =RO= or =**=), the name of the buffer (in Org the text of the =#+title:=, in the face =sp-modeline-title= from =sp-faces=), the project and the time at the right. The name of the buffer is no longer in the mode line.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, in the keycast slot of =sp-modeline-parts=; =keycast-header-line-mode= is turned off, so the keys are not shown twice. The clock is in the header (Prot shows it in =mode-line-misc-info=).
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
 - *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
@@ -37,7 +37,7 @@ Everything below is set with =M-x customize-group RET sp-prot-modeline RET= (or 
 | =sp-modeline-parts-boxed=                 | window number, mode, keycast | Which of the three segments are drawn in a coloured box; remove one from the list to make it plain text. Takes effect at once. |
 | =sp-modeline-parts-keycast=               | =t=                     | =nil= removes the keycast slot and stops keycast at the next enabling of the mode.                             |
 | =sp-modeline-parts-keycast-width=         | =32=                    | Width in columns of the keycast slot (key and command). The rest of the line does not move because the slot has a fixed size. Takes effect at once. |
-| =sp-modeline-parts-narrow-width=          | =80=                    | Windows narrower than this leave out keycast and the minor modes button. Takes effect at once.                  |
+| =sp-modeline-parts-narrow-width=          | =80=                    | Windows narrower than this leave out keycast. Takes effect at once.                  |
 | =sp-modeline-parts-mode-icon=             | =t=                     | The major mode as a nerd-icons icon (=t=) or as its name (=nil=). Takes effect at once.                        |
 | =sp-modeline-parts-word-count-modes=      | text, Org, Markdown, LaTeX, Typst | Modes (and their children) that show the word count; all other buffers show line and column. Takes effect at once. |
 | =sp-modeline-parts-word-count-limit=      | =300000=                | A buffer longer than this many characters shows =~= instead of the count, to keep typing fast.                  |
@@ -54,7 +54,7 @@ Example, in your configuration:
 
 ** The segments and their order
 
-=sp-prot-modeline-format= is a list. Each name in it is a segment; strings such as ="  "= are spaces between them. To remove a segment delete its name from the list, to move it cut and paste the name, to add space put a string in. =mode-line-format-right-align= is not a segment: everything after it is pushed to the right edge of the window.
+=sp-prot-modeline-format= is a list. Each name in it is a segment; strings such as ="  "= are spaces between them. To remove a segment delete its name from the list, to move it cut and paste the name, to add space put a string in. =mode-line-format-right-align= is not a segment: it splits the list in two, and [[https://github.com/rougier/mode-line-maker][mode-line-maker]] puts the first part at the left of the window and the second part at the right, cutting the left part when the window is too small. How the two ends are aligned (window, fringe, margin or text) and which part is cut is set with =mode-line-maker-alignment= and =mode-line-maker-truncation-rule=.
 
 | Segment                                            | Shows                                                                                          |
 |----------------------------------------------------+------------------------------------------------------------------------------------------------|
@@ -62,7 +62,7 @@ Example, in your configuration:
 | =sp-modeline-parts-mode-construct=                 | The major mode (icon or name) in a box; click for =describe-mode=.                             |
 | =sp-modeline-parts-position-construct=             | Word count in text buffers, line and column in the others.                                      |
 | =sp-modeline-parts-keycast-construct=              | The last key (in a box) and its command, in a fixed slot.                                      |
-| =sp-modeline-parts-minor-modes-construct=          | A button with the number of minor modes; tooltip lists them, click opens the minor mode menu.  |
+| =sp-modeline-parts-clock-construct=                | The Org task being clocked: its keyword in a box, heading and time; click to go to it, right click for the agenda. |
 | =sp-modeline-parts-bar-construct=                  | A thin accent bar, as in doom-modeline (not in the list by default).                           |
 | =sp-modeline-parts-tags-construct=                 | The tag emoji (not in the list by default: the misc info below already has them).               |
 | =sp-modeline-parts-vc-construct=                   | A plain branch name (not in the list: Prot's coloured branch is used).                         |
@@ -92,6 +92,7 @@ Example, a shorter line without the process, Flymake and function segments and w
         sp-modeline-parts-keycast-construct
         sp-prot-modeline-vc-branch
         mode-line-format-right-align
+        sp-modeline-parts-clock-construct
         sp-prot-modeline-misc-info))
 ;; then: M-x sp-prot-modeline-mode twice
 #+end_src
@@ -158,9 +159,9 @@ Prot sets some things in =prot-emacs-modeline.el= that are not options here: =mo
 ;;; Commentary:
 
 ;; A mode line made of constructs, adapted from `prot-modeline.el' in
-;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it shows the lighters
-;; of the minor modes, needs no other library, and takes its colours from the
-;; theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
+;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it uses the boxed
+;; segments of `sp-modeline-parts', mode-line-maker for the left and right
+;; parts, and takes its colours from the theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
 
 ;;; Code:
 
@@ -439,7 +440,7 @@ Counts of errors, warnings and notes, with the same mouse commands as Prot's. Sh
 
 ** The mode
 
-=sp-prot-modeline-mode= saves the default =mode-line-format= and replaces it with the constructs. Turning the mode off puts the saved format back. The first five segments are those of =sp-modeline-parts= (window number, major mode, position, keycast, minor modes), in their new order; then Prot's indicators, the branch and Flymake on the left; which-function and the misc info on the right. The name of the buffer is in the header line.
+=sp-prot-modeline-mode= saves the default =mode-line-format= and replaces it with the constructs. Turning the mode off puts the saved format back. The first five segments are those of =sp-modeline-parts= (window number, major mode, position, keycast), in their new order; then Prot's indicators, the branch and Flymake on the left; the clocked task, which-function and the misc info on the right. The list is cut at =mode-line-format-right-align= and the two parts are given to =mode-line-maker=; without that package the symbol is used as in Prot's file. The name of the buffer is in the header line.
 
 =sp-modeline-parts-install= is called last, because keycast edits the format that has just been set.
 
@@ -456,8 +457,6 @@ Counts of errors, warnings and notes, with the same mouse commands as Prot's. Sh
     sp-modeline-parts-position-construct
     " "
     sp-modeline-parts-keycast-construct
-    " "
-    sp-modeline-parts-minor-modes-construct
     "  "
     sp-prot-modeline-kbd-macro
     sp-prot-modeline-narrow
@@ -471,11 +470,23 @@ Counts of errors, warnings and notes, with the same mouse commands as Prot's. Sh
     sp-prot-modeline-flymake
     "  "
     mode-line-format-right-align
+    sp-modeline-parts-clock-construct
+    "  "
     sp-prot-modeline-which-function-indicator
     "  "
     sp-prot-modeline-misc-info)
   "The mode line format of `sp-prot-modeline-mode'.
 Change it, then run `sp-prot-modeline-mode' twice (off, on).")
+
+(defun sp-prot-modeline--format ()
+  "Return `sp-prot-modeline-format' with its two parts given to mode-line-maker.
+The list is cut at `mode-line-format-right-align'.  Without the package the
+list is used as it is."
+  (if (require 'mode-line-maker nil t)
+      (let* ((tail (memq 'mode-line-format-right-align sp-prot-modeline-format))
+             (left (remove "%e" (butlast sp-prot-modeline-format (length tail)))))
+        (list "%e" (mode-line-maker left (cdr tail))))
+    sp-prot-modeline-format))
 
 ;;;###autoload
 (define-minor-mode sp-prot-modeline-mode
@@ -487,7 +498,7 @@ Change it, then run `sp-prot-modeline-mode' twice (off, on).")
         (setq sp-prot-modeline--saved-format (default-value 'mode-line-format))
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
-        (setq-default mode-line-format sp-prot-modeline-format)
+        (setq-default mode-line-format (sp-prot-modeline--format))
         (sp-nano-style-install)
         (sp-modeline-parts-install))
     (sp-modeline-parts-uninstall)
