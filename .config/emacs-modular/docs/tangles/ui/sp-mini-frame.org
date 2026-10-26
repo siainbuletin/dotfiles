@@ -24,7 +24,7 @@ Dimming:
 - It reacts to the commands in =sp-mini-frame-dim-commands= (=find-file=, =vulpea-find=, =org-node-find=) and to the note functions in =sp-mini-frame-dim-functions= (=sp-select-note=, =sp-insert-note=, =sp-collec-query-select-note=). The functions are advised, so the background is dimmed whichever command calls them, for instance when a link is inserted.
 - The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
 
-The frame shows as many candidates as Vertico does (=vertico-count=): it is as small as its content and no taller than that, centred for that size, with 4 pixels of padding.
+The frame shows as many candidates as Vertico does (=vertico-count=): it has a fixed height for that many candidates, centred, with 4 pixels of padding.
 
 The commentary at the top of the module says:
 
@@ -133,13 +133,12 @@ Loads the built-in =color= library, and =cl-lib= for =cl-mapcar=. =color= provid
 
 ** Frame parameters
 
-Every prompt uses the same frame, centred, and sized for the candidates Vertico shows (=vertico-count=, set in =sp-completion=):
+Every prompt uses the same frame, centred, with a fixed height for the candidates Vertico shows (=vertico-count=, set in =sp-completion=):
 
-- =(left . 0.5)= is a fraction of the parent frame, so the frame is centred horizontally; =(width . 0.6)= keeps it from taking the full width.
-- The height is one line (the prompt) plus =vertico-count= candidates plus, for =M-x=, the line of the dotted divider. =(height . 1)= is how the frame starts; =mini-frame-resize= (below) lets it grow as candidates arrive, up to that many lines (=mini-frame-resize-max-height=, set every time the frame is shown). Before, the frame was left at the default height of a frame, which is what showed as a long grey box under the ten candidates.
-- =top= is computed in pixels so that the frame at its largest size is centred vertically in the parent frame: (height of the parent - height of the frame) / 2. The frame grows downward from there.
+- =(left . 0.5)= and =(top . 0.5)= are fractions of the free space in the parent frame, so the frame is centred horizontally and vertically. =(width . 0.6)= keeps it from taking the full width.
+- =(height . N)= is the prompt line, =vertico-count= candidate lines and the line of the dotted divider, so the frame is as tall as its candidates and no taller. The frame is not resized while it is open: with fewer candidates there is empty space at the bottom of the frame. (A version that resized the frame to its content, with =mini-frame-resize= set to =t= and a starting height of one line, made Emacs hang when a prompt opened on macOS, and was removed. Before that the frame had the height of a normal frame, which is what showed as a long grey box.)
 - The text colour is that of the =default= face and the background is that colour moved =sp-mini-frame-contrast= (8 percent) toward the text colour, both read from the faces of the selected frame each time. =mini-frame= takes its colours from the frame parameters instead, which keep the values of the first frame when a theme is loaded later; text drawn with the theme's colour on a background computed from the old ones was almost invisible, except where highlighted.
-- The border is =sp-mini-frame-padding= pixels wide and coloured with the background of the frame, so it works as padding. The border faces are set on the frame at each showing, because =mini-frame= only does it when it makes the frame, and the colour would stay that of the first showing.
+- The border is =sp-mini-frame-padding= pixels wide and coloured with the background of the frame, so it works as padding. =mini-frame= applies the colour (=mini-frame-internal-border-color=) when it makes the frame, so after a theme change the colour of the border is renewed the next time the frame is made (restart, or =M-x delete-frame= on it).
 
 =mini-frame-show-parameters= accepts a function, so =sp-mini-frame-parameters= is called for every prompt and looks at =this-command=.
 
@@ -149,9 +148,8 @@ Every prompt uses the same frame, centred, and sized for the candidates Vertico 
   (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame--lines ()
-  "Return the most lines the mini-frame can have: prompt, candidates, divider."
-  (+ 1 (if (boundp 'vertico-count) vertico-count 10)
-     (if (and (sp-mini-frame--nano-p) sp-mini-frame-divider-char) 1 0)))
+  "Return the lines of the mini-frame: prompt, candidates and the divider."
+  (+ 2 (if (boundp 'vertico-count) vertico-count 10)))
 
 (defun sp-mini-frame--colors (frame)
   "Return the foreground and background of the mini-frame, from the faces of FRAME.
@@ -168,25 +166,15 @@ give text that blends into the background."
 
 (defun sp-mini-frame-parameters ()
   "Return the frame parameters for the prompt of `this-command'."
-  (let* ((parent (selected-frame))
-         (lines (sp-mini-frame--lines))
-         (pad sp-mini-frame-padding)
-         (pixels (+ (* lines (frame-char-height parent)) (* 2 pad)))
-         (top (max 0 (/ (- (frame-pixel-height parent) pixels) 2)))
-         (colors (sp-mini-frame--colors parent))
+  (let* ((pad sp-mini-frame-padding)
+         (colors (sp-mini-frame--colors (selected-frame)))
          (fg (car colors))
-         (bg (cdr colors))
-         (border (or sp-mini-frame-border-color bg)))
-    (setq mini-frame-resize-max-height lines
-          mini-frame-resize-min-height 1
-          mini-frame-internal-border-color border)
-    (when (frame-live-p mini-frame-frame)
-      (set-face-background 'child-frame-border border mini-frame-frame)
-      (set-face-background 'internal-border border mini-frame-frame))
+         (bg (cdr colors)))
+    (setq mini-frame-internal-border-color (or sp-mini-frame-border-color bg))
     `((left . 0.5)
-      (top . ,top)
+      (top . 0.5)
       (width . 0.6)
-      (height . 1)
+      (height . ,(sp-mini-frame--lines))
       (foreground-color . ,fg)
       (background-color . ,bg)
       (child-frame-border-width . ,pad)
@@ -230,7 +218,7 @@ An error is reported in the echo area and does not abort the prompt."
 
 ** mini-frame-mode
 
-Installs =mini-frame= and turns on =mini-frame-mode=. =mini-frame-resize= is =t=: the frame is fitted to its content, between one line and the maximum set above. (It was =not-set=, which left the height as it started.) The number of candidates is Vertico's own =vertico-count=; the mini-frame does not set one. (Ten if Vertico is not loaded.)
+Installs =mini-frame= and turns on =mini-frame-mode=. =mini-frame-resize= is =not-set=: the frame keeps the fixed height given by the parameters above and Emacs does not resize it. The number of candidates is Vertico's own =vertico-count=; the mini-frame does not set one. (Ten if Vertico is not loaded.)
 
 #+begin_src emacs-lisp -i
 (use-package mini-frame
@@ -238,7 +226,7 @@ Installs =mini-frame= and turns on =mini-frame-mode=. =mini-frame-resize= is =t=
 
   :custom
   (mini-frame-show-parameters #'sp-mini-frame-parameters)
-  (mini-frame-resize t) ; fit the frame to its content, up to the maximum above
+  (mini-frame-resize 'not-set) ; fixed height, no resizing
 
   :config
   (mini-frame-mode 1)
