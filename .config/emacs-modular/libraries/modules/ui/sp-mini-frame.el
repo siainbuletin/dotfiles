@@ -24,6 +24,16 @@
                                 f b)
                      '(2))))))
 
+(defcustom sp-mini-frame-padding 4
+  "Pixels of space around the text of the mini-frame."
+  :type 'natnum
+  :group 'minibuffer)
+
+(defcustom sp-mini-frame-border-color nil
+  "Colour of the border around the mini-frame, or nil for its own background."
+  :type '(choice (const :tag "Background of the frame" nil) color)
+  :group 'minibuffer)
+
 (defcustom sp-mini-frame-nano-commands
   '(execute-extended-command amx counsel-M-x smex)
   "Commands whose prompt is styled like nano's M-x."
@@ -44,18 +54,33 @@
   "Return non-nil when the prompt being shown is a nano-style M-x."
   (memq this-command sp-mini-frame-nano-commands))
 
+(defun sp-mini-frame--lines ()
+  "Return the most lines the mini-frame can have: prompt, candidates, divider."
+  (+ 1 (if (boundp 'vertico-count) vertico-count 10)
+     (if (and (sp-mini-frame--nano-p) sp-mini-frame-divider-char) 1 0)))
+
 (defun sp-mini-frame-parameters ()
   "Return the frame parameters for the prompt of `this-command'."
-  (let ((nano (sp-mini-frame--nano-p))
-        (fg (face-foreground 'default nil t)))
-    (when (and nano (boundp 'mini-frame-internal-border-color))
-      (setq mini-frame-internal-border-color fg))
-    (let ((border (if nano 1 2)))
-      `((left . 0.5)
-        (top . 0.4)
-        (width . 0.6)
-        (child-frame-border-width . ,border)
-        (internal-border-width . ,border)))))
+  (let* ((parent (selected-frame))
+         (lines (sp-mini-frame--lines))
+         (pad sp-mini-frame-padding)
+         (pixels (+ (* lines (frame-char-height parent)) (* 2 pad)))
+         (top (max 0 (/ (- (frame-pixel-height parent) pixels) 2)))
+         (bg (funcall mini-frame-background-color-function parent))
+         (border (or sp-mini-frame-border-color bg)))
+    (setq mini-frame-resize-max-height lines
+          mini-frame-resize-min-height 1
+          mini-frame-internal-border-color border)
+    (when (frame-live-p mini-frame-frame)
+      (set-face-background 'child-frame-border border mini-frame-frame)
+      (set-face-background 'internal-border border mini-frame-frame))
+    `((left . 0.5)
+      (top . ,top)
+      (width . 0.6)
+      (height . 1)
+      (background-color . ,bg)
+      (child-frame-border-width . ,pad)
+      (internal-border-width . ,pad))))
 
 (defun sp-mini-frame--divider-color ()
   "Return the colour of the dotted line."
@@ -88,7 +113,7 @@
 
   :custom
   (mini-frame-show-parameters #'sp-mini-frame-parameters)
-  (mini-frame-resize 'not-set) ; this leaves resizing to Emacs to do the job
+  (mini-frame-resize t) ; fit the frame to its content, up to the maximum above
 
   :config
   (mini-frame-mode 1)
