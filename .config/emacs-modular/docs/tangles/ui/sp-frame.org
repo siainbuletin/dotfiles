@@ -238,3 +238,9 @@ Provides the =sp-frame= feature and closes the file.
 (provide 'sp-frame)
 ;;; sp-frame.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/116][#116]] 🐛 Fixed Org text not being wrapped and centred by =olivetti-mode=: =sp-set-window-margins= (=sp-frame=) set a two-column margin on every window at each =window-configuration-change-hook=, overwriting the margins Olivetti uses to centre the text, so lines ran to the window edge. It now skips windows showing a buffer in =olivetti-mode=. Not run in Emacs (none in the container).

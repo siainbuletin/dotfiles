@@ -223,3 +223,9 @@ Provides the =sp-lambda-modeline= feature and closes the file.
 #+begin_src emacs-lisp -i
 (provide 'sp-lambda-modeline)
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/99][#99]] 🐛 Fixed the empty mode line of lambda-line (no buffer name, no modes): the bare =%_= divider was set when the position is =bottom=, overwriting the status line, instead of when it is =top=. Renamed =sp-lambda-line= to =sp-lambda-modeline=: lambda-line in the mode line plus a header line with the path of the file and the project, keycast at the right of the mode line (keycast no longer in the header: =sp-frame= does not turn on =keycast-header-line-mode=), the tag emoji of =sp-tag-emoji= in every mode line (lambda-line does not show =global-mode-string=) and lambda-line faces taken from the theme in use, re-applied after each theme load. Removed =sp-choose-modeline= and its doc (last at commit =cfc047b=). Added =sp-prot-modeline=, a native mode line adapted from Prot's (buffer name, major and minor modes, branch, Flymake, keycast at the bottom, path in a header line), not loaded by =init.el=. Untested in a running Emacs.

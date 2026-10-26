@@ -669,3 +669,9 @@ The tests use a temporary folder and a copy of the registry, so neither the real
 (provide 'sp-org-tag-lint-test)
 ;;; sp-org-tag-lint-test.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/105][#105]] ✨ Added the note-tag registry and =sp-org-tag-lint=: the note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (the task tags stay in =org-tag-alist=); =M-x sp-org-tag-lint= reports the unregistered tags of the vault, with the likely typo, and the notes without =#+filetags:=; =M-x sp-org-tag-add= registers a tag in that file and loads it again, no restart. Changed =sp-org-create-note-and-link= and the notes created by wikilink conversion to ask for the note's tags, and =sp-split-leave-parents= to ignore tag inheritance (=sp-split-inherit-tags=). 10 ERT tests; not run in a real vault or with vulpea.

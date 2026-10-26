@@ -248,3 +248,9 @@ Provides the =sp-env= feature and closes the file.
 (provide 'sp-env)
 ;; sp-env.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/101][#101]] 🐛 Fixed =sp-env= failing at startup with =(void-function exec-path-from-shell-copy-env)=: a leftover top-level =dolist= (with a stray =...= in its variable list) called the package outside the =use-package= form, where it is not loaded in a terminal Emacs or before Elpaca has activated it. =GIT_CEILING_DIRECTORIES= now sits in the one list inside =:config=, and the daemon case is part of the =:if= condition instead of a separate call. Not run in Emacs (none in the container).
