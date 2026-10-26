@@ -16,6 +16,7 @@
 (declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
 (declare-function lambda-line-compose "lambda-line")
 (require 'sp-nano-style)
+(require 'sp-modeline-parts)
 (defvar lambda-line-position)
 
 (defgroup sp-lambda-modeline nil
@@ -79,60 +80,24 @@
                         :foreground (sp-lambda-modeline--foreground 'error "red"))
     (force-mode-line-update t)))
 
-(defvar keycast-mode-line-format)
-(defvar keycast-mode-line-insert-after)
-(defvar keycast-mode-line-window-predicate)
-(defvar keycast-mode-line-remove-tail-elements)
-(defvar keycast-substitute-alist)
-(defvar keycast-header-line-mode)
-(declare-function keycast-mode-line-mode "keycast")
-(declare-function keycast-header-line-mode "keycast")
-(declare-function keycast-format "keycast")
-
-(defvar sp-lambda-modeline-keycast-anchor ""
-  "Empty element of `mode-line-format' that keycast inserts its segment after.")
-(put 'sp-lambda-modeline-keycast-anchor 'risky-local-variable t)
-
-(defcustom sp-lambda-modeline-keycast t
-  "When non-nil, show the keys and commands (keycast) in the mode line."
+(defcustom sp-lambda-modeline-new-layout t
+  "When non-nil, text and programming buffers get the line of `sp-modeline-parts'."
   :type 'boolean
   :group 'sp-lambda-modeline)
 
-(defun sp-lambda-modeline-keycast-string ()
-  "Return the keycast text for the selected window's mode line, or an empty string."
-  (or (and sp-lambda-modeline-keycast
-           (bound-and-true-p keycast-mode-line-mode)
-           (mode-line-window-selected-p)
-           (keycast-format "%k%c%R "))
-      ""))
-
-(defun sp-lambda-modeline--setup-keycast ()
-  "Start keycast in the mode line and stop it in the header line."
-  (when (and sp-lambda-modeline-keycast (require 'keycast nil t))
-    (when (bound-and-true-p keycast-header-line-mode)
-      (keycast-header-line-mode -1))
-    (setq keycast-mode-line-insert-after 'sp-lambda-modeline-keycast-anchor
-          keycast-mode-line-window-predicate #'ignore
-          keycast-mode-line-remove-tail-elements nil)
-    (dolist (input '(self-insert-command org-self-insert-command))
-      (add-to-list 'keycast-substitute-alist `(,input "." "Typing…")))
-    (dolist (event '("<mouse-event>" "<mouse-movement>" "<mouse-2>" "<drag-mouse-1>"
-                     "<wheel-up>" "<wheel-down>" "<double-wheel-up>" "<double-wheel-down>"
-                     "<triple-wheel-up>" "<triple-wheel-down>" "<wheel-left>" "<wheel-right>"
-                     handle-select-window mouse-set-point mouse-drag-region))
-      (add-to-list 'keycast-substitute-alist `(,event nil nil)))
-    (unless (memq 'sp-lambda-modeline-keycast-anchor
-                  (default-value 'mode-line-format))
-      (setq-default mode-line-format
-                    (append (default-value 'mode-line-format)
-                            '(sp-lambda-modeline-keycast-anchor))))
-    (unless (bound-and-true-p keycast-mode-line-mode)
-      (keycast-mode-line-mode 1))))
+(defun sp-lambda-modeline--compose (orig-fun &rest args)
+  "Return the line of `sp-modeline-parts' in text and programming buffers.
+Otherwise call ORIG-FUN, `lambda-line-compose', with ARGS."
+  (if (and sp-lambda-modeline-new-layout
+           (not (minibufferp))
+           (derived-mode-p 'text-mode 'prog-mode))
+      (sp-modeline-parts-compose)
+    (apply orig-fun args)))
 
 (defun sp-lambda-modeline-apply-layout ()
-  "Show the file name in the header line and the keys in the mode line."
+  "Show the name of the buffer in the header line and the new line at the bottom."
   (sp-nano-style-install)
-  (sp-lambda-modeline--setup-keycast)
+  (sp-modeline-parts-install)
   (force-mode-line-update t))
 
 (use-package lambda-line
@@ -152,10 +117,10 @@
     (lambda-line-gui-rw-symbol  " ◯")
     (lambda-line-space-top +.70)  ;; padding on top and bottom of line
     (lambda-line-space-bottom -.70)
-    (lambda-line-default-tertiary-function #'sp-lambda-modeline-keycast-string) ;; keycast, right side
     (lambda-line-symbol-position 0.1) ;; adjust the vertical placement of symbol
 
     :config
+    (advice-add 'lambda-line-compose :around #'sp-lambda-modeline--compose)
     (advice-add 'lambda-line-compose :filter-args
                 #'sp-lambda-modeline--add-tag-emoji)
     (advice-add 'lambda-line-mode-name :around #'sp-lambda-modeline--mode-icon)
