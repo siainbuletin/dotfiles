@@ -142,16 +142,20 @@ Small left and right margins keep text from touching the window edge now that fr
 
 ** Set margins on all windows
 
-=sp-set-window-margins= walks every window in the selected frame and gives each non-minibuffer window a two-column margin on both sides. It overrides margins set by other modes, such as writing modes that centre text.
+=sp-set-window-margins= walks every window in the selected frame and gives each non-minibuffer window a two-column margin on both sides. It skips windows whose buffer is in =olivetti-mode=, because Olivetti centres the text with those same window margins; setting two columns there on every window change undid the centring and the 80-column body.
 
 #+begin_src emacs-lisp -i
 ;;;;; Window Margins for Text Indentation
 ;; Add margins to windows to maintain text indentation with smaller frame borders
 (defun sp-set-window-margins ()
-  "Set left and right margins for all windows to maintain text indentation."
+  "Set left and right margins for all windows to maintain text indentation.
+Windows showing a buffer in `olivetti-mode' are skipped: Olivetti
+centres the text with these same margins."
   (walk-windows
    (lambda (window)
-     (unless (window-minibuffer-p window)
+     (unless (or (window-minibuffer-p window)
+                 (with-current-buffer (window-buffer window)
+                   (bound-and-true-p olivetti-mode)))
        (set-window-margins window 2 2)))))
 #+end_src
 
