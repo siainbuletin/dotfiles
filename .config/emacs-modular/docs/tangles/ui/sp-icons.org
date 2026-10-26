@@ -183,3 +183,9 @@ Provides the =sp-icons= feature and closes the file.
 (provide 'sp-icons)
 ;; sp-icons.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/112][#112]] 🐛 Fixed Dirvish showing two sets of icons per entry: =nerd-icons-dired-mode= on =dired-mode-hook= ran in Dirvish buffers (derived from dired) on top of Dirvish's own =nerd-icons= attribute; it is now turned off in Dirvish buffers and stays on in plain dired. Not run in Emacs (none in the container).

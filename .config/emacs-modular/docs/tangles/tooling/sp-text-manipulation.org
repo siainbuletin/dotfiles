@@ -404,3 +404,9 @@ Provides the =sp-text-manipulation= feature and closes the file.
 (provide 'sp-text-manipulation)
 ;; sp-text-manipulation.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/104][#104]] 🐛 Fixed =sp-clean-whitespace= disturbing text while typing in Org: the idle saves of =auto-save-visited-mode= and =lem-full-auto-save= run =before-save-hook=, so the cleanup stripped the space just typed and collapsed blank lines around point. The hook now calls =sp-clean-whitespace-before-save=, which skips modes in the new option =sp-clean-whitespace-autosave-skip-modes= (default =org-mode=) unless the save was explicit (=save-buffer=, =save-some-buffers=, =write-file=). Not run in Emacs (none in the container).

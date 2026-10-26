@@ -787,3 +787,10 @@ Provides the =sp-tag-emoji= feature and closes the file.
 (provide 'sp-tag-emoji)
 ;; sp-tag-emoji.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/108][#108]] ✨ Added =sp-select-note=, a note selector of my own: it calls =vulpea-select-from= with the emoji of the note's tags in front of the title and the tags in a column at the right edge, as small dimmed text, whose width follows the frame width (=sp-tag-emoji-select-column-fraction=). With =sp-tag-emoji-mode= on, =vulpea-select= (and =vulpea-find=, =vulpea-insert=) also get the emoji in front of titles; rules can leave a note selection with =:select nil=. =M-x sp-insert-note= is =vulpea-insert= with the same emoji and tag column. The link and note commands that chose a note with =vulpea-select=, =vulpea-insert= or their own completion now call these two (=sp-org-create-note-and-link= and the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note, the query-table note picker).
+- [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag families: =sp-org-tag-families= groups the note tags into families (the shape proposed in ADR 0020) and =sp-tag-emoji-family-colors= gives each family one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-tag-emoji-palette=, written from memory of Notion's values). Stacked on #108.

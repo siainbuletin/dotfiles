@@ -2561,3 +2561,9 @@ Test fixtures:
 (provide 'sp-org-lint-test)
 ;;; sp-org-lint-test.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/106][#106]] 🔧 Changed =sp-vulpea-split= to =sp-split-leave-parents= (stacked on #105): the module is now =libraries/modules/funct/sp-split-leave-parents.el=, its doc is a section of =docs/tangles/funct/sp-org-lint.org= that tangles it separately, =sp-vulpea-ext= requires the new name, and the module tree and the load-order graph are updated.
