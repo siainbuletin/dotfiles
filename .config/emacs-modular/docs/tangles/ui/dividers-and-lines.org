@@ -1,25 +1,15 @@
 #+TITLE: Styling the lines between things in Emacs: a guide
 #+STARTUP: content
 
-This page explains how to change the lines that separate things on the screen: the dotted line under =M-x=, the thin line above the mode line and under the header, the divider between windows, the borders of the frame and of the mini-frame. It first says what to change for each line of this configuration, then explains how Emacs draws each kind of line in general. Nothing here needs more than =setq=, =set-face-attribute= or =M-x customize=.
+This page explains how to change the lines that separate things on the screen: the thin line above the mode line and under the header, the divider between windows, the borders of the frame and of the mini-frame. It first says what to change for each line of this configuration, then explains how Emacs draws each kind of line in general. Nothing here needs more than =setq=, =set-face-attribute= or =M-x customize=.
 
 Settings go in your own configuration /before/ the module loads (above the module list in =init.el=) or are set with =M-x customize-variable= and =M-x customize-face=. Faces can be tried first with =M-x customize-face RET face-name RET=, and the faces under the cursor shown with =M-x what-face= (=sp-faces=) or =C-u C-x ==.
 
 * Quick answers for this configuration
 
-** The dotted line under =M-x= (=sp-mini-frame=)
+** The frame of the mini-frame (=sp-mini-frame=)
 
-It is a row of one character, drawn after the text you type in the =M-x= prompt (see [[file:sp-mini-frame.org][sp-mini-frame]]).
-
-| What to change         | How                                                                                          |
-|------------------------+----------------------------------------------------------------------------------------------|
-| The character          | =(setq sp-mini-frame-divider-char ?┄)=. Dotted choices: =?┈= (the default), =?┄=, =?╌=, =?·=. A solid line: =?─=. =nil= removes the line. |
-| The colour             | It is the colour of the divider of =sp-nano-style=: =(setq sp-nano-style-divider-color "#888888")=, or the foreground of the face in =sp-nano-style-divider-face= (default =shadow=). |
-| How strong it is       | =(setq sp-nano-style-divider-opacity 0.4)=: 1 is the full colour, 0 invisible. It mixes the colour with the background of the theme, so it follows the theme. |
-| Where it sits          | If it is drawn under the candidates and not between the input and the candidates: =(setq sp-mini-frame-divider-priority 50)= (or =-50=, the other way). Vertico also draws its candidates in an overlay at the end of the input; the overlay with the higher priority wins the order. |
-| Its width              | It is as wide as the minibuffer window when the prompt opens. The frame width is =(width . 0.6)= in =sp-mini-frame-parameters=. |
-
-The frame itself: the padding around the text is =sp-mini-frame-padding= (4 pixels) in the colour of the frame, and =sp-mini-frame-border-color= gives it an outline colour. The number of candidates is Vertico's =vertico-count=.
+There is no dotted line under =M-x= any more: the nano-style prompt was removed from =sp-mini-frame= (see [[file:sp-mini-frame.org][sp-mini-frame]]). The mini-frame is a plain child frame. Its padding and border are the frame parameters =child-frame-border-width= and =internal-border-width= (4 pixels, in the colour of the frame) in =mini-frame-show-parameters=, and the colour of the border is the face =child-frame-border=. Its height is fixed at 17 lines for Vertico's =vertico-count= (13) candidates. To bring a dotted line back, see the section on lines made from characters below.
 
 ** The thin line above the mode line and under the header (=sp-nano-style=)
 
