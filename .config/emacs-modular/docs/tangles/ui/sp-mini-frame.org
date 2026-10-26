@@ -181,6 +181,28 @@ give text that blends into the background."
       (internal-border-width . ,pad))))
 #+end_src
 
+** Text colours of the minibuffer
+
+The colours above are given to the frame, but the text of a minibuffer is drawn with the =default= face of that frame, and a theme applies its own face settings to every new frame, so what the frame ends up with is not certain. To make the text readable whatever the frame has, the minibuffer buffer remaps its own =default= face (=face-remap-add-relative=) to the text colour and the background computed from the face of the frame that was selected before the prompt (=sp-mini-frame--colors=). The remap covers the typed text, the candidates and the strings that Vertico and Marginalia add. It applies to every prompt in the mini-frame.
+
+#+begin_src emacs-lisp -i
+(defvar mini-frame-selected-frame)
+
+(defun sp-mini-frame--fix-colors ()
+  "Draw the minibuffer in the colours of the theme of the frame it was opened from."
+  (when (and (bound-and-true-p mini-frame-mode)
+             (frame-live-p mini-frame-frame)
+             (eq (selected-frame) mini-frame-frame)
+             (frame-live-p mini-frame-selected-frame))
+    (let ((colors (sp-mini-frame--colors mini-frame-selected-frame)))
+      (when (and (stringp (car colors)) (stringp (cdr colors)))
+        (face-remap-add-relative 'default
+                                 :foreground (car colors)
+                                 :background (cdr colors))))))
+
+(add-hook 'minibuffer-setup-hook #'sp-mini-frame--fix-colors)
+#+end_src
+
 ** The prompt block and the dotted line
 
 When the minibuffer of a nano-style command opens, two things are added to the minibuffer buffer:
