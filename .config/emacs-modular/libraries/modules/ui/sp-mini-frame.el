@@ -24,6 +24,11 @@
                                 f b)
                      '(2))))))
 
+(defcustom sp-mini-frame-contrast 0.08
+  "How far the mini-frame background moves from the default background toward the foreground (0 to 1)."
+  :type 'number
+  :group 'minibuffer)
+
 (defcustom sp-mini-frame-padding 4
   "Pixels of space around the text of the mini-frame."
   :type 'natnum
@@ -55,32 +60,53 @@
   (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame--lines ()
-  "Return the most lines the mini-frame can have: prompt, candidates, divider."
-  (+ 1 (if (boundp 'vertico-count) vertico-count 10)
-     (if (and (sp-mini-frame--nano-p) sp-mini-frame-divider-char) 1 0)))
+  "Return the lines of the mini-frame: prompt, candidates and the divider."
+  (+ 2 (if (boundp 'vertico-count) vertico-count 10)))
+
+(defun sp-mini-frame--colors (frame)
+  "Return the foreground and background of the mini-frame, from the faces of FRAME.
+The colours are those of the `default' face, not the frame parameters, which
+stay at the values of the first frame when a theme is loaded later, and would
+give text that blends into the background."
+  (let ((fg (face-foreground 'default frame t))
+        (bg (face-background 'default frame t)))
+    (when (or (not (stringp fg)) (string-prefix-p "unspecified" fg))
+      (setq fg (frame-parameter frame 'foreground-color)))
+    (when (or (not (stringp bg)) (string-prefix-p "unspecified" bg))
+      (setq bg (frame-parameter frame 'background-color)))
+    (cons fg (or (sp-mini-frame--mix fg bg sp-mini-frame-contrast) bg))))
 
 (defun sp-mini-frame-parameters ()
   "Return the frame parameters for the prompt of `this-command'."
-  (let* ((parent (selected-frame))
-         (lines (sp-mini-frame--lines))
-         (pad sp-mini-frame-padding)
-         (pixels (+ (* lines (frame-char-height parent)) (* 2 pad)))
-         (top (max 0 (/ (- (frame-pixel-height parent) pixels) 2)))
-         (bg (funcall mini-frame-background-color-function parent))
-         (border (or sp-mini-frame-border-color bg)))
-    (setq mini-frame-resize-max-height lines
-          mini-frame-resize-min-height 1
-          mini-frame-internal-border-color border)
-    (when (frame-live-p mini-frame-frame)
-      (set-face-background 'child-frame-border border mini-frame-frame)
-      (set-face-background 'internal-border border mini-frame-frame))
+  (let* ((pad sp-mini-frame-padding)
+         (colors (sp-mini-frame--colors (selected-frame)))
+         (fg (car colors))
+         (bg (cdr colors)))
+    (setq mini-frame-internal-border-color (or sp-mini-frame-border-color bg))
     `((left . 0.5)
-      (top . ,top)
+      (top . 0.5)
       (width . 0.6)
-      (height . 1)
+      (height . ,(sp-mini-frame--lines))
+      (foreground-color . ,fg)
       (background-color . ,bg)
       (child-frame-border-width . ,pad)
       (internal-border-width . ,pad))))
+
+(defvar mini-frame-selected-frame)
+
+(defun sp-mini-frame--fix-colors ()
+  "Draw the minibuffer in the colours of the theme of the frame it was opened from."
+  (when (and (bound-and-true-p mini-frame-mode)
+             (frame-live-p mini-frame-frame)
+             (eq (selected-frame) mini-frame-frame)
+             (frame-live-p mini-frame-selected-frame))
+    (let ((colors (sp-mini-frame--colors mini-frame-selected-frame)))
+      (when (and (stringp (car colors)) (stringp (cdr colors)))
+        (face-remap-add-relative 'default
+                                 :foreground (car colors)
+                                 :background (cdr colors))))))
+
+(add-hook 'minibuffer-setup-hook #'sp-mini-frame--fix-colors)
 
 (defun sp-mini-frame--divider-color ()
   "Return the colour of the dotted line."
@@ -89,22 +115,22 @@
       (face-foreground 'shadow nil t)))
 
 (defun sp-mini-frame--style-nano ()
-  "Give the M-x prompt nano's block and the input a dotted line below it."
-  (when (and (bound-and-true-p mini-frame-mode) (sp-mini-frame--nano-p))
-    (let ((fg (face-foreground 'default nil t))
-          (bg (face-background 'default nil t)))
-      (face-remap-add-relative
-       'minibuffer-prompt
-       :foreground bg :background fg :weight 'bold
-       :box `(:line-width 1 :color ,fg)))
-    (when sp-mini-frame-divider-char
-      (let ((ov (make-overlay (point-max) (point-max) nil nil t))
-            (width (max 10 (1- (window-body-width (minibuffer-window))))))
-        (overlay-put ov 'priority sp-mini-frame-divider-priority)
-        (overlay-put ov 'after-string
-                     (concat "\n"
-                             (propertize (make-string width sp-mini-frame-divider-char)
-                                         'face `(:foreground ,(sp-mini-frame--divider-color)))))))))
+  "Give the M-x prompt nano's block and the input a dotted line below it.
+An error is reported in the echo area and does not abort the prompt."
+  (condition-case err
+      (when (and (bound-and-true-p mini-frame-mode) (sp-mini-frame--nano-p))
+        (face-remap-add-relative
+         'minibuffer-prompt
+         :inverse-video t :weight 'bold :box '(:line-width 1))
+        (when sp-mini-frame-divider-char
+          (let ((ov (make-overlay (point-max) (point-max) nil nil t))
+                (width (max 10 (1- (window-body-width (minibuffer-window))))))
+            (overlay-put ov 'priority sp-mini-frame-divider-priority)
+            (overlay-put ov 'after-string
+                         (concat "\n"
+                                 (propertize (make-string width sp-mini-frame-divider-char)
+                                             'face `(:foreground ,(sp-mini-frame--divider-color))))))))
+    (error (message "sp-mini-frame: styling the prompt failed: %s" err))))
 
 (add-hook 'minibuffer-setup-hook #'sp-mini-frame--style-nano)
 
@@ -113,7 +139,7 @@
 
   :custom
   (mini-frame-show-parameters #'sp-mini-frame-parameters)
-  (mini-frame-resize t) ; fit the frame to its content, up to the maximum above
+  (mini-frame-resize 'not-set) ; fixed height, no resizing
 
   :config
   (mini-frame-mode 1)
