@@ -39,7 +39,7 @@ Changes to the Emacs configuration, grouped by the feature they build or fix. Wi
 - [[https://github.com/siainbuletin/dotfiles/pull/108][#108]] (Claude) ✨ Added =sp-select-note= and =sp-insert-note=: note selectors with tag emoji and a tag column. Details: [[file:docs/tangles/custom/sp-tag-emoji.org::*Changes by pull request][=sp-tag-emoji= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/109][#109]] (Claude) ✨ Added ADR 0020, a proposal for families of note tags as an alist turned into Org group tags. No code changes yet.
 - [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] (Claude) ✨ Added: coloured the tag chips in the note selectors by family (Notion's ten colours). Details: [[file:docs/tangles/custom/sp-tag-emoji.org::*Changes by pull request][=sp-tag-emoji= doc]].
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] (Claude) 🐛 Fixed =sp-split-leave-parents= failing with an autoload error: its key binding autoloaded it from =org=. Details: [[file:docs/tangles/text/sp-org-base.org::*Changes by pull request][=sp-org-base= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/130][#130]] (Claude) 🐛 Fixed =sp-split-leave-parents= failing with an autoload error: its key binding autoloaded it from =org=. Details: [[file:docs/tangles/text/sp-org-base.org::*Changes by pull request][=sp-org-base= doc]].
 
 * BibTeX and academic tools
 /2026-10-24 to 2026-10-26./ One citation-key scheme and one bibliography list, then fetching papers.
