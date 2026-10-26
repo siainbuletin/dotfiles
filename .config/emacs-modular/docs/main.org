@@ -161,6 +161,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/text/sp-org-babel.org][sp-org-babel]] :: Org Babel languages and tangling ([[file:../libraries/modules/text/sp-org-babel.el][sp-org-babel.el]])
 - [[file:tangles/text/sp-org-base.org][sp-org-base]] :: Core Org mode and text-mode settings ([[file:../libraries/modules/text/sp-org-base.el][sp-org-base.el]])
 - [[file:tangles/text/sp-org-capture.org][sp-org-capture]] :: Org capture templates and capture frames ([[file:../libraries/modules/text/sp-org-capture.el][sp-org-capture.el]])
+- [[file:tangles/text/sp-quick-capture.org][sp-quick-capture]] :: Things-style quick entry into inbox.org from a global hotkey ([[file:../libraries/modules/text/sp-quick-capture.el][sp-quick-capture.el]])
 - [[file:tangles/text/sp-org-custom-highlight.org][sp-org-custom-highlight]] :: Highlighting inline comments in Org ([[file:../libraries/modules/text/sp-org-custom-highlight.el][sp-org-custom-highlight.el]])
 - [[file:tangles/text/sp-org-emphasis.org][sp-org-emphasis]] :: Org emphasis helpers ([[file:../libraries/modules/text/sp-org-emphasis.el][sp-org-emphasis.el]])
 - [[file:tangles/text/sp-org-export.org][sp-org-export]] :: Org export, Pandoc and clipboard conversion ([[file:../libraries/modules/text/sp-org-export.el][sp-org-export.el]])
