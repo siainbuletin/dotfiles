@@ -191,6 +191,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/tooling/sp-prot-modeline.org][sp-prot-modeline]] :: Native mode line adapted from Prot's, with minor modes and keycast ([[file:../libraries/modules/tooling/sp-prot-modeline.el][sp-prot-modeline.el]])
 - [[file:tangles/tooling/sp-md.org][sp-md]] :: Markdown editing ([[file:../libraries/modules/tooling/sp-md.el][sp-md.el]])
 - [[file:tangles/tooling/sp-minibuffer.org][sp-minibuffer]] :: Minibuffer and completion packages ([[file:../libraries/modules/tooling/sp-minibuffer.el][sp-minibuffer.el]])
+- [[file:tangles/tooling/sp-nano-style.org][sp-nano-style]] :: Nano's header line blocks and mode line divider, shared by the two modelines ([[file:../libraries/modules/tooling/sp-nano-style.el][sp-nano-style.el]])
 - [[file:tangles/tooling/sp-network.org][sp-network]] :: Network: TRAMP yadm method and HTTP library ([[file:../libraries/modules/tooling/sp-network.el][sp-network.el]])
 - [[file:tangles/tooling/sp-scratch.org][sp-scratch]] :: Persistent scratch buffer ([[file:../libraries/modules/tooling/sp-scratch.el][sp-scratch.el]])
 - [[file:tangles/tooling/sp-server.org][sp-server]] :: Emacs server and daemon management ([[file:../libraries/modules/tooling/sp-server.el][sp-server.el]])

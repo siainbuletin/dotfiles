@@ -18,11 +18,119 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 - *No =prot-common= or =prot-icons=.* The only function used from =prot-common= (=prot-common-window-narrow-p=) is written out here. Icons are replaced by text, so no font is needed.
 - *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
 - *Minor modes are shown.* Prot's mode line has no minor modes. =sp-prot-modeline-minor-modes= shows their lighters, a count, or nothing (=sp-prot-modeline-minor-modes-style=).
-- *Header line.* The path of the file (the directory for a buffer with no file) is shown in a header line above each window, as in =sp-lambda-modeline=; Prot's own mode line has no header. The buffer name stays in the mode line.
+- *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style= (nano-modeline's blocks: =RW=, =RO= or =**=, the path in bold, the project at the right), as in =sp-lambda-modeline=. The buffer name stays in the mode line.
+- *Major mode icon.* The major mode is shown as its =nerd-icons= icon, with the name as its tooltip (=sp-prot-modeline-mode-icon=); Prot's text is the fallback when there is no icon. Prot's own file has the =prot-icons= library for this.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, with =keycast-mode-line-mode=, after the branch, as in Prot's =prot-emacs-modeline.el= (same format, window predicate and substitutions for typing and mouse events). Turn it off with =sp-prot-modeline-keycast=. =keycast-header-line-mode= is turned off, so the keys are not shown twice.
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
 - *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the clock, and the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
 - *Emacs 30.* =mode-line-format-right-align= and =mode-line-right-align-edge= are Emacs 30 features, as in Prot's file. They are safe on Emacs 29 because an unbound symbol in a mode line format is ignored.
+
+* Changing the settings
+
+Everything below is set with =M-x customize-group RET sp-prot-modeline RET=, or with a =setq= in your own configuration /before/ the module loads (for example in =init.el=, above the module list). Names with =sp-nano-style= belong to the header line and the divider. After changing a setting, turn the mode off and on again with =M-x sp-prot-modeline-mode= twice, or restart Emacs, unless the table says otherwise. None of this needs any change to the Emacs Lisp code of the module.
+
+** Options (variables)
+
+| Variable                                | Default                      | What it does                                                                                                   |
+|-----------------------------------------+------------------------------+----------------------------------------------------------------------------------------------------------------|
+| =sp-prot-modeline-minor-modes-style=    | =lighters=                   | How enabled minor modes are shown: =lighters= (the text each mode puts in the line, as in the default Emacs mode line), =count= (a number such as =(7)=, the names in the tooltip) or =nil= (nothing). Takes effect at once. |
+| =sp-prot-modeline-mode-icon=            | =t=                          | Show the major mode as a nerd-icons icon (=t=) or as its name in bold (=nil=). Takes effect at once.            |
+| =sp-prot-modeline-string-truncate-length= | =9=                        | In a narrow window (narrower than =split-width-threshold=, with more than one window) names are cut to this many characters: the buffer name in the middle, the branch and the minor modes at the end. Raise it for longer names, set it very high (=999=) to never cut. Takes effect at once. |
+| =sp-prot-modeline-keycast=              | =t=                          | Show the keys and commands (keycast) at the bottom. =nil= turns it off at the next enabling of the mode.        |
+| =sp-prot-modeline-keycast-format=       | ="%2s%k%c%R"=                | What keycast prints: =%k= the key, =%c= the command, =%R= how many times it was repeated, =%s= padding (=%2s= is two spaces). Example: ="%k %c"= for the key and the command only. |
+| =sp-prot-modeline-keycast-insert-after= | =sp-prot-modeline-vc-branch= | The segment of the line (a name from the list below) that keycast comes after.                                |
+| =sp-nano-style-divider=                 | =t=                          | The thin line between the text of the buffer and the mode line; =nil= removes it.                              |
+| =sp-nano-style-divider-face=            | =shadow=                     | The face whose foreground colours the divider. Any face works, for example =font-lock-comment-face=.            |
+| =sp-prot-modeline-format=               | see the next section         | The order of the segments.                                                                                    |
+
+Example, in your configuration:
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-prot-modeline-minor-modes-style 'count   ; (7) instead of the lighters
+      sp-prot-modeline-string-truncate-length 20  ; cut long names later
+      sp-prot-modeline-keycast-format "%k %c"     ; no padding, no repeat count
+      sp-nano-style-divider-face 'font-lock-comment-face)
+#+end_src
+
+** The segments and their order
+
+=sp-prot-modeline-format= is a list. Each name in it is a segment; strings such as ="  "= are spaces between them. To remove a segment delete its name from the list, to move it cut and paste the name, to add space put a string in. =mode-line-format-right-align= is not a segment: everything after it is pushed to the right edge of the window.
+
+| Segment                                    | Shows                                                                                          |
+|--------------------------------------------+------------------------------------------------------------------------------------------------|
+| =sp-prot-modeline-kbd-macro=               | A blue =KMacro= block while a keyboard macro is being recorded (selected window only).         |
+| =sp-prot-modeline-narrow=                  | A =Narrow= block when the buffer is narrowed (not in Info, help, message and special buffers). |
+| =sp-prot-modeline-buffer-status=           | A red =@= block for a remote (TRAMP) buffer.                                                   |
+| =sp-prot-modeline-window-dedicated-status= | A grey block with an equals sign when the window is dedicated to its buffer.                                  |
+| =sp-prot-modeline-input-method=            | The title of the input method, in a green block, when one is on.                               |
+| =sp-prot-modeline-buffer-identification=   | The buffer name (italic when the file has unsaved changes, bold in the selected window) and =RO= when read-only. Hover for the file name. |
+| =sp-prot-modeline-major-mode=              | The major mode icon (or name); click for =describe-mode=. =%[= and =%]= show recursive edits.   |
+| =sp-prot-modeline-minor-modes=             | The minor modes, see =sp-prot-modeline-minor-modes-style=.                                      |
+| =sp-prot-modeline-process=                 | The process status of the buffer (=mode-line-process=), for example in shells.                  |
+| =sp-prot-modeline-vc-branch=               | The branch (or a short revision), coloured by the state of the file; click for the diff.        |
+| =sp-prot-modeline-flymake=                 | Counts of errors (=E=), warnings (=!=) and notes (=.=) while Flymake is on.                     |
+| =sp-prot-modeline-which-function-indicator= | The current function or Org heading, in a small face (text and programming buffers).           |
+| =sp-prot-modeline-misc-info=               | =mode-line-misc-info=: the clock, and the tag emoji of =sp-tag-emoji= in Org buffers.           |
+
+Example, a shorter line without the process, Flymake and function segments (the keycast segment is added by keycast itself after =sp-prot-modeline-vc-branch=):
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-prot-modeline-format
+      '("%e"
+        sp-prot-modeline-kbd-macro
+        sp-prot-modeline-narrow
+        " "
+        sp-prot-modeline-buffer-identification
+        "  "
+        sp-prot-modeline-major-mode
+        "  "
+        sp-prot-modeline-vc-branch
+        mode-line-format-right-align
+        sp-prot-modeline-misc-info))
+;; then: M-x sp-prot-modeline-mode twice
+#+end_src
+
+If you remove =sp-prot-modeline-vc-branch= set =sp-prot-modeline-keycast-insert-after= to another segment that stays in the list, or keycast cannot start.
+
+** Colours
+
+The coloured blocks use these faces. They inherit from faces every theme defines, so they change with =sp-load-theme=; to change one yourself use =M-x customize-face= (or =set-face-attribute=) on it.
+
+| Face                                  | Inherits from              | Used by                                      |
+|---------------------------------------+----------------------------+----------------------------------------------|
+| =sp-prot-modeline-indicator-red-bg=   | =error= (inverted)         | remote buffer block                          |
+| =sp-prot-modeline-indicator-green-bg= | =success= (inverted)       | input method block                           |
+| =sp-prot-modeline-indicator-blue-bg=  | =font-lock-keyword-face= (inverted) | keyboard macro block                |
+| =sp-prot-modeline-indicator-cyan-bg=  | =font-lock-type-face= (inverted) | narrow block                           |
+| =sp-prot-modeline-indicator-gray-bg=  | =shadow= (inverted)        | dedicated window block                       |
+| =sp-prot-modeline-indicator-red=      | =error=                    | =RO= marker and the =%[ %]= recursive-edit marks |
+| =sp-prot-modeline-indicator-gray=     | =shadow=                   | minor modes, counts, unselected windows      |
+| =sp-prot-modeline-indicator-button=   | nothing                    | inherited by all the =-bg= faces: give it a =:box= to put a border round every block |
+
+The colour of the selected and the other windows is the theme's own =mode-line= and =mode-line-inactive=. The branch takes the colour of the =vc-*-state= faces of the theme, the Flymake counts that of =error=, =warning= and =success=. The header line blocks have their own faces, =sp-nano-style-header-ro=, =-md=, =-rw=, =-name= and =-faded=.
+
+Example, a border around the blocks and a bolder divider colour:
+
+#+begin_src emacs-lisp :tangle no
+(set-face-attribute 'sp-prot-modeline-indicator-button nil :box '(:style flat-button))
+(setq sp-nano-style-divider-face 'default)
+#+end_src
+
+** Adding a segment of your own
+
+A segment is a variable whose value is a mode line construct, marked as safe to evaluate. This one shows the number of the current line when the buffer is longer than 1000 lines:
+
+#+begin_src emacs-lisp :tangle no
+(defvar sp-prot-modeline-big-buffer
+  '(:eval (when (> (line-number-at-pos (point-max)) 1000) " big ")))
+(put 'sp-prot-modeline-big-buffer 'risky-local-variable t)
+(setq sp-prot-modeline-format
+      (append sp-prot-modeline-format '(sp-prot-modeline-big-buffer)))
+#+end_src
+
+** Where the original differs
+
+Prot sets some things in =prot-emacs-modeline.el= that are not options here: =mode-line-compact= (off) and =mode-line-right-align-edge= (=right-margin=) are set when the mode is turned on. Prot's =prot-modeline-show-frame-name= and the Eglot, =notmuch-indicator= and Modus palette parts are not included (see above).
 
 * Code
 
@@ -42,6 +150,7 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 
 (require 'vc)
 (require 'subr-x)
+(require 'sp-nano-style)
 #+end_src
 
 ** Options and faces
@@ -236,15 +345,31 @@ The major mode name is the one Emacs shows (=mode-name=), with =%[= and =%]= mar
               major-mode parent)
     (format "Symbol: `%s'.\nmouse-1: `describe-mode'" major-mode)))
 
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-prot-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-prot-modeline)
+
+(defun sp-prot-modeline--mode-icon ()
+  "Return the `nerd-icons' icon of the major mode, or nil."
+  (when (and sp-prot-modeline-mode-icon (require 'nerd-icons nil t))
+    (let ((icon (nerd-icons-icon-for-mode major-mode)))
+      (and (stringp icon) (not (string-empty-p icon)) icon))))
+
 (defvar-local sp-prot-modeline-major-mode
     (list
      (propertize "%[" 'face 'sp-prot-modeline-indicator-red)
      '(:eval
-       (propertize (sp-prot-modeline-string-cut-end (format-mode-line mode-name))
-                   'face 'bold
-                   'mouse-face 'mode-line-highlight
-                   'help-echo (sp-prot-modeline-major-mode-help-echo)
-                   'local-map sp-prot-modeline-describe-map))
+       (let ((icon (sp-prot-modeline--mode-icon)))
+         (apply #'propertize
+                (or icon (sp-prot-modeline-string-cut-end (format-mode-line mode-name)))
+                'mouse-face 'mode-line-highlight
+                'help-echo (concat (format-mode-line mode-name) "\n"
+                                   (sp-prot-modeline-major-mode-help-echo))
+                'local-map sp-prot-modeline-describe-map
+                (unless icon (list 'face 'bold)))))
      (propertize "%]" 'face 'sp-prot-modeline-indicator-red))
   "Mode line construct for the major mode.")
 
@@ -424,42 +549,24 @@ Counts of errors, warnings and notes, with the same mouse commands as Prot's. Sh
   (put construct 'risky-local-variable t))
 #+end_src
 
-** Header line
-
-The path is bold in the selected window. The tooltip shows the full file name or the directory.
-
-#+begin_src emacs-lisp -i
-(defun sp-prot-modeline--header-path ()
-  "Return the path of the file, or the directory, for the header line."
-  (abbreviate-file-name (or buffer-file-name
-                            (and (derived-mode-p 'dired-mode) default-directory)
-                            (buffer-name))))
-
-(defvar-local sp-prot-modeline-header-path
-    '(:eval
-      (let ((path (sp-prot-modeline--header-path)))
-        (concat
-         " "
-         (propertize path
-                     'face (if (mode-line-window-selected-p) 'bold 'shadow)
-                     'mouse-face 'highlight
-                     'help-echo (format "%s\nDirectory: %s" path default-directory)))))
-  "Header line construct for the path of the file.")
-(put 'sp-prot-modeline-header-path 'risky-local-variable t)
-
-(defvar sp-prot-modeline--saved-header-format nil
-  "The default `header-line-format' before `sp-prot-modeline-mode' was enabled.")
-
-#+end_src
-
 ** Keycast
 
-Prot's settings for =keycast=, applied once the package is loaded: the mode line format, where to insert the segment (after the branch), the selected window only, the tail elements of the mode line kept, and substitutions that print typing as "Typing…" and hide mouse events.
+Prot's settings for =keycast=, applied once the package is loaded: the format (=sp-prot-modeline-keycast-format=), where to insert the segment (=sp-prot-modeline-keycast-insert-after=, the branch), the selected window only, the tail elements of the mode line kept, and substitutions that print typing as "Typing…" and hide mouse events.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-prot-modeline-keycast t
   "When non-nil, `sp-prot-modeline-mode' also turns on `keycast-mode-line-mode'."
   :type 'boolean
+  :group 'sp-prot-modeline)
+
+(defcustom sp-prot-modeline-keycast-format "%2s%k%c%R"
+  "Format of the keys shown by keycast: %k key, %c command, %R repeats, %s spaces."
+  :type 'string
+  :group 'sp-prot-modeline)
+
+(defcustom sp-prot-modeline-keycast-insert-after 'sp-prot-modeline-vc-branch
+  "The segment of `sp-prot-modeline-format' that keycast comes after."
+  :type 'symbol
   :group 'sp-prot-modeline)
 
 (defvar keycast-mode-line-format)
@@ -472,8 +579,8 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
 (defvar keycast-header-line-mode)
 
 (with-eval-after-load 'keycast
-  (setq keycast-mode-line-format "%2s%k%c%R"
-        keycast-mode-line-insert-after 'sp-prot-modeline-vc-branch
+  (setq keycast-mode-line-format sp-prot-modeline-keycast-format
+        keycast-mode-line-insert-after sp-prot-modeline-keycast-insert-after
         keycast-mode-line-window-predicate 'mode-line-window-selected-p
         keycast-mode-line-remove-tail-elements nil)
   (dolist (input '(self-insert-command org-self-insert-command))
@@ -495,7 +602,7 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
 (defvar sp-prot-modeline--saved-format nil
   "The default `mode-line-format' before `sp-prot-modeline-mode' was enabled.")
 
-(defconst sp-prot-modeline-format
+(defvar sp-prot-modeline-format
   '("%e"
     sp-prot-modeline-kbd-macro
     sp-prot-modeline-narrow
@@ -518,7 +625,8 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
     sp-prot-modeline-which-function-indicator
     "  "
     sp-prot-modeline-misc-info)
-  "The mode line format of `sp-prot-modeline-mode'.")
+  "The mode line format of `sp-prot-modeline-mode'.
+Change it, then run `sp-prot-modeline-mode' twice (off, on).")
 
 ;;;###autoload
 (define-minor-mode sp-prot-modeline-mode
@@ -531,8 +639,7 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
         (setq-default mode-line-format sp-prot-modeline-format)
-        (setq sp-prot-modeline--saved-header-format (default-value 'header-line-format))
-        (setq-default header-line-format '("%e" sp-prot-modeline-header-path))
+        (sp-nano-style-install)
         (when (and sp-prot-modeline-keycast (require 'keycast nil t))
           (when (bound-and-true-p keycast-header-line-mode)
             (keycast-header-line-mode -1))
@@ -540,7 +647,7 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
     (when (bound-and-true-p keycast-mode-line-mode)
       (keycast-mode-line-mode -1))
     (setq-default mode-line-format sp-prot-modeline--saved-format)
-    (setq-default header-line-format sp-prot-modeline--saved-header-format))
+    (sp-nano-style-uninstall))
   (force-mode-line-update t))
 #+end_src
 
