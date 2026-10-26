@@ -19,6 +19,7 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 - *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
 - *Minor modes are shown.* Prot's mode line has no minor modes. =sp-prot-modeline-minor-modes= shows their lighters, a count, or nothing (=sp-prot-modeline-minor-modes-style=).
 - *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style= (nano-modeline's blocks: =RW=, =RO= or =**=, the path in bold, the project at the right), as in =sp-lambda-modeline=. The buffer name stays in the mode line.
+- *Major mode icon.* The major mode is shown as its =nerd-icons= icon, with the name as its tooltip (=sp-prot-modeline-mode-icon=); Prot's text is the fallback when there is no icon. Prot's own file has the =prot-icons= library for this.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, with =keycast-mode-line-mode=, after the branch, as in Prot's =prot-emacs-modeline.el= (same format, window predicate and substitutions for typing and mouse events). Turn it off with =sp-prot-modeline-keycast=. =keycast-header-line-mode= is turned off, so the keys are not shown twice.
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
 - *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the clock, and the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
@@ -237,15 +238,31 @@ The major mode name is the one Emacs shows (=mode-name=), with =%[= and =%]= mar
               major-mode parent)
     (format "Symbol: `%s'.\nmouse-1: `describe-mode'" major-mode)))
 
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-prot-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-prot-modeline)
+
+(defun sp-prot-modeline--mode-icon ()
+  "Return the `nerd-icons' icon of the major mode, or nil."
+  (when (and sp-prot-modeline-mode-icon (require 'nerd-icons nil t))
+    (let ((icon (nerd-icons-icon-for-mode major-mode)))
+      (and (stringp icon) (not (string-empty-p icon)) icon))))
+
 (defvar-local sp-prot-modeline-major-mode
     (list
      (propertize "%[" 'face 'sp-prot-modeline-indicator-red)
      '(:eval
-       (propertize (sp-prot-modeline-string-cut-end (format-mode-line mode-name))
-                   'face 'bold
-                   'mouse-face 'mode-line-highlight
-                   'help-echo (sp-prot-modeline-major-mode-help-echo)
-                   'local-map sp-prot-modeline-describe-map))
+       (let ((icon (sp-prot-modeline--mode-icon)))
+         (apply #'propertize
+                (or icon (sp-prot-modeline-string-cut-end (format-mode-line mode-name)))
+                'mouse-face 'mode-line-highlight
+                'help-echo (concat (format-mode-line mode-name) "\n"
+                                   (sp-prot-modeline-major-mode-help-echo))
+                'local-map sp-prot-modeline-describe-map
+                (unless icon (list 'face 'bold)))))
      (propertize "%]" 'face 'sp-prot-modeline-indicator-red))
   "Mode line construct for the major mode.")
 

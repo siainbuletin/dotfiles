@@ -62,6 +62,28 @@ There is no layout option: the header line and the mode line are always both sho
   :group 'mode-line)
 #+end_src
 
+** Major mode icon
+
+lambda-line writes the major mode as text ("Org", "Emacs Lisp") in every mode format, through =lambda-line-mode-name=. An =:around= advice on that function returns the =nerd-icons= icon of the major mode instead, with the name as its tooltip. When there is no icon for the mode, or =nerd-icons= is not installed (=sp-icons= sets it up), the text is shown as before. =sp-lambda-modeline-mode-icon= turns it off. lambda-line puts its own face on that part of the line, so the icon takes the colour of the line, not its own colour; the glyph is drawn from the Nerd font that =sp-icons= maps in the fontset.
+
+#+begin_src emacs-lisp -i
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-lambda-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-lambda-modeline)
+
+(defun sp-lambda-modeline--mode-icon (orig-fun)
+  "Return the icon of the major mode, or the text from ORIG-FUN."
+  (let ((icon (and sp-lambda-modeline-mode-icon
+                   (require 'nerd-icons nil t)
+                   (nerd-icons-icon-for-mode major-mode))))
+    (if (and (stringp icon) (not (string-empty-p icon)))
+        (propertize icon 'help-echo (funcall orig-fun))
+      (funcall orig-fun))))
+#+end_src
+
 ** Tag emoji
 
 The advice adds the tag emoji of the heading or file at point to the primary part (the middle one, next to the major mode) of every mode line lambda-line composes. All the mode formats go through =lambda-line-compose=, so no format needs to be rewritten.
@@ -195,7 +217,7 @@ The =:custom= block sets the look of the status line:
 - vertical padding above and below the line and a small vertical offset for the symbols,
 - keycast as the right-hand part of the line.
 
-In =:config=, the tag emoji advice is added, =lambda-line-mode= is activated, and the header line, keycast and the theme colours are applied. The theme colours are applied again after every theme load.
+In =:config=, the tag emoji and major mode icon advices are added, =lambda-line-mode= is activated, and the header line, keycast and the theme colours are applied. The theme colours are applied again after every theme load.
 
 #+begin_src emacs-lisp -i
 (use-package lambda-line
@@ -221,6 +243,7 @@ In =:config=, the tag emoji advice is added, =lambda-line-mode= is activated, an
     :config
     (advice-add 'lambda-line-compose :filter-args
                 #'sp-lambda-modeline--add-tag-emoji)
+    (advice-add 'lambda-line-mode-name :around #'sp-lambda-modeline--mode-icon)
     (lambda-line-mode)  ;; activate lambda-line
     (sp-lambda-modeline-theme-faces)
     (sp-lambda-modeline-apply-layout)

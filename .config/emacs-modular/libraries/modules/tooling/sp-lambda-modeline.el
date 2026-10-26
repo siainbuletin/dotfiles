@@ -22,6 +22,22 @@
   "Lambda-line header line and mode line."
   :group 'mode-line)
 
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-lambda-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-lambda-modeline)
+
+(defun sp-lambda-modeline--mode-icon (orig-fun)
+  "Return the icon of the major mode, or the text from ORIG-FUN."
+  (let ((icon (and sp-lambda-modeline-mode-icon
+                   (require 'nerd-icons nil t)
+                   (nerd-icons-icon-for-mode major-mode))))
+    (if (and (stringp icon) (not (string-empty-p icon)))
+        (propertize icon 'help-echo (funcall orig-fun))
+      (funcall orig-fun))))
+
 (defun sp-lambda-modeline--add-tag-emoji (args)
   "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
   (let ((tags (and (fboundp 'sp-tag-emoji-modeline-string)
@@ -142,6 +158,7 @@
     :config
     (advice-add 'lambda-line-compose :filter-args
                 #'sp-lambda-modeline--add-tag-emoji)
+    (advice-add 'lambda-line-mode-name :around #'sp-lambda-modeline--mode-icon)
     (lambda-line-mode)  ;; activate lambda-line
     (sp-lambda-modeline-theme-faces)
     (sp-lambda-modeline-apply-layout)

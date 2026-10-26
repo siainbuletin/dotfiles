@@ -176,15 +176,31 @@ Add a :box attribute to it to give all of them a border.")
               major-mode parent)
     (format "Symbol: `%s'.\nmouse-1: `describe-mode'" major-mode)))
 
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-prot-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-prot-modeline)
+
+(defun sp-prot-modeline--mode-icon ()
+  "Return the `nerd-icons' icon of the major mode, or nil."
+  (when (and sp-prot-modeline-mode-icon (require 'nerd-icons nil t))
+    (let ((icon (nerd-icons-icon-for-mode major-mode)))
+      (and (stringp icon) (not (string-empty-p icon)) icon))))
+
 (defvar-local sp-prot-modeline-major-mode
     (list
      (propertize "%[" 'face 'sp-prot-modeline-indicator-red)
      '(:eval
-       (propertize (sp-prot-modeline-string-cut-end (format-mode-line mode-name))
-                   'face 'bold
-                   'mouse-face 'mode-line-highlight
-                   'help-echo (sp-prot-modeline-major-mode-help-echo)
-                   'local-map sp-prot-modeline-describe-map))
+       (let ((icon (sp-prot-modeline--mode-icon)))
+         (apply #'propertize
+                (or icon (sp-prot-modeline-string-cut-end (format-mode-line mode-name)))
+                'mouse-face 'mode-line-highlight
+                'help-echo (concat (format-mode-line mode-name) "\n"
+                                   (sp-prot-modeline-major-mode-help-echo))
+                'local-map sp-prot-modeline-describe-map
+                (unless icon (list 'face 'bold)))))
      (propertize "%]" 'face 'sp-prot-modeline-indicator-red))
   "Mode line construct for the major mode.")
 
