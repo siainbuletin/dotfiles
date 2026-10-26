@@ -11,61 +11,81 @@
 
 ;;;; Create mini frame for the buffer
 
-(require 'color) ;; why is color needed? what is this package?
+(require 'color)
+(require 'cl-lib)
+
+(defun sp-mini-frame--mix (fg bg amount)
+  "Return FG mixed with BG, AMOUNT (0 to 1) of it being FG."
+  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
+        (b (and (stringp bg) (color-name-to-rgb bg))))
+    (when (and f b)
+      (apply #'color-rgb-to-hex
+             (append (cl-mapcar (lambda (x y) (+ (* x amount) (* y (- 1 amount))))
+                                f b)
+                     '(2))))))
 
 (defcustom sp-mini-frame-nano-commands
   '(execute-extended-command amx counsel-M-x smex)
-  "Commands whose prompt is shown at the bottom, in nano's style."
+  "Commands whose prompt is styled like nano's M-x."
   :type '(repeat function)
   :group 'minibuffer)
 
-(defcustom sp-mini-frame-nano-contrast 0.08
-  "How far the nano-style frame background moves from the default background toward the foreground (0 to 1)."
-  :type 'number
+(defcustom sp-mini-frame-divider-char ?┈
+  "Character repeated for the dotted line under the M-x input, or nil for none."
+  :type '(choice character (const :tag "No line" nil))
   :group 'minibuffer)
 
-(defun sp-mini-frame--nano-background ()
-  "Return a background slightly off the default one, from the current theme."
-  (let ((bg (face-background 'default nil t))
-        (fg (face-foreground 'default nil t)))
-    (or (and (fboundp 'color-blend)
-             (sp-mini-frame--blend bg fg sp-mini-frame-nano-contrast))
-        (face-background 'mode-line-inactive nil t)
-        bg)))
+(defcustom sp-mini-frame-divider-priority -50
+  "Priority of the overlay with the dotted line under the M-x input."
+  :type 'integer
+  :group 'minibuffer)
+
+(defun sp-mini-frame--nano-p ()
+  "Return non-nil when the prompt being shown is a nano-style M-x."
+  (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame-parameters ()
   "Return the frame parameters for the prompt of `this-command'."
-  (if (memq this-command sp-mini-frame-nano-commands)
+  (let ((nano (sp-mini-frame--nano-p))
+        (fg (face-foreground 'default nil t)))
+    (when (and nano (boundp 'mini-frame-internal-border-color))
+      (setq mini-frame-internal-border-color fg))
+    (let ((border (if nano 1 2)))
       `((left . 0.5)
-        (top . 1.0)
-        (width . 1.0)
-        (height . 5)
-        (left-fringe . 12)
-        (right-fringe . 12)
-        (child-frame-border-width . 0)
-        (internal-border-width . 0)
-        (foreground-color . ,(face-foreground 'default nil t))
-        (background-color . ,(sp-mini-frame--nano-background)))
-    '((left . 0.5)    ; float = fraction of the parent frame, so 0.5 centers horizontally
-      (top . 0.4)     ; 0.5 is dead center for a one-line frame; slightly higher leaves
-                      ; room for the candidate list to grow downward
-      (width . 0.6)   ;; By adjusting the width, you're making sure that the minim-frame doesn't
-                      ;; occupy the full width for vertical minibuffer completion
-      (child-frame-border-width . 2)
-      (internal-border-width . 2))))
+        (top . 0.4)
+        (width . 0.6)
+        (child-frame-border-width . ,border)
+        (internal-border-width . ,border)))))
 
-(defun sp-mini-frame--nano-spacer ()
-  "Put a half-height blank line above the prompt of the nano-style frame."
-  (when (memq this-command sp-mini-frame-nano-commands)
-    (overlay-put (make-overlay (point-min) (1+ (point-min)))
-                 'before-string
-                 (propertize "\n" 'face '(:extend t :height 0.5)))))
+(defun sp-mini-frame--divider-color ()
+  "Return the colour of the dotted line."
+  (or (and (fboundp 'sp-nano-style-divider-colour)
+           (sp-nano-style-divider-colour))
+      (face-foreground 'shadow nil t)))
 
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--nano-spacer)
+(defun sp-mini-frame--style-nano ()
+  "Give the M-x prompt nano's block and the input a dotted line below it."
+  (when (and (bound-and-true-p mini-frame-mode) (sp-mini-frame--nano-p))
+    (let ((fg (face-foreground 'default nil t))
+          (bg (face-background 'default nil t)))
+      (face-remap-add-relative
+       'minibuffer-prompt
+       :foreground bg :background fg :weight 'bold
+       :box `(:line-width 1 :color ,fg)))
+    (when sp-mini-frame-divider-char
+      (let ((ov (make-overlay (point-max) (point-max) nil nil t))
+            (width (max 10 (1- (window-body-width (minibuffer-window))))))
+        (overlay-put ov 'priority sp-mini-frame-divider-priority)
+        (overlay-put ov 'after-string
+                     (concat "\n"
+                             (propertize (make-string width sp-mini-frame-divider-char)
+                                         'face `(:foreground ,(sp-mini-frame--divider-color)))))))))
+
+(add-hook 'minibuffer-setup-hook #'sp-mini-frame--style-nano)
 
 (use-package mini-frame
   :ensure t
-  
+
   :custom
   (mini-frame-show-parameters #'sp-mini-frame-parameters)
   (mini-frame-resize 'not-set) ; this leaves resizing to Emacs to do the job
@@ -79,18 +99,32 @@
 (defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
 
+(defvar sp-mini-frame-dim-functions
+  '(sp-select-note sp-insert-note sp-collec-query-select-note)
+  "Functions whose minibuffer should dim the underlying frame, whoever calls them.")
+
+(defvar sp-mini-frame--dim-requested nil
+  "Non-nil while a function in `sp-mini-frame-dim-functions' is running.")
+
+(defun sp-mini-frame--request-dim (fn &rest args)
+  "Call FN with ARGS, asking for the frame behind the minibuffer to be dimmed."
+  (let ((sp-mini-frame--dim-requested t))
+    (apply fn args)))
+
+(defun sp-mini-frame-advise-dim-functions ()
+  "Advise the functions in `sp-mini-frame-dim-functions' that are defined."
+  (dolist (fn sp-mini-frame-dim-functions)
+    (when (fboundp fn)
+      (advice-add fn :around #'sp-mini-frame--request-dim))))
+
+(sp-mini-frame-advise-dim-functions)
+(add-hook 'after-load-functions (lambda (_file) (sp-mini-frame-advise-dim-functions)))
+
 (defvar sp-mini-frame-dim-amount 0.45
   "How far to blend text colors toward the background (0 = none, 1 = invisible).")
 
 (defvar-local sp-mini-frame--dim-cookies nil)
 (defvar sp-mini-frame--dimmed-buffers nil)
-
-(defun sp-mini-frame--blend (fg bg amount)
-  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
-        (b (and (stringp bg) (color-name-to-rgb bg))))
-    (when (and f b)
-      (apply #'color-rgb-to-hex
-             (append (color-blend f b amount) '(2))))))
 
 (defun sp-mini-frame-dim (frame)
   "Dim all text in the buffers shown in FRAME."
@@ -102,7 +136,7 @@
           (dolist (face (face-list))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
-                             (sp-mini-frame--blend fg bg sp-mini-frame-dim-amount))))
+                             (sp-mini-frame--mix fg bg sp-mini-frame-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
                       sp-mini-frame--dim-cookies))))
@@ -118,7 +152,8 @@
 
 (defun sp-mini-frame--maybe-dim ()
   (when (and (bound-and-true-p mini-frame-mode)
-             (memq this-command sp-mini-frame-dim-commands)
+             (or sp-mini-frame--dim-requested
+                 (memq this-command sp-mini-frame-dim-commands))
              (minibuffer-selected-window))
     (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))
 
