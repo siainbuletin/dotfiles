@@ -69,11 +69,19 @@ With =sp-tag-emoji-mode= on, =vulpea-select-describe-fn= is =sp-tag-emoji-descri
 =sp-select-note= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
 
 - The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property. =N= is =sp-tag-emoji-select-column-fraction= of the frame width (a third by default), at least =sp-tag-emoji-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
-- The tags are drawn in =sp-tag-emoji-select-tags-face=, which is smaller than the title (height 0.85) and dimmed. The characters that fit in the column are counted from that height; a longer list ends in an ellipsis.
-- The tags stay part of the candidate text, so they can be matched: typing =#deep= narrows the list to notes with that tag.
+- Each tag is a chip: its name with a space on either side, on a coloured background, in =sp-tag-emoji-select-tags-face= (smaller than the title, height 0.85). The colour is the colour of the tag's family, see "Tag families and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
+- The tags stay part of the candidate text, so they can be matched: typing =deep= narrows the list to notes with that tag.
 - A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
 =M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. No key is bound to either. The commands that link to or pick a note (=sp-org-create-note-and-link=, the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note and the query-table pickers) call them, so every picker looks the same. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+
+** Tag families and their colours
+
+=sp-org-tag-families= groups the note tags into families by function, in the shape proposed in [[file:../../../../../adr/0020-tag-families.org][ADR 0020]]: a list of =(FAMILY TAG…)=. Each family has a colour in =sp-tag-emoji-family-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no family, or in a family without a colour, gets =default=.
+
+As in Notion, a colour is a pair: a light tinted background and a dark text colour on a light theme, a dark muted background and a light text colour on a dark theme. =sp-tag-emoji-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=). The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off. The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
+
+The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-families= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested families are not followed.
 
 ** Tag registry
 
@@ -507,6 +515,90 @@ How the emoji is added to a link:
   (force-mode-line-update t))
 #+end_src
 
+* Tag families and their colours
+
+** Families, colours and the palette
+
+#+begin_src emacs-lisp -i
+;;;; Tag families and their colours
+(defcustom sp-org-tag-families
+  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
+    ("who"        "person" "musician" "group" "institution" "company")
+    ("music"      "album" "genre")
+    ("software"   "software" "package")
+    ("literature" "text" "book" "journalarticle" "booksection"
+                  "collection" "incollection")
+    ("inquiry"    "question" "error" "research-q" "exploratory"))
+  "Families of note tags: a list of (FAMILY TAG…).
+A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
+  :type '(repeat (cons (string :tag "Family") (repeat (choice string (cons string character)))))
+  :group 'spcustom)
+
+(defcustom sp-tag-emoji-family-colors
+  '(("structure" . gray)
+    ("who" . orange)
+    ("music" . pink)
+    ("software" . blue)
+    ("literature" . brown)
+    ("inquiry" . purple))
+  "Notion colour of each tag family, a name from `sp-tag-emoji-palette'."
+  :type '(alist :key-type string :value-type symbol)
+  :group 'spcustom)
+
+(defcustom sp-tag-emoji-palette
+  '((default "#E3E2E0" "#32302C" "#373737" "#D4D4D4")
+    (gray    "#E3E2E0" "#32302C" "#454B4E" "#D4D4D4")
+    (brown   "#EEE0DA" "#32302C" "#434040" "#D4D4D4")
+    (orange  "#FADEC9" "#32302C" "#594A3A" "#D4D4D4")
+    (yellow  "#FDECC8" "#32302C" "#59563B" "#D4D4D4")
+    (green   "#DBEDDB" "#32302C" "#354C4B" "#D4D4D4")
+    (blue    "#D3E5EF" "#32302C" "#364954" "#D4D4D4")
+    (purple  "#E8DEEE" "#32302C" "#443F57" "#D4D4D4")
+    (pink    "#F5E0E9" "#32302C" "#533B4C" "#D4D4D4")
+    (red     "#FFE2DD" "#32302C" "#594141" "#D4D4D4"))
+  "Tag colours after Notion: (NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)."
+  :type '(alist :key-type symbol :value-type (list string string string string))
+  :group 'spcustom)
+#+end_src
+
+** Looking up a tag's colour
+
+#+begin_src emacs-lisp -i
+(defun sp-org-tag-family-of (tag)
+  "The families of TAG, as a list of names, in the order of `sp-org-tag-families'."
+  (cl-loop for (family . members) in sp-org-tag-families
+           when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
+                                    members))
+           collect family))
+
+(defun sp-tag-emoji--chip-face (tag)
+  "Face for the chip of TAG: the colour of its first family, from the palette."
+  (let* ((family (car (sp-org-tag-family-of tag)))
+         (name (or (cdr (assoc family sp-tag-emoji-family-colors)) 'default))
+         (entry (or (assq name sp-tag-emoji-palette) (assq 'default sp-tag-emoji-palette)))
+         (dark (eq (frame-parameter nil 'background-mode) 'dark)))
+    (list :inherit 'sp-tag-emoji-select-tags-face
+          :background (nth (if dark 3 1) entry)
+          :foreground (nth (if dark 4 2) entry))))
+
+(defun sp-tag-emoji--chips (tags columns)
+  "TAGS as coloured chips, an ellipsis replacing those that exceed COLUMNS."
+  (let* ((height (face-attribute 'sp-tag-emoji-select-tags-face :height nil t))
+         (height (if (numberp height) height 1.0))
+         (room (max 4 (floor (/ columns height))))
+         (used 0) chips)
+    (catch 'full
+      (dolist (tag tags)
+        (let ((width (+ (string-width tag) 2 (if chips 1 0))))
+          (when (> (+ used width) (1- room))
+            (push (propertize "…" 'face 'sp-tag-emoji-select-tags-face) chips)
+            (throw 'full nil))
+          (setq used (+ used width))
+          (when chips (push " " chips))
+          (push (propertize (concat " " tag " ") 'face (sp-tag-emoji--chip-face tag)) chips))))
+    (apply #'concat (nreverse chips))))
+#+end_src
+
 * Selecting notes
 
 ** The title with its emoji
@@ -543,7 +635,7 @@ How the emoji is added to a link:
 
 ** The tag column
 
-The width is worked out once per selection and bound while the selector runs. The annotation is a space with an =:align-to= display property followed by the tags; text with a smaller face needs more characters per column, so the number of characters that fit is the column width divided by the face height.
+The width is worked out once per selection and bound while the selector runs. The annotation is a space with an =:align-to= display property followed by the tag chips; text with a smaller face needs more characters per column, so the number of characters that fit is the column width divided by the face height.
 
 #+begin_src emacs-lisp -i
 (defvar sp-tag-emoji--select-columns nil
@@ -554,16 +646,6 @@ The width is worked out once per selection and bound while the selector runs. Th
   (max sp-tag-emoji-select-column-min
        (round (* sp-tag-emoji-select-column-fraction (frame-width)))))
 
-(defun sp-tag-emoji--tags-text (tags columns)
-  "TAGS as \"#a #b\", cut with an ellipsis to fit COLUMNS columns."
-  (let* ((height (face-attribute 'sp-tag-emoji-select-tags-face :height nil t))
-         (height (if (numberp height) height 1.0))
-         (room (max 4 (floor (/ columns height))))
-         (text (mapconcat (lambda (tag) (concat "#" tag)) tags " ")))
-    (if (> (string-width text) room)
-        (concat (truncate-string-to-width text (1- room)) "…")
-      text)))
-
 (defun sp-tag-emoji--annotate-note (note)
   "The tags of NOTE at the right edge, for `vulpea-select-annotate-fn'."
   (let ((columns (or sp-tag-emoji--select-columns (sp-tag-emoji--select-columns)))
@@ -571,8 +653,7 @@ The width is worked out once per selection and bound while the selector runs. Th
     (if (null tags)
         ""
       (concat (propertize " " 'display `(space :align-to (- right ,columns)))
-              (propertize (sp-tag-emoji--tags-text tags columns)
-                          'face 'sp-tag-emoji-select-tags-face)))))
+              (sp-tag-emoji--chips tags columns)))))
 #+end_src
 
 ** The selector
