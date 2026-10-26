@@ -959,20 +959,52 @@ nil turns the timer off; the Focus files are still watched."
        (if (and scheduled (<= scheduled 0)) 1000 0)
        (if (member (plist-get entry :state) sp-dashboard-urgent-states) 500 0))))
 
+(defvar sp-dashboard-agenda-ready t
+  "Non-nil when `org-agenda-files' is final and the agenda boxes may read it.
+A module that sets the files late sets this to nil when it loads, then to t
+once they are set, and calls `sp-dashboard-refresh-agendas'.  Until then the
+boxes say they are loading instead of reading the wrong files.")
+
+(defvar sp-dashboard--entries-cache nil
+  "Hash table of the entries read from each list of files during one draw.
+Nil outside a draw, when nothing is kept.")
+
+(defun sp-dashboard--read-entries (files)
+  "Return every open TODO of FILES as entry plists, in no particular order.
+During a draw (`sp-dashboard--entries-cache') a list of files is read once,
+however many boxes show it."
+  (require 'org)
+  (or (and sp-dashboard--entries-cache
+           (gethash files sp-dashboard--entries-cache))
+      (let ((started (float-time))
+            (count 0)
+            entries)
+        (dolist (file files)
+          (when (file-readable-p file)
+            (setq count (1+ count))
+            (condition-case nil
+                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
+                  (when entry
+                    (push entry entries)))
+              (error nil))))
+        (message "[dashboard] read %d agenda file%s in %.2fs"
+                 count (if (= count 1) "" "s") (- (float-time) started))
+        (when sp-dashboard--entries-cache
+          (puthash files entries sp-dashboard--entries-cache))
+        entries)))
+
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
 Private entries are left out while `sp-dashboard-public-p'."
-  (require 'org)
-  (let ((public (sp-dashboard-public-p))
-        entries)
-    (dolist (file files)
-      (when (file-readable-p file)
-        (condition-case nil
-            (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-              (unless (or (null entry)
-                          (and public (sp-dashboard--private-p file (plist-get entry :tags))))
-                (push entry entries)))
-          (error nil))))
+  (let* ((public (sp-dashboard-public-p))
+         ;; A new list each time: `sort' below changes its argument, and the
+         ;; entries of a draw are shared by its boxes.
+         (entries (seq-remove
+                   (lambda (entry)
+                     (and public
+                          (sp-dashboard--private-p (plist-get entry :file)
+                                                   (plist-get entry :tags))))
+                   (sp-dashboard--read-entries files))))
     (when (eq mode 'deadline)
       (setq entries (seq-filter (lambda (entry)
                                   (let ((days (plist-get entry :deadline)))
@@ -1132,10 +1164,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
   "Return AGENDA as a box of text WIDTH, drawn with BOX-FACE."
   (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
                (rule (make-string (+ width 2) ?─))
-               (todos (condition-case nil
-                          (sp-dashboard--todos
-                           (or (symbol-value files-var) (org-agenda-files)) mode)
-                        (error nil)))
+               (todos (when sp-dashboard-agenda-ready
+                        (condition-case nil
+                            (sp-dashboard--todos
+                             (or (symbol-value files-var) (org-agenda-files)) mode)
+                          (error nil))))
                (lines (list (list (list (concat "┌" rule "┐") box-face))
                             (apply #'sp-dashboard--box-line
                                    width box-face
@@ -1145,7 +1178,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
                             (list (list (concat "├" rule "┤") box-face)))))
     (if (null todos)
         (setq lines (append lines (list (sp-dashboard--box-line
-                                         width box-face (list "  nothing open" 'shadow)))))
+                                         width box-face
+                                         (list (if sp-dashboard-agenda-ready
+                                                   "  nothing open"
+                                                 "  loading agenda files...")
+                                               'shadow)))))
       (dolist (entry todos)
         (let* ((prefix (if (eq mode 'deadline)
                            (format-time-string
@@ -1209,7 +1246,8 @@ PROPERTIES are added to the button, see `sp-dashboard--stops'."
 The lane is `sp-dashboard--lane-width' wide, from `sp-dashboard-box-width',
 and the banner is centred on it."
   (setq sp-dashboard--scope nil)
-  (let* ((gap 2)
+  (let* ((sp-dashboard--entries-cache (make-hash-table :test #'equal))
+         (gap 2)
          (lane (sp-dashboard--lane-width))
          (columns (sp-dashboard--box-columns))
          (base (/ (- lane (* gap (1- columns))) columns))
@@ -1785,6 +1823,15 @@ nothing happens while the geometry is the same."
       (ignore-errors
         (sp-dashboard-screen-kill)
         (sp-dashboard-screen)))))
+
+(defun sp-dashboard-refresh-agendas ()
+  "Redraw the Dashboard to show the agenda files, when it is on screen.
+Only the Dashboard in the selected window is redrawn: drawing it takes the
+selected window, so it is left alone while another buffer is there."
+  (when (and (get-buffer "Dashboard")
+             (eq (window-buffer (selected-window)) (get-buffer "Dashboard")))
+    (with-current-buffer "Dashboard"
+      (sp-dashboard-refresh))))
 
 (defun sp-dashboard--setup-splash-hooks ()
   "Initialize splash and setup hooks."
