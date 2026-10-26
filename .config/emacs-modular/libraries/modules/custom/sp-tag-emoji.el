@@ -355,6 +355,80 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
         (font-lock-flush))))
   (force-mode-line-update t))
 
+;;;; Tag families and their colours
+(defcustom sp-org-tag-families
+  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
+    ("who"        "person" "musician" "group" "institution" "company")
+    ("music"      "album" "genre")
+    ("software"   "software" "package")
+    ("literature" "text" "book" "journalarticle" "booksection"
+                  "collection" "incollection")
+    ("inquiry"    "question" "error" "research-q" "exploratory"))
+  "Families of note tags: a list of (FAMILY TAG…).
+A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
+  :type '(repeat (cons (string :tag "Family") (repeat (choice string (cons string character)))))
+  :group 'spcustom)
+
+(defcustom sp-tag-emoji-family-colors
+  '(("structure" . gray)
+    ("who" . orange)
+    ("music" . pink)
+    ("software" . blue)
+    ("literature" . brown)
+    ("inquiry" . purple))
+  "Notion colour of each tag family, a name from `sp-tag-emoji-palette'."
+  :type '(alist :key-type string :value-type symbol)
+  :group 'spcustom)
+
+(defcustom sp-tag-emoji-palette
+  '((default "#E3E2E0" "#32302C" "#373737" "#D4D4D4")
+    (gray    "#E3E2E0" "#32302C" "#454B4E" "#D4D4D4")
+    (brown   "#EEE0DA" "#32302C" "#434040" "#D4D4D4")
+    (orange  "#FADEC9" "#32302C" "#594A3A" "#D4D4D4")
+    (yellow  "#FDECC8" "#32302C" "#59563B" "#D4D4D4")
+    (green   "#DBEDDB" "#32302C" "#354C4B" "#D4D4D4")
+    (blue    "#D3E5EF" "#32302C" "#364954" "#D4D4D4")
+    (purple  "#E8DEEE" "#32302C" "#443F57" "#D4D4D4")
+    (pink    "#F5E0E9" "#32302C" "#533B4C" "#D4D4D4")
+    (red     "#FFE2DD" "#32302C" "#594141" "#D4D4D4"))
+  "Tag colours after Notion: (NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)."
+  :type '(alist :key-type symbol :value-type (list string string string string))
+  :group 'spcustom)
+
+(defun sp-org-tag-family-of (tag)
+  "The families of TAG, as a list of names, in the order of `sp-org-tag-families'."
+  (cl-loop for (family . members) in sp-org-tag-families
+           when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
+                                    members))
+           collect family))
+
+(defun sp-tag-emoji--chip-face (tag)
+  "Face for the chip of TAG: the colour of its first family, from the palette."
+  (let* ((family (car (sp-org-tag-family-of tag)))
+         (name (or (cdr (assoc family sp-tag-emoji-family-colors)) 'default))
+         (entry (or (assq name sp-tag-emoji-palette) (assq 'default sp-tag-emoji-palette)))
+         (dark (eq (frame-parameter nil 'background-mode) 'dark)))
+    (list :inherit 'sp-tag-emoji-select-tags-face
+          :background (nth (if dark 3 1) entry)
+          :foreground (nth (if dark 4 2) entry))))
+
+(defun sp-tag-emoji--chips (tags columns)
+  "TAGS as coloured chips, an ellipsis replacing those that exceed COLUMNS."
+  (let* ((height (face-attribute 'sp-tag-emoji-select-tags-face :height nil t))
+         (height (if (numberp height) height 1.0))
+         (room (max 4 (floor (/ columns height))))
+         (used 0) chips)
+    (catch 'full
+      (dolist (tag tags)
+        (let ((width (+ (string-width tag) 2 (if chips 1 0))))
+          (when (> (+ used width) (1- room))
+            (push (propertize "…" 'face 'sp-tag-emoji-select-tags-face) chips)
+            (throw 'full nil))
+          (setq used (+ used width))
+          (when chips (push " " chips))
+          (push (propertize (concat " " tag " ") 'face (sp-tag-emoji--chip-face tag)) chips))))
+    (apply #'concat (nreverse chips))))
+
 ;;;; Selecting notes
 (declare-function vulpea-note-title "vulpea-note")
 (declare-function vulpea-note-tags "vulpea-note")
@@ -389,16 +463,6 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
   (max sp-tag-emoji-select-column-min
        (round (* sp-tag-emoji-select-column-fraction (frame-width)))))
 
-(defun sp-tag-emoji--tags-text (tags columns)
-  "TAGS as \"#a #b\", cut with an ellipsis to fit COLUMNS columns."
-  (let* ((height (face-attribute 'sp-tag-emoji-select-tags-face :height nil t))
-         (height (if (numberp height) height 1.0))
-         (room (max 4 (floor (/ columns height))))
-         (text (mapconcat (lambda (tag) (concat "#" tag)) tags " ")))
-    (if (> (string-width text) room)
-        (concat (truncate-string-to-width text (1- room)) "…")
-      text)))
-
 (defun sp-tag-emoji--annotate-note (note)
   "The tags of NOTE at the right edge, for `vulpea-select-annotate-fn'."
   (let ((columns (or sp-tag-emoji--select-columns (sp-tag-emoji--select-columns)))
@@ -406,8 +470,7 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
     (if (null tags)
         ""
       (concat (propertize " " 'display `(space :align-to (- right ,columns)))
-              (propertize (sp-tag-emoji--tags-text tags columns)
-                          'face 'sp-tag-emoji-select-tags-face)))))
+              (sp-tag-emoji--chips tags columns)))))
 
 (defmacro sp-tag-emoji--with-tag-column (&rest body)
   "Run BODY with vulpea's selector showing emoji and a right-hand tag column.
