@@ -366,6 +366,16 @@ Add a :box attribute to it to give all of them a border.")
   :type 'boolean
   :group 'sp-prot-modeline)
 
+(defcustom sp-prot-modeline-keycast-format "%2s%k%c%R"
+  "Format of the keys shown by keycast: %k key, %c command, %R repeats, %s spaces."
+  :type 'string
+  :group 'sp-prot-modeline)
+
+(defcustom sp-prot-modeline-keycast-insert-after 'sp-prot-modeline-vc-branch
+  "The segment of `sp-prot-modeline-format' that keycast comes after."
+  :type 'symbol
+  :group 'sp-prot-modeline)
+
 (defvar keycast-mode-line-format)
 (defvar keycast-mode-line-insert-after)
 (defvar keycast-mode-line-window-predicate)
@@ -376,8 +386,8 @@ Add a :box attribute to it to give all of them a border.")
 (defvar keycast-header-line-mode)
 
 (with-eval-after-load 'keycast
-  (setq keycast-mode-line-format "%2s%k%c%R"
-        keycast-mode-line-insert-after 'sp-prot-modeline-vc-branch
+  (setq keycast-mode-line-format sp-prot-modeline-keycast-format
+        keycast-mode-line-insert-after sp-prot-modeline-keycast-insert-after
         keycast-mode-line-window-predicate 'mode-line-window-selected-p
         keycast-mode-line-remove-tail-elements nil)
   (dolist (input '(self-insert-command org-self-insert-command))
@@ -393,7 +403,7 @@ Add a :box attribute to it to give all of them a border.")
 (defvar sp-prot-modeline--saved-format nil
   "The default `mode-line-format' before `sp-prot-modeline-mode' was enabled.")
 
-(defconst sp-prot-modeline-format
+(defvar sp-prot-modeline-format
   '("%e"
     sp-prot-modeline-kbd-macro
     sp-prot-modeline-narrow
@@ -416,7 +426,8 @@ Add a :box attribute to it to give all of them a border.")
     sp-prot-modeline-which-function-indicator
     "  "
     sp-prot-modeline-misc-info)
-  "The mode line format of `sp-prot-modeline-mode'.")
+  "The mode line format of `sp-prot-modeline-mode'.
+Change it, then run `sp-prot-modeline-mode' twice (off, on).")
 
 ;;;###autoload
 (define-minor-mode sp-prot-modeline-mode
