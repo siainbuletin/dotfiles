@@ -81,6 +81,61 @@
   (should (equal (sp-theme--merge-attrs '((:weight bold)) '(:slant italic))
                  '(:weight bold :slant italic))))
 
+(defconst sp-theme-engine-test--palette
+  '("#2a3156" "#8f8280" "#4e5044" "#8a4160" "#8d2025"))
+
+(ert-deftest sp-theme-engine-test-import-dark ()
+  (let* ((flavor (sp-theme-flavor-from-palette sp-theme-engine-test--palette))
+         (colors (plist-get flavor :colors))
+         (bg (alist-get 'bg-main colors)))
+    (should (eq (plist-get flavor :mode) 'dark))
+    (should (< (sp-theme--luminance bg) 0.05))
+    (should (>= (sp-theme-contrast (alist-get 'fg-main colors) bg) 10))
+    (dolist (name '(accent-1 accent-2 red green yellow blue magenta cyan cursor))
+      (should (>= (sp-theme-contrast (alist-get name colors) bg) 4.4)))
+    ;; The most saturated colour is the first accent.
+    (should (< (sp-theme-contrast "#8d2025" (alist-get 'accent-1 colors)) 3))
+    (should (= 12 (length colors)))))
+
+(ert-deftest sp-theme-engine-test-import-light ()
+  (let* ((flavor (sp-theme-flavor-from-palette sp-theme-engine-test--palette
+                                               :variant 'light))
+         (colors (plist-get flavor :colors)))
+    (should (eq (plist-get flavor :mode) 'light))
+    (should (> (sp-theme--luminance (alist-get 'bg-main colors)) 0.7))
+    (should (>= (sp-theme-contrast (alist-get 'fg-main colors)
+                                   (alist-get 'bg-main colors))
+                10))))
+
+(ert-deftest sp-theme-engine-test-import-roles ()
+  (let* ((flavor (sp-theme-flavor-from-palette sp-theme-engine-test--palette
+                                               :roles '((red . 4) (blue . "#6fa8ff"))))
+         (colors (plist-get flavor :colors)))
+    (should (equal (alist-get 'blue colors) "#6fa8ff"))
+    ;; red is the fifth colour, lifted only as far as readability needs.
+    (should (> (sp-theme-contrast (alist-get 'red colors) (alist-get 'bg-main colors)) 4.4))
+    (should-error (sp-theme-flavor-from-palette '("#112233")))
+    (should-error (sp-theme-flavor-from-palette sp-theme-engine-test--palette
+                                                :roles '((red . 9))))))
+
+(ert-deftest sp-theme-engine-test-import-theme ()
+  (let* ((dir (make-temp-file "sp-themes" t))
+         (sp-theme-flavors (copy-tree sp-theme-flavors)))
+    (cl-letf (((symbol-function 'sp-theme--themes-folder) (lambda () (file-name-as-directory dir))))
+      (unwind-protect
+          (let ((theme (sp-theme-import-palette "Wanda Vision"
+                                                "#2a3156, #8f8280 #4e5044 #8a4160 #8d2025")))
+            (should (eq theme 'sp-wanda-vision))
+            (should (file-exists-p (expand-file-name "sp-wanda-vision-theme.el" dir)))
+            (add-to-list 'custom-theme-load-path dir)
+            (mapc #'disable-theme custom-enabled-themes)
+            (load-theme theme t)
+            (should (eq (car custom-enabled-themes) theme))
+            (should (equal (face-attribute 'default :background)
+                           (sp-theme-color 'bg-main 'wanda-vision))))
+        (mapc #'disable-theme custom-enabled-themes)
+        (delete-directory dir t)))))
+
 (defun sp-theme-engine-test--setting (theme face)
   "Return the spec recorded for FACE in THEME, checking there is exactly one."
   (let ((records (seq-filter (lambda (s) (and (eq (car s) 'theme-face) (eq (cadr s) face)))

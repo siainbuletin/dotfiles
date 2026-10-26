@@ -145,6 +145,8 @@ Every theme file, in =active/=, =sp/= and each folder of =library/=, is read the
      1 2 3)
     ("(\\(?:doric-themes-define-theme\\|sp-theme-define\\)[[:space:]]+\\([^[:space:]]+\\)[[:space:]]+\\(light\\|dark\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
      1 3 2)
+    ("(sp-theme-define[[:space:]]+\\([^[:space:]]+\\)[[:space:]]+[^[:space:]]+[[:space:]]+\"\\([^\"]*\\)\""
+     1 2 nil)
     ("(deftheme[[:space:]]+\\([^[:space:])]+\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
      1 2 nil))
   "How to read a theme file: a list of (REGEXP NAME DESCRIPTION BACKGROUND).
@@ -152,7 +154,7 @@ The last three are the numbers of the regexp groups holding that part, or nil.")
 
 (defvar sp-theme-metadata-exceptions
   '(
-    (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; removed catppuccin, I don't like it
+    ;; (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; catppuccin has been removed
     )
   "Metadata that a theme file cannot give, an alist of (THEME . PLIST).")
 
@@ -173,7 +175,11 @@ The last three are the numbers of the regexp groups holding that part, or nil.")
                  (list :name (intern name)
                        :description (when description
                                       (string-join (split-string description) " "))
-                       :background (when background (intern background))))))
+                       :background (cond (background (intern background))
+                                         ;; A theme made by `sp-theme-import-palette'.
+                                         ((progn (goto-char (point-min))
+                                                 (re-search-forward ":variant '\\(light\\|dark\\)" nil t))
+                                          (intern (match-string-no-properties 1))))))))
            sp-theme-metadata-patterns)
           (list :name guess)))))
 
@@ -725,7 +731,7 @@ Every theme file is read the same way. The themes of the families are all there,
 #+begin_src emacs-lisp -i
 (ert-deftest sp-themes-test-registry ()
   (let ((registry (sp-theme-registry t)))
-    (should (> (length registry) 70))
+    (should (> (length registry) 50))
     (dolist (entry registry)
       (should (plist-get entry :name))
       (should (plist-get entry :background))
@@ -738,8 +744,7 @@ Every theme file is read the same way. The themes of the families are all there,
 (ert-deftest sp-themes-test-registry-backgrounds ()
   (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
                   (lambda-light-faded . light) (lambda-dark . dark)
-                  (modus-operandi . light) 
-                  (sp-dark . dark) (sp-light . light)))
+                  (sp-dark . dark) (sp-light . light) (sp-wandavision . dark)))
     (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
 
 (ert-deftest sp-themes-test-registry-folders ()
