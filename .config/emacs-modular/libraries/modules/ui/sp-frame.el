@@ -54,10 +54,14 @@ If FRAME is omitted or nil, use currently selected frame."
 ;;;;; Window Margins for Text Indentation
 ;; Add margins to windows to maintain text indentation with smaller frame borders
 (defun sp-set-window-margins ()
-  "Set left and right margins for all windows to maintain text indentation."
+  "Set left and right margins for all windows to maintain text indentation.
+Windows showing a buffer in `olivetti-mode' are skipped: Olivetti
+centres the text with these same margins."
   (walk-windows
    (lambda (window)
-     (unless (window-minibuffer-p window)
+     (unless (or (window-minibuffer-p window)
+                 (with-current-buffer (window-buffer window)
+                   (bound-and-true-p olivetti-mode)))
        (set-window-margins window 2 2)))))
 
 ;; Apply margins when windows change

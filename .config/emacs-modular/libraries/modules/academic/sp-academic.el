@@ -41,36 +41,17 @@
 ;;; Code:
 
 ;;;; Citation variables
-(defcustom sp-bibliography nil "Obsolete: the bibliography is every .bib file in `sp-bibtex-dir'."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
-(defcustom sp-bib-notes nil "User citation notes directory, `sp-notes-dir' when nil."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
-  :group 'spcustom
-  :tag "Lambda-Emacs Citar Notes Template")
+;; Moved to `sp-globals': `sp-bib-notes' and `sp-citar-note'.
+;; That module loads first, so the `use-package' forms below read them even when
+;; Elpaca runs those forms while this file is still being loaded.
 
 ;;;; Requiring sub-libraries
+
 (require 'sp-bibprocess)
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
-
-;;;; Looking up academic sources
-
-(use-package biblio
-  :ensure t
-
-  :custom
-  (biblio-bibtex-use-autokey t)
-
-  :bind
-  (("C-c w b b" . sp-bibtex-biblio-lookup))
-)
-
-(use-package biblio-gscholar
-  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+(require 'sp-fetch-academic)
 
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))

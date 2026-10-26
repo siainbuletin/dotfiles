@@ -65,13 +65,7 @@ A no-op in a TTY, where the terminal font handles the glyphs."
   :config
   (add-hook 'after-setting-font-hook #'sp-font--init-nerd-icons-fonts))
 
-;; icons for dired
-(use-package nerd-icons-dired
-  :ensure t
-  :defer t
-  :commands nerd-icons-dired-mode
-  :init
-  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode))
+;; icons for dired are actually declared in sp-dired.el
 
 ;; Completion Icons
 (use-package nerd-icons-completion

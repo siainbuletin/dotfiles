@@ -14,13 +14,15 @@ The files have no newline after their last line (except where noted). Org always
 
 | Part | File | What it holds |
 |------+------+---------------|
-| [[*sp-academic.el]] | =libraries/modules/academic/sp-academic.el= | the master module: requires the four below and configures lookup and BibTeX |
-| [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, lookup and attachment checks |
+| [[*sp-academic.el]] | =libraries/modules/academic/sp-academic.el= | the master module: requires the four below and `sp-fetch-academic`, and configures org-ref and helm-bibtex |
+| [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, citation keys and attachment checks |
 | [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
 | [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-denote and citar-vulpea |
 
-Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes= in that order, before its own code.
+The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
+
+Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes= and =sp-fetch-academic= in that order, before its own code.
 
 * sp-academic.el
 :PROPERTIES:
@@ -29,31 +31,30 @@ Load order: =sp-academic= requires =sp-bibprocess=, =sp-pdfprocess=, =sp-citatio
 
 This is the umbrella module for academic work.
 
-- Loads four sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations= and =sp-litnotes=) so they can be enabled together.
+- Loads five sub-modules (=sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes= and =sp-fetch-academic=) so they can be enabled together.
 - Defines the three citation user options before any sub-module needs them.
-- Configures bibliography lookup and the reference managers directly:
-  - =biblio= for looking up references online (its inserted entries get a key from the scheme in [[*Citation keys]]),
+- Configures the reference managers directly:
   - =org-ref= set up to insert =org-cite= citations,
   - =helm-bibtex= library and notes paths,
   - the =citar-org-node= bridge,
   - the =binder= package for Scrivener-like manuscript work.
-- The list of =.bib= files is no longer written here: =sp-bibtex-register= in =sp-bibprocess= finds every =.bib= file in =~/bibliography/= and hands the list to Org, =citar=, =org-ref= and =helm-bibtex= alike.
+- The list of =.bib= files is no longer written here: =sp-bibtex-register= in =sp-bibprocess= finds every =.bib= file in =~/Documents/bibliography/= and hands the list to Org, =citar=, =org-ref= and =helm-bibtex= alike.
 
 The long commentary is a roadmap more than a description.
 
-- Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs, paper fetching.
+- Planned pieces: DEVONthink integration, deep links into PDFs, semantic search over PDFs. Paper fetching now has its own sub-module, [[file:sp-fetch-academic.org][sp-fetch-academic]].
 - Literature notes are still made with =citar-denote=. =ROAM_REFS= handling goes through =vulpea-citar=.
-- Bibliography files are expected under =~/bibliography/=, PDFs under =~/Documents/literature/=.
+- Bibliography files are expected under =~/Documents/bibliography/=, PDFs under =~/Documents/literature/=.
 - The module appears in the default module list in =init.el= under Academic.
 
 ** Citation keys
 
 Every entry in a plain BibTeX file gets its key from =bibtex-generate-autokey=, with one scheme everywhere. The options are set once, in =sp-bibprocess=.
 
-- Shape: first author's family name, four-digit year and the first two significant title words, each cut to five letters and joined by hyphens, all in lower case, for example =smith-2017-atten-is= (Attention Is All You Need) or =muller-2020-origin-species= (On the Origin of Species). A third word is added when the second is short (=bibtex-autokey-titlewords-stretch= is 1).
-- Several authors: only the first one is used, so a paper by Smith and Jones is still =smith-2017-...=.
+- Shape: the family names of the first two authors, four-digit year and the first two significant title words, each cut to five letters and joined by hyphens, all in lower case, for example =smithjones-2017-atten-all= (Smith and Jones, Attention Is All You Need) or =hegel-1807-phanom-geist= (one author). "Is" is in the ignore list, so it is skipped. A third word is added when the second is short (=bibtex-autokey-titlewords-stretch= is 1).
+- Several authors: the first two are joined without a separator and later ones are dropped, so Smith, Jones and Lee is still =smithjones-2017-...=.
 - Accents are stripped to plain ASCII (=Müller= becomes =muller=) so keys survive any tool.
-- The title words skip articles (English and German), "On" and "on" (added to the ignore list at your request), and any word that is not capitalised or has odd characters.
+- The title words skip articles (English and German), "Is", "the", "a", "On" and "on" (the last five are your additions), and any word that is not capitalised or has odd characters.
 - Three ways to apply it: =C-c C-c= in =bibtex-mode= cleans an entry (=C-u C-c C-c= also makes a new key), =biblio= entries get one on insertion (=biblio-bibtex-use-autokey=), and the key is checked against every registered =.bib= file so duplicates are noticed.
 - Existing keys are left alone. Changing a key breaks the =cite:= links and =ROAM_REFS= that mention it, so regenerate only entries you have not cited yet.
 
@@ -65,12 +66,12 @@ The ones that change how the setup behaves most. All are set in the modules name
 - =bibtex-entry-format= [=sp-bibprocess=]: what cleaning does to an entry (page dashes, whitespace, alignment, trailing comma, braces). Required-field checks are left out so incomplete =biblio= entries are not rejected.
 - =bibtex-search-entry-globally= with =bibtex-files= [=sp-bibprocess=]: key look-ups and duplicate checks span all registered files, not just the open buffer.
 - =bibtex-dialect= [=sp-bibprocess=]: =biblatex=, so =date=, =journaltitle= and =file= are valid fields.
-- =sp-bibtex-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
+- =sp-bibliography-dir= [=sp-bibprocess=]: where the =.bib= files live. Add or remove a file, then run =C-c w b r=.
 - =org-cite-global-bibliography= and =citar-bibliography= [=sp-citations=]: both read the registered list, so Org and =citar= always see the same files.
 - =citar-library-paths=, =citar-library-file-extensions=, =citar-file-additional-files-separator= [=sp-citations=]: where =citar= looks for PDFs (=~/Documents/literature/=), which extensions count, and the separator for several files per key. The library path was commented out before, so =citar= found no PDFs.
 - =citar-notes-paths= and =citar-templates= [=sp-citations=]: where notes live and how candidates are displayed.
 - =org-cite-export-processors= [=sp-citations=]: CSL for every export format; needs the styles in =sp-data-home=.
-- =biblio-bibtex-use-autokey= [=sp-academic=]: gives entries inserted from CrossRef, arXiv and DOI the same key scheme.
+- =biblio-bibtex-use-autokey= [=sp-fetch-academic=]: gives entries inserted from CrossRef, arXiv and DOI the same key scheme.
 
 The old sections of this document that set BibTeX options twice, repeated three definitions or tried to set Citar options inside =:custom= are fixed below, and each fix says so.
 
@@ -128,21 +129,21 @@ File header, a note that the module needs to be better defined, and the roadmap 
 
 ** Citation variables
 
-=sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (the bibliography file, the citation notes folder and the note template, all nil by default) are no longer defined here. They moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
+=sp-bib-notes= and =sp-citar-note= (the citation notes folder and the note template, nil by default; =sp-bibliography= is removed) are no longer defined here. They moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
 
 - =sp-citations= uses them for the =citar= and =org-cite= bibliography, notes path and note template.
 - This module is a late module, and Elpaca runs the =:init= and =:custom= of a package as soon as it is installed, which can be while a later part of this file is still loading (the likely cause; not confirmed by running Emacs). That run read void variables, as in =Symbol's value as variable is void: sp-bibliography= in the =:init= of =citar-denote=. =sp-globals= is the first core module, so the variables exist long before.
 
 #+begin_src emacs-lisp -i
 ;;;; Citation variables
-;; Moved to `sp-globals': `sp-bibliography', `sp-bib-notes' and `sp-citar-note'.
+;; Moved to `sp-globals': `sp-bib-notes' and `sp-citar-note'.
 ;; That module loads first, so the `use-package' forms below read them even when
 ;; Elpaca runs those forms while this file is still being loaded.
 #+end_src
 
 ** Loading the sub-modules
 
-Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, and =sp-litnotes= for literature notes.
+Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]).
 
 #+begin_src emacs-lisp -i
 ;;;; Requiring sub-libraries
@@ -151,39 +152,16 @@ Requires the four academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-pdfprocess)
 (require 'sp-citations)
 (require 'sp-litnotes)
+(require 'sp-fetch-academic)
 #+end_src
 
-** Looking up sources
+** Helper libraries
 
-*** biblio
+*** asoc and doct
 
-Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and binds =C-c w b b= to =sp-bibtex-biblio-lookup=, defined in =sp-bibprocess= (which this module requires).
-
-- =biblio-bibtex-use-autokey= makes every inserted entry go through =bibtex-clean-entry=, so it gets a key from the scheme in [[*Citation keys]] instead of whatever the service returned.
-- The binding used to point at =sia-bibtex-biblio-lookup=, a name that is not defined anywhere, so the key signalled an error.
+=biblio= and the Google Scholar backend moved to =sp-fetch-academic=. This module still installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
 
 #+begin_src emacs-lisp -i
-;;;; Looking up academic sources
-
-(use-package biblio
-  :ensure t
-
-  :custom
-  (biblio-bibtex-use-autokey t)
-
-  :bind
-  (("C-c w b b" . sp-bibtex-biblio-lookup))
-)
-#+end_src
-
-*** Google Scholar backend and helper libraries
-
-Adds =biblio-gscholar= from GitHub as a Google Scholar backend for =biblio=. It also installs =asoc= (association-list helpers) and =doct= (a declarative syntax for Org capture templates); neither is used in this file, so they are presumably here for other modules or experiments.
-
-#+begin_src emacs-lisp -i
-(use-package biblio-gscholar
-  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
-
 (use-package asoc
     :ensure (:type git :host github :repo "troyp/asoc.el"))
 
@@ -267,7 +245,7 @@ Installs =helm-bibtex= and makes Elpaca wait for it before continuing, presumabl
 
 *** org-ref paths
 
-Points =org-ref= at the =~/Documents/literature/= folder for PDFs. The list of =.bib= files is =org-ref-default-bibliography=, which =sp-bibtex-register= sets from =sp-bibtex-dir= (it was =master.bib= only).
+Points =org-ref= at the =~/Documents/literature/= folder for PDFs. The list of =.bib= files is =org-ref-default-bibliography=, which =sp-bibtex-register= sets from =sp-bibliography-dir= (it was =master.bib= only).
 
 #+begin_src emacs-lisp -i
 (setq org-ref-pdf-directory sp-literature-dir)
@@ -320,10 +298,10 @@ Provides the =sp-academic= feature and closes the file.
 
 This module manages the BibTeX bibliography that the academic modules build on. It:
 
-- defines where the =.bib= files live (=sp-bibtex-dir=, =~/bibliography/= by default),
+- defines where the =.bib= files live (=sp-bibliography-dir=, =~/Documents/bibliography/= by default),
 - keeps one list of them and shares it with Org's citation system (=org-cite-global-bibliography=), =citar= (=citar-bibliography=), =org-ref= (=org-ref-default-bibliography=), =helm-bibtex= (=bibtex-completion-bibliography=) and =bibtex-mode= itself (=bibtex-files=),
 - configures the built-in =bibtex= mode for BibLaTeX, including the one scheme for citation keys described under [[*Citation keys]],
-- adds commands to look up new entries online with the =biblio= package and to audit attachments.
+- adds commands to audit attachments. Looking up new entries online (=biblio=) moved to [[file:sp-fetch-academic.org][sp-fetch-academic]].
 
 Loading:
 
@@ -337,13 +315,13 @@ Loading:
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-bibprocess.el --- BibTeX files, citation keys, lookup and attachment checks -*- lexical-binding: t; -*-
+;;; sp-bibprocess.el --- BibTeX files, citation keys and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This module manages the BibTeX bibliography that the academic modules build
 ;; on: where the .bib files are, how citation keys are generated, and the
-;; commands that look up and audit entries.
+;; commands that audit attachments.
 
 ;;; Code:
 
@@ -352,12 +330,8 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Bibliography directory
 
-=sp-bibtex-dir=, the folder holding BibTeX files and their attachments (=~/bibliography/= under the home directory, the same as =sp-bibliography-dir=), is no longer defined here. It moved to [[file:../base/sp-globals.org][sp-globals]], and a comment in the code says so.
+The folder holding the BibTeX files and their attachments is =sp-bibliography-dir=, defined in =sp-globals= (=~/Documents/bibliography/= by default, or the folder named by =SP_BIBLIOGRAPHY_DIR=). This module used to define a second option, =sp-bibtex-dir=, that only copied it; there is now one option, and the old name is gone with no alias.
 
-#+begin_src emacs-lisp -i
-;; Moved to `sp-globals': `sp-bibtex-dir', the folder of the BibTeX files and
-;; their attachments.
-#+end_src
 
 *** List of BibTeX files
 
@@ -367,17 +341,17 @@ The file header: the first line carries the file name, a short summary and the =
 
 #+begin_src emacs-lisp -i
 (defconst sp-bibtex-file-regexp "\\`[[:alnum:]].*\\.bib\\'"
-  "Regexp for the names of the BibTeX files in `sp-bibtex-dir'.")
+  "Regexp for the names of the BibTeX files in `sp-bibliography-dir'.")
 
 (defvar sp-bibtex-files
-  (when (file-exists-p sp-bibtex-dir)
-    (directory-files sp-bibtex-dir t sp-bibtex-file-regexp))
+  (when (file-exists-p sp-bibliography-dir)
+    (directory-files sp-bibliography-dir t sp-bibtex-file-regexp))
   "List of BibTeX files. Use `sp-bibtex-register' to configure.")
 #+end_src
 
 *** Register BibTeX files
 
-=sp-bibtex-register= rescans =sp-bibtex-dir= and gives the same list to every consumer, then echoes the registered files.
+=sp-bibtex-register= rescans =sp-bibliography-dir= and gives the same list to every consumer, then echoes the registered files.
 
 - =sp-bibtex-files=, the list itself.
 - =org-cite-global-bibliography= and =citar-bibliography=, for citations in Org and for =citar=.
@@ -389,11 +363,11 @@ Run it after adding or removing a =.bib= file.
 #+begin_src emacs-lisp -i
 ;;;###autoload
 (defun sp-bibtex-register ()
-  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  "Register the contents of the `sp-bibliography-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   (interactive)
-  (when (file-exists-p sp-bibtex-dir)
-    (let ((bib-files (directory-files sp-bibtex-dir t sp-bibtex-file-regexp)))
+  (when (file-exists-p sp-bibliography-dir)
+    (let ((bib-files (directory-files sp-bibliography-dir t sp-bibtex-file-regexp)))
       (setq sp-bibtex-files bib-files
             org-cite-global-bibliography bib-files
             citar-bibliography bib-files
@@ -426,8 +400,8 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
 Configures the built-in =bibtex= mode:
 
 - the BibLaTeX dialect,
-- the key scheme (see [[*Citation keys]] in the first part of this document): first author, four-digit year and two title words of at most five letters, in lower case and joined by hyphens, such as =smith-2017-atten-is=,
-- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "On" and "on",
+- the key scheme (see [[*Citation keys]] in the first part of this document): first two authors, four-digit year and two title words of at most five letters, in lower case, with hyphens between year and title words, such as =smithjones-2017-atten-all=,
+- the articles to skip in the title (English and German, plus any word that is not capitalised or has odd characters), now also "Is", "the", "a", "On" and "on",
 - what cleaning an entry does: =opts-or-alts= (drop empty optional fields), =page-dashes= (=10-20= to =10--20=), =whitespace=, =realign=, =last-comma=, =delimiters=, =unify-case= and =braces=. =required-fields= and =numerical-fields= are left out so that an incomplete entry from a look-up is not rejected,
 - a duplicate check across all registered files,
 - two extra optional fields offered when creating entries (=keywords= and =file= for attachments),
@@ -447,8 +421,8 @@ Also:
   :custom
   (bibtex-dialect 'biblatex)
 
-  ;; Keys: smith-2017-atten-is
-  (bibtex-autokey-names 1)
+  ;; Keys: smith-2017-atten-all
+  (bibtex-autokey-names 2)
   (bibtex-autokey-names-stretch 0)
   (bibtex-autokey-name-separator "")
   (bibtex-autokey-name-year-separator "-")
@@ -463,7 +437,7 @@ Also:
   (bibtex-autokey-before-presentation-function #'sp-bibtex-ascii-key)
   (bibtex-autokey-edit-before-use t)
   (bibtex-autokey-titleword-ignore
-   '("A" "An" "The" "On" "on" "Eine?" "Der" "Die" "Das"
+   '("A" "An" "The" "Is" "the" "a" "On" "on" "Eine?" "Der" "Die" "Das"
      "[^[:upper:]].*" ".*[^[:upper:][:lower:]0-9].*"))
 
   ;; Cleaning and duplicates
@@ -479,12 +453,6 @@ Also:
   (bibtex-aux-opt-alist
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")))
-  (bibtex-autokey-name-separator nil)
-  (bibtex-autokey-name-year-separator nil)
-  (bibtex-autokey-year-length 4)
-  (bibtex-autokey-names 1)
-  (bibtex-autokey-names-stretch 1)
-  (bibtex-autokey-titlewords 0)
   :config
   (sp-bibtex-register)
   :bind
@@ -494,75 +462,18 @@ Also:
 )
 #+end_src
 
-** Looking up entries
-
-*** Combined biblio lookup
-
-=sp--bibtex-combined-biblio-lookup= offers the backends known to =biblio= (such as CrossRef or arXiv) plus an extra "DOI" entry in one completion prompt.
-
-- Choosing DOI asks for a DOI and inserts its BibTeX directly.
-- Any other backend starts an interactive =biblio-lookup= search.
-- It relies on the internal =biblio--named-backends=.
-
-#+begin_src emacs-lisp -i
-;;;; Looking up entries
-
-(defun sp--bibtex-combined-biblio-lookup ()
-  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
-  (require 'biblio)
-  (let* ((dbs (biblio--named-backends))
-         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
-         (db-selected (biblio-completing-read-alist
-                       "Backend:"
-                       db-list)))
-    (if (eq db-selected 'biblio-doi-backend)
-        (let ((doi (read-string "DOI: ")))
-          (biblio-doi-insert-bibtex doi))
-      (biblio-lookup db-selected))))
-#+end_src
-
-*** Insert a lookup into a bibliography
-
-=sp-bibtex-biblio-lookup= picks the target =.bib= file:
-
-- the only one, if there is a single file,
-- the current buffer, if already in =bibtex-mode=,
-- a completion prompt otherwise.
-
-It opens that file, moves to the end, runs the combined lookup and saves. If no BibTeX files are registered, it just reports that.
-
-#+begin_src emacs-lisp -i
-;;;###autoload
-(defun sp-bibtex-biblio-lookup ()
-  "Insert Biblio search results into current buffer or select BibTeX file."
-  (interactive)
-  (if-let* ((current-mode major-mode)
-	   sp-bibtex-files
-	   (bibfiles (length sp-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
-			  ((equal major-mode 'bibtex-mode)
-			   (buffer-file-name))
-			  (t (completing-read
-			      "Select BibTeX file:" sp-bibtex-files)))))
-      (progn (find-file bibfile)
-	     (goto-char (point-max))
-	     (sp--bibtex-combined-biblio-lookup)
-	     (save-buffer))
-    (message "No BibTeX file(s) defined.")))
-#+end_src
-
 ** Auditing attachments
 
-Two reports that compare the files stored in =sp-bibtex-dir= against the =file= fields in the BibTeX entries.
+Two reports that compare the files stored in =sp-bibliography-dir= against the =file= fields in the BibTeX entries.
 
 *** Collect attachment paths from entries
 
-=sp--bibtex-extract-attachments= re-registers the bibliography and scans each =.bib= file for =file = {...}= fields, splitting multiple attachments on semicolons and expanding each path relative to =sp-bibtex-dir=.
+=sp--bibtex-extract-attachments= re-registers the bibliography and scans each =.bib= file for =file = {...}= fields, splitting multiple attachments on semicolons and expanding each path relative to =sp-bibliography-dir=.
 
 #+begin_src emacs-lisp -i
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
+  "Extract attachment file names from BibTeX files in `sp-bibliography-dir'."
   (sp-bibtex-register)
   (let ((attachments '()))
     (dolist (bibtex-file sp-bibtex-files)
@@ -574,23 +485,23 @@ Two reports that compare the files stored in =sp-bibtex-dir= against the =file= 
                                           "[[:space:]]*;[[:space:]]*")))
             (dolist (file-path file-paths)
               (push (expand-file-name (string-trim file-path)
-                                      sp-bibtex-dir)
+                                      sp-bibliography-dir)
                     attachments))))))
     attachments))
 #+end_src
 
 *** Collect files on disk
 
-=sp--bibtex-extract-files= lists every file under =sp-bibtex-dir= recursively, leaving out =.bib= and =.csl= files.
+=sp--bibtex-extract-files= lists every file under =sp-bibliography-dir= recursively, leaving out =.bib= and =.csl= files.
 
 #+begin_src emacs-lisp -i
 (defun sp--bibtex-extract-files ()
-  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
+  "List files recursively in `sp-bibliography-dir', excluding `.bib' and `.csl'."
   (seq-remove (lambda (file)
                 (or (string-suffix-p ".bib" file)
                     (string-suffix-p ".csl" file)))
               (mapcar 'expand-file-name
-                      (directory-files-recursively sp-bibtex-dir ""))))
+                      (directory-files-recursively sp-bibliography-dir ""))))
 #+end_src
 
 *** Files with no entry
@@ -728,7 +639,7 @@ This module configures citation handling: Org's built-in =oc= citation framework
 
 Dependencies:
 
-- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-globals=).
+- User variables defined elsewhere: =sp-bibtex-files= (from =sp-bibprocess=), and =sp-bib-notes= and =sp-citar-note= (defcustoms in =sp-globals=).
 - Citar and citeproc are configured unconditionally.
 - CSL styles and locales must be present on disk under =~/.local/share/csl/=.
 - Icons come from =nerd-icons=, at-point actions from =embark=.

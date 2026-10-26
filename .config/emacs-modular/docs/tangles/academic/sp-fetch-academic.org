@@ -1,0 +1,304 @@
+#+TITLE: sp-fetch-academic.el: fetch papers from the web and import them
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-fetch-academic.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-fetch-academic.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+The module brings references and papers in from the web.
+
+- Search: =biblio= (CrossRef, arXiv and the other backends) and =biblio-gscholar= for Google Scholar. Both moved here from =sp-academic=, together with the lookup commands that were in =sp-bibprocess=.
+- DOI: =org-ref= resolves a DOI to a BibTeX entry and can fetch the PDF.
+- Download: a command that saves a PDF from a URL into the literature folder and writes it into the =file= field of the entry.
+- Keys: every entry, however it arrives, gets the key from the scheme in [[file:sp-academic.org::*Citation keys][Citation keys]].
+- Later: =consult-omni= for browsing scholarly sources from the minibuffer. Only a marked placeholder for now, see [[*consult-omni (future)]].
+
+It is required by =sp-academic= after =sp-bibprocess=, so a profile only lists =sp-academic=.
+
+Settings worth knowing:
+
+- =sp-fetch-academic-download-dir= is where downloaded PDFs go (=sp-literature-dir=, =~/Documents/literature/=).
+- =biblio-bibtex-use-autokey= is =t=, so a =biblio= result is cleaned and keyed as soon as it is inserted.
+- =org-ref-pdf-directory= is also =sp-literature-dir= (set in =sp-academic=), so PDFs fetched by DOI end up beside the downloaded ones.
+
+Keys, under the =C-c w b= prefix of the academic modules:
+
+| Key         | Command                           | What it does                                   |
+|-------------+-----------------------------------+------------------------------------------------|
+| =C-c w b b= | =sp-fetch-academic-biblio-lookup= | search a backend or enter a DOI, insert the entry |
+| =C-c w b i= | =sp-fetch-academic-doi=           | add an entry from a DOI with =org-ref=, optionally fetch the PDF |
+| =C-c w b u= | =sp-fetch-academic-download=      | download a PDF from a URL and attach it        |
+
+* Header
+
+** File header and commentary
+
+The file header, a commentary and the =;;; Code:= marker. It requires =sp-bibprocess= for the list of =.bib= files and the helpers that choose one.
+
+#+begin_src emacs-lisp -i
+;;; sp-fetch-academic.el --- Fetch papers from the web and import them -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Brings references and papers in from the web: `biblio' and Google Scholar
+;; searches, DOI look-up through `org-ref', and a command that downloads a PDF
+;; into the literature folder and attaches it to its BibTeX entry. Citation keys
+;; come from the `bibtex-autokey' scheme set in `sp-bibprocess'.
+;;
+;; Planned: `consult-omni' for scholarly sources (see the placeholder below).
+
+;;; Code:
+
+(require 'sp-bibprocess)
+#+end_src
+
+** Options
+
+=sp-fetch-academic-download-dir= is the folder downloaded PDFs are saved in.
+
+#+begin_src emacs-lisp -i
+;;;; Options
+
+(defcustom sp-fetch-academic-download-dir sp-literature-dir
+  "Folder where `sp-fetch-academic-download' saves PDFs."
+  :group 'spcustom
+  :type 'directory)
+#+end_src
+
+* Searching with biblio
+
+** biblio and Google Scholar
+
+Installs =biblio=, which queries services such as CrossRef and arXiv for BibTeX entries, and =biblio-gscholar=, a Google Scholar backend for it.
+
+- =biblio-bibtex-use-autokey= makes every inserted entry go through =bibtex-clean-entry=, so it gets a key from the scheme instead of whatever the service returned.
+- =C-c w b b= runs =sp-fetch-academic-biblio-lookup=, bound under [[*Keys]]. It used to run =sp-bibtex-biblio-lookup= from =sp-bibprocess=; the old name is gone, with no alias.
+- Google Scholar has no public API. =biblio-gscholar= scrapes the results page, so it may be blocked or ask for a CAPTCHA; use CrossRef or arXiv when it fails.
+
+#+begin_src emacs-lisp -i
+;;;; Searching with biblio
+
+(use-package biblio
+  :ensure t
+
+  :custom
+  (biblio-bibtex-use-autokey t))
+
+(use-package biblio-gscholar
+  :ensure (biblio-gscholar :host github :repo "seanfarley/biblio-gscholar.el"))
+#+end_src
+
+** Choosing the target file
+
+=sp--fetch-academic-bibfile= picks the =.bib= file an entry goes into:
+
+- the only registered one, if there is a single file,
+- the current buffer's file, if already in =bibtex-mode=,
+- a completion prompt otherwise.
+
+It signals a =user-error= when no file is registered.
+
+#+begin_src emacs-lisp -i
+(defun sp--fetch-academic-bibfile ()
+  "Return the BibTeX file a new entry should go into."
+  (cond ((null sp-bibtex-files)
+         (user-error "No BibTeX file(s) defined"))
+        ((null (cdr sp-bibtex-files)) (car sp-bibtex-files))
+        ((derived-mode-p 'bibtex-mode) (buffer-file-name))
+        (t (completing-read "Select BibTeX file: " sp-bibtex-files nil t))))
+#+end_src
+
+** Combined lookup
+
+=sp--fetch-academic-combined-lookup= offers the backends known to =biblio= plus an extra "DOI" entry in one completion prompt.
+
+- Choosing DOI asks for a DOI and inserts its BibTeX directly.
+- Any other backend starts an interactive =biblio-lookup= search, whose results are inserted into the file that is current.
+- It relies on the internal =biblio--named-backends=.
+
+#+begin_src emacs-lisp -i
+(defun sp--fetch-academic-combined-lookup ()
+  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
+  (require 'biblio)
+  (let* ((dbs (biblio--named-backends))
+         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
+         (db-selected (biblio-completing-read-alist
+                       "Backend:"
+                       db-list)))
+    (if (eq db-selected 'biblio-doi-backend)
+        (let ((doi (read-string "DOI: ")))
+          (biblio-doi-insert-bibtex doi))
+      (biblio-lookup db-selected))))
+#+end_src
+
+** Insert a lookup into a bibliography
+
+=sp-fetch-academic-biblio-lookup= opens the target file, moves to the end, runs the combined lookup and saves. It is the old =sp-bibtex-biblio-lookup= with the file choice moved into the helper above.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-fetch-academic-biblio-lookup ()
+  "Insert Biblio search results into a BibTeX file."
+  (interactive)
+  (find-file (sp--fetch-academic-bibfile))
+  (goto-char (point-max))
+  (sp--fetch-academic-combined-lookup)
+  (save-buffer))
+#+end_src
+
+* DOI look-up with org-ref
+
+** Add an entry from a DOI
+
+=sp-fetch-academic-doi= resolves a DOI to a BibTeX entry with =doi-utils= from =org-ref=, which asks CrossRef and appends the entry to the chosen file.
+
+- The prompt is prefilled with a URL at point, if any, and a leading =https://doi.org/= or =doi:= is removed, so a pasted DOI link works.
+- =org-ref= cleans the new entry with =bibtex-clean-entry=, which should apply the key scheme and the entry format from =sp-bibprocess=. This has not been run, so check the first key you get.
+- Afterwards it offers to fetch the PDF with =doi-utils-get-bibtex-entry-pdf=. That only works for open-access papers and publishers =org-ref= knows; the PDF is saved in =org-ref-pdf-directory=.
+
+#+begin_src emacs-lisp -i
+;;;; DOI look-up
+
+(defun sp--fetch-academic-clean-doi (doi)
+  "Return DOI without whitespace or a resolver prefix."
+  (replace-regexp-in-string "\\`\\(?:https?://\\(?:dx\\.\\)?doi\\.org/\\|doi:\\)" ""
+                            (string-trim doi)))
+
+;;;###autoload
+(defun sp-fetch-academic-doi (doi)
+  "Add the BibTeX entry for DOI to a bibliography and offer to fetch the PDF."
+  (interactive
+   (list (read-string "DOI: " (thing-at-point 'url t))))
+  (require 'doi-utils)
+  (let ((bibfile (sp--fetch-academic-bibfile)))
+    (doi-utils-add-bibtex-entry-from-doi (sp--fetch-academic-clean-doi doi) bibfile)
+    (when (y-or-n-p "Try to fetch the PDF too? ")
+      (with-current-buffer (find-file-noselect bibfile)
+        (goto-char (point-max))
+        (bibtex-beginning-of-entry)
+        (doi-utils-get-bibtex-entry-pdf)))))
+#+end_src
+
+* Downloading files
+
+** Attach a file to an entry
+
+=sp--fetch-academic-attach= writes FILE into the =file= field of the entry at point, as a path relative to =sp-bibliography-dir=. A second file is appended after a semicolon, the separator the attachment audit in =sp-bibprocess= splits on. A new field goes after the last one, adding the comma that was missing if need be. =bibtex-set-field= does not exist in Emacs's =bibtex=, so the field is edited with the =bibtex-search-forward-field= helpers.
+
+#+begin_src emacs-lisp -i
+;;;; Downloading files
+
+(defun sp--fetch-academic-attach (file)
+  "Add FILE to the `file' field of the BibTeX entry at point."
+  (let ((relative (file-relative-name file sp-bibliography-dir)))
+    (save-excursion
+      (bibtex-beginning-of-entry)
+      (let ((bounds (bibtex-search-forward-field "file" t)))
+        (if bounds
+            (let ((old (bibtex-text-in-field-bounds bounds t))
+                  (start (bibtex-start-of-text-in-field bounds)))
+              (delete-region start (bibtex-end-of-text-in-field bounds))
+              (goto-char start)
+              (insert "{" old "; " relative "}"))
+          (bibtex-end-of-entry)
+          (backward-char)
+          (skip-chars-backward " \t\n")
+          (unless (eq (char-before) ?,) (insert ","))
+          (insert "\n  file = {" relative "}")
+          (when bibtex-comma-after-last-field (insert ",")))))))
+#+end_src
+
+** Check for a PDF
+
+=sp--fetch-academic-pdf-p= reads the first four bytes of a file. A real PDF starts with =%PDF=; a paywall or landing page saved by mistake is HTML, and the download command deletes it.
+
+#+begin_src emacs-lisp -i
+(defun sp--fetch-academic-pdf-p (file)
+  "Return non-nil when FILE starts with the PDF magic number."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file nil 0 4)
+    (equal (buffer-string) "%PDF")))
+#+end_src
+
+** Download and import
+
+=sp-fetch-academic-download= saves a PDF and, when point is in a BibTeX entry, attaches it.
+
+- The URL is prefilled from the one at point.
+- The file name is the entry's citation key, so the PDF is found by Citar (=citar-library-paths= is the same folder). Outside an entry it asks for a key and falls back to the name in the URL.
+- It refuses to overwrite a file (before downloading) and deletes a download that is not a PDF.
+- Fetching goes through =url-copy-file=, so it uses Emacs's own proxy and cookie settings. Sites that need a login or a browser session will return a web page and be rejected.
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-fetch-academic-download (url)
+  "Download the PDF at URL into `sp-fetch-academic-download-dir'.
+Inside a BibTeX entry, name the file after its key and attach it."
+  (interactive
+   (list (read-string "PDF URL: " (thing-at-point 'url t))))
+  (let* ((in-entry (and (derived-mode-p 'bibtex-mode)
+                        (ignore-errors
+                          (save-excursion (bibtex-beginning-of-entry)
+                                          (bibtex-key-in-head)))))
+         (key (or in-entry
+                  (read-string "Citation key (empty: name from the URL): ")))
+         (base (if (string-empty-p key)
+                   (file-name-base (url-filename (url-generic-parse-url url)))
+                 key))
+         (file (expand-file-name (concat base ".pdf")
+                                 sp-fetch-academic-download-dir)))
+    (when (file-exists-p file)
+      (user-error "%s already exists" file))
+    (make-directory sp-fetch-academic-download-dir t)
+    (url-copy-file url file)
+    (unless (sp--fetch-academic-pdf-p file)
+      (delete-file file)
+      (user-error "%s is not a PDF" url))
+    (when in-entry
+      (sp--fetch-academic-attach file))
+    (message "Saved %s" file)
+    file))
+#+end_src
+
+* Keys
+
+Binds the three commands under the =C-c w b= prefix the other academic modules use. =i= (import by DOI) and =u= (URL) were free.
+
+#+begin_src emacs-lisp -i
+;;;; Keys
+
+(global-set-key (kbd "C-c w b b") #'sp-fetch-academic-biblio-lookup)
+(global-set-key (kbd "C-c w b i") #'sp-fetch-academic-doi)
+(global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
+#+end_src
+
+* consult-omni (future)
+
+** Placeholder
+
+*Not configured yet.* =consult-omni= searches many sources (Google Scholar, OpenAlex, Wikipedia, notes) from one minibuffer prompt. It is to be installed in =sp-browsing=, not here; the empty =consult-omni= heading and the working recipe, which is switched off because it caused errors at startup, are in [[file:../media/sp-browsing.org::*Elpher and consult-omni placeholders][Elpher and consult-omni placeholders]].
+
+When it works there, this module will get:
+
+- a command that sends a =consult-omni= scholar search to the same insertion path as =sp-fetch-academic-biblio-lookup=,
+- a way to hand a selected result URL to =sp-fetch-academic-download= or its DOI to =sp-fetch-academic-doi=.
+
+Nothing below is tangled.
+
+#+begin_src emacs-lisp :tangle no :eval never
+;; TODO(consult-omni): needs `consult-omni' from `sp-browsing' first.
+;; (defun sp-fetch-academic-omni () ...)
+#+end_src
+
+* Provide
+
+Provides the =sp-fetch-academic= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-fetch-academic)
+;;; sp-fetch-academic.el ends here
+#+end_src

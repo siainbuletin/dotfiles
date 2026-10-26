@@ -31,20 +31,22 @@
 
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
-;; Skip the scan at startup: the database stays as it was, and the scan runs
-;; once, after the first note of the vault is opened (see below).
-(setq vulpea-db-sync-scan-on-enable nil)
+;; Enable autosync a few idle seconds after start-up, not during init, and let
+;; vulpea scan in the background: it lists the files in a subprocess and queues
+;; them, and the queue parses only the files whose content changed.  Opening a
+;; note, the dashboard included, starts nothing.
+(setq vulpea-db-sync-scan-on-enable 'background)
 
-(vulpea-db-autosync-mode +1)
+(defun sp-vulpea-start-autosync ()
+  "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
+  (let ((started (float-time)))
+    (message "[vulpea] starting autosync; changed files are indexed in the background...")
+    (vulpea-db-autosync-mode +1)
+    (message "[vulpea] autosync started in %.2fs" (- (float-time) started))))
 
-(defun sp-vulpea-scan-once ()
-  "Run the deferred full scan after the first note of the vault opens."
-  (when (and buffer-file-name
-             (vulpea-db-sync-tracked-file-p buffer-file-name))
-    (remove-hook 'find-file-hook #'sp-vulpea-scan-once)
-    (run-with-idle-timer 2 nil #'vulpea-db-sync-full-scan)))
-
-(add-hook 'find-file-hook #'sp-vulpea-scan-once)
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-idle-timer 5 nil #'sp-vulpea-start-autosync)))
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 

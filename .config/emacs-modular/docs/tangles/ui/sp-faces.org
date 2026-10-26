@@ -291,6 +291,19 @@ Turns off the fringe markers for empty lines after the end of the buffer.
 (setq-default indicate-empty-lines nil)
 #+end_src
 
+* Mode line and header line faces
+
+** Title in the header line
+
+=sp-modeline-title= is the face of the title of an Org buffer in the header line (=sp-nano-style=). Only the text of the =#+title:= keyword is taken; the heading face of the theme (=org-document-title=) is not used. The face is bold and nothing else, so it fits the header; change it here or with =M-x customize-face RET sp-modeline-title=. The module =sp-nano-style= defines the same face as a fallback for when this module is not loaded; this definition replaces it.
+
+#+begin_src emacs-lisp -i
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').
+Used by `sp-nano-style'.  Only the text of the title is shown, not its face.")
+#+end_src
+
 * Provide
 
 Provides the =sp-faces= feature and closes the file.

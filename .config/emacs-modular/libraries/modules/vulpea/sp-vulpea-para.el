@@ -22,12 +22,27 @@ Notes tagged \"cemetery\" are kept out."
 
 (vulpea-para-agenda-mode 1)
 
+(defvar sp-dashboard-agenda-ready)
+(declare-function sp-dashboard-refresh-agendas "sp-dashboard")
+
+;; The dashboard waits for the agenda files instead of reading the wrong ones.
+(setq sp-dashboard-agenda-ready nil)
+
 (defun sp-vulpea-para-refresh-agenda-files ()
-  "Set `org-agenda-files' from the database, ignoring errors."
-  (condition-case err
-      (vulpea-para-agenda-files-update)
-    (error (message "[vulpea-para] agenda files not set yet: %s"
-                    (error-message-string err)))))
+  "Set `org-agenda-files' from the database, ignoring errors.
+Then tell the dashboard, which waits for them, and redraw it."
+  (let ((started (float-time)))
+    (message "[vulpea-para] setting the agenda files from the database...")
+    (condition-case err
+        (progn
+          (vulpea-para-agenda-files-update)
+          (message "[vulpea-para] %d agenda files set in %.2fs"
+                   (length org-agenda-files) (- (float-time) started)))
+      (error (message "[vulpea-para] agenda files not set yet: %s"
+                      (error-message-string err))))
+    (setq sp-dashboard-agenda-ready t)
+    (when (fboundp 'sp-dashboard-refresh-agendas)
+      (sp-dashboard-refresh-agendas))))
 
 (add-hook 'emacs-startup-hook
           (lambda ()

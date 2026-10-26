@@ -136,16 +136,14 @@ Configures the core package with autoloads for its icon functions.
 
 ** nerd-icons-dired
 
-Shows file icons next to entries in every dired buffer through =nerd-icons-dired-mode=.
+Removed. ;; icons for dired are actually declared in sp-dired.el
+
+Shows file icons next to entries in plain dired buffers through =nerd-icons-dired-mode=.
+
+Dirvish takes over every dired buffer and has its own =nerd-icons= attribute in =dirvish-attributes= (see =sp-dired=). Its buffers are derived from dired, so =dired-mode-hook= switched this mode on there too and every entry showed two icons. =sp-icons--dired-off-in-dirvish= turns the mode off again in Dirvish buffers (=dirvish-mode-hook= and =dirvish-directory-view-mode-hook=, the parent and preview windows), so Dirvish's attribute is the only icon source there. Untested in a running Emacs.
 
 #+begin_src emacs-lisp -i
-;; icons for dired
-(use-package nerd-icons-dired
-  :ensure t
-  :defer t
-  :commands nerd-icons-dired-mode
-  :init
-  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode))
+;; icons for dired are actually declared in sp-dired.el
 #+end_src
 
 ** nerd-icons-completion

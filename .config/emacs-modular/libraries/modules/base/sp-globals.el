@@ -70,7 +70,7 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/bibliography")
+(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/Documents/bibliography")
   "Folder with the .bib files."
   :type 'directory :group 'spcustom)
 
@@ -115,13 +115,6 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Chromium-family History database read by `sp-trails-import-chrome'."
   :type 'file
   :group 'spcustom)
-
-;; Moved here from sp-bibprocess.el.
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
 
 ;; Moved here from sp-scratch.el.
 (defcustom sp-scratch-save-dir sp-cache-dir
@@ -170,9 +163,6 @@ here."
   :group 'spcustom)
 
 ;; Moved here from sp-academic.el.
-(defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
