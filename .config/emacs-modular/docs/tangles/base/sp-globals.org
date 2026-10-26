@@ -159,7 +159,7 @@ The notes, documents, literature, bibliography, org, source and clone folders. T
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/bibliography")
+(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/Documents/bibliography")
   "Folder with the .bib files."
   :type 'directory :group 'spcustom)
 
@@ -224,20 +224,13 @@ The notes, documents, literature, bibliography, org, source and clone folders. T
 
 Folders that were defined next to the one module that uses them. Each module now has a comment where the option used to be.
 
-- =sp-bibtex-dir= (from =sp-bibprocess=): the BibTeX files and their attachments; it follows =sp-bibliography-dir=.
+- =sp-bibtex-dir= (from =sp-bibprocess=) is gone: it only copied =sp-bibliography-dir=, which is now the one option for the BibTeX files and their attachments (default =~/Documents/bibliography/=).
 - =sp-scratch-save-dir= (from =sp-scratch=): where the persistent scratch buffer is saved; the cache folder.
 - =sp-treemacs-root= (from =sp-treemacs=): the folder shown in the treemacs window.
 - =sp-tab-inbox-dir= (from =sp-tab-inbox=): the plain files with unsorted links. It used to be =org-directory= plus =/inbox/tabs/=, and =org-directory= is =sp-notes-dir=, so it is now built from =sp-notes-dir= directly; the value is the same, and it no longer depends on Org being loaded.
 - =sp-emoji-font-install-dir= (from =sp-emoji-font=): where the emoji font is installed on Linux. It used to repeat the =XDG_DATA_HOME= lookup; it is now below =sp-data-home=, which gives the same folder.
 
 #+begin_src emacs-lisp -i
-;; Moved here from sp-bibprocess.el.
-(defcustom sp-bibtex-dir
-  sp-bibliography-dir
-  "Location of BibTeX files and attachments."
-  :group 'spcustom
-  :type 'directory)
-
 ;; Moved here from sp-scratch.el.
 (defcustom sp-scratch-save-dir sp-cache-dir
   "Default directory for saving scratch file."
@@ -306,16 +299,13 @@ here."
 
 * Bibliography
 
-The user's bibliography file, citation notes folder and note template.
+The citation notes folder and the note template (the bibliography is every =.bib= file in =sp-bibliography-dir=; the old =sp-bibliography= option is removed).
 
 - They are =nil= by default, so they are settings waiting to be filled in.
 - They used to be defined in =sp-academic=, before its sub-modules are required, because the =use-package= forms of =sp-citations= and =citar-denote= read them while Elpaca may still be loading that file. This module loads long before, so the ordering problem is gone.
 
 #+begin_src emacs-lisp -i
 ;; Moved here from sp-academic.el.
-(defcustom sp-bibliography nil "User bibliography for citation."
-  :group 'spcustom
-  :tag "Lambda-Emacs User Bibliography")
 (defcustom sp-bib-notes nil "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")

@@ -1,33 +1,30 @@
-;;; sp-bibprocess.el --- BibTeX files, citation keys, lookup and attachment checks -*- lexical-binding: t; -*-
+;;; sp-bibprocess.el --- BibTeX files, citation keys and attachment checks -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
 ;; This module manages the BibTeX bibliography that the academic modules build
 ;; on: where the .bib files are, how citation keys are generated, and the
-;; commands that look up and audit entries.
+;; commands that audit attachments.
 
 ;;; Code:
 
 ;;;; Defining variables
 
-;; Moved to `sp-globals': `sp-bibtex-dir', the folder of the BibTeX files and
-;; their attachments.
-
 (defconst sp-bibtex-file-regexp "\\`[[:alnum:]].*\\.bib\\'"
-  "Regexp for the names of the BibTeX files in `sp-bibtex-dir'.")
+  "Regexp for the names of the BibTeX files in `sp-bibliography-dir'.")
 
 (defvar sp-bibtex-files
-  (when (file-exists-p sp-bibtex-dir)
-    (directory-files sp-bibtex-dir t sp-bibtex-file-regexp))
+  (when (file-exists-p sp-bibliography-dir)
+    (directory-files sp-bibliography-dir t sp-bibtex-file-regexp))
   "List of BibTeX files. Use `sp-bibtex-register' to configure.")
 
 ;;;###autoload
 (defun sp-bibtex-register ()
-  "Register the contents of the `sp-bibtex-dir' with `sp-bibtex-files`.
-Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
+  "Register the contents of the `sp-bibliography-dir' with `sp-bibtex-files`.
+Use when adding or removing a BibTeX file from or to `sp-bibliography-dir'."
   (interactive)
-  (when (file-exists-p sp-bibtex-dir)
-    (let ((bib-files (directory-files sp-bibtex-dir t sp-bibtex-file-regexp)))
+  (when (file-exists-p sp-bibliography-dir)
+    (let ((bib-files (directory-files sp-bibliography-dir t sp-bibtex-file-regexp)))
       (setq sp-bibtex-files bib-files
             org-cite-global-bibliography bib-files
             citar-bibliography bib-files
@@ -84,12 +81,6 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
   (bibtex-aux-opt-alist
    '(("keywords" "Keywords to describe the entry" "")
      ("file" "Relative or absolute path to attachments" "")))
-  (bibtex-autokey-name-separator nil)
-  (bibtex-autokey-name-year-separator nil)
-  (bibtex-autokey-year-length 4)
-  (bibtex-autokey-names 1)
-  (bibtex-autokey-names-stretch 1)
-  (bibtex-autokey-titlewords 0)
   :config
   (sp-bibtex-register)
   :bind
@@ -98,42 +89,9 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
    ("H-b" . org-ref-bibtex-hydra/body))
 )
 
-;;;; Looking up entries
-
-(defun sp--bibtex-combined-biblio-lookup ()
-  "Combines `biblio-lookup' and `biblio-doi-insert-bibtex'."
-  (require 'biblio)
-  (let* ((dbs (biblio--named-backends))
-         (db-list (append dbs '(("DOI" . biblio-doi-backend))))
-         (db-selected (biblio-completing-read-alist
-                       "Backend:"
-                       db-list)))
-    (if (eq db-selected 'biblio-doi-backend)
-        (let ((doi (read-string "DOI: ")))
-          (biblio-doi-insert-bibtex doi))
-      (biblio-lookup db-selected))))
-
-;;;###autoload
-(defun sp-bibtex-biblio-lookup ()
-  "Insert Biblio search results into current buffer or select BibTeX file."
-  (interactive)
-  (if-let* ((current-mode major-mode)
-	   sp-bibtex-files
-	   (bibfiles (length sp-bibtex-files))
-	   (bibfile (cond ((eq bibfiles 1) (car sp-bibtex-files))
-			  ((equal major-mode 'bibtex-mode)
-			   (buffer-file-name))
-			  (t (completing-read
-			      "Select BibTeX file:" sp-bibtex-files)))))
-      (progn (find-file bibfile)
-	     (goto-char (point-max))
-	     (sp--bibtex-combined-biblio-lookup)
-	     (save-buffer))
-    (message "No BibTeX file(s) defined.")))
-
 ;; Search for missing BibTeX attachments and filenames
 (defun sp--bibtex-extract-attachments ()
-  "Extract attachment file names from BibTeX files in `sp-bibtex-dir'."
+  "Extract attachment file names from BibTeX files in `sp-bibliography-dir'."
   (sp-bibtex-register)
   (let ((attachments '()))
     (dolist (bibtex-file sp-bibtex-files)
@@ -145,17 +103,17 @@ Use when adding or removing a BibTeX file from or to `sp-bibtex-dir'."
                                           "[[:space:]]*;[[:space:]]*")))
             (dolist (file-path file-paths)
               (push (expand-file-name (string-trim file-path)
-                                      sp-bibtex-dir)
+                                      sp-bibliography-dir)
                     attachments))))))
     attachments))
 
 (defun sp--bibtex-extract-files ()
-  "List files recursively in `sp-bibtex-dir', excluding `.bib' and `.csl'."
+  "List files recursively in `sp-bibliography-dir', excluding `.bib' and `.csl'."
   (seq-remove (lambda (file)
                 (or (string-suffix-p ".bib" file)
                     (string-suffix-p ".csl" file)))
               (mapcar 'expand-file-name
-                      (directory-files-recursively sp-bibtex-dir ""))))
+                      (directory-files-recursively sp-bibliography-dir ""))))
 
 ;;;###autoload
 (defun sp-bibtex-missing-files ()

@@ -212,7 +212,8 @@ The other layers, the title and the boxes share the column to its right."
   :type 'integer
   :group 'spcustom)
 
-(defvar sp-dashboard-lane-width)
+(defvar sp-dashboard-box-width)
+(defvar sp-dashboard-agenda-columns)
 
 ;;;; Window size
 (defun sp-dashboard--columns ()
@@ -289,12 +290,24 @@ The side layer drawn as an SVG image takes its scaled size."
                 (max 1 (round (* scale (cdr size))))))
       size)))
 
+(defun sp-dashboard--box-columns ()
+  "Return how many boxes fit side by side, at most `sp-dashboard-agenda-columns'."
+  (max 1 (min sp-dashboard-agenda-columns
+              (/ (+ (sp-dashboard--columns) 2) (+ sp-dashboard-box-width 2)))))
+
+(defun sp-dashboard--lane-width ()
+  "Return the width, in columns, of the lane all the boxes fill.
+It is the boxes of `sp-dashboard-box-width' side by side and the gaps between
+them, however wide the banner is, and at most the window."
+  (let ((count (sp-dashboard--box-columns)))
+    (min (sp-dashboard--columns)
+         (+ (* count sp-dashboard-box-width) (* 2 (1- count))))))
+
 (defun sp-dashboard--right-width ()
   "Return the width of the right column.
-That is the widest layer other than the side layer, or `sp-dashboard-lane-width'."
-  (let ((width (max (or (and (boundp 'sp-dashboard-lane-width)
-                             sp-dashboard-lane-width)
-                        0)
+That is the lane of the boxes or the widest layer other than the side layer,
+whichever is wider."
+  (let ((width (max (sp-dashboard--lane-width)
                     (apply #'max 0
                            (mapcar (lambda (layer)
                                      (if (eq (car layer) sp-dashboard-side-layer)
@@ -306,8 +319,8 @@ That is the widest layer other than the side layer, or `sp-dashboard-lane-width'
 (defun sp-dashboard--column-geometry ()
   "Return (LEFT-START LEFT-WIDTH RIGHT-START RIGHT-WIDTH) of the two columns.
 The side layer is the left column; the right column holds the other layers,
-the title and the boxes, and is as wide as the widest of them or of
-`sp-dashboard-lane-width'.  The two are centred in the window together."
+the title and the boxes, and is as wide as the lane of the boxes or the widest
+layer.  The two are centred in the window together."
   (let* ((right-width (sp-dashboard--right-width))
          (columns (sp-dashboard--columns))
          (side-width (or (car (sp-dashboard--layer-size sp-dashboard-side-layer)) 0))
@@ -701,10 +714,12 @@ nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
   :type '(repeat sexp)
   :group 'spcustom)
 
-(defcustom sp-dashboard-lane-width nil
-  "Width, in columns, of the lane all the boxes fill, centred under the banner.
-nil uses the width of the content layer, so the boxes line up with the banner."
-  :type '(choice (const :tag "Width of the banner" nil) integer)
+(defcustom sp-dashboard-box-width 40
+  "Width, in columns and borders included, of each agenda and menu box.
+The lane of the boxes is this wide times `sp-dashboard-agenda-columns' plus
+the gaps, and the banner and the title are centred on it.  A wider box shows
+more of each TODO; boxes shrink to fit a window narrower than the lane."
+  :type 'integer
   :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-columns 2
@@ -944,20 +959,52 @@ nil turns the timer off; the Focus files are still watched."
        (if (and scheduled (<= scheduled 0)) 1000 0)
        (if (member (plist-get entry :state) sp-dashboard-urgent-states) 500 0))))
 
+(defvar sp-dashboard-agenda-ready t
+  "Non-nil when `org-agenda-files' is final and the agenda boxes may read it.
+A module that sets the files late sets this to nil when it loads, then to t
+once they are set, and calls `sp-dashboard-refresh-agendas'.  Until then the
+boxes say they are loading instead of reading the wrong files.")
+
+(defvar sp-dashboard--entries-cache nil
+  "Hash table of the entries read from each list of files during one draw.
+Nil outside a draw, when nothing is kept.")
+
+(defun sp-dashboard--read-entries (files)
+  "Return every open TODO of FILES as entry plists, in no particular order.
+During a draw (`sp-dashboard--entries-cache') a list of files is read once,
+however many boxes show it."
+  (require 'org)
+  (or (and sp-dashboard--entries-cache
+           (gethash files sp-dashboard--entries-cache))
+      (let ((started (float-time))
+            (count 0)
+            entries)
+        (dolist (file files)
+          (when (file-readable-p file)
+            (setq count (1+ count))
+            (condition-case nil
+                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
+                  (when entry
+                    (push entry entries)))
+              (error nil))))
+        (message "[dashboard] read %d agenda file%s in %.2fs"
+                 count (if (= count 1) "" "s") (- (float-time) started))
+        (when sp-dashboard--entries-cache
+          (puthash files entries sp-dashboard--entries-cache))
+        entries)))
+
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
 Private entries are left out while `sp-dashboard-public-p'."
-  (require 'org)
-  (let ((public (sp-dashboard-public-p))
-        entries)
-    (dolist (file files)
-      (when (file-readable-p file)
-        (condition-case nil
-            (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-              (unless (or (null entry)
-                          (and public (sp-dashboard--private-p file (plist-get entry :tags))))
-                (push entry entries)))
-          (error nil))))
+  (let* ((public (sp-dashboard-public-p))
+         ;; A new list each time: `sort' below changes its argument, and the
+         ;; entries of a draw are shared by its boxes.
+         (entries (seq-remove
+                   (lambda (entry)
+                     (and public
+                          (sp-dashboard--private-p (plist-get entry :file)
+                                                   (plist-get entry :tags))))
+                   (sp-dashboard--read-entries files))))
     (when (eq mode 'deadline)
       (setq entries (seq-filter (lambda (entry)
                                   (let ((days (plist-get entry :deadline)))
@@ -1030,14 +1077,17 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
       (list body 'sp-dashboard-menu-face))))
 
 ;; The title of a box is larger than the rows under it.  A larger font makes
-;; every character wider, so the label is measured in pixels and the gap
+;; every character wider, so the label's width is read from the font and the gap
 ;; before the key is one space with an exact pixel width.
 (defun sp-dashboard--heading-pixels (text)
   "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
-Without a graphical frame the width is that of the default font."
-  (if (and (display-graphic-p) (fboundp 'string-pixel-width))
-      (string-pixel-width (propertize text 'face 'sp-dashboard-heading-face))
-    (* (string-width text) (frame-char-width))))
+It counts the characters at the average width of that face, so nothing is
+drawn or measured in a buffer.  Without a graphical frame it is the width of
+the default font."
+  (* (string-width text)
+     (if (display-graphic-p)
+         (window-font-width nil 'sp-dashboard-heading-face)
+       (frame-char-width))))
 
 (defun sp-dashboard--heading-segments (text key command help width)
   "Return the segments of a box title, TEXT with KEY at the right of WIDTH.
@@ -1114,10 +1164,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
   "Return AGENDA as a box of text WIDTH, drawn with BOX-FACE."
   (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
                (rule (make-string (+ width 2) ?─))
-               (todos (condition-case nil
-                          (sp-dashboard--todos
-                           (or (symbol-value files-var) (org-agenda-files)) mode)
-                        (error nil)))
+               (todos (when sp-dashboard-agenda-ready
+                        (condition-case nil
+                            (sp-dashboard--todos
+                             (or (symbol-value files-var) (org-agenda-files)) mode)
+                          (error nil))))
                (lines (list (list (list (concat "┌" rule "┐") box-face))
                             (apply #'sp-dashboard--box-line
                                    width box-face
@@ -1127,7 +1178,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
                             (list (list (concat "├" rule "┤") box-face)))))
     (if (null todos)
         (setq lines (append lines (list (sp-dashboard--box-line
-                                         width box-face (list "  nothing open" 'shadow)))))
+                                         width box-face
+                                         (list (if sp-dashboard-agenda-ready
+                                                   "  nothing open"
+                                                 "  loading agenda files...")
+                                               'shadow)))))
       (dolist (entry todos)
         (let* ((prefix (if (eq mode 'deadline)
                            (format-time-string
@@ -1184,24 +1239,17 @@ PROPERTIES are added to the button, see `sp-dashboard--stops'."
                'face face 'follow-link t properties)
       (insert (propertize text 'face face)))))
 
-(defun sp-dashboard--lane-width ()
-  "Return the width, in columns, of the lane all the boxes fill."
-  (min (sp-dashboard--columns)
-       (or sp-dashboard-lane-width
-           (nth 2 (sp-dashboard--layer-box sp-dashboard-content-layer))
-           60)))
-
 (defvar sp-dashboard--scope)
 
 (defun sp-dashboard--insert-boxes (content-col)
   "Insert the agenda and menu boxes in one lane centred on column CONTENT-COL.
-The lane is `sp-dashboard--lane-width' wide, so the outer edges of the boxes
-line up with the banner it is centred on."
+The lane is `sp-dashboard--lane-width' wide, from `sp-dashboard-box-width',
+and the banner is centred on it."
   (setq sp-dashboard--scope nil)
-  (let* ((gap 2)
+  (let* ((sp-dashboard--entries-cache (make-hash-table :test #'equal))
+         (gap 2)
          (lane (sp-dashboard--lane-width))
-         (columns (max 1 (min sp-dashboard-agenda-columns
-                              (/ (+ lane gap) (+ 24 gap)))))
+         (columns (sp-dashboard--box-columns))
          (base (/ (- lane (* gap (1- columns))) columns))
          (extra (- lane (* gap (1- columns)) (* base columns)))
          (totals (mapcar (lambda (column) (+ base (if (< column extra) 1 0)))
@@ -1742,12 +1790,31 @@ caught from outside (see the doc)."
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
   (sp-dashboard--isolate-menu)
+  (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)
   (sp-dashboard--mark-focus))
 
 ;;;; Splash Setup & Refresh Functions
+(defvar-local sp-dashboard--drawn-geometry nil
+  "Pixel size of the window and the font the Dashboard was last drawn for.")
+
+(defun sp-dashboard--window-geometry ()
+  "Return the pixel size of the selected window and the font, to compare draws."
+  (list (window-pixel-width) (window-pixel-height)
+        (frame-char-width) (frame-char-height)))
+
+(defun sp-dashboard--refresh-on-resize ()
+  "Redraw the Dashboard when its window or font size changed since it was drawn.
+The window hooks run for much more than a resize (a key logger, the mode line
+or a message can trigger them), and a redraw drops the selected button, so
+nothing happens while the geometry is the same."
+  (when (and (string= (buffer-name) "Dashboard")
+             (not (equal sp-dashboard--drawn-geometry
+                         (sp-dashboard--window-geometry))))
+    (sp-dashboard-refresh)))
+
 (defun sp-dashboard-refresh ()
   "Refresh & recenter splash after window switch."
   (interactive)
@@ -1757,15 +1824,24 @@ caught from outside (see the doc)."
         (sp-dashboard-screen-kill)
         (sp-dashboard-screen)))))
 
+(defun sp-dashboard-refresh-agendas ()
+  "Redraw the Dashboard to show the agenda files, when it is on screen.
+Only the Dashboard in the selected window is redrawn: drawing it takes the
+selected window, so it is left alone while another buffer is there."
+  (when (and (get-buffer "Dashboard")
+             (eq (window-buffer (selected-window)) (get-buffer "Dashboard")))
+    (with-current-buffer "Dashboard"
+      (sp-dashboard-refresh))))
+
 (defun sp-dashboard--setup-splash-hooks ()
   "Initialize splash and setup hooks."
   (progn
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
-    (add-hook 'window-state-change-hook #'sp-dashboard-refresh)
-    (add-hook 'window-configuration-change-hook  #'sp-dashboard-refresh)
-    (add-hook 'sp-switch-buffer-hook #'sp-dashboard-refresh)))
+    (add-hook 'window-state-change-hook #'sp-dashboard--refresh-on-resize)
+    (add-hook 'window-configuration-change-hook  #'sp-dashboard--refresh-on-resize)
+    (add-hook 'sp-switch-buffer-hook #'sp-dashboard--refresh-on-resize)))
 
 ;; Install hook after frame parameters have been applied and only if
 ;; no option on the command line

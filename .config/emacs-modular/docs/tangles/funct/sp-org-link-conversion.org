@@ -57,6 +57,7 @@ Loads Org, the Org ID library, the common Lisp, sequence and string helpers, and
 (require 'subr-x)
 (require 'vulpea)
 (require 'sp-org-tag-lint)
+(require 'sp-tag-emoji)
 #+end_src
 
 * Shared helpers
@@ -164,7 +165,7 @@ The interactive command:
   "Create a new org note TITLE in `org-directory' and insert an ID link to it.
 If a note with the same title (case-insensitive) already exists in
 `vulpea-db', report the conflict and offer to quit or to call
-`vulpea-insert' on the existing match(es) instead.
+`sp-insert-note' on the existing match(es) instead.
 
 The new note is written straight to disk: no buffer is visited and no
 window is created.  If the region is active, its text is used as the
@@ -187,7 +188,7 @@ title and is replaced by the link."
 
 ** Title conflict handling
 
-=sp-org--handle-title-conflict= reports how many notes already use the title and asks with =read-multiple-choice=: =i= runs =vulpea-insert= restricted to the matching notes (choosing to create a new note there is refused with an error), and =q= or anything else aborts.
+=sp-org--handle-title-conflict= reports how many notes already use the title and asks with =read-multiple-choice=: =i= runs =sp-insert-note= restricted to the matching notes (choosing to create a new note there is refused with an error), and =q= or anything else aborts.
 
 #+begin_src emacs-lisp -i
 (defun sp-org--handle-title-conflict (title matches)
@@ -200,12 +201,12 @@ title and is replaced by the link."
     (message "%s" msg)
     (pcase (car (read-multiple-choice
                  (concat msg ".")
-                 '((?i "insert" "Link to the existing note with `vulpea-insert'")
+                 '((?i "insert" "Link to the existing note with `sp-insert-note'")
                    (?q "quit"   "Abort without doing anything"))))
-      (?i (vulpea-insert
-           (lambda (note) (member (vulpea-note-id note) ids))
-           (lambda (&rest _)
-             (user-error "Pick one of the existing matches"))))
+      (?i (sp-insert-note
+           :filter-fn (lambda (note) (member (vulpea-note-id note) ids))
+           :create-fn (lambda (&rest _)
+                        (user-error "Pick one of the existing matches"))))
       (_ (message "Aborted")))))
 #+end_src
 
@@ -453,7 +454,7 @@ example, export and comment blocks are ignored."
 
 ** Resolve one link interactively
 
-=sp-org--resolve-interactively= opens =vulpea-select= pre-filled with the target, without requiring a match.
+=sp-org--resolve-interactively= opens =sp-select-note= pre-filled with the target, without requiring a match.
 
 - Choosing an existing note returns its ID.
 - Typing a title that does not exist falls through to =sp-org--offer-create=.
@@ -464,7 +465,7 @@ example, export and comment blocks are ignored."
   "Steps 2 and 3 for ENTRY: pick an existing note, else offer to create one.
 Return an ID or :skip."
   (let* ((target (plist-get entry :target))
-         (note (vulpea-select (format "Link target for [[%s]]" target)
+         (note (sp-select-note (format "Link target for [[%s]]" target)
                               :initial-prompt target
                               :require-match nil)))
     (or (vulpea-note-id note)           ; an existing note was selected
@@ -496,7 +497,7 @@ Operates on the active region, or on the whole (accessible) buffer.
 1. A wikilink whose target matches exactly one note in `vulpea-db'
    (title or alias, case-insensitive) is converted right away.
 2. The remaining wikilinks are highlighted, then visited one by one with
-   a `vulpea-select' prompt pre-filled with the text between the brackets.
+   an `sp-select-note' prompt pre-filled with the text between the brackets.
 3. If no existing note is selected, offer to create a new note in
    `org-directory' (the title is editable), skip the link, or quit.
 

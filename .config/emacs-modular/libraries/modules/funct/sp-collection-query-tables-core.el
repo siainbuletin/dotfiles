@@ -13,6 +13,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
+(require 'sp-tag-emoji)
 
 (defgroup sp-collec-query nil
   "Tables of Vulpea notes."
@@ -224,14 +225,9 @@ SPEC's :parent-of must be resolved already (see
     ""))
 
 (defun sp-collec-query-select-note (prompt)
-  "Select a note with PROMPT; candidates are annotated with their tags.
+  "Select an existing note with PROMPT, with `sp-select-note'.
 Return the `vulpea-note'."
-  (let* ((cands (mapcar (lambda (n) (cons (vulpea-note-title n) n)) (vulpea-db-query)))
-         (completion-extra-properties
-          (list :annotation-function
-                (lambda (title)
-                  (sp-collec-query--tag-annotation (cdr (assoc title cands)))))))
-    (cdr (assoc (completing-read prompt cands nil t) cands))))
+  (sp-select-note prompt :require-match t))
 
 (defun sp-collec-query-read-parent (&optional allow-self)
   "Choose a :parent-of value: nil, \"self\" (when ALLOW-SELF) or a note ID."

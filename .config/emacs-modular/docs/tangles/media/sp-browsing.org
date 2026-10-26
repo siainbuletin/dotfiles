@@ -94,6 +94,8 @@ Some caveats: =thing-at-point--list= does not appear to be a standard Emacs func
 
 Empty headers reserved for Elpher and =consult-omni= configuration.
 
+The =consult-omni= header is the place where the package gets installed. [[file:../academic/sp-fetch-academic.org::*consult-omni (future)][sp-fetch-academic]] has a placeholder that will use it for scholarly searches once it works here; the working recipe is still the switched-off block in the old doc ([[file:sp-browsing-old.org][sp-browsing-old]]).
+
 #+begin_src emacs-lisp -i
 ;;;; Elpher
 

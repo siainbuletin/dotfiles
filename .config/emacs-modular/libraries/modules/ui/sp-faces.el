@@ -153,5 +153,11 @@
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
 
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').
+Used by `sp-nano-style'.  Only the text of the title is shown, not its face.")
+
+
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

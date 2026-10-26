@@ -3,14 +3,16 @@
 ;;; Commentary:
 
 ;; A mode line made of constructs, adapted from `prot-modeline.el' in
-;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it shows the lighters
-;; of the minor modes, needs no other library, and takes its colours from the
-;; theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
+;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it uses the boxed
+;; segments of `sp-modeline-parts', mode-line-maker for the left and right
+;; parts, and takes its colours from the theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
 
 ;;; Code:
 
 (require 'vc)
 (require 'subr-x)
+(require 'sp-nano-style)
+(require 'sp-modeline-parts)
 
 (defgroup sp-prot-modeline nil
   "A mode line adapted from Prot's."
@@ -19,15 +21,6 @@
 (defcustom sp-prot-modeline-string-truncate-length 9
   "String length after which truncation is done in small windows."
   :type 'natnum
-  :group 'sp-prot-modeline)
-
-(defcustom sp-prot-modeline-minor-modes-style 'lighters
-  "How to show the enabled minor modes.
-`lighters' shows the text each mode puts in the mode line, `count'
-shows how many are enabled, nil shows nothing."
-  :type '(choice (const :tag "Lighters" lighters)
-                 (const :tag "Count" count)
-                 (const :tag "None" nil))
   :group 'sp-prot-modeline)
 
 (defface sp-prot-modeline-indicator-button nil
@@ -127,101 +120,6 @@ Add a :box attribute to it to give all of them a border.")
                     'face 'sp-prot-modeline-indicator-gray-bg
                     'mouse-face 'mode-line-highlight)))
   "Mode line construct for a dedicated window.")
-
-(defun sp-prot-modeline-buffer-identification-face ()
-  "Return the face for `sp-prot-modeline-buffer-identification'."
-  (let ((file (buffer-file-name)))
-    (cond
-     ((and (mode-line-window-selected-p) file (buffer-modified-p))
-      '(italic mode-line-buffer-id))
-     ((and file (buffer-modified-p)) 'italic)
-     ((mode-line-window-selected-p) 'mode-line-buffer-id))))
-
-(defun sp-prot-modeline-buffer-name-help-echo ()
-  "Return the `help-echo' text for the buffer name."
-  (concat
-   (propertize (buffer-name) 'face 'mode-line-buffer-id)
-   "\n"
-   (propertize
-    (or (buffer-file-name)
-        (format "No underlying file.\nDirectory is: %s" default-directory))
-    'face 'font-lock-doc-face)))
-
-(defvar-local sp-prot-modeline-buffer-identification
-    '(:eval
-      (let ((name (propertize (sp-prot-modeline-string-cut-middle (buffer-name))
-                              'face (sp-prot-modeline-buffer-identification-face)
-                              'mouse-face 'mode-line-highlight
-                              'help-echo (sp-prot-modeline-buffer-name-help-echo))))
-        (if buffer-read-only
-            (concat (propertize "RO"
-                                'face (if (mode-line-window-selected-p)
-                                          'sp-prot-modeline-indicator-red
-                                        'sp-prot-modeline-indicator-gray))
-                    " " name)
-          name)))
-  "Mode line construct for the buffer name and its read-only state.")
-
-(defvar sp-prot-modeline-describe-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map [mode-line down-mouse-1] 'describe-mode)
-    map)
-  "Keymap for the mode name and minor modes.")
-
-(defun sp-prot-modeline-major-mode-help-echo ()
-  "Return the `help-echo' text for the major mode."
-  (if-let* ((parent (get major-mode 'derived-mode-parent)))
-      (format "Symbol: `%s'.  Derived from: `%s'\nmouse-1: `describe-mode'"
-              major-mode parent)
-    (format "Symbol: `%s'.\nmouse-1: `describe-mode'" major-mode)))
-
-(defvar-local sp-prot-modeline-major-mode
-    (list
-     (propertize "%[" 'face 'sp-prot-modeline-indicator-red)
-     '(:eval
-       (propertize (sp-prot-modeline-string-cut-end (format-mode-line mode-name))
-                   'face 'bold
-                   'mouse-face 'mode-line-highlight
-                   'help-echo (sp-prot-modeline-major-mode-help-echo)
-                   'local-map sp-prot-modeline-describe-map))
-     (propertize "%]" 'face 'sp-prot-modeline-indicator-red))
-  "Mode line construct for the major mode.")
-
-(defun sp-prot-modeline--enabled-minor-modes ()
-  "Return the symbols of the minor modes enabled in this buffer."
-  (let (modes)
-    (dolist (entry minor-mode-alist)
-      (let ((mode (car entry)))
-        (when (and (boundp mode) (symbol-value mode))
-          (push mode modes))))
-    (nreverse modes)))
-
-(defun sp-prot-modeline--minor-modes-text ()
-  "Return the text for the enabled minor modes, or nil."
-  (when-let* ((style sp-prot-modeline-minor-modes-style)
-              (modes (sp-prot-modeline--enabled-minor-modes)))
-    (pcase style
-      ('lighters
-       (let ((text (string-trim (format-mode-line minor-mode-alist))))
-         (unless (string-empty-p text)
-           (propertize (sp-prot-modeline-string-cut-end text)
-                       'face 'sp-prot-modeline-indicator-gray
-                       'mouse-face 'mode-line-highlight
-                       'help-echo (format "Minor modes: %s\nmouse-1: `describe-mode'"
-                                          (mapconcat #'symbol-name modes ", "))
-                       'local-map sp-prot-modeline-describe-map))))
-      ('count
-       (propertize (format "(%d)" (length modes))
-                   'face 'sp-prot-modeline-indicator-gray
-                   'mouse-face 'mode-line-highlight
-                   'help-echo (format "Minor modes: %s\nmouse-1: `describe-mode'"
-                                      (mapconcat #'symbol-name modes ", "))
-                   'local-map sp-prot-modeline-describe-map)))))
-
-(defvar-local sp-prot-modeline-minor-modes
-    '(:eval (when (mode-line-window-selected-p)
-              (sp-prot-modeline--minor-modes-text)))
-  "Mode line construct for the minor modes of the selected window.")
 
 (defvar-local sp-prot-modeline-process
     (list '("" mode-line-process))
@@ -334,9 +232,6 @@ Add a :box attribute to it to give all of them a border.")
                      sp-prot-modeline-input-method
                      sp-prot-modeline-buffer-status
                      sp-prot-modeline-window-dedicated-status
-                     sp-prot-modeline-buffer-identification
-                     sp-prot-modeline-major-mode
-                     sp-prot-modeline-minor-modes
                      sp-prot-modeline-process
                      sp-prot-modeline-vc-branch
                      sp-prot-modeline-flymake
@@ -344,73 +239,24 @@ Add a :box attribute to it to give all of them a border.")
                      sp-prot-modeline-misc-info))
   (put construct 'risky-local-variable t))
 
-(defun sp-prot-modeline--header-path ()
-  "Return the path of the file, or the directory, for the header line."
-  (abbreviate-file-name (or buffer-file-name
-                            (and (derived-mode-p 'dired-mode) default-directory)
-                            (buffer-name))))
-
-(defvar-local sp-prot-modeline-header-path
-    '(:eval
-      (let ((path (sp-prot-modeline--header-path)))
-        (concat
-         " "
-         (propertize path
-                     'face (if (mode-line-window-selected-p) 'bold 'shadow)
-                     'mouse-face 'highlight
-                     'help-echo (format "%s\nDirectory: %s" path default-directory)))))
-  "Header line construct for the path of the file.")
-(put 'sp-prot-modeline-header-path 'risky-local-variable t)
-
-(defvar sp-prot-modeline--saved-header-format nil
-  "The default `header-line-format' before `sp-prot-modeline-mode' was enabled.")
-
-
-(defcustom sp-prot-modeline-keycast t
-  "When non-nil, `sp-prot-modeline-mode' also turns on `keycast-mode-line-mode'."
-  :type 'boolean
-  :group 'sp-prot-modeline)
-
-(defvar keycast-mode-line-format)
-(defvar keycast-mode-line-insert-after)
-(defvar keycast-mode-line-window-predicate)
-(defvar keycast-mode-line-remove-tail-elements)
-(defvar keycast-substitute-alist)
-(declare-function keycast-mode-line-mode "keycast")
-(declare-function keycast-header-line-mode "keycast")
-(defvar keycast-header-line-mode)
-
-(with-eval-after-load 'keycast
-  (setq keycast-mode-line-format "%2s%k%c%R"
-        keycast-mode-line-insert-after 'sp-prot-modeline-vc-branch
-        keycast-mode-line-window-predicate 'mode-line-window-selected-p
-        keycast-mode-line-remove-tail-elements nil)
-  (dolist (input '(self-insert-command org-self-insert-command))
-    (add-to-list 'keycast-substitute-alist `(,input "." "Typing…")))
-  (dolist (event '("<mouse-event>" "<mouse-movement>" "<mouse-2>" "<drag-mouse-1>"
-                   "<wheel-up>" "<wheel-down>" "<double-wheel-up>" "<double-wheel-down>"
-                   "<triple-wheel-up>" "<triple-wheel-down>" "<wheel-left>" "<wheel-right>"
-                   handle-select-window mouse-set-point mouse-drag-region))
-    (add-to-list 'keycast-substitute-alist `(,event nil nil))))
-
-(defvar keycast-mode-line-mode)
-
 (defvar sp-prot-modeline--saved-format nil
   "The default `mode-line-format' before `sp-prot-modeline-mode' was enabled.")
 
-(defconst sp-prot-modeline-format
+(defvar sp-prot-modeline-format
   '("%e"
+    sp-modeline-parts-window-number-construct
+    " "
+    sp-modeline-parts-mode-construct
+    " "
+    sp-modeline-parts-position-construct
+    " "
+    sp-modeline-parts-keycast-construct
+    "  "
     sp-prot-modeline-kbd-macro
     sp-prot-modeline-narrow
     sp-prot-modeline-buffer-status
     sp-prot-modeline-window-dedicated-status
     sp-prot-modeline-input-method
-    "  "
-    sp-prot-modeline-buffer-identification
-    "  "
-    sp-prot-modeline-major-mode
-    " "
-    sp-prot-modeline-minor-modes
     sp-prot-modeline-process
     "  "
     sp-prot-modeline-vc-branch
@@ -418,14 +264,27 @@ Add a :box attribute to it to give all of them a border.")
     sp-prot-modeline-flymake
     "  "
     mode-line-format-right-align
+    sp-modeline-parts-clock-construct
+    "  "
     sp-prot-modeline-which-function-indicator
     "  "
     sp-prot-modeline-misc-info)
-  "The mode line format of `sp-prot-modeline-mode'.")
+  "The mode line format of `sp-prot-modeline-mode'.
+Change it, then run `sp-prot-modeline-mode' twice (off, on).")
+
+(defun sp-prot-modeline--format ()
+  "Return `sp-prot-modeline-format' with its two parts given to mode-line-maker.
+The list is cut at `mode-line-format-right-align'.  Without the package the
+list is used as it is."
+  (if (require 'mode-line-maker nil t)
+      (let* ((tail (memq 'mode-line-format-right-align sp-prot-modeline-format))
+             (left (remove "%e" (butlast sp-prot-modeline-format (length tail)))))
+        (list "%e" (mode-line-maker left (cdr tail))))
+    sp-prot-modeline-format))
 
 ;;;###autoload
 (define-minor-mode sp-prot-modeline-mode
-  "Show the mode line adapted from Prot's: buffer name, modes, branch."
+  "Show the mode line adapted from Prot's, with the boxed segments."
   :global t
   :group 'sp-prot-modeline
   (if sp-prot-modeline-mode
@@ -433,17 +292,12 @@ Add a :box attribute to it to give all of them a border.")
         (setq sp-prot-modeline--saved-format (default-value 'mode-line-format))
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
-        (setq-default mode-line-format sp-prot-modeline-format)
-        (setq sp-prot-modeline--saved-header-format (default-value 'header-line-format))
-        (setq-default header-line-format '("%e" sp-prot-modeline-header-path))
-        (when (and sp-prot-modeline-keycast (require 'keycast nil t))
-          (when (bound-and-true-p keycast-header-line-mode)
-            (keycast-header-line-mode -1))
-          (keycast-mode-line-mode 1)))
-    (when (bound-and-true-p keycast-mode-line-mode)
-      (keycast-mode-line-mode -1))
+        (setq-default mode-line-format (sp-prot-modeline--format))
+        (sp-nano-style-install)
+        (sp-modeline-parts-install))
+    (sp-modeline-parts-uninstall)
     (setq-default mode-line-format sp-prot-modeline--saved-format)
-    (setq-default header-line-format sp-prot-modeline--saved-header-format))
+    (sp-nano-style-uninstall))
   (force-mode-line-update t))
 
 (sp-prot-modeline-mode 1)
