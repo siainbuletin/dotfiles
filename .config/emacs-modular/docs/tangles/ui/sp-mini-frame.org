@@ -136,7 +136,7 @@ Loads the built-in =color= library, and =cl-lib= for =cl-mapcar=. =color= provid
 Every prompt uses the same frame, centred, with a fixed height for the candidates Vertico shows (=vertico-count=, set in =sp-completion=):
 
 - =(left . 0.5)= and =(top . 0.5)= are fractions of the free space in the parent frame, so the frame is centred horizontally and vertically. =(width . 0.6)= keeps it from taking the full width.
-- =(height . N)= is the prompt line, =vertico-count= candidate lines and the line of the dotted divider, so the frame is as tall as its candidates and no taller. The frame is not resized while it is open: with fewer candidates there is empty space at the bottom of the frame. (A version that resized the frame to its content, with =mini-frame-resize= set to =t= and a starting height of one line, made Emacs hang when a prompt opened on macOS, and was removed. Before that the frame had the height of a normal frame, which is what showed as a long grey box.)
+- =(height . N)= is the prompt line, =vertico-count= (13) candidate lines and the line of the dotted divider, multiplied by the scale of the minibuffer text (=sp-minibuffer= enlarges it by two steps of =text-scale-mode-step=, about 1.17, so its lines are taller than the frame's), so the frame is as tall as its candidates and no taller. The frame is not resized while it is open: with fewer candidates there is empty space at the bottom of the frame. (A version that resized the frame to its content, with =mini-frame-resize= set to =t= and a starting height of one line, made Emacs hang when a prompt opened on macOS, and was removed. Before that the frame had the height of a normal frame, which is what showed as a long grey box.)
 - The text colour is that of the =default= face and the background is that colour moved =sp-mini-frame-contrast= (8 percent) toward the text colour, both read from the faces of the selected frame each time. =mini-frame= takes its colours from the frame parameters instead, which keep the values of the first frame when a theme is loaded later; text drawn with the theme's colour on a background computed from the old ones was almost invisible, except where highlighted.
 - The border is =sp-mini-frame-padding= pixels wide and coloured with the background of the frame, so it works as padding. =mini-frame= applies the colour (=mini-frame-internal-border-color=) when it makes the frame, so after a theme change the colour of the border is renewed the next time the frame is made (restart, or =M-x delete-frame= on it).
 
@@ -148,8 +148,11 @@ Every prompt uses the same frame, centred, with a fixed height for the candidate
   (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame--lines ()
-  "Return the lines of the mini-frame: prompt, candidates and the divider."
-  (+ 2 (if (boundp 'vertico-count) vertico-count 10)))
+  "Return the lines of the mini-frame: prompt, candidates and the divider.
+The minibuffer text is scaled by `sp-minibuffer' (two steps of
+`text-scale-mode-step'), so its lines are taller than the frame's own."
+  (let ((scale (if (fboundp 'sp-minibuffer) (expt text-scale-mode-step 2) 1)))
+    (ceiling (* scale (+ 2 (if (boundp 'vertico-count) vertico-count 10))))))
 
 (defun sp-mini-frame--colors (frame)
   "Return the foreground and background of the mini-frame, from the faces of FRAME.
