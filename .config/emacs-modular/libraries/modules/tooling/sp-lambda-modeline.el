@@ -15,47 +15,16 @@
 
 (declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
 (declare-function lambda-line-compose "lambda-line")
-(declare-function project-name "project" (project))
+(require 'sp-nano-style)
 (defvar lambda-line-position)
 
 (defgroup sp-lambda-modeline nil
   "Lambda-line header line and mode line."
   :group 'mode-line)
 
-(defvar sp-lambda-modeline--composing-header nil
-  "Non-nil while the header line is being composed.")
-
-(defun sp-lambda-modeline--path ()
-  "Return the path shown at the left of the header line."
-  (abbreviate-file-name (or buffer-file-name
-                            (and (derived-mode-p 'dired-mode) default-directory)
-                            (buffer-name))))
-
-(defun sp-lambda-modeline--project ()
-  "Return the name of the current project, or an empty string."
-  (or (and (not (file-remote-p default-directory))
-           (when-let* ((project (project-current)))
-             (project-name project)))
-      ""))
-
-(defun sp-lambda-modeline-header ()
-  "Return the header line string: the path and the project name."
-  (let ((sp-lambda-modeline--composing-header t))
-    (lambda-line-compose nil
-                         (sp-lambda-modeline--path)
-                         ""
-                         ""
-                         (sp-lambda-modeline--project))))
-
-(defconst sp-lambda-modeline-header-format
-  '(:eval (sp-lambda-modeline-header))
-  "The `header-line-format' of every window: the name of the file.")
-(put 'sp-lambda-modeline-header-format 'risky-local-variable t)
-
 (defun sp-lambda-modeline--add-tag-emoji (args)
   "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
-  (let ((tags (and (not sp-lambda-modeline--composing-header)
-                   (fboundp 'sp-tag-emoji-modeline-string)
+  (let ((tags (and (fboundp 'sp-tag-emoji-modeline-string)
                    (ignore-errors (sp-tag-emoji-modeline-string)))))
     (if (and (stringp tags) (not (string-blank-p tags)))
         (let ((args (copy-sequence args)))
@@ -146,7 +115,7 @@
 
 (defun sp-lambda-modeline-apply-layout ()
   "Show the file name in the header line and the keys in the mode line."
-  (setq-default header-line-format sp-lambda-modeline-header-format)
+  (sp-nano-style-install)
   (sp-lambda-modeline--setup-keycast)
   (force-mode-line-update t))
 

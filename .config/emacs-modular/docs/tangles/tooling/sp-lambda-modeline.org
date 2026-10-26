@@ -17,7 +17,7 @@ This module installs and configures =lambda-line=, the minimal status line from 
 What it does:
 
 - *Layout.* lambda-line sits in the mode line at the bottom of each window, and a header line above shows the name of the file. The mode line is never reduced to a divider, and lambda-line's =top= position (everything in the header) is not used.
-- *Header line.* The path of the file (the directory for a buffer with no file) on the left, the project name on the right. It is drawn with =lambda-line-compose=, so it follows the same faces as the mode line.
+- *Header line and divider.* From =sp-nano-style=, after nano-modeline: a block with =RW=, =RO= (read-only) or =**= (modified), the path of the file in bold and the project name at the right edge; and a thin line between the text of the buffer and the mode line. See that module's doc.
 - *Keycast.* The keys and commands are shown at the bottom, in the right part of the mode line. =keycast-header-line-mode= (which =sp-frame= used to turn on) is not used: keycast is in the mode line only.
 - *Tag emoji.* lambda-line never displays =global-mode-string=, where =sp-tag-emoji= puts its segment. An advice on =lambda-line-compose= appends =sp-tag-emoji-modeline-string= to the middle (primary) part of every mode line, whatever the major mode. The emoji keep their tooltip, but lambda-line's face for that part replaces their faces.
 - *Theme colours.* =sp-lambda-modeline-theme-faces= sets the lambda-line faces from the faces of the theme in use: the =mode-line= and =mode-line-inactive= faces for the selected and the other windows, =mode-line-buffer-id= for the name and =success=, =warning= and =error= for the status symbol. It runs when the module loads and after each theme loads (=sp-after-load-theme-hook=).
@@ -48,7 +48,7 @@ The clock icon option relies on the ClockFace font being installed, and the stat
 
 (declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
 (declare-function lambda-line-compose "lambda-line")
-(declare-function project-name "project" (project))
+(require 'sp-nano-style)
 (defvar lambda-line-position)
 #+end_src
 
@@ -62,42 +62,6 @@ There is no layout option: the header line and the mode line are always both sho
   :group 'mode-line)
 #+end_src
 
-** Header line
-
-The header is composed with =lambda-line-compose=, so it has the same prefix symbol and faces as the mode line. The variable =sp-lambda-modeline--composing-header= tells the tag emoji advice (below) not to add the emoji a second time. The project name is looked up only for local buffers, because asking a remote one for its project can be slow.
-
-#+begin_src emacs-lisp -i
-(defvar sp-lambda-modeline--composing-header nil
-  "Non-nil while the header line is being composed.")
-
-(defun sp-lambda-modeline--path ()
-  "Return the path shown at the left of the header line."
-  (abbreviate-file-name (or buffer-file-name
-                            (and (derived-mode-p 'dired-mode) default-directory)
-                            (buffer-name))))
-
-(defun sp-lambda-modeline--project ()
-  "Return the name of the current project, or an empty string."
-  (or (and (not (file-remote-p default-directory))
-           (when-let* ((project (project-current)))
-             (project-name project)))
-      ""))
-
-(defun sp-lambda-modeline-header ()
-  "Return the header line string: the path and the project name."
-  (let ((sp-lambda-modeline--composing-header t))
-    (lambda-line-compose nil
-                         (sp-lambda-modeline--path)
-                         ""
-                         ""
-                         (sp-lambda-modeline--project))))
-
-(defconst sp-lambda-modeline-header-format
-  '(:eval (sp-lambda-modeline-header))
-  "The `header-line-format' of every window: the name of the file.")
-(put 'sp-lambda-modeline-header-format 'risky-local-variable t)
-#+end_src
-
 ** Tag emoji
 
 The advice adds the tag emoji of the heading or file at point to the primary part (the middle one, next to the major mode) of every mode line lambda-line composes. All the mode formats go through =lambda-line-compose=, so no format needs to be rewritten.
@@ -105,8 +69,7 @@ The advice adds the tag emoji of the heading or file at point to the primary par
 #+begin_src emacs-lisp -i
 (defun sp-lambda-modeline--add-tag-emoji (args)
   "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
-  (let ((tags (and (not sp-lambda-modeline--composing-header)
-                   (fboundp 'sp-tag-emoji-modeline-string)
+  (let ((tags (and (fboundp 'sp-tag-emoji-modeline-string)
                    (ignore-errors (sp-tag-emoji-modeline-string)))))
     (if (and (stringp tags) (not (string-blank-p tags)))
         (let ((args (copy-sequence args)))
@@ -210,12 +173,12 @@ keycast puts its segment into =mode-line-format= after a given element and refus
 
 ** Layout
 
-The header line is set after =lambda-line-mode=, which clears both formats when it starts. Keycast is set up last, because it edits the mode line format that lambda-line has just installed.
+The header line and the divider (from =sp-nano-style=) are set after =lambda-line-mode=, which clears both formats when it starts. Keycast is set up last, because it edits the mode line format that lambda-line has just installed.
 
 #+begin_src emacs-lisp -i
 (defun sp-lambda-modeline-apply-layout ()
   "Show the file name in the header line and the keys in the mode line."
-  (setq-default header-line-format sp-lambda-modeline-header-format)
+  (sp-nano-style-install)
   (sp-lambda-modeline--setup-keycast)
   (force-mode-line-update t))
 #+end_src

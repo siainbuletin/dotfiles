@@ -18,7 +18,7 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 - *No =prot-common= or =prot-icons=.* The only function used from =prot-common= (=prot-common-window-narrow-p=) is written out here. Icons are replaced by text, so no font is needed.
 - *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
 - *Minor modes are shown.* Prot's mode line has no minor modes. =sp-prot-modeline-minor-modes= shows their lighters, a count, or nothing (=sp-prot-modeline-minor-modes-style=).
-- *Header line.* The path of the file (the directory for a buffer with no file) is shown in a header line above each window, as in =sp-lambda-modeline=; Prot's own mode line has no header. The buffer name stays in the mode line.
+- *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style= (nano-modeline's blocks: =RW=, =RO= or =**=, the path in bold, the project at the right), as in =sp-lambda-modeline=. The buffer name stays in the mode line.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, with =keycast-mode-line-mode=, after the branch, as in Prot's =prot-emacs-modeline.el= (same format, window predicate and substitutions for typing and mouse events). Turn it off with =sp-prot-modeline-keycast=. =keycast-header-line-mode= is turned off, so the keys are not shown twice.
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
 - *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the clock, and the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
@@ -42,6 +42,7 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 
 (require 'vc)
 (require 'subr-x)
+(require 'sp-nano-style)
 #+end_src
 
 ** Options and faces
@@ -424,34 +425,6 @@ Counts of errors, warnings and notes, with the same mouse commands as Prot's. Sh
   (put construct 'risky-local-variable t))
 #+end_src
 
-** Header line
-
-The path is bold in the selected window. The tooltip shows the full file name or the directory.
-
-#+begin_src emacs-lisp -i
-(defun sp-prot-modeline--header-path ()
-  "Return the path of the file, or the directory, for the header line."
-  (abbreviate-file-name (or buffer-file-name
-                            (and (derived-mode-p 'dired-mode) default-directory)
-                            (buffer-name))))
-
-(defvar-local sp-prot-modeline-header-path
-    '(:eval
-      (let ((path (sp-prot-modeline--header-path)))
-        (concat
-         " "
-         (propertize path
-                     'face (if (mode-line-window-selected-p) 'bold 'shadow)
-                     'mouse-face 'highlight
-                     'help-echo (format "%s\nDirectory: %s" path default-directory)))))
-  "Header line construct for the path of the file.")
-(put 'sp-prot-modeline-header-path 'risky-local-variable t)
-
-(defvar sp-prot-modeline--saved-header-format nil
-  "The default `header-line-format' before `sp-prot-modeline-mode' was enabled.")
-
-#+end_src
-
 ** Keycast
 
 Prot's settings for =keycast=, applied once the package is loaded: the mode line format, where to insert the segment (after the branch), the selected window only, the tail elements of the mode line kept, and substitutions that print typing as "Typing…" and hide mouse events.
@@ -531,8 +504,7 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
         (setq-default mode-line-format sp-prot-modeline-format)
-        (setq sp-prot-modeline--saved-header-format (default-value 'header-line-format))
-        (setq-default header-line-format '("%e" sp-prot-modeline-header-path))
+        (sp-nano-style-install)
         (when (and sp-prot-modeline-keycast (require 'keycast nil t))
           (when (bound-and-true-p keycast-header-line-mode)
             (keycast-header-line-mode -1))
@@ -540,7 +512,7 @@ Prot's settings for =keycast=, applied once the package is loaded: the mode line
     (when (bound-and-true-p keycast-mode-line-mode)
       (keycast-mode-line-mode -1))
     (setq-default mode-line-format sp-prot-modeline--saved-format)
-    (setq-default header-line-format sp-prot-modeline--saved-header-format))
+    (sp-nano-style-uninstall))
   (force-mode-line-update t))
 #+end_src
 
