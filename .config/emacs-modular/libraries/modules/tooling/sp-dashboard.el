@@ -212,7 +212,8 @@ The other layers, the title and the boxes share the column to its right."
   :type 'integer
   :group 'spcustom)
 
-(defvar sp-dashboard-lane-width)
+(defvar sp-dashboard-box-width)
+(defvar sp-dashboard-agenda-columns)
 
 ;;;; Window size
 (defun sp-dashboard--columns ()
@@ -289,12 +290,24 @@ The side layer drawn as an SVG image takes its scaled size."
                 (max 1 (round (* scale (cdr size))))))
       size)))
 
+(defun sp-dashboard--box-columns ()
+  "Return how many boxes fit side by side, at most `sp-dashboard-agenda-columns'."
+  (max 1 (min sp-dashboard-agenda-columns
+              (/ (+ (sp-dashboard--columns) 2) (+ sp-dashboard-box-width 2)))))
+
+(defun sp-dashboard--lane-width ()
+  "Return the width, in columns, of the lane all the boxes fill.
+It is the boxes of `sp-dashboard-box-width' side by side and the gaps between
+them, however wide the banner is, and at most the window."
+  (let ((count (sp-dashboard--box-columns)))
+    (min (sp-dashboard--columns)
+         (+ (* count sp-dashboard-box-width) (* 2 (1- count))))))
+
 (defun sp-dashboard--right-width ()
   "Return the width of the right column.
-That is the widest layer other than the side layer, or `sp-dashboard-lane-width'."
-  (let ((width (max (or (and (boundp 'sp-dashboard-lane-width)
-                             sp-dashboard-lane-width)
-                        0)
+That is the lane of the boxes or the widest layer other than the side layer,
+whichever is wider."
+  (let ((width (max (sp-dashboard--lane-width)
                     (apply #'max 0
                            (mapcar (lambda (layer)
                                      (if (eq (car layer) sp-dashboard-side-layer)
@@ -306,8 +319,8 @@ That is the widest layer other than the side layer, or `sp-dashboard-lane-width'
 (defun sp-dashboard--column-geometry ()
   "Return (LEFT-START LEFT-WIDTH RIGHT-START RIGHT-WIDTH) of the two columns.
 The side layer is the left column; the right column holds the other layers,
-the title and the boxes, and is as wide as the widest of them or of
-`sp-dashboard-lane-width'.  The two are centred in the window together."
+the title and the boxes, and is as wide as the lane of the boxes or the widest
+layer.  The two are centred in the window together."
   (let* ((right-width (sp-dashboard--right-width))
          (columns (sp-dashboard--columns))
          (side-width (or (car (sp-dashboard--layer-size sp-dashboard-side-layer)) 0))
@@ -701,10 +714,12 @@ nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
   :type '(repeat sexp)
   :group 'spcustom)
 
-(defcustom sp-dashboard-lane-width nil
-  "Width, in columns, of the lane all the boxes fill, centred under the banner.
-nil uses the width of the content layer, so the boxes line up with the banner."
-  :type '(choice (const :tag "Width of the banner" nil) integer)
+(defcustom sp-dashboard-box-width 36
+  "Width, in columns and borders included, of each agenda and menu box.
+The lane of the boxes is this wide times `sp-dashboard-agenda-columns' plus
+the gaps, and the banner and the title are centred on it.  A wider box shows
+more of each TODO; boxes shrink to fit a window narrower than the lane."
+  :type 'integer
   :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-columns 2
@@ -1030,7 +1045,7 @@ It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
       (list body 'sp-dashboard-menu-face))))
 
 ;; The title of a box is larger than the rows under it.  A larger font makes
-;; every character wider, so the label is measured in pixels and the gap
+;; every character wider, so the label's width is read from the font and the gap
 ;; before the key is one space with an exact pixel width.
 (defun sp-dashboard--heading-pixels (text)
   "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
@@ -1187,24 +1202,16 @@ PROPERTIES are added to the button, see `sp-dashboard--stops'."
                'face face 'follow-link t properties)
       (insert (propertize text 'face face)))))
 
-(defun sp-dashboard--lane-width ()
-  "Return the width, in columns, of the lane all the boxes fill."
-  (min (sp-dashboard--columns)
-       (or sp-dashboard-lane-width
-           (nth 2 (sp-dashboard--layer-box sp-dashboard-content-layer))
-           60)))
-
 (defvar sp-dashboard--scope)
 
 (defun sp-dashboard--insert-boxes (content-col)
   "Insert the agenda and menu boxes in one lane centred on column CONTENT-COL.
-The lane is `sp-dashboard--lane-width' wide, so the outer edges of the boxes
-line up with the banner it is centred on."
+The lane is `sp-dashboard--lane-width' wide, from `sp-dashboard-box-width',
+and the banner is centred on it."
   (setq sp-dashboard--scope nil)
   (let* ((gap 2)
          (lane (sp-dashboard--lane-width))
-         (columns (max 1 (min sp-dashboard-agenda-columns
-                              (/ (+ lane gap) (+ 24 gap)))))
+         (columns (sp-dashboard--box-columns))
          (base (/ (- lane (* gap (1- columns))) columns))
          (extra (- lane (* gap (1- columns)) (* base columns)))
          (totals (mapcar (lambda (column) (+ base (if (< column extra) 1 0)))
