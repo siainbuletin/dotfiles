@@ -79,6 +79,14 @@ The thin line above the mode line and under the header is set in =sp-nano-style=
 
 In =init.el=, comment out the active one and add the other in both module lists, then restart Emacs. Settings of =sp-modeline-parts=, =sp-nano-style= and mode-line-maker are kept.
 
+** The title in the header
+
+In an Org buffer the header shows the text of the =#+title:= keyword, in the face =sp-modeline-title=, which is defined in =sp-faces= and does not take the =org-document-title= face of the theme:
+
+#+begin_src emacs-lisp :tangle no
+(set-face-attribute 'sp-modeline-title nil :weight 'semi-bold :slant 'italic)
+#+end_src
+
 ** Colours of the boxes
 
 Boxes use the faces =sp-modeline-parts-accent-1= to =-4= (window number, mode, keycast, clock). They are set from the accent colours of the theme after each load. To fix one colour, set it after the theme loads, for instance from =sp-after-load-theme-hook=:

@@ -52,9 +52,11 @@ the theme: 0.4 gives a faint line."
   :type 'boolean
   :group 'sp-nano-style)
 
-(defface sp-nano-style-header-title
-  '((t :inherit org-document-title))
-  "Title of an Org buffer in the header line (its `#+title:').")
+;; The canonical definition is in `sp-faces'; this one is only used when
+;; `sp-faces' has not loaded, and `defface' there replaces it.
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').")
 
 (defface sp-nano-style-header-ro
   '((t :inherit (bold warning) :inverse-video t))
@@ -149,7 +151,7 @@ the theme: 0.4 gives a faint line."
     (concat prefix
             " "
             (propertize shown
-                        'face (cond (title-p 'sp-nano-style-header-title)
+                        'face (cond (title-p 'sp-modeline-title)
                                     (selected 'sp-nano-style-header-name)
                                     (t 'sp-nano-style-header-faded))
                         'help-echo (or buffer-file-name default-directory))
