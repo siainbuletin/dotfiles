@@ -4,7 +4,8 @@
 
 ;; The segments of the bottom mode line shared by `sp-lambda-modeline' and
 ;; `sp-prot-modeline': window number, major mode box, word count or
-;; line:column, keycast with a fixed slot, minor modes count, branch.
+;; line:column, keycast with a fixed slot, clocked task, branch.  The left and
+;; right parts are aligned by `mode-line-maker'.
 ;; Layout after doom-modeline.  Nothing happens until
 ;; `sp-modeline-parts-install' is called.
 
@@ -16,7 +17,22 @@
 (defvar sp-after-load-theme-hook)
 (declare-function sp-theme-color "sp-theme-engine")
 (declare-function nerd-icons-icon-for-mode "nerd-icons")
-(declare-function nerd-icons-mdicon "nerd-icons")
+(declare-function mode-line-maker--make "mode-line-maker")
+(declare-function org-clocking-p "org-clock")
+(declare-function org-clock-get-clocked-time "org-clock")
+(declare-function org-duration-from-minutes "org-duration")
+(declare-function org-get-todo-state "org")
+(declare-function org-back-to-heading "org")
+(declare-function org-clock-goto "org-clock")
+(defvar org-clock-heading)
+(defvar org-clock-marker)
+(defvar org-clock-history)
+(defvar org-clock-in-switch-to-state)
+(defvar org-clock-in-hook)
+(defvar org-clock-out-hook)
+(defvar org-todo-keywords-1)
+(defvar org-done-keywords)
+(defvar mode-line-maker-padding-face)
 (declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
 (declare-function keycast-format "keycast")
 (declare-function keycast-mode-line-mode "keycast")
@@ -28,36 +44,40 @@
 (defvar keycast-mode-line-remove-tail-elements)
 (defvar keycast-substitute-alist)
 
+(use-package mode-line-maker
+  :ensure (:host github :repo "rougier/mode-line-maker"))
+
 (defgroup sp-modeline-parts nil
   "Boxed segments for the bottom mode line."
   :group 'mode-line)
 
 (defcustom sp-modeline-parts-left
-  '(window-number mode position keycast minor-modes)
+  '(window-number mode position keycast)
   "The segments at the left of the line, in order.
 Each is one of `bar' (a thin accent bar, as in doom-modeline),
-`window-number', `mode', `position', `keycast', `minor-modes', `tags'
+`window-number', `mode', `position', `keycast', `clock', `tags'
 and `vc'."
   :type '(repeat (choice (const bar) (const window-number) (const mode)
                          (const position) (const keycast)
-                         (const minor-modes) (const tags) (const vc)))
+                         (const clock) (const tags) (const vc)))
   :group 'sp-modeline-parts)
 
-(defcustom sp-modeline-parts-right '(tags vc)
+(defcustom sp-modeline-parts-right '(clock tags vc)
   "The segments at the right of the line, in order.  See `sp-modeline-parts-left'."
   :type '(repeat (choice (const bar) (const window-number) (const mode)
                          (const position) (const keycast)
-                         (const minor-modes) (const tags) (const vc)))
+                         (const clock) (const tags) (const vc)))
   :group 'sp-modeline-parts)
 
-(defcustom sp-modeline-parts-boxed '(window-number mode keycast)
+(defcustom sp-modeline-parts-boxed '(window-number mode keycast clock)
   "The segments that are drawn in a coloured box (the others are plain text).
-Any of `window-number', `mode' and `keycast' (the key, not the command)."
-  :type '(set (const window-number) (const mode) (const keycast))
+Any of `window-number', `mode', `keycast' (the key, not the command) and
+`clock' (the todo keyword)."
+  :type '(set (const window-number) (const mode) (const keycast) (const clock))
   :group 'sp-modeline-parts)
 
 (defcustom sp-modeline-parts-narrow-width 80
-  "Windows narrower than this many columns leave out keycast and the minor modes."
+  "Windows narrower than this many columns leave out keycast."
   :type 'natnum
   :group 'sp-modeline-parts)
 
@@ -83,6 +103,21 @@ Any of `window-number', `mode' and `keycast' (the key, not the command)."
   :type '(repeat symbol)
   :group 'sp-modeline-parts)
 
+(defcustom sp-modeline-parts-clock-keyword "PROG"
+  "Todo keyword that the clocked-in entry is switched to, or nil to keep its state."
+  :type '(choice string (const :tag "Keep the state" nil))
+  :group 'sp-modeline-parts)
+
+(defcustom sp-modeline-parts-clock-width 28
+  "Width in columns of the heading of the clocked task."
+  :type 'natnum
+  :group 'sp-modeline-parts)
+
+(defcustom sp-modeline-parts-clock-arrow t
+  "When non-nil, flag the clocked-in heading with an arrow in the fringe."
+  :type 'boolean
+  :group 'sp-modeline-parts)
+
 (defcustom sp-modeline-parts-word-count-limit 300000
   "Buffers longer than this many characters show `~' instead of a word count."
   :type 'natnum
@@ -100,6 +135,10 @@ Any of `window-number', `mode' and `keycast' (the key, not the command)."
   '((t :inherit (bold font-lock-string-face) :inverse-video t))
   "Third box colour: the key of keycast.")
 
+(defface sp-modeline-parts-accent-4
+  '((t :inherit (bold font-lock-warning-face) :inverse-video t))
+  "Fourth box colour: the todo keyword of the clocked task.")
+
 (defface sp-modeline-parts-bar
   '((t :inherit sp-modeline-parts-accent-1))
   "Face of the thin bar at the left, when the `bar' segment is used.")
@@ -110,23 +149,28 @@ Any of `window-number', `mode' and `keycast' (the key, not the command)."
            (seq-some (lambda (theme) (get theme 'sp-theme-flavor))
                      custom-enabled-themes)
            (ignore-errors
-             (sp-theme-color (pcase n (1 'accent-1) (2 'accent-2) (_ 'cyan)))))
+             (sp-theme-color (pcase n (1 'accent-1) (2 'accent-2) (3 'cyan) (_ 'accent-3)))))
       (face-foreground (pcase n
                          (1 'font-lock-keyword-face)
                          (2 'font-lock-function-name-face)
-                         (_ 'font-lock-string-face))
+                         (3 'font-lock-string-face)
+                         (_ 'font-lock-warning-face))
                        nil t)))
 
 (defun sp-modeline-parts-update-accents (&rest _)
   "Set the box faces from the accents of the current theme."
   (let ((bg (face-background 'default nil t)))
-    (dolist (n '(1 2 3))
+    (dolist (n '(1 2 3 4))
       (let ((color (sp-modeline-parts--accent n))
             (face (intern (format "sp-modeline-parts-accent-%d" n))))
         (when (and (stringp color) (stringp bg))
           (set-face-attribute face nil
                               :inverse-video nil :weight 'bold
                               :foreground bg :background color))))
+    (when (facep 'mode-line-maker-padding-face)
+      (set-face-attribute 'mode-line-maker-padding-face nil
+                          :foreground (face-foreground 'default nil t)
+                          :background bg))
     (force-mode-line-update t)))
 
 (defun sp-modeline-parts--narrow-p ()
@@ -262,27 +306,81 @@ PROPS are text properties for the result."
     (unless (bound-and-true-p keycast-mode-line-mode)
       (keycast-mode-line-mode 1))))
 
-(defvar sp-modeline-parts-minor-modes-map
+(defvar sp-modeline-parts-clock-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [mode-line down-mouse-1] #'mouse-minor-mode-menu)
-    (define-key map [mode-line down-mouse-3] #'describe-mode)
+    (define-key map [mode-line mouse-1] #'org-clock-goto)
+    (define-key map [mode-line mouse-3] #'org-agenda)
     map)
-  "Keymap of the minor modes button.")
+  "Keymap of the clocked task: mouse-1 goes to the entry, mouse-3 opens the agenda.")
 
-(defun sp-modeline-parts-minor-modes ()
-  "Return the minor modes button, with the count."
-  (unless (sp-modeline-parts--narrow-p)
-    (let* ((modes (delete-dups (append local-minor-modes global-minor-modes)))
-           (icon (or (and (require 'nerd-icons nil t)
-                          (ignore-errors (nerd-icons-mdicon "nf-md-puzzle")))
-                     "≡")))
-      (propertize (format " %s %d " (substring-no-properties icon) (length modes))
-                  'face (if (mode-line-window-selected-p) nil 'shadow)
-                  'mouse-face 'mode-line-highlight
-                  'help-echo (format "%d minor modes: %s\nmouse-1: menu\nmouse-3: describe-mode"
-                                     (length modes)
-                                     (mapconcat #'symbol-name modes ", "))
-                  'local-map sp-modeline-parts-minor-modes-map))))
+(defun sp-modeline-parts--clock-state ()
+  "Return the todo keyword of the clocked entry, or nil."
+  (when (and (markerp org-clock-marker) (marker-buffer org-clock-marker))
+    (ignore-errors
+      (with-current-buffer (marker-buffer org-clock-marker)
+        (save-excursion
+          (goto-char org-clock-marker)
+          (org-back-to-heading t)
+          (org-get-todo-state))))))
+
+(defun sp-modeline-parts-clock ()
+  "Return the clocked task: keyword in a box, heading and time, or nil."
+  (when (and (featurep 'org-clock) (org-clocking-p))
+    (let* ((selected (mode-line-window-selected-p))
+           (state (or (sp-modeline-parts--clock-state) "CLOCK"))
+           (heading (truncate-string-to-width
+                     (substring-no-properties (or org-clock-heading ""))
+                     sp-modeline-parts-clock-width nil nil "…"))
+           (time (org-duration-from-minutes (org-clock-get-clocked-time))))
+      (propertize
+       (concat (sp-modeline-parts--box 'clock state 'sp-modeline-parts-accent-4)
+               (propertize (format " %s %s " heading time)
+                           'face (if selected nil 'shadow)))
+       'mouse-face 'mode-line-highlight
+       'help-echo (format "Clocked: %s (%s)\nmouse-1: go to the entry\nmouse-3: org-agenda"
+                          heading time)
+       'local-map sp-modeline-parts-clock-map))))
+
+(defun sp-modeline-parts-clock-switch-state ()
+  "Return the keyword to switch the entry being clocked in to, or nil.
+For `org-clock-in-switch-to-state'; point is on the heading."
+  (when (and sp-modeline-parts-clock-keyword
+             (member sp-modeline-parts-clock-keyword org-todo-keywords-1))
+    (let ((state (org-get-todo-state)))
+      (and state
+           (not (member state org-done-keywords))
+           sp-modeline-parts-clock-keyword))))
+
+(defun sp-modeline-parts-clock-flag ()
+  "Flag the clocked-in heading with a fringe arrow."
+  (when (and sp-modeline-parts-clock-arrow
+             (markerp org-clock-marker) (marker-buffer org-clock-marker))
+    (with-current-buffer (marker-buffer org-clock-marker)
+      (save-excursion
+        (goto-char org-clock-marker)
+        (org-back-to-heading t)
+        (setq-local overlay-arrow-position (copy-marker (point)))))))
+
+(defun sp-modeline-parts-clock-unflag ()
+  "Remove the fringe arrow from the buffers of the clocked entries."
+  (dolist (marker (list org-clock-marker (car org-clock-history)))
+    (when (and (markerp marker) (marker-buffer marker))
+      (with-current-buffer (marker-buffer marker)
+        (kill-local-variable 'overlay-arrow-position)))))
+
+(defun sp-modeline-parts--clock-install ()
+  "Wire the keyword switch and the arrow to Org's clock."
+  (unless org-clock-in-switch-to-state
+    (setq org-clock-in-switch-to-state #'sp-modeline-parts-clock-switch-state))
+  (add-hook 'org-clock-in-hook #'sp-modeline-parts-clock-flag)
+  (add-hook 'org-clock-out-hook #'sp-modeline-parts-clock-unflag))
+
+(defun sp-modeline-parts--clock-uninstall ()
+  "Undo `sp-modeline-parts--clock-install'."
+  (when (eq org-clock-in-switch-to-state #'sp-modeline-parts-clock-switch-state)
+    (setq org-clock-in-switch-to-state nil))
+  (remove-hook 'org-clock-in-hook #'sp-modeline-parts-clock-flag)
+  (remove-hook 'org-clock-out-hook #'sp-modeline-parts-clock-unflag))
 
 (defun sp-modeline-parts-tags ()
   "Return the tag emoji of `sp-tag-emoji' at point, or nil."
@@ -319,14 +417,19 @@ PROPS are text properties for the result."
 
 (defun sp-modeline-parts-compose ()
   "Return the whole line: the left segments, a gap, and the right ones."
-  (let* ((left (sp-modeline-parts--join sp-modeline-parts-left))
-         (right (concat (sp-modeline-parts--join sp-modeline-parts-right) " ")))
-    (concat left
-            (propertize " " 'display
-                        `(space :align-to (- right ,(string-width right))))
-            right)))
+  (if (and (require 'mode-line-maker nil t) (fboundp 'mode-line-maker--make))
+      (apply #'concat
+             (mode-line-maker--make
+              '((:eval (sp-modeline-parts--join sp-modeline-parts-left)))
+              '((:eval (sp-modeline-parts--join sp-modeline-parts-right)))))
+    (let ((left (sp-modeline-parts--join sp-modeline-parts-left))
+          (right (concat (sp-modeline-parts--join sp-modeline-parts-right) " ")))
+      (concat left
+              (propertize " " 'display
+                          `(space :align-to (- right ,(string-width right))))
+              right))))
 
-(dolist (name '(bar window-number mode position keycast minor-modes tags vc))
+(dolist (name '(bar window-number mode position keycast clock tags vc))
   (let ((construct (intern (format "sp-modeline-parts-%s-construct" name)))
         (function (intern (format "sp-modeline-parts-%s" name))))
     (set construct `(:eval (,function)))
@@ -338,12 +441,14 @@ PROPS are text properties for the result."
   (sp-modeline-parts-update-accents)
   (add-hook 'sp-after-load-theme-hook #'sp-modeline-parts-update-accents 90)
   (sp-modeline-parts--start-keycast)
+  (with-eval-after-load 'org-clock (sp-modeline-parts--clock-install))
   (force-mode-line-update t))
 
 (defun sp-modeline-parts-uninstall ()
   "Stop updating the box colours, and stop keycast in the mode line."
   (interactive)
   (remove-hook 'sp-after-load-theme-hook #'sp-modeline-parts-update-accents)
+  (when (featurep 'org-clock) (sp-modeline-parts--clock-uninstall))
   (when (bound-and-true-p keycast-mode-line-mode)
     (keycast-mode-line-mode -1)))
 

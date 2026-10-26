@@ -3,9 +3,9 @@
 ;;; Commentary:
 
 ;; A mode line made of constructs, adapted from `prot-modeline.el' in
-;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it shows the lighters
-;; of the minor modes, needs no other library, and takes its colours from the
-;; theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
+;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it uses the boxed
+;; segments of `sp-modeline-parts', mode-line-maker for the left and right
+;; parts, and takes its colours from the theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
 
 ;;; Code:
 
@@ -251,8 +251,6 @@ Add a :box attribute to it to give all of them a border.")
     sp-modeline-parts-position-construct
     " "
     sp-modeline-parts-keycast-construct
-    " "
-    sp-modeline-parts-minor-modes-construct
     "  "
     sp-prot-modeline-kbd-macro
     sp-prot-modeline-narrow
@@ -266,11 +264,23 @@ Add a :box attribute to it to give all of them a border.")
     sp-prot-modeline-flymake
     "  "
     mode-line-format-right-align
+    sp-modeline-parts-clock-construct
+    "  "
     sp-prot-modeline-which-function-indicator
     "  "
     sp-prot-modeline-misc-info)
   "The mode line format of `sp-prot-modeline-mode'.
 Change it, then run `sp-prot-modeline-mode' twice (off, on).")
+
+(defun sp-prot-modeline--format ()
+  "Return `sp-prot-modeline-format' with its two parts given to mode-line-maker.
+The list is cut at `mode-line-format-right-align'.  Without the package the
+list is used as it is."
+  (if (require 'mode-line-maker nil t)
+      (let* ((tail (memq 'mode-line-format-right-align sp-prot-modeline-format))
+             (left (remove "%e" (butlast sp-prot-modeline-format (length tail)))))
+        (list "%e" (mode-line-maker left (cdr tail))))
+    sp-prot-modeline-format))
 
 ;;;###autoload
 (define-minor-mode sp-prot-modeline-mode
@@ -282,7 +292,7 @@ Change it, then run `sp-prot-modeline-mode' twice (off, on).")
         (setq sp-prot-modeline--saved-format (default-value 'mode-line-format))
         (setq mode-line-compact nil)
         (setq mode-line-right-align-edge 'right-margin)
-        (setq-default mode-line-format sp-prot-modeline-format)
+        (setq-default mode-line-format (sp-prot-modeline--format))
         (sp-nano-style-install)
         (sp-modeline-parts-install))
     (sp-modeline-parts-uninstall)

@@ -1,0 +1,91 @@
+#+TITLE: Modeline customization: lambda-line and Prot's mode line side by side
+#+STARTUP: content
+
+This page is for changing the bottom mode line and the header line without reading the Emacs Lisp. It starts with how =sp-lambda-modeline= (lambda-line) and =sp-prot-modeline= (a native mode line adapted from Prot's) differ, then lists the settings they share, and ends with recipes. The code of each is documented in its own page; this one only points to the settings.
+
+- [[file:sp-lambda-modeline.org][sp-lambda-modeline]]: lambda-line, from the Lambda Emacs project.
+- [[file:sp-prot-modeline.org][sp-prot-modeline]]: constructs adapted from =prot-modeline.el=, not loaded by default.
+- [[file:sp-modeline-parts.org][sp-modeline-parts]]: the boxed segments both of them show (shared).
+- [[file:sp-nano-style.org][sp-nano-style]]: the header line and the thin divider lines (shared).
+
+* The differences between the two
+
+| Question                          | =sp-lambda-modeline=                                                                                          | =sp-prot-modeline=                                                                                           |
+|-----------------------------------+---------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------|
+| How the line is made              | The package lambda-line draws it; the module replaces its layout with =sp-modeline-parts= in text and programming buffers. | A list of constructs in =sp-prot-modeline-format=, set as =mode-line-format=; no package apart from mode-line-maker. |
+| Loaded by default                 | Yes (=init.el= module lists).                                                                                  | No: comment out ='sp-lambda-modeline= and add ='sp-prot-modeline= in =init.el=. Load only one of the two.     |
+| Special buffers (agenda, Info, mail) | Keep lambda-line's own format: status symbol, name, abbreviated mode, position.                            | Same line as everywhere else.                                                                                  |
+| Read-only / modified / writable   | Coloured circle symbols (=lambda-line-gui-*-symbol=) in lambda-line's own format; the header block in all buffers. | Only the header block (=RW=, =RO=, =**=).                                                                  |
+| Keyboard macro, narrowing, remote file, dedicated window, input method | Not shown.                                                                              | Blocks for each (=sp-prot-modeline-kbd-macro=, =-narrow=, =-buffer-status=, =-window-dedicated-status=, =-input-method=). |
+| Process status (shells)           | Not shown.                                                                                                    | =sp-prot-modeline-process=.                                                                                  |
+| Version control branch            | A plain branch name at the right (=vc= segment of =sp-modeline-parts=).                                        | =sp-prot-modeline-vc-branch=: coloured by the state of the file, click for the diff; branch cut in narrow windows. |
+| Flymake                           | Not shown.                                                                                                    | =sp-prot-modeline-flymake=: errors, warnings and notes.                                                      |
+| Current function / Org heading    | Not shown.                                                                                                    | =sp-prot-modeline-which-function-indicator=.                                                                 |
+| Tag emoji of =sp-tag-emoji=       | In the right part; in special buffers an advice appends it to lambda-line's middle part.                       | In =sp-prot-modeline-misc-info= (=mode-line-misc-info=).                                                     |
+| Colours of the status line        | =sp-lambda-modeline-theme-faces= sets the lambda-line faces from the theme.                                   | The faces inherit =error=, =success=, =warning= and so on, so every theme works with no code.                |
+| Spacing                           | lambda-line options: =lambda-line-hspace=, =-space-top=, =-space-bottom=, =-prefix=, =-abbrev=.                | Strings between the names in =sp-prot-modeline-format=.                                                      |
+| Clock icon font                   | =lambda-line-icon-time= needs the ClockFace font.                                                             | None. The time is in the header in both.                                                                      |
+| Emacs version                     | Any supported.                                                                                                | Uses =mode-line-format-right-align= (Emacs 30) when mode-line-maker is missing.                              |
+
+What the table does not list is the same in both: the segments of =sp-modeline-parts=, the header, the divider, keycast and the clocked task.
+
+* What both show
+
+From left to right, set in =sp-modeline-parts-left= and =sp-modeline-parts-right= (lambda) or in =sp-prot-modeline-format= (Prot):
+
+1. The number of the window (box).
+2. The major mode as a nerd-icons icon (box).
+3. The word count (text modes) or line and column (code).
+4. Keycast: the last key (box) and its command, in a slot of fixed width.
+5. At the right: the Org task being clocked (keyword in a box, heading, time), the tag emoji and the branch.
+
+The buffer name, the project and the =hh:mm= clock are in the header line.
+
+The left and right parts are put at the edges of the window by [[https://github.com/rougier/mode-line-maker][mode-line-maker]]. Two settings of that package apply to both lines:
+
+| Variable                         | Default                | What it does                                                                                     |
+|----------------------------------+------------------------+--------------------------------------------------------------------------------------------------|
+| =mode-line-maker-alignment=      | =(window . window)=    | Where the line starts and ends: =window=, =fringe=, =margin= or =text=, for the left and right.   |
+| =mode-line-maker-truncation-rule= | =left=                | What is cut when the window is too small: the =left= part, the =right= one or =both=.             |
+
+* Recipes
+
+Put these in your configuration, before the module loads (for example above the module list in =init.el=), or use =M-x customize-group=.
+
+** Reorder or remove a segment
+
+In both lines the box segments are in =sp-modeline-parts-left= and =-right= (lambda) or named in =sp-prot-modeline-format= (Prot; see its page for the names):
+
+#+begin_src emacs-lisp :tangle no
+;; lambda-line: position first, no keycast
+(setq sp-modeline-parts-left '(position window-number mode))
+;; no coloured box on the window number
+(setq sp-modeline-parts-boxed '(mode keycast clock))
+#+end_src
+
+** Choose what the clocked task does
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-modeline-parts-clock-keyword "NEXT"  ; or nil to keep the state
+      sp-modeline-parts-clock-width 40
+      sp-modeline-parts-clock-arrow nil)      ; no arrow in the fringe
+#+end_src
+
+** Make the lines fainter, or turn them off
+
+The thin line above the mode line and under the header is set in =sp-nano-style= (=sp-nano-style-divider-opacity=, =-divider-color=, =sp-nano-style-header-divider=, =sp-nano-style-divider=). See the section "Making the divider fainter" in its page.
+
+** Move to the other mode line
+
+In =init.el=, comment out the active one and add the other in both module lists, then restart Emacs. Settings of =sp-modeline-parts=, =sp-nano-style= and mode-line-maker are kept.
+
+** Colours of the boxes
+
+Boxes use the faces =sp-modeline-parts-accent-1= to =-4= (window number, mode, keycast, clock). They are set from the accent colours of the theme after each load. To fix one colour, set it after the theme loads, for instance from =sp-after-load-theme-hook=:
+
+#+begin_src emacs-lisp :tangle no
+(add-hook 'sp-after-load-theme-hook
+          (lambda () (set-face-attribute 'sp-modeline-parts-accent-4 nil
+                                         :background "#d08770"))
+          95)
+#+end_src
