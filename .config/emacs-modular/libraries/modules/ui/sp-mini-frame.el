@@ -60,8 +60,11 @@
   (memq this-command sp-mini-frame-nano-commands))
 
 (defun sp-mini-frame--lines ()
-  "Return the lines of the mini-frame: prompt, candidates and the divider."
-  (+ 2 (if (boundp 'vertico-count) vertico-count 10)))
+  "Return the lines of the mini-frame: prompt, candidates and the divider.
+The minibuffer text is scaled by `sp-minibuffer' (two steps of
+`text-scale-mode-step'), so its lines are taller than the frame's own."
+  (let ((scale (if (fboundp 'sp-minibuffer) (expt text-scale-mode-step 2) 1)))
+    (ceiling (* scale (+ 2 (if (boundp 'vertico-count) vertico-count 10))))))
 
 (defun sp-mini-frame--colors (frame)
   "Return the foreground and background of the mini-frame, from the faces of FRAME.
