@@ -92,6 +92,22 @@ give text that blends into the background."
       (child-frame-border-width . ,pad)
       (internal-border-width . ,pad))))
 
+(defvar mini-frame-selected-frame)
+
+(defun sp-mini-frame--fix-colors ()
+  "Draw the minibuffer in the colours of the theme of the frame it was opened from."
+  (when (and (bound-and-true-p mini-frame-mode)
+             (frame-live-p mini-frame-frame)
+             (eq (selected-frame) mini-frame-frame)
+             (frame-live-p mini-frame-selected-frame))
+    (let ((colors (sp-mini-frame--colors mini-frame-selected-frame)))
+      (when (and (stringp (car colors)) (stringp (cdr colors)))
+        (face-remap-add-relative 'default
+                                 :foreground (car colors)
+                                 :background (cdr colors))))))
+
+(add-hook 'minibuffer-setup-hook #'sp-mini-frame--fix-colors)
+
 (defun sp-mini-frame--divider-color ()
   "Return the colour of the dotted line."
   (or (and (fboundp 'sp-nano-style-divider-colour)
