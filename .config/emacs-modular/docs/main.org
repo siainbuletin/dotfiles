@@ -220,6 +220,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-theme-engine.org][sp-theme-engine]] :: Flavors, semantic mappings and the =sp-dark= and =sp-light= themes ([[file:../libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]])
 - [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme folders, families and =sp-load-theme= ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
 - [[file:tangles/ui/sp-treemacs.org][sp-treemacs]] :: A file tree for the emacs-modular folder ([[file:../libraries/modules/ui/sp-treemacs.el][sp-treemacs.el]])
+- [[file:tangles/ui/dividers-and-lines.org][dividers-and-lines]] :: Guide to styling the lines between things: the dotted line under =M-x=, the mode line and header lines, window dividers and frame borders (a page, no code)
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
 - [[file:tangles/ui/sp-writedesk.org][sp-writedesk]] :: Writing desk: Olivetti and Writeroom ([[file:../libraries/modules/ui/sp-writedesk.el][sp-writedesk.el]])
 
