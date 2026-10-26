@@ -30,7 +30,7 @@ Packages:
 
 Dependencies:
 
-- Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends from =sp-org-emphasis=, =sp-split-leave-parents= from =sp-vulpea-split=.
+- Some bindings point at commands defined in other modules: =org-emphasize-dwim= and friends from =sp-org-emphasis=, =sp-split-leave-parents= from =sp-split-leave-parents=.
 - The tag picker uses =-uniq= and =-difference= from dash and the =alet= macro from anaphora.
 
 The file also carries some sections inherited from Lambda Emacs (the =sp-goto-*= commands, the checkbox macro, the block wrapper), which explains the mix of naming prefixes (=sp-=, =sia-=, =+org/=).
@@ -168,7 +168,7 @@ The main Org setup, using the built-in Org and associating =.org= files with =or
 Keybindings:
 - =C-c a= (and =C-c o a=) open =org-agenda= globally; both are bound in =sp-agenda-views=, which holds every agenda key.
 - =C-M-h/j/k/l= move or promote subtrees (=org-meta*=) and =M-H/J/K/L= are the shift variants, in a vim-like layout.
-- =C-x s t= runs =sp-split-leave-parents= to split a heading into its own vulpea note.
+- =C-x s t= runs =sp-split-leave-parents= to split a heading into its own vulpea note. The command is declared with an explicit =autoload= to its own module before the block: =use-package='s =:bind= would otherwise autoload it from =org=, which does not define it.
 - =s-b= and =s-i= make text bold or italic, =s-M-`= and =s-M-~= make it verbatim or code.
 - =s-v= pastes with =org-yank=.
 - =C-x t i= and =C-x t h= toggle items and headings, =C-x t d= demotes, =C-c s i= sorts a list.
@@ -199,6 +199,10 @@ In =:config=:
 - The hook checks that =electric-pair-inhibit-predicate= is bound first, to avoid a void-variable error.
 
 #+begin_src emacs-lisp -i
+;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
+;; "org", which does not define it; point the autoload at its own module.
+(autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+
 ;; Use Org from source rather than built in
 (use-package org
   :ensure nil
@@ -896,3 +900,8 @@ Provides the =sp-org-base= feature and closes the file.
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] 🐛 Fixed =M-x sp-split-leave-parents= failing with "Autoloading file org.elc failed to define function": the =C-x s t= binding in =use-package org= made an autoload from =org=; an explicit autoload to =sp-split-leave-parents= now comes first.
