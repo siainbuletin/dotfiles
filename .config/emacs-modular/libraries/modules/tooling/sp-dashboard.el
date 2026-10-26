@@ -1834,8 +1834,11 @@ selected window, so it is left alone while another buffer is there."
       (sp-dashboard-refresh))))
 
 (defun sp-dashboard--setup-splash-hooks ()
-  "Initialize splash and setup hooks."
+  "Initialize splash and setup hooks.
+Start-up shows the Dashboard alone: a restored `tabspaces' session can leave a
+saved layout with a *scratch* window beside it."
   (progn
+    (delete-other-windows)
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
