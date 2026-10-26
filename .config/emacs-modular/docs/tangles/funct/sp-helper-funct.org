@@ -322,6 +322,8 @@ will be killed."
 
 =sp-copy-whole-buffer-to-clipboard= copies the entire buffer to the system clipboard, and =sp-copy-clipboard-to-whole-buffer= replaces the whole buffer with the clipboard contents. The first is bound under the buffer prefix.
 
+=sp-copy-last-message= copies the last line logged in =*Messages*= to the kill ring, which is how to get hold of text that has just flashed in the echo area (=C-h e= opens the same buffer). It reports what it copied. A message the echo area showed without logging it is not in the buffer and cannot be copied. It has no key binding yet; call it with =M-x=.
+
 #+begin_src emacs-lisp -i
 ;;;;;; Clipboard to/from Buffer
 ;; http://stackoverflow.com/a/10216338/4869
@@ -336,6 +338,23 @@ will be killed."
   (delete-region (point-min) (point-max))
   (clipboard-yank)
   (deactivate-mark))
+
+(defun sp-copy-last-message ()
+  "Copy the last message logged in *Messages* to the kill ring.
+Show the copied text in the echo area.  Messages the echo area
+showed without logging them cannot be recovered."
+  (interactive)
+  (if-let* ((buf (get-buffer "*Messages*"))
+            (text (with-current-buffer buf
+                    (save-excursion
+                      (goto-char (point-max))
+                      (skip-chars-backward "\n")
+                      (buffer-substring-no-properties
+                       (line-beginning-position) (point)))))
+            ((not (string-empty-p text))))
+      (progn (kill-new text)
+             (message "Copied: %s" text))
+    (user-error "No message to copy")))
 #+end_src
 
 ** Cycling through user buffers
