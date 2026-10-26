@@ -10,21 +10,14 @@ Literate source for =libraries/modules/ui/sp-mini-frame.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module uses the =mini-frame= package to show the minibuffer in a child frame in the middle of the screen, like a quick switcher. Every prompt, =M-x= included, uses the same centred frame. For the commands that open files and find notes it also dims the text of the windows behind it, so the focus stays on the prompt.
-
-From N Λ N O's minibuffer (=nano-minibuffer.el= and =nano-command.el=, by Nicolas Rougier, GPLv3) only the text styling and the boxes of =M-x= are taken, and nothing about where the frame is:
-
-- the prompt (=M-x=) is a bold inverted block, with a thin box around it,
-- the frame has 4 pixels of padding, which can be given a colour for an outline (=sp-mini-frame-border-color=),
-- a dotted line is drawn between the =M-x= input line and the candidates, in the colour of the divider of =sp-nano-style= (the one above the mode line).
+This module uses the =mini-frame= package to show the minibuffer in a child frame near the centre of the screen, like a quick switcher. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
 
 Dimming:
 
-- Implemented here with buffer-local face remapping, using a colour mixing helper of this module.
-- It reacts to the commands in =sp-mini-frame-dim-commands= (=find-file=, =vulpea-find=, =org-node-find=) and to the note functions in =sp-mini-frame-dim-functions= (=sp-select-note=, =sp-insert-note=, =sp-collec-query-select-note=). The functions are advised, so the background is dimmed whichever command calls them, for instance when a link is inserted.
+- Implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library.
+- It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup.
+- The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions.
 - The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
-
-The frame shows as many candidates as Vertico does (=vertico-count=): it has a fixed height for that many candidates, centred, with 4 pixels of padding.
 
 The commentary at the top of the module says:
 
@@ -63,195 +56,40 @@ The second part is not implemented in this file.
 
 ** Require color
 
-Loads the built-in =color= library, and =cl-lib= for =cl-mapcar=. =color= provides the colour conversion functions used for dimming below, such as =color-name-to-rgb= and =color-rgb-to-hex=.
+Loads the built-in =color= library, which the comment asks about. It provides the colour conversion functions used for dimming below, such as =color-name-to-rgb= and =color-rgb-to-hex=.
 
 #+begin_src emacs-lisp -i
-(require 'color)
-(require 'cl-lib)
+(require 'color) ;; why is color needed? what is this package?
 #+end_src
 
 * The mini-frame
 
-** Colour mixing
-
-=sp-mini-frame--mix= mixes two colour names, AMOUNT (0 to 1) of the first with the rest of the second, and returns a hex string, or nil when either colour is not a usable name. It uses plain arithmetic instead of =color-blend=, which is missing from older versions of =color.el=. The dimming below uses it as well.
-
-#+begin_src emacs-lisp -i
-(defun sp-mini-frame--mix (fg bg amount)
-  "Return FG mixed with BG, AMOUNT (0 to 1) of it being FG."
-  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
-        (b (and (stringp bg) (color-name-to-rgb bg))))
-    (when (and f b)
-      (apply #'color-rgb-to-hex
-             (append (cl-mapcar (lambda (x y) (+ (* x amount) (* y (- 1 amount))))
-                                f b)
-                     '(2))))))
-#+end_src
-
-** Options for the =M-x= styling
-
-- =sp-mini-frame-nano-commands= lists the commands styled like nano's =M-x=: =execute-extended-command= and its replacements.
-- =sp-mini-frame-divider-char= is the character repeated for the dotted line under the input; =?┈= by default, =?┄= or =?╌= are other dotted characters, and =nil= draws no line.
-- =sp-mini-frame-divider-priority= is the priority of the overlay that holds the line. Completion UIs such as Vertico also show their candidates in an overlay at the end of the input; if the line appears under the candidates instead of above them, raise or lower this number.
-
-- =sp-mini-frame-contrast= is how far the background of the frame is from the background of the theme (0.08: 8 percent toward the text colour); 0 makes it the same.
-- =sp-mini-frame-padding= is the space around the text, in pixels (4).
-- =sp-mini-frame-border-color= is the colour of that space; =nil= (the default) makes it the background of the frame, so it reads as padding. Give a colour, for instance ="#888888"=, for an outline.
-
-#+begin_src emacs-lisp -i
-(defcustom sp-mini-frame-contrast 0.08
-  "How far the mini-frame background moves from the default background toward the foreground (0 to 1)."
-  :type 'number
-  :group 'minibuffer)
-
-(defcustom sp-mini-frame-padding 4
-  "Pixels of space around the text of the mini-frame."
-  :type 'natnum
-  :group 'minibuffer)
-
-(defcustom sp-mini-frame-border-color nil
-  "Colour of the border around the mini-frame, or nil for its own background."
-  :type '(choice (const :tag "Background of the frame" nil) color)
-  :group 'minibuffer)
-
-(defcustom sp-mini-frame-nano-commands
-  '(execute-extended-command amx counsel-M-x smex)
-  "Commands whose prompt is styled like nano's M-x."
-  :type '(repeat function)
-  :group 'minibuffer)
-
-(defcustom sp-mini-frame-divider-char ?┈
-  "Character repeated for the dotted line under the M-x input, or nil for none."
-  :type '(choice character (const :tag "No line" nil))
-  :group 'minibuffer)
-
-(defcustom sp-mini-frame-divider-priority -50
-  "Priority of the overlay with the dotted line under the M-x input."
-  :type 'integer
-  :group 'minibuffer)
-#+end_src
-
-** Frame parameters
-
-Every prompt uses the same frame, centred, with a fixed height for the candidates Vertico shows (=vertico-count=, set in =sp-completion=):
-
-- =(left . 0.5)= and =(top . 0.5)= are fractions of the free space in the parent frame, so the frame is centred horizontally and vertically. =(width . 0.6)= keeps it from taking the full width.
-- =(height . N)= is the prompt line, =vertico-count= (13) candidate lines and the line of the dotted divider, multiplied by the scale of the minibuffer text (=sp-minibuffer= enlarges it by two steps of =text-scale-mode-step=, about 1.17, so its lines are taller than the frame's), so the frame is as tall as its candidates and no taller. The frame is not resized while it is open: with fewer candidates there is empty space at the bottom of the frame. (A version that resized the frame to its content, with =mini-frame-resize= set to =t= and a starting height of one line, made Emacs hang when a prompt opened on macOS, and was removed. Before that the frame had the height of a normal frame, which is what showed as a long grey box.)
-- The text colour is that of the =default= face and the background is that colour moved =sp-mini-frame-contrast= (8 percent) toward the text colour, both read from the faces of the selected frame each time. =mini-frame= takes its colours from the frame parameters instead, which keep the values of the first frame when a theme is loaded later; text drawn with the theme's colour on a background computed from the old ones was almost invisible, except where highlighted.
-- The border is =sp-mini-frame-padding= pixels wide and coloured with the background of the frame, so it works as padding. =mini-frame= applies the colour (=mini-frame-internal-border-color=) when it makes the frame, so after a theme change the colour of the border is renewed the next time the frame is made (restart, or =M-x delete-frame= on it).
-
-=mini-frame-show-parameters= accepts a function, so =sp-mini-frame-parameters= is called for every prompt and looks at =this-command=.
-
-#+begin_src emacs-lisp -i
-(defun sp-mini-frame--nano-p ()
-  "Return non-nil when the prompt being shown is a nano-style M-x."
-  (memq this-command sp-mini-frame-nano-commands))
-
-(defun sp-mini-frame--lines ()
-  "Return the lines of the mini-frame: prompt, candidates and the divider.
-The minibuffer text is scaled by `sp-minibuffer' (two steps of
-`text-scale-mode-step'), so its lines are taller than the frame's own."
-  (let ((scale (if (fboundp 'sp-minibuffer) (expt text-scale-mode-step 2) 1)))
-    (ceiling (* scale (+ 2 (if (boundp 'vertico-count) vertico-count 10))))))
-
-(defun sp-mini-frame--colors (frame)
-  "Return the foreground and background of the mini-frame, from the faces of FRAME.
-The colours are those of the `default' face, not the frame parameters, which
-stay at the values of the first frame when a theme is loaded later, and would
-give text that blends into the background."
-  (let ((fg (face-foreground 'default frame t))
-        (bg (face-background 'default frame t)))
-    (when (or (not (stringp fg)) (string-prefix-p "unspecified" fg))
-      (setq fg (frame-parameter frame 'foreground-color)))
-    (when (or (not (stringp bg)) (string-prefix-p "unspecified" bg))
-      (setq bg (frame-parameter frame 'background-color)))
-    (cons fg (or (sp-mini-frame--mix fg bg sp-mini-frame-contrast) bg))))
-
-(defun sp-mini-frame-parameters ()
-  "Return the frame parameters for the prompt of `this-command'."
-  (let* ((pad sp-mini-frame-padding)
-         (colors (sp-mini-frame--colors (selected-frame)))
-         (fg (car colors))
-         (bg (cdr colors)))
-    (setq mini-frame-internal-border-color (or sp-mini-frame-border-color bg))
-    `((left . 0.5)
-      (top . 0.5)
-      (width . 0.6)
-      (height . ,(sp-mini-frame--lines))
-      (foreground-color . ,fg)
-      (background-color . ,bg)
-      (child-frame-border-width . ,pad)
-      (internal-border-width . ,pad))))
-#+end_src
-
-** Text colours of the minibuffer
-
-The colours above are given to the frame, but the text of a minibuffer is drawn with the =default= face of that frame, and a theme applies its own face settings to every new frame, so what the frame ends up with is not certain. To make the text readable whatever the frame has, the minibuffer buffer remaps its own =default= face (=face-remap-add-relative=) to the text colour and the background computed from the face of the frame that was selected before the prompt (=sp-mini-frame--colors=). The remap covers the typed text, the candidates and the strings that Vertico and Marginalia add. It applies to every prompt in the mini-frame.
-
-#+begin_src emacs-lisp -i
-(defvar mini-frame-selected-frame)
-
-(defun sp-mini-frame--fix-colors ()
-  "Draw the minibuffer in the colours of the theme of the frame it was opened from."
-  (when (and (bound-and-true-p mini-frame-mode)
-             (frame-live-p mini-frame-frame)
-             (eq (selected-frame) mini-frame-frame)
-             (frame-live-p mini-frame-selected-frame))
-    (let ((colors (sp-mini-frame--colors mini-frame-selected-frame)))
-      (when (and (stringp (car colors)) (stringp (cdr colors)))
-        (face-remap-add-relative 'default
-                                 :foreground (car colors)
-                                 :background (cdr colors))))))
-
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--fix-colors)
-#+end_src
-
-** The prompt block and the dotted line
-
-When the minibuffer of a nano-style command opens, two things are added to the minibuffer buffer:
-
-- The prompt is drawn as nano does (=nano-face-command-prompt=): bold, with the colours of the frame swapped (=:inverse-video=) and a one-pixel box in the text colour. It is a face remapping of =minibuffer-prompt= local to the minibuffer, so other prompts are not affected.
-- If styling fails, the error is shown in the echo area and the prompt opens unstyled. A dotted line is put at the end of the input, as an overlay with an =after-string=: a newline and a row of =sp-mini-frame-divider-char=, as wide as the minibuffer window, in the divider colour of =sp-nano-style= (mixed with the background, so =sp-nano-style-divider-opacity= also controls it), or the =shadow= colour if that module is not loaded. The overlay grows with the input, so the line stays below it.
-
-#+begin_src emacs-lisp -i
-(defun sp-mini-frame--divider-color ()
-  "Return the colour of the dotted line."
-  (or (and (fboundp 'sp-nano-style-divider-colour)
-           (sp-nano-style-divider-colour))
-      (face-foreground 'shadow nil t)))
-
-(defun sp-mini-frame--style-nano ()
-  "Give the M-x prompt nano's block and the input a dotted line below it.
-An error is reported in the echo area and does not abort the prompt."
-  (condition-case err
-      (when (and (bound-and-true-p mini-frame-mode) (sp-mini-frame--nano-p))
-        (face-remap-add-relative
-         'minibuffer-prompt
-         :inverse-video t :weight 'bold :box '(:line-width 1))
-        (when sp-mini-frame-divider-char
-          (let ((ov (make-overlay (point-max) (point-max) nil nil t))
-                (width (max 10 (1- (window-body-width (minibuffer-window))))))
-            (overlay-put ov 'priority sp-mini-frame-divider-priority)
-            (overlay-put ov 'after-string
-                         (concat "\n"
-                                 (propertize (make-string width sp-mini-frame-divider-char)
-                                             'face `(:foreground ,(sp-mini-frame--divider-color))))))))
-    (error (message "sp-mini-frame: styling the prompt failed: %s" err))))
-
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--style-nano)
-#+end_src
-
 ** mini-frame-mode
 
-Installs =mini-frame= and turns on =mini-frame-mode=. =mini-frame-resize= is =not-set=: the frame keeps the fixed height given by the parameters above and Emacs does not resize it. The number of candidates is Vertico's own =vertico-count=; the mini-frame does not set one. (Ten if Vertico is not loaded.)
+Installs =mini-frame= and turns on =mini-frame-mode=.
+
+- The frame is centred, horizontally and vertically.
+- It takes 60 percent of the width, so vertical completion does not fill the screen.
+- Its height is fixed at 17 lines: the prompt and the 13 candidates of =vertico-count= (set in =sp-completion=), in lines about 17 percent taller because =sp-minibuffer= enlarges the minibuffer text. The frame is never resized, so there is no long blank box; this replaced both the former tall frame and an attempt at resizing it to its content, which hung Emacs on macOS.
+- It has 4 pixels of padding around the text.
+- =mini-frame-resize= is =not-set= so Emacs does not change that height.
+
+There is no special styling for =M-x=: the nano-style prompt, the dotted line under it and the dimming for note functions that were added in #114 and #115 are removed.
 
 #+begin_src emacs-lisp -i
 (use-package mini-frame
   :ensure t
-
+  
   :custom
-  (mini-frame-show-parameters #'sp-mini-frame-parameters)
-  (mini-frame-resize 'not-set) ; fixed height, no resizing
+  (mini-frame-show-parameters
+   '((left . 0.5)    ; float = fraction of the free space, so 0.5 centers horizontally
+     (top . 0.5)     ; ... and vertically
+     (width . 0.6)   ; keeps the frame from taking the full width for vertical completion
+     (height . 17)   ; the prompt and `vertico-count' (13) candidates, in lines made taller by
+                     ; the larger minibuffer text (`sp-minibuffer'); fixed, never resized
+     (child-frame-border-width . 4) ; padding around the text
+     (internal-border-width . 4)))
+  (mini-frame-resize 'not-set) ; keep the fixed height above; resizing hung Emacs on macOS
 
   :config
   (mini-frame-mode 1)
@@ -270,36 +108,13 @@ A comment introducing the dimming code.
 ;;;; Dimming, only for selected commands
 #+end_src
 
-** Commands and functions that dim
+** Commands that dim
 
-=sp-mini-frame-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=. The command that is running when the minibuffer opens is what counts.
-
-=sp-mini-frame-dim-functions= lists functions that dim whenever they run, whichever command called them: the note pickers, =sp-select-note=, =sp-insert-note= and =sp-collec-query-select-note=. Add the name of any new note function here. They are advised with =:around= (if they exist; the advice is added when the file of the function loads) to bind =sp-mini-frame--dim-requested= while they run, and the setup hook checks it.
+=sp-mini-frame-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
 
 #+begin_src emacs-lisp -i
 (defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
-
-(defvar sp-mini-frame-dim-functions
-  '(sp-select-note sp-insert-note sp-collec-query-select-note)
-  "Functions whose minibuffer should dim the underlying frame, whoever calls them.")
-
-(defvar sp-mini-frame--dim-requested nil
-  "Non-nil while a function in `sp-mini-frame-dim-functions' is running.")
-
-(defun sp-mini-frame--request-dim (fn &rest args)
-  "Call FN with ARGS, asking for the frame behind the minibuffer to be dimmed."
-  (let ((sp-mini-frame--dim-requested t))
-    (apply fn args)))
-
-(defun sp-mini-frame-advise-dim-functions ()
-  "Advise the functions in `sp-mini-frame-dim-functions' that are defined."
-  (dolist (fn sp-mini-frame-dim-functions)
-    (when (fboundp fn)
-      (advice-add fn :around #'sp-mini-frame--request-dim))))
-
-(sp-mini-frame-advise-dim-functions)
-(add-hook 'after-load-functions (lambda (_file) (sp-mini-frame-advise-dim-functions)))
 #+end_src
 
 ** Dim amount
@@ -318,6 +133,19 @@ A comment introducing the dimming code.
 #+begin_src emacs-lisp -i
 (defvar-local sp-mini-frame--dim-cookies nil)
 (defvar sp-mini-frame--dimmed-buffers nil)
+#+end_src
+
+** Blend two colours
+
+=sp-mini-frame--blend= converts a foreground and background colour name to RGB, blends them by the given amount and returns a hex colour string. It returns nil when either colour is not a usable string.
+
+#+begin_src emacs-lisp -i
+(defun sp-mini-frame--blend (fg bg amount)
+  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
+        (b (and (stringp bg) (color-name-to-rgb bg))))
+    (when (and f b)
+      (apply #'color-rgb-to-hex
+             (append (color-blend f b amount) '(2))))))
 #+end_src
 
 ** Dim a frame
@@ -339,7 +167,7 @@ A comment introducing the dimming code.
           (dolist (face (face-list))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
-                             (sp-mini-frame--mix fg bg sp-mini-frame-dim-amount))))
+                             (sp-mini-frame--blend fg bg sp-mini-frame-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
                       sp-mini-frame--dim-cookies))))
@@ -362,13 +190,12 @@ A comment introducing the dimming code.
 
 ** Only dim for chosen commands
 
-=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =mini-frame-mode= is on and either a function of =sp-mini-frame-dim-functions= is running or the command is one of =sp-mini-frame-dim-commands=.
+=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =mini-frame-mode= is on and the command running is one of =sp-mini-frame-dim-commands=.
 
 #+begin_src emacs-lisp -i
 (defun sp-mini-frame--maybe-dim ()
   (when (and (bound-and-true-p mini-frame-mode)
-             (or sp-mini-frame--dim-requested
-                 (memq this-command sp-mini-frame-dim-commands))
+             (memq this-command sp-mini-frame-dim-commands)
              (minibuffer-selected-window))
     (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))
 #+end_src
@@ -391,12 +218,3 @@ Provides the =sp-mini-frame= feature and closes the file.
 (provide 'sp-mini-frame)
 ;; sp-mini-frame.el ends here.
 #+end_src
-
-* Changes by pull request
-
-What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
-
-- [[https://github.com/siainbuletin/dotfiles/pull/119][#119]] 🔧 Changed =sp-mini-frame= to be as small as its content and no taller than the candidates Vertico shows (=vertico-count=, not a count of its own), centred for that largest size (=mini-frame-resize= is now =t= with a maximum height; before, the frame kept the default height and showed as a long box under the candidates), with 4 pixels of padding (=sp-mini-frame-padding=) in the colour of the frame (=sp-mini-frame-border-color= for an outline). =M-x= no longer has a one-pixel foreground border. Not run in Emacs.
-- [[https://github.com/siainbuletin/dotfiles/pull/121][#121]] 🐛 Fixed the text of =M-x= in =sp-mini-frame= blending into the background: the frame colours came from the frame parameters of the parent frame, which keep the first frame's values after a theme is loaded, so the text colour of the theme was drawn on a background computed from the old colours. The text colour and the background (=sp-mini-frame-contrast= from it) now come from the =default= face, and the =M-x= prompt block uses =:inverse-video=. Not run in Emacs.
-- [[https://github.com/siainbuletin/dotfiles/pull/122][#122]] 🐛 Fixed Emacs hanging on macOS when a prompt opened with =sp-mini-frame= since #119: the frame is no longer resized to its content (=mini-frame-resize= back to =not-set=, no starting height of one line, no pixel position, no border faces set on the open frame); it has a fixed height of =vertico-count= candidates plus the prompt and the divider line, centred with =(top . 0.5)= and =(left . 0.5)=. The frame keeps its size when there are fewer candidates. Not run in Emacs; the cause is a guess.
-- [[https://github.com/siainbuletin/dotfiles/pull/123][#123]] 🐛 Fixed (again, untested) the text of =M-x= in =sp-mini-frame= blending into the background: the minibuffer now remaps its own =default= face to the text colour and background of the theme of the frame it was opened from, so the typed text, the candidates and their annotations no longer depend on the colours the new frame ends up with.
