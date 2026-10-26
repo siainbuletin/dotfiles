@@ -2332,7 +2332,7 @@ nothing happens while the geometry is the same."
 
 ** Initial display and hooks
 
-=sp-dashboard--setup-splash-hooks= shows the graphical or terminal splash depending on =display-graphic-p=, then adds =sp-dashboard--refresh-on-resize= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
+=sp-dashboard--setup-splash-hooks= first closes every other window, because the =tabspaces= session restore (=tabspaces-mode= with =tabspaces-session-auto-restore=) has already put back the window layout saved at the last exit, which left a =*scratch*= window beside the Dashboard. It then shows the graphical or terminal splash depending on =display-graphic-p=, and adds =sp-dashboard--refresh-on-resize= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
 
 #+begin_src emacs-lisp -i
 (defun sp-dashboard-refresh-agendas ()
@@ -2345,8 +2345,11 @@ selected window, so it is left alone while another buffer is there."
       (sp-dashboard-refresh))))
 
 (defun sp-dashboard--setup-splash-hooks ()
-  "Initialize splash and setup hooks."
+  "Initialize splash and setup hooks.
+Start-up shows the Dashboard alone: a restored `tabspaces' session can leave a
+saved layout with a *scratch* window beside it."
   (progn
+    (delete-other-windows)
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
@@ -2390,3 +2393,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/111][#111]] 🐛 Fixed the dashboard losing the selected button and the box you stepped into whenever any window hook fired: the hooks now redraw only when the window or font size changed since the last draw, so TAB, S-TAB and =<right>= work while something else (a key logger, the mode line) keeps triggering them; the width of the larger box titles is read from the font instead of measured in a buffer. Reproduced and checked headless and in graphical Emacs 29.3 with real key events; not reproduced the failure itself, so it is a likely cause and not a confirmed one.
 - [[https://github.com/siainbuletin/dotfiles/pull/113][#113]] 🔧 Changed the width of the dashboard boxes to its own option, =sp-dashboard-box-width= (36 columns each, borders included; it was 29 and tied to the banner), replacing =sp-dashboard-lane-width=. The banner and the title are now centred on the two columns of boxes, and the right column is as wide as the boxes or the banner, whichever is wider. Layout tested headless and in graphical Emacs 29.3.
 - [[https://github.com/siainbuletin/dotfiles/pull/124][#124]] 🐛 Fixed the slow start-up and hangs since the vulpea scan was deferred: =vulpea-db-autosync-mode= now starts five idle seconds after start-up with =vulpea-db-sync-scan-on-enable= =background= (files listed by a subprocess, only changed files parsed from the queue), replacing =sp-vulpea-scan-once=, whose foreground =vulpea-db-sync-full-scan= froze Emacs and was started by the dashboard visiting the agenda files. The dashboard reads each list of agenda files once per draw (=sp-dashboard--read-entries=) instead of once per box, shows =loading agenda files...= until =org-agenda-files= is set (=sp-dashboard-agenda-ready=) and is redrawn when it is. Added echo-area messages for the autosync start, the agenda-files refresh and the dashboard reads, each with its time. Not run in Emacs (none in the container); the cause is read from the code and unconfirmed.
+- [[https://github.com/siainbuletin/dotfiles/pull/133][#133]] 🐛 Fixed a =*scratch*= window opening beside the Dashboard at start-up: the setup now closes the other windows before drawing the Dashboard. Cause read from the code and =tabspaces= source, not run in Emacs.
