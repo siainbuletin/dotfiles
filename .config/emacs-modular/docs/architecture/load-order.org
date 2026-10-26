@@ -199,6 +199,10 @@ Two further errors in the same log were order problems inside a module:
 - *=sp-academic=* defined =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= after it required =sp-citations= and =sp-litnotes=. It is a late module, and Elpaca runs the =:init= of a package once it is installed, which can be while the rest of the file is still loading (this is the likely cause; I could not run Emacs to confirm it), so =citar-denote= read =sp-bibliography= while it was void. The three =defcustom= forms are now the first thing in the file.
 - *=code-review=* is declared after =forge= but loaded without waiting for it, and its database class needs =emacsql-sqlite-connection=. It now has =:after forge= and requires =emacsql-sqlite= first.
 
+** =sp-fetch-academic= loads inside =sp-academic=
+
+=sp-academic= is one late module, but it requires its sub-modules itself, in this order: =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes=, =sp-fetch-academic=. The new one is last because it reads =sp-bibtex-files= and =sp-bibliography-dir= from =sp-bibprocess= and installs =biblio= (which moved there from =sp-academic=, so =biblio= is still queued once). It needs =org-ref= only when its DOI command runs, so it does not have to come after =org-ref=, which =sp-academic= declares further down.
+
 ** What stays as it was
 The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package were first left alone as "not an ordering problem"; Elpaca logs them, so they are fixed (see above). The minimal list (=-minimal=) is as before.
 

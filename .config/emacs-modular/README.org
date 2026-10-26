@@ -84,7 +84,7 @@ From the Emacs you already work in, the module =sp-sandbox= has the same as comm
 
 1. =yadm fetch origin +pull/N/head:refs/sandbox/pr-N= puts the PR on a ref that is not a branch, so it can never clash with a branch checked out elsewhere. =yadm worktree add --detach= makes the worktree (or =git checkout --detach= updates it).
 2. It starts =emacs --init-directory ~/src/dotfiles-wt/pr-N/.config/emacs-modular=. The configuration finds everything relative to =user-emacs-directory=, so the PR's packages, caches and state live in that worktree's =var/=, which git ignores.
-3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes=, =~/bibliography= and =~/Documents= path in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
+3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes= and =~/Documents= path (the bibliography is under it) in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
 4. =GIT_CONFIG_GLOBAL= keeps pointing at your real =~/.gitconfig=, so commits in the sandbox still have your name. SSH is unaffected by =HOME=.
 5. It remaps the absolute =/Users/.../= entries of =org-agenda-files= (if the configuration still sets them) to the sandbox home.
 
