@@ -109,6 +109,20 @@ wraps. An error is reported in the echo area and does not abort the prompt."
 
 (add-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)
 
+;;;; Same text size for every prompt
+
+(defun sp-posframe--reset-text-scale ()
+  "Show posframe prompts at the size of the `default' face.
+`sp-minibuffer' scales the text of every minibuffer up from `minibuffer-mode-hook'.
+This runs later, from `minibuffer-setup-hook', and removes that scale when the
+prompt is drawn in a posframe, so M-x, the file pickers and the note pickers all
+have the same text size."
+  (when (and (bound-and-true-p vertico-posframe-mode)
+             (bound-and-true-p text-scale-mode))
+    (text-scale-set 0)))
+
+(add-hook 'minibuffer-setup-hook #'sp-posframe--reset-text-scale 90)
+
 ;;;; Dimming, only for selected commands
 
 (defcustom sp-posframe-dim-always t
