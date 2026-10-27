@@ -20,7 +20,7 @@ From left to right:
 2. *The major mode*, as a nerd-icons icon (or its name when there is no icon) in a coloured box.
 3. *The position*: the number of words in buffers of text modes (Org, Markdown, LaTeX, Typst and any mode listed in =sp-modeline-parts-word-count-modes=), and line and column in every other buffer.
 4. *Keycast*: the key you used last in a coloured box and the command it ran. The last command stays on screen until the next one, and the segment has a fixed width (=sp-modeline-parts-keycast-width=), so the rest of the line does not move when it changes. Only the selected window shows keys; the other windows keep the empty space.
-5. At the right: the *task being clocked* (see below), the tag emoji of =sp-tag-emoji= and the version control branch.
+5. At the right: the *task being clocked* (see below), the tag emoji of =sp-org-tag-groups= and the version control branch.
 
 The count of minor modes was removed: it was not helpful, and its icon (a Material Design glyph, code point =0f0431=) showed as a square with the code in fonts that lack the Material Design set of Nerd Fonts. The minor modes can be listed with =C-h m= (=describe-mode=); click on the major mode box for the same.
 
@@ -91,7 +91,7 @@ The text of a box is the background colour of the theme. The faces are =sp-model
 (defvar org-todo-keywords-1)
 (defvar org-done-keywords)
 (defvar mode-line-maker-padding-face)
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function keycast-format "keycast")
 (declare-function keycast-mode-line-mode "keycast")
 (declare-function keycast-header-line-mode "keycast")
@@ -487,9 +487,9 @@ For `org-clock-in-switch-to-state'; point is on the heading."
 
 #+begin_src emacs-lisp -i
 (defun sp-modeline-parts-tags ()
-  "Return the tag emoji of `sp-tag-emoji' at point, or nil."
-  (when (fboundp 'sp-tag-emoji-modeline-string)
-    (let ((tags (ignore-errors (sp-tag-emoji-modeline-string))))
+  "Return the tag emoji of `sp-org-tag-groups' at point, or nil."
+  (when (fboundp 'sp-org-tag-groups-modeline-string)
+    (let ((tags (ignore-errors (sp-org-tag-groups-modeline-string))))
       (and (stringp tags) (not (string-blank-p tags)) tags))))
 
 (defun sp-modeline-parts-vc ()
