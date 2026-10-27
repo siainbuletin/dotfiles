@@ -277,21 +277,27 @@ Text scaling:
 
 ** Larger minibuffer text
 
-The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =default= height in =regular=), for easier reading on a large screen.
+The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =default= height in =regular=, the same as =sp-text-face= in Org) for easier reading on a large screen, and follows the =text-scale= of the buffer it was opened from.
+
+- =sp-minibuffer= maps =sp-minibuffer-face= onto =default= in the minibuffer, then calls =text-scale-set= with the =text-scale-mode-amount= of the window that was selected when the minibuffer opened. So =text-scale-adjust= (=s-==, =s--=, =s-0=) in a buffer makes the text of the next =M-x=, file picker or note picker grow and shrink in step with the buffer's text. A minibuffer already open does not change size.
+- It is hooked on =minibuffer-setup-hook=, not =minibuffer-mode-hook=: the selected window is only known there. Calling =text-scale-set= with 0 for an unscaled buffer also clears the scale that a reused minibuffer buffer might have kept.
+- It does not touch =face-remapping-alist= otherwise. The earlier version in =sp-posframe= (#146) reset the whole list, which also dropped the text scale, so the posframe did not follow =text-scale-adjust=.
+- #156 took this out of the minibuffer while the glitching =M-x= text was being looked for, and the glitch went with the plain posframe. This puts the text size back (#161). The cause of the glitch was never found, so if it returns, remove =(add-hook 'minibuffer-setup-hook #'sp-minibuffer)= first.
 
 #+begin_src emacs-lisp -i
-;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
-;; properly adapt to the system.
-;;
-;; I should probably try to hook into the faces system of Emacs to get it to work well.
 (defun sp-minibuffer ()
-  "Make the minibuffer use the size of `sp-minibuffer-face', set by fontaine."
-  (face-remap-add-relative 'default 'sp-minibuffer-face))
+  "Size the minibuffer text like the buffer it was opened from.
+The base size is `sp-minibuffer-face', set by fontaine. On top of it the
+`text-scale' of the buffer that was selected when the minibuffer opened is
+applied, so `text-scale-adjust' grows the minibuffer text with the buffer's."
+  (face-remap-add-relative 'default 'sp-minibuffer-face)
+  (when-let* ((win (minibuffer-selected-window))
+              ((window-live-p win)))
+    (text-scale-set (buffer-local-value 'text-scale-mode-amount
+                                        (window-buffer win)))))
+
+(add-hook 'minibuffer-setup-hook #'sp-minibuffer)
 #+end_src
-
-** Hooking the minibuffer
-
-=sp-minibuffer= is no longer added to =minibuffer-mode-hook= (#156): the larger text of the minibuffer is one of the things taken out of the posframe while looking for the glitching =M-x= text. The function and =sp-minibuffer-face= stay, so it can be hooked again.
 
 ** Larger text buffers
 
