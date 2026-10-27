@@ -115,6 +115,35 @@ the absolute file name, or nil if none is chosen."
          (selection (completing-read "Select : " methods)))
     (sp-find-file--read selection regexp)))
 
+;;;; Load an Emacs Lisp file from the configuration
+(defconst sp-load-config-file-excluded
+  (rx (or "/elpaca/" "/eln-cache/" "/backups/" "/auto-save-list/" "/.git/" "/var/" "/url/"))
+  "Directories under `sp-load-path' that `sp-load-config-file' does not search.")
+
+(defun sp-load-config-file-candidates ()
+  "Return the .el files under `sp-load-path', relative to it, sorted."
+  (let ((root (file-name-as-directory (expand-file-name sp-load-path))))
+    (sort (mapcar (lambda (file) (file-relative-name file root))
+                  (seq-remove (lambda (file)
+                                (string-match-p sp-load-config-file-excluded file))
+                              (directory-files-recursively root "\\.el\\'")))
+          #'string<)))
+
+(defun sp-load-config-file (file)
+  "Load FILE, an Emacs Lisp file chosen from the files under `sp-load-path'.
+Like `load-file', but the candidates are every .el file below the
+configuration directory, shown relative to it, so the path need not be
+typed in full."
+  (interactive
+   (list (let ((candidates (sp-load-config-file-candidates)))
+           (completing-read "Load config file: "
+                            (lambda (str pred action)
+                              (if (eq action 'metadata)
+                                  '(metadata (category . file))
+                                (complete-with-action action candidates str pred)))
+                            nil t nil 'file-name-history))))
+  (load-file (expand-file-name file sp-load-path)))
+
 (global-unset-key (kbd "C-x C-f")) ; Rebinding the find-file command.
 (keymap-global-set "C-x C-f" #'sp-find-file)
 
