@@ -1,66 +1,11 @@
-#+TITLE: Typesetting settings for Emacs
-#+startup: overview
-
-LaTeX and Typst.
-
 This should be ensuring that the =texlive= and =typst= binaries are actually installed on the system.
 
-* TODO Working with projects that are nested within chapters
-
-Large projects usually have to be treated in separate files, just like I prefer to set up the environment when
-
-This is specifically concerning larger projects that have to be broken up in specific chapters.
-
-** Appearance of the environment - plugging =olivetti-mode=
-
-I currently don't know if I actually like this environment, but I have to enable it if I want to make use of the =sia-olivetti= function.
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-      (use-package olivetti
-        :ensure t
-        :demand t
-        :after org
-        :custom
-        (olivetti-minimum-body 100)
-        (olivetti-body-width 80)
-        :bind
-        (("C-c w o" . sia-olivetti))
-        :hook
-        (org-mode . olivetti-mode))
-#+end_src
-
-The hook will turn on =olivetti-mode= by default in an org-mode buffer.
-
-If you define ~olivetti-body-width~ as a number (in this case ~80~), then you won't actually have adaptive reflow for the text when you change from a wider frame to a more narrow one. If you set ~olivetti-body-width~ as a fraction (what I had before, ~0.8~), then it will resize, but when using a wider frame, it will make the text a little bit to spread out to have it be easily readable.
 
 ** TODO Tangling the different parts of the manuscript together
 
 This would also be meant to emulate the Scrivener mode that you get in Obsidian with longform, but only in this case it actually works well and you don't feel the jankiness of an Electron program.
 
-*Is there any need for =pandoc= in this case, or can I just use =org-babel=?
 
-** TODO Project management considerations
-
-This can also refer to the points that you should be following through the practice of a proper literature review.
-
-** TODO Structuring writing projects in multiple chapters with =binder=
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (use-package binder
-    :ensure t)
-#+end_src
-
-How do you make it open up the proper project? It doesn't seem to want to open with the sidebar anymore.
-
-This package isn't really maintained and doesn't have that many useful functions, so it should be removed.
-
-*** Customizing the binder sidebar for seeing the different files in there
-
-Since =emacs-binder='s purpose is to emulate a Scrivener workflow,
-
-** TODO Support a drafting workflow
-
-Iterative development for a text is also something that concerns project management, at its base.
 
 *** TODO LOOK INTO TEXT IN LAYERS FOR EMACS
 
