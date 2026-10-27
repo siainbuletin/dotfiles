@@ -216,7 +216,7 @@
   :hook (after-init . dimmer-mode)
   :custom
   (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
-  (dimmer-fraction 0.5)
+  (dimmer-fraction 0.8)
   (dimmer-adjustment-mode :foreground)
   (dimmer-use-colorspace :rgb)
   (dimmer-watch-frame-focus-events nil)
