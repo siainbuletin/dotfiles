@@ -256,7 +256,8 @@ the order of `sp-late-modules', for example when debugging."
     sp-terminal
     sp-eshell
     sp-org-tag-groups ;; tags as emoji in the modeline and on links
-    sp-thesis-dump    
+    sp-thesis-dump
+    sp-typst ;; PDF of the docs and of Org files through Typst
     )
   "Modules that can wait until after startup, in dependency order.
 Nothing else requires these features, and their packages are not

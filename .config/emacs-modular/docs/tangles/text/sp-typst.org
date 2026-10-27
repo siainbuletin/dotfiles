@@ -1,0 +1,691 @@
+#+TITLE: sp-typst.el: PDF of the literate docs and of Org files, typeset with Typst
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-typst.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-typst.el= and for three files in =docs/typst/=: =template.typ=, =Makefile= and =export.el=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each of the other blocks carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+
+This is the skeleton of a typesetting environment built on [[https://typst.app][Typst]] that works from Org. The first use is the one asked for: turn this configuration's own documentation (=docs/main.org=, the architecture notes and the literate doc of every module) into one PDF. The decision and the alternatives are in [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]]. The empty =docs/tangles/sp-typst.org= that stood here before is replaced by this file; the older Typst notes are in =sp-typesetting.org= (the =ox-typst= line there is superseded by the module below).
+
+* Overview
+
+** What it does
+
+#+begin_example
+docs/main.org, README.org, docs/architecture/*.org, docs/tangles/<dir>/sp-*.org
+        │  sp-typst--prepare: one Org text, one heading per doc, links fixed
+        ▼
+docs/typst/.build/emacs-modular.org
+        │  ox-typst (org-typst-export-to-pdf)
+        ▼
+docs/typst/.build/emacs-modular.typ  ──  #import "template.typ": book  (a copy)
+        │  typst compile
+        ▼
+docs/typst/.build/emacs-modular.pdf
+#+end_example
+
+Two commands do it from Emacs and one =make= target from a shell:
+
+- =M-x sp-typst-export-book= builds the PDF of every doc (with a prefix argument it opens the PDF).
+- =M-x sp-typst-export-file= does the same for one Org file, for example the doc of the module you are editing.
+- =make -C docs/typst pdf= runs the first in a headless Emacs (see /Makefile/ below). =make -C docs/typst file FILE=docs/tangles/ui/sp-writedesk.org= does the second.
+
+The plain =org-export-dispatch= menu also gets the Typst back end (=C-c C-e y=), because =ox-typst= is installed below. That exports one buffer without the book template; use it for ordinary Org files that have nothing to do with these docs.
+
+** Why an assembly step, and not just =#+INCLUDE=
+
+The docs are written to be tangled and read in Emacs, not to be one book. Exporting them as they are would print file-level noise and break in places, so =sp-typst--prepare= changes each doc's text before it is exported (the docs on disk are never touched):
+
+| Problem in a literate doc                                          | What the assembly does                                                                                              |
+|--------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------|
+| Each file has its own =#+TITLE=, =#+PROPERTY= (tangle paths), =#+STARTUP= | The keywords are dropped and the title becomes a heading, so 150 files give one document with one table of contents |
+| Headings all start at level 1                                      | They are shifted under the doc's heading, which sits under its part (=Modules: ui=)                                   |
+| =[[file:../ui/sp-x.org]]= links to another doc                     | Rewritten to an internal link (=[[#doc-...]]=) to that doc's heading; links to =.el= files become inline code        |
+| Footnote labels (=[fn:1]=) repeat in every file                    | Prefixed with the doc's id, so they stay separate                                                                   |
+| =#+INCLUDE:= of files that are not in the repository (=~/.config/emacs-include/=) | Kept when the file exists, dropped when not                                                  |
+| Images (the SVGs built by =make docs=) may not exist                | Linked by absolute path when they exist; a one-line note replaces them when they do not                              |
+| =:tangle= blocks and =:noweb no=                                    | Source blocks are exported as code, never evaluated (=org-export-use-babel= is nil); no doc uses =:noweb yes= today |
+
+** Source blocks, tangle blocks, noweb, SVGs and links
+
+- *Source blocks* become =#raw(block: true, lang: ...)=; =emacs-lisp= and =elisp= are mapped to Typst's =lisp= so they are highlighted (=org-typst-language-mapping=). The tangle header (=:tangle ...=) is not printed. A block the reader should see as code but that is not tangled (=:tangle no=) looks the same, which is what the sandbox blocks need.
+- *Noweb*: no doc uses =<<name>>= references. If one does, expand them in =sp-typst--prepare= with =org-babel-expand-noweb-references=, because export without Babel does not.
+- *SVG figures*: Typst reads SVG natively, so the Graphviz output of the =dot= blocks needs no conversion. The files come from =make docs= (see the Makefile of the SVG work); this module only links them.
+- *Cross-links*: internal links work inside the book (the headline labels Typst needs are made by =ox-typst=). A fuzzy link such as =[[*Heading]]= resolves to the first heading of that name in the whole book, so it can land in another doc; repeat links to a doc's own headings are best written as =[[#custom-id]]=.
+
+* Header
+
+#+begin_src emacs-lisp
+;;; sp-typst.el --- PDF of the literate docs and of Org files, typeset with Typst -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Exports the literate documentation (docs/main.org, the architecture notes and
+;; the doc of every module) to one PDF through ox-typst and the `typst' command,
+;; and any single Org file the same way.  The assembly of the book, the template
+;; (docs/typst/template.typ) and the batch driver (docs/typst/export.el) are
+;; tangled from docs/tangles/text/sp-typst.org, which explains the design.
+
+;;; Code:
+
+(require 'subr-x)
+(require 'seq)
+
+(defvar org-typst-process)
+(defvar org-typst-language-mapping)
+(defvar org-export-use-babel)
+(defvar org-export-filter-verbatim-functions)
+(defvar org-export-filter-code-functions)
+(defvar org-export-filter-inline-src-block-functions)
+(defvar org-export-filter-footnote-reference-functions)
+(defvar org-export-filter-link-functions)
+#+end_src
+
+* Packages
+
+=ox-typst= is the Org back end. It is not part of Org; its header asks for Emacs 30.1 and Org 9.7. I ran it on Emacs 29.3 with Org 9.7.11 and it exported correctly, but Elpaca checks the =Package-Requires= and may refuse it on an older Emacs.
+
+#+begin_src emacs-lisp
+(use-package ox-typst
+  :ensure (:host github :repo "jmpunkt/ox-typst")
+  :after ox)
+#+end_src
+
+=typst-ts-mode= edits =.typ= files with tree-sitter. It needs the Typst grammar once: =M-x treesit-install-language-grammar= and answer =typst=. I did not run it.
+
+#+begin_src emacs-lisp
+(use-package typst-ts-mode
+  :ensure t
+  :mode ("\\.typ\\'" . typst-ts-mode)
+  :config
+  ;; tinymist is the language server (completion, diagnostics, live preview in
+  ;; a browser).  Only start it when it is installed.
+  (when (executable-find "tinymist")
+    (with-eval-after-load 'eglot
+      (add-to-list 'eglot-server-programs '(typst-ts-mode "tinymist")))
+    (add-hook 'typst-ts-mode-hook #'eglot-ensure)))
+#+end_src
+
+* Settings
+
+#+begin_src emacs-lisp
+(defgroup sp-typst nil
+  "Typeset the literate docs and Org files with Typst."
+  :group 'tools)
+
+(defcustom sp-typst-root (expand-file-name user-emacs-directory)
+  "Folder the doc paths are relative to: the Emacs configuration."
+  :type 'directory
+  :group 'sp-typst)
+
+(defcustom sp-typst-executable "typst"
+  "The Typst command."
+  :type 'string
+  :group 'sp-typst)
+
+(defcustom sp-typst-font-paths nil
+  "Extra folders with fonts, passed to Typst as `--font-path'."
+  :type '(repeat directory)
+  :group 'sp-typst)
+
+(defcustom sp-typst-template-file "docs/typst/template.typ"
+  "The Typst template of the book, relative to `sp-typst-root'."
+  :type 'string
+  :group 'sp-typst)
+
+(defcustom sp-typst-build-directory "docs/typst/.build/"
+  "Where the assembled Org, the Typst and the PDF are written.
+Relative to `sp-typst-root'.  The template is copied into it."
+  :type 'string
+  :group 'sp-typst)
+
+(defcustom sp-typst-doc-directories '("docs/architecture" "docs/justifications")
+  "Folders of loose docs, relative to `sp-typst-root', one book part each."
+  :type '(repeat string)
+  :group 'sp-typst)
+
+(defcustom sp-typst-include-old nil
+  "When non-nil, also include the `-old.org' docs."
+  :type 'boolean
+  :group 'sp-typst)
+
+(defcustom sp-typst-book-title "Sia's modular literate configuration for Emacs"
+  "Title of the book."
+  :type 'string
+  :group 'sp-typst)
+
+(defcustom sp-typst-book-author "Sia Piperea"
+  "Author of the book."
+  :type 'string
+  :group 'sp-typst)
+
+(defcustom sp-typst-book-name "emacs-modular"
+  "Base name of the book's files in `sp-typst-build-directory'."
+  :type 'string
+  :group 'sp-typst)
+#+end_src
+
+* Finding the docs
+
+The book is a list of parts, each with the docs in it, as paths relative to the root. The order is the reading order: the overview, the architecture notes, then one part per folder of =docs/tangles/= (=ui=, =text=, ...) with the docs in alphabetical order. The older notes at the top of =docs/tangles/= are not included: most describe no module, several are still outlines, and one is empty. Add =docs/tangles= to =sp-typst-doc-directories= to include them.
+
+#+begin_src emacs-lisp
+(defun sp-typst--file (relative)
+  "Absolute name of RELATIVE, a path under `sp-typst-root'."
+  (expand-file-name relative sp-typst-root))
+
+(defun sp-typst--org-files (directory)
+  "The Org docs directly in DIRECTORY (relative to the root), as relative paths.
+Backups, empty files and, unless `sp-typst-include-old', `-old.org' docs are left out."
+  (let ((absolute (sp-typst--file directory)))
+    (when (file-directory-p absolute)
+      (seq-keep
+       (lambda (name)
+         (let ((file (expand-file-name name absolute)))
+           (when (and (or sp-typst-include-old
+                          (not (string-suffix-p "-old.org" name)))
+                      (> (file-attribute-size (file-attributes file)) 0))
+             (concat (file-name-as-directory directory) name))))
+       (directory-files absolute nil "\\.org\\'")))))
+
+(defun sp-typst--parts ()
+  "The book as an alist of (PART-TITLE . FILES), FILES relative to the root."
+  (let (parts)
+    (push (cons "Overview"
+                (seq-filter (lambda (f) (file-exists-p (sp-typst--file f)))
+                            '("docs/main.org" "README.org")))
+          parts)
+    (dolist (directory sp-typst-doc-directories)
+      (push (cons (capitalize (file-name-nondirectory directory))
+                  (sp-typst--org-files directory))
+            parts))
+    (push (cons "Design notes"
+                (remove "docs/main.org" (sp-typst--org-files "docs")))
+          parts)
+    (dolist (sub (directory-files (sp-typst--file "docs/tangles") nil "\\`[^.]"))
+      (let ((directory (concat "docs/tangles/" sub)))
+        (when (file-directory-p (sp-typst--file directory))
+          (push (cons (format "Modules: %s" sub)
+                      (sp-typst--org-files directory))
+                parts))))
+    (seq-filter #'cdr (nreverse parts))))
+#+end_src
+
+* Preparing one doc
+
+The functions below work on the text of one doc in a temporary buffer. They match with regular expressions and do not start Org mode, so they are quick and do not run any Org hooks.
+
+#+begin_src emacs-lisp
+(defun sp-typst--slug (file)
+  "Heading id for the doc FILE (relative to the root)."
+  (concat "doc-" (string-trim
+                  (replace-regexp-in-string
+                   "[^a-z0-9]+" "-" (downcase (file-name-sans-extension file)))
+                  "-" "-")))
+
+(defun sp-typst--title (file)
+  "The `#+TITLE' of the absolute FILE, or its base name."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 4000)
+    (goto-char (point-min))
+    (if (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
+        (string-trim (match-string 1))
+      (file-name-base file))))
+
+(defun sp-typst--known (parts)
+  "Hash table of the absolute name of every doc in PARTS to its relative path."
+  (let ((known (make-hash-table :test #'equal)))
+    (dolist (part parts)
+      (dolist (file (cdr part))
+        (puthash (sp-typst--file file) file known)))
+    known))
+
+(defconst sp-typst--dropped-keywords
+  (concat "^#\\+\\(?:title\\|author\\|date\\|startup\\|property\\|options\\|"
+          "filetags\\|setupfile\\|todo\\|seq_todo\\|typ_todo\\|tags\\|category\\|"
+          "language\\|latex[a-z_]*\\|html[a-z_]*\\|export_[a-z_]+\\|link\\|"
+          "constants\\|select_tags\\|exclude_tags\\|priorities\\|columns\\):.*\n?")
+  "File-level keywords of a doc that mean nothing in the book.")
+
+(defun sp-typst--drop-keywords ()
+  "Delete the file-level keywords that mean nothing in the book."
+  (goto-char (point-min))
+  (let ((case-fold-search t))
+    (while (re-search-forward sp-typst--dropped-keywords nil t)
+      (replace-match ""))))
+
+(defun sp-typst--fix-includes (directory)
+  "Make `#+INCLUDE:' paths absolute (from DIRECTORY); drop missing files."
+  (goto-char (point-min))
+  (let ((case-fold-search t))
+    (while (re-search-forward "^#\\+include:[ \t]*\"?\\([^\" \n]+\\)\"?\\(.*\\)\n?" nil t)
+      (let ((file (expand-file-name (match-string 1) directory))
+            (rest (match-string 2)))
+        (replace-match (if (file-exists-p file)
+                           (format "#+INCLUDE: \"%s\"%s\n" file rest)
+                         "")
+                       t t)))))
+
+(defun sp-typst--shift-headings (levels)
+  "Move every heading down by LEVELS levels."
+  (goto-char (point-min))
+  (while (re-search-forward "^\\*+ " nil t)
+    (goto-char (line-beginning-position))
+    (insert (make-string levels ?*))
+    (forward-line 1)))
+
+(defun sp-typst--block-ranges ()
+  "Markers around each source, example, export and comment block of the buffer.
+Org does not read links or footnotes inside them, so they are left alone."
+  (let (ranges (case-fold-search t))
+    (goto-char (point-min))
+    (while (re-search-forward "^[ \t]*#\\+begin_\\(src\\|example\\|export\\|comment\\)\\_>" nil t)
+      (let ((beg (copy-marker (match-beginning 0)))
+            (kind (match-string 1)))
+        (if (re-search-forward (format "^[ \t]*#\\+end_%s" kind) nil t)
+            (push (cons beg (copy-marker (point))) ranges)
+          (goto-char (point-max)))))
+    ranges))
+
+(defun sp-typst--in-block-p (ranges position)
+  "Non-nil when POSITION is inside one of RANGES."
+  (seq-some (lambda (range) (and (>= position (car range)) (<= position (cdr range))))
+            ranges))
+
+(defun sp-typst--fix-links (directory known)
+  "Rewrite the `file:' links of a doc in DIRECTORY.
+KNOWN is the table made by `sp-typst--known'."
+  (let ((ranges (sp-typst--block-ranges)))
+    (goto-char (point-min))
+    (while (re-search-forward
+            "\\[\\[file:\\([^]\n]+?\\)\\]\\(?:\\[\\([^]\n]*\\)\\]\\)?\\]" nil t)
+      (unless (sp-typst--in-block-p ranges (match-beginning 0))
+        ;; The helper calls below use regexps, so take the match first.
+        (let* ((beg (match-beginning 0))
+               (end (match-end 0))
+               (path (car (split-string (match-string 1) "::")))
+               (description (match-string 2))
+               (absolute (expand-file-name path directory))
+               (doc (gethash absolute known))
+               (text
+                (save-match-data
+                  (cond
+                   ((string-match-p "\\.\\(?:svg\\|png\\|jpe?g\\|gif\\)\\'" path)
+                    (if (file-exists-p absolute)
+                        (format "[[file:%s]]" absolute)
+                      (format "/figure %s is not built (run make docs)/"
+                              (file-name-nondirectory path))))
+                   (doc
+                    (format "[[#%s][%s]]" (sp-typst--slug doc)
+                            (or description (sp-typst--title absolute))))
+                   (t (format "=%s=" (or description path)))))))
+          (goto-char beg)
+          (delete-region beg end)
+          (insert text))))))
+
+(defun sp-typst--prefix-footnotes (slug)
+  "Prefix every footnote label with SLUG, so labels do not repeat across docs.
+A reference whose definition is not in the doc (usually text that
+quotes the syntax) would stop the export, so it is kept as plain text."
+  (let ((ranges (sp-typst--block-ranges))
+        (defined nil))
+    (goto-char (point-min))
+    (while (re-search-forward "^\\[fn:\\([^]: \n]+\\)\\]" nil t)
+      (push (match-string 1) defined))
+    (goto-char (point-min))
+    (while (re-search-forward "\\[fn:\\([^]: \n]+\\)\\(\\]\\|:\\)" nil t)
+      (unless (sp-typst--in-block-p ranges (match-beginning 0))
+        (let ((label (match-string 1))
+              (inline (equal (match-string 2) ":"))
+              (beg (match-beginning 0)))
+          (cond
+           ((or inline (member label defined))
+            (replace-match (format "[fn:%s-%s%s" slug label (match-string 2)) t t))
+           ;; A zero-width space after "fn" stops Org reading it as a footnote.
+           (t (replace-match (format "[fn\u200b:%s]" label) t t))))))))
+
+(defun sp-typst--prepare (file level known)
+  "Text of the doc FILE (relative to the root), ready to sit under a heading.
+The doc gets a heading of LEVEL; its own headings move below it.  KNOWN
+is the table made by `sp-typst--known'."
+  (let* ((absolute (sp-typst--file file))
+         (slug (sp-typst--slug file))
+         (title (sp-typst--title absolute)))
+    (with-temp-buffer
+      (insert-file-contents absolute)
+      (sp-typst--drop-keywords)
+      (sp-typst--fix-includes (file-name-directory absolute))
+      (sp-typst--shift-headings level)
+      (sp-typst--fix-links (file-name-directory absolute) known)
+      (sp-typst--prefix-footnotes slug)
+      (concat (make-string level ?*) " " title "\n"
+              ":PROPERTIES:\n:CUSTOM_ID: " slug "\n:END:\n\n"
+              (string-trim-right (buffer-string)) "\n\n"))))
+#+end_src
+
+* Assembling the book
+
+The preamble sets the title page data, the options that suit these docs, the two macros that =main.org= expects and the =typst_header= lines that load the template. The template is imported as =template.typ= from the build folder, where =sp-typst--export= copies it before each export. Typst refuses to import a file outside its project root, and =ox-typst= sets that root to the folder of the =.typ= file (or a common parent of it and the images), so a copy beside the =.typ= is the one place that always works.
+
+The options: =^:{}= so that =sp_x= is not a subscript (only =a_{b}= is), =d:nil= to leave the drawers (=BACKLINKS=, =LOGBOOK=) out, =broken-links:t= so a link to something outside the book does not stop the export, =H:9= so deep headings stay headings, and =toc:t=. The table of contents depth is set in the template.
+
+#+begin_src emacs-lisp
+(defun sp-typst--build-directory ()
+  "Absolute name of the build folder."
+  (file-name-as-directory (sp-typst--file sp-typst-build-directory)))
+
+(defun sp-typst--preamble (title)
+  "Org keywords for a document called TITLE."
+  (progn
+    (string-join
+     (list (format "#+title: %s" title)
+           (format "#+author: %s" sp-typst-book-author)
+           (format-time-string "#+date: [%Y-%m-%d %a]")
+           "#+language: en"
+           "#+options: toc:t num:t H:9 ^:{} d:nil broken-links:t"
+           "#+macro: latest-export-date (eval (format-time-string \"%Y-%m-%d\"))"
+           "#+macro: word-count (eval (format \"%d\" (count-words (point-min) (point-max))))"
+           "#+typst_header: #import \"template.typ\": book"
+           "#+typst_header: #show: book"
+           "\n")
+     "\n")))
+
+(defun sp-typst-book-source ()
+  "The Org text of the whole book."
+  (let* ((parts (sp-typst--parts))
+         (known (sp-typst--known parts)))
+    (with-temp-buffer
+      (insert (sp-typst--preamble sp-typst-book-title))
+      (dolist (part parts)
+        (insert "* " (car part) "\n\n")
+        (dolist (file (cdr part))
+          (insert (sp-typst--prepare file 2 known))))
+      (buffer-string))))
+#+end_src
+
+* Exporting
+
+=sp-typst--export= writes the text to the build folder and exports that file with =ox-typst=. Writing a file first lets Org name the outputs and lets =ox-typst= start Typst with the =--input= arguments it needs for images. The buffer is opened without the major mode hooks, so none of the interactive setup runs. =org-export-use-babel= is nil: nothing in a doc is evaluated by exporting it.
+
+#+begin_src emacs-lisp
+(defun sp-typst--process ()
+  "The value of `org-typst-process' for `sp-typst-executable' and the fonts."
+  (concat (shell-quote-argument sp-typst-executable) " c \"%s\""
+          (mapconcat (lambda (path)
+                       (format " --font-path %s"
+                               (shell-quote-argument (expand-file-name path))))
+                     sp-typst-font-paths "")))
+
+(defun sp-typst--end-expression (text _backend _info)
+  "End the Typst expression TEXT with a semicolon when it ends in a call.
+Typst reads a `[' straight after `#raw(\"x\")' as trailing content of the
+call, so Org text such as `=a=[b]' would not compile; `ox-typst' has no
+guard for this."
+  (if (and (stringp text) (string-suffix-p ")" text))
+      (concat text ";")
+    text))
+
+(defun sp-typst--export (text name)
+  "Export the Org TEXT to a PDF called NAME in the build folder; return its path."
+  (require 'org)
+  (require 'ox-typst)
+  (let ((build (sp-typst--build-directory))
+        (coding-system-for-write 'utf-8-unix))
+    (make-directory build t)
+    (copy-file (sp-typst--file sp-typst-template-file)
+               (expand-file-name "template.typ" build) t)
+    (let* ((org-file (expand-file-name (concat name ".org") build))
+           (buffer (progn (with-temp-file org-file (insert text))
+                          (find-file-noselect org-file t t))))
+      (unwind-protect
+          (with-current-buffer buffer
+            (delay-mode-hooks (org-mode))
+            (let ((org-export-use-babel nil)
+                  (org-export-filter-verbatim-functions
+                   (cons #'sp-typst--end-expression org-export-filter-verbatim-functions))
+                  (org-export-filter-code-functions
+                   (cons #'sp-typst--end-expression org-export-filter-code-functions))
+                  (org-export-filter-inline-src-block-functions
+                   (cons #'sp-typst--end-expression org-export-filter-inline-src-block-functions))
+                  (org-export-filter-footnote-reference-functions
+                   (cons #'sp-typst--end-expression org-export-filter-footnote-reference-functions))
+                  (org-export-filter-link-functions
+                   (cons #'sp-typst--end-expression org-export-filter-link-functions))
+                  (org-typst-process (sp-typst--process))
+                  (org-typst-language-mapping
+                   (append '(("emacs-lisp" . "lisp") ("elisp" . "lisp")
+                             ("sh" . "bash") ("shell" . "bash"))
+                           org-typst-language-mapping)))
+              (org-typst-export-to-pdf)))
+        (kill-buffer buffer)))))
+
+;;;###autoload
+(defun sp-typst-export-book (&optional open)
+  "Export every doc to one PDF; with prefix argument OPEN, open it.
+Return the name of the PDF."
+  (interactive "P")
+  (let ((pdf (sp-typst--export (sp-typst-book-source) sp-typst-book-name)))
+    (message "Typst: wrote %s" pdf)
+    (when open (org-open-file pdf))
+    pdf))
+
+;;;###autoload
+(defun sp-typst-export-file (file &optional open)
+  "Export the Org FILE alone, with the book template; with prefix OPEN, open it.
+Links to other docs become inline code, since they are not in this PDF."
+  (interactive (list (or buffer-file-name (read-file-name "Org file: "))
+                     current-prefix-arg))
+  (let* ((relative (file-relative-name (expand-file-name file) sp-typst-root))
+         (text (concat (sp-typst--preamble (sp-typst--title (expand-file-name file)))
+                       (sp-typst--prepare relative 1 (make-hash-table :test #'equal))))
+         (pdf (sp-typst--export text (file-name-base file))))
+    (message "Typst: wrote %s" pdf)
+    (when open (org-open-file pdf))
+    pdf))
+
+(defun sp-typst-batch-book ()
+  "Export the book from a batch Emacs (see docs/typst/Makefile)."
+  (princ (sp-typst-export-book))
+  (terpri))
+
+(defun sp-typst-batch-file ()
+  "Export the file named by the environment variable FILE from a batch Emacs."
+  (princ (sp-typst-export-file (or (getenv "FILE") (error "Set FILE"))))
+  (terpri))
+
+(provide 'sp-typst)
+;;; sp-typst.el ends here
+#+end_src
+
+* The template
+
+=template.typ= is what =#show: book= loads. It sets the page, fonts and the look of code blocks, and puts a title page in front of the table of contents. =ox-typst= wraps every source block in a =figure=, which Typst does not break across pages, so a long block would get cut off; the =show= rule on raw figures makes them breakable. The fonts are the ones Typst ships with (Libertinus Serif and DejaVu Sans Mono), so the PDF looks the same on every machine without installing anything; set =sp-typst-font-paths= to use others.
+
+#+begin_src typst :tangle ../../typst/template.typ :mkdirp yes :comments no :padline no
+// Template of the PDF of the literate docs.  Tangled from
+// docs/tangles/text/sp-typst.org; edit it there.
+//
+// Loaded by `#import "template.typ": book` and `#show: book`, which the
+// sp-typst module writes at the top of every file it exports.
+
+#let accent = rgb("#3a6ea5")
+#let body-font = "Libertinus Serif"
+#let mono-font = "DejaVu Sans Mono"
+
+#let book(body) = {
+  set page(
+    paper: "a4",
+    margin: (x: 22mm, top: 24mm, bottom: 26mm),
+    footer: context {
+      let n = counter(page).get().first()
+      if n > 1 {
+        set text(size: 8pt, fill: luma(110))
+        align(center, [#n])
+      }
+    },
+  )
+  set text(font: body-font, size: 10.5pt)
+  set par(justify: true, leading: 0.62em)
+  set outline(depth: 2)
+
+  // Parts start a page; so does every doc.
+  show heading.where(level: 1): it => {
+    pagebreak(weak: true)
+    v(1.2em)
+    text(size: 22pt, fill: accent, weight: "bold", it)
+    v(0.8em)
+  }
+  show heading.where(level: 2): it => {
+    pagebreak(weak: true)
+    text(size: 15pt, fill: accent, weight: "bold", it)
+    v(0.4em)
+  }
+  show heading.where(level: 3): set text(size: 12pt)
+  show heading: set block(above: 1.3em, below: 0.7em)
+
+  show outline.entry.where(level: 1): set text(weight: "bold")
+
+  // Code.  Source blocks arrive as a figure around a raw block.
+  show raw: set text(font: mono-font, size: 7.8pt)
+  show raw.where(block: true): it => block(
+    width: 100%,
+    fill: luma(247),
+    stroke: 0.4pt + luma(215),
+    radius: 2pt,
+    inset: 7pt,
+    breakable: true,
+    it,
+  )
+  show raw.where(block: false): box.with(
+    fill: luma(240),
+    inset: (x: 2pt),
+    outset: (y: 2.5pt),
+    radius: 1.5pt,
+  )
+  show figure.where(kind: raw): set block(breakable: true)
+  show figure.where(kind: raw): set align(left)
+
+  show quote.where(block: true): set block(inset: (left: 1em))
+  show link: set text(fill: accent)
+  set table(stroke: 0.4pt + luma(190), inset: 5pt)
+
+  // Title page.
+  context {
+    align(center + horizon)[
+      #text(size: 28pt, weight: "bold", fill: accent, document.title)
+      #v(1.2em)
+      #text(size: 13pt, document.author.join(", "))
+      #v(0.6em)
+      #text(size: 10pt, fill: luma(110), datetime.today().display("[year]-[month]-[day]"))
+    ]
+  }
+  pagebreak()
+
+  body
+}
+#+end_src
+
+* The Makefile
+
+The Makefile is in its own folder and has its own targets, so it does not touch the =docs/Makefile= that builds the Graphviz SVGs. It uses =>= as the recipe prefix, so the tangled file has no tab characters to lose. =make svgs= runs the SVG Makefile when there is one, so the figures exist before the book is built; =make pdf SVGS=1= does both.
+
+The Emacs it starts needs =ox-typst= and Org 9.7 on its load path. By default it looks in the Elpaca build folder of this configuration (=var/elpaca/builds/=); on a machine without that, pass =LOAD_PATH="-L /path/to/ox-typst -L /path/to/org/lisp"=.
+
+#+begin_src makefile :tangle ../../typst/Makefile :mkdirp yes :comments no :padline no
+# PDF of the literate docs, typeset with Typst.  Tangled from
+# docs/tangles/text/sp-typst.org; edit it there.
+#
+#   make pdf                          the whole book -> .build/emacs-modular.pdf
+#   make file FILE=docs/tangles/ui/sp-writedesk.org     one doc
+#   make svgs                         build the figures first (needs Graphviz)
+#   make check                        show which tools were found
+#   make clean
+
+.RECIPEPREFIX = >
+.PHONY: pdf file svgs check clean
+
+EMACS   ?= emacs
+TYPST   ?= typst
+ROOT    := $(abspath ../..)
+BUILD   := $(CURDIR)/.build
+
+# ox-typst and a recent Org from the Elpaca builds of this configuration.
+LOAD_PATH ?= $(addprefix -L ,$(wildcard $(ROOT)/var/elpaca/builds/ox-typst $(ROOT)/var/elpaca/builds/org))
+
+BATCH = SP_TYPST_ROOT=$(ROOT) SP_TYPST_EXECUTABLE=$(TYPST) \
+        $(EMACS) --batch -Q $(LOAD_PATH) -l $(CURDIR)/export.el
+
+# SVGS=1 builds the figures (docs/Makefile, if it exists) before the book.
+pdf: $(if $(SVGS),svgs)
+> $(BATCH) -f sp-typst-batch-book
+
+file: $(if $(SVGS),svgs)
+> FILE=$(abspath $(FILE)) $(BATCH) -f sp-typst-batch-file
+
+svgs:
+> $(if $(wildcard ../Makefile),$(MAKE) -C .. docs,@echo "no docs/Makefile: figures are not built")
+
+check:
+> @$(TYPST) --version
+> @$(EMACS) --version | head -1
+> @echo "load path: $(LOAD_PATH)"
+
+clean:
+> rm -rf $(BUILD)
+#+end_src
+
+* The batch driver
+
+=export.el= is the file the Makefile loads in a headless Emacs. It stubs out =use-package=, because the package forms in =sp-typst.el= are for the Emacs that runs Elpaca, and takes the folders from the environment.
+
+#+begin_src emacs-lisp :tangle ../../typst/export.el :mkdirp yes :comments no :padline no
+;;; export.el --- Batch driver for docs/typst/Makefile -*- lexical-binding: t; -*-
+
+;; Tangled from docs/tangles/text/sp-typst.org; edit it there.
+
+;;; Code:
+
+;; The package forms in sp-typst.el belong to the Elpaca session; here the
+;; packages are on the load path already.
+(defmacro use-package (&rest _) nil)
+
+(require 'org)
+(require 'ox-typst)
+
+(let ((here (file-name-directory (or load-file-name buffer-file-name))))
+  (load (expand-file-name "../../libraries/modules/text/sp-typst.el" here) nil t))
+
+(setq sp-typst-root (file-name-as-directory
+                     (or (getenv "SP_TYPST_ROOT")
+                         (expand-file-name "../.." (file-name-directory
+                                                    (or load-file-name buffer-file-name)))))
+      sp-typst-executable (or (getenv "SP_TYPST_EXECUTABLE") "typst")
+      sp-typst-font-paths (when-let ((paths (getenv "SP_TYPST_FONT_PATHS")))
+                            (split-string paths path-separator t)))
+
+;;; export.el ends here
+#+end_src
+
+* What was run
+
+On 2026-10-24, in a Linux container, with Emacs 29.3, Org 9.7.11 (cloned from the Org mirror, since Emacs 29 ships 9.6, which lacks =org-element-parent-element=), =ox-typst= from its =main= branch and Typst 0.15.1:
+
+- =make pdf= built the whole book: 13 parts, about 180 docs, 2 MB of Org, to a PDF of 796 pages and 14 MB in about a minute and a half (Org's export takes most of it; Typst takes a few seconds). Code is highlighted and breaks across pages, the table of contents has two levels, and the two load-order SVGs are embedded.
+- The assembly found four things in the docs that the export cannot take as they are, now handled above: a footnote reference whose definition is missing (text that quotes =[fn:smith-2]=), Org text like =[+]=/=[-]= that =ox-typst= turns into =#raw("..")[..]= (a Typst syntax error), links to other docs, and footnote labels that repeat. Each stopped the build until fixed.
+- =sp-typst-export-file= on this file (20 pages) works.
+
+Not run: Elpaca installing =ox-typst= and =typst-ts-mode= (neither is installed in the container; the recipes are written from their documentation), =typst-ts-mode= and =tinymist= themselves, anything on macOS, and the commands inside a normal interactive Emacs. The look of the PDF was checked on three pages by eye, not read through.
+
+* Not yet done
+
+- The module is in =sp-late-modules= of =init.el=, and has an entry in =docs/main.org=, but the dependency graph in =docs/architecture/load-order.org= does not show it.
+- ADRs (=adr/=, outside the configuration folder) are not in the book. Add the folder to =sp-typst-doc-directories= once the root is the repository.
+- Citations: =ox-typst= turns =cite:= links into a Typst =#bibliography=; the book has none, and the thesis workflow that needs it (=typst-setup.org=, =passions.bib=) is not wired up.
+- A project template for a manuscript (title page, chapters in separate files, bibliography, Romanian language settings as in =typst-setup.org=) would be a second template next to =template.typ=; the book template is meant as the first of them.
+- Live preview while writing: =tinymist= can serve one in the browser for a =.typ= file; an Org buffer has no =.typ= until it is exported, so the useful version is "export this file on save and let the PDF viewer reload", which is not written.
+- Inline Typst maths in Org buffers (previewing =$...$= as images) is a different package family; not looked at here.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/79][#79]] ✨ Added =sp-typst= (=libraries/modules/text/=, in =sp-late-modules= of =init.el=), which typesets the literate docs and single Org files into PDFs with Typst through =ox-typst= (Elpaca recipe), with =typst-ts-mode= and an optional =tinymist= setup for editing =.typ= files. =M-x sp-typst-export-book= assembles =docs/main.org=, the README, the architecture notes and every module doc into one Org text and exports it; =M-x sp-typst-export-file= does one file. =docs/typst/= holds =template.typ=, a Makefile (separate from the SVG Makefile) and the batch driver, all tangled from this file, which replaces the empty =docs/tangles/sp-typst.org=. Run in a headless Emacs 29.3 with Org 9.7.11 and Typst 0.15.1; not with Elpaca, =typst-ts-mode= or =tinymist=, and not on macOS. See [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]].
