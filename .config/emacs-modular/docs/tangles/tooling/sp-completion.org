@@ -71,10 +71,15 @@ Loads Vertico immediately and turns on =vertico-mode=. It shows up to 13 candida
   (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
   (vertico-sort-function
            'vertico-sort-history-alpha)
+  ;; The default, `prompt', keeps the typed text selected, so RET on a partial
+  ;; name creates a new buffer; `first' selects the best match instead.
+  (vertico-preselect 'first)
 
   :config
   (vertico-mode))
 #+end_src
+
+=vertico-preselect= is =first=, so after typing part of a name (=C-x b=, =find-file=) the best match is already selected and =RET= takes it. With Vertico's default, =prompt=, the typed text stays selected and =RET= on a partial buffer name creates a new buffer. To use exactly what you typed, for a new name, press =M-RET= (=vertico-exit-input=).
 
 ** Vertico in a buffer window
 
