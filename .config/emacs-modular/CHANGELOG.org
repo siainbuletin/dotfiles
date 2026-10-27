@@ -4,6 +4,7 @@
 Changes to the Emacs configuration, grouped by the feature they build or fix. Within a set the pull requests follow the order they depend on each other, the base first. For the reason behind a change, open the pull request or the decision record linked from the set. Paths are relative to this folder. Each line starts with its pull request number, then the author, then what happened: ✨ Added, 🔧 Changed, 🐛 Fixed, 🔥 Removed, 💡 Proposed; the category headings are not repeated.
 
 * Open pull requests
+- [[https://github.com/siainbuletin/dotfiles/pull/142][#142]] (Claude) 🐛 Fixed =C-x b= (and other Vertico prompts) creating a new buffer from a partial name: =vertico-preselect= is now =first=, so =RET= takes the best match; =M-RET= still submits what you typed. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/79][#79]] (Claude) ✨ Added =sp-typst=: a PDF of the literate docs through =ox-typst= and Typst.
 - [[https://github.com/siainbuletin/dotfiles/pull/125][#125]] (Claude) ✨ Added =sp-theme-import-palette=, which turns a few =#rrggbb= colours into an =sp= theme. Details: [[file:docs/tangles/ui/sp-theme-engine.org::*Changes by pull request][=sp-theme-engine= doc]].
 
