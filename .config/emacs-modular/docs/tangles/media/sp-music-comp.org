@@ -54,6 +54,28 @@ Write candidate settings in this block and evaluate them with =C-c C-c= to try t
 ;; Try new settings here and evaluate them with C-c C-c.
 #+end_src
 
+⊙ Ideas to try out with this configuration
+
+This can also be improved with the object system that I want to use for music.
+
+** Controling an audio server
+
+This is a thing of session management that should be done properly, anyway, from Linux.
+
+** Writing scores from Emacs
+
+I'm not actually looking for a way to write directly like Dorico, but rather to write my scores somehow declaratively and be able to interact with my music more easily. Something like _replicating_ how OpusModus works would genuinely be great.
+
+But how can we make working with scores itself much more interactive?
+
+** Working with the experimental annotated music library system
+
+  ⊘ Live-coding within Emacs
+
+This means also the integration of REPLs.
+
+It also matters which language you choose to use for the task at hand.
+
 * Provide
 
 Provides the =sp-music-comp= feature and closes the file.

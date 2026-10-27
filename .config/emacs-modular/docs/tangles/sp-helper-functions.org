@@ -6,37 +6,6 @@ Status: old, has no new helper functions added to it
 
 This includes any kind of utility function that enhances the functionality of base Emacs. This doesn't make use of any kind of package (as much as possible). It's mostly composed of quick patches that I added on the go. Each function is explained as needed.
 
-* Reloading the configuration on the fly
-
-This will make reloading the configuration a lot easier.
-
-Unfortunately, the reloading won't function like a silverbullet for anything. You may need to actually quit Emacs sometimes to really test out whether the reloading worked. I also noticed that the reloading works worse with =elpaca=, that's where you'll need to restart Emacs more often.
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (defun reload-init-file ()
-    (interactive)
-    (load-file user-init-file))
-
-  ;; set shortcut for the reloading
-  (keymap-global-set "<f5>" 'reload-init-file)
-#+end_src
-* Quickly deploying the new literate configuration
-** Make =org-babel-execute-buffer= cycle through the confirmations automatically
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(defun sia-execute-all-buffers ()
-  (interactive)
-  (let ((org-confirm-babel-evaluate nil))
-    (org-babel-execute-buffer)))
-#+end_src
-
-** Keybindings for efficiency
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(global-set-key (kbd "C-c o o") 'org-org-export-to-org)
-(global-set-key (kbd "C-c e c") 'sia-execute-all-buffers)
-#+end_src
-
 * Getting rid of customization via =M-x= menu
 
 This will eliminate the =custom-file= which is created if you try to configure Emacs through the interactive menu.

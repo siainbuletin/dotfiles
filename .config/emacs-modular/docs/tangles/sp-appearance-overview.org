@@ -18,40 +18,7 @@ There's multiple tenets to follow in this case
 
 Why is this configuration so high up in the org file? Apparently I can't make the icons work at all unless I call them very early on.
 
-* Default menu settings
 
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-(when (display-graphic-p)
-  (context-menu-mode 1)
-  (tool-bar-mode -1)
-  (scroll-bar-mode -1)
-  (horizontal-scroll-bar-mode -1)
-#+end_src
-
-* Dimming windows when unfocused
-
-Dimming inactive windows (also tied to [[file:wm.org][Window management principles for Emacs]]):
-
-- To make the active window more noticeable, we dim the in-active windows with the dimmer project.
-- You might get issues with =magit= when it comes to dimming. The settings after =:config= ensure those windows don't actually get dimmed.[fn:1]
-- An interesting alternative: the =selected-window-accent= project.
-
-This is currently turned off, as it's more distracting than actually useful
-
-#+begin_src emacs-lisp :tangle no :eval never
-        (use-package dimmer
-          :ensure t
-
-          :custom
-          (dimmer-adjustment-mode :foreground)
-
-          :config
-          (dimmer-configure-which-key)      ; Do not dim these special windows
-          (dimmer-configure-hydra)
-          (dimmer-configure-magit)
-
-          (dimmer-mode t))
-#+end_src
 
 * Making the cursor visible
 
@@ -771,46 +738,6 @@ This doesn't actually work because it can't find the 'default variable.
 #+end_src
 
 This sets the variable-pitch face to Roboto Mono at 140% size. Tweak such attributes to mold the theme to your preferences![fn:6]
-
-** UNUSED: Specifying theme families from Prot
-
-This is taken directly from Prot's configuration and uses the modus themes.
-
-- Modus themes :: They conform with the highest accessibility standard for colour contrast (WCAG AAA). They are elegant and designed with attention to detail. I consider the modus-operandi and modus-vivendi themes to be the standard of what a default accessible theme should be like.
-
-- Ef themes :: Highly legible (WCAG AA or WCAG AAA) and more colourful than the Modus themes. The collection of palettes is also wider to match a broad variety of preferences.
-
-- Doric themes :: Minimalist themes that use few colours while remaining highly usable.
-
-- Standard themes :: A re-imagination of the default Emacs looks. They bring consistency and customisability to those who like how Emacs is out-of-the-box.
-
-When choosing from this custom value, you have the options: =doric=, =ef=, =modus=, and =standard=. A nil value does not load any of the above (use Emacs without a theme).
-
-#+begin_src emacs-lisp :tangle no :eval never
-(defcustom prot-emacs-load-theme-family 'modus
-  "Set of themes to load.
-Valid values are the symbols `doric', `ef', `modus', and `standard',
-which reference the `doric-themes', `ef-themes', `modus-themes', and
-`standard-themes', respectively.
-
-This user option must be set in the `prot-emacs-pre-custom.el'
-file.  If that file exists in the Emacs directory, it is loaded
-before all other modules of my setup."
-  :group 'prot-emacs
-  :type '(choice :tag "Set of themes to load" :value modus
-                 (const :tag "The `doric-themes' module" doric)
-                 (const :tag "The `ef-themes' module" ef)
-                 (const :tag "The `modus-themes' module" modus)
-                 (const :tag "The `standard-themes' module" standard)
-                 (const :tag "Do not load a theme module" nil)))
-#+end_src
-
-* Modifying the default face for Emacs overall
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (set-face-attribute 'default nil
-  		    :family "0xProto Nerd Font")
-#+end_src
 
 * Footnotes
 
