@@ -301,7 +301,7 @@ here."
 
 The citation notes folder and the note template (the bibliography is every =.bib= file in =sp-bibliography-dir=; the old =sp-bibliography= option is removed).
 
-- They are =nil= by default, so they are settings waiting to be filled in.
+- =sp-bib-notes= is =nil= by default (notes go to =sp-notes-dir=). =sp-citar-note= must not be =nil=: =sp-citations= puts it under the =note= key of =citar-templates=, and citar signals =No template for "note"= when that entry is empty (seen in =jit-lock= during redisplay, from the note indicator). Its default is citar's own template string.
 - They used to be defined in =sp-academic=, before its sub-modules are required, because the =use-package= forms of =sp-citations= and =citar-denote= read them while Elpaca may still be loading that file. This module loads long before, so the ordering problem is gone.
 
 #+begin_src emacs-lisp -i
@@ -309,7 +309,9 @@ The citation notes folder and the note template (the bibliography is every =.bib
 (defcustom sp-bib-notes nil "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
+(defcustom sp-citar-note "Notes on ${author editor:%etal}, ${title}"
+  "Template for use with citar notes (a citar template string, never nil)."
+  :type 'string
   :group 'spcustom
   :tag "Lambda-Emacs Citar Notes Template")
 #+end_src

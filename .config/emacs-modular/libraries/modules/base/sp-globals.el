@@ -166,7 +166,9 @@ here."
 (defcustom sp-bib-notes nil "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
+(defcustom sp-citar-note "Notes on ${author editor:%etal}, ${title}"
+  "Template for use with citar notes (a citar template string, never nil)."
+  :type 'string
   :group 'spcustom
   :tag "Lambda-Emacs Citar Notes Template")
 
