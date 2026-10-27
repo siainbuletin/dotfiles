@@ -235,5 +235,35 @@ Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'
 (add-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)
 (add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
 
+(defun sp-posframe-debug-minibuffer ()
+  "Write the state of the open minibuffer to the buffer `*sp-posframe-debug*'.
+Bound to \\<minibuffer-local-map>\\[sp-posframe-debug-minibuffer] in the minibuffer. Read the buffer with `C-x b' after leaving the prompt."
+  (interactive)
+  (let* ((win (get-buffer-window (current-buffer) t))
+         (report
+          (list :input (minibuffer-contents)
+                :point (point)
+                :window-start (and win (window-start win))
+                :window-frame (and win (window-frame win))
+                :frames (frame-list)
+                :command this-command
+                :vertico-buffer-mode (bound-and-true-p vertico-buffer-mode)
+                :vertico-posframe-mode (bound-and-true-p vertico-posframe-mode)
+                :windows-showing-this-buffer (get-buffer-window-list (current-buffer) nil t)
+                :windows-of-selected-frame
+                (mapcar #'window-buffer (window-list nil 'no-minibuf))
+                :remaps face-remapping-alist
+                :overlays (mapcar (lambda (o)
+                                    (list (overlay-start o) (overlay-end o)
+                                          (overlay-properties o)))
+                                  (overlays-in (point-min) (1+ (point-max))))
+                :face-at-end (get-text-property (max (point-min) (1- (point-max))) 'face))))
+    (with-current-buffer (get-buffer-create "*sp-posframe-debug*")
+      (erase-buffer)
+      (pp report (current-buffer)))
+    (message "sp-posframe: state written to *sp-posframe-debug*")))
+
+(define-key minibuffer-local-map (kbd "C-c ?") #'sp-posframe-debug-minibuffer)
+
 (provide 'sp-posframe)
 ;; sp-posframe.el ends here.
