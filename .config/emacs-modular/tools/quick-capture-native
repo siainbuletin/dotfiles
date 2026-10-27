@@ -1,0 +1,57 @@
+#!/bin/bash
+# Quick capture without an Emacs frame: a native macOS dialog asks for the
+# line, then the running Emacs (sp-server) writes the task into inbox.org.
+# Bind this script to a global hotkey; see docs/tangles/text/sp-quick-capture.org.
+
+set -u
+
+for candidate in \
+    "${EMACSCLIENT:-}" \
+    /opt/homebrew/bin/emacsclient \
+    /usr/local/bin/emacsclient \
+    /Applications/Emacs.app/Contents/MacOS/bin/emacsclient \
+    "$(command -v emacsclient 2>/dev/null)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    EMACSCLIENT=$candidate
+    break
+  fi
+done
+
+notify() {
+  osascript -e 'on run argv' \
+            -e 'display notification (item 1 of argv) with title "Quick capture"' \
+            -e 'end run' "$1" >/dev/null 2>&1
+}
+
+if [ -z "${EMACSCLIENT:-}" ]; then
+  notify "emacsclient not found (set EMACSCLIENT)"
+  exit 1
+fi
+
+# Cancel raises an error in AppleScript; that ends in an empty line.
+line=$(osascript <<'OSA' 2>/dev/null
+try
+  tell application "System Events"
+    activate
+    set answer to display dialog "Task   (#tag  !deadline  ^scheduled)" default answer "" with title "Quick capture" buttons {"Cancel", "Add"} default button "Add"
+  end tell
+  return text returned of answer
+on error
+  return ""
+end try
+OSA
+)
+
+[ -z "${line//[[:space:]]/}" ] && exit 0
+
+# Escape for an Emacs Lisp string.
+escaped=${line//\\/\\\\}
+escaped=${escaped//\"/\\\"}
+
+# No ALTERNATE_EDITOR: never start an Emacs of our own.
+if result=$("$EMACSCLIENT" -e "(sp-quick-capture \"$escaped\")" 2>&1); then
+  notify "${result//\"/}"
+else
+  notify "Failed: $result"
+  exit 1
+fi

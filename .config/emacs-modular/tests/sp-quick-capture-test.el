@@ -124,5 +124,16 @@
   (should-error (sp-quick-capture-insert (sp-quick-capture-parse "#deep !fri"))
                 :type 'user-error))
 
+(ert-deftest sp-quick-capture-test-returns-preview ()
+  (sp-quick-capture-test--with-tags
+   (let* ((dir (make-temp-file "sp-qc" t))
+          (file (expand-file-name "inbox.org" dir))
+          (sp-quick-capture-file file))
+     (unwind-protect
+         (should (equal (sp-quick-capture "Buy milk #errands")
+                        "→ Buy milk  :@errands:"))
+       (when-let* ((buf (get-file-buffer file))) (kill-buffer buf))
+       (delete-directory dir t)))))
+
 (provide 'sp-quick-capture-test)
 ;;; sp-quick-capture-test.el ends here

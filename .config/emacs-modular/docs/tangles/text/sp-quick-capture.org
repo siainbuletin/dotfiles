@@ -409,13 +409,14 @@ The prompt is a plain =read-string= with three additions, set up for just that m
 
 ;;;###autoload
 (defun sp-quick-capture (line)
-  "Capture LINE as a task in the inbox.
-Called interactively, it prompts for LINE."
+  "Capture LINE as a task in the inbox and return its preview text.
+Called interactively, it prompts for LINE.  The return value is what
+`tools/quick-capture-native' shows in its notification."
   (interactive (list (sp-quick-capture-read)))
-  (let* ((parsed (sp-quick-capture-parse line))
-         (title (sp-quick-capture-insert parsed)))
+  (let ((parsed (sp-quick-capture-parse line)))
+    (sp-quick-capture-insert parsed)
     (message "Captured: %s" (sp-quick-capture-preview parsed))
-    title))
+    (sp-quick-capture-preview parsed)))
 #+end_src
 
 * The frame
@@ -514,6 +515,16 @@ emacs -Q --batch -l tests/sp-quick-capture-test.el -f ert-run-tests-batch-and-ex
 
 The frame, the preview overlay, =org-protocol= from outside and the hotkey could not be run without a graphical Emacs on macOS.
 
+* Without an Emacs frame: =tools/quick-capture-native=
+
+The Emacs frame of =sp-quick-capture-popup= has not been confirmed to work on macOS: in the first try the frame was blank and Emacs hung (the beachball), and a tiling window manager such as AeroSpace stretches it to a full tile. =tools/quick-capture-native= avoids the frame:
+
+1. macOS's own dialog (=osascript=, =display dialog=) asks for the line. It is a plain native window, so there is nothing for AeroSpace to tile and nothing in Emacs to hang.
+2. The script sends the line to the running Emacs with =emacsclient -e '(sp-quick-capture "…")'=, with backslashes and quotes escaped.
+3. A macOS notification shows what was written (=→ Buy milk  :@errands:  due 2026-10-30 Fri=) or the error.
+
+It loses the live preview and the TAB completion of tags, which need the minibuffer; the notification afterwards shows the same preview, with its warnings.
+
 * macOS setup
 
 See =tools/quick-capture= (the script) and the steps below.
@@ -534,3 +545,4 @@ See =tools/quick-capture= (the script) and the steps below.
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/131][#131]] ✨ Added =sp-quick-capture=: a global-hotkey quick entry that writes a TODO into =inbox.org= from a small frame (=tools/quick-capture=) or from =org-protocol://sp-quick-capture=, with =#tag=, =!deadline= and =^scheduled= words, tag completion and a live preview. Not run in Emacs on macOS; the parser and the file writing are covered by =tests/sp-quick-capture-test.el=.
+- [[https://github.com/siainbuletin/dotfiles/pull/159][#159]] ✨ Added =tools/quick-capture-native=, which asks for the line in a macOS dialog instead of an Emacs frame (the frame hung on macOS and was tiled by AeroSpace), and made =sp-quick-capture= return the preview text. Not run on macOS.
