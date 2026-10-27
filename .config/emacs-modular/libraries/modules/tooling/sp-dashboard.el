@@ -661,11 +661,15 @@ theme, see `sp-dashboard-palette-roles'."
       (face-spec-set (nth 1 entry) `((t :foreground ,color)) 'face-override-spec))))
 
 (defun sp-dashboard--theme-changed (&rest _)
-  "Recolour and redraw the splash after a theme change."
+  "Recolour the splash after a theme change, and redraw it where it is shown.
+Drawing the splash takes the selected window, so it is drawn in the window
+that already shows it and in none else: with another buffer selected, a
+theme change must not bring the Dashboard to the front."
   (when sp-dashboard-palette-follow-theme
     (sp-dashboard-apply-palette)
-    (when-let* ((buffer (get-buffer "Dashboard")))
-      (with-current-buffer buffer
+    (when-let* ((buffer (get-buffer "Dashboard"))
+                (window (get-buffer-window buffer t)))
+      (with-selected-window window
         (sp-dashboard-refresh)))))
 
 (add-hook 'enable-theme-functions #'sp-dashboard--theme-changed)
@@ -1834,8 +1838,11 @@ selected window, so it is left alone while another buffer is there."
       (sp-dashboard-refresh))))
 
 (defun sp-dashboard--setup-splash-hooks ()
-  "Initialize splash and setup hooks."
+  "Initialize splash and setup hooks.
+Start-up shows the Dashboard alone: a restored `tabspaces' session can leave a
+saved layout with a *scratch* window beside it."
   (progn
+    (delete-other-windows)
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))

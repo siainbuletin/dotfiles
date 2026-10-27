@@ -92,7 +92,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-dg-positions.org][sp-dg-positions]] :: Position graph and status views for discourse-graphs ([[file:../libraries/modules/custom/sp-dg-positions.el][sp-dg-positions.el]])
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - [[file:tangles/custom/sp-org-normalise.org][sp-org-normalise]] :: Turn checkbox lists under Tasks into headings and normalise TODO keywords across the vault ([[file:../libraries/modules/custom/sp-org-normalise.el][sp-org-normalise.el]])
-- [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
+- [[file:tangles/custom/sp-org-tag-groups.org][sp-org-tag-groups]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-org-tag-groups.el][sp-org-tag-groups.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - [[file:tangles/custom/sp-embr.org][sp-embr]] :: Show the live relationship graph in an Emacs buffer with embr.el or xwidget-webkit, and compare them ([[file:../libraries/modules/custom/sp-embr.el][sp-embr.el]])
 - [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
@@ -178,6 +178,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/text/sp-org-taskman-extra.org][sp-org-taskman-extra]] :: Org task management: keywords, tags, projects and GTD ([[file:../libraries/modules/text/sp-org-taskman-extra.el][sp-org-taskman-extra.el]])
 - [[file:tangles/text/sp-org-time.org][sp-org-time]] :: Org time tracking and scheduling tools ([[file:../libraries/modules/text/sp-org-time.el][sp-org-time.el]])
 - [[file:tangles/text/sp-tab-inbox.org][sp-tab-inbox]] :: Link inbox sidebar widgets for vulpea-ui ([[file:../libraries/modules/text/sp-tab-inbox.el][sp-tab-inbox.el]])
+- [[file:tangles/text/sp-typst.org][sp-typst]] :: PDF of the docs and of Org files, typeset with Typst; =docs/typst/= holds its template and Makefile ([[file:../libraries/modules/text/sp-typst.el][sp-typst.el]])
 
 ** tooling/
 
@@ -215,7 +216,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
-- [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
+- [[file:tangles/ui/sp-posframe.org][sp-posframe]] :: Centered minibuffer in a posframe with background dimming ([[file:../libraries/modules/ui/sp-posframe.el][sp-posframe.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
 - [[file:tangles/ui/sp-theme-engine.org][sp-theme-engine]] :: Flavors, semantic mappings and the =sp-dark= and =sp-light= themes ([[file:../libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]])

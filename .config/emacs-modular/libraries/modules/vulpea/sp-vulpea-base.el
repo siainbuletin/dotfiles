@@ -50,8 +50,6 @@
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 
-(vulpea-db-query-by-tags-every '("project" "active")) ;; Query all active projects
-
 ;; Configuring the display of notes in the minibuffer
 ;; "My Notes → Projects → Task"
 (setq vulpea-select-describe-fn #'vulpea-select-describe-outline-full)

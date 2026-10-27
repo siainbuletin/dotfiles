@@ -15,7 +15,11 @@
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
-  :after vulpea
+
+  ;; Autoloads `vulpea-ui-sidebar-toggle' from vulpea-ui itself.  Not `:after
+  ;; vulpea': vulpea loads lazily, so the key would stay undefined until then.
+  :bind
+  (("C-x t s" . vulpea-ui-sidebar-toggle))
   
   :custom
   ;; Position: 'right (default), 'left, 'top, 'bottom
@@ -81,9 +85,6 @@
 
   :config
   )
-
-;; opening the vulpea sidebar
-(global-set-key (kbd "C-x t s") #'vulpea-ui-sidebar-toggle)
 
 ;; Dealing with narrowed Org files
 

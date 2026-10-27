@@ -1,0 +1,72 @@
+#+title: 0020 Tag groups are an alist of =(GROUP TAG…)=, turned into Org group tags
+#+date: 2026-10-25
+#+status: proposed
+
+* Context
+The note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (#105), a flat list of 27 tags that is only divided by comments ("People and bodies", "Music", ...). The comments are what I use to think about the tags, but no code can see them. I want /groups/ of tags by function (structure, people, music, literature, ...) so that:
+
+- a search for a group finds all its members (=+music= finds =album= and =genre=),
+- =sp-org-tag-lint= and =sp-org-tag-add= can talk about groups (the tag you add must belong to one),
+- =sp-org-tag-groups= can give a whole group one emoji or colour, and the tag prompts can list tags by group.
+
+* Decision
+The groups are data in one *alist whose shape is the one Org itself uses for groups*, =org-tag-groups-alist=: each element is a list whose first string is the group and whose remaining strings are its members.
+
+#+begin_src emacs-lisp :tangle no
+(defcustom sp-org-tag-groups-alist
+  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
+    ("who"        "person" "musician" "group" "institution" "company")
+    ("music"      "album" "genre")
+    ("software"   "software" "package")
+    ("literature" "text" "book" "journalarticle" "booksection"
+                  "collection" "incollection")
+    ("inquiry"    "question" "error" "research-q" "exploratory"))
+  "Groups of note tags: (GROUP TAG…).  The source of the tag registry.")
+#+end_src
+
+- =sp-org-tag-groups-alist= is the only thing I edit. =sp-org-tag-registry.el= keeps its place and its marker line: it sets =sp-org-tag-groups-alist=, then derives =org-tag-persistent-alist= from it with =sp-org-tag-groups-to-alist=, and =sp-org-tag-add= asks for the group and inserts the tag in that element.
+- A member that needs a fast-selection key is a cons, as in =org-tag-alist=: =("group" . ?g)=. A member may itself be the name of another group, which nests them (Org documents this; I did not try it).
+- A tag can be in more than one group. A group name is a tag too, so it can be written on a heading, and a group named like one of its members (=software=) should work too (I did not try it).
+- Three small functions, all pure and on the alist: =sp-org-tag-groups-to-alist= (the Org form below), =sp-org-tag-group-of TAG= (the groups of a tag, with nesting) and =sp-org-tag-group-members GROUP= (its members, with nesting).
+
+Org's form for the same data is the group-tag syntax, which =sp-org-tag-groups-to-alist= writes:
+
+#+begin_src emacs-lisp :tangle no
+((:startgrouptag) ("music") (:grouptags) ("album") ("genre") (:endgrouptag)
+ (:startgrouptag) ("who") (:grouptags) ("person") ("group" . ?g) (:endgrouptag))
+#+end_src
+
+With that in =org-tag-persistent-alist=, Org builds the groups itself, so a tag match on a group expands to its members and the completion lists the group.
+
+** Why this is the most Lisp-native shape
+- It is a plain alist of lists: =assoc=, =mapcar= and =seq-filter= are the whole API. There is no struct, no hash table and no new macro.
+- It is already Org's own representation: =org-tag-alist-to-groups= turns the group-tag form into exactly this alist, and =org-tag-groups-alist= has the same shape. Going the other way is a ten-line loop, so there is one source and Org's variable is derived, never kept in step by hand.
+- It reads like the comments in the registry did, so moving the existing tags in is a copy, not a redesign.
+- Keys are strings, not symbols, because tags are strings in Org and may contain =@=, =#= or digits; a symbol would need conversion at every use.
+
+** What was verified
+In Emacs 29.3 (Org 9.6), headless:
+
+- A =sp-org-tag-groups-alist=-shaped list converted to the group-tag form, and =org-tag-alist-to-groups= returned the original groups, including the =("group" . ?g)= member (its key survived as a cons).
+- In an Org buffer with that alist as =org-tag-persistent-alist=, =org-tag-groups-alist= was set to the groups and =org-map-entries= with =+music= found the heading tagged =album=; =+who|+structure= found the headings tagged =person= and =project=.
+
+* Alternatives considered
+- *Write the group-tag syntax straight into =org-tag-persistent-alist=.* It is native and needs no code, but "which group is this tag in?" means walking a flat list with keyword markers, adding a tag means finding the right =:grouptags= span, and =sp-org-tag-add= with its marker line cannot place a tag in a group. Kept as the derived form, not the source.
+- *A plist per group* (=(music :doc "…" :tags ("album" "genre"))=). It leaves room for a docstring, colour and emoji per group, but it is a second shape next to Org's and nothing needs it yet. Emoji and colour belong to =sp-org-tag-groups-rules=, which can take a group as its key (below).
+- *A hash table or =cl-defstruct= per group.* More API for the same data, and neither prints nor edits as readably as a quoted list.
+- *Nested tag names* (=music/album=, as in Obsidian). Org tags may not contain =/=, so it would need a separator the tag syntax allows (=music_album=), which then matches as one different tag.
+- *Properties on the group notes in the vulpea database.* The tags would depend on the database being up; the registry has to work without it (the lint runs on the files).
+- *Symbol properties* (=(put 'album 'group 'music)=). Hidden state with no list to read; not editable in one place.
+
+* Consequences
+- =sp-org-tag-lint= can report the group of an unregistered tag's likely typo, and tags that are in no group.
+- =sp-org-tag-groups-rules= can take a group in place of a tag, for example =((group . "music") :emoji "🎵")=, matching when the note has any member. Its combination logic (a more specific rule uses up its tags) would apply unchanged; this is not built yet.
+- The tag prompts can sort candidates by group (=group-function= in the completion metadata).
+- The task tags in =org-tag-alist= (=@home=, =deep=, ...) can use the same shape and function: one more variable, =sp-org-task-tag-groups-alist=.
+- Changing a group means editing =sp-org-tag-groups-alist=; reloading the registry rebuilds the Org alist.
+- The existing registry file would be rewritten to this shape: its comment headings become the group names, so nothing is lost.
+- /Untested/: the =sp-org-tag-groups-to-alist= and =sp-org-tag-group-of= functions are written only as a sketch here (the conversion above was run); I have not checked how =org-ql= or vulpea queries treat group tags (Org's own tag matching does expand them), nor the completion grouping on my Mac.
+
+* Open questions
+- Group names: the six above are my reading of the existing comments; "who" for people and bodies and "inquiry" are the least obvious.
+- Whether a tag in no group is allowed (the lint warns) or refused by =sp-org-tag-add=.

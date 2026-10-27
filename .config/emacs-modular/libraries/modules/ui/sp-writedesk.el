@@ -13,7 +13,7 @@
   
   :custom
   (olivetti-minimum-body 100)
-  (olivetti-body-width 80)
+  (olivetti-body-width 0.8)
   
   :bind
   (("C-c w o" . sp-olivetti))

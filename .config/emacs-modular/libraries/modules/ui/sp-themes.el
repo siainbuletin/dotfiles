@@ -270,7 +270,7 @@ Interactively, choose among the families first and the library after."
 
 ;;;; Light and dark
 (defcustom sp-theme-appearance-themes
-  '((light . lambda-light-faded)
+  '((light . ef-day)
     (dark  . ef-dream))
   "The theme for the system appearance, an alist of (APPEARANCE . THEME)."
   :group 'spcustom

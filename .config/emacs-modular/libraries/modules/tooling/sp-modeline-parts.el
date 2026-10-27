@@ -33,7 +33,7 @@
 (defvar org-todo-keywords-1)
 (defvar org-done-keywords)
 (defvar mode-line-maker-padding-face)
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function keycast-format "keycast")
 (declare-function keycast-mode-line-mode "keycast")
 (declare-function keycast-header-line-mode "keycast")
@@ -341,15 +341,15 @@ PROPS are text properties for the result."
                           heading time)
        'local-map sp-modeline-parts-clock-map))))
 
-(defun sp-modeline-parts-clock-switch-state ()
+(defun sp-modeline-parts-clock-switch-state (&optional state)
   "Return the keyword to switch the entry being clocked in to, or nil.
-For `org-clock-in-switch-to-state'; point is on the heading."
-  (when (and sp-modeline-parts-clock-keyword
-             (member sp-modeline-parts-clock-keyword org-todo-keywords-1))
-    (let ((state (org-get-todo-state)))
-      (and state
-           (not (member state org-done-keywords))
-           sp-modeline-parts-clock-keyword))))
+For `org-clock-in-switch-to-state', which Org calls with one argument,
+the current todo keyword STATE of the entry (nil when it has none)."
+  (when (and state
+             sp-modeline-parts-clock-keyword
+             (member sp-modeline-parts-clock-keyword org-todo-keywords-1)
+             (not (member state org-done-keywords)))
+    sp-modeline-parts-clock-keyword))
 
 (defun sp-modeline-parts-clock-flag ()
   "Flag the clocked-in heading with a fringe arrow."
@@ -383,9 +383,9 @@ For `org-clock-in-switch-to-state'; point is on the heading."
   (remove-hook 'org-clock-out-hook #'sp-modeline-parts-clock-unflag))
 
 (defun sp-modeline-parts-tags ()
-  "Return the tag emoji of `sp-tag-emoji' at point, or nil."
-  (when (fboundp 'sp-tag-emoji-modeline-string)
-    (let ((tags (ignore-errors (sp-tag-emoji-modeline-string))))
+  "Return the tag emoji of `sp-org-tag-groups' at point, or nil."
+  (when (fboundp 'sp-org-tag-groups-modeline-string)
+    (let ((tags (ignore-errors (sp-org-tag-groups-modeline-string))))
       (and (stringp tags) (not (string-blank-p tags)) tags))))
 
 (defun sp-modeline-parts-vc ()

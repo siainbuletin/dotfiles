@@ -91,6 +91,16 @@ Installs =fontaine= and waits for it, so the presets exist before the rest of th
 Atkinson Hyperlegible and Literata are not part of a preset. They are set on single faces, see the next section.
 
 #+begin_src emacs-lisp -i
+(defface sp-text-face '((t))
+  "Size of the text in Org and the other text modes, set by the fontaine presets.
+Only its `:height' is used, as a multiple of the `default' height."
+  :group 'faces)
+
+(defface sp-minibuffer-face '((t))
+  "Size of the text in the minibuffer and the posframe, set by the fontaine presets.
+Only its `:height' is used, as a multiple of the `default' height."
+  :group 'faces)
+
 (use-package fontaine
   :ensure (:wait t)
   :demand t
@@ -112,12 +122,27 @@ Atkinson Hyperlegible and Literata are not part of a preset. They are set on sin
       :variable-pitch-height 220
       :mode-line-active-height 220
       :mode-line-inactive-height 220
+      ;; The default height is already large here.
+      :sp-text-face-height 1.0
+      :sp-minibuffer-face-height 1.0
       :line-spacing 0.2)
      (t
+      ;; 1.0 keeps the dashboard boxes on the grid of the `default' font; any other
+      ;; value makes the box text and the box lines differ in width and misalign.
+      :sp-dashboard-menu-face-height 1.0
+      ;; Org and the other text modes, and the minibuffer with the posframe, are
+      ;; 1.36 times the `default' height (4 `text-scale' steps of 1.08).
+      :sp-text-face-height 1.36
+      :sp-minibuffer-face-height 1.36
       :default-weight regular
       :bold-weight bold
       :italic-slant italic)))
   :config
+  ;; Faces of this configuration that the presets also size: a preset reads
+  ;; `:FACE-height' as a multiple of the `default' height.  This has to run
+  ;; before the first preset is set.
+  (dolist (face '(sp-dashboard-menu-face sp-text-face sp-minibuffer-face))
+    (add-to-list 'fontaine-faces face t))
   (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
   (fontaine-mode 1))
 #+end_src
@@ -252,7 +277,7 @@ Text scaling:
 
 ** Larger minibuffer text
 
-The minibuffer is scaled up two steps, for easier reading on a large screen. The comment says three steps is too much and that it would be nice to use finer increments.
+The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =default= height in =regular=), for easier reading on a large screen.
 
 #+begin_src emacs-lisp -i
 ;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
@@ -260,8 +285,8 @@ The minibuffer is scaled up two steps, for easier reading on a large screen. The
 ;;
 ;; I should probably try to hook into the faces system of Emacs to get it to work well.
 (defun sp-minibuffer ()
-  "make minibuffer use larger font size."
-  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
+  "Make the minibuffer use the size of `sp-minibuffer-face', set by fontaine."
+  (face-remap-add-relative 'default 'sp-minibuffer-face))
 #+end_src
 
 ** Hooking the minibuffer
@@ -274,12 +299,15 @@ Applies =sp-minibuffer= whenever the minibuffer starts.
 
 ** Larger text buffers
 
-=sp-text-buffer= scales text up four steps. It is defined but not hooked anywhere in this file.
+=sp-text-buffer= maps the fontaine face =sp-text-face= onto =default= in text modes (hooked on =text-mode-hook= in =sp-minibuffer=), so Org is =:sp-text-face-height= (1.36, which is what 4 =text-scale= steps of 1.08 came to) times the =default= height. =sp-minibuffer= does the same for the minibuffer with =sp-minibuffer-face=. Both faces are added to =fontaine-faces= in the fontaine block, so each preset sets its own sizes (1.0 in =presentation=, whose =default= height is already large). =text-scale= (=s-==, =s--=) still works on top of them.
+
+The dashboard box text is sized by fontaine, not here: =sp-dashboard-menu-face= is added to =fontaine-faces= in the =:config= of the fontaine block above, and the =t= preset sets =:sp-dashboard-menu-face-height= to 1.0 (a multiple of the =default= height, like every non-=default= face in a preset). The value is 1.0 because the box lines and the text share one character grid: another height makes them differ in width and the boxes no longer line up. A preset may still override it.
 
 #+begin_src emacs-lisp -i
 (defun sp-text-buffer ()
-  "Make the font in the text buffer generally larger."
-  (text-scale-increase 4))
+  "Make the font in the text buffer generally larger, by `sp-text-face'."
+  (face-remap-add-relative 'default 'sp-text-face))
+
 #+end_src
 
 * Mixed pitch

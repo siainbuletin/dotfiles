@@ -70,7 +70,7 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-bibliography-dir (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" "~/Documents/bibliography")
+(defcustom sp-bibliography-dir (sp-paths--dir sp-documents-dir "bibliography/")
   "Folder with the .bib files."
   :type 'directory :group 'spcustom)
 
@@ -86,7 +86,7 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Where my own git projects live."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~")
+(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~/cloned-scan-ai/")
   "Folder holding the cloned-utilities and cloned-scan-ai checkouts."
   :type 'directory :group 'spcustom)
 
@@ -163,10 +163,14 @@ here."
   :group 'spcustom)
 
 ;; Moved here from sp-academic.el.
-(defcustom sp-bib-notes nil "User citation notes directory."
+(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/") 
+  "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
-(defcustom sp-citar-note nil "Template for use with citar notes."
+
+(defcustom sp-citar-note "Notes on ${author editor:%etal}, ${title}"
+  "Template for use with citar notes (a citar template string, never nil)."
+  :type 'string
   :group 'spcustom
   :tag "Lambda-Emacs Citar Notes Template")
 

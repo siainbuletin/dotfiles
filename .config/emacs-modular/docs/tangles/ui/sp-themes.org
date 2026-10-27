@@ -408,7 +408,7 @@ There is one mechanism for following the light or dark appearance, =sp-theme-aut
 #+begin_src emacs-lisp -i
 ;;;; Light and dark
 (defcustom sp-theme-appearance-themes
-  '((light . lambda-light-faded)
+  '((light . ef-day)
     (dark  . ef-dream))
   "The theme for the system appearance, an alist of (APPEARANCE . THEME)."
   :group 'spcustom
@@ -600,6 +600,8 @@ Each platform module turns the mode on when Emacs runs on its platform: =sp-maco
         (sp-theme-sync))
     (remove-hook 'server-after-make-frame-hook #'sp-theme-sync)))
 #+end_src
+
+There's also information for how to do it in [[id:20261027T181428.715223][Getting the theme to switch automatically from light to dark]], but I don't understand it well enough right now.
 
 ** After-load-theme hook
 

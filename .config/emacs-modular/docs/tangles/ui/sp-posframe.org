@@ -1,0 +1,479 @@
+#+TITLE: sp-posframe.el: Centered minibuffer in a posframe with background dimming
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-posframe.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/ui/sp-posframe.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. It replaces the former =sp-mini-frame= (see "Why a posframe, and why the name changed" below). For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
+
+Dimming:
+
+- Implemented here with buffer-local face remapping, using colour helpers from the built-in =color= library.
+- It reacts to =find-file=, =vulpea-find= and =org-node-find=, so it ties in with the vulpea and org-node note setup.
+- The colour blending relies on =color-blend=, which is not in Emacs 29 and only exists in newer =color.el= versions.
+- The module is loaded in the window-management part of =init.el=, after =sp-tabs=.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+This configuration for vertico-posframe makes sure that the minibuffer is being
+dimmed and centered when I'm looking for a particular file, or wanting to insert a
+link. Inserting should still be placed somewhere in the bottom, so it can follow what
+I'm writing in the current buffer without interrupting the focus on screen
+#+end_quote
+
+* Why a posframe, and why the name changed
+
+The module was called =sp-mini-frame= after the =mini-frame= package it was built on, and was moved to =vertico-posframe= (#136) when =M-x= hung Emacs on macOS. This section compares the two and says how sure the reason for the move is.
+
+** What is known about the hang
+
+- The hang (Emacs at 87 GB of memory, then 98% CPU) was reported after #119, which made the frame resize to its content, and was still reported after #122, #128 and #134.
+- When the move was decided, the fixes had not been pulled into the running Emacs, so those tests ran older code than the one named in the reports. The tests do not show that =mini-frame= hangs with the setup of #134 (centred, 4 pixels of padding, fixed height 17, =mini-frame-resize= =not-set=).
+- So the change of package is a precaution, not a diagnosis. The cause of the hang was never found.
+
+** The two compared, for this setup
+
+| Question | =mini-frame= | =vertico-posframe= |
+|----------+--------------+--------------------|
+| What it shows in the frame | Any minibuffer prompt, by advising =read-from-minibuffer=, =read-string= and =yes-or-no-p=, and the =*Completions*= buffer in a second frame | Vertico's prompts only (=completing-read=: =M-x=, files, notes). Plain =read-string= and =y-or-n-p= prompts stay at the bottom of the frame |
+| Size | Fits its content (=mini-frame-resize= =t=) or keeps a fixed height. With the larger minibuffer text of =sp-minibuffer= the height had to be worked out by hand (17 lines) | Fits Vertico's candidates itself; nothing to compute |
+| Code of its own in this config | Frame parameters, height, resize setting | Four settings |
+| Dependencies | None | =posframe=, which many other packages use |
+| Fallback in a terminal | Plain minibuffer | =vertico-buffer-mode= |
+| Maturity here | Used by this config since the module was written | New to this config; widely used with Vertico elsewhere |
+| Known problem here | None found: the hang was reported with it but not traced to it | None yet; not run in Emacs by me |
+
+** Is the change necessary?
+
+Not proven. What follows from the table:
+
+- If =mini-frame= works once the fixes of #134 are really loaded, there is no need to keep =vertico-posframe=; its one advantage is that it needs no height.
+- If =vertico-posframe= works, there is no need to go back either: the prompts it leaves out (=read-string=, =y-or-n-p=) are few and short.
+- The test that decides it: run the state before #136 (git commit =93c5539=, the merge of #134) after a restart. A hang there is a =mini-frame= problem; no hang means the change of package was not needed, and #137 and #138 can be re-aimed at it.
+
+** The name
+
+The name now says what is used: a posframe. The file, the feature and the doc are renamed, and =init.el= loads =sp-posframe= at the position where it loaded =sp-mini-frame=. Nothing else required the old feature. The old name appears in the history of the CHANGELOG and in notes of the mode line modules (#114, #115), which describe what was true then.
+
+* Header
+
+** File header and commentary
+
+The file has lexical binding, a one-line description and the commentary. The commentary describes the goal:
+
+- a dimmed, centred minibuffer when looking for a file,
+- prompts such as link insertion staying near the bottom, so they follow the text being written.
+
+The second part is not implemented in this file.
+
+#+begin_src emacs-lisp -i
+;;; sp-posframe.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This configuration for vertico-posframe makes sure that the minibuffer is being
+;; dimmed and centered when I'm looking for a particular file, or wanting to insert a
+;; link. Inserting should still be placed somewhere in the bottom, so it can follow what
+;; I'm writing in the current buffer without interrupting the focus on screen
+
+;;; Code:
+
+;;;; Show the minibuffer in a centered frame
+#+end_src
+
+** Require color
+
+Loads the built-in =color= library, which the comment asks about. It provides the colour conversion functions used for dimming below, such as =color-name-to-rgb= and =color-rgb-to-hex=.
+
+#+begin_src emacs-lisp -i
+(require 'color) ;; why is color needed? what is this package?
+#+end_src
+
+* The posframe
+
+** vertico-posframe-mode
+
+Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posframe-mode=, which draws Vertico's minibuffer in a child frame instead of at the bottom of the frame.
+
+- =vertico-posframe-poshandler= is =posframe-poshandler-frame-center=: the frame is centred horizontally and vertically.
+- =vertico-posframe-size-function= is =sp-posframe-get-size=: the width is always =sp-posframe-width-fraction= (0.75) of the parent frame, for every command including the file pickers, so it does not follow the length of the prompt or the candidates. Only the height fits the candidates.
+- =vertico-posframe-border-width= is 4: the padding around the text.
+- The number of candidates is Vertico's own =vertico-count= (13, set in =sp-completion=); the posframe fits its content, so there is no blank box and no fixed height. (The frame is not given a height, which is what hung Emacs with =mini-frame=.)
+- =vertico-posframe-fallback-mode= is =vertico-buffer-mode=, which is used in a terminal, where child frames do not exist.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-posframe-width-fraction 0.75
+  "Fraction of the parent frame's width that the posframe always occupies."
+  :type 'float
+  :group 'minibuffer)
+
+(defun sp-posframe-get-size (buffer)
+  "Return the size of the posframe for BUFFER: a fixed share of the frame width.
+Width and minimum width are both `sp-posframe-width-fraction' of the frame, so
+the posframe does not follow the length of the prompt or the candidates. The
+height is left to `vertico-posframe-get-size'."
+  (let* ((width (round (* sp-posframe-width-fraction (frame-width))))
+         (size (copy-sequence (vertico-posframe-get-size buffer))))
+    (plist-put size :width width)
+    (plist-put size :min-width width)
+    (plist-put size :max-width width)
+    size))
+
+(use-package vertico-posframe
+  :ensure t
+  :after vertico
+
+  :custom
+  (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
+  (vertico-posframe-size-function #'sp-posframe-get-size) ; fixed width, see below
+  (vertico-posframe-border-width 4)  ; padding around the text
+  (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
+  ;; `vertico-count' (13) sets the number of candidates; the frame fits them.
+
+  :config
+  (vertico-posframe-mode 1)
+)
+
+(defun sp-posframe--match-border ()
+  "Give the posframe border the background colour of the posframe itself.
+The border then reads as padding. It is run again on every theme change."
+  (when (facep 'vertico-posframe-border)
+    (let ((bg (or (face-background 'vertico-posframe nil t)
+                  (face-background 'default nil t))))
+      (when (stringp bg)
+        (set-face-attribute 'vertico-posframe-border nil :background bg)))))
+
+(with-eval-after-load 'vertico-posframe
+  (sp-posframe--match-border))
+(add-hook 'enable-theme-functions (lambda (_theme) (sp-posframe--match-border)))
+#+end_src
+
+The border is 4 pixels wide (=vertico-posframe-border-width=). =sp-posframe--match-border= sets the =vertico-posframe-border= face to the background of the posframe (falling back to =default=), so the border blends in and is only padding. It runs once the package is loaded and on =enable-theme-functions=, so it follows theme changes.
+
+* The nano-style M-x prompt
+
+The prompt of =M-x= is styled like the one in nano-emacs, with the same code that was removed from the former =sp-mini-frame= while it was being made to work, now on the posframe. Only the text styling and the boxes are used; the frame is the same as for every other prompt.
+
+- =sp-posframe-nano-commands= lists the commands styled this way: =execute-extended-command=, =amx=, =counsel-M-x= and =smex=.
+- The prompt is a bold block: the colours of =default= swapped, set outright by =sp-posframe--prompt-block= (a remap of =minibuffer-prompt= in that minibuffer only). It used =:inverse-video= and a one-pixel =:box= before (#115, #138); both are gone, because the box makes the first line taller than the others and reverse video in a child frame is a suspect for the text that glitched and disappeared in =M-x= (not confirmed, not run in Emacs).
+- A dotted line of =sp-posframe-divider-char= (=┈=; =nil= for none) is drawn under the input, in the divider colour of =sp-nano-style= (or the =shadow= face), with =sp-posframe-divider-priority= to order it against Vertico's own overlay. The line has 300 characters and =truncate-lines= is on in that minibuffer, so the window cuts it and it never wraps when the frame is narrow, which it did before. Its overlay is empty and advances with the text like Vertico's own (it used to be created with the front marker not advancing, so it grew to cover the typed input).
+- The styling is in =condition-case=: an error is shown in the echo area and the prompt still opens.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-posframe-nano-commands
+  '(execute-extended-command amx counsel-M-x smex)
+  "Commands whose prompt is styled like nano's M-x."
+  :type '(repeat function)
+  :group 'minibuffer)
+
+(defcustom sp-posframe-divider-char ?┈
+  "Character repeated for the dotted line under the M-x input, or nil for none."
+  :type '(choice character (const :tag "No line" nil))
+  :group 'minibuffer)
+
+(defcustom sp-posframe-divider-priority -50
+  "Priority of the overlay with the dotted line under the M-x input."
+  :type 'integer
+  :group 'minibuffer)
+
+(defconst sp-posframe--divider-length 300
+  "Characters in the dotted line; the window cuts it at its edge.")
+
+(defun sp-posframe--nano-p ()
+  "Return non-nil when the prompt being shown is a nano-style M-x."
+  (memq this-command sp-posframe-nano-commands))
+
+(defun sp-posframe--divider-color ()
+  "Return the colour of the dotted line."
+  (or (and (fboundp 'sp-nano-style-divider-colour)
+           (sp-nano-style-divider-colour))
+      (face-foreground 'shadow nil t)))
+
+(defun sp-posframe--prompt-block ()
+  "Return face attributes for the prompt as a block of the colours swapped.
+The text takes the background of the posframe and the block the foreground of
+`default'. Colours are set outright, not with `:inverse-video' or `:box', which
+change the height of the first line and can leave remains in a child frame."
+  (let ((fg (face-foreground 'default nil t))
+        (bg (or (face-background 'vertico-posframe nil t)
+                (face-background 'default nil t))))
+    (when (and (stringp fg) (stringp bg))
+      (list :foreground bg :background fg :weight 'bold))))
+
+(defun sp-posframe--style-nano ()
+  "Give the M-x prompt nano's block and the input a dotted line below it.
+The line is longer than any window and `truncate-lines' cuts it, so it never
+wraps. Its overlay is empty and sits after the input like Vertico's own, so it
+never covers the text being typed. An error is reported in the echo area and
+does not abort the prompt."
+  (condition-case err
+      (when (and (bound-and-true-p vertico-posframe-mode) (sp-posframe--nano-p))
+        (when-let* ((attrs (sp-posframe--prompt-block)))
+          (apply #'face-remap-add-relative 'minibuffer-prompt attrs))
+        (when sp-posframe-divider-char
+          (setq-local truncate-lines t)
+          (let ((ov (make-overlay (point-max) (point-max) nil t t)))
+            (overlay-put ov 'priority sp-posframe-divider-priority)
+            (overlay-put ov 'after-string
+                         (concat "\n"
+                                 (propertize (make-string sp-posframe--divider-length
+                                                          sp-posframe-divider-char)
+                                             'face `(:foreground ,(sp-posframe--divider-color))))))))
+    (error (message "sp-posframe: styling the prompt failed: %s" err))))
+
+(add-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)
+#+end_src
+
+* Text size
+
+The text size of the minibuffer comes from the fontaine face =sp-minibuffer-face= (=:sp-minibuffer-face-height= in the presets, a multiple of the =default= height; 1.36 in =regular=, the same as the =sp-text-face= of Org and the other text modes, 1.0 in =presentation=). Before, Org was scaled with =text-scale= steps and the posframe with its own, and the size depended on the buffer the prompt was opened from (=ibuffer= and the dashboard against Org); the root cause was not confirmed. =sp-posframe--set-text-size= runs first on =minibuffer-setup-hook= (depth -90), drops every face remapping of the minibuffer, whatever its origin, and maps =sp-minibuffer-face= onto =default=. All posframe prompts then read at one size, set in one place. The plain minibuffer gets the same face from =sp-minibuffer= in =sp-fonts=
+
+#+begin_src emacs-lisp -i
+;;;; Same text size for every prompt
+
+(defun sp-posframe--set-text-size ()
+  "Show posframe prompts at the size of `sp-minibuffer-face', set by fontaine.
+Face remappings in the minibuffer (whatever came with the buffer you called it
+from) are dropped, then `sp-minibuffer-face' is mapped onto `default', so M-x,
+the file pickers and the note pickers read the same in `ibuffer', the dashboard
+and Org alike."
+  (when (bound-and-true-p vertico-posframe-mode)
+    (setq-local face-remapping-alist nil)
+    (face-remap-add-relative 'default 'sp-minibuffer-face)))
+
+;; Depth -90 runs it before the nano styling and the dimming, which add remaps.
+(add-hook 'minibuffer-setup-hook #'sp-posframe--set-text-size -90)
+#+end_src
+
+* Dimming the background
+
+When one of the listed commands opens the minibuffer, every buffer visible in the frame behind gets its face colours blended toward the background. Leaving the minibuffer restores them.
+
+** Section comment
+
+A comment introducing the dimming code.
+
+#+begin_src emacs-lisp -i
+;;;; Dimming, only for selected commands
+#+end_src
+
+** Commands that dim
+
+=sp-posframe-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
+
+=sp-posframe-dim-always= (default =t=) makes every posframe prompt dim the frame behind it. Set it to =nil= to dim only for the commands and functions below.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-posframe-dim-always t
+  "Non-nil means every posframe prompt dims the frame behind it.
+Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'."
+  :type 'boolean
+  :group 'minibuffer)
+
+(defvar sp-posframe-dim-commands '(find-file vulpea-find org-node-find)
+  "Commands whose minibuffer should dim the underlying frame.")
+#+end_src
+
+** Dim amount
+
+=sp-posframe-dim-amount= (0.45) is the blending factor passed to the colour blend.
+
+#+begin_src emacs-lisp -i
+(defvar sp-posframe-dim-amount 0.45
+  "How far to blend text colors toward the background (0 = none, 1 = invisible).")
+#+end_src
+
+** Functions that dim
+
+=sp-posframe-dim-functions= lists functions whose prompts dim the frame behind whoever calls them: =sp-select-note=, =sp-insert-note= and =sp-collec-query-select-note=. Each is advised with =:around= to bind =sp-posframe--dim-requested= while it runs; functions that are not defined yet are advised when a file is loaded.
+
+#+begin_src emacs-lisp -i
+(defvar sp-posframe-dim-functions
+  '(sp-select-note sp-insert-note sp-collec-query-select-note)
+  "Functions whose minibuffer should dim the underlying frame, whoever calls them.")
+
+(defvar sp-posframe--dim-requested nil
+  "Non-nil while a function in `sp-posframe-dim-functions' is running.")
+
+(defun sp-posframe--request-dim (fn &rest args)
+  "Call FN with ARGS, asking for the frame behind the minibuffer to be dimmed."
+  (let ((sp-posframe--dim-requested t))
+    (apply fn args)))
+
+(defun sp-posframe-advise-dim-functions ()
+  "Advise the functions in `sp-posframe-dim-functions' that are defined."
+  (dolist (fn sp-posframe-dim-functions)
+    (when (fboundp fn)
+      (advice-add fn :around #'sp-posframe--request-dim))))
+
+(sp-posframe-advise-dim-functions)
+(add-hook 'after-load-functions (lambda (_file) (sp-posframe-advise-dim-functions)))
+#+end_src
+
+** Dimming state
+
+=sp-posframe--dim-cookies= holds, per buffer, the face remapping cookies so they can be removed later. =sp-posframe--dimmed-buffers= records which buffers were dimmed.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-posframe--dim-cookies nil)
+(defvar sp-posframe--dimmed-buffers nil)
+#+end_src
+
+** Blend two colours
+
+=sp-posframe--blend= converts a foreground and background colour name to RGB, blends them by the given amount and returns a hex colour string. It returns nil when either colour is not a usable string.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe--blend (fg bg amount)
+  (let ((f (and (stringp fg) (color-name-to-rgb fg)))
+        (b (and (stringp bg) (color-name-to-rgb bg))))
+    (when (and f b)
+      (apply #'color-rgb-to-hex
+             (append (color-blend f b amount) '(2))))))
+#+end_src
+
+** Dim a frame
+
+=sp-posframe-dim= goes through each window of the frame.
+
+- Only =default= and the faces on the text that is visible in the window (found with =sp-posframe--visible-faces= by walking the =face= property from =window-start= to =window-end=) get a buffer-local remap to the blended colour, storing the cookie. Usually that is a few dozen faces.
+- A buffer that is already dimmed is left alone.
+- It used to remap every face with a foreground (the whole =face-list=, well over a thousand). Every redisplay of the dimmed buffer looks a face up in that remapping list, so with a busy Org buffer (indentation, numbering, tables, tag groups) each keystroke in the =M-x= posframe redrew a slow buffer. This is a suspected cause of the glitching that came back after Org was opened, not a confirmed one.
+- Text that scrolls into view while the minibuffer is open is not dimmed.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe--face-symbols (spec)
+  "Return the face symbols named in the `face' property value SPEC."
+  (cond ((and spec (symbolp spec) (not (keywordp spec)) (facep spec)) (list spec))
+        ((not (proper-list-p spec)) nil)
+        ((keywordp (car spec))
+         (sp-posframe--face-symbols (plist-get spec :inherit)))
+        (t (mapcan #'sp-posframe--face-symbols spec))))
+
+(defun sp-posframe--visible-faces (window)
+  "Return `default' and the faces on the text shown in WINDOW."
+  (let ((faces (list 'default))
+        (pos (window-start window))
+        (end (window-end window t)))
+    (with-current-buffer (window-buffer window)
+      (while (< pos end)
+        (dolist (face (sp-posframe--face-symbols (get-char-property pos 'face)))
+          (cl-pushnew face faces))
+        (setq pos (next-single-char-property-change pos 'face nil end))))
+    faces))
+
+(defun sp-posframe-dim (frame)
+  "Dim the text shown in the windows of FRAME."
+  (let ((bg (face-background 'default frame)))
+    (dolist (win (window-list frame 'no-minibuf))
+      (with-current-buffer (window-buffer win)
+        (unless sp-posframe--dim-cookies
+          (dolist (face (sp-posframe--visible-faces win))
+            (let* ((fg (face-attribute face :foreground frame))
+                   (dim (and (not (eq fg 'unspecified))
+                             (sp-posframe--blend fg bg sp-posframe-dim-amount))))
+              (when dim
+                (push (face-remap-add-relative face :foreground dim)
+                      sp-posframe--dim-cookies))))
+          (push (current-buffer) sp-posframe--dimmed-buffers))))))
+#+end_src
+
+** Undim
+
+=sp-posframe-undim= removes all stored remappings from the dimmed buffers that still exist and clears the list.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe-undim ()
+  (dolist (buf sp-posframe--dimmed-buffers)
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (mapc #'face-remap-remove-relative sp-posframe--dim-cookies)
+        (setq sp-posframe--dim-cookies nil))))
+  (setq sp-posframe--dimmed-buffers nil))
+#+end_src
+
+** Only dim for chosen commands
+
+=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and either =sp-posframe-dim-always= is set, the command running is one of =sp-posframe-dim-commands= or a function of =sp-posframe-dim-functions= asked for it.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe--maybe-dim ()
+  (when (and (bound-and-true-p vertico-posframe-mode)
+             (or sp-posframe-dim-always
+                 sp-posframe--dim-requested
+                 (memq this-command sp-posframe-dim-commands))
+             (minibuffer-selected-window))
+    (sp-posframe-dim (window-frame (minibuffer-selected-window)))))
+#+end_src
+
+** Hooks
+
+Runs the dimming check whenever a minibuffer is set up and undims on every minibuffer exit. Since the exit hook undims everything, leaving a nested minibuffer also restores the colours while the outer prompt is still open.
+
+#+begin_src emacs-lisp -i
+(add-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)
+(add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
+#+end_src
+
+* Debugging the minibuffer
+
+=sp-posframe-debug-minibuffer= (=C-c ?= in any minibuffer) writes the state of the open prompt to =*sp-posframe-debug*=: the typed input, point, the start of the window, the frames and windows involved, =vertico-buffer-mode=, the remaps and the overlays. See "Diagnosing text that glitches or disappears in M-x" for how to use it.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe-debug-minibuffer ()
+  "Write the state of the open minibuffer to the buffer `*sp-posframe-debug*'.
+Bound to \\<minibuffer-local-map>\\[sp-posframe-debug-minibuffer] in the minibuffer. Read the buffer with `C-x b' after leaving the prompt."
+  (interactive)
+  (let* ((win (get-buffer-window (current-buffer) t))
+         (report
+          (list :input (minibuffer-contents)
+                :point (point)
+                :window-start (and win (window-start win))
+                :window-frame (and win (window-frame win))
+                :frames (frame-list)
+                :command this-command
+                :vertico-buffer-mode (bound-and-true-p vertico-buffer-mode)
+                :vertico-posframe-mode (bound-and-true-p vertico-posframe-mode)
+                :windows-showing-this-buffer (get-buffer-window-list (current-buffer) nil t)
+                :windows-of-selected-frame
+                (mapcar #'window-buffer (window-list nil 'no-minibuf))
+                :remaps face-remapping-alist
+                :overlays (mapcar (lambda (o)
+                                    (list (overlay-start o) (overlay-end o)
+                                          (overlay-properties o)))
+                                  (overlays-in (point-min) (1+ (point-max))))
+                :face-at-end (get-text-property (max (point-min) (1- (point-max))) 'face))))
+    (with-current-buffer (get-buffer-create "*sp-posframe-debug*")
+      (erase-buffer)
+      (pp report (current-buffer)))
+    (message "sp-posframe: state written to *sp-posframe-debug*")))
+
+(define-key minibuffer-local-map (kbd "C-c ?") #'sp-posframe-debug-minibuffer)
+#+end_src
+
+* Provide
+
+Provides the =sp-posframe= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-posframe)
+;; sp-posframe.el ends here.
+#+end_src
+
+* Diagnosing text that glitches or disappears in M-x
+
+Only =M-x= is styled (=sp-posframe-nano-commands=), and the glitch was seen on =mini-frame= too, so the suspects are the three nano parts: the prompt block, the divider overlay and the text size remap, and now also the dimming. =C-c ?= in any minibuffer runs =sp-posframe-debug-minibuffer=, which writes its state to the buffer =*sp-posframe-debug*= (read it with =C-x b= after leaving the prompt). Open =M-x=, type "ab" (and wait until it glitches), press =C-c ?=, press =C-g=, and open the buffer. It also records =vertico-buffer-mode= (on means the side-window display runs next to the posframe) and every window showing the minibuffer buffer. An earlier version of this section asked for a snippet through =emacsclient=; that ran on =*Messages*= when no prompt was active, so it is gone.
+
+- If =:input= has the typed text but you cannot see it, it is display: compare =:window-start= with 1 (a window scrolled past the first line) and the faces at the typed text with =describe-char= (a foreground equal to the background).
+- If the text is not in the buffer, it is not styling: look at =M-x= packages (=amx=, =marginalia=) instead.
+- Turn the parts off one at a time in the running Emacs, then press =M-x= again: =(setq sp-posframe-divider-char nil)= (no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)= (no block, no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--set-text-size)= (default text size), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)= (no dimming). The part whose removal stops the glitch is the cause.
+
+- The glitch came back only after working in Org: with the glitch showing, evaluate =(list vertico-buffer-mode vertico-posframe-mode (length face-remapping-alist))= in the Org buffer you called =M-x= from (=M-:= before =M-x=, or =emacsclient --eval=); a =vertico-buffer-mode= of =t= means the side-window display of Vertico is on at the same time as the posframe (both windows show the minibuffer buffer). Then =(setq sp-posframe-dim-always nil)= and try again in the Org buffer: if the glitch is gone, it is the dimming.

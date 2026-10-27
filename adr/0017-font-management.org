@@ -9,11 +9,11 @@
 - =sp-fonts= is rebuilt around =fontaine= (#25). A preset is the one place that decides the default, fixed-pitch and variable-pitch families, their heights, line spacing and the mode line height. =regular= is Aporetic Sans Mono at 150 with Aporetic Serif Mono as the variable-pitch face; =presentation= uses Charter and larger text. Atkinson Hyperlegible is used for the Org =#+title:= only, Literata for Org quotes, and Org headings stay at the size of the text whatever the theme says. The last preset is restored at startup and saved in =sp-cache-dir=.
 - The two options and the =ha-= lists are removed. =M-+=, =M-== and =M--= change the default face height by one point.
 - The Customize blocks are removed from =init.el=; each setting moved to the module that owns it, and =custom-file= points to =var/etc/custom.el=, which is never loaded, so Customize cannot write to =init.el= again.
-- Colour emoji are a separate module, =sp-emoji-font=, which prepends the first installed colour emoji family to the =emoji= fontset for every graphical frame; on Linux =M-x sp-emoji-font-install= installs an Apple Color Emoji =.ttf= (#60). Showing Org tags as emoji is another, =sp-tag-emoji=, which uses it.
+- Colour emoji are a separate module, =sp-emoji-font=, which prepends the first installed colour emoji family to the =emoji= fontset for every graphical frame; on Linux =M-x sp-emoji-font-install= installs an Apple Color Emoji =.ttf= (#60). Showing Org tags as emoji is another, =sp-org-tag-groups=, which uses it.
 
 * Pull requests, in dependency order
 1. #25 the Customize blocks out, =sp-fonts= rebuilt around =fontaine=
-2. #60 =sp-emoji-font= and =sp-tag-emoji=, which depend on the emoji fontset that #25 left in =sp-fonts=
+2. #60 =sp-emoji-font= and =sp-org-tag-groups=, which depend on the emoji fontset that #25 left in =sp-fonts=
 Next to them: #63 puts every =defcustom= in the Customize group =spcustom=, and #80 compares theme packages, which decide faces, not families.
 
 * Alternatives considered
@@ -26,4 +26,4 @@ Next to them: #63 puts every =defcustom= in the Customize group =spcustom=, and 
 - Until the first =org-mem= scan finishes, the agenda uses =~/notes/area/= and =~/notes/inbox/= instead of the old saved list of about 150 files.
 - A theme that defines the Org faces can override the =set-face-attribute= values of =sp-org-emphasis=; the old =custom-set-faces= always took precedence.
 - The variable-pitch face is a placeholder (Aporetic Serif Mono 120) "until the variable fonts are organised", and the symbol / emoji fallback block of =sp-fonts= (from Lambda Emacs, "Use Apple emoji") still exists beside =sp-emoji-font=.
-- /Untested/ on my Mac: the =fontaine= preset keys and =fontaine-restore-latest-preset= follow its documentation but were never run; emoji rendering in a graphical frame; whether =lambda-line= prints =global-mode-string= for the tag emoji (use =sp-tag-emoji-placement= = =header-line= if not); the Linux font install with a real TTF (the Apple =.ttc= does not work on Linux).
+- /Untested/ on my Mac: the =fontaine= preset keys and =fontaine-restore-latest-preset= follow its documentation but were never run; emoji rendering in a graphical frame; whether =lambda-line= prints =global-mode-string= for the tag emoji (use =sp-org-tag-groups-placement= = =header-line= if not); the Linux font install with a real TTF (the Apple =.ttc= does not work on Linux).
