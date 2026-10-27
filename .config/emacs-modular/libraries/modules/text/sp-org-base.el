@@ -43,6 +43,10 @@ periods. This ain't a typewriter."
 
 (global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
 
+;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
+;; "org", which does not define it; point the autoload at its own module.
+(autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+
 ;; Use Org from source rather than built in
 (use-package org
   :ensure nil

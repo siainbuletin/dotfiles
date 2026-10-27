@@ -87,6 +87,19 @@ Installs =listen=, another music player for Emacs, without configuration.
   :ensure t)
 #+end_src
 
+⊙ Subsonic client (listening from the server)
+  ⊘ supersonic.el
+
+#+begin_src emacs-lisp -i
+(use-package supersonic
+  :ensure t 
+  :commands supersonic
+  :bind (("C-c m" . supersonic))
+  :custom
+  (supersonic-host "http://192.168.88.10:4355") ;; see "Connecting to a Subsonic server"
+  (supersonic-enable-scrobbling t))
+#+end_src
+
 * Provide
 
 Provides the =sp-multimedia= feature and closes the file.

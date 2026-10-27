@@ -45,7 +45,7 @@ Examples:
       sp-nano-style-divider-color "#8899aa")
 #+end_src
 
-The lines are made of faces, so they can also be changed by hand: the line above the mode line is the =:overline= of =mode-line= and =mode-line-inactive= (and of the lambda-line faces), and the line under the header is the =:underline= of =header-line=. A thicker or dotted line is not possible with them; for that, the line would have to be a row of characters, as the mini-frame does under the =M-x= prompt (see =sp-mini-frame=: =sp-mini-frame-divider-char=).
+The lines are made of faces, so they can also be changed by hand: the line above the mode line is the =:overline= of =mode-line= and =mode-line-inactive= (and of the lambda-line faces), and the line under the header is the =:underline= of =header-line=. A thicker or dotted line is not possible with them; for that, the line would have to be a row of characters (see the guide to lines).
 
 The look of the header line itself comes from these faces: =sp-nano-style-header-ro=, =-md= and =-rw= (the blocks), =-name=, (and, for the =#+title:= of an Org buffer, =sp-modeline-title=, defined in =sp-faces=) and =-faded= (the right-hand text). To change one, use =M-x customize-face=.
 
