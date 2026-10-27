@@ -87,18 +87,30 @@ The border then reads as padding. It is run again on every theme change."
            (sp-nano-style-divider-colour))
       (face-foreground 'shadow nil t)))
 
+(defun sp-posframe--prompt-block ()
+  "Return face attributes for the prompt as a block of the colours swapped.
+The text takes the background of the posframe and the block the foreground of
+`default'. Colours are set outright, not with `:inverse-video' or `:box', which
+change the height of the first line and can leave remains in a child frame."
+  (let ((fg (face-foreground 'default nil t))
+        (bg (or (face-background 'vertico-posframe nil t)
+                (face-background 'default nil t))))
+    (when (and (stringp fg) (stringp bg))
+      (list :foreground bg :background fg :weight 'bold))))
+
 (defun sp-posframe--style-nano ()
   "Give the M-x prompt nano's block and the input a dotted line below it.
 The line is longer than any window and `truncate-lines' cuts it, so it never
-wraps. An error is reported in the echo area and does not abort the prompt."
+wraps. Its overlay is empty and sits after the input like Vertico's own, so it
+never covers the text being typed. An error is reported in the echo area and
+does not abort the prompt."
   (condition-case err
       (when (and (bound-and-true-p vertico-posframe-mode) (sp-posframe--nano-p))
-        (face-remap-add-relative
-         'minibuffer-prompt
-         :inverse-video t :weight 'bold :box '(:line-width 1))
+        (when-let* ((attrs (sp-posframe--prompt-block)))
+          (apply #'face-remap-add-relative 'minibuffer-prompt attrs))
         (when sp-posframe-divider-char
           (setq-local truncate-lines t)
-          (let ((ov (make-overlay (point-max) (point-max) nil nil t)))
+          (let ((ov (make-overlay (point-max) (point-max) nil t t)))
             (overlay-put ov 'priority sp-posframe-divider-priority)
             (overlay-put ov 'after-string
                          (concat "\n"
