@@ -135,9 +135,32 @@
 
 (add-hook 'minibuffer-mode-hook 'sp-minibuffer)
 
+(defcustom sp-fonts-text-scale-steps 4
+  "Number of `text-scale' steps that text buffers (Org included) are scaled up.
+Prompts in the posframe use the same number, so they read at the size of Org."
+  :type 'integer
+  :group 'faces)
+
 (defun sp-text-buffer ()
   "Make the font in the text buffer generally larger."
-  (text-scale-increase 4))
+  (text-scale-increase sp-fonts-text-scale-steps))
+
+(defcustom sp-fonts-dashboard-menu-height 0.85
+  "Height of the text in the dashboard boxes, relative to the `default' face.
+A relative height follows the `default' height of the current fontaine preset."
+  :type 'float
+  :group 'faces)
+
+(defun sp-fonts-ui-faces ()
+  "Size the faces of the dashboard boxes against the current `default' height."
+  (when (facep 'sp-dashboard-menu-face)
+    (set-face-attribute 'sp-dashboard-menu-face nil
+                        :height sp-fonts-dashboard-menu-height)))
+
+(with-eval-after-load 'sp-dashboard
+  (sp-fonts-ui-faces))
+(add-hook 'sp-after-load-theme-hook #'sp-fonts-ui-faces)
+(add-hook 'fontaine-set-preset-hook #'sp-fonts-ui-faces)
 
 (use-package mixed-pitch
   :ensure t

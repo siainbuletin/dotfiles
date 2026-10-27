@@ -221,22 +221,25 @@ wraps. An error is reported in the echo area and does not abort the prompt."
 
 * Text size
 
-=sp-minibuffer= (in =sp-fonts=) makes every minibuffer two =text-scale= steps larger from =minibuffer-mode-hook=. The posframe shows the minibuffer buffer itself, so its text got that scale, and prompts that did not go through the same path (or reset it) came out at a different size. =sp-posframe--reset-text-scale= runs later, from =minibuffer-setup-hook= (depth 90), and sets the text scale back to 0 when =vertico-posframe-mode= is on. Every posframe prompt then uses the size of the =default= face. Prompts outside the posframe (=read-string=, =y-or-n-p=) keep the larger size.
+Org (and every text mode) buffer is scaled up =sp-fonts-text-scale-steps= (4) steps by =sp-text-buffer=, and =sp-minibuffer= (in =sp-fonts=) scales the minibuffer two steps. With only the =default= face, posframe prompts came out smaller than Org text, and not always the same size: it depended on the buffer the prompt was opened from (=ibuffer= and the dashboard against Org). The root cause is not confirmed, because nothing was run in Emacs. =sp-posframe--set-text-size= therefore runs first on =minibuffer-setup-hook= (depth -90), drops every face remapping of the minibuffer, whatever its origin, and sets the text scale to =sp-fonts-text-scale-steps=. All posframe prompts then read at the size of an Org buffer. Prompts outside the posframe (=read-string=, =y-or-n-p=) keep the two steps of =sp-minibuffer=
 
 #+begin_src emacs-lisp -i
 ;;;; Same text size for every prompt
 
-(defun sp-posframe--reset-text-scale ()
-  "Show posframe prompts at the size of the `default' face.
-`sp-minibuffer' scales the text of every minibuffer up from `minibuffer-mode-hook'.
-This runs later, from `minibuffer-setup-hook', and removes that scale when the
-prompt is drawn in a posframe, so M-x, the file pickers and the note pickers all
-have the same text size."
-  (when (and (bound-and-true-p vertico-posframe-mode)
-             (bound-and-true-p text-scale-mode))
-    (text-scale-set 0)))
+(defun sp-posframe--set-text-size ()
+  "Show posframe prompts at the text size of an Org buffer.
+Face remappings in the minibuffer (a scale from `sp-minibuffer', or whatever
+came with the buffer you called it from) are dropped, then the scale of text
+buffers, `sp-fonts-text-scale-steps', is set, so M-x, the file pickers and the
+note pickers read the same in `ibuffer', the dashboard and Org alike."
+  (when (bound-and-true-p vertico-posframe-mode)
+    (setq-local face-remapping-alist nil)
+    (text-scale-set (if (boundp 'sp-fonts-text-scale-steps)
+                        sp-fonts-text-scale-steps
+                      0))))
 
-(add-hook 'minibuffer-setup-hook #'sp-posframe--reset-text-scale 90)
+;; Depth -90 runs it before the nano styling and the dimming, which add remaps.
+(add-hook 'minibuffer-setup-hook #'sp-posframe--set-text-size -90)
 #+end_src
 
 * Dimming the background
