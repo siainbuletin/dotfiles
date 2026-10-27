@@ -181,21 +181,40 @@ Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'
       (apply #'color-rgb-to-hex
              (append (color-blend f b amount) '(2))))))
 
+(defun sp-posframe--face-symbols (spec)
+  "Return the face symbols named in the `face' property value SPEC."
+  (cond ((and spec (symbolp spec) (not (keywordp spec)) (facep spec)) (list spec))
+        ((not (proper-list-p spec)) nil)
+        ((keywordp (car spec))
+         (sp-posframe--face-symbols (plist-get spec :inherit)))
+        (t (mapcan #'sp-posframe--face-symbols spec))))
+
+(defun sp-posframe--visible-faces (window)
+  "Return `default' and the faces on the text shown in WINDOW."
+  (let ((faces (list 'default))
+        (pos (window-start window))
+        (end (window-end window t)))
+    (with-current-buffer (window-buffer window)
+      (while (< pos end)
+        (dolist (face (sp-posframe--face-symbols (get-char-property pos 'face)))
+          (cl-pushnew face faces))
+        (setq pos (next-single-char-property-change pos 'face nil end))))
+    faces))
+
 (defun sp-posframe-dim (frame)
-  "Dim all text in the buffers shown in FRAME."
+  "Dim the text shown in the windows of FRAME."
   (let ((bg (face-background 'default frame)))
-    (dolist (buf (delete-dups
-                  (mapcar #'window-buffer (window-list frame 'no-minibuf))))
-      (with-current-buffer buf
+    (dolist (win (window-list frame 'no-minibuf))
+      (with-current-buffer (window-buffer win)
         (unless sp-posframe--dim-cookies
-          (dolist (face (face-list))
+          (dolist (face (sp-posframe--visible-faces win))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
                              (sp-posframe--blend fg bg sp-posframe-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
                       sp-posframe--dim-cookies))))
-          (push buf sp-posframe--dimmed-buffers))))))
+          (push (current-buffer) sp-posframe--dimmed-buffers))))))
 
 (defun sp-posframe-undim ()
   (dolist (buf sp-posframe--dimmed-buffers)
@@ -215,6 +234,36 @@ Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'
 
 (add-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)
 (add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
+
+(defun sp-posframe-debug-minibuffer ()
+  "Write the state of the open minibuffer to the buffer `*sp-posframe-debug*'.
+Bound to \\<minibuffer-local-map>\\[sp-posframe-debug-minibuffer] in the minibuffer. Read the buffer with `C-x b' after leaving the prompt."
+  (interactive)
+  (let* ((win (get-buffer-window (current-buffer) t))
+         (report
+          (list :input (minibuffer-contents)
+                :point (point)
+                :window-start (and win (window-start win))
+                :window-frame (and win (window-frame win))
+                :frames (frame-list)
+                :command this-command
+                :vertico-buffer-mode (bound-and-true-p vertico-buffer-mode)
+                :vertico-posframe-mode (bound-and-true-p vertico-posframe-mode)
+                :windows-showing-this-buffer (get-buffer-window-list (current-buffer) nil t)
+                :windows-of-selected-frame
+                (mapcar #'window-buffer (window-list nil 'no-minibuf))
+                :remaps face-remapping-alist
+                :overlays (mapcar (lambda (o)
+                                    (list (overlay-start o) (overlay-end o)
+                                          (overlay-properties o)))
+                                  (overlays-in (point-min) (1+ (point-max))))
+                :face-at-end (get-text-property (max (point-min) (1- (point-max))) 'face))))
+    (with-current-buffer (get-buffer-create "*sp-posframe-debug*")
+      (erase-buffer)
+      (pp report (current-buffer)))
+    (message "sp-posframe: state written to *sp-posframe-debug*")))
+
+(define-key minibuffer-local-map (kbd "C-c ?") #'sp-posframe-debug-minibuffer)
 
 (provide 'sp-posframe)
 ;; sp-posframe.el ends here.

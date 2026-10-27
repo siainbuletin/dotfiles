@@ -341,28 +341,48 @@ Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'
 
 ** Dim a frame
 
-=sp-posframe-dim= goes through each distinct buffer shown in the frame's windows.
+=sp-posframe-dim= goes through each window of the frame.
 
-- For every defined face that has a foreground colour, it adds a buffer-local remap to the blended colour, storing the cookie.
+- Only =default= and the faces on the text that is visible in the window (found with =sp-posframe--visible-faces= by walking the =face= property from =window-start= to =window-end=) get a buffer-local remap to the blended colour, storing the cookie. Usually that is a few dozen faces.
 - A buffer that is already dimmed is left alone.
-- Looping over the whole =face-list= for each buffer makes this somewhat heavy when many faces are defined.
+- It used to remap every face with a foreground (the whole =face-list=, well over a thousand). Every redisplay of the dimmed buffer looks a face up in that remapping list, so with a busy Org buffer (indentation, numbering, tables, tag groups) each keystroke in the =M-x= posframe redrew a slow buffer. This is a suspected cause of the glitching that came back after Org was opened, not a confirmed one.
+- Text that scrolls into view while the minibuffer is open is not dimmed.
 
 #+begin_src emacs-lisp -i
+(defun sp-posframe--face-symbols (spec)
+  "Return the face symbols named in the `face' property value SPEC."
+  (cond ((and spec (symbolp spec) (not (keywordp spec)) (facep spec)) (list spec))
+        ((not (proper-list-p spec)) nil)
+        ((keywordp (car spec))
+         (sp-posframe--face-symbols (plist-get spec :inherit)))
+        (t (mapcan #'sp-posframe--face-symbols spec))))
+
+(defun sp-posframe--visible-faces (window)
+  "Return `default' and the faces on the text shown in WINDOW."
+  (let ((faces (list 'default))
+        (pos (window-start window))
+        (end (window-end window t)))
+    (with-current-buffer (window-buffer window)
+      (while (< pos end)
+        (dolist (face (sp-posframe--face-symbols (get-char-property pos 'face)))
+          (cl-pushnew face faces))
+        (setq pos (next-single-char-property-change pos 'face nil end))))
+    faces))
+
 (defun sp-posframe-dim (frame)
-  "Dim all text in the buffers shown in FRAME."
+  "Dim the text shown in the windows of FRAME."
   (let ((bg (face-background 'default frame)))
-    (dolist (buf (delete-dups
-                  (mapcar #'window-buffer (window-list frame 'no-minibuf))))
-      (with-current-buffer buf
+    (dolist (win (window-list frame 'no-minibuf))
+      (with-current-buffer (window-buffer win)
         (unless sp-posframe--dim-cookies
-          (dolist (face (face-list))
+          (dolist (face (sp-posframe--visible-faces win))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
                              (sp-posframe--blend fg bg sp-posframe-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
                       sp-posframe--dim-cookies))))
-          (push buf sp-posframe--dimmed-buffers))))))
+          (push (current-buffer) sp-posframe--dimmed-buffers))))))
 #+end_src
 
 ** Undim
@@ -402,6 +422,42 @@ Runs the dimming check whenever a minibuffer is set up and undims on every minib
 (add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
 #+end_src
 
+* Debugging the minibuffer
+
+=sp-posframe-debug-minibuffer= (=C-c ?= in any minibuffer) writes the state of the open prompt to =*sp-posframe-debug*=: the typed input, point, the start of the window, the frames and windows involved, =vertico-buffer-mode=, the remaps and the overlays. See "Diagnosing text that glitches or disappears in M-x" for how to use it.
+
+#+begin_src emacs-lisp -i
+(defun sp-posframe-debug-minibuffer ()
+  "Write the state of the open minibuffer to the buffer `*sp-posframe-debug*'.
+Bound to \\<minibuffer-local-map>\\[sp-posframe-debug-minibuffer] in the minibuffer. Read the buffer with `C-x b' after leaving the prompt."
+  (interactive)
+  (let* ((win (get-buffer-window (current-buffer) t))
+         (report
+          (list :input (minibuffer-contents)
+                :point (point)
+                :window-start (and win (window-start win))
+                :window-frame (and win (window-frame win))
+                :frames (frame-list)
+                :command this-command
+                :vertico-buffer-mode (bound-and-true-p vertico-buffer-mode)
+                :vertico-posframe-mode (bound-and-true-p vertico-posframe-mode)
+                :windows-showing-this-buffer (get-buffer-window-list (current-buffer) nil t)
+                :windows-of-selected-frame
+                (mapcar #'window-buffer (window-list nil 'no-minibuf))
+                :remaps face-remapping-alist
+                :overlays (mapcar (lambda (o)
+                                    (list (overlay-start o) (overlay-end o)
+                                          (overlay-properties o)))
+                                  (overlays-in (point-min) (1+ (point-max))))
+                :face-at-end (get-text-property (max (point-min) (1- (point-max))) 'face))))
+    (with-current-buffer (get-buffer-create "*sp-posframe-debug*")
+      (erase-buffer)
+      (pp report (current-buffer)))
+    (message "sp-posframe: state written to *sp-posframe-debug*")))
+
+(define-key minibuffer-local-map (kbd "C-c ?") #'sp-posframe-debug-minibuffer)
+#+end_src
+
 * Provide
 
 Provides the =sp-posframe= feature and closes the file.
@@ -414,19 +470,10 @@ Provides the =sp-posframe= feature and closes the file.
 
 * Diagnosing text that glitches or disappears in M-x
 
-Only =M-x= is styled (=sp-posframe-nano-commands=), and the glitch was seen on =mini-frame= too, so the suspects are the three nano parts: the prompt block, the divider overlay and the text size remap. To find which, look at the minibuffer while =M-x= is open. =M-:= cannot do it (it opens its own minibuffer), so use =emacsclient --eval '(...)'= from a fish shell, or schedule the check first with =M-: (run-with-timer 8 nil (lambda () (message "%S" (CHECK))))= and then open =M-x= and type:
+Only =M-x= is styled (=sp-posframe-nano-commands=), and the glitch was seen on =mini-frame= too, so the suspects are the three nano parts: the prompt block, the divider overlay and the text size remap, and now also the dimming. =C-c ?= in any minibuffer runs =sp-posframe-debug-minibuffer=, which writes its state to the buffer =*sp-posframe-debug*= (read it with =C-x b= after leaving the prompt). Open =M-x=, type "ab" (and wait until it glitches), press =C-c ?=, press =C-g=, and open the buffer. It also records =vertico-buffer-mode= (on means the side-window display runs next to the posframe) and every window showing the minibuffer buffer. An earlier version of this section asked for a snippet through =emacsclient=; that ran on =*Messages*= when no prompt was active, so it is gone.
 
-#+begin_src emacs-lisp :tangle no
-;; CHECK: the minibuffer buffer of the open M-x, after typing "ab":
-(with-current-buffer (window-buffer (active-minibuffer-window))
-  (list (buffer-string)                      ; is the typed text in the buffer?
-        face-remapping-alist                 ; what is remapped
-        (mapcar (lambda (o) (list (overlay-start o) (overlay-end o) (overlay-properties o)))
-                (overlays-in (point-min) (1+ (point-max))))
-        (get-text-property (point-max) 'face)
-        (point) (window-start (get-buffer-window (current-buffer) t))))
-#+end_src
-
-- If the text is in =buffer-string= but you cannot see it, it is display: compare =window-start= with =point-min= (a window scrolled past the first line) and the faces at the typed text with =describe-char= (a foreground equal to the background).
+- If =:input= has the typed text but you cannot see it, it is display: compare =:window-start= with 1 (a window scrolled past the first line) and the faces at the typed text with =describe-char= (a foreground equal to the background).
 - If the text is not in the buffer, it is not styling: look at =M-x= packages (=amx=, =marginalia=) instead.
 - Turn the parts off one at a time in the running Emacs, then press =M-x= again: =(setq sp-posframe-divider-char nil)= (no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)= (no block, no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--set-text-size)= (default text size), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)= (no dimming). The part whose removal stops the glitch is the cause.
+
+- The glitch came back only after working in Org: with the glitch showing, evaluate =(list vertico-buffer-mode vertico-posframe-mode (length face-remapping-alist))= in the Org buffer you called =M-x= from (=M-:= before =M-x=, or =emacsclient --eval=); a =vertico-buffer-mode= of =t= means the side-window display of Vertico is on at the same time as the posframe (both windows show the minibuffer buffer). Then =(setq sp-posframe-dim-always nil)= and try again in the Org buffer: if the glitch is gone, it is the dimming.
