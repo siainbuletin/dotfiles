@@ -571,8 +571,42 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
                                     members))
            collect group))
 
+(defvar sp-org-tag-groups--memo (make-hash-table :test #'equal)
+  "Results of the selector's per-note work, by (KIND . ARGS).")
+
+(defvar sp-org-tag-groups--memo-state nil
+  "Settings `sp-org-tag-groups--memo' was filled under, compared with `eq'.")
+
+(defun sp-org-tag-groups--memo-state ()
+  "The settings and frame state the remembered selector results depend on."
+  (list sp-org-tag-groups-rules sp-org-tag-groups-combo-consumes
+        sp-org-tag-groups-link-position sp-org-tag-groups-alist
+        sp-org-tag-groups-colors sp-org-tag-groups-palette
+        (face-attribute 'sp-org-tag-groups-select-tags-face :height nil t)
+        (frame-parameter nil 'background-mode)))
+
+(defun sp-org-tag-groups--memoize (key fn)
+  "The value for KEY, calling FN once per KEY until a setting changes.
+`vulpea-select' asks for every note's title and tag column on each call,
+so the colours, the rules and the chips are worked out once per distinct
+tag list instead of once per note."
+  (let ((state (sp-org-tag-groups--memo-state)))
+    (unless (and sp-org-tag-groups--memo-state
+                 (cl-every #'eq state sp-org-tag-groups--memo-state))
+      (clrhash sp-org-tag-groups--memo)
+      (setq sp-org-tag-groups--memo-state state)))
+  (let ((hit (gethash key sp-org-tag-groups--memo 'sp-org-tag-groups--miss)))
+    (if (eq hit 'sp-org-tag-groups--miss)
+        (puthash key (funcall fn) sp-org-tag-groups--memo)
+      hit)))
+
 (defun sp-org-tag-groups--chip-face (tag)
   "Face for the chip of TAG: the colour of its first group, from the palette."
+  (sp-org-tag-groups--memoize
+   (cons 'face tag) (lambda () (sp-org-tag-groups--chip-face-1 tag))))
+
+(defun sp-org-tag-groups--chip-face-1 (tag)
+  "Work out the face of `sp-org-tag-groups--chip-face' for TAG."
   (let* ((group (car (sp-org-tag-group-of tag)))
          (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
          (entry (or (assq name sp-org-tag-groups-palette) (assq 'default sp-org-tag-groups-palette)))
@@ -583,6 +617,11 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 
 (defun sp-org-tag-groups--chips (tags columns)
   "TAGS as coloured chips, an ellipsis replacing those that exceed COLUMNS."
+  (sp-org-tag-groups--memoize
+   (list 'chips columns tags) (lambda () (sp-org-tag-groups--chips-1 tags columns))))
+
+(defun sp-org-tag-groups--chips-1 (tags columns)
+  "Build the chips of `sp-org-tag-groups--chips' for TAGS within COLUMNS."
   (let* ((height (face-attribute 'sp-org-tag-groups-select-tags-face :height nil t))
          (height (if (numberp height) height 1.0))
          (room (max 4 (floor (/ columns height))))
@@ -620,11 +659,12 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 
 (defun sp-org-tag-groups--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
-  (let ((items (plist-get (sp-org-tag-groups--decorate
-                           (mapcar #'substring-no-properties (vulpea-note-tags note))
-                           'select)
-                          :emoji)))
-    (mapconcat #'car items " ")))
+  (let ((tags (mapcar #'substring-no-properties (vulpea-note-tags note))))
+    (sp-org-tag-groups--memoize
+     (list 'emoji tags)
+     (lambda ()
+       (mapconcat #'car (plist-get (sp-org-tag-groups--decorate tags 'select) :emoji)
+                  " ")))))
 
 (defun sp-org-tag-groups-describe-note (note)
   "NOTE's title with the emoji of its tags in front."
@@ -794,3 +834,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/108][#108]] ✨ Added =sp-select-note=, a note selector of my own: it calls =vulpea-select-from= with the emoji of the note's tags in front of the title and the tags in a column at the right edge, as small dimmed text, whose width follows the frame width (=sp-org-tag-groups-select-column-fraction=). With =sp-org-tag-groups-mode= on, =vulpea-select= (and =vulpea-find=, =vulpea-insert=) also get the emoji in front of titles; rules can leave a note selection with =:select nil=. =M-x sp-insert-note= is =vulpea-insert= with the same emoji and tag column. The link and note commands that chose a note with =vulpea-select=, =vulpea-insert= or their own completion now call these two (=sp-org-create-note-and-link= and the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note, the query-table note picker).
 - [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag groups: =sp-org-tag-groups-alist= groups the note tags into groups (the shape proposed in ADR 0020) and =sp-org-tag-groups-colors= gives each group one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.
+- [[https://github.com/siainbuletin/dotfiles/pull/158][#158]] 🐛 Fixed =sp-insert-note= and =sp-select-note= taking seconds to open: because the tag column depends on the frame width, the candidate cache is off and vulpea rebuilds every note's title and tag column on each call, and each of those looked up the tag group, the palette colour and the rules again. =sp-org-tag-groups--memoize= now remembers the chip face of each tag, the emoji of each tag list and the chips of each tag list and width, until one of the rules, groups, colours, palette, tag face height or theme (light/dark) changes. Not run in Emacs (none in the container).
