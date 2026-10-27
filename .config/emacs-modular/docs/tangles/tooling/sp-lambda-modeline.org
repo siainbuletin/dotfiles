@@ -20,7 +20,7 @@ What it does:
 - *Bottom line.* In buffers of text and programming modes, lambda-line's own layout is replaced by the segments of =sp-modeline-parts=: the window number, the major mode in a box, the word count (or line and column), and keycast, then the clocked Org task, the tag emoji and the branch at the right (the left and right parts are aligned by mode-line-maker). Special buffers (the agenda, Info, mail...) keep lambda-line's own format. See the doc of =sp-modeline-parts= for the order and the colours, and how to change them. =sp-lambda-modeline-new-layout= turns this replacement off.
 - *Header line and divider.* From =sp-nano-style=, after nano-modeline: a block with =RW=, =RO= (read-only) or =**= (modified), the name of the buffer (in an Org buffer the text of the =#+title:=, in the face =sp-modeline-title= from =sp-faces=), and the project and the time at the right edge; and a thin line between the text of the buffer and the mode line. See that module's doc.
 - *Keycast.* The keys and commands are shown in a slot of the bottom line (=sp-modeline-parts=), not in the header: =keycast-header-line-mode= is not used.
-- *Tag emoji.* lambda-line never displays =global-mode-string=, where =sp-tag-emoji= puts its segment. The bottom line above shows the emoji itself; in the special buffers that keep lambda-line's format, an advice on =lambda-line-compose= appends =sp-tag-emoji-modeline-string= to the middle (primary) part, where lambda-line's face replaces the face of the emoji but keeps the tooltip.
+- *Tag emoji.* lambda-line never displays =global-mode-string=, where =sp-org-tag-groups= puts its segment. The bottom line above shows the emoji itself; in the special buffers that keep lambda-line's format, an advice on =lambda-line-compose= appends =sp-org-tag-groups-modeline-string= to the middle (primary) part, where lambda-line's face replaces the face of the emoji but keeps the tooltip.
 - *Theme colours.* =sp-lambda-modeline-theme-faces= sets the lambda-line faces from the faces of the theme in use: the =mode-line= and =mode-line-inactive= faces for the selected and the other windows, =mode-line-buffer-id= for the name and =success=, =warning= and =error= for the status symbol. It runs when the module loads and after each theme loads (=sp-after-load-theme-hook=).
 
 Untested in a running Emacs: the container that wrote it has no Emacs. Things to check are the header line next to keycast, the tag emoji in an Org buffer and the colours after =sp-load-theme=.
@@ -38,7 +38,7 @@ The clock icon option relies on the ClockFace font being installed, and the stat
 
 ;; This module installs and configures `lambda-line', the minimal status line
 ;; from the Lambda Emacs project, fetched from Codeberg, with a header line
-;; next to it.  Tag emoji from `sp-tag-emoji' show in the mode line, and the
+;; next to it.  Tag emoji from `sp-org-tag-groups' show in the mode line, and the
 ;; faces follow the theme.  It is loaded in both the default and minimal
 ;; module lists.  Alternative: `sp-prot-modeline'.
 ;;
@@ -47,7 +47,7 @@ The clock icon option relies on the ClockFace font being installed, and the stat
 
 ;;; Code:
 
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function lambda-line-compose "lambda-line")
 (require 'sp-nano-style)
 (require 'sp-modeline-parts)
@@ -93,8 +93,8 @@ The advice adds the tag emoji of the heading or file at point to the primary par
 #+begin_src emacs-lisp -i
 (defun sp-lambda-modeline--add-tag-emoji (args)
   "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
-  (let ((tags (and (fboundp 'sp-tag-emoji-modeline-string)
-                   (ignore-errors (sp-tag-emoji-modeline-string)))))
+  (let ((tags (and (fboundp 'sp-org-tag-groups-modeline-string)
+                   (ignore-errors (sp-org-tag-groups-modeline-string)))))
     (if (and (stringp tags) (not (string-blank-p tags)))
         (let ((args (copy-sequence args)))
           (setf (nth 2 args) (concat (or (nth 2 args) "") tags))
@@ -223,3 +223,9 @@ Provides the =sp-lambda-modeline= feature and closes the file.
 #+begin_src emacs-lisp -i
 (provide 'sp-lambda-modeline)
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/99][#99]] 🐛 Fixed the empty mode line of lambda-line (no buffer name, no modes): the bare =%_= divider was set when the position is =bottom=, overwriting the status line, instead of when it is =top=. Renamed =sp-lambda-line= to =sp-lambda-modeline=: lambda-line in the mode line plus a header line with the path of the file and the project, keycast at the right of the mode line (keycast no longer in the header: =sp-frame= does not turn on =keycast-header-line-mode=), the tag emoji of =sp-org-tag-groups= in every mode line (lambda-line does not show =global-mode-string=) and lambda-line faces taken from the theme in use, re-applied after each theme load. Removed =sp-choose-modeline= and its doc (last at commit =cfc047b=). Added =sp-prot-modeline=, a native mode line adapted from Prot's (buffer name, major and minor modes, branch, Flymake, keycast at the bottom, path in a header line), not loaded by =init.el=. Untested in a running Emacs.

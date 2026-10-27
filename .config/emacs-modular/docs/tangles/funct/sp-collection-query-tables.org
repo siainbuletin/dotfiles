@@ -416,7 +416,6 @@ Group, requires. The group =sp-collec-query= holds every option of the module fa
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
-(require 'sp-tag-emoji)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -2185,3 +2184,9 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 (provide 'sp-collection-query-tables-vui)
 ;;; sp-collection-query-tables-vui.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/43][#43]] ✨ Added =sp-vulpea-table= as one entry point: a query menu (=C-c w T=), saved views, a =vulpea-table= block and three renderers (exc, vui and plain Org). Fixed title sorting, =|= in cells, heading rows rewriting the file's meta and inline tables leaving the note modified.

@@ -33,7 +33,7 @@
 (defvar org-todo-keywords-1)
 (defvar org-done-keywords)
 (defvar mode-line-maker-padding-face)
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function keycast-format "keycast")
 (declare-function keycast-mode-line-mode "keycast")
 (declare-function keycast-header-line-mode "keycast")
@@ -383,9 +383,9 @@ For `org-clock-in-switch-to-state'; point is on the heading."
   (remove-hook 'org-clock-out-hook #'sp-modeline-parts-clock-unflag))
 
 (defun sp-modeline-parts-tags ()
-  "Return the tag emoji of `sp-tag-emoji' at point, or nil."
-  (when (fboundp 'sp-tag-emoji-modeline-string)
-    (let ((tags (ignore-errors (sp-tag-emoji-modeline-string))))
+  "Return the tag emoji of `sp-org-tag-groups' at point, or nil."
+  (when (fboundp 'sp-org-tag-groups-modeline-string)
+    (let ((tags (ignore-errors (sp-org-tag-groups-modeline-string))))
       (and (stringp tags) (not (string-blank-p tags)) tags))))
 
 (defun sp-modeline-parts-vc ()

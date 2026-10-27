@@ -170,6 +170,23 @@ will be killed."
   (clipboard-yank)
   (deactivate-mark))
 
+(defun sp-copy-last-message ()
+  "Copy the last message logged in *Messages* to the kill ring.
+Show the copied text in the echo area.  Messages the echo area
+showed without logging them cannot be recovered."
+  (interactive)
+  (if-let* ((buf (get-buffer "*Messages*"))
+            (text (with-current-buffer buf
+                    (save-excursion
+                      (goto-char (point-max))
+                      (skip-chars-backward "\n")
+                      (buffer-substring-no-properties
+                       (line-beginning-position) (point)))))
+            ((not (string-empty-p text))))
+      (progn (kill-new text)
+             (message "Copied: %s" text))
+    (user-error "No message to copy")))
+
 ;;;;;; Useful Buffers
 ;; TODO: make this respect workspace buffers
 (defun sp-user-buffer-q ()

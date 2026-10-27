@@ -901,3 +901,10 @@ The appearance comes from the time of day when the source is =time=. The theme f
 (provide 'sp-themes-test)
 ;;; sp-themes-test.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/89][#89]] 🔧 Changed the themes to be vendored in =libraries/themes/= (engines in =lib/=, the seven themes in use in =active/=, all others in =library/=, no Elpaca), grouped in four families (hard light, faded light, faded dark, hard dark) and loaded only by =sp-load-theme=: no confirmation, the old theme is disabled only after the new one loads, =T= loads a family. Removed =lem-dashboard=, =sp-archived-configs.el=, the dead Modus options and the theme-resetting =sp-disable-all-themes=; =sp-macos=, the toggle and the dashboard logo go through =sp-themes=. Added a list of the Modus faces a palette-only system would leave out.
+- [[https://github.com/siainbuletin/dotfiles/pull/100][#100]] ✨ Added the light or dark appearance per platform to =sp-theme-auto-mode=: =sp-theme-system-providers= and =sp-theme-system-watchers= name the function for macOS (=sp-macos=), Windows (=sp-syswin=: registry =AppsUseLightTheme=, polled) and Linux (=sp-syslinux=: freedesktop portal, gsettings or KDE, with a D-Bus watcher), and a source with no answer falls back to the time of day. Added the =ambient= source for macOS: a light sensor command (=sp-macos-light-sensor-command=) picks one of the four families, faded light, hard light, faded dark, hard dark, from the lux in the room, with a hysteresis margin. Changed =init.el= to load =sp-syswin= and =sp-syslinux=. 13 more ERT tests.

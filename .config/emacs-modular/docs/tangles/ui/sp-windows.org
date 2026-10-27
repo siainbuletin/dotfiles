@@ -629,3 +629,9 @@ Provides the =sp-windows= feature and closes the file.
 (provide 'sp-windows)
 ;; sp-windows.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/102][#102]] 🐛 Fixed the white borders around buffers after =sp-load-theme=: =sp-windows= painted the dividers, fringe and frame border with the background of the theme loaded at startup; =sp-windows-blend-borders= now repaints them (and the =internal-border= and =child-frame-border= faces) at load, after every theme load and for each new graphic frame, and redraws the frames.

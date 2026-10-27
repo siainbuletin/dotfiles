@@ -4,7 +4,7 @@
 
 ;; This module installs and configures `lambda-line', the minimal status line
 ;; from the Lambda Emacs project, fetched from Codeberg, with a header line
-;; next to it.  Tag emoji from `sp-tag-emoji' show in the mode line, and the
+;; next to it.  Tag emoji from `sp-org-tag-groups' show in the mode line, and the
 ;; faces follow the theme.  It is loaded in both the default and minimal
 ;; module lists.  Alternative: `sp-prot-modeline'.
 ;;
@@ -13,7 +13,7 @@
 
 ;;; Code:
 
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function lambda-line-compose "lambda-line")
 (require 'sp-nano-style)
 (require 'sp-modeline-parts)
@@ -41,8 +41,8 @@
 
 (defun sp-lambda-modeline--add-tag-emoji (args)
   "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
-  (let ((tags (and (fboundp 'sp-tag-emoji-modeline-string)
-                   (ignore-errors (sp-tag-emoji-modeline-string)))))
+  (let ((tags (and (fboundp 'sp-org-tag-groups-modeline-string)
+                   (ignore-errors (sp-org-tag-groups-modeline-string)))))
     (if (and (stringp tags) (not (string-blank-p tags)))
         (let ((args (copy-sequence args)))
           (setf (nth 2 args) (concat (or (nth 2 args) "") tags))

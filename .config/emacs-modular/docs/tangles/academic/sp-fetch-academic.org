@@ -302,3 +302,9 @@ Provides the =sp-fetch-academic= feature and closes the file.
 (provide 'sp-fetch-academic)
 ;;; sp-fetch-academic.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/92][#92]], [[https://github.com/siainbuletin/dotfiles/pull/118][#118]] ✨ Added =sp-fetch-academic= (=biblio= and Google Scholar search, DOI look-up through =org-ref=, PDF download that attaches itself to the entry, a placeholder for =consult-omni=) and finished the BibTeX setup: the citation keys follow the settings in =sp-bibprocess= again (=smithjones-2017-atten-all=; a leftover =setq= block was resetting them), =sp-bibliography-dir= (now =~/Documents/bibliography=) is the only folder option, =sp-bibtex-dir= and =sp-bibliography= are removed, and the pandoc commands read the registered =.bib= files.

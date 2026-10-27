@@ -20,7 +20,7 @@ From left to right:
 2. *The major mode*, as a nerd-icons icon (or its name when there is no icon) in a coloured box.
 3. *The position*: the number of words in buffers of text modes (Org, Markdown, LaTeX, Typst and any mode listed in =sp-modeline-parts-word-count-modes=), and line and column in every other buffer.
 4. *Keycast*: the key you used last in a coloured box and the command it ran. The last command stays on screen until the next one, and the segment has a fixed width (=sp-modeline-parts-keycast-width=), so the rest of the line does not move when it changes. Only the selected window shows keys; the other windows keep the empty space.
-5. At the right: the *task being clocked* (see below), the tag emoji of =sp-tag-emoji= and the version control branch.
+5. At the right: the *task being clocked* (see below), the tag emoji of =sp-org-tag-groups= and the version control branch.
 
 The count of minor modes was removed: it was not helpful, and its icon (a Material Design glyph, code point =0f0431=) showed as a square with the code in fonts that lack the Material Design set of Nerd Fonts. The minor modes can be listed with =C-h m= (=describe-mode=); click on the major mode box for the same.
 
@@ -91,7 +91,7 @@ The text of a box is the background colour of the theme. The faces are =sp-model
 (defvar org-todo-keywords-1)
 (defvar org-done-keywords)
 (defvar mode-line-maker-padding-face)
-(declare-function sp-tag-emoji-modeline-string "sp-tag-emoji" ())
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
 (declare-function keycast-format "keycast")
 (declare-function keycast-mode-line-mode "keycast")
 (declare-function keycast-header-line-mode "keycast")
@@ -487,9 +487,9 @@ For `org-clock-in-switch-to-state'; point is on the heading."
 
 #+begin_src emacs-lisp -i
 (defun sp-modeline-parts-tags ()
-  "Return the tag emoji of `sp-tag-emoji' at point, or nil."
-  (when (fboundp 'sp-tag-emoji-modeline-string)
-    (let ((tags (ignore-errors (sp-tag-emoji-modeline-string))))
+  "Return the tag emoji of `sp-org-tag-groups' at point, or nil."
+  (when (fboundp 'sp-org-tag-groups-modeline-string)
+    (let ((tags (ignore-errors (sp-org-tag-groups-modeline-string))))
       (and (stringp tags) (not (string-blank-p tags)) tags))))
 
 (defun sp-modeline-parts-vc ()
@@ -580,3 +580,10 @@ A segment as a mode line construct is a variable holding an =:eval= form, marked
 #+begin_src emacs-lisp -i
 (provide 'sp-modeline-parts)
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/115][#115]] ✨ Added =sp-modeline-parts=, the mode line segments shared by =sp-lambda-modeline= and =sp-prot-modeline=, in the order window number, major mode (nerd-icons icon), word count in text buffers or line and column in code buffers, keycast, count of minor modes (a button: click for the menu, right click for =describe-mode=); the window number, the mode and the key of keycast sit in boxes of the accent colours of the =sp= themes (font-lock colours with other themes), as high as the mode line (=sp-modeline-parts-boxed=, =-left=, =-right=, =-narrow-width=, =-bar= in the style of doom-modeline). Keycast keeps the last key and command and a fixed width. Changed =sp-nano-style= so that the header line shows the buffer name (the =#+title:= in Org buffers) and an =hh:mm= clock at the right, and the lines get =sp-nano-style-divider-opacity=, =-divider-color= and =-header-divider= (documented in the sections on making the lines fainter). Changed =sp-mini-frame= so that =M-x= is centred like every prompt and takes only nano's text styling and boxes (inverted bold prompt with a box, one-pixel border, a dotted line under the input); dimming now also applies to =sp-select-note=, =sp-insert-note= and =sp-collec-query-select-note= (=sp-mini-frame-dim-functions=). Removed from =sp-prot-modeline= its own buffer name, major mode, minor modes and keycast segments, and the clock from the mode line. Untested in a running Emacs.
+- [[https://github.com/siainbuletin/dotfiles/pull/117][#117]] 🔥 Removed the count of minor modes from the bottom mode line (not helpful; its Material Design icon showed as a square with =0f0431= in fonts without that set). Changed =sp-modeline-parts= to build the line with mode-line-maker (left and right parts, alignment and truncation; =mode-line-maker-alignment=, =-truncation-rule=), installed from =rougier/mode-line-maker=, and =sp-prot-modeline-format= to be split at =mode-line-format-right-align= and given to it. Added the =clock= segment: the Org entry being clocked in, with its todo keyword in a box, heading and time (click to go to it, right click for =org-agenda=); clocking in switches an entry that has an open keyword to =PROG= (=sp-modeline-parts-clock-keyword=) and flags its heading with a fringe arrow until clock-out. Changed the Org title in the header line to show only the text of =#+title:=, in the new face =sp-modeline-title= (defined in =sp-faces=, no longer =org-document-title=). Added the page =modeline-customization.org=: the differences between the lambda-line and Prot mode lines, the shared settings and recipes. Untested in a running Emacs.

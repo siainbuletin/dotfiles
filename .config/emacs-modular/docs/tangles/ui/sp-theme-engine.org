@@ -932,3 +932,10 @@ Loading =sp-dark= and =sp-light= leaves one record per face in the theme, with t
 (provide 'sp-theme-engine-test)
 ;;; sp-theme-engine-test.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/97][#97]] ✨ Added the =sp= themes, =sp-dark= (a simplified =ef-dream= palette) and =sp-light=, from the new =sp-theme-engine=: base colours in a =catppuccin-set-color=-style flavors alist, the Doric palette and faces from Doric's bundles instead of hex codes, Modus-style semantic mappings, Lambda-style semantic face names (=sp-urgent= and the others), and the Modus headings, mixed fonts and variable-pitch UI ported. Changed =sp-themes= to read every theme file into one registry (name, background, description, package) and to follow the light or dark appearance through one switch, =sp-theme-auto-mode= (macOS setting or time of day), which =sp-macos= turns on and which replaces its own code. Removed the colour-blind themes. 19 ERT tests.
+- [[https://github.com/siainbuletin/dotfiles/pull/125][#125]] ✨ Added =sp-theme-import-palette=: a handful of =#rrggbb= colours (a pasted string works) become an =sp= theme through =sp-theme-flavor-from-palette= (darkest colour the background of a dark theme, the lightest the foreground, the two most saturated the accents, the status hues blended towards the first accent, =:roles= to pin a colour to a job); it registers the flavor, writes =libraries/themes/sp/sp-NAME-theme.el= and loads it, and flavors can carry a =:mode=. Example: =sp-wandavision=. Fixed the registry tests that expected the Modus themes. Not looked at in a graphic frame.

@@ -129,23 +129,30 @@ Sets =vulpea-db-sync-directories= to =~/notes/= only.
 
 *** Automatic database sync
 
-Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change. =vulpea-db-sync-scan-on-enable= is nil, so enabling the mode no longer scans the whole vault at startup: Emacs starts with the database as it was (an empty database is still scanned), the save hook and file watchers work as usual, and =sp-vulpea-scan-once= runs =vulpea-db-sync-full-scan= two idle seconds after the first file of =vulpea-db-sync-directories= is opened. =M-x vulpea-db-sync-full-scan= runs it by hand, and =C-u= forces a re-index. Changes made outside Emacs are picked up at that first scan.
+Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change, five idle seconds after start-up (=sp-vulpea-start-autosync=) instead of while =init.el= loads. Emacs starts with the database as the last session left it, which queries and the agenda files can already use.
+
+- =vulpea-db-sync-scan-on-enable= is =background=: the files are listed by a subprocess and queued, and the queue parses only the files whose content changed since the last scan, in batches while Emacs is idle. Changes made outside Emacs (a git pull, a sync) are picked up that way.
+- Nothing depends on which file is opened first. Before, the scan started two idle seconds after the first vault file was visited, which the dashboard did by reading the agenda files, and it ran =vulpea-db-sync-full-scan= in the foreground (listing, cleanup and dir-locals check in the main Emacs), which froze it.
+- The echo area shows =[vulpea] starting autosync...= and how long it took, then vulpea's own progress messages.
+- =M-x vulpea-db-sync-full-scan= is still there for a scan by hand, and =C-u= forces a re-index. Not run in Emacs here (none in the container).
 
 #+begin_src emacs-lisp -i
-;; Skip the scan at startup: the database stays as it was, and the scan runs
-;; once, after the first note of the vault is opened (see below).
-(setq vulpea-db-sync-scan-on-enable nil)
+;; Enable autosync a few idle seconds after start-up, not during init, and let
+;; vulpea scan in the background: it lists the files in a subprocess and queues
+;; them, and the queue parses only the files whose content changed.  Opening a
+;; note, the dashboard included, starts nothing.
+(setq vulpea-db-sync-scan-on-enable 'background)
 
-(vulpea-db-autosync-mode +1)
+(defun sp-vulpea-start-autosync ()
+  "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
+  (let ((started (float-time)))
+    (message "[vulpea] starting autosync; changed files are indexed in the background...")
+    (vulpea-db-autosync-mode +1)
+    (message "[vulpea] autosync started in %.2fs" (- (float-time) started))))
 
-(defun sp-vulpea-scan-once ()
-  "Run the deferred full scan after the first note of the vault opens."
-  (when (and buffer-file-name
-             (vulpea-db-sync-tracked-file-p buffer-file-name))
-    (remove-hook 'find-file-hook #'sp-vulpea-scan-once)
-    (run-with-idle-timer 2 nil #'vulpea-db-sync-full-scan)))
-
-(add-hook 'find-file-hook #'sp-vulpea-scan-once)
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-idle-timer 5 nil #'sp-vulpea-start-autosync)))
 #+end_src
 
 *** Alias property
@@ -154,17 +161,6 @@ Stores aliases in the =ROAM_ALIASES= property instead of Vulpea's default =ALIAS
 
 #+begin_src emacs-lisp -i
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
-#+end_src
-
-*** Sample query
-
-Runs =vulpea-db-query-by-tags-every= for notes tagged both project and active.
-
-- The result is discarded, so this line has no effect beyond executing the query at load time.
-- It looks like an example left in from the documentation.
-
-#+begin_src emacs-lisp -i
-(vulpea-db-query-by-tags-every '("project" "active")) ;; Query all active projects
 #+end_src
 
 ** Minibuffer display
@@ -269,13 +265,17 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Installing vulpea-ui
 
-Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty. All =vulpea-ui-= options are set in =:custom= (they used to be top-level =setq= forms after the =use-package=), and the sections below describe them. Because of =:after vulpea=, they are applied once Vulpea has loaded.
+Installs =vulpea-ui=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty. All =vulpea-ui-= options are set in =:custom= (they used to be top-level =setq= forms after the =use-package=), and the sections below describe them. There is no =:after vulpea=: Vulpea itself loads lazily (from its own =:bind=), so waiting for it left =vulpea-ui= unloaded and =C-x t s= undefined. =vulpea-ui= requires Vulpea when it loads.
 
 #+begin_src emacs-lisp -i
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
-  :after vulpea
+
+  ;; Autoloads `vulpea-ui-sidebar-toggle' from vulpea-ui itself.  Not `:after
+  ;; vulpea': vulpea loads lazily, so the key would stay undefined until then.
+  :bind
+  (("C-x t s" . vulpea-ui-sidebar-toggle))
   
   :custom
   ;; Position: 'right (default), 'left, 'top, 'bottom
@@ -345,12 +345,7 @@ Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the se
 
 *** Toggle key
 
-Binds =C-x t s= globally to =vulpea-ui-sidebar-toggle=. This sits in the =C-x t= prefix that Emacs uses for tab-bar commands.
-
-#+begin_src emacs-lisp -i
-;; opening the vulpea sidebar
-(global-set-key (kbd "C-x t s") #'vulpea-ui-sidebar-toggle)
-#+end_src
+=C-x t s= toggles the sidebar (=vulpea-ui-sidebar-toggle=). It is bound with =:bind= in the =use-package= above, so the command autoloads from =vulpea-ui=. This sits in the =C-x t= prefix that Emacs uses for tab-bar commands.
 
 *** Sidebar layout and refresh
 
@@ -525,18 +520,33 @@ Turns on =vulpea-para-agenda-mode=.
 - Vault buffers maintain their =agenda= tag when saved.
 - =org-agenda-files= is refreshed from the database before =org-agenda= and =org-todo-list=.
 - Views that restrict the files themselves bind =vulpea-para-agenda-inhibit-files-update= (see =sp-agenda-views=).
-- Entry points that bypass both (the splash, =sp-trails=) read the variable as last set, so it is also refreshed once, shortly after start-up, when the database is ready.
+- Entry points that bypass both (the splash, =sp-trails=) read the variable as last set, so it is also refreshed once, shortly after start-up, when the database is ready. The dashboard shows =loading agenda files...= until then (=sp-dashboard-agenda-ready=) and is redrawn once the files are set, if it is still the buffer on screen. The refresh prints how many files it set and how long it took.
 - Files saved before the mode was on get the tag from vulpea-para's backfill commands (run them once).
 
 #+begin_src emacs-lisp -i
 (vulpea-para-agenda-mode 1)
 
+(defvar sp-dashboard-agenda-ready)
+(declare-function sp-dashboard-refresh-agendas "sp-dashboard")
+
+;; The dashboard waits for the agenda files instead of reading the wrong ones.
+(setq sp-dashboard-agenda-ready nil)
+
 (defun sp-vulpea-para-refresh-agenda-files ()
-  "Set `org-agenda-files' from the database, ignoring errors."
-  (condition-case err
-      (vulpea-para-agenda-files-update)
-    (error (message "[vulpea-para] agenda files not set yet: %s"
-                    (error-message-string err)))))
+  "Set `org-agenda-files' from the database, ignoring errors.
+Then tell the dashboard, which waits for them, and redraw it."
+  (let ((started (float-time)))
+    (message "[vulpea-para] setting the agenda files from the database...")
+    (condition-case err
+        (progn
+          (vulpea-para-agenda-files-update)
+          (message "[vulpea-para] %d agenda files set in %.2fs"
+                   (length org-agenda-files) (- (float-time) started)))
+      (error (message "[vulpea-para] agenda files not set yet: %s"
+                      (error-message-string err))))
+    (setq sp-dashboard-agenda-ready t)
+    (when (fboundp 'sp-dashboard-refresh-agendas)
+      (sp-dashboard-refresh-agendas))))
 
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -1999,3 +2009,10 @@ Provides the =sp-vulpea-org-ql= feature and closes the file.
 (provide 'sp-vulpea-org-ql)
 ;; sp-vulpea-org-ql.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in these modules, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/132][#132]] 🐛 Fixed =C-x t s= being undefined: =sp-vulpea-ui= waited for =vulpea= (=:after vulpea=), which loads lazily, so =vulpea-ui= never loaded. The key is now a =:bind= that autoloads =vulpea-ui-sidebar-toggle=.
+- [[https://github.com/siainbuletin/dotfiles/pull/141][#141]] 🐛 Fixed =sp-org-ext= (and so =sp-tab-inbox=) failing at init with =(void-function vulpea-db-query-by-tags-every)=: removed the discarded sample query from =sp-vulpea-base=, which ran before =vulpea= had loaded.

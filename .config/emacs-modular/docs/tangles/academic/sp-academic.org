@@ -939,3 +939,8 @@ Provides the =sp-litnotes= feature and closes the file.
 ;; sp-litnotes.el ends here
 #+end_src
 
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/90][#90]] 🔧 Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed.

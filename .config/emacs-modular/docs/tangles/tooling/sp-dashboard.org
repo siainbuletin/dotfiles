@@ -821,7 +821,7 @@ The accents colour the boxes of the menu: block 1 takes =sp-dashboard-accent-1-f
 
 Palette updates:
 
-- When a theme is enabled or disabled, =sp-dashboard--theme-changed= applies the palette and redraws the splash. It runs on =enable-theme-functions= and =disable-theme-functions=.
+- When a theme is enabled or disabled, =sp-dashboard--theme-changed= applies the palette and redraws the splash, in the window that shows it. Drawing the splash switches the selected window to the Dashboard, so the redraw used to pull you back to it when you loaded a theme from another buffer. When no window shows the Dashboard it is not redrawn; =g= does it. It runs on =enable-theme-functions= and =disable-theme-functions=.
 - =sp-dashboard-palette-follow-theme= switches this off.
 - =sp-dashboard-apply-palette= applies the palette by hand.
 - =sp-dashboard-show-palette= shows the colour of each role.
@@ -925,11 +925,15 @@ theme, see `sp-dashboard-palette-roles'."
 
 #+begin_src emacs-lisp -i
 (defun sp-dashboard--theme-changed (&rest _)
-  "Recolour and redraw the splash after a theme change."
+  "Recolour the splash after a theme change, and redraw it where it is shown.
+Drawing the splash takes the selected window, so it is drawn in the window
+that already shows it and in none else: with another buffer selected, a
+theme change must not bring the Dashboard to the front."
   (when sp-dashboard-palette-follow-theme
     (sp-dashboard-apply-palette)
-    (when-let* ((buffer (get-buffer "Dashboard")))
-      (with-current-buffer buffer
+    (when-let* ((buffer (get-buffer "Dashboard"))
+                (window (get-buffer-window buffer t)))
+      (with-selected-window window
         (sp-dashboard-refresh)))))
 #+end_src
 
@@ -1307,20 +1311,52 @@ nil turns the timer off; the Focus files are still watched."
        (if (and scheduled (<= scheduled 0)) 1000 0)
        (if (member (plist-get entry :state) sp-dashboard-urgent-states) 500 0))))
 
+(defvar sp-dashboard-agenda-ready t
+  "Non-nil when `org-agenda-files' is final and the agenda boxes may read it.
+A module that sets the files late sets this to nil when it loads, then to t
+once they are set, and calls `sp-dashboard-refresh-agendas'.  Until then the
+boxes say they are loading instead of reading the wrong files.")
+
+(defvar sp-dashboard--entries-cache nil
+  "Hash table of the entries read from each list of files during one draw.
+Nil outside a draw, when nothing is kept.")
+
+(defun sp-dashboard--read-entries (files)
+  "Return every open TODO of FILES as entry plists, in no particular order.
+During a draw (`sp-dashboard--entries-cache') a list of files is read once,
+however many boxes show it."
+  (require 'org)
+  (or (and sp-dashboard--entries-cache
+           (gethash files sp-dashboard--entries-cache))
+      (let ((started (float-time))
+            (count 0)
+            entries)
+        (dolist (file files)
+          (when (file-readable-p file)
+            (setq count (1+ count))
+            (condition-case nil
+                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
+                  (when entry
+                    (push entry entries)))
+              (error nil))))
+        (message "[dashboard] read %d agenda file%s in %.2fs"
+                 count (if (= count 1) "" "s") (- (float-time) started))
+        (when sp-dashboard--entries-cache
+          (puthash files entries sp-dashboard--entries-cache))
+        entries)))
+
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
 Private entries are left out while `sp-dashboard-public-p'."
-  (require 'org)
-  (let ((public (sp-dashboard-public-p))
-        entries)
-    (dolist (file files)
-      (when (file-readable-p file)
-        (condition-case nil
-            (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-              (unless (or (null entry)
-                          (and public (sp-dashboard--private-p file (plist-get entry :tags))))
-                (push entry entries)))
-          (error nil))))
+  (let* ((public (sp-dashboard-public-p))
+         ;; A new list each time: `sort' below changes its argument, and the
+         ;; entries of a draw are shared by its boxes.
+         (entries (seq-remove
+                   (lambda (entry)
+                     (and public
+                          (sp-dashboard--private-p (plist-get entry :file)
+                                                   (plist-get entry :tags))))
+                   (sp-dashboard--read-entries files))))
     (when (eq mode 'deadline)
       (setq entries (seq-filter (lambda (entry)
                                   (let ((days (plist-get entry :deadline)))
@@ -1480,10 +1516,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
   "Return AGENDA as a box of text WIDTH, drawn with BOX-FACE."
   (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
                (rule (make-string (+ width 2) ?─))
-               (todos (condition-case nil
-                          (sp-dashboard--todos
-                           (or (symbol-value files-var) (org-agenda-files)) mode)
-                        (error nil)))
+               (todos (when sp-dashboard-agenda-ready
+                        (condition-case nil
+                            (sp-dashboard--todos
+                             (or (symbol-value files-var) (org-agenda-files)) mode)
+                          (error nil))))
                (lines (list (list (list (concat "┌" rule "┐") box-face))
                             (apply #'sp-dashboard--box-line
                                    width box-face
@@ -1493,7 +1530,11 @@ It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
                             (list (list (concat "├" rule "┤") box-face)))))
     (if (null todos)
         (setq lines (append lines (list (sp-dashboard--box-line
-                                         width box-face (list "  nothing open" 'shadow)))))
+                                         width box-face
+                                         (list (if sp-dashboard-agenda-ready
+                                                   "  nothing open"
+                                                 "  loading agenda files...")
+                                               'shadow)))))
       (dolist (entry todos)
         (let* ((prefix (if (eq mode 'deadline)
                            (format-time-string
@@ -1557,7 +1598,8 @@ PROPERTIES are added to the button, see `sp-dashboard--stops'."
 The lane is `sp-dashboard--lane-width' wide, from `sp-dashboard-box-width',
 and the banner is centred on it."
   (setq sp-dashboard--scope nil)
-  (let* ((gap 2)
+  (let* ((sp-dashboard--entries-cache (make-hash-table :test #'equal))
+         (gap 2)
          (lane (sp-dashboard--lane-width))
          (columns (sp-dashboard--box-columns))
          (base (/ (- lane (* gap (1- columns))) columns))
@@ -2294,12 +2336,24 @@ nothing happens while the geometry is the same."
 
 ** Initial display and hooks
 
-=sp-dashboard--setup-splash-hooks= shows the graphical or terminal splash depending on =display-graphic-p=, then adds =sp-dashboard--refresh-on-resize= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
+=sp-dashboard--setup-splash-hooks= first closes every other window, because the =tabspaces= session restore (=tabspaces-mode= with =tabspaces-session-auto-restore=) has already put back the window layout saved at the last exit, which left a =*scratch*= window beside the Dashboard. It then shows the graphical or terminal splash depending on =display-graphic-p=, and adds =sp-dashboard--refresh-on-resize= to =window-state-change-hook=, =window-configuration-change-hook= and =sp-switch-buffer-hook= so the splash redraws when windows change.
 
 #+begin_src emacs-lisp -i
+(defun sp-dashboard-refresh-agendas ()
+  "Redraw the Dashboard to show the agenda files, when it is on screen.
+Only the Dashboard in the selected window is redrawn: drawing it takes the
+selected window, so it is left alone while another buffer is there."
+  (when (and (get-buffer "Dashboard")
+             (eq (window-buffer (selected-window)) (get-buffer "Dashboard")))
+    (with-current-buffer "Dashboard"
+      (sp-dashboard-refresh))))
+
 (defun sp-dashboard--setup-splash-hooks ()
-  "Initialize splash and setup hooks."
+  "Initialize splash and setup hooks.
+Start-up shows the Dashboard alone: a restored `tabspaces' session can leave a
+saved layout with a *scratch* window beside it."
   (progn
+    (delete-other-windows)
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
@@ -2331,3 +2385,16 @@ Provides the =sp-dashboard= feature and closes the file.
 (provide 'sp-dashboard)
 ;;; sp-dashboard.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/88][#88]] 🔧 Changed the buttons to keymap jumping: =cursor-intangible-mode= is removed, because its redisplay hook signals =wrong-type-argument= whenever no button is found and nothing outside Emacs can catch it. The focus face stops at the button and =global-hl-line-mode= is off in the buffer.
+- [[https://github.com/siainbuletin/dotfiles/pull/94][#94]] 🔧 Changed the dashboard into two columns: the lambda on the left, the banner, title and boxes on the right, centred together, and the footer centred at the bottom. The offsets of =sp-dashboard-art-layers= now start at 0 and are relative to these places, and the lambda is left out of a window too narrow for both columns. The lambda is rendered as an SVG sized to the window by =sp-dashboard-side-scale= (=auto=), so it is larger on a large display while all the text keeps its normal size; it falls back to text in terminals. Tested in Emacs 29.3 headless and under a virtual X display, not on a Mac or 4K display.
+- [[https://github.com/siainbuletin/dotfiles/pull/103][#103]] 🔧 Changed the dashboard box titles ("General agenda", "Thesis", ...) to be larger than the rows (=sp-dashboard-heading-face=, a level 1 heading of the sp themes), the TODO keywords in the boxes to take their colour from the theme (new roles =fg-todo= and =fg-done= for =org-todo= and =org-done=), and the dashboard agenda buttons to open =org-other-agenda= instead of the regular agenda. Layout tested headless; =org-other-agenda= could not be installed here, so only the fallback was run.
+- [[https://github.com/siainbuletin/dotfiles/pull/107][#107]] 🔧 Changed tabbing through the dashboard to walk the box titles first ("General agenda", "Thesis", ...); =<right>= steps into the TODO entries or menu rows of the box under point, where =TAB= walks only those, and =<left>= goes back to the title. The key at the right of a title is no longer a separate stop. Tested headless in Emacs 29.3.
+- [[https://github.com/siainbuletin/dotfiles/pull/111][#111]] 🐛 Fixed the dashboard losing the selected button and the box you stepped into whenever any window hook fired: the hooks now redraw only when the window or font size changed since the last draw, so TAB, S-TAB and =<right>= work while something else (a key logger, the mode line) keeps triggering them; the width of the larger box titles is read from the font instead of measured in a buffer. Reproduced and checked headless and in graphical Emacs 29.3 with real key events; not reproduced the failure itself, so it is a likely cause and not a confirmed one.
+- [[https://github.com/siainbuletin/dotfiles/pull/113][#113]] 🔧 Changed the width of the dashboard boxes to its own option, =sp-dashboard-box-width= (36 columns each, borders included; it was 29 and tied to the banner), replacing =sp-dashboard-lane-width=. The banner and the title are now centred on the two columns of boxes, and the right column is as wide as the boxes or the banner, whichever is wider. Layout tested headless and in graphical Emacs 29.3.
+- [[https://github.com/siainbuletin/dotfiles/pull/124][#124]] 🐛 Fixed the slow start-up and hangs since the vulpea scan was deferred: =vulpea-db-autosync-mode= now starts five idle seconds after start-up with =vulpea-db-sync-scan-on-enable= =background= (files listed by a subprocess, only changed files parsed from the queue), replacing =sp-vulpea-scan-once=, whose foreground =vulpea-db-sync-full-scan= froze Emacs and was started by the dashboard visiting the agenda files. The dashboard reads each list of agenda files once per draw (=sp-dashboard--read-entries=) instead of once per box, shows =loading agenda files...= until =org-agenda-files= is set (=sp-dashboard-agenda-ready=) and is redrawn when it is. Added echo-area messages for the autosync start, the agenda-files refresh and the dashboard reads, each with its time. Not run in Emacs (none in the container); the cause is read from the code and unconfirmed.
+- [[https://github.com/siainbuletin/dotfiles/pull/133][#133]] 🐛 Fixed a =*scratch*= window opening beside the Dashboard at start-up: the setup now closes the other windows before drawing the Dashboard. Cause read from the code and =tabspaces= source, not run in Emacs.
