@@ -75,7 +75,8 @@
   (add-hook 'prog-mode-hook #'highlight-numbers-mode))
 
 (use-package hl-todo
-  :ensure t
+  ;; Installed by `sp-org-taskman-extra'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
   :commands hl-todo-mode
   :init
@@ -151,6 +152,12 @@
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
+
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').
+Used by `sp-nano-style'.  Only the text of the title is shown, not its face.")
+
 
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

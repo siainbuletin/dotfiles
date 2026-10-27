@@ -8,7 +8,7 @@
 
 (defcustom siapip/lisp-paredit:enabled nil
   "When enabled, this option automatically activates paredit mode in Lisp modes."
-  :group 'siapip
+  :group 'spcustom
   :type 'boolean)
 
 ;; This will make the matching parentheses show up faster.
@@ -65,7 +65,8 @@
 ;; Find a function without a good demonstration? Call elisp-demos-add-demo.
 
 (use-package elisp-demos
-  :ensure t
+  ;; Installed by `sp-help'; a second :ensure t is a duplicate order.
+  :ensure nil
   :after helpful ; this can enhance the `describe-function` call
   :config
   (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))

@@ -2,13 +2,25 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-base-libraries.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-base-libraries.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-base-libraries.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This is one of the first modules loaded in every profile. It installs or declares the small libraries many other packages and =sp-= modules rely on (=subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others), and then collects a number of general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
+This is one of the first modules loaded in every profile.
 
-Packages are installed through elpaca via =use-package=; =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues, which matters for =transient= because =sp-keys= uses =transient-define-prefix= at load time. The module uses =sp-cache-dir= from the core config. The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
+- Installs or declares the small libraries many other packages and =sp-= modules rely on: =subr-x=, =cl-lib=, =async=, =dash=, =s=, =f=, =transient= and others.
+- Then collects general defaults that did not have a better home: Org Babel languages, cursor shape, undo history, electric pairs, auto-revert, Avy and a few global keys.
+
+Installation:
+
+- Packages are installed through elpaca via =use-package=.
+- =:ensure (:wait t)= makes elpaca finish installing a package before the rest of the config continues. This matters for =transient=, because =sp-keys= uses =transient-define-prefix= at load time.
+- The module uses =sp-cache-dir= from the core config.
+- The library section is adapted from Lambda Emacs's =lem-setup-libraries.el=.
 
 The commentary at the top of the module says:
 
@@ -138,7 +150,11 @@ Installs =cond-let= and waits for it, since newer versions of transient and Magi
 
 ** Transient
 
-Installs and loads =transient= immediately so =transient-define-prefix= is available when =sp-keys= is loaded. Its level, value and history files are stored under =sp-cache-dir=. Key conflict detection, fixed-pitch popups and the menu (=transient-show-menu=) are on, and popups appear in a dedicated side window at the top of the frame that =other-window= skips.
+Installs and loads =transient= immediately, so =transient-define-prefix= is available when =sp-keys= is loaded.
+
+- Its level, value and history files are stored under =sp-cache-dir=.
+- Key conflict detection, fixed-pitch popups and the menu (=transient-show-menu=) are on.
+- Popups appear in a dedicated side window at the top of the frame that =other-window= skips.
 
 #+begin_src emacs-lisp -i
 (use-package transient
@@ -323,7 +339,10 @@ Installs =load-dir=, which can load every Lisp file in a directory.
 
 ** dwim-shell-command
 
-Installs =dwim-shell-command= and uses it in place of =shell-command= globally and =dired-smart-shell-command= in Dired. It runs shell commands with placeholders for the file at point or the marked files. Remapping the other Dired shell commands is left commented out.
+Installs =dwim-shell-command= and uses it in place of =shell-command= globally and =dired-smart-shell-command= in Dired.
+
+- It runs shell commands with placeholders for the file at point or the marked files.
+- Remapping the other Dired shell commands is left commented out.
 
 #+begin_src emacs-lisp -i
 (use-package dwim-shell-command

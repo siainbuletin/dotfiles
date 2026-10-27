@@ -2,9 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-md.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-md.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-md.el=.
 
-This module configures Markdown editing. It registers the built-in, still experimental =markdown-ts-mode= from Emacs 31 without enabling it, and sets up the established =markdown-mode= package as the actual mode for Markdown files, with super key shortcuts, wiki links, a custom open command, an xwidget based live preview, spell checking and TODO highlighting. =markdown-toc= adds table of contents support.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module configures Markdown editing.
+
+- Registers the built-in, still experimental =markdown-ts-mode= from Emacs 31 without enabling it.
+- Sets up the established =markdown-mode= package as the actual mode for Markdown files, with:
+  - super key shortcuts,
+  - wiki links,
+  - a custom open command,
+  - an xwidget based live preview,
+  - spell checking and TODO highlighting.
+- =markdown-toc= adds table of contents support.
 
 External pieces it expects: =flyspell= and =hl-todo= for the mode hook, an Emacs built with xwidget support for the live preview, and a script at =~/bin/mark.sh= for =markdown-open=. The module is loaded with the utility modules in both module lists in =init.el=.
 
@@ -28,7 +41,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Markdown-ts-mode
 
-Declares the built-in =markdown-ts-mode= without installing anything and defers it. The header comment says Emacs 21 but means Emacs 31, where this mode arrived. Since it is not added to =auto-mode-alist=, this form has no visible effect beyond making the package known to use-package.
+Declares the built-in =markdown-ts-mode= without installing anything, and defers it.
+
+- The header comment says Emacs 21 but means Emacs 31, where this mode arrived.
+- It is not added to =auto-mode-alist=, so this form has no visible effect beyond making the package known to use-package.
 
 #+begin_src emacs-lisp -i
 ;;;; Markdown-ts-mode (native emacs 21)
@@ -57,9 +73,20 @@ A note explaining that =markdown-ts-mode= is experimental and not wired to =.md=
 
 ** Legacy markdown-mode
 
-Installs =markdown-mode= and uses it for =.markdown= and =.md= files, with =README.md= files intended for =gfm-mode= (GitHub flavoured). In Markdown buffers =s-*=, =s-b= and =s-i= insert a list item, bold and italic. The settings turn off math, turn on wiki links, nest headings in imenu, put footnotes right after the reference, use a dash and three spaces for bullets, scale headers, and read Pandoc style YAML metadata. =markdown-open-command= points to a personal =~/bin/mark.sh= script.
+Installs =markdown-mode= and uses it for =.markdown= and =.md= files, with =README.md= files intended for =gfm-mode= (GitHub flavoured).
 
-Live preview is redirected to =sp--markdown-live-preview-window-xwidget=, which opens the exported file in an xwidget WebKit browser and pops to it, so it needs an Emacs built with xwidgets. =sp--markdown-settings= runs in every Markdown buffer to turn on =flyspell-mode= and =hl-todo-mode= (auto fill is commented out). Finally, =@= is made a symbol constituent so word and symbol motions treat it as part of a word, which the comment says is for Meow point movement.
+- In Markdown buffers, =s-*=, =s-b= and =s-i= insert a list item, bold and italic.
+- The settings turn off math and turn on wiki links.
+- They nest headings in imenu and put footnotes right after the reference.
+- They use a dash and three spaces for bullets and scale headers.
+- They read Pandoc style YAML metadata.
+- =markdown-open-command= points to a personal =~/bin/mark.sh= script.
+
+Live preview and per-buffer settings:
+
+- Live preview is redirected to =sp--markdown-live-preview-window-xwidget=. It opens the exported file in an xwidget WebKit browser and pops to it, so it needs an Emacs built with xwidgets.
+- =sp--markdown-settings= runs in every Markdown buffer to turn on =flyspell-mode= and =hl-todo-mode= (auto fill is commented out).
+- Finally, =@= is made a symbol constituent, so word and symbol motions treat it as part of a word. The comment says this is for Meow point movement.
 
 #+begin_src emacs-lisp -i
 ;;;; Legacy markdown mode
@@ -127,7 +154,11 @@ Installs =markdown-toc= and enables =markdown-toc-mode= in Markdown buffers, whi
 
 ** Delete backslashes macro
 
-=lem-md-delete-backslash= is a saved keyboard macro meant to clean up stray backslashes left by a conversion to Markdown. It presses =M-q= twice and then the keys =f=, backslash and =x=, which are modal find and delete keys, so it only does what its name says in a Vim style state; in plain Emacs state those keys would insert text. Its exact intent is inferred from the comment.
+=lem-md-delete-backslash= is a saved keyboard macro meant to clean up stray backslashes left by a conversion to Markdown.
+
+- It presses =M-q= twice and then the keys =f=, backslash and =x=. These are modal find and delete keys.
+- So it only does what its name says in a Vim style state. In plain Emacs state those keys would insert text.
+- Its exact intent is inferred from the comment.
 
 #+begin_src emacs-lisp -i
 ;; macro: delete backslashes in paragraph to cleanup markdown conversion

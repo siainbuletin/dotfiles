@@ -2,9 +2,16 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../../libraries/modules/base/navi/sp-consult-snapfile.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/navi/sp-consult-snapfile.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/navi/sp-consult-snapfile.el=.
 
-This navigation sub-module, loaded by =sp-navi=, configures =consult-snapfile=, a Consult front-end that queries a local file-search server over a websocket. The package is loaded from a local checkout in =~/cloned-utilities/consult-snapfile/emacs= rather than from a package archive, and it needs the =consult= and =websocket= packages plus the snapfile server running on the configured host and port.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This navigation sub-module, loaded by =sp-navi=, configures =consult-snapfile=, a Consult front-end that queries a local file-search server over a websocket.
+
+- The package is loaded from a local checkout in =~/cloned-utilities/consult-snapfile/emacs=, not from a package archive.
+- It needs the =consult= and =websocket= packages, plus the snapfile server running on the configured host and port.
 
 * consult-snapfile
 
@@ -26,7 +33,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Package
 
-Loads =consult-snapfile= from the local checkout after Consult and websocket are available, and binds =C-c s f= to =consult-snapfile=. If the directory does not exist, the package will not be found. The checkout path goes through the constant =sp-consult-snapfile-dir=, because =use-package= reads a list given to =:load-path= as a list of paths and would evaluate =sp-path= as a variable. =:ensure nil= keeps Elpaca from looking for the package in an archive.
+Loads =consult-snapfile= from the local checkout after Consult and websocket are available, and binds =C-c s f= to =consult-snapfile=.
+
+- If the directory does not exist, the package will not be found.
+- The checkout path goes through the constant =sp-consult-snapfile-dir=. =use-package= reads a list given to =:load-path= as a list of paths, and would evaluate =sp-path= as a variable.
+- =:ensure nil= keeps Elpaca from looking for the package in an archive.
+- The settings are in =:custom=: the client talks to the snapfile server on =127.0.0.1= port 9876 (=consult-snapfile-server-host=, =consult-snapfile-server-port=), and each query returns at most 100 results (=consult-snapfile-max-results=). Because of =:after=, they are applied once Consult and websocket have loaded.
 
 #+begin_src emacs-lisp -i
 ;; `:load-path' reads a list as a list of paths and evaluates each symbol in it as a
@@ -40,26 +52,14 @@ Loads =consult-snapfile= from the local checkout after Consult and websocket are
   :load-path sp-consult-snapfile-dir
   :after (consult websocket)
   ;; Optional: bind to your preferred key
-  :bind ("C-c s f" . consult-snapfile))
-#+end_src
+  :bind ("C-c s f" . consult-snapfile)
 
-** Server settings
-
-Points the client at the snapfile server on =127.0.0.1= port 9876.
-
-#+begin_src emacs-lisp -i
-;; Server settings
-(setq consult-snapfile-server-port 9876)
-(setq consult-snapfile-server-host "127.0.0.1")
-#+end_src
-
-** Result limit
-
-Limits each query to 100 results.
-
-#+begin_src emacs-lisp -i
-;; Max results to return
-(setq consult-snapfile-max-results 100)
+  :custom
+  ;; Server settings
+  (consult-snapfile-server-port 9876)
+  (consult-snapfile-server-host "127.0.0.1")
+  ;; Max results to return
+  (consult-snapfile-max-results 100))
 #+end_src
 
 ** Provide

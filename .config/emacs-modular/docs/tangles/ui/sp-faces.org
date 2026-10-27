@@ -2,11 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-faces.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-faces.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-faces.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module gathers settings that change how text and the cursor look: outline heading faces in Lisp files, SVG tags in code, TODO and number highlighting, a TODO navigation transient, pulsing the current line after jumps, and highlighting of edited regions with Goggles. It also defines a small =what-face= helper for inspecting faces.
 
-Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =hl-todo=, =goggles=) are configured unconditionally, apart from =svg-tag-mode=, which needs SVG support. Built-ins used are =reveal=, =wid-edit=, =pulse= and =transient=. The =sp-todo-transient= defined here is bound under the leader map in =sp-keys=.
+Packages:
+
+- Optional packages (=outline-minor-faces=, =svg-tag-mode=, =highlight-numbers=, =hl-todo=, =goggles=) are configured unconditionally. The exception is =svg-tag-mode=, which needs SVG support.
+- Built-ins used: =reveal=, =wid-edit=, =pulse= and =transient=.
+- The =sp-todo-transient= defined here is bound under the leader map in =sp-keys=.
 
 * Header
 
@@ -142,9 +150,12 @@ Enables =highlight-numbers-mode= in programming buffers, giving numeric literals
 
 Enables =hl-todo-mode= in programming and Markdown buffers so keywords like TODO and FIXME stand out. Enabling it in Org is commented out, presumably because Org already styles its own TODO keywords.
 
+This form has =:ensure nil=: the package is installed (and its colours and global mode set) by =sp-org-taskman-extra=, and a second explicit declaration is logged by Elpaca as =Duplicate item ID queued: hl-todo=. The hooks are only added here, and the package loads on first use.
+
 #+begin_src emacs-lisp -i
 (use-package hl-todo
-  :ensure t
+  ;; Installed by `sp-org-taskman-extra'; a second :ensure t is a duplicate order.
+  :ensure nil
   :defer t
   :commands hl-todo-mode
   :init
@@ -172,7 +183,11 @@ The comment documents the transient defined next and loads =transient=.
 
 ** TODO navigation transient
 
-=sp-todo-transient= offers =n= and =p= to jump to the next and previous TODO keyword and =o= to list them with occur, all staying in the menu, and =q= to quit. On invocation it turns =hl-todo-mode= on and registers a one-shot =transient-exit-hook= function that turns it off again and removes itself, so highlighting is only active while navigating. It is bound to =s t= under the leader key in =sp-keys=.
+=sp-todo-transient=:
+
+- =n= and =p= jump to the next and previous TODO keyword. =o= lists them with occur. All stay in the menu. =q= quits.
+- On invocation it turns =hl-todo-mode= on and registers a one-shot =transient-exit-hook= function that turns it off again and removes itself. So highlighting is only active while navigating.
+- Bound to =s t= under the leader key in =sp-keys=.
 
 #+begin_src emacs-lisp -i
 (transient-define-prefix sp-todo-transient ()
@@ -221,9 +236,17 @@ Hides the cursor in windows other than the selected one.
 
 ** Pulse the current line
 
-Uses the built-in =pulse= library, following Karthink's "batteries included" article. =C-<return>= runs =pulse-line=, which briefly highlights the current line. Once pulse is loaded, the line also pulses on any change of selected window, through =window-selection-change-functions=. Because that hook is added in =:config=, it only takes effect after =pulse= has been loaded, for example by the first =C-<return>=.
+Uses the built-in =pulse= library, following Karthink's "batteries included" article.
 
-This block used to advise =scroll-up-command=, =scroll-down-command=, =recenter-top-bottom= and =other-window= with =pulse-line= as well. That advice was removed: because =pulse-line= is interactive, its empty =(interactive)= spec replaced the advised command's own spec, so =C-x o= called =other-window= with no COUNT and failed with "Wrong number of arguments". Those commands already pulse through =pulsar= in =sp-windows=.
+- =C-<return>= runs =pulse-line=, which briefly highlights the current line.
+- Once pulse is loaded, the line also pulses on any change of selected window, through =window-selection-change-functions=.
+- That hook is added in =:config=, so it only takes effect after =pulse= has been loaded, for example by the first =C-<return>=.
+
+This block used to advise =scroll-up-command=, =scroll-down-command=, =recenter-top-bottom= and =other-window= with =pulse-line= as well. That advice was removed.
+
+- =pulse-line= is interactive, so its empty =(interactive)= spec replaced the advised command's own spec.
+- So =C-x o= called =other-window= with no COUNT and failed with "Wrong number of arguments".
+- Those commands already pulse through =pulsar= in =sp-windows=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Highlight Cursor Line with Pulse
@@ -266,6 +289,19 @@ Turns off the fringe markers for empty lines after the end of the buffer.
 ;; Don't show empty lines.
 ;; .. Allows you to tell if there are blank lines at the end of the file.
 (setq-default indicate-empty-lines nil)
+#+end_src
+
+* Mode line and header line faces
+
+** Title in the header line
+
+=sp-modeline-title= is the face of the title of an Org buffer in the header line (=sp-nano-style=). Only the text of the =#+title:= keyword is taken; the heading face of the theme (=org-document-title=) is not used. The face is bold and nothing else, so it fits the header; change it here or with =M-x customize-face RET sp-modeline-title=. The module =sp-nano-style= defines the same face as a fallback for when this module is not loaded; this definition replaces it.
+
+#+begin_src emacs-lisp -i
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').
+Used by `sp-nano-style'.  Only the text of the title is shown, not its face.")
 #+end_src
 
 * Provide

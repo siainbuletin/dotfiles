@@ -36,5 +36,13 @@
 (use-package listen
   :ensure t)
 
+(use-package supersonic
+  :ensure t 
+  :commands supersonic
+  :bind (("C-c m" . supersonic))
+  :custom
+  (supersonic-host "http://192.168.88.10:4355") ;; see "Connecting to a Subsonic server"
+  (supersonic-enable-scrobbling t))
+
 (provide 'sp-multimedia)
 ;; sp-multimedia.el ends here.

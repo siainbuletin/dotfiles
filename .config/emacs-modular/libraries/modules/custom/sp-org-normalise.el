@@ -20,7 +20,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
-(require 'sp-paths nil t)
+(require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
 
@@ -34,14 +34,14 @@
   (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
   "Directory scanned for Org files."
   :type 'directory
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-exclude-regexp
   "/\\(?:\\.[^/]+\\|ltximg\\|attach\\|data\\)/"
   "Files whose path matches this regexp are not scanned.
 The default skips hidden directories and the usual attachment ones."
   :type 'regexp
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-keyword-map
   '(("STARTED"     . "PROG")
@@ -62,14 +62,14 @@ Only headings that start with one of the OLD words are changed, so a
 word that is not here is reported by the inventory but never touched.
 NEW should be a keyword of `sp-org-normalise-target-sequence'."
   :type '(alist :key-type string :value-type string)
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-target-sequence
   '(("TODO" "NEXT" "PROG" "WAIT") ("DONE" "CNCL"))
   "The keyword sequence to normalise to, as (ACTIVE DONE).
 It matches `org-gtd-keyword-mapping' in `sp-org-taskman-extra'."
   :type '(list (repeat string) (repeat string))
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-declare-todo-line t
   "When non-nil, propose a #+todo: line for files that need one.
@@ -78,37 +78,37 @@ know in that file and the file declares no sequence of its own.  A
 file that declares its own sequence is never edited this way; the plan
 only notes the missing keywords."
   :type 'boolean
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-tasks-heading-regexp "\\`Tasks?\\'"
   "Headings whose title matches this are Tasks sections."
   :type 'regexp
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-checkbox-keywords
   '((" " . "TODO") ("X" . "DONE") ("-" . "PROG"))
   "Keyword for each checkbox state: [ ], [X] and [-]."
   :type '(alist :key-type string :value-type string)
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-promote-plain-headings nil
   "When non-nil, also give a TODO to plain child headings of a Tasks heading.
 Off by default, since a Tasks heading is often a container of sections
 \(one per project) and not a list of tasks."
   :type 'boolean
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-promote-keyword "TODO"
   "Keyword given to a plain child heading of a Tasks heading."
   :type 'string
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 (defcustom sp-org-normalise-save-after-apply nil
   "When non-nil, save each file after its changes are applied.
 Otherwise the buffers are left modified so that the result can be read
 \(for example in a diff) and undone before saving."
   :type 'boolean
-  :group 'sp-org-normalise)
+  :group 'spcustom)
 
 ;;;; Keywords
 
@@ -356,7 +356,7 @@ GLOBAL is the list of globally declared keywords (default: those of
 
 (defun sp-org-normalise--file-text (file)
   "Text of FILE: from its buffer if it is visited, else from disk."
-  (if-let ((buf (find-buffer-visiting file)))
+  (if-let* ((buf (find-buffer-visiting file)))
       (with-current-buffer buf (buffer-substring-no-properties (point-min) (point-max)))
     (with-temp-buffer (insert-file-contents file) (buffer-string))))
 
@@ -451,7 +451,7 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
 (defun sp-org-normalise-visit ()
   "Visit the file and line of the change at point."
   (interactive)
-  (if-let ((loc (get-text-property (point) 'sp-org-normalise-loc)))
+  (if-let* ((loc (get-text-property (point) 'sp-org-normalise-loc)))
       (progn (find-file-other-window (car loc))
              (goto-char (point-min))
              (forward-line (cdr loc)))

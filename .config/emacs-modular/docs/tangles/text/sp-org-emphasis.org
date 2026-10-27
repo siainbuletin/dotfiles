@@ -2,11 +2,20 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-emphasis.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-emphasis.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-emphasis.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Small commands that make Org emphasis behave in a "do what I mean" way: with no active region they first mark the word at point, then call =org-emphasize=. The approach is adapted from a Stack Exchange answer and an Emacs TIL post, and the =lem-= prefixed helpers come from the Lambda Emacs config. The module also installs =org-extra-emphasis= from GitHub for richer highlighting.
+Small commands that make Org emphasis behave in a "do what I mean" way.
+
+- With no active region, they first mark the word at point, then call =org-emphasize=.
+- The approach is adapted from a Stack Exchange answer and an Emacs TIL post.
+- The =lem-= prefixed helpers come from the Lambda Emacs config.
+- The module also installs =org-extra-emphasis= from GitHub for richer highlighting.
 
 The module is not loaded from =init.el=. Its final form is =(provide 'sp-org-emphasis)=.
 
@@ -91,7 +100,14 @@ Moves back to the start of the word if point is in the middle of it, then marks 
 
 ** org-extra-emphasis
 
-Installs =org-extra-emphasis= from QiangF's GitHub repository. The comment says the aim is region highlighting similar to Markdown highlights in Obsidian. The faces are set once the package has loaded: =org-extra-emphasis= gets a yellow (#F0B609) background, bold and inherits =default=, and the numbered =-01= and =-02= variants inherit it with a dark blue (#003F66) underlined foreground. The =org-default= face gets the same yellow background once Org loads. These were saved by Customize in =init.el= before.
+Installs =org-extra-emphasis= from QiangF's GitHub repository.
+
+- The comment says the aim is region highlighting similar to Markdown highlights in Obsidian.
+- The faces are set once the package has loaded:
+  - =org-extra-emphasis= gets a yellow (#F0B609) background, bold, and inherits =default=,
+  - the numbered =-01= and =-02= variants inherit it with a dark blue (#003F66) underlined foreground.
+- The =org-default= face gets the same yellow background once Org loads.
+- These were saved by Customize in =init.el= before.
 
 #+begin_src emacs-lisp -i
 ;;;; Proper highlighting of regions, like in Markdown with Obsidian

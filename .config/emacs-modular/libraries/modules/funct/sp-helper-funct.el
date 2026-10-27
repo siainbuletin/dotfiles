@@ -18,15 +18,11 @@
 ))
 
 ;;;; Exiting without confirmation
-(setq confirm-kill-processes nil)
+;; Moved to `sp-globals': `sp-confirm-kill-processes'.
 
 ;; Sounds
-(setq ring-bell-function 'ignore) ;; Disable the bell sound
-
-;; flash-screen-instead-of-ringing-bell
-;; When you perform a problematic operation, flash the screen
-;; instead of ringing the terminal bell
-(setq visible-bell t)
+;; Moved to `sp-globals': `sp-ring-bell-function' (no bell sound) and
+;; `sp-visible-bell' (flash the screen instead of ringing the bell).
 
 ;;;;; Archive region to setup-archive
 (defun sp-kill-and-archive-region ()
@@ -173,6 +169,23 @@ will be killed."
   (delete-region (point-min) (point-max))
   (clipboard-yank)
   (deactivate-mark))
+
+(defun sp-copy-last-message ()
+  "Copy the last message logged in *Messages* to the kill ring.
+Show the copied text in the echo area.  Messages the echo area
+showed without logging them cannot be recovered."
+  (interactive)
+  (if-let* ((buf (get-buffer "*Messages*"))
+            (text (with-current-buffer buf
+                    (save-excursion
+                      (goto-char (point-max))
+                      (skip-chars-backward "\n")
+                      (buffer-substring-no-properties
+                       (line-beginning-position) (point)))))
+            ((not (string-empty-p text))))
+      (progn (kill-new text)
+             (message "Copied: %s" text))
+    (user-error "No message to copy")))
 
 ;;;;;; Useful Buffers
 ;; TODO: make this respect workspace buffers
@@ -432,7 +445,7 @@ will be killed."
 (defcustom sia-org-heading-level-capitalise nil
   "Minimum level of Org headings to be capitalised
 Nil implies all levels are capitalised."
-  :group 'ews
+  :group 'spcustom
   :type  '(choice (const :tag "All headings" nil)
 		  (integer :tag "Highest level" 1)))
 
@@ -574,8 +587,7 @@ to (recursively) create the file's parent directories."
   "Turn on transient-mark-mode."
   (transient-mark-mode t))
 
-;; Ask if you're sure that you want to close Emacs.
-(setq confirm-kill-emacs nil)
+;; Moved to `sp-globals': `sp-confirm-kill-emacs' (quit without asking).
 
 (defun sensible-defaults/quiet-startup ()
   "Don't present the usual startup message, and clear the scratch

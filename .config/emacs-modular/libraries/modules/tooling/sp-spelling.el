@@ -15,8 +15,9 @@
   :ensure nil
   :commands (ispell-word ispell-region ispell-buffer)
   :config
-  (when (executable-find "aspell")
-    (setq ispell-program-name "aspell")
+  ;; The program, `sp-ispell-program', is set in `sp-globals'.
+  (when (executable-find sp-ispell-program)
+    (setq ispell-program-name sp-ispell-program)
     ;; Please note ispell-extra-args contains ACTUAL parameters passed to aspell
     (setq ispell-extra-args '("--sug-mode=ultra" "--lang=en_US"))))
 
@@ -85,11 +86,7 @@
   (flyspell-goto-next-error)
   (ispell-word))
 
-;; taken from EWS
-(defcustom sia-hunspell-dictionaries "en_US"
-  "Comma-separated list of Hunspell dictionaries."
-  :group 'siapip
-  :type 'list)
+;; Moved to `sp-globals': `sia-hunspell-dictionaries' (taken from EWS).
 
 (provide 'sp-spelling)
 ;; sp-spelling.el ends here.

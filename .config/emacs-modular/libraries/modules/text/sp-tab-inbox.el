@@ -46,16 +46,14 @@
 (require 'sp-move-region-to-heading)
 
 ;;;; Configuration
-(defcustom sp-tab-inbox-dir (concat org-directory "/inbox/tabs/")
-  "Directory of plain files with unsorted links."
-  :type 'directory
-  :group 'vulpea)
+;; Moved to `sp-globals': `sp-tab-inbox-dir', the directory of plain files with
+;; unsorted links.
 
 (defcustom sp-tab-inbox-fill-column 40
   "Wrap width for link inbox results.
 Tune to your sidebar width."
   :type 'integer
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-auto-resources t
   "When non-nil, collect under the note's \"Resources\" heading automatically.
@@ -65,26 +63,26 @@ a file-level note, the narrowed heading otherwise).  If there is no such
 heading, or the choice is ambiguous, you are prompted for one as usual.
 See `sp-tab-inbox--resources-target' for how ties are handled."
   :type 'boolean
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-new-note-body "* Resources\n"
   "Body of a note created by `sp-tab-inbox-send-elsewhere'.
 The default gives the new note a Resources heading, so the hit lands there
 without another prompt.  Set to nil for an empty note."
   :type '(choice (const :tag "Empty note" nil) string)
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-see-also-heading "See also"
   "Title of the heading that collects backlinks in the originating note.
 It is a direct child of the subtree the sidebar is scoped to, and the
 last heading in it."
   :type 'string
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-backlink-context-lines 4
   "Lines of context shown above and below each inbox backlink."
   :type 'integer
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defvar sp-tab-inbox-generation 0
   "Bumped after collecting, so the widget's memo recomputes.")
@@ -110,7 +108,7 @@ A column-0 `*' is an Org heading, so it is not treated as a bullet.")
         (ids (list (vulpea-note-id note))))
     (when (and path (file-readable-p path))
       (with-temp-buffer
-        (if-let ((buf (find-buffer-visiting path)))
+        (if-let* ((buf (find-buffer-visiting path)))
             (insert (with-current-buffer buf
                       (save-restriction
                         (widen)
@@ -199,7 +197,7 @@ For a heading-level NOTE (e.g. when the sidebar follows narrowing) this is
 that heading.  For a file-level note, or if the heading can't be found, it
 is the whole file: MARKER at the start of the file and LEVEL 0."
   (or (and (> (or (vulpea-note-level note) 0) 0)
-           (when-let ((m (sp-tab-inbox--heading-marker note)))
+           (when-let* ((m (sp-tab-inbox--heading-marker note)))
              (cons m (with-current-buffer (marker-buffer m)
                        (org-with-wide-buffer
                         (goto-char m)
@@ -403,12 +401,12 @@ Return the target used."
 (defcustom sp-tab-inbox-async-slice 0.05
   "Seconds of work `collect all' does per timer tick before yielding."
   :type 'number
-  :group 'vulpea)
+  :group 'spcustom)
 
 (defcustom sp-tab-inbox-async-delay 0.1
   "Seconds Emacs must sit idle before `collect all' does its next slice."
   :type 'number
-  :group 'vulpea)
+  :group 'spcustom)
 
 (cl-defstruct (sp-tab-inbox-job (:constructor sp-tab-inbox-job--make)
                                  (:copier nil))
@@ -425,7 +423,7 @@ Return the target used."
 
 (defun sp-tab-inbox--job-close-file (job)
   "Save and, if JOB opened it, kill the inbox file JOB is working on."
-  (when-let ((buf (sp-tab-inbox-job-buf job)))
+  (when-let* ((buf (sp-tab-inbox-job-buf job)))
     (when (buffer-live-p buf)
       (with-current-buffer buf
         (when (buffer-modified-p) (save-buffer)))
@@ -701,7 +699,7 @@ The hit is the line LINE of FILE with content TEXT, found from ORIGIN, the
 note the sidebar is showing.  Interactively, these are the line at point
 in an inbox file, or a hit you choose from the sidebar's current ones.
 
-The note is chosen with `vulpea-select'; a title that doesn't exist yet
+The note is chosen with `sp-select-note'; a title that doesn't exist yet
 creates a new file-level note (see `sp-tab-inbox-new-note-body').  The
 line then moves under the chosen note's Resources heading like `collect'
 does.  No link back is added here; at the prompt, run the embark action
@@ -713,8 +711,8 @@ on `sp-tab-inbox-embark-map' to also link the note from ORIGIN."
                    (list file line text origin)
                  (sp-tab-inbox--resolve-hit))))
     (setq sp-tab-inbox--pending (list file line text origin))
-    (when-let ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
-                         (vulpea-select
+    (when-let* ((picked (let ((embark-keymap-alist (sp-tab-inbox--embark-alist)))
+                         (sp-select-note
                           "Send to note"
                           :require-match nil
                           :filter-fn (lambda (n) (zerop (vulpea-note-level n)))))))
@@ -802,7 +800,7 @@ the note under the See also heading of the note the search started from."
        (goto-char (car root))
        (org-map-entries
         (lambda ()
-          (when-let ((id (org-entry-get nil "ID")))
+          (when-let* ((id (org-entry-get nil "ID")))
             (push id ids)))
         nil
         (if (zerop (cdr root)) nil 'tree))))

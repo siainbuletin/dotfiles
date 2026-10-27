@@ -1,21 +1,30 @@
-#+TITLE: sp-themes.el: Theme management and theme packages
+#+TITLE: sp-themes.el: Theme folders, families and sp-load-theme
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-themes.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-themes.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-themes.el=.
 
-Sets up how colour themes are found, loaded and switched. It points =custom-theme-directory= at =libraries/themes/= and adds every subfolder there to the theme load path, provides a clean theme-switching command that disables all active themes first, and installs several theme families: Modus, Ef, Doric and Lambda themes, plus =easy-theme-preview= for trying them out. It also defines a light/dark toggle and a hook that runs after any =load-theme=.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-Much of it comes from Lambda-Emacs. It is loaded in the UI section of =init.el=. The command =sp-load-theme= is bound to =t= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=). Automatic switching to match the macOS system appearance lives in =sp-macos=, not here. The menubar helpers call an external =dark-mode= command-line tool.
+Sets up where the themes are, how they are grouped and how they are loaded. It:
+
+- puts the vendored theme engines on =load-path= and the theme folders of =libraries/themes/= on =custom-theme-load-path= (nothing is installed by Elpaca any more, only =easy-theme-preview=),
+- groups the themes in use in four families (hard light, faded light, faded dark, hard dark) and lists the rest under =library=; a registry reads every theme file the same way for its name, background, description and package,
+- makes =sp-load-theme= the only way to load a theme: no confirmation, and the old theme is only disabled after the new one has loaded,
+- sets the few options of the theme packages that do something, and optional palette overrides,
+- has one mechanism, =sp-theme-auto-mode=, to follow the light or dark appearance (the macOS setting, or the time of day), which =sp-macos= turns on, and a hook that runs after any =load-theme=.
+- The design and the reasons are in [[file:../../architecture/theme-system-design.org][theme-system-design.org]]; the faces a palette-only system would leave out are in [[file:../../architecture/modus-faces-outside-global-system.org][modus-faces-outside-global-system.org]].
+- Loaded in the UI section of =init.el=.
+- =sp-load-theme= is bound to =t= and =sp-load-theme-family= to =T= in the toggle prefix map in =sp-keys= (under =sp-prefix= followed by =t=).
+- Automatic switching to match the macOS system appearance lives in =sp-macos=, which calls =sp-theme-load-appearance=.
+- The menubar helpers call an external =dark-mode= command-line tool.
 
 The commentary at the top of the module says:
 
 #+begin_quote
-This includes the theme manager from Lambda Emacs
-
-𝛌-Emacs comes with its own set of themes --
-𝛌-Themes. The user can of course configure things to use whatever theme they
-like. The Modus themes are especially good and included with Emacs 28+.
+Every theme is vendored in =libraries/themes/= and every theme is loaded with =sp-load-theme=. Themes are grouped in four families, after the Lambda themes: hard light, faded light, faded dark and hard dark.
 #+end_quote
 
 * Overview
@@ -25,117 +34,596 @@ like. The Modus themes are especially good and included with Emacs 28+.
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-themes.el --- Theme management and theme packages -*- lexical-binding: t; -*-
+;;; sp-themes.el --- Theme folders, families and sp-load-theme -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This includes the theme manager from Lambda Emacs
-;;
-;; 𝛌-Emacs comes with its own set of themes --
-;; 𝛌-Themes. The user can of course configure things to use whatever theme they
-;; like. The Modus themes are especially good and included with Emacs 28+.
+;; Every theme is vendored in `libraries/themes/' (see the README.org
+;; there) and every theme is loaded with `sp-load-theme'.  Themes are
+;; grouped in four families, after the Lambda themes: hard light, faded
+;; light, faded dark and hard dark.
 
 ;;; Code:
 #+end_src
 
-* Theme loading infrastructure
+* Folders
 
-** Trust all themes
+** Never ask whether a theme is safe
 
-Setting =custom-safe-themes= to =t= treats every theme as safe, so loading one never asks for confirmation. The comment questions whether this needs to come first; it does need to be set before any =load-theme= call that would otherwise prompt.
+=custom-safe-themes= is set to =t= here, in code, so loading a theme never shows the confirmation prompt. Customize is never loaded (=custom-file= in =early-init.el= points to a file that no module reads), so the setting must not be left to the "Save for future sessions" answer of that prompt, which would write the theme's hash into =custom.el=. The advice further down makes the same promise for any caller of =load-theme=, in case something resets the variable.
 
 #+begin_src emacs-lisp -i
 ;;;; No-confirm themes
-;; should this setting really come first?
+;; Hard-coded on purpose: custom.el is never loaded (see early-init.el).
 (setq custom-safe-themes t)
 #+end_src
 
-** Custom themes directory option
+** The themes folder
 
-=sp-custom-themes-dir= is a customizable path for local themes, defaulting to =themes/= inside =sp-library-dir=.
+=sp-custom-themes-dir= is =libraries/themes/=. It is also =custom-theme-directory=, so a theme saved there is found without any other setting. The folder holds:
+
+- =lib/=: the theme engines (=modus-themes.el=, =ef-themes.el=, =doric-themes.el=, =lambda-themes.el=). Ef needs Modus, and every Ef theme file does =(require 'ef-themes)=, so this folder goes on =load-path=.
+- =active/=: the theme files in use.
+- =sp/=: themes written for this configuration.
+- =library/=: every other theme of the packages, one folder per package, for trying palettes out.
 
 #+begin_src emacs-lisp -i
 ;;;; Configuring the custom theme folder
 (defcustom sp-custom-themes-dir (concat sp-library-dir "themes/")
-  "Set a custom themes directory path."
-  :group 'sia-lambda
-  :type 'string)
-#+end_src
+  "The folder with the vendored themes, see its README.org."
+  :group 'spcustom
+  :type 'directory)
 
-** Creating and registering the directory
-
-Creates that directory if it is missing and makes it the default =custom-theme-directory=, so Emacs looks there for themes and saves new ones there.
-
-#+begin_src emacs-lisp -i
-;;;;; Make the custom themes dir.
-(mkdir sp-custom-themes-dir t)
 (setq-default custom-theme-directory sp-custom-themes-dir)
 #+end_src
 
-** Adding theme subfolders to the load path
+** Load paths
 
-Walks the themes directory and adds each subdirectory to =custom-theme-load-path=, so themes kept in their own folders (for example cloned theme repositories) can be loaded by name.
+The engines go on =load-path=. The theme folders go at the front of =custom-theme-load-path=, so the vendored =modus-operandi= (and the other Modus themes in =library/=) win over the older copies in Emacs's own =etc/themes=.
 
 #+begin_src emacs-lisp -i
-;;;;; find all themes recursively in custom-theme-folder
-(let ((basedir custom-theme-directory))
-  (dolist (f (directory-files basedir))
-    (if (and (not (or (equal f ".") (equal f "..")))
-             (file-directory-p (concat basedir f)))
-        (add-to-list 'custom-theme-load-path (concat basedir f)))))
+;;;; Paths
+(defun sp-themes--subdirs (dir)
+  "Return the subfolders of DIR, or nil if DIR does not exist."
+  (when (file-directory-p dir)
+    (seq-filter #'file-directory-p
+                (directory-files dir t directory-files-no-dot-files-regexp))))
+
+(defun sp-themes-library-dirs ()
+  "Return the package folders of the theme library."
+  (sp-themes--subdirs (expand-file-name "library/" sp-custom-themes-dir)))
+
+(add-to-list 'load-path (expand-file-name "lib/" sp-custom-themes-dir))
+
+(dolist (dir (append (sp-themes-library-dirs)
+                     (list (expand-file-name "sp/" sp-custom-themes-dir)
+                           (expand-file-name "active/" sp-custom-themes-dir))))
+  (add-to-list 'custom-theme-load-path dir))
 #+end_src
 
-* Switching themes
+* Families
 
-** Section comment
+** The four families
 
-Introduces the disable-all helper.
+=sp-theme-families= lists the themes in use, grouped the way the Lambda themes are. The first theme of a family is the one =sp-load-theme-family= loads. Move a theme between families, or add one from =library/= (and copy its file to =active/=), by editing this list.
+
+- =hard-light=: full contrast on a white background, for a bright room or daylight.
+- =faded-light=: softer contrast and a warm paper background, the everyday light theme.
+- =faded-dark=: dark grey or brown, for the evening.
+- =hard-dark=: near-black, for a dark room.
+
+The =sp-dark= and =sp-light= themes (see [[file:sp-theme-engine.org][sp-theme-engine.org]]) are the last of their families, so they are never loaded by accident; put them first to make them the default of the family.
+
+Contrast ratios between the main foreground and background: =lambda-light= 19.3, =lambda-light-faded= 13.5, =ef-day= 8.7, =ef-melissa-light= 9.0, =lambda-dark-faded= 12.2, =doric-fire= 10.5, =ef-dream= 11.5. The last two have almost the same near-black background, so =doric-fire= could also sit in =hard-dark=.
 
 #+begin_src emacs-lisp -i
-;;;; Disable All Custom Themes
+;;;; Theme families
+(defcustom sp-theme-families
+  '((hard-light  lambda-light)
+    (faded-light lambda-light-faded ef-day ef-melissa-light sp-light)
+    (faded-dark  lambda-dark-faded doric-fire)
+    (hard-dark   ef-dream sp-dark))
+  "The themes in use, in families: a list of (FAMILY THEME...).
+The first THEME of a family is the one `sp-load-theme-family' loads."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type (repeat symbol)))
+
+(defun sp-theme-family (theme)
+  "Return the family of THEME, or nil if it is not in one."
+  (car (seq-find (lambda (family) (memq theme (cdr family)))
+                 sp-theme-families)))
 #+end_src
 
-** Disabling all themes
+** The registry
 
-=sp-disable-all-themes= disables every enabled theme, which avoids the colour mixing that happens when =load-theme= stacks a new theme on top of old ones. It also turns off =window-divider-mode=, clears the header line, and installs a plain fallback mode line showing buffer name, major mode, a red =(**)= marker for unsaved file buffers or =(RO)= for read-only ones, and line and column. Resetting the mode line is a holdover from Lambda-Emacs; presumably the theme or mode-line package being loaded next replaces it again. The comment at the top shows the author is unsure why this step is needed.
+Every theme file, in =active/=, =sp/= and each folder of =library/=, is read the same way: =sp-theme-registry= looks at the form that defines the theme and collects a plist with its name, background (=light= or =dark=), description, package folder and family. No theme is loaded to do this. The forms it knows are =modus-themes-theme= (Modus and Ef), =doric-themes-define-theme= and =sp-theme-define= (Doric and the sp themes) and =deftheme= (Lambda, Catppuccin); the first pattern that matches a file wins, and a theme whose file matches none still gets an entry from its name. =sp-theme-metadata-exceptions= fixes what a file cannot say, such as the background of Catppuccin, whose flavor decides it.
 
 #+begin_src emacs-lisp -i
-;; why is this necessary in order to do sp-load-theme?
-(defun sp-disable-all-themes ()
-  "Disable all active themes & reset mode-line."
+;;;; The registry
+(defvar sp-theme-metadata-patterns
+  '(("(modus-themes-theme[[:space:]]+'\\([^[:space:]]+\\)[[:space:]]+'[^[:space:]]+[[:space:]]+\"\\([^\"]*\\)\"[[:space:]]+'\\(light\\|dark\\)"
+     1 2 3)
+    ("(\\(?:doric-themes-define-theme\\|sp-theme-define\\)[[:space:]]+\\([^[:space:]]+\\)[[:space:]]+\\(light\\|dark\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
+     1 3 2)
+    ("(deftheme[[:space:]]+\\([^[:space:])]+\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
+     1 2 nil))
+  "How to read a theme file: a list of (REGEXP NAME DESCRIPTION BACKGROUND).
+The last three are the numbers of the regexp groups holding that part, or nil.")
+
+(defvar sp-theme-metadata-exceptions
+  '(
+    (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; removed catppuccin, I don't like it
+    )
+  "Metadata that a theme file cannot give, an alist of (THEME . PLIST).")
+
+(defun sp-theme--file-metadata (file)
+  "Return the plist describing the theme in FILE, or nil if it has no theme."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let ((guess (intern (string-remove-suffix "-theme.el" (file-name-nondirectory file)))))
+      (or (seq-some
+           (lambda (pattern)
+             (goto-char (point-min))
+             (when (re-search-forward (nth 0 pattern) nil t)
+               (let* ((group (lambda (n) (and n (match-string-no-properties n))))
+                      (name (funcall group (nth 1 pattern)))
+                      (description (funcall group (nth 2 pattern)))
+                      (background (funcall group (nth 3 pattern))))
+                 ;; `split-string' changes the match data: read the groups first.
+                 (list :name (intern name)
+                       :description (when description
+                                      (string-join (split-string description) " "))
+                       :background (when background (intern background))))))
+           sp-theme-metadata-patterns)
+          (list :name guess)))))
+
+(defun sp-theme--background-from-name (name)
+  "Guess the background of the theme NAME from its name."
+  (cond ((string-match-p "dark\\|night\\|dream\\|vivendi" (symbol-name name)) 'dark)
+        ((string-match-p "light\\|day\\|operandi" (symbol-name name)) 'light)))
+
+(defun sp-theme--scan ()
+  "Read every theme file of the themes folder and return the registry."
+  (let ((root sp-custom-themes-dir) entries)
+    (dolist (dir (append (list (cons (expand-file-name "active/" root) "active")
+                               (cons (expand-file-name "sp/" root) "sp"))
+                         (mapcar (lambda (d) (cons d (file-name-nondirectory d)))
+                                 (sp-themes-library-dirs))))
+      (when (file-directory-p (car dir))
+        (dolist (file (directory-files (car dir) t "-theme\\.el\\'"))
+          (when-let* ((meta (sp-theme--file-metadata file))
+                      (name (plist-get meta :name)))
+            (let ((entry (append meta
+                                 (list :file file
+                                       :package (cdr dir)
+                                       :folder (if (member (cdr dir) '("active" "sp"))
+                                                   (cdr dir)
+                                                 "library")
+                                       :family (sp-theme-family name)))))
+              (setq entry (append (alist-get name sp-theme-metadata-exceptions) entry))
+              (unless (plist-get entry :background)
+                (setq entry (plist-put entry :background (sp-theme--background-from-name name))))
+              (push entry entries))))))
+    (sort entries (lambda (a b) (string< (plist-get a :name) (plist-get b :name))))))
+
+(defvar sp-theme--registry nil
+  "The cached registry, see `sp-theme-registry'.")
+
+(defun sp-theme-registry (&optional refresh)
+  "Return the list of theme plists, reading the theme files if needed.
+With REFRESH, read them again."
+  (when (or refresh (null sp-theme--registry))
+    (setq sp-theme--registry (sp-theme--scan))
+    (dolist (family sp-theme-families)
+      (dolist (theme (cdr family))
+        (unless (sp-theme-info theme)
+          (message "sp-themes: %s, in the family %s, has no theme file" theme (car family))))))
+  sp-theme--registry)
+
+(defun sp-theme-info (theme)
+  "Return the registry plist of THEME, or nil."
+  (seq-find (lambda (entry) (eq (plist-get entry :name) theme))
+            (or sp-theme--registry (sp-theme-registry))))
+
+(defun sp-themes-rescan ()
+  "Read the theme files again, after adding or moving one."
   (interactive)
-  (progn
-    (dolist (i custom-enabled-themes)
-      (disable-theme i))
-    ;; disable window-divider mode
-    (window-divider-mode -1)
-    ;; revert to mode line
-    (setq-default header-line-format nil)
-    (setq-default mode-line-format
-                  '((:eval
-                     (list
-                      "%b "
-                      "%m "
-                      (cond ((and buffer-file-name (buffer-modified-p))
-                             (propertize "(**)" 'face `(:foreground "#f08290")))
-                            (buffer-read-only "(RO)" ))
-                      " %l:%c %0"
-                      " "
-                      ))))
-    (force-mode-line-update)))
+  (message "%d themes" (length (sp-theme-registry t))))
 #+end_src
 
-** Theme loading wrapper
+** Light or dark
 
-=sp-load-theme= disables all themes and then calls =load-theme= interactively, so you pick a theme from the usual prompt and get a clean switch. This is the command on the theme toggle key.
+=sp-theme-dark-p= looks at the background of the default face, so it is right for any theme, not only the ones that set =frame-background-mode=. The dashboard uses it to choose the light or dark logo.
 
 #+begin_src emacs-lisp -i
-;;;; Load Theme Wrapper
-(defun sp-load-theme ()
+(defun sp-theme-dark-p ()
+  "Return non-nil if the default background is dark."
+  (when-let* ((bg (face-background 'default nil t))
+              (rgb (ignore-errors (color-values bg))))
+    (< (apply #'+ rgb) (* 3 32768))))
+#+end_src
+
+* The sp themes
+
+The engine of =sp-dark= and =sp-light= is a separate module, [[file:sp-theme-engine.org][sp-theme-engine]], which the two theme files require when they load. These autoloads make its commands available before that: =sp-theme-set-color= changes a colour of a flavor, =sp-theme-set-mapping= points a semantic role somewhere else, and =sp-theme-reload= loads the current theme again.
+
+#+begin_src emacs-lisp -i
+;;;; The sp themes
+(autoload 'sp-theme-set-color "sp-theme-engine" nil t)
+(autoload 'sp-theme-set-mapping "sp-theme-engine" nil t)
+(autoload 'sp-theme-reload "sp-theme-engine" nil t)
+(autoload 'sp-theme-color "sp-theme-engine")
+(autoload 'sp-theme-role "sp-theme-engine")
+#+end_src
+
+* Loading
+
+** No confirmation, whoever calls
+
+This advice makes every =load-theme= call skip the confirmation, including =M-x load-theme= and the commands of packages such as =easy-theme-preview=.
+
+#+begin_src emacs-lisp -i
+;;;; Never ask for confirmation
+(define-advice load-theme (:filter-args (args) sp-no-confirm)
+  "Always pass NO-CONFIRM, so a theme is never refused or asked about."
+  (list (nth 0 args) t (nth 2 args)))
+#+end_src
+
+** Options of the packages
+
+Only options that do something remain. The Ef themes are built on the Modus engine, so they read the =modus-themes-*= options; =modus-themes-prompts=, =-completions=, =-org-blocks= and =-disable-other-themes= are gone (obsolete since Modus 5.3.0, never defined, or read only by commands this configuration does not use). The Lambda options are plain =setq= forms: =setopt= would run their setters, which reload the active theme.
+
+#+begin_src emacs-lisp -i
+;;;; Options of the theme packages
+;; Modus engine (also used by the Ef themes)
+(setq modus-themes-italic-constructs t
+      modus-themes-bold-constructs nil
+      modus-themes-mixed-fonts t
+      modus-themes-variable-pitch-ui nil)
+
+;; Lambda themes
+(setq lambda-themes-set-italic-comments t
+      lambda-themes-set-italic-keywords t
+      lambda-themes-set-variable-pitch t)
+#+end_src
+
+** Palette overrides
+
+=sp-theme-palette-overrides= is an alist of (THEME . OVERRIDES), where OVERRIDES is a list like =((cursor "#ff0000") (bg-main "#1a1a1a"))=. It is applied to the Ef and Modus themes, which already have this mechanism (=THEME-palette-overrides=), just before the theme loads. The Doric and Lambda themes have no such mechanism, so an entry for them is ignored with a message.
+
+#+begin_src emacs-lisp -i
+;;;; Palette overrides
+(defcustom sp-theme-palette-overrides nil
+  "Palette overrides per theme, an alist of (THEME . OVERRIDES).
+OVERRIDES is a list of (NAME COLOR) as in `ef-day-palette-overrides'.
+Only the Ef and Modus themes support them."
+  :group 'spcustom
+  :type '(alist :key-type symbol
+                :value-type (repeat (list symbol (choice symbol string)))))
+
+(defun sp-theme--apply-overrides (theme)
+  "Set the palette overrides of THEME, if it has any."
+  (when-let* ((overrides (alist-get theme sp-theme-palette-overrides)))
+    (if (string-match-p "\\`\\(ef\\|modus\\)-" (symbol-name theme))
+        (set (intern (format "%s-palette-overrides" theme)) overrides)
+      (message "sp-themes: %s has no palette overrides, ignoring them" theme))))
+#+end_src
+
+** The command
+
+=sp-load-theme= is the only way a theme is loaded.
+
+- It asks for the theme first. The old command disabled every theme before asking, so quitting the prompt, or a theme that failed to load, left the plain white default theme on screen.
+- It never disables a theme before the new one has loaded. After a successful load, =sp-theme-disable-others= decides what happens to the previous themes: =after-load= (the default) disables them, so faces of the old theme do not mix with the new one, and nil leaves them enabled.
+- The old fallback mode line and the end of =window-divider-mode= that =sp-disable-all-themes= forced are gone with it.
+- Everything else (the family lookup, the overrides, the hook) happens here, so the macOS appearance code and the toggle only call this function.
+
+#+begin_src emacs-lisp -i
+;;;; The one way to load a theme
+(defcustom sp-theme-disable-others 'after-load
+  "What `sp-load-theme' does to the themes that were enabled.
+`after-load' disables them once the new theme has loaded.  Nil leaves
+them enabled, so their faces stay under the new theme."
+  :group 'spcustom
+  :type '(choice (const :tag "Disable after the new theme loads" after-load)
+                 (const :tag "Leave enabled" nil)))
+
+(defvar sp-theme-history nil
+  "Minibuffer history of `sp-load-theme'.")
+
+(defun sp-theme--candidates ()
+  "Return an alist of (NAME . GROUP) for the themes `sp-load-theme' offers.
+The themes of each family come first, in the order of `sp-theme-families',
+then the other themes of `active/' and `sp/', then the library."
+  (let (cands)
+    (dolist (family sp-theme-families)
+      (dolist (theme (cdr family))
+        (when (sp-theme-info theme)
+          (push (cons (symbol-name theme) (symbol-name (car family))) cands))))
+    (dolist (entry (sp-theme-registry))
+      (let ((name (symbol-name (plist-get entry :name))))
+        (unless (assoc name cands)
+          (push (cons name (if (equal (plist-get entry :folder) "library")
+                               (format "library: %s" (plist-get entry :package))
+                             "other"))
+                cands))))
+    (nreverse cands)))
+
+(defun sp-theme--annotate (name)
+  "Return the annotation of the theme NAME: background, package, description."
+  (when-let* ((info (sp-theme-info (intern name))))
+    (format "  %s  %s  %s"
+            (or (plist-get info :background) "?")
+            (plist-get info :package)
+            (truncate-string-to-width (or (plist-get info :description) "") 70 nil nil t))))
+
+(defun sp-theme--read (prompt)
+  "Read a theme name with PROMPT, grouped by family, and return the symbol."
+  (let* ((cands (sp-theme--candidates))
+         (table (lambda (string pred action)
+                  (if (eq action 'metadata)
+                      `(metadata
+                        (display-sort-function . identity)
+                        (cycle-sort-function . identity)
+                        (annotation-function . ,#'sp-theme--annotate)
+                        (group-function
+                         . ,(lambda (cand transform)
+                              (if transform cand (cdr (assoc cand cands))))))
+                    (complete-with-action action cands string pred)))))
+    (intern (completing-read prompt table nil t nil 'sp-theme-history
+                             (when custom-enabled-themes
+                               (symbol-name (car custom-enabled-themes)))))))
+
+(defun sp-load-theme (theme)
+  "Load THEME, the one way themes are loaded in this configuration.
+Interactively, choose among the families first and the library after."
+  (interactive (list (sp-theme--read "Load theme: ")))
+  (let ((previous custom-enabled-themes))
+    (sp-theme--apply-overrides theme)
+    (load-theme theme t)
+    (when (eq sp-theme-disable-others 'after-load)
+      (dolist (old (remq theme previous))
+        (disable-theme old)))
+    theme))
+
+(defun sp-load-theme-family (family)
+  "Load the first theme of FAMILY, see `sp-theme-families'."
+  (interactive
+   (list (intern (completing-read "Theme family: "
+                                  (mapcar (lambda (f) (symbol-name (car f)))
+                                          sp-theme-families)
+                                  nil t))))
+  (sp-load-theme (cadr (assq family sp-theme-families))))
+#+end_src
+
+** Light and dark appearance
+
+There is one mechanism for following the light or dark appearance, =sp-theme-auto-mode=, and one place that maps an appearance to a theme.
+
+- =sp-theme-appearance-themes= says which theme goes with =light= and with =dark=. =sp-theme-load-appearance= loads it with =sp-load-theme=, and does nothing when it is already the current theme, which keeps the hooks below from reloading a theme on every notification. The toggle command uses the same function.
+- =sp-theme-appearance= answers "light or dark now?", from the source in =sp-theme-auto-source=: =system= (the default) asks the operating system, =ambient= asks the light sensor (macOS; see below), and =time= is light between the hours of =sp-theme-day-hours= and dark outside them. A source that has no answer (no provider for this platform, no sensor, a failing command) falls back to the time of day.
+- The system part is per platform. =sp-theme-platform= says which one this is (=macos=, =windows= or =linux=, from =system-type=), and =sp-theme-system-providers= names the function that reads the appearance there. The functions live in the platform modules, =sp-macos=, =sp-syswin= and =sp-syslinux=, so a platform's commands and registry keys stay out of the theme code. Each provider function returns =light=, =dark= or nil. A platform module may also define a watcher (=sp-theme-system-watchers=): a function that takes a callback, calls it with the new appearance when the system changes, and returns a function that stops watching. Where there is no watcher (Windows), the timer polls.
+- =sp-theme-sync= loads the theme for the current appearance.
+
+#+begin_src emacs-lisp -i
+;;;; Light and dark
+(defcustom sp-theme-appearance-themes
+  '((light . ef-day)
+    (dark  . ef-dream))
+  "The theme for the system appearance, an alist of (APPEARANCE . THEME)."
+  :group 'spcustom
+  :type '(alist :key-type (choice (const light) (const dark))
+                :value-type symbol))
+
+(defcustom sp-theme-auto-source 'system
+  "Where `sp-theme-auto-mode' reads light or dark from.
+`system' asks the operating system, `ambient' asks the light sensor
+\(macOS) and loads one of the four families, and `time' uses the time
+of day.  A source that has no
+answer falls back to `time'."
+  :group 'spcustom
+  :type '(choice (const :tag "The system appearance" system)
+                 (const :tag "The light level in the room (macOS)" ambient)
+                 (const :tag "The time of day" time)))
+
+(defcustom sp-theme-system-providers
+  '((macos   . sp-macos-appearance)
+    (windows . sp-syswin-appearance)
+    (linux   . sp-syslinux-appearance))
+  "The function that reads the system appearance, per platform.
+An alist of (PLATFORM . FUNCTION), PLATFORM being what
+`sp-theme-platform' returns.  FUNCTION takes no arguments and returns
+`light', `dark' or nil."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-system-watchers
+  '((macos . sp-macos-watch-appearance)
+    (linux . sp-syslinux-watch-appearance))
+  "The function that watches the system appearance, per platform.
+FUNCTION takes a callback, calls it with `light' or `dark' when the
+system changes, and returns a function that stops watching (or nil
+when it cannot watch)."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-ambient-providers
+  '((macos . sp-macos-ambient-family))
+  "The function that reads the light level of the room, per platform.
+An alist of (PLATFORM . FUNCTION).  FUNCTION takes no arguments and
+returns a family of `sp-theme-families', or nil when it cannot tell."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type function))
+
+(defcustom sp-theme-ambient-interval 60
+  "Seconds between the checks of the timer when the source is `ambient'."
+  :group 'spcustom
+  :type 'integer)
+
+(defun sp-theme-platform ()
+  "Return `macos', `windows' or `linux' for this system, or nil."
+  (pcase system-type
+    ('darwin 'macos)
+    ((or 'windows-nt 'cygwin 'ms-dos) 'windows)
+    ('gnu/linux 'linux)))
+
+(defun sp-theme--platform-function (alist)
+  "Return the function ALIST has for this platform, if it can be called.
+The platform module is required first, so that this works whatever
+the load order is."
+  (let ((fn (alist-get (sp-theme-platform) alist)))
+    (when fn
+      (unless (fboundp fn)
+        (let ((feature (pcase (sp-theme-platform)
+                         ('macos 'sp-macos)
+                         ('windows 'sp-syswin)
+                         ('linux 'sp-syslinux))))
+          (require feature nil t)))
+      (and (fboundp fn) fn))))
+
+(defcustom sp-theme-day-hours '(7 . 19)
+  "The hours (FROM . TO) in which the `time' source says light."
+  :group 'spcustom
+  :type '(cons integer integer))
+
+(defun sp-theme-load-appearance (appearance)
+  "Load the theme for APPEARANCE, `light' or `dark', unless it is current."
+  (let ((target (alist-get appearance sp-theme-appearance-themes)))
+    (unless (or (null target) (eq target (car custom-enabled-themes)))
+      (sp-load-theme target))))
+
+(defun sp-theme--time-appearance ()
+  "Return `light' during `sp-theme-day-hours', `dark' otherwise."
+  (let ((hour (decoded-time-hour (decode-time))))
+    (if (and (>= hour (car sp-theme-day-hours)) (< hour (cdr sp-theme-day-hours)))
+        'light
+      'dark)))
+
+(defun sp-theme--provided-appearance (alist)
+  "Return `light' or `dark' from the provider ALIST has for this platform."
+  (let ((fn (sp-theme--platform-function alist)))
+    (when fn
+      (let ((appearance (condition-case nil (funcall fn) (error nil))))
+        (and (memq appearance '(light dark)) appearance)))))
+
+(defun sp-theme--system-appearance ()
+  "Return the system appearance, `light' or `dark', or nil if unknown."
+  (sp-theme--provided-appearance sp-theme-system-providers))
+
+(defun sp-theme--ambient-family ()
+  "Return the family the light level of the room asks for, or nil."
+  (let ((fn (and (eq sp-theme-auto-source 'ambient)
+                 (sp-theme--platform-function sp-theme-ambient-providers))))
+    (when fn
+      (let ((family (condition-case nil (funcall fn) (error nil))))
+        (and (assq family sp-theme-families) family)))))
+
+(defun sp-theme-appearance ()
+  "Return `light' or `dark' according to `sp-theme-auto-source'."
+  (or (and (eq sp-theme-auto-source 'system) (sp-theme--system-appearance))
+      (sp-theme--time-appearance)))
+
+(defun sp-theme-sync (&rest _)
+  "Load the theme for the light level, or for the appearance.
+With the source `ambient' the family the sensor asks for is loaded;
+without a reading, and with the other sources, the theme for the
+appearance `sp-theme-appearance' reports."
   (interactive)
-  (progn
-    (sp-disable-all-themes)
-    (call-interactively 'load-theme)))
+  (let ((family (sp-theme--ambient-family)))
+    (if family
+        (let ((theme (cadr (assq family sp-theme-families))))
+          (unless (eq theme (car custom-enabled-themes))
+            (sp-load-theme theme)))
+      (sp-theme-load-appearance (sp-theme-appearance)))))
+
+(defun toggle-dark-light-theme ()
+  "Switch between the light and the dark theme of `sp-theme-appearance-themes'."
+  (interactive)
+  (sp-theme-load-appearance (if (sp-theme-dark-p) 'light 'dark)))
+#+end_src
+
+** Following the appearance automatically
+
+=sp-theme-auto-mode= is the one switch. When it is on:
+
+- a change of the system appearance loads the matching theme, where the platform has a watcher (macOS: =ns-system-appearance-change-functions=; Linux: the freedesktop D-Bus signal), which does not fire at startup, so the mode also syncs once when it is turned on;
+- every new frame syncs, because a daemon that started without a frame never receives appearance events and would keep the appearance it read at boot, and a client frame should match the system as it is now (this is cheap, since a theme that is already current is not loaded again);
+- where there is no watcher (Windows), or the source is =time= or =ambient=, a timer syncs every =sp-theme-auto-interval= seconds (=sp-theme-ambient-interval= for =ambient=).
+
+Each platform module turns the mode on when Emacs runs on its platform: =sp-macos=, =sp-syswin= and =sp-syslinux=. Anywhere else, turn it on with =M-x sp-theme-auto-mode=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-theme-auto-interval 900
+  "Seconds between the checks of the timer of `sp-theme-auto-mode'."
+  :group 'spcustom
+  :type 'integer)
+
+(defvar sp-theme--auto-timer nil
+  "The timer of `sp-theme-auto-mode', if one is running.")
+
+(defvar sp-theme--auto-unwatch nil
+  "The function that stops the system watcher of `sp-theme-auto-mode'.")
+
+(defun sp-theme--on-system-change (appearance)
+  "Load the theme for APPEARANCE when the system flips and it is the source."
+  (when (eq sp-theme-auto-source 'system)
+    (sp-theme-load-appearance appearance)))
+
+(defun sp-theme--stop-auto ()
+  "Stop the timer and the watcher of `sp-theme-auto-mode'."
+  (when (timerp sp-theme--auto-timer)
+    (cancel-timer sp-theme--auto-timer)
+    (setq sp-theme--auto-timer nil))
+  (when (functionp sp-theme--auto-unwatch)
+    (ignore-errors (funcall sp-theme--auto-unwatch)))
+  (setq sp-theme--auto-unwatch nil))
+
+(define-minor-mode sp-theme-auto-mode
+  "Load the light or the dark theme as the appearance changes."
+  :global t
+  :group 'spcustom
+  (sp-theme--stop-auto)
+  (if sp-theme-auto-mode
+      (let* ((watch (and (eq sp-theme-auto-source 'system)
+                         (sp-theme--platform-function sp-theme-system-watchers)))
+             (unwatch (and watch
+                           (ignore-errors
+                             (funcall watch #'sp-theme--on-system-change))))
+             (interval (if (eq sp-theme-auto-source 'ambient)
+                           sp-theme-ambient-interval
+                         sp-theme-auto-interval)))
+        (setq sp-theme--auto-unwatch unwatch)
+        (add-hook 'server-after-make-frame-hook #'sp-theme-sync)
+        (unless unwatch
+          (setq sp-theme--auto-timer
+                (run-with-timer interval interval #'sp-theme-sync)))
+        (sp-theme-sync))
+    (remove-hook 'server-after-make-frame-hook #'sp-theme-sync)))
+#+end_src
+
+** After-load-theme hook
+
+Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. =kind-icon= is the one user: its icon cache is flushed so completion icons pick up the new colours (this used to happen only for Lambda themes).
+
+#+begin_src emacs-lisp -i
+;;;; After Load Theme Hook
+(defvar sp-after-load-theme-hook nil
+  "Hook run after a color theme is loaded using `load-theme'.")
+(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
+  "Run `sp-after-load-theme-hook'."
+  (run-hooks 'sp-after-load-theme-hook))
+
+(with-eval-after-load 'kind-icon
+  (add-hook 'sp-after-load-theme-hook #'kind-icon-reset-cache))
+#+end_src
+
+* Previewing themes
+
+=easy-theme-preview= is the only package left here: it previews themes in the buffer as you move through the list. It does not provide a theme.
+
+#+begin_src emacs-lisp -i
+(use-package easy-theme-preview
+  :ensure t)
 #+end_src
 
 * macOS menubar appearance
@@ -175,196 +663,6 @@ Introduces the disable-all helper.
   (shell-command "dark-mode on"))
 #+end_src
 
-* Theme packages
-
-** Section comment
-
-Start of the theme options.
-
-#+begin_src emacs-lisp -i
-;;;; THEME OPTIONS
-#+end_src
-
-** Modus themes comment
-
-Introduces the Modus settings.
-
-#+begin_src emacs-lisp -i
-;;;;; Modus themes
-#+end_src
-
-** Installing Modus themes
-
-Installs the =modus-themes= package, which is newer than the copy built into Emacs.
-
-#+begin_src emacs-lisp -i
-(use-package modus-themes
-  :ensure t)
-#+end_src
-
-** Mixed fonts and italics
-
-Lets Modus use fixed-pitch faces for code and tables inside variable-pitch buffers, and allows italics for constructs like comments. Both are set again in the next block.
-
-#+begin_src emacs-lisp -i
-(setq modus-themes-mixed-fonts t)
-(setq modus-themes-italic-constructs t)
-#+end_src
-
-** Modus appearance options
-
-Italic but not bold constructs, mixed fonts, no variable-pitch UI elements, and =modus-themes-disable-other-themes= so loading a Modus theme turns off others. Minibuffer prompts are italic and bold. In completion lists, matching characters are extra bold and the selected candidate is semibold italic, with the styling applied to its text too.
-
-#+begin_src emacs-lisp -i
-;; In all of the following, WEIGHT is a symbol such as `semibold',
-;; `light', `bold', or anything mentioned in `modus-themes-weights'.
-(setq modus-themes-italic-constructs t
-      modus-themes-bold-constructs nil
-      modus-themes-mixed-fonts t
-      modus-themes-variable-pitch-ui nil
-      modus-themes-disable-other-themes t
-
-      ;; Options for `modus-themes-prompts' are either nil (the
-      ;; default), or a list of properties that may include any of those
-      ;; symbols: `italic', `WEIGHT'
-      modus-themes-prompts '(italic bold)
-
-      ;; The `modus-themes-completions' is an alist that reads two
-      ;; keys: `matches', `selection'.  Each accepts a nil value (or
-      ;; empty list) or a list of properties that can include any of
-      ;; the following (for WEIGHT read further below):
-      ;;
-      ;; `matches'   :: `underline', `italic', `WEIGHT'
-      ;; `selection' :: `underline', `italic', `WEIGHT'
-      modus-themes-completions
-      '((matches . (extrabold))
-        (selection . (semibold italic text-also))))
-#+end_src
-
-** Org block background
-
-Gives Org source blocks a subtle gray background. The comment lists the other choices.
-
-#+begin_src emacs-lisp -i
-(setq modus-themes-org-blocks 'gray-background) ; {nil,'gray-background,'tinted-background}
-#+end_src
-
-** Ef themes
-
-Installs Prot's =ef-themes= collection. The light/dark toggle further down uses =ef-day= and =ef-dream= from it.
-
-#+begin_src emacs-lisp -i
-;; EF THEMES
-(use-package ef-themes
-  :ensure t)
-#+end_src
-
-** Doric themes
-
-Installs Prot's minimalist =doric-themes= and loads them immediately with =:demand=.
-
-#+begin_src emacs-lisp -i
-;; DORIC THEMES
-(use-package doric-themes
-  :ensure t
-  :demand t)
-#+end_src
-
-** Lambda themes
-
-Installs =lambda-themes= from GitHub (the comment above it mislabels it as Modus). A commented-out line shows how to load =lambda-light= at startup; in practice the initial theme is chosen by the macOS appearance logic in =sp-macos=.
-
-#+begin_src emacs-lisp -i
-;; MODUS THEMES
-(use-package lambda-themes
-  :ensure (:type git :host github :repo "lambda-emacs/lambda-themes") 
-
-  :config
-  ;; load preferred theme 
-  ;; (load-theme 'lambda-light)
-)
-#+end_src
-
-** Lambda themes options
-
-Turns on italic comments, italic keywords and variable-pitch text in the Lambda themes, using =setopt= so the options' setters run.
-
-#+begin_src emacs-lisp -i
-;; Lambda themes options
-(setopt lambda-themes-set-italic-comments t)
-(setopt lambda-themes-set-italic-keywords t)
-(setopt lambda-themes-set-variable-pitch t)
-#+end_src
-
-** Refreshing kind-icon after a theme change
-
-Once =kind-icon= is loaded, flushes its icon cache whenever a Lambda theme loads, so completion icons pick up the new colours. Note this is tied to =lambda-themes-after-load-theme-hook= only, so switching to a Modus or Ef theme does not reset the cache.
-
-#+begin_src emacs-lisp -i
-;; kind-icon needs to have its cache flushed after theme change
-(with-eval-after-load 'kind-icon
-  (add-hook 'lambda-themes-after-load-theme-hook #'kind-icon-reset-cache))
-#+end_src
-
-** Pointer to the macOS settings
-
-Notes that automatic theme switching based on the system appearance is configured in =sp-macos.el=.
-
-#+begin_src emacs-lisp -i
-;; For the setting which switches the MacOS theme automatically, based on the color of the system
-;; see the sp-macos.el file.
-#+end_src
-
-** Theme preview comment
-
-Introduces the preview package.
-
-#+begin_src emacs-lisp -i
-;; For easier preview of themes
-#+end_src
-
-** easy-theme-preview
-
-Installs =easy-theme-preview=, which makes it easy to preview themes before committing to one.
-
-#+begin_src emacs-lisp -i
-(use-package easy-theme-preview
-  :ensure t)
-#+end_src
-
-* Toggles and hooks
-
-** Light/dark toggle
-
-=toggle-dark-light-theme= flips between two Ef themes: if =ef-day= is active it loads =ef-dream=, otherwise it loads =ef-day=, disabling all themes first. The docstring still talks about Lambda variants and defaulting to =ef-dream=, so it no longer matches the code. Its keybinding in =sp-keys= is commented out in favour of =sp-load-theme=.
-
-#+begin_src emacs-lisp -i
-;;;;; Theme toggle
-(defun toggle-dark-light-theme ()
-  "Flip the active lambda variant between light and dark.
-If neither lambda variant is currently active (the user loaded some
-other theme), default to `ef-dream'. The macOS system-appearance
-hook is left untouched; the next macOS Light/Dark change will resync."
-  (interactive)
-  (let* ((current (car custom-enabled-themes))
-         (target (if (eq current 'ef-day) 'ef-dream 'ef-day)))
-    (sp-disable-all-themes)
-    (load-theme target t)))
-#+end_src
-
-** After-load-theme hook
-
-Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. Nothing else in the config currently adds to this hook.
-
-#+begin_src emacs-lisp -i
-;;;;; After Load Theme Hook
-(defvar sp-after-load-theme-hook nil
-  "Hook run after a color theme is loaded using `load-theme'.")
-(define-advice load-theme (:after (&rest _) sp-run-after-load-theme-hook)
-  "Run `sp-after-load-theme-hook'."
-  (run-hooks 'sp-after-load-theme-hook))
-#+end_src
-
 * Provide
 
 Provides the =sp-themes= feature and closes the file.
@@ -373,3 +671,235 @@ Provides the =sp-themes= feature and closes the file.
 (provide 'sp-themes)
 ;;; sp-themes.el ends here
 #+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-themes-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-themes-test.el=, which runs headless with
+
+#+begin_src sh :tangle no :eval never
+emacs -Q --batch -l tests/sp-themes-test.el -f ert-run-tests-batch-and-exit
+#+end_src
+
+from the folder of =init.el=. They load the module and the vendored themes from the working copy, and need no display.
+
+** Test file header
+
+#+begin_src emacs-lisp -i
+;;; sp-themes-test.el --- Tests for sp-themes  -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Run headless, from the folder of init.el, with
+;;   emacs -Q --batch -l tests/sp-themes-test.el -f ert-run-tests-batch-and-exit
+
+;;; Code:
+
+(require 'ert)
+(require 'cl-lib)
+
+(defvar sp-themes-test--root
+  (expand-file-name ".." (file-name-directory (or load-file-name buffer-file-name)))
+  "The folder of init.el.")
+
+(defvar sp-library-dir (expand-file-name "libraries/" sp-themes-test--root))
+
+(defmacro use-package (&rest _) nil)
+
+(add-to-list 'load-path (expand-file-name "libraries/modules/ui/" sp-themes-test--root))
+(load (expand-file-name "libraries/modules/ui/sp-themes.el" sp-themes-test--root) nil t)
+
+(defmacro sp-themes-test--clean (&rest body)
+  "Run BODY with no theme enabled, and none left enabled after it."
+  `(unwind-protect
+       (progn (mapc #'disable-theme custom-enabled-themes) ,@body)
+     (mapc #'disable-theme custom-enabled-themes)))
+#+end_src
+
+** The registry
+
+Every theme file is read the same way. The themes of the families are all there, with the right background, and no entry is left without a background or a file.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-themes-test-registry ()
+  (let ((registry (sp-theme-registry t)))
+    (should (> (length registry) 70))
+    (dolist (entry registry)
+      (should (plist-get entry :name))
+      (should (plist-get entry :background))
+      (should (file-exists-p (plist-get entry :file))))
+    (dolist (family sp-theme-families)
+      (dolist (theme (cdr family))
+        (should (sp-theme-info theme))
+        (should (eq (plist-get (sp-theme-info theme) :family) (car family)))))))
+
+(ert-deftest sp-themes-test-registry-backgrounds ()
+  (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
+                  (lambda-light-faded . light) (lambda-dark . dark)
+                  (modus-operandi . light) 
+                  (sp-dark . dark) (sp-light . light)))
+    (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
+
+(ert-deftest sp-themes-test-registry-folders ()
+  (should (equal (plist-get (sp-theme-info 'ef-dream) :folder) "active"))
+  (should (equal (plist-get (sp-theme-info 'sp-dark) :folder) "sp"))
+  (should (equal (plist-get (sp-theme-info 'ef-bio) :folder) "library"))
+  (should (equal (plist-get (sp-theme-info 'ef-bio) :package) "ef-themes"))
+  (should-not (sp-theme-info 'ef-deuteranopia-dark))
+  (should-not (sp-theme-info 'modus-vivendi-tritanopia)))
+
+(ert-deftest sp-themes-test-candidates ()
+  (let ((cands (sp-theme--candidates)))
+    (should (equal (car cands) '("lambda-light" . "hard-light")))
+    (should (equal (alist-get "ef-dream" cands nil nil #'equal) "hard-dark"))
+    (should (equal (alist-get "ef-bio" cands nil nil #'equal) "library: ef-themes"))
+    (should (= (length cands) (length (delete-dups (mapcar #'car cands)))))))
+#+end_src
+
+** Loading
+
+=sp-load-theme= leaves exactly one theme enabled, and a theme is never refused or asked about.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-themes-test-load-leaves-one ()
+  (sp-themes-test--clean
+   (sp-load-theme 'ef-day)
+   (sp-load-theme 'lambda-light)
+   (should (equal custom-enabled-themes '(lambda-light)))
+   (let ((sp-theme-disable-others nil))
+     (sp-load-theme 'ef-day)
+     (should (equal custom-enabled-themes '(ef-day lambda-light))))))
+
+(ert-deftest sp-themes-test-no-confirmation ()
+  (sp-themes-test--clean
+   (let ((custom-safe-themes nil))
+     (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) (error "Asked")))
+               ((symbol-function 'y-or-n-p) (lambda (&rest _) (error "Asked"))))
+       (load-theme 'ef-day)
+       (should (equal custom-enabled-themes '(ef-day)))))))
+
+(ert-deftest sp-themes-test-dark-p ()
+  (sp-themes-test--clean
+   (sp-load-theme 'doric-fire)
+   (should (sp-theme-dark-p))
+   (sp-load-theme 'ef-day)
+   (should-not (sp-theme-dark-p))))
+#+end_src
+
+** Light and dark
+
+The appearance comes from the time of day when the source is =time=. The theme for an appearance is loaded once, and not again while it is current.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-themes-test-time-appearance ()
+  (let ((sp-theme-auto-source 'time))
+    (let ((sp-theme-day-hours '(0 . 24)))
+      (should (eq (sp-theme-appearance) 'light)))
+    (let ((sp-theme-day-hours '(0 . 0)))
+      (should (eq (sp-theme-appearance) 'dark)))))
+
+(ert-deftest sp-themes-test-platform-providers ()
+  (let ((sp-theme-auto-source 'system)
+        (sp-theme-day-hours '(0 . 24)))
+    (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+              ((symbol-function 'sp-test-provider) (lambda () 'dark)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'dark)))
+      ;; No provider for this platform, an error, or nonsense: the time.
+      (let ((sp-theme-system-providers '((macos . sp-test-provider))))
+        (should (eq (sp-theme-appearance) 'light)))
+      (let ((sp-theme-system-providers '((linux . sp-test-provider))))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () (error "boom"))))
+          (should (eq (sp-theme-appearance) 'light)))
+        (cl-letf (((symbol-function 'sp-test-provider) (lambda () 'purple)))
+          (should (eq (sp-theme-appearance) 'light)))))))
+
+(ert-deftest sp-themes-test-ambient-source ()
+  (sp-themes-test--clean
+   (let ((sp-theme-auto-source 'ambient)
+         (sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-day-hours '(0 . 24))
+         (family 'hard-dark))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'macos))
+               ((symbol-function 'sp-test-ambient) (lambda () family)))
+       (let ((sp-theme-ambient-providers '((macos . sp-test-ambient))))
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-dream)))
+         (setq family 'faded-dark)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-dark-faded)))
+         (setq family 'hard-light)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(lambda-light)))
+         ;; An unknown family counts as no reading: the time of day.
+         (setq family 'purple)
+         (sp-theme-sync)
+         (should (equal custom-enabled-themes '(ef-day))))))))
+
+(ert-deftest sp-themes-test-watcher ()
+  (sp-themes-test--clean
+   (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-auto-source 'system)
+         (sp-theme-day-hours '(0 . 24))
+         (stopped nil)
+         (callback nil))
+     (cl-letf (((symbol-function 'sp-theme-platform) (lambda () 'linux))
+               ((symbol-function 'sp-test-watch)
+                (lambda (cb) (setq callback cb) (lambda () (setq stopped t)))))
+       (let ((sp-theme-system-providers nil)
+             (sp-theme-system-watchers '((linux . sp-test-watch))))
+         (sp-theme-auto-mode 1)
+         (unwind-protect
+             (progn
+               ;; A watcher replaces the timer.
+               (should-not sp-theme--auto-timer)
+               (funcall callback 'dark)
+               (should (equal custom-enabled-themes '(ef-dream))))
+           (sp-theme-auto-mode -1))
+         (should stopped))))))
+
+(ert-deftest sp-themes-test-load-appearance ()
+  (sp-themes-test--clean
+   (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (loaded nil))
+     (cl-letf (((symbol-function 'sp-load-theme) (lambda (theme) (push theme loaded))))
+       (sp-theme-load-appearance 'dark)
+       (should (equal loaded '(ef-dream))))
+     (load-theme 'ef-dream t)
+     (setq loaded nil)
+     (cl-letf (((symbol-function 'sp-load-theme) (lambda (theme) (push theme loaded))))
+       (sp-theme-load-appearance 'dark)
+       (should-not loaded)
+       (sp-theme-load-appearance 'light)
+       (should (equal loaded '(ef-day)))))))
+
+(ert-deftest sp-themes-test-auto-mode ()
+  (sp-themes-test--clean
+   (let ((sp-theme-appearance-themes '((light . ef-day) (dark . ef-dream)))
+         (sp-theme-auto-source 'time)
+         (sp-theme-day-hours '(0 . 24)))
+     (sp-theme-auto-mode 1)
+     (unwind-protect
+         (progn
+           (should (equal custom-enabled-themes '(ef-day)))
+           (should (timerp sp-theme--auto-timer))
+           (should (memq #'sp-theme-sync server-after-make-frame-hook))
+           (setq sp-theme-day-hours '(0 . 0))
+           (sp-theme-sync)
+           (should (equal custom-enabled-themes '(ef-dream))))
+       (sp-theme-auto-mode -1))
+     (should-not sp-theme--auto-timer)
+     (should-not (memq #'sp-theme-sync server-after-make-frame-hook)))))
+
+(provide 'sp-themes-test)
+;;; sp-themes-test.el ends here
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/89][#89]] 🔧 Changed the themes to be vendored in =libraries/themes/= (engines in =lib/=, the seven themes in use in =active/=, all others in =library/=, no Elpaca), grouped in four families (hard light, faded light, faded dark, hard dark) and loaded only by =sp-load-theme=: no confirmation, the old theme is disabled only after the new one loads, =T= loads a family. Removed =lem-dashboard=, =sp-archived-configs.el=, the dead Modus options and the theme-resetting =sp-disable-all-themes=; =sp-macos=, the toggle and the dashboard logo go through =sp-themes=. Added a list of the Modus faces a palette-only system would leave out.
+- [[https://github.com/siainbuletin/dotfiles/pull/100][#100]] ✨ Added the light or dark appearance per platform to =sp-theme-auto-mode=: =sp-theme-system-providers= and =sp-theme-system-watchers= name the function for macOS (=sp-macos=), Windows (=sp-syswin=: registry =AppsUseLightTheme=, polled) and Linux (=sp-syslinux=: freedesktop portal, gsettings or KDE, with a D-Bus watcher), and a source with no answer falls back to the time of day. Added the =ambient= source for macOS: a light sensor command (=sp-macos-light-sensor-command=) picks one of the four families, faded light, hard light, faded dark, hard dark, from the lux in the room, with a hysteresis margin. Changed =init.el= to load =sp-syswin= and =sp-syslinux=. 13 more ERT tests.

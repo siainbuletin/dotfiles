@@ -1,0 +1,166 @@
+#+TITLE: Modus faces that a global face system would leave out
+#+STARTUP: content
+
+Sia's plan is a theme system where a theme is only a palette and the faces are defined once, globally, in the style of =doric-themes= (see [[file:theme-system-design.org][theme-system-design.org]]). This note lists what such a system would not cover, so each item can be re-added by hand (as a bundle, a palette entry or an override) or dropped on purpose. The mechanisms in the first table are now ported for the =sp= themes, see the column "Ported"; the faces by package are still a list only, nothing there is implemented, and the colour-blind variants were dropped.
+
+Method: the face names in =modus-themes-faces= (Modus 5.3.0, 2,382 names) were compared with every face that =doric-themes= 1.3.0 sets, either in =doric-themes-define-theme= or in one of its bundles (1,306 names). 1,145 faces are in both, and *1237 faces are only in Modus*. (The earlier note's "about 225 faces" for Doric counted only the macro; most of Doric's faces sit in the bundles.) Face names are matched exactly, so a package that both themes cover under different names shows up here too.
+
+* Modus mechanisms that are not faces
+
+These are the adjustments a palette-only system loses even if every face is covered.
+
+| Mechanism | What it does | Palette-only replacement | Ported |
+|-+-+-+-|
+| =modus-themes-italic-constructs=, =-bold-constructs= | Italic or bold for comments, keywords, prompts and completion matches | One global option read by the face bundles (Doric has italic and bold bundles) | Doric's bundles, baked into the sp themes (no option) |
+| =modus-themes-mixed-fonts= | Keeps code, tables and Org markup fixed-pitch inside variable-pitch buffers | A bundle of fixed-pitch faces; the only one Sia sets that is not a colour | Yes: =sp-theme-mixed-fonts=, =sp-theme-fixed-pitch-faces= |
+| =modus-themes-variable-pitch-ui= | Variable-pitch mode line, tab bar, header line | A bundle of the UI faces | Yes: =sp-theme-variable-pitch-ui=, =sp-theme-ui-faces= |
+| =modus-themes-headings= | Per-level height, weight and variable pitch for Org, Markdown, Outline, Info and agenda headings, plus commit summary | An alist of heading level to face attributes, applied to the heading faces of all those modes | Yes: =sp-theme-headings=, =sp-theme-heading-faces= |
+| =modus-themes-common-palette-overrides=, =modus-NAME-palette-overrides=, =modus-themes-common-palette-user= | Override named colours or semantic mappings, per theme or for all | Part of the new palette layer | Yes: the flavors, =sp-theme-set-color=, =sp-theme-set-mapping= |
+| =modus-themes-preset-overrides-faint=, =-intense=, =-cooler=, =-warmer= | Four ready-made override lists | Personal presets, only if wanted | No, not used |
+| Semantic mappings (about 94 shared, such as =bg-region=, =fg-heading-1=, =bg-search-current=) | A face asks for a role, not a colour | The roles Doric already has (shadow, neutral, accent primary and secondary, six hues, each with a foreground and a background) | Yes: =sp-theme-mappings=, =sp-theme-mapped-faces= |
+| Colour-blind variants (=deuteranopia=, =tritanopia=) | Different palette and a few faces (=modus-themes-faces-deuteranopia=, =-tritanopia=) | None needed unless wanted; Ef has its own deuteranopia themes | Dropped |
+| =modus-themes-with-colors= | Binds the palette names while writing faces | =doric-themes-with-colors= | =doric-themes-with-colors= works on the sp themes |
+| =modus-themes-completions=, =-prompts=, =-org-blocks= | Obsolete or removed in 5.3.0 | Dropped | Dropped |
+
+* Faces only Modus covers, by package
+
+Count of faces per package prefix (first word of the face name), largest first. Packages that Sia's configuration uses are the ones to look at first; the rest can be ignored until they are installed.
+
+=web= 68, =markdown= 39, =doom= 34, =lsp= 34, =modus= 32, =treemacs= 32, =info= 30, =mu4e= 29, =markup= 28, =nxml= 24, =flycheck= 23, =magit= 22, =calibredb= 20, =neo= 19, =proof= 19, =vterm= 18, =howm= 17, =jabber= 17, =org= 17, =telega= 17, =forge= 16, =debbugs= 15, =elfeed= 15, =js2= 15, =tuareg= 15, =adoc= 14, =ivy= 14, =powerline= 14, =rainbow= 13, =dired= 12, =rg= 12, =bongo= 11, =centaur= 11, =cider= 11, =ement= 11, =git= 11, =term= 11, =ledger= 10, =sly= 10, =coq= 9, =emms= 9, =geiser= 9, =swiper= 9, =symbol= 9, =syslog= 9, =imenu= 8, =ioccur= 8, =jiralib= 8, =popup= 8, =synaxis= 8, =anzu= 7, =journalctl= 7, =mood= 7, =notmuch= 7, =slime= 7, =crontab= 6, =deft= 6, =evil= 6, =rst= 6, =tldr= 6, =caml= 5, =corfu= 5, =counsel= 5, =deadgrep= 5, =disk= 5, =gnus= 5, =go= 5, =hydra= 5, =iigrep= 5, =sesman= 5, =sldb= 5, =typst= 5, =undo= 5, =viper= 5, =visible= 5, =wgrep= 5, =annotate= 4, =binder= 4, =boon= 4, =company= 4, =el= 4, =erts= 4, =highlight= 4, =image= 4, =pandoc= 4, =persp= 4, =ripgrep= 4, =sieve= 4, =vundo= 4, =xah= 4, =circe= 3, =cperl= 3, =ctrlf= 3, =ein:cell= 3, =elpher= 3, =embark= 3, =font= 3, =hbut= 3, =kaocha= 3, =lui= 3, =pass= 3, =pdf= 3, =prodigy= 3, =pyim= 3, =quick= 3, =tab= 3, =transient= 3, =typescript= 3, =vertico= 3, =vimish= 3, =window= 3, =ztreep= 3, =auto= 2, =citar= 2, =dashboard= 2, =eglot= 2, =eldoc= 2, =eshell= 2, =hl= 2, =ido= 2, =iedit= 2, =iflipb= 2, =institution= 2, =julia= 2, =log= 2, =makefile= 2, =minimap= 2, =mpdel= 2, =origami= 2, =prescient= 2, =recursion= 2, =rmail= 2, =switch= 2, =terraform= 2, =action= 1, =ansi= 1, =aw= 1, =clojure= 1, =column= 1, =completions= 1, =csv= 1, =dgi= 1, =diff= 1, =dim= 1, =ein:basecell= 1, =ein:markdowncell= 1, =ein:notification= 1, =erc= 1, =eyebrowse= 1, =flx= 1, =flymake= 1, =focus= 1, =fold= 1, =golden= 1, =helpful= 1, =hs= 1, =ibut= 1, =icon= 1, =japanese= 1, =jit= 1, =leerzeichen= 1, =margin= 1, =marginalia= 1, =mct= 1, =num3= 1, =olivetti= 1, =outline= 1, =page= 1, =parenthesis= 1, =pgtk= 1, =rng= 1, =shr= 1, =side= 1, =skewer= 1, =spell= 1, =stripes= 1, =suggest= 1, =table= 1, =tex= 1, =tmr= 1, =trashed= 1, =trust= 1, =wcheck= 1, =woman= 1, =yaml= 1, =yas= 1.
+
+* Full lists for packages in this configuration
+
+Packages most likely to matter here (the ones this configuration loads or has loaded, by prefix match) are listed in full; the rest are counted above.
+
+** magit (22)
+
+=magit-blame-date= =magit-blame-dimmed= =magit-blame-hash= =magit-blame-name= =magit-blame-summary= =magit-diff-base-heading= =magit-diff-hunk-region= =magit-diff-our-heading= =magit-diff-their-heading= =magit-dimmed= =magit-filename= =magit-head= =magit-header-line= =magit-header-line-key= =magit-header-line-log-select= =magit-keyword= =magit-keyword-squash= =magit-refname= =magit-refname-pullreq= =magit-refname-stash= =magit-refname-wip= =magit-section-secondary-heading=
+
+** forge (16)
+
+=forge-dimmed= =forge-issue-completed= =forge-issue-open= =forge-issue-unplanned= =forge-post-author= =forge-post-date= =forge-pullreq-merged= =forge-pullreq-open= =forge-pullreq-rejected= =forge-topic-done= =forge-topic-pending= =forge-topic-slug-completed= =forge-topic-slug-open= =forge-topic-slug-saved= =forge-topic-slug-unplanned= =forge-topic-unread=
+
+** org (17)
+
+=org-journal-calendar-entry-face= =org-journal-calendar-scheduled-face= =org-journal-highlight= =org-noter-no-notes-exist-face= =org-noter-notes-exist-face= =org-pomodoro-mode-line= =org-pomodoro-mode-line-break= =org-pomodoro-mode-line-overtime= =org-recur= =org-roam-dim= =org-roam-olp= =org-roam-preview-heading= =org-roam-preview-heading-highlight= =org-roam-preview-region= =org-roam-title= =org-superstar-item= =org-tree-slide-header-overlay-face=
+
+** vterm (18)
+
+=vterm-color-black= =vterm-color-blue= =vterm-color-bright-black= =vterm-color-bright-blue= =vterm-color-bright-cyan= =vterm-color-bright-green= =vterm-color-bright-magenta= =vterm-color-bright-red= =vterm-color-bright-white= =vterm-color-bright-yellow= =vterm-color-cyan= =vterm-color-green= =vterm-color-inverse-video= =vterm-color-magenta= =vterm-color-red= =vterm-color-underline= =vterm-color-white= =vterm-color-yellow=
+
+** flycheck (23)
+
+=flycheck-annotate-connector= =flycheck-annotate-error= =flycheck-annotate-error-background= =flycheck-annotate-info= =flycheck-annotate-info-background= =flycheck-annotate-warning= =flycheck-annotate-warning-background= =flycheck-color-mode-line-error-face= =flycheck-color-mode-line-info-face= =flycheck-color-mode-line-running-face= =flycheck-color-mode-line-warning-face= =flycheck-error-list-checker-name= =flycheck-error-list-error-message= =flycheck-error-list-filename= =flycheck-error-list-group-header= =flycheck-error-list-id= =flycheck-error-list-line-number= =flycheck-indicator-disabled= =flycheck-indicator-error= =flycheck-indicator-info= =flycheck-indicator-running= =flycheck-indicator-success= =flycheck-indicator-warning=
+
+** treemacs (32)
+
+=treemacs-async-loading-face= =treemacs-directory-collapsed-face= =treemacs-directory-face= =treemacs-file-face= =treemacs-fringe-indicator-face= =treemacs-git-added-face= =treemacs-git-commit-diff-face= =treemacs-git-conflict-face= =treemacs-git-ignored-face= =treemacs-git-modified-face= =treemacs-git-renamed-face= =treemacs-git-unmodified-face= =treemacs-git-untracked-face= =treemacs-header-button-face= =treemacs-help-column-face= =treemacs-help-title-face= =treemacs-hl-line-face= =treemacs-marked-file-face= =treemacs-nerd-icons-face= =treemacs-nerd-icons-file-face= =treemacs-nerd-icons-root-face= =treemacs-on-failure-pulse-face= =treemacs-on-success-pulse-face= =treemacs-peek-mode-indicator-face= =treemacs-remote-face= =treemacs-root-face= =treemacs-root-remote-disconnected-face= =treemacs-root-remote-unreadable-face= =treemacs-root-unreadable-face= =treemacs-tags-face= =treemacs-term-node-face= =treemacs-window-background-face=
+
+** doom (34)
+
+=doom-modeline-bar= =doom-modeline-bar-inactive= =doom-modeline-battery-charging= =doom-modeline-battery-critical= =doom-modeline-battery-error= =doom-modeline-battery-full= =doom-modeline-battery-warning= =doom-modeline-buffer-file= =doom-modeline-buffer-major-mode= =doom-modeline-buffer-minor-mode= =doom-modeline-buffer-modified= =doom-modeline-buffer-path= =doom-modeline-evil-emacs-state= =doom-modeline-evil-insert-state= =doom-modeline-evil-motion-state= =doom-modeline-evil-normal-state= =doom-modeline-evil-operator-state= =doom-modeline-evil-replace-state= =doom-modeline-evil-visual-state= =doom-modeline-info= =doom-modeline-input-method= =doom-modeline-lsp-error= =doom-modeline-lsp-running= =doom-modeline-lsp-success= =doom-modeline-lsp-warning= =doom-modeline-notification= =doom-modeline-project-dir= =doom-modeline-project-parent-dir= =doom-modeline-project-root-dir= =doom-modeline-repl-success= =doom-modeline-repl-warning= =doom-modeline-time= =doom-modeline-urgent= =doom-modeline-warning=
+
+** markdown (39)
+
+=markdown-bold-face= =markdown-gfm-checkbox-face= =markdown-header-face= =markdown-italic-face= =markdown-line-break-face= =markdown-link-face= =markdown-markup-face= =markdown-metadata-value-face= =markdown-missing-link-face= =markdown-pre-face= =markdown-ts-block-quote= =markdown-ts-bold= =markdown-ts-code-block= =markdown-ts-code-block-markup-hidden= =markdown-ts-code-span= =markdown-ts-delimiter= =markdown-ts-emphasis= =markdown-ts-entity-reference= =markdown-ts-hard-line-break-backslash= =markdown-ts-hard-line-break-backslash-hidden= =markdown-ts-hard-line-break-space= =markdown-ts-hard-line-break-space-hidden= =markdown-ts-heading-1= =markdown-ts-heading-2= =markdown-ts-heading-3= =markdown-ts-heading-4= =markdown-ts-heading-5= =markdown-ts-heading-6= =markdown-ts-html-block= =markdown-ts-html-tag= =markdown-ts-indented-code-block= =markdown-ts-language-keyword= =markdown-ts-latex= =markdown-ts-numeric-character-reference= =markdown-ts-table= =markdown-ts-table-cell= =markdown-ts-table-delimiter-cell= =markdown-ts-table-header= =markdown-url-face=
+
+** elfeed (15)
+
+=elfeed-log-date-face= =elfeed-score-date-face= =elfeed-score-debug-level-face= =elfeed-score-error-level-face= =elfeed-score-info-level-face= =elfeed-score-warn-level-face= =elfeed-search-last-update-face= =elfeed-search-marked-face= =elfeed-search-separator-face= =elfeed-show-author-face= =elfeed-show-date-face= =elfeed-show-feed-face= =elfeed-show-header-face= =elfeed-show-tags-face= =elfeed-show-title-face=
+
+** calibredb (20)
+
+=calibredb-archive-face= =calibredb-author-face= =calibredb-comment-face= =calibredb-date-face= =calibredb-edit-annotation-header-title-face= =calibredb-favorite-face= =calibredb-file-face= =calibredb-format-face= =calibredb-highlight-face= =calibredb-id-face= =calibredb-ids-face= =calibredb-mark-face= =calibredb-search-header-filter-face= =calibredb-search-header-highlight-face= =calibredb-search-header-library-name-face= =calibredb-search-header-library-path-face= =calibredb-search-header-sort-face= =calibredb-search-header-total-face= =calibredb-size-face= =calibredb-tag-face=
+
+** corfu (5)
+
+=corfu-bar= =corfu-border= =corfu-candidate-overlay-face= =corfu-quick1= =corfu-quick2=
+
+** vertico (3)
+
+=vertico-group-separator= =vertico-quick1= =vertico-quick2=
+
+** marginalia (1)
+
+=marginalia-liqst=
+
+** embark (3)
+
+=embark-collect-group-title= =embark-keybinding-repeat= =embark-selected=
+
+** citar (2)
+
+=citar= =citar-highlight=
+
+** transient (3)
+
+=transient-active-infix= =transient-inapt-argument= =transient-inapt-suffix=
+
+** hydra (5)
+
+=hydra-face-amaranth= =hydra-face-blue= =hydra-face-pink= =hydra-face-red= =hydra-face-teal=
+
+** evil (6)
+
+=evil-ex-commands= =evil-ex-info= =evil-ex-lazy-highlight= =evil-ex-search= =evil-ex-substitute-matches= =evil-ex-substitute-replacement=
+
+** rainbow (13)
+
+=rainbow-delimiters-base-error-face= =rainbow-delimiters-base-face= =rainbow-delimiters-depth-1-face= =rainbow-delimiters-depth-2-face= =rainbow-delimiters-depth-3-face= =rainbow-delimiters-depth-4-face= =rainbow-delimiters-depth-5-face= =rainbow-delimiters-depth-6-face= =rainbow-delimiters-depth-7-face= =rainbow-delimiters-depth-8-face= =rainbow-delimiters-depth-9-face= =rainbow-delimiters-mismatched-face= =rainbow-delimiters-unmatched-face=
+
+** dashboard (2)
+
+=dashboard-heading= =dashboard-items-face=
+
+** eshell (2)
+
+=eshell-fringe-status-failure= =eshell-fringe-status-success=
+
+** modus (32)
+
+=modus-themes-bold= =modus-themes-button= =modus-themes-completion-match-0= =modus-themes-completion-match-1= =modus-themes-completion-match-2= =modus-themes-completion-match-3= =modus-themes-completion-selected= =modus-themes-fixed-pitch= =modus-themes-heading-0= =modus-themes-heading-1= =modus-themes-heading-2= =modus-themes-heading-3= =modus-themes-heading-4= =modus-themes-heading-5= =modus-themes-heading-6= =modus-themes-heading-7= =modus-themes-heading-8= =modus-themes-mark-delete= =modus-themes-mark-other= =modus-themes-mark-select= =modus-themes-prompt= =modus-themes-reset-soft= =modus-themes-search-current= =modus-themes-search-lazy= =modus-themes-search-replace= =modus-themes-search-rx-group-0= =modus-themes-search-rx-group-1= =modus-themes-search-rx-group-2= =modus-themes-search-rx-group-3= =modus-themes-search-static= =modus-themes-slant= =modus-themes-ui-variable-pitch=
+
+** info (30)
+
+=info-colors-lisp-code-block= =info-colors-ref-item-command= =info-colors-ref-item-constant= =info-colors-ref-item-function= =info-colors-ref-item-macro= =info-colors-ref-item-other= =info-colors-ref-item-special-form= =info-colors-ref-item-syntax-class= =info-colors-ref-item-type= =info-colors-ref-item-user-option= =info-colors-ref-item-variable= =info-command-ref-item= =info-constant-ref-item= =info-custom-delimited= =info-double-quoted-name= =info-file= =info-function-ref-item= =info-glossary-word= =info-indented-text= =info-isolated-backquote= =info-isolated-quote= =info-macro-ref-item= =info-menu= =info-quoted-name= =info-reference-item= =info-special-form-ref-item= =info-string= =info-syntax-class-item= =info-user-option-ref-item= =info-variable-ref-item=
+
+** imenu (8)
+
+=imenu-list-entry-face-0= =imenu-list-entry-face-1= =imenu-list-entry-face-2= =imenu-list-entry-face-3= =imenu-list-entry-subalist-face-0= =imenu-list-entry-subalist-face-1= =imenu-list-entry-subalist-face-2= =imenu-list-entry-subalist-face-3=
+
+** dired (12)
+
+=dired-async-failures= =dired-async-message= =dired-async-mode-message= =dired-git-branch-else= =dired-git-branch-master= =dired-narrow-blink= =dired-subtree-depth-1-face= =dired-subtree-depth-2-face= =dired-subtree-depth-3-face= =dired-subtree-depth-4-face= =dired-subtree-depth-5-face= =dired-subtree-depth-6-face=
+
+** git (11)
+
+=git-commit-keyword= =git-gutter-fr:added= =git-gutter-fr:deleted= =git-gutter-fr:modified= =git-rebase-comment-hash= =git-rebase-comment-heading= =git-rebase-description= =git-rebase-hash= =git-timemachine-commit= =git-timemachine-minibuffer-author-face= =git-timemachine-minibuffer-detail-face=
+
+** undo (5)
+
+=undo-tree-visualizer-active-branch-face= =undo-tree-visualizer-current-face= =undo-tree-visualizer-default-face= =undo-tree-visualizer-register-face= =undo-tree-visualizer-unmodified-face=
+
+** vundo (4)
+
+=vundo-default= =vundo-highlight= =vundo-last-saved= =vundo-saved=
+
+** olivetti (1)
+
+=olivetti-fringe=
+
+** helpful (1)
+
+=helpful-heading=
+
+** yas (1)
+
+=yas-field-highlight-face=
+
+** tex (1)
+
+=tex-verbatim=
+
+** outline (1)
+
+=outline-minor-0=
+

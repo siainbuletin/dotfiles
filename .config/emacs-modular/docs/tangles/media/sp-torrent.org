@@ -2,9 +2,17 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-torrent.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/media/sp-torrent.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/media/sp-torrent.el=.
 
-This module is a placeholder. It contains only a header, a commentary block listing what it is meant to do some day, and a footer. There is no code, no =provide= form, and nothing in =init.el= or any other module requires it, so it has no effect on the running configuration.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is a placeholder.
+
+- It contains only a header, a commentary block listing what it is meant to do some day, and a footer.
+- There is no code and no =provide= form.
+- Nothing in =init.el= or any other module requires it, so it has no effect on the running configuration.
 
 * Planned scope
 

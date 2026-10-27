@@ -8,7 +8,11 @@ We'll be installing a utility package called =vc-backup= which creates a version
   (use-package vc-backup)
 #+end_src
 
-Before actually saving a file, what Emacs does is that it takes the contents of the old file and creates a "backup" file for it. These will usually have a =~= attached at the end. As long as you have the file open in the current buffer, the backup will stay at the point _before_ you first opened it. Basically, the backups are done *session by session*.[fn:6]
+How Emacs backups work:
+
+- Before saving a file, Emacs takes the contents of the old file and creates a "backup" file for it. These usually have a =~= attached at the end.
+- As long as the file stays open in the current buffer, the backup stays at the point _before_ you first opened it.
+- So backups are done *session by session*.[fn:6]
 
 After you kill a buffer, if you visit the file again, it will create a new backup file, since what you're doing is effectively *starting a new session*.
 

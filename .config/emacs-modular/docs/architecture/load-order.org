@@ -17,22 +17,22 @@ digraph modules {
   edge [color="#555555", fontname="Helvetica", fontsize=9];
 
   subgraph cluster_1 { label="1  Foundations"; style=rounded; color="#999999"; fontname="Helvetica";
-    p1 [label="sp-paths  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
+    p1 [label="sp-globals  sp-encoding\nsp-base-libraries\n(cond-let, transient, dash, s, f, avy, helm)"];
     p2 [label="sp-interaction  sp-keys\n(hydra, helm-descbinds)"];
     p3 [label="sp-navi\n(consult)"];
     p1 -> p2 -> p3;
   }
   subgraph cluster_2 { label="2  UI"; style=rounded; color="#999999"; fontname="Helvetica";
     u1 [label="sp-icons  sp-colors  sp-faces\nsp-fonts  sp-emoji-font\nsp-textui  sp-themes"];
-    u2 [label="sp-frame  sp-buffers  sp-windows\nsp-tabs  sp-mini-frame\n(ace-window)"];
-    u3 [label="sp-treemacs  sp-writedesk\nlem-dashboard  sp-canvas"];
+    u2 [label="sp-frame  sp-buffers  sp-windows\nsp-tabs  sp-posframe\n(ace-window)"];
+    u3 [label="sp-treemacs  sp-writedesk\nsp-canvas"];
     u1 -> u2 -> u3;
   }
   subgraph cluster_3 { label="3  Environment and tooling"; style=rounded; color="#999999"; fontname="Helvetica";
     e1 [label="sp-env  sp-macos\n(inheritenv)"];
-    e2 [label="sp-backups  sp-bookmarks  sp-debug\nsp-help  sp-indention  sp-lambda-line\nsp-md  sp-network  sp-scratch  sp-server\nsp-splash  sp-spelling  sp-templating\nsp-text-manipulation  sp-workspaces\n(markdown-mode, projectile)"];
+    e2 [label="sp-backups  sp-bookmarks  sp-debug\nsp-help  sp-indention  sp-lambda-modeline\nsp-md  sp-network  sp-scratch  sp-server\nsp-splash  sp-spelling  sp-templating\nsp-text-manipulation  sp-workspaces\n(markdown-mode, projectile)"];
     e3 [label="sp-embark\n(embark-consult)"];
-    e4 [label="sp-minibuffer\n(requires sp-completion:\nvertico, orderless, company, corfu, prescient)"];
+    e4 [label="sp-minibuffer\n(requires sp-completion:\ncompany first, then vertico, orderless,\ncorfu; then prescient and company-prescient)"];
     e1 -> e2 -> e3 -> e4;
   }
   subgraph cluster_4 { label="4  Org"; style=rounded; color="#999999"; fontname="Helvetica";
@@ -40,26 +40,28 @@ digraph modules {
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
     o3 [label="sp-org-agenda\n(org-other-agenda, elegant-agenda-mode)\ndeclares first: org-super-agenda (:wait t)\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext"];
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext\n(vulpea-ext requires sp-split-leave-parents,\nnow in funct/)"];
     o6 [label="sp-csv  sp-org-normalise\nsp-org-issues"];
     o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)"];
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
-  subgraph cluster_5 { label="5  Functions and programming"; style=rounded; color="#999999"; fontname="Helvetica";
-    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-link-conversion  sp-org-lint"];
+  subgraph cluster_5 { label="5  Functions, programming and AI"; style=rounded; color="#999999"; fontname="Helvetica";
+    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-org-lint"];
     g1 [label="sp-base-code"];
     g2 [label="sp-lisp\n(paredit)"];
     g3 [label="sp-prog-misc\n(emr)"];
-    f1 -> g1 -> g2 -> g3;
+    g4 [label="sp-ai\n(mcp-server-lib, vulpea-mcp, org-mcp,\ngptel, gptel-agent, claude-code, ...)"];
+    f1 -> g1 -> g2 -> g3 -> g4;
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
-    l1 [label="sp-academic  sp-notes  sp-trails\nsp-semantic  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+
+    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
-    l3 [label="sp-vcontrol  →  sp-magit-style\n→  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
-    l4 [label="sp-terminal  sp-eshell", color="#3a6ea5"];
-    l5 [label="sp-ai\n(gptel, gptel-agent, claude-code, vulpea-mcp, ...)", color="#3a6ea5"];
-    l6 [label="sp-tag-emoji  sp-thesis-dump", color="#3a6ea5"];
-    l1 -> l2 -> l3 -> l4 -> l5 -> l6;
+    l3 [label="sp-vcontrol  →  sp-magit-style  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
+    l4 [label="sp-terminal  sp-eshell\nsp-org-tag-groups  sp-thesis-dump\nsp-typst", color="#3a6ea5"];
+    lx [label="the list is sp-late-modules\n(sp-defer-late-modules)\nrequired from elpaca-after-init-hook,\nthen elpaca-process-queues", shape=note, fillcolor="#e8f0f8", color="#3a6ea5"];
+    l4 -> lx [style=dotted, arrowhead=none];
+    l1 -> l2 -> l3 -> l4;
   }
   p3 -> u1 [ltail=cluster_1, lhead=cluster_2];
   u3 -> e1 [ltail=cluster_2, lhead=cluster_3];
@@ -74,7 +76,11 @@ digraph modules {
 
 (The Org box above changed with [[file:../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]: =sp-org-keywords= comes after =sp-org-base=, and =sp-org-capture= and =sp-agenda-views= load last in the box.)
 
-Inside a box the modules are independent of each other. An arrow means "has to come before" (it points from the package that is required to the one that requires it, the opposite of a dependency arrow). The parenthesised names are the packages whose position matters.
+How to read the boxes and arrows:
+
+- Inside a box the modules are independent of each other.
+- An arrow means "has to come before". It points from the package that is required to the one that requires it, the opposite of a dependency arrow.
+- The parenthesised names are the packages whose position matters.
 
 * Why each arrow is there
 
@@ -107,6 +113,8 @@ digraph packages {
   "magit\n(sp-vcontrol)" -> "forge\n(sp-vcontrol)" -> "code-review\n(sp-vcontrol)";
   "inheritenv\n(sp-env)" -> "claude-code\n(sp-ai)";
   "gptel\n(sp-ai)" -> "gptel-agent\n(sp-ai)";
+  "mcp-server-lib\n(sp-ai)" -> "vulpea-mcp\n(sp-ai)";
+  "mcp-server-lib\n(sp-ai)" -> "org-mcp\n(sp-ai)";
   "orderless\n(sp-completion)" -> "gptel-agent\n(sp-ai)";
 }
 #+end_src
@@ -131,6 +139,7 @@ digraph packages {
 | =magit= → =forge= (sp-vcontrol)     | =code-review=                      | =code-review.el= =Package-Requires=                            |
 | =inheritenv= (sp-env)               | =claude-code=                      | =claude-code.el= =Package-Requires=                            |
 | =gptel=, =orderless=                | =gptel-agent=                      | =gptel-agent.el= =Package-Requires=                            |
+| =mcp-server-lib= (sp-ai)            | =vulpea-mcp=, =org-mcp=            | the MCP servers are built on it (not read from the headers; declared first so Elpaca does not queue it as a dependency) |
 
 The =Package-Requires= headers were read from each package's upstream repository on GitHub. They list names, not recipes, so which Elpaca recipe a name resolves to is not shown here.
 
@@ -143,26 +152,72 @@ The =Package-Requires= headers were read from each package's upstream repository
 =emr= in =sp-prog-misc= requires =paredit=, which =sp-lisp= installs. The two modules swap places. =sp-lisp= does not use anything from =sp-prog-misc=.
 
 ** Late modules
-=sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-graphs= (which holds the four graph modules that were listed one by one before), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-ai=, =sp-tag-emoji= and =sp-thesis-dump= no longer load while Emacs starts. They are listed in =lem--late-modules= (in dependency order: =sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=; =sp-embr= after =sp-graphs=, whose live view it shows), and loaded 0.5 seconds after Emacs first goes idle once Elpaca has finished its initial queues, through =elpaca-after-init-hook=. They were picked because:
 
-- no other module =require=s them, so nothing is left waiting for them;
-- they install the most and the heaviest packages (the AI tools, =org-ref= with its dependencies, =magit= with =forge= and =code-review=);
-- the keys that matter before they load are still there: =sp-keys= autoloads the =magit= commands it binds.
+The list of modules that load after startup is the variable =sp-late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. At the time of writing it holds =sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-graphs= (graphs of notes, including the relationship annotator and its live view), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-org-tag-groups= and =sp-thesis-dump=, =sp-typst=, in dependency order (=sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=). =sp-ai= is not in it: it starts the MCP servers that Claude connects to, so it loads with the startup modules (see [[file:../tangles/media/sp-ai.org][sp-ai]]). =lem--default-modules= requires everything else and then calls =sp-schedule-late-modules=, which:
 
-The cost is that their own keys and commands (for example =C-M-g= for =magit=, bound in =sp-vcontrol=) only work from the moment they have loaded, a second or so after startup. To load them with everything else, in the same order as the list, set =sp-defer-late-modules= to =nil=.
+1. adds a function to =elpaca-after-init-hook=, so nothing is queued before Elpaca has finished the packages of the early modules;
+2. from there, waits for Emacs to be idle for 0.5 seconds, then requires each late module (a failing one is logged and the rest still load);
+3. calls =elpaca-process-queues=, because Elpaca only processes orders declared after init on its own when a command is running interactively.
+
+So the packages of a late module are not installed or loaded during startup but by that last step, and the =:config= of its =use-package= forms runs after that, not while the module is read. With =sp-defer-late-modules= set to =nil= the same list is required straight away, in the same order, during init.
+
+They were picked because no other module =require=s them, and because they install heavy packages (=org-ref= with its dependencies, =magit= with =forge= and =code-review=).
+
+*** What does not work until they have loaded
+Keys and commands that are defined, or whose package is installed, by a late module only exist from a second or so after startup:
+
+| Binding                                                                              | Where it is bound | Installed by    |
+|--------------------------------------------------------------------------------------+-------------------+-----------------|
+| =C-M-g= (=magit=)                                                                    | =sp-vcontrol=     | =sp-vcontrol=   |
+| the =magit-*= keys of the version-control prefix (blame, commit, diff, log, status…) | =sp-keys=         | =sp-vcontrol=   |
+| =consult-notes=, =consult-notes-search-in-all-notes=                                 | =sp-keys=         | =sp-notes=      |
+| the =citar-*= and =citar-denote-*= keys                                              | =sp-keys=         | =sp-academic=   |
+| =yadm=                                                                               | =sp-vcontrol=     | =sp-vcontrol=   |
+| =sp-open-new-eshell-and-workspace=, which calls =lem-eshell-home=                    | =sp-workspaces=   | =sp-eshell=     |
+
+=sp-keys= only autoloads the =git-gutter= commands, not the =magit=, =consult-notes= or =citar= ones; pressing one of those keys before the late modules have loaded gives a void-function error. Nothing else that loads at startup calls into a late module.
+
+*** Problems found when checking the order
+- *=sp-ai= called =(vulpea-mcp-enable)= at top level.* When the module is read the package is not built yet (Elpaca builds it after the module, and for a late module long after init), so the call failed and =monet= and the =provide= were never reached. It now runs in the =:config= of the =vulpea-mcp= form. =sp-ai= was then taken out of the late list, because Claude's MCP servers have to be up with the daemon.
+- *The first version of this page said =sp-keys= autoloads the =magit= commands.* It does not (see above); the page and the comment in =init.el= are corrected.
+- No module that loads at startup requires a late one, and the late modules only need packages from modules that load earlier (=org-node=, =denote=, =vulpea=, =transient=, =inheritenv=, =consult=), so their order against the rest has no conflict that I found. =claude-code= (in =sp-ai=) says =:after (inheritenv vterm eat)=, and =vterm= and =eat= come from the late =sp-terminal=, so its configuration waits until that has loaded, which is the intended order.
+- =sp-trails= needs =org-ql= from =sp-org-agenda=, which loads earlier, so it is safe as a late module.
+
+*** =sp-org-tag-groups= is late, and nothing at startup requires it
+=sp-org-tag-groups= (with the tag groups, =sp-org-tag-groups-alist=, defined in it) was in the late list but also =require=d by =sp-tab-inbox=, =sp-collection-query-tables-core=, =sp-move-region-to-heading= and =sp-org-link-conversion=, so it loaded at startup and the late entry only logged =[skip] already loaded=. Those four requires are removed: none of them calls anything from it (they only wanted its side effects, the tag emoji in the =vulpea-select= prompts), and the mode line modules use =fboundp=. Until the late modules have loaded, those prompts show no tag emoji. =sp-graphs=, itself late, still requires it.
+
+** Packages declared twice, and ones declared too late
+
+Elpaca keeps one order per package. A second =:ensure t= for the same package is logged as =Duplicate item ID queued=, and a package that is queued as a dependency before its explicit declaration is logged as =previously queued as dependency of=. Both were in the startup log, and are fixed this way:
+
+| Package        | Installed by (kept)       | Other declaration, now =:ensure nil= | Why that one stays                                                                 |
+|----------------+---------------------------+--------------------------------------+------------------------------------------------------------------------------------|
+| =hl-todo=      | =sp-org-taskman-extra=    | =sp-faces=                           | colours are read from the theme, which is loaded after =sp-faces=; the form there only adds hooks |
+| =org-autolist= | =sp-org-appearance=       | =sp-org-ext=                         | =sp-org-appearance= loads first; =sp-org-ext= adds the Org hook                    |
+| =elisp-demos=  | =sp-help=                 | =sp-lisp=                            | =sp-help= loads first; =sp-lisp= adds the =describe-function-1= advice            |
+| =company=      | =sp-completion=, now the first form of the file | =sp-base-code=       | =company-math= (=sp-org-base=) and =company-prescient= (=sp-minibuffer=) require =company=, so it has to be queued explicitly before either |
+
+Two further errors in the same log were order problems inside a module:
+
+- *=sp-academic=* defined =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= after it required =sp-citations= and =sp-litnotes=. It is a late module, and Elpaca runs the =:init= of a package once it is installed, which can be while the rest of the file is still loading (this is the likely cause; I could not run Emacs to confirm it), so =citar-denote= read =sp-bibliography= while it was void. The three =defcustom= forms are now the first thing in the file.
+- *=code-review=* is declared after =forge= but loaded without waiting for it, and its database class needs =emacsql-sqlite-connection=. It now has =:after forge= and requires =emacsql-sqlite= first.
+
+** =sp-fetch-academic= loads inside =sp-academic=
+
+=sp-academic= is one late module, but it requires its sub-modules itself, in this order: =sp-bibprocess=, =sp-pdfprocess=, =sp-citations=, =sp-litnotes=, =sp-fetch-academic=. The new one is last because it reads =sp-bibtex-files= and =sp-bibliography-dir= from =sp-bibprocess= and installs =biblio= (which moved there from =sp-academic=, so =biblio= is still queued once). It needs =org-ref= only when its DOI command runs, so it does not have to come after =org-ref=, which =sp-academic= declares further down.
 
 ** What stays as it was
-The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package (=hl-todo= in =sp-faces= and =sp-org-taskman-extra=, =org-autolist= in =sp-org-appearance= and =sp-org-ext=, =elisp-demos= in =sp-help= and =sp-lisp=, =company= in =sp-completion= and =sp-base-code=) are not an ordering problem and have been left alone. The minimal list (=-minimal=) is as before.
+The order inside the UI, tooling and Org groups is unchanged, because I found no requirement between their packages that the current order breaks. Duplicate explicit declarations of one package were first left alone as "not an ordering problem"; Elpaca logs them, so they are fixed (see above). The minimal list (=-minimal=) is as before.
 
 * How to place a new module
 
 1. Find what its packages require (the =Package-Requires= header of each).
 2. If a required package is installed by another module, put the new module after it. If it is a package you install in the same module, declare it first.
-3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =lem--late-modules= instead.
+3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =sp-late-modules= instead.
 4. Add it to the graph above and to the module tree in [[file:../main.org][main.org]].
 
 * What has been checked
 
-- =init.el= and the changed modules were read back by Emacs 29.3 (all forms read); the late-module functions were run against stubs, which loaded the twelve modules in order and asked Elpaca to process its queues.
+- =init.el= and the changed modules were read back by Emacs 29.3 (all forms read); the late-module functions were run against stubs, which loaded the modules in order and asked Elpaca to process its queues.
 - The dependency edges come from =Package-Requires= headers on GitHub (see above), not from a run of Elpaca: MELPA is not reachable from where this was prepared, so a real startup with the new order, and with =sp-defer-late-modules= on, has not been done.
-- Whether Elpaca installs and configures packages declared after init without further help (the reason =lem--load-late-modules= calls =elpaca-process-queues=) follows from reading =elpaca.el=, and is untested.
+- Whether Elpaca installs and configures packages declared after init without further help (the reason =sp-load-late-modules= calls =elpaca-process-queues=) follows from reading =elpaca.el=, and is untested. The same goes for the =:config= of =vulpea-mcp= now running after the package is loaded.

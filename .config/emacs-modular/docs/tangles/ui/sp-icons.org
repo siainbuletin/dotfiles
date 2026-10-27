@@ -2,13 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-icons.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-icons.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-icons.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module sets up =nerd-icons= and its companion packages, which add file and mode icons to dired, completion candidates and ibuffer. It replaces the older =all-the-icons= setup from Lambda Emacs: nerd-icons uses a single patched font, =Symbols Nerd Font Mono=, instead of six separate fonts, and it also works in terminal frames.
 
-Most of the packages are configured unconditionally. The font check uses =sp-font-available-p= from =sp-fonts=. In a GUI the font has to be installed on the system once with =M-x nerd-icons-install-fonts=. The module is loaded early in the UI section of =init.el=, before =sp-colors= and =sp-fonts=.
+Loading and fonts:
+
+- Most of the packages are configured unconditionally.
+- The font check uses =sp-font-available-p= from =sp-fonts=.
+- In a GUI, the font has to be installed on the system once with =M-x nerd-icons-install-fonts=.
+- The module is loaded early in the UI section of =init.el=, before =sp-colors= and =sp-fonts=.
 
 The commentary at the top of the module says:
 
@@ -96,7 +105,10 @@ A no-op in a TTY, where the terminal font handles the glyphs."
 
 ** nerd-icons
 
-Configures the core package with autoloads for its icon functions. Both helper functions run from =after-setting-font-hook=, which fires whenever the frame font changes: the check is added at startup and the fontset mapping once nerd-icons is loaded. Icons are drawn at their normal size (scale factor 1.0).
+Configures the core package with autoloads for its icon functions.
+
+- Both helper functions run from =after-setting-font-hook=, which fires whenever the frame font changes. The check is added at startup and the fontset mapping once nerd-icons is loaded.
+- Icons are drawn at their normal size (scale factor 1.0).
 
 #+begin_src emacs-lisp -i
 (use-package nerd-icons
@@ -124,21 +136,22 @@ Configures the core package with autoloads for its icon functions. Both helper f
 
 ** nerd-icons-dired
 
-Shows file icons next to entries in every dired buffer through =nerd-icons-dired-mode=.
+Removed. ;; icons for dired are actually declared in sp-dired.el
+
+Shows file icons next to entries in plain dired buffers through =nerd-icons-dired-mode=.
+
+Dirvish takes over every dired buffer and has its own =nerd-icons= attribute in =dirvish-attributes= (see =sp-dired=). Its buffers are derived from dired, so =dired-mode-hook= switched this mode on there too and every entry showed two icons. =sp-icons--dired-off-in-dirvish= turns the mode off again in Dirvish buffers (=dirvish-mode-hook= and =dirvish-directory-view-mode-hook=, the parent and preview windows), so Dirvish's attribute is the only icon source there. Untested in a running Emacs.
 
 #+begin_src emacs-lisp -i
-;; icons for dired
-(use-package nerd-icons-dired
-  :ensure t
-  :defer t
-  :commands nerd-icons-dired-mode
-  :init
-  (add-hook 'dired-mode-hook 'nerd-icons-dired-mode))
+;; icons for dired are actually declared in sp-dired.el
 #+end_src
 
 ** nerd-icons-completion
 
-Turns on =nerd-icons-completion-mode= after startup, adding icons to file, buffer and other completion candidates in the minibuffer. When =marginalia-mode= is toggled, the marginalia integration is set up as well. The comment notes the package comes straight from MELPA.
+Turns on =nerd-icons-completion-mode= after startup, adding icons to file, buffer and other completion candidates in the minibuffer.
+
+- When =marginalia-mode= is toggled, the marginalia integration is set up as well.
+- The comment notes the package comes straight from MELPA.
 
 #+begin_src emacs-lisp -i
 ;; Completion Icons
@@ -170,3 +183,9 @@ Provides the =sp-icons= feature and closes the file.
 (provide 'sp-icons)
 ;; sp-icons.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/112][#112]] 🐛 Fixed Dirvish showing two sets of icons per entry: =nerd-icons-dired-mode= on =dired-mode-hook= ran in Dirvish buffers (derived from dired) on top of Dirvish's own =nerd-icons= attribute; it is now turned off in Dirvish buffers and stays on in plain dired. Not run in Emacs (none in the container).

@@ -2,11 +2,31 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-helper-funct.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/funct/sp-helper-funct.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/funct/sp-helper-funct.el=.
 
-This module is a grab bag of small interactive commands and a few global settings that do not belong to any one feature area. It covers buffer management (new, temporary, reverted and copied buffers, user-buffer cycling), file and directory helpers, text insertion helpers (timestamps, comment separators, weather, YAML fences), some Org writing helpers adapted from Emacs Writing Studio, and a copy of the sensible-defaults library.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It relies on directory constants defined in =early-init.el= (=sp-emacs-dir=, =sp-setup-dir=, =sp-user-dir=) and loads several packages lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers, and =evil= for the escape key bindings. Some commands shell out to external programs: =rg= (ripgrep), =curl= and =maim=. Many of the commands defined here are bound under the =sp-prefix= leader in =sp-keys.el=. The module is loaded in the Functions block of the default module list in =init.el= and ends by installing the =wizard= package.
+This module is a grab bag of small interactive commands and a few global settings that do not belong to any one feature area. It covers:
+
+- buffer management (new, temporary, reverted and copied buffers, user-buffer cycling),
+- file and directory helpers,
+- text insertion helpers (timestamps, comment separators, weather, YAML fences),
+- some Org writing helpers adapted from Emacs Writing Studio,
+- a copy of the sensible-defaults library.
+
+Dependencies:
+
+- Directory constants defined in =early-init.el=: =sp-emacs-dir=, =sp-setup-dir=, =sp-user-dir=.
+- Packages loaded lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers, =evil= for the escape key bindings.
+- External programs, which some commands shell out to: =rg= (ripgrep), =curl=, =maim=.
+
+Loading and bindings:
+
+- Many commands defined here are bound under the =sp-prefix= leader in =sp-keys.el=.
+- The module is loaded in the Functions block of the default module list in =init.el=.
+- It ends by installing the =wizard= package.
 
 The commentary at the top of the module says:
 
@@ -49,24 +69,31 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Quit and bell behaviour
 
-Setting =confirm-kill-processes= to nil lets Emacs exit without asking about running subprocesses. =ring-bell-function= is set to =ignore= to silence the bell, and then =visible-bell= is enabled. Because a custom =ring-bell-function= takes precedence, the visible flash probably never happens; that is an inference from how the two options interact.
+Quit and bell settings:
+
+These settings are no longer made here. They moved to [[file:../base/sp-globals.org][sp-globals]] as =sp-confirm-kill-processes=, =sp-ring-bell-function= and =sp-visible-bell=, and a comment in the code says so. The values are unchanged:
+
+- =confirm-kill-processes= is nil, which lets Emacs exit without asking about running subprocesses.
+- =ring-bell-function= is =ignore= to silence the bell, and then =visible-bell= is enabled.
+- A custom =ring-bell-function= takes precedence, so the visible flash probably never happens. That is an inference from how the two options interact.
 
 #+begin_src emacs-lisp -i
 ;;;; Exiting without confirmation
-(setq confirm-kill-processes nil)
+;; Moved to `sp-globals': `sp-confirm-kill-processes'.
 
 ;; Sounds
-(setq ring-bell-function 'ignore) ;; Disable the bell sound
-
-;; flash-screen-instead-of-ringing-bell
-;; When you perform a problematic operation, flash the screen
-;; instead of ringing the terminal bell
-(setq visible-bell t)
+;; Moved to `sp-globals': `sp-ring-bell-function' (no bell sound) and
+;; `sp-visible-bell' (flash the screen instead of ringing the bell).
 #+end_src
 
 ** Archive a region
 
-=sp-kill-and-archive-region= appends the active region to =sp-archived-configs.el= inside =sp-setup-dir= and then deletes it from the buffer, a quick way to retire a chunk of configuration while keeping a copy. The docstring mentions setup-archive.el, which is an older file name. =sp-keys.el= binds it under the config prefix (=a=).
+=sp-kill-and-archive-region= appends the active region to =sp-archived-configs.el= inside =sp-setup-dir= and then deletes it from the buffer.
+
+- It is a quick way to retire a chunk of configuration while keeping a copy.
+- The old archive file =libraries/sp-archived-configs.el= (the previous automatic theme switch, and similar) was deleted. Its last version is in commit [[https://github.com/siainbuletin/dotfiles/blob/21c582ef959fff02ba80899748762e0d279adf32/.config/emacs-modular/libraries/sp-archived-configs.el][21c582e]]. This command writes to a different file, =sp-archived-configs.el= inside =sp-setup-dir=.
+- The docstring mentions setup-archive.el, which is an older file name.
+- =sp-keys.el= binds it under the config prefix (=a=).
 
 #+begin_src emacs-lisp -i
 ;;;;; Archive region to setup-archive
@@ -97,7 +124,11 @@ Commands for finding, searching and reloading the configuration files themselves
 
 ** Building a consult source
 
-=sp--files-make-source= turns one entry of that table into a source plist for =consult--multi=. Items are the files in the directory whose names contain an extension, prefixed with an invisible copy of the directory so that only the bare name shows while the full path is still available. Choosing an item opens it with =find-file=.
+=sp--files-make-source= turns one entry of that table into a source plist for =consult--multi=.
+
+- Items are the files in the directory whose names contain an extension.
+- They are prefixed with an invisible copy of the directory, so only the bare name shows while the full path is still available.
+- Choosing an item opens it with =find-file=.
 
 #+begin_src emacs-lisp -i
 (defun sp--files-make-source (name char dir)
@@ -132,7 +163,11 @@ Commands for finding, searching and reloading the configuration files themselves
 
 ** Search configuration files
 
-=sp-search-lambda-files= runs =consult-ripgrep= over =sp-emacs-dir= with custom ripgrep arguments that include hidden files and exclude =straight=, =var= and =.git=. The include glob still points at a =lambda-library= directory, while the modules now live under =libraries/=, so that glob may no longer match anything useful. If =rg= is missing it just prints a message.
+=sp-search-lambda-files= runs =consult-ripgrep= over =sp-emacs-dir= with custom ripgrep arguments.
+
+- The arguments include hidden files and exclude =straight=, =var= and =.git=.
+- The include glob still points at a =lambda-library= directory, while the modules now live under =libraries/=. That glob may no longer match anything useful.
+- If =rg= is missing, it just prints a message.
 
 #+begin_src emacs-lisp -i
 (defun sp-search-lambda-files ()
@@ -163,7 +198,12 @@ Commands for finding, searching and reloading the configuration files themselves
 
 ** Commands enabled or disabled
 
-Several built-in commands are marked disabled by default and ask for confirmation the first time you use them. This block clears that flag for =erase-buffer=, case conversion of a region, =narrow-to-region= and =dired-find-alternate-file=, and instead disables =ns-print-buffer= and =suspend-frame=, which are easy to hit by accident. The trailing comments introduce the buffer functions that follow.
+Several built-in commands are marked disabled by default and ask for confirmation the first time you use them. This block:
+
+- clears that flag for =erase-buffer=, case conversion of a region, =narrow-to-region= and =dired-find-alternate-file=,
+- disables =ns-print-buffer= and =suspend-frame= instead, which are easy to hit by accident.
+
+The trailing comments introduce the buffer functions that follow.
 
 #+begin_src emacs-lisp -i
 ;;;;; Built-in Functions
@@ -190,7 +230,11 @@ Several built-in commands are marked disabled by default and ask for confirmatio
 
 ** New buffers
 
-=sp-new-buffer-new-frame= opens an =untitled= buffer in its own new frame, adapted from a Stack Overflow answer. =sp-create-new-buffer= creates a =*new*= buffer in the current window and puts it in the default major mode. Both are bound under the buffer prefix in =sp-keys.el=.
+Buffer creation:
+
+- =sp-new-buffer-new-frame= opens an =untitled= buffer in its own new frame, adapted from a Stack Overflow answer.
+- =sp-create-new-buffer= creates a =*new*= buffer in the current window and puts it in the default major mode.
+- Both are bound under the buffer prefix in =sp-keys.el=.
 
 #+begin_src emacs-lisp -i
 (defun sp-new-buffer-new-frame ()
@@ -241,7 +285,11 @@ Several built-in commands are marked disabled by default and ask for confirmatio
 
 ** Revert all file buffers
 
-=sp-revert-all-file-buffers= walks every buffer that visits a file and is not modified in Emacs. Readable files are reverted without confirmation, keeping their modes; buffers whose files no longer exist or cannot be read are killed with a message. Unsaved edits are never touched.
+=sp-revert-all-file-buffers= walks every buffer that visits a file and is not modified in Emacs.
+
+- Readable files are reverted without confirmation, keeping their modes.
+- Buffers whose files no longer exist or cannot be read are killed with a message.
+- Unsaved edits are never touched.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Revert all buffers
@@ -274,6 +322,8 @@ will be killed."
 
 =sp-copy-whole-buffer-to-clipboard= copies the entire buffer to the system clipboard, and =sp-copy-clipboard-to-whole-buffer= replaces the whole buffer with the clipboard contents. The first is bound under the buffer prefix.
 
+=sp-copy-last-message= copies the last line logged in =*Messages*= to the kill ring, which is how to get hold of text that has just flashed in the echo area (=C-h e= opens the same buffer). It reports what it copied. A message the echo area showed without logging it is not in the buffer and cannot be copied. It has no key binding yet; call it with =M-x=.
+
 #+begin_src emacs-lisp -i
 ;;;;;; Clipboard to/from Buffer
 ;; http://stackoverflow.com/a/10216338/4869
@@ -288,11 +338,33 @@ will be killed."
   (delete-region (point-min) (point-max))
   (clipboard-yank)
   (deactivate-mark))
+
+(defun sp-copy-last-message ()
+  "Copy the last message logged in *Messages* to the kill ring.
+Show the copied text in the echo area.  Messages the echo area
+showed without logging them cannot be recovered."
+  (interactive)
+  (if-let* ((buf (get-buffer "*Messages*"))
+            (text (with-current-buffer buf
+                    (save-excursion
+                      (goto-char (point-max))
+                      (skip-chars-backward "\n")
+                      (buffer-substring-no-properties
+                       (line-beginning-position) (point)))))
+            ((not (string-empty-p text))))
+      (progn (kill-new text)
+             (message "Copied: %s" text))
+    (user-error "No message to copy")))
 #+end_src
 
 ** Cycling through user buffers
 
-=sp-user-buffer-q= decides whether the current buffer is a user buffer: anything whose name starts with an asterisk, and any Dired buffer, is not. =sp-next-user-buffer= and =sp-previous-user-buffer= call =next-buffer= or =previous-buffer= and keep going, up to 20 times, until they land on a user buffer. These come from Xah Lee's ergoemacs site and are bound to =[= and =]= under the buffer prefix. A TODO notes they do not yet respect workspaces.
+User-buffer cycling:
+
+- =sp-user-buffer-q= decides whether the current buffer is a user buffer. Anything whose name starts with an asterisk, and any Dired buffer, is not.
+- =sp-next-user-buffer= and =sp-previous-user-buffer= call =next-buffer= or =previous-buffer= and keep going, up to 20 times, until they land on a user buffer.
+- They come from Xah Lee's ergoemacs site and are bound to =[= and =]= under the buffer prefix.
+- A TODO notes they do not yet respect workspaces.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Useful Buffers
@@ -342,7 +414,10 @@ will be killed."
 
 ** Evaluate a buffer until an error
 
-=sp-eval-buffer-until-error= jumps to the start of the buffer and reads and evaluates forms one at a time in an endless loop. It stops at the first error, leaving point just after the last good form, which helps locate a broken form in a configuration file. Reaching the end of the buffer also stops it, with an end of file error.
+=sp-eval-buffer-until-error= jumps to the start of the buffer and reads and evaluates forms one at a time in an endless loop.
+
+- It stops at the first error, leaving point just after the last good form. This helps locate a broken form in a configuration file.
+- Reaching the end of the buffer also stops it, with an end of file error.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Eval emacs buffer until error
@@ -356,7 +431,10 @@ will be killed."
 
 ** Kill the current buffer
 
-=sp-kill-this-buffer= is a thin wrapper around =kill-buffer=, because =kill-this-buffer= is unreliable outside the menu bar. Unlike deleting the buffer through Evil, it keeps the window open. It is bound to =k= under the buffer prefix.
+=sp-kill-this-buffer= is a thin wrapper around =kill-buffer=, because =kill-this-buffer= is unreliable outside the menu bar.
+
+- Unlike deleting the buffer through Evil, it keeps the window open.
+- It is bound to =k= under the buffer prefix.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Kill Current Buffer
@@ -493,7 +571,11 @@ Adapted from Marcin Borkowski, =make-parent-directory= creates the directory of 
 
 ** Insert time strings
 
-=sp-insert-time-string= inserts the year, day, hour, minute and second run together as one number. Despite the docstring it does not include the month, since the format is year, day, hour, minute, second. =sp-insert-time-seconds-epoch= inserts the Unix epoch seconds. A commented out global binding for the latter has a stray quote and would not work as written.
+Timestamp inserters:
+
+- =sp-insert-time-string= inserts the year, day, hour, minute and second run together as one number. Despite the docstring it does not include the month.
+- =sp-insert-time-seconds-epoch= inserts the Unix epoch seconds.
+- A commented out global binding for the latter has a stray quote and would not work as written.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Insert seconds
@@ -514,7 +596,13 @@ Adapted from Marcin Borkowski, =make-parent-directory= creates the directory of 
 
 ** Insert a comment separator
 
-=sp-insert-commented-separator=, adapted from kuanyui's writing-utils, inserts a three line block: a line of 54 equals signs, an empty comment line for a title, and another line of equals signs, using the current mode's comment syntax (two semicolons in Lisp modes). It moves to a fresh line first if point is not at column zero, and leaves point on the middle line.
+=sp-insert-commented-separator=, adapted from kuanyui's writing-utils, inserts a three line block using the current mode's comment syntax (two semicolons in Lisp modes):
+
+- a line of 54 equals signs,
+- an empty comment line for a title,
+- another line of equals signs.
+
+It moves to a fresh line first if point is not at column zero, and leaves point on the middle line.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Insert Comment Seperator
@@ -615,7 +703,14 @@ Adapted from Marcin Borkowski, =make-parent-directory= creates the directory of 
 
 ** Escape quits everything
 
-From Juanjo Alvarez's Vim migration guide, =minibuffer-keyboard-quit= aborts the minibuffer, first just deactivating an active mark when Delete Selection mode is on. Once Evil is loaded, escape is bound to =keyboard-quit= in normal and visual state, to this function in all the minibuffer keymaps, and globally to =evil-exit-emacs-state=. Since =sp-evil= is commented out of the module list, these bindings only take effect if Evil gets loaded some other way.
+=minibuffer-keyboard-quit= is from Juanjo Alvarez's Vim migration guide.
+
+- It aborts the minibuffer, first just deactivating an active mark when Delete Selection mode is on.
+- Once Evil is loaded, escape is bound to:
+  - =keyboard-quit= in normal and visual state,
+  - this function in all the minibuffer keymaps,
+  - =evil-exit-emacs-state= globally.
+- =sp-evil= is commented out of the module list, so these bindings only take effect if Evil gets loaded some other way.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Quit All the Things!
@@ -650,7 +745,10 @@ The comment calls this section an archive of functions to look through. They are
 
 ** Heading capitalisation level
 
-=sia-org-heading-level-capitalise= limits which Org heading levels the title case command touches. Nil means all levels. It is declared in an =ews= customization group that this config does not otherwise define.
+=sia-org-heading-level-capitalise= limits which Org heading levels the title case command touches.
+
+- Nil means all levels.
+- It is declared in an =ews= customization group that this config does not otherwise define.
 
 #+begin_src emacs-lisp -i
 ;; Other functions to look through (this is an archive)
@@ -659,7 +757,7 @@ The comment calls this section an archive of functions to look through. They are
 (defcustom sia-org-heading-level-capitalise nil
   "Minimum level of Org headings to be capitalised
 Nil implies all levels are capitalised."
-  :group 'ews
+  :group 'spcustom
   :type  '(choice (const :tag "All headings" nil)
 		  (integer :tag "Highest level" 1)))
 #+end_src
@@ -775,7 +873,13 @@ Customise `titlecase-style' for styling."
 
 ** Denote link descriptions in title case
 
-=sia-denote-link-description-title-case=, fixed by Prot, is intended as the value of =denote-link-description-function=. It uses the active region if there is one, returns an empty string when there is no title, leaves titles containing spaces alone, and otherwise turns hyphens between words into spaces and title cases the result. It is defined here but nothing in this module sets it as the description function.
+=sia-denote-link-description-title-case=, fixed by Prot, is intended as the value of =denote-link-description-function=.
+
+- Uses the active region if there is one.
+- Returns an empty string when there is no title.
+- Leaves titles containing spaces alone.
+- Otherwise turns hyphens between words into spaces and title cases the result.
+- It is defined here, but nothing in this module sets it as the description function.
 
 #+begin_src emacs-lisp -i
 ;; Fixed by Prot
@@ -868,11 +972,10 @@ to (recursively) create the file's parent directories."
 
 ** Do not confirm quitting
 
-Despite the comment, this sets =confirm-kill-emacs= to nil, so Emacs quits without asking. Unlike the surrounding functions this runs immediately when the module loads.
+Emacs quits without asking (=confirm-kill-emacs= is nil). The setting moved to [[file:../base/sp-globals.org][sp-globals]] as =sp-confirm-kill-emacs=, and a comment in the code says so. It now applies at startup instead of when this module loads.
 
 #+begin_src emacs-lisp -i
-;; Ask if you're sure that you want to close Emacs.
-(setq confirm-kill-emacs nil)
+;; Moved to `sp-globals': `sp-confirm-kill-emacs' (quit without asking).
 #+end_src
 
 ** Quiet startup and short answers
@@ -930,7 +1033,13 @@ insert the text where point is, not where the mouse cursor is."
 
 ** Apply all sensible defaults
 
-=sensible-defaults/use-all-settings= calls every function above, plus helpers defined in other modules (=sp-open-from-home-dir= and =sp-auto-follow-symlinks= in =sp-navi.el=, =sp-camelcase-separate-words= in =sp-prog-misc.el=, =sp-single-space-after-periods= in =sp-org-base.el=). Nothing in the repository appears to call it, so these settings are currently inactive unless invoked by hand.
+=sensible-defaults/use-all-settings= calls every function above, plus helpers defined in other modules:
+
+- =sp-open-from-home-dir= and =sp-auto-follow-symlinks= in =sp-navi.el=,
+- =sp-camelcase-separate-words= in =sp-prog-misc.el=,
+- =sp-single-space-after-periods= in =sp-org-base.el=.
+
+Nothing in the repository appears to call it, so these settings are currently inactive unless invoked by hand.
 
 #+begin_src emacs-lisp -i
 (defun sensible-defaults/use-all-settings ()

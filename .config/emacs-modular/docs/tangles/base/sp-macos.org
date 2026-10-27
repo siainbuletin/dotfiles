@@ -2,11 +2,30 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-macos.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-macos.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-macos.el=.
 
-Settings that only make sense on macOS, which the commentary describes as the main machine this configuration runs on. The module remaps the modifier keys, adds two =dwim-shell-command= helpers (open marked files with a chosen app, and pick a process to kill), makes Dired use Emacs's own directory lister, keeps the theme in step with the macOS Light/Dark appearance (including for daemon client frames), and installs =org-mac-link= for grabbing links from Mac applications.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It depends on the =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, =org-mac-link=, and the variable =sys-mac= set elsewhere in the configuration to detect macOS. The themes it switches between, =ef-dream= and =lambda-light-faded=, must be installed by the theme modules. It is in both the default and minimal module lists in =init.el=. Some parts are unconditional (the key remapping and the two shell commands), so they also run on other systems where they are harmless but not useful.
+Settings that only make sense on macOS, which the commentary describes as the main machine this configuration runs on. The module:
+
+- remaps the modifier keys,
+- adds two =dwim-shell-command= helpers (open marked files with a chosen app, and pick a process to kill),
+- makes Dired use Emacs's own directory lister,
+- keeps the theme in step with the macOS Light/Dark appearance (including for daemon client frames),
+- installs =org-mac-link= for grabbing links from Mac applications.
+
+Dependencies:
+
+- The =dwim-shell-command= package, the built-in =proced=, =map= and =seq= libraries, and =org-mac-link=.
+- The variable =sys-mac=, set elsewhere in the configuration to detect macOS.
+- =sp-themes=, which provides =sp-theme-auto-mode= and the themes it switches between (=sp-theme-appearance-themes=).
+
+Loading:
+
+- It is in both the default and minimal module lists in =init.el=.
+- Some parts are unconditional (the key remapping and the two shell commands). They also run on other systems, where they are harmless but not useful.
 
 The commentary at the top of the module says:
 
@@ -40,12 +59,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Command as Meta
 
-Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters. These are set without a macOS check, but the variables only have an effect on the NS port.
+Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters and work with AeroSpace. Using the right ~Control~ key as the ~Super~ key allows me to still use ~Command~ as ~Meta~ and shouldn't interfere with ~Option~ from AeroSpace at all.
 
 #+begin_src emacs-lisp -i
 ;; This is so that I can actually use the CMD key as my Meta key.
 (setq mac-command-modifier 'meta)
 (setq mac-option-modifier 'none)
+(setq ns-right-command-modifier 'super)
 #+end_src
 
 * Shell helpers
@@ -54,7 +74,13 @@ Two interactive commands built on =dwim-shell-command=, adapted from that packag
 
 ** Open with a macOS app
 
-=dwim-shell-commands-macos-open-with= collects every =.app= bundle under =/Applications=, =~/Applications= and =/System/Applications= (without descending into bundles), lets you pick one by name, and runs =open -a= on the marked files (or the current file) with it. The docstring, which says it converts images to JPG, is a copy-paste leftover and does not describe what the command does. The function is defined before the =require= of =dwim-shell-command= below, which is fine because the package is only needed when the command runs.
+=dwim-shell-commands-macos-open-with=:
+
+- Collects every =.app= bundle under =/Applications=, =~/Applications= and =/System/Applications= (without descending into bundles).
+- Lets you pick one by name.
+- Runs =open -a= on the marked files (or the current file) with it.
+- The docstring, which says it converts images to JPG, is a copy-paste leftover and does not describe what the command does.
+- The function is defined before the =require= of =dwim-shell-command= below. That is fine, because the package is only needed when the command runs.
 
 #+begin_src emacs-lisp -i
 ;; Open with a specific MacOS app
@@ -163,134 +189,120 @@ On macOS, uses =ls-lisp= instead of the system =ls= for Dired listings. The BSD 
 
 * Theme follows system appearance
 
-The comment explains the design: rather than scheduling theme changes by time, Emacs follows macOS, which already handles sunrise and sunset. It also records a past bug where only the change hook was registered, so the startup theme often disagreed with the system.
+The mechanism lives in =sp-themes=: =sp-theme-auto-mode= loads the theme that goes with the macOS Light or Dark setting (=sp-theme-appearance-themes=) when the setting changes, when a new frame is made (so a daemon that started without a frame, and =emacsclient -t= frames, match the system as it is now) and once when the mode is turned on. This module provides what is specific to macOS and turns the mode on, on macOS. =sp-syswin= and =sp-syslinux= do the same for their platforms.
 
-** Background
+** The system appearance
 
-Explanatory comment for the appearance code that follows.
-
-#+begin_src emacs-lisp -i
-;;;; macOS system-appearance dispatch
-;; Delegate Light/Dark choice to macOS. The system already does
-;; sunrise/sunset when set to Auto, and reflects manual flips
-;; instantly -- following it removes every source of drift between
-;; Emacs and the rest of the desktop.
-;;
-;; `ns-system-appearance' (symbol `light' or `dark') is set when an NS
-;; frame initializes; `ns-system-appearance-change-functions' fires
-;; when the system flips. The change hook does NOT fire at startup --
-;; the prior version of this code only registered the hook, which is
-;; why initial theme often disagreed with macOS. We apply once at file
-;; load to fix that, falling back to `defaults read' so a frameless
-;; daemon (which has not bound `ns-system-appearance' yet) still picks
-;; the right theme at boot.
-#+end_src
-
-** Applying a theme for an appearance
-
-=lem--system-apply-theme= maps =dark= to =ef-dream= and anything else to =lambda-light-faded=. It disables all enabled themes and loads the target, but does nothing if the target is already the first enabled theme. The docstring calls both lambda variants, though the dark one is actually an ef theme.
+=sp-macos-appearance= is the macOS entry of =sp-theme-system-providers=. It asks =ns-system-appearance= once a frame exists, and otherwise =defaults read -g AppleInterfaceStyle=, which prints Dark in dark mode and fails in light mode. =sp-macos-watch-appearance= is the entry of =sp-theme-system-watchers=: it hooks =ns-system-appearance-change-functions= (which does not fire at startup, hence the sync when the mode is turned on) and returns the function that unhooks it.
 
 #+begin_src emacs-lisp -i
-(defun lem--system-apply-theme (appearance)
-  "Load the lambda variant matching system APPEARANCE.
-APPEARANCE is `light' or `dark' from
-`ns-system-appearance-change-functions' or `ns-system-appearance'.
-No-op when the target is already at the head of
-`custom-enabled-themes'."
-  (let ((target (pcase appearance
-                  ('dark 'ef-dream)
-                  (_     'lambda-light-faded))))
-    (unless (eq target (car custom-enabled-themes))
-      (mapc #'disable-theme custom-enabled-themes)
-      (load-theme target t))))
-#+end_src
-
-** Reading the current appearance
-
-=lem--macos-current-appearance= returns =light= or =dark=. It prefers =ns-system-appearance=, which exists once a graphical frame has been created; otherwise, on macOS, it runs =defaults read -g AppleInterfaceStyle=, which prints Dark in dark mode and fails in light mode. Anywhere else it returns =light=.
-
-#+begin_src emacs-lisp -i
-(defun lem--macos-current-appearance ()
-  "Return current macOS system appearance as `light' or `dark'.
-Prefers `ns-system-appearance' (set once an NS frame exists); falls
-back to `defaults read -g AppleInterfaceStyle' for frameless daemons.
-`defaults' returns \"Dark\" when dark mode is on and exits non-zero
-when light, so any non-zero exit (or output not containing \"Dark\")
-is treated as light."
+;;;; macOS system appearance
+(defun sp-macos-appearance ()
+  "Return the macOS appearance, `light' or `dark', or nil if unknown."
   (cond
    ((and (boundp 'ns-system-appearance) ns-system-appearance)
     ns-system-appearance)
-   ((and (bound-and-true-p sys-mac)
-         (executable-find "defaults"))
+   ((executable-find "defaults")
     (with-temp-buffer
       (let ((exit (call-process "defaults" nil t nil
                                 "read" "-g" "AppleInterfaceStyle")))
-        (if (and (zerop exit)
-                 (string-match-p "Dark" (buffer-string)))
+        (if (and (zerop exit) (string-match-p "Dark" (buffer-string)))
             'dark
-          'light))))
-   (t 'light)))
-#+end_src
+          'light))))))
 
-** Wiring it up at load
-
-On macOS, registers the theme function on =ns-system-appearance-change-functions= so later system flips are followed, and applies the current appearance once immediately, since the hook does not fire at startup.
-
-#+begin_src emacs-lisp -i
-(when (bound-and-true-p sys-mac)
+(defun sp-macos-watch-appearance (callback)
+  "Call CALLBACK with `light' or `dark' when macOS flips.
+Return the function that stops watching."
   (when (boundp 'ns-system-appearance-change-functions)
-    (add-hook 'ns-system-appearance-change-functions
-              #'lem--system-apply-theme))
-  (lem--system-apply-theme (lem--macos-current-appearance)))
+    (add-hook 'ns-system-appearance-change-functions callback)
+    (lambda ()
+      (remove-hook 'ns-system-appearance-change-functions callback))))
 #+end_src
 
-* Daemon client frames
+** The light level of the room
 
-A daemon started without a frame never gets appearance-change events, so it would stay on whatever theme it picked at boot.
+With =sp-theme-auto-source= set to =ambient=, the theme follows the light in the room through the four families of =sp-theme-families=, in this order from the brightest room to the darkest: =faded-light=, =hard-light=, =faded-dark=, =hard-dark=. The first theme of the family is loaded.
 
-** Background
-
-Comment explaining why client frames need their own re-sync.
+- =sp-macos-light-sensor-command= is a shell command that prints the light level in lux. macOS has no command line tool for the ambient light sensor, so the reading comes from a command of your own (a small helper over IOKit, for instance). With no command, or when it fails or prints something else, there is no reading and the theme follows the time of day (=sp-theme-day-hours=).
+- =sp-macos-ambient-levels= lists each family with the lux from which it applies, brightest first. The last one is 0 and catches everything below.
+- =sp-macos-ambient-margin= keeps the theme from flickering around a boundary: once a family is current, the light has to go past its boundary by that fraction before the next family takes over.
+- The timer of the mode checks every =sp-theme-ambient-interval= seconds.
 
 #+begin_src emacs-lisp -i
-;;;; Daemon client-frame sync
+;;;; macOS ambient light
+(defcustom sp-macos-light-sensor-command nil
+  "Shell command that prints the light level of the room in lux, or nil."
+  :group 'spcustom
+  :type '(choice (const :tag "No sensor" nil) string))
 
-;; A frameless launchd/NS daemon never binds `ns-system-appearance' and
-;; never receives NS appearance-change events, so the hook above never
-;; fires for it -- the daemon freezes on whatever appearance it read at
-;; startup, which is usually stale by the time a client connects (and
-;; leaves `emacsclient -t' frames on the wrong variant). Re-read the
-;; system appearance whenever a client frame is created so every frame
-;; matches the current macOS Light/Dark state. `lem--system-apply-theme'
-;; no-ops when the target theme is already active, so this is cheap.
+(defcustom sp-macos-ambient-levels
+  '((faded-light . 150)
+    (hard-light  . 60)
+    (faded-dark  . 15)
+    (hard-dark   . 0))
+  "The families by light level, an alist of (FAMILY . LUX), brightest first.
+A family applies from LUX up to the LUX of the family before it."
+  :group 'spcustom
+  :type '(alist :key-type symbol :value-type number))
+
+(defcustom sp-macos-ambient-margin 0.25
+  "Fraction by which the light must pass a boundary to leave a family."
+  :group 'spcustom
+  :type 'number)
+
+(defvar sp-macos--ambient-family nil
+  "The family `sp-macos-ambient-family' answered last.")
+
+(defun sp-macos-ambient-lux ()
+  "Return the light level in lux from `sp-macos-light-sensor-command', or nil."
+  (when (and sp-macos-light-sensor-command
+             (not (string-empty-p sp-macos-light-sensor-command)))
+    (let ((out (string-trim (shell-command-to-string sp-macos-light-sensor-command))))
+      (when (string-match-p "\\`[0-9]+\\(?:\\.[0-9]*\\)?\\'" out)
+        (string-to-number out)))))
+
+(defun sp-macos--level-for (lux)
+  "Return the family for LUX, holding on to the current one near a boundary."
+  (let* ((levels sp-macos-ambient-levels)
+         (fresh (car (seq-find (lambda (l) (>= lux (cdr l))) levels)))
+         (pos (seq-position levels sp-macos--ambient-family
+                            (lambda (l family) (eq (car l) family)))))
+    (if (null pos)
+        fresh
+      (let* ((upper (and (> pos 0) (cdr (nth (1- pos) levels))))
+             (lower (cdr (nth pos levels)))
+             (m sp-macos-ambient-margin))
+        (if (and (>= lux (* lower (- 1 m)))
+                 (or (null upper) (< lux (* upper (+ 1 m)))))
+            sp-macos--ambient-family
+          fresh)))))
+
+(defun sp-macos-ambient-family ()
+  "Return the family for the light of the room, or nil without a reading."
+  (let ((lux (sp-macos-ambient-lux)))
+    (when lux
+      (setq sp-macos--ambient-family (sp-macos--level-for lux)))))
 #+end_src
 
-** Sync on new frame
+** Turning it on
 
-=lem--sync-theme-on-new-frame= rereads the system appearance and applies the matching theme. It is cheap because the apply function does nothing when the theme is already active.
-
-#+begin_src emacs-lisp -i
-(defun lem--sync-theme-on-new-frame (&rest _)
-  "Sync the lambda theme to the current macOS appearance.
-For `server-after-make-frame-hook': daemon client frames pick up the
-live system appearance instead of the daemon's stale startup value."
-  (lem--system-apply-theme (lem--macos-current-appearance)))
-#+end_src
-
-** Hook for daemons
-
-When running as a daemon on macOS, adds that function to =server-after-make-frame-hook=, so every =emacsclient= frame, including terminal ones, matches the current Light/Dark state.
+The system already does sunrise and sunset when it is set to Auto, and reflects manual flips instantly, so following it removes every source of drift between Emacs and the rest of the desktop. To follow the room instead, set =sp-theme-auto-source= to =ambient=.
 
 #+begin_src emacs-lisp -i
-(when (and (bound-and-true-p sys-mac) (daemonp))
-  (add-hook 'server-after-make-frame-hook #'lem--sync-theme-on-new-frame))
+;;;; macOS system-appearance dispatch
+(when (bound-and-true-p sys-mac)
+  (sp-theme-auto-mode 1))
 #+end_src
 
 * Org links from Mac apps
 
 ** org-mac-link
 
-Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-mac-link-get-link=, which inserts a link to the item currently selected in a Mac application such as Finder, Safari or Mail. The key is defined from =org-mode-hook=, so it is re-set every time an Org buffer opens; doing it once would be enough. This block has no macOS guard.
+Installs =org-mac-link= after Org and binds =C-c g= in =org-mode-map= to =org-mac-link-get-link=.
+
+- It inserts a link to the item currently selected in a Mac application such as Finder, Safari or Mail.
+- The key is defined from =org-mode-hook=, so it is re-set every time an Org buffer opens. Doing it once would be enough.
+- This block has no macOS guard.
 
 #+begin_src emacs-lisp -i
 ;; taken from Lambda emacs
@@ -311,4 +323,66 @@ Provides the =sp-macos= feature and closes the file.
 
 (provide 'sp-macos)
 ;; sp-macos.el ends here.
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-macos-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+They tangle to =tests/sp-macos-test.el= and test the choice of a family from a light level, not the sensor. The ambient functions are copied out of the module by evaluating only their forms, because the rest of the module needs a Mac.
+
+#+begin_src emacs-lisp -i
+;;; sp-macos-test.el --- Tests for the ambient light of sp-macos  -*- lexical-binding: t; -*-
+
+;;; Code:
+
+(require 'ert)
+(require 'cl-lib)
+(require 'subr-x)
+
+(defmacro defcustom (sym val &rest _) `(defvar ,sym ,val))
+
+(let ((file (expand-file-name
+             "../libraries/modules/base/sp-macos.el"
+             (file-name-directory (or load-file-name buffer-file-name)))))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (let (form)
+      (while (setq form (ignore-errors (read (current-buffer))))
+        (when (and (consp form)
+                   (memq (car form) '(defcustom defvar defun))
+                   (string-match-p "\\`sp-macos-\\(ambient\\|light\\)\\|\\`sp-macos--"
+                                   (symbol-name (cadr form))))
+          (eval form t))))))
+
+(ert-deftest sp-macos-test-levels ()
+  (let ((sp-macos--ambient-family nil))
+    (should (eq (sp-macos--level-for 500) 'faded-light))
+    (should (eq (sp-macos--level-for 100) 'hard-light))
+    (should (eq (sp-macos--level-for 30) 'faded-dark))
+    (should (eq (sp-macos--level-for 3) 'hard-dark))
+    (should (eq (sp-macos--level-for 0) 'hard-dark))))
+
+(ert-deftest sp-macos-test-hysteresis ()
+  ;; hard-light starts at 60; with a 0.25 margin it is kept down to 45.
+  (let ((sp-macos--ambient-family 'hard-light))
+    (should (eq (sp-macos--level-for 50) 'hard-light))
+    (should (eq (sp-macos--level-for 44) 'faded-dark))
+    ;; and up to 150 * 1.25 = 187.5 before faded-light takes over.
+    (should (eq (sp-macos--level-for 180) 'hard-light))
+    (should (eq (sp-macos--level-for 190) 'faded-light))))
+
+(ert-deftest sp-macos-test-sensor-command ()
+  (let ((sp-macos-light-sensor-command nil))
+    (should-not (sp-macos-ambient-lux))
+    (should-not (sp-macos-ambient-family)))
+  (let ((sp-macos-light-sensor-command "echo 42.5"))
+    (should (= (sp-macos-ambient-lux) 42.5)))
+  (let ((sp-macos-light-sensor-command "echo not-a-number"))
+    (should-not (sp-macos-ambient-lux))))
+
+(provide 'sp-macos-test)
+;;; sp-macos-test.el ends here
 #+end_src

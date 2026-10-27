@@ -2,11 +2,15 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-id-link.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-id-link.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-id-link.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module gathers everything about Org IDs and links. It configures the built-in =org-id= library so that links to headings use stable timestamp IDs stored in the cache directory, and adds three link helpers: one that repairs old percent-escaped link syntax, one that copies the Org link at point, and one that replaces a link with its description.
+This module gathers everything about Org IDs and links. It configures the built-in =org-id= library so that links to headings use stable timestamp IDs stored in the cache directory, and adds four link helpers: one that repairs old percent-escaped link syntax, one that copies the Org link at point, one that replaces a link with its description, and one that inserts a link to a configuration doc.
 
 It depends only on Org and on =sp-cache-dir= from =early-init.el=. The module is loaded in the Org block of the default module list in =init.el= (it is not in the minimal list).
 
@@ -56,7 +60,11 @@ After Org loads, =org-id= stores its locations file as =.org-id-locations= in =s
 
 ** Update link syntax and copy a link
 
-=org-update-link-syntax= has the same name as a function that ships with Org, so this copy replaces Org's own version once the module loads. It scans the buffer for bracket links containing old percent escapes (spaces and square brackets) and, after asking for each one unless given a prefix argument, rewrites the URI using the current escaping rules.
+=org-update-link-syntax= has the same name as a function that ships with Org, so this copy replaces Org's own version once the module loads.
+
+- It scans the buffer for bracket links containing old percent escapes (spaces and square brackets).
+- It asks for each one, unless given a prefix argument.
+- It rewrites the URI using the current escaping rules.
 
 =lem-org-link-copy-at-point=, from an Emacs Stack Exchange answer, searches backward for =[[= and forward for a complete bracket link, then puts the whole link text on the kill ring. Because the backward search starts from point, running it when point is not on a link copies the nearest earlier one.
 
@@ -122,6 +130,52 @@ is non-nil."
           (insert description)))))
 #+end_src
 
+** Link to the configuration docs
+
+=sp-org-insert-config-doc-link= inserts at point an Org link to one of the docs of this configuration (the literate files under =docs/tangles/= and the architecture notes), from a regular note outside the configuration.
+
+- The file is chosen with =sp-find-file-pick=, the fuzzy search of =sp-find-file= (=find=, =fd= or =rg=) run in =sp-config-docs-directory= (=docs/= next to =init.el= by default) and limited to =.org= files.
+- The link is a =file:= link with the path abbreviated to =~/=, so it works wherever the home directory is. The docs have no =:ID:=, and an =id:= link would need them in the vulpea database, which this command avoids on purpose.
+- The description is the =#+title= of the file (read from its first 4096 bytes by =sp-org-doc-title=), or its name without extension when there is none. With a prefix argument it asks for the description, offering the title.
+- It is bound to =C-c l c= in Org mode, next to =C-c l d=, in =sp-org-base=, which autoloads it from this module.
+
+#+begin_src emacs-lisp -i
+;;;;; Link to the configuration docs
+;; Plain `file:' links, so the docs stay out of the vulpea database.
+(declare-function sp-find-file-pick "sp-navi")
+
+(defcustom sp-config-docs-directory (expand-file-name "docs/" sp-load-path)
+  "Directory holding the literate and architecture docs of this configuration."
+  :type 'directory)
+
+(defun sp-org-doc-title (file)
+  "Return the #+title of the Org FILE, or nil if it has none."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 4096)
+    (let ((case-fold-search t))
+      (when (re-search-forward "^#\\+title:[ \t]*\\(.+?\\)[ \t]*$" nil t)
+        (match-string 1)))))
+
+(defun sp-org-insert-config-doc-link (&optional edit-description)
+  "Insert an Org link to a file of the configuration docs at point.
+Pick the file with the fuzzy search of `sp-find-file', restricted to the
+Org files under `sp-config-docs-directory'.  The description is the
+#+title of the file, or its name without extension when it has none.
+With a prefix argument EDIT-DESCRIPTION, ask for the description."
+  (interactive "P")
+  (require 'sp-navi)
+  (unless (file-directory-p sp-config-docs-directory)
+    (user-error "No docs directory at %s" sp-config-docs-directory))
+  (when-let* ((file (sp-find-file-pick sp-config-docs-directory "\\.org\\'")))
+    (let* ((title (or (sp-org-doc-title file) (file-name-base file)))
+           (description (if edit-description
+                            (read-string "Description: " title)
+                          title)))
+      (insert (org-link-make-string
+               (concat "file:" (abbreviate-file-name file))
+               description)))))
+#+end_src
+
 ** Related library note
 
 A note pointing to =sp-org-create-note-and-link.el= as another link related library. No file by that name is in the modules directory now.
@@ -140,3 +194,8 @@ Provides the =sp-org-id-link= feature and closes the file.
 (provide 'sp-org-id-link)
 ;; sp-org-id-link.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+- [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] ✨ Added =sp-org-insert-config-doc-link=, =sp-config-docs-directory= and =sp-org-doc-title=: insert a =file:= link to a configuration doc from any Org note.

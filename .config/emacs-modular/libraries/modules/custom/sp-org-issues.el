@@ -55,7 +55,7 @@
 (defcustom sp-org-issues-area-title "Issues"
   "Title of the vulpea-para area that holds the issues."
   :type 'string
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-repos
   `(("dotfiles"
@@ -76,7 +76,7 @@ Each entry is (NAME . PLIST).  NAME is the heading title.  PLIST holds
 repository's git directory), :worktree-root (where issue worktrees
 go), :base (the branch new issue branches start from) and :url."
   :type '(alist :key-type string :value-type plist)
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-yadm-repo sp-yadm-repo
   "The yadm repository.
@@ -84,12 +84,12 @@ go), :base (the branch new issue branches start from) and :url."
 Magit lists untracked files in worktrees added from it, although the
 repository sets status.showUntrackedFiles to no for the home folder."
   :type 'directory
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-offer-worktree-removal t
   "Non-nil means offer to remove an issue's worktree when it is closed."
   :type 'boolean
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defconst sp-org-issues-todo-line
   "#+todo: TODO(t) NEXT(n) PROG(p!) WAIT(w@/!) | DONE(d!) CNCL(c@)"
@@ -352,39 +352,39 @@ The pull request kinds are `ci-failed', `conflict', `changes-requested',
 `ready', `review', `ci-pending' and `draft'.  `pr-gone' is an open issue
 whose pull request is no longer open.  The others are issue states."
   :type '(alist :key-type symbol :value-type integer)
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-morning-limit 10
   "Number of items shown under Today; the rest are parked."
   :type 'integer
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-morning-park-below 25
   "Items with a lower score than this are always parked."
   :type 'integer
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-morning-extra-repos nil
   "GitHub repositories (owner/name) to list besides those in `sp-org-issues-repos'."
   :type '(repeat string)
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-morning-auto t
   "Non-nil means show the morning list on the first start of Emacs each day."
   :type 'boolean
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-morning-stamp-file
   (expand-file-name "sp-org-issues-morning-day"
                     (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
   "File that remembers the day the morning list was last shown."
   :type 'file
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defcustom sp-org-issues-gh-program "gh"
   "The GitHub command line client, logged in with `gh auth login'."
   :type 'string
-  :group 'sp-org-issues)
+  :group 'spcustom)
 
 (defconst sp-org-issues-morning--pr-fields
   "number,title,url,isDraft,reviewDecision,mergeable,baseRefName,headRefName,updatedAt,statusCheckRollup"

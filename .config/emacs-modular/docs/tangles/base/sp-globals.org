@@ -1,0 +1,486 @@
+#+TITLE: sp-globals.el: My most important settings, in one place
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-globals.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/base/sp-globals.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is the one file to open when one of my own settings has to change: where my files live, which credentials file is read, who I am, what the dashboard keeps private, and the habits (prompts, bells, backups) that used to be spread over the modules that happen to use them.
+
+- *The former =sp-paths= is part of this module.* The locations should have been a module of their own, but are combined with the other settings for the sake of simplicity and brevity. =sp-paths= is no longer a module; =(provide 'sp-paths)= at the end keeps an old =(require 'sp-paths)= working.
+- Each setting is a =defcustom= in the =spcustom= group.
+- When it controls a variable of Emacs or of a package, its =:set= function also applies the value there, so editing the default here and changing it with Customize have the same effect.
+- Where a setting used to live, the module (and its doc) now has a comment that points here.
+
+It is loaded first among the core modules, in both module lists in =init.el= and in the profiles of =sp-config-profiles.el=, because the modules that use these variables read them while they load. It depends on no module, only on =sp-var-dir= and =sp-cache-dir= from =early-init.el=.
+
+Left where they are on purpose:
+
+- =sp-headless-host= (=early-init.el=) and =sp-defer-late-modules= (=init.el=): they are read before the module lists run, so they cannot come from a module.
+- Settings of one package (the =:custom= of a =use-package=), which are documented with the package.
+- Platform settings such as =mac-command-modifier= (=sp-macos=), which belong to their platform module.
+- Values derived from a path, such as =org-directory= and =vulpea-db-sync-directories=: they follow =sp-notes-dir=, so changing the path here is enough.
+- The default font and the theme (=sp-fonts=, =sp-themes=): they are set separately on purpose.
+- Paths inside the configuration's own tree (=~/.config/...=), the legacy =~/.emacs.d= entries, =~/bin/mark.sh=, =~/opt/plantuml= and the plain =~/= used as a starting directory. They are tool locations rather than data.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+The settings that are mine rather than a package's: where my files live,
+which credentials file Emacs reads, who I am, what stays private on the
+dashboard, and the habits (prompts, bells, backups) I would otherwise have to
+chase down in the module that happens to use them.  This is the one file to
+open when one of them has to change.
+
+The locations that used to be in `sp-paths' are here as well.  They should
+have been a module of their own, but are combined with the other settings for
+the sake of simplicity and brevity.  `sp-paths' is no longer a module; it is
+still provided as a feature so that an old (require 'sp-paths) keeps working.
+
+Every location can be overridden from the environment before Emacs starts,
+e.g. SP_NOTES_DIR=/tmp/notes emacs, which is how a test run is kept away from
+the real notes.  The defaults sit under the home folder and are built with
+`expand-file-name', so they are right on macOS, Linux and Windows alike.  All
+of them are directories with a trailing slash.  Use `sp-path' to build a path
+below one of them.
+
+Each setting is a `defcustom' in the `spcustom' group.  When it controls a
+variable of Emacs or of a package, its :set function also applies the value
+there, so editing the default below and changing it with Customize have the
+same effect.  It depends on no module, only on `sp-var-dir' and
+`sp-cache-dir' from early-init.el, and it is the first core module, because
+the modules that read these settings need them while they load.
+
+Where a setting used to live, the old place now carries a comment that
+points here.  Still in their modules, on purpose: `sp-headless-host'
+(early-init.el) and `sp-defer-late-modules' (init.el), which are read before
+the module lists run, the settings of a single package (the :custom of its
+`use-package'), and platform settings such as `mac-command-modifier'.
+#+end_quote
+
+* Header
+
+** File header and commentary
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then the =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-globals.el --- My most important settings, in one place -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; The settings that are mine rather than a package's: where my files live,
+;; which credentials file Emacs reads, who I am, what stays private on the
+;; dashboard, and the habits (prompts, bells, backups) I would otherwise have to
+;; chase down in the module that happens to use them.  This is the one file to
+;; open when one of them has to change.
+;;
+;; The locations that used to be in `sp-paths' are here as well.  They should
+;; have been a module of their own, but are combined with the other settings for
+;; the sake of simplicity and brevity.  `sp-paths' is no longer a module; it is
+;; still provided as a feature so that an old (require 'sp-paths) keeps working.
+;;
+;; Every location can be overridden from the environment before Emacs starts,
+;; e.g. SP_NOTES_DIR=/tmp/notes emacs, which is how a test run is kept away from
+;; the real notes.  The defaults sit under the home folder and are built with
+;; `expand-file-name', so they are right on macOS, Linux and Windows alike.  All
+;; of them are directories with a trailing slash.  Use `sp-path' to build a path
+;; below one of them.
+;;
+;; Each setting is a `defcustom' in the `spcustom' group.  When it controls a
+;; variable of Emacs or of a package, its :set function also applies the value
+;; there, so editing the default below and changing it with Customize have the
+;; same effect.  It depends on no module, only on `sp-var-dir' and
+;; `sp-cache-dir' from early-init.el, and it is the first core module, because
+;; the modules that read these settings need them while they load.
+;;
+;; Where a setting used to live, the old place now carries a comment that
+;; points here.  Still in their modules, on purpose: `sp-headless-host'
+;; (early-init.el) and `sp-defer-late-modules' (init.el), which are read before
+;; the module lists run, the settings of a single package (the :custom of its
+;; `use-package'), and platform settings such as `mac-command-modifier'.
+
+;;; Code:
+#+end_src
+
+* Helpers
+
+The group, a function that reads an environment variable, =sp-path=, which joins path components below one of the directories, and =sp-globals--set=, which builds the =:set= function of the settings that also control a variable of Emacs.
+
+- =sp-globals--set= is what makes editing a default here and using Customize the same thing: the value is stored in the =sp-= variable and in the variable it controls.
+- With =skip-nil= a =nil= value leaves the controlled variable alone; the identity settings use that, because =nil= means "not set".
+
+#+begin_src emacs-lisp -i
+(defgroup sp-paths nil
+  "Locations of my notes, documents and checkouts."
+  :group 'files)
+
+(defun sp-paths--dir (env default)
+  "Directory named by environment variable ENV, or DEFAULT (relative to ~)."
+  (file-name-as-directory
+   (expand-file-name (or (getenv env) default))))
+
+(defun sp-path (dir &rest parts)
+  "Join PARTS below the directory DIR (a variable's value) into one path."
+  (let ((path (expand-file-name dir)))
+    (dolist (part parts path)
+      (setq path (expand-file-name part path)))))
+
+(defun sp-globals--set (target &optional skip-nil)
+  "Return a :set function that stores the value in its symbol and in TARGET.
+With SKIP-NIL, a nil value leaves TARGET alone."
+  (lambda (symbol value)
+    (set-default symbol value)
+    (unless (and skip-nil (null value))
+      (set-default target value))))
+#+end_src
+
+* Locations
+
+The notes, documents, literature, bibliography, org, source and clone folders. They came from the former =sp-paths= module. Each is a directory with a trailing slash.
+
+- Before =sp-paths= existed, about thirty modules spelled out =~/notes= and similar paths themselves, which made the configuration depend on one machine's layout.
+- A module now says =sp-notes-dir= or =(sp-path sp-notes-dir "inbox/")= instead.
+- Each location can be overridden from the environment before Emacs starts, for example =SP_NOTES_DIR=/tmp/notes emacs=. That is how a test run (a sandbox for a pull request, say) is kept away from the real notes.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-notes-dir (sp-paths--dir "SP_NOTES_DIR" "~/notes")
+  "Root of the notes (the Zettelkasten, inbox, areas)."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-documents-dir (sp-paths--dir "SP_DOCUMENTS_DIR" "~/Documents")
+  "The documents folder (calibre library, writing, elfeed.org)."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-literature-dir (sp-path sp-documents-dir "literature/")
+  "Folder with the PDFs and attachments of the bibliography."
+  :type 'directory :group 'spcustom)
+  
+(defcustom sp-bibliography-dir (sp-paths--dir sp-documents-dir "bibliography/")
+  "Folder with the .bib files."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-org-dir (sp-paths--dir "SP_ORG_DIR" "~/org")
+  "Folder for org files kept outside the notes (the journal)."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-src-dir (sp-paths--dir "SP_SRC_DIR" "~/src")
+  "Where source checkouts and git worktrees live."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-git-dir (sp-paths--dir "SP_GIT_DIR" "~/git")
+  "Where my own git projects live."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~")
+  "Folder holding the cloned-utilities and cloned-scan-ai checkouts."
+  :type 'directory :group 'spcustom)
+#+end_src
+
+* Data home and yadm
+
+=sp-data-home= follows =XDG_DATA_HOME=; the yadm repository and the CSL styles of =sp-citations= are found below it. Also from the former =sp-paths=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-data-home
+  (sp-paths--dir "XDG_DATA_HOME" "~/.local/share")
+  "The user data folder (XDG_DATA_HOME, defaulting to ~/.local/share)."
+  :type 'directory :group 'spcustom)
+
+(defcustom sp-yadm-repo (sp-path sp-data-home "yadm/repo.git")
+  "The bare repository of the yadm dotfiles."
+  :type 'directory :group 'spcustom)
+#+end_src
+
+* Chrome history
+
+=sp-trails= imports the browsing history from Chrome, whose database sits in a different place on each system. Also from the former =sp-paths=.
+
+- =sp-trails-chrome-history= is the option =sp-trails= reads. It used to be defined in =sp-trails= with =sp-chrome-history-file= as its default, so it moved here, next to the file it points to.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-chrome-history-file
+  (expand-file-name
+   (pcase system-type
+     ('darwin "~/Library/Application Support/Google/Chrome/Default/History")
+     ('windows-nt (concat (or (getenv "LOCALAPPDATA") "~/AppData/Local")
+                          "/Google/Chrome/User Data/Default/History"))
+     (_ "~/.config/google-chrome/Default/History")))
+  "Chrome's browsing history database."
+  :type 'file :group 'spcustom)
+
+;; Moved here from sp-trails.el.
+(defcustom sp-trails-chrome-history
+  sp-chrome-history-file
+  "Chromium-family History database read by `sp-trails-import-chrome'."
+  :type 'file
+  :group 'spcustom)
+#+end_src
+
+* Other locations moved here
+
+Folders that were defined next to the one module that uses them. Each module now has a comment where the option used to be.
+
+- =sp-bibtex-dir= (from =sp-bibprocess=) is gone: it only copied =sp-bibliography-dir=, which is now the one option for the BibTeX files and their attachments (default =~/Documents/bibliography/=).
+- =sp-scratch-save-dir= (from =sp-scratch=): where the persistent scratch buffer is saved; the cache folder.
+- =sp-treemacs-root= (from =sp-treemacs=): the folder shown in the treemacs window.
+- =sp-tab-inbox-dir= (from =sp-tab-inbox=): the plain files with unsorted links. It used to be =org-directory= plus =/inbox/tabs/=, and =org-directory= is =sp-notes-dir=, so it is now built from =sp-notes-dir= directly; the value is the same, and it no longer depends on Org being loaded.
+- =sp-emoji-font-install-dir= (from =sp-emoji-font=): where the emoji font is installed on Linux. It used to repeat the =XDG_DATA_HOME= lookup; it is now below =sp-data-home=, which gives the same folder.
+
+#+begin_src emacs-lisp -i
+;; Moved here from sp-scratch.el.
+(defcustom sp-scratch-save-dir sp-cache-dir
+  "Default directory for saving scratch file."
+  :group 'spcustom
+  :type 'string)
+
+;; Moved here from sp-treemacs.el.
+(defcustom sp-treemacs-root user-emacs-directory
+  "Folder shown in the treemacs side window by `sp-treemacs-toggle'."
+  :type 'directory
+  :group 'spcustom)
+
+;; Moved here from sp-tab-inbox.el.
+(defcustom sp-tab-inbox-dir (sp-path sp-notes-dir "inbox/tabs/")
+  "Directory of plain files with unsorted links."
+  :type 'directory
+  :group 'spcustom)
+
+;; Moved here from sp-emoji-font.el.
+(defcustom sp-emoji-font-install-dir
+  (sp-path sp-data-home "fonts/sp-emoji/")
+  "Directory the emoji font is installed into on Linux."
+  :type 'directory
+  :group 'spcustom)
+#+end_src
+
+* Credentials: =sp-auth-sources=
+
+Sets =auth-sources=, the list of places where Emacs looks for credentials.
+
+- The default is just =~/.authinfo=. That replaces Emacs's own list, so credentials are read only from that plain-text file, and =~/.authinfo.gpg= and the keychain are not looked at.
+- Forge takes its GitHub token from here (a line such as =machine api.github.com login USERNAME^forge password TOKEN=, added by hand). Nothing secret is in this config.
+- It used to be a =setq= in =sp-vcontrol=, which is a late module, so it was only set once that module had loaded.
+- To read an encrypted file as well, change the default to =("~/.authinfo.gpg" "~/.authinfo")=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-auth-sources '("~/.authinfo")
+  "Where Emacs looks for credentials, as in `auth-sources'.
+The default is the plain-text file ~/.authinfo only, so ~/.authinfo.gpg and
+the keychain are not read.  Forge, for example, takes its GitHub token from
+here."
+  :type '(repeat sexp)
+  :set (sp-globals--set 'auth-sources)
+  :group 'spcustom)
+#+end_src
+
+* Identity
+
+=sp-user-full-name= and =sp-user-mail-address= set =user-full-name= and =user-mail-address=, which Org export, commit identities and mail use.
+
+- They were not set anywhere in the configuration. They are =nil= here, which leaves Emacs's own values alone, so nothing changes until you fill them in.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-user-full-name nil
+  "My full name, as in `user-full-name', or nil to leave Emacs's own value."
+  :type '(choice (const :tag "Emacs's own value" nil) string)
+  :set (sp-globals--set 'user-full-name t)
+  :group 'spcustom)
+
+(defcustom sp-user-mail-address nil
+  "My mail address, as in `user-mail-address', or nil to leave Emacs's own value."
+  :type '(choice (const :tag "Emacs's own value" nil) string)
+  :set (sp-globals--set 'user-mail-address t)
+  :group 'spcustom)
+#+end_src
+
+* Bibliography
+
+The citation notes folder and the note template (the bibliography is every =.bib= file in =sp-bibliography-dir=; the old =sp-bibliography= option is removed).
+
+- They are =nil= by default, so they are settings waiting to be filled in.
+- They used to be defined in =sp-academic=, before its sub-modules are required, because the =use-package= forms of =sp-citations= and =citar-denote= read them while Elpaca may still be loading that file. This module loads long before, so the ordering problem is gone.
+
+#+begin_src emacs-lisp -i
+;; Moved here from sp-academic.el.
+(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/") 
+  "User citation notes directory."
+  :group 'spcustom
+  :tag "Lambda-Emacs Citation Notes Directory")
+
+(defcustom sp-citar-note "Notes on ${author editor:%etal}, ${title}"
+  "Template for use with citar notes (a citar template string, never nil)."
+  :type 'string
+  :group 'spcustom
+  :tag "Lambda-Emacs Citar Notes Template")
+#+end_src
+
+* Dashboard privacy
+
+What the dashboard hides while it is public, from =sp-dashboard=.
+
+- =sp-dashboard-private-tags= and =sp-dashboard-private-files= say which entries are private.
+- =sp-dashboard-trusted-networks= lists the Wi-Fi names that count as private.
+- =sp-dashboard-screen-share-processes= lists the processes that mean the screen is shared.
+- The functions that read them stay in =sp-dashboard=.
+
+#+begin_src emacs-lisp -i
+;; Moved here from sp-dashboard.el.
+(defcustom sp-dashboard-private-tags '("private")
+  "Entries with one of these tags (inherited) are private."
+  :type '(repeat string)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-private-files nil
+  "Regexps of files whose entries are all private."
+  :type '(repeat regexp)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-trusted-networks nil
+  "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
+  :type '(repeat string)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-screen-share-processes nil
+  "Process names that mean the screen is shared, such as a call app's helper.
+Used by `sp-dashboard-condition-screen-share'."
+  :type '(repeat string)
+  :group 'spcustom)
+#+end_src
+
+* Spelling
+
+The spell-checking program and the Hunspell dictionaries, from =sp-spelling=.
+
+- =sp-ispell-program= is the program =sp-spelling= uses when it is on the =PATH=. It is a name, not looked up here, because the =PATH= of a graphical Emacs on macOS is only complete after =sp-env= has run. =sp-spelling= does the lookup and sets =ispell-program-name= as before.
+- =sia-hunspell-dictionaries= was defined in =sp-spelling= (borrowed from Emacs Writing Studio) and nothing reads it yet. Its =:type= is declared as =list= although the default value is a string, so the Customize interface may complain about it.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-ispell-program "aspell"
+  "Spelling program `sp-spelling' uses when it is found on the PATH."
+  :type 'string
+  :group 'spcustom)
+
+;; Moved here from sp-spelling.el.
+;; taken from EWS
+(defcustom sia-hunspell-dictionaries "en_US"
+  "Comma-separated list of Hunspell dictionaries."
+  :group 'spcustom
+  :type 'list)
+#+end_src
+
+* Prompts, dialogs and sounds
+
+Matters of taste that were =setq= forms in =sp-helper-funct= and =sp-help=. Each setting has the same effect as the =setq= it replaces; the value now applies at startup instead of when the module loads.
+
+- =sp-confirm-kill-emacs= and =sp-confirm-kill-processes= (=nil=): close Emacs without asking.
+- =sp-ring-bell-function= (=ignore=) and =sp-visible-bell= (=t=): no bell sound, flash the screen instead.
+- =sp-use-dialog-box= and =sp-use-file-dialog= (=nil=): ask in the minibuffer, not in a window.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-confirm-kill-emacs nil
+  "Non-nil asks before closing Emacs, as `confirm-kill-emacs'."
+  :type 'boolean
+  :set (sp-globals--set 'confirm-kill-emacs)
+  :group 'spcustom)
+
+(defcustom sp-confirm-kill-processes nil
+  "Non-nil asks before closing Emacs with running processes, as `confirm-kill-processes'."
+  :type 'boolean
+  :set (sp-globals--set 'confirm-kill-processes)
+  :group 'spcustom)
+
+(defcustom sp-ring-bell-function 'ignore
+  "What to do instead of ringing the bell, as `ring-bell-function'."
+  :type 'function
+  :set (sp-globals--set 'ring-bell-function)
+  :group 'spcustom)
+
+(defcustom sp-visible-bell t
+  "Non-nil flashes the screen instead of ringing the bell, as `visible-bell'."
+  :type 'boolean
+  :set (sp-globals--set 'visible-bell)
+  :group 'spcustom)
+
+(defcustom sp-use-dialog-box nil
+  "Non-nil asks with dialog boxes, as `use-dialog-box'."
+  :type 'boolean
+  :set (sp-globals--set 'use-dialog-box)
+  :group 'spcustom)
+
+(defcustom sp-use-file-dialog nil
+  "Non-nil opens files with the system file dialog, as `use-file-dialog'."
+  :type 'boolean
+  :set (sp-globals--set 'use-file-dialog)
+  :group 'spcustom)
+#+end_src
+
+* Backups and lock files
+
+Where backups go and whether lock files are made, from =sp-backups=. The rest of the backup settings (how many versions to keep, copying by default, and so on) stay in =sp-backups=.
+
+- =sp-backup-directory= becomes the only entry of =backup-directory-alist=, for all files. It is below =sp-var-dir=, as before.
+- =sp-create-lockfiles= is =nil=: lock files cause more pain than benefit.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-backup-directory (expand-file-name "backups/" sp-var-dir)
+  "Folder for the backup files of every file, as in `backup-directory-alist'."
+  :type 'directory
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (set-default 'backup-directory-alist
+                      `(("." . ,(expand-file-name value)))))
+  :group 'spcustom)
+
+(defcustom sp-create-lockfiles nil
+  "Non-nil makes lock files (.#file) next to edited files, as `create-lockfiles'."
+  :type 'boolean
+  :set (sp-globals--set 'create-lockfiles)
+  :group 'spcustom)
+#+end_src
+
+* Calendar
+
+=sp-calendar-week-start-day= sets =calendar-week-start-day=, and so the first column of the calendar and of the agenda, to Monday (1). It was a =setq= in =sp-org-agenda=.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-calendar-week-start-day 1
+  "First day of the week, 0 for Sunday, as `calendar-week-start-day'."
+  :type 'integer
+  :set (sp-globals--set 'calendar-week-start-day)
+  :group 'spcustom)
+#+end_src
+
+* Scratch buffer
+
+Whether the scratch buffer persists and where it starts, from =sp-scratch=. Where it is saved (=sp-scratch-save-dir=) is under "Other locations moved here".
+
+#+begin_src emacs-lisp -i
+;; Moved here from sp-scratch.el.
+(defcustom sp-persistent-scratch t
+  "If t, make scratch buffer persist across sessions.
+Default is to persist."
+  :group 'spcustom
+  :type 'boolean)
+
+(defcustom sp-scratch-default-dir (expand-file-name "~/")
+  "Default directory for scratch buffer.
+User may prefer to set this to `sp-scratch-save-dir'."
+  :group 'spcustom
+  :type 'string)
+#+end_src
+
+* Provide
+
+Provides the =sp-globals= feature, and =sp-paths= as well, and closes the file.
+
+#+begin_src emacs-lisp -i
+;; The former sp-paths module, still provided so that an old (require 'sp-paths)
+;; keeps working.
+(provide 'sp-paths)
+(provide 'sp-globals)
+;; sp-globals.el ends here.
+#+end_src

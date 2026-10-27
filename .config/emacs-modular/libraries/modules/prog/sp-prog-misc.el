@@ -10,10 +10,6 @@
 
 ;;; Code:
 
-(use-package emr
-  :ensure t
-  :defer t)
-
 (use-package rainbow-delimiters
   :ensure t
   :hook ((prog-mode . rainbow-delimiters-mode)
@@ -32,10 +28,6 @@
   :defer t)
 
 (use-package dockerfile-mode
-  :ensure t
-  :defer t)
-
-(use-package docker-compose-mode
   :ensure t
   :defer t)
 
@@ -86,7 +78,7 @@
 (defcustom siapip/focus-follows-mouse t
   "When non-nil, focus follows the mouse pointer."
   :type 'boolean
-  :group 'siapip)
+  :group 'spcustom)
 ;; Negative delay: debounces auto-selection (brushing past a split won't grab
 ;; it) and, crucially, suppresses minibuffer auto-selection so mouse nudges
 ;; don't yank focus out of an active vertico/consult session.
@@ -147,7 +139,7 @@
 (defcustom siapip/scroll-amount 5
   "Scolling up/down will jump by this amount."
   :type 'integer
-  :group 'siapip)
+  :group 'spcustom)
 (defun up-slightly () (interactive) (scroll-up siapip/scroll-amount))
 (defun down-slightly () (interactive) (scroll-down siapip/scroll-amount))
 (global-set-key [mouse-4] 'down-slightly)

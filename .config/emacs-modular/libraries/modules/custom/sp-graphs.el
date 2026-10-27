@@ -50,6 +50,80 @@
                             :files ("*.el"
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
+  :custom
+  ;; Use with denote
+  (dg-use-denote t)
+  (dg-context-window-width 0.3)
+  ;; Auto-update context when moving between nodes
+  (dg-context-auto-update t)
+  ;; Maximum lines to display per node in context panel (nil for unlimited)
+  (dg-context-max-lines 30)
+  ;; Show overlays on headings
+  (dg-overlay-enable t)
+  ;; Synthesis dashboard file location
+  (dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
+  (dg-discourse-attributes
+   '(
+     (claim
+      . (
+         (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
+         (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
+         (overlay . evidence-score)
+             )
+        )
+
+     (question
+      . (
+       (answer-count . "{count:Answered By:claim}")
+         (overlay . answer-count)
+           )
+      )
+     ;; ... more types
+     ))
+  (dg-node-types
+   '(
+     (question . (:short "QUE"
+                       :color "lightblue"
+                       :desc "Research question"))
+     (claim    . (:short "CLM"
+                       :color "lightyellow"
+                       :desc "Assertion, thesis or position in a debate"))
+     (evidence . (:short "EVD"
+                       :color "lightgreen"
+                       :desc "Argument, proof, or supporting empirical data"))
+     (source   . (:short "SRC"
+                       :color "lightgray"
+                       :desc "Reference material / Philosophical text"))
+     (theory   . (:short "THY"
+                               :color "lightcoral"
+                       :desc "Theoretical framework"))
+     ))
+  (dg-relation-types
+   '(
+   (supports  . (:inverse "Supported By"
+                          :color "green"
+                          :style "solid"))
+   (opposes   . (:inverse "Opposed By"
+                          :color "red"
+                          :style "dashed"))
+   (informs   . (:inverse "Informed By"
+                          :color "blue"
+                          :style "solid"))
+   (answers   . (:inverse "Answered By"
+                          :color "purple"
+                          :style "solid"))
+   ))
+  (dg-relation-patterns
+   '((supports . (:source (evidence)
+                        :target (claim)))
+   (opposes  . (:source (evidence)
+                        :target (claim)))
+   (informs  . (:source (source)
+                        :target (evidence)))
+   (answers  . (:source (claim)
+                        :target (question)))
+   ))
+
   :config
   (setq dg-directories ;; This is where we scan for nodes
   (list sp-notes-dir)
@@ -59,91 +133,6 @@
 
 (discourse-graphs-mode 1)
 )
-
-;; Use with denote
-(setq dg-use-denote t)
-
-(setq dg-context-window-width 0.3)
-
-;; Auto-update context when moving between nodes
-(setq dg-context-auto-update t)
-
-;; Maximum lines to display per node in context panel (nil for unlimited)
-(setq dg-context-max-lines 30)
-
-;; Show overlays on headings
-(setq dg-overlay-enable t)
-
-;; Synthesis dashboard file location
-(setq dg-synthesis-file (sp-path sp-notes-dir "dg-synthesis.org"))
-
-(setq dg-discourse-attributes
-      '(
-        (claim
-         . (
-            (evidence-score . "{count:Supported By:evidence} - {count:Opposed By:evidence}")
-            (robustness . "{count:Supported By:evidence} + {count:Supported By:claim}*0.5 - {count:Opposed By:evidence}")
-            (overlay . evidence-score)
-                )
-           )
-
-        (question
-         . (
-          (answer-count . "{count:Answered By:claim}")
-            (overlay . answer-count)
-              )
-         )
-        ;; ... more types
-        )
-)
-
-(setq dg-node-types
-      '(
-        (question . (:short "QUE"
-                          :color "lightblue"
-                          :desc "Research question"))
-        (claim    . (:short "CLM"
-                          :color "lightyellow"
-                          :desc "Assertion, thesis or position in a debate"))
-        (evidence . (:short "EVD"
-                          :color "lightgreen"
-                          :desc "Argument, proof, or supporting empirical data"))
-        (source   . (:short "SRC"
-                          :color "lightgray"
-                          :desc "Reference material / Philosophical text"))
-        (theory   . (:short "THY"
-                                  :color "lightcoral"
-                          :desc "Theoretical framework"))
-        ))
-
-(setq dg-relation-types
-      '(
-      (supports  . (:inverse "Supported By"
-                             :color "green"
-                             :style "solid"))
-      (opposes   . (:inverse "Opposed By"
-                             :color "red"
-                             :style "dashed"))
-      (informs   . (:inverse "Informed By"
-                             :color "blue"
-                             :style "solid"))
-      (answers   . (:inverse "Answered By"
-                             :color "purple"
-                             :style "solid"))
-      )
-      )
-
-(setq dg-relation-patterns
-      '((supports . (:source (evidence)
-                           :target (claim)))
-      (opposes  . (:source (evidence)
-                           :target (claim)))
-      (informs  . (:source (source)
-                           :target (evidence)))
-      (answers  . (:source (claim)
-                           :target (question)))
-      )
-        )
 
 (use-package vulpea-graph
   :ensure (:host github :repo "Arenile/vulpea-graph-ui" :files ("*.el" "assets"))
@@ -159,6 +148,7 @@
 (require 'json)
 (require 'vulpea)
 (require 'vulpea-select)
+(require 'sp-org-tag-groups)
 (require 'vui)
 
 (defgroup relationship-annotator nil
@@ -220,7 +210,8 @@ incoming edges.  SUBJECT-TYPES and OBJECT-TYPES list the node types, from
 `relationship-annotator-node-types', that an edge of this relation
 should connect.  An edge between other types is not refused, only
 reported as an anomaly.  A relation without them accepts any types."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spcustom)
 
 (defcustom relationship-annotator-tag-colors
   '(("root" . "#4e79a7")
@@ -235,49 +226,56 @@ here, in the order the tags are stored.  Notes with no listed tag keep
 the default box colour.  COLOR must be in hex form, such as
 \"#4e79a7\"; the views draw it as a tint, so text stays readable in
 light and dark themes."
-  :type '(alist :key-type string :value-type string))
+  :type '(alist :key-type string :value-type string)
+  :group 'spcustom)
 
 (defcustom relationship-annotator-default-depth 2
   "Depth offered by default when choosing how far to show the hierarchy."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defcustom relationship-annotator-embed-depth 4
   "Levels below the starting note that the browser page holds.
 The page recentres and changes depth only within them.  Notes at the
 last level show how many children they hide; run the command again from
 another note to go further.  A larger depth, when you ask for one, wins."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defcustom relationship-annotator-html-file
   (expand-file-name "relationship-annotator.html" sp-cache-dir)
   "Where `rel-anno-graph-static' writes its HTML page."
-  :type 'file)
+  :type 'file
+  :group 'spcustom)
 
 (defcustom relationship-annotator-svg-directory
   (expand-file-name "relationship-annotator/" sp-cache-dir)
   "Directory where `rel-anno-svg' writes its SVG files."
-  :type 'directory)
+  :type 'directory
+  :group 'spcustom)
 
 (defcustom relationship-annotator-rankdir "TB"
   "Graphviz layout direction: \"TB\" (parents on top) or \"LR\" (parents on the left)."
-  :type '(choice (const "LR") (const "TB")))
+  :type '(choice (const "LR") (const "TB"))
+  :group 'spcustom)
 
 (defcustom relationship-annotator-wrap-width 28
   "Number of characters after which node labels wrap in the SVG export."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 ;;;; Tree and scope
 
 (defun relationship-annotator--note (id notes)
   "Return the note with ID from NOTES, loading it from the database if needed."
   (or (gethash id notes)
-      (when-let ((note (vulpea-db-get-by-id id)))
+      (when-let* ((note (vulpea-db-get-by-id id)))
         (puthash id note notes)
         note)))
 
 (defun relationship-annotator--title (id notes)
   "Title of note ID from NOTES, or a marker for a dangling link."
-  (if-let ((note (relationship-annotator--note id notes)))
+  (if-let* ((note (relationship-annotator--note id notes)))
       (vulpea-note-title note)
     (format "<missing %s>" id)))
 
@@ -306,7 +304,7 @@ read as bare ids separated by commas or spaces."
     ((or `(meta ,key) `(meta-inverse ,key))
      (cdr (assoc key (vulpea-note-meta note))))
     ((or `(property ,key) `(property-inverse ,key))
-     (when-let ((value (cdr (assoc key (vulpea-note-properties note)))))
+     (when-let* ((value (cdr (assoc key (vulpea-note-properties note)))))
        (list value)))))
 
 (defun relationship-annotator--source-notes (source)
@@ -417,7 +415,7 @@ relations between two notes that are both in scope."
 
 (defun relationship-annotator--read-scope ()
   "Ask for a starting note and a depth.  Return (START-ID . DEPTH)."
-  (let* ((note (vulpea-select "Start note: " :require-match t))
+  (let* ((note (sp-select-note "Start note: " :require-match t))
          (depth (read-number "Depth: " relationship-annotator-default-depth)))
     (unless (and note (vulpea-note-id note) (>= depth 1))
       (user-error "Need a starting note and a depth of at least 1"))
@@ -441,7 +439,8 @@ relations between two notes that are both in scope."
 A note with a type is drawn in the colour of its type, unless one of its
 file tags has a colour in `relationship-annotator-tag-colors'.  COLOR
 must be in hex form."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spcustom)
 
 (defcustom relationship-annotator-type-sources
   '((property "DG_TYPE") (meta "type") tag)
@@ -451,7 +450,8 @@ metadata field, and `tag' the first file tag that names a type in
 `relationship-annotator-node-types'.  The first source that gives a
 known type wins.  A note whose sources give none has no type, and the
 anomaly check skips its edges."
-  :type '(repeat sexp))
+  :type '(repeat sexp)
+  :group 'spcustom)
 
 (defcustom relationship-annotator-attributes
   '((claim :overlay evidence-score
@@ -479,7 +479,8 @@ RELATION is a relation name, to follow its edges from the note, or the
 :inverse label of a relation, to follow them backwards.  TYPE keeps only
 the related notes of that type, and may be empty.  OP is `count', or
 `sum' and `avg' of the ATTRIBUTE of the related notes."
-  :type '(alist :key-type symbol :value-type plist))
+  :type '(alist :key-type symbol :value-type plist)
+  :group 'spcustom)
 
 ;;;;; Types
 
@@ -552,7 +553,7 @@ is not checked)."
   (let ((notes (plist-get tree :notes)) found)
     (pcase-dolist (`(,subject ,relation ,object)
                    (relationship-annotator--all-edges tree))
-      (when-let ((message (relationship-annotator--anomaly
+      (when-let* ((message (relationship-annotator--anomaly
                            (relationship-annotator--note-type
                             (relationship-annotator--note subject notes))
                            relation
@@ -807,7 +808,7 @@ One of `unsupported', `challenged', `contested', `supported' or
                              (relationship-annotator--visit
                               id relationship-annotator--review-tree))
                    'follow-link t
-                   'help-echo (or (when-let ((note (relationship-annotator--note id notes)))
+                   'help-echo (or (when-let* ((note (relationship-annotator--note id notes)))
                                     (vulpea-note-path note))
                                   ""))))
 
@@ -841,7 +842,7 @@ well each stands.  RET on a title visits the note."
         (let (any)
           (dolist (id (sort (hash-table-keys notes) #'string<))
             (when (eq (relationship-annotator--type-of id context) 'claim)
-              (when-let ((gaps (relationship-annotator--argument-gaps id context)))
+              (when-let* ((gaps (relationship-annotator--argument-gaps id context)))
                 (setq any t)
                 (insert "  ")
                 (relationship-annotator--insert-note-button id tree)
@@ -1139,7 +1140,7 @@ PATH holds the ancestors, so a cycle stops the recursion."
 (defun rel-anno-view-toggle ()
   "Expand or collapse the note at point."
   (interactive)
-  (when-let ((id (get-text-property (point) 'relationship-annotator-id)))
+  (when-let* ((id (get-text-property (point) 'relationship-annotator-id)))
     (when (relationship-annotator--sorted-children id relationship-annotator--tree)
       (if (gethash id relationship-annotator--expanded)
           (remhash id relationship-annotator--expanded)
@@ -1366,11 +1367,13 @@ exports of the same note never overwrite each other."
 
 (defcustom relationship-annotator-live-port 8765
   "Port of the live view, on 127.0.0.1."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defcustom relationship-annotator-live-debounce 0.5
   "Seconds Emacs must be idle after a database change before pages are checked."
-  :type 'number)
+  :type 'number
+  :group 'spcustom)
 
 (defconst relationship-annotator-live--address "127.0.0.1"
   "The only address the server listens on.")

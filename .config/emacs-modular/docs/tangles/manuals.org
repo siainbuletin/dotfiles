@@ -73,7 +73,10 @@ This will make helpful even more present.
 
 Basically like the MacOS version of looking up words. It helps to know better what you're writing and what you're writing with.
 
-The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources. But the =lexic= package packages these dictionaries offline. =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package which would provide the offline dictionary to =lexic=.
+The package [[https://github.com/abo-abo/define-word][define-word]] is based on online resources.
+
+- The =lexic= package packages these dictionaries offline.
+- =lexic= requires having =sdcv= installed on the system (through the distro's package manager). This is the stardict package, which provides the offline dictionary to =lexic=.
 
 =lexic= makes use of [[denote:20251119T221634][StarDict]].
 

@@ -2,15 +2,29 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-eshell.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-eshell.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-eshell.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configuration for Eshell, Emacs's built-in shell written in Lisp. It tunes the built-in Eshell sub-packages (history, globbing, completion, visual commands and so on), adds optional completion and help packages, defines a two-line prompt with time, shortened path, git repository and branch, and a running command counter, sets up a list of aliases, makes =ls= output clickable with icons, and adds many helper commands: a project-aware Eshell toggle, =less=, =info=, =z= directory jumping, a TRAMP-aware =rcd=, and more.
+Configuration for Eshell, Emacs's built-in shell written in Lisp. It:
+
+- tunes the built-in Eshell sub-packages (history, globbing, completion, visual commands and so on),
+- adds optional completion and help packages,
+- defines a two-line prompt with time, shortened path, git repository and branch, and a running command counter,
+- sets up a list of aliases,
+- makes =ls= output clickable with icons,
+- adds many helper commands: a project-aware Eshell toggle, =less=, =info=, =z= directory jumping, a TRAMP-aware =rcd=, and more.
 
 The module is adapted from Lambda-Emacs's eshell setup and is loaded in the Programming group of =init.el=. It uses the Lambda theme faces =lambda-meek=, =lambda-mild= and =lambda-yellow=, with fallbacks if the theme is missing, and =nerd-icons= for listings. 
 
-Several paths are built from =lem-etc-dir=. In this repository that constant appears to be defined only in =claude-early.el=, which =init.el= does not seem to load, so if it is unbound the history, alias and directory-ring settings would signal an error when Eshell first loads. Also note that =sp-workspaces= calls =sp-eshell-home=, which does not exist; the function here is named =lem-eshell-home=.
+Known problems:
+
+- Several paths are built from =lem-etc-dir=. In this repository that constant appears to be defined only in =claude-early.el=, which =init.el= does not seem to load. If it is unbound, the history, alias and directory-ring settings would signal an error when Eshell first loads.
+- =sp-workspaces= calls =sp-eshell-home=, which does not exist. The function here is named =lem-eshell-home=.
 
 * Setup
 
@@ -104,7 +118,10 @@ Does not list files automatically after =cd= (a hook later in the file does that
 
 ** ls
 
-Sets =eshell-ls-use-colors=, inherited from Lambda-Emacs. The line used to name =eshell-ls-use-colorls=, a typo for Eshell's real option, so it had no effect and colours were left at their default. It also stops Eshell's =ls= from being used inside Dired.
+Sets =eshell-ls-use-colors=, inherited from Lambda-Emacs.
+
+- The line used to name =eshell-ls-use-colorls=, a typo for Eshell's real option. It had no effect and colours were left at their default.
+- It also stops Eshell's =ls= from being used inside Dired.
 
 #+begin_src emacs-lisp -i
 (use-package em-ls
@@ -196,7 +213,10 @@ Makes globs case-insensitive and signals an error when a glob matches nothing, i
 
 Tells Eshell which programs need a real terminal and should run in a term buffer: =git= with =--help= or =--paginate=, the =git log=, =diff= and =show= subcommands, and full-screen tools like =htop=, =vim=, =less= and =ssh=.
 
-The program names are added to =eshell-visual-commands= one at a time, because that variable expects a flat list of strings. An earlier version added the whole list as a single nested element, so none of those programs were recognised as visual. The two git entries are in the correct format.
+The program names are added to =eshell-visual-commands= one at a time, because that variable expects a flat list of strings.
+
+- An earlier version added the whole list as a single nested element, so none of those programs were recognised as visual.
+- The two git entries are in the correct format.
 
 #+begin_src emacs-lisp -i
 (use-package em-term
@@ -323,7 +343,10 @@ Links to several articles and configs on custom Eshell prompts.
 
 ** Git segment
 
-=lem-eshell-config--git-prompt= returns a segment like =(repo branch)= when the directory is local, =git= is installed and a =.git= is found above it. The repository name is derived from the =origin= remote URL, so a repository without a remote shows an empty name. It shells out to git twice per prompt.
+=lem-eshell-config--git-prompt= returns a segment like =(repo branch)= when the directory is local, =git= is installed and a =.git= is found above it.
+
+- The repository name is derived from the =origin= remote URL, so a repository without a remote shows an empty name.
+- It shells out to git twice per prompt.
 
 #+begin_src emacs-lisp -i
 (defun lem-eshell-config--git-prompt (pwd)
@@ -398,7 +421,13 @@ PWD is not in a git repo (or the git command is not found)."
 
 ** The prompt function
 
-=lem-eshell-config--prompt-function= builds a three-line prompt drawn with box characters: the first line has an OS icon (an Apple SF Symbol on macOS, a penguin on Linux), the time, and the shortened path with the directory name in bold; the second shows the command counter; the third shows the git segment and the prompt character in bold yellow. A final space with the =default= face keeps typed input from inheriting the prompt's face.
+=lem-eshell-config--prompt-function= builds a three-line prompt drawn with box characters:
+
+- Line 1: an OS icon (an Apple SF Symbol on macOS, a penguin on Linux), the time, and the shortened path with the directory name in bold.
+- Line 2: the command counter.
+- Line 3: the git segment and the prompt character in bold yellow.
+
+A final space with the =default= face keeps typed input from inheriting the prompt's face.
 
 #+begin_src emacs-lisp -i
 (defun lem-eshell-config--prompt-function ()
@@ -467,9 +496,19 @@ Overrides =eshell-write-aliases-list= with =ignore= so Eshell never rewrites the
 
 ** Default aliases
 
-=lem-eshell-aliases= is the alias list: git shortcuts (=g=, =gs=, =gd=, =gco= and others, with =gg= and =gl= opening Magit), Homebrew shortcuts, =ls= variants that group by extension, navigation shortcuts that open Emacs commands (=d= for Dired, =ff= and =e= for =find-file=, =bb= for =consult-buffer=, =pp= to switch project, =up= and =bd= for =eshell-up=), =rg= with colour, and exit commands including =qr= to restart Emacs and =qq= to quit.
+=lem-eshell-aliases= is the alias list:
 
-The =ed= and =fr= entries use Lisp forms rather than strings. Eshell aliases are normally strings, so these two may not work as intended. =pk= refers to =eshell-up-peek=, which comes from the =eshell-up= package.
+- git shortcuts (=g=, =gs=, =gd=, =gco= and others), with =gg= and =gl= opening Magit,
+- Homebrew shortcuts,
+- =ls= variants that group by extension,
+- navigation shortcuts that open Emacs commands: =d= for Dired, =ff= and =e= for =find-file=, =bb= for =consult-buffer=, =pp= to switch project, =up= and =bd= for =eshell-up=,
+- =rg= with colour,
+- exit commands, including =qr= to restart Emacs and =qq= to quit.
+
+Alias oddities:
+
+- The =ed= and =fr= entries use Lisp forms rather than strings. Eshell aliases are normally strings, so these two may not work as intended.
+- =pk= refers to =eshell-up-peek=, which comes from the =eshell-up= package.
 
 #+begin_src emacs-lisp -i
 (defvar lem-eshell-aliases
@@ -538,7 +577,12 @@ You should use `lem-set-eshell-alias' to change this.")
 
 ** Defining aliases from Lisp
 
-=lem-set-eshell-alias= takes alternating alias names and commands, updates or adds them in =lem-eshell-aliases=, and once =em-alias= is loaded rebuilds =eshell-command-aliases-list= from the saved defaults plus this list. It errors on an odd number of arguments. Nothing in the config currently calls it.
+=lem-set-eshell-alias= takes alternating alias names and commands.
+
+- Updates or adds them in =lem-eshell-aliases=.
+- Once =em-alias= is loaded, rebuilds =eshell-command-aliases-list= from the saved defaults plus this list.
+- Errors on an odd number of arguments.
+- Nothing in the config currently calls it.
 
 #+begin_src emacs-lisp -i
 ;;;###autoload
@@ -756,7 +800,14 @@ Start of the helper commands.
 
 ** Project-aware Eshell toggle
 
-=lem-toggle-eshell= names the Eshell buffer after the current project, or the current directory, as in =*eshell • dotfiles*=. If that buffer is visible and you are in Eshell, it closes the window; if it is visible but you are elsewhere, it jumps to it; otherwise it opens it, in the home directory with a prefix argument. It loads this module on demand, so it can be bound before Eshell is used. No keybinding is set here. The docstring contains a blank line, so the form spans two units.
+=lem-toggle-eshell= names the Eshell buffer after the current project, or the current directory, as in =*eshell • dotfiles*=.
+
+- If that buffer is visible and you are in Eshell, it closes the window.
+- If it is visible but you are elsewhere, it jumps to it.
+- Otherwise it opens it, in the home directory with a prefix argument.
+- It loads this module on demand, so it can be bound before Eshell is used.
+- No keybinding is set here.
+- The docstring contains a blank line, so the form spans two units.
 
 #+begin_src emacs-lisp -i
 ;; Open an eshell in current dir, with project as name. If called with universal
@@ -897,7 +948,10 @@ Creates a directory, including parents, and changes into it.
 
 ** gst
 
-=gst= opens =magit-status= for the given directory, or the current one. It is a function rather than an alias because an alias would not see Eshell's current directory. The trailing =echo= suppresses output.
+=gst= opens =magit-status= for the given directory, or the current one.
+
+- It is a function rather than an alias, because an alias would not see Eshell's current directory.
+- The trailing =echo= suppresses output.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Git Status
@@ -910,7 +964,10 @@ Creates a directory, including parents, and changes into it.
 
 ** z and cg
 
-=z= jumps to a previously visited directory. With no argument and =consult-dir= loaded, it adds Eshell's directory history as a source and picks with =consult-dir=. Otherwise it matches a regexp against history or offers plain completion. =cg= jumps to the git root of the current directory.
+Directory jumping:
+
+- =z= jumps to a previously visited directory. With no argument and =consult-dir= loaded, it adds Eshell's directory history as a source and picks with =consult-dir=. Otherwise it matches a regexp against history or offers plain completion.
+- =cg= jumps to the git root of the current directory.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Jump Directories (w/Consult & Consult-Dir)
@@ -987,7 +1044,10 @@ Introduces the file viewer.
 
 ** Viewing files from Eshell
 
-=lem-eshell-view-file= opens a file in View mode and arranges for quitting View mode to kill the buffer and return to Eshell. Files whose major mode is special are just shown without View mode. This is the function behind =less=.
+=lem-eshell-view-file= opens a file in View mode and arranges for quitting View mode to kill the buffer and return to Eshell.
+
+- Files whose major mode is special are just shown without View mode.
+- This is the function behind =less=.
 
 #+begin_src emacs-lisp -i
 (defun lem-eshell-view-file (file)

@@ -52,7 +52,7 @@
 (defvar sp-module-profiles
   '((default
      . (;; Core
-        sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -64,7 +64,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -84,14 +83,12 @@
         ;; Utility misc modules
         sp-backuos
         sp-bookmarks
-        ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
         sp-help
         sp-indention
-        sp-lambda-line
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network
@@ -140,7 +137,7 @@
     (plus-programming
      . (;; Core
         sp-package
-        sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -152,7 +149,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -172,14 +168,12 @@
         ;; Utility misc modules
         sp-backups
         sp-bookmarks
-        ;; sp-choose-modeline
-        lem-dashboard
         sp-debug
         sp-embark
         ;; sp-evil
         sp-help
         sp-indention
-        sp-lambda-line
+        sp-lambda-modeline
         sp-md
         sp-minibuffer
         sp-network
@@ -201,7 +195,7 @@
     (minimal
      . (;; Core
         sp-package
-        sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets
@@ -213,7 +207,6 @@
         sp-buffers
         sp-canvas
         sp-colors
-        lem-dashboard
         sp-faces
         sp-frame
         sp-fonts
@@ -232,7 +225,7 @@
     (test
      . (;; Core
         sp-package
-        sp-paths
+        sp-globals
         sp-encoding
         sp-base-libraries
         sp-snippets

@@ -1,0 +1,677 @@
+#+TITLE: sp-org-tag-lint.el: Lint Org tags against the tag registry
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-tag-lint.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-org-tag-lint.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module finds tags that are not registered, so a typo such as =:perosn:= shows up instead of quietly becoming a new tag that no query finds. It also lets you add a tag and use it at once, and it prompts for the tags of a new note.
+
+- =sp-org-tag-lint= scans every Org file of the vault (the files of the vulpea database, else =sp-org-tag-lint-directory=) and reports, in one buffer:
+  - the tags, in =#+filetags:= lines and on headings, that are in neither tag list, each with the registered tag it is probably a typo of,
+  - the notes that have no =#+filetags:= at all, so they can be tagged and later picked up by =sp-org-tag-groups=.
+- =sp-org-tag-lint-buffer= does the same for the current file, including unsaved changes.
+- =sp-org-tag-add= registers a new note tag and makes it available without restarting Emacs.
+- =sp-org-tag-read-note-tags= is the prompt =sp-org-create-note-and-link= uses.
+
+Two lists make up the registry:
+
+- Task tags (=@home=, =deep=, ...) are =org-tag-alist=, set in =sp-org-taskman-extra=, with fast-selection keys.
+- Note tags (=person=, =album=, ...) are =org-tag-persistent-alist=, set in =sp-org-tag-registry.el=.
+
+The registry file is data, not a literate module, and is *not* tangled from this document: =sp-org-tag-add= edits it. Its content at the start was:
+
+#+begin_src emacs-lisp :tangle no
+(setq org-tag-persistent-alist
+      '(;; Structure (PARA)
+        ("area") ("project") ("agenda") ("archive") ("cemetery")
+        ;; People and bodies
+        ("person") ("musician") ("group") ("institution") ("company")
+        ;; Music
+        ("album") ("genre")
+        ;; Software
+        ("software") ("package")
+        ;; Literature
+        ("text") ("book") ("journalarticle") ("booksection")
+        ("collection") ("incollection")
+        ;; Inquiries
+        ("inquiry") ("question") ("error") ("research-q") ("exploratory")
+        ;; sp-org-tag-add: new tags go above this line
+        ))
+#+end_src
+
+The marker comment on the last line is how the command finds where to insert; keep it. The entries have no fast-selection key, so these tags are completed, not picked with a letter.
+
+Dependencies and behaviour:
+
+- Only built-in libraries, plus =sp-globals= when present (for =sp-notes-dir=) and vulpea when it is loaded (for the file list).
+- The scan reads the files as text with regular expressions; it does not start Org, so a whole vault is quick. Lines inside =src=, =example=, =export= and =comment= blocks are skipped.
+- Tags are case sensitive, as in Org. =Person= is reported, with =person= as the suggestion.
+- Org's own special tags (=ARCHIVE=, =ATTACH=, =noexport=, =crypt=) are ignored; see =sp-org-tag-lint-ignored-tags=.
+- No key bindings are set; run the commands with =M-x=. Loaded in the Functions block of =init.el=.
+- Nothing is rejected: a tag outside the registry is reported, never refused.
+
+* Setup
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-org-tag-lint.el --- Lint Org tags against the tag registry -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-org-tag-lint' reports the tags of the vault that are in neither
+;; `org-tag-alist' (task tags) nor `org-tag-persistent-alist' (note tags,
+;; from sp-org-tag-registry.el), with the registered tag each one is
+;; probably a typo of, and the notes that have no #+filetags: line.
+;; `sp-org-tag-add' registers a new note tag in the registry file and
+;; loads it again, so it works at once.  `sp-org-tag-read-note-tags' asks
+;; for the tags of a new note.
+
+;;; Code:
+#+end_src
+
+** Required libraries
+
+#+begin_src emacs-lisp -i
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'org)
+(require 'sp-globals nil t)
+
+(defvar sp-notes-dir)
+(defvar org-tag-persistent-alist)
+#+end_src
+
+** Settings
+
+- =sp-org-tag-lint-registry-file= is the file =sp-org-tag-add= edits; by default the one beside this module.
+- =sp-org-tag-lint-directory= is scanned when the vulpea database cannot list the files.
+- =sp-org-tag-lint-exclude-regexp= skips hidden folders and the usual attachment ones, the same as the footnote linter.
+- =sp-org-tag-lint-ignored-tags= are never reported.
+
+#+begin_src emacs-lisp -i
+
+(defgroup sp-org-tag-lint nil
+  "Lint Org tags against the tag registry."
+  :group 'org
+  :prefix "sp-org-tag-lint-")
+
+(defcustom sp-org-tag-lint-registry-file
+  (expand-file-name "sp-org-tag-registry.el"
+                    (file-name-directory
+                     (or load-file-name buffer-file-name default-directory)))
+  "The file that sets `org-tag-persistent-alist', edited by `sp-org-tag-add'."
+  :type 'file
+  :group 'sp-org-tag-lint)
+
+(defcustom sp-org-tag-lint-directory
+  (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
+  "Folder scanned when the vulpea database is not available."
+  :type 'directory
+  :group 'sp-org-tag-lint)
+
+(defcustom sp-org-tag-lint-exclude-regexp
+  "\\(?:\\`\\|/\\)\\(?:\\.[^/]+\\|ltximg\\|attach\\|data\\)/"
+  "Files whose path matches this regexp are not scanned.
+The path is taken relative to the scanned folder when the file is in it."
+  :type 'regexp
+  :group 'sp-org-tag-lint)
+
+(defcustom sp-org-tag-lint-ignored-tags '("ARCHIVE" "ATTACH" "noexport" "crypt")
+  "Tags that are never reported, such as the special tags of Org itself."
+  :type '(repeat string)
+  :group 'sp-org-tag-lint)
+
+(defconst sp-org-tag-lint--sentinel
+  ";; sp-org-tag-add: new tags go above this line"
+  "The line of the registry file above which new tags are inserted.")
+
+(defconst sp-org-tag-lint--tag-re "[[:alnum:]_@#%]+"
+  "One Org tag.")
+#+end_src
+
+** Loading the registry
+
+The registry file is loaded when this module is, so the note tags are set before anything asks for them.
+
+#+begin_src emacs-lisp -i
+
+(when (file-exists-p sp-org-tag-lint-registry-file)
+  (load sp-org-tag-lint-registry-file nil t))
+#+end_src
+
+* The registry
+
+** Reading it
+
+Both lists can hold plain strings, =("tag")=, =("tag" . ?k)= and group markers such as =:startgroup=; only the tag names are wanted.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-org-tag-lint--alist-tags (alist)
+  "The tag names in the tag ALIST, without group markers or keys."
+  (delq nil (mapcar (lambda (entry)
+                      (cond ((stringp entry) entry)
+                            ((and (consp entry) (stringp (car entry))) (car entry))))
+                    alist)))
+
+(defun sp-org-tag-lint-note-tags ()
+  "The registered note tags, from `org-tag-persistent-alist'."
+  (sp-org-tag-lint--alist-tags org-tag-persistent-alist))
+
+(defun sp-org-tag-lint-registered-tags ()
+  "Every registered tag: the task tags and the note tags."
+  (seq-uniq (append (sp-org-tag-lint--alist-tags org-tag-alist)
+                    (sp-org-tag-lint-note-tags))
+            #'string=))
+#+end_src
+
+** The closest registered tag
+
+A candidate within one edit of a short tag, or two of a longer one, counts as a likely typo; a different case counts as distance zero.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-org-tag-lint--closest (tag candidates)
+  "The tag in CANDIDATES that TAG is most likely a typo of, or nil."
+  (let ((limit (if (> (length tag) 4) 2 1))
+        best (best-distance most-positive-fixnum))
+    (dolist (candidate candidates)
+      (let ((distance (if (string= (downcase candidate) (downcase tag))
+                          0
+                        (string-distance tag candidate))))
+        (when (and (<= distance limit) (< distance best-distance))
+          (setq best candidate
+                best-distance distance))))
+    best))
+#+end_src
+
+** Adding a tag to the registry file
+
+The tag is inserted on a new line above the marker, with the marker's indentation. The file is changed on disk, not through a buffer, so no hook runs; a buffer visiting it is reverted afterwards, and one with unsaved changes stops the command before anything is written.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-org-tag-lint--insert-in-registry (tag)
+  "Write TAG into `sp-org-tag-lint-registry-file', above the marker line."
+  (let ((file sp-org-tag-lint-registry-file)
+        (visiting (find-buffer-visiting sp-org-tag-lint-registry-file)))
+    (unless (file-writable-p file)
+      (user-error "Cannot write %s" file))
+    (when (and visiting (buffer-modified-p visiting))
+      (user-error "Save %s first" (buffer-name visiting)))
+    (let ((coding-system-for-read 'utf-8)
+          (coding-system-for-write 'utf-8))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (unless (search-forward sp-org-tag-lint--sentinel nil t)
+          (user-error "No marker line \"%s\" in %s"
+                      sp-org-tag-lint--sentinel file))
+        (beginning-of-line)
+        (insert (make-string (current-indentation) ?\s) (format "(%S)\n" tag))
+        (write-region nil nil file nil 'silent)))
+    (when visiting
+      (with-current-buffer visiting (revert-buffer t t t)))))
+#+end_src
+
+** The command
+
+=sp-org-tag-add= checks the tag first: it must be a valid Org tag, not already registered, and, if it is close to a registered one, you confirm it is not a typo. Then it edits the registry file and runs =load-file= on it, so =org-tag-persistent-alist= is up to date at once.
+
+#+begin_src emacs-lisp -i
+
+;;;###autoload
+(defun sp-org-tag-add (tag)
+  "Register TAG as a note tag and make it available at once.
+TAG is inserted in `sp-org-tag-lint-registry-file', which is then
+loaded again.  Ask first when TAG looks like a typo of a registered
+tag.  Return TAG."
+  (interactive (list (read-string "New note tag: ")))
+  (let ((tag (string-trim tag "[ \t:]+" "[ \t:]+"))
+        (registered (sp-org-tag-lint-registered-tags)))
+    (unless (string-match-p (concat "\\`" sp-org-tag-lint--tag-re "\\'") tag)
+      (user-error "Not a valid Org tag: %S" tag))
+    (when (member tag registered)
+      (user-error "The tag %S is already registered" tag))
+    (let ((near (sp-org-tag-lint--closest tag registered)))
+      (when (and near
+                 (not (y-or-n-p (format "%S is close to the registered tag %S.  Add it anyway? "
+                                        tag near))))
+        (user-error "Not added")))
+    (sp-org-tag-lint--insert-in-registry tag)
+    (load-file sp-org-tag-lint-registry-file)
+    (message "Registered the note tag %S" tag)
+    tag))
+#+end_src
+
+* Prompting for the tags of a new note
+
+The prompt completes from the note tags and asks for at least one, so no note is created without a tag; =C-g= aborts. A tag outside the registry is offered for registration, and dropped when you decline. Several tags are separated with a comma.
+
+#+begin_src emacs-lisp -i
+
+;;;###autoload
+(defun sp-org-tag-read-note-tags (&optional prompt)
+  "Ask for one or more note tags and return them as a list of strings.
+PROMPT replaces the default prompt.  Tags that are not registered are
+offered for registration with `sp-org-tag-add' and left out when you
+decline."
+  (let (result)
+    (while (null result)
+      (let ((tags (delete-dups
+                   (seq-remove #'string-empty-p
+                               (completing-read-multiple
+                                (or prompt "Note tags (comma-separated): ")
+                                (sp-org-tag-lint-note-tags))))))
+        (setq result
+              (seq-filter
+               (lambda (tag)
+                 (or (member tag (sp-org-tag-lint-registered-tags))
+                     (and (y-or-n-p (format "%S is not registered.  Register it? " tag))
+                          (condition-case nil
+                              (progn (sp-org-tag-add tag) t)
+                            (user-error nil)))))
+               tags))
+        (unless result
+          (message "A note needs at least one tag (C-g to abort)")
+          (sit-for 1))))
+    result))
+#+end_src
+
+* Scanning
+
+** One buffer
+
+The scan walks the lines of the current buffer, which need not be in Org mode. It returns =(HAS-FILETAGS . OCCURRENCES)=, where each occurrence is =(TAG . LINE)=. A =#+filetags:= line is read as =:a:b:= or as =a b=. A heading's tags are the =:a:b:= at the end of the line.
+
+#+begin_src emacs-lisp -i
+
+(defconst sp-org-tag-lint--heading-re
+  (concat "^\\*+[ \t]+\\(?:.*?[ \t]+\\)?"
+          "\\(:" sp-org-tag-lint--tag-re "\\(?::" sp-org-tag-lint--tag-re "\\)*:\\)"
+          "[ \t]*$")
+  "A heading with tags; group 1 is the tag string.")
+
+(defun sp-org-tag-lint--scan ()
+  "Scan the current buffer for tags.
+Return (HAS-FILETAGS . OCCURRENCES), OCCURRENCES being a list of
+(TAG . LINE) in buffer order."
+  (let ((case-fold-search t)
+        (line 1)
+        in-block has-filetags occurrences)
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (cond
+         ((looking-at "[ \t]*#\\+begin_\\(?:src\\|example\\|export\\|comment\\)\\_>")
+          (setq in-block t))
+         ((looking-at "[ \t]*#\\+end_\\(?:src\\|example\\|export\\|comment\\)\\_>")
+          (setq in-block nil))
+         (in-block)
+         ((looking-at "#\\+filetags:[ \t]*\\(.*\\)$")
+          (let ((tags (split-string (match-string-no-properties 1) "[: \t]+" t)))
+            (when tags (setq has-filetags t))
+            (dolist (tag tags)
+              (push (cons tag line) occurrences))))
+         ((looking-at sp-org-tag-lint--heading-re)
+          (dolist (tag (split-string (match-string-no-properties 1) ":" t))
+            (push (cons tag line) occurrences))))
+        (forward-line 1)
+        (cl-incf line)))
+    (cons has-filetags (nreverse occurrences))))
+#+end_src
+
+** Finding the files
+
+The vulpea database lists the notes, so files outside it are not looked at; without vulpea, the folder is searched.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-org-tag-lint-files ()
+  "The Org files to lint: those of the vulpea database, else of the vault folder."
+  (let* ((root (file-name-as-directory (expand-file-name sp-org-tag-lint-directory)))
+         (paths (when (and (fboundp 'vulpea-db-query) (fboundp 'vulpea-note-path))
+                  (ignore-errors (mapcar #'vulpea-note-path (vulpea-db-query)))))
+         (candidates (or (delq nil paths)
+                         (directory-files-recursively root "\\.org\\'"))))
+    (sort
+     (seq-uniq
+      (seq-filter
+       (lambda (file)
+         (and (string-suffix-p ".org" file)
+              (file-regular-p file)
+              (not (string-match-p
+                    sp-org-tag-lint-exclude-regexp
+                    (if (string-prefix-p root file) (substring file (length root)) file)))))
+       (mapcar #'expand-file-name candidates)))
+     #'string<)))
+#+end_src
+
+** Linting a list of files
+
+A file that is open in a buffer is read from the buffer, so unsaved changes count. The result is a plist: =:files= is the number of files, =:unknown= is a list of =(TAG . OCCURRENCES)= sorted by tag, each occurrence being =(FILE . LINE)=, and =:untagged= is the list of files with no =#+filetags:=.
+
+#+begin_src emacs-lisp -i
+
+(defun sp-org-tag-lint--insert-file (file)
+  "Insert the text of FILE, from its buffer when it is open."
+  (let ((buffer (find-buffer-visiting file)))
+    (if buffer
+        (insert (with-current-buffer buffer
+                  (buffer-substring-no-properties (point-min) (point-max))))
+      (let ((coding-system-for-read 'utf-8))
+        (insert-file-contents file)))))
+
+(defun sp-org-tag-lint--run (files)
+  "Lint FILES and return a plist of :files, :unknown and :untagged."
+  (let ((registered (sp-org-tag-lint-registered-tags))
+        unknown untagged)
+    (dolist (file files)
+      (with-temp-buffer
+        (sp-org-tag-lint--insert-file file)
+        (pcase-let ((`(,has-filetags . ,occurrences) (sp-org-tag-lint--scan)))
+          (unless has-filetags (push file untagged))
+          (dolist (occurrence occurrences)
+            (let ((tag (car occurrence)))
+              (unless (or (member tag registered)
+                          (member tag sp-org-tag-lint-ignored-tags))
+                (push (cons file (cdr occurrence))
+                      (alist-get tag unknown nil nil #'string=))))))))
+    (list :files (length files)
+          :unknown (sort (mapcar (lambda (entry) (cons (car entry) (nreverse (cdr entry))))
+                                 unknown)
+                         (lambda (a b) (string< (car a) (car b))))
+          :untagged (nreverse untagged))))
+#+end_src
+
+* The report
+
+** The report buffer
+
+Each reported line carries text properties for the file, the line and the tag, so the keys act on the line at point:
+
+- =RET= visits the file at the line.
+- =a= registers the tag on the line with =sp-org-tag-add= and runs the lint again.
+- =g= runs the lint again.
+
+#+begin_src emacs-lisp -i
+
+(defconst sp-org-tag-lint--buffer-name "*sp-org-tag-lint*"
+  "Name of the report buffer.")
+
+(defvar-local sp-org-tag-lint--files nil
+  "The files the report buffer was made from, for `g'.")
+
+(defvar sp-org-tag-lint-report-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "RET") #'sp-org-tag-lint-visit)
+    (define-key map (kbd "a") #'sp-org-tag-lint-register-at-point)
+    (define-key map (kbd "g") #'sp-org-tag-lint-refresh)
+    map)
+  "Keymap of `sp-org-tag-lint-report-mode'.")
+
+(define-derived-mode sp-org-tag-lint-report-mode special-mode "TagLint"
+  "Major mode of the tag lint report.
+\\{sp-org-tag-lint-report-mode-map}")
+
+(defun sp-org-tag-lint--abbreviate (file)
+  "FILE shortened for display."
+  (abbreviate-file-name file))
+
+(defun sp-org-tag-lint--insert-location (file line tag)
+  "Insert a line pointing at FILE and LINE, carrying TAG as a property."
+  (insert "    "
+          (propertize (if line
+                          (format "%s:%d" (sp-org-tag-lint--abbreviate file) line)
+                        (sp-org-tag-lint--abbreviate file))
+                      'sp-tag-file file 'sp-tag-line line 'sp-tag-name tag
+                      'face 'link 'mouse-face 'highlight)
+          "\n"))
+
+(defun sp-org-tag-lint--render (result)
+  "Insert the report for RESULT in the current buffer."
+  (let ((registered (sp-org-tag-lint-registered-tags))
+        (unknown (plist-get result :unknown))
+        (untagged (plist-get result :untagged)))
+    (insert (format "Org tag lint: %d files, %d registered tags\n\n"
+                    (plist-get result :files) (length registered)))
+    (insert (propertize (format "Unregistered tags (%d)" (length unknown)) 'face 'bold) "\n")
+    (if (null unknown)
+        (insert "  none\n")
+      (dolist (entry unknown)
+        (let* ((tag (car entry))
+               (near (sp-org-tag-lint--closest tag registered)))
+          (insert "  "
+                  (propertize (format ":%s:" tag) 'face 'warning 'sp-tag-name tag)
+                  (format "  x%d" (length (cdr entry)))
+                  (if near (format "  (probably %s)" near) "")
+                  "\n")
+          (dolist (occurrence (cdr entry))
+            (sp-org-tag-lint--insert-location (car occurrence) (cdr occurrence) tag)))))
+    (insert "\n" (propertize (format "Notes without #+filetags (%d)" (length untagged))
+                             'face 'bold)
+            "\n")
+    (if (null untagged)
+        (insert "  none\n")
+      (dolist (file untagged)
+        (sp-org-tag-lint--insert-location file nil nil)))
+    (insert "\nRET visit   a register the tag at point   g run again\n")))
+
+(defun sp-org-tag-lint--show (files)
+  "Lint FILES and show the report."
+  (let ((result (sp-org-tag-lint--run files))
+        (buffer (get-buffer-create sp-org-tag-lint--buffer-name)))
+    (with-current-buffer buffer
+      (sp-org-tag-lint-report-mode)
+      (setq sp-org-tag-lint--files files)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (sp-org-tag-lint--render result))
+      (goto-char (point-min)))
+    (pop-to-buffer buffer)
+    (message "%d unregistered tags, %d notes without tags"
+             (length (plist-get result :unknown))
+             (length (plist-get result :untagged)))
+    result))
+
+(defun sp-org-tag-lint-visit ()
+  "Visit the file on the report line at point."
+  (interactive)
+  (let ((file (get-text-property (point) 'sp-tag-file))
+        (line (get-text-property (point) 'sp-tag-line)))
+    (unless file (user-error "No file on this line"))
+    (find-file-other-window file)
+    (when line
+      (goto-char (point-min))
+      (forward-line (1- line)))))
+
+(defun sp-org-tag-lint-refresh ()
+  "Run the lint again on the same files."
+  (interactive)
+  (sp-org-tag-lint--show (or sp-org-tag-lint--files (sp-org-tag-lint-files))))
+
+(defun sp-org-tag-lint-register-at-point ()
+  "Register the tag on the report line at point, then lint again."
+  (interactive)
+  (let ((tag (get-text-property (point) 'sp-tag-name)))
+    (unless tag (user-error "No tag on this line"))
+    (sp-org-tag-add tag)
+    (sp-org-tag-lint-refresh)))
+#+end_src
+
+* Commands
+
+#+begin_src emacs-lisp -i
+
+;;;###autoload
+(defun sp-org-tag-lint ()
+  "Lint the tags of the whole vault against the tag registry.
+Report the tags that are in neither `org-tag-alist' nor
+`org-tag-persistent-alist', and the notes with no #+filetags line."
+  (interactive)
+  (sp-org-tag-lint--show (sp-org-tag-lint-files)))
+
+;;;###autoload
+(defun sp-org-tag-lint-buffer ()
+  "Lint the tags of the file of the current buffer, unsaved changes included."
+  (interactive)
+  (unless buffer-file-name
+    (user-error "This buffer is not visiting a file"))
+  (sp-org-tag-lint--show (list (expand-file-name buffer-file-name))))
+#+end_src
+
+* Provide
+
+Provides the =sp-org-tag-lint= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-org-tag-lint)
+;;; sp-org-tag-lint.el ends here
+#+end_src
+
+* Tests
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../tests/sp-org-tag-lint-test.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+
+Run headless from the folder of =init.el=:
+
+#+begin_example
+emacs -Q --batch -L libraries/modules/funct -l tests/sp-org-tag-lint-test.el -f ert-run-tests-batch-and-exit
+#+end_example
+
+The tests use a temporary folder and a copy of the registry, so neither the real vault nor the real registry file is touched. Fixture lines are lists, so no line starts with a star in this file.
+
+#+begin_src emacs-lisp
+;;; sp-org-tag-lint-test.el --- Tests for sp-org-tag-lint -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'sp-org-tag-lint)
+
+(defun sp-org-tag-lint-test--text (&rest lines)
+  "LINES joined, with a final newline."
+  (concat (string-join lines "\n") "\n"))
+
+(defun sp-org-tag-lint-test--scan (&rest lines)
+  "Scan LINES as a buffer."
+  (with-temp-buffer
+    (insert (apply #'sp-org-tag-lint-test--text lines))
+    (sp-org-tag-lint--scan)))
+
+(defmacro sp-org-tag-lint-test--with-registry (&rest body)
+  "Run BODY with a temporary copy of the registry and the tag lists restored after."
+  (declare (indent 0))
+  `(let* ((dir (make-temp-file "sp-tag-test" t))
+          (copy (expand-file-name "sp-org-tag-registry.el" dir))
+          (sp-org-tag-lint-registry-file copy)
+          (org-tag-persistent-alist org-tag-persistent-alist)
+          (org-tag-alist '(("@home" . ?H))))
+     (unwind-protect
+         (progn
+           (with-temp-file copy
+             (insert "(setq org-tag-persistent-alist\n      '((\"person\")\n        (\"album\")\n"
+                     "        " sp-org-tag-lint--sentinel "\n        ))\n"))
+           (load-file copy)
+           ,@body)
+       (delete-directory dir t))))
+
+(ert-deftest sp-org-tag-lint-test-scan-filetags ()
+  (should (equal (sp-org-tag-lint-test--scan "#+title: A" "#+filetags: :person:album:")
+                 '(t ("person" . 2) ("album" . 2))))
+  (should (equal (sp-org-tag-lint-test--scan "#+FILETAGS: person album")
+                 '(t ("person" . 1) ("album" . 1))))
+  (should (equal (sp-org-tag-lint-test--scan "#+title: A") '(nil))))
+
+(ert-deftest sp-org-tag-lint-test-scan-headings ()
+  (should (equal (sp-org-tag-lint-test--scan
+                  "#+title: A" "* TODO Write it :@home:deep:" "** Plain" "* :solo:")
+                 '(nil ("@home" . 2) ("deep" . 2) ("solo" . 4)))))
+
+(ert-deftest sp-org-tag-lint-test-scan-skips-blocks ()
+  (should (equal (sp-org-tag-lint-test--scan
+                  "#+begin_src org" "* Example :notag:" "#+end_src" "* Real :tag:")
+                 '(nil ("tag" . 4)))))
+
+(ert-deftest sp-org-tag-lint-test-closest ()
+  (let ((tags '("person" "album" "project")))
+    (should (equal (sp-org-tag-lint--closest "perosn" tags) "person"))
+    (should (equal (sp-org-tag-lint--closest "Album" tags) "album"))
+    (should-not (sp-org-tag-lint--closest "zebra" tags))))
+
+(ert-deftest sp-org-tag-lint-test-registered-tags ()
+  (let ((org-tag-alist '(:startgroup ("@home" . ?H) :endgroup ("deep" . ?d)))
+        (org-tag-persistent-alist '(("person") "album")))
+    (should (equal (sp-org-tag-lint-registered-tags)
+                   '("@home" "deep" "person" "album")))))
+
+(ert-deftest sp-org-tag-lint-test-run ()
+  (sp-org-tag-lint-test--with-registry
+    (let* ((dir (file-name-directory copy))
+           (a (expand-file-name "a.org" dir))
+           (b (expand-file-name "b.org" dir)))
+      (with-temp-file a
+        (insert (sp-org-tag-lint-test--text "#+filetags: :person:perosn:" "* Task :@home:oops:")))
+      (with-temp-file b
+        (insert (sp-org-tag-lint-test--text "#+title: untagged")))
+      (let ((result (sp-org-tag-lint--run (list a b))))
+        (should (equal (plist-get result :files) 2))
+        (should (equal (plist-get result :unknown)
+                       `(("oops" (,a . 2)) ("perosn" (,a . 1)))))
+        (should (equal (plist-get result :untagged) (list b)))))))
+
+(ert-deftest sp-org-tag-lint-test-add ()
+  (sp-org-tag-lint-test--with-registry
+    (should (equal (sp-org-tag-add "genre") "genre"))
+    (should (member "genre" (sp-org-tag-lint-note-tags)))
+    (with-temp-buffer
+      (insert-file-contents copy)
+      (should (search-forward "(\"genre\")" nil t))
+      (should (search-forward sp-org-tag-lint--sentinel nil t)))
+    (should-error (sp-org-tag-add "genre") :type 'user-error)
+    (should-error (sp-org-tag-add "not a tag") :type 'user-error)))
+
+(ert-deftest sp-org-tag-lint-test-add-similar-asks ()
+  (sp-org-tag-lint-test--with-registry
+    (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+      (should-error (sp-org-tag-add "perosn") :type 'user-error)
+      (should-not (member "perosn" (sp-org-tag-lint-note-tags))))
+    (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+      (should (equal (sp-org-tag-add "perosn") "perosn"))
+      (should (member "perosn" (sp-org-tag-lint-note-tags))))))
+
+(ert-deftest sp-org-tag-lint-test-read-note-tags ()
+  (sp-org-tag-lint-test--with-registry
+    (cl-letf (((symbol-function 'completing-read-multiple)
+               (lambda (&rest _) '("person" "" "person" "newtag")))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+      (should (equal (sp-org-tag-read-note-tags) '("person" "newtag")))
+      (should (member "newtag" (sp-org-tag-lint-note-tags))))))
+
+(ert-deftest sp-org-tag-lint-test-read-note-tags-declined ()
+  (sp-org-tag-lint-test--with-registry
+    (let ((answers (list '("unknown") '("album"))))
+      (cl-letf (((symbol-function 'completing-read-multiple)
+                 (lambda (&rest _) (pop answers)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
+                ((symbol-function 'sit-for) #'ignore))
+        (should (equal (sp-org-tag-read-note-tags) '("album")))
+        (should-not (member "unknown" (sp-org-tag-lint-note-tags)))))))
+
+(provide 'sp-org-tag-lint-test)
+;;; sp-org-tag-lint-test.el ends here
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/105][#105]] ✨ Added the note-tag registry and =sp-org-tag-lint=: the note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (the task tags stay in =org-tag-alist=); =M-x sp-org-tag-lint= reports the unregistered tags of the vault, with the likely typo, and the notes without =#+filetags:=; =M-x sp-org-tag-add= registers a tag in that file and loads it again, no restart. Changed =sp-org-create-note-and-link= and the notes created by wikilink conversion to ask for the note's tags, and =sp-split-leave-parents= to ignore tag inheritance (=sp-split-inherit-tags=). 10 ERT tests; not run in a real vault or with vulpea.

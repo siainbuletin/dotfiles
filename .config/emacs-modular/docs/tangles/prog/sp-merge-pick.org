@@ -2,13 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-merge-pick.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-merge-pick.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-merge-pick.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 Org always ends a tangled file with a newline, which the module file has too.
 
 * What it is for
 
-SourceGit and VS Code draw the branches as coloured lanes and let you click two commits. Magit can draw the same graph (=git log --graph=, coloured), but it has no "select two commits" gesture, so this module adds one: mark a commit as =INTO= and another as =FROM=, then ask for a preview, a diff, a three-way Ediff or a =--no-commit= merge. The aim is to look at a merge as closely as needed before anything is committed, which is why every command except the last changes nothing.
+Why this module exists:
+
+- SourceGit and VS Code draw the branches as coloured lanes and let you click two commits.
+- Magit can draw the same graph (=git log --graph=, coloured), but it has no "select two commits" gesture.
+- So this module adds one: mark a commit as =INTO= and another as =FROM=, then ask for a preview, a diff, a three-way Ediff or a =--no-commit= merge.
+- The aim is to look at a merge as closely as needed before anything is committed. That is why every command except the last changes nothing.
 
 The graph is not the curved vector drawing of SourceGit: it is git's own lane layout, with unicode glyphs and Magit's colours, in a text buffer. It works in a terminal as well as a GUI frame, but the glyphs need a font that has them and draws them at the width of one column.
 
@@ -23,7 +32,21 @@ The same thing in Magit's own keys, without this module: =m p= previews a merge 
 
 ** Status
 
-Written and run in a headless Emacs 29.3 with Magit from October 2026, on a small repository with two branches that conflict: the log buffer, the marks, the overlays, the glyph display properties, the preview, the file buffers handed to Ediff (with the Ediff call itself replaced by a stub), and a no-commit merge, including the check-out of INTO, ran as described. Not tested: the Ediff session itself, colours and glyph widths in a real frame or terminal, =C-c v= on the dotfiles repository over =M-x yadm=, and git older than 2.38 (the preview needs =merge-tree --write-tree=).
+Testing status: written and run in a headless Emacs 29.3 with Magit from October 2026, on a small repository with two branches that conflict.
+
+Ran as described:
+
+- the log buffer, the marks, the overlays and the glyph display properties,
+- the preview,
+- the file buffers handed to Ediff (with the Ediff call itself replaced by a stub),
+- a no-commit merge, including the check-out of INTO.
+
+Not tested:
+
+- the Ediff session itself,
+- colours and glyph widths in a real frame or terminal,
+- =C-c v= on the dotfiles repository over =M-x yadm=,
+- git older than 2.38 (the preview needs =merge-tree --write-tree=).
 
 The commentary at the top of the module says:
 
@@ -98,17 +121,20 @@ The declarations name the Magit functions the module calls, so the byte compiler
   "Arguments of the log `sp-merge-pick-log' shows, besides `--all'.
 Magit colours the graph only up to `magit-log-color-graph-limit' commits
 \(256 by default); raise both to see more history in colour."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-unicode-graph t
   "Draw the lanes of the graph with unicode glyphs instead of ASCII."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-graph-glyphs
   '((?* . "●") (?| . "│") (?/ . "╱") (?\\ . "╲"))
   "Glyph shown for each ASCII character git uses in the graph.
 Only the display changes; the buffer text stays ASCII."
-  :type '(alist :key-type character :value-type string))
+  :type '(alist :key-type character :value-type string)
+  :group 'spcustom)
 
 (defface sp-merge-pick-into
   '((t :inherit highlight :extend t))
@@ -121,7 +147,10 @@ Only the display changes; the buffer text stays ASCII."
 
 ** Marks
 
-Two global variables hold the marks: =INTO= is the commit that receives the merge, =FROM= the one that is merged in. Each mark is a plist with the full hash, the repository it belongs to, the local branch whose tip it is (if any, the current branch first) and a label for messages. Marks from another repository are refused, so a mark made in the dotfiles repository is not used by mistake in a project.
+Two global variables hold the marks: =INTO= is the commit that receives the merge, =FROM= the one that is merged in.
+
+- Each mark is a plist with the full hash, the repository it belongs to, the local branch whose tip it is (if any, the current branch first) and a label for messages.
+- Marks from another repository are refused, so a mark made in the dotfiles repository is not used by mistake in a project.
 
 #+begin_src emacs-lisp -i
 ;;;; Marks
@@ -173,7 +202,10 @@ Two global variables hold the marks: =INTO= is the commit that receives the merg
 
 ** Drawing the graph and the marks
 
-Two things are drawn into the Magit log buffer after every refresh (through =magit-refresh-buffer-hook=, hooked up at the end of the module). First, the lanes git draws with ASCII are given unicode glyphs through a =display= property, so the buffer text is unchanged and Magit keeps parsing it. Magit puts the graph before the hash, or after the hash when the hashes are aligned, and the pattern accepts both. Second, the lines of the two marks get a background face and an =← INTO= or =← FROM= label at the end of the line, through overlays that are rebuilt each time because a refresh erases the buffer.
+Two things are drawn into the Magit log buffer after every refresh (through =magit-refresh-buffer-hook=, hooked up at the end of the module):
+
+- The lanes git draws with ASCII are given unicode glyphs through a =display= property. The buffer text is unchanged and Magit keeps parsing it. Magit puts the graph before the hash, or after the hash when the hashes are aligned, and the pattern accepts both.
+- The lines of the two marks get a background face and an =← INTO= or =← FROM= label at the end of the line. They are overlays, rebuilt each time because a refresh erases the buffer.
 
 #+begin_src emacs-lisp -i
 ;;;; Drawing the graph and the marks
@@ -191,7 +223,7 @@ aligned, so the pattern accepts both."
             (let ((pos (match-beginning 1))
                   (end (match-end 1)))
               (while (< pos end)
-                (when-let ((glyph (alist-get (char-after pos)
+                (when-let* ((glyph (alist-get (char-after pos)
                                              sp-merge-pick-graph-glyphs)))
                   (put-text-property pos (1+ pos) 'display glyph))
                 (setq pos (1+ pos)))))
@@ -199,7 +231,7 @@ aligned, so the pattern accepts both."
 
 (defun sp-merge-pick--mark-overlay (mark face text)
   "Highlight the line of MARK in the buffer with FACE and TEXT at its end."
-  (when-let ((rev (plist-get mark :rev)))
+  (when-let* ((rev (plist-get mark :rev)))
     (save-excursion
       (goto-char (point-min))
       (catch 'found
@@ -224,7 +256,10 @@ aligned, so the pattern accepts both."
 
 ** Commands: marking
 
-=sp-merge-pick-log= opens =git log --all --graph --color --decorate --topo-order -n256=, which is the same picture as the left pane of SourceGit or VS Code's graph. Magit colours the graph only up to =magit-log-color-graph-limit= (256) commits. The marks are taken from the commit at point.
+=sp-merge-pick-log= opens =git log --all --graph --color --decorate --topo-order -n256=, the same picture as the left pane of SourceGit or VS Code's graph.
+
+- Magit colours the graph only up to =magit-log-color-graph-limit= (256) commits.
+- The marks are taken from the commit at point.
 
 #+begin_src emacs-lisp -i
 ;;;; Commands: marking
@@ -378,7 +413,16 @@ Files that conflicted in the last preview are offered first."
 
 ** Commands: merging
 
-=sp-merge-pick-merge-nocommit= is the only command that changes anything. It refuses while a merge is in progress. If INTO is not the checked-out commit it needs INTO to be the tip of a local branch and a clean worktree, and then asks before checking that branch out. It asks again before merging, naming both sides, and then calls Magit's own =magit-merge-nocommit= (=git merge --no-commit --no-ff=). The result is a merge in progress with nothing committed: resolve conflicts in the status buffer with =e= on a file (Ediff) or by visiting the file (Smerge starts on conflict markers), commit with =c c=, or throw it away with =m a=.
+=sp-merge-pick-merge-nocommit= is the only command that changes anything.
+
+- It refuses while a merge is in progress.
+- If INTO is not the checked-out commit, it needs INTO to be the tip of a local branch and a clean worktree, and then asks before checking that branch out.
+- It asks again before merging, naming both sides.
+- Then it calls Magit's own =magit-merge-nocommit= (=git merge --no-commit --no-ff=).
+- The result is a merge in progress with nothing committed. From there:
+  - resolve conflicts in the status buffer with =e= on a file (Ediff), or by visiting the file (Smerge starts on conflict markers),
+  - commit with =c c=,
+  - or throw it away with =m a=.
 
 #+begin_src emacs-lisp -i
 ;;;; Commands: merging
@@ -414,7 +458,12 @@ Ediff menu for all of them), or visit the file and use Smerge.  Undo with
 
 ** Menu and keys
 
-=C-c v= in any Magit buffer opens the menu; the marks stay when it closes, so the sequence is: move to a commit, =C-c v i=, move to another, =C-c v f=, then =C-c v p=. The graph log itself is on =C-x C-SPC g m= (the =lem+vc-keys= map in =sp-keys=, which autoloads it). The late-loaded module installs the key and the refresh hook when Magit is first loaded.
+Using it:
+
+- =C-c v= in any Magit buffer opens the menu. The marks stay when it closes.
+- The sequence: move to a commit, =C-c v i=, move to another, =C-c v f=, then =C-c v p=.
+- The graph log itself is on =C-x C-SPC g m= (the =lem+vc-keys= map in =sp-keys=, which autoloads it).
+- The late-loaded module installs the key and the refresh hook when Magit is first loaded.
 
 #+begin_src emacs-lisp -i
 ;;;; Menu and keys

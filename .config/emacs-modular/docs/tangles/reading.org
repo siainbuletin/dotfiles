@@ -4,9 +4,16 @@
 
 This both includes storing links to be read later (and could be enhanced through =org-web-tools=), but also ways of annotating my documents directly in Emacs. This is done through =org-noter=, but it should be tightly integrated with the overall =org-mode= layer. It's the reason why the =org-mode= configuration layer is called so early on.
 
-The goal is being able to find the information again through _topical_ exploration. Tackling a particular problem could be done by first finding what I need through full-text search of the contents of the sources I have on my system as well. Sources can be PDFs, EPUBs, or even web articles that I have saved (and that I'm scared will be lost to time because of poor archival efforts).
+The goal is being able to find the information again through _topical_ exploration.
 
-The way that I group information in Obsidian topically and _atomically_ is really important to my problem-solving process. As such, I want to be able to replicate my workflow for gathering links as closely as possible in this program. It's like an annex to the main file, full of things that I should read more and that would help improve the main problems tackled within an atomic file.
+- Tackling a particular problem could start with full-text search of the contents of the sources I have on my system.
+- Sources can be PDFs, EPUBs, or even web articles that I have saved (and that I'm scared will be lost to time because of poor archival efforts).
+
+Why a links annex:
+
+- The way I group information in Obsidian topically and _atomically_ is really important to my problem-solving process.
+- So I want to replicate my workflow for gathering links as closely as possible in this program.
+- It's like an annex to the main file, full of things I should read more, which would help improve the main problems tackled within an atomic file.
 
 As an improvement to my current Obsidian system, I wish I had a better way of marking links as already having been read and, so to say, /parsed/ for the most important information I could get out of them.
 
@@ -306,7 +313,12 @@ To make it easier to look through your possible reading materials (and where the
 
 This is already possible in [[denote:20251116T141328][Obsidian]] through the (now deprecated) [[denote:20251216T231240][obsidian-projects]] plugin and the newer [[denote:20251203T025436][obsidian-bases]], which seems to work somewhat better right now.
 
-But I want to be able to use the built-in [[denote:20251114T230911][task management]] features to see the priority of what I have to read and how far along I already am with the progress. See also the talk given by Vidianos at EmacsConf 2025, by creating a reading list system with [[denote:20251209T185022][ebib]] and [[denote:20251116T141307][org-roam]].
+I want to use the built-in [[denote:20251114T230911][task management]] features to see:
+
+- the priority of what I have to read,
+- how far along I already am.
+
+See also the talk given by Vidianos at EmacsConf 2025, by creating a reading list system with [[denote:20251209T185022][ebib]] and [[denote:20251116T141307][org-roam]].
 
 One way to make a filtered view that you can then feed into ~tabulated-list-mode~
 

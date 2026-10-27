@@ -2,11 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-python.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-python.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-python.el=.
 
-A Python setup built on =lsp-mode= with basedpyright as the language server, Company for completion, Flycheck for diagnostics, and ruff for formatting and import sorting on save. Tests run through =uv run pytest= in a compilation buffer. It uses a =siapip/= prefix and a =siapip= customization group, which suggests it was written as a self-contained snippet.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-The file has no =provide= form and is not listed in =init.el=, so it is not loaded today. It depends on several packages that are configured elsewhere or not at all: =lsp-mode=, =company=, =flycheck=, =highlight-indent-guides=, =rainbow-delimiters= and =yasnippet=. External programs needed are =basedpyright=, =ruff= and =uv=.
+A Python setup built on:
+
+- =lsp-mode= with basedpyright as the language server,
+- Company for completion,
+- Flycheck for diagnostics,
+- ruff for formatting and import sorting on save.
+
+Tests run through =uv run pytest= in a compilation buffer. It uses a =siapip/= prefix and a =siapip= customization group, which suggests it was written as a self-contained snippet.
+
+Status and dependencies:
+
+- The file has no =provide= form and is not listed in =init.el=, so it is not loaded today.
+- It depends on several packages configured elsewhere or not at all: =lsp-mode=, =company=, =flycheck=, =highlight-indent-guides=, =rainbow-delimiters= and =yasnippet=.
+- External programs needed: =basedpyright=, =ruff= and =uv=.
 
 * Python mode setup
 
@@ -42,7 +57,7 @@ This one block holds most of the module:
   "When non-nil, enable ruff LSP server alongside pyright for live linting.
 Requires lsp-ruff package and `ruff server' in PATH (ruff >= 0.2.0)."
   :type 'boolean
-  :group 'siapip
+  :group 'spcustom
   :safe #'booleanp)
 (defun siapip/python-pytest ()
   (interactive)
@@ -140,7 +155,15 @@ Only when =siapip/python-lsp-ruff-enable= is non-nil at load time, configures =l
 
 ** ruff via reformatter
 
-Uses =reformatter= to define two formatters that pipe the buffer through ruff: =ruff-format= (=ruff format=) and =ruff-isort= (=ruff check= limited to the import-sorting rule =I=, applying fixes only). Each definition also creates a command and an on-save minor mode. Both on-save modes are added to the Python mode hooks. As the comment explains, the order of the =add-hook= calls is chosen so imports are sorted first and the code is formatted last on each save.
+Uses =reformatter= to define two formatters that pipe the buffer through ruff:
+
+- =ruff-format= (=ruff format=).
+- =ruff-isort= (=ruff check= limited to the import-sorting rule =I=, applying fixes only).
+
+Each definition also creates a command and an on-save minor mode.
+
+- Both on-save modes are added to the Python mode hooks.
+- As the comment explains, the order of the =add-hook= calls is chosen so imports are sorted first and the code is formatted last on each save.
 
 #+begin_src emacs-lisp -i
 (use-package reformatter

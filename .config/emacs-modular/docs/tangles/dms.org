@@ -11,9 +11,17 @@ Ideally, all of the files live in a flat directory, and they're picked out based
 
 * TODO Configuring links across documents on the entire system
 
-My goal in using Emacs is trying to get a more direct access to my entire file system. This means that links shouldn't just live within the one silo I have assigned to my Zettelkasten, but there should be an option to easily link across to my =org-agenda= as well, or to any coding process, while still keeping a degree of separation between my separate types of documents.
+My goal in using Emacs is to get more direct access to my entire file system.
 
-At the same time, especially when I want to write, I'm interested in following along a series of questions that I may have about the content that I'm tackling. After all, that makes up about most of the tasks that I usually have, because they're tied to understanding and deep research. For this, I need a deep interconnection with my task management workplace.
+- Links shouldn't just live within the one silo I have assigned to my Zettelkasten.
+- There should be an option to easily link across to my =org-agenda=, or to any coding process.
+- I still want a degree of separation between my separate types of documents.
+
+At the same time, especially when I want to write:
+
+- I'm interested in following a series of questions I may have about the content I'm tackling.
+- That makes up most of the tasks I usually have, because they're tied to understanding and deep research.
+- For this, I need a deep interconnection with my task management workplace.
 
 This can also be enhanced if I enable links to my magit commits, for the projects that I'm actually working on moving along through different commits. This is the version control part that's more complicated.
 

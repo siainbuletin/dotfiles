@@ -2,13 +2,29 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-node-mem.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-node-mem.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-node-mem.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module sets up =org-mem=, a fast in-memory index of Org files, and =org-node=, which builds note-taking commands (find, insert link, backlinks) on top of it, for the notes in =~/notes/=. It no longer computes =org-agenda-files=: =vulpea-para= does (see =sp-vulpea-para= and [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]], which keeps the old hook for reference). =org-mem= and =org-node= are planned to be removed from the configuration.
+This module sets up two packages for the notes in =~/notes/=:
 
-Packages: =org-mem=, =org-node= and =inspector= (installed for inspecting Lisp objects, possibly while debugging the index). The module is required by =sp-org-ext=. Note that =sp-vulpea-convert-properties= keeps =CREATED= in drawers specifically so org-node keeps working.
+- =org-mem=, a fast in-memory index of Org files.
+- =org-node=, which builds note-taking commands (find, insert link, backlinks) on top of it.
+
+Notes:
+
+- It no longer computes =org-agenda-files=. =vulpea-para= does (see =sp-vulpea-para= and [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]], which keeps the old hook for reference).
+- =org-mem= and =org-node= are planned to be removed from the configuration.
+
+Packages: =org-mem=, =org-node= and =inspector=.
+
+- =inspector= is installed for inspecting Lisp objects, possibly while debugging the index.
+- The module is required by =sp-org-ext=.
+- =sp-vulpea-convert-properties= keeps =CREATED= in drawers specifically so org-node keeps working.
 
 * Indexing
 
@@ -61,6 +77,10 @@ Installs the =inspector= package, an interactive browser for Lisp data structure
 
 Installs =org-node= and enables =org-node-cache-mode= after init. =M-o n n= turns the current entry into a node by giving it an ID, and =M-o n i= inserts a link to a node.
 
+Settings in =:custom=:
+- =org-node-backlink-do-drawers= is nil, so org-node does not write backlinks into =:BACKLINKS:= property drawers.
+- =org-node-alter-candidates= is on, so org-node may alter how completion candidates are displayed, for example by adding the outline path.
+
 #+begin_src emacs-lisp -i
 (use-package org-node
   :ensure (:wait t)
@@ -70,23 +90,10 @@ Installs =org-node= and enables =org-node-cache-mode= after init. =M-o n n= turn
   ;; Tip: Try changing these to just "M-o"!
   (keymap-global-set "M-o n n" 'org-node-nodeify-entry)
   (keymap-global-set "M-o n i" 'org-node-insert-link)
-)
-#+end_src
 
-** Backlinks not in drawers
-
-Stops org-node from writing backlinks into =:BACKLINKS:= property drawers.
-
-#+begin_src emacs-lisp -i
-(setq org-node-backlink-do-drawers nil)
-#+end_src
-
-** Candidate display
-
-Lets org-node alter how completion candidates are displayed, for example by adding the outline path.
-
-#+begin_src emacs-lisp -i
-(setq org-node-alter-candidates t)
+  :custom
+  (org-node-backlink-do-drawers nil)
+  (org-node-alter-candidates t))
 #+end_src
 
 * Provide

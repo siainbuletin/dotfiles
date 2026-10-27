@@ -1,0 +1,334 @@
+#+TITLE: sp-nano-style.el: Nano's header line blocks and mode line divider
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-nano-style.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-nano-style.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module holds the parts of N Λ N O's modeline (=nano-modeline.el=, by Nicolas Rougier, GPLv3) that =sp-lambda-modeline= and =sp-prot-modeline= share. Both call =sp-nano-style-install=; the module itself loads nothing and changes nothing until they do.
+
+- *Header line.* The blocky header of nano: a block with =RW= (writable, muted), =RO= (read-only, in the warning colour) or =**= (modified, in the error colour), then the name of the buffer in bold and, at the right edge and muted, the name of the project and the time (=hh:mm=, 24 hours). In an Org buffer the name is the text of the =#+title:= of the file, drawn with the face =sp-modeline-title= (defined in =sp-faces=; it does not take the =org-document-title= face of the theme). A dedicated window shows =--= in the block. In windows that are not selected the block is muted and the name is not bold. The tooltip of the name gives the file.
+- *Divider.* Nano shrinks its mode line to a thin line; here the mode line stays whole, and a thin line is drawn between the text of the buffer and the mode line (an overline of the mode line) and between the header and the text (an underline of the header line). It is set on =mode-line=, =mode-line-inactive=, =header-line= and the lambda-line faces, and set again after each theme load. How to make it fainter or turn it off is in the section "Making the divider fainter" below.
+- The colours come from the theme: the block faces inherit =warning=, =error= and =shadow= and invert them.
+
+The project name is cached for each buffer, because =project-current= searches the file system and the header is redrawn all the time. It is not looked up for remote files.
+
+The clock turns on =display-time-mode= with Prot's settings (=%H:%M=, 24 hours, no load average, no mail check) and removes its text from the mode line, because the time is drawn in the header; =sp-nano-style-clock= turns this off.
+
+Untested in a running Emacs. Things to check are the block colours in your themes and that the divider shows above both mode lines.
+
+* Making the divider fainter and changing the lines
+
+All of these are variables you can set in your own configuration before the module loads, or with =M-x customize-group RET sp-nano-style RET=. After changing one, run =M-x sp-nano-style-apply-divider= (the clock needs a restart or =M-x sp-nano-style-install=).
+
+| Variable                          | Default  | What it does                                                                                     |
+|-----------------------------------+----------+--------------------------------------------------------------------------------------------------|
+| =sp-nano-style-divider=           | =t=      | =nil= removes the line above the mode line and under the header.                                  |
+| =sp-nano-style-header-divider=    | =t=      | =nil= keeps the line above the mode line but removes the one under the header.                    |
+| =sp-nano-style-divider-opacity=   | =1.0=    | From =0= (invisible) to =1=. How much of the line colour is kept when it is mixed with the background of the theme. =0.3= to =0.5= gives a faint line. |
+| =sp-nano-style-divider-face=      | =shadow= | The face whose foreground is the line colour: any face works, for example =font-lock-comment-face=, =default= (the text colour) or =sp-faint= with the =sp= themes. |
+| =sp-nano-style-divider-color=     | =nil=    | A colour of your own (="#8899aa"= or ="gray50"=); it wins over the face.                          |
+| =sp-nano-style-clock=             | =t=      | =nil= removes the time at the right of the header.                                               |
+
+Examples:
+
+#+begin_src emacs-lisp :tangle no
+;; A faint line, in the colour of comments
+(setq sp-nano-style-divider-face 'font-lock-comment-face
+      sp-nano-style-divider-opacity 0.4)
+
+;; A line only above the mode line, in a colour of your own
+(setq sp-nano-style-header-divider nil
+      sp-nano-style-divider-color "#8899aa")
+#+end_src
+
+The lines are made of faces, so they can also be changed by hand: the line above the mode line is the =:overline= of =mode-line= and =mode-line-inactive= (and of the lambda-line faces), and the line under the header is the =:underline= of =header-line=. A thicker or dotted line is not possible with them; for that, the line would have to be a row of characters (see the guide to lines).
+
+The look of the header line itself comes from these faces: =sp-nano-style-header-ro=, =-md= and =-rw= (the blocks), =-name=, (and, for the =#+title:= of an Org buffer, =sp-modeline-title=, defined in =sp-faces=) and =-faded= (the right-hand text). To change one, use =M-x customize-face=.
+
+* Code
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-nano-style.el --- Nano's header line blocks and mode line divider -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; The header line blocks (RW / RO / **) and the divider above the mode line
+;; of N Λ N O's `nano-modeline.el' (Nicolas Rougier, GPLv3), shared by
+;; `sp-lambda-modeline' and `sp-prot-modeline'.  Nothing changes until
+;; `sp-nano-style-install' is called.
+
+;;; Code:
+
+(require 'subr-x)
+(require 'cl-lib)
+(require 'color)
+(declare-function org-collect-keywords "org" (keywords &optional unique directory))
+(declare-function project-name "project" (project))
+(defvar sp-after-load-theme-hook)
+#+end_src
+
+** Options and faces
+
+The block faces are the colour of =warning=, =error= and =shadow= with the foreground and background swapped (=:inverse-video=), so every theme gives them its own colours.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-nano-style nil
+  "Header line blocks and mode line divider after nano-modeline."
+  :group 'mode-line)
+
+(defcustom sp-nano-style-divider t
+  "When non-nil, draw a thin line above the mode line."
+  :type 'boolean
+  :group 'sp-nano-style)
+
+(defcustom sp-nano-style-divider-face 'shadow
+  "Face whose foreground colours the divider above the mode line."
+  :type 'face
+  :group 'sp-nano-style)
+
+(defcustom sp-nano-style-divider-color nil
+  "Colour of the divider.  Nil takes the foreground of `sp-nano-style-divider-face'."
+  :type '(choice (const :tag "From the face" nil) color)
+  :group 'sp-nano-style)
+
+(defcustom sp-nano-style-divider-opacity 1.0
+  "How strong the divider is, from 0 (invisible) to 1.
+It is the share of the divider colour that is mixed with the background of
+the theme: 0.4 gives a faint line."
+  :type 'float
+  :group 'sp-nano-style)
+
+(defcustom sp-nano-style-header-divider t
+  "When non-nil, draw a line between the header and the text of the buffer."
+  :type 'boolean
+  :group 'sp-nano-style)
+
+(defcustom sp-nano-style-clock t
+  "When non-nil, show the time (hh:mm, 24 hours) at the right of the header."
+  :type 'boolean
+  :group 'sp-nano-style)
+
+;; The canonical definition is in `sp-faces'; this one is only used when
+;; `sp-faces' has not loaded, and `defface' there replaces it.
+(defface sp-modeline-title
+  '((t :inherit bold))
+  "Title of an Org buffer in the header line (the text of its `#+title:').")
+
+(defface sp-nano-style-header-ro
+  '((t :inherit (bold warning) :inverse-video t))
+  "Block of a read-only buffer in the header line.")
+
+(defface sp-nano-style-header-md
+  '((t :inherit (bold error) :inverse-video t))
+  "Block of a modified buffer in the header line.")
+
+(defface sp-nano-style-header-rw
+  '((t :inherit (bold shadow) :inverse-video t))
+  "Block of a writable buffer, and of any buffer in a window that is not selected.")
+
+(defface sp-nano-style-header-name
+  '((t :inherit bold))
+  "Path in the header line of the selected window.")
+
+(defface sp-nano-style-header-faded
+  '((t :inherit shadow))
+  "Muted text in the header line.")
+#+end_src
+
+** Header line
+
+The status is nano's: =**= when the buffer visits a modified file, =RO= when it is read-only and =RW= otherwise. The name is the buffer name, or in an Org buffer its title; the title is looked up with =org-collect-keywords= and kept for each buffer until the buffer changes. The name is cut at the beginning, with an ellipsis, when it does not fit next to the block and the right-hand text. The project name and the time are aligned to the right edge with an =:align-to= space, so it is exact with any font.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-nano-style--project-cache nil
+  "Pair of the directory and the project name last found for this buffer.")
+
+(defun sp-nano-style--project ()
+  "Return the name of the project of this buffer, cached; \"\" for none."
+  (if (equal (car sp-nano-style--project-cache) default-directory)
+      (cdr sp-nano-style--project-cache)
+    (let ((name (or (and (not (file-remote-p default-directory))
+                         (when-let* ((project (project-current)))
+                           (project-name project)))
+                    "")))
+      (setq sp-nano-style--project-cache (cons default-directory name))
+      name)))
+
+(defvar-local sp-nano-style--title-cache nil
+  "Pair of the modified tick and the `#+title:' last read in this buffer.")
+
+(defun sp-nano-style--org-title ()
+  "Return the `#+title:' of the Org buffer, or nil."
+  (when (derived-mode-p 'org-mode)
+    (let ((tick (buffer-chars-modified-tick)))
+      (unless (eq (car sp-nano-style--title-cache) tick)
+        (setq sp-nano-style--title-cache
+              (cons tick (ignore-errors
+                           (let ((title (cadr (assoc "TITLE" (org-collect-keywords '("TITLE"))))))
+                             (and (stringp title) (not (string-blank-p title))
+                                  (substring-no-properties title)))))))
+      (cdr sp-nano-style--title-cache))))
+
+(defun sp-nano-style--name ()
+  "Return the name for the header: the Org title, or the buffer name."
+  (or (sp-nano-style--org-title) (buffer-name)))
+
+(defun sp-nano-style--status ()
+  "Return \"**\" for a modified file, \"RO\" for a read-only buffer, else \"RW\"."
+  (cond ((and buffer-file-name (buffer-modified-p)) "**")
+        (buffer-read-only "RO")
+        (t "RW")))
+
+(defun sp-nano-style--block (selected)
+  "Return the status block; SELECTED non-nil for the selected window."
+  (let ((status (sp-nano-style--status)))
+    (propertize (if (window-dedicated-p) " -- " (format " %s " status))
+                'face (cond ((not selected) 'sp-nano-style-header-rw)
+                            ((equal status "RO") 'sp-nano-style-header-ro)
+                            ((equal status "**") 'sp-nano-style-header-md)
+                            (t 'sp-nano-style-header-rw))
+                'help-echo (pcase status
+                             ("RO" "Read-only buffer")
+                             ("**" "Modified")
+                             (_ "Writable buffer")))))
+
+(defun sp-nano-style-header ()
+  "Return the header line: status block, name, and project and time at the right."
+  (let* ((selected (mode-line-window-selected-p))
+         (prefix (sp-nano-style--block selected))
+         (right (concat (sp-nano-style--project)
+                        (if sp-nano-style-clock
+                            (concat "  " (format-time-string "%H:%M"))
+                          "")
+                        " "))
+         (name (sp-nano-style--name))
+         (title-p (and (sp-nano-style--org-title) selected))
+         (room (max 8 (- (window-total-width)
+                         (string-width prefix) (string-width right) 3)))
+         (shown (if (> (string-width name) room)
+                    (concat "…" (truncate-string-to-width
+                                 name (string-width name)
+                                 (- (string-width name) (1- room))))
+                  name)))
+    (concat prefix
+            " "
+            (propertize shown
+                        'face (cond (title-p 'sp-modeline-title)
+                                    (selected 'sp-nano-style-header-name)
+                                    (t 'sp-nano-style-header-faded))
+                        'help-echo (or buffer-file-name default-directory))
+            (propertize " " 'display
+                        `(space :align-to (- right ,(string-width right))))
+            (propertize right 'face 'sp-nano-style-header-faded))))
+
+(defconst sp-nano-style-header-format
+  '(:eval (sp-nano-style-header))
+  "The `header-line-format' of every window.")
+(put 'sp-nano-style-header-format 'risky-local-variable t)
+#+end_src
+
+** Divider
+
+The colour is =sp-nano-style-divider-color=, or the foreground of =sp-nano-style-divider-face=. It is then mixed with the background of the theme according to =sp-nano-style-divider-opacity=, which is the way to make the line fainter. A theme that gives no colour leaves the divider out. The mode line gets an overline, and the header line an underline at the bottom of the line (=:position t=).
+
+#+begin_src emacs-lisp -i
+(defconst sp-nano-style--divider-faces
+  '(mode-line mode-line-inactive lambda-line lambda-line-active lambda-line-inactive
+    lambda-line-hspace-active lambda-line-hspace-inactive)
+  "Faces that get the overline: the mode lines, and lambda-line's.")
+
+(defun sp-nano-style--mix (color background opacity)
+  "Return COLOR mixed with BACKGROUND, OPACITY (0 to 1) of it being COLOR."
+  (let ((c (and (stringp color) (color-name-to-rgb color)))
+        (b (and (stringp background) (color-name-to-rgb background))))
+    (if (and c b)
+        (apply #'color-rgb-to-hex
+               (append (cl-mapcar (lambda (x y) (+ (* x opacity) (* y (- 1 opacity))))
+                                  c b)
+                       '(2)))
+      color)))
+
+(defun sp-nano-style-divider-colour ()
+  "Return the colour of the divider in the current theme, or nil for none."
+  (let ((color (or sp-nano-style-divider-color
+                   (face-attribute sp-nano-style-divider-face :foreground nil t))))
+    (when (and sp-nano-style-divider (stringp color)
+               (not (string-prefix-p "unspecified" color)))
+      (sp-nano-style--mix color (face-background 'default nil t)
+                          sp-nano-style-divider-opacity))))
+
+(defun sp-nano-style-apply-divider (&rest _)
+  "Draw (or remove) the dividers above the mode line and below the header."
+  (let ((color (sp-nano-style-divider-colour)))
+    (dolist (face sp-nano-style--divider-faces)
+      (when (facep face)
+        (set-face-attribute face nil :overline (or color 'unspecified))))
+    (set-face-attribute 'header-line nil
+                        :underline (if (and color sp-nano-style-header-divider)
+                                       `(:color ,color :position t)
+                                     'unspecified))
+    (force-mode-line-update t)))
+#+end_src
+
+** Install and uninstall
+
+=sp-nano-style-install= keeps the header format that was there and puts nano's in its place. The divider is set again after each theme load, last (depth 90), so it also covers the faces that =sp-lambda-modeline= resets.
+
+#+begin_src emacs-lisp -i
+(defvar sp-nano-style--saved-header nil
+  "The default `header-line-format' before `sp-nano-style-install'.")
+
+(defvar sp-nano-style--installed nil
+  "Non-nil while the header line and divider are installed.")
+
+(defun sp-nano-style--start-clock ()
+  "Turn on `display-time-mode' as Prot does, and keep its text out of the mode line."
+  (when sp-nano-style-clock
+    (setq display-time-format "%H:%M"
+          display-time-24hr-format t
+          display-time-default-load-average nil
+          display-time-mail-directory nil)
+    (display-time-mode 1)
+    (setq global-mode-string (delq 'display-time-string global-mode-string))))
+
+(defun sp-nano-style-install ()
+  "Install the header line blocks and the divider above the mode line."
+  (interactive)
+  (unless sp-nano-style--installed
+    (setq sp-nano-style--saved-header (default-value 'header-line-format)))
+  (setq-default header-line-format sp-nano-style-header-format)
+  (sp-nano-style-apply-divider)
+  (add-hook 'sp-after-load-theme-hook #'sp-nano-style-apply-divider 90)
+  (sp-nano-style--start-clock)
+  (setq sp-nano-style--installed t)
+  (force-mode-line-update t))
+
+(defun sp-nano-style-uninstall ()
+  "Remove what `sp-nano-style-install' set."
+  (interactive)
+  (when sp-nano-style--installed
+    (setq-default header-line-format sp-nano-style--saved-header)
+    (let ((sp-nano-style-divider nil))
+      (sp-nano-style-apply-divider))
+    (remove-hook 'sp-after-load-theme-hook #'sp-nano-style-apply-divider)
+    (setq sp-nano-style--installed nil)
+    (force-mode-line-update t)))
+#+end_src
+
+** Provide
+
+#+begin_src emacs-lisp -i
+(provide 'sp-nano-style)
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/114][#114]] ✨ Added =sp-nano-style=, shared by =sp-lambda-modeline= and =sp-prot-modeline=: nano-modeline's blocky header line (=RW= / =RO= / =**= block, path, project) and a thin divider above the mode line, with colours from the theme; the header code of =sp-lambda-modeline= and =sp-prot-modeline= moved there. Added a "Changing the settings" section to the =sp-prot-modeline= doc (every option, segment and face, with examples; =sp-prot-modeline-format= and the keycast format are now settable). Changed both modelines to show the major mode as its =nerd-icons= icon (name in the tooltip, text as fallback; =sp-lambda-modeline-mode-icon=, =sp-prot-modeline-mode-icon=). Changed =sp-mini-frame= so that =M-x= opens at the bottom in the style of =nano-minibuffer= (full width, five lines, themed background); other prompts stay centred. Untested in a running Emacs.

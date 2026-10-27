@@ -30,7 +30,6 @@
 ;;          'delete-trailing-whitespace) ;; On file save, delete the trailing whitespace --- THIS BASICALLY WORKS LIKE LINTING
 ;; Disabled because it introduces issues once paired with the vulpea-db-auto-sync (can't make some edits at all)
 
-
 (defun sp-single-space-after-periods ()
   "Don't assume that sentences should have two spaces after
 periods. This ain't a typewriter."
@@ -40,15 +39,14 @@ periods. This ain't a typewriter."
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
-(setq org-link-search-must-match-exact-headline nil)
-
 (setq counsel-outline-display-style 'title)
 
-(setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
-
-(setq org-directory sp-notes-dir)
-
 (global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
+
+;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
+;; "org", which does not define it; point the autoload at its own module.
+(autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+(autoload 'sp-org-insert-config-doc-link "sp-org-id-link" nil t)
 
 ;; Use Org from source rather than built in
 (use-package org
@@ -93,6 +91,9 @@ periods. This ain't a typewriter."
    
    ;; Visibility for the markup
    ("C-c l d" . org-toggle-link-display)
+
+   ;; Link to the configuration docs
+   ("C-c l c" . sp-org-insert-config-doc-link)
 
    ;; safety nets
    ("C-c s a" . org-save-all-org-buffers)
@@ -150,6 +151,9 @@ periods. This ain't a typewriter."
   (org-src-window-setup 'other-window) ;; edit source in other window
   (org-src-tab-acts-natively t) ;; use lang bindings
   (org-confirm-babel-evaluate t) ;; confirm evaluation
+  (org-link-search-must-match-exact-headline nil)
+  (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+  (org-directory sp-notes-dir)
 
   :config
   ;; Map vimrc source blocks to vimrc-mode for correct tangle comment syntax

@@ -40,24 +40,26 @@
 
 (defcustom sp-trails-file (expand-file-name "trails.org" org-directory)
   "Org file holding the trails."
-  :type 'file)
+  :type 'file
+  :group 'spcustom)
 
 (defcustom sp-trails-question-files nil
   "Files searched for QUESTION headings.  nil means `org-agenda-files'."
-  :type '(repeat file))
+  :type '(repeat file)
+  :group 'spcustom)
 
 (defcustom sp-trails-quote-block "quote"
   "Block type wrapping text selected in the browser."
-  :type 'string)
+  :type 'string
+  :group 'spcustom)
 
 (defcustom sp-trails-monolith-program "monolith"
   "Program used by `sp-trails-snapshot' to save a page as one HTML file."
-  :type 'string)
+  :type 'string
+  :group 'spcustom)
 
-(defcustom sp-trails-chrome-history
-  sp-chrome-history-file
-  "Chromium-family History database read by `sp-trails-import-chrome'."
-  :type 'file)
+;; Moved to `sp-globals': `sp-trails-chrome-history', the Chromium-family
+;; History database read by `sp-trails-import-chrome'.
 
 (defvar sp-trails-current nil
   "ID of the trail that receives captured pages.")
@@ -100,7 +102,7 @@ greatest key wins (keys are VISITED timestamps, so latest wins)."
        (goto-char trail)
        (org-map-entries
         (lambda ()
-          (when-let ((key (funcall pred)))
+          (when-let* ((key (funcall pred)))
             (when (or (null best-key) (string> key best-key))
               (setq best (point-marker) best-key key))))
         nil 'tree)))

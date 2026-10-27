@@ -2,11 +2,24 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-images.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-images.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-images.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configures =org-download= (by abo-abo), which lets you drag and drop images into Org buffers, paste them from the clipboard, or take screenshots, saving the files to disk and inserting a link. It is required by =sp-org-ext=. The package is configured unconditionally.
+Configures =org-download= (by abo-abo), which lets you:
+
+- drag and drop images into Org buffers,
+- paste them from the clipboard,
+- take screenshots,
+
+saving the files to disk and inserting a link.
+
+- It is required by =sp-org-ext=.
+- The package is configured unconditionally.
 
 The commentary at the top of the module says:
 
@@ -38,7 +51,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Configuring org-download
 
-Loads lazily on its three entry points =org-download-yank=, =org-download-screenshot= and =org-download-image=. Images are stored with the =directory= method in a single shared folder, =org-pictures/= under =org-directory=, rather than next to each note. LaTeX exports get a width of 500, and the timestamp prefix on file names is a plain date like =2026-10-18=.
+Loads lazily on its three entry points: =org-download-yank=, =org-download-screenshot= and =org-download-image=.
+
+- Images are stored with the =directory= method in a single shared folder, =org-pictures/= under =org-directory=, rather than next to each note.
+- LaTeX exports get a width of 500.
+- The timestamp prefix on file names is a plain date like =2026-10-18=.
 
 #+begin_src emacs-lisp -i
 (use-package org-download

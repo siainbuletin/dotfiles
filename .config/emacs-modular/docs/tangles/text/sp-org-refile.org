@@ -2,13 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-org-refile.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/text/sp-org-refile.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/text/sp-org-refile.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module configures Org's refile command (=C-c C-w=), which moves the heading at point under another heading. It sets the list of possible targets (open Org buffers, the current file, and the agenda files), makes the completion show full outline paths in one step, allows creating new parent headings, and caches the target list, rebuilding it in the background when Emacs is idle.
+This module configures Org's refile command (=C-c C-w=), which moves the heading at point under another heading. It:
 
-The approach comes from Aaron Bieber's article and from Lambda Emacs, and the author notes that it would be more useful adapted to Vulpea. It relies on =+org/opened-buffer-files=, defined in =sp-org-base=. The module is currently disabled: it is commented out in the default and minimal module lists and in =sp-config-profiles.el=.
+- sets the list of possible targets (open Org buffers, the current file, and the agenda files),
+- makes the completion show full outline paths in one step,
+- allows creating new parent headings,
+- caches the target list, rebuilding it in the background when Emacs is idle.
+
+Origin and status:
+
+- The approach comes from Aaron Bieber's article and from Lambda Emacs. The author notes it would be more useful adapted to Vulpea.
+- It relies on =+org/opened-buffer-files=, defined in =sp-org-base=.
+- The module is currently disabled: commented out in the default and minimal module lists and in =sp-config-profiles.el=.
 
 * Org refile
 
@@ -47,7 +60,7 @@ Lexical binding and the author's notes: a link to the source article, a descript
 
 ** Refile completion behaviour
 
-After Org loads, =org-outline-path-complete-in-steps= is turned off so the whole path to a target can be chosen in a single completion prompt (which suits Vertico-style completion), and =org-refile-allow-creating-parent-nodes= set to =confirm= lets you type a new parent heading, created after confirmation.
+After Org loads, =org-outline-path-complete-in-steps= is turned off so the whole path to a target can be chosen in a single completion prompt (which suits Vertico-style completion), and =org-refile-allow-creating-parent-nodes= set to =confirm= lets you type a new parent heading, created after confirmation. The refile targets and display options below are in the same =:custom= block.
 
 #+begin_src emacs-lisp -i
 (use-package org-refile
@@ -56,38 +69,29 @@ After Org loads, =org-outline-path-complete-in-steps= is turned off so the whole
 
   :custom
   (org-outline-path-complete-in-steps nil)
-  (org-refile-allow-creating-parent-nodes 'confirm))
+  (org-refile-allow-creating-parent-nodes 'confirm)
+  ;; there is something wrong in the syntax in the way that I wrote it here
+  (org-refile-targets 
+   '(
+     (+org/opened-buffer-files :maxlevel . 9)
+     (nil :maxlevel . 9)
+     (org-agenda-files :maxlevel . 8)
+   ))
+  (org-refile-use-cache t)
+  (org-refile-use-outline-path 'file)
+)
 #+end_src
 
-** Refile targets
+** Refile options in =:custom=
 
-=org-refile-targets= offers headings up to level 9 in every Org file currently open (via =+org/opened-buffer-files= from =sp-org-base=), up to level 9 in the current buffer (the =nil= entry), and up to level 8 in =org-agenda-files=. The comment says something is wrong with the syntax, but the form is a valid targets list; any problem is more likely that the helper function is not defined if =sp-org-base= has not been loaded.
-
-#+begin_src emacs-lisp -i
-;; there is something wrong in the syntax in the way that I wrote it here
-(setq org-refile-targets 
-  '(
-    (+org/opened-buffer-files :maxlevel . 9)
-    (nil :maxlevel . 9)
-    (org-agenda-files :maxlevel . 8)
-  ))
-#+end_src
-
-** Cache the targets
-
-Turns on =org-refile-use-cache=, so the target list is computed once and reused instead of being rebuilt for every refile.
-
-#+begin_src emacs-lisp -i
-(setq org-refile-use-cache t)
-#+end_src
-
-** Show file names in paths
-
-=org-refile-use-outline-path= set to =file= shows each target as a path starting with its file name, and also allows refiling to the top level of a file.
-
-#+begin_src emacs-lisp -i
-(setq org-refile-use-outline-path 'file)
-#+end_src
+- =org-refile-targets= offers:
+  - headings up to level 9 in every Org file currently open (via =+org/opened-buffer-files= from =sp-org-base=),
+  - headings up to level 9 in the current buffer (the =nil= entry),
+  - headings up to level 8 in =org-agenda-files=.
+- The comment above =org-refile-targets= says something is wrong with the syntax, but the form is a valid targets list. Any problem is more likely that the helper function is not defined if =sp-org-base= has not been loaded.
+- =org-refile-use-cache= is on, so the target list is computed once and reused instead of being rebuilt for every refile.
+- =org-refile-use-outline-path= is =file=, so each target is shown as a path starting with its file name, and refiling to the top level of a file is allowed.
+- These options used to be plain =setq= forms after the =use-package=, so they were set even before Org loaded. They now apply once Org has loaded (=:after org=).
 
 ** Rebuild the cache when idle
 

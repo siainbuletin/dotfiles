@@ -30,16 +30,20 @@
   :ensure t
   :after magit)
 
-(setq auth-sources '("~/.authinfo"))
-
 ;; code review harness
 (use-package code-review
   :ensure t
-  
+  ;; code-review defines its database class on `emacsql-sqlite-connection',
+  ;; which forge pulls in. Loading code-review before that gives "Given parent
+  ;; class emacsql-sqlite-connection is not a class".
+  :after forge
+  :init
+  (require 'emacsql-sqlite)
+
   :custom
   (code-review-fill-column 80) ;; Define line wrap in comment sections.
   (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
-  (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
+  (code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
 ;;;; For adding emojis

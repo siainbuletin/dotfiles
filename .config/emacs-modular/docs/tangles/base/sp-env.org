@@ -2,11 +2,22 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/base/sp-env.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/base/sp-env.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/base/sp-env.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module makes Emacs see the same environment as a login shell, which matters mostly on macOS where GUI apps do not inherit the shell's =PATH=. It uses =exec-path-from-shell=, configured after John Wiegley's setup.
 
-It also keeps a commented-out alternative from the modular configuration it was originally based on, defines a command for piping the region through a shell command, installs =inheritenv= for the Claude Code setup in =sp-ai=, and copies a few more variables needed for using YADM from Emacs. The commentary notes that Windows and Linux still need their own solution.
+Also in this module:
+
+- a commented-out alternative from the modular configuration it was originally based on,
+- a command for piping the region through a shell command,
+- =inheritenv=, installed for the Claude Code setup in =sp-ai=,
+- a few more variables needed for using YADM from Emacs.
+
+The commentary notes that Windows and Linux still need their own solution.
 
 The commentary at the top of the module says:
 
@@ -18,8 +29,8 @@ There needs to be a separate solution for Windows and Linux, respectively, so th
 packages don't get used on every system in part.
 
 The folders my files live in (notes, bibliography, checkouts) are named in
-`sp-paths' and can be overridden by SP_* environment variables.  Those are read
-when `sp-paths' loads, which is before the shell's environment is imported
+`sp-globals' and can be overridden by SP_* environment variables.  Those are read
+when `sp-globals' loads, which is before the shell's environment is imported
 below, so a GUI Emacs only sees them when it is started from a shell (or when
 they are set for the graphical session).  Nothing here changes those folders.
 #+end_quote
@@ -30,7 +41,11 @@ they are set for the graphical session).  Nothing here changes those folders.
 
 The commentary explains the reliance on =exec-path-from-shell= for macOS binaries, and that other systems should eventually get separate handling so these packages are not used everywhere.
 
-It also points to =sp-paths=, which names the folders the other modules use (notes, bibliography, source checkouts) and lets =SP_NOTES_DIR= and its siblings override them. Those variables are read when =sp-paths= loads, before this module imports the shell's environment, so a graphical Emacs only sees them when it is started from a shell or when the graphical session sets them. The module requires =sp-paths= so the dependency is explicit; it does not change any of those folders.
+Paths:
+
+- It also points to =sp-globals=, which names the folders the other modules use (notes, bibliography, source checkouts) and lets =SP_NOTES_DIR= and its siblings override them.
+- Those variables are read when =sp-globals= loads, before this module imports the shell's environment. So a graphical Emacs only sees them when started from a shell, or when the graphical session sets them.
+- The module requires =sp-globals= so the dependency is explicit. It does not change any of those folders.
 
 #+begin_src emacs-lisp -i
 ;;; sp-env.el --- Shell environment and shell helpers -*- lexical-binding: t; -*-
@@ -44,21 +59,25 @@ It also points to =sp-paths=, which names the folders the other modules use (not
 ;; packages don't get used on every system in part.
 ;;
 ;; The folders my files live in (notes, bibliography, checkouts) are named in
-;; `sp-paths' and can be overridden by SP_* environment variables.  Those are read
-;; when `sp-paths' loads, which is before the shell's environment is imported
+;; `sp-globals' and can be overridden by SP_* environment variables.  Those are read
+;; when `sp-globals' loads, which is before the shell's environment is imported
 ;; below, so a GUI Emacs only sees them when it is started from a shell (or when
 ;; they are set for the graphical session).  Nothing here changes those folders.
 
 ;;; Code:
 
-(require 'sp-paths)
+(require 'sp-globals)
 #+end_src
 
 * Importing the shell environment
 
 ** exec-path-from-shell
 
-The package is only used under graphical window systems (mac, ns, x and pgtk), since a terminal Emacs already inherits the shell environment. =exec-path-from-shell-initialize= copies =PATH= and =MANPATH=, and the loop then copies a list of further variables: spelling config, editor, GnuPG and pass locations, SSH agent socket, SSL certificate paths (including the Nix and Node ones) and StarDict data.
+=exec-path-from-shell=:
+
+- Only used under graphical window systems (mac, ns, x and pgtk), since a terminal Emacs already inherits the shell environment.
+- =exec-path-from-shell-initialize= copies =PATH= and =MANPATH=.
+- The loop then copies further variables: spelling config, editor, GnuPG and pass locations, SSH agent socket, SSL certificate paths (including the Nix and Node ones) and StarDict data.
 
 #+begin_src emacs-lisp -i
 ;; This configuration of exec-path-from-shell is taken from John Wiegley
@@ -81,7 +100,11 @@ The package is only used under graphical window systems (mac, ns, x and pgtk), s
 
 ** Daemon mode
 
-When Emacs runs as a daemon, =window-system= is nil at startup so the block above is skipped. This form initialises the environment anyway in that case. It assumes the package is installed and autoloaded, which holds after the =use-package= above has run once.
+Daemon case:
+
+- When Emacs runs as a daemon, =window-system= is nil at startup, so the block above is skipped.
+- This form initialises the environment anyway in that case.
+- It assumes the package is installed and autoloaded, which holds after the =use-package= above has run once.
 
 #+begin_src emacs-lisp -i
 (when (daemonp)
@@ -135,7 +158,12 @@ The commented-out counterpart that would load =exec-path-from-shell= only when t
 
 ** Replacing the region with shell output
 
-=sp-replace-with-shell= prompts for a shell command, runs it with the region as input, and replaces the region with the output. It refuses to run if no mark is set. The work happens in a temporary buffer, and if the =*Shell Command Output*= buffer did not exist before, it is killed afterwards so no clutter is left behind. Unlike the built-in ~C-u M-|~, it hides messages while running.
+=sp-replace-with-shell= pipes the region through a shell command.
+
+- Prompts for a shell command, runs it with the region as input, and replaces the region with the output.
+- Refuses to run if no mark is set.
+- The work happens in a temporary buffer. If the =*Shell Command Output*= buffer did not exist before, it is killed afterwards so no clutter is left behind.
+- Unlike the built-in ~C-u M-|~, it hides messages while running.
 
 #+begin_src emacs-lisp -i
 (defun sp-replace-with-shell (posBegin posEnd command)
@@ -176,7 +204,12 @@ Binds ~C-M-|~ to =sp-replace-with-shell=, next to the built-in ~M-|~ (=shell-com
 
 The comment credits a blog post on Claude Code in Emacs and points at =sp-terminal=. =inheritenv= makes processes started from a buffer inherit that buffer's environment, which =claude-code= in =sp-ai= waits for.
 
-The recipe is given with =:straight=, but this config uses Elpaca, not straight.el. =use-package= does not recognise that keyword, so it most likely reports a parse error and does not install inheritenv. Since =claude-code= is declared =:after= inheritenv, it would then never be configured. Replacing =:straight= with =:ensure= and the same recipe would fix this.
+Known bug:
+
+- The recipe is given with =:straight=, but this config uses Elpaca, not straight.el.
+- =use-package= does not recognise that keyword, so it most likely reports a parse error and does not install inheritenv.
+- =claude-code= is declared =:after= inheritenv, so it would then never be configured.
+- Replacing =:straight= with =:ensure= and the same recipe would fix this.
 
 #+begin_src emacs-lisp -i
 ;;;; Recommended in https://blog.dornea.nu/2026/04/23/claude-code-customizations-in-emacs/ for getting a terminal backend in Emacs. See also sp-terminal.el
@@ -186,7 +219,11 @@ The recipe is given with =:straight=, but this config uses Elpaca, not straight.
 
 ** Environment variables for YADM
 
-Copies more variables from the shell with =exec-path-from-shell-copy-env=. The comment says the goal is making YADM dotfiles work in Emacs, and the new entry for that is =GIT_CEILING_DIRECTORIES=, which stops Git from searching parent directories for a repository; together with the =yadm= command in =sp-vcontrol= this presumably lets Magit treat the home directory as the dotfile repository (intent inferred).
+Copies more variables from the shell with =exec-path-from-shell-copy-env=.
+
+- The comment says the goal is making YADM dotfiles work in Emacs.
+- The new entry for that is =GIT_CEILING_DIRECTORIES=, which stops Git from searching parent directories for a repository.
+- Together with the =yadm= command in =sp-vcontrol=, this presumably lets Magit treat the home directory as the dotfile repository (intent inferred).
 
 This has problems:
 - The list contains a literal =...= where the other names were left out. That is read as a symbol, not a string, so the copy fails with an error when it reaches it, and the =provide= below is never reached.
@@ -211,3 +248,9 @@ Provides the =sp-env= feature and closes the file.
 (provide 'sp-env)
 ;; sp-env.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/101][#101]] 🐛 Fixed =sp-env= failing at startup with =(void-function exec-path-from-shell-copy-env)=: a leftover top-level =dolist= (with a stray =...= in its variable list) called the package outside the =use-package= form, where it is not loaded in a terminal Emacs or before Elpaca has activated it. =GIT_CEILING_DIRECTORIES= now sits in the one list inside =:config=, and the daemon case is part of the =:if= condition instead of a separate call. Not run in Emacs (none in the container).

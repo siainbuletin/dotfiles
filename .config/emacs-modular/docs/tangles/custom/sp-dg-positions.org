@@ -1,7 +1,11 @@
 #+title: sp-dg-positions
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-dg-positions.el :comments no :padline yes :noweb no :mkdirp yes
 
-Literate source for =libraries/modules/custom/sp-dg-positions.el=. Every =emacs-lisp= block below goes into that file, except the blocks marked =:tangle no=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-dg-positions.el=.
+
+- Every =emacs-lisp= block below goes into that file, except blocks marked =:tangle no=.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * Position graph and status views for discourse-graphs
 
@@ -15,7 +19,11 @@ This module adds three things on top of it:
 2. *Views.* The same shape as =sp-vulpea-hierarchy=: an outline and a Graphviz graph, plus a view per status (supported, contested, challenged, unsupported) and a view of gaps.
 3. *A shared vocabulary for question states.* The states a research question moves through, and what each object should look like in each state, are in [[file:../research-question-states.org][research-question-states.org]]. The old single =CONTESTED= state is gone: how contested an answer is lives on the answer (its status), not on the question.
 
-The module never writes to a note. It reads =dg-all-nodes= and =dg-all-relations= from the discourse-graphs database, so everything is created and edited with discourse-graphs' own commands (=C-c d c=, =C-c d r=). The one thing it changes in discourse-graphs is the list of relation and node types (see [[*Registering the rules with discourse-graphs]]).
+The module never writes to a note.
+
+- It reads =dg-all-nodes= and =dg-all-relations= from the discourse-graphs database.
+- So everything is created and edited with discourse-graphs' own commands (=C-c d c=, =C-c d r=).
+- The one thing it changes in discourse-graphs is the list of relation and node types (see [[*Registering the rules with discourse-graphs]]).
 
 Both view modules share their interface:
 
@@ -29,7 +37,11 @@ Both view modules share their interface:
 |                               | =dg-positions-gaps=           | Outline of structural gaps             |
 |                               | =dg-positions-check=          | Rule and data problems                 |
 
-They work in tandem because a position (a claim) is a note too. Use the hierarchy views for how ideas nest as parent and child, and the position views for who supports, opposes, extends or contests whom. A note can be in both: give it a =- parents ::= line for the first and a =DG_TYPE= for the second.
+The hierarchy views and the position views work in tandem, because a position (a claim) is a note too.
+
+- Use the hierarchy views for how ideas nest as parent and child.
+- Use the position views for who supports, opposes, extends or contests whom.
+- A note can be in both: give it a =- parents ::= line for the first and a =DG_TYPE= for the second.
 
 ** Loading it
 
@@ -78,7 +90,11 @@ Declares that a node can point at another node with =NAME=, so a property =:DG_N
 (status NAME :for (types) :when CONDITION :color "x11-color")
 #+end_example
 
-Declares a status a node can have. Statuses are tried in the order they are written and the first one whose condition holds wins, so write the most specific first. =:for= limits it to those node types. A node that matches no status has none.
+Declares a status a node can have.
+
+- Statuses are tried in the order they are written. The first one whose condition holds wins, so write the most specific first.
+- =:for= limits it to those node types.
+- A node that matches no status has none.
 
 *** =gap=
 
@@ -117,7 +133,11 @@ Retired nodes are never counted.
 
 The defaults below are discourse-graphs' own four relations and four statuses, plus the vocabulary for following an idea through the literature (=adopts=, =contests=, =extends=, =reframes=, =appropriates=, =supersedes=). To change a default, copy the whole list into =setq= and edit it; to add one, =append= as above.
 
-The statuses come from discourse-graphs: =supported=, =contested=, =challenged= and =unsupported=. Their meaning is the same; the only difference is the order the conditions are tried. discourse-graphs checks "no support" first, so a claim with only objections reads =unsupported=. Here =challenged= comes first, so the same claim reads =challenged=, which tells me more.
+The statuses come from discourse-graphs: =supported=, =contested=, =challenged= and =unsupported=.
+
+- Their meaning is the same. The only difference is the order the conditions are tried.
+- discourse-graphs checks "no support" first, so a claim with only objections reads =unsupported=.
+- Here =challenged= comes first, so the same claim reads =challenged=, which tells me more.
 
 #+begin_src emacs-lisp
 ;;; sp-dg-positions.el --- Position graph and status views for discourse-graphs -*- lexical-binding: t; -*-
@@ -241,36 +261,43 @@ A CONDITION is a Lisp expression that may use `support' and `oppose'
 \(counts of relations that count as such), `(in REL)' and `(out REL)'
 \(counts of REL relations pointing at, and away from, the node) and
 `type'.  Statuses are tried in order and the first match wins."
-  :type 'sexp)
+  :type 'sexp
+  :group 'spcustom)
 
 (defcustom dg-positions-graph-file
   (expand-file-name "dg-positions.svg"
                     (if (boundp 'sp-cache-dir) sp-cache-dir temporary-file-directory))
   "Where `dg-positions-graph' writes its SVG."
-  :type 'file)
+  :type 'file
+  :group 'spcustom)
 
 (defcustom dg-positions-rankdir
   (if (boundp 'vulpea-hierarchy-rankdir) vulpea-hierarchy-rankdir "LR")
   "Graphviz layout direction: \"LR\" (left to right) or \"TB\" (top down).
 Follows `vulpea-hierarchy-rankdir' when that is loaded first."
-  :type '(choice (const "LR") (const "TB")))
+  :type '(choice (const "LR") (const "TB"))
+  :group 'spcustom)
 
 (defcustom dg-positions-question-first t
   "When non-nil, lay questions out first, like parents in the hierarchy graph.
 Arrows keep pointing from the supporting node to the supported one."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom dg-positions-question-type 'question
   "Node type that roots a cluster of positions."
-  :type 'symbol)
+  :type 'symbol
+  :group 'spcustom)
 
 (defcustom dg-positions-show-retired nil
   "When non-nil, show nodes retired by a `:retires' relation."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom dg-positions-show-isolated nil
   "When non-nil, the graph also draws nodes that have no relations."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 #+end_src
 
 ** Reading the rules
@@ -306,7 +333,7 @@ Each rule kind has a fixed number of positional arguments after its name, then k
 
 (defun dg-positions--rel-opt (rel key)
   "Option KEY of the relation rule for REL, or nil when REL has no rule."
-  (when-let ((rule (dg-positions--rule 'relation rel)))
+  (when-let* ((rule (dg-positions--rule 'relation rel)))
     (dg-positions--opt rule key)))
 #+end_src
 
@@ -357,7 +384,12 @@ RULES defaults to `dg-positions-rules'."
 
 ** The graph
 
-The views never query discourse-graphs while they draw. They read all nodes and relations once into a plain structure, which is also what the tests build by hand. Retired nodes are noted here, and edges to nodes that discourse-graphs doesn't know about are kept apart for =dg-positions-check=.
+How the views get their data:
+
+- The views never query discourse-graphs while they draw.
+- They read all nodes and relations once into a plain structure, which is also what the tests build by hand.
+- Retired nodes are noted here.
+- Edges to nodes that discourse-graphs doesn't know about are kept apart for =dg-positions-check=.
 
 #+begin_src emacs-lisp
 
@@ -508,26 +540,31 @@ The first status rule that applies and holds wins."
 
 (defun dg-positions--status-color (status)
   "Fill colour of STATUS."
-  (or (when-let ((rule (dg-positions--rule 'status status)))
+  (or (when-let* ((rule (dg-positions--rule 'status status)))
         (dg-positions--opt rule :color))
       "white"))
 
 (defun dg-positions--type-color (type)
   "Fill colour of nodes of TYPE."
-  (or (when-let ((rule (dg-positions--rule 'node-type type)))
+  (or (when-let* ((rule (dg-positions--rule 'node-type type)))
         (dg-positions--opt rule :color))
       "white"))
 
 (defun dg-positions--short (type)
   "Short label of TYPE."
-  (if-let ((rule (dg-positions--rule 'node-type type)))
+  (if-let* ((rule (dg-positions--rule 'node-type type)))
       (nth 2 rule)
     (upcase (symbol-name type))))
 #+end_src
 
 ** Walking down from a question
 
-Both views walk the same tree. Beneath a node sit the nodes that point at it (the claims answering a question, the evidence supporting a claim) and the nodes it grounds (the sources behind evidence). Relations that ground are not also listed from the other side, which would send the walk round in circles.
+Both views walk the same tree. Beneath a node sit:
+
+- the nodes that point at it (the claims answering a question, the evidence supporting a claim),
+- the nodes it grounds (the sources behind evidence).
+
+Relations that ground are not also listed from the other side, which would send the walk round in circles.
 
 #+begin_src emacs-lisp
 
@@ -608,7 +645,7 @@ Statuses are listed in the order of their rules."
     (insert (make-string depth ?*) " " (dg-positions--heading graph id rel))
     (when kids
       (insert (format " [%d]" (length kids))))
-    (when-let ((summary (and (eq (dg-positions--type graph id) dg-positions-question-type)
+    (when-let* ((summary (and (eq (dg-positions--type graph id) dg-positions-question-type)
                              (dg-positions--summary graph id))))
       (insert summary))
     (when tags
@@ -714,7 +751,12 @@ positions that answer none."
 
 ** Graph view
 
-Each question is a cluster, holding the nodes beneath it. A node that supports claims under two questions is drawn once, in the first cluster that reaches it, and its edges still run across. Claims are filled by status and everything else by type. Edges are coloured and styled by their relation and labelled with its name.
+Clusters and edges in the graph:
+
+- Each question is a cluster, holding the nodes beneath it.
+- A node that supports claims under two questions is drawn once, in the first cluster that reaches it. Its edges still run across.
+- Claims are filled by status and everything else by type.
+- Edges are coloured and styled by their relation and labelled with its name.
 
 With =dg-positions-question-first= (the default), the layout puts the question on the left like a parent in the hierarchy graph, by laying the edges out reversed and drawing the arrowhead back at the target. Arrows still point from the supporting node to the supported one.
 
@@ -843,7 +885,13 @@ They are added to DRAWN."
 
 ** Checking the rules against the data
 
-Three things are worth knowing about: relations in the data that no rule declares, edges whose endpoints discourse-graphs doesn't know (a deleted note), and edges between types the rule didn't expect. Only the first two are errors in the data. The last is information: a pair the rule doesn't list still counts.
+Three things are worth knowing about:
+
+- relations in the data that no rule declares,
+- edges whose endpoints discourse-graphs doesn't know (a deleted note),
+- edges between types the rule didn't expect.
+
+Only the first two are errors in the data. The last is information: a pair the rule doesn't list still counts.
 
 #+begin_src emacs-lisp
 
@@ -901,9 +949,17 @@ Three things are worth knowing about: relations in the data that no rule declare
 
 ** Registering the rules with discourse-graphs
 
-discourse-graphs reads =DG_<RELATION>= properties for every entry of =dg-relation-types=, so a relation that is declared only here would be silently ignored when the files are scanned. This step copies the node types and relations from the rules into discourse-graphs' own variables, leaving alone any entry it already has. It also adds the new relation names and their inverse labels to =dg--relation-map=, which its query builder uses.
+Registering the rules:
 
-The expected source and target types (=:from= and =:to=) go into =dg-relation-patterns= only for relations discourse-graphs doesn't have, so its own warnings keep working as before. discourse-graphs' =informs= pattern is "source informs evidence", but its code and README example use the opposite direction (evidence points at its source), which is what the rule here follows. Add =(setq dg-warn-relation-anomalies nil)= if it complains.
+- discourse-graphs reads =DG_<RELATION>= properties for every entry of =dg-relation-types=. A relation declared only here would be silently ignored when the files are scanned.
+- This step copies the node types and relations from the rules into discourse-graphs' own variables, leaving alone any entry it already has.
+- It also adds the new relation names and their inverse labels to =dg--relation-map=, which its query builder uses.
+
+Expected types:
+
+- The expected source and target types (=:from= and =:to=) go into =dg-relation-patterns= only for relations discourse-graphs doesn't have, so its own warnings keep working as before.
+- discourse-graphs' =informs= pattern is "source informs evidence", but its code and README example use the opposite direction (evidence points at its source). The rule here follows the latter.
+- Add =(setq dg-warn-relation-anomalies nil)= if it complains.
 
 #+begin_src emacs-lisp
 

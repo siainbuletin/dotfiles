@@ -4,7 +4,7 @@ This is a modular Emacs configuration: =init.el= loads sub-libraries from =libra
 
 * Tangling the literate files
 
-Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org= (and =lem-dashboard.el= from =sp-lem-dashboard.org=). Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
+Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:docs/main.org::*Module tree][docs/main.org]].
 
 ** Where a file tangles to
 
@@ -84,7 +84,7 @@ From the Emacs you already work in, the module =sp-sandbox= has the same as comm
 
 1. =yadm fetch origin +pull/N/head:refs/sandbox/pr-N= puts the PR on a ref that is not a branch, so it can never clash with a branch checked out elsewhere. =yadm worktree add --detach= makes the worktree (or =git checkout --detach= updates it).
 2. It starts =emacs --init-directory ~/src/dotfiles-wt/pr-N/.config/emacs-modular=. The configuration finds everything relative to =user-emacs-directory=, so the PR's packages, caches and state live in that worktree's =var/=, which git ignores.
-3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes=, =~/bibliography= and =~/Documents= path in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
+3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes= and =~/Documents= path (the bibliography is under it) in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
 4. =GIT_CONFIG_GLOBAL= keeps pointing at your real =~/.gitconfig=, so commits in the sandbox still have your name. SSH is unaffected by =HOME=.
 5. It remaps the absolute =/Users/.../= entries of =org-agenda-files= (if the configuration still sets them) to the sandbox home.
 
@@ -103,7 +103,7 @@ A fresh worktree has no packages, and elpaca would install all of them again. In
 
 - Anything the configuration reaches by an absolute path other than the agenda files (for example =/Users/siainbuletin/...= in a PR's own code) still points at the real folder.
 - The sandbox shares your network, your =PATH= and your running programs. A PR that starts a server, syncs with GitHub or calls an external tool does so for real.
-- Once the =sp-paths= module is merged, the locations can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
+- The locations (in =sp-globals=, the former =sp-paths=) can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
 
 ** If it goes wrong
 

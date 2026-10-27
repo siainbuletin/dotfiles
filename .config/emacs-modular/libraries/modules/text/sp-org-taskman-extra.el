@@ -15,7 +15,7 @@
 ;; has a lot of appearance issues that should be sorted up separately, and
 ;; it's a different component of such a task management system.
 
-;;;; Set up the org tags
+;;;; Set up the org tags (task tags; note tags are in sp-org-tag-registry)
 (setq org-tag-alist
       '(;; Circumstances
         ("@home" . ?H)
@@ -132,11 +132,9 @@
   ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
   ;; TODO keyword are configured elsewhere
 
-  ;; Map GTD semantic states to your keywords
-  (org-gtd-keyword-mapping '((todo . "TODO")
-                             (next . "NEXT")
-                             (wait . "WAIT")
-                             (canceled . "CNCL")))
+  ;; `org-gtd-keyword-mapping' is not set: org-gtd's default (TODO, NEXT,
+  ;; WAIT, DONE, CNCL) is the task sequence of sp-org-keywords, and org-gtd
+  ;; needs all of them in one sequence (adr/0013).
 
   ;; Add org-gtd files to your agenda
   ;; (org-agenda-files (list org-gtd-directory)) ;; this errors out so it's commented

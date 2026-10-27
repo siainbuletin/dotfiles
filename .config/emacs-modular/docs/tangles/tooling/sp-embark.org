@@ -2,7 +2,11 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-embark.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-embark.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-embark.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 Sets up Embark, which offers a menu of actions for whatever is at point or under the minibuffer cursor (a file, a buffer, a symbol, a URL and so on), together with its Consult integration. It is loaded from =init.el= among the utility modules.
 
@@ -32,7 +36,16 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** embark
 
-Binds =C-.= to =embark-act= (choose an action for the target), =M-.= to =embark-dwim= (run the default action) and =C-h B= to =embark-bindings=. Note that =M-.= normally runs =xref-find-definitions=, so this binding takes that over globally and =embark-dwim= becomes the way to jump to definitions. The =:init= block sets =prefix-help-command= so that pressing =C-h= after a prefix key shows Embark's searchable list of the bindings under that prefix.
+Bindings:
+
+- =C-.= is =embark-act= (choose an action for the target).
+- =M-.= is =embark-dwim= (run the default action).
+- =C-h B= is =embark-bindings=.
+
+Notes:
+
+- =M-.= normally runs =xref-find-definitions=. This binding takes that over globally, and =embark-dwim= becomes the way to jump to definitions.
+- The =:init= block sets =prefix-help-command=, so pressing =C-h= after a prefix key shows Embark's searchable list of the bindings under that prefix.
 
 #+begin_src emacs-lisp -i
 (use-package embark

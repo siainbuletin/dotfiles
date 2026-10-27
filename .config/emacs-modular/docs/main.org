@@ -12,7 +12,11 @@ TODO - this cookie with the export date should be updated to reflect the new doc
 
 The configuration now works by generating different ~.el~ files for different needs and functionalities within Emacs, and it's supposed to be loaded conditionally, based on whatever needs I might have for my configuration (as well as proper debugging).
 
-Keeping a literate configuration allows me to take advantage of the features of org-mode to set tasks for improvement in the overall configuration, and have it mingle with the notes that I might find in my collection of Zettelkasten. For this reason (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
+Why a literate configuration:
+
+- It lets me use the features of org-mode to set tasks for improving the configuration.
+- It lets the configuration mingle with the notes in my Zettelkasten collection.
+- So (and for the sake of not breaking things), the configuration should be the single source of truth for information in the vault.
 
 Disclosure: many of the modules and functions I included are written with the help of Claude (not a programmer) and should be well-documented for readability (so I can actually understand what's going on).
 
@@ -30,17 +34,24 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
-- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share and where they differ
+- [[file:architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
+- [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 * Module tree
 
-The modules live in =libraries/modules/=, one subdirectory per area. The tree below mirrors those subdirectories: each heading is a directory, and each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to. See [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle them.
+Where the modules live:
+
+- Modules live in =libraries/modules/=, one subdirectory per area.
+- The tree below mirrors those subdirectories. Each heading is a directory.
+- Each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to.
+- To tangle them, see [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 ** academic/
 
 - [[file:tangles/academic/sp-academic.org][sp-academic]] :: Academic workflow: bibliography and citations ([[file:../libraries/modules/academic/sp-academic.el][sp-academic.el]])
 - [[file:tangles/academic/sp-bibprocess.org][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-citations.org][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
+- [[file:tangles/academic/sp-fetch-academic.org][sp-fetch-academic]] :: Fetch papers from the web and import them: biblio, DOI look-up, downloads ([[file:../libraries/modules/academic/sp-fetch-academic.el][sp-fetch-academic.el]])
 - [[file:tangles/academic/sp-litnotes.org][sp-litnotes]] :: Literature notes with citar-denote and citar-vulpea ([[file:../libraries/modules/academic/sp-litnotes.el][sp-litnotes.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-bibprocess.el][sp-bibprocess]] :: BibTeX files, lookup and attachment checks ([[file:../libraries/modules/academic/sp-bibprocess.el][sp-bibprocess.el]])
 - [[file:tangles/academic/sp-academic.org::*sp-citations.el][sp-citations]] :: Citations with org-cite, CSL and Citar ([[file:../libraries/modules/academic/sp-citations.el][sp-citations.el]])
@@ -58,11 +69,11 @@ The modules live in =libraries/modules/=, one subdirectory per area. The tree be
 - [[file:tangles/base/sp-encoding.org][sp-encoding]] :: UTF-8 everywhere ([[file:../libraries/modules/base/sp-encoding.el][sp-encoding.el]])
 - [[file:tangles/base/sp-env.org][sp-env]] :: Shell environment and shell helpers ([[file:../libraries/modules/base/sp-env.el][sp-env.el]])
 - [[file:tangles/base/sp-exwm.org][sp-exwm]] :: EXWM window manager (opt-in) ([[file:../libraries/modules/base/sp-exwm.el][sp-exwm.el]])
+- [[file:tangles/base/sp-globals.org][sp-globals]] :: My most important settings in one place, including where my files live (the former sp-paths) ([[file:../libraries/modules/base/sp-globals.el][sp-globals.el]])
 - [[file:tangles/base/sp-interaction.org][sp-interaction]] :: Mouse and scrolling ([[file:../libraries/modules/base/sp-interaction.el][sp-interaction.el]])
 - [[file:tangles/base/sp-keys.org][sp-keys]] :: Keybindings, leader prefix and which-key ([[file:../libraries/modules/base/sp-keys.el][sp-keys.el]])
 - [[file:tangles/base/sp-macos.org][sp-macos]] :: macOS integration ([[file:../libraries/modules/base/sp-macos.el][sp-macos.el]])
 - [[file:tangles/base/sp-navi.org][sp-navi]] :: Navigation: files, places and outlines ([[file:../libraries/modules/base/sp-navi.el][sp-navi.el]])
-- [[file:tangles/base/sp-paths.org][sp-paths]] :: Where my files live: notes, bibliography, checkouts ([[file:../libraries/modules/base/sp-paths.el][sp-paths.el]])
 - [[file:tangles/base/sp-snippets.org][sp-snippets]] :: Snippets with yasnippet ([[file:../libraries/modules/base/sp-snippets.el][sp-snippets.el]])
 - [[file:tangles/base/sp-syslinux.org][sp-syslinux]] :: Linux system integration ([[file:../libraries/modules/base/sp-syslinux.el][sp-syslinux.el]])
 - [[file:tangles/base/sp-syswin.org][sp-syswin]] :: Windows-specific settings ([[file:../libraries/modules/base/sp-syswin.el][sp-syswin.el]])
@@ -81,29 +92,32 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/custom/sp-dg-positions.org][sp-dg-positions]] :: Position graph and status views for discourse-graphs ([[file:../libraries/modules/custom/sp-dg-positions.el][sp-dg-positions.el]])
 - [[file:tangles/custom/sp-org-issues.org][sp-org-issues]] :: An issue tracker kept as a PARA area ([[file:../libraries/modules/custom/sp-org-issues.el][sp-org-issues.el]])
 - [[file:tangles/custom/sp-org-normalise.org][sp-org-normalise]] :: Turn checkbox lists under Tasks into headings and normalise TODO keywords across the vault ([[file:../libraries/modules/custom/sp-org-normalise.el][sp-org-normalise.el]])
-- [[file:tangles/custom/sp-tag-emoji.org][sp-tag-emoji]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-tag-emoji.el][sp-tag-emoji.el]])
+- [[file:tangles/custom/sp-org-tag-groups.org][sp-org-tag-groups]] :: Org tags as emoji in the modeline and on links ([[file:../libraries/modules/custom/sp-org-tag-groups.el][sp-org-tag-groups.el]])
 - [[file:tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:../libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - [[file:tangles/custom/sp-embr.org][sp-embr]] :: Show the live relationship graph in an Emacs buffer with embr.el or xwidget-webkit, and compare them ([[file:../libraries/modules/custom/sp-embr.el][sp-embr.el]])
 - [[file:tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:../libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
 - sp-trails :: no literate source yet ([[file:../libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:../libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
+- [[file:tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:../libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
+- [[file:tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:../libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
 - [[file:tangles/custom/sp-graphs.org][sp-graphs]] :: Graphs of notes in one module: =discourse-graphs= and =vulpea-graph= from packages, plus my relationship annotator and its live view ([[file:../libraries/modules/custom/sp-graphs.el][sp-graphs.el]])
-- [[file:architecture/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
 ** funct/
 
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables]] :: Query tables of notes: entry point ([[file:../libraries/modules/funct/sp-collection-query-tables.el][sp-collection-query-tables.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-core]] :: Query table specs, queries and cells ([[file:../libraries/modules/funct/sp-collection-query-tables-core.el][sp-collection-query-tables-core.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-exc]] :: Query tables as exc grids ([[file:../libraries/modules/funct/sp-collection-query-tables-exc.el][sp-collection-query-tables-exc.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-menu]] :: Transient menu for query table queries ([[file:../libraries/modules/funct/sp-collection-query-tables-menu.el][sp-collection-query-tables-menu.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-org]] :: Query table dynamic block and Org buffer ([[file:../libraries/modules/funct/sp-collection-query-tables-org.el][sp-collection-query-tables-org.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-views]] :: Saved views for query tables ([[file:../libraries/modules/funct/sp-collection-query-tables-views.el][sp-collection-query-tables-views.el]])
+- [[file:tangles/funct/sp-collection-query-tables.org][sp-collection-query-tables-vui]] :: Query tables with vui, and inline tables ([[file:../libraries/modules/funct/sp-collection-query-tables-vui.el][sp-collection-query-tables-vui.el]])
 - [[file:tangles/funct/sp-helper-funct.org][sp-helper-funct]] :: Assorted helper commands and sensible defaults ([[file:../libraries/modules/funct/sp-helper-funct.el][sp-helper-funct.el]])
 - [[file:tangles/funct/sp-move-region-to-heading.org][sp-move-region-to-heading]] :: Move a region under a heading in another note ([[file:../libraries/modules/funct/sp-move-region-to-heading.el][sp-move-region-to-heading.el]])
 - [[file:tangles/funct/sp-open-externally.org][sp-open-externally]] :: Opening files in external applications ([[file:../libraries/modules/funct/sp-open-externally.el][sp-open-externally.el]])
 - [[file:tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:../libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
+- [[file:tangles/funct/sp-org-tag-lint.org][sp-org-tag-lint]] :: Lint Org tags against the tag registry, add tags without restarting, prompt for a new note's tags ([[file:../libraries/modules/funct/sp-org-tag-lint.el][sp-org-tag-lint.el]], with the data file [[file:../libraries/modules/funct/sp-org-tag-registry.el][sp-org-tag-registry.el]])
 - [[file:tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:../libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table]] :: Tables of Vulpea notes: entry point ([[file:../libraries/modules/funct/sp-vulpea-table.el][sp-vulpea-table.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-core]] :: Vulpea table specs, queries and cells ([[file:../libraries/modules/funct/sp-vulpea-table-core.el][sp-vulpea-table-core.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-exc]] :: Vulpea tables as exc grids ([[file:../libraries/modules/funct/sp-vulpea-table-exc.el][sp-vulpea-table-exc.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-menu]] :: Transient menu for Vulpea table queries ([[file:../libraries/modules/funct/sp-vulpea-table-menu.el][sp-vulpea-table-menu.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-org]] :: Vulpea table dynamic block and Org buffer ([[file:../libraries/modules/funct/sp-vulpea-table-org.el][sp-vulpea-table-org.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-views]] :: Saved views for Vulpea tables ([[file:../libraries/modules/funct/sp-vulpea-table-views.el][sp-vulpea-table-views.el]])
-- [[file:tangles/funct/sp-vulpea-table.org][sp-vulpea-table-vui]] :: Vulpea tables with vui, and inline tables ([[file:../libraries/modules/funct/sp-vulpea-table-vui.el][sp-vulpea-table-vui.el]])
+- [[file:tangles/funct/sp-org-lint.org::*sp-split-leave-parents.el][sp-split-leave-parents]] :: Split a heading into its own note, keeping parents and a link ([[file:../libraries/modules/funct/sp-split-leave-parents.el][sp-split-leave-parents.el]])
 
 ** media/
 
@@ -169,16 +183,19 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 - [[file:tangles/tooling/sp-backups.org][sp-backups]] :: Backups, auto-saving and history ([[file:../libraries/modules/tooling/sp-backups.el][sp-backups.el]])
 - [[file:tangles/tooling/sp-bookmarks.org][sp-bookmarks]] :: Bookmark management ([[file:../libraries/modules/tooling/sp-bookmarks.el][sp-bookmarks.el]])
-- [[file:tangles/tooling/sp-choose-modeline.org][sp-choose-modeline]] :: Choosing a modeline ([[file:../libraries/modules/tooling/sp-choose-modeline.el][sp-choose-modeline.el]])
 - [[file:tangles/tooling/sp-completion.org][sp-completion]] :: Minibuffer completion with Vertico, Marginalia and Orderless ([[file:../libraries/modules/tooling/sp-completion.el][sp-completion.el]])
 - [[file:tangles/tooling/sp-debug.org][sp-debug]] :: Startup debugging and profiling ([[file:../libraries/modules/tooling/sp-debug.el][sp-debug.el]])
 - [[file:tangles/tooling/sp-embark.org][sp-embark]] :: Embark contextual actions ([[file:../libraries/modules/tooling/sp-embark.el][sp-embark.el]])
 - [[file:tangles/tooling/sp-evil.org][sp-evil]] :: Optional Evil (Vim emulation) layer ([[file:../libraries/modules/tooling/sp-evil.el][sp-evil.el]])
 - [[file:tangles/tooling/sp-help.org][sp-help]] :: Help, Info, dialogs and dictionaries ([[file:../libraries/modules/tooling/sp-help.el][sp-help.el]])
 - [[file:tangles/tooling/sp-indention.org][sp-indention]] :: Tabs, indentation width and indent keys ([[file:../libraries/modules/tooling/sp-indention.el][sp-indention.el]])
-- [[file:tangles/tooling/sp-lambda-line.org][sp-lambda-line]] :: Lambda-line status line ([[file:../libraries/modules/tooling/sp-lambda-line.el][sp-lambda-line.el]])
+- [[file:tangles/tooling/sp-lambda-modeline.org][sp-lambda-modeline]] :: Lambda-line header line and mode line, with tag emoji and theme colours ([[file:../libraries/modules/tooling/sp-lambda-modeline.el][sp-lambda-modeline.el]])
+- [[file:tangles/tooling/sp-prot-modeline.org][sp-prot-modeline]] :: Native mode line adapted from Prot's, with minor modes and keycast ([[file:../libraries/modules/tooling/sp-prot-modeline.el][sp-prot-modeline.el]])
 - [[file:tangles/tooling/sp-md.org][sp-md]] :: Markdown editing ([[file:../libraries/modules/tooling/sp-md.el][sp-md.el]])
 - [[file:tangles/tooling/sp-minibuffer.org][sp-minibuffer]] :: Minibuffer and completion packages ([[file:../libraries/modules/tooling/sp-minibuffer.el][sp-minibuffer.el]])
+- [[file:tangles/tooling/modeline-customization.org][modeline-customization]] :: How lambda-line and Prot's mode line differ, and the shared settings for changing both (a page, no code)
+- [[file:tangles/tooling/sp-modeline-parts.org][sp-modeline-parts]] :: Mode line segments shared by the two modelines: window number, major mode box, word count or line and column, keycast, clocked Org task, in boxes with the accent colours of the theme ([[file:../libraries/modules/tooling/sp-modeline-parts.el][sp-modeline-parts.el]])
+- [[file:tangles/tooling/sp-nano-style.org][sp-nano-style]] :: Nano's header line (buffer name or Org title, project, clock) and mode line divider, shared by the two modelines ([[file:../libraries/modules/tooling/sp-nano-style.el][sp-nano-style.el]])
 - [[file:tangles/tooling/sp-network.org][sp-network]] :: Network: TRAMP yadm method and HTTP library ([[file:../libraries/modules/tooling/sp-network.el][sp-network.el]])
 - [[file:tangles/tooling/sp-scratch.org][sp-scratch]] :: Persistent scratch buffer ([[file:../libraries/modules/tooling/sp-scratch.el][sp-scratch.el]])
 - [[file:tangles/tooling/sp-server.org][sp-server]] :: Emacs server and daemon management ([[file:../libraries/modules/tooling/sp-server.el][sp-server.el]])
@@ -190,7 +207,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 ** ui/
 
-- [[file:tangles/ui/sp-lem-dashboard.org][lem-dashboard]] :: Startup dashboard ([[file:../libraries/modules/ui/lem-dashboard.el][lem-dashboard.el]])
 - [[file:tangles/ui/sp-buffers.org][sp-buffers]] :: Buffer lists and pop-up buffers ([[file:../libraries/modules/ui/sp-buffers.el][sp-buffers.el]])
 - [[file:tangles/ui/sp-canvas.org][sp-canvas]] :: Experimental canvas and Excalidraw support ([[file:../libraries/modules/ui/sp-canvas.el][sp-canvas.el]])
 - [[file:tangles/ui/sp-colors.org][sp-colors]] :: Colour space and rainbow-mode ([[file:../libraries/modules/ui/sp-colors.el][sp-colors.el]])
@@ -199,11 +215,13 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
-- [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
+- [[file:tangles/ui/sp-posframe.org][sp-posframe]] :: Centered minibuffer in a posframe with background dimming ([[file:../libraries/modules/ui/sp-posframe.el][sp-posframe.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
-- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme management and theme packages ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
+- [[file:tangles/ui/sp-theme-engine.org][sp-theme-engine]] :: Flavors, semantic mappings and the =sp-dark= and =sp-light= themes ([[file:../libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]])
+- [[file:tangles/ui/sp-themes.org][sp-themes]] :: Theme folders, families and =sp-load-theme= ([[file:../libraries/modules/ui/sp-themes.el][sp-themes.el]])
 - [[file:tangles/ui/sp-treemacs.org][sp-treemacs]] :: A file tree for the emacs-modular folder ([[file:../libraries/modules/ui/sp-treemacs.el][sp-treemacs.el]])
+- [[file:tangles/ui/dividers-and-lines.org][dividers-and-lines]] :: Guide to styling the lines between things: the dotted line under =M-x=, the mode line and header lines, window dividers and frame borders (a page, no code)
 - [[file:tangles/ui/sp-windows.org][sp-windows]] :: Window layout, movement and helpers ([[file:../libraries/modules/ui/sp-windows.el][sp-windows.el]])
 - [[file:tangles/ui/sp-writedesk.org][sp-writedesk]] :: Writing desk: Olivetti and Writeroom ([[file:../libraries/modules/ui/sp-writedesk.el][sp-writedesk.el]])
 
@@ -217,7 +235,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-org-ql.el][sp-vulpea-org-ql]] :: Querying vulpea notes with org-ql (draft) ([[file:../libraries/modules/vulpea/sp-vulpea-org-ql.el][sp-vulpea-org-ql.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-para.el][sp-vulpea-para]] :: Vulpea PARA agenda and capture wiring ([[file:../libraries/modules/vulpea/sp-vulpea-para.el][sp-vulpea-para.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-schemas.el][sp-vulpea-schemas]] :: Vulpea note schemas ([[file:../libraries/modules/vulpea/sp-vulpea-schemas.el][sp-vulpea-schemas.el]])
-- [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-split.el][sp-vulpea-split]] :: Splitting Vulpea headings into notes ([[file:../libraries/modules/vulpea/sp-vulpea-split.el][sp-vulpea-split.el]])
 - [[file:tangles/vulpea/sp-vulpea.org::*sp-vulpea-ui.el][sp-vulpea-ui]] :: Vulpea UI sidebar and collection views ([[file:../libraries/modules/vulpea/sp-vulpea-ui.el][sp-vulpea-ui.el]])
 
 * Architecture of the modules
@@ -235,8 +252,6 @@ Deciding on the order is not trivial: [[file:architecture/load-order.org][Module
 ** TODO Reduce the verbosity of the documentation in the modules
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
-
-
 
 * Functionality of the literate configuration
 
@@ -265,11 +280,18 @@ This can also be relative, you don't have to give the full path to the system di
 
 ** Being careful while editing the literate configuration
 
-If you don't want to overwrite your changes, you need to make all of the changes directly into the =main.org= file. Then use =C-c C-v C-t= (=M-x org-babel-tangle=) if you want to propagate the changes to the files. The "direction" where each file will be sent is thankfully part of the org source block syntax.
+If you don't want to overwrite your changes:
+
+- Make all changes directly in the =main.org= file.
+- Then use =C-c C-v C-t= (=M-x org-babel-tangle=) to propagate the changes to the files.
+- The "direction" where each file will be sent is part of the org source block syntax.
 
 For example, when writing changes to my =early-init.el= file, the source block will be written as such
 
-This is essential for getting the multi-Org file compilation process. By default, =org-babel= supports tangling to Emacs Lisp. You have to add the =org= module if you want to be ootangling from multiple org-mode documents at once.
+This is essential for the multi-Org file compilation process.
+
+- By default, =org-babel= supports tangling to Emacs Lisp.
+- You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
 
 #+begin_src emacs-lisp :tangle "init.el" :eval never
   (org-babel-do-load-languages
@@ -282,7 +304,16 @@ This is essential for getting the multi-Org file compilation process. By default
 
 ** Writing the Provide section of a module doc
 
-Every module doc ends its module with a =Provide= heading. Keep it short: one sentence saying which feature the module provides, then a single source block holding the whole =;;; Provide= segment, that is the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together. Do not give the marker, the form and the footer a sub-heading and a block each. When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level. Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
+Every module doc ends its module with a =Provide= heading. Keep it short:
+
+- one sentence saying which feature the module provides,
+- then a single source block holding the whole =;;; Provide= segment: the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together.
+
+Rules:
+
+- Do not give the marker, the form and the footer a sub-heading and a block each.
+- When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level.
+- Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
 
 * Protocol for replicating the configuration across machines
 
@@ -354,9 +385,20 @@ disabled: ~/.config/emacs-include/org-modules/howm.org src org
 The zetteldeft module is currently disabled as it creates issues with =(require)=.
 #+end_quote
 
-The initial =zettelkasten.org= file doesn't actually enable any external package, because I'm still trying out to see which system works best for me. The file, instead, describes the workflow and may provide some helper functions. As such, it is loaded after the packages themselves (for now). At first glance, the scope of these packages is to enable functionality that is very close to Obsidian and the way I do my Zettelkasten notes.
+The initial =zettelkasten.org= file:
 
-Before enabling the =zettelkasten.org= file, I need all of the custom functionality that I have also set up specifically for =org-mode=. I strive to have all of my notes in this one format, to facilitate easier communication. The basic =org-mode= configuration has been moved to a separate file which I currently prefer to be loaded separately instead of with all the note-taking packages. This is also because org-mode is really large when it comes to bootstrapping and I prefer doing it properly, rather than fragmenting my configuration elsewhere. All of the notetaking packages should depend on the proper functioning of org-mode anyway.
+- Doesn't actually enable any external package, because I'm still trying to see which system works best for me.
+- Instead it describes the workflow and may provide some helper functions.
+- So it is loaded after the packages themselves (for now).
+- At first glance, the scope of these packages is functionality very close to Obsidian and the way I do my Zettelkasten notes.
+
+Before enabling =zettelkasten.org=:
+
+- I need all the custom functionality I have also set up specifically for =org-mode=.
+- I strive to have all my notes in this one format, to facilitate easier communication.
+- The basic =org-mode= configuration has been moved to a separate file, which I currently prefer to load separately from the note-taking packages.
+- Reason: org-mode is really large when it comes to bootstrapping, and I prefer doing it properly rather than fragmenting my configuration elsewhere.
+- All the notetaking packages should depend on the proper functioning of org-mode anyway.
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/zettelkasten.org src org
 
@@ -378,7 +420,10 @@ This is far from being a workable environment yet, but I want to be able to mana
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/reading.org src org
 
-This brings my entire reading workflow into Emacs. It mainly focuses on bringing my PDFs in a readable state. It contains configurations for =pdf-tools=, =org-noter=, and any other helper function that I may find myself needing later on.
+This brings my entire reading workflow into Emacs.
+
+- It mainly focuses on bringing my PDFs into a readable state.
+- It contains configurations for =pdf-tools=, =org-noter=, and any other helper function I may find myself needing later on.
 
 ** Project management
 
@@ -408,11 +453,19 @@ Stuff like GNU Info and man pages. This should also enable getting definitions f
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/interleaving.org src org
 
-This configuration is all about spaced repetition, interleaving and testing myself to manage to surface the information I'm working with. Of course, since this entire setup is created to be as searchable as possible, it becomes pretty redundant to practice memory, but this is important especially for *language learning* and *instrument/musical practice*. I need to develop a bunch of _functional cards that I can use for information_, all of which is dynamically surfaced when needed.
+This configuration is about spaced repetition, interleaving and testing myself, to surface the information I'm working with.
+
+- This setup is meant to be as searchable as possible, so practising memory is partly redundant.
+- It stays important especially for *language learning* and *instrument/musical practice*.
+- I need to develop a bunch of _functional cards that I can use for information_, all dynamically surfaced when needed.
 
 The file is called =interleaving.el= because the whole purpose is to integrate this learning environment to the entire computing environment, meaning the creation of learning prompts becomes automatic through curation of content on the system, instead of relying on something like AI.
 
-This is bootstrapped at this point because it needs components from [[file:org-modules/zettelkasten.org][the notetaking system]], [[file:org-modules/manuals.org][the complex documentation system]] (which makes definitions available at point) and _everything_ regarding bibliography management, because I might need to retrieve information from those files as well.
+This is bootstrapped at this point because it needs components from:
+
+- [[file:org-modules/zettelkasten.org][the notetaking system]],
+- [[file:org-modules/manuals.org][the complex documentation system]] (which makes definitions available at point),
+- _everything_ regarding bibliography management, because I might need to retrieve information from those files as well.
 
 ** Web browser integration
 
@@ -498,7 +551,10 @@ This is the part that documents where I need to do more work on the configuratio
 
 #+INCLUDE: ~/.config/emacs-include/org-modules/in-progress.org src org
 
-These are enhancements that I want to be making to my configuration that are not yet finished and are just in the ideation phase. This is mostly treating things that I want to be patching up together by myself. Packages which are currently retired or I have yet to properly try them out (or perhaps I want to be trying them out again in the future) belong in the =retired.org= file.
+Enhancements I want to make that are not yet finished and are just in the ideation phase.
+
+- This is mostly things I want to patch up together by myself.
+- Packages that are currently retired, or that I have yet to try properly (or want to try again in the future), belong in the =retired.org= file.
 
 This file is also different from the [[file:config-tasks.org][improvement tasks file]] that I use as more of a changelog. This file is a scratchpad from where new ideas can bloom and be developed into different modules.
 
@@ -512,7 +568,11 @@ Keeping these configurations for the posterity, mostly.
 
 * The files that get created
 
-Ideally, not everything will live in the =init.el= file, so that Emacs Lisp modules may also be evaluated separately for the purposes of debugging or perhaps keeping the installation leaner. Or even for using the same declarative starting point for a configuration even when I'm using Emacs on the Nokia N900 through postmarketOS, where resources are a lot more scarce.
+Ideally not everything lives in the =init.el= file. Reasons:
+
+- Emacs Lisp modules can be evaluated separately, for debugging.
+- The installation can stay leaner.
+- The same declarative starting point can be used when I'm running Emacs on the Nokia N900 through postmarketOS, where resources are a lot more scarce.
 
 The Emacs Lisp files are organised as such:
 

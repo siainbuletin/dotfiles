@@ -2,11 +2,23 @@
 #+PROPERTY: header-args:emacs-lisp :tangle no :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for the Vulpea modules in =libraries/modules/vulpea/=. This one file tangles ten =.el= files, one per module, each with its own =provide=; there is no module that loads them as a group, =sp-org-ext= requires them. The =:tangle= path of each part is set in the =:header-args:emacs-lisp+:= property of its top-level heading (the =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written); see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for the Vulpea modules in =libraries/modules/vulpea/=.
 
-The sub-modules are not new: they were =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, =sp-vulpea-ext-back= and =sp-vulpea-split= in =libraries/modules/text/=, and =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-org-ql= in =libraries/modules/funct/=, each with its own doc. The code is unchanged. Most of the files have no newline after their last line, and Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+- One file tangles ten =.el= files, one per module, each with its own =provide=.
+- No module loads them as a group; =sp-org-ext= requires them.
+- Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading.
+- The =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-The table modules (=sp-vulpea-table=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-vulpea-table.org=, and are loaded by =sp-org-ext= right after these.
+The sub-modules are not new.
+
+- Old homes in =libraries/modules/text/=: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, =sp-vulpea-ext-back= and =sp-vulpea-split=.
+- Old homes in =libraries/modules/funct/=: =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-org-ql=.
+- Each keeps its own doc.
+- The code is unchanged.
+- Most files have no newline after their last line. Org always ends a tangled file with one, so tangling adds that newline and changes nothing else.
+
+The table modules (=sp-collection-query-tables=, a custom module of mine) are deliberately not part of this group; they have their own doc, =docs/tangles/funct/sp-collection-query-tables.org=, and are loaded by =sp-org-ext= right after these.
 
 | Part | File | What it holds |
 |------+------+---------------|
@@ -18,19 +30,23 @@ The table modules (=sp-vulpea-table=, a custom module of mine) are deliberately 
 | [[*sp-vulpea-ext-back.el]] | =libraries/modules/vulpea/sp-vulpea-ext-back.el= | Backup slot for the extensions (empty) |
 | [[*sp-vulpea-convert-properties.el]] | =libraries/modules/vulpea/sp-vulpea-convert-properties.el= | Convert drawer properties to meta lines |
 | [[*sp-vulpea-grouped-backlinks.el]] | =libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el= | Backlinks grouped by meta property |
-| [[*sp-vulpea-split.el]] | =libraries/modules/vulpea/sp-vulpea-split.el= | Splitting headings into notes |
 | [[*sp-vulpea-org-ql.el]] | =libraries/modules/vulpea/sp-vulpea-org-ql.el= | org-ql query draft (not loaded) |
 
-Load order: =sp-org-ext= requires =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas= and =sp-vulpea-ext= in that order, then =sp-vulpea-table=. =sp-vulpea-ext= in turn requires =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-vulpea-split=. =sp-vulpea-ext-back= (an empty slot) and =sp-vulpea-org-ql= (a draft that runs a query when loaded) are not required by anything; they are tangled so the files stay in step with their docs.
+Load order:
 
-The old split doc, =sp-vulpea-split-old.org=, is kept beside this file; it is a note and tangles nothing.
+- =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query-tables=.
+- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-grouped-backlinks= and =sp-split-leave-parents=.
+- Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
+- Both are still tangled, so the files stay in step with their docs.
+
+=sp-split-leave-parents= (the heading splitter) is not in this group any more: it is documented, and tangled, in =docs/tangles/funct/sp-org-lint.org=, with the other note-tidying commands.
 
 * sp-vulpea-base.el
 :PROPERTIES:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-base.el
 :END:
 
-This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-vulpea-table-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
+This module sets up =vulpea=, a library and database layer for Org-based notes (an alternative to org-roam), together with =vui=, the UI component library used by other Vulpea modules such as =sp-collection-query-tables-vui=. It is required from =sp-org-ext=, and the further Vulpea extensions live in =sp-vulpea-ext=.
 
 It configures which directories are indexed, how notes are displayed in the minibuffer, which property stores aliases, and how new note files are named. Several settings are given twice (once in =use-package= and once with a plain =setq=), and the plain =setq= forms run at load time, so they win.
 
@@ -65,7 +81,10 @@ Installs =vui=, a declarative UI library that the Vulpea table views build on.
 
 *** vulpea
 
-Installs =vulpea= and waits for it to finish so later code can call its functions immediately. The empty =:init= only carries a comment copied from Doom-oriented documentation about =org-directory=. =vulpea-db-sync-directories= is set further down.
+Installs =vulpea= and waits for it to finish, so later code can call its functions immediately.
+
+- The empty =:init= only carries a comment copied from Doom-oriented documentation about =org-directory=.
+- =vulpea-db-sync-directories= is set further down.
 
 Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers runs =vulpea-buffer-alias-add= to add an alias to the current note.
 
@@ -89,7 +108,12 @@ Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers r
 
 *** Synced directories
 
-Sets =vulpea-db-sync-directories= to =~/notes/= only, so the Emacs config directory is not indexed. The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=, but this =setq= ran afterwards and replaced it, so the duplicate was removed and the effective value is unchanged. Add =user-emacs-directory= here if the config directory should be indexed as well.
+Sets =vulpea-db-sync-directories= to =~/notes/= only.
+
+- The Emacs config directory is not indexed.
+- The =use-package= form above used to set it too, to =~/notes/= plus =user-emacs-directory=.
+- This =setq= ran afterwards and replaced it, so the duplicate was removed. The effective value is unchanged.
+- To index the config directory too, add =user-emacs-directory= here.
 
 #+begin_src emacs-lisp -i
 (setq vulpea-db-sync-directories (list sp-notes-dir))
@@ -105,10 +129,30 @@ Sets =vulpea-db-sync-directories= to =~/notes/= only, so the Emacs config direct
 
 *** Automatic database sync
 
-Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change.
+Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change, five idle seconds after start-up (=sp-vulpea-start-autosync=) instead of while =init.el= loads. Emacs starts with the database as the last session left it, which queries and the agenda files can already use.
+
+- =vulpea-db-sync-scan-on-enable= is =background=: the files are listed by a subprocess and queued, and the queue parses only the files whose content changed since the last scan, in batches while Emacs is idle. Changes made outside Emacs (a git pull, a sync) are picked up that way.
+- Nothing depends on which file is opened first. Before, the scan started two idle seconds after the first vault file was visited, which the dashboard did by reading the agenda files, and it ran =vulpea-db-sync-full-scan= in the foreground (listing, cleanup and dir-locals check in the main Emacs), which froze it.
+- The echo area shows =[vulpea] starting autosync...= and how long it took, then vulpea's own progress messages.
+- =M-x vulpea-db-sync-full-scan= is still there for a scan by hand, and =C-u= forces a re-index. Not run in Emacs here (none in the container).
 
 #+begin_src emacs-lisp -i
-(vulpea-db-autosync-mode +1)
+;; Enable autosync a few idle seconds after start-up, not during init, and let
+;; vulpea scan in the background: it lists the files in a subprocess and queues
+;; them, and the queue parses only the files whose content changed.  Opening a
+;; note, the dashboard included, starts nothing.
+(setq vulpea-db-sync-scan-on-enable 'background)
+
+(defun sp-vulpea-start-autosync ()
+  "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
+  (let ((started (float-time)))
+    (message "[vulpea] starting autosync; changed files are indexed in the background...")
+    (vulpea-db-autosync-mode +1)
+    (message "[vulpea] autosync started in %.2fs" (- (float-time) started))))
+
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (run-with-idle-timer 5 nil #'sp-vulpea-start-autosync)))
 #+end_src
 
 *** Alias property
@@ -117,14 +161,6 @@ Stores aliases in the =ROAM_ALIASES= property instead of Vulpea's default =ALIAS
 
 #+begin_src emacs-lisp -i
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
-#+end_src
-
-*** Sample query
-
-Runs =vulpea-db-query-by-tags-every= for notes tagged both project and active. The result is discarded, so this line has no effect beyond executing the query at load time. It looks like an example left in from the documentation.
-
-#+begin_src emacs-lisp -i
-(vulpea-db-query-by-tags-every '("project" "active")) ;; Query all active projects
 #+end_src
 
 ** Minibuffer display
@@ -152,7 +188,10 @@ Uses the default =vulpea-select-annotate=, which shows the primary title and tag
 
 *** Default note creation
 
-=vulpea-create-default-function= decides the file name and tags for a new note. Files are named with a timestamp followed by a slug of the title. If the title contains the string TODO the note gets the tag task, otherwise note.
+=vulpea-create-default-function= decides the file name and tags for a new note.
+
+- Files are named with a timestamp followed by a slug of the title.
+- If the title contains the string TODO, the note gets the tag task. Otherwise it gets note.
 
 #+begin_src emacs-lisp -i
 ;; Templating for Vulpea
@@ -180,7 +219,11 @@ Provides the =sp-vulpea-base= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ui.el
 :END:
 
-This module configures =vulpea-ui=, the user interface layer for the Vulpea note database: a sidebar showing the current note's outline and backlinks, and collection views that render filtered tables of notes. Later modules such as =sp-vulpea-table-views= build on the rendering and settings established here, together with the schemas in =sp-vulpea-schemas=.
+This module configures =vulpea-ui=, the user interface layer for the Vulpea note database.
+
+- A sidebar shows the current note's outline and backlinks.
+- Collection views render filtered tables of notes.
+- Later modules such as =sp-collection-query-tables-views= build on the rendering and settings set here, together with the schemas in =sp-vulpea-schemas=.
 
 It depends on =vulpea= and on Org being loaded, since it binds a key in =org-mode-map= at load time. The module is not in the main =init.el= list; it is pulled in by =(require 'sp-vulpea-ui)= from =sp-org-ext=.
 
@@ -191,7 +234,7 @@ UI functions for vulpea.
 
 This includes the sidebar and the possibility to render collection views.
 
-The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
 are based on this rendering done here, as well as the information that is
 found in sp-vulpea-schemas.el
 #+end_quote
@@ -211,7 +254,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;
 ;; This includes the sidebar and the possibility to render collection views.
 ;;
-;; The functions I wrote later on for vulpea (ex. sp-vulpea-table-views.el)
+;; The functions I wrote later on for vulpea (ex. sp-collection-query-tables-views.el)
 ;; are based on this rendering done here, as well as the information that is
 ;; found in sp-vulpea-schemas.el
 
@@ -222,44 +265,92 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Installing vulpea-ui
 
-Installs =vulpea-ui= after =vulpea=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty; all settings are made with top-level =setq= forms instead.
+Installs =vulpea-ui=, waiting for the install to finish so the settings below apply to a loaded package. The =:config= block is empty. All =vulpea-ui-= options are set in =:custom= (they used to be top-level =setq= forms after the =use-package=), and the sections below describe them. There is no =:after vulpea=: Vulpea itself loads lazily (from its own =:bind=), so waiting for it left =vulpea-ui= unloaded and =C-x t s= undefined. =vulpea-ui= requires Vulpea when it loads.
 
 #+begin_src emacs-lisp -i
 ;;;; Calling the initial packages
 (use-package vulpea-ui
   :ensure (:wait t)
-  :after vulpea
+
+  ;; Autoloads `vulpea-ui-sidebar-toggle' from vulpea-ui itself.  Not `:after
+  ;; vulpea': vulpea loads lazily, so the key would stay undefined until then.
+  :bind
+  (("C-x t s" . vulpea-ui-sidebar-toggle))
   
+  :custom
+  ;; Position: 'right (default), 'left, 'top, 'bottom
+  (vulpea-ui-sidebar-position 'right)
+  ;; Size as fraction of frame (0.0-1.0)
+  (vulpea-ui-sidebar-size 0.33)
+  ;; Maximum heading depth (nil = unlimited)
+  (vulpea-ui-outline-max-depth 3)
+  ;; Utility functions for vulpea-ui
+  (vulpea-ui-auto-refresh t)  ;; So you don't have to constantly do a manual refresh.
+  ;; Respect narrowing in the sidebar
+  (vulpea-ui-respect-narrowing t)
+  ;; Show/hide content previews
+  (vulpea-ui-backlinks-show-preview t)
+  ;; Characters before/after link in prose previews
+  (vulpea-ui-backlinks-prose-chars-before 30)
+  (vulpea-ui-backlinks-prose-chars-after 50)
+  ;; Filter which notes appear in backlinks
+  ;; (function receiving vulpea-note, return non-nil to include)
+  (vulpea-ui-backlinks-note-filter
+   (lambda (note)
+     (not (member "archive" (vulpea-note-tags note)))))
+  ;; Filter by context type
+  ;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
+  (vulpea-ui-backlinks-context-types t)
+  ;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
+  (vulpea-ui-backlinks-sort 'title-asc)
+  ;; Collection views
+  (vulpea-ui-collection-views
+         '(
+           ("thesis-reading-list" . (:filter (:tags-all ("book")
+   					                          :level 0 ;; this is what will bring file-level notes
+   					                          ;; :meta ("read-status" . t) ;; this one doesn't work yet for some reason
+                                       :meta ("bib-project" . "[[ID:806b08ac-3ed1-4338-a26e-3af9e0e9328c][Devalorizarea artei în capitalismul de platformă]]")
+                                       )
+   			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
+   			                :sort ("Modified" . t)))
+        
+           ("open-questions" . (:filter (:tags-all ("question")
+                                         :level 1 ;; this will only bring up headings at first
+                                         )
+                                :columns (title (meta "q-status") links tags modified)
+                                :sort ("Modified" . t)
+           ))
+        
+           ("music" . (:filter (:tags-all ("music")
+                               :level 0)
+                       :columns (title (meta "year") (meta "genre") tags modified)
+                       :sort ("title" . t)))
+        
+           ("albums" . (:filter (:tags-all ("album"))
+                        :columns (title
+                                   (meta "creator" :width 60)
+                                   (meta "year")
+                                   (meta "genre")
+                                   (meta "genre-influences")
+                                   (meta "rating")
+                                   (meta "review")
+                                   context tags modified)
+                        :sort ("title" . t)))))
+  ;; Automatically collapse all widgets
+  (vulpea-ui-default-widget-collapsed t)
+
   :config
   )
 #+end_src
 
 *** Toggle key
 
-Binds =C-x t s= globally to =vulpea-ui-sidebar-toggle=. This sits in the =C-x t= prefix that Emacs uses for tab-bar commands.
-
-#+begin_src emacs-lisp -i
-;; opening the vulpea sidebar
-(global-set-key (kbd "C-x t s") #'vulpea-ui-sidebar-toggle)
-#+end_src
+=C-x t s= toggles the sidebar (=vulpea-ui-sidebar-toggle=). It is bound with =:bind= in the =use-package= above, so the command autoloads from =vulpea-ui=. This sits in the =C-x t= prefix that Emacs uses for tab-bar commands.
 
 *** Sidebar layout and refresh
 
-The sidebar opens on the right, takes a third of the frame, shows headings in its outline down to level 3, and refreshes automatically so it follows the current note without manual refreshes.
+The =:custom= block makes the sidebar open on the right, take a third of the frame, show headings in its outline down to level 3, and refresh automatically so it follows the current note without manual refreshes.
 
-#+begin_src emacs-lisp -i
-;; Position: 'right (default), 'left, 'top, 'bottom
-(setq vulpea-ui-sidebar-position 'right)
-
-;; Size as fraction of frame (0.0-1.0)
-(setq vulpea-ui-sidebar-size 0.33)
-
-;; Maximum heading depth (nil = unlimited)
-(setq vulpea-ui-outline-max-depth 3)
-
-;; Utility functions for vulpea-ui
-(setq vulpea-ui-auto-refresh t) ;; So you don't have to constantly do a manual refresh.
-#+end_src
 
 ** Narrowed Org buffers
 
@@ -270,16 +361,16 @@ With =vulpea-ui-respect-narrowing= on, the sidebar only reflects the visible, na
 #+begin_src emacs-lisp -i
 ;; Dealing with narrowed Org files
 
-;; Respect narrowing in the sidebar
-(setq vulpea-ui-respect-narrowing t)
-
 ;; Emacs has no narrowing hook, so the sidebar notices a narrow or widen on the next idle
 ;; refresh. If you want it instantly, refresh right after toggling:
 #+end_src
 
 *** Narrow and refresh in one step
 
-=sp-org-toggle-narrow-and-sidebar= toggles narrowing to the current subtree and refreshes the sidebar immediately, avoiding the delay. It is bound to =M-<insert>= in Org buffers. Because =define-key= runs at load time, =org-mode-map= must already exist when this module loads.
+=sp-org-toggle-narrow-and-sidebar= toggles narrowing to the current subtree and refreshes the sidebar immediately, avoiding the delay.
+
+- Bound to =M-<insert>= in Org buffers.
+- =define-key= runs at load time, so =org-mode-map= must already exist when this module loads.
 
 #+begin_src emacs-lisp -i
 (defun sp-org-toggle-narrow-and-sidebar ()
@@ -295,93 +386,33 @@ With =vulpea-ui-respect-narrowing= on, the sidebar only reflects the visible, na
 
 *** Previews
 
-Backlinks show a preview of their context, with 30 characters before and 50 after the link for links that occur in prose.
+In =:custom=, backlinks show a preview of their context, with 30 characters before and 50 after the link for links that occur in prose.
 
 #+begin_src emacs-lisp -i
 ;; the backlinks widget
-
-;; Show/hide content previews
-(setq vulpea-ui-backlinks-show-preview t)
-
-;; Characters before/after link in prose previews
-(setq vulpea-ui-backlinks-prose-chars-before 30)
-(setq vulpea-ui-backlinks-prose-chars-after 50)
 #+end_src
 
 *** Filtering and sorting
 
-Notes tagged =archive= are excluded from backlinks. Links from every kind of context (metadata, headers, tables, lists, quotes, code, footnotes and prose) are included, and backlinks are sorted by title, A to Z.
+Also in =:custom=: notes tagged =archive= are excluded from backlinks. Links from every kind of context (metadata, headers, tables, lists, quotes, code, footnotes and prose) are included, and backlinks are sorted by title, A to Z.
 
-#+begin_src emacs-lisp -i
-;; Filter which notes appear in backlinks
-;; (function receiving vulpea-note, return non-nil to include)
-(setq vulpea-ui-backlinks-note-filter
-      (lambda (note)
-        (not (member "archive" (vulpea-note-tags note)))))
-
-;; Filter by context type
-;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
-(setq vulpea-ui-backlinks-context-types t)
-
-;; Sorting: nil (no sorting), 'title-asc, 'title-desc, or custom function
-(setq vulpea-ui-backlinks-sort 'title-asc)
-#+end_src
 
 ** Collection views
 
 *** Named collection views
 
-=vulpea-ui-collection-views= defines four named tables, each with a filter, a list of columns and a sort order.
+=vulpea-ui-collection-views= (in =:custom=) defines four named tables, each with a filter, a list of columns and a sort order.
 
 - =thesis-reading-list=: file-level notes tagged =book= whose =bib-project= metadata links to a specific thesis note, showing title, publication title, author, read status, links, tags and modification time, newest first. A commented-out filter on =read-status= is noted as not working yet.
 - =open-questions=: first-level headings tagged =question=, showing their =q-status=, links, tags and modification time. Two closing quotes used to be missing (after =question= and after =q-status=), so the reader swallowed the =:level= and =:columns= text into one long tag string and the view matched nothing useful.
 - =music=: file-level notes tagged =music=, showing year and genre, sorted by title.
 - =albums=: notes tagged =album= with creator, year, genre, influences, rating and review columns. The =(meta "rating")= column used to be missing its closing parenthesis, which nested the remaining columns and the =:sort= clause inside it.
 
-#+begin_src emacs-lisp -i
-;; Collection views
-(setq vulpea-ui-collection-views
-      '(
-        ("thesis-reading-list" . (:filter (:tags-all ("book")
-					                          :level 0 ;; this is what will bring file-level notes
-					                          ;; :meta ("read-status" . t) ;; this one doesn't work yet for some reason
-                                    :meta ("bib-project" . "[[ID:806b08ac-3ed1-4338-a26e-3af9e0e9328c][Devalorizarea artei în capitalismul de platformă]]")
-                                    )
-			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
-			                :sort ("Modified" . t)))
-        
-        ("open-questions" . (:filter (:tags-all ("question")
-                                      :level 1 ;; this will only bring up headings at first
-                                      )
-                             :columns (title (meta "q-status") links tags modified)
-                             :sort ("Modified" . t)
-        ))
-        
-        ("music" . (:filter (:tags-all ("music")
-                            :level 0)
-                    :columns (title (meta "year") (meta "genre") tags modified)
-                    :sort ("title" . t)))
-        
-        ("albums" . (:filter (:tags-all ("album"))
-                     :columns (title
-                                (meta "creator" :width 60)
-                                (meta "year")
-                                (meta "genre")
-                                (meta "genre-influences")
-                                (meta "rating")
-                                (meta "review")
-                                context tags modified)
-                     :sort ("title" . t)))))
-#+end_src
 
 *** Collapsed widgets
 
-All sidebar widgets start collapsed.
+All sidebar widgets start collapsed (=vulpea-ui-default-widget-collapsed= in =:custom=).
 
-#+begin_src emacs-lisp -i
-;; Automatically collapse all widgets
-(setq vulpea-ui-default-widget-collapsed t)
-#+end_src
 
 ** Unlinked mentions widget
 
@@ -409,7 +440,14 @@ Provides the =sp-vulpea-ui= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-para.el
 :END:
 
-This module wires the =vulpea-para= library into Org's agenda. vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database; a copy of it is kept under =libraries/modules/cloned/vulpea-para/=. Here it decides which files are agenda files: =vulpea-para-agenda-mode= keeps an =agenda= tag on every vault file that holds open work, and sets =org-agenda-files= from the database before each agenda, so Emacs does not visit every file to find out. Notes tagged =cemetery= are kept out. This is the only place that controls the agenda files; see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]].
+This module wires the =vulpea-para= library into Org's agenda.
+
+- vulpea-para organises notes along the PARA method (projects, areas, resources, archives) on top of the =vulpea= note database.
+- A copy of it is kept under =libraries/modules/cloned/vulpea-para/=.
+- It decides which files are agenda files: =vulpea-para-agenda-mode= keeps an =agenda= tag on every vault file that holds open work.
+- It sets =org-agenda-files= from the database before each agenda, so Emacs does not visit every file to find out.
+- Notes tagged =cemetery= are kept out.
+- This is the only place that controls the agenda files; see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]].
 
 It is required by =sp-org-ext=. The agenda line prefix is set in =sp-org-agenda=, the capture templates in =sp-org-capture= and the views in =sp-agenda-views=, so none of them is touched here.
 
@@ -450,7 +488,11 @@ Loads =vulpea-para= and the keyword module. =vulpea-para-setup-defaults= is not 
 
 *** Cemetery filter
 
-=sp-vulpea-para-agenda-note-p= is the predicate =vulpea-para-agenda-files-filter= calls with each note tagged =agenda=: it returns nil for a note tagged =cemetery=, so retired projects and archived to-dos never become agenda files, even though they still hold the =agenda= tag. vulpea-para's checks for missing files know about the filter and leave those files out on purpose. A named function makes it testable (=tests/sp-vulpea-para-test.el=).
+=sp-vulpea-para-agenda-note-p= is the predicate =vulpea-para-agenda-files-filter= calls with each note tagged =agenda=.
+
+- It returns nil for a note tagged =cemetery=, so retired projects and archived to-dos never become agenda files, even though they still hold the =agenda= tag.
+- vulpea-para's checks for missing files know about the filter and leave those files out on purpose.
+- Being a named function makes it testable (=tests/sp-vulpea-para-test.el=).
 
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-para-agenda-note-p (note)
@@ -473,17 +515,38 @@ The database-side checks of vulpea-para need to know which keywords mean finishe
 
 *** Agenda mode
 
-Turns on =vulpea-para-agenda-mode=: vault buffers maintain their =agenda= tag when saved, and =org-agenda-files= is refreshed from the database before =org-agenda= and =org-todo-list=. Views that restrict the files themselves bind =vulpea-para-agenda-inhibit-files-update= (see =sp-agenda-views=). Entry points that bypass both (the splash, =sp-trails=) read the variable as it was last set, so it is also refreshed once, shortly after start-up, when the database is ready. Files saved before the mode was on get the tag from vulpea-para's backfill commands (run them once).
+Turns on =vulpea-para-agenda-mode=.
+
+- Vault buffers maintain their =agenda= tag when saved.
+- =org-agenda-files= is refreshed from the database before =org-agenda= and =org-todo-list=.
+- Views that restrict the files themselves bind =vulpea-para-agenda-inhibit-files-update= (see =sp-agenda-views=).
+- Entry points that bypass both (the splash, =sp-trails=) read the variable as last set, so it is also refreshed once, shortly after start-up, when the database is ready. The dashboard shows =loading agenda files...= until then (=sp-dashboard-agenda-ready=) and is redrawn once the files are set, if it is still the buffer on screen. The refresh prints how many files it set and how long it took.
+- Files saved before the mode was on get the tag from vulpea-para's backfill commands (run them once).
 
 #+begin_src emacs-lisp -i
 (vulpea-para-agenda-mode 1)
 
+(defvar sp-dashboard-agenda-ready)
+(declare-function sp-dashboard-refresh-agendas "sp-dashboard")
+
+;; The dashboard waits for the agenda files instead of reading the wrong ones.
+(setq sp-dashboard-agenda-ready nil)
+
 (defun sp-vulpea-para-refresh-agenda-files ()
-  "Set `org-agenda-files' from the database, ignoring errors."
-  (condition-case err
-      (vulpea-para-agenda-files-update)
-    (error (message "[vulpea-para] agenda files not set yet: %s"
-                    (error-message-string err)))))
+  "Set `org-agenda-files' from the database, ignoring errors.
+Then tell the dashboard, which waits for them, and redraw it."
+  (let ((started (float-time)))
+    (message "[vulpea-para] setting the agenda files from the database...")
+    (condition-case err
+        (progn
+          (vulpea-para-agenda-files-update)
+          (message "[vulpea-para] %d agenda files set in %.2fs"
+                   (length org-agenda-files) (- (float-time) started)))
+      (error (message "[vulpea-para] agenda files not set yet: %s"
+                      (error-message-string err))))
+    (setq sp-dashboard-agenda-ready t)
+    (when (fboundp 'sp-dashboard-refresh-agendas)
+      (sp-dashboard-refresh-agendas))))
 
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -563,9 +626,29 @@ A fake note is a plist of tags; headless, =vulpea-para=, =vulpea= and the keywor
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-schemas.el
 :END:
 
-Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=. Each schema says which notes it applies to, through a predicate that checks for a particular Org tag, and which meta fields such notes should have: their key, type (=string=, =number= or =note= for a link to another note), whether they are required, whether they may hold several values, and for links which tags the target note should carry. Schemas can inherit fields from another with =:include=.
+Declares the note types (schemas) used in the Vulpea knowledge base, with =vulpea-schema-define=.
 
-The schemas cover music (albums, musicians, groups), questions and research inquiries, people and organisations, software, and literature notes. The table and sidebar code in =sp-vulpea-ui= and the =sp-vulpea-table= modules builds on these definitions. The module is required from =sp-org-ext= after =sp-vulpea-base=, and it assumes Vulpea is already loaded since it calls =vulpea-schema-define= at top level.
+- Each schema says which notes it applies to, through a predicate that checks for a particular Org tag.
+- Each schema lists the meta fields such notes should have. A field has:
+  - a key,
+  - a type (=string=, =number= or =note= for a link to another note),
+  - whether it is required,
+  - whether it may hold several values,
+  - for links, which tags the target note should carry.
+- A schema can inherit fields from another with =:include=.
+
+The schemas cover:
+
+- music (albums, musicians, groups),
+- questions and research inquiries,
+- people and organisations,
+- software,
+- literature notes.
+
+The table and sidebar code in =sp-vulpea-ui= and the =sp-collection-query-tables= modules builds on these definitions.
+
+- =sp-org-ext= requires this module after =sp-vulpea-base=.
+- It assumes Vulpea is already loaded, since it calls =vulpea-schema-define= at top level.
 
 The commentary at the top of the module says:
 
@@ -593,7 +676,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Albums
 
-The =album= schema applies to notes tagged =album=. It requires a =creator= link to a note tagged musician, person or group, at least one =genre= link to genre notes, and a numeric =year=. Optional fields are a =name=, extra =genre-influences= links and a numeric =rating=.
+The =album= schema applies to notes tagged =album=.
+
+- Required: a =creator= link to a note tagged musician, person or group; at least one =genre= link to genre notes; a numeric =year=.
+- Optional: a =name=, extra =genre-influences= links, a numeric =rating=.
 
 #+begin_src emacs-lisp -i
 ;;;; Schema definition
@@ -843,7 +929,12 @@ Provides the =sp-vulpea-schemas= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ext.el
 :END:
 
-A hub module for the Vulpea note system. It installs two small Vulpea add-on packages (=vulpea-journal= and =vulpea-capf=) and then requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split. The table modules (=sp-vulpea-table=) are not loaded from here; =sp-org-ext= requires them after the Vulpea modules. The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
+A hub module for the Vulpea note system.
+
+- Installs two small Vulpea add-on packages: =vulpea-journal= and =vulpea-capf=.
+- Requires the config's own Vulpea extension modules: property conversion, grouped backlinks and a smarter heading split.
+- Does not load the table modules (=sp-collection-query-tables=); =sp-org-ext= requires them after the Vulpea modules.
+- The base Vulpea setup lives in =sp-vulpea-base=; this file adds everything built on top of it.
 
 It is required from =sp-org-ext=, after =sp-vulpea-schemas=. The first lines of the file make sure every subdirectory of =libraries/modules/= is on the =load-path=.
 
@@ -861,7 +952,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;; A hub module for the Vulpea note system. It installs two small Vulpea add-on
 ;; packages (`vulpea-journal' and `vulpea-capf') and then requires the config's
 ;; own Vulpea extension modules: property conversion, grouped backlinks and a
-;; smarter heading split.  The table modules (sp-vulpea-table) are not loaded
+;; smarter heading split.  The table modules (sp-collection-query-tables) are not loaded
 ;; from here; sp-org-ext requires them after the Vulpea modules.
 
 ;;; Code:
@@ -869,7 +960,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Recursive load path for modules
 
-Binds =default-directory= to =libraries/modules/= under =sp-library-dir= and calls =normal-top-level-add-to-load-path= and =normal-top-level-add-subdirs-to-load-path=, so every module subdirectory becomes requirable by name. This guarantees the =require= forms below can find modules in =funct/= even if the load path was set up differently elsewhere. Note that it sits before the =;;; Code:= marker, but it is ordinary code and runs at load time.
+Makes every module subdirectory requirable by name.
+
+- Binds =default-directory= to =libraries/modules/= under =sp-library-dir=.
+- Calls =normal-top-level-add-to-load-path= and =normal-top-level-add-subdirs-to-load-path=.
+- This guarantees the =require= forms below find modules in =funct/=, even if the load path was set up differently elsewhere.
+- It sits before the =;;; Code:= marker, but it is ordinary code and runs at load time.
 
 #+begin_src emacs-lisp -i
 ;;;; Recursive loading for the modules
@@ -890,8 +986,6 @@ A comment introducing the package integrations.
 
 Start of the code section.
 
-#+begin_src emacs-lisp -i
-#+end_src
 
 ** Vulpea add-on packages
 
@@ -916,18 +1010,17 @@ Installs =vulpea-capf= from GitHub (neonmei/vulpea-capf) and turns on =vulpea-ca
 (use-package vulpea-capf
   :ensure (:host github :repo "neonmei/vulpea-capf")
   :hook (org-mode . vulpea-capf-mode)
-)
+
+  :custom
+  (vulpea-capf-everywhere nil)  ; only complete inside [[...]]
+  (vulpea-capf-in-brackets t)
+  (vulpea-capf-annotate-function t))
 #+end_src
 
 *** vulpea-capf options
 
-Restricts completion to the inside of =[[...]]= brackets rather than offering note titles everywhere, and turns on annotations in the completion popup. These are plain =setq= calls at top level, so they take effect even before the package loads.
+Restricts completion to the inside of =[[...]]= brackets rather than offering note titles everywhere, and turns on annotations in the completion popup. All three options (=vulpea-capf-everywhere=, =vulpea-capf-in-brackets= and =vulpea-capf-annotate-function=) are in the =:custom= block of the =use-package= above; they used to be plain =setq= calls after it.
 
-#+begin_src emacs-lisp -i
-(setq vulpea-capf-everywhere nil)   ; only complete inside [[...]]
-(setq vulpea-capf-in-brackets t)
-(setq vulpea-capf-annotate-function t)
-#+end_src
 
 ** Config extension modules
 
@@ -965,11 +1058,11 @@ Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain m
 
 *** Smarter heading split
 
-Loads =sp-vulpea-split=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
+Loads =sp-split-leave-parents=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
 
 #+begin_src emacs-lisp -i
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
-(require 'sp-vulpea-split)
+(require 'sp-split-leave-parents)
 #+end_src
 
 ** Provide
@@ -987,9 +1080,16 @@ Provides the =sp-vulpea-ext= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-ext-back.el
 :END:
 
-Judging by its name, this file is a backup or staging copy of =sp-vulpea-ext=, the module that loads the Vulpea extensions such as the table views and grouped backlinks. It is empty right now. The purpose is inferred from the name, so rename the title if it is meant for something else.
+Judging by its name, this file is a backup or staging copy of =sp-vulpea-ext=, the module that loads the Vulpea extensions such as the table views and grouped backlinks.
 
-The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it. The blocks below are a skeleton for when you fill it in. Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-vulpea-ext-back)= would succeed.
+- It is empty right now.
+- The purpose is inferred from the name, so rename the title if it is meant for something else.
+
+Status:
+
+- The =.el= file is empty for now, and nothing in =init.el= or =sp-config-profiles.el= loads it.
+- The blocks below are a skeleton for when you fill it in.
+- Tangling it now replaces the empty file with a valid module that loads and does nothing, so =(sp-require-module 'sp-vulpea-ext-back)= would succeed.
 
 The commentary at the top of the module says:
 
@@ -1016,11 +1116,18 @@ The file header: the first line carries the file name, a short summary and the =
 :CUSTOM_ID: ext-back-configuration
 :END:
 
-Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block. The file's =#+PROPERTY= line already sends each block to =libraries/modules/vulpea/sp-vulpea-ext-back.el=, so a new block needs no header arguments. Keep the blocks above [[#ext-back-provide][Provide]] so they tangle before the =provide= form.
+How to add settings:
+
+- Add the module's settings here, one heading per package or topic, each with an =emacs-lisp= block.
+- The file's =#+PROPERTY= line already sends each block to =libraries/modules/vulpea/sp-vulpea-ext-back.el=, so a new block needs no header arguments.
+- Keep the blocks above [[#ext-back-provide][Provide]] so they tangle before the =provide= form.
 
 ** Sandbox
 
-A place to try out configuration before committing to it. Blocks here use =:tangle no=, so they never reach the =.el= file. When something works, move it into [[#ext-back-configuration][Configuration]].
+A place to try out configuration before committing to it.
+
+- Blocks here use =:tangle no=, so they never reach the =.el= file.
+- When something works, move it into [[#ext-back-configuration][Configuration]].
 
 Write candidate settings in this block and evaluate them with =C-c C-c= to try them in the running Emacs.
 
@@ -1045,9 +1152,19 @@ Provides the =sp-vulpea-ext-back= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-convert-properties.el
 :END:
 
-This module migrates note metadata out of Org property drawers and into Vulpea-style meta lines, i.e. description-list items of the form =- key :: value= placed just below a node's drawer. It works on one node at point, on a whole buffer, or across every note Vulpea knows about, with a dry-run preview and a non-blocking batch runner that shows progress and an ETA.
+This module migrates note metadata out of Org property drawers and into Vulpea-style meta lines.
 
-It requires =org=, =vulpea=, =cl-lib= and =subr-x=, and uses =vulpea-db-query= to enumerate note files. A blocklist keeps properties that Org, org-roam, org-node or Vulpea read directly (most importantly =ID=) inside the drawer. The module is loaded from =sp-vulpea-ext=, and binds =C-c w c= globally to the at-point command. The bulk commands edit and save many files, so the docstrings recommend running the preview and backing up notes first.
+- A meta line is a description-list item of the form =- key :: value=, placed just below a node's drawer.
+- It works on one node at point, on a whole buffer, or across every note Vulpea knows about.
+- It has a dry-run preview and a non-blocking batch runner that shows progress and an ETA.
+
+Dependencies and behaviour:
+
+- Requires =org=, =vulpea=, =cl-lib= and =subr-x=.
+- Uses =vulpea-db-query= to enumerate note files.
+- A blocklist keeps properties that Org, org-roam, org-node or Vulpea read directly (most importantly =ID=) inside the drawer.
+- Loaded from =sp-vulpea-ext=, which binds =C-c w c= globally to the at-point command.
+- The bulk commands edit and save many files, so the docstrings recommend running the preview and backing up notes first.
 
 ** Setup
 
@@ -1082,7 +1199,13 @@ Loads Org, Vulpea and the =cl-lib= and =subr-x= helpers used for =cl-labels=, =s
 
 *** Property blocklist
 
-=sia-vulpea-convert-property-blocklist= lists property names that are never converted, compared case-insensitively. It covers identity and Org machinery (=ID=, =CUSTOM_ID=, =CATEGORY=, logging and export properties), org-roam properties, org-edna's =BLOCKER= and =TRIGGER=, and =CREATED=, which the comment says org-node needs. Extend it before a conversion if other tools depend on drawer properties in your notes.
+=sia-vulpea-convert-property-blocklist= lists property names that are never converted, compared case-insensitively.
+
+- Identity and Org machinery: =ID=, =CUSTOM_ID=, =CATEGORY=, logging and export properties.
+- org-roam properties.
+- org-edna's =BLOCKER= and =TRIGGER=.
+- =CREATED=, which the comment says org-node needs.
+- Extend it before a conversion if other tools depend on drawer properties in your notes.
 
 #+begin_src emacs-lisp -i
 (defvar sia-vulpea-convert-property-blocklist
@@ -1107,7 +1230,11 @@ These functions operate on the "node at point": the heading at or above point, o
 
 *** Finding the insertion point
 
-=sia-vulpea--after-property-drawer-pos= returns the position right after the node's property drawer. For a heading that is after its drawer, or after the heading line when there is none. For the file-level node it also skips any leading =#+KEYWORD:= lines in any order relative to the drawer, so that meta lines never end up above =#+title:= or =#+date:= when the drawer comes first in the file.
+=sia-vulpea--after-property-drawer-pos= returns the position right after the node's property drawer.
+
+- For a heading: after its drawer, or after the heading line when there is none.
+- For the file-level node: it also skips any leading =#+KEYWORD:= lines, in any order relative to the drawer.
+- So meta lines never end up above =#+title:= or =#+date:= when the drawer comes first in the file.
 
 #+begin_src emacs-lisp -i
 ;;;; Low-level: one node at a time ---------------------------------------
@@ -1200,7 +1327,13 @@ lines."
 
 *** Converting a node's properties
 
-=sia-vulpea--convert-node-properties= walks the node's standard properties, skips blocklisted names and empty values, writes each remaining one as a meta line with a downcased key, and deletes it from the drawer unless =keep-original= is non-nil. It adds the separating blank line once if anything was converted and returns the list of converted property names.
+=sia-vulpea--convert-node-properties= walks the node's standard properties.
+
+- Skips blocklisted names and empty values.
+- Writes each remaining one as a meta line with a downcased key.
+- Deletes it from the drawer unless =keep-original= is non-nil.
+- Adds the separating blank line once if anything was converted.
+- Returns the list of converted property names.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea--convert-node-properties (&optional keep-original)
@@ -1234,7 +1367,11 @@ property names converted (empty if none)."
 
 *** Interactive command at point
 
-=sp-vulpea-convert-properties-at-point= is the user-facing command for the current node. With a prefix argument (=C-u=) it keeps the original properties in the drawer. It reports which properties were converted, or that there was nothing to convert. It is bound to =C-c w c= at the end of the module.
+=sp-vulpea-convert-properties-at-point= is the user-facing command for the current node.
+
+- With a prefix argument (=C-u=) it keeps the original properties in the drawer.
+- It reports which properties were converted, or that there was nothing to convert.
+- It is bound to =C-c w c= at the end of the module.
 
 #+begin_src emacs-lisp -i
 (defun sp-vulpea-convert-properties-at-point (&optional keep-original)
@@ -1275,7 +1412,12 @@ point\"."
 
 *** Fast pre-scan of a file
 
-=sia-vulpea--file-has-convertible-properties-p= reads a file as plain text in a temporary buffer and looks for any =:NAME: value= line whose name is not =PROPERTIES=, =END= or blocklisted and whose value is non-empty. It does not start =org-mode=, so it is cheap. It may produce false positives (a matching line outside a drawer), which only cost an unneeded file visit later, but is meant never to miss a convertible file.
+=sia-vulpea--file-has-convertible-properties-p= reads a file as plain text in a temporary buffer.
+
+- Looks for any =:NAME: value= line whose name is not =PROPERTIES=, =END= or blocklisted, and whose value is non-empty.
+- Does not start =org-mode=, so it is cheap.
+- May give false positives (a matching line outside a drawer). These only cost an unneeded file visit later.
+- Is meant never to miss a convertible file.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea--file-has-convertible-properties-p (file)
@@ -1308,7 +1450,12 @@ one that never produces a false *negative*."
 
 *** Candidate files
 
-=sia-vulpea--files-with-convertible-properties= takes the unique paths of all notes from =vulpea-db-query= and filters them with the text pre-scan. The docstring explains that Vulpea's database does not expose drawer contents, so an earlier attempt to filter through the database never found anything. The actual conversion still reads each live buffer with =org-entry-properties=.
+=sia-vulpea--files-with-convertible-properties= pre-filters the note files.
+
+- Takes the unique paths of all notes from =vulpea-db-query=.
+- Filters them with the text pre-scan.
+- The docstring explains that Vulpea's database does not expose drawer contents, so an earlier attempt to filter through the database never found anything.
+- The actual conversion still reads each live buffer with =org-entry-properties=.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea--files-with-convertible-properties ()
@@ -1344,7 +1491,14 @@ id: link: \"- [[id:ID][TITLE]]\". Meant for a buffer already in
 
 *** Converting a buffer
 
-=sia-vulpea-convert-buffer-properties-to-meta= converts every node that has an =ID=: the file-level node first, then each heading via =org-map-entries=. Nodes without an ID are left alone. It saves the buffer afterwards, messages a count when called interactively, and returns =(ID . TITLE)= pairs for the nodes it changed. A prefix argument keeps the originals.
+=sia-vulpea-convert-buffer-properties-to-meta= converts every node that has an =ID=.
+
+- Order: the file-level node first, then each heading via =org-map-entries=.
+- Nodes without an ID are left alone.
+- Saves the buffer afterwards.
+- Messages a count when called interactively.
+- Returns =(ID . TITLE)= pairs for the nodes it changed.
+- A prefix argument keeps the originals.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea-convert-buffer-properties-to-meta (&optional keep-original)
@@ -1394,7 +1548,14 @@ property converted (empty if none)."
 
 *** Cooperative file loop
 
-=sia-vulpea--process-files-async= processes a list of files one at a time, visiting each with =find-file-noselect= and calling a per-file function in that buffer. After each file it schedules the next with a zero-second timer, which returns control to the command loop so redisplay happens and =C-g= works between files. The docstring is explicit that this is cooperative yielding, not true background work. A progress reporter shows N/TOTAL and an ETA from the average time per file, and =on-done= receives all results in order at the end. Visited buffers are left open.
+=sia-vulpea--process-files-async= processes a list of files one at a time.
+
+- Visits each with =find-file-noselect= and calls a per-file function in that buffer.
+- After each file, schedules the next with a zero-second timer. That returns control to the command loop, so redisplay happens and =C-g= works between files.
+- The docstring is explicit that this is cooperative yielding, not true background work.
+- A progress reporter shows N/TOTAL and an ETA from the average time per file.
+- =on-done= receives all results in order at the end.
+- Visited buffers are left open.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea--process-files-async (files per-file-fn label on-done)
@@ -1456,7 +1617,12 @@ same order as FILES, once every file has been processed."
 
 *** Preview across all notes
 
-=sia-vulpea-preview-convert-all-notes-properties= is a dry run: it pre-filters the note files, then lists for each file the non-blocklisted property names found on nodes with an ID, in a =*vulpea property conversion preview*= buffer. It writes nothing. Unlike the real conversion it does not skip properties with empty values, so the preview can list a little more than would actually be converted.
+=sia-vulpea-preview-convert-all-notes-properties= is a dry run.
+
+- Pre-filters the note files.
+- Lists, for each file, the non-blocklisted property names found on nodes with an ID, in a =*vulpea property conversion preview*= buffer.
+- Writes nothing.
+- Unlike the real conversion, it does not skip properties with empty values, so the preview can list a little more than would actually be converted.
 
 #+begin_src emacs-lisp -i
 ;;;; Preview + real run across every Vulpea note ---------------------------
@@ -1510,7 +1676,13 @@ progress count and ETA in the echo area -- see
 
 *** Convert all notes
 
-=sia-vulpea-convert-all-notes-properties-to-meta= asks for confirmation, then runs the buffer conversion on every pre-filtered note file using the cooperative loop, saving each one. When finished it messages totals and opens =*vulpea property conversion report*= in =org-mode= with a link per converted node. With a prefix argument the original drawer properties are kept. The file count in the summary counts files with at least one converted node.
+=sia-vulpea-convert-all-notes-properties-to-meta= is the bulk conversion.
+
+- Asks for confirmation.
+- Runs the buffer conversion on every pre-filtered note file using the cooperative loop, saving each one.
+- When finished, messages totals and opens =*vulpea property conversion report*= in =org-mode= with a link per converted node.
+- With a prefix argument the original drawer properties are kept.
+- The file count in the summary counts files with at least one converted node.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
@@ -1586,9 +1758,18 @@ Provides the =sp-vulpea-convert-properties= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-grouped-backlinks.el
 :END:
 
-This module shows the backlinks of a Vulpea note in an Org buffer, split into groups. A link written in ordinary prose goes into a Mentions group; a link found on a Vulpea meta line of the form =- KEY :: [[id:...]]= goes into a group named after that key. For example, notes listing someone under =pub-author= appear in their own group rather than mixed in with notes that merely mention the person.
+This module shows the backlinks of a Vulpea note in an Org buffer, split into groups.
 
-It depends on =vulpea=, =org= and the sibling module =sp-vulpea-table-core= (for =sp-vulpea-table-select-note=, formerly =sia-vulpea-select-note=). It is loaded from =sp-vulpea-ext=. The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason, though the docstrings do not actually explain it. The author also flags that the shape of the link data returned by =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
+- A link in ordinary prose goes into a Mentions group.
+- A link on a Vulpea meta line of the form =- KEY :: [[id:...]]= goes into a group named after that key.
+- Example: notes listing someone under =pub-author= appear in their own group, not mixed in with notes that merely mention the person.
+
+Dependencies and open points:
+
+- Depends on =vulpea=, =org= and the sibling module =sp-collection-query-tables-core= (for =sp-collec-query-select-note=, formerly =sia-vulpea-select-note=).
+- Loaded from =sp-vulpea-ext=.
+- The commentary says it is not yet a =vulpea-ui= sidebar widget and points to the docstrings for the reason. The docstrings do not actually explain it.
+- The author flags that the shape of the link data from =vulpea-db-query-links-to= was not confirmed against a running Emacs, so the classification code may need adjusting.
 
 The commentary at the top of the module says:
 
@@ -1636,12 +1817,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 *** Requires
 
-Loads =vulpea=, =org= and =sp-vulpea-table-core=.
+Loads =vulpea=, =org= and =sp-collection-query-tables-core=.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea)
 (require 'org)
-(require 'sp-vulpea-table-core) ; for sp-vulpea-table-select-note
+(require 'sp-collection-query-tables-core) ; for sp-collec-query-select-note
 #+end_src
 
 ** Classifying backlinks
@@ -1667,7 +1848,14 @@ entry) rather than a structured meta property."
 
 *** Grouping the links
 
-=sia-vulpea-classify-backlinks= asks the Vulpea database for every link pointing at an ID and, for each, looks up the source note and the meta key at the link's position. Notes are collected in a hash table under the key or under Mentions, then returned as an alist of group name and deduplicated notes. The long docstring (which contains a blank line, hence two units) records the assumption that each link is a plist with =:source= and =:pos=, and says those two =plist-get= calls are what to change if the real shape differs.
+=sia-vulpea-classify-backlinks= groups the backlinks of an ID.
+
+- Asks the Vulpea database for every link pointing at the ID.
+- For each link, looks up the source note and the meta key at the link's position.
+- Collects notes in a hash table under the key or under Mentions.
+- Returns an alist of group name and deduplicated notes.
+- The long docstring (which contains a blank line, hence two units) records the assumption that each link is a plist with =:source= and =:pos=.
+- If the real shape differs, those two =plist-get= calls are what to change.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea-classify-backlinks (id)
@@ -1710,7 +1898,12 @@ need adjusting."
 
 *** Grouped backlinks buffer
 
-=sia-vulpea-show-grouped-backlinks= is the interactive entry point. It prompts for a note with =sia-vulpea-select-note= when none is given, then fills a buffer named after the note in =org-mode= with a top heading, one subheading per group sorted alphabetically with its count, and an =id:= link to each source note so =org-open-at-point= works on them. The buffer is shown with =display-buffer=. No key is bound to it in this file.
+=sia-vulpea-show-grouped-backlinks= is the interactive entry point.
+
+- Prompts for a note with =sia-vulpea-select-note= when none is given.
+- Fills a buffer named after the note, in =org-mode=, with a top heading, one subheading per group (sorted alphabetically, with its count), and an =id:= link to each source note so =org-open-at-point= works on them.
+- Shows the buffer with =display-buffer=.
+- No key is bound to it in this file.
 
 #+begin_src emacs-lisp -i
 (defun sia-vulpea-show-grouped-backlinks (&optional note)
@@ -1753,790 +1946,6 @@ Provides the =sp-vulpea-grouped-backlinks= feature and closes the file.
 ;;; sp-vulpea-grouped-backlinks.el ends here
 #+end_src
 
-* sp-vulpea-split.el
-:PROPERTIES:
-:header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-split.el
-:END:
-
-This module provides =sp-split-leave-parents=, a wrapper around Vulpea's =vulpea-split-heading= that turns the heading at point into its own note file while keeping the link structure of the notes intact. Compared with the plain split, it records where the note came from in a =parents= meta line, leaves a link to the new note in the source file, renames the new file with Denote's naming scheme, and makes sure footnotes still resolve on both sides of the split.
-
-It depends on =vulpea=, =org-id= and =denote= (version 3 or later), and it hooks into =vulpea-split--write-file=, a private Vulpea function, so a Vulpea update that renames or reshapes that function can break it; the module warns at load time if the function is missing. It is required from =sp-vulpea-ext=. The command is bound to ~C-x s t~ in =org-mode-map= by =sp-org-base=; note that this makes ~C-x s~ a prefix key in Org buffers, which shadows =save-some-buffers= there.
-
-The commentary at the top of the module says:
-
-#+begin_quote
-`sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
-normal split it:
-
-1. Adds a `- parents :: [[id:...][Title]]' meta line to the new note,
-   pointing at the note the heading came from.  The source is the
-   nearest ancestor heading with an ID, else the file-level note (its
-   ID is created when missing).  When the subtree already has a
-   `parents' line, the new link is put in front of the old value,
-   separated by a comma.
-
-2. Leaves a plain link to the new note in the source file, as a line
-   of body text exactly where the heading started (not a heading).
-   With a prefix argument no link is left.
-
-3. Renames the new file with Denote's file-naming scheme
-   (`ID--title__keywords.org'), using `denote-rename-file', so split
-   notes are named like the rest of your Denote files, and adds a
-   matching `#+identifier:' line.  The note keeps its org ID, so
-   links are unaffected.  Disable with
-   `sp-split-denote-names'.
-
-4. Keeps footnotes working across the split (see
-   `sp-split-check-footnotes').  Org labels are unique per file and
-   this setup uses no footnote section, so a heading that moves away
-   from its definitions would lose its sources.  Every heading that
-   cites a footnote gets its own copy of the definition, at the end
-   of its own text, in the new note, and in the source note for
-   definitions that left with the subtree.  Copies after the first
-   get a suffixed label (`[fn:smith]', `[fn:smith-2]', ...).
-
-Steps 1, 2 and 4 hook `vulpea-split--write-file', a private function of
-vulpea, and only act while `sp-split-leave-parents' is running.  A
-plain `vulpea-split-heading' is unchanged.
-#+end_quote
-
-** Overview
-
-*** Header and package requirements
-
-The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
-
-#+begin_src emacs-lisp -i
-;;; sp-vulpea-split.el --- Splitting Vulpea headings into notes -*- lexical-binding: t; -*-
-;; Package-Requires: ((emacs "28.1") (denote "3.0"))
-
-;;; Commentary:
-
-;; `sp-split-leave-parents' wraps `vulpea-split-heading'.  On top of the
-;; normal split it:
-;;
-;; 1. Adds a `- parents :: [[id:...][Title]]' meta line to the new note,
-;;    pointing at the note the heading came from.  The source is the
-;;    nearest ancestor heading with an ID, else the file-level note (its
-;;    ID is created when missing).  When the subtree already has a
-;;    `parents' line, the new link is put in front of the old value,
-;;    separated by a comma.
-;;
-;; 2. Leaves a plain link to the new note in the source file, as a line
-;;    of body text exactly where the heading started (not a heading).
-;;    With a prefix argument no link is left.
-;;
-;; 3. Renames the new file with Denote's file-naming scheme
-;;    (`ID--title__keywords.org'), using `denote-rename-file', so split
-;;    notes are named like the rest of your Denote files, and adds a
-;;    matching `#+identifier:' line.  The note keeps its org ID, so
-;;    links are unaffected.  Disable with
-;;    `sp-split-denote-names'.
-;;
-;; 4. Keeps footnotes working across the split (see
-;;    `sp-split-check-footnotes').  Org labels are unique per file and
-;;    this setup uses no footnote section, so a heading that moves away
-;;    from its definitions would lose its sources.  Every heading that
-;;    cites a footnote gets its own copy of the definition, at the end
-;;    of its own text, in the new note, and in the source note for
-;;    definitions that left with the subtree.  Copies after the first
-;;    get a suffixed label (`[fn:smith]', `[fn:smith-2]', ...).
-;;
-;; Steps 1, 2 and 4 hook `vulpea-split--write-file', a private function of
-;; vulpea, and only act while `sp-split-leave-parents' is running.  A
-;; plain `vulpea-split-heading' is unchanged.
-
-;;; Code:
-#+end_src
-
-** Setup
-
-*** Required libraries
-
-Loads Org, =org-id=, =subr-x=, =seq=, Vulpea and Denote.
-
-#+begin_src emacs-lisp -i
-(require 'org)
-(require 'org-id)
-(require 'subr-x)
-(require 'seq)
-(require 'vulpea)
-(require 'denote)
-#+end_src
-
-*** Active flag
-
-=sp-split--active= is non-nil only during a call to =sp-split-leave-parents=. As the comment explains, it is declared with =defvar= before use so that the =let= bindings in the command are dynamic and visible inside the advice.
-
-#+begin_src emacs-lisp -i
-;; These must be defined before the functions below use them in `let',
-;; so that the bindings are dynamic.
-(defvar sp-split--active nil
-  "Non-nil while `sp-split-leave-parents' is running.")
-#+end_src
-
-*** Link flag
-
-=sp-split--want-link= controls whether a link is left in the source file. The command binds it to nil when called with a prefix argument.
-
-#+begin_src emacs-lisp -i
-(defvar sp-split--want-link t
-  "Non-nil when the split should leave a plain link in the source file.")
-#+end_src
-
-*** Customisation group
-
-Declares the =sp-split= customisation group under Applications.
-
-#+begin_src emacs-lisp -i
-(defgroup sp-split nil
-  "Split vulpea headings out with parents and a link left behind."
-  :group 'applications)
-#+end_src
-
-*** Denote naming option
-
-=sp-split-denote-names= turns the Denote renaming step on or off. On by default.
-
-#+begin_src emacs-lisp -i
-(defcustom sp-split-denote-names t
-  "When non-nil, name split-out notes with Denote's file-naming scheme."
-  :type 'boolean
-  :group 'sp-split)
-#+end_src
-
-*** Footnote option
-
-=sp-split-check-footnotes= turns the footnote copying on or off. On by default.
-
-#+begin_src emacs-lisp -i
-(defcustom sp-split-check-footnotes t
-  "When non-nil, keep footnote definitions with the headings that cite them.
-Definitions are copied, per heading, into the new note and, for those
-that leave with the subtree, into the source note."
-  :type 'boolean
-  :group 'sp-split)
-#+end_src
-
-*** Footnote report
-
-=sp-split--fn-report= collects, during one split, how many definitions were copied into the new note and into the source, and which labels had no definition anywhere. It is used for the final echo area message.
-
-#+begin_src emacs-lisp -i
-(defvar sp-split--fn-report nil
-  "Plist (:into-new N :into-source M :dangling LABELS) for the running split.")
-#+end_src
-
-** Parents and source links
-
-*** Building an id link
-
-=sp-split--link-to= returns an Org id link to ID, described with the note's title from the Vulpea database, or FALLBACK-TITLE when the database does not know the ID yet.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--link-to (id fallback-title)
-  "Return an id link to ID, titled from the database or FALLBACK-TITLE."
-  (org-link-make-string
-   (concat "id:" id)
-   (if-let* ((note (vulpea-db-get-by-id id)))
-       (vulpea-note-title note)
-     fallback-title)))
-#+end_src
-
-*** Finding the parent note
-
-=sp-split--parent-link= finds where the heading with ID lives. It visits the file, walks up the ancestor headings and takes the first one that has an ID property, using its heading text as title. If no ancestor has an ID, it falls back to the file-level note, creating a file-level ID with =org-id-get-create= when there is none (so the source file can be modified as a side effect), and uses the buffer title or the file name. Returns the parent ID together with a ready-made link.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--parent-link (id)
-  "Return (PARENT-ID . LINK) for the note the heading with ID lives in.
-Walks up the ancestors of the heading and takes the first one with an
-ID.  If none has one, falls back to the file-level note, creating its
-ID when it is missing."
-  (when-let* ((note (vulpea-db-get-by-id id))
-              (path (vulpea-note-path note)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (when-let* ((pos (org-find-entry-with-id id)))
-         (goto-char pos)
-         (let (pid title)
-           (while (and (not pid) (org-up-heading-safe))
-             (when-let* ((x (org-entry-get (point) "ID")))
-               (setq pid x
-                     title (org-link-display-format
-                            (org-get-heading t t t t)))))
-           (unless pid
-             (goto-char (point-min))
-             (setq pid (or (org-entry-get (point-min) "ID")
-                           (org-id-get-create))
-                   title (or (and (fboundp 'vulpea-buffer-title-get)
-                                  (vulpea-buffer-title-get))
-                             (file-name-base path))))
-           (cons pid (sp-split--link-to pid title))))))))
-#+end_src
-
-*** Adding the parent to the new note's body
-
-=sp-split--body-with-parent= edits the text that will become the new note. It only looks at the part before the first child heading, so children keep their own parents lines. If a parents line already exists there, the new link is put in front of the old value with a comma, unless that parent is already listed. Otherwise a new parents line is added at the top, directly joined to an existing meta list or separated from ordinary text by a blank line. The comment about reading match data early guards against later calls clobbering it.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--body-with-parent (body parent-id link)
-  "Return BODY with LINK recorded in its `parents' meta line.
-PARENT-ID is the id LINK points to."
-  (let* ((case-fold-search nil)
-         ;; Only the section before the first child heading: children
-         ;; may carry `parents' lines of their own, which stay untouched.
-         (top-end (or (string-match "^\\*+ " body) (length body)))
-         (top (substring body 0 top-end))
-         (rest (substring body top-end)))
-    (cond
-     ;; A parents line already exists: prepend the new link to its value.
-     ((string-match
-       "^\\([ \t]*[-+][ \t]+parents[ \t]+::[ \t]*\\)\\(.*\\)$" top)
-      ;; Read everything out of the match data before calling anything
-      ;; that may clobber it.
-      (let* ((mb (match-beginning 0))
-             (me (match-end 0))
-             (prefix (match-string 1 top))
-             (existing (string-trim (match-string 2 top))))
-        (if (string-search (concat "id:" parent-id) existing)
-            body
-          (concat (substring top 0 mb)
-                  prefix link
-                  (if (string-empty-p existing)
-                      ""
-                    (concat ", " existing))
-                  (substring top me)
-                  rest))))
-     (t
-      (let ((line (concat "- parents :: " link)))
-        (cond
-         ((string-empty-p body) line)
-         ;; Body opens with meta already: join that list.
-         ((string-match-p "\\`[ \t]*[-+][ \t]+[^ \t\n]+[ \t]+::" body)
-          (concat line "\n" body))
-         (t (concat line "\n\n" body))))))))
-#+end_src
-
-*** Leaving a link in the source
-
-=sp-split--insert-source-link= inserts a link to the split heading on its own line just before the heading in the source file. Because it goes in front of the heading, it survives when Vulpea cuts the subtree. It returns markers around the inserted text so the insertion can be undone if writing the new file fails.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--insert-source-link (id title)
-  "Insert a plain link to ID on the line where its heading starts.
-TITLE is the fallback description.  The link goes in front of the
-heading, so it is still there once vulpea cuts the subtree.  Return a
-cons of markers around the inserted text, or nil."
-  (when-let* ((note (vulpea-db-get-by-id id))
-              (path (vulpea-note-path note)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (when-let* ((pos (org-find-entry-with-id id)))
-         (goto-char pos)
-         (let ((beg (copy-marker pos)))
-           (insert (sp-split--link-to id (org-link-display-format title))
-                   "\n")
-           (cons beg (copy-marker (point)))))))))
-#+end_src
-
-** Footnotes
-
-Org footnote labels are unique per file, and this setup keeps each definition at the end of the text of the heading that uses it rather than in a footnote section. Splitting a subtree off can therefore leave references without definitions on either side. In these functions a section means a heading's own text, up to the next heading of any level.
-
-*** Background
-
-The comment block introducing the footnote helpers, explaining the problem described above.
-
-#+begin_src emacs-lisp -i
-;;;; Footnotes
-;;
-;; Org footnote labels are unique per file.  Without a footnote section,
-;; definitions sit at the end of the text of the heading that uses them,
-;; so a split can strand references (definition left in the source) or
-;; strand the source (definition left with the subtree).  Sections here
-;; are a heading's own text: from the heading to the next heading of
-;; any level, children excluded.
-#+end_src
-
-*** Scanning footnotes
-
-=sp-split--fn-scan= parses the buffer with =org-element-parse-buffer= and returns three lists: the start positions of all headings, every standard reference with its label and position, and every definition with its label, position and full text. A labelled inline footnote counts as a definition and is rewritten into the standard definition form so it can be copied elsewhere.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-scan ()
-  "Scan the accessible part of the current Org buffer for footnotes.
-Return (HEADS REFS DEFS).  HEADS is the sorted list of heading start
-positions.  REFS lists (LABEL BEGIN) for each standard reference
-`[fn:LABEL]'.  DEFS lists (LABEL BEGIN TEXT) for each definition, TEXT
-being the whole definition as `[fn:LABEL] ...'; a labelled inline
-footnote `[fn:LABEL:...]' counts as a definition too."
-  (let ((tree (org-element-parse-buffer))
-        heads refs defs)
-    (org-element-map tree 'headline
-      (lambda (h) (push (org-element-property :begin h) heads)))
-    (org-element-map tree '(footnote-reference footnote-definition)
-      (lambda (el)
-        (let ((label (org-element-property :label el))
-              (begin (org-element-property :begin el)))
-          (when label
-            (if (eq (org-element-type el) 'footnote-definition)
-                (push (list label begin
-                            (string-trim-right
-                             (buffer-substring-no-properties
-                              begin (org-element-property :end el))))
-                      defs)
-              (let ((cb (org-element-property :contents-begin el))
-                    (ce (org-element-property :contents-end el)))
-                (if (eq (org-element-property :type el) 'inline)
-                    (when (and cb ce)
-                      (push (list label begin
-                                  (format "[fn:%s] %s" label
-                                          (string-trim
-                                           (buffer-substring-no-properties
-                                            cb ce))))
-                            defs))
-                  (push (list label begin) refs))))))))
-    (list (sort heads #'<) (nreverse refs) (nreverse defs))))
-#+end_src
-
-*** Which section a position is in
-
-=sp-split--fn-section= returns the start of the heading section containing a position, or 0 for text before the first heading.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-section (pos heads)
-  "Return the start of the section containing POS, given sorted HEADS.
-Text before the first heading is section 0."
-  (let ((sec 0))
-    (dolist (h heads sec)
-      (when (<= h pos) (setq sec h)))))
-#+end_src
-
-*** End of a section
-
-=sp-split--fn-section-end= returns the position of the next heading after a section start, or the end of the buffer.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-section-end (sec heads)
-  "Return the end of section SEC: the next heading, or the end of buffer."
-  (or (seq-find (lambda (h) (> h sec)) heads) (point-max)))
-#+end_src
-
-*** Fresh labels
-
-=sp-split--fn-fresh= returns the label itself if unused, otherwise the first free label with a numeric suffix starting at 2.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-fresh (label used)
-  "Return LABEL if it is not in USED, else LABEL-2, LABEL-3, ... likewise."
-  (if (not (member label used))
-      label
-    (let ((n 2))
-      (while (member (format "%s-%d" label n) used)
-        (setq n (1+ n)))
-      (format "%s-%d" label n))))
-#+end_src
-
-*** Relabelling a definition
-
-=sp-split--fn-def-with-label= swaps the label at the start of a definition's text for a new one.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-def-with-label (text label)
-  "Return the definition TEXT with its label replaced by LABEL."
-  (replace-regexp-in-string "\\`\\[fn:[^]\n]*\\]" (format "[fn:%s]" label)
-                            text t t))
-#+end_src
-
-*** Applying footnote edits
-
-=sp-split--fn-apply= turns the planned additions (definitions to append at the end of given sections) into insertions with sensible blank-line spacing, merges them with the label replacements, and applies everything from the end of the buffer backwards so earlier positions remain valid.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-apply (heads adds edits)
-  "Apply footnote changes to the current buffer.
-ADDS maps a section to the definition texts to put at the end of it
-\(newest first).  EDITS is a list of (POS LENGTH STRING) replacements.
-Everything is positioned against the buffer as it is now, and applied
-from the end so earlier positions stay valid."
-  (dolist (a adds)
-    (let* ((pos (sp-split--fn-section-end (car a) heads))
-           (prefix (cond ((= pos (point-min)) "")
-                         ((and (>= (- pos (point-min)) 2)
-                               (string= (buffer-substring-no-properties
-                                         (- pos 2) pos)
-                                        "\n\n"))
-                          "")
-                         ((save-excursion (goto-char pos) (bolp)) "\n")
-                         (t "\n\n")))
-           (suffix (if (= pos (point-max)) "\n" "\n\n")))
-      (push (list pos 0 (concat prefix
-                                (mapconcat #'identity (reverse (cdr a)) "\n\n")
-                                suffix))
-            edits)))
-  (dolist (e (sort edits (lambda (x y) (> (car x) (car y)))))
-    (goto-char (car e))
-    (delete-region (car e) (+ (car e) (cadr e)))
-    (insert (nth 2 e))))
-#+end_src
-
-*** Definitions in the source file
-
-=sp-split--fn-source-defs= scans the whole file containing ID and returns its footnote definitions as an alist from label to text.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-source-defs (id)
-  "Return an alist (LABEL . TEXT) of the footnote definitions in ID's file."
-  (when-let* ((note (vulpea-db-get-by-id id))
-              (path (vulpea-note-path note)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (mapcar (lambda (d) (cons (car d) (nth 2 d)))
-               (nth 2 (sp-split--fn-scan)))))))
-#+end_src
-
-*** Fixing footnotes in the new note
-
-=sp-split--fn-fix-body= works on the new note's body in a temporary Org buffer (with mode hooks delayed for speed). For each cited label it decides which heading sections need their own copy of the definition:
-- if the definition is nowhere, neither in the body nor in the source, the label is recorded as dangling,
-- if it is only in the source, every citing section gets a copy,
-- if it is in the body but cited from several sections, the sections without a definition get a copy.
-
-Each copy after the first gets a fresh suffixed label, and the references in that section are renamed to match (skipping the four characters of the opening bracket and fn colon to reach the label). It returns the new body, the number of copies and the dangling labels.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-fix-body (body source-defs)
-  "Make the footnotes in BODY self-contained.
-SOURCE-DEFS is an alist (LABEL . TEXT) of the source file's definitions.
-A heading in BODY that cites a footnote gets its own copy of the
-definition when the definition is not in BODY at all, or when the
-footnote is cited from several headings and the heading has none of its
-own.  Return (NEW-BODY COPIED DANGLING), DANGLING being the labels
-cited but defined nowhere."
-  (with-temp-buffer
-    (delay-mode-hooks (org-mode))
-    (insert body)
-    (pcase-let* ((`(,heads ,refs ,defs) (sp-split--fn-scan))
-                 (used (mapcar #'car defs))
-                 (edits nil)
-                 (adds nil)
-                 (copied 0)
-                 (dangling nil))
-      (dolist (label (seq-uniq (mapcar #'car refs)))
-        (let* ((mine (lambda (e) (equal (car e) label)))
-               (rsecs (seq-uniq
-                       (mapcar (lambda (r) (sp-split--fn-section (cadr r) heads))
-                               (seq-filter mine refs))))
-               (dsecs (mapcar (lambda (d) (sp-split--fn-section (cadr d) heads))
-                              (seq-filter mine defs)))
-               (text (or (nth 2 (assoc label defs))
-                         (cdr (assoc label source-defs))))
-               (needy (cond ((null text)
-                             (push label dangling)
-                             nil)
-                            ;; Defined only in the source: every citing
-                            ;; heading gets a copy.
-                            ((null dsecs) rsecs)
-                            ;; Defined here, cited from several headings:
-                            ;; those without a definition get a copy.
-                            ((cdr rsecs)
-                             (seq-remove (lambda (s) (memql s dsecs)) rsecs))
-                            (t nil))))
-          (dolist (sec needy)
-            (let ((new (sp-split--fn-fresh label used)))
-              (push new used)
-              (unless (equal new label)
-                (dolist (r (seq-filter
-                            (lambda (r)
-                              (and (equal (car r) label)
-                                   (eql (sp-split--fn-section (cadr r) heads)
-                                        sec)))
-                            refs))
-                  ;; Skip `[fn:' to reach the label itself.
-                  (push (list (+ (cadr r) 4) (length label) new) edits)))
-              (push (sp-split--fn-def-with-label text new)
-                    (alist-get sec adds nil nil #'eql))
-              (setq copied (1+ copied))))))
-      (sp-split--fn-apply heads adds edits)
-      (list (string-trim-right (buffer-string)) copied (nreverse dangling)))))
-#+end_src
-
-*** Keeping footnotes in the source
-
-=sp-split--fn-keep-in-source= handles the opposite direction. While the subtree is still in place, it finds definitions inside the subtree that are cited from headings outside it and copies them to each of those headings. The first citing heading can keep the original label because the original definition is about to leave with the subtree. Returns the number of definitions copied.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-keep-in-source (id)
-  "Keep footnotes usable in the source once the subtree of ID is cut.
-Definitions inside the subtree that headings outside it still cite are
-copied to those headings.  Must run while the subtree is still in
-place.  Return the number of definitions copied."
-  (let ((copied 0))
-    (when-let* ((note (vulpea-db-get-by-id id))
-                (path (vulpea-note-path note)))
-      (with-current-buffer (find-file-noselect path)
-        (org-with-wide-buffer
-         (when-let* ((pos (org-find-entry-with-id id)))
-           (goto-char pos)
-           (org-back-to-heading t)
-           (let ((beg (point))
-                 (end (save-excursion (org-end-of-subtree t t) (point))))
-             (pcase-let* ((`(,heads ,refs ,defs) (sp-split--fn-scan))
-                          (inside (lambda (p) (and (>= p beg) (< p end))))
-                          (used (mapcar #'car
-                                        (seq-remove
-                                         (lambda (d) (funcall inside (cadr d)))
-                                         defs)))
-                          (edits nil)
-                          (adds nil))
-               (dolist (d (seq-filter (lambda (d) (funcall inside (cadr d)))
-                                      defs))
-                 (let* ((label (car d))
-                        (outside (seq-filter
-                                  (lambda (r)
-                                    (and (equal (car r) label)
-                                         (not (funcall inside (cadr r)))))
-                                  refs))
-                        (secs (seq-uniq
-                               (mapcar (lambda (r)
-                                         (sp-split--fn-section (cadr r) heads))
-                                       outside))))
-                   ;; The original goes away with the subtree, so the
-                   ;; first citing heading may keep the label.
-                   (dolist (sec secs)
-                     (let ((new (sp-split--fn-fresh label used)))
-                       (push new used)
-                       (unless (equal new label)
-                         (dolist (r (seq-filter
-                                     (lambda (r)
-                                       (eql (sp-split--fn-section (cadr r) heads)
-                                            sec))
-                                     outside))
-                           (push (list (+ (cadr r) 4) (length label) new)
-                                 edits)))
-                       (push (sp-split--fn-def-with-label (nth 2 d) new)
-                             (alist-get sec adds nil nil #'eql))
-                       (setq copied (1+ copied))))))
-               (sp-split--fn-apply heads adds edits)))))))
-    copied))
-#+end_src
-
-*** Safe wrapper for the new note
-
-=sp-split--fn-check-body= runs the body fix when footnote checking is on, records the result in the report, and on any error logs a message and returns the body unchanged, so a footnote problem never aborts the split.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-check-body (body id)
-  "Return BODY, the body of the note split from ID, with footnotes fixed.
-Never aborts the split: on an error BODY is returned unchanged."
-  (if (not sp-split-check-footnotes)
-      body
-    (condition-case err
-        (pcase-let ((`(,new ,copied ,dangling)
-                     (sp-split--fn-fix-body body (sp-split--fn-source-defs id))))
-          (setq sp-split--fn-report
-                (list :into-new copied :dangling dangling))
-          new)
-      (error
-       (message "sp-split: footnote check skipped: %s"
-                (error-message-string err))
-       body))))
-#+end_src
-
-*** Safe wrapper for the source
-
-=sp-split--fn-after-write= runs the source-side copy with the same error protection and adds its count to the report.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-after-write (id)
-  "Copy definitions leaving with the subtree of ID back into the source."
-  (when sp-split-check-footnotes
-    (condition-case err
-        (setq sp-split--fn-report
-              (plist-put sp-split--fn-report :into-source
-                         (sp-split--fn-keep-in-source id)))
-      (error
-       (message "sp-split: footnote copy in source skipped: %s"
-                (error-message-string err))))))
-#+end_src
-
-*** Reporting
-
-=sp-split--fn-message= prints a summary in the echo area if anything was copied or any label was dangling; otherwise it stays silent.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--fn-message ()
-  "Report what the footnote check did, when it did anything."
-  (let ((n (or (plist-get sp-split--fn-report :into-new) 0))
-        (m (or (plist-get sp-split--fn-report :into-source) 0))
-        (d (plist-get sp-split--fn-report :dangling)))
-    (when (or (> n 0) (> m 0) d)
-      (message "Footnotes: %d definition(s) copied into the new note, %d into the source%s"
-               n m
-               (if d
-                   (format "; no definition found for: %s"
-                           (string-join d ", "))
-                 "")))))
-#+end_src
-
-** Hooking into Vulpea
-
-*** Advice around the file writer
-
-=sp-split--write-file-advice= wraps =vulpea-split--write-file= and passes straight through unless =sp-split-leave-parents= is running. When active, it receives the path, ID, title, heading, tags, properties and body of the note about to be written. At this point Vulpea has already validated the split and the subtree is still in the source, so it:
-- finds the parent link,
-- fixes footnotes in the body and adds the parents line,
-- inserts the link in the source if wanted,
-- calls the original writer, then copies footnotes back into the source.
-
-If writing the new file fails, the inserted source link is removed again and the error is re-signalled, so the source is left as it was.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--write-file-advice (fn &rest args)
-  "Around advice for `vulpea-split--write-file'.
-FN is the original function and ARGS its arguments: PATH ID TITLE HEAD
-TAGS PROPERTIES BODY.  Does nothing unless `sp-split-leave-parents' is
-running."
-  (if (not sp-split--active)
-      (apply fn args)
-    (pcase-let ((`(,path ,id ,title ,head ,tags ,props ,body) args))
-      ;; The subtree is still in the source file at this point, and
-      ;; vulpea has already run its checks, so a refused split never gets
-      ;; this far.
-      (let* ((parent (sp-split--parent-link id))
-             (body (sp-split--fn-check-body body id))
-             (body (if parent
-                       (sp-split--body-with-parent
-                        body (car parent) (cdr parent))
-                     body))
-             (stub (when sp-split--want-link
-                     (sp-split--insert-source-link id title))))
-        (condition-case err
-            ;; The subtree is still in the source once the file is
-            ;; written, which is when its footnotes can be copied back.
-            (prog1 (funcall fn path id title head tags props body)
-              (sp-split--fn-after-write id))
-          (error
-           ;; Writing the new file failed: take the link back out.
-           (when (and stub (marker-buffer (car stub)))
-             (with-current-buffer (marker-buffer (car stub))
-               (delete-region (car stub) (cdr stub))))
-           (signal (car err) (cdr err))))))))
-#+end_src
-
-** Denote naming
-
-*** Adding an identifier keyword
-
-=sp-split--add-identifier= reads the Denote identifier from the file name and, if the file has no identifier keyword yet, inserts one after the filetags line or else after the title line, then saves. If neither line is present nothing is inserted.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--add-identifier (path)
-  "Add a `#+identifier:' line to the note at PATH, from its Denote file name.
-Does nothing when the file already has one or its name carries no
-Denote identifier.  The line goes after `#+filetags', else after
-`#+title'."
-  (when-let* ((ident (denote-retrieve-filename-identifier path)))
-    (with-current-buffer (find-file-noselect path)
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (let ((case-fold-search t))
-         (unless (re-search-forward "^#\\+identifier:" nil t)
-           (goto-char (point-min))
-           (when (or (re-search-forward "^#\\+filetags:.*$" nil t)
-                     (re-search-forward "^#\\+title:.*$" nil t))
-             (insert "\n#+identifier: " ident)))))
-      (save-buffer))))
-#+end_src
-
-*** Renaming with Denote
-
-=sp-split--denote-rename= renames the new note's file using =denote-rename-file=, with confirmations off and buffers saved, keeping the title written by the split and using the note's tags as keywords. Because the return value of that function is not relied on, the new name is found by comparing the directory listing before and after. It then adds the identifier keyword, tells Vulpea to forget the old path (using the private =vulpea-db--forget-file=), registers the new location with =org-id=, re-indexes the file, and returns the updated note. If no new file appears, the original note is returned unchanged.
-
-#+begin_src emacs-lisp -i
-(defun sp-split--denote-rename (note)
-  "Rename the file of NOTE with Denote's naming scheme, then re-sync vulpea.
-Return the note as vulpea knows it afterwards.  The org ID stays the
-same, so id links keep working.  Denote's own `denote-rename-file' does
-the naming (identifier, sluggified title, keywords from the tags); its
-return value is not relied on, the new name is found by diffing the
-directory."
-  (let* ((old (vulpea-note-path note))
-         (id (vulpea-note-id note))
-         (dir (file-name-directory old))
-         (before (directory-files dir nil directory-files-no-dot-files-regexp t)))
-    ;; No prompts, and save the front matter Denote rewrites.
-    (let ((denote-rename-confirmations nil)
-          (denote-save-buffers t))
-      ;; TITLE `keep-current' reads the `#+title' written by the split;
-      ;; KEYWORDS are the note's tags; no signature, default date.
-      (denote-rename-file old 'keep-current (vulpea-note-tags note) nil nil))
-    (let ((new (car (seq-difference
-                     (directory-files dir nil directory-files-no-dot-files-regexp t)
-                     before #'string-equal))))
-      (if (not new)
-          note
-        (let ((new-path (expand-file-name new dir)))
-          (sp-split--add-identifier new-path)
-          (vulpea-db--forget-file old)
-          (org-id-add-location id new-path)
-          (vulpea-db-update-file new-path)
-          (message "Named with Denote: %s" new)
-          (or (vulpea-db-get-by-id id) note))))))
-#+end_src
-
-** The command
-
-*** sp-split-leave-parents
-
-The interactive entry point, autoloaded. It binds the active flag, the link flag (off with a prefix argument) and a fresh report, then calls =vulpea-split-heading= interactively. =current-prefix-arg= is cleared so the prefix argument meant for this command does not also trigger Vulpea's own stub option. After the split it renames the file with Denote if enabled and prints the footnote summary. Bound to ~C-x s t~ in Org buffers by =sp-org-base=.
-
-#+begin_src emacs-lisp -i
-;;;###autoload
-(defun sp-split-leave-parents (&optional no-link)
-  "Run `vulpea-split-heading', recording where the heading came from.
-The new note gets a `- parents ::' line linking back to the note the
-subtree was split out of, and the source note gets a plain link to the
-new note on the line where the heading started.  The new file is then
-renamed with Denote's naming scheme when `sp-split-denote-names' is
-non-nil.  With a prefix argument NO-LINK, the link in the source is not
-left."
-  (interactive "P")
-  (let* ((sp-split--active t)
-         (sp-split--want-link (not no-link))
-         ;; Keep vulpea's own stub option (the prefix argument) out of it.
-         (current-prefix-arg nil)
-         (sp-split--fn-report nil)
-         (note (call-interactively #'vulpea-split-heading)))
-    (prog1 (if (and note sp-split-denote-names)
-               (sp-split--denote-rename note)
-             note)
-      (sp-split--fn-message))))
-#+end_src
-
-*** Installing the advice
-
-Warns if =vulpea-split--write-file= does not exist, which would mean an unsupported Vulpea version, and then adds the advice. The advice is added even when the function is missing, so it would take effect if a later Vulpea load defines it.
-
-#+begin_src emacs-lisp -i
-(unless (fboundp 'vulpea-split--write-file)
-  (display-warning
-   'sp-vulpea-split
-   "`vulpea-split--write-file' not found; this vulpea version is not supported"))
-(advice-add 'vulpea-split--write-file :around #'sp-split--write-file-advice)
-#+end_src
-
-** Provide
-
-Provides the =sp-vulpea-split= feature and closes the file.
-
-#+begin_src emacs-lisp -i
-
-(provide 'sp-vulpea-split)
-;;; sp-vulpea-split.el ends here
-#+end_src
-
 * sp-vulpea-org-ql.el
 :PROPERTIES:
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/vulpea/sp-vulpea-org-ql.el
@@ -2544,7 +1953,12 @@ Provides the =sp-vulpea-split= feature and closes the file.
 
 A draft bridge between the vulpea note database and =org-ql=, meant for inline queries over notes. So far it contains a single example query rather than reusable functions.
 
-The module is not required anywhere in the config. It depends on =org-ql=, which =sp-org-base= installs. If the file were loaded, its query would run immediately at load time and fail unless both vulpea and org-ql were already available, so it is best read as a scratch file.
+Status of =sp-vulpea-org-ql=:
+
+- The module is not required anywhere in the config.
+- It depends on =org-ql=, which =sp-org-base= installs.
+- If the file were loaded, its query would run immediately at load time and fail unless both vulpea and org-ql were already available.
+- So it is best read as a scratch file.
 
 The commentary at the top of the module says:
 
@@ -2595,3 +2009,10 @@ Provides the =sp-vulpea-org-ql= feature and closes the file.
 (provide 'sp-vulpea-org-ql)
 ;; sp-vulpea-org-ql.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in these modules, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/132][#132]] 🐛 Fixed =C-x t s= being undefined: =sp-vulpea-ui= waited for =vulpea= (=:after vulpea=), which loads lazily, so =vulpea-ui= never loaded. The key is now a =:bind= that autoloads =vulpea-ui-sidebar-toggle=.
+- [[https://github.com/siainbuletin/dotfiles/pull/141][#141]] 🐛 Fixed =sp-org-ext= (and so =sp-tab-inbox=) failing at init with =(void-function vulpea-db-query-by-tags-every)=: removed the discarded sample query from =sp-vulpea-base=, which ran before =vulpea= had loaded.

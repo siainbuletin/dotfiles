@@ -14,6 +14,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'xml)
 ;; Guarded require: without this, a sandbox boot without nerd-icons
 ;; installed would crash module-load here.
 ;; Spec 02 caught the identical pattern in sp-dashboard.el.
@@ -39,6 +40,12 @@
 
 (defface sp-dashboard-menu-face nil
   "Face for splash menus."
+  :group 'faces)
+
+(defface sp-dashboard-heading-face '((t :inherit org-level-1))
+  "Face for the title of a box (\"General agenda\", \"Thesis\", ...).
+The sp themes colour it with the heading role and size it with
+`sp-theme-headings', so it follows the theme."
   :group 'faces)
 
 (defface sp-dashboard-box-face '((t :inherit shadow))
@@ -75,7 +82,7 @@ with `load-theme' the next time the splash is drawn."
   "Third accent of the splash: the line colour of the third menu block."
   :group 'faces)
 
-(defface sp-dashboard-focus-face '((t :inherit highlight))
+(defface sp-dashboard-focus-face '((t :inherit highlight :extend nil))
   "Face for the splash button that TAB has selected."
   :group 'faces)
 
@@ -96,7 +103,7 @@ with `load-theme' the next time the splash is drawn."
         (format "%d packages loaded in %s" package-count time))))
   "Init info with packages loaded and init time."
   :type '(function string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 ;; Banner
 
@@ -104,7 +111,7 @@ with `load-theme' the next time the splash is drawn."
 (defcustom sp-dashboard-banner nil
   "Banner picture for splash-screen"
   :type '(string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar isep "   "
   "Separator for icon and title.")
@@ -119,29 +126,31 @@ with `load-theme' the next time the splash is drawn."
 (defcustom sp-dashboard-art-directory "images/"
   "Folder of the splash art files; relative to `sp-library-dir'."
   :type 'directory
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-layers
   (copy-tree
-   '((banner :file "dashboard-banner-3.txt" :x 30 :y -8 :face sp-dashboard-banner-face)
-     (lambda :file "lambda-splash.txt" :x -50 :y 0 :face sp-dashboard-art-face)))
+   '((banner :file "dashboard-banner-3.txt" :x 0 :y 0 :face sp-dashboard-banner-face)
+     (lambda :file "lambda-splash.txt" :x 0 :y 0 :face sp-dashboard-art-face)))
   "Art drawn behind the splash menu, topmost layer first.
 Each element is (NAME :file FILE :x X :y Y :face FACE).  FILE is a text
 file (a relative name is looked up in `sp-dashboard-art-directory').  X and
-Y move the art right and down from the centre of the window, in columns
-and lines (negative: left and up).  Remove an element to hide its layer."
+Y move the art right and down from its place, in columns and lines (negative:
+left and up): the side layer, `sp-dashboard-side-layer', is centred in the
+left column and in the window's height, any other layer in the right column.
+Remove an element to hide its layer."
   :type '(alist :key-type symbol :value-type plist)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-x-step 2
   "Columns the art moves with `sp-dashboard-art-right' and `sp-dashboard-art-left'."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-art-y-step 1
   "Lines the art moves with `sp-dashboard-art-up' and `sp-dashboard-art-down'."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard-art-layer nil
   "Name of the layer the nudge commands move; nil means the first layer.")
@@ -159,40 +168,198 @@ A relative FILE is looked up in `sp-dashboard-art-directory'."
     (let ((lines (with-temp-buffer
                    (insert-file-contents path)
                    (split-string (buffer-string) "\n"))))
-      ;; Drop blank lines at the end so they don't count as height.
+      ;; Drop blank lines at the end so they don't count as height, trailing
+      ;; blanks and the indent every line shares so they don't count as width.
+      (setq lines (mapcar #'string-trim-right lines))
       (while (and lines (string-blank-p (car (last lines))))
         (setq lines (butlast lines)))
-      lines)))
+      (let ((indent (apply #'min most-positive-fixnum
+                           (mapcar (lambda (line) (or (string-match "[^ ]" line)
+                                                      most-positive-fixnum))
+                                   lines))))
+        (if (< 0 indent most-positive-fixnum)
+            (mapcar (lambda (line) (if (> (length line) indent) (substring line indent) ""))
+                    lines)
+          lines)))))
 
 (defcustom sp-dashboard-content-layer 'banner
   "Name of the art layer the title and the menu sit under.
 The text is centred on this layer, below it.  Nil, or a layer that is not
 in `sp-dashboard-art-layers', centres the text on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
-(defcustom sp-dashboard-footer-layer 'lambda
-  "Name of the art layer the footer text is centred on, as for the menu."
+(defcustom sp-dashboard-footer-layer nil
+  "Name of the art layer the footer text is centred on.
+Nil, or a layer that is not in `sp-dashboard-art-layers', centres the footer
+on the window."
   :type '(choice (const :tag "Centre on the window" nil) symbol)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
-(defun sp-dashboard--layer-box (name)
-  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil."
+(defcustom sp-dashboard-side-layer 'lambda
+  "Name of the art layer that gets a column of its own, to the left.
+The other layers, the title and the boxes share the column to its right."
+  :type 'symbol
+  :group 'spcustom)
+
+(defcustom sp-dashboard-column-gap 8
+  "Columns between the side column and the content column."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-dashboard-content-top 3
+  "Line the top of the content column's art is on, before the layer's Y."
+  :type 'integer
+  :group 'spcustom)
+
+(defvar sp-dashboard-box-width)
+(defvar sp-dashboard-agenda-columns)
+
+;;;; Window size
+(defun sp-dashboard--columns ()
+  "Return the columns of the window."
+  (max 1 (window-width)))
+
+(defun sp-dashboard--lines ()
+  "Return the lines of the window."
+  (max 1 (window-body-height)))
+
+;;;; The side layer as an image
+;; Text is drawn at the font's own size.  The lambda is drawn as an SVG image
+;; instead, which scales to the window without touching the text: the image
+;; fills a block of columns by lines and is cut into one slice per line, each
+;; slice taking the place of the blanks of its line, so the lines keep their
+;; height and the other column stays on the character grid.
+(defcustom sp-dashboard-side-as-svg t
+  "Non-nil draws the side layer as a scalable SVG image where Emacs can show one.
+Otherwise, and in a terminal, it is drawn as text at the font's size."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-scale 'auto
+  "How much larger than its text the SVG side layer is drawn.
+`auto' makes it as large as `sp-dashboard-side-fill' of the window allows,
+within `sp-dashboard-side-scale-limits'; a number sets it.  1 is the size the
+text art would have."
+  :type '(choice (const :tag "Fill the window" auto) number)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-scale-limits '(0.4 . 4.0)
+  "Smallest and largest factor `sp-dashboard-side-scale' may pick on its own."
+  :type '(cons number number)
+  :group 'spcustom)
+
+(defcustom sp-dashboard-side-fill 0.9
+  "Fraction of the window's height, and of the width the right column leaves,
+that the SVG side layer may fill."
+  :type 'number
+  :group 'spcustom)
+
+(defun sp-dashboard--side-svg-p ()
+  "Return non-nil when the side layer is drawn as an SVG image."
+  (and sp-dashboard-side-as-svg
+       (display-graphic-p)
+       (image-type-available-p 'svg)))
+
+(defun sp-dashboard--side-scale (size)
+  "Return the factor to scale the side layer of text SIZE, (WIDTH . HEIGHT), by."
+  (if (numberp sp-dashboard-side-scale)
+      (float sp-dashboard-side-scale)
+    (let* ((room (max 1 (- (sp-dashboard--columns) sp-dashboard-column-gap
+                           (sp-dashboard--right-width))))
+           (fit (min (/ (* sp-dashboard-side-fill (sp-dashboard--lines))
+                        (float (cdr size)))
+                     (/ (* sp-dashboard-side-fill room) (float (car size))))))
+      (max (car sp-dashboard-side-scale-limits)
+           (min (cdr sp-dashboard-side-scale-limits) fit)))))
+
+;;;; Columns
+(defun sp-dashboard--art-size (name)
+  "Return (WIDTH . HEIGHT), in characters, of the text art of the layer NAME, or nil."
   (when-let* ((layer (assq name sp-dashboard-art-layers))
               (lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
-    (let ((width (apply #'max (mapcar #'length lines)))
-          (height (length lines)))
-      (list (+ (- (/ (window-width) 2) (/ width 2))
-               (or (plist-get (cdr layer) :x) 0))
-            (+ (- (/ (window-body-height) 2) (/ height 2))
-               (or (plist-get (cdr layer) :y) 0))
-            width height))))
+    (cons (apply #'max (mapcar #'length lines)) (length lines))))
+
+(defun sp-dashboard--layer-size (name)
+  "Return (WIDTH . HEIGHT), in columns and lines, of the art layer NAME, or nil.
+The side layer drawn as an SVG image takes its scaled size."
+  (when-let* ((size (sp-dashboard--art-size name)))
+    (if (and (eq name sp-dashboard-side-layer) (sp-dashboard--side-svg-p))
+        (let ((scale (sp-dashboard--side-scale size)))
+          (cons (max 1 (round (* scale (car size))))
+                (max 1 (round (* scale (cdr size))))))
+      size)))
+
+(defun sp-dashboard--box-columns ()
+  "Return how many boxes fit side by side, at most `sp-dashboard-agenda-columns'."
+  (max 1 (min sp-dashboard-agenda-columns
+              (/ (+ (sp-dashboard--columns) 2) (+ sp-dashboard-box-width 2)))))
+
+(defun sp-dashboard--lane-width ()
+  "Return the width, in columns, of the lane all the boxes fill.
+It is the boxes of `sp-dashboard-box-width' side by side and the gaps between
+them, however wide the banner is, and at most the window."
+  (let ((count (sp-dashboard--box-columns)))
+    (min (sp-dashboard--columns)
+         (+ (* count sp-dashboard-box-width) (* 2 (1- count))))))
+
+(defun sp-dashboard--right-width ()
+  "Return the width of the right column.
+That is the lane of the boxes or the widest layer other than the side layer,
+whichever is wider."
+  (let ((width (max (sp-dashboard--lane-width)
+                    (apply #'max 0
+                           (mapcar (lambda (layer)
+                                     (if (eq (car layer) sp-dashboard-side-layer)
+                                         0
+                                       (or (car (sp-dashboard--art-size (car layer))) 0)))
+                                   sp-dashboard-art-layers)))))
+    (if (zerop width) 60 width)))
+
+(defun sp-dashboard--column-geometry ()
+  "Return (LEFT-START LEFT-WIDTH RIGHT-START RIGHT-WIDTH) of the two columns.
+The side layer is the left column; the right column holds the other layers,
+the title and the boxes, and is as wide as the lane of the boxes or the widest
+layer.  The two are centred in the window together."
+  (let* ((right-width (sp-dashboard--right-width))
+         (columns (sp-dashboard--columns))
+         (side-width (or (car (sp-dashboard--layer-size sp-dashboard-side-layer)) 0))
+         ;; The side column is dropped when the window is too narrow for both.
+         (left-width (if (<= (+ side-width 2 right-width) columns) side-width 0))
+         (gap (if (> left-width 0)
+                  (min sp-dashboard-column-gap (- columns left-width right-width))
+                0))
+         (left-start (max 0 (/ (- columns (+ left-width gap right-width)) 2))))
+    (list left-start left-width (+ left-start left-width gap) right-width)))
+
+(defun sp-dashboard--layer-box (name)
+  "Return (LEFT TOP WIDTH HEIGHT) of the art layer NAME in the window, or nil.
+The side layer is centred in the left column and vertically in the window, and
+has no box when the window is too narrow for the left column; any other layer
+is centred in the right column, from `sp-dashboard-content-top'."
+  (when-let* ((layer (assq name sp-dashboard-art-layers))
+              (size (sp-dashboard--layer-size name)))
+    (pcase-let* ((`(,left-start ,left-width ,right-start ,right-width)
+                  (sp-dashboard--column-geometry))
+                 (width (car size))
+                 (height (cdr size))
+                 (side (eq name sp-dashboard-side-layer))
+                 (x (or (plist-get (cdr layer) :x) 0))
+                 (y (or (plist-get (cdr layer) :y) 0)))
+      (unless (and side (zerop left-width))
+        (list (+ x (if side
+                       (+ left-start (/ (- left-width width) 2))
+                     (+ right-start (/ (- right-width width) 2))))
+              (+ y (if side
+                       (- (/ (sp-dashboard--lines) 2) (/ height 2))
+                     sp-dashboard-content-top))
+              width height)))))
 
 (defun sp-dashboard--layer-column (name)
   "Return the middle column of the art layer NAME, or of the window."
   (if-let* ((box (sp-dashboard--layer-box name)))
       (+ (nth 0 box) (/ (nth 2 box) 2))
-    (/ (window-width) 2)))
+    (/ (sp-dashboard--columns) 2)))
 
 (defun sp-dashboard--content-column ()
   "Return the column the title and the menu are centred on."
@@ -212,17 +379,121 @@ in `sp-dashboard-art-layers', centres the text on the window."
          (delete-char 1)
          (insert (propertize (string ch) 'face face)))))
 
-(defun sp-dashboard--draw-layer (layer)
-  "Draw the art LAYER, centred on the window and moved by its offsets.
-Only plain blanks are replaced, so text, buttons and images are kept."
+(defun sp-dashboard--face-color (face)
+  "Return the foreground of FACE as a hex colour string."
+  (let ((color (or (face-foreground face nil t)
+                   (face-foreground 'default nil t)
+                   "#808080")))
+    (if (string-prefix-p "#" color)
+        color
+      (if-let* ((values (color-values color)))
+          (apply #'format "#%02x%02x%02x" (mapcar (lambda (value) (/ value 256)) values))
+        "#808080"))))
+
+(defun sp-dashboard--art-svg (lines face)
+  "Return SVG data that draws the text art LINES in FACE.
+One character cell is one unit of width and `frame-char-height' over
+`frame-char-width' units of height, and every run of characters is stretched to
+the cells it takes, so the picture has the shape of the text art in any font."
+  (let* ((width (apply #'max (mapcar #'length lines)))
+         (ratio (/ (float (frame-char-height)) (frame-char-width)))
+         (font-size 1.6)
+         (family (xml-escape-string
+                  (format "%s, monospace" (face-attribute 'default :family nil t))))
+         (row 0)
+         rows)
+    (dolist (text lines)
+      (let ((start 0))
+        ;; One text element for each run of characters between blanks.
+        (while (string-match "[^ ]+" text start)
+          (let ((run (match-string 0 text))
+                (index (match-beginning 0))
+                (end (match-end 0)))
+            (push (format (concat "<text x=\"%d\" y=\"%.3f\" textLength=\"%d\" "
+                                  "lengthAdjust=\"spacing\">%s</text>")
+                          index
+                          (+ (* (+ row 0.5) ratio) (* 0.3 font-size))
+                          (length run)
+                          (xml-escape-string run))
+                  rows)
+            (setq start end))))
+      (setq row (1+ row)))
+    (format (concat "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+                    "width=\"%.1f\" height=\"%.3f\" "
+                    "viewBox=\"-0.3 0 %.1f %.3f\" preserveAspectRatio=\"none\">"
+                    "<g font-family=\"%s\" font-size=\"%.3f\" "
+                    "fill=\"%s\">%s</g></svg>")
+            (+ width 0.6) (* (length lines) ratio) (+ width 0.6) (* (length lines) ratio)
+            family font-size
+            (sp-dashboard--face-color face)
+            (apply #'concat (nreverse rows)))))
+
+(defun sp-dashboard--put-svg-slice (left columns display)
+  "Put DISPLAY on a blank in place of the COLUMNS blanks from column LEFT.
+Works on the current line, and does nothing if those columns hold anything
+but plain blanks."
+  (end-of-line)
+  (when (< (current-column) (+ left columns))
+    (insert-char ?\s (- (+ left columns) (current-column))))
+  (beginning-of-line)
+  (move-to-column left)
+  (let ((start (point)))
+    (move-to-column (+ left columns))
+    (when (and (= (current-column) (+ left columns))
+               (string-match-p "\\` *\\'" (buffer-substring-no-properties start (point)))
+               (not (text-property-not-all start (point) 'face nil))
+               (not (text-property-not-all start (point) 'display nil))
+               (not (text-property-not-all start (point) 'button nil)))
+      (delete-region start (point))
+      (insert (propertize " " 'display display)))))
+
+(defun sp-dashboard--ascent-percent ()
+  "Return how much of a text line, in percent, lies above the baseline."
+  (or (ignore-errors
+        (let* ((info (font-info (face-font 'default nil ?a)))
+               (ascent (aref info 8))
+               (descent (aref info 9)))
+          (round (* 100.0 (/ (float ascent) (+ ascent descent))))))
+      80))
+
+(defun sp-dashboard--draw-side-svg (layer box)
+  "Draw the art LAYER as an SVG image in BOX, one slice on each line it covers."
   (when-let* ((lines (sp-dashboard--art-lines (plist-get (cdr layer) :file))))
+    (pcase-let* ((`(,left ,top ,columns ,rows) box)
+                 (char-height (frame-char-height))
+                 (pixel-width (* columns (frame-char-width)))
+                 (face (or (plist-get (cdr layer) :face) 'sp-dashboard-art-face))
+                 (image (create-image (sp-dashboard--art-svg lines face) 'svg t
+                                      :width pixel-width
+                                      :height (* rows char-height)
+                                      :scale 1
+                                      :ascent (sp-dashboard--ascent-percent)))
+                 (inhibit-read-only t)
+                 (max-line (sp-dashboard--lines)))
+      (dotimes (row rows)
+        (let ((line (+ top row)))
+          (when (and (>= line 1) (<= line max-line) (>= left 0))
+            (goto-char (point-max))
+            (while (< (line-number-at-pos) line)
+              (insert-char ?\n 1))
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (sp-dashboard--put-svg-slice
+             left columns
+             (list (list 'slice 0 (* row char-height) pixel-width char-height)
+                   image))))))))
+
+(defun sp-dashboard--draw-text-layer (layer)
+  "Draw the text art LAYER in its box, a character for each column.
+Only plain blanks are replaced, so text, buttons and images are kept."
+  (when-let* ((lines (sp-dashboard--art-lines (plist-get (cdr layer) :file)))
+              (box (sp-dashboard--layer-box (car layer))))
     (let* ((inhibit-read-only t)
            (indent-tabs-mode nil)
            (face (or (plist-get (cdr layer) :face) 'sp-dashboard-art-face))
-           (box (sp-dashboard--layer-box (car layer)))
            (left (nth 0 box))
            (top (nth 1 box))
-           (max-line (window-body-height))
+           (max-line (sp-dashboard--lines))
            (row 0))
       (dolist (text lines)
         (let ((line (+ top row)))
@@ -240,6 +511,14 @@ Only plain blanks are replaced, so text, buttons and images are kept."
                   (sp-dashboard--put-art-char col ch face)
                   (forward-line 0)))))
           (setq row (1+ row)))))))
+
+(defun sp-dashboard--draw-layer (layer)
+  "Draw the art LAYER in its box: as an SVG image if it is the side layer and
+Emacs can show one, otherwise as text."
+  (if (and (eq (car layer) sp-dashboard-side-layer) (sp-dashboard--side-svg-p))
+      (when-let* ((box (sp-dashboard--layer-box (car layer))))
+        (sp-dashboard--draw-side-svg layer box))
+    (sp-dashboard--draw-text-layer layer)))
 
 (defun sp-dashboard--draw-art ()
   "Draw every art layer behind the menu, the topmost layer first."
@@ -316,7 +595,7 @@ The form is also copied to the kill ring."
   '(sp-dashboard-accent-1-face sp-dashboard-accent-2-face sp-dashboard-accent-3-face)
   "Faces that colour the menu blocks in turn, as their box lines."
   :type '(repeat face)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palette-roles
   '((art      sp-dashboard-art-face      shadow                        :foreground 0.40)
@@ -330,7 +609,7 @@ Each element is (ROLE FACE SOURCE-FACE ATTRIBUTE MIX).  FACE, the splash
 face of the role, gets the ATTRIBUTE of SOURCE-FACE mixed with the default
 background: MIX 1 is the source colour, 0 the background."
   :type '(repeat (list symbol face face symbol number))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palettes nil
   "Colours chosen by hand for themes, instead of the derived ones.
@@ -342,12 +621,12 @@ for example:
 A role that is not listed for the current theme is derived from the
 theme, see `sp-dashboard-palette-roles'."
   :type '(alist :key-type symbol :value-type (alist :key-type symbol :value-type string))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-palette-follow-theme t
   "Non-nil recolours the splash, and redraws it, when the theme changes."
   :type 'boolean
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defun sp-dashboard--rgb (color)
   "Return COLOR as a list of red, green and blue between 0 and 1, or nil."
@@ -382,11 +661,15 @@ theme, see `sp-dashboard-palette-roles'."
       (face-spec-set (nth 1 entry) `((t :foreground ,color)) 'face-override-spec))))
 
 (defun sp-dashboard--theme-changed (&rest _)
-  "Recolour and redraw the splash after a theme change."
+  "Recolour the splash after a theme change, and redraw it where it is shown.
+Drawing the splash takes the selected window, so it is drawn in the window
+that already shows it and in none else: with another buffer selected, a
+theme change must not bring the Dashboard to the front."
   (when sp-dashboard-palette-follow-theme
     (sp-dashboard-apply-palette)
-    (when-let* ((buffer (get-buffer "Dashboard")))
-      (with-current-buffer buffer
+    (when-let* ((buffer (get-buffer "Dashboard"))
+                (window (get-buffer-window buffer t)))
+      (with-selected-window window
         (sp-dashboard-refresh)))))
 
 (add-hook 'enable-theme-functions #'sp-dashboard--theme-changed)
@@ -414,57 +697,7 @@ Each element is (ICON LABEL KEY COMMAND HELP CHILDREN).  ICON is a
 then needs no KEY or COMMAND.  The keys must also be bound in
 `sp-dashboard-mode-map'."
   :type '(repeat sexp)
-  :group 'sp-dashboard)
-
-(defun sp-dashboard--menu-rows (entry)
-  "Return the rows of the menu block ENTRY, heading first.
-Each row is (TEXT KEY COMMAND HELP)."
-  (pcase-let ((`(,icon ,label ,key ,command ,help ,children) entry))
-    (let ((count (length children))
-          (index 0))
-      (cons (list (concat (nerd-icons-faicon icon) isep label) key command help)
-            (mapcar (lambda (child)
-                      (setq index (1+ index))
-                      (cons (concat "  " (if (= index count) "└─ " "├─ ") (car child))
-                            (cdr child)))
-                    children)))))
-
-(defun sp-dashboard--insert-menu (content-col)
-  "Insert the menu blocks in boxes, centred on column CONTENT-COL."
-  (let* ((blocks (mapcar #'sp-dashboard--menu-rows sp-dashboard-menu))
-         (text-width (apply #'max (mapcar (lambda (row) (string-width (car row)))
-                                          (apply #'append blocks))))
-         (body-width (+ text-width (length ksep) 3))
-         (inner-width (+ body-width 2))
-         (indent (max 0 (- content-col (/ (+ inner-width 2) 2))))
-         (faces (copy-sequence sp-dashboard-accent-faces)))
-    (when faces
-      (setcdr (last faces) faces))
-    (dolist (block blocks)
-      (insert-char ?\s indent)
-      (insert (propertize (concat "┌" (make-string inner-width ?─) "┐\n")
-                          'face (or (car faces) 'sp-dashboard-box-face)))
-      (dolist (row block)
-        (pcase-let* ((`(,text ,key ,command ,help) row)
-                     (body (concat text
-                                   (make-string (- text-width (string-width text)) ?\s)
-                                   ksep
-                                   (if key (format "(%s)" key) "   "))))
-          (insert-char ?\s indent)
-          (insert (propertize "│ " 'face (or (car faces) 'sp-dashboard-box-face)))
-          (if command
-              (insert-text-button body
-                                  'action (lambda (_) (funcall command))
-                                  'help-echo help
-                                  'face 'sp-dashboard-menu-face
-                                  'follow-link t)
-            (insert (propertize body 'face 'sp-dashboard-menu-face)))
-          (insert (propertize " │\n" 'face (or (car faces) 'sp-dashboard-box-face)))))
-      (insert-char ?\s indent)
-      (insert (propertize (concat "└" (make-string inner-width ?─) "┘\n")
-                          'face (or (car faces) 'sp-dashboard-box-face)))
-      (insert "\n")
-      (setq faces (cdr faces)))))
+  :group 'spcustom)
 
 ;;;; Agenda boxes
 ;; One box per agenda, laid out in a grid, each listing its most urgent TODOs.
@@ -483,73 +716,59 @@ a variable holding the files to read (nil: `org-agenda-files').  MODE is
 `urgent' to list the most urgent open TODOs, or `deadline' to list the
 nearest deadlines.  The keys must also be bound in `sp-dashboard-mode-map'."
   :type '(repeat sexp)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
-(defcustom sp-dashboard-agenda-box-width 38
-  "Width, in columns, of the text inside an agenda box."
+(defcustom sp-dashboard-box-width 40
+  "Width, in columns and borders included, of each agenda and menu box.
+The lane of the boxes is this wide times `sp-dashboard-agenda-columns' plus
+the gaps, and the banner and the title are centred on it.  A wider box shows
+more of each TODO; boxes shrink to fit a window narrower than the lane."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-columns 2
-  "Agenda boxes side by side; fewer when the window is too narrow."
+  "Boxes side by side in the lane; fewer when the lane is too narrow for them."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todo-count 3
   "TODOs listed in each agenda box."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todo-lines 2
   "Lines one TODO may wrap onto before it is cut with an ellipsis."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-todos-clickable t
   "Non-nil makes the first line of each TODO a button that visits the entry.
-Each one is then another stop for \\`TAB'."
+Each one is then an entry of its box, reached with \\`<right>' from the title and then \\`TAB'."
   :type 'boolean
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-urgent-states '("NEXT" "PROG")
   "TODO keywords that rank an entry higher among the most urgent."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 ;;;;; Privacy
 ;; Private entries are left out of the boxes while the dashboard is public.
-(defcustom sp-dashboard-private-tags '("private")
-  "Entries with one of these tags (inherited) are private."
-  :type '(repeat string)
-  :group 'sp-dashboard)
-
-(defcustom sp-dashboard-private-files nil
-  "Regexps of files whose entries are all private."
-  :type '(repeat regexp)
-  :group 'sp-dashboard)
+;; Moved to `sp-globals': `sp-dashboard-private-tags',
+;; `sp-dashboard-private-files', `sp-dashboard-trusted-networks' and
+;; `sp-dashboard-screen-share-processes'.
 
 (defcustom sp-dashboard-public-conditions '(sp-dashboard-condition-focus)
   "Functions, without arguments, that return non-nil when you are in public.
 In `auto' mode the dashboard is public as soon as one of them returns non-nil,
 or signals an error (a check that cannot run counts as public)."
   :type '(repeat function)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard-public-mode 'auto
   "Whether the dashboard hides private entries.
 `auto' follows `sp-dashboard-public-conditions', `public' always hides them
 and `private' always shows them.  Cycle it with `sp-dashboard-toggle-public-mode'.")
-
-(defcustom sp-dashboard-trusted-networks nil
-  "Wi-Fi names that count as private, for `sp-dashboard-condition-untrusted-network'."
-  :type '(repeat string)
-  :group 'sp-dashboard)
-
-(defcustom sp-dashboard-screen-share-processes nil
-  "Process names that mean the screen is shared, such as a call app's helper.
-Used by `sp-dashboard-condition-screen-share'."
-  :type '(repeat string)
-  :group 'sp-dashboard)
 
 (defun sp-dashboard-condition-untrusted-network ()
   "Return non-nil when the Wi-Fi network is not in `sp-dashboard-trusted-networks'.
@@ -572,13 +791,13 @@ Always nil when that list is empty, so it does nothing until configured."
 Create it when a Focus turns on and delete it when it turns off, for example
 with a macOS Shortcuts automation that runs `touch' or `rm' on it."
   :type 'file
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-focus-modes nil
   "Substrings of the macOS Focus identifiers that count as public.
 nil means any Focus that macOS reports as on."
   :type '(repeat string)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defconst sp-dashboard--focus-assertions-file
   "~/Library/DoNotDisturb/DB/Assertions.json"
@@ -634,7 +853,7 @@ This overrides `sp-dashboard-public-mode', and the dashboard redraws."
   "Seconds between checks of the public status while the Dashboard exists.
 nil turns the timer off; the Focus files are still watched."
   :type '(choice (const :tag "No timer" nil) integer)
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defvar sp-dashboard--drawn-public nil
   "Whether the Dashboard was last drawn as public.")
@@ -744,20 +963,52 @@ nil turns the timer off; the Focus files are still watched."
        (if (and scheduled (<= scheduled 0)) 1000 0)
        (if (member (plist-get entry :state) sp-dashboard-urgent-states) 500 0))))
 
+(defvar sp-dashboard-agenda-ready t
+  "Non-nil when `org-agenda-files' is final and the agenda boxes may read it.
+A module that sets the files late sets this to nil when it loads, then to t
+once they are set, and calls `sp-dashboard-refresh-agendas'.  Until then the
+boxes say they are loading instead of reading the wrong files.")
+
+(defvar sp-dashboard--entries-cache nil
+  "Hash table of the entries read from each list of files during one draw.
+Nil outside a draw, when nothing is kept.")
+
+(defun sp-dashboard--read-entries (files)
+  "Return every open TODO of FILES as entry plists, in no particular order.
+During a draw (`sp-dashboard--entries-cache') a list of files is read once,
+however many boxes show it."
+  (require 'org)
+  (or (and sp-dashboard--entries-cache
+           (gethash files sp-dashboard--entries-cache))
+      (let ((started (float-time))
+            (count 0)
+            entries)
+        (dolist (file files)
+          (when (file-readable-p file)
+            (setq count (1+ count))
+            (condition-case nil
+                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
+                  (when entry
+                    (push entry entries)))
+              (error nil))))
+        (message "[dashboard] read %d agenda file%s in %.2fs"
+                 count (if (= count 1) "" "s") (- (float-time) started))
+        (when sp-dashboard--entries-cache
+          (puthash files entries sp-dashboard--entries-cache))
+        entries)))
+
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
 Private entries are left out while `sp-dashboard-public-p'."
-  (require 'org)
-  (let ((public (sp-dashboard-public-p))
-        entries)
-    (dolist (file files)
-      (when (file-readable-p file)
-        (condition-case nil
-            (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-              (unless (or (null entry)
-                          (and public (sp-dashboard--private-p file (plist-get entry :tags))))
-                (push entry entries)))
-          (error nil))))
+  (let* ((public (sp-dashboard-public-p))
+         ;; A new list each time: `sort' below changes its argument, and the
+         ;; entries of a draw are shared by its boxes.
+         (entries (seq-remove
+                   (lambda (entry)
+                     (and public
+                          (sp-dashboard--private-p (plist-get entry :file)
+                                                   (plist-get entry :tags))))
+                   (sp-dashboard--read-entries files))))
     (when (eq mode 'deadline)
       (setq entries (seq-filter (lambda (entry)
                                   (let ((days (plist-get entry :deadline)))
@@ -806,41 +1057,136 @@ Private entries are left out while `sp-dashboard-public-p'."
   (goto-char pos)
   (org-reveal))
 
-(defun sp-dashboard--box-line (box-face &rest segments)
-  "Return a box line holding SEGMENTS, padded to `sp-dashboard-agenda-box-width'."
+(defun sp-dashboard--box-line (width box-face &rest segments)
+  "Return a box line of text WIDTH holding SEGMENTS, padded to that width."
   (let ((used (apply #'+ (mapcar (lambda (segment) (string-width (car segment)))
                                  segments))))
     (append (list (list "│ " box-face))
             segments
-            (list (list (make-string (max 0 (- sp-dashboard-agenda-box-width used)) ?\s)
+            (list (list (make-string (max 0 (- width used)) ?\s)
                         'sp-dashboard-menu-face)
                   (list " │" box-face)))))
 
-(defun sp-dashboard--agenda-box (agenda box-face)
-  "Return AGENDA as a box of lines, drawn with BOX-FACE."
-  (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
-               (width sp-dashboard-agenda-box-width)
+(defun sp-dashboard--title-segment (text key command help width)
+  "Return the segment of a title or menu row, TEXT with KEY at the right of WIDTH.
+It is a button calling COMMAND, with HELP, when COMMAND is non-nil."
+  (let* ((keytext (if key (format "(%s)" key) ""))
+         (body (concat text
+                       (make-string (max 1 (- width (string-width text)
+                                              (string-width keytext)))
+                                    ?\s)
+                       keytext)))
+    (if command
+        (list body 'sp-dashboard-menu-face (lambda (_) (funcall command)) help)
+      (list body 'sp-dashboard-menu-face))))
+
+;; The title of a box is larger than the rows under it.  A larger font makes
+;; every character wider, so the label's width is read from the font and the gap
+;; before the key is one space with an exact pixel width.
+(defun sp-dashboard--heading-pixels (text)
+  "Return the width of TEXT in `sp-dashboard-heading-face', in pixels.
+It counts the characters at the average width of that face, so nothing is
+drawn or measured in a buffer.  Without a graphical frame it is the width of
+the default font."
+  (* (string-width text)
+     (if (display-graphic-p)
+         (window-font-width nil 'sp-dashboard-heading-face)
+       (frame-char-width))))
+
+(defun sp-dashboard--heading-segments (text key command help width)
+  "Return the segments of a box title, TEXT with KEY at the right of WIDTH.
+TEXT is drawn in `sp-dashboard-heading-face'.  It is a button calling
+COMMAND, with HELP, when COMMAND is non-nil."
+  (let* ((keytext (if key (format "(%s)" key) ""))
+         (room (* (- width (string-width keytext) 1) (frame-char-width)))
+         (text (progn
+                 ;; Cut the label until it and one space fit before the key.
+                 (while (and (> (length text) 1)
+                             (> (sp-dashboard--heading-pixels text) room))
+                   (setq text (concat (string-trim-right (substring text 0 -2)) "…")))
+                 text))
+         (count (max 1 (- width (string-width text) (string-width keytext))))
+         (gap (max (frame-char-width)
+                   (- (* (- width (string-width keytext)) (frame-char-width))
+                      (sp-dashboard--heading-pixels text))))
+         (label (if command
+                    (list text 'sp-dashboard-heading-face
+                          (lambda (_) (funcall command)) help
+                          (list 'sp-dashboard-level 'title 'sp-dashboard-box key))
+                  (list text 'sp-dashboard-heading-face)))
+         (click (when command
+                  (let ((map (make-sparse-keymap)))
+                    (define-key map [mouse-1] (lambda () (interactive) (funcall command)))
+                    map))))
+    (list label
+          (list (propertize (make-string count ?\s) 'display `(space :width (,gap)))
+                'sp-dashboard-menu-face)
+          ;; Not a button: the title is the one TAB stop of the box.
+          (list (propertize keytext 'keymap click) 'sp-dashboard-menu-face))))
+
+;; The buttons are on two levels: the title of each box, and the entries
+;; (TODOs, menu rows) inside it.
+(defun sp-dashboard--item-segment (segment box)
+  "Return SEGMENT, a title segment, marked as an entry of the box with key BOX."
+  (append segment (make-list (max 0 (- 4 (length segment))) nil)
+          (list (list 'sp-dashboard-level 'item 'sp-dashboard-box box))))
+
+(defun sp-dashboard--menu-box (entry width box-face)
+  "Return the menu block ENTRY as a box of text WIDTH, drawn with BOX-FACE."
+  (pcase-let* ((`(,icon ,label ,key ,command ,help ,children) entry)
                (rule (make-string (+ width 2) ?─))
-               (title (concat (nerd-icons-faicon icon) isep label))
-               (keytext (format "(%s)" key))
-               (todos (condition-case nil
-                          (sp-dashboard--todos
-                           (or (symbol-value files-var) (org-agenda-files)) mode)
-                        (error nil)))
+               (count (length children))
+               (index 0)
                (lines (list (list (list (concat "┌" rule "┐") box-face))
-                            (sp-dashboard--box-line
-                             box-face
-                             (list (concat title
-                                           (make-string (max 1 (- width (string-width title)
-                                                                  (string-width keytext)))
-                                                        ?\s)
-                                           keytext)
-                                   'sp-dashboard-menu-face
-                                   (lambda (_) (funcall command)) help))
+                            (apply #'sp-dashboard--box-line
+                                   width box-face
+                                   (sp-dashboard--heading-segments
+                                    (concat (nerd-icons-faicon icon) " " label)
+                                    key command help width)))))
+    (dolist (child children)
+      (setq index (1+ index))
+      (pcase-let ((`(,child-label ,child-key ,child-command ,child-help) child))
+        (setq lines
+              (append lines
+                      (list (sp-dashboard--box-line
+                             width box-face
+                             (sp-dashboard--item-segment
+                              (sp-dashboard--title-segment
+                               (concat "  " (if (= index count) "└─ " "├─ ") child-label)
+                               child-key child-command child-help width)
+                              key)))))))
+    (append lines (list (list (list (concat "└" rule "┘") box-face))))))
+
+(defun sp-dashboard--todo-face (state)
+  "Return the face of the TODO keyword STATE.
+It is the one Org uses in the agenda: `org-todo-keyword-faces' first, then
+`org-todo' or `org-done', which the sp themes colour."
+  (or (and (fboundp 'org-get-todo-face) (org-get-todo-face state))
+      'org-todo))
+
+(defun sp-dashboard--agenda-box (agenda width box-face)
+  "Return AGENDA as a box of text WIDTH, drawn with BOX-FACE."
+  (pcase-let* ((`(,icon ,label ,key ,command ,help ,files-var ,mode) agenda)
+               (rule (make-string (+ width 2) ?─))
+               (todos (when sp-dashboard-agenda-ready
+                        (condition-case nil
+                            (sp-dashboard--todos
+                             (or (symbol-value files-var) (org-agenda-files)) mode)
+                          (error nil))))
+               (lines (list (list (list (concat "┌" rule "┐") box-face))
+                            (apply #'sp-dashboard--box-line
+                                   width box-face
+                                   (sp-dashboard--heading-segments
+                                    (concat (nerd-icons-faicon icon) " " label)
+                                    key command help width))
                             (list (list (concat "├" rule "┤") box-face)))))
     (if (null todos)
         (setq lines (append lines (list (sp-dashboard--box-line
-                                         box-face (list "  nothing open" 'shadow)))))
+                                         width box-face
+                                         (list (if sp-dashboard-agenda-ready
+                                                   "  nothing open"
+                                                 "  loading agenda files...")
+                                               'shadow)))))
       (dolist (entry todos)
         (let* ((prefix (if (eq mode 'deadline)
                            (format-time-string
@@ -853,41 +1199,82 @@ Private entries are left out while `sp-dashboard-public-p'."
                                             sp-dashboard-agenda-todo-lines))
                (first t))
           (dolist (text wrapped)
-            (let ((segment (list (concat (if first "• " "  ") text)
-                                 'sp-dashboard-menu-face)))
-              (when (and first sp-dashboard-agenda-todos-clickable)
-                (let ((file (plist-get entry :file))
-                      (pos (plist-get entry :pos)))
-                  (setq segment
-                        (append segment
-                                (list (lambda (_) (sp-dashboard--visit-entry file pos))
-                                      "Visit the entry")))))
-              (setq lines (append lines (list (sp-dashboard--box-line box-face segment)))
+            (let* ((state (and first (not (eq mode 'deadline)) (plist-get entry :state)))
+                   (state (and state (string-prefix-p state text) state))
+                   (action (and first sp-dashboard-agenda-todos-clickable
+                                (let ((file (plist-get entry :file))
+                                      (pos (plist-get entry :pos)))
+                                  (list (lambda (_) (sp-dashboard--visit-entry file pos))
+                                        "Visit the entry"
+                                        (list 'sp-dashboard-level 'item
+                                              'sp-dashboard-box key)))))
+                   (visit (and action
+                               (let ((map (make-sparse-keymap))
+                                     (command (car action)))
+                                 (define-key map [mouse-1] command)
+                                 (define-key map (kbd "RET") command)
+                                 map)))
+                   (parts (if state
+                              ;; Only the rest of the row is a button, so TAB
+                              ;; stops once per entry; the bullet and keyword
+                              ;; are clickable through a keymap.
+                              (list (list (propertize "• " 'keymap visit)
+                                          'sp-dashboard-menu-face)
+                                    (list (propertize state 'keymap visit)
+                                          (sp-dashboard--todo-face state))
+                                    (append (list (substring text (length state))
+                                                  'sp-dashboard-menu-face)
+                                            action))
+                            (list (append (list (concat (if first "• " "  ") text)
+                                                'sp-dashboard-menu-face)
+                                          action)))))
+              (setq lines (append lines
+                                  (list (apply #'sp-dashboard--box-line width box-face
+                                               parts)))
                     first nil))))))
     (append lines (list (list (list (concat "└" rule "┘") box-face))))))
 
 (defun sp-dashboard--insert-segment (segment)
-  "Insert SEGMENT, a list (TEXT FACE [ACTION HELP])."
-  (pcase-let ((`(,text ,face ,action ,help) segment))
+  "Insert SEGMENT, a list (TEXT FACE [ACTION HELP PROPERTIES]).
+PROPERTIES are added to the button, see `sp-dashboard--stops'."
+  (pcase-let ((`(,text ,face ,action ,help ,properties) segment))
     (if action
-        (insert-text-button text 'action action 'help-echo help
-                            'face face 'follow-link t)
+        (apply #'insert-text-button text 'action action 'help-echo help
+               'face face 'follow-link t properties)
       (insert (propertize text 'face face)))))
 
-(defun sp-dashboard--insert-agendas (content-col)
-  "Insert the agenda boxes in a grid, centred on column CONTENT-COL."
-  (let* ((box-width (+ sp-dashboard-agenda-box-width 4))
+(defvar sp-dashboard--scope)
+
+(defun sp-dashboard--insert-boxes (content-col)
+  "Insert the agenda and menu boxes in one lane centred on column CONTENT-COL.
+The lane is `sp-dashboard--lane-width' wide, from `sp-dashboard-box-width',
+and the banner is centred on it."
+  (setq sp-dashboard--scope nil)
+  (let* ((sp-dashboard--entries-cache (make-hash-table :test #'equal))
          (gap 2)
-         (columns (max 1 (min sp-dashboard-agenda-columns
-                              (/ (+ (window-width) gap) (+ box-width gap)))))
-         (indent (max 0 (- content-col (/ (+ (* columns box-width) (* (1- columns) gap)) 2))))
+         (lane (sp-dashboard--lane-width))
+         (columns (sp-dashboard--box-columns))
+         (base (/ (- lane (* gap (1- columns))) columns))
+         (extra (- lane (* gap (1- columns)) (* base columns)))
+         (totals (mapcar (lambda (column) (+ base (if (< column extra) 1 0)))
+                         (number-sequence 0 (1- columns))))
+         (indent (max 0 (- content-col (/ lane 2))))
          (faces (copy-sequence sp-dashboard-accent-faces))
+         (index 0)
          (boxes nil))
     (when faces
       (setcdr (last faces) faces))
-    (dolist (agenda sp-dashboard-agendas)
-      (push (sp-dashboard--agenda-box agenda (or (pop faces) 'sp-dashboard-box-face))
-            boxes))
+    (dolist (entry (append (mapcar (lambda (agenda) (cons 'agenda agenda))
+                                   sp-dashboard-agendas)
+                           (mapcar (lambda (block) (cons 'menu block))
+                                   sp-dashboard-menu)))
+      (let ((width (- (nth (% index columns) totals) 4))
+            (face (or (pop faces) 'sp-dashboard-box-face)))
+        (push (if (eq (car entry) 'agenda)
+                  (sp-dashboard--agenda-box (cdr entry) width face)
+                (sp-dashboard--menu-box (cdr entry) width face))
+              boxes)
+        (setq index (1+ index))))
     (setq boxes (nreverse boxes))
     (setq sp-dashboard--drawn-public (and (sp-dashboard-public-p) t))
     (when sp-dashboard--drawn-public
@@ -898,17 +1285,17 @@ Private entries are left out while `sp-dashboard-public-p'."
       (let* ((row (seq-take boxes columns))
              (height (apply #'max (mapcar #'length row))))
         (setq boxes (seq-drop boxes columns))
-        (dotimes (index height)
+        (dotimes (line-index height)
           (insert-char ?\s indent)
-          (let ((first t))
+          (let ((column 0))
             (dolist (box row)
-              (unless first
+              (when (> column 0)
                 (insert-char ?\s gap))
-              (setq first nil)
-              (if-let* ((line (nth index box)))
+              (if-let* ((line (nth line-index box)))
                   (dolist (segment line)
                     (sp-dashboard--insert-segment segment))
-                (insert-char ?\s box-width))))
+                (insert-char ?\s (nth column totals)))
+              (setq column (1+ column))))
           (insert "\n"))
         (insert "\n")))))
 
@@ -1030,8 +1417,12 @@ splash is drawn again with the current settings."
 
             ;; Set margin padding locally
             (setq-local left-margin-width 0
-                        right-margin-width (/ width 6))
+                        right-margin-width 0)
             (set-window-buffer nil (current-buffer))
+            ;; The margins are set, so find the column again: the art is placed
+            ;; by the same width, and the title and the boxes must be centred
+            ;; on the banner's column.
+            (setq content-col (sp-dashboard--content-column))
 
             ;; Add padding at top
             (insert-char ?\n padding-top)
@@ -1047,7 +1438,7 @@ splash is drawn again with the current settings."
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
-                (let* ((image-file (if (eq (car custom-enabled-themes) 'lambda-dark)
+                (let* ((image-file (if (sp-theme-dark-p)
                                        (concat sp-library-dir "lambda-logo-white.png")
                                      (concat sp-library-dir "lambda-logo-black.png")))
                        (image (create-image image-file 'png nil :width 175 :height 175)))
@@ -1079,15 +1470,13 @@ splash is drawn again with the current settings."
 
             ;; Insert the menu blocks, in boxes under the banner
             (goto-char (point-max))
-            (sp-dashboard--insert-agendas content-col)
+            (sp-dashboard--insert-boxes content-col)
             (sp-dashboard--start-public-watch)
-            (sp-dashboard--insert-menu content-col)
 
             ;; Add footer with some space above bottom
             (goto-char (point-max))
             (let* ((current-line (line-number-at-pos))
-                   (window-height (window-height))
-                   (footer-padding (max 1 (- window-height current-line 15))))
+                   (footer-padding (max 1 (- (sp-dashboard--lines) current-line 2))))
               (insert-char ?\n footer-padding))
             
             ;; Footer text centered
@@ -1131,48 +1520,66 @@ splash is drawn again with the current settings."
 (defcustom sp-dashboard-agenda-general-files nil
   "Files of the General agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-thesis-files nil
   "Files of the thesis agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-issues-files nil
   "Files of the issues agenda; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-agenda-deadlines-files nil
   "Files searched for the coming deadlines; nil uses `org-agenda-files'."
   :type '(choice (const :tag "All agenda files" nil) (repeat file))
-  :group 'sp-dashboard)
+  :group 'spcustom)
 
 (defcustom sp-dashboard-deadlines-days 30
   "Days ahead the deadlines agenda looks."
   :type 'integer
-  :group 'sp-dashboard)
+  :group 'spcustom)
+
+(defvar org-other-agenda-series)
+(defvar org-other-agenda-settings)
+(defvar org-other-agenda-buffer-name)
 
 (defun sp-dashboard--open-agenda (files &optional deadlines)
   "Show the agenda of FILES (nil: `org-agenda-files').
 With DEADLINES, show only the deadlines of the next `sp-dashboard-deadlines-days'."
   (require 'org)
   (require 'org-agenda)
-  (let ((org-agenda-files (or files org-agenda-files)))
-    (if deadlines
-        (let ((org-agenda-span sp-dashboard-deadlines-days)
-              (org-agenda-entry-types '(:deadline))
-              (org-deadline-warning-days sp-dashboard-deadlines-days))
-          (org-agenda-list))
-      (org-agenda-list))))
+  (let* ((files (or files org-agenda-files))
+         (org-agenda-files files))
+    (if (require 'org-other-agenda nil t)
+        (let* ((days sp-dashboard-deadlines-days)
+               (series (if deadlines
+                           `((agenda "" ((org-agenda-span ,days)
+                                         (org-agenda-entry-types '(:deadline))
+                                         (org-deadline-warning-days ,days))))
+                         org-other-agenda-series))
+               (settings `((org-agenda-files ',files)))
+               (org-other-agenda-series series)
+               (org-other-agenda-settings settings))
+          (org-other-agenda)
+          ;; Refreshing the board later happens outside this `let'.
+          (with-current-buffer org-other-agenda-buffer-name
+            (setq-local org-other-agenda-series series
+                        org-other-agenda-settings settings)))
+      (if deadlines
+          (let ((org-agenda-span sp-dashboard-deadlines-days)
+                (org-agenda-entry-types '(:deadline))
+                (org-deadline-warning-days sp-dashboard-deadlines-days))
+            (org-agenda-list))
+        (org-agenda-list)))))
 
 (defun sp-dashboard-open-agenda ()
   "Open the General agenda from the splash screen.
-Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
+Without `sp-dashboard-agenda-general-files' it covers `org-agenda-files'."
   (interactive)
-  (if sp-dashboard-agenda-general-files
-      (sp-dashboard--open-agenda sp-dashboard-agenda-general-files)
-    (sp-dashboard--workspace-dispatch 'sp-open-agenda-in-workspace)))
+  (sp-dashboard--open-agenda sp-dashboard-agenda-general-files))
 
 (defun sp-dashboard-open-thesis-agenda ()
   "Open the thesis agenda from the splash screen."
@@ -1220,6 +1627,8 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
     (define-key map [mouse-2] 'push-button)
     (define-key map [follow-link] 'mouse-face)
     (define-key map (kbd "<backtab>") 'sp-dashboard-previous-button)
+    (define-key map (kbd "<right>") 'sp-dashboard-enter-box)
+    (define-key map (kbd "<left>") 'sp-dashboard-leave-box)
     (define-key map (kbd "l") 'sp-dashboard-art-next-layer)
     (define-key map (kbd "0") 'sp-dashboard-art-reset)
     (define-key map (kbd "s") 'sp-dashboard-art-show-position)
@@ -1253,15 +1662,65 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
 (defvar-local sp-dashboard--focus-overlay nil
   "Overlay marking the selected button of the splash.")
 
+(defvar-local sp-dashboard--scope nil
+  "Key of the box whose entries TAB walks, or nil while it walks the titles.")
+
+(defun sp-dashboard--stops ()
+  "Return the buttons TAB walks, in buffer order.
+That is the title of each box, or, inside a box (`sp-dashboard--scope'),
+its entries.  A button is a title unless its `sp-dashboard-level' is `item'."
+  (let (stops
+        (button (or (button-at (point-min)) (next-button (point-min)))))
+    (while button
+      (when (if sp-dashboard--scope
+                (and (eq (button-get button 'sp-dashboard-level) 'item)
+                     (equal (button-get button 'sp-dashboard-box) sp-dashboard--scope))
+              (not (eq (button-get button 'sp-dashboard-level) 'item)))
+        (push button stops))
+      (setq button (next-button (button-start button))))
+    (nreverse stops)))
+
+(defun sp-dashboard--step (direction)
+  "Select the next (DIRECTION 1) or previous (-1) stop, wrapping around."
+  (when-let* ((stops (sp-dashboard--stops)))
+    (let* ((here (point))
+           (target (if (> direction 0)
+                       (or (seq-find (lambda (b) (> (button-start b) here)) stops)
+                           (car stops))
+                     (or (seq-find (lambda (b) (< (button-start b) here)) (reverse stops))
+                         (car (last stops))))))
+      (goto-char (button-start target)))))
+
 (defun sp-dashboard-next-button ()
-  "Select the next button of the splash, wrapping around."
+  "Select the next title of the splash, or entry inside a box, wrapping around."
   (interactive)
-  (forward-button 1 t nil t))
+  (sp-dashboard--step 1))
 
 (defun sp-dashboard-previous-button ()
-  "Select the previous button of the splash, wrapping around."
+  "Select the previous title of the splash, or entry inside a box, wrapping around."
   (interactive)
-  (backward-button 1 t nil t))
+  (sp-dashboard--step -1))
+
+(defun sp-dashboard-enter-box ()
+  "Step from the title of a box into its entries, where TAB walks them."
+  (interactive)
+  (let* ((button (button-at (point)))
+         (box (and button (button-get button 'sp-dashboard-box))))
+    (when (and box (not sp-dashboard--scope))
+      (setq sp-dashboard--scope box)
+      (if (sp-dashboard--stops)
+          (sp-dashboard--step 1)
+        (setq sp-dashboard--scope nil)
+        (message "Nothing to select in this box")))))
+
+(defun sp-dashboard-leave-box ()
+  "Step from an entry back to the title of its box, where TAB walks the titles."
+  (interactive)
+  (when-let* ((box sp-dashboard--scope))
+    (setq sp-dashboard--scope nil)
+    (when-let* ((title (seq-find (lambda (b) (equal (button-get b 'sp-dashboard-box) box))
+                                 (sp-dashboard--stops))))
+      (goto-char (button-start title)))))
 
 (defun sp-dashboard--mark-focus ()
   "Highlight the button at point, since the cursor is hidden."
@@ -1277,21 +1736,14 @@ Without `sp-dashboard-agenda-general-files' this is the agenda workspace."
   (deactivate-mark))
 
 (defun sp-dashboard--isolate-menu ()
-  "Make the buttons the only part of the dashboard that can be reached.
-The rest of the buffer, the art and the text around the buttons, is marked
-`cursor-intangible', so point can only rest on a button.  An overlay over
-the whole buffer carries `sp-dashboard-mode-map' as its keymap, which ranks
-above the other keymaps, so the keys of the dashboard are the same wherever
-point is."
-  (let ((inhibit-read-only t)
-        (position (point-min)))
-    (add-text-properties (point-min) (point-max) '(cursor-intangible t))
-    (let (button)
-      (while (setq button (next-button position))
-        (remove-text-properties (button-start button) (button-end button)
-                                '(cursor-intangible nil))
-        (setq position (button-end button)))))
-  (cursor-intangible-mode 1)
+  "Make the keys of the dashboard the same wherever point is.
+An overlay over the whole buffer carries `sp-dashboard-mode-map' as its
+keymap, which ranks above the other keymaps.  The map binds TAB and S-TAB to
+`sp-dashboard-next-button' and `sp-dashboard-previous-button' and ignores
+the commands that move point, so point only ever rests on a button.  There
+is no `cursor-intangible-mode': its redisplay hook signals
+`wrong-type-argument' whenever it finds no button to move to, which cannot be
+caught from outside (see the doc)."
   (let ((overlay (make-overlay (point-min) (point-max))))
     (overlay-put overlay 'keymap sp-dashboard-mode-map)
     (overlay-put overlay 'priority 100)))
@@ -1314,6 +1766,8 @@ point is."
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
+  ;; `global-hl-line-mode' ignores the line above and would paint the whole row
+  (setq-local global-hl-line-mode nil)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
   
@@ -1340,12 +1794,31 @@ point is."
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
   (sp-dashboard--isolate-menu)
+  (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))
   (set-window-start (selected-window) (point-min))
   (forward-button 1 t nil t)
   (sp-dashboard--mark-focus))
 
 ;;;; Splash Setup & Refresh Functions
+(defvar-local sp-dashboard--drawn-geometry nil
+  "Pixel size of the window and the font the Dashboard was last drawn for.")
+
+(defun sp-dashboard--window-geometry ()
+  "Return the pixel size of the selected window and the font, to compare draws."
+  (list (window-pixel-width) (window-pixel-height)
+        (frame-char-width) (frame-char-height)))
+
+(defun sp-dashboard--refresh-on-resize ()
+  "Redraw the Dashboard when its window or font size changed since it was drawn.
+The window hooks run for much more than a resize (a key logger, the mode line
+or a message can trigger them), and a redraw drops the selected button, so
+nothing happens while the geometry is the same."
+  (when (and (string= (buffer-name) "Dashboard")
+             (not (equal sp-dashboard--drawn-geometry
+                         (sp-dashboard--window-geometry))))
+    (sp-dashboard-refresh)))
+
 (defun sp-dashboard-refresh ()
   "Refresh & recenter splash after window switch."
   (interactive)
@@ -1355,15 +1828,27 @@ point is."
         (sp-dashboard-screen-kill)
         (sp-dashboard-screen)))))
 
+(defun sp-dashboard-refresh-agendas ()
+  "Redraw the Dashboard to show the agenda files, when it is on screen.
+Only the Dashboard in the selected window is redrawn: drawing it takes the
+selected window, so it is left alone while another buffer is there."
+  (when (and (get-buffer "Dashboard")
+             (eq (window-buffer (selected-window)) (get-buffer "Dashboard")))
+    (with-current-buffer "Dashboard"
+      (sp-dashboard-refresh))))
+
 (defun sp-dashboard--setup-splash-hooks ()
-  "Initialize splash and setup hooks."
+  "Initialize splash and setup hooks.
+Start-up shows the Dashboard alone: a restored `tabspaces' session can leave a
+saved layout with a *scratch* window beside it."
   (progn
+    (delete-other-windows)
     (if (display-graphic-p)
         (sp-dashboard-screen)
       (sp-dashboard-terminal))
-    (add-hook 'window-state-change-hook #'sp-dashboard-refresh)
-    (add-hook 'window-configuration-change-hook  #'sp-dashboard-refresh)
-    (add-hook 'sp-switch-buffer-hook #'sp-dashboard-refresh)))
+    (add-hook 'window-state-change-hook #'sp-dashboard--refresh-on-resize)
+    (add-hook 'window-configuration-change-hook  #'sp-dashboard--refresh-on-resize)
+    (add-hook 'sp-switch-buffer-hook #'sp-dashboard--refresh-on-resize)))
 
 ;; Install hook after frame parameters have been applied and only if
 ;; no option on the command line

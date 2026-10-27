@@ -2,11 +2,26 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-vcontrol.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-vcontrol.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-vcontrol.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-A short module that installs Magit, adds a helper for using it with YADM, the dotfile manager, and sets up Forge so Magit can work with GitHub pull requests and issues, and installs =code-review= for reviewing pull requests in Emacs. It depends on the =magit=, =transient=, =forge= and =code-review= packages. The YADM helper opens Magit in the home directory, which only works if Git can see a repository there; =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup. The module is in the Programming group of the default module list in =init.el=. The Forge and code-review parts have not been run in a test environment yet.
+A short module that:
+
+- installs Magit and adds a helper for using it with YADM, the dotfile manager,
+- sets up Forge so Magit can work with GitHub pull requests and issues,
+- installs =code-review= for reviewing pull requests in Emacs.
+
+Notes:
+
+- Depends on the =magit=, =transient=, =forge= and =code-review= packages.
+- The YADM helper opens Magit in the home directory. That only works if Git can see a repository there. =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup.
+- Loaded in the Programming group of the default module list in =init.el=.
+- The Forge and code-review parts have not been run in a test environment yet.
 
 * Magit
 
@@ -32,7 +47,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Magit
 
-Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=. When a Magit buffer is quit, the window configuration from before it was opened is restored. Because the form waits for =transient=, the key binding is only set up once =transient= has loaded.
+Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=.
+
+- When a Magit buffer is quit, the window configuration from before it was opened is restored.
+- The form waits for =transient=, so the key binding is only set up once =transient= has loaded.
 
 #+begin_src emacs-lisp -i
 (use-package magit
@@ -49,7 +67,11 @@ Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=. W
 
 ** Magit on the home directory
 
-The =yadm= command opens =magit-status= on =~/=. YADM keeps its repository outside the home directory, so this only shows the dotfiles if the shell environment points Git at that repository (for example a =.git= link in the home directory); the variables copied in =sp-env= suggest that is the setup, though the details are not in this config. An earlier version used a TRAMP path =/yadm::= instead; a =yadm= TRAMP method is still defined in =sp-network=, but nothing uses it here any more.
+The =yadm= command opens =magit-status= on =~/=.
+
+- YADM keeps its repository outside the home directory. So this only shows the dotfiles if the shell environment points Git at that repository (for example a =.git= link in the home directory).
+- The variables copied in =sp-env= suggest that is the setup, though the details are not in this config.
+- An earlier version used a TRAMP path =/yadm::= instead. A =yadm= TRAMP method is still defined in =sp-network=, but nothing uses it here any more.
 
 #+begin_src emacs-lisp -i
 ;;;; YADM function to be able to work with dotfiles
@@ -62,36 +84,55 @@ The =yadm= command opens =magit-status= on =~/=. YADM keeps its repository outsi
 
 ** Forge and credentials
 
-Installs =forge= once =magit= has loaded. Forge adds GitHub (and other forge) pull requests and issues to Magit: the commands are reached from the Magit transients (for example =N= in a status buffer), and it keeps its data in a local database. It has no settings of its own here, so it uses its defaults.
+Installs =forge= once =magit= has loaded.
 
-Forge needs a token to talk to GitHub. =auth-sources= is set to just =~/.authinfo=, which replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain. The token entry in that file is the user's to add, for example =machine api.github.com login USERNAME^forge password TOKEN=; nothing secret is stored in this config.
+- Forge adds GitHub (and other forge) pull requests and issues to Magit.
+- The commands are reached from the Magit transients (for example =N= in a status buffer).
+- It keeps its data in a local database.
+- It has no settings of its own here, so it uses its defaults.
+
+Forge needs a token to talk to GitHub.
+
+- Credentials come from =auth-sources=, which is set in =sp-globals= (the variable =sp-auth-sources=), not here. It used to be a =setq= in this module. It is just =~/.authinfo=: that replaces the default list, so Emacs reads credentials only from that plain-text file and no longer looks in =~/.authinfo.gpg= or the keychain. =sp-globals= loads early, so the value is in place before Forge asks for it.
+- The token entry in that file is the user's to add, for example =machine api.github.com login USERNAME^forge password TOKEN=.
+- Nothing secret is stored in this config.
 
 #+begin_src emacs-lisp -i
 ;;;; Forge settings
 (use-package forge
   :ensure t
   :after magit)
-
-(setq auth-sources '("~/.authinfo"))
 #+end_src
 
 * Code review
 
 ** code-review
 
-Installs =code-review=, which opens a pull request in its own buffer for reading the diff and writing review comments. Comments wrap at 80 columns, and a new review buffer replaces the current window (=switch-to-buffer=) instead of splitting. A hook turns on =emojify-mode= in review buffers so emoji in comments display; that needs the =emojify= package, which this module does not install.
+Installs =code-review=, which opens a pull request in its own buffer for reading the diff and writing review comments.
 
-The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), is written as =(setq ...)= inside =:custom=. =:custom= expects =(variable value)= pairs, so that line probably does not set the variable as intended; it is kept as written and is worth checking.
+- Comments wrap at 80 columns.
+- A new review buffer replaces the current window (=switch-to-buffer=) instead of splitting.
+- A hook turns on =emojify-mode= in review buffers so emoji in comments display. That needs the =emojify= package, which this module does not install.
+
+The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), used to be written as =(setq ...)= inside =:custom=, which expects =(variable value)= pairs, so it never set the variable. It is a normal entry now.
+
+Order: =:after forge= and the =require= of =emacsql-sqlite= in =:init= make sure the class =emacsql-sqlite-connection= exists before code-review defines its database class on it. Without that, loading it gave =Given parent class emacsql-sqlite-connection is not a class=. This is the usual cause of that message; I could not run Emacs or read the installed versions to confirm it here.
 
 #+begin_src emacs-lisp -i
 ;; code review harness
 (use-package code-review
   :ensure t
-  
+  ;; code-review defines its database class on `emacsql-sqlite-connection',
+  ;; which forge pulls in. Loading code-review before that gives "Given parent
+  ;; class emacsql-sqlite-connection is not a class".
+  :after forge
+  :init
+  (require 'emacsql-sqlite)
+
   :custom
   (code-review-fill-column 80) ;; Define line wrap in comment sections.
   (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
-  (setq code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
+  (code-review-download-dir "/tmp/code-review/") ;; Change the destination where binary files is downloaded.
 )
 
 ;;;; For adding emojis

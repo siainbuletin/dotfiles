@@ -1,0 +1,516 @@
+#+TITLE: sp-prot-modeline.el: A native mode line adapted from Prot's
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-prot-modeline.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-prot-modeline.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-modeline.el= and the mode line section of =prot-emacs-modeline.el= in [[https://github.com/protesilaos/dotfiles][Protesilaos Stavrou's dotfiles]]. It needs no package: it fills =mode-line-format= with a few constructs, the way the default mode line does.
+
+- It is /not/ loaded by =init.el=. To try it, comment out ='sp-lambda-modeline= in both module lists and add ='sp-prot-modeline= (both are in the file as commented lines). Only one of the two should be active, because both set =mode-line-format=.
+- Untested in a running Emacs: the container that wrote it has no Emacs 31.
+
+* What differs from Prot's file
+
+- *No =prot-common= or =prot-icons=.* The only function used from =prot-common= (=prot-common-window-narrow-p=) is written out here. Icons are replaced by text, so no font is needed, except for the major mode.
+- *Colours come from the theme.* Prot's faces have fixed hex colours and a block in =prot-emacs-modeline.el= that reads the Modus palette. Here the faces inherit from =error=, =success=, =warning=, =font-lock-keyword-face= and so on, so every theme in =libraries/themes= works with no extra code.
+- *The first four segments are not Prot's.* They are the segments of =sp-modeline-parts=, shared with =sp-lambda-modeline=: the number of the window, the major mode in a box (nerd-icons icon), the word count (text buffers) or line and column, and keycast in a fixed slot; the clocked Org task is at the right. Prot's own buffer name, major mode and minor modes segments are not used, and the count of minor modes was dropped (=C-h m=, or a click on the major mode box, lists them). The boxes take the accent colours of the theme (see that module's doc).
+- *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style=, as in =sp-lambda-modeline=: nano-modeline's blocks (=RW=, =RO= or =**=), the name of the buffer (in Org the text of the =#+title:=, in the face =sp-modeline-title= from =sp-faces=), the project and the time at the right. The name of the buffer is no longer in the mode line.
+- *Keycast.* The keys and commands are shown at the bottom, in the mode line, in the keycast slot of =sp-modeline-parts=; =keycast-header-line-mode= is turned off, so the keys are not shown twice. The clock is in the header (Prot shows it in =mode-line-misc-info=).
+- *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
+- *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the tag emoji of =sp-org-tag-groups=, which lambda-line never displays).
+- *Emacs 30.* =mode-line-format-right-align= and =mode-line-right-align-edge= are Emacs 30 features, as in Prot's file. They are safe on Emacs 29 because an unbound symbol in a mode line format is ignored.
+
+* Changing the settings
+
+Everything below is set with =M-x customize-group RET sp-prot-modeline RET= (or =sp-modeline-parts=, or =sp-nano-style=), or with a =setq= in your own configuration /before/ the module loads (for example in =init.el=, above the module list). After changing a setting, turn the mode off and on again with =M-x sp-prot-modeline-mode= twice, or restart Emacs, unless the table says otherwise. None of this needs any change to the Emacs Lisp code of the module.
+
+** Options (variables)
+
+| Variable                                  | Default                 | What it does                                                                                                   |
+|-------------------------------------------+-------------------------+----------------------------------------------------------------------------------------------------------------|
+| =sp-prot-modeline-string-truncate-length= | =9=                     | In a narrow window (narrower than =split-width-threshold=, with more than one window) the branch is cut to this many characters. Raise it for longer names, set it very high (=999=) to never cut. Takes effect at once. |
+| =sp-prot-modeline-format=                 | see the next section    | The order of the segments.                                                                                     |
+| =sp-modeline-parts-boxed=                 | window number, mode, keycast | Which of the three segments are drawn in a coloured box; remove one from the list to make it plain text. Takes effect at once. |
+| =sp-modeline-parts-keycast=               | =t=                     | =nil= removes the keycast slot and stops keycast at the next enabling of the mode.                             |
+| =sp-modeline-parts-keycast-width=         | =32=                    | Width in columns of the keycast slot (key and command). The rest of the line does not move because the slot has a fixed size. Takes effect at once. |
+| =sp-modeline-parts-narrow-width=          | =80=                    | Windows narrower than this leave out keycast. Takes effect at once.                  |
+| =sp-modeline-parts-mode-icon=             | =t=                     | The major mode as a nerd-icons icon (=t=) or as its name (=nil=). Takes effect at once.                        |
+| =sp-modeline-parts-word-count-modes=      | text, Org, Markdown, LaTeX, Typst | Modes (and their children) that show the word count; all other buffers show line and column. Takes effect at once. |
+| =sp-modeline-parts-word-count-limit=      | =300000=                | A buffer longer than this many characters shows =~= instead of the count, to keep typing fast.                  |
+| =sp-nano-style-divider=, =-opacity=, =-face=, =-color=, =sp-nano-style-header-divider=, =sp-nano-style-clock= | see the doc of =sp-nano-style= | The lines above the mode line and under the header, and the clock in the header. |
+
+Example, in your configuration:
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-prot-modeline-string-truncate-length 20   ; cut long branch names later
+      sp-modeline-parts-boxed '(mode)              ; only the major mode is a box
+      sp-modeline-parts-keycast-width 24
+      sp-modeline-parts-word-count-modes '(org-mode markdown-mode))
+#+end_src
+
+** The segments and their order
+
+=sp-prot-modeline-format= is a list. Each name in it is a segment; strings such as ="  "= are spaces between them. To remove a segment delete its name from the list, to move it cut and paste the name, to add space put a string in. =mode-line-format-right-align= is not a segment: it splits the list in two, and [[https://github.com/rougier/mode-line-maker][mode-line-maker]] puts the first part at the left of the window and the second part at the right, cutting the left part when the window is too small. How the two ends are aligned (window, fringe, margin or text) and which part is cut is set with =mode-line-maker-alignment= and =mode-line-maker-truncation-rule=.
+
+| Segment                                            | Shows                                                                                          |
+|----------------------------------------------------+------------------------------------------------------------------------------------------------|
+| =sp-modeline-parts-window-number-construct=        | The number of the window.                                                                      |
+| =sp-modeline-parts-mode-construct=                 | The major mode (icon or name) in a box; click for =describe-mode=.                             |
+| =sp-modeline-parts-position-construct=             | Word count in text buffers, line and column in the others.                                      |
+| =sp-modeline-parts-keycast-construct=              | The last key (in a box) and its command, in a fixed slot.                                      |
+| =sp-modeline-parts-clock-construct=                | The Org task being clocked: its keyword in a box, heading and time; click to go to it, right click for the agenda. |
+| =sp-modeline-parts-bar-construct=                  | A thin accent bar, as in doom-modeline (not in the list by default).                           |
+| =sp-modeline-parts-tags-construct=                 | The tag emoji (not in the list by default: the misc info below already has them).               |
+| =sp-modeline-parts-vc-construct=                   | A plain branch name (not in the list: Prot's coloured branch is used).                         |
+| =sp-prot-modeline-kbd-macro=                       | A blue =KMacro= block while a keyboard macro is being recorded (selected window only).         |
+| =sp-prot-modeline-narrow=                          | A =Narrow= block when the buffer is narrowed (not in Info, help, message and special buffers). |
+| =sp-prot-modeline-buffer-status=                   | A red =@= block for a remote (TRAMP) buffer.                                                   |
+| =sp-prot-modeline-window-dedicated-status=         | A grey block with an equals sign when the window is dedicated to its buffer.                   |
+| =sp-prot-modeline-input-method=                    | The title of the input method, in a green block, when one is on.                               |
+| =sp-prot-modeline-process=                         | The process status of the buffer (=mode-line-process=), for example in shells.                  |
+| =sp-prot-modeline-vc-branch=                       | The branch (or a short revision), coloured by the state of the file; click for the diff.        |
+| =sp-prot-modeline-flymake=                         | Counts of errors (=E=), warnings (=!=) and notes (=.=) while Flymake is on.                     |
+| =sp-prot-modeline-which-function-indicator=        | The current function or Org heading, in a small face (text and programming buffers).           |
+| =sp-prot-modeline-misc-info=                       | =mode-line-misc-info=: the tag emoji of =sp-org-tag-groups= in Org buffers.                          |
+
+Example, a shorter line without the process, Flymake and function segments and with the doom-style bar at the left:
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-prot-modeline-format
+      '("%e"
+        sp-modeline-parts-bar-construct
+        sp-modeline-parts-window-number-construct
+        " "
+        sp-modeline-parts-mode-construct
+        " "
+        sp-modeline-parts-position-construct
+        " "
+        sp-modeline-parts-keycast-construct
+        sp-prot-modeline-vc-branch
+        mode-line-format-right-align
+        sp-modeline-parts-clock-construct
+        sp-prot-modeline-misc-info))
+;; then: M-x sp-prot-modeline-mode twice
+#+end_src
+
+Keycast needs no segment of its own in the list; if you take =sp-modeline-parts-keycast-construct= out, the keys are no longer shown but keycast keeps running (set =sp-modeline-parts-keycast= to =nil= to stop it).
+
+** Colours
+
+The coloured boxes of the first segments use =sp-modeline-parts-accent-1=, =-2= and =-3= (window number, major mode, key), which take the accent colours of the theme (=accent-1=, =accent-2= and =cyan= of the =sp= themes; the colours of =font-lock-keyword-face=, =font-lock-function-name-face= and =font-lock-string-face= in any other theme). To use colours of your own, set the faces after the theme loads, in =sp-after-load-theme-hook=:
+
+#+begin_src emacs-lisp :tangle no
+(add-hook 'sp-after-load-theme-hook
+          (lambda ()
+            (set-face-attribute 'sp-modeline-parts-accent-2 nil :background "#2f6f9f"))
+          95)   ; after the colours of the module (depth 90)
+#+end_src
+
+The blocks of Prot's own indicators use these faces. They inherit from faces every theme defines, so they change with =sp-load-theme=; to change one yourself use =M-x customize-face= (or =set-face-attribute=) on it.
+
+| Face                                  | Inherits from              | Used by                                      |
+|---------------------------------------+----------------------------+----------------------------------------------|
+| =sp-prot-modeline-indicator-red-bg=   | =error= (inverted)         | remote buffer block                          |
+| =sp-prot-modeline-indicator-green-bg= | =success= (inverted)       | input method block                           |
+| =sp-prot-modeline-indicator-blue-bg=  | =font-lock-keyword-face= (inverted) | keyboard macro block                |
+| =sp-prot-modeline-indicator-cyan-bg=  | =font-lock-type-face= (inverted) | narrow block                           |
+| =sp-prot-modeline-indicator-gray-bg=  | =shadow= (inverted)        | dedicated window block                       |
+| =sp-prot-modeline-indicator-red=      | =error=                    | the =%[ %]= recursive-edit marks             |
+| =sp-prot-modeline-indicator-gray=     | =shadow=                   | muted text                                   |
+| =sp-prot-modeline-indicator-button=   | nothing                    | inherited by all the =-bg= faces: give it a =:box= to put a border round every block |
+
+The colour of the selected and the other windows is the theme's own =mode-line= and =mode-line-inactive=. The branch takes the colour of the =vc-*-state= faces of the theme, the Flymake counts that of =error=, =warning= and =success=. The header line blocks have their own faces, listed in the doc of =sp-nano-style=.
+
+** Making the lines more transparent
+
+See the section "Making the divider fainter and changing the lines" in the doc of =sp-nano-style=: =sp-nano-style-divider-opacity= (from 0 to 1) makes the lines fainter, =sp-nano-style-divider-face= or =sp-nano-style-divider-color= changes their colour and =sp-nano-style-divider= / =sp-nano-style-header-divider= remove them. For example:
+
+#+begin_src emacs-lisp :tangle no
+(setq sp-nano-style-divider-opacity 0.35)
+#+end_src
+
+** Adding a segment of your own
+
+A segment is a variable whose value is a mode line construct, marked as safe to evaluate. This one shows =big= when the buffer is longer than 1000 lines:
+
+#+begin_src emacs-lisp :tangle no
+(defvar sp-prot-modeline-big-buffer
+  '(:eval (when (> (line-number-at-pos (point-max)) 1000) " big ")))
+(put 'sp-prot-modeline-big-buffer 'risky-local-variable t)
+(setq sp-prot-modeline-format
+      (append sp-prot-modeline-format '(sp-prot-modeline-big-buffer)))
+#+end_src
+
+** Where the original differs
+
+Prot sets some things in =prot-emacs-modeline.el= that are not options here: =mode-line-compact= (off) and =mode-line-right-align-edge= (=right-margin=) are set when the mode is turned on. Prot's =prot-modeline-show-frame-name= and the Eglot, =notmuch-indicator= and Modus palette parts are not included (see above).
+
+* Code
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-prot-modeline.el --- A native mode line adapted from Prot's -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A mode line made of constructs, adapted from `prot-modeline.el' in
+;; Protesilaos Stavrou's dotfiles (GPLv3).  Unlike his, it uses the boxed
+;; segments of `sp-modeline-parts', mode-line-maker for the left and right
+;; parts, and takes its colours from the theme.  Alternative to `sp-lambda-modeline'; load only one of the two.
+
+;;; Code:
+
+(require 'vc)
+(require 'subr-x)
+(require 'sp-nano-style)
+(require 'sp-modeline-parts)
+#+end_src
+
+** Options and faces
+
+The truncation length applies in narrow windows (the branch is cut to this many characters).
+
+The indicator faces with a =-bg= suffix use =:inverse-video=, so the colour of the theme's own =error=, =success=, =warning= and =font-lock-keyword-face= becomes the background and the text takes the mode line background.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-prot-modeline nil
+  "A mode line adapted from Prot's."
+  :group 'mode-line)
+
+(defcustom sp-prot-modeline-string-truncate-length 9
+  "String length after which truncation is done in small windows."
+  :type 'natnum
+  :group 'sp-prot-modeline)
+
+(defface sp-prot-modeline-indicator-button nil
+  "Face inherited by the indicators that have a background.
+Add a :box attribute to it to give all of them a border.")
+
+(defface sp-prot-modeline-indicator-gray
+  '((t :inherit (bold shadow)))
+  "Face for muted indicators.")
+
+(defface sp-prot-modeline-indicator-red
+  '((t :inherit (bold error)))
+  "Face for indicators that need attention.")
+
+(defface sp-prot-modeline-indicator-red-bg
+  '((t :inherit (bold error sp-prot-modeline-indicator-button) :inverse-video t))
+  "Face for indicators that need attention, with a background.")
+
+(defface sp-prot-modeline-indicator-green-bg
+  '((t :inherit (bold success sp-prot-modeline-indicator-button) :inverse-video t))
+  "Face for informative indicators, with a background.")
+
+(defface sp-prot-modeline-indicator-blue-bg
+  '((t :inherit (bold font-lock-keyword-face sp-prot-modeline-indicator-button)
+       :inverse-video t))
+  "Face for the keyboard macro indicator, with a background.")
+
+(defface sp-prot-modeline-indicator-cyan-bg
+  '((t :inherit (bold font-lock-type-face sp-prot-modeline-indicator-button)
+       :inverse-video t))
+  "Face for the narrowing indicator, with a background.")
+
+(defface sp-prot-modeline-indicator-gray-bg
+  '((t :inherit (bold shadow sp-prot-modeline-indicator-button) :inverse-video t))
+  "Face for the dedicated window indicator, with a background.")
+#+end_src
+
+** Truncation helpers
+
+#+begin_src emacs-lisp -i
+(defun sp-prot-modeline--window-narrow-p ()
+  "Return non-nil if the window is narrower than `split-width-threshold'."
+  (and (numberp split-width-threshold)
+       (< (window-total-width) split-width-threshold)))
+
+(defun sp-prot-modeline--truncate-p (str)
+  "Return non-nil if the non-blank string STR should be truncated."
+  (and (stringp str)
+       (not (string-blank-p str))
+       (sp-prot-modeline--window-narrow-p)
+       (> (length str) sp-prot-modeline-string-truncate-length)
+       (not (one-window-p :no-minibuffer))))
+
+(defun sp-prot-modeline-string-cut-end (str)
+  "Return STR cut at `sp-prot-modeline-string-truncate-length' when appropriate."
+  (if (sp-prot-modeline--truncate-p str)
+      (concat (substring str 0 sp-prot-modeline-string-truncate-length) "...")
+    str))
+
+(defun sp-prot-modeline-string-cut-middle (str)
+  "Return STR with its middle cut out when appropriate."
+  (let ((half (floor sp-prot-modeline-string-truncate-length 2)))
+    (if (sp-prot-modeline--truncate-p str)
+        (concat (substring str 0 half) "..." (substring str (- half)))
+      str)))
+#+end_src
+
+** Indicators
+
+Each construct is a buffer-local variable holding an =:eval= form. They show only in the selected window (=mode-line-window-selected-p=), so the other windows stay quiet.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-prot-modeline-kbd-macro
+    '(:eval
+      (when (and (mode-line-window-selected-p) defining-kbd-macro)
+        (propertize " KMacro " 'face 'sp-prot-modeline-indicator-blue-bg)))
+  "Mode line construct for a keyboard macro being defined.")
+
+(defvar-local sp-prot-modeline-narrow
+    '(:eval
+      (when (and (mode-line-window-selected-p)
+                 (buffer-narrowed-p)
+                 (not (derived-mode-p 'Info-mode 'help-mode 'message-mode 'special-mode)))
+        (propertize " Narrow " 'face 'sp-prot-modeline-indicator-cyan-bg)))
+  "Mode line construct for a narrowed buffer.")
+
+(defvar-local sp-prot-modeline-input-method
+    '(:eval
+      (when (and (mode-line-window-selected-p) current-input-method-title)
+        (propertize (format " %s " current-input-method-title)
+                    'face 'sp-prot-modeline-indicator-green-bg
+                    'mouse-face 'mode-line-highlight)))
+  "Mode line construct for the input method.")
+
+(defvar-local sp-prot-modeline-buffer-status
+    '(:eval
+      (when (file-remote-p default-directory)
+        (propertize " @ "
+                    'face 'sp-prot-modeline-indicator-red-bg
+                    'mouse-face 'mode-line-highlight)))
+  "Mode line construct for a remote buffer.")
+
+(defvar-local sp-prot-modeline-window-dedicated-status
+    '(:eval
+      (when (window-dedicated-p)
+        (propertize " = "
+                    'face 'sp-prot-modeline-indicator-gray-bg
+                    'mouse-face 'mode-line-highlight)))
+  "Mode line construct for a dedicated window.")
+#+end_src
+
+** Process
+
+The status of the process of the buffer (a shell, a compilation) comes from =mode-line-process=.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-prot-modeline-process
+    (list '("" mode-line-process))
+  "Mode line construct for the process indicator.")
+#+end_src
+
+** Version control branch
+
+As in Prot's file, but with the VC backend taken from =vc-backend= and nothing shown for files outside version control. (Prot falls back to Git for any directory; that costs a =vc-state= call in every buffer.)
+
+#+begin_src emacs-lisp -i
+(declare-function vc-git--symbolic-ref "vc-git" (file))
+
+(defvar sp-prot-modeline-vc-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mode-line down-mouse-1] 'vc-diff)
+    (define-key map [mode-line down-mouse-3] 'vc-root-diff)
+    map)
+  "Keymap for `sp-prot-modeline-vc-branch'.")
+
+(defvar sp-prot-modeline--vc-faces
+  '((added . vc-locally-added-state)
+    (edited . vc-edited-state)
+    (removed . vc-removed-state)
+    (missing . vc-missing-state)
+    (conflict . vc-conflict-state)
+    (locked . vc-locked-state)
+    (up-to-date . vc-up-to-date-state))
+  "Faces for the states `vc-state' returns.")
+
+(defun sp-prot-modeline--vc-branch-name (file backend)
+  "Return the branch name of FILE under BACKEND, or a short revision."
+  (when-let* ((rev (vc-working-revision file backend)))
+    (or (and (eq backend 'Git) (vc-git--symbolic-ref file))
+        (substring rev 0 (min 7 (length rev))))))
+
+(defun sp-prot-modeline--vc-text ()
+  "Return the propertized branch text for the current buffer, or nil."
+  (when-let* ((file (or buffer-file-name default-directory))
+              (backend (vc-backend file))
+              (branch (sp-prot-modeline--vc-branch-name file backend))
+              (state (vc-state file backend)))
+    (propertize (sp-prot-modeline-string-cut-end branch)
+                'face (alist-get state sp-prot-modeline--vc-faces 'vc-up-to-date-state)
+                'mouse-face 'mode-line-highlight
+                'help-echo (format "Revision: %s\nmouse-1: `vc-diff'\nmouse-3: `vc-root-diff'"
+                                   (vc-working-revision file backend))
+                'local-map sp-prot-modeline-vc-map)))
+
+(defvar-local sp-prot-modeline-vc-branch
+    '(:eval (when (mode-line-window-selected-p)
+              (sp-prot-modeline--vc-text)))
+  "Mode line construct for the version control branch.")
+#+end_src
+
+** Flymake
+
+Counts of errors, warnings and notes, with the same mouse commands as Prot's. Shown only while =flymake-mode= is on.
+
+#+begin_src emacs-lisp -i
+(declare-function flymake--severity "flymake" (type))
+(declare-function flymake-diagnostic-type "flymake" (diag))
+(declare-function flymake-diagnostics "flymake" (&optional beg end))
+
+(defvar sp-prot-modeline-flymake-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mode-line down-mouse-1] 'flymake-show-buffer-diagnostics)
+    (define-key map [mode-line down-mouse-3] 'flymake-show-project-diagnostics)
+    map)
+  "Keymap for the Flymake counters.")
+
+(defun sp-prot-modeline--flymake-counter (type indicator face)
+  "Return INDICATOR and the count of TYPE diagnostics in FACE, or nil."
+  (let ((count 0))
+    (dolist (d (flymake-diagnostics))
+      (when (= (flymake--severity type)
+               (flymake--severity (flymake-diagnostic-type d)))
+        (setq count (1+ count))))
+    (when (> count 0)
+      (concat
+       (propertize indicator 'face 'sp-prot-modeline-indicator-gray)
+       (propertize (number-to-string count)
+                   'face face
+                   'mouse-face 'mode-line-highlight
+                   'local-map sp-prot-modeline-flymake-map
+                   'help-echo "mouse-1: buffer diagnostics\nmouse-3: project diagnostics")))))
+
+(defvar-local sp-prot-modeline-flymake
+    '(:eval
+      (when (and (bound-and-true-p flymake-mode) (mode-line-window-selected-p))
+        (concat (sp-prot-modeline--flymake-counter :error "E" 'error)
+                (sp-prot-modeline--flymake-counter :warning "!" 'warning)
+                (sp-prot-modeline--flymake-counter :note "." 'success))))
+  "Mode line construct for the Flymake counters.")
+#+end_src
+
+** Which function and the rest
+
+=which-function-mode= puts its indicator in =mode-line-misc-info=. It is taken out of there and shown on its own, in a small face, for text and programming modes, as Prot does. The misc info is for the selected window only, and it carries =global-mode-string=.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-prot-modeline-which-function-indicator
+    '(which-function-mode
+      (:eval
+       (when (and (mode-line-window-selected-p)
+                  (derived-mode-p 'text-mode 'prog-mode))
+         (let ((string (or (gethash (selected-window) which-func-table)
+                           which-func-unknown)))
+           (propertize string
+                       'face '(:height 0.8 :inherit which-func)
+                       'mouse-face 'mode-line-highlight
+                       'help-echo (format "Current definition: `%s'" string))))))
+  "The equivalent of `which-func-format'.")
+
+(with-eval-after-load 'which-func
+  (setq mode-line-misc-info
+        (delete (assq 'which-function-mode mode-line-misc-info) mode-line-misc-info)))
+
+(defvar-local sp-prot-modeline-misc-info
+    '(:eval (when (mode-line-window-selected-p)
+              mode-line-misc-info))
+  "Mode line construct for `mode-line-misc-info' (the clock, tag emoji...).")
+
+;; The constructs are variables whose value is a list with :eval forms, so
+;; they are not trusted by default.  Without this property they do not render.
+(dolist (construct '(sp-prot-modeline-kbd-macro
+                     sp-prot-modeline-narrow
+                     sp-prot-modeline-input-method
+                     sp-prot-modeline-buffer-status
+                     sp-prot-modeline-window-dedicated-status
+                     sp-prot-modeline-process
+                     sp-prot-modeline-vc-branch
+                     sp-prot-modeline-flymake
+                     sp-prot-modeline-which-function-indicator
+                     sp-prot-modeline-misc-info))
+  (put construct 'risky-local-variable t))
+#+end_src
+
+** The mode
+
+=sp-prot-modeline-mode= saves the default =mode-line-format= and replaces it with the constructs. Turning the mode off puts the saved format back. The first five segments are those of =sp-modeline-parts= (window number, major mode, position, keycast), in their new order; then Prot's indicators, the branch and Flymake on the left; the clocked task, which-function and the misc info on the right. The list is cut at =mode-line-format-right-align= and the two parts are given to =mode-line-maker=; without that package the symbol is used as in Prot's file. The name of the buffer is in the header line.
+
+=sp-modeline-parts-install= is called last, because keycast edits the format that has just been set.
+
+#+begin_src emacs-lisp -i
+(defvar sp-prot-modeline--saved-format nil
+  "The default `mode-line-format' before `sp-prot-modeline-mode' was enabled.")
+
+(defvar sp-prot-modeline-format
+  '("%e"
+    sp-modeline-parts-window-number-construct
+    " "
+    sp-modeline-parts-mode-construct
+    " "
+    sp-modeline-parts-position-construct
+    " "
+    sp-modeline-parts-keycast-construct
+    "  "
+    sp-prot-modeline-kbd-macro
+    sp-prot-modeline-narrow
+    sp-prot-modeline-buffer-status
+    sp-prot-modeline-window-dedicated-status
+    sp-prot-modeline-input-method
+    sp-prot-modeline-process
+    "  "
+    sp-prot-modeline-vc-branch
+    "  "
+    sp-prot-modeline-flymake
+    "  "
+    mode-line-format-right-align
+    sp-modeline-parts-clock-construct
+    "  "
+    sp-prot-modeline-which-function-indicator
+    "  "
+    sp-prot-modeline-misc-info)
+  "The mode line format of `sp-prot-modeline-mode'.
+Change it, then run `sp-prot-modeline-mode' twice (off, on).")
+
+(defun sp-prot-modeline--format ()
+  "Return `sp-prot-modeline-format' with its two parts given to mode-line-maker.
+The list is cut at `mode-line-format-right-align'.  Without the package the
+list is used as it is."
+  (if (require 'mode-line-maker nil t)
+      (let* ((tail (memq 'mode-line-format-right-align sp-prot-modeline-format))
+             (left (remove "%e" (butlast sp-prot-modeline-format (length tail)))))
+        (list "%e" (mode-line-maker left (cdr tail))))
+    sp-prot-modeline-format))
+
+;;;###autoload
+(define-minor-mode sp-prot-modeline-mode
+  "Show the mode line adapted from Prot's, with the boxed segments."
+  :global t
+  :group 'sp-prot-modeline
+  (if sp-prot-modeline-mode
+      (progn
+        (setq sp-prot-modeline--saved-format (default-value 'mode-line-format))
+        (setq mode-line-compact nil)
+        (setq mode-line-right-align-edge 'right-margin)
+        (setq-default mode-line-format (sp-prot-modeline--format))
+        (sp-nano-style-install)
+        (sp-modeline-parts-install))
+    (sp-modeline-parts-uninstall)
+    (setq-default mode-line-format sp-prot-modeline--saved-format)
+    (sp-nano-style-uninstall))
+  (force-mode-line-update t))
+#+end_src
+
+** Enable and provide
+
+#+begin_src emacs-lisp -i
+(sp-prot-modeline-mode 1)
+
+(provide 'sp-prot-modeline)
+#+end_src

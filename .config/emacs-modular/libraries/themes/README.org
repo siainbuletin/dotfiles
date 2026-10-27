@@ -1,0 +1,33 @@
+#+TITLE: Vendored themes
+
+Every theme of this configuration lives here, copied from the upstream packages; nothing is installed by Elpaca. Themes are loaded with =sp-load-theme= (=sp-themes.el=, [[file:../../docs/tangles/ui/sp-themes.org][docs]]). The reasons for the layout are in [[file:../../docs/architecture/theme-system-design.org][theme-system-design.org]].
+
+| Folder | Holds |
+|-+-|
+| =lib/= | The theme engines, on =load-path=: =modus-themes.el=, =ef-themes.el=, =doric-themes.el=, =lambda-themes.el=. Ef needs Modus, and every theme file of a package requires its engine. |
+| =active/= | The theme files in use (7). The families in =sp-theme-families= name these. |
+| =library/= | Every other theme of the packages (66), one folder per package, to try palettes out with =M-x sp-load-theme=. To use one, copy its file to =active/= and add it to a family. The colour-blind variants of Modus and Ef (=*-deuteranopia=, =*-tritanopia=) are not kept; the engines still carry their palettes. |
+| =sp/= | Themes written for this configuration: =sp-dark= and =sp-light=, three lines each. Their colours, mappings and faces are in =sp-theme-engine= ([[file:../../docs/tangles/ui/sp-theme-engine.org][docs]]), not here. |
+
+* Where the files come from
+
+Copied unchanged, on 2026-10-24:
+
+| Package | Upstream | Commit |
+|-+-+-|
+| modus-themes 5.3.0 | https://github.com/protesilaos/modus-themes | b1647b2 |
+| ef-themes 2.2.1 | https://github.com/protesilaos/ef-themes | 786ed6c |
+| doric-themes 1.3.0 | https://github.com/protesilaos/doric-themes | d883f25 |
+| lambda-themes 0.1 | https://github.com/lambda-emacs/lambda-themes | 715d29f |
+| catppuccin-theme 1.0.0 | https://github.com/catppuccin/emacs | 56c3cbe |
+
+Only the Lisp files of the themes are kept, not the manuals, tests or screenshots. Updating a package means copying its files again over the same folder; the Ef themes and the Modus engine must be updated together.
+
+* In use
+
+| Theme | Family |
+|-+-|
+| =lambda-light= | hard light |
+| =lambda-light-faded=, =ef-day=, =ef-melissa-light= | faded light |
+| =lambda-dark-faded=, =doric-fire= | faded dark |
+| =ef-dream= | hard dark |

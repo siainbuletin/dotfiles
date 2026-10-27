@@ -2,11 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-indention.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-indention.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-indention.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module sets global indentation defaults: spaces instead of tab characters, a width of 4, and keys for inserting a literal tab and shifting a region by one tab stop. It also registers autoloads for =guess-style=, a library that guesses a file's indentation style.
 
-It is loaded with the utility modules in =init.el=. The =C-<tab>= binding calls =company-complete= from =company=, which is configured in =sp-completion=. The =guess-style= autoloads expect a =guess-style= folder next to this file, which does not exist in the repository.
+Loading:
+
+- Loaded with the utility modules in =init.el=.
+- The =C-<tab>= binding calls =company-complete= from =company=, which is configured in =sp-completion=.
+- The =guess-style= autoloads expect a =guess-style= folder next to this file, which does not exist in the repository.
 
 * Header
 
@@ -45,7 +53,10 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Tab width
 
-Indentation uses spaces by default. =tab-width= is set to 4, though plain =setq= only changes it for the buffer that is current while this file loads, and =default-tab-width= is an obsolete alias. =c-basic-offset= and =cperl-indent-level= are made aliases of =tab-width=, so C-style and Perl indentation follow the tab width.
+Indentation uses spaces by default.
+
+- =tab-width= is set to 4. Plain =setq= only changes it for the buffer that is current while this file loads, and =default-tab-width= is an obsolete alias.
+- =c-basic-offset= and =cperl-indent-level= are made aliases of =tab-width=, so C-style and Perl indentation follow the tab width.
 
 #+begin_src emacs-lisp -i
 ;; Tab width
@@ -68,7 +79,11 @@ Indentation uses spaces by default. =tab-width= is set to 4, though plain =setq=
 
 ** guess-style autoloads
 
-Adds a =guess-style= subdirectory of this file's folder to =load-path= and declares autoloads for =guess-style-set-variable=, =guess-style-guess-variable= and =guess-style-guess-all=. The library would detect whether a file uses tabs or spaces and how wide its indentation is. Since that folder is not in the repository, calling these commands fails to load the library. Nothing calls them automatically.
+Adds a =guess-style= subdirectory of this file's folder to =load-path= and declares autoloads for =guess-style-set-variable=, =guess-style-guess-variable= and =guess-style-guess-all=.
+
+- The library would detect whether a file uses tabs or spaces and how wide its indentation is.
+- That folder is not in the repository, so calling these commands fails to load the library.
+- Nothing calls them automatically.
 
 #+begin_src emacs-lisp -i
 ;; Auto indentation

@@ -37,44 +37,53 @@
 
 (defcustom sp-thesis-dump-claude-command "claude"
   "Claude Code executable.  It is run as `claude -p' in the project directory."
-  :type 'string)
+  :type 'string
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-model nil
   "Model passed to `--model', or nil for Claude Code's default."
-  :type '(choice (const :tag "Default" nil) string))
+  :type '(choice (const :tag "Default" nil) string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-mcp-config nil
   "File passed to `--mcp-config' (relative to the project root), or nil.
 Use it when the org-mcp server is not registered with `claude mcp add'."
-  :type '(choice (const :tag "None" nil) file))
+  :type '(choice (const :tag "None" nil) file)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-allowed-tools nil
   "Tools Claude may use without asking, passed to `--allowedTools'.
 For example (\"mcp__org-mcp__*\") lets it read through the org-mcp server.
 Give read-only tools: the answer is filed by Emacs, not by Claude."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-extra-args nil
   "Further arguments for the `claude' command."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-project-root nil
   "Fixed project directory, or nil to find it from the current buffer.
 It is then the directory with a .dir-locals.el above this one, else the
 `project-current' root, else the last one used."
-  :type '(choice (const nil) directory))
+  :type '(choice (const nil) directory)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-save-after-insert t
   "Save the task file after the tasks have been filed."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-max-known-keys 1500
   "Most bibliography keys to list in the prompt."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-context-max-chars 6000
   "Most characters of the context file to put in the prompt."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defun sp-thesis-dump--list-of-strings-p (value)
   "Non-nil when VALUE is a list of strings."
@@ -84,58 +93,68 @@ It is then the directory with a .dir-locals.el above this one, else the
   "Org file that receives the tasks (relative to the project root).
 nil means ask."
   :type '(choice (const :tag "Ask" nil) file)
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-heading "Brain dumps"
   "Heading in the task file that receives each dump.
 Write A/B for the heading B below A.  Missing headings are created."
   :type 'string
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-bib-files :ask
   "BibTeX files (relative to the project root) whose keys count as known.
 :ask means ask once; nil means there is no bibliography."
   :type '(choice (const :tag "Ask" :ask) (repeat file))
-  :safe (lambda (v) (or (eq v :ask) (sp-thesis-dump--list-of-strings-p v))))
+  :safe (lambda (v) (or (eq v :ask) (sp-thesis-dump--list-of-strings-p v)))
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-keywords '("TODO")
   "TODO keywords Claude may give a new task.  The first is the default."
   :type '(repeat string)
-  :safe #'sp-thesis-dump--list-of-strings-p)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-tags '("thesis")
   "Tags that every new task gets."
   :type '(repeat string)
-  :safe #'sp-thesis-dump--list-of-strings-p)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-cite-style 'org-cite
   "How the citekeys of a task are written in its body.
 org-cite is [cite:@a;@b], org-ref is cite:a,b, pandoc is [@a; @b] and plain is
 a, b."
   :type '(choice (const org-cite) (const org-ref) (const pandoc) (const plain))
-  :safe #'symbolp)
+  :safe #'symbolp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-citekey-style
   "first author's surname in lowercase followed by the year, such as smith2020"
   "Description of the keys Claude should invent for sources not yet known."
   :type 'string
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-context-file nil
   "Optional file (relative to the project root) describing the thesis.
 Its start goes into the prompt so tasks fit the structure of the thesis."
   :type '(choice (const nil) file)
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-language nil
   "Language of the tasks, or nil for the language of the dump."
   :type '(choice (const nil) string)
-  :safe (lambda (v) (or (null v) (stringp v))))
+  :safe (lambda (v) (or (null v) (stringp v)))
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-keep-raw t
   "Keep the original dump under the filed tasks, in a Raw dump section."
   :type 'boolean
-  :safe #'booleanp)
+  :safe #'booleanp
+  :group 'spcustom)
 
 (defconst sp-thesis-dump--project-variables
   '(sp-thesis-dump-tasks-file sp-thesis-dump-heading sp-thesis-dump-bib-files
@@ -151,7 +170,7 @@ Its start goes into the prompt so tasks fit the structure of the thesis."
   "Project directory; ask when FORCE or when none is found."
   (let ((found (or sp-thesis-dump-project-root
                    (locate-dominating-file default-directory ".dir-locals.el")
-                   (when-let ((project (project-current)))
+                   (when-let* ((project (project-current)))
                      (project-root project))
                    sp-thesis-dump--last-root)))
     (file-name-as-directory
@@ -515,7 +534,7 @@ Signal an error with a readable message when there is none."
   (delete-dups
    (delq nil
          (mapcar (lambda (key)
-                   (when-let ((clean (sp-thesis-dump--clean key)))
+                   (when-let* ((clean (sp-thesis-dump--clean key)))
                      (let ((bare (string-remove-prefix "@" clean)))
                        (or (seq-find (lambda (k) (string= (downcase k) (downcase bare)))
                                      known)
@@ -552,7 +571,7 @@ Signal an error with a readable message when there is none."
                (tags (delete-dups
                       (delq nil
                             (mapcar (lambda (tag)
-                                      (when-let ((clean (sp-thesis-dump--clean tag)))
+                                      (when-let* ((clean (sp-thesis-dump--clean tag)))
                                         (replace-regexp-in-string "[^[:alnum:]_@#%]" "_" clean)))
                                     (append (plist-get ctx :tags) (alist-get 'tags task))))))
                (effort (let ((e (sp-thesis-dump--clean (alist-get 'effort task))))
@@ -581,16 +600,16 @@ Signal an error with a readable message when there is none."
         (dolist (key (reverse missing))
           (let ((info (gethash key infos)))
             (insert (format "- [ ] =%s=" key))
-            (when-let ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
+            (when-let* ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
               (insert " :: " reference))
-            (when-let ((why (sp-thesis-dump--clean (alist-get 'why info))))
+            (when-let* ((why (sp-thesis-dump--clean (alist-get 'why info))))
               (insert (if (string-suffix-p "." (buffer-substring (line-beginning-position) (point))) " " ". ") why))
-            (when-let ((titles (gethash key needed)))
+            (when-let* ((titles (gethash key needed)))
               (insert (format " (for: %s)" (string-join titles "; "))))
             (insert "\n")))
         (when found
           (insert "- Already in the bibliography: " (string-join (reverse found) ", ") "\n")))
-      (when-let ((questions (delq nil (mapcar #'sp-thesis-dump--clean
+      (when-let* ((questions (delq nil (mapcar #'sp-thesis-dump--clean
                                               (alist-get 'questions payload)))))
         (insert "** Questions\n")
         (dolist (question questions) (insert "- [ ] " question "\n")))

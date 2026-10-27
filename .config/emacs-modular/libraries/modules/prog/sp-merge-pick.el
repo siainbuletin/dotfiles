@@ -46,17 +46,20 @@
   "Arguments of the log `sp-merge-pick-log' shows, besides `--all'.
 Magit colours the graph only up to `magit-log-color-graph-limit' commits
 \(256 by default); raise both to see more history in colour."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-unicode-graph t
   "Draw the lanes of the graph with unicode glyphs instead of ASCII."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-merge-pick-graph-glyphs
   '((?* . "●") (?| . "│") (?/ . "╱") (?\\ . "╲"))
   "Glyph shown for each ASCII character git uses in the graph.
 Only the display changes; the buffer text stays ASCII."
-  :type '(alist :key-type character :value-type string))
+  :type '(alist :key-type character :value-type string)
+  :group 'spcustom)
 
 (defface sp-merge-pick-into
   '((t :inherit highlight :extend t))
@@ -127,7 +130,7 @@ aligned, so the pattern accepts both."
             (let ((pos (match-beginning 1))
                   (end (match-end 1)))
               (while (< pos end)
-                (when-let ((glyph (alist-get (char-after pos)
+                (when-let* ((glyph (alist-get (char-after pos)
                                              sp-merge-pick-graph-glyphs)))
                   (put-text-property pos (1+ pos) 'display glyph))
                 (setq pos (1+ pos)))))
@@ -135,7 +138,7 @@ aligned, so the pattern accepts both."
 
 (defun sp-merge-pick--mark-overlay (mark face text)
   "Highlight the line of MARK in the buffer with FACE and TEXT at its end."
-  (when-let ((rev (plist-get mark :rev)))
+  (when-let* ((rev (plist-get mark :rev)))
     (save-excursion
       (goto-char (point-min))
       (catch 'found

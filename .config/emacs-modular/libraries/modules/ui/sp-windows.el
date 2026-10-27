@@ -47,13 +47,32 @@
  '((right-divider-width . 10)
    (internal-border-width . 10)))
 
-(dolist (face '(window-divider
-                window-divider-first-pixel
-                window-divider-last-pixel))
-  (face-spec-reset-face face)
-  (set-face-foreground face (face-attribute 'default :background)))
+(defvar sp-after-load-theme-hook nil
+  "Hook run after a color theme is loaded using `load-theme'.")
 
-(set-face-background 'fringe (face-attribute 'default :background))
+(defun sp-windows-blend-borders ()
+  "Paint the dividers, fringe and frame borders with the default background."
+  (let ((background (face-attribute 'default :background nil 'default)))
+    (when (and (stringp background)
+               (not (string-prefix-p "unspecified" background)))
+      (dolist (face '(window-divider
+                      window-divider-first-pixel
+                      window-divider-last-pixel))
+        (face-spec-reset-face face)
+        (set-face-foreground face background))
+      (dolist (face '(fringe internal-border child-frame-border))
+        (set-face-background face background))
+      (dolist (frame (frame-list))
+        (when (display-graphic-p frame)
+          (redraw-frame frame))))))
+
+(sp-windows-blend-borders)
+(add-hook 'sp-after-load-theme-hook #'sp-windows-blend-borders)
+;; A daemon that starts without a frame has no background to read yet.
+(add-hook 'after-make-frame-functions
+          (lambda (frame)
+            (when (display-graphic-p frame)
+              (with-selected-frame frame (sp-windows-blend-borders)))))
 
 ;; I don't remember what this linking thing actually does
 (setq org-link-frame-setup
@@ -190,28 +209,6 @@
 ;;   (persp-mode-prefix-key (kbd "C-c M-p"))  ; pick your own prefix key here
 ;;   :init
 ;;   (persp-mode))
-
-;;;; Dim inactive windows
-(use-package dimmer
-  :ensure t
-  :hook (after-init . dimmer-mode)
-  :custom
-  (dimmer-prevent-dimming-predicates '(window-minibuffer-p))
-  (dimmer-fraction 0.5)
-  (dimmer-adjustment-mode :foreground)
-  (dimmer-use-colorspace :rgb)
-  (dimmer-watch-frame-focus-events nil)
-  :config
-  (dimmer-configure-which-key)
-  (dimmer-configure-magit)
-  (dimmer-configure-posframe)
-  (dimmer-configure-vertico))
-
-(defun dimmer-configure-vertico ()
-  "Convenience settings for Dimmer & Vertico users."
-  (with-no-warnings
-    (add-to-list
-     'dimmer-buffer-exclusion-regexps "^ \\*Vertico\\*$")))
 
 ;;;; Functions for windows
 ;;;; Window Functions

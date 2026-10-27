@@ -2,11 +2,35 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-fonts.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-fonts.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-fonts.el=.
 
-This module sets up typography around =fontaine=: its presets own the default, fixed-pitch and variable-pitch families, their sizes, line spacing and the mode line height. The rest of the file reacts to those faces: symbol and emoji fallbacks, text scaling, a larger minibuffer font, =mixed-pitch= for prose buffers, font size commands and the =lin= line-highlighting package. The fontset block comes from Lambda Emacs.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-It is loaded early among the UI modules in =init.el=, after =sp-icons=, =sp-colors= and =sp-faces=. Packages it installs: =fontaine=, =mixed-pitch= and =lin=. It expects fonts such as Aporetic Sans Mono, Aporetic Serif Mono and IntoneMono Nerd Font to be installed, with Symbola or Apple Symbols for symbols and Apple Color Emoji for emoji.
+This module sets up typography around =fontaine=. Its presets own:
+
+- the default, fixed-pitch and variable-pitch families,
+- their sizes,
+- line spacing,
+- the mode line height.
+
+The rest of the file reacts to those faces:
+
+- symbol and emoji fallbacks,
+- text scaling,
+- a larger minibuffer font,
+- =mixed-pitch= for prose buffers,
+- font size commands,
+- the =lin= line-highlighting package.
+
+The fontset block comes from Lambda Emacs.
+
+Loading and fonts:
+
+- Loaded early among the UI modules in =init.el=, after =sp-icons=, =sp-colors= and =sp-faces=.
+- Packages it installs: =fontaine=, =mixed-pitch= and =lin=.
+- It expects fonts such as Aporetic Sans Mono, Aporetic Serif Mono and IntoneMono Nerd Font to be installed, with Symbola or Apple Symbols for symbols and Apple Color Emoji for emoji.
 
 Earlier versions had the options =sp-ui-default-font= and =sp-ui-variable-width-font=, the =ha-= font lists from Howard Abrams' configuration and three competing settings of the default face. They are gone: the presets are the one place that decides the fonts.
 
@@ -52,7 +76,12 @@ The module's own summary: fontaine owns the fonts, and everything else here reac
 
 ** Presets and startup
 
-Installs =fontaine= and waits for it, so the presets exist before the rest of the file runs. The presets are listed in the table below; =t= holds what every preset shares. =fontaine-set-preset= is called with the preset saved by the last session, or =regular= the first time; the saved choice is kept in =sp-cache-dir=. =fontaine-mode= keeps the faces right when a theme is loaded. There is no =sp-ui-default-font= option any more: change the fonts by editing a preset, or switch with =M-x fontaine-set-preset=.
+Installs =fontaine= and waits for it, so the presets exist before the rest of the file runs.
+
+- The presets are listed in the table below. =t= holds what every preset shares.
+- =fontaine-set-preset= is called with the preset saved by the last session, or =regular= the first time. The saved choice is kept in =sp-cache-dir=.
+- =fontaine-mode= keeps the faces right when a theme is loaded.
+- There is no =sp-ui-default-font= option any more. Change the fonts by editing a preset, or switch with =M-x fontaine-set-preset=.
 
 | Preset         | Default face (fixed width)  | Variable-pitch face     | Default height | Variable-pitch height | Mode line | Line spacing |
 |----------------+-----------------------------+-------------------------+----------------+-----------------------+-----------+--------------|
@@ -62,6 +91,16 @@ Installs =fontaine= and waits for it, so the presets exist before the rest of th
 Atkinson Hyperlegible and Literata are not part of a preset. They are set on single faces, see the next section.
 
 #+begin_src emacs-lisp -i
+(defface sp-text-face '((t))
+  "Size of the text in Org and the other text modes, set by the fontaine presets.
+Only its `:height' is used, as a multiple of the `default' height."
+  :group 'faces)
+
+(defface sp-minibuffer-face '((t))
+  "Size of the text in the minibuffer and the posframe, set by the fontaine presets.
+Only its `:height' is used, as a multiple of the `default' height."
+  :group 'faces)
+
 (use-package fontaine
   :ensure (:wait t)
   :demand t
@@ -83,12 +122,27 @@ Atkinson Hyperlegible and Literata are not part of a preset. They are set on sin
       :variable-pitch-height 220
       :mode-line-active-height 220
       :mode-line-inactive-height 220
+      ;; The default height is already large here.
+      :sp-text-face-height 1.0
+      :sp-minibuffer-face-height 1.0
       :line-spacing 0.2)
      (t
+      ;; 1.0 keeps the dashboard boxes on the grid of the `default' font; any other
+      ;; value makes the box text and the box lines differ in width and misalign.
+      :sp-dashboard-menu-face-height 1.0
+      ;; Org and the other text modes, and the minibuffer with the posframe, are
+      ;; 1.36 times the `default' height (4 `text-scale' steps of 1.08).
+      :sp-text-face-height 1.36
+      :sp-minibuffer-face-height 1.36
       :default-weight regular
       :bold-weight bold
       :italic-slant italic)))
   :config
+  ;; Faces of this configuration that the presets also size: a preset reads
+  ;; `:FACE-height' as a multiple of the `default' height.  This has to run
+  ;; before the first preset is set.
+  (dolist (face '(sp-dashboard-menu-face sp-text-face sp-minibuffer-face))
+    (add-to-list 'fontaine-faces face t))
   (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
   (fontaine-mode 1))
 #+end_src
@@ -99,7 +153,13 @@ The =link= face keeps its own family (IntoneMono Nerd Font).
 
 The Org document title, the text after =#+title:=, is the only place that uses Atkinson Hyperlegible. The Org quote face (=#+begin_quote=) uses Literata at height 1.0, which is the size of the default text in the buffer.
 
-Heading sizes must follow the default text, because larger headings hurt readability. Nothing in this configuration sets a height on =org-level-1= to =org-level-8=, and none of the theme options in =sp-themes= does either, but a theme package can still define them (the Lambda, Modus, EF and Doric themes are not read here). So =sp-fonts-org-faces= sets the height of all eight heading faces and of the title to 1.0, and runs after Org loads, after every theme change and after every =fontaine= preset change. If a theme sets a size, this overrides it.
+Heading sizes must follow the default text, because larger headings hurt readability.
+
+- Nothing in this configuration sets a height on =org-level-1= to =org-level-8=, and none of the theme options in =sp-themes= does either.
+- A theme package can still define them (the Lambda, Modus, EF and Doric themes are not read here).
+- So =sp-fonts-org-faces= sets the height of all eight heading faces and of the title to 1.0.
+- It runs after Org loads, after every theme change and after every =fontaine= preset change.
+- If a theme sets a size, this overrides it.
 
 #+begin_src emacs-lisp -i
 (set-face-attribute 'link nil
@@ -126,7 +186,11 @@ Heading sizes must follow the default text, because larger headings hurt readabi
 
 ** Fontset setup
 
-The =fontset= block configures glyph fallbacks. =use-default-font-for-symbols= is t so symbols use the default font where it has them, which the comment says =org-modern-indent= needs. For the rest, the first installed font among Symbola, Apple Symbols, Symbol and Segoe UI Symbol is assigned to the symbol script. On Emacs 28 or later, Apple Color Emoji is prepended for the emoji script to get colour emoji.
+The =fontset= block configures glyph fallbacks.
+
+- =use-default-font-for-symbols= is t, so symbols use the default font where it has them. The comment says =org-modern-indent= needs this.
+- For the rest, the first installed font among Symbola, Apple Symbols, Symbol and Segoe UI Symbol is assigned to the symbol script.
+- On Emacs 28 or later, Apple Color Emoji is prepended for the emoji script to get colour emoji.
 
 Finally a face named =fallback= (Fira Code, inheriting from =fringe=) is defined and used for the truncation and wrap indicators in the standard display table, so truncated lines end with an ellipsis and wrapped lines show a return arrow.
 
@@ -193,7 +257,11 @@ Maximum decoration with no size limit, applied one second after startup.
 
 ** Scale step and keys
 
-=text-scale-mode-step= makes each step about one point. =s-== and =s--= scale up and down and =s-0= adjusts interactively, bound with =bind-key*= so no mode overrides them. The comment notes the step should adapt to the screen resolution.
+Text scaling:
+
+- =text-scale-mode-step= makes each step about one point.
+- =s-== and =s--= scale up and down, and =s-0= adjusts interactively. They are bound with =bind-key*= so no mode overrides them.
+- The comment notes the step should adapt to the screen resolution.
 
 #+begin_src emacs-lisp -i
 ;;;; Scale Text
@@ -209,7 +277,7 @@ Maximum decoration with no size limit, applied one second after startup.
 
 ** Larger minibuffer text
 
-The minibuffer is scaled up two steps, for easier reading on a large screen. The comment says three steps is too much and that it would be nice to use finer increments.
+The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =default= height in =regular=), for easier reading on a large screen.
 
 #+begin_src emacs-lisp -i
 ;; NOTE: This is a hack and it's not at all written nicely in the sense of being able to
@@ -217,8 +285,8 @@ The minibuffer is scaled up two steps, for easier reading on a large screen. The
 ;;
 ;; I should probably try to hook into the faces system of Emacs to get it to work well.
 (defun sp-minibuffer ()
-  "make minibuffer use larger font size."
-  (text-scale-increase 2)) ; Unfortunately the 3 size is a little bit too extreme. it would be nice if I could do it all in increments
+  "Make the minibuffer use the size of `sp-minibuffer-face', set by fontaine."
+  (face-remap-add-relative 'default 'sp-minibuffer-face))
 #+end_src
 
 ** Hooking the minibuffer
@@ -231,12 +299,15 @@ Applies =sp-minibuffer= whenever the minibuffer starts.
 
 ** Larger text buffers
 
-=sp-text-buffer= scales text up four steps. It is defined but not hooked anywhere in this file.
+=sp-text-buffer= maps the fontaine face =sp-text-face= onto =default= in text modes (hooked on =text-mode-hook= in =sp-minibuffer=), so Org is =:sp-text-face-height= (1.36, which is what 4 =text-scale= steps of 1.08 came to) times the =default= height. =sp-minibuffer= does the same for the minibuffer with =sp-minibuffer-face=. Both faces are added to =fontaine-faces= in the fontaine block, so each preset sets its own sizes (1.0 in =presentation=, whose =default= height is already large). =text-scale= (=s-==, =s--=) still works on top of them.
+
+The dashboard box text is sized by fontaine, not here: =sp-dashboard-menu-face= is added to =fontaine-faces= in the =:config= of the fontaine block above, and the =t= preset sets =:sp-dashboard-menu-face-height= to 1.0 (a multiple of the =default= height, like every non-=default= face in a preset). The value is 1.0 because the box lines and the text share one character grid: another height makes them differ in width and the boxes no longer line up. A preset may still override it.
 
 #+begin_src emacs-lisp -i
 (defun sp-text-buffer ()
-  "Make the font in the text buffer generally larger."
-  (text-scale-increase 4))
+  "Make the font in the text buffer generally larger, by `sp-text-face'."
+  (face-remap-add-relative 'default 'sp-text-face))
+
 #+end_src
 
 * Mixed pitch
@@ -282,7 +353,10 @@ Text buffers get a line spacing of 0.1 of the line height; other buffers use the
 
 ** Adjusting the font size
 
-=font-size-adjust= changes the height of the =default= face by ten units (one point) per step of DELTA, never below 60. It replaces the old version that rebuilt every face from the =ha-= font lists. The change lasts until the next =fontaine-set-preset=, which applies the preset height again.
+=font-size-adjust= changes the height of the =default= face by ten units (one point) per step of DELTA, never below 60.
+
+- It replaces the old version that rebuilt every face from the =ha-= font lists.
+- The change lasts until the next =fontaine-set-preset=, which applies the preset height again.
 
 #+begin_src emacs-lisp -i
 (defun font-size-adjust (delta)
@@ -331,38 +405,39 @@ Makes the font one point smaller.
 
 ** The lin package
 
-Installs =lin=, which highlights the current line in modes where it helps. The face is =lin-blue=, and =lin-mode-hooks= lists the modes it applies to.
+Installs =lin=, which highlights the current line in modes where it helps. The face is =lin-blue=, and =lin-mode-hooks= lists the modes it applies to. Both are =:custom= entries; they used to be =setq= forms after the =use-package=.
 
 #+begin_src emacs-lisp -i
 ;;;; Lin package
 (use-package lin
-  :ensure t)
+  :ensure t
 
-(setq lin-face 'lin-blue) ; this can be set to whatever color I might want otherwise
+  :custom
+  (lin-face 'lin-blue)  ; this can be set to whatever color I might want otherwise
+  (lin-mode-hooks
+   '(bongo-mode-hook
+     dired-mode-hook
+     elfeed-search-mode-hook
+     git-rebase-mode-hook
+     grep-mode-hook
+     ibuffer-mode-hook
+     ilist-mode-hook
+     ledger-report-mode-hook
+     log-view-mode-hook
+     magit-log-mode-hook
+     mu4e-headers-mode-hook
+     notmuch-search-mode-hook
+     notmuch-tree-mode-hook
+     occur-mode-hook
+     org-agenda-mode-hook
+     pdf-outline-buffer-mode-hook
+     proced-mode-hook
+     tabulated-list-mode-hook)))
 
 ;; You can use this to live update the face:
 ;;
 ;; (customize-set-variable 'lin-face 'lin-green)
 
-(setq lin-mode-hooks
-      '(bongo-mode-hook
-        dired-mode-hook
-        elfeed-search-mode-hook
-        git-rebase-mode-hook
-        grep-mode-hook
-        ibuffer-mode-hook
-        ilist-mode-hook
-        ledger-report-mode-hook
-        log-view-mode-hook
-        magit-log-mode-hook
-        mu4e-headers-mode-hook
-        notmuch-search-mode-hook
-        notmuch-tree-mode-hook
-        occur-mode-hook
-        org-agenda-mode-hook
-        pdf-outline-buffer-mode-hook
-        proced-mode-hook
-        tabulated-list-mode-hook))
 #+end_src
 
 * Provide

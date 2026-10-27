@@ -1,0 +1,231 @@
+#+TITLE: sp-lambda-modeline.el: Lambda-line header line and mode line
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-lambda-modeline.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/tooling/sp-lambda-modeline.el=. This module used to be called =sp-lambda-line=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module installs and configures =lambda-line=, the minimal status line from the Lambda Emacs project, fetched from Codeberg, and gives it a header line as well.
+
+- Loaded in both the default and minimal module lists.
+- An alternative, =sp-prot-modeline=, is a native mode line adapted from Prot's. Load only one of the two, because both set =mode-line-format=.
+- =sp-choose-modeline= (a switch between =lambda-line= and =doom-modeline=) was removed. To read how those two files were written, and to recreate them, look at commit =cfc047b= (the last one that has them): =git show cfc047b:.config/emacs-modular/libraries/modules/tooling/sp-choose-modeline.el= and =git show cfc047b:.config/emacs-modular/docs/tangles/tooling/sp-choose-modeline.org=. The Doom Modeline settings it held are also in =docs/tangles/modeline.org=.
+
+What it does:
+
+- *Layout.* lambda-line sits in the mode line at the bottom of each window, and a header line above shows the name of the buffer. The mode line is never reduced to a divider, and lambda-line's =top= position (everything in the header) is not used.
+- *Bottom line.* In buffers of text and programming modes, lambda-line's own layout is replaced by the segments of =sp-modeline-parts=: the window number, the major mode in a box, the word count (or line and column), and keycast, then the clocked Org task, the tag emoji and the branch at the right (the left and right parts are aligned by mode-line-maker). Special buffers (the agenda, Info, mail...) keep lambda-line's own format. See the doc of =sp-modeline-parts= for the order and the colours, and how to change them. =sp-lambda-modeline-new-layout= turns this replacement off.
+- *Header line and divider.* From =sp-nano-style=, after nano-modeline: a block with =RW=, =RO= (read-only) or =**= (modified), the name of the buffer (in an Org buffer the text of the =#+title:=, in the face =sp-modeline-title= from =sp-faces=), and the project and the time at the right edge; and a thin line between the text of the buffer and the mode line. See that module's doc.
+- *Keycast.* The keys and commands are shown in a slot of the bottom line (=sp-modeline-parts=), not in the header: =keycast-header-line-mode= is not used.
+- *Tag emoji.* lambda-line never displays =global-mode-string=, where =sp-org-tag-groups= puts its segment. The bottom line above shows the emoji itself; in the special buffers that keep lambda-line's format, an advice on =lambda-line-compose= appends =sp-org-tag-groups-modeline-string= to the middle (primary) part, where lambda-line's face replaces the face of the emoji but keeps the tooltip.
+- *Theme colours.* =sp-lambda-modeline-theme-faces= sets the lambda-line faces from the faces of the theme in use: the =mode-line= and =mode-line-inactive= faces for the selected and the other windows, =mode-line-buffer-id= for the name and =success=, =warning= and =error= for the status symbol. It runs when the module loads and after each theme loads (=sp-after-load-theme-hook=).
+
+Untested in a running Emacs: the container that wrote it has no Emacs. Things to check are the header line next to keycast, the tag emoji in an Org buffer and the colours after =sp-load-theme=.
+
+The clock icon option relies on the ClockFace font being installed, and the status symbols use non-ASCII glyphs that need a font able to display them.
+
+* Code
+
+** File header
+
+#+begin_src emacs-lisp -i
+;;; sp-lambda-modeline.el --- Lambda-line header line and mode line -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This module installs and configures `lambda-line', the minimal status line
+;; from the Lambda Emacs project, fetched from Codeberg, with a header line
+;; next to it.  Tag emoji from `sp-org-tag-groups' show in the mode line, and the
+;; faces follow the theme.  It is loaded in both the default and minimal
+;; module lists.  Alternative: `sp-prot-modeline'.
+;;
+;; The old `sp-choose-modeline' (lambda-line or doom-modeline) was removed; see
+;; commit cfc047b for its code and doc.
+
+;;; Code:
+
+(declare-function sp-org-tag-groups-modeline-string "sp-org-tag-groups" ())
+(declare-function lambda-line-compose "lambda-line")
+(require 'sp-nano-style)
+(require 'sp-modeline-parts)
+(defvar lambda-line-position)
+#+end_src
+
+** Options
+
+There is no layout option: the header line and the mode line are always both shown. The group exists for the faces and options of the module.
+
+#+begin_src emacs-lisp -i
+(defgroup sp-lambda-modeline nil
+  "Lambda-line header line and mode line."
+  :group 'mode-line)
+#+end_src
+
+** Major mode icon
+
+lambda-line writes the major mode as text ("Org", "Emacs Lisp") in every mode format, through =lambda-line-mode-name=. An =:around= advice on that function returns the =nerd-icons= icon of the major mode instead, with the name as its tooltip. When there is no icon for the mode, or =nerd-icons= is not installed (=sp-icons= sets it up), the text is shown as before. =sp-lambda-modeline-mode-icon= turns it off. lambda-line puts its own face on that part of the line, so the icon takes the colour of the line, not its own colour; the glyph is drawn from the Nerd font that =sp-icons= maps in the fontset.
+
+#+begin_src emacs-lisp -i
+(declare-function nerd-icons-icon-for-mode "nerd-icons")
+
+(defcustom sp-lambda-modeline-mode-icon t
+  "When non-nil, show the major mode as a `nerd-icons' icon, not as text."
+  :type 'boolean
+  :group 'sp-lambda-modeline)
+
+(defun sp-lambda-modeline--mode-icon (orig-fun)
+  "Return the icon of the major mode, or the text from ORIG-FUN."
+  (let ((icon (and sp-lambda-modeline-mode-icon
+                   (require 'nerd-icons nil t)
+                   (nerd-icons-icon-for-mode major-mode))))
+    (if (and (stringp icon) (not (string-empty-p icon)))
+        (propertize icon 'help-echo (funcall orig-fun))
+      (funcall orig-fun))))
+#+end_src
+
+** Tag emoji
+
+The advice adds the tag emoji of the heading or file at point to the primary part (the middle one, next to the major mode) of every mode line lambda-line composes. All the mode formats go through =lambda-line-compose=, so no format needs to be rewritten.
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline--add-tag-emoji (args)
+  "Append the tag emoji to the primary part in ARGS of `lambda-line-compose'."
+  (let ((tags (and (fboundp 'sp-org-tag-groups-modeline-string)
+                   (ignore-errors (sp-org-tag-groups-modeline-string)))))
+    (if (and (stringp tags) (not (string-blank-p tags)))
+        (let ((args (copy-sequence args)))
+          (setf (nth 2 args) (concat (or (nth 2 args) "") tags))
+          args)
+      args)))
+#+end_src
+
+** Theme colours
+
+lambda-line defines its faces with fixed colours ("green", "yellow", "red", "grey75"...). This function replaces them with colours read from the theme in use. The selected window uses =mode-line=, the others use =mode-line-inactive=, and the status symbol takes its colour from =success= (read-write), =warning= (read-only) and =error= (modified).
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline--foreground (face fallback)
+  "Return the foreground of FACE in the current theme, or FALLBACK."
+  (let ((color (face-foreground face nil t)))
+    (if (and (stringp color) (not (string-prefix-p "unspecified" color)))
+        color
+      fallback)))
+
+(defun sp-lambda-modeline-theme-faces (&rest _)
+  "Set the lambda-line faces from the faces of the current theme."
+  (when (facep 'lambda-line-active)
+    (set-face-attribute 'lambda-line nil :inherit 'mode-line)
+    (set-face-attribute 'lambda-line-inactive nil
+                        :inherit 'mode-line-inactive
+                        :weight 'unspecified :box 'unspecified
+                        :foreground 'unspecified :background 'unspecified)
+    (set-face-attribute 'lambda-line-active-name nil
+                        :inherit '(mode-line-buffer-id lambda-line))
+    (set-face-attribute 'lambda-line-active-secondary nil
+                        :inherit '(shadow lambda-line))
+    (let ((muted (sp-lambda-modeline--foreground 'shadow "gray50")))
+      (dolist (status '("RO" "RW" "MD"))
+        (set-face-attribute (intern (format "lambda-line-inactive-status-%s" status))
+                            nil :inherit 'lambda-line-inactive :foreground muted)))
+    (set-face-attribute 'lambda-line-active-status-RW nil
+                        :foreground (sp-lambda-modeline--foreground 'success "green"))
+    (set-face-attribute 'lambda-line-active-status-RO nil
+                        :foreground (sp-lambda-modeline--foreground 'warning "yellow"))
+    (set-face-attribute 'lambda-line-active-status-MD nil
+                        :foreground (sp-lambda-modeline--foreground 'error "red"))
+    (force-mode-line-update t)))
+#+end_src
+
+** The new bottom line
+
+For the buffers of text and programming modes, the advice answers instead of lambda-line's own composing function, with the line of =sp-modeline-parts=. The other buffers (the agenda, Info, mail, the terminal...) have formats with their own information, which are kept.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-lambda-modeline-new-layout t
+  "When non-nil, text and programming buffers get the line of `sp-modeline-parts'."
+  :type 'boolean
+  :group 'sp-lambda-modeline)
+
+(defun sp-lambda-modeline--compose (orig-fun &rest args)
+  "Return the line of `sp-modeline-parts' in text and programming buffers.
+Otherwise call ORIG-FUN, `lambda-line-compose', with ARGS."
+  (if (and sp-lambda-modeline-new-layout
+           (not (minibufferp))
+           (derived-mode-p 'text-mode 'prog-mode))
+      (sp-modeline-parts-compose)
+    (apply orig-fun args)))
+#+end_src
+
+** Layout
+
+The header line and the divider (from =sp-nano-style=) are set after =lambda-line-mode=, which clears both formats when it starts. The parts are installed last, because keycast edits the mode line format that lambda-line has just installed.
+
+#+begin_src emacs-lisp -i
+(defun sp-lambda-modeline-apply-layout ()
+  "Show the name of the buffer in the header line and the new line at the bottom."
+  (sp-nano-style-install)
+  (sp-modeline-parts-install)
+  (force-mode-line-update t))
+#+end_src
+
+** lambda-line
+
+The =:custom= block sets the look of the status line:
+
+- a clock icon drawn with the ClockFaceRect font face,
+- the line placed at the bottom of each window,
+- abbreviated major mode names,
+- extra horizontal spacing, a prefix symbol with padding, and no inverted colours for the status indicator,
+- custom symbols for read-only, modified and unmodified buffers in graphical frames,
+- vertical padding above and below the line and a small vertical offset for the symbols,
+- the special buffers keep lambda-line's own line; the others get the line of =sp-modeline-parts= (see above).
+
+In =:config=, the advices (new bottom line, tag emoji, major mode icon) are added, =lambda-line-mode= is activated, and the header line, keycast and the theme colours are applied. The theme colours are applied again after every theme load.
+
+#+begin_src emacs-lisp -i
+(use-package lambda-line
+    :ensure (:type git :repo "https://codeberg.org/Lambda-Emacs/lambda-line")
+
+    :custom
+    (lambda-line-icon-time t) ;; requires ClockFace font (see below)
+    (lambda-line-clockface-update-fontset "ClockFaceRect") ;; set clock icon
+    (lambda-line-position 'bottom) ;; the status line is the mode line
+    (lambda-line-abbrev t) ;; abbreviate major modes
+    (lambda-line-hspace "  ")  ;; add some cushion
+    (lambda-line-prefix t) ;; use a prefix symbol
+    (lambda-line-prefix-padding t) ;; extra space for prefix
+    (lambda-line-status-invert nil)  ;; no invert colors
+    (lambda-line-gui-ro-symbol  " ⨂") ;; symbols
+    (lambda-line-gui-mod-symbol " ⬤")
+    (lambda-line-gui-rw-symbol  " ◯")
+    (lambda-line-space-top +.70)  ;; padding on top and bottom of line
+    (lambda-line-space-bottom -.70)
+    (lambda-line-symbol-position 0.1) ;; adjust the vertical placement of symbol
+
+    :config
+    (advice-add 'lambda-line-compose :around #'sp-lambda-modeline--compose)
+    (advice-add 'lambda-line-compose :filter-args
+                #'sp-lambda-modeline--add-tag-emoji)
+    (advice-add 'lambda-line-mode-name :around #'sp-lambda-modeline--mode-icon)
+    (lambda-line-mode)  ;; activate lambda-line
+    (sp-lambda-modeline-theme-faces)
+    (sp-lambda-modeline-apply-layout)
+    (add-hook 'sp-after-load-theme-hook #'sp-lambda-modeline-theme-faces))
+#+end_src
+
+** Provide
+
+Provides the =sp-lambda-modeline= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-lambda-modeline)
+#+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/99][#99]] 🐛 Fixed the empty mode line of lambda-line (no buffer name, no modes): the bare =%_= divider was set when the position is =bottom=, overwriting the status line, instead of when it is =top=. Renamed =sp-lambda-line= to =sp-lambda-modeline=: lambda-line in the mode line plus a header line with the path of the file and the project, keycast at the right of the mode line (keycast no longer in the header: =sp-frame= does not turn on =keycast-header-line-mode=), the tag emoji of =sp-org-tag-groups= in every mode line (lambda-line does not show =global-mode-string=) and lambda-line faces taken from the theme in use, re-applied after each theme load. Removed =sp-choose-modeline= and its doc (last at commit =cfc047b=). Added =sp-prot-modeline=, a native mode line adapted from Prot's (buffer name, major and minor modes, branch, Flymake, keycast at the bottom, path in a header line), not loaded by =init.el=. Untested in a running Emacs.

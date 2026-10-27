@@ -1,13 +1,44 @@
 #+TITLE: sp-org-agenda.el and sp-agenda-views.el: Org agenda settings, views and keys
 #+STARTUP: content
 
-Literate source for two modules: =libraries/modules/text/sp-org-agenda.el= (the agenda settings and helpers) and =libraries/modules/text/sp-agenda-views.el= (every custom agenda view and every agenda key). Every line of both modules lives in the =emacs-lisp= blocks below, in order. This file has no file-wide =#+PROPERTY= line for =:tangle=, because that would send every block to one file. Instead each top-level heading carries a =:header-args:emacs-lisp:= property in its own drawer, which says where the blocks under it are written, and the last heading, "Agenda views module", points at =sp-agenda-views.el=. See [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for two modules:
+
+- =libraries/modules/text/sp-org-agenda.el=: the agenda settings and helpers.
+- =libraries/modules/text/sp-agenda-views.el=: every custom agenda view and every agenda key.
+
+How tangling works here:
+
+- Every line of both modules lives in the =emacs-lisp= blocks below, in order.
+- There is no file-wide =#+PROPERTY= line for =:tangle=, because that would send every block to one file.
+- Instead each top-level heading carries a =:header-args:emacs-lisp:= property in its own drawer, saying where the blocks under it are written.
+- The last heading, "Agenda views module", points at =sp-agenda-views.el=.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-Configures how Org's agenda looks and behaves: the prefix format of agenda lines, visual styling of the time grid and tags, scheduling and sorting rules, and the =org-super-agenda= grouping. It also adds a command to jump to the daily view, automatic refresh of the agenda after a capture, and an alphapapa recipe for showing an agenda limited to the current subtree or region.
+Configures how Org's agenda looks and behaves. It covers:
 
-It no longer sets the list of agenda files (=vulpea-para= owns it, see =sp-vulpea-para= and [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]) or any key (all agenda keys are in =sp-agenda-views=). It is loaded in the Org section of both module lists in =init.el=, early, and it installs =elegant-agenda-mode=, =org-super-agenda=, =org-ql= and =org-other-agenda=. The custom agenda views live in =sp-agenda-views=, described at the end of this file, which is one of the last Org modules to load.
+- the prefix format of agenda lines,
+- visual styling of the time grid and tags,
+- scheduling and sorting rules,
+- enabling =org-super-agenda= (its groups are set per view in =sp-agenda-views=).
+
+It also adds:
+
+- a command to jump to the daily view,
+- automatic refresh of the agenda after a capture,
+- an alphapapa recipe for showing an agenda limited to the current subtree or region.
+
+What it no longer does:
+
+- It no longer sets the list of agenda files. =vulpea-para= owns it; see =sp-vulpea-para= and [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]].
+- It no longer sets any key. All agenda keys are in =sp-agenda-views=.
+
+Loading:
+
+- Loaded early, in the Org section of both module lists in =init.el=.
+- Installs =elegant-agenda-mode=, =org-super-agenda=, =org-ql= and =org-other-agenda=.
+- The custom agenda views live in =sp-agenda-views=, described at the end of this file. It is one of the last Org modules to load.
 
 * Basics
 :PROPERTIES:
@@ -25,7 +56,7 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;; Configures Org's agenda: the prefix format of agenda lines, visual styling
 ;; of the time grid and tags, scheduling and sorting rules, and the
-;; `org-super-agenda' grouping. The agenda files are owned by vulpea-para
+;; `org-super-agenda' mode (groups are set per view). The agenda files are owned by vulpea-para
 ;; (sp-vulpea-para) and the keys are in sp-agenda-views. It
 ;; also adds a command to jump to the daily view, automatic refresh of the
 ;; agenda after a capture, and an alphapapa recipe for showing an agenda
@@ -36,7 +67,14 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Agenda settings
 
-Configures the built-in =org-agenda= library, loaded when =org-agenda= is first called. The agenda opens with log mode on, so clocked and closed items for the day are shown. =org-agenda-prefix-format= is the only definition of the prefix: every kind of agenda line starts with vulpea-para's category (the Area and Project path, 36 characters wide). The main agenda adds the time slot and the scheduling information, and search results an icon. It used to be set twice (here and in =sp-vulpea-para=), and the second assignment dropped the =tags= and =search= entries.
+Configures the built-in =org-agenda= library, loaded when =org-agenda= is first called.
+
+- The agenda opens with log mode on, so clocked and closed items for the day are shown.
+- =org-agenda-prefix-format= is the only definition of the prefix.
+- Every kind of agenda line starts with vulpea-para's category (the Area and Project path, 36 characters wide).
+- The main agenda adds the time slot and the scheduling information. Search results get an icon.
+- It used to be set twice (here and in =sp-vulpea-para=), and the second assignment dropped the =tags= and =search= entries.
+- All the other =org-agenda-= options of this module (styling, display and scheduling, described under /Appearance/ and /Behaviour/ below) are in the same =:custom= block. They used to be =setq= forms further down the file.
 
 #+begin_src emacs-lisp -i
 ;;;; Org Agenda
@@ -55,6 +93,25 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
      (todo   . " %(vulpea-para-agenda-category 36) ")
      (tags   . " %(vulpea-para-agenda-category 36) ")
      (search . " %i %(vulpea-para-agenda-category 36) ")))
+  (org-agenda-tags-column 0)  ;; Put tags next to heading
+  (org-agenda-breadcrumbs-separator "  ")
+  (org-agenda-block-separator " ")  ;; No default block seperator
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string
+   "–––––––––––––– Now")
+  (org-agenda-tags-column org-tags-column)
+  (org-agenda-show-inherited-tags nil)
+  (org-agenda-window-setup 'only-window)
+  (org-agenda-restore-windows-after-quit t)
+  (org-agenda-skip-scheduled-if-done t)
+  (org-agenda-skip-timestamp-if-done t)
+  (org-agenda-todo-ignore-scheduled 'future)
+  (org-agenda-todo-ignore-deadlines 'far)
+  (org-agenda-sorting-strategy
+   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
 )
 #+end_src
 
@@ -121,21 +178,20 @@ A note that an earlier two-letter mnemonic menu over =org-agenda-mode-map= was d
 
 ** Agenda styling
 
-Stops Org from aligning tags, puts agenda tags right after the heading, uses two spaces between breadcrumbs, and replaces the block separator with a blank. The time grid shows hours from 08:00 to 20:00 every two hours with light dotted lines, only on today and only when there are timed items, and the current time is marked with a line ending in "Now".
+Tags and time grid. All but the first item are =:custom= entries of the =org-agenda= =use-package= above; the one =setq= left in this section is =org-auto-align-tags=, which belongs to Org itself, not to the agenda:
+
+- Stops Org from aligning tags.
+- Puts agenda tags right after the heading.
+- Uses two spaces between breadcrumbs.
+- Replaces the block separator with a blank.
+- The time grid shows hours from 08:00 to 20:00 every two hours, with light dotted lines.
+- The grid appears only on today and only when there are timed items.
+- The current time is marked with a line ending in "Now".
 
 #+begin_src emacs-lisp -i
 ;;;; Appearance of the agenda and rendering
 ;; Agenda styling
   (setq org-auto-align-tags nil)            ;; Don't align tags
-  (setq org-agenda-tags-column 0)           ;; Put tags next to heading
-  (setq org-agenda-breadcrumbs-separator "  ")
-  (setq org-agenda-block-separator " ")     ;; No default block seperator
-  (setq org-agenda-time-grid
-   '((daily today require-timed)
-     (800 1000 1200 1400 1600 1800 2000)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (setq org-agenda-current-time-string
-   "–––––––––––––– Now")
 #+end_src
 
 ** elegant-agenda-mode
@@ -149,14 +205,10 @@ Installs =elegant-agenda-mode=, a package that restyles the agenda with a cleane
 
 ** Display properties
 
-Sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-org-appearance= sets to 0, so the result is the same). Inherited tags are hidden in the agenda, the agenda takes over the whole frame, and the previous window layout comes back on quit.
+Another =:custom= entry sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-org-appearance= sets to 0, so the result is the same). Inherited tags are hidden in the agenda, the agenda takes over the whole frame, and the previous window layout comes back on quit.
 
 #+begin_src emacs-lisp -i
 ;; Display properties
-  (setq org-agenda-tags-column org-tags-column)
-  (setq org-agenda-show-inherited-tags nil)
-  (setq org-agenda-window-setup 'only-window)
-  (setq org-agenda-restore-windows-after-quit t)
 #+end_src
 
 * Behaviour
@@ -166,7 +218,12 @@ Sets =org-agenda-tags-column= again, this time to =org-tags-column= (which =sp-o
 
 ** Scheduling and sorting
 
-Done items are hidden from scheduled and timestamp entries. TODO lists hide tasks scheduled in the future and those with distant deadlines. Every view sorts by time ascending, and the calendar week starts on Monday.
+Visibility and sorting. All but the last item are =:custom= entries of the =org-agenda= =use-package=; the week start is a Calendar variable, so it stays a =setq=:
+
+- Done items are hidden from scheduled and timestamp entries.
+- TODO lists hide tasks scheduled in the future and those with distant deadlines.
+- Every view sorts by time ascending.
+- The calendar week starts on Monday. That setting moved to [[file:../base/sp-globals.org][sp-globals]] as =sp-calendar-week-start-day=, and a comment in the code says so.
 
 #+begin_src emacs-lisp -i
 ;;;; CONFIGURING THE FUNCTIONALITY
@@ -178,46 +235,37 @@ Done items are hidden from scheduled and timestamp entries. TODO lists hide task
   (setq org-agenda-todo-ignore-deadlines 'far)
   (setq org-agenda-sorting-strategy
    '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
-  (setq calendar-week-start-day 1) ;; Start week on Monday
+  ;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
 #+end_src
 
-** org-super-agenda groups
+** org-super-agenda
 
-Installs =org-super-agenda= (waiting for it to be built) and sets its date format and groups: overdue PROG or DOING items first, then today's tasks (by date and by scheduled date, as two groups with the same name), then habits under "End of Day", then future TODOs, and DONE or cancelled items last as "Accomplishments". The groups only apply when =org-super-agenda-mode= is enabled, and nothing in the config turns it on, so as it stands this grouping is not used.
+Installs =org-super-agenda= (waiting for it to be built), sets its date format and turns =org-super-agenda-mode= on.
+
+- No groups are set globally: =org-super-agenda-groups= is nil, so every view is shown as Org builds it.
+- A view that wants groups sets them in its own settings. The day agenda of =sp-agenda-views= does.
+- Global groups would split every block of the PARA view, whose skip functions and sorting strategies assume a plain list.
+- See [[file:../../../../../adr/0012-org-super-agenda-per-view.org][ADR 0012]].
 
 #+begin_src emacs-lisp -i
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda
-:after org
+  :after org
   :ensure (:wait t)
-:init
-(setq org-super-agenda-date-format "%A (%e)"
-      org-super-agenda-groups
-      '((:name "Accomplishments"
-         :todo ("DONE" "CNCL" "CANCELLED")
-         :order 4)
-        (:name "End of Day"
-         :habit t
-         :order 2)
-        (:name "Uncompleted Work"
-         :todo ("PROG" "DOING")
-         :scheduled past
-         :order 0)
-        (:name "Today's Tasks"
-         :date today
-         :order 1)
-        (:name "Today's Tasks"
-         :scheduled today
-         :order 1)
-        (:name "Future Work"
-         :todo "TODO"
-         :scheduled future
-         :order 3))))
+  :init
+  (setq org-super-agenda-date-format "%A (%e)")
+  :config
+  (org-super-agenda-mode 1))
 #+end_src
 
 ** org-ql
 
-Installs =org-ql=, the Org query language, which can search Org files with structured queries and build agenda-like views from them. This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on. It sits right after =org-super-agenda= on purpose: =org-ql= requires =org-super-agenda=, and if it is declared first, Elpaca queues =org-super-agenda= as a dependency and warns =org-super-agenda previously queued as dependency of: (org-ql)= when the explicit declaration follows. See [[file:../../architecture/load-order.org][the load order]].
+Installs =org-ql=, the Org query language.
+
+- It searches Org files with structured queries and builds agenda-like views from them.
+- This is the install that =sp-vulpea-org-ql=, which calls =org-ql-select=, relies on.
+- It sits right after =org-super-agenda= on purpose. =org-ql= requires =org-super-agenda=, and if it is declared first, Elpaca queues =org-super-agenda= as a dependency. It then warns =org-super-agenda previously queued as dependency of: (org-ql)= when the explicit declaration follows.
+- See [[file:../../architecture/load-order.org][the load order]].
 
 #+begin_src emacs-lisp -i
 ;; org-ql requires org-super-agenda, so it has to be declared after it:
@@ -248,7 +296,15 @@ Declares agenda variables so the byte compiler knows they are special when they 
 
 ** sp-org-agenda-current-subtree-or-region
 
-Shows a search agenda restricted to the current subtree, or to the active region extended to the end of its last subtree, with the header "Subtree" or "Region". With a prefix argument only TODO items are shown. It works from indirect buffers by operating in the base buffer, sorts by priority then timestamp, and removes the restriction lock afterwards. The inline note says that binding the sorting strategy around =org-search-view= appears to have no effect. The command has no keybinding in this module.
+Shows a search agenda restricted to the current subtree, or to the active region extended to the end of its last subtree.
+
+- The header is "Subtree" or "Region".
+- With a prefix argument only TODO items are shown.
+- Works from indirect buffers by operating in the base buffer.
+- Sorts by priority, then timestamp.
+- Removes the restriction lock afterwards.
+- The inline note says that binding the sorting strategy around =org-search-view= appears to have no effect.
+- The command has no keybinding in this module.
 
 #+begin_src emacs-lisp -i
 ;;;###autoload
@@ -309,7 +365,13 @@ Provides the =sp-org-agenda= feature and closes the file.
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/text/sp-agenda-views.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-This heading and everything under it is written to =sp-agenda-views.el=, not =sp-org-agenda.el=. The module holds every custom agenda view and every agenda key, so there is one place to read. =org-agenda-custom-commands= is assigned once, here, from the lists below; no other module adds to it. The module is loaded last among the Org modules (see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]): the PARA view needs =vulpea-para=, and the issue views need =sp-org-issues=, whose functions they call. The views use only the keywords of =sp-org-keywords=.
+This heading and everything under it is written to =sp-agenda-views.el=, not =sp-org-agenda.el=.
+
+- The module holds every custom agenda view and every agenda key, so there is one place to read.
+- =org-agenda-custom-commands= is assigned once, here, from the lists below. No other module adds to it.
+- Loaded last among the Org modules (see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]).
+- The PARA view needs =vulpea-para=. The issue views need =sp-org-issues=, whose functions they call.
+- The views use only the keywords of =sp-org-keywords=.
 
 ** File header
 
@@ -344,7 +406,8 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 | =C-c c=                   | =org-capture=                                 | =sp-org-capture=           |
 | =C-c .= (in the agenda)   | =org-gtd-agenda-transient=                    | here                       |
 | =C-c o a SPC=             | The PARA view                                 | here, in the views         |
-| =C-c o a d D n e w p R r u W= | The native views, listed below            | here, in the views         |
+| =C-c o a d D n e w p R r u W l= | The native views, listed below          | here, in the views         |
+| =C-c o a q=               | The org-ql views                              | here, in the views         |
 | =C-c o a i i=, =C-c o a i b= | The issue board, issues with a branch      | here, in the views         |
 | =C-c d e n p s=           | org-gtd engage, next, process inbox, stuck    | =sp-org-taskman-extra=     |
 
@@ -360,18 +423,55 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 ** Native views
 
 Views offered by the dispatcher (the keys are in the table above):
+
 - =d= Dashboard: today's agenda, items due today, items due in the next five days, NEXT tasks and tasks tagged =email=.
 - =p= Planning: tasks tagged =@planning=, untagged tasks, and unprocessed items from =~/notes/inbox.org=.
-- =D= Daily Agenda: today with a seven-day deadline warning plus priority A tasks.
+- =D= Daily Agenda: today with a seven-day deadline warning, plus priority A tasks. Today's items are grouped with =org-super-agenda= (=sp-agenda-views-day-groups=, below).
+- =l= Coming deadlines: the deadlines of the next 30 days. The splash screen opens it.
 - =n= NEXT tasks, =W= tasks tagged =work=, and =e= low-effort NEXT tasks under 15 minutes.
-- =w= Workflow Status: one section each for PROG, WAIT, REVIEW and ACTIVE. The sections for PLAN, BACKLOG, READY, COMPLETED and CANCELED are removed: no keyword sequence defines those words, so they never matched anything.
+- =w= Workflow Status: one section each for PROG, WAIT, REVIEW and ACTIVE.
+  - The sections for PLAN, BACKLOG, READY, COMPLETED and CANCELED are removed. No keyword sequence defines those words, so they never matched anything.
 - =R= Weekly Review: completed and unfinished scheduled tasks for the week.
-- =r= Research and university: tasks tagged =@research=, =@reading= or =@uni=. As written, the match string means =@research= and the other two tags combined, which may not be the intended "any of".
+- =r= Research and university: tasks tagged =@research=, =@reading= or =@uni=.
+  - As written, the match string means =@research= and the other two tags combined, which may not be the intended "any of".
 - =u= Untagged Tasks: tasks that have no tags.
 
 The blocks that restrict =org-agenda-files= (the inbox section of Planning) bind =vulpea-para-agenda-inhibit-files-update=. The no-op =(org-agenda-files org-agenda-files)= settings of the old Workflow and Low Effort views are removed.
 
+The groups of the Daily Agenda (=org-super-agenda=, set for that view only, see [[file:../../../../../adr/0012-org-super-agenda-per-view.org][ADR 0012]]), in order:
+
+- overdue =PROG= or =DOING= items,
+- today's tasks (by date and by scheduled date, as two groups with the same name),
+- habits under "End of Day",
+- future =TODO= items,
+- finished items last, as "Accomplishments".
+
+They are the groups that used to be set globally and never applied, with the keywords of =sp-org-keywords=.
+
 #+begin_src emacs-lisp -i
+(defconst sp-agenda-views-day-groups
+  '((:name "Accomplishments"
+     :todo ("DONE" "CNCL" "CANCELLED")
+     :order 4)
+    (:name "End of Day"
+     :habit t
+     :order 2)
+    (:name "Uncompleted Work"
+     :todo ("PROG" "DOING")
+     :scheduled past
+     :order 0)
+    (:name "Today's Tasks"
+     :date today
+     :order 1)
+    (:name "Today's Tasks"
+     :scheduled today
+     :order 1)
+    (:name "Future Work"
+     :todo "TODO"
+     :scheduled future
+     :order 3))
+  "`org-super-agenda' groups of the Daily Agenda view.")
+
 (defconst sp-agenda-views-native
   '(("d" "Dashboard"
      ((agenda "" ((org-agenda-span 'day)))
@@ -394,7 +494,8 @@ The blocks that restrict =org-agenda-files= (the inbox section of Planning) bind
 
     ("D" "Daily Agenda"
      ((agenda "" ((org-agenda-span 'day)
-                  (org-deadline-warning-days 7)))
+                  (org-deadline-warning-days 7)
+                  (org-super-agenda-groups sp-agenda-views-day-groups)))
       (tags-todo "+PRIORITY=\"A\""
                  ((org-agenda-overriding-header "High Priority Tasks")))))
 
@@ -403,6 +504,13 @@ The blocks that restrict =org-agenda-files= (the inbox section of Planning) bind
             ((org-agenda-overriding-header "Next Tasks")))))
 
     ("W" "Work Tasks" tags-todo "+work")
+
+    ;; The splash screen opens this one
+    ("l" "Coming deadlines" agenda ""
+     ((org-agenda-span 30)
+      (org-agenda-entry-types '(:deadline))
+      (org-deadline-warning-days 30)
+      (org-agenda-overriding-header "Coming deadlines")))
 
     ;; Low-effort next actions
     ("e" tags-todo "+TODO=\"NEXT\"+Effort<15&+Effort>0"
@@ -438,7 +546,12 @@ The blocks that restrict =org-agenda-files= (the inbox section of Planning) bind
 
 ** Issue views
 
-The =i= prefix lists the open issues of the issue tracker. =sp-org-issues= provides the file through =sp-org-issues--agenda-files=; the views live here. =i i= is the issue board (in progress, next, waiting, open, in a buffer named =*Issues*=) and =i b= lists the issues with a branch. They are added only when =sp-org-issues= is loaded.
+The =i= prefix lists the open issues of the issue tracker.
+
+- =sp-org-issues= provides the file through =sp-org-issues--agenda-files=. The views live here.
+- =i i= is the issue board (in progress, next, waiting, open, in a buffer named =*Issues*=).
+- =i b= lists the issues with a branch.
+- They are added only when =sp-org-issues= is loaded.
 
 #+begin_src emacs-lisp -i
 (defconst sp-agenda-views-issues
@@ -456,6 +569,30 @@ The =i= prefix lists the open issues of the issue tracker. =sp-org-issues= provi
       (vulpea-para-agenda-inhibit-files-update t)
       (org-agenda-overriding-header "Issues with a branch"))))
   "The issue views, as `org-agenda-custom-commands' entries.")
+#+end_src
+
+** org-ql views
+
+Blocks built with =org-ql-block= (from =org-ql=, installed in =sp-org-agenda=).
+
+- They query the agenda files with structured predicates instead of keyword and tag match strings.
+- =q= shows next actions with no date (=NEXT=, neither scheduled nor with a deadline), everything waiting (=WAIT=), and what was finished in the last seven days.
+- They search =org-agenda-files=, so the agenda files that =vulpea-para= set apply.
+- =org-ql-block= is declared as an autoload, because =org-ql= may not be built yet when this module loads.
+- See [[file:../../../../../adr/0011-dashboard-and-org-ql-views.org][ADR 0011]].
+
+#+begin_src emacs-lisp -i
+(autoload 'org-ql-block "org-ql")
+
+(defconst sp-agenda-views-ql
+  '(("q" "Queries (org-ql)"
+     ((org-ql-block '(and (todo "NEXT") (not (scheduled)) (not (deadline)))
+                    ((org-ql-block-header "Next actions without a date")))
+      (org-ql-block '(todo "WAIT")
+                    ((org-ql-block-header "Waiting")))
+      (org-ql-block '(and (done) (closed :from -7))
+                    ((org-ql-block-header "Done in the last 7 days"))))))
+  "The org-ql views, as `org-agenda-custom-commands' entries.")
 #+end_src
 
 ** Main PARA view
@@ -476,12 +613,13 @@ A view on the space key, built from vulpea-para's blocks: items to refile, today
 
 ** The command list
 
-The one assignment. The PARA view comes first, then the native views, then the issue views.
+The one assignment. The PARA view comes first, then the native views, the org-ql views and the issue views.
 
 #+begin_src emacs-lisp -i
 (setq org-agenda-custom-commands
       (append sp-agenda-views-para
               sp-agenda-views-native
+              sp-agenda-views-ql
               (when (featurep 'sp-org-issues)
                 sp-agenda-views-issues)))
 #+end_src

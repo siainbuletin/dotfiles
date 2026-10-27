@@ -2,15 +2,30 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-latex.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-latex.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-latex.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module sets up LaTeX editing with AUCTeX, RefTeX, preview and latexmk, configures Org's LaTeX exporter to compile with XeLaTeX through latexmk, and adds a few spelling, indentation and BibTeX tweaks. It is listed in the =plus-programming= profile in =sp-config-profiles.el=.
 
-Packages involved are =auctex=, =auctex-latexmk=, =company-auctex=, =org-pandoc-import= (fetched from GitHub), and the built-in =preview=, =reftex=, =bibtex=, =ox-latex= and =align=. External programs: a TeX distribution with =latexmk=, =xelatex=, =luatex= and =dvipdfmx=. The setup hook also uses =company= and =rainbow-delimiters=.
+Packages involved:
 
-The file has grown by accretion and has a few rough edges worth knowing: the TeX engine is set to XeTeX by default but to LuaTeX by the setup hook, =org-latex-listings= is set twice. The file ends with =(provide 'sp-latex)=, so the module loader no longer logs it as =[FAILED]=. The =auctex=, =preview= and =reftex= forms used to appear twice (the second copy of =auctex= only differed by a guard); the duplicates are removed.
+- =auctex=, =auctex-latexmk=, =company-auctex=,
+- =org-pandoc-import= (fetched from GitHub),
+- the built-in =preview=, =reftex=, =bibtex=, =ox-latex= and =align=.
+
+External programs: a TeX distribution with =latexmk=, =xelatex=, =luatex= and =dvipdfmx=. The setup hook also uses =company= and =rainbow-delimiters=.
+
+The file has grown by accretion and has a few rough edges worth knowing:
+
+- The TeX engine is set to XeTeX by default but to LuaTeX by the setup hook.
+- =org-latex-listings= is set twice.
+- The file ends with =(provide 'sp-latex)=, so the module loader no longer logs it as =[FAILED]=.
+- The =auctex=, =preview= and =reftex= forms used to appear twice (the second copy of =auctex= only differed by a guard). The duplicates are removed.
 
 * Editing setup and commands
 
@@ -33,7 +48,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Per-buffer LaTeX setup
 
-=sia/latex-setup= runs in every =TeX-mode= buffer (see the =latex= block below). It turns on RefTeX, hooks in =auctex-latexmk=, switches the engine to LuaTeX, enables multi-level script fontification, PDF output, source correlation (SyncTeX), =TeX-fold-mode= and rainbow delimiters, and gives the buffer a local =company-backends= of =company-auctex= and =company-files= before starting =company-mode=.
+=sia/latex-setup= runs in every =TeX-mode= buffer (see the =latex= block below). It:
+
+- turns on RefTeX,
+- hooks in =auctex-latexmk=,
+- switches the engine to LuaTeX,
+- enables multi-level script fontification, PDF output, source correlation (SyncTeX), =TeX-fold-mode= and rainbow delimiters,
+- gives the buffer a local =company-backends= of =company-auctex= and =company-files= before starting =company-mode=.
 
 #+begin_src emacs-lisp -i
 (defun sia/latex-setup ()
@@ -55,7 +76,11 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Run latexmk
 
-=sia/latexmk-run= saves the document without asking and runs latexmk synchronously on the master file. If the run reports errors it jumps to the first one with =TeX-next-error=, otherwise it shows "latexmk-done". It is bound to =F5= in =TeX-mode-map=.
+=sia/latexmk-run= runs latexmk on the master file.
+
+- Saves the document without asking and runs latexmk synchronously.
+- If the run reports errors, jumps to the first one with =TeX-next-error=. Otherwise shows "latexmk-done".
+- Bound to =F5= in =TeX-mode-map=.
 
 #+begin_src emacs-lisp -i
 (defun sia/latexmk-run ()
@@ -75,7 +100,14 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** AUCTeX
 
-Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=. On LaTeX buffers it enables preview, Flyspell and RefTeX. It defaults the engine to XeTeX, turns off auto-save and self-parsing of style information, skips the save prompt before compiling, enables PDF mode, and leaves =TeX-master= nil so AUCTeX asks for the master file. This block is unconditional; a guarded duplicate of it used to follow later and has been removed. It comes before =auctex-latexmk= and =company-auctex=, which require it, so Elpaca does not queue AUCTeX as their dependency first.
+Installs AUCTeX and opens =.tex= and =.latex= files in =latex-mode=.
+
+- On LaTeX buffers it enables preview, Flyspell and RefTeX.
+- It defaults the engine to XeTeX.
+- It turns off auto-save and self-parsing of style information, skips the save prompt before compiling, and enables PDF mode.
+- It leaves =TeX-master= nil, so AUCTeX asks for the master file.
+- This block is unconditional. A guarded duplicate of it used to follow later and has been removed.
+- It comes before =auctex-latexmk= and =company-auctex=, which require it, so Elpaca does not queue AUCTeX as their dependency first.
 
 #+begin_src emacs-lisp -i
 (use-package auctex
@@ -118,7 +150,11 @@ Deferred install of the AUCTeX completion backend for company. The form has no =
 
 ** TeX mode bindings and Org LaTeX export
 
-The =latex= block runs =sia/latex-setup= from =TeX-mode-hook= and binds =F5= to =sia/latexmk-run=, =TAB= to =company-indent-or-complete-common= and =F1= to =company-show-doc-buffer= in =TeX-mode-map=. After AUCTeX loads it loads =latex-compile-on-save.el=, which defines a minor mode that compiles on every save; that file lives in the config root, so it is loaded by its full path under =sp-emacs-dir= rather than by name, which would only work if that directory were on the load path.
+The =latex= block runs =sia/latex-setup= from =TeX-mode-hook=.
+
+- In =TeX-mode-map= it binds =F5= to =sia/latexmk-run=, =TAB= to =company-indent-or-complete-common= and =F1= to =company-show-doc-buffer=.
+- After AUCTeX loads, it loads =latex-compile-on-save.el=, which defines a minor mode that compiles on every save.
+- That file lives in the config root, so it is loaded by its full path under =sp-emacs-dir= rather than by name. By name would only work if that directory were on the load path.
 
 The same unit then sets Org export to use =xelatex= and builds =org-latex-pdf-process= as a single latexmk call with the recorder, SyncTeX and conditional BibTeX.
 

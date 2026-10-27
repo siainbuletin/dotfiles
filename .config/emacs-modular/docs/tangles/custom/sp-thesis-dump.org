@@ -3,7 +3,11 @@
 #+PROPERTY: header-args:markdown :tangle ../../architecture/skills/thesis-brain-dump/SKILL.md :comments no :padline no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=. Every line of the module lives in the =emacs-lisp= blocks below, in order, and the skill in the =markdown= block at the end. The =:tangle= paths in the =#+PROPERTY= lines at the top say where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order. The skill is in the =markdown= block at the end.
+- The =:tangle= paths in the =#+PROPERTY= lines at the top say where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 * What it does
 
@@ -17,7 +21,12 @@ Emacs checks the citekeys itself against the =.bib= files, so a key counts as "t
 
 ** The module is not tied to the dotfiles
 
-The module needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =claude= command. It never mentions =sp-paths=, =vulpea= or any other module of this configuration, so the single file =sp-thesis-dump.el= can be copied into the thesis repo's Emacs setup, or into any other configuration, and loaded with =(require 'sp-thesis-dump)=. What changes between projects is a handful of variables. The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project, so that the thesis repo carries its own settings and every other project carries its own.
+The module is portable.
+
+- It needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =claude= command.
+- It never mentions =sp-paths=, =vulpea= or any other module of this configuration.
+- So the single file =sp-thesis-dump.el= can be copied into the thesis repo's Emacs setup, or into any other configuration, and loaded with =(require 'sp-thesis-dump)=.
+- What changes between projects is a handful of variables. The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project. The thesis repo then carries its own settings, and so does every other project.
 
 #+begin_src emacs-lisp :tangle no
 ;; In the thesis repo, .dir-locals.el (written by M-x sp-thesis-dump when asked):
@@ -33,7 +42,12 @@ The module needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =
 
 ** What "org-mcp" means here
 
-The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the project files) say that =vulpea-mcp= searches and creates notes and that editing existing Org content needs a separate =org-mcp= server. I read "org-mcp" as that: an MCP server that runs inside Emacs and gives Claude tools to read (and edit) Org files. MCP always has the model as the client, so Emacs cannot "send to Claude via org-mcp". The module does it the other way round:
+About "org-mcp":
+
+- The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the project files) say that =vulpea-mcp= searches and creates notes, and that editing existing Org content needs a separate =org-mcp= server.
+- I read "org-mcp" as that: an MCP server that runs inside Emacs and gives Claude tools to read (and edit) Org files.
+- MCP always has the model as the client, so Emacs cannot "send to Claude via org-mcp".
+- The module does it the other way round:
 
 1. Emacs starts =claude -p= (Claude Code's non-interactive mode) in the project directory and gives it the prompt on standard input.
 2. If the =org-mcp= tools are allowed (=sp-thesis-dump-claude-allowed-tools=), Claude may use them to read my task file and notes for context. The prompt tells it not to change anything with them.
@@ -93,49 +107,61 @@ These describe the machine, not the project, so they are not safe as directory-l
 
 (defcustom sp-thesis-dump-claude-command "claude"
   "Claude Code executable.  It is run as `claude -p' in the project directory."
-  :type 'string)
+  :type 'string
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-model nil
   "Model passed to `--model', or nil for Claude Code's default."
-  :type '(choice (const :tag "Default" nil) string))
+  :type '(choice (const :tag "Default" nil) string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-mcp-config nil
   "File passed to `--mcp-config' (relative to the project root), or nil.
 Use it when the org-mcp server is not registered with `claude mcp add'."
-  :type '(choice (const :tag "None" nil) file))
+  :type '(choice (const :tag "None" nil) file)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-allowed-tools nil
   "Tools Claude may use without asking, passed to `--allowedTools'.
 For example (\"mcp__org-mcp__*\") lets it read through the org-mcp server.
 Give read-only tools: the answer is filed by Emacs, not by Claude."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-claude-extra-args nil
   "Further arguments for the `claude' command."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-project-root nil
   "Fixed project directory, or nil to find it from the current buffer.
 It is then the directory with a .dir-locals.el above this one, else the
 `project-current' root, else the last one used."
-  :type '(choice (const nil) directory))
+  :type '(choice (const nil) directory)
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-save-after-insert t
   "Save the task file after the tasks have been filed."
-  :type 'boolean)
+  :type 'boolean
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-max-known-keys 1500
   "Most bibliography keys to list in the prompt."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-context-max-chars 6000
   "Most characters of the context file to put in the prompt."
-  :type 'integer)
+  :type 'integer
+  :group 'spcustom)
 #+end_src
 
 ** Project options
 
-These are the variables prompted for and saved in the project's =.dir-locals.el=. Paths are relative to the project root. Each has a =:safe= predicate so Emacs accepts it from =.dir-locals.el= without asking.
+These are the variables prompted for and saved in the project's =.dir-locals.el=.
+
+- Paths are relative to the project root.
+- Each has a =:safe= predicate, so Emacs accepts it from =.dir-locals.el= without asking.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--list-of-strings-p (value)
@@ -146,58 +172,68 @@ These are the variables prompted for and saved in the project's =.dir-locals.el=
   "Org file that receives the tasks (relative to the project root).
 nil means ask."
   :type '(choice (const :tag "Ask" nil) file)
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-heading "Brain dumps"
   "Heading in the task file that receives each dump.
 Write A/B for the heading B below A.  Missing headings are created."
   :type 'string
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-bib-files :ask
   "BibTeX files (relative to the project root) whose keys count as known.
 :ask means ask once; nil means there is no bibliography."
   :type '(choice (const :tag "Ask" :ask) (repeat file))
-  :safe (lambda (v) (or (eq v :ask) (sp-thesis-dump--list-of-strings-p v))))
+  :safe (lambda (v) (or (eq v :ask) (sp-thesis-dump--list-of-strings-p v)))
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-keywords '("TODO")
   "TODO keywords Claude may give a new task.  The first is the default."
   :type '(repeat string)
-  :safe #'sp-thesis-dump--list-of-strings-p)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-tags '("thesis")
   "Tags that every new task gets."
   :type '(repeat string)
-  :safe #'sp-thesis-dump--list-of-strings-p)
+  :safe #'sp-thesis-dump--list-of-strings-p
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-cite-style 'org-cite
   "How the citekeys of a task are written in its body.
 org-cite is [cite:@a;@b], org-ref is cite:a,b, pandoc is [@a; @b] and plain is
 a, b."
   :type '(choice (const org-cite) (const org-ref) (const pandoc) (const plain))
-  :safe #'symbolp)
+  :safe #'symbolp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-citekey-style
   "first author's surname in lowercase followed by the year, such as smith2020"
   "Description of the keys Claude should invent for sources not yet known."
   :type 'string
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-context-file nil
   "Optional file (relative to the project root) describing the thesis.
 Its start goes into the prompt so tasks fit the structure of the thesis."
   :type '(choice (const nil) file)
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-language nil
   "Language of the tasks, or nil for the language of the dump."
   :type '(choice (const nil) string)
-  :safe (lambda (v) (or (null v) (stringp v))))
+  :safe (lambda (v) (or (null v) (stringp v)))
+  :group 'spcustom)
 
 (defcustom sp-thesis-dump-keep-raw t
   "Keep the original dump under the filed tasks, in a Raw dump section."
   :type 'boolean
-  :safe #'booleanp)
+  :safe #'booleanp
+  :group 'spcustom)
 
 (defconst sp-thesis-dump--project-variables
   '(sp-thesis-dump-tasks-file sp-thesis-dump-heading sp-thesis-dump-bib-files
@@ -219,7 +255,7 @@ The root comes from an explicit setting, a =.dir-locals.el= above the current di
   "Project directory; ask when FORCE or when none is found."
   (let ((found (or sp-thesis-dump-project-root
                    (locate-dominating-file default-directory ".dir-locals.el")
-                   (when-let ((project (project-current)))
+                   (when-let* ((project (project-current)))
                      (project-root project))
                    sp-thesis-dump--last-root)))
     (file-name-as-directory
@@ -507,7 +543,11 @@ Answer with a single JSON object and nothing else, with no code fence:
 
 * Running Claude
 
-=claude -p= reads its prompt from standard input when none is given as an argument, which avoids argument-length and quoting problems. The process runs in the project root so that Claude Code picks up the project's own =CLAUDE.md=, settings and skills. The call is asynchronous: Emacs stays usable and the result buffer appears when Claude is done.
+Calling Claude:
+
+- =claude -p= reads its prompt from standard input when none is given as an argument, which avoids argument-length and quoting problems.
+- The process runs in the project root, so Claude Code picks up the project's own =CLAUDE.md=, settings and skills.
+- The call is asynchronous: Emacs stays usable and the result buffer appears when Claude is done.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--command (ctx)
@@ -613,7 +653,11 @@ Signal an error with a readable message when there is none."
 
 * Turning the answer into Org
 
-The result is rendered with the dump as a level-one heading, so it can be edited as a stand-alone Org document; it is shifted to the right level when filed. A key is *to look up* when it is not in the bibliography, whichever list Claude put it in. A key that differs from a known key only in letter case is replaced by the known one.
+Rendering the result:
+
+- The dump is a level-one heading, so the result can be edited as a stand-alone Org document. It is shifted to the right level when filed.
+- A key is *to look up* when it is not in the bibliography, whichever list Claude put it in.
+- A key that differs from a known key only in letter case is replaced by the known one.
 
 #+begin_src emacs-lisp -i
 (defun sp-thesis-dump--clean (value)
@@ -633,7 +677,7 @@ The result is rendered with the dump as a level-one heading, so it can be edited
   (delete-dups
    (delq nil
          (mapcar (lambda (key)
-                   (when-let ((clean (sp-thesis-dump--clean key)))
+                   (when-let* ((clean (sp-thesis-dump--clean key)))
                      (let ((bare (string-remove-prefix "@" clean)))
                        (or (seq-find (lambda (k) (string= (downcase k) (downcase bare)))
                                      known)
@@ -670,7 +714,7 @@ The result is rendered with the dump as a level-one heading, so it can be edited
                (tags (delete-dups
                       (delq nil
                             (mapcar (lambda (tag)
-                                      (when-let ((clean (sp-thesis-dump--clean tag)))
+                                      (when-let* ((clean (sp-thesis-dump--clean tag)))
                                         (replace-regexp-in-string "[^[:alnum:]_@#%]" "_" clean)))
                                     (append (plist-get ctx :tags) (alist-get 'tags task))))))
                (effort (let ((e (sp-thesis-dump--clean (alist-get 'effort task))))
@@ -699,16 +743,16 @@ The result is rendered with the dump as a level-one heading, so it can be edited
         (dolist (key (reverse missing))
           (let ((info (gethash key infos)))
             (insert (format "- [ ] =%s=" key))
-            (when-let ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
+            (when-let* ((reference (sp-thesis-dump--clean (alist-get 'reference info))))
               (insert " :: " reference))
-            (when-let ((why (sp-thesis-dump--clean (alist-get 'why info))))
+            (when-let* ((why (sp-thesis-dump--clean (alist-get 'why info))))
               (insert (if (string-suffix-p "." (buffer-substring (line-beginning-position) (point))) " " ". ") why))
-            (when-let ((titles (gethash key needed)))
+            (when-let* ((titles (gethash key needed)))
               (insert (format " (for: %s)" (string-join titles "; "))))
             (insert "\n")))
         (when found
           (insert "- Already in the bibliography: " (string-join (reverse found) ", ") "\n")))
-      (when-let ((questions (delq nil (mapcar #'sp-thesis-dump--clean
+      (when-let* ((questions (delq nil (mapcar #'sp-thesis-dump--clean
                                               (alist-get 'questions payload)))))
         (insert "** Questions\n")
         (dolist (question questions) (insert "- [ ] " question "\n")))
@@ -892,7 +936,10 @@ Try the pieces without Claude: the first block renders a made-up answer, the sec
 
 * The companion skill
 
-The same procedure for Claude Code itself, for when the dump is typed into a Claude Code session in the thesis repo and not into Emacs. Copy the tangled folder to =.claude/skills/thesis-brain-dump/= in the thesis repo. It uses the =org-mcp= tools when they are connected and edits the Org file otherwise.
+The same procedure for Claude Code itself, for when the dump is typed into a Claude Code session in the thesis repo rather than into Emacs.
+
+- Copy the tangled folder to =.claude/skills/thesis-brain-dump/= in the thesis repo.
+- It uses the =org-mcp= tools when they are connected, and edits the Org file otherwise.
 
 #+begin_src markdown
 ---
@@ -955,7 +1002,19 @@ Use the `org-mcp` edit tools when connected, otherwise edit the file. Keep the u
 
 * Untested
 
-This was written in a container with Emacs 29.3 and without Claude Code. The module byte-compiles without warnings, and its commands were run in batch Emacs against a stand-in =claude= script that returns a made-up answer: reading the settings from =.dir-locals.el=, asking for and saving them, the prompt, the answer parsing (including a code fence around the JSON), the rendering, filing under a nested heading (creating it when missing) and the failure path. Not tried:
+Testing status:
+
+- Written in a container with Emacs 29.3 and without Claude Code.
+- The module byte-compiles without warnings.
+- Its commands were run in batch Emacs against a stand-in =claude= script that returns a made-up answer. Covered:
+  - reading the settings from =.dir-locals.el=,
+  - asking for and saving them,
+  - the prompt,
+  - the answer parsing (including a code fence around the JSON),
+  - the rendering,
+  - filing under a nested heading (creating it when missing),
+  - the failure path.
+- Not tried:
 
 - the real =claude -p --output-format json= envelope (the module expects a =result= string and an =is_error= flag), and reading the prompt from standard input;
 - =--mcp-config= and =--allowedTools=, and the tool names of the =org-mcp= server;

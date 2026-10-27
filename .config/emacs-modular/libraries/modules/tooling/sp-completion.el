@@ -6,6 +6,12 @@
 
 ;;; Code:
 
+;;;; Company
+;; First in the file, so that Elpaca queues it as an explicit package before
+;; `company-math' and `company-prescient', which require it, are declared.
+(use-package company
+  :ensure (:wait t))
+
 ;;;; Vertico (base)
 (use-package vertico
   :ensure t
@@ -17,6 +23,9 @@
   (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
   (vertico-sort-function
            'vertico-sort-history-alpha)
+  ;; The default, `prompt', keeps the typed text selected, so RET on a partial
+  ;; name creates a new buffer; `first' selects the best match instead.
+  (vertico-preselect 'first)
 
   :config
   (vertico-mode))
@@ -113,10 +122,6 @@
   (completion-category-defaults nil)
   (completion-category-overrides
    '((file (styles partial-completion)))))
-
-;;;; Company
-(use-package company
-  :ensure (:wait t))
 
 (provide 'sp-completion)
 ;; sp-completion.el ends here.

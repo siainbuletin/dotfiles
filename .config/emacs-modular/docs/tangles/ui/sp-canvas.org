@@ -2,13 +2,20 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-canvas.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-canvas.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/ui/sp-canvas.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
 This module is a placeholder for drawing and canvas features, in particular the =excali= package for Excalidraw-style drawings inside Emacs. It only does something on an Emacs build with canvas image support (version 32 or later, with =canvas-refresh= and the =canvas= image type) and when a compiled =excali-module= is found.
 
-As written, the search path is the literal placeholder =/path/to/excali-mode=, so the condition is never met and the module has no effect. A copy of excali-mode is vendored in this repository under =libraries/modules/cloned/excali-mode=, which is presumably where the path should point. The module is loaded in the UI part of =init.el=.
+As written, the search path is the literal placeholder =/path/to/excali-mode=, so the condition is never met and the module has no effect.
+
+- A copy of excali-mode is vendored in this repository under =libraries/modules/cloned/excali-mode=. That is presumably where the path should point.
+- The module is loaded in the UI part of =init.el=.
 
 The commentary at the top of the module says:
 
@@ -40,7 +47,19 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Conditional excali setup
 
-If Emacs is new enough, supports canvas images and the native =excali-module= exists in the excali directory, this adds that directory to =load-path=, sets up =excali-open= and =excali-new= as autoloaded commands, and opens =.excalidsl= files in =excali-dsl-mode=. As the comment points out, =.excalidsl= files are text source files, not =.excalidraw= scene files. With the current placeholder path none of this runs.
+If all of these hold:
+
+- Emacs is new enough,
+- it supports canvas images,
+- the native =excali-module= exists in the excali directory,
+
+then this:
+
+- adds that directory to =load-path=,
+- sets up =excali-open= and =excali-new= as autoloaded commands,
+- opens =.excalidsl= files in =excali-dsl-mode=.
+
+As the comment points out, =.excalidsl= files are text source files, not =.excalidraw= scene files. With the current placeholder path none of this runs.
 
 #+begin_src emacs-lisp -i
 (let ((excali-directory (expand-file-name "/path/to/excali-mode")))

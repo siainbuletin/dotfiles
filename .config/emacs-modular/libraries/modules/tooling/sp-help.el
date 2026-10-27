@@ -11,8 +11,8 @@
 
 ;;;; Dialogs and popups:
 
-(setq use-file-dialog nil)                      ;; No file dialog
-(setq use-dialog-box nil)                       ;; No dialog box
+;; Moved to `sp-globals': `sp-use-file-dialog' and `sp-use-dialog-box' (both
+;; nil: no file dialog and no dialog box).
 (setq confirm-nonexistent-file-or-buffer nil)   ;; No confirmation for visiting non-existent files
 (setq-default pop-up-windows t)                 ;; Set popup windows
 (setq-default pop-up-frames nil)                ;; Set popup frames
@@ -206,7 +206,7 @@ sections are actually ordered."
               (let* ((node-display-name (match-string 1))
                      (node-actual-name (or (match-string 2) node-display-name)))
                 (push (cons (concat node-display-name
-                                    (if-let ((node-description (match-string 3)))
+                                    (if-let* ((node-description (match-string 3)))
                                         (propertize
                                          (thread-last node-description
                                                       (replace-regexp-in-string "\n" "")
@@ -249,7 +249,7 @@ sections are actually ordered."
               (let* ((node-display-name (match-string-no-properties 1))
                      (node-actual-name (or (match-string-no-properties 2) node-display-name)))
                 (push (cons (concat node-display-name
-                                    (if-let ((node-description (match-string-no-properties 3)))
+                                    (if-let* ((node-description (match-string-no-properties 3)))
                                         (propertize
                                          (thread-last node-description
                                                       (replace-regexp-in-string "\n" "")

@@ -2,11 +2,19 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/tooling/sp-evil.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/tooling/sp-evil.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/tooling/sp-evil.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
 This module adds modal, Vim style editing through =evil=, with =evil-collection= for key bindings in the many modes Evil does not cover, and the =evil-surround= and =evil-commentary= operators.
 
-It is opt-in. It is commented out of both module lists in =init.el=, so by default it is not loaded at all. Unlike most modules, its packages install themselves with =:ensure t=, so the Evil package set only lands for people who turn it on. The commentary explains that the escape to quit bindings already live elsewhere; in this repository they are in =sp-helper-funct=, guarded by =with-eval-after-load 'evil=, and they wake up when this module loads Evil.
+The module is opt-in.
+
+- It is commented out of both module lists in =init.el=, so by default it is not loaded at all.
+- Unlike most modules, its packages install themselves with =:ensure t=, so the Evil package set only lands for people who turn it on.
+- The commentary explains that the escape to quit bindings already live elsewhere: in this repository, in =sp-helper-funct=, guarded by =with-eval-after-load 'evil=. They wake up when this module loads Evil.
 
 The commentary at the top of the module says:
 
@@ -66,9 +74,29 @@ Everything in this section is shown as a single block.
 
 ** Evil, collection, surround and commentary
 
-This block covers four packages. =evil= is configured before loading: it leaves key bindings to evil-collection, lets =C-u= scroll up as in Vim, leaves TAB alone so it still cycles Org headings, makes =Y= yank to the end of the line, uses the built-in =undo-redo= system, moves =j= and =k= by visual line when =visual-line-mode= is on, uses Evil's own search module, and splits new windows below and to the right. After enabling =evil-mode= it sets the cursor shape per state (a bar in insert, a horizontal bar in replace, a hollow box in operator pending, a box otherwise) without changing the cursor colour.
+This block covers four packages. =evil= is configured before loading:
 
-=evil-collection= then installs community bindings for many modes, after which REPLs, terminals, the debugger, the profiler and tabulated list buffers are set to start in Emacs state, so they behave as plain Emacs. =evil-surround= adds the =ys=, =cs= and =ds= operators for adding, changing and deleting surrounding pairs, and =evil-commentary= adds =gc= with a motion, and =gcc= for a line, to toggle comments.
+- leaves key bindings to evil-collection,
+- lets =C-u= scroll up as in Vim,
+- leaves TAB alone so it still cycles Org headings,
+- makes =Y= yank to the end of the line,
+- uses the built-in =undo-redo= system,
+- moves =j= and =k= by visual line when =visual-line-mode= is on,
+- uses Evil's own search module,
+- splits new windows below and to the right.
+
+After enabling =evil-mode=, it sets the cursor shape per state, without changing the cursor colour:
+
+- a bar in insert,
+- a horizontal bar in replace,
+- a hollow box in operator pending,
+- a box otherwise.
+
+The other packages:
+
+- =evil-collection= installs community bindings for many modes. After that, REPLs, terminals, the debugger, the profiler and tabulated list buffers are set to start in Emacs state, so they behave as plain Emacs.
+- =evil-surround= adds the =ys=, =cs= and =ds= operators for adding, changing and deleting surrounding pairs.
+- =evil-commentary= adds =gc= with a motion, and =gcc= for a line, to toggle comments.
 
 #+begin_src emacs-lisp -i
 ;;;; Evil

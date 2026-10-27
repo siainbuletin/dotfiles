@@ -2,11 +2,24 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-tty-clipboard.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/prog/sp-tty-clipboard.el=. Every line of the module lives in the =emacs-lisp= blocks below, in order. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where they are written; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
+Literate source for =libraries/modules/prog/sp-tty-clipboard.el=.
 
-This small module connects the kill ring to whichever clipboard belongs to the device the user is actually looking at. In a graphical frame that is the host's native clipboard. In a terminal frame (for example Emacs running over SSH inside tmux, viewed from Blink Shell on a phone or tablet) it is the outer terminal's clipboard, reached by writing an OSC52 escape sequence that tmux passes through to the terminal.
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
 
-Loading the module replaces =interprogram-cut-function= with =lem--osc52-cut-function=; nothing else in the config needs to call it. It only handles copying out of Emacs, not pasting in. It has no package dependencies. It is not listed in the default or minimal module lists or in =sp-config-profiles.el=, so it has to be required by hand or from a host-specific setup.
+This small module connects the kill ring to whichever clipboard belongs to the device the user is actually looking at.
+
+- In a graphical frame, that is the host's native clipboard.
+- In a terminal frame (for example Emacs running over SSH inside tmux, viewed from Blink Shell on a phone or tablet), it is the outer terminal's clipboard.
+- That clipboard is reached by writing an OSC52 escape sequence that tmux passes through to the terminal.
+
+Loading:
+
+- Loading the module replaces =interprogram-cut-function= with =lem--osc52-cut-function=. Nothing else in the config needs to call it.
+- It only handles copying out of Emacs, not pasting in.
+- It has no package dependencies.
+- It is not listed in the default or minimal module lists or in =sp-config-profiles.el=. It has to be required by hand or from a host-specific setup.
 
 The commentary at the top of the module says:
 
@@ -54,7 +67,11 @@ The commentary explains the design: one function handles both graphical and term
 
 ** Maximum region size
 
-=lem-osc52-max-region-bytes= caps how much text, in raw bytes before encoding, may be sent to the terminal clipboard; larger kills stay in the kill ring and produce one message. The docstring explains why: base64 adds about a third, tmux passthrough doubles every escape byte, and terminals differ in what they accept (Apple Terminal stops near 4 KB, Blink and iTerm2 allow more). The default of 100000 bytes suits a Blink plus tmux workflow.
+=lem-osc52-max-region-bytes= caps how much text, in raw bytes before encoding, may be sent to the terminal clipboard.
+
+- Larger kills stay in the kill ring and produce one message.
+- The docstring explains why: base64 adds about a third, tmux passthrough doubles every escape byte, and terminals differ in what they accept (Apple Terminal stops near 4 KB, Blink and iTerm2 allow more).
+- The default of 100000 bytes suits a Blink plus tmux workflow.
 
 #+begin_src emacs-lisp -i
 (defcustom lem-osc52-max-region-bytes 100000
@@ -74,14 +91,20 @@ near 4 KB; Blink Shell and iTerm2 are more permissive. The default
 of 100000 raw bytes targets a Blink workflow with tmux. Lower the
 value if a different terminal will receive the sequence."
   :type 'integer
-  :group 'lambda-emacs)
+  :group 'spcustom)
 #+end_src
 
 * Sending text to the terminal
 
 ** Emit an OSC52 sequence
 
-=lem--osc52-emit= first checks the byte size against the limit and only prints a message if it is too large. Otherwise it encodes the text as UTF-8 and base64 and wraps it as the OSC52 "set clipboard" sequence. When the =TMUX= environment variable is set, it further wraps that in tmux's passthrough envelope, doubling each escape character. The result is written straight to the frame's terminal with =send-string-to-terminal=. For the tmux path to work, tmux must allow passthrough or clipboard forwarding in its own configuration.
+=lem--osc52-emit=:
+
+- First checks the byte size against the limit. It only prints a message if the text is too large.
+- Otherwise it encodes the text as UTF-8 and base64 and wraps it as the OSC52 "set clipboard" sequence.
+- When the =TMUX= environment variable is set, it further wraps that in tmux's passthrough envelope, doubling each escape character.
+- The result is written straight to the frame's terminal with =send-string-to-terminal=.
+- For the tmux path to work, tmux must allow passthrough or clipboard forwarding in its own configuration.
 
 #+begin_src emacs-lisp -i
 (defun lem--osc52-emit (text frame)
@@ -107,7 +130,14 @@ to the terminal stream."
 
 ** Cut function that picks the clipboard
 
-=lem--osc52-cut-function= is the replacement for =interprogram-cut-function=. It finds the frame of a window showing the current buffer and dispatches on the frame type: macOS, X and PGTK frames get =gui-select-text= (the normal behaviour), terminal frames get the OSC52 sequence. Other frame types, such as Windows GUI frames, fall through to a message and the text stays local. It does nothing in batch mode. If the buffer is not shown in any window, =window-frame= falls back to the selected frame, so the "no live frame" branch is rarely reached.
+=lem--osc52-cut-function= is the replacement for =interprogram-cut-function=.
+
+- It finds the frame of a window showing the current buffer and dispatches on the frame type:
+  - macOS, X and PGTK frames get =gui-select-text= (the normal behaviour),
+  - terminal frames get the OSC52 sequence,
+  - other frame types, such as Windows GUI frames, fall through to a message and the text stays local.
+- It does nothing in batch mode.
+- If the buffer is not shown in any window, =window-frame= falls back to the selected frame, so the "no live frame" branch is rarely reached.
 
 #+begin_src emacs-lisp -i
 (defun lem--osc52-cut-function (text)

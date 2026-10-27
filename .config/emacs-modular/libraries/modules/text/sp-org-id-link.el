@@ -71,6 +71,41 @@ is non-nil."
           (apply 'delete-region remove)
           (insert description)))))
 
+;;;;; Link to the configuration docs
+;; Plain `file:' links, so the docs stay out of the vulpea database.
+(declare-function sp-find-file-pick "sp-navi")
+
+(defcustom sp-config-docs-directory (expand-file-name "docs/" sp-load-path)
+  "Directory holding the literate and architecture docs of this configuration."
+  :type 'directory)
+
+(defun sp-org-doc-title (file)
+  "Return the #+title of the Org FILE, or nil if it has none."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 4096)
+    (let ((case-fold-search t))
+      (when (re-search-forward "^#\\+title:[ \t]*\\(.+?\\)[ \t]*$" nil t)
+        (match-string 1)))))
+
+(defun sp-org-insert-config-doc-link (&optional edit-description)
+  "Insert an Org link to a file of the configuration docs at point.
+Pick the file with the fuzzy search of `sp-find-file', restricted to the
+Org files under `sp-config-docs-directory'.  The description is the
+#+title of the file, or its name without extension when it has none.
+With a prefix argument EDIT-DESCRIPTION, ask for the description."
+  (interactive "P")
+  (require 'sp-navi)
+  (unless (file-directory-p sp-config-docs-directory)
+    (user-error "No docs directory at %s" sp-config-docs-directory))
+  (when-let* ((file (sp-find-file-pick sp-config-docs-directory "\\.org\\'")))
+    (let* ((title (or (sp-org-doc-title file) (file-name-base file)))
+           (description (if edit-description
+                            (read-string "Description: " title)
+                          title)))
+      (insert (org-link-make-string
+               (concat "file:" (abbreviate-file-name file))
+               description)))))
+
 ;; Other libraries
 ;; - sp-org-create-note-and-link.el
 
