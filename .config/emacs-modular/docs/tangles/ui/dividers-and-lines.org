@@ -7,9 +7,19 @@ Settings go in your own configuration /before/ the module loads (above the modul
 
 * Quick answers for this configuration
 
-** The frame of the minibuffer (=sp-mini-frame=)
+** The dotted line under =M-x= and the frame (=sp-posframe=)
 
-The minibuffer is a centred posframe (=vertico-posframe=). Its padding is =vertico-posframe-border-width= (4 pixels), the colour of the border is the =background= of the face =vertico-posframe-border=, and the frame itself uses the face =vertico-posframe=. There is no dotted line under =M-x=; to add one, see the section on lines made from characters below.
+The minibuffer is a centred posframe (=vertico-posframe=). Its padding is =vertico-posframe-border-width= (4 pixels), the colour of the border is the =background= of the face =vertico-posframe-border=, and the frame itself uses the face =vertico-posframe=.
+
+The dotted line under the =M-x= input is a row of one character, drawn after the text you type (see [[file:sp-posframe.org][sp-posframe]]).
+
+| What to change         | How                                                                                          |
+|------------------------+----------------------------------------------------------------------------------------------|
+| The character          | =(setq sp-posframe-divider-char ?┄)=. Dotted choices: =?┈= (the default), =?┄=, =?╌=, =?·=. A solid line: =?─=. =nil= removes the line. |
+| The colour             | It is the colour of the divider of =sp-nano-style=: =(setq sp-nano-style-divider-color "#888888")=, or the foreground of the face in =sp-nano-style-divider-face= (default =shadow=). |
+| How strong it is      | =(setq sp-nano-style-divider-opacity 0.4)=: 1 is the full colour, 0 invisible. |
+| Where it sits          | If it is drawn under the candidates and not between the input and the candidates: =(setq sp-posframe-divider-priority 50)= (or =-50=, the other way). |
+| Its width              | It has 300 characters and the window cuts it (=truncate-lines=), so it always spans the frame and does not wrap. The frame width is =vertico-posframe-min-width=. |
 
 ** The thin line above the mode line and under the header (=sp-nano-style=)
 
