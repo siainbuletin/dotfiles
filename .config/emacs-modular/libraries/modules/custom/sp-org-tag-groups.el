@@ -402,8 +402,42 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
                                     members))
            collect group))
 
+(defvar sp-org-tag-groups--memo (make-hash-table :test #'equal)
+  "Results of the selector's per-note work, by (KIND . ARGS).")
+
+(defvar sp-org-tag-groups--memo-state nil
+  "Settings `sp-org-tag-groups--memo' was filled under, compared with `eq'.")
+
+(defun sp-org-tag-groups--memo-state ()
+  "The settings and frame state the remembered selector results depend on."
+  (list sp-org-tag-groups-rules sp-org-tag-groups-combo-consumes
+        sp-org-tag-groups-link-position sp-org-tag-groups-alist
+        sp-org-tag-groups-colors sp-org-tag-groups-palette
+        (face-attribute 'sp-org-tag-groups-select-tags-face :height nil t)
+        (frame-parameter nil 'background-mode)))
+
+(defun sp-org-tag-groups--memoize (key fn)
+  "The value for KEY, calling FN once per KEY until a setting changes.
+`vulpea-select' asks for every note's title and tag column on each call,
+so the colours, the rules and the chips are worked out once per distinct
+tag list instead of once per note."
+  (let ((state (sp-org-tag-groups--memo-state)))
+    (unless (and sp-org-tag-groups--memo-state
+                 (cl-every #'eq state sp-org-tag-groups--memo-state))
+      (clrhash sp-org-tag-groups--memo)
+      (setq sp-org-tag-groups--memo-state state)))
+  (let ((hit (gethash key sp-org-tag-groups--memo 'sp-org-tag-groups--miss)))
+    (if (eq hit 'sp-org-tag-groups--miss)
+        (puthash key (funcall fn) sp-org-tag-groups--memo)
+      hit)))
+
 (defun sp-org-tag-groups--chip-face (tag)
   "Face for the chip of TAG: the colour of its first group, from the palette."
+  (sp-org-tag-groups--memoize
+   (cons 'face tag) (lambda () (sp-org-tag-groups--chip-face-1 tag))))
+
+(defun sp-org-tag-groups--chip-face-1 (tag)
+  "Work out the face of `sp-org-tag-groups--chip-face' for TAG."
   (let* ((group (car (sp-org-tag-group-of tag)))
          (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
          (entry (or (assq name sp-org-tag-groups-palette) (assq 'default sp-org-tag-groups-palette)))
@@ -414,6 +448,11 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 
 (defun sp-org-tag-groups--chips (tags columns)
   "TAGS as coloured chips, an ellipsis replacing those that exceed COLUMNS."
+  (sp-org-tag-groups--memoize
+   (list 'chips columns tags) (lambda () (sp-org-tag-groups--chips-1 tags columns))))
+
+(defun sp-org-tag-groups--chips-1 (tags columns)
+  "Build the chips of `sp-org-tag-groups--chips' for TAGS within COLUMNS."
   (let* ((height (face-attribute 'sp-org-tag-groups-select-tags-face :height nil t))
          (height (if (numberp height) height 1.0))
          (room (max 4 (floor (/ columns height))))
@@ -443,11 +482,12 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 
 (defun sp-org-tag-groups--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
-  (let ((items (plist-get (sp-org-tag-groups--decorate
-                           (mapcar #'substring-no-properties (vulpea-note-tags note))
-                           'select)
-                          :emoji)))
-    (mapconcat #'car items " ")))
+  (let ((tags (mapcar #'substring-no-properties (vulpea-note-tags note))))
+    (sp-org-tag-groups--memoize
+     (list 'emoji tags)
+     (lambda ()
+       (mapconcat #'car (plist-get (sp-org-tag-groups--decorate tags 'select) :emoji)
+                  " ")))))
 
 (defun sp-org-tag-groups-describe-note (note)
   "NOTE's title with the emoji of its tags in front."
