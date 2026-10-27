@@ -13,13 +13,30 @@
 
 (require 'color) ;; why is color needed? what is this package?
 
+(defcustom sp-posframe-width-fraction 0.75
+  "Fraction of the parent frame's width that the posframe always occupies."
+  :type 'float
+  :group 'minibuffer)
+
+(defun sp-posframe-get-size (buffer)
+  "Return the size of the posframe for BUFFER: a fixed share of the frame width.
+Width and minimum width are both `sp-posframe-width-fraction' of the frame, so
+the posframe does not follow the length of the prompt or the candidates. The
+height is left to `vertico-posframe-get-size'."
+  (let* ((width (round (* sp-posframe-width-fraction (frame-width))))
+         (size (copy-sequence (vertico-posframe-get-size buffer))))
+    (plist-put size :width width)
+    (plist-put size :min-width width)
+    (plist-put size :max-width width)
+    size))
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
 
   :custom
   (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
-  (vertico-posframe-min-width 80)    ; wide enough for notes and their tags
+  (vertico-posframe-size-function #'sp-posframe-get-size) ; fixed width, see below
   (vertico-posframe-border-width 4)  ; padding around the text
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
   ;; `vertico-count' (13) sets the number of candidates; the frame fits them.
