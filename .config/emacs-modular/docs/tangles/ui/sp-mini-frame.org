@@ -1,4 +1,4 @@
-#+TITLE: sp-mini-frame.el: Centered minibuffer frame with background dimming
+#+TITLE: sp-mini-frame.el: Centered minibuffer in a posframe with background dimming
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-mini-frame.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
@@ -10,7 +10,7 @@ Literate source for =libraries/modules/ui/sp-mini-frame.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module uses the =mini-frame= package to show the minibuffer in a child frame near the centre of the screen, like a quick switcher. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
+This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. The module keeps its name from the =mini-frame= package it used before: that package hung Emacs on macOS (98% CPU in =M-x=, even without any styling), so it was replaced. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
 
 Dimming:
 
@@ -22,7 +22,7 @@ Dimming:
 The commentary at the top of the module says:
 
 #+begin_quote
-This configuration for emacs-mini-frame.el makes sure that the minibuffer is being
+This configuration for vertico-posframe makes sure that the minibuffer is being
 dimmed and centered when I'm looking for a particular file, or wanting to insert a
 link. Inserting should still be placed somewhere in the bottom, so it can follow what
 I'm writing in the current buffer without interrupting the focus on screen
@@ -40,18 +40,18 @@ The file has lexical binding, a one-line description and the commentary. The com
 The second part is not implemented in this file.
 
 #+begin_src emacs-lisp -i
-;;; sp-mini-frame.el --- Centered minibuffer frame with background dimming -*- lexical-binding: t; -*-
+;;; sp-mini-frame.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This configuration for emacs-mini-frame.el makes sure that the minibuffer is being
+;; This configuration for vertico-posframe makes sure that the minibuffer is being
 ;; dimmed and centered when I'm looking for a particular file, or wanting to insert a
 ;; link. Inserting should still be placed somewhere in the bottom, so it can follow what
 ;; I'm writing in the current buffer without interrupting the focus on screen
 
 ;;; Code:
 
-;;;; Create mini frame for the buffer
+;;;; Show the minibuffer in a centered frame
 #+end_src
 
 ** Require color
@@ -62,37 +62,32 @@ Loads the built-in =color= library, which the comment asks about. It provides th
 (require 'color) ;; why is color needed? what is this package?
 #+end_src
 
-* The mini-frame
+* The posframe
 
-** mini-frame-mode
+** vertico-posframe-mode
 
-Installs =mini-frame= and turns on =mini-frame-mode=.
+Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posframe-mode=, which draws Vertico's minibuffer in a child frame instead of at the bottom of the frame.
 
-- The frame is centred, horizontally and vertically.
-- It takes 60 percent of the width, so vertical completion does not fill the screen.
-- Its height is fixed at 17 lines: the prompt and the 13 candidates of =vertico-count= (set in =sp-completion=), in lines about 17 percent taller because =sp-minibuffer= enlarges the minibuffer text. The frame is never resized, so there is no long blank box; this replaced both the former tall frame and an attempt at resizing it to its content, which hung Emacs on macOS.
-- It has 4 pixels of padding around the text.
-- =mini-frame-resize= is =not-set= so Emacs does not change that height.
-
-There is no special styling for =M-x=: the nano-style prompt, the dotted line under it and the dimming for note functions that were added in #114 and #115 are removed.
+- =vertico-posframe-poshandler= is =posframe-poshandler-frame-center=: the frame is centred horizontally and vertically.
+- =vertico-posframe-min-width= is 80 columns, wide enough for notes and their tags.
+- =vertico-posframe-border-width= is 4: the padding around the text.
+- The number of candidates is Vertico's own =vertico-count= (13, set in =sp-completion=); the posframe fits its content, so there is no blank box and no fixed height. (The frame is not given a height, which is what hung Emacs with =mini-frame=.)
+- =vertico-posframe-fallback-mode= is =vertico-buffer-mode=, which is used in a terminal, where child frames do not exist.
 
 #+begin_src emacs-lisp -i
-(use-package mini-frame
+(use-package vertico-posframe
   :ensure t
-  
+  :after vertico
+
   :custom
-  (mini-frame-show-parameters
-   '((left . 0.5)    ; float = fraction of the free space, so 0.5 centers horizontally
-     (top . 0.5)     ; ... and vertically
-     (width . 0.6)   ; keeps the frame from taking the full width for vertical completion
-     (height . 17)   ; the prompt and `vertico-count' (13) candidates, in lines made taller by
-                     ; the larger minibuffer text (`sp-minibuffer'); fixed, never resized
-     (child-frame-border-width . 4) ; padding around the text
-     (internal-border-width . 4)))
-  (mini-frame-resize 'not-set) ; keep the fixed height above; resizing hung Emacs on macOS
+  (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
+  (vertico-posframe-min-width 80)    ; wide enough for notes and their tags
+  (vertico-posframe-border-width 4)  ; padding around the text
+  (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
+  ;; `vertico-count' (13) sets the number of candidates; the frame fits them.
 
   :config
-  (mini-frame-mode 1)
+  (vertico-posframe-mode 1)
 )
 #+end_src
 
@@ -190,11 +185,11 @@ A comment introducing the dimming code.
 
 ** Only dim for chosen commands
 
-=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =mini-frame-mode= is on and the command running is one of =sp-mini-frame-dim-commands=.
+=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and the command running is one of =sp-mini-frame-dim-commands=.
 
 #+begin_src emacs-lisp -i
 (defun sp-mini-frame--maybe-dim ()
-  (when (and (bound-and-true-p mini-frame-mode)
+  (when (and (bound-and-true-p vertico-posframe-mode)
              (memq this-command sp-mini-frame-dim-commands)
              (minibuffer-selected-window))
     (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))

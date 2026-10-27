@@ -214,7 +214,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:tangles/ui/sp-emoji-font.org][sp-emoji-font]] :: Colour emoji font on macOS and Linux ([[file:../libraries/modules/ui/sp-emoji-font.el][sp-emoji-font.el]])
 - [[file:tangles/ui/sp-frame.org][sp-frame]] :: Frame appearance, margins and frame helpers ([[file:../libraries/modules/ui/sp-frame.el][sp-frame.el]])
 - [[file:tangles/ui/sp-icons.org][sp-icons]] :: Nerd icons for files, dired, completion and ibuffer ([[file:../libraries/modules/ui/sp-icons.el][sp-icons.el]])
-- [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer frame with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
+- [[file:tangles/ui/sp-mini-frame.org][sp-mini-frame]] :: Centered minibuffer in a posframe with background dimming ([[file:../libraries/modules/ui/sp-mini-frame.el][sp-mini-frame.el]])
 - [[file:tangles/ui/sp-tabs.org][sp-tabs]] :: Tab bar and tabspaces workspaces ([[file:../libraries/modules/ui/sp-tabs.el][sp-tabs.el]])
 - [[file:tangles/ui/sp-textui.org][sp-textui]] :: TextUI widgets and Org table widgets ([[file:../libraries/modules/ui/sp-textui.el][sp-textui.el]])
 - [[file:tangles/ui/sp-theme-engine.org][sp-theme-engine]] :: Flavors, semantic mappings and the =sp-dark= and =sp-light= themes ([[file:../libraries/modules/ui/sp-theme-engine.el][sp-theme-engine.el]])
