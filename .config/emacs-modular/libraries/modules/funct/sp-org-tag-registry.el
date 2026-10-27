@@ -52,6 +52,9 @@
         ("research-q")
         ("exploratory")
 
+        ("concept")
+        ("emacs")
+        ("audio")
         ;; sp-org-tag-add: new tags go above this line
         ))
 
