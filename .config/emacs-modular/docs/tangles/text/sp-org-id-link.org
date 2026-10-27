@@ -198,4 +198,4 @@ Provides the =sp-org-id-link= feature and closes the file.
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added =sp-org-insert-config-doc-link=, =sp-config-docs-directory= and =sp-org-doc-title=: insert a =file:= link to a configuration doc from any Org note.
+- [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] ✨ Added =sp-org-insert-config-doc-link=, =sp-config-docs-directory= and =sp-org-doc-title=: insert a =file:= link to a configuration doc from any Org note.

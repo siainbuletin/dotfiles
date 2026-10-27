@@ -909,4 +909,4 @@ Provides the =sp-org-base= feature and closes the file.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 - [[https://github.com/siainbuletin/dotfiles/pull/130][#130]] 🐛 Fixed =M-x sp-split-leave-parents= failing with "Autoloading file org.elc failed to define function": the =C-x s t= binding in =use-package org= made an autoload from =org=; an explicit autoload to =sp-split-leave-parents= now comes first.
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added =C-c l c=, which inserts a link to a configuration doc. Details: [[file:sp-org-id-link.org::*Link to the configuration docs][=sp-org-id-link= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] ✨ Added =C-c l c=, which inserts a link to a configuration doc. Details: [[file:sp-org-id-link.org::*Link to the configuration docs][=sp-org-id-link= doc]].

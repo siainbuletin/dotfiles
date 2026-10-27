@@ -247,4 +247,4 @@ Provides the =sp-navi= feature and closes the file.
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
-- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] =sp-find-file= now builds on =sp-find-file-options=, =sp-find-file--read= and the new =sp-find-file-pick=, which returns a file chosen under a directory instead of visiting it; behaviour of =C-x C-f= is unchanged except that an empty choice no longer tries to visit "". Used by =sp-org-insert-config-doc-link=.
+- [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] =sp-find-file= now builds on =sp-find-file-options=, =sp-find-file--read= and the new =sp-find-file-pick=, which returns a file chosen under a directory instead of visiting it; behaviour of =C-x C-f= is unchanged except that an empty choice no longer tries to visit "". Used by =sp-org-insert-config-doc-link=.
