@@ -414,8 +414,12 @@ have no effect."
     (dolist (face sp-theme-ui-faces)
       (sp-theme--set-face theme face '(:inherit variable-pitch)))))
 
+(defun sp-theme--mode (flavor)
+  "Return the background mode of FLAVOR, `dark' or `light'."
+  (or (plist-get (sp-theme--flavor flavor) :mode) flavor))
+
 (defmacro sp-theme-define (name flavor &optional description)
-  "Define the theme NAME from FLAVOR, `dark' or `light'.
+  "Define the theme NAME from FLAVOR.
 DESCRIPTION is the one-line description of the theme."
   (declare (indent 0))
   (let ((palette (intern (format "%s-palette" name))))
@@ -423,8 +427,136 @@ DESCRIPTION is the one-line description of the theme."
     `(progn
        (defvar ,palette nil)
        (setq ,palette ',(sp-theme-palette flavor))
-       (doric-themes-define-theme ,name ,flavor ,description)
+       (doric-themes-define-theme ,name ,(sp-theme--mode flavor) ,description)
        (sp-theme--extend ',name ',flavor))))
+
+;;;; Importing a palette
+(defun sp-theme--luminance (hex)
+  "Return the relative luminance of the colour HEX."
+  (let ((lin (lambda (c)
+               (let ((c (/ c 255.0)))
+                 (if (<= c 0.03928) (/ c 12.92) (expt (/ (+ c 0.055) 1.055) 2.4))))))
+    (pcase-let ((`(,r ,g ,b) (sp-theme--rgb hex)))
+      (+ (* 0.2126 (funcall lin r)) (* 0.7152 (funcall lin g)) (* 0.0722 (funcall lin b))))))
+
+(defun sp-theme-contrast (a b)
+  "Return the WCAG contrast ratio between the colours A and B."
+  (let ((la (sp-theme--luminance a)) (lb (sp-theme--luminance b)))
+    (/ (+ (max la lb) 0.05) (+ (min la lb) 0.05))))
+
+(defun sp-theme--saturation (hex)
+  "Return the saturation of HEX, 0 to 1."
+  (let* ((rgb (sp-theme--rgb hex)) (hi (apply #'max rgb)) (lo (apply #'min rgb)))
+    (if (zerop hi) 0 (/ (- hi lo) (float hi)))))
+
+(defun sp-theme--readable (color background minimum)
+  "Move COLOR away from BACKGROUND until their contrast is MINIMUM."
+  (let ((extreme (if (> (sp-theme--luminance background) 0.5) "#000000" "#ffffff"))
+        (weight 0.0))
+    (while (and (< (sp-theme-contrast color background) minimum) (< weight 1.0))
+      (setq weight (+ weight 0.05)
+            color (sp-theme-blend color extreme 0.05)))
+    color))
+
+(cl-defun sp-theme-flavor-from-palette (colors &key (variant 'dark) roles)
+  "Return a flavor made from COLORS, a list of #rrggbb strings.
+VARIANT is `dark' or `light'.  ROLES is an alist from a base colour
+name to an index in COLORS or to a #rrggbb string."
+  (unless (cdr colors) (error "A palette needs at least two colours"))
+  (let* ((by-light (sort (copy-sequence colors)
+                         (lambda (a b) (< (sp-theme--luminance a) (sp-theme--luminance b)))))
+         (dark (eq variant 'dark))
+         (bg (if dark
+                 (sp-theme-blend (car by-light) "#000000" 0.45)
+               (sp-theme-blend (car (last by-light)) "#ffffff" 0.8)))
+         (fg (sp-theme--readable
+              (if dark
+                  (sp-theme-blend (car (last by-light)) "#ffffff" 0.55)
+                (sp-theme-blend (car by-light) "#000000" 0.5))
+              bg 10))
+         (others (seq-remove (lambda (c) (member c (list (car by-light) (car (last by-light)))))
+                             colors))
+         (accents (sort (copy-sequence (or others by-light))
+                        (lambda (a b) (> (sp-theme--saturation a) (sp-theme--saturation b)))))
+         (a1 (sp-theme--readable (car accents) bg 4.5))
+         (a2 (sp-theme--readable (or (cadr accents) (car accents)) bg 4.5))
+         (usual (plist-get (sp-theme--flavor variant) :colors))
+         (hues (mapcar (lambda (hue)
+                         (cons hue (sp-theme--readable
+                                    (sp-theme-blend (alist-get hue usual) a1 0.3) bg 4.5)))
+                       '(red green yellow blue magenta cyan)))
+         (base `((bg-main . ,bg) (fg-main . ,fg) (cursor . ,a1)
+                 (border . ,(sp-theme-blend bg fg 0.25))
+                 ,@hues (accent-1 . ,a1) (accent-2 . ,a2))))
+    (dolist (role roles)
+      (let ((color (if (integerp (cdr role)) (nth (cdr role) colors) (cdr role))))
+        (unless (and color (string-match-p "\\`#[0-9a-fA-F]\\{6\\}\\'" color))
+          (error "No colour for the role %S" role))
+        (setcdr (assq (car role) base)
+                (if (memq (car role) '(bg-main fg-main border))
+                    color
+                  (sp-theme--readable color bg 4.5)))))
+    (list :colors base :tint (if dark 0.28 0.16) :mode variant :mappings nil :semantic nil)))
+
+(defun sp-theme--themes-folder ()
+  "Return the folder of the sp theme files."
+  (file-name-directory (or (locate-library "sp-dark-theme")
+                           (error "Cannot find the sp themes folder"))))
+
+(defun sp-theme-import-palette (name colors &optional variant roles)
+  "Make the sp theme `sp-NAME' from the palette COLORS and load it.
+COLORS is a list of #rrggbb strings, or a string that contains them.
+VARIANT is `dark' (the default) or `light'; ROLES as in
+`sp-theme-flavor-from-palette'.  The theme file is written to the
+folder of the sp themes."
+  (interactive
+   (list (read-string "Name of the palette: ")
+         (read-string "Colours (#rrggbb, separated by spaces or commas): ")
+         (intern (completing-read "Variant: " '("dark" "light") nil t nil nil "dark"))))
+  (let* ((colors (if (stringp colors)
+                     (let (found (start 0))
+                       (while (string-match "#?\\([0-9a-fA-F]\\{6\\}\\)" colors start)
+                         (push (concat "#" (downcase (match-string 1 colors))) found)
+                         (setq start (match-end 0)))
+                       (nreverse found))
+                   colors))
+         (variant (or variant 'dark))
+         (slug (replace-regexp-in-string "[^a-z0-9]+" "-" (downcase name)))
+         (flavor (intern slug))
+         (theme (intern (format "sp-%s" slug)))
+         (file (expand-file-name (format "%s-theme.el" theme) (sp-theme--themes-folder))))
+    (setf (alist-get flavor sp-theme-flavors)
+          (sp-theme-flavor-from-palette colors :variant variant :roles roles))
+    (with-temp-file file
+      (insert (format ";;; %s-theme.el --- %s palette, imported -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Made by `sp-theme-import-palette'.  The colours are the palette below;
+;; change them and load the theme again.
+
+;;; Code:
+
+(require 'sp-theme-engine)
+
+(unless (assq '%s sp-theme-flavors)
+  (push (cons '%s
+              (sp-theme-flavor-from-palette
+               '%S
+               :variant '%s
+               :roles %s))
+        sp-theme-flavors))
+
+(sp-theme-define %s %s \"%s palette, imported\")
+
+(provide '%s-theme)
+;;; %s-theme.el ends here
+"
+                      theme name flavor flavor colors variant (if roles (format "'%S" roles) "nil")
+                      theme flavor name theme theme)))
+    (when (fboundp 'sp-themes-rescan) (sp-themes-rescan))
+    (when (called-interactively-p 'any) (load-theme theme t))
+    theme))
 
 (provide 'sp-theme-engine)
 ;;; sp-theme-engine.el ends here

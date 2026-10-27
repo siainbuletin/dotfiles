@@ -61,6 +61,8 @@ The first THEME of a family is the one `sp-load-theme-family' loads."
      1 2 3)
     ("(\\(?:doric-themes-define-theme\\|sp-theme-define\\)[[:space:]]+\\([^[:space:]]+\\)[[:space:]]+\\(light\\|dark\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
      1 3 2)
+    ("(sp-theme-define[[:space:]]+\\([^[:space:]]+\\)[[:space:]]+[^[:space:]]+[[:space:]]+\"\\([^\"]*\\)\""
+     1 2 nil)
     ("(deftheme[[:space:]]+\\([^[:space:])]+\\)\\(?:[[:space:]]+\"\\([^\"]*\\)\"\\)?"
      1 2 nil))
   "How to read a theme file: a list of (REGEXP NAME DESCRIPTION BACKGROUND).
@@ -89,7 +91,11 @@ The last three are the numbers of the regexp groups holding that part, or nil.")
                  (list :name (intern name)
                        :description (when description
                                       (string-join (split-string description) " "))
-                       :background (when background (intern background))))))
+                       :background (cond (background (intern background))
+                                         ;; A theme made by `sp-theme-import-palette'.
+                                         ((progn (goto-char (point-min))
+                                                 (re-search-forward ":variant '\\(light\\|dark\\)" nil t))
+                                          (intern (match-string-no-properties 1))))))))
            sp-theme-metadata-patterns)
           (list :name guess)))))
 

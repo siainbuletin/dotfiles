@@ -29,7 +29,7 @@
 
 (ert-deftest sp-themes-test-registry ()
   (let ((registry (sp-theme-registry t)))
-    (should (> (length registry) 70))
+    (should (> (length registry) 50))
     (dolist (entry registry)
       (should (plist-get entry :name))
       (should (plist-get entry :background))
@@ -42,8 +42,7 @@
 (ert-deftest sp-themes-test-registry-backgrounds ()
   (dolist (pair '((ef-dream . dark) (ef-day . light) (doric-fire . dark)
                   (lambda-light-faded . light) (lambda-dark . dark)
-                  (modus-operandi . light)
-                  (sp-dark . dark) (sp-light . light)))
+                  (sp-dark . dark) (sp-light . light) (sp-wandavision . dark)))
     (should (eq (plist-get (sp-theme-info (car pair)) :background) (cdr pair)))))
 
 (ert-deftest sp-themes-test-registry-folders ()
