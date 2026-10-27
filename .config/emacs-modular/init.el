@@ -255,8 +255,7 @@ the order of `sp-late-modules', for example when debugging."
     ;; Terminals and shells
     sp-terminal
     sp-eshell
-    sp-tag-emoji ;; tags as emoji in the modeline and on links
-    sp-thesis-dump    
+    sp-thesis-dump
     )
   "Modules that can wait until after startup, in dependency order.
 Nothing else requires these features, and their packages are not
@@ -369,7 +368,11 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-tables
                     'sp-org-agenda
                     'sp-org-taskman-extra
-                    'sp-org-ext                     
+                    ;; `sp-collection-query-tables-core', required by `sp-org-ext',
+                    ;; requires it anyway, so it is listed here, once, and not in
+                    ;; `sp-late-modules'.
+                    'sp-tag-emoji ;; tags as emoji in the modeline and on links
+                    'sp-org-ext
                     'sp-csv
 
                      ;; for linting purposes - shouldn't slow down the init itself
