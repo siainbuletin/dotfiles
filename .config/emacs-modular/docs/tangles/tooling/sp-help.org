@@ -105,6 +105,22 @@ Configures =help-at-pt= to display help text after 0.1 seconds of idle time, but
   (help-at-pt-display-when-idle '(flymake-diagnostic)))
 #+end_src
 
+** Shortdoc groups without a section name
+
+The =taxy= package adds its shortdoc group with a nil section name. When =shortdoc= loads, which happens the first time =describe-function= (and so a =help:= link in Org) mentions the shortdoc groups of a function, that fails with =(wrong-type-argument stringp nil)=. The advice on =shortdoc-add-function= replaces a nil section with an empty string, so help opens. Remove it when =taxy= is fixed.
+
+#+begin_src emacs-lisp -i
+;;;;; Shortdoc groups without a section name
+;; `taxy' registers its shortdoc group with a nil section, which signals
+;; (wrong-type-argument stringp nil) when `shortdoc' loads, for instance on
+;; the first `describe-function' or `help:' link.
+(define-advice shortdoc-add-function (:filter-args (args) default-section)
+  "Use an empty section name when a package passes nil."
+  (if (and (consp (cdr args)) (null (cadr args)))
+      (list (car args) "" (nth 2 args))
+    args))
+#+end_src
+
 * Helpful
 
 ** helpful
