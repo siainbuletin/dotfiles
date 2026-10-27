@@ -173,7 +173,7 @@ Keybindings:
 - =s-v= pastes with =org-yank=.
 - =C-x t i= and =C-x t h= toggle items and headings, =C-x t d= demotes, =C-c s i= sorts a list.
 - =C-c f n= and =C-c f q= create and normalize footnotes.
-- =C-c l d= toggles raw link display, =C-c s a= saves all Org buffers.
+- =C-c l d= toggles raw link display, =C-c l c= inserts a link to a configuration doc (=sp-org-insert-config-doc-link=, autoloaded from =sp-org-id-link= like the split command), =C-c s a= saves all Org buffers.
 
 In =:init=, =org-emphasis-regexp-components= is widened so emphasis markers work next to more punctuation (including the em dash); this has to be set before Org loads.
 
@@ -202,6 +202,7 @@ In =:config=:
 ;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
 ;; "org", which does not define it; point the autoload at its own module.
 (autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+(autoload 'sp-org-insert-config-doc-link "sp-org-id-link" nil t)
 
 ;; Use Org from source rather than built in
 (use-package org
@@ -246,6 +247,9 @@ In =:config=:
    
    ;; Visibility for the markup
    ("C-c l d" . org-toggle-link-display)
+
+   ;; Link to the configuration docs
+   ("C-c l c" . sp-org-insert-config-doc-link)
 
    ;; safety nets
    ("C-c s a" . org-save-all-org-buffers)
@@ -905,3 +909,4 @@ Provides the =sp-org-base= feature and closes the file.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 - [[https://github.com/siainbuletin/dotfiles/pull/130][#130]] 🐛 Fixed =M-x sp-split-leave-parents= failing with "Autoloading file org.elc failed to define function": the =C-x s t= binding in =use-package org= made an autoload from =org=; an explicit autoload to =sp-split-leave-parents= now comes first.
+- [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added =C-c l c=, which inserts a link to a configuration doc. Details: [[file:sp-org-id-link.org::*Link to the configuration docs][=sp-org-id-link= doc]].
