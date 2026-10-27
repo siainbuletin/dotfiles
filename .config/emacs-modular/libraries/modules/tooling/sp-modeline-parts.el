@@ -341,15 +341,15 @@ PROPS are text properties for the result."
                           heading time)
        'local-map sp-modeline-parts-clock-map))))
 
-(defun sp-modeline-parts-clock-switch-state ()
+(defun sp-modeline-parts-clock-switch-state (&optional state)
   "Return the keyword to switch the entry being clocked in to, or nil.
-For `org-clock-in-switch-to-state'; point is on the heading."
-  (when (and sp-modeline-parts-clock-keyword
-             (member sp-modeline-parts-clock-keyword org-todo-keywords-1))
-    (let ((state (org-get-todo-state)))
-      (and state
-           (not (member state org-done-keywords))
-           sp-modeline-parts-clock-keyword))))
+For `org-clock-in-switch-to-state', which Org calls with one argument,
+the current todo keyword STATE of the entry (nil when it has none)."
+  (when (and state
+             sp-modeline-parts-clock-keyword
+             (member sp-modeline-parts-clock-keyword org-todo-keywords-1)
+             (not (member state org-done-keywords)))
+    sp-modeline-parts-clock-keyword))
 
 (defun sp-modeline-parts-clock-flag ()
   "Flag the clocked-in heading with a fringe arrow."
