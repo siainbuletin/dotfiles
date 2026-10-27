@@ -163,17 +163,6 @@ Stores aliases in the =ROAM_ALIASES= property instead of Vulpea's default =ALIAS
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 #+end_src
 
-*** Sample query
-
-Runs =vulpea-db-query-by-tags-every= for notes tagged both project and active.
-
-- The result is discarded, so this line has no effect beyond executing the query at load time.
-- It looks like an example left in from the documentation.
-
-#+begin_src emacs-lisp -i
-(vulpea-db-query-by-tags-every '("project" "active")) ;; Query all active projects
-#+end_src
-
 ** Minibuffer display
 
 *** Describing notes
@@ -2026,3 +2015,4 @@ Provides the =sp-vulpea-org-ql= feature and closes the file.
 What each pull request changed in these modules, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/132][#132]] 🐛 Fixed =C-x t s= being undefined: =sp-vulpea-ui= waited for =vulpea= (=:after vulpea=), which loads lazily, so =vulpea-ui= never loaded. The key is now a =:bind= that autoloads =vulpea-ui-sidebar-toggle=.
+- [[https://github.com/siainbuletin/dotfiles/pull/141][#141]] 🐛 Fixed =sp-org-ext= (and so =sp-tab-inbox=) failing at init with =(void-function vulpea-db-query-by-tags-every)=: removed the discarded sample query from =sp-vulpea-base=, which ran before =vulpea= had loaded.
