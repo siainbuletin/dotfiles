@@ -28,6 +28,19 @@
   (vertico-posframe-mode 1)
 )
 
+(defun sp-posframe--match-border ()
+  "Give the posframe border the background colour of the posframe itself.
+The border then reads as padding. It is run again on every theme change."
+  (when (facep 'vertico-posframe-border)
+    (let ((bg (or (face-background 'vertico-posframe nil t)
+                  (face-background 'default nil t))))
+      (when (stringp bg)
+        (set-face-attribute 'vertico-posframe-border nil :background bg)))))
+
+(with-eval-after-load 'vertico-posframe
+  (sp-posframe--match-border))
+(add-hook 'enable-theme-functions (lambda (_theme) (sp-posframe--match-border)))
+
 (defcustom sp-posframe-nano-commands
   '(execute-extended-command amx counsel-M-x smex)
   "Commands whose prompt is styled like nano's M-x."
@@ -80,6 +93,12 @@ wraps. An error is reported in the echo area and does not abort the prompt."
 (add-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)
 
 ;;;; Dimming, only for selected commands
+
+(defcustom sp-posframe-dim-always t
+  "Non-nil means every posframe prompt dims the frame behind it.
+Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'."
+  :type 'boolean
+  :group 'minibuffer)
 
 (defvar sp-posframe-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
@@ -144,7 +163,8 @@ wraps. An error is reported in the echo area and does not abort the prompt."
 
 (defun sp-posframe--maybe-dim ()
   (when (and (bound-and-true-p vertico-posframe-mode)
-             (or sp-posframe--dim-requested
+             (or sp-posframe-dim-always
+                 sp-posframe--dim-requested
                  (memq this-command sp-posframe-dim-commands))
              (minibuffer-selected-window))
     (sp-posframe-dim (window-frame (minibuffer-selected-window)))))

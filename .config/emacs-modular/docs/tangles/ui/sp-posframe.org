@@ -123,7 +123,22 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
   :config
   (vertico-posframe-mode 1)
 )
+
+(defun sp-posframe--match-border ()
+  "Give the posframe border the background colour of the posframe itself.
+The border then reads as padding. It is run again on every theme change."
+  (when (facep 'vertico-posframe-border)
+    (let ((bg (or (face-background 'vertico-posframe nil t)
+                  (face-background 'default nil t))))
+      (when (stringp bg)
+        (set-face-attribute 'vertico-posframe-border nil :background bg)))))
+
+(with-eval-after-load 'vertico-posframe
+  (sp-posframe--match-border))
+(add-hook 'enable-theme-functions (lambda (_theme) (sp-posframe--match-border)))
 #+end_src
+
+The border is 4 pixels wide (=vertico-posframe-border-width=). =sp-posframe--match-border= sets the =vertico-posframe-border= face to the background of the posframe (falling back to =default=), so the border blends in and is only padding. It runs once the package is loaded and on =enable-theme-functions=, so it follows theme changes.
 
 * The nano-style M-x prompt
 
@@ -203,7 +218,15 @@ A comment introducing the dimming code.
 
 =sp-posframe-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
 
+=sp-posframe-dim-always= (default =t=) makes every posframe prompt dim the frame behind it. Set it to =nil= to dim only for the commands and functions below.
+
 #+begin_src emacs-lisp -i
+(defcustom sp-posframe-dim-always t
+  "Non-nil means every posframe prompt dims the frame behind it.
+Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'."
+  :type 'boolean
+  :group 'minibuffer)
+
 (defvar sp-posframe-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
 #+end_src
@@ -308,12 +331,13 @@ A comment introducing the dimming code.
 
 ** Only dim for chosen commands
 
-=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and either the command running is one of =sp-posframe-dim-commands= or a function of =sp-posframe-dim-functions= asked for it.
+=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and either =sp-posframe-dim-always= is set, the command running is one of =sp-posframe-dim-commands= or a function of =sp-posframe-dim-functions= asked for it.
 
 #+begin_src emacs-lisp -i
 (defun sp-posframe--maybe-dim ()
   (when (and (bound-and-true-p vertico-posframe-mode)
-             (or sp-posframe--dim-requested
+             (or sp-posframe-dim-always
+                 sp-posframe--dim-requested
                  (memq this-command sp-posframe-dim-commands))
              (minibuffer-selected-window))
     (sp-posframe-dim (window-frame (minibuffer-selected-window)))))
