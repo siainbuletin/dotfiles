@@ -13,6 +13,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
+(require 'org)
 
 (defgroup sp-collec-query nil
   "Tables of Vulpea notes."
@@ -141,6 +142,48 @@ naming a meta key (several values are joined with \", \")."
      (string-join (vulpea-note-meta-get-list note column) ", "))
     (_ "")))
 
+(defvar sp-collec-query-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'sp-collec-query-open-link)
+    (define-key map [mouse-1] #'sp-collec-query-open-link)
+    (define-key map [mouse-2] #'sp-collec-query-open-link)
+    map)
+  "Keymap on a link shown in a query table cell.")
+
+(defun sp-collec-query-open-link ()
+  "Follow the Org link in the table cell at point or at the last mouse click."
+  (interactive)
+  (when (mouse-event-p last-input-event)
+    (mouse-set-point last-input-event))
+  (let ((link (get-text-property (point) 'sp-collec-query-link)))
+    (if link
+        (org-link-open-from-string (format "[[%s]]" link))
+      (user-error "No link here"))))
+
+(defun sp-collec-query-has-link-p (text)
+  "Non-nil if TEXT contains an Org bracket link."
+  (and (string-match-p org-link-bracket-re text) t))
+
+(defun sp-collec-query-linkify (text)
+  "Return TEXT with its Org links shown the way an Org buffer shows them.
+Each [[target][description]] becomes its description alone in `org-link'
+face, and RET or a click follows the link.  Text is returned as is when
+`org-link-descriptive' is nil."
+  (if (not (and org-link-descriptive (sp-collec-query-has-link-p text)))
+      text
+    (let ((pos 0) out)
+      (while (string-match org-link-bracket-re text pos)
+        (let* ((link (org-link-unescape (match-string 1 text)))
+               (desc (or (match-string 2 text) link)))
+          (push (substring text pos (match-beginning 0)) out)
+          (push (propertize desc 'face 'org-link 'mouse-face 'highlight
+                            'help-echo link 'keymap sp-collec-query-link-map
+                            'sp-collec-query-link link)
+                out)
+          (setq pos (match-end 0))))
+      (push (substring text pos) out)
+      (apply #'concat (nreverse out)))))
+
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (if (keywordp column)
@@ -180,9 +223,11 @@ SPEC's :parent-of must be resolved already (see
      (plist-get spec :sort-desc))))
 
 (defun sp-collec-query-rows (notes columns)
-  "Return one list of cell texts per note in NOTES, for COLUMNS."
+  "Return one list of cell texts per note in NOTES, for COLUMNS.
+Links in the texts are shown by their description, see `sp-collec-query-linkify'."
   (mapcar (lambda (note)
-            (mapcar (lambda (c) (sp-collec-query-cell note c)) columns))
+            (mapcar (lambda (c) (sp-collec-query-linkify (sp-collec-query-cell note c)))
+                    columns))
           notes))
 
 ;;;; Describing a spec
