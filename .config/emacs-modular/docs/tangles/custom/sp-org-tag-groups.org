@@ -69,19 +69,19 @@ With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-gro
 =sp-select-note= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
 
 - The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property. =N= is =sp-org-tag-groups-select-column-fraction= of the frame width (a third by default), at least =sp-org-tag-groups-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
-- Each tag is a chip: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85). The colour is the colour of the tag's family, see "Tag families and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
+- Each tag is a chip: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85). The colour is the colour of the tag's group, see "Tag groups and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
 - The tags stay part of the candidate text, so they can be matched: typing =deep= narrows the list to notes with that tag.
 - A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
 =M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. No key is bound to either. The commands that link to or pick a note (=sp-org-create-note-and-link=, the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note and the query-table pickers) call them, so every picker looks the same. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
-** Tag families and their colours
+** Tag groups and their colours
 
-=sp-org-tag-families= groups the note tags into families by function, in the shape proposed in [[file:../../../../../adr/0020-tag-families.org][ADR 0020]]: a list of =(FAMILY TAG…)=. Each family has a colour in =sp-org-tag-groups-family-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no family, or in a family without a colour, gets =default=.
+=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no group, or in a group without a colour, gets =default=.
 
 As in Notion, a colour is a pair: a light tinted background and a dark text colour on a light theme, a dark muted background and a light text colour on a dark theme. =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=). The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off. The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
 
-The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-families= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested families are not followed.
+The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-groups-alist= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested groups are not followed.
 
 ** Tag registry
 
@@ -515,13 +515,13 @@ How the emoji is added to a link:
   (force-mode-line-update t))
 #+end_src
 
-* Tag families and their colours
+* Tag groups and their colours
 
-** Families, colours and the palette
+** Groups, colours and the palette
 
 #+begin_src emacs-lisp -i
-;;;; Tag families and their colours
-(defcustom sp-org-tag-families
+;;;; Tag groups and their colours
+(defcustom sp-org-tag-groups-alist
   '(("structure"  "area" "project" "agenda" "archive" "cemetery")
     ("who"        "person" "musician" "group" "institution" "company")
     ("music"      "album" "genre")
@@ -529,19 +529,19 @@ How the emoji is added to a link:
     ("literature" "text" "book" "journalarticle" "booksection"
                   "collection" "incollection")
     ("inquiry"    "question" "error" "research-q" "exploratory"))
-  "Families of note tags: a list of (FAMILY TAG…).
+  "Groups of note tags: a list of (GROUP TAG…).
 A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
-  :type '(repeat (cons (string :tag "Family") (repeat (choice string (cons string character)))))
+  :type '(repeat (cons (string :tag "Group") (repeat (choice string (cons string character)))))
   :group 'spcustom)
 
-(defcustom sp-org-tag-groups-family-colors
+(defcustom sp-org-tag-groups-colors
   '(("structure" . gray)
     ("who" . orange)
     ("music" . pink)
     ("software" . blue)
     ("literature" . brown)
     ("inquiry" . purple))
-  "Notion colour of each tag family, a name from `sp-org-tag-groups-palette'."
+  "Notion colour of each tag group, a name from `sp-org-tag-groups-palette'."
   :type '(alist :key-type string :value-type symbol)
   :group 'spcustom)
 
@@ -564,17 +564,17 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 ** Looking up a tag's colour
 
 #+begin_src emacs-lisp -i
-(defun sp-org-tag-family-of (tag)
-  "The families of TAG, as a list of names, in the order of `sp-org-tag-families'."
-  (cl-loop for (family . members) in sp-org-tag-families
+(defun sp-org-tag-group-of (tag)
+  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+  (cl-loop for (group . members) in sp-org-tag-groups-alist
            when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
                                     members))
-           collect family))
+           collect group))
 
 (defun sp-org-tag-groups--chip-face (tag)
-  "Face for the chip of TAG: the colour of its first family, from the palette."
-  (let* ((family (car (sp-org-tag-family-of tag)))
-         (name (or (cdr (assoc family sp-org-tag-groups-family-colors)) 'default))
+  "Face for the chip of TAG: the colour of its first group, from the palette."
+  (let* ((group (car (sp-org-tag-group-of tag)))
+         (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
          (entry (or (assq name sp-org-tag-groups-palette) (assq 'default sp-org-tag-groups-palette)))
          (dark (eq (frame-parameter nil 'background-mode) 'dark)))
     (list :inherit 'sp-org-tag-groups-select-tags-face
@@ -793,4 +793,4 @@ Provides the =sp-org-tag-groups= feature and closes the file.
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/108][#108]] ✨ Added =sp-select-note=, a note selector of my own: it calls =vulpea-select-from= with the emoji of the note's tags in front of the title and the tags in a column at the right edge, as small dimmed text, whose width follows the frame width (=sp-org-tag-groups-select-column-fraction=). With =sp-org-tag-groups-mode= on, =vulpea-select= (and =vulpea-find=, =vulpea-insert=) also get the emoji in front of titles; rules can leave a note selection with =:select nil=. =M-x sp-insert-note= is =vulpea-insert= with the same emoji and tag column. The link and note commands that chose a note with =vulpea-select=, =vulpea-insert= or their own completion now call these two (=sp-org-create-note-and-link= and the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note, the query-table note picker).
-- [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag families: =sp-org-tag-families= groups the note tags into families (the shape proposed in ADR 0020) and =sp-org-tag-groups-family-colors= gives each family one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.
+- [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag groups: =sp-org-tag-groups-alist= groups the note tags into groups (the shape proposed in ADR 0020) and =sp-org-tag-groups-colors= gives each group one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.

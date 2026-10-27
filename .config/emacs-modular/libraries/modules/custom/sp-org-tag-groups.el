@@ -355,8 +355,8 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
         (font-lock-flush))))
   (force-mode-line-update t))
 
-;;;; Tag families and their colours
-(defcustom sp-org-tag-families
+;;;; Tag groups and their colours
+(defcustom sp-org-tag-groups-alist
   '(("structure"  "area" "project" "agenda" "archive" "cemetery")
     ("who"        "person" "musician" "group" "institution" "company")
     ("music"      "album" "genre")
@@ -364,19 +364,19 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
     ("literature" "text" "book" "journalarticle" "booksection"
                   "collection" "incollection")
     ("inquiry"    "question" "error" "research-q" "exploratory"))
-  "Families of note tags: a list of (FAMILY TAG…).
+  "Groups of note tags: a list of (GROUP TAG…).
 A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
-  :type '(repeat (cons (string :tag "Family") (repeat (choice string (cons string character)))))
+  :type '(repeat (cons (string :tag "Group") (repeat (choice string (cons string character)))))
   :group 'spcustom)
 
-(defcustom sp-org-tag-groups-family-colors
+(defcustom sp-org-tag-groups-colors
   '(("structure" . gray)
     ("who" . orange)
     ("music" . pink)
     ("software" . blue)
     ("literature" . brown)
     ("inquiry" . purple))
-  "Notion colour of each tag family, a name from `sp-org-tag-groups-palette'."
+  "Notion colour of each tag group, a name from `sp-org-tag-groups-palette'."
   :type '(alist :key-type string :value-type symbol)
   :group 'spcustom)
 
@@ -395,17 +395,17 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
   :type '(alist :key-type symbol :value-type (list string string string string))
   :group 'spcustom)
 
-(defun sp-org-tag-family-of (tag)
-  "The families of TAG, as a list of names, in the order of `sp-org-tag-families'."
-  (cl-loop for (family . members) in sp-org-tag-families
+(defun sp-org-tag-group-of (tag)
+  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+  (cl-loop for (group . members) in sp-org-tag-groups-alist
            when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
                                     members))
-           collect family))
+           collect group))
 
 (defun sp-org-tag-groups--chip-face (tag)
-  "Face for the chip of TAG: the colour of its first family, from the palette."
-  (let* ((family (car (sp-org-tag-family-of tag)))
-         (name (or (cdr (assoc family sp-org-tag-groups-family-colors)) 'default))
+  "Face for the chip of TAG: the colour of its first group, from the palette."
+  (let* ((group (car (sp-org-tag-group-of tag)))
+         (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
          (entry (or (assq name sp-org-tag-groups-palette) (assq 'default sp-org-tag-groups-palette)))
          (dark (eq (frame-parameter nil 'background-mode) 'dark)))
     (list :inherit 'sp-org-tag-groups-select-tags-face

@@ -184,7 +184,7 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 - =sp-trails= needs =org-ql= from =sp-org-agenda=, which loads earlier, so it is safe as a late module.
 
 *** =sp-org-tag-groups= is late, and nothing at startup requires it
-=sp-org-tag-groups= (with the tag families, =sp-org-tag-families=, defined in it) was in the late list but also =require=d by =sp-tab-inbox=, =sp-collection-query-tables-core=, =sp-move-region-to-heading= and =sp-org-link-conversion=, so it loaded at startup and the late entry only logged =[skip] already loaded=. Those four requires are removed: none of them calls anything from it (they only wanted its side effects, the tag emoji in the =vulpea-select= prompts), and the mode line modules use =fboundp=. Until the late modules have loaded, those prompts show no tag emoji. =sp-graphs=, itself late, still requires it.
+=sp-org-tag-groups= (with the tag groups, =sp-org-tag-groups-alist=, defined in it) was in the late list but also =require=d by =sp-tab-inbox=, =sp-collection-query-tables-core=, =sp-move-region-to-heading= and =sp-org-link-conversion=, so it loaded at startup and the late entry only logged =[skip] already loaded=. Those four requires are removed: none of them calls anything from it (they only wanted its side effects, the tag emoji in the =vulpea-select= prompts), and the mode line modules use =fboundp=. Until the late modules have loaded, those prompts show no tag emoji. =sp-graphs=, itself late, still requires it.
 
 ** Packages declared twice, and ones declared too late
 
