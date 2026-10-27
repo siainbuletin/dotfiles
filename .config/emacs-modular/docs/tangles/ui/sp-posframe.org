@@ -108,6 +108,69 @@ The border then reads as padding. It is run again on every theme change."
 
 The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a fixed width and a text size of its own (=sp-minibuffer-face=), and had a debug command. The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The history is in the CHANGELOG and in git. If the glitch remains with this plain setup, it is not in this module: look at the text size remap of the minibuffer in =sp-fonts= (=sp-minibuffer=), =popper= and the other packages that change windows.
 
+* How it got here: the attempts
+
+Each line is one commit of a pull request, in order. The commits are in =main= (the pull requests were merged with merge commits, not squashed), so the links work. The last step, #156, is this plain setup.
+
+| PR | Commit | What it did |
+|----+--------+-------------|
+| [[https://github.com/siainbuletin/dotfiles/pull/114][#114]] | [[https://github.com/siainbuletin/dotfiles/commit/82891ebfb54de8755d3c0782756e1a97c3364d52][=82891eb=]] | Added `sp-nano-style`; first nano-style `M-x` frame in `sp-mini-frame` (inverse bold prompt, box, dotted line). |
+| [[https://github.com/siainbuletin/dotfiles/pull/115][#115]] | [[https://github.com/siainbuletin/dotfiles/commit/b7c61165619fb2a07dee7aa680aa297677ad7ad5][=b7c6116=]] | Centred `M-x` with nano text styling in `sp-mini-frame`, plus the boxed mode line parts. |
+| [[https://github.com/siainbuletin/dotfiles/pull/119][#119]] | [[https://github.com/siainbuletin/dotfiles/commit/324bff9adf3d45dbaf43e176db12af07da671c05][=324bff9=]] | Ten candidates, centred, padding. |
+| [[https://github.com/siainbuletin/dotfiles/pull/119][#119]] | [[https://github.com/siainbuletin/dotfiles/commit/c280e32516685ad8259f4850f6c34cf1b325d3ca][=c280e32=]] | Used Vertico's count instead of a count of its own. |
+| [[https://github.com/siainbuletin/dotfiles/pull/121][#121]] | [[https://github.com/siainbuletin/dotfiles/commit/b7cc6c847b33dd290dfbe489f01694747a400640][=b7cc6c8=]] | First fix of the invisible text: colours from the `default` face; styling errors no longer abort the prompt. |
+| [[https://github.com/siainbuletin/dotfiles/pull/122][#122]] | [[https://github.com/siainbuletin/dotfiles/commit/c1bfd9f46345d6fbbb09d06d152d9495ca64f814][=c1bfd9f=]] | Fixed height instead of resizing, for the macOS hang. |
+| [[https://github.com/siainbuletin/dotfiles/pull/123][#123]] | [[https://github.com/siainbuletin/dotfiles/commit/0835889e966741abe6fb010f15491b8ca65f4a0f][=0835889=]] | Second fix of the text colour: remapped the minibuffer's `default` face to the theme colours. |
+| [[https://github.com/siainbuletin/dotfiles/pull/128][#128]] | [[https://github.com/siainbuletin/dotfiles/commit/a329179c7bb908b38e240a86dc4b8890d3c67e76][=a329179=]] | Height fitted to the scaled minibuffer text. |
+| [[https://github.com/siainbuletin/dotfiles/pull/134][#134]] | [[https://github.com/siainbuletin/dotfiles/commit/8787f526c25149b5cb03f2e5fce73a45256a03b3][=8787f52=]] | Back to the plain `mini-frame`: nano prompt, dotted line, colours and dimming removed; centring, padding and a fixed height kept. |
+| [[https://github.com/siainbuletin/dotfiles/pull/136][#136]] | [[https://github.com/siainbuletin/dotfiles/commit/74d2a0c5fd023afdebfd0be542bb448c27c15c9a][=74d2a0c=]] | `mini-frame` replaced by `vertico-posframe` (the hang was never traced). |
+| [[https://github.com/siainbuletin/dotfiles/pull/137][#137]] | [[https://github.com/siainbuletin/dotfiles/commit/cbae8ddee7b9bd802f43da3870ba34918216d26f][=cbae8dd=]] | Renamed `sp-mini-frame` to `sp-posframe`. |
+| [[https://github.com/siainbuletin/dotfiles/pull/138][#138]] | [[https://github.com/siainbuletin/dotfiles/commit/003a578c737128016b898fc6fee0a5cdfd9fcb6f][=003a578=]] | Nano prompt, dotted line and note dimming added back, now on the posframe. |
+| [[https://github.com/siainbuletin/dotfiles/pull/140][#140]] | [[https://github.com/siainbuletin/dotfiles/commit/de419a3288e1e51920f3dd76a8247ded745c4f34][=de419a3=]] | Border in the background colour (padding); dimming behind every posframe prompt. |
+| [[https://github.com/siainbuletin/dotfiles/pull/144][#144]] | [[https://github.com/siainbuletin/dotfiles/commit/c09c301cf8696d05751cfd3ada9ddd978c2c2b75][=c09c301=]] | Fixed width of 75% of the frame. |
+| [[https://github.com/siainbuletin/dotfiles/pull/145][#145]] | [[https://github.com/siainbuletin/dotfiles/commit/c81b14c8f4fa0d46f4e23fe352bc0c9930498c34][=c81b14c=]] | Same text size for every prompt (text scale reset). |
+| [[https://github.com/siainbuletin/dotfiles/pull/146][#146]] | [[https://github.com/siainbuletin/dotfiles/commit/4ff46a492185ddb8b70a91b7e22c2de99d1d8a89][=4ff46a4=]] | Posframe text at the size of Org; own height for the dashboard box text. |
+| [[https://github.com/siainbuletin/dotfiles/pull/148][#148]] | [[https://github.com/siainbuletin/dotfiles/commit/ddb472c2f88a761c38426403b11f808f7d0f2822][=ddb472c=]] | Text sizes from fontaine faces (`sp-minibuffer-face`). |
+| [[https://github.com/siainbuletin/dotfiles/pull/152][#152]] | [[https://github.com/siainbuletin/dotfiles/commit/05605a7f7f32d19c8b913a1dc68ed3266aeb1125][=05605a7=]] | Prompt block by colours instead of `:inverse-video` and `:box`; divider overlay created like Vertico's. Fixed the glitch at start-up. |
+| [[https://github.com/siainbuletin/dotfiles/pull/154][#154]] | [[https://github.com/siainbuletin/dotfiles/commit/c3b8dbda63aedb74b9ca6e3fe77d60e4fee7a0cd][=c3b8dbd=]] | Dimming only the visible faces, after the glitch came back in Org. |
+| [[https://github.com/siainbuletin/dotfiles/pull/154][#154]] | [[https://github.com/siainbuletin/dotfiles/commit/1eae2247d0fd4828bea29c2ee5a91e7b7332ad48][=1eae224=]] | `sp-posframe-debug-minibuffer` (`C-c ?`). |
+
+What the history shows:
+
+- The glitching text appeared with the first nano-style =M-x= (#114, #115) and was seen with =mini-frame= and with =vertico-posframe=. It was reported as "invisible text" (#121, #123), then as text that disappears while typing.
+- As far as the record shows, every fix up to #148 changed colours, sizes or the frame package, and none touched what only =M-x= had: a prompt with its own face remap and an overlay at the end of the input.
+- #152 fixed the glitch for the start of the session. It came back after working in Org. #154 made the dimming cheaper and did not change that.
+- The =*Minibuf-1*= buffer shown in an ordinary window (seen with =sp-posframe-debug-minibuffer=, with =vertico-buffer-mode= off) was never explained. A backtrace advice on =set-window-buffer= printed nothing. So the cause of the second symptom is not in this module, and is unknown.
+- Nothing in this list was run in Emacs by the author of the changes; each was checked only by Sia afterwards.
+
+* Rebuilding the setup from zero
+
+The plain setup of #156 is step 0. The plan below adds one thing at a time, each in its own pull request, so a bug points at one change. A step is accepted only when it has passed the checks at the end.
+
+1. *Step 0, the baseline (#156).* Centred frame, padding, nothing else. Use it for a few days in Org with the =*Messages*= popup open. If the glitch or the =*Minibuf-1*= window still happens here, the cause is outside the module (suspects: =popper=, which displays buffers in side windows, and other window hooks such as =sp-set-window-margins= on =window-configuration-change-hook=). In that case find it first, with =emacs -Q= and only =vertico=, =vertico-posframe= and =popper= installed (see the sandbox script in the project files), before adding anything.
+2. *Text size.* Use the package's own option, =vertico-posframe-font= (the font of the posframe frame), or set the face of the frame, instead of remapping =default= inside the minibuffer buffer. The earlier attempts remapped faces in the buffer that the posframe displays and computed the frame size from another font; that mismatch is the best guess for clipped text. Never reset =face-remapping-alist= of the minibuffer.
+3. *Width.* Set =vertico-posframe-width= or =-min-width= to a number instead of replacing =vertico-posframe-size-function=.
+4. *Prompt look.* Style the prompt with the =minibuffer-prompt= face itself (=set-face-attribute=, colours and weight, no =:box= and no =:inverse-video=), for every prompt, not only =M-x=. A look for one command only needs a per-command variable, not a hook that adds remaps.
+5. *Dotted line.* Make it part of what Vertico draws, not a second overlay at the end of the input. Options, simplest first: a line character in the prompt string; an advice on the function that formats the candidates; a =vertico-multiform= setting for =execute-extended-command=. Do not create an overlay at =point-max=: Vertico's candidate list lives there and the two compete (in #152's output the dotted line was drawn under the candidates, not under the input).
+6. *Dimming.* Leave it out unless it is wanted. If it is, do it once for the whole frame (a translucent frame behind the posframe, or one face for the =default= background of the other windows) instead of remapping faces buffer by buffer; the earlier version remapped over a thousand faces in the buffer behind the posframe.
+
+Checks for every step, before it is merged:
+
+- =M-x=, =C-x C-f=, =C-x b= and a note picker, each opened from the Dashboard, from an Org buffer and from =ibuffer=, with the =*Messages*= popup open and closed.
+- Typing slowly and fast, deleting back to empty, and a long input.
+- After 10 minutes of working in Org, again.
+- =(list vertico-buffer-mode vertico-posframe-mode)= is =(nil t)=, and =(get-buffer-window-list (window-buffer (active-minibuffer-window)) nil t)= has only the minibuffer window and the posframe window.
+- If a symptom appears, the two tools used here can be pasted back in. The backtrace advice (it prints when a non-minibuffer window gets a minibuffer buffer):
+
+#+begin_src emacs-lisp :tangle no
+(advice-add 'set-window-buffer :before
+            (lambda (win buf &rest _)
+              (when (and (minibufferp buf) (not (window-minibuffer-p win)))
+                (message "MIRROR %s" (with-output-to-string (backtrace))))))
+#+end_src
+
+  The state dump of #154 is =sp-posframe-debug-minibuffer= in commit =1eae224= (see the table above).
+
 * Provide
 
 #+begin_src emacs-lisp -i
