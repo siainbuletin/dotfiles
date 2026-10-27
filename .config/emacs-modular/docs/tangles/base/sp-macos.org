@@ -59,12 +59,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Command as Meta
 
-Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters. These are set without a macOS check, but the variables only have an effect on the NS port.
+Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters and work with AeroSpace. Using the right ~Control~ key as the ~Super~ key allows me to still use ~Command~ as ~Meta~ and shouldn't interfere with ~Option~ from AeroSpace at all.
 
 #+begin_src emacs-lisp -i
 ;; This is so that I can actually use the CMD key as my Meta key.
 (setq mac-command-modifier 'meta)
 (setq mac-option-modifier 'none)
+(setq ns-right-command-modifier 'super)
 #+end_src
 
 * Shell helpers

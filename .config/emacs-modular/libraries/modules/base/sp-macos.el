@@ -12,6 +12,7 @@
 ;; This is so that I can actually use the CMD key as my Meta key.
 (setq mac-command-modifier 'meta)
 (setq mac-option-modifier 'none)
+(setq ns-right-command-modifier 'super)
 
 ;; Open with a specific MacOS app
 
