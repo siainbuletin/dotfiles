@@ -10,7 +10,7 @@ Literate source for =libraries/modules/ui/sp-posframe.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. It replaces the former =sp-mini-frame= (see "Why the name changed" below). For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
+This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. It replaces the former =sp-mini-frame= (see "Why a posframe, and why the name changed" below). For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
 
 Dimming:
 
@@ -28,15 +28,39 @@ link. Inserting should still be placed somewhere in the bottom, so it can follow
 I'm writing in the current buffer without interrupting the focus on screen
 #+end_quote
 
-* Why the name changed
+* Why a posframe, and why the name changed
 
-The module was called =sp-mini-frame= after the =mini-frame= package it was built on. That package is gone, so the name was wrong:
+The module was called =sp-mini-frame= after the =mini-frame= package it was built on, and was moved to =vertico-posframe= (#136) when =M-x= hung Emacs on macOS. This section compares the two and says how sure the reason for the move is.
 
-- =mini-frame-mode= hung Emacs on macOS (the CPU at 98% in =M-x=) with every setup tried: a tall frame, a frame resized to its content (#119), a fixed height (#122, #128) and the plain original (#134). Removing the styling did not change it, so the cause was the package in this setup, not the module's own code.
-- =vertico-posframe= is built on =posframe=, the child-frame library many packages use, and is written for Vertico, which =sp-completion= already configures. It takes its size from Vertico's own candidates (=vertico-count=), so this module sets no height and has no resizing code.
-- The name now says what is used: a posframe. The file, the feature and the doc are renamed, and =init.el= loads =sp-posframe= at the position where it loaded =sp-mini-frame=. Nothing else required the old feature.
+** What is known about the hang
 
-The old name appears in the history of the CHANGELOG and in notes of the mode line modules (#114, #115), which describe what was true then.
+- The hang (Emacs at 87 GB of memory, then 98% CPU) was reported after #119, which made the frame resize to its content, and was still reported after #122, #128 and #134.
+- When the move was decided, the fixes had not been pulled into the running Emacs, so those tests ran older code than the one named in the reports. The tests do not show that =mini-frame= hangs with the setup of #134 (centred, 4 pixels of padding, fixed height 17, =mini-frame-resize= =not-set=).
+- So the change of package is a precaution, not a diagnosis. The cause of the hang was never found.
+
+** The two compared, for this setup
+
+| Question | =mini-frame= | =vertico-posframe= |
+|----------+--------------+--------------------|
+| What it shows in the frame | Any minibuffer prompt, by advising =read-from-minibuffer=, =read-string= and =yes-or-no-p=, and the =*Completions*= buffer in a second frame | Vertico's prompts only (=completing-read=: =M-x=, files, notes). Plain =read-string= and =y-or-n-p= prompts stay at the bottom of the frame |
+| Size | Fits its content (=mini-frame-resize= =t=) or keeps a fixed height. With the larger minibuffer text of =sp-minibuffer= the height had to be worked out by hand (17 lines) | Fits Vertico's candidates itself; nothing to compute |
+| Code of its own in this config | Frame parameters, height, resize setting | Four settings |
+| Dependencies | None | =posframe=, which many other packages use |
+| Fallback in a terminal | Plain minibuffer | =vertico-buffer-mode= |
+| Maturity here | Used by this config since the module was written | New to this config; widely used with Vertico elsewhere |
+| Known problem here | None found: the hang was reported with it but not traced to it | None yet; not run in Emacs by me |
+
+** Is the change necessary?
+
+Not proven. What follows from the table:
+
+- If =mini-frame= works once the fixes of #134 are really loaded, there is no need to keep =vertico-posframe=; its one advantage is that it needs no height.
+- If =vertico-posframe= works, there is no need to go back either: the prompts it leaves out (=read-string=, =y-or-n-p=) are few and short.
+- The test that decides it: run the state before #136 (git commit =93c5539=, the merge of #134) after a restart. A hang there is a =mini-frame= problem; no hang means the change of package was not needed, and #137 and #138 can be re-aimed at it.
+
+** The name
+
+The name now says what is used: a posframe. The file, the feature and the doc are renamed, and =init.el= loads =sp-posframe= at the position where it loaded =sp-mini-frame=. Nothing else required the old feature. The old name appears in the history of the CHANGELOG and in notes of the mode line modules (#114, #115), which describe what was true then.
 
 * Header
 
