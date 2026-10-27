@@ -324,6 +324,33 @@ Would it be better to continue relying on =typst= for doing my documents, or wou
 
 However, I tend to like the =typst= workflow more simply because it is running on Rust underneath.
 
+⊙ LaTeX compile on save module
+
+;; Just a little helper minor mode to compile latex files on save
+
+#+begin_src emacs-lisp
+(defgroup latex-compile-on-save nil
+  "Refreshes the LaTeX preview on save"
+  :group 'convenience
+  :prefix 'latex-compile-on-save
+  :link '(function-link latex-compile-on-save-mode))
+
+(defun latex-compile-on-save--compile ()
+  "Calls the compile function"
+  (my/latexmk-run))
+
+;;;###autoload
+(define-minor-mode latex-compile-on-save-mode
+  "Refresh the preview on save"
+  :lighter " LTeXcos"
+  :group latex-compile-on-save
+  (if latex-compile-on-save-mode
+      (add-hook 'after-save-hook 'latex-compile-on-save--compile nil t)
+    (remove-hook 'after-save-hook 'latex-compile-on-save--compile t)))
+
+(provide 'latex-compile-on-save)
+#+end_src
+
 * Footnotes
 [fn:6]  https://knezevic.ch/posts/xelatex-orgmode-love/
 

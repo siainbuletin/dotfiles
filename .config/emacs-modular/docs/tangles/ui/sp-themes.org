@@ -601,6 +601,8 @@ Each platform module turns the mode on when Emacs runs on its platform: =sp-maco
     (remove-hook 'server-after-make-frame-hook #'sp-theme-sync)))
 #+end_src
 
+There's also information for how to do it in [[id:20261027T181428.715223][Getting the theme to switch automatically from light to dark]], but I don't understand it well enough right now.
+
 ** After-load-theme hook
 
 Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after every theme load, giving other modules one place to reapply face tweaks after a theme change. =kind-icon= is the one user: its icon cache is flushed so completion icons pick up the new colours (this used to happen only for Lambda themes).

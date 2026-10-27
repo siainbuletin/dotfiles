@@ -3274,6 +3274,10 @@ The one feature of the module. The old file ends were =;;; sp-relationship-annot
 ;;; sp-graphs.el ends here
 #+end_src
 
+* Sia's commentary
+
+The relationship annotator doesn't work that well in the [[id:20261027T150202.069446][xwidget]]
+
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
