@@ -13,7 +13,7 @@ This module installs =treemacs= and shows the emacs-modular folder as a file tre
 - The tree only opens when asked for, with =<f9>=, which also closes it again.
 - No treemacs extensions are installed.
 
-The module is part of the window management group in the default module list, loaded after =sp-mini-frame=.
+The module is part of the window management group in the default module list, loaded after =sp-posframe=.
 
 The commentary at the top of the module says:
 
