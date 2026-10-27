@@ -7,7 +7,7 @@ Settings go in your own configuration /before/ the module loads (above the modul
 
 * Quick answers for this configuration
 
-** The frame of the minibuffer (=sp-mini-frame=)
+** The frame of the minibuffer (=sp-posframe=)
 
 The minibuffer is a centred posframe (=vertico-posframe=). Its padding is =vertico-posframe-border-width= (4 pixels), the colour of the border is the =background= of the face =vertico-posframe-border=, and the frame itself uses the face =vertico-posframe=. There is no dotted line under =M-x=; to add one, see the section on lines made from characters below.
 

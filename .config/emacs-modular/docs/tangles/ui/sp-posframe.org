@@ -1,8 +1,8 @@
-#+TITLE: sp-mini-frame.el: Centered minibuffer in a posframe with background dimming
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-mini-frame.el :comments no :padline yes :noweb no :mkdirp yes
+#+TITLE: sp-posframe.el: Centered minibuffer in a posframe with background dimming
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/ui/sp-posframe.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/ui/sp-mini-frame.el=.
+Literate source for =libraries/modules/ui/sp-posframe.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
@@ -10,7 +10,7 @@ Literate source for =libraries/modules/ui/sp-mini-frame.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. The module keeps its name from the =mini-frame= package it used before: that package hung Emacs on macOS (98% CPU in =M-x=, even without any styling), so it was replaced. For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
+This module uses =vertico-posframe= to show the minibuffer (the prompt and Vertico's candidates) in a child frame in the centre of the screen, like a quick switcher. It replaces the former =sp-mini-frame= (see "Why the name changed" below). For a few chosen commands (opening files and finding notes) it also dims the text of the windows behind it, so the focus stays on the prompt.
 
 Dimming:
 
@@ -28,6 +28,16 @@ link. Inserting should still be placed somewhere in the bottom, so it can follow
 I'm writing in the current buffer without interrupting the focus on screen
 #+end_quote
 
+* Why the name changed
+
+The module was called =sp-mini-frame= after the =mini-frame= package it was built on. That package is gone, so the name was wrong:
+
+- =mini-frame-mode= hung Emacs on macOS (the CPU at 98% in =M-x=) with every setup tried: a tall frame, a frame resized to its content (#119), a fixed height (#122, #128) and the plain original (#134). Removing the styling did not change it, so the cause was the package in this setup, not the module's own code.
+- =vertico-posframe= is built on =posframe=, the child-frame library many packages use, and is written for Vertico, which =sp-completion= already configures. It takes its size from Vertico's own candidates (=vertico-count=), so this module sets no height and has no resizing code.
+- The name now says what is used: a posframe. The file, the feature and the doc are renamed, and =init.el= loads =sp-posframe= at the position where it loaded =sp-mini-frame=. Nothing else required the old feature.
+
+The old name appears in the history of the CHANGELOG and in notes of the mode line modules (#114, #115), which describe what was true then.
+
 * Header
 
 ** File header and commentary
@@ -40,7 +50,7 @@ The file has lexical binding, a one-line description and the commentary. The com
 The second part is not implemented in this file.
 
 #+begin_src emacs-lisp -i
-;;; sp-mini-frame.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
+;;; sp-posframe.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -105,37 +115,37 @@ A comment introducing the dimming code.
 
 ** Commands that dim
 
-=sp-mini-frame-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
+=sp-posframe-dim-commands= lists the commands that trigger dimming: =find-file=, =vulpea-find= and =org-node-find=.
 
 #+begin_src emacs-lisp -i
-(defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
+(defvar sp-posframe-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
 #+end_src
 
 ** Dim amount
 
-=sp-mini-frame-dim-amount= (0.45) is the blending factor passed to the colour blend.
+=sp-posframe-dim-amount= (0.45) is the blending factor passed to the colour blend.
 
 #+begin_src emacs-lisp -i
-(defvar sp-mini-frame-dim-amount 0.45
+(defvar sp-posframe-dim-amount 0.45
   "How far to blend text colors toward the background (0 = none, 1 = invisible).")
 #+end_src
 
 ** Dimming state
 
-=sp-mini-frame--dim-cookies= holds, per buffer, the face remapping cookies so they can be removed later. =sp-mini-frame--dimmed-buffers= records which buffers were dimmed.
+=sp-posframe--dim-cookies= holds, per buffer, the face remapping cookies so they can be removed later. =sp-posframe--dimmed-buffers= records which buffers were dimmed.
 
 #+begin_src emacs-lisp -i
-(defvar-local sp-mini-frame--dim-cookies nil)
-(defvar sp-mini-frame--dimmed-buffers nil)
+(defvar-local sp-posframe--dim-cookies nil)
+(defvar sp-posframe--dimmed-buffers nil)
 #+end_src
 
 ** Blend two colours
 
-=sp-mini-frame--blend= converts a foreground and background colour name to RGB, blends them by the given amount and returns a hex colour string. It returns nil when either colour is not a usable string.
+=sp-posframe--blend= converts a foreground and background colour name to RGB, blends them by the given amount and returns a hex colour string. It returns nil when either colour is not a usable string.
 
 #+begin_src emacs-lisp -i
-(defun sp-mini-frame--blend (fg bg amount)
+(defun sp-posframe--blend (fg bg amount)
   (let ((f (and (stringp fg) (color-name-to-rgb fg)))
         (b (and (stringp bg) (color-name-to-rgb bg))))
     (when (and f b)
@@ -145,54 +155,54 @@ A comment introducing the dimming code.
 
 ** Dim a frame
 
-=sp-mini-frame-dim= goes through each distinct buffer shown in the frame's windows.
+=sp-posframe-dim= goes through each distinct buffer shown in the frame's windows.
 
 - For every defined face that has a foreground colour, it adds a buffer-local remap to the blended colour, storing the cookie.
 - A buffer that is already dimmed is left alone.
 - Looping over the whole =face-list= for each buffer makes this somewhat heavy when many faces are defined.
 
 #+begin_src emacs-lisp -i
-(defun sp-mini-frame-dim (frame)
+(defun sp-posframe-dim (frame)
   "Dim all text in the buffers shown in FRAME."
   (let ((bg (face-background 'default frame)))
     (dolist (buf (delete-dups
                   (mapcar #'window-buffer (window-list frame 'no-minibuf))))
       (with-current-buffer buf
-        (unless sp-mini-frame--dim-cookies
+        (unless sp-posframe--dim-cookies
           (dolist (face (face-list))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
-                             (sp-mini-frame--blend fg bg sp-mini-frame-dim-amount))))
+                             (sp-posframe--blend fg bg sp-posframe-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
-                      sp-mini-frame--dim-cookies))))
-          (push buf sp-mini-frame--dimmed-buffers))))))
+                      sp-posframe--dim-cookies))))
+          (push buf sp-posframe--dimmed-buffers))))))
 #+end_src
 
 ** Undim
 
-=sp-mini-frame-undim= removes all stored remappings from the dimmed buffers that still exist and clears the list.
+=sp-posframe-undim= removes all stored remappings from the dimmed buffers that still exist and clears the list.
 
 #+begin_src emacs-lisp -i
-(defun sp-mini-frame-undim ()
-  (dolist (buf sp-mini-frame--dimmed-buffers)
+(defun sp-posframe-undim ()
+  (dolist (buf sp-posframe--dimmed-buffers)
     (when (buffer-live-p buf)
       (with-current-buffer buf
-        (mapc #'face-remap-remove-relative sp-mini-frame--dim-cookies)
-        (setq sp-mini-frame--dim-cookies nil))))
-  (setq sp-mini-frame--dimmed-buffers nil))
+        (mapc #'face-remap-remove-relative sp-posframe--dim-cookies)
+        (setq sp-posframe--dim-cookies nil))))
+  (setq sp-posframe--dimmed-buffers nil))
 #+end_src
 
 ** Only dim for chosen commands
 
-=sp-mini-frame--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and the command running is one of =sp-mini-frame-dim-commands=.
+=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and the command running is one of =sp-posframe-dim-commands=.
 
 #+begin_src emacs-lisp -i
-(defun sp-mini-frame--maybe-dim ()
+(defun sp-posframe--maybe-dim ()
   (when (and (bound-and-true-p vertico-posframe-mode)
-             (memq this-command sp-mini-frame-dim-commands)
+             (memq this-command sp-posframe-dim-commands)
              (minibuffer-selected-window))
-    (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))
+    (sp-posframe-dim (window-frame (minibuffer-selected-window)))))
 #+end_src
 
 ** Hooks
@@ -200,16 +210,16 @@ A comment introducing the dimming code.
 Runs the dimming check whenever a minibuffer is set up and undims on every minibuffer exit. Since the exit hook undims everything, leaving a nested minibuffer also restores the colours while the outer prompt is still open.
 
 #+begin_src emacs-lisp -i
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--maybe-dim)
-(add-hook 'minibuffer-exit-hook #'sp-mini-frame-undim)
+(add-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)
+(add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
 #+end_src
 
 * Provide
 
-Provides the =sp-mini-frame= feature and closes the file.
+Provides the =sp-posframe= feature and closes the file.
 
 #+begin_src emacs-lisp -i
 
-(provide 'sp-mini-frame)
-;; sp-mini-frame.el ends here.
+(provide 'sp-posframe)
+;; sp-posframe.el ends here.
 #+end_src

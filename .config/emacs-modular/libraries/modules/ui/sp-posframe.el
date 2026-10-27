@@ -1,4 +1,4 @@
-;;; sp-mini-frame.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
+;;; sp-posframe.el --- Centered minibuffer in a posframe with background dimming -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -30,54 +30,54 @@
 
 ;;;; Dimming, only for selected commands
 
-(defvar sp-mini-frame-dim-commands '(find-file vulpea-find org-node-find)
+(defvar sp-posframe-dim-commands '(find-file vulpea-find org-node-find)
   "Commands whose minibuffer should dim the underlying frame.")
 
-(defvar sp-mini-frame-dim-amount 0.45
+(defvar sp-posframe-dim-amount 0.45
   "How far to blend text colors toward the background (0 = none, 1 = invisible).")
 
-(defvar-local sp-mini-frame--dim-cookies nil)
-(defvar sp-mini-frame--dimmed-buffers nil)
+(defvar-local sp-posframe--dim-cookies nil)
+(defvar sp-posframe--dimmed-buffers nil)
 
-(defun sp-mini-frame--blend (fg bg amount)
+(defun sp-posframe--blend (fg bg amount)
   (let ((f (and (stringp fg) (color-name-to-rgb fg)))
         (b (and (stringp bg) (color-name-to-rgb bg))))
     (when (and f b)
       (apply #'color-rgb-to-hex
              (append (color-blend f b amount) '(2))))))
 
-(defun sp-mini-frame-dim (frame)
+(defun sp-posframe-dim (frame)
   "Dim all text in the buffers shown in FRAME."
   (let ((bg (face-background 'default frame)))
     (dolist (buf (delete-dups
                   (mapcar #'window-buffer (window-list frame 'no-minibuf))))
       (with-current-buffer buf
-        (unless sp-mini-frame--dim-cookies
+        (unless sp-posframe--dim-cookies
           (dolist (face (face-list))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
-                             (sp-mini-frame--blend fg bg sp-mini-frame-dim-amount))))
+                             (sp-posframe--blend fg bg sp-posframe-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
-                      sp-mini-frame--dim-cookies))))
-          (push buf sp-mini-frame--dimmed-buffers))))))
+                      sp-posframe--dim-cookies))))
+          (push buf sp-posframe--dimmed-buffers))))))
 
-(defun sp-mini-frame-undim ()
-  (dolist (buf sp-mini-frame--dimmed-buffers)
+(defun sp-posframe-undim ()
+  (dolist (buf sp-posframe--dimmed-buffers)
     (when (buffer-live-p buf)
       (with-current-buffer buf
-        (mapc #'face-remap-remove-relative sp-mini-frame--dim-cookies)
-        (setq sp-mini-frame--dim-cookies nil))))
-  (setq sp-mini-frame--dimmed-buffers nil))
+        (mapc #'face-remap-remove-relative sp-posframe--dim-cookies)
+        (setq sp-posframe--dim-cookies nil))))
+  (setq sp-posframe--dimmed-buffers nil))
 
-(defun sp-mini-frame--maybe-dim ()
+(defun sp-posframe--maybe-dim ()
   (when (and (bound-and-true-p vertico-posframe-mode)
-             (memq this-command sp-mini-frame-dim-commands)
+             (memq this-command sp-posframe-dim-commands)
              (minibuffer-selected-window))
-    (sp-mini-frame-dim (window-frame (minibuffer-selected-window)))))
+    (sp-posframe-dim (window-frame (minibuffer-selected-window)))))
 
-(add-hook 'minibuffer-setup-hook #'sp-mini-frame--maybe-dim)
-(add-hook 'minibuffer-exit-hook #'sp-mini-frame-undim)
+(add-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)
+(add-hook 'minibuffer-exit-hook #'sp-posframe-undim)
 
-(provide 'sp-mini-frame)
-;; sp-mini-frame.el ends here.
+(provide 'sp-posframe)
+;; sp-posframe.el ends here.
