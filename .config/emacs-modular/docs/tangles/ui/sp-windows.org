@@ -385,7 +385,9 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
 ;;   (persp-mode))
 #+end_src
 
-** Dim inactive windows
+** DISABLED: Dim inactive windows
+
+2026-10-27 (I want to configure it better in the future, better indication of a focused window)
 
 =dimmer= fades the text of non-selected windows by half to make the active window stand out.
 
@@ -393,7 +395,7 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
 - The minibuffer is never dimmed, and frame focus events are ignored.
 - The built-in helpers adjust dimming for which-key, Magit, posframe and Vertico.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp -i :tangle no
 ;;;; Dim inactive windows
 (use-package dimmer
   :ensure t
@@ -411,14 +413,16 @@ Two commented-out alternatives for workspaces, =persp-mode= and =perspective=, w
   (dimmer-configure-vertico))
 #+end_src
 
-** Dimmer support for Vertico
+  ⊘ DISABLED: Dimmer support for Vertico
+
+2026-10-27 (I want to configure it better in the future)
 
 =dimmer-configure-vertico= is not part of =dimmer= itself, so it is defined here.
 
 - It excludes the Vertico buffer from dimming.
 - It is called from the =:config= block above, which runs only after =dimmer= loads, by which point this definition exists.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp -i :tangle no
 (defun dimmer-configure-vertico ()
   "Convenience settings for Dimmer & Vertico users."
   (with-no-warnings
