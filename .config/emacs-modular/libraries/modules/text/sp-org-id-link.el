@@ -106,6 +106,51 @@ With a prefix argument EDIT-DESCRIPTION, ask for the description."
                (concat "file:" (abbreviate-file-name file))
                description)))))
 
+;;;;; Completion for help, info and man links
+;; `org-insert-link' (C-c C-l) completes the path of a link type that has a
+;; `:complete' parameter.  Org defines `help:' and `info:' without one and
+;; `man:' may be missing, so they are set here.
+(declare-function Info-read-node-name "info")
+(declare-function Man-completion-table "man")
+(declare-function org-link-get-parameter "ol")
+(declare-function org-link-set-parameters "ol")
+
+(defun sp-org-link-complete-help (&optional _arg)
+  "Return a `help:' link to a function, variable or face read with completion."
+  (let ((symbol (completing-read
+                 "Help for symbol: " obarray
+                 (lambda (s) (or (fboundp s) (boundp s) (facep s)))
+                 t)))
+    (concat "help:" symbol)))
+
+(defun sp-org-link-complete-info (&optional _arg)
+  "Return an `info:' link to a manual and node read with completion.
+The link has Org's form MANUAL#NODE, with the node Top when none is given."
+  (require 'info)
+  (let ((node (Info-read-node-name "Info node: ")))
+    (if (string-match "\\`(\\([^)]+\\))\\(.*\\)\\'" node)
+        (concat "info:" (match-string 1 node) "#"
+                (if (string-empty-p (match-string 2 node)) "Top" (match-string 2 node)))
+      (concat "info:" node))))
+
+(defun sp-org-link-complete-man (&optional _arg)
+  "Return a `man:' link to a manual page read with completion."
+  (require 'man)
+  (concat "man:" (completing-read "Man page: " #'Man-completion-table)))
+
+(defun sp-org-link-follow-man (path _arg)
+  "Open the manual page PATH of a `man:' link."
+  (require 'man)
+  (man path))
+
+(with-eval-after-load 'org
+  (org-link-set-parameters "help" :complete #'sp-org-link-complete-help)
+  (org-link-set-parameters "info" :complete #'sp-org-link-complete-info)
+  ;; Only add the follow function when Org does not provide `man:' itself.
+  (unless (org-link-get-parameter "man" :follow)
+    (org-link-set-parameters "man" :follow #'sp-org-link-follow-man))
+  (org-link-set-parameters "man" :complete #'sp-org-link-complete-man))
+
 ;; Other libraries
 ;; - sp-org-create-note-and-link.el
 
