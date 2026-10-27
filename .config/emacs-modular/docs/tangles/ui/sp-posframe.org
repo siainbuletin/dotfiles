@@ -101,6 +101,68 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
 )
 #+end_src
 
+* The nano-style M-x prompt
+
+The prompt of =M-x= is styled like the one in nano-emacs, with the same code that was removed from the former =sp-mini-frame= while it was being made to work, now on the posframe. Only the text styling and the boxes are used; the frame is the same as for every other prompt.
+
+- =sp-posframe-nano-commands= lists the commands styled this way: =execute-extended-command=, =amx=, =counsel-M-x= and =smex=.
+- The prompt is shown in inverse video, bold, with a one-pixel box (a remap of =minibuffer-prompt= in that minibuffer only).
+- A dotted line of =sp-posframe-divider-char= (=┈=; =nil= for none) is drawn under the input, in the divider colour of =sp-nano-style= (or the =shadow= face), with =sp-posframe-divider-priority= to order it against Vertico's own overlay. The line has 300 characters and =truncate-lines= is on in that minibuffer, so the window cuts it and it never wraps when the frame is narrow, which it did before.
+- The styling is in =condition-case=: an error is shown in the echo area and the prompt still opens.
+
+#+begin_src emacs-lisp -i
+(defcustom sp-posframe-nano-commands
+  '(execute-extended-command amx counsel-M-x smex)
+  "Commands whose prompt is styled like nano's M-x."
+  :type '(repeat function)
+  :group 'minibuffer)
+
+(defcustom sp-posframe-divider-char ?┈
+  "Character repeated for the dotted line under the M-x input, or nil for none."
+  :type '(choice character (const :tag "No line" nil))
+  :group 'minibuffer)
+
+(defcustom sp-posframe-divider-priority -50
+  "Priority of the overlay with the dotted line under the M-x input."
+  :type 'integer
+  :group 'minibuffer)
+
+(defconst sp-posframe--divider-length 300
+  "Characters in the dotted line; the window cuts it at its edge.")
+
+(defun sp-posframe--nano-p ()
+  "Return non-nil when the prompt being shown is a nano-style M-x."
+  (memq this-command sp-posframe-nano-commands))
+
+(defun sp-posframe--divider-color ()
+  "Return the colour of the dotted line."
+  (or (and (fboundp 'sp-nano-style-divider-colour)
+           (sp-nano-style-divider-colour))
+      (face-foreground 'shadow nil t)))
+
+(defun sp-posframe--style-nano ()
+  "Give the M-x prompt nano's block and the input a dotted line below it.
+The line is longer than any window and `truncate-lines' cuts it, so it never
+wraps. An error is reported in the echo area and does not abort the prompt."
+  (condition-case err
+      (when (and (bound-and-true-p vertico-posframe-mode) (sp-posframe--nano-p))
+        (face-remap-add-relative
+         'minibuffer-prompt
+         :inverse-video t :weight 'bold :box '(:line-width 1))
+        (when sp-posframe-divider-char
+          (setq-local truncate-lines t)
+          (let ((ov (make-overlay (point-max) (point-max) nil nil t)))
+            (overlay-put ov 'priority sp-posframe-divider-priority)
+            (overlay-put ov 'after-string
+                         (concat "\n"
+                                 (propertize (make-string sp-posframe--divider-length
+                                                          sp-posframe-divider-char)
+                                             'face `(:foreground ,(sp-posframe--divider-color))))))))
+    (error (message "sp-posframe: styling the prompt failed: %s" err))))
+
+(add-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)
+#+end_src
+
 * Dimming the background
 
 When one of the listed commands opens the minibuffer, every buffer visible in the frame behind gets its face colours blended toward the background. Leaving the minibuffer restores them.
@@ -129,6 +191,33 @@ A comment introducing the dimming code.
 #+begin_src emacs-lisp -i
 (defvar sp-posframe-dim-amount 0.45
   "How far to blend text colors toward the background (0 = none, 1 = invisible).")
+#+end_src
+
+** Functions that dim
+
+=sp-posframe-dim-functions= lists functions whose prompts dim the frame behind whoever calls them: =sp-select-note=, =sp-insert-note= and =sp-collec-query-select-note=. Each is advised with =:around= to bind =sp-posframe--dim-requested= while it runs; functions that are not defined yet are advised when a file is loaded.
+
+#+begin_src emacs-lisp -i
+(defvar sp-posframe-dim-functions
+  '(sp-select-note sp-insert-note sp-collec-query-select-note)
+  "Functions whose minibuffer should dim the underlying frame, whoever calls them.")
+
+(defvar sp-posframe--dim-requested nil
+  "Non-nil while a function in `sp-posframe-dim-functions' is running.")
+
+(defun sp-posframe--request-dim (fn &rest args)
+  "Call FN with ARGS, asking for the frame behind the minibuffer to be dimmed."
+  (let ((sp-posframe--dim-requested t))
+    (apply fn args)))
+
+(defun sp-posframe-advise-dim-functions ()
+  "Advise the functions in `sp-posframe-dim-functions' that are defined."
+  (dolist (fn sp-posframe-dim-functions)
+    (when (fboundp fn)
+      (advice-add fn :around #'sp-posframe--request-dim))))
+
+(sp-posframe-advise-dim-functions)
+(add-hook 'after-load-functions (lambda (_file) (sp-posframe-advise-dim-functions)))
 #+end_src
 
 ** Dimming state
@@ -195,12 +284,13 @@ A comment introducing the dimming code.
 
 ** Only dim for chosen commands
 
-=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and the command running is one of =sp-posframe-dim-commands=.
+=sp-posframe--maybe-dim= dims the frame of the window that was selected before the minibuffer opened, but only when =vertico-posframe-mode= is on and either the command running is one of =sp-posframe-dim-commands= or a function of =sp-posframe-dim-functions= asked for it.
 
 #+begin_src emacs-lisp -i
 (defun sp-posframe--maybe-dim ()
   (when (and (bound-and-true-p vertico-posframe-mode)
-             (memq this-command sp-posframe-dim-commands)
+             (or sp-posframe--dim-requested
+                 (memq this-command sp-posframe-dim-commands))
              (minibuffer-selected-window))
     (sp-posframe-dim (window-frame (minibuffer-selected-window)))))
 #+end_src
