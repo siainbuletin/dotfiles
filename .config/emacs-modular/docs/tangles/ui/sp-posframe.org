@@ -56,8 +56,8 @@ The name now says what is used: a posframe. The file, the feature and the doc ar
 ;;; Commentary:
 
 ;; The minibuffer (the prompt and Vertico's candidates) is shown in a child frame in the
-;; centre of the screen, with some padding. Nothing else: no prompt styling, no dimming
-;; and no text size of its own.
+;; centre of the screen, at a fixed share of the frame width, with some padding. Nothing
+;; else: no prompt styling and no dimming.
 
 ;;; Code:
 #+end_src
@@ -69,15 +69,33 @@ Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posfr
 - =vertico-posframe-poshandler= is =posframe-poshandler-frame-center=: centred horizontally and vertically.
 - =vertico-posframe-border-width= is 4: the padding around the text.
 - =vertico-posframe-fallback-mode= is =vertico-buffer-mode=, used in a terminal, where child frames do not exist.
-- The size is the package's own: the width of =vertico-posframe= (62% of the frame) and a height that fits Vertico's =vertico-count= (13, set in =sp-completion=).
+- =vertico-posframe-size-function= is =sp-posframe-get-size=: the width is always =sp-posframe-width-fraction= (0.75) of the parent frame, for every command including the file pickers, so it does not follow the length of the prompt or the candidates (#144, brought back in #163). Width, minimum width and maximum width are all set to that number, and nothing else is changed: the height is the package's own and fits Vertico's =vertico-count= (13, set in =sp-completion=).
 
 #+begin_src emacs-lisp -i
+(defcustom sp-posframe-width-fraction 0.75
+  "Fraction of the parent frame's width that the posframe always occupies."
+  :type 'float
+  :group 'minibuffer)
+
+(defun sp-posframe-get-size (buffer)
+  "Return the size of the posframe for BUFFER: a fixed share of the frame width.
+Width and minimum width are both `sp-posframe-width-fraction' of the frame, so
+the posframe does not follow the length of the prompt or the candidates. The
+height is left to `vertico-posframe-get-size'."
+  (let* ((width (round (* sp-posframe-width-fraction (frame-width))))
+         (size (copy-sequence (vertico-posframe-get-size buffer))))
+    (plist-put size :width width)
+    (plist-put size :min-width width)
+    (plist-put size :max-width width)
+    size))
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
 
   :custom
   (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
+  (vertico-posframe-size-function #'sp-posframe-get-size) ; fixed width
   (vertico-posframe-border-width 4)  ; padding around the text
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
 
@@ -106,7 +124,7 @@ The border then reads as padding. It is run again on every theme change."
 
 * What was removed, and why
 
-The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a fixed width and a text size of its own (=sp-minibuffer-face=), and had a debug command. The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The history is in the CHANGELOG and in git. If the glitch remains with this plain setup, it is not in this module: look at the text size remap of the minibuffer in =sp-fonts= (=sp-minibuffer=), =popper= and the other packages that change windows.
+The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a text size of its own, and had a debug command. (The fixed width came back in #163, the text size in #161.) The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The history is in the CHANGELOG and in git. If the glitch remains with this plain setup, it is not in this module: look at the text size remap of the minibuffer in =sp-fonts= (=sp-minibuffer=), =popper= and the other packages that change windows.
 
 * How it got here: the attempts
 

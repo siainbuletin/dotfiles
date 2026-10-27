@@ -3,10 +3,27 @@
 ;;; Commentary:
 
 ;; The minibuffer (the prompt and Vertico's candidates) is shown in a child frame in the
-;; centre of the screen, with some padding. Nothing else: no prompt styling, no dimming
-;; and no text size of its own.
+;; centre of the screen, at a fixed share of the frame width, with some padding. Nothing
+;; else: no prompt styling and no dimming.
 
 ;;; Code:
+
+(defcustom sp-posframe-width-fraction 0.75
+  "Fraction of the parent frame's width that the posframe always occupies."
+  :type 'float
+  :group 'minibuffer)
+
+(defun sp-posframe-get-size (buffer)
+  "Return the size of the posframe for BUFFER: a fixed share of the frame width.
+Width and minimum width are both `sp-posframe-width-fraction' of the frame, so
+the posframe does not follow the length of the prompt or the candidates. The
+height is left to `vertico-posframe-get-size'."
+  (let* ((width (round (* sp-posframe-width-fraction (frame-width))))
+         (size (copy-sequence (vertico-posframe-get-size buffer))))
+    (plist-put size :width width)
+    (plist-put size :min-width width)
+    (plist-put size :max-width width)
+    size))
 
 (use-package vertico-posframe
   :ensure t
@@ -14,6 +31,7 @@
 
   :custom
   (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
+  (vertico-posframe-size-function #'sp-posframe-get-size) ; fixed width
   (vertico-posframe-border-width 4)  ; padding around the text
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
 
