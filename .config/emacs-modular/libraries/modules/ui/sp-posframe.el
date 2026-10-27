@@ -181,21 +181,40 @@ Nil limits dimming to `sp-posframe-dim-commands' and `sp-posframe-dim-functions'
       (apply #'color-rgb-to-hex
              (append (color-blend f b amount) '(2))))))
 
+(defun sp-posframe--face-symbols (spec)
+  "Return the face symbols named in the `face' property value SPEC."
+  (cond ((and spec (symbolp spec) (not (keywordp spec)) (facep spec)) (list spec))
+        ((not (proper-list-p spec)) nil)
+        ((keywordp (car spec))
+         (sp-posframe--face-symbols (plist-get spec :inherit)))
+        (t (mapcan #'sp-posframe--face-symbols spec))))
+
+(defun sp-posframe--visible-faces (window)
+  "Return `default' and the faces on the text shown in WINDOW."
+  (let ((faces (list 'default))
+        (pos (window-start window))
+        (end (window-end window t)))
+    (with-current-buffer (window-buffer window)
+      (while (< pos end)
+        (dolist (face (sp-posframe--face-symbols (get-char-property pos 'face)))
+          (cl-pushnew face faces))
+        (setq pos (next-single-char-property-change pos 'face nil end))))
+    faces))
+
 (defun sp-posframe-dim (frame)
-  "Dim all text in the buffers shown in FRAME."
+  "Dim the text shown in the windows of FRAME."
   (let ((bg (face-background 'default frame)))
-    (dolist (buf (delete-dups
-                  (mapcar #'window-buffer (window-list frame 'no-minibuf))))
-      (with-current-buffer buf
+    (dolist (win (window-list frame 'no-minibuf))
+      (with-current-buffer (window-buffer win)
         (unless sp-posframe--dim-cookies
-          (dolist (face (face-list))
+          (dolist (face (sp-posframe--visible-faces win))
             (let* ((fg (face-attribute face :foreground frame))
                    (dim (and (not (eq fg 'unspecified))
                              (sp-posframe--blend fg bg sp-posframe-dim-amount))))
               (when dim
                 (push (face-remap-add-relative face :foreground dim)
                       sp-posframe--dim-cookies))))
-          (push buf sp-posframe--dimmed-buffers))))))
+          (push (current-buffer) sp-posframe--dimmed-buffers))))))
 
 (defun sp-posframe-undim ()
   (dolist (buf sp-posframe--dimmed-buffers)
