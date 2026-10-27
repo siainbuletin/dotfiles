@@ -103,19 +103,36 @@ Loads the built-in =color= library, which the comment asks about. It provides th
 Installs =vertico-posframe= (and =posframe= with it) and turns on =vertico-posframe-mode=, which draws Vertico's minibuffer in a child frame instead of at the bottom of the frame.
 
 - =vertico-posframe-poshandler= is =posframe-poshandler-frame-center=: the frame is centred horizontally and vertically.
-- =vertico-posframe-min-width= is 80 columns, wide enough for notes and their tags.
+- =vertico-posframe-size-function= is =sp-posframe-get-size=: the width is always =sp-posframe-width-fraction= (0.75) of the parent frame, for every command including the file pickers, so it does not follow the length of the prompt or the candidates. Only the height fits the candidates.
 - =vertico-posframe-border-width= is 4: the padding around the text.
 - The number of candidates is Vertico's own =vertico-count= (13, set in =sp-completion=); the posframe fits its content, so there is no blank box and no fixed height. (The frame is not given a height, which is what hung Emacs with =mini-frame=.)
 - =vertico-posframe-fallback-mode= is =vertico-buffer-mode=, which is used in a terminal, where child frames do not exist.
 
 #+begin_src emacs-lisp -i
+(defcustom sp-posframe-width-fraction 0.75
+  "Fraction of the parent frame's width that the posframe always occupies."
+  :type 'float
+  :group 'minibuffer)
+
+(defun sp-posframe-get-size (buffer)
+  "Return the size of the posframe for BUFFER: a fixed share of the frame width.
+Width and minimum width are both `sp-posframe-width-fraction' of the frame, so
+the posframe does not follow the length of the prompt or the candidates. The
+height is left to `vertico-posframe-get-size'."
+  (let* ((width (round (* sp-posframe-width-fraction (frame-width))))
+         (size (copy-sequence (vertico-posframe-get-size buffer))))
+    (plist-put size :width width)
+    (plist-put size :min-width width)
+    (plist-put size :max-width width)
+    size))
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
 
   :custom
   (vertico-posframe-poshandler #'posframe-poshandler-frame-center) ; centered both ways
-  (vertico-posframe-min-width 80)    ; wide enough for notes and their tags
+  (vertico-posframe-size-function #'sp-posframe-get-size) ; fixed width, see below
   (vertico-posframe-border-width 4)  ; padding around the text
   (vertico-posframe-fallback-mode 'vertico-buffer-mode) ; terminals have no child frames
   ;; `vertico-count' (13) sets the number of candidates; the frame fits them.
