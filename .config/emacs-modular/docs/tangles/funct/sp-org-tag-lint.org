@@ -12,7 +12,7 @@ This module finds tags that are not registered, so a typo such as =:perosn:= sho
 
 - =sp-org-tag-lint= scans every Org file of the vault (the files of the vulpea database, else =sp-org-tag-lint-directory=) and reports, in one buffer:
   - the tags, in =#+filetags:= lines and on headings, that are in neither tag list, each with the registered tag it is probably a typo of,
-  - the notes that have no =#+filetags:= at all, so they can be tagged and later picked up by =sp-tag-emoji=.
+  - the notes that have no =#+filetags:= at all, so they can be tagged and later picked up by =sp-org-tag-groups=.
 - =sp-org-tag-lint-buffer= does the same for the current file, including unsaved changes.
 - =sp-org-tag-add= registers a new note tag and makes it available without restarting Emacs.
 - =sp-org-tag-read-note-tags= is the prompt =sp-org-create-note-and-link= uses.

@@ -16,7 +16,6 @@
 (require 'subr-x)
 (require 'vulpea)
 (require 'sp-org-tag-lint)
-(require 'sp-tag-emoji)
 
 ;;;; ------------------------------------------------------------------
 ;;;; Shared helpers

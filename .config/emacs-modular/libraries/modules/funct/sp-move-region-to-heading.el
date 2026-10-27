@@ -7,7 +7,6 @@
 ;;; Code:
 
 (require 'vulpea)
-(require 'sp-tag-emoji)
 (require 'org-id)
 (require 'denote)
 

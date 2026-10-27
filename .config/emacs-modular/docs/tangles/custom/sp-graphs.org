@@ -423,7 +423,7 @@ Each section below is one or more blocks of the file, in order.
 (require 'json)
 (require 'vulpea)
 (require 'vulpea-select)
-(require 'sp-tag-emoji)
+(require 'sp-org-tag-groups)
 (require 'vui)
 #+end_src
 

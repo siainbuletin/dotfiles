@@ -13,7 +13,6 @@
 (require 'seq)
 (require 'subr-x)
 (require 'vulpea)
-(require 'sp-tag-emoji)
 
 (defgroup sp-collec-query nil
   "Tables of Vulpea notes."

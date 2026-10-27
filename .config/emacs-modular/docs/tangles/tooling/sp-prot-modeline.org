@@ -21,7 +21,7 @@ This module is an alternative to =sp-lambda-modeline=. It is adapted from =prot-
 - *Header line and divider.* Prot's own mode line has no header. Here the header line and the divider above the mode line come from =sp-nano-style=, as in =sp-lambda-modeline=: nano-modeline's blocks (=RW=, =RO= or =**=), the name of the buffer (in Org the text of the =#+title:=, in the face =sp-modeline-title= from =sp-faces=), the project and the time at the right. The name of the buffer is no longer in the mode line.
 - *Keycast.* The keys and commands are shown at the bottom, in the mode line, in the keycast slot of =sp-modeline-parts=; =keycast-header-line-mode= is turned off, so the keys are not shown twice. The clock is in the header (Prot shows it in =mode-line-misc-info=).
 - *Left out:* the Eglot and =notmuch-indicator= parts, which Sia's configuration does not use.
-- *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the tag emoji of =sp-tag-emoji=, which lambda-line never displays).
+- *Org-aware.* =sp-prot-modeline-misc-info= keeps =global-mode-string= (the tag emoji of =sp-org-tag-groups=, which lambda-line never displays).
 - *Emacs 30.* =mode-line-format-right-align= and =mode-line-right-align-edge= are Emacs 30 features, as in Prot's file. They are safe on Emacs 29 because an unbound symbol in a mode line format is ignored.
 
 * Changing the settings
@@ -75,7 +75,7 @@ Example, in your configuration:
 | =sp-prot-modeline-vc-branch=                       | The branch (or a short revision), coloured by the state of the file; click for the diff.        |
 | =sp-prot-modeline-flymake=                         | Counts of errors (=E=), warnings (=!=) and notes (=.=) while Flymake is on.                     |
 | =sp-prot-modeline-which-function-indicator=        | The current function or Org heading, in a small face (text and programming buffers).           |
-| =sp-prot-modeline-misc-info=                       | =mode-line-misc-info=: the tag emoji of =sp-tag-emoji= in Org buffers.                          |
+| =sp-prot-modeline-misc-info=                       | =mode-line-misc-info=: the tag emoji of =sp-org-tag-groups= in Org buffers.                          |
 
 Example, a shorter line without the process, Flymake and function segments and with the doom-style bar at the left:
 
