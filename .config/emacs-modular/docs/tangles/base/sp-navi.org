@@ -225,6 +225,43 @@ the absolute file name, or nil if none is chosen."
     (sp-find-file--read selection regexp)))
 #+end_src
 
+** Load a file from the configuration
+
+=sp-load-config-file= is =load-file= rooted at the configuration folder (=sp-load-path=, the folder of =init.el=). It lists every =.el= file below it, shown relative to the folder, and completes on them, so =M-x sp-load-config-file= followed by a few letters of =sp-navi= finds =libraries/modules/base/sp-navi.el= without typing the path. Candidates carry the =file= category, so Marginalia and Embark treat them as files.
+
+The search is Emacs Lisp (=directory-files-recursively=), not a shell tool. Directories matching =sp-load-config-file-excluded= (=elpaca=, =eln-cache=, =backups=, =auto-save-list=, =.git=, =var=, =url=) are skipped, because they hold packages and generated files rather than the configuration.
+
+#+begin_src emacs-lisp -i
+;;;; Load an Emacs Lisp file from the configuration
+(defconst sp-load-config-file-excluded
+  (rx (or "/elpaca/" "/eln-cache/" "/backups/" "/auto-save-list/" "/.git/" "/var/" "/url/"))
+  "Directories under `sp-load-path' that `sp-load-config-file' does not search.")
+
+(defun sp-load-config-file-candidates ()
+  "Return the .el files under `sp-load-path', relative to it, sorted."
+  (let ((root (file-name-as-directory (expand-file-name sp-load-path))))
+    (sort (mapcar (lambda (file) (file-relative-name file root))
+                  (seq-remove (lambda (file)
+                                (string-match-p sp-load-config-file-excluded file))
+                              (directory-files-recursively root "\\.el\\'")))
+          #'string<)))
+
+(defun sp-load-config-file (file)
+  "Load FILE, an Emacs Lisp file chosen from the files under `sp-load-path'.
+Like `load-file', but the candidates are every .el file below the
+configuration directory, shown relative to it, so the path need not be
+typed in full."
+  (interactive
+   (list (let ((candidates (sp-load-config-file-candidates)))
+           (completing-read "Load config file: "
+                            (lambda (str pred action)
+                              (if (eq action 'metadata)
+                                  '(metadata (category . file))
+                                (complete-with-action action candidates str pred)))
+                            nil t nil 'file-name-history))))
+  (load-file (expand-file-name file sp-load-path)))
+#+end_src
+
 ** Rebind C-x C-f
 
 Replaces the standard =find-file= binding on =C-x C-f= with =sp-find-file=. The plain =find-file= command remains available through =M-x=.
@@ -248,3 +285,4 @@ Provides the =sp-navi= feature and closes the file.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 - [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] =sp-find-file= now builds on =sp-find-file-options=, =sp-find-file--read= and the new =sp-find-file-pick=, which returns a file chosen under a directory instead of visiting it; behaviour of =C-x C-f= is unchanged except that an empty choice no longer tries to visit "". Used by =sp-org-insert-config-doc-link=.
+- [[https://github.com/siainbuletin/dotfiles/pull/160][#160]] New =sp-load-config-file=: a =load-file= that completes on the =.el= files under the configuration folder instead of asking for the full path.
