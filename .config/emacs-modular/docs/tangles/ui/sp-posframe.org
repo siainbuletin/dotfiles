@@ -219,6 +219,26 @@ wraps. An error is reported in the echo area and does not abort the prompt."
 (add-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)
 #+end_src
 
+* Text size
+
+=sp-minibuffer= (in =sp-fonts=) makes every minibuffer two =text-scale= steps larger from =minibuffer-mode-hook=. The posframe shows the minibuffer buffer itself, so its text got that scale, and prompts that did not go through the same path (or reset it) came out at a different size. =sp-posframe--reset-text-scale= runs later, from =minibuffer-setup-hook= (depth 90), and sets the text scale back to 0 when =vertico-posframe-mode= is on. Every posframe prompt then uses the size of the =default= face. Prompts outside the posframe (=read-string=, =y-or-n-p=) keep the larger size.
+
+#+begin_src emacs-lisp -i
+;;;; Same text size for every prompt
+
+(defun sp-posframe--reset-text-scale ()
+  "Show posframe prompts at the size of the `default' face.
+`sp-minibuffer' scales the text of every minibuffer up from `minibuffer-mode-hook'.
+This runs later, from `minibuffer-setup-hook', and removes that scale when the
+prompt is drawn in a posframe, so M-x, the file pickers and the note pickers all
+have the same text size."
+  (when (and (bound-and-true-p vertico-posframe-mode)
+             (bound-and-true-p text-scale-mode))
+    (text-scale-set 0)))
+
+(add-hook 'minibuffer-setup-hook #'sp-posframe--reset-text-scale 90)
+#+end_src
+
 * Dimming the background
 
 When one of the listed commands opens the minibuffer, every buffer visible in the frame behind gets its face colours blended toward the background. Leaving the minibuffer restores them.
