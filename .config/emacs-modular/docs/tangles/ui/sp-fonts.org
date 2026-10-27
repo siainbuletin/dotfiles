@@ -114,10 +114,18 @@ Atkinson Hyperlegible and Literata are not part of a preset. They are set on sin
       :mode-line-inactive-height 220
       :line-spacing 0.2)
      (t
+      ;; 1.0 keeps the dashboard boxes on the grid of the `default' font; any other
+      ;; value makes the box text and the box lines differ in width and misalign.
+      :sp-dashboard-menu-face-height 1.0
       :default-weight regular
       :bold-weight bold
       :italic-slant italic)))
   :config
+  ;; Faces of this configuration that the presets also size: a preset reads
+  ;; `:FACE-height' as a multiple of the `default' height.  This has to run
+  ;; before the first preset is set.
+  (dolist (face '(sp-dashboard-menu-face))
+    (add-to-list 'fontaine-faces face t))
   (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
   (fontaine-mode 1))
 #+end_src
@@ -276,7 +284,7 @@ Applies =sp-minibuffer= whenever the minibuffer starts.
 
 =sp-text-buffer= scales text up =sp-fonts-text-scale-steps= (4) steps. It is hooked on =text-mode-hook= in =sp-minibuffer=, so Org and every other text mode is that much larger than the =default= face. The posframe uses the same number of steps (see =sp-posframe=), so its prompts read at the size of an Org buffer.
 
-=sp-fonts-dashboard-menu-height= (0.85) is the height of =sp-dashboard-menu-face=, the text in the dashboard boxes, relative to the =default= face. A relative height follows the =default= height of the fontaine preset: =sp-fonts-ui-faces= applies it when the dashboard loads, after a theme loads and on =fontaine-set-preset-hook=.
+The dashboard box text is sized by fontaine, not here: =sp-dashboard-menu-face= is added to =fontaine-faces= in the =:config= of the fontaine block above, and the =t= preset sets =:sp-dashboard-menu-face-height= to 1.0 (a multiple of the =default= height, like every non-=default= face in a preset). The value is 1.0 because the box lines and the text share one character grid: another height makes them differ in width and the boxes no longer line up. A preset may still override it.
 
 #+begin_src emacs-lisp -i
 (defcustom sp-fonts-text-scale-steps 4
@@ -289,22 +297,6 @@ Prompts in the posframe use the same number, so they read at the size of Org."
   "Make the font in the text buffer generally larger."
   (text-scale-increase sp-fonts-text-scale-steps))
 
-(defcustom sp-fonts-dashboard-menu-height 0.85
-  "Height of the text in the dashboard boxes, relative to the `default' face.
-A relative height follows the `default' height of the current fontaine preset."
-  :type 'float
-  :group 'faces)
-
-(defun sp-fonts-ui-faces ()
-  "Size the faces of the dashboard boxes against the current `default' height."
-  (when (facep 'sp-dashboard-menu-face)
-    (set-face-attribute 'sp-dashboard-menu-face nil
-                        :height sp-fonts-dashboard-menu-height)))
-
-(with-eval-after-load 'sp-dashboard
-  (sp-fonts-ui-faces))
-(add-hook 'sp-after-load-theme-hook #'sp-fonts-ui-faces)
-(add-hook 'fontaine-set-preset-hook #'sp-fonts-ui-faces)
 #+end_src
 
 * Mixed pitch

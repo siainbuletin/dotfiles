@@ -40,10 +40,18 @@
       :mode-line-inactive-height 220
       :line-spacing 0.2)
      (t
+      ;; 1.0 keeps the dashboard boxes on the grid of the `default' font; any other
+      ;; value makes the box text and the box lines differ in width and misalign.
+      :sp-dashboard-menu-face-height 1.0
       :default-weight regular
       :bold-weight bold
       :italic-slant italic)))
   :config
+  ;; Faces of this configuration that the presets also size: a preset reads
+  ;; `:FACE-height' as a multiple of the `default' height.  This has to run
+  ;; before the first preset is set.
+  (dolist (face '(sp-dashboard-menu-face))
+    (add-to-list 'fontaine-faces face t))
   (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
   (fontaine-mode 1))
 
@@ -145,22 +153,6 @@ Prompts in the posframe use the same number, so they read at the size of Org."
   "Make the font in the text buffer generally larger."
   (text-scale-increase sp-fonts-text-scale-steps))
 
-(defcustom sp-fonts-dashboard-menu-height 0.85
-  "Height of the text in the dashboard boxes, relative to the `default' face.
-A relative height follows the `default' height of the current fontaine preset."
-  :type 'float
-  :group 'faces)
-
-(defun sp-fonts-ui-faces ()
-  "Size the faces of the dashboard boxes against the current `default' height."
-  (when (facep 'sp-dashboard-menu-face)
-    (set-face-attribute 'sp-dashboard-menu-face nil
-                        :height sp-fonts-dashboard-menu-height)))
-
-(with-eval-after-load 'sp-dashboard
-  (sp-fonts-ui-faces))
-(add-hook 'sp-after-load-theme-hook #'sp-fonts-ui-faces)
-(add-hook 'fontaine-set-preset-hook #'sp-fonts-ui-faces)
 
 (use-package mixed-pitch
   :ensure t
