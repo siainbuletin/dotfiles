@@ -1,9 +1,3 @@
-#+TITLE: Bootstrap for the Emacs configuration
-
-* Doesn't represent the current state of things
-
-This is now a modular configuration that's based on Elpaca and use-package, all the while working off a bunch of ~.org~ files that are going to be tangled together.
-
 * Archive
 
 This contains the main functionality which gets the Emacs program going. This is the first file that should always be loaded.

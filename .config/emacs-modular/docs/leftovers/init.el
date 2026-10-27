@@ -1,82 +1,8 @@
-(org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (org . t)
-     (R . t))
-)
-
-;; This file has been generated from an org-mode file (=literate-config.org=)
-;; DO NOT EDIT DIRECTLY, IT WILL BE OVERWRITTEN
-
 (setq initial-major-mode 'org-mode
       initial-scratch-message (concat "#+title: Emacs Writing Studio\n"
 					"#+subtitle: Scratch Buffer\n\n"
 					"The text in this buffer is not saved "
 					"when exiting Emacs!\n\n"))
-
-;; Installing elpaca
-(defvar elpaca-installer-version 0.11)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1 :inherit ignore
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca--activate-package)))
-
-(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (<= emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                  ,@(when-let* ((depth (plist-get order :depth)))
-                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                  ,(plist-get order :repo) ,repo))))
-                  ((zerop (call-process "git" nil buffer t "checkout"
-                                        (or (plist-get order :ref) "--"))))
-                  (emacs (concat invocation-directory invocation-name))
-                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                  ((require 'elpaca))
-                  ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
-
-;;; Configure elpaca use-package support
-(elpaca elpaca-use-package
-        ;; Enable use-package :ensure support for Elpaca.
-        (elpaca-use-package-mode)
-        ;; Assume :elpaca t unless otherwise specified.
-        (setq elpaca-use-package-by-default t))
-
-;;When installing a package used in the init file itself,
-;;e.g. a package which adds a use-package key word,
-;;use the :wait recipe keyword to block until that package is installed/configured.
-;;For example:
-;;(use-package general :ensure (:wait t) :demand t)
-
-;; Local Variables:
-;; no-byte-compile: t
-;; no-native-compile: t
-;; no-update-autoloads: t
-
-(setq load-path (cons "~/.config/emacs-literate/sia-modules" load-path))
-
-(load-file (concat (file-name-as-directory user-emacs-directory)
-		   "sia-ews-functions.el"))
 
 (sia-missing-executables
  '(("gs" "mutool")
@@ -95,18 +21,11 @@
 
 (setq custom-file (make-temp-file "emacs-custom-"))
 
-(use-package mixed-pitch
-  :hook
-  (org-mode . mixed-pitch-mode))
-
-(use-package counsel)
 
 (defun jcs-execute-all-buffers ()
   (interactive)
   (let ((org-confirm-babel-evaluate nil))
     (org-babel-execute-buffer)))
-
-(elpaca-wait)
 
 (when (display-graphic-p)
     (context-menu-mode 1)
@@ -116,15 +35,6 @@
     (setq visible-bell 1
           frame-inhibit-implied-resize t)
 )
-
-(package-initialize)
-
-;; Path to the NANO emacs modules
-(add-to-list 'load-path "~/.config/emacs-literate/nano")
-(add-to-list 'load-path ".")
-
-;; Default layout (optional)
-(require 'nano-layout)
 
 ;; Theming Command line options (this will cancel warning messages)
 (add-to-list 'command-switch-alist '("-dark"   . (lambda (args))))
@@ -529,31 +439,10 @@ fixed-pitch))
    ("C-c w x v" . denote-explore-network-regenerate)
    ("C-c w x D" . denote-explore-barchart-degree)))
 
-(setq org-capture-templates
-              '(
-                ("f" "Fleeting note"
-                 item
-                 (file+headline org-default-notes-file "Notes")
-                 "- %?")
 
-                ;; I want to replace this with something that doesn't rely on denote
-                ("p" "Permanent note" plain
-                 (file denote-last-path)
-                 #'denote-org-capture
-                 :no-save t
-                 :immediate-finish nil
-                 :kill-buffer t
-                 :jump-to-captured t)
-
-                ("t" "New task" entry
-                 (file+headline org-default-notes-file "Tasks")
-                 "* TODO %i%?"))
-)
 
 (setq org-directory "~/Documents/org")
 (setq org-default-notes-file "~/Documents/org/org-capture.org")
-
-(use-package org-journal)
 
 (use-package obsidian
   :config

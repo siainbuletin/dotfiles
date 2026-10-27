@@ -1,0 +1,55 @@
+#+TITLE: Past package management methodologies
+
+By default, Emacs uses the =package.el= framework, which is imperative. This makes it harder to manage configuration if you're working between machines. And it's always a lot more convenient to have direct access to the "declaration" of installation if it's written in plain text natively.
+
+=(require)= is used for loading Emacs modules. Emacs Lisp source files call on =(require)= at the beginning of the file so they can get all the modules that they need to function properly. This is what makes a modular configuration possible. Also, through =(require)=, it makes "features" of the code available to be used within a configuration.
+
+One disadvantage of using =elpaca=, since it isn't as widely used as =straight-el=, a lot of packages that you might install from GitHub don't actually have instructions for how to install them. But now =elpaca= supports using =use-package='s =:ensure= keyboard, so you can just use regular =use-package= installation.[fn:4]
+
+* Other variables suggested in the =elpaca= configuration on the site
+
+And other useful variables for the init file...
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; Local Variables:
+  ;; no-byte-compile: t
+  ;; no-native-compile: t
+  ;; no-update-autoloads: t
+#+end_src
+
+* The archived configuration of =straight.el=
+
+It is very important to call =straight.el= as early on in the configuration, so that the calls made can be resolved
+
+As opposed to the native =package.el=, this is necessary.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+         (expand-file-name
+          "straight/repos/straight.el/bootstrap.el"
+          (or (bound-and-true-p straight-base-dir)
+              user-emacs-directory)))
+        (bootstrap-version 7))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+          (url-retrieve-synchronously
+           "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+           'silent 'inhibit-cookies)
+        (goto-char (point-max))
+        (eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+#+end_src
+
+We may still need to use =use-package= in conjunction with =straight.el=.
+
+I still don't know what the difference between =straight-use-package= and =use-package= is.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; Declaring use-package
+  (straight-use-package 'use-package)
+
+  (use-package straight
+    :custom
+    (straight-use-package-by-default t))
+#+end_src

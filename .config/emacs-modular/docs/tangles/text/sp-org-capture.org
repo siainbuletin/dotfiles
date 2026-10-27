@@ -187,3 +187,28 @@ Provides the =sp-org-capture= feature and closes the file.
 #+begin_src emacs-lisp -i
 (provide 'sp-org-capture)
 #+end_src
+
+⊙ Working on other templates (left from other configurations)
+
+#+begin_src emacs-lisp -i
+(setq org-capture-templates
+              '(
+                ("f" "Fleeting note"
+                 item
+                 (file+headline org-default-notes-file "Notes")
+                 "- %?")
+
+                ;; I want to replace this with something that doesn't rely on denote
+                ("p" "Permanent note" plain
+                 (file denote-last-path)
+                 #'denote-org-capture
+                 :no-save t
+                 :immediate-finish nil
+                 :kill-buffer t
+                 :jump-to-captured t)
+
+                ("t" "New task" entry
+                 (file+headline org-default-notes-file "Tasks")
+                 "* TODO %i%?"))
+)
+#+end_src
