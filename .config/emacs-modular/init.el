@@ -380,6 +380,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                      ;; assigns its variable once, from what the modules above
                      ;; provide (see adr/0009).
                      'sp-org-capture
+                     'sp-quick-capture ;; hotkey quick entry into inbox.org (tools/quick-capture)
                      'sp-agenda-views
                      
                     ;; Functions
@@ -472,6 +473,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-org-taskman-extra
                     'sp-org-ext
                     'sp-org-capture
+                    'sp-quick-capture
                     'sp-agenda-views
                     'sp-csv
                     )))

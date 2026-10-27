@@ -1,0 +1,29 @@
+#!/bin/bash
+# Pop the Emacs quick entry box (sp-quick-capture) from any app.
+# Bind this script to a global hotkey; see docs/tangles/text/sp-quick-capture.org.
+#
+# Needs a running Emacs server (sp-server).  Never starts a second Emacs:
+# if the server is not up it says so and exits.
+
+set -u
+
+for candidate in \
+    "${EMACSCLIENT:-}" \
+    /opt/homebrew/bin/emacsclient \
+    /usr/local/bin/emacsclient \
+    /Applications/Emacs.app/Contents/MacOS/bin/emacsclient \
+    "$(command -v emacsclient 2>/dev/null)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    EMACSCLIENT=$candidate
+    break
+  fi
+done
+
+if [ -z "${EMACSCLIENT:-}" ]; then
+  echo "quick-capture: emacsclient not found (set EMACSCLIENT)" >&2
+  exit 1
+fi
+
+# No ALTERNATE_EDITOR: do not spawn a daemon of our own (see sp-server).
+# -n: return at once.  The frame is made and deleted by Emacs itself.
+exec "$EMACSCLIENT" -n -e '(sp-quick-capture-popup)'
