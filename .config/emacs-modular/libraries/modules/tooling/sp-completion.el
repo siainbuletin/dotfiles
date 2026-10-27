@@ -23,6 +23,9 @@
   (vertico-cycle t) ; Once passing the last candidate in the list, it will loop back to the first
   (vertico-sort-function
            'vertico-sort-history-alpha)
+  ;; The default, `prompt', keeps the typed text selected, so RET on a partial
+  ;; name creates a new buffer; `first' selects the best match instead.
+  (vertico-preselect 'first)
 
   :config
   (vertico-mode))
