@@ -16,10 +16,16 @@
 (require 'sp-collection-query-tables-core)
 
 (defcustom sp-collec-query-views-file
-  (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
-  "File where named query table views are saved."
+  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
+  "File where named query table views are saved.
+It is below `sp-etc-dir' (the `etc/' folder of `sp-var-dir'), where
+files that are kept and not regenerated belong."
   :type 'file
   :group 'sp-collec-query)
+
+(defconst sp-collec-query-views--old-file
+  (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
+  "Where the views were saved before they moved below `sp-etc-dir'.")
 
 (defconst sp-collec-query-views--legacy-file
   (expand-file-name "sp-vulpea-table-views.el" user-emacs-directory)
@@ -47,9 +53,12 @@
 (defun sp-collec-query-views--source ()
   "Return the file to read the views from, or nil.
 That is `sp-collec-query-views-file'; while it does not exist yet,
-the file the views had before the rename, so saved views carry over."
+the file in `user-emacs-directory' where the views were saved before
+they moved, then the one from before the rename, so saved views carry
+over.  The next save writes `sp-collec-query-views-file'."
   (cl-find-if #'file-exists-p
               (list sp-collec-query-views-file
+                    sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
 
 (defun sp-collec-query-views-load ()
