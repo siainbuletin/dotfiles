@@ -162,8 +162,8 @@ The border is 4 pixels wide (=vertico-posframe-border-width=). =sp-posframe--mat
 The prompt of =M-x= is styled like the one in nano-emacs, with the same code that was removed from the former =sp-mini-frame= while it was being made to work, now on the posframe. Only the text styling and the boxes are used; the frame is the same as for every other prompt.
 
 - =sp-posframe-nano-commands= lists the commands styled this way: =execute-extended-command=, =amx=, =counsel-M-x= and =smex=.
-- The prompt is shown in inverse video, bold, with a one-pixel box (a remap of =minibuffer-prompt= in that minibuffer only).
-- A dotted line of =sp-posframe-divider-char= (=┈=; =nil= for none) is drawn under the input, in the divider colour of =sp-nano-style= (or the =shadow= face), with =sp-posframe-divider-priority= to order it against Vertico's own overlay. The line has 300 characters and =truncate-lines= is on in that minibuffer, so the window cuts it and it never wraps when the frame is narrow, which it did before.
+- The prompt is a bold block: the colours of =default= swapped, set outright by =sp-posframe--prompt-block= (a remap of =minibuffer-prompt= in that minibuffer only). It used =:inverse-video= and a one-pixel =:box= before (#115, #138); both are gone, because the box makes the first line taller than the others and reverse video in a child frame is a suspect for the text that glitched and disappeared in =M-x= (not confirmed, not run in Emacs).
+- A dotted line of =sp-posframe-divider-char= (=┈=; =nil= for none) is drawn under the input, in the divider colour of =sp-nano-style= (or the =shadow= face), with =sp-posframe-divider-priority= to order it against Vertico's own overlay. The line has 300 characters and =truncate-lines= is on in that minibuffer, so the window cuts it and it never wraps when the frame is narrow, which it did before. Its overlay is empty and advances with the text like Vertico's own (it used to be created with the front marker not advancing, so it grew to cover the typed input).
 - The styling is in =condition-case=: an error is shown in the echo area and the prompt still opens.
 
 #+begin_src emacs-lisp -i
@@ -196,18 +196,30 @@ The prompt of =M-x= is styled like the one in nano-emacs, with the same code tha
            (sp-nano-style-divider-colour))
       (face-foreground 'shadow nil t)))
 
+(defun sp-posframe--prompt-block ()
+  "Return face attributes for the prompt as a block of the colours swapped.
+The text takes the background of the posframe and the block the foreground of
+`default'. Colours are set outright, not with `:inverse-video' or `:box', which
+change the height of the first line and can leave remains in a child frame."
+  (let ((fg (face-foreground 'default nil t))
+        (bg (or (face-background 'vertico-posframe nil t)
+                (face-background 'default nil t))))
+    (when (and (stringp fg) (stringp bg))
+      (list :foreground bg :background fg :weight 'bold))))
+
 (defun sp-posframe--style-nano ()
   "Give the M-x prompt nano's block and the input a dotted line below it.
 The line is longer than any window and `truncate-lines' cuts it, so it never
-wraps. An error is reported in the echo area and does not abort the prompt."
+wraps. Its overlay is empty and sits after the input like Vertico's own, so it
+never covers the text being typed. An error is reported in the echo area and
+does not abort the prompt."
   (condition-case err
       (when (and (bound-and-true-p vertico-posframe-mode) (sp-posframe--nano-p))
-        (face-remap-add-relative
-         'minibuffer-prompt
-         :inverse-video t :weight 'bold :box '(:line-width 1))
+        (when-let* ((attrs (sp-posframe--prompt-block)))
+          (apply #'face-remap-add-relative 'minibuffer-prompt attrs))
         (when sp-posframe-divider-char
           (setq-local truncate-lines t)
-          (let ((ov (make-overlay (point-max) (point-max) nil nil t)))
+          (let ((ov (make-overlay (point-max) (point-max) nil t t)))
             (overlay-put ov 'priority sp-posframe-divider-priority)
             (overlay-put ov 'after-string
                          (concat "\n"
@@ -399,3 +411,22 @@ Provides the =sp-posframe= feature and closes the file.
 (provide 'sp-posframe)
 ;; sp-posframe.el ends here.
 #+end_src
+
+* Diagnosing text that glitches or disappears in M-x
+
+Only =M-x= is styled (=sp-posframe-nano-commands=), and the glitch was seen on =mini-frame= too, so the suspects are the three nano parts: the prompt block, the divider overlay and the text size remap. To find which, look at the minibuffer while =M-x= is open. =M-:= cannot do it (it opens its own minibuffer), so use =emacsclient --eval '(...)'= from a fish shell, or schedule the check first with =M-: (run-with-timer 8 nil (lambda () (message "%S" (CHECK))))= and then open =M-x= and type:
+
+#+begin_src emacs-lisp :tangle no
+;; CHECK: the minibuffer buffer of the open M-x, after typing "ab":
+(with-current-buffer (window-buffer (active-minibuffer-window))
+  (list (buffer-string)                      ; is the typed text in the buffer?
+        face-remapping-alist                 ; what is remapped
+        (mapcar (lambda (o) (list (overlay-start o) (overlay-end o) (overlay-properties o)))
+                (overlays-in (point-min) (1+ (point-max))))
+        (get-text-property (point-max) 'face)
+        (point) (window-start (get-buffer-window (current-buffer) t))))
+#+end_src
+
+- If the text is in =buffer-string= but you cannot see it, it is display: compare =window-start= with =point-min= (a window scrolled past the first line) and the faces at the typed text with =describe-char= (a foreground equal to the background).
+- If the text is not in the buffer, it is not styling: look at =M-x= packages (=amx=, =marginalia=) instead.
+- Turn the parts off one at a time in the running Emacs, then press =M-x= again: =(setq sp-posframe-divider-char nil)= (no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--style-nano)= (no block, no line), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--set-text-size)= (default text size), =(remove-hook 'minibuffer-setup-hook #'sp-posframe--maybe-dim)= (no dimming). The part whose removal stops the glitch is the cause.
