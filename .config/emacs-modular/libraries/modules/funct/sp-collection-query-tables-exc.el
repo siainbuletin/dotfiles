@@ -79,6 +79,9 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
                 ((not (stringp (nth col columns)))
                  (user-error "The %s column is read-only"
                              (sp-collec-query-header-label (nth col columns))))
+                ((sp-collec-query-has-link-p
+                  (sp-collec-query-cell (aref notes (1- row)) (nth col columns)))
+                 (user-error "This cell holds a link; edit it in the note"))
                 (t (sp-collec-query-write-meta (aref notes (1- row)) (nth col columns) value)
                    (funcall original s row col value))))
              source)))

@@ -18,7 +18,10 @@
 (declare-function sp-collec-query-views-read-name "sp-collection-query-tables-views")
 
 (defcustom sp-collec-query-link-titles t
-  "Non-nil to write note titles as id: links in Org tables."
+  "Non-nil to write note titles as id: links in Org tables.
+Only the title column is affected, and only in the dynamic block and the
+Org buffer.  Links already in the text of a cell are kept as they are;
+the other renderers show them by their description."
   :type 'boolean
   :group 'sp-collec-query)
 
