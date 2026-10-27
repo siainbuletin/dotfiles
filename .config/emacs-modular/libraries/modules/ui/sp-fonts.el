@@ -158,8 +158,6 @@ Only its `:height' is used, as a multiple of the `default' height."
   "Make the minibuffer use the size of `sp-minibuffer-face', set by fontaine."
   (face-remap-add-relative 'default 'sp-minibuffer-face))
 
-(add-hook 'minibuffer-mode-hook 'sp-minibuffer)
-
 (defun sp-text-buffer ()
   "Make the font in the text buffer generally larger, by `sp-text-face'."
   (face-remap-add-relative 'default 'sp-text-face))

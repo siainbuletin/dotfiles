@@ -291,11 +291,7 @@ The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =defa
 
 ** Hooking the minibuffer
 
-Applies =sp-minibuffer= whenever the minibuffer starts.
-
-#+begin_src emacs-lisp -i
-(add-hook 'minibuffer-mode-hook 'sp-minibuffer)
-#+end_src
+=sp-minibuffer= is no longer added to =minibuffer-mode-hook= (#156): the larger text of the minibuffer is one of the things taken out of the posframe while looking for the glitching =M-x= text. The function and =sp-minibuffer-face= stay, so it can be hooked again.
 
 ** Larger text buffers
 
