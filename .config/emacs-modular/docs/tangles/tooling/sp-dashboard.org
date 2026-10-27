@@ -821,7 +821,7 @@ The accents colour the boxes of the menu: block 1 takes =sp-dashboard-accent-1-f
 
 Palette updates:
 
-- When a theme is enabled or disabled, =sp-dashboard--theme-changed= applies the palette and redraws the splash. It runs on =enable-theme-functions= and =disable-theme-functions=.
+- When a theme is enabled or disabled, =sp-dashboard--theme-changed= applies the palette and redraws the splash, in the window that shows it. Drawing the splash switches the selected window to the Dashboard, so the redraw used to pull you back to it when you loaded a theme from another buffer. When no window shows the Dashboard it is not redrawn; =g= does it. It runs on =enable-theme-functions= and =disable-theme-functions=.
 - =sp-dashboard-palette-follow-theme= switches this off.
 - =sp-dashboard-apply-palette= applies the palette by hand.
 - =sp-dashboard-show-palette= shows the colour of each role.
@@ -925,11 +925,15 @@ theme, see `sp-dashboard-palette-roles'."
 
 #+begin_src emacs-lisp -i
 (defun sp-dashboard--theme-changed (&rest _)
-  "Recolour and redraw the splash after a theme change."
+  "Recolour the splash after a theme change, and redraw it where it is shown.
+Drawing the splash takes the selected window, so it is drawn in the window
+that already shows it and in none else: with another buffer selected, a
+theme change must not bring the Dashboard to the front."
   (when sp-dashboard-palette-follow-theme
     (sp-dashboard-apply-palette)
-    (when-let* ((buffer (get-buffer "Dashboard")))
-      (with-current-buffer buffer
+    (when-let* ((buffer (get-buffer "Dashboard"))
+                (window (get-buffer-window buffer t)))
+      (with-selected-window window
         (sp-dashboard-refresh)))))
 #+end_src
 
