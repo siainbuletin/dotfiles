@@ -46,6 +46,7 @@ periods. This ain't a typewriter."
 ;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
 ;; "org", which does not define it; point the autoload at its own module.
 (autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+(autoload 'sp-org-insert-config-doc-link "sp-org-id-link" nil t)
 
 ;; Use Org from source rather than built in
 (use-package org
@@ -90,6 +91,9 @@ periods. This ain't a typewriter."
    
    ;; Visibility for the markup
    ("C-c l d" . org-toggle-link-display)
+
+   ;; Link to the configuration docs
+   ("C-c l c" . sp-org-insert-config-doc-link)
 
    ;; safety nets
    ("C-c s a" . org-save-all-org-buffers)
