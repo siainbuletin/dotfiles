@@ -155,8 +155,17 @@ Only its `:height' is used, as a multiple of the `default' height."
 ;;
 ;; I should probably try to hook into the faces system of Emacs to get it to work well.
 (defun sp-minibuffer ()
-  "Make the minibuffer use the size of `sp-minibuffer-face', set by fontaine."
-  (face-remap-add-relative 'default 'sp-minibuffer-face))
+  "Size the minibuffer text like the buffer it was opened from.
+The base size is `sp-minibuffer-face', set by fontaine. On top of it the
+`text-scale' of the buffer that was selected when the minibuffer opened is
+applied, so `text-scale-adjust' grows the minibuffer text with the buffer's."
+  (face-remap-add-relative 'default 'sp-minibuffer-face)
+  (when-let* ((win (minibuffer-selected-window))
+              ((window-live-p win)))
+    (text-scale-set (buffer-local-value 'text-scale-mode-amount
+                                        (window-buffer win)))))
+
+(add-hook 'minibuffer-setup-hook #'sp-minibuffer)
 
 (defun sp-text-buffer ()
   "Make the font in the text buffer generally larger, by `sp-text-face'."
