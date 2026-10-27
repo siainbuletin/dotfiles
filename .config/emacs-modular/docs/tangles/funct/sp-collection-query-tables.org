@@ -124,7 +124,7 @@ Still working, as obsolete aliases:
 Data and blocks:
 
 - A views file written by the first version is read and converted.
-- The views file is now =sp-collection-query-tables-views.el= in =user-emacs-directory=. While it does not exist, the old =sp-vulpea-table-views.el= is read instead.
+- The views file is now =sp-collection-query-tables-views.el= in =sp-etc-dir= (=var/etc/=), no longer in =user-emacs-directory=. While it does not exist, the file in =user-emacs-directory= and then the old =sp-vulpea-table-views.el= are read instead; the next save writes the new location. The old files are left in place.
 - The dynamic block is =collection-query-table=. =#+BEGIN: vulpea-table= in existing notes still works.
 
 Gone or not aliased:
@@ -908,7 +908,7 @@ The commands and helpers of the first version lived under =sia-vulpea-*=. These 
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/funct/sp-collection-query-tables-views.el :comments no :padline yes :noweb no :mkdirp yes
 :END:
 
-A view is a name and a spec, kept in =sp-collec-query-views-file= as readable Lisp. Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
+A view is a name and a spec, kept in =sp-collec-query-views-file= (below =sp-etc-dir=, the =etc/= folder of =sp-var-dir= for files that are kept and not regenerated, like the XDG config folder) as readable Lisp. The file used to be in =user-emacs-directory=; it is read from there once, until the new file exists. Files from the first version of this module (one list of positional fields per view) are read and converted; the next save writes the new format.
 
 ** Header and requires
 
@@ -943,10 +943,18 @@ The views file, the in-memory alist, the converter for the first-version format,
 
 #+begin_src emacs-lisp -i
 (defcustom sp-collec-query-views-file
-  (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
-  "File where named query table views are saved."
+  (expand-file-name "sp-collection-query-tables-views.el" sp-etc-dir)
+  "File where named query table views are saved.
+It is below `sp-etc-dir' (the `etc/' folder of `sp-var-dir'), where
+files that are kept and not regenerated belong."
   :type 'file
   :group 'sp-collec-query)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defconst sp-collec-query-views--old-file
+  (expand-file-name "sp-collection-query-tables-views.el" user-emacs-directory)
+  "Where the views were saved before they moved below `sp-etc-dir'.")
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -984,9 +992,12 @@ The views file, the in-memory alist, the converter for the first-version format,
 (defun sp-collec-query-views--source ()
   "Return the file to read the views from, or nil.
 That is `sp-collec-query-views-file'; while it does not exist yet,
-the file the views had before the rename, so saved views carry over."
+the file in `user-emacs-directory' where the views were saved before
+they moved, then the one from before the rename, so saved views carry
+over.  The next save writes `sp-collec-query-views-file'."
   (cl-find-if #'file-exists-p
               (list sp-collec-query-views-file
+                    sp-collec-query-views--old-file
                     sp-collec-query-views--legacy-file)))
 
 (defun sp-collec-query-views-load ()
@@ -2248,3 +2259,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/43][#43]] ✨ Added =sp-vulpea-table= as one entry point: a query menu (=C-c w T=), saved views, a =vulpea-table= block and three renderers (exc, vui and plain Org). Fixed title sorting, =|= in cells, heading rows rewriting the file's meta and inline tables leaving the note modified.
 - [[https://github.com/siainbuletin/dotfiles/pull/164][#164]] ✨ Added links in cells: the vui and exc renderers show =[[id:..][title]]= in a meta column by its description (=sp-collec-query-linkify=); in vui RET or a click follows it. A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/165][#165]] 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=. A file in the old place is read until the new one is saved. Not run in Emacs (none in the container).
