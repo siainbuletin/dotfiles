@@ -176,6 +176,62 @@ With a prefix argument EDIT-DESCRIPTION, ask for the description."
                description)))))
 #+end_src
 
+** Completion for help, info and man links
+
+=org-insert-link= (=C-c C-l=) completes the path of a link type that has a =:complete= parameter. Org defines the =help:= and =info:= types without one, and =man:= may not be defined, so this section sets them with =org-link-set-parameters= once Org is loaded.
+
+- =sp-org-link-complete-help= reads a function, variable or face with =completing-read= over =obarray= and returns =help:SYMBOL=.
+- =sp-org-link-complete-info= reads a node with =Info-read-node-name= (manual and node, completed) and returns =info:MANUAL#NODE=, the form Org follows; a manual alone becomes the node =Top=.
+- =sp-org-link-complete-man= reads a page with =Man-completion-table= and returns =man:PAGE=.
+- =man:= gets =sp-org-link-follow-man= (it calls =man=) only when Org has no follow function for it, so Org's own type wins when present.
+
+#+begin_src emacs-lisp -i
+;;;;; Completion for help, info and man links
+;; `org-insert-link' (C-c C-l) completes the path of a link type that has a
+;; `:complete' parameter.  Org defines `help:' and `info:' without one and
+;; `man:' may be missing, so they are set here.
+(declare-function Info-read-node-name "info")
+(declare-function Man-completion-table "man")
+(declare-function org-link-get-parameter "ol")
+(declare-function org-link-set-parameters "ol")
+
+(defun sp-org-link-complete-help (&optional _arg)
+  "Return a `help:' link to a function, variable or face read with completion."
+  (let ((symbol (completing-read
+                 "Help for symbol: " obarray
+                 (lambda (s) (or (fboundp s) (boundp s) (facep s)))
+                 t)))
+    (concat "help:" symbol)))
+
+(defun sp-org-link-complete-info (&optional _arg)
+  "Return an `info:' link to a manual and node read with completion.
+The link has Org's form MANUAL#NODE, with the node Top when none is given."
+  (require 'info)
+  (let ((node (Info-read-node-name "Info node: ")))
+    (if (string-match "\\`(\\([^)]+\\))\\(.*\\)\\'" node)
+        (concat "info:" (match-string 1 node) "#"
+                (if (string-empty-p (match-string 2 node)) "Top" (match-string 2 node)))
+      (concat "info:" node))))
+
+(defun sp-org-link-complete-man (&optional _arg)
+  "Return a `man:' link to a manual page read with completion."
+  (require 'man)
+  (concat "man:" (completing-read "Man page: " #'Man-completion-table)))
+
+(defun sp-org-link-follow-man (path _arg)
+  "Open the manual page PATH of a `man:' link."
+  (require 'man)
+  (man path))
+
+(with-eval-after-load 'org
+  (org-link-set-parameters "help" :complete #'sp-org-link-complete-help)
+  (org-link-set-parameters "info" :complete #'sp-org-link-complete-info)
+  ;; Only add the follow function when Org does not provide `man:' itself.
+  (unless (org-link-get-parameter "man" :follow)
+    (org-link-set-parameters "man" :follow #'sp-org-link-follow-man))
+  (org-link-set-parameters "man" :complete #'sp-org-link-complete-man))
+#+end_src
+
 ** Related library note
 
 A note pointing to =sp-org-create-note-and-link.el= as another link related library. No file by that name is in the modules directory now.
@@ -199,3 +255,4 @@ Provides the =sp-org-id-link= feature and closes the file.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 - [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] ✨ Added =sp-org-insert-config-doc-link=, =sp-config-docs-directory= and =sp-org-doc-title=: insert a =file:= link to a configuration doc from any Org note.
+- [[https://github.com/siainbuletin/dotfiles/pull/155][#155]] ✨ Added completion for =help:=, =info:= and =man:= links in =org-insert-link= (=sp-org-link-complete-help=, =-info=, =-man=, =sp-org-link-follow-man=).
