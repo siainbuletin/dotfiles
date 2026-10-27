@@ -70,8 +70,9 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-bibliography-dir (sp-paths--dir sp-documents-dir "bibliography/")
-  "Folder with the .bib files."
+(defcustom sp-bibliography-dir
+  (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" (sp-path sp-documents-dir "bibliography/"))
+  "Folder with the .bib files (SP_BIBLIOGRAPHY_DIR, or below `sp-documents-dir')."
   :type 'directory :group 'spcustom)
 
 (defcustom sp-org-dir (sp-paths--dir "SP_ORG_DIR" "~/org")

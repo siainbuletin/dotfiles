@@ -159,8 +159,9 @@ The notes, documents, literature, bibliography, org, source and clone folders. T
   "Folder with the PDFs and attachments of the bibliography."
   :type 'directory :group 'spcustom)
   
-(defcustom sp-bibliography-dir (sp-paths--dir sp-documents-dir "bibliography/")
-  "Folder with the .bib files."
+(defcustom sp-bibliography-dir
+  (sp-paths--dir "SP_BIBLIOGRAPHY_DIR" (sp-path sp-documents-dir "bibliography/"))
+  "Folder with the .bib files (SP_BIBLIOGRAPHY_DIR, or below `sp-documents-dir')."
   :type 'directory :group 'spcustom)
 
 (defcustom sp-org-dir (sp-paths--dir "SP_ORG_DIR" "~/org")
@@ -298,6 +299,8 @@ here."
 #+end_src
 
 * Bibliography
+
+=sp-bibliography-dir= used to pass =sp-documents-dir= as the /name of the environment variable/ to =sp-paths--dir=, so =getenv= returned nil and the folder became =bibliography/= below =default-directory= instead of =~/Documents/bibliography/=. It does not exist, =sp-bibtex-files= was nil and citar signalled =No bibliography set=. It now reads =SP_BIBLIOGRAPHY_DIR= and falls back to =bibliography/= below =sp-documents-dir=, as the docs of =sp-academic= already said.
 
 The citation notes folder and the note template (the bibliography is every =.bib= file in =sp-bibliography-dir=; the old =sp-bibliography= option is removed).
 
