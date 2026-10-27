@@ -43,7 +43,6 @@
 (require 'vulpea)
 (require 'vulpea-ui)
 (require 'vui)
-(require 'sp-tag-emoji)
 (require 'sp-move-region-to-heading)
 
 ;;;; Configuration

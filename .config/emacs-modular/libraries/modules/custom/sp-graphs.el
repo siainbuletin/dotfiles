@@ -148,7 +148,7 @@
 (require 'json)
 (require 'vulpea)
 (require 'vulpea-select)
-(require 'sp-tag-emoji)
+(require 'sp-org-tag-groups)
 (require 'vui)
 
 (defgroup relationship-annotator nil

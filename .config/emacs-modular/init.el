@@ -255,7 +255,7 @@ the order of `sp-late-modules', for example when debugging."
     ;; Terminals and shells
     sp-terminal
     sp-eshell
-    sp-tag-emoji ;; tags as emoji in the modeline and on links
+    sp-org-tag-groups ;; tags as emoji in the modeline and on links
     sp-thesis-dump    
     )
   "Modules that can wait until after startup, in dependency order.
