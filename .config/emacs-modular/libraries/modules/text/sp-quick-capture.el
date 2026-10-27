@@ -322,13 +322,14 @@ Return the title."
 
 ;;;###autoload
 (defun sp-quick-capture (line)
-  "Capture LINE as a task in the inbox.
-Called interactively, it prompts for LINE."
+  "Capture LINE as a task in the inbox and return its preview text.
+Called interactively, it prompts for LINE.  The return value is what
+`tools/quick-capture-native' shows in its notification."
   (interactive (list (sp-quick-capture-read)))
-  (let* ((parsed (sp-quick-capture-parse line))
-         (title (sp-quick-capture-insert parsed)))
+  (let ((parsed (sp-quick-capture-parse line)))
+    (sp-quick-capture-insert parsed)
     (message "Captured: %s" (sp-quick-capture-preview parsed))
-    title))
+    (sp-quick-capture-preview parsed)))
 
 ;;;; Frame
 
