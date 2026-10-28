@@ -38,6 +38,16 @@
   (help-at-pt-timer-delay 0.1)
   (help-at-pt-display-when-idle '(flymake-diagnostic)))
 
+;;;;; Shortdoc groups without a section name
+;; `taxy' registers its shortdoc group with a nil section, which signals
+;; (wrong-type-argument stringp nil) when `shortdoc' loads, for instance on
+;; the first `describe-function' or `help:' link.
+(define-advice shortdoc-add-function (:filter-args (args) default-section)
+  "Use an empty section name when a package passes nil."
+  (if (and (consp (cdr args)) (null (cadr args)))
+      (list (car args) "" (nth 2 args))
+    args))
+
 ;;;; Helpful package:
 (use-package helpful
   :ensure t

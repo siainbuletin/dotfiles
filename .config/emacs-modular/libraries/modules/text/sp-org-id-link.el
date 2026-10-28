@@ -109,7 +109,8 @@ With a prefix argument EDIT-DESCRIPTION, ask for the description."
 ;;;;; Completion for help, info and man links
 ;; `org-insert-link' (C-c C-l) completes the path of a link type that has a
 ;; `:complete' parameter.  Org defines `help:' and `info:' without one and
-;; `man:' may be missing, so they are set here.
+;; `man:' may be missing, so they are set here.  `help:' also gets its own
+;; follow function, which takes faces too.
 (declare-function Info-read-node-name "info")
 (declare-function Man-completion-table "man")
 (declare-function org-link-get-parameter "ol")
@@ -122,6 +123,18 @@ With a prefix argument EDIT-DESCRIPTION, ask for the description."
                  (lambda (s) (or (fboundp s) (boundp s) (facep s)))
                  t)))
     (concat "help:" symbol)))
+
+(defun sp-org-link-follow-help (path _arg)
+  "Describe the function, variable or face named by the `help:' link PATH.
+Unlike Org's own follow function this also takes the faces that
+`sp-org-link-complete-help' offers."
+  (unless (and (stringp path) (not (string-empty-p path)))
+    (user-error "The help link has no symbol"))
+  (let ((symbol (intern path)))
+    (cond ((fboundp symbol) (describe-function symbol))
+          ((boundp symbol) (describe-variable symbol))
+          ((facep symbol) (describe-face symbol))
+          (t (user-error "Unknown function, variable or face: %s" path)))))
 
 (defun sp-org-link-complete-info (&optional _arg)
   "Return an `info:' link to a manual and node read with completion.
@@ -144,7 +157,9 @@ The link has Org's form MANUAL#NODE, with the node Top when none is given."
   (man path))
 
 (with-eval-after-load 'org
-  (org-link-set-parameters "help" :complete #'sp-org-link-complete-help)
+  (org-link-set-parameters "help"
+                           :follow #'sp-org-link-follow-help
+                           :complete #'sp-org-link-complete-help)
   (org-link-set-parameters "info" :complete #'sp-org-link-complete-info)
   ;; Only add the follow function when Org does not provide `man:' itself.
   (unless (org-link-get-parameter "man" :follow)
