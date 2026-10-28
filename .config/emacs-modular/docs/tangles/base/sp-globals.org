@@ -421,6 +421,55 @@ Matters of taste that were =setq= forms in =sp-helper-funct= and =sp-help=. Each
   :group 'spcustom)
 #+end_src
 
+* State files: where each one lives
+
+Files the config and its packages write while Emacs runs. Rule: nothing of this kind belongs in the config folder itself. Three folders, all made by =early-init.el=:
+
+- =sp-var-dir= (=var/=): ignored by Git. Binary databases and state that is not worth keeping in Git.
+- =sp-etc-dir= and =sp-cache-dir= (=var/etc/=, =var/cache/=): the same, split into "kept, do not delete" and "rebuilt on the fly".
+- =sp-user-dir= (=libraries/lambda-user/=): the folder for personal files, tracked by Git. It is for things I made and Emacs cannot rebuild. It already existed (=private.el= lives there), so no new folder was invented.
+
+| File                                      | Written by                         | Variable                         | Now in                          | Kind                         |
+|-------------------------------------------+------------------------------------+----------------------------------+---------------------------------+------------------------------|
+| =vulpea.db=                               | =vulpea=                           | =vulpea-db-location=             | =var/=                          | index, rebuilt from the notes |
+| =discourse-graphs.db=                     | =discourse-graphs=                 | =dg-db-file=                     | =var/=                          | index, rebuilt from the notes |
+| =org_dataview.db=                         | =org-dataview= (disabled)          | none set                         | untracked; =var/org-dataview.db= | index, see below             |
+| =savehist=                                | =savehist=                         | =savehist-file=                  | =var/=                          | minibuffer history           |
+| =.org-id-locations=                       | =org-id=                           | =org-id-locations-file=          | =var/cache/= (as before)        | index of ids, rebuilt        |
+| =amx-items=                               | =amx= (not installed)              | =amx-save-file=                  | =var/cache/=                    | cache                        |
+| =bookmarks=                               | =bookmark= (built in)              | =bookmark-default-file=          | =libraries/lambda-user/=        | *user data*                  |
+| =projectile-bookmarks.eld=                | =projectile=                       | =projectile-known-projects-file= | =var/etc/=                      | known projects, kept         |
+| =projectile-frecency.eld=                 | =projectile=                       | =projectile-frecency-file=       | =var/cache/=                    | cache                        |
+| =projects.eld=                            | =project.el= (built in)            | =project-list-file=              | =var/cache/project-list=        | cache                        |
+| =places.eld=                              | =saveplace= (built in)             | =save-place-file= (already set)  | =var/cache/saved-places=        | cache                        |
+| =agent-shell/markdown-links.eld=          | =agent-shell=                      | none found                       | Git-ignored, not moved          | cache                        |
+
+The =.eld= files ("Emacs Lisp Data": a file that holds one Lisp object, read back with =read=) at the root were all the default names of packages that had no setting yet. None of them is a file I edit. In the same family, already moved before: =tabspaces-session.eld= (=var/=), =fontaine-latest-state.eld= (=var/cache/=), =recentf.eld= (ignored), and the saved query-table views (=var/etc/=). Which are user data: only the saved query-table views and the known-projects list; the rest is cache.
+
+Notes on single files:
+
+- =amx-items= holds only amx's initial list of commands and an empty history, and nothing in the config loads =amx=: it was left over. =amx= is the =M-x= enhancer that sorts commands by use; with Vertico (=vertico-sort-function=) it is not needed.
+- =org_dataview.db= is an SQLite table of Org properties (=org_files(id, key, value, link)=) from the =org-dataview= experiment. The module that loaded it is commented out in =sp-org-ext=, so nothing sets its location. When the experiment comes back, set its database variable to =var/org-dataview.db=; I did not guess the variable's name.
+- =places.eld= and =projects.eld= contained =nil= and a single =lambda-themes= path under =elpa/= from before the move to Elpaca. The names are the defaults I expect from Emacs 31; I could not check them (no Emacs 31 here), which is why =project-list-file= is set explicitly and =save-place-file= was already set.
+- =forge-database.sqlite= and =url/cookies= are also tracked at the root; they are outside this change.
+
+** Moving existing files
+
+Git removes the tracked copies when the branch is checked out, so copy first (replace =~/.config/emacs-modular= if the config lives elsewhere):
+
+#+begin_src sh
+cd ~/.config/emacs-modular && mkdir -p var/etc var/cache libraries/lambda-user
+cp discourse-graphs.db  var/discourse-graphs.db
+cp org_dataview.db      var/org-dataview.db
+cp savehist             var/savehist
+cp projectile-bookmarks.eld var/etc/
+cp projectile-frecency.eld  var/cache/
+[ -f vulpea.db ] && mv vulpea.db var/vulpea.db       # untracked: not touched by Git
+[ -f .org-id-locations ] && cp .org-id-locations var/cache/.org-id-locations
+#+end_src
+
+=bookmarks= is moved by Git itself (=git mv=), so it arrives in =libraries/lambda-user/=. The other files (=amx-items=, =places.eld=, =projects.eld=, =agent-shell/=) have nothing worth keeping.
+
 * Backups and lock files
 
 Where backups go and whether lock files are made, from =sp-backups=. The rest of the backup settings (how many versions to keep, copying by default, and so on) stay in =sp-backups=.

@@ -117,7 +117,15 @@ Sets =vulpea-db-sync-directories= to =~/notes/= only.
 
 #+begin_src emacs-lisp -i
 (setq vulpea-db-sync-directories (list sp-notes-dir))
+
+;; The database is rebuilt from the notes, so it lives in `var/' (Git ignores
+;; it) and not in the config folder, where Vulpea puts it by default.
+(setq vulpea-db-location (expand-file-name "vulpea.db" sp-var-dir))
 #+end_src
+
+*** Database location
+
+=vulpea-db-location= is =vulpea.db= under =sp-var-dir=. Vulpea's own default is a file in the config folder (=user-emacs-directory=), where it was one of the binary files Git had to be told to ignore. The database is rebuilt from the notes, so it can be deleted; the next scan indexes the vault again. It is set in the block above, together with the synced directories. Anything that reads the location (for example the file watcher of =sp-graphs=) reads =vulpea-db-location=, so nothing else had to change.
 
 *** Parse method
 
@@ -2016,3 +2024,4 @@ What each pull request changed in these modules, newest last; the one-line summa
 
 - [[https://github.com/siainbuletin/dotfiles/pull/132][#132]] 🐛 Fixed =C-x t s= being undefined: =sp-vulpea-ui= waited for =vulpea= (=:after vulpea=), which loads lazily, so =vulpea-ui= never loaded. The key is now a =:bind= that autoloads =vulpea-ui-sidebar-toggle=.
 - [[https://github.com/siainbuletin/dotfiles/pull/141][#141]] 🐛 Fixed =sp-org-ext= (and so =sp-tab-inbox=) failing at init with =(void-function vulpea-db-query-by-tags-every)=: removed the discarded sample query from =sp-vulpea-base=, which ran before =vulpea= had loaded.
+- [[https://github.com/siainbuletin/dotfiles/pull/187][#187]] 🔧 Changed =vulpea-db-location= to =vulpea.db= under =sp-var-dir=.

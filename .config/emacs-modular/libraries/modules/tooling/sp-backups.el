@@ -70,9 +70,8 @@
 (use-package savehist
   :ensure nil
   :init
-  (savehist-mode t)
-  :config
-  (setq savehist-file (expand-file-name "savehist" sp-var-dir)))
+  (setq savehist-file (expand-file-name "savehist" sp-var-dir))
+  (savehist-mode t))
 
 (provide 'sp-backups)
 ;; sp-backups.el ends here.

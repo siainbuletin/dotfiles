@@ -131,7 +131,7 @@
   (list sp-notes-dir)
   )
   (setq dg-recursive t)
-  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+  (setq dg-db-file (expand-file-name "discourse-graphs.db" sp-var-dir)) ;; this is where the SQLite will live
 
 (discourse-graphs-mode 1)
 )
