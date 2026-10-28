@@ -141,23 +141,138 @@ This shell is used to execute the Nushell command."
 ;;;; Tangling all files at once from the literate configuration
 (require 'ob-tangle)
 
-(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))
-(defvar sp-literate-files '("early.org" "core.org" "ui.org" "keys.org")
-  "Org files to tangle, in order.")
+(require 'cl-lib)
 
+(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory)
+  "Folder with the literate Org documents of the modules.")
+
+(defun sp-tangle--module-doc-p (file)
+  "Non-nil if FILE has a `:tangle' path into `libraries/modules/'."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (re-search-forward ":tangle [./]*libraries/modules/" nil t)))
+
+(defun sp-tangle-docs ()
+  "Return the absolute names of all module documents below `sp-literate-org-dir'."
+  (cl-remove-if-not #'sp-tangle--module-doc-p
+                    (directory-files-recursively sp-literate-org-dir "^sp-.*[.]org\\'")))
+
+(defcustom sp-tangle-cache-file
+  (expand-file-name "tangle-hashes.eld"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
+  "File remembering the hash and output files of each tangled document."
+  :type 'file
+  :group 'org-babel)
+
+(defun sp-tangle--read-cache ()
+  "Return the alist stored in `sp-tangle-cache-file', or nil."
+  (when (file-readable-p sp-tangle-cache-file)
+    (condition-case nil
+        (with-temp-buffer
+          (insert-file-contents sp-tangle-cache-file)
+          (read (current-buffer)))
+      (error nil))))
+
+(defun sp-tangle--write-cache (cache)
+  "Store the alist CACHE in `sp-tangle-cache-file'."
+  (make-directory (file-name-directory sp-tangle-cache-file) t)
+  (with-temp-file sp-tangle-cache-file
+    (let ((print-length nil) (print-level nil))
+      (prin1 cache (current-buffer)))))
+
+(defun sp-tangle--rel (file)
+  "Return FILE relative to `sp-literate-org-dir'."
+  (file-relative-name file sp-literate-org-dir))
+
+(defun sp-tangle--hash (file)
+  "Return the SHA-1 of the text of FILE."
+  (with-temp-buffer
+    (insert-file-contents-literally file)
+    (secure-hash 'sha1 (current-buffer))))
+
+(defun sp-tangle--stale-p (doc entry)
+  "Non-nil if DOC must be tangled, given its cache ENTRY (hash and outputs)."
+  (or (null entry)
+      (not (equal (plist-get entry :hash) (sp-tangle--hash doc)))
+      (cl-some (lambda (out)
+                 (not (file-exists-p (expand-file-name out sp-literate-org-dir))))
+               (plist-get entry :outputs))))
+
+(defun sp-tangle--run (docs force)
+  "Tangle the stale ones among DOCS (all of them if FORCE) and update the cache.
+Return the list of `.el' files written."
+  (let* ((org-confirm-babel-evaluate nil)
+         (revert-without-query '(".*")) ; a document pulled in by git is re-read silently
+         (cache (sp-tangle--read-cache))
+         (written '()) (failed '()) (skipped 0))
+    (dolist (doc docs)
+      (let* ((key (sp-tangle--rel doc))
+             (entry (cdr (assoc key cache))))
+        (if (not (or force (sp-tangle--stale-p doc entry)))
+            (cl-incf skipped)
+          (condition-case err
+              (let* ((hash (sp-tangle--hash doc))
+                     (outputs (org-babel-tangle-file doc))
+                     (rel (mapcar #'sp-tangle--rel outputs))
+                     (orphans (cl-set-difference (plist-get entry :outputs) rel
+                                                 :test #'equal)))
+                (setf (alist-get key cache nil nil #'equal)
+                      (list :hash hash :outputs rel))
+                (setq written (append written outputs))
+                (dolist (o orphans)
+                  (when (file-exists-p (expand-file-name o sp-literate-org-dir))
+                    (message "sp-tangle: %s no longer writes %s (left in place)"
+                             key (file-name-nondirectory o)))))
+            (error (push (format "%s (%s)" key (error-message-string err)) failed))))))
+    ;; Forget documents that were deleted or no longer tangle into the modules.
+    (when (equal docs (sp-tangle-docs))
+      (let ((live (mapcar #'sp-tangle--rel docs)))
+        (setq cache (cl-remove-if-not (lambda (e) (member (car e) live)) cache))))
+    (sp-tangle--write-cache cache)
+    (message "sp-tangle: tangled %d file(s) from %d document(s), %d up to date%s"
+             (length written) (- (length docs) skipped (length failed)) skipped
+             (if failed (format "; FAILED: %s" (string-join failed ", ")) ""))
+    written))
+
+;;;###autoload
+(defun sp-tangle-changed (&optional force)
+  "Tangle the module documents whose text changed since they were last tangled.
+With prefix argument FORCE, tangle all of them.  Return the files written."
+  (interactive "P")
+  (sp-tangle--run (sp-tangle-docs) force))
+
+;;;###autoload
 (defun sp-tangle-all ()
-  "Tangle every file in `sp-org-files' to its `:tangle' targets."
+  "Tangle every module document, changed or not.  Return the files written."
   (interactive)
-  (let ((org-confirm-babel-evaluate nil)
-        (tangled '()))
-    (dolist (name sp-literate-files)
-      (setq tangled
-            (append tangled
-                    (org-babel-tangle-file (expand-file-name name sp-literate-org-dir)))))
-    (message "Tangled %d file(s): %s"
-             (length tangled)
-             (mapconcat #'file-name-nondirectory tangled ", "))
-    tangled))
+  (sp-tangle-changed t))
+
+(defun sp-tangle-changed-and-reload (&optional force)
+  "Tangle the changed module documents, then reload the modules they wrote.
+With prefix argument FORCE, tangle (and reload) all of them."
+  (interactive "P")
+  (let ((files (sp-tangle-changed force)))
+    (cond ((null files))
+          ((fboundp 'sp-reload--run) (sp-reload--run files))
+          (t (dolist (f files)
+               (when (featurep (intern (file-name-base f)))
+                 (load f nil t t)))))
+    files))
+
+(defun sp-tangle--after-save ()
+  "Tangle the visited file if it is a changed module document."
+  (when (and buffer-file-name
+             (file-in-directory-p buffer-file-name sp-literate-org-dir)
+             (string-match-p "\\`sp-.*[.]org\\'" (file-name-nondirectory buffer-file-name))
+             (sp-tangle--module-doc-p buffer-file-name))
+    (sp-tangle--run (list buffer-file-name) nil)))
+
+(define-minor-mode sp-tangle-on-save-mode
+  "Tangle a module document when it is saved, if its text changed."
+  :lighter " Tgl"
+  (if sp-tangle-on-save-mode
+      (add-hook 'after-save-hook #'sp-tangle--after-save nil t)
+    (remove-hook 'after-save-hook #'sp-tangle--after-save t)))
 
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.

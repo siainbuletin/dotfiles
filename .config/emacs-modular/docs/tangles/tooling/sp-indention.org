@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-indention.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module sets global indentation defaults: spaces instead of tab characters, a width of 4, and keys for inserting a literal tab and shifting a region by one tab stop. It also registers autoloads for =guess-style=, a library that guesses a file's indentation style.
 
