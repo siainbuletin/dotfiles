@@ -9,7 +9,7 @@
 ;; `sp-org-tag-add' registers a new note tag in the registry file and
 ;; loads it again, so it works at once.  `sp-org-tag-read-note-tags' asks
 ;; for the tags of a new note, in a menu grouped by `sp-org-tag-groups-alist'
-when `sp-org-tag-groups' is loaded.
+;; when `sp-org-tag-groups' is loaded.
 
 ;;; Code:
 
