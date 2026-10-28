@@ -157,10 +157,10 @@ INITIAL-INPUT can be given as the initial minibuffer input."
      :if (lambda () (fboundp 'org-semantic-find-at-point)))
     ("p" "p-search: combine evidence" p-search
      :if (lambda () (fboundp 'p-search)))
-    ;; Slot for the tab-inbox engine of p-search. Add its command here once it
-    ;; exists; the :if keeps the key hidden until then.
-    ("t" "p-search: tab inbox" sp-tab-inbox-p-search
-     :if (lambda () (fboundp 'sp-tab-inbox-p-search)))
+    ("t" "Semantic search of the tab inbox" sp-tab-psearch
+     :if (lambda () (fboundp 'sp-tab-psearch)))
+    ("T" "Tab inbox p-search (search box)" sp-tab-psearch-engine
+     :if (lambda () (fboundp 'sp-tab-psearch-engine)))
     ("X" "Rebuild the semantic index" org-semantic-reindex
      :if (lambda () (fboundp 'org-semantic-reindex)))]
    ["Web and more"

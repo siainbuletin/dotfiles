@@ -272,7 +272,8 @@ The commands, by group:
 | =S= | =org-semantic-find-in-directory=         | Semantic search limited to a directory.                                                 |
 | =.= | =org-semantic-find-at-point=             | Semantic search using the text at point as the query.                                   |
 | =p= | =p-search=                               | Rank files by combining evidence (text, file names, Git history).                       |
-| =t= | =sp-tab-inbox-p-search=                  | *Slot:* the tab-inbox p-search engine. Hidden until that command exists.                |
+| =t= | =sp-tab-psearch=                      | Semantic search over the tab inbox (also =C-c k t=).                                    |
+| =T= | =sp-tab-psearch-engine=               | Tab inbox p-search with a search box (also =C-c k T=).                                  |
 | =X= | =org-semantic-reindex=                   | Rebuild the semantic index (it also reindexes automatically).                           |
 | =o= | =consult-omni=                           | One query across web and local sources (shown only if installed).                       |
 
@@ -324,10 +325,10 @@ The commands, by group:
      :if (lambda () (fboundp 'org-semantic-find-at-point)))
     ("p" "p-search: combine evidence" p-search
      :if (lambda () (fboundp 'p-search)))
-    ;; Slot for the tab-inbox engine of p-search. Add its command here once it
-    ;; exists; the :if keeps the key hidden until then.
-    ("t" "p-search: tab inbox" sp-tab-inbox-p-search
-     :if (lambda () (fboundp 'sp-tab-inbox-p-search)))
+    ("t" "Semantic search of the tab inbox" sp-tab-psearch
+     :if (lambda () (fboundp 'sp-tab-psearch)))
+    ("T" "Tab inbox p-search (search box)" sp-tab-psearch-engine
+     :if (lambda () (fboundp 'sp-tab-psearch-engine)))
     ("X" "Rebuild the semantic index" org-semantic-reindex
      :if (lambda () (fboundp 'org-semantic-reindex)))]
    ["Web and more"
