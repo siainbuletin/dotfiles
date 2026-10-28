@@ -335,22 +335,28 @@ It fails for the repository failing/repo."
 (ert-deftest sp-org-issues-morning-fetch-nothing ()
   (should (equal '(nil nil) (sp-org-issues-test--fetch nil))))
 
-(ert-deftest sp-org-issues-morning-parse-prs-reads-labels ()
-  (let* ((json "[{\"number\":17,\"title\":\"T\",\"labels\":[{\"name\":\"needs-further-testing\"},{\"name\":\"x\"}]},
- {\"number\":18,\"title\":\"U\",\"labels\":[]}]")
-         (prs (sp-org-issues-morning--parse-prs json "dotfiles")))
-    (should (equal '("needs-further-testing" "x") (plist-get (car prs) :labels)))
-    (should-not (plist-get (cadr prs) :labels))))
+(defconst sp-org-issues-test--labelled-json
+  "[{\"number\":19,\"title\":\"Merged early\",\"state\":\"closed\",
+ \"html_url\":\"https://github.com/o/r/pull/19\",
+ \"pull_request\":{\"merged_at\":\"2026-10-27T10:00:00Z\"}},
+ {\"number\":20,\"title\":\"Still open\",\"state\":\"open\",
+ \"html_url\":\"https://github.com/o/r/pull/20\",\"pull_request\":{\"merged_at\":null}},
+ {\"number\":21,\"title\":\"Dropped\",\"state\":\"closed\",
+ \"html_url\":\"https://github.com/o/r/pull/21\",\"pull_request\":{\"merged_at\":null}},
+ {\"number\":22,\"title\":\"An issue\",\"state\":\"open\",
+ \"html_url\":\"https://github.com/o/r/issues/22\"}]"
+  "Issues with the testing label as the REST API answers them.")
 
-(ert-deftest sp-org-issues-morning-testing-prs ()
-  (let ((prs (list (sp-org-issues-test--pr 1 :labels '("needs-further-testing"))
-                   (sp-org-issues-test--pr 2 :labels '("other"))
-                   (sp-org-issues-test--pr 3))))
-    (should (equal '(1) (mapcar (lambda (pr) (plist-get pr :number))
-                                (sp-org-issues-morning--testing-prs prs))))
-    (let ((sp-org-issues-morning-testing-label "other"))
-      (should (equal '(2) (mapcar (lambda (pr) (plist-get pr :number))
-                                  (sp-org-issues-morning--testing-prs prs)))))))
+(ert-deftest sp-org-issues-morning-parse-testing ()
+  (let ((prs (sp-org-issues-morning--parse-testing
+              sp-org-issues-test--labelled-json "dotfiles")))
+    ;; merged and open pull requests; not the dropped one, not the issue
+    (should (equal '(19 20) (mapcar (lambda (pr) (plist-get pr :number)) prs)))
+    (should (plist-get (car prs) :merged))
+    (should-not (plist-get (cadr prs) :merged))
+    (should (equal "dotfiles" (plist-get (car prs) :repo)))
+    (should (equal "https://github.com/o/r/pull/19" (plist-get (car prs) :url)))
+    (should (equal "Merged early" (plist-get (car prs) :title)))))
 
 (defconst sp-org-issues-test--comments-json
   "[{\"html_url\":\"https://github.com/o/r/pull/17#issuecomment-1\",
@@ -398,7 +404,8 @@ It fails for the repository failing/repo."
 (ert-deftest sp-org-issues-morning-render-notes-and-testing ()
   (let* ((notes (list (list :repo "dotfiles" :number 17 :text "try this on the Mac"
                             :url "https://github.com/o/r/pull/17#issuecomment-1")))
-         (testing (list (sp-org-issues-test--pr 19 :title "Tint boxes")))
+         (testing (list (list :repo "dotfiles" :number 19 :title "Tint boxes"
+                              :url "https://github.com/o/r/pull/19" :merged t)))
          (text (sp-org-issues-morning--render
                 nil sp-org-issues-test--now nil
                 (list :notes notes :testing testing))))
@@ -407,7 +414,7 @@ It fails for the repository failing/repo."
              "\\[\\[https://github.com/o/r/pull/17#issuecomment-1\\]\\[dotfiles #17\\]\\] try this on the Mac"
              text))
     (should (string-match-p "^\\* Needs further testing" text))
-    (should (string-match-p "\\[\\[https://github.com/o/r/pull/19\\]\\[dotfiles #19\\]\\] Tint boxes"
+    (should (string-match-p "\\[\\[https://github.com/o/r/pull/19\\]\\[dotfiles #19\\]\\] Tint boxes (merged)"
                             text))))
 
 (ert-deftest sp-org-issues-morning-render-leaves-out-empty-sections ()
@@ -424,14 +431,17 @@ It fails for failing/repo and answers the pull request comments with nothing."
               "case \"$*\" in *failing/repo*) echo boom >&2; exit 1;; esac\n"
               "echo \"$*\" >> \"$FAKE_GH_LOG\"\n"
               "case \"$*\" in *pulls/comments*) echo '[]'; exit 0;; esac\n"
+              "case \"$*\" in *labels=*) cat <<'EOT'\n"
+              sp-org-issues-test--labelled-json "\nEOT\n"
+              "exit 0;; esac\n"
               "cat <<'EOF'\n"
               sp-org-issues-test--comments-json "\n"
               "EOF\n"))
     (set-file-modes script #o755)
     script))
 
-(defun sp-org-issues-test--fetch-notes (repos)
-  "Fetch the notes of REPOS with the fake gh and return (NOTES FAILED ARGS)."
+(defun sp-org-issues-test--fetch-extras (repos)
+  "Fetch the extras of REPOS with the fake gh and return (EXTRAS FAILED ARGS)."
   (let* ((script (sp-org-issues-test--fake-gh-api))
          (log (make-temp-file "fake-gh-log"))
          (process-environment (cons (concat "FAKE_GH_LOG=" log) process-environment))
@@ -439,9 +449,9 @@ It fails for failing/repo and answers the pull request comments with nothing."
     (unwind-protect
         (let ((sp-org-issues-gh-program script)
               (deadline (+ (float-time) 10)))
-          (sp-org-issues-morning--fetch-notes
-           repos (lambda (notes failed)
-                   (setq result (list notes failed
+          (sp-org-issues-morning--fetch-extras
+           repos (lambda (extras failed)
+                   (setq result (list extras failed
                                       (with-temp-buffer
                                         (insert-file-contents log)
                                         (buffer-string))))))
@@ -451,18 +461,21 @@ It fails for failing/repo and answers the pull request comments with nothing."
       (delete-file log))
     result))
 
-(ert-deftest sp-org-issues-morning-fetch-notes ()
-  (pcase-let ((`(,notes ,failed ,args)
-               (sp-org-issues-test--fetch-notes
+(ert-deftest sp-org-issues-morning-fetch-extras ()
+  (pcase-let ((`(,extras ,failed ,args)
+               (sp-org-issues-test--fetch-extras
                 '(("dotfiles" . "o/r") ("bad" . "failing/repo")))))
-    (should (= 2 (length notes)))
+    (should (= 2 (length (plist-get extras :notes))))
+    (should (equal '(19 20) (mapcar (lambda (pr) (plist-get pr :number))
+                                    (plist-get extras :testing))))
     (should (equal '("bad") failed))
-    ;; both kinds of comment are read, through the REST API
+    ;; everything is read through the REST API, merged pull requests included
     (should (string-match-p "api repos/o/r/issues/comments" args))
-    (should (string-match-p "api repos/o/r/pulls/comments" args))))
+    (should (string-match-p "api repos/o/r/pulls/comments" args))
+    (should (string-match-p "api repos/o/r/issues\\?labels=needs-further-testing&state=all" args))))
 
-(ert-deftest sp-org-issues-morning-fetch-notes-nothing ()
-  (should (equal '(nil nil) (seq-take (sp-org-issues-test--fetch-notes nil) 2))))
+(ert-deftest sp-org-issues-morning-fetch-extras-nothing ()
+  (should (equal '(nil nil) (seq-take (sp-org-issues-test--fetch-extras nil) 2))))
 
 (ert-deftest sp-org-issues-morning-repos ()
   (let ((sp-org-issues-repos

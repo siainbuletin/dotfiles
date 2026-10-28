@@ -728,6 +728,16 @@ whose pull request is no longer open.  The others are issue states."
   :type 'file
   :group 'spcustom)
 
+(defcustom sp-org-issues-morning-self "siainbuletin"
+  "GitHub login whose comments starting with `Note to self:' are reminders."
+  :type 'string
+  :group 'spcustom)
+
+(defcustom sp-org-issues-morning-testing-label "needs-further-testing"
+  "Label of the pull requests listed under Needs further testing."
+  :type 'string
+  :group 'spcustom)
+
 (defcustom sp-org-issues-gh-program "gh"
   "The GitHub command line client, logged in with `gh auth login'."
   :type 'string
@@ -1027,8 +1037,26 @@ The list is Org text, so the links work.
             (plist-get item :reason)
             (plist-get item :score))))
 
-(defun sp-org-issues-morning--render (items now &optional notes)
-  "Return the Org text of the morning list for ITEMS at NOW, with NOTES."
+(defun sp-org-issues-morning--section (heading lines)
+  "Return the Org section HEADING with the list LINES, or nil when LINES is empty."
+  (when lines
+    (concat "\n* " heading "\n" (mapconcat #'identity lines "\n") "\n")))
+
+(defun sp-org-issues-morning--note-line (note)
+  "Return the Org list line that links to the comment NOTE."
+  (format "- [[%s][%s #%s]] %s" (plist-get note :url) (plist-get note :repo)
+          (plist-get note :number) (plist-get note :text)))
+
+(defun sp-org-issues-morning--testing-line (pr)
+  "Return the Org list line that links to the pull request PR."
+  (format "- [[%s][%s #%s]] %s%s" (plist-get pr :url) (plist-get pr :repo)
+          (plist-get pr :number) (plist-get pr :title)
+          (if (plist-get pr :merged) " (merged)" " (open)")))
+
+(defun sp-org-issues-morning--render (items now &optional notes extras)
+  "Return the Org text of the morning list for ITEMS at NOW, with NOTES.
+EXTRAS is a plist: :notes are the notes to self and :testing the
+pull requests to test further, each under a section of its own."
   (let* ((today (seq-take (seq-filter (lambda (item)
                                         (>= (plist-get item :score)
                                             sp-org-issues-morning-park-below))
@@ -1046,7 +1074,13 @@ The list is Org text, so the links work.
      (when parked
        (concat "\n* Parked\n"
                (mapconcat #'sp-org-issues-morning--line parked "\n")
-               "\n")))))
+               "\n"))
+     (sp-org-issues-morning--section
+      "Notes to self"
+      (mapcar #'sp-org-issues-morning--note-line (plist-get extras :notes)))
+     (sp-org-issues-morning--section
+      "Needs further testing"
+      (mapcar #'sp-org-issues-morning--testing-line (plist-get extras :testing))))))
 #+end_src
 
 ** Fetching the pull requests
@@ -1096,7 +1130,9 @@ and the labels of the repositories that could not be read."
 
 =sp-org-issues-morning=:
 
-- Reads the issues at once and the pull requests in the background, and shows the buffer when they arrive.
+- Reads the issues at once and the pull requests in the background, then your notes to self and the pull requests labelled =needs-further-testing= (a second round of =gh api= calls), and shows the buffer when they arrive.
+- Notes to self: your comments (=sp-org-issues-morning-self=) on an open pull request that start with =Note to self:= are reminders for you, so they get a section with a link to each comment. Claude does not act on them.
+- Needs further testing: the pull requests with the label =sp-org-issues-morning-testing-label=, open or already merged into main (the label means "merged so I could test faster, not fully tested yet"). They are not ranked.
 - Without =gh= it shows the issues alone and says so.
 
 The greeting:
@@ -1106,6 +1142,110 @@ The greeting:
 - An error in it (say, no Issues area yet) is only a message, never a broken startup.
 
 #+begin_src emacs-lisp -i
+(defconst sp-org-issues-morning--note-prefix "note to self:"
+  "What a comment starts with (any case) to be a reminder for yourself.")
+
+(defun sp-org-issues-morning--parse-testing (json label)
+  "Return the pull requests in the JSON of a `gh api' issue listing.
+Tag each with the repository LABEL.  Issues are left out, and so are
+pull requests closed without a merge: what is listed is open or merged."
+  (let (prs)
+    (dolist (entry (json-parse-string json :object-type 'alist :array-type 'list
+                                      :null-object nil :false-object nil))
+      (let* ((pull (alist-get 'pull_request entry))
+             (merged (alist-get 'merged_at pull)))
+        (when (and pull (or merged (equal (alist-get 'state entry) "open")))
+          (push (list :repo label :number (alist-get 'number entry)
+                      :title (alist-get 'title entry)
+                      :url (alist-get 'html_url entry)
+                      :merged (and merged t))
+                prs))))
+    (nreverse prs)))
+
+(defun sp-org-issues-morning--parse-notes (json label)
+  "Return the notes to self in the JSON of a `gh api' comment listing.
+Tag each with the repository LABEL.  A note is a comment of
+`sp-org-issues-morning-self' that starts with `Note to self:'."
+  (let (notes)
+    (dolist (comment (json-parse-string json :object-type 'alist :array-type 'list
+                                        :null-object nil :false-object nil))
+      (let ((body (string-trim-left (or (alist-get 'body comment) "")))
+            (user (alist-get 'login (alist-get 'user comment)))
+            (pr-url (or (alist-get 'issue_url comment)
+                        (alist-get 'pull_request_url comment))))
+        (when (and (equal user sp-org-issues-morning-self)
+                   (string-prefix-p sp-org-issues-morning--note-prefix body t)
+                   (sp-org-issues-morning--pr-number pr-url))
+          (push (list :repo label
+                      :number (sp-org-issues-morning--pr-number pr-url)
+                      :url (alist-get 'html_url comment)
+                      :text (thread-last
+                              (substring body (length sp-org-issues-morning--note-prefix))
+                              (string-trim)
+                              (replace-regexp-in-string "\n.*" "")
+                              (replace-regexp-in-string "\\[" "(")
+                              (replace-regexp-in-string "\\]" ")")))
+                notes))))
+    (nreverse notes)))
+
+(defun sp-org-issues-morning--open-notes (notes prs)
+  "Return those of NOTES that are on one of the open pull requests PRS."
+  (seq-filter (lambda (note)
+                (seq-find (lambda (pr)
+                            (and (equal (plist-get pr :repo) (plist-get note :repo))
+                                 (equal (plist-get pr :number) (plist-get note :number))))
+                          prs))
+              notes))
+
+(defun sp-org-issues-morning--extras-requests (slug)
+  "Return the (KIND . ENDPOINT) requests that read SLUG (owner/name)."
+  (list (cons :notes (format "repos/%s/issues/comments?sort=updated&direction=desc&per_page=100" slug))
+        (cons :notes (format "repos/%s/pulls/comments?sort=updated&direction=desc&per_page=100" slug))
+        (cons :testing (format "repos/%s/issues?labels=%s&state=all&per_page=100"
+                               slug (url-hexify-string sp-org-issues-morning-testing-label)))))
+
+(defun sp-org-issues-morning--fetch-extras (repos callback)
+  "Read the notes to self and the pull requests to test of REPOS, then call CALLBACK.
+REPOS is a list of (LABEL . OWNER/NAME).  CALLBACK gets a plist with
+:notes and :testing, and the labels of the repositories that could not be
+read.  Everything goes through the REST API (`gh api'): the conversation
+and review comments, newest first, and the issues with the testing label."
+  (let ((extras nil) (failed nil)
+        (todo (mapcan (lambda (repo)
+                        (mapcar (lambda (request) (cons repo request))
+                                (sp-org-issues-morning--extras-requests (cdr repo))))
+                      repos)))
+    (cl-labels
+        ((next ()
+           (if (null todo)
+               (funcall callback extras (delete-dups (nreverse failed)))
+             (pcase-let* ((`(,repo ,kind . ,endpoint) (pop todo))
+                          (out (generate-new-buffer " *sp-gh*"))
+                          (err (generate-new-buffer " *sp-gh-err*")))
+               (make-process
+                :name "sp-gh" :buffer out :stderr err :noquery t
+                :command (list sp-org-issues-gh-program "api" endpoint)
+                :sentinel
+                (lambda (process _event)
+                  (unless (process-live-p process)
+                    (condition-case nil
+                        (if (zerop (process-exit-status process))
+                            (let ((json (with-current-buffer out (buffer-string))))
+                              (setq extras
+                                    (plist-put extras kind
+                                               (append (plist-get extras kind)
+                                                       (if (eq kind :notes)
+                                                           (sp-org-issues-morning--parse-notes
+                                                            json (car repo))
+                                                         (sp-org-issues-morning--parse-testing
+                                                          json (car repo)))))))
+                          (push (car repo) failed))
+                      (error (push (car repo) failed)))
+                    (kill-buffer out)
+                    (kill-buffer err)
+                    (next))))))))
+      (next))))
+
 (defvar sp-org-issues-morning-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'sp-org-issues-morning)
@@ -1116,10 +1256,11 @@ The greeting:
 (define-derived-mode sp-org-issues-morning-mode org-mode "Morning"
   "Org mode for the read-only morning list.")
 
-(defun sp-org-issues-morning--show (issues prs failed repos &optional notes)
+(defun sp-org-issues-morning--show (issues prs failed repos &optional notes extras)
   "Show the morning list for ISSUES and PRS.
 FAILED lists the repositories that could not be read, out of REPOS.
-NOTES are extra remarks for the top of the list."
+NOTES are extra remarks for the top of the list.  EXTRAS is the plist
+of `sp-org-issues-morning--render'."
   (let* ((now (current-time))
          (fetched (seq-remove (lambda (label) (member label failed))
                               (mapcar #'car repos)))
@@ -1128,7 +1269,7 @@ NOTES are extra remarks for the top of the list."
                                 failed)
                         notes))
          (text (sp-org-issues-morning--render
-                (sp-org-issues-morning--items issues prs now fetched) now notes)))
+                (sp-org-issues-morning--items issues prs now fetched) now notes extras)))
     (with-current-buffer (get-buffer-create "*Morning*")
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -1147,7 +1288,16 @@ NOTES are extra remarks for the top of the list."
     (if (and repos (executable-find sp-org-issues-gh-program))
         (sp-org-issues-morning--fetch
          repos (lambda (prs failed)
-                 (sp-org-issues-morning--show issues prs failed repos)))
+                 (sp-org-issues-morning--fetch-extras
+                  repos (lambda (extras extras-failed)
+                          (sp-org-issues-morning--show
+                           issues prs failed repos
+                           (mapcar (lambda (label)
+                                     (format "Notes and testing labels could not be read for %s" label))
+                                   extras-failed)
+                           (list :notes (sp-org-issues-morning--open-notes
+                                         (plist-get extras :notes) prs)
+                                 :testing (plist-get extras :testing)))))))
       (sp-org-issues-morning--show
        issues nil nil nil
        (when repos
@@ -1576,22 +1726,28 @@ It fails for the repository failing/repo."
 A comment of yours on a pull request that starts with =Note to self:= is a reminder for you, not a task for Claude. The list links to each one. Pull requests labelled =needs-further-testing= get a list of their own. Both come from GitHub's REST API (=gh api=), because =gh pr list= needs GraphQL for the labels only.
 
 #+begin_src emacs-lisp -i
-(ert-deftest sp-org-issues-morning-parse-prs-reads-labels ()
-  (let* ((json "[{\"number\":17,\"title\":\"T\",\"labels\":[{\"name\":\"needs-further-testing\"},{\"name\":\"x\"}]},
- {\"number\":18,\"title\":\"U\",\"labels\":[]}]")
-         (prs (sp-org-issues-morning--parse-prs json "dotfiles")))
-    (should (equal '("needs-further-testing" "x") (plist-get (car prs) :labels)))
-    (should-not (plist-get (cadr prs) :labels))))
+(defconst sp-org-issues-test--labelled-json
+  "[{\"number\":19,\"title\":\"Merged early\",\"state\":\"closed\",
+ \"html_url\":\"https://github.com/o/r/pull/19\",
+ \"pull_request\":{\"merged_at\":\"2026-10-27T10:00:00Z\"}},
+ {\"number\":20,\"title\":\"Still open\",\"state\":\"open\",
+ \"html_url\":\"https://github.com/o/r/pull/20\",\"pull_request\":{\"merged_at\":null}},
+ {\"number\":21,\"title\":\"Dropped\",\"state\":\"closed\",
+ \"html_url\":\"https://github.com/o/r/pull/21\",\"pull_request\":{\"merged_at\":null}},
+ {\"number\":22,\"title\":\"An issue\",\"state\":\"open\",
+ \"html_url\":\"https://github.com/o/r/issues/22\"}]"
+  "Issues with the testing label as the REST API answers them.")
 
-(ert-deftest sp-org-issues-morning-testing-prs ()
-  (let ((prs (list (sp-org-issues-test--pr 1 :labels '("needs-further-testing"))
-                   (sp-org-issues-test--pr 2 :labels '("other"))
-                   (sp-org-issues-test--pr 3))))
-    (should (equal '(1) (mapcar (lambda (pr) (plist-get pr :number))
-                                (sp-org-issues-morning--testing-prs prs))))
-    (let ((sp-org-issues-morning-testing-label "other"))
-      (should (equal '(2) (mapcar (lambda (pr) (plist-get pr :number))
-                                  (sp-org-issues-morning--testing-prs prs)))))))
+(ert-deftest sp-org-issues-morning-parse-testing ()
+  (let ((prs (sp-org-issues-morning--parse-testing
+              sp-org-issues-test--labelled-json "dotfiles")))
+    ;; merged and open pull requests; not the dropped one, not the issue
+    (should (equal '(19 20) (mapcar (lambda (pr) (plist-get pr :number)) prs)))
+    (should (plist-get (car prs) :merged))
+    (should-not (plist-get (cadr prs) :merged))
+    (should (equal "dotfiles" (plist-get (car prs) :repo)))
+    (should (equal "https://github.com/o/r/pull/19" (plist-get (car prs) :url)))
+    (should (equal "Merged early" (plist-get (car prs) :title)))))
 
 (defconst sp-org-issues-test--comments-json
   "[{\"html_url\":\"https://github.com/o/r/pull/17#issuecomment-1\",
@@ -1639,7 +1795,8 @@ A comment of yours on a pull request that starts with =Note to self:= is a remin
 (ert-deftest sp-org-issues-morning-render-notes-and-testing ()
   (let* ((notes (list (list :repo "dotfiles" :number 17 :text "try this on the Mac"
                             :url "https://github.com/o/r/pull/17#issuecomment-1")))
-         (testing (list (sp-org-issues-test--pr 19 :title "Tint boxes")))
+         (testing (list (list :repo "dotfiles" :number 19 :title "Tint boxes"
+                              :url "https://github.com/o/r/pull/19" :merged t)))
          (text (sp-org-issues-morning--render
                 nil sp-org-issues-test--now nil
                 (list :notes notes :testing testing))))
@@ -1648,7 +1805,7 @@ A comment of yours on a pull request that starts with =Note to self:= is a remin
              "\\[\\[https://github.com/o/r/pull/17#issuecomment-1\\]\\[dotfiles #17\\]\\] try this on the Mac"
              text))
     (should (string-match-p "^\\* Needs further testing" text))
-    (should (string-match-p "\\[\\[https://github.com/o/r/pull/19\\]\\[dotfiles #19\\]\\] Tint boxes"
+    (should (string-match-p "\\[\\[https://github.com/o/r/pull/19\\]\\[dotfiles #19\\]\\] Tint boxes (merged)"
                             text))))
 
 (ert-deftest sp-org-issues-morning-render-leaves-out-empty-sections ()
@@ -1665,14 +1822,17 @@ It fails for failing/repo and answers the pull request comments with nothing."
               "case \"$*\" in *failing/repo*) echo boom >&2; exit 1;; esac\n"
               "echo \"$*\" >> \"$FAKE_GH_LOG\"\n"
               "case \"$*\" in *pulls/comments*) echo '[]'; exit 0;; esac\n"
+              "case \"$*\" in *labels=*) cat <<'EOT'\n"
+              sp-org-issues-test--labelled-json "\nEOT\n"
+              "exit 0;; esac\n"
               "cat <<'EOF'\n"
               sp-org-issues-test--comments-json "\n"
               "EOF\n"))
     (set-file-modes script #o755)
     script))
 
-(defun sp-org-issues-test--fetch-notes (repos)
-  "Fetch the notes of REPOS with the fake gh and return (NOTES FAILED ARGS)."
+(defun sp-org-issues-test--fetch-extras (repos)
+  "Fetch the extras of REPOS with the fake gh and return (EXTRAS FAILED ARGS)."
   (let* ((script (sp-org-issues-test--fake-gh-api))
          (log (make-temp-file "fake-gh-log"))
          (process-environment (cons (concat "FAKE_GH_LOG=" log) process-environment))
@@ -1680,9 +1840,9 @@ It fails for failing/repo and answers the pull request comments with nothing."
     (unwind-protect
         (let ((sp-org-issues-gh-program script)
               (deadline (+ (float-time) 10)))
-          (sp-org-issues-morning--fetch-notes
-           repos (lambda (notes failed)
-                   (setq result (list notes failed
+          (sp-org-issues-morning--fetch-extras
+           repos (lambda (extras failed)
+                   (setq result (list extras failed
                                       (with-temp-buffer
                                         (insert-file-contents log)
                                         (buffer-string))))))
@@ -1692,18 +1852,21 @@ It fails for failing/repo and answers the pull request comments with nothing."
       (delete-file log))
     result))
 
-(ert-deftest sp-org-issues-morning-fetch-notes ()
-  (pcase-let ((`(,notes ,failed ,args)
-               (sp-org-issues-test--fetch-notes
+(ert-deftest sp-org-issues-morning-fetch-extras ()
+  (pcase-let ((`(,extras ,failed ,args)
+               (sp-org-issues-test--fetch-extras
                 '(("dotfiles" . "o/r") ("bad" . "failing/repo")))))
-    (should (= 2 (length notes)))
+    (should (= 2 (length (plist-get extras :notes))))
+    (should (equal '(19 20) (mapcar (lambda (pr) (plist-get pr :number))
+                                    (plist-get extras :testing))))
     (should (equal '("bad") failed))
-    ;; both kinds of comment are read, through the REST API
+    ;; everything is read through the REST API, merged pull requests included
     (should (string-match-p "api repos/o/r/issues/comments" args))
-    (should (string-match-p "api repos/o/r/pulls/comments" args))))
+    (should (string-match-p "api repos/o/r/pulls/comments" args))
+    (should (string-match-p "api repos/o/r/issues\\?labels=needs-further-testing&state=all" args))))
 
-(ert-deftest sp-org-issues-morning-fetch-notes-nothing ()
-  (should (equal '(nil nil) (seq-take (sp-org-issues-test--fetch-notes nil) 2))))
+(ert-deftest sp-org-issues-morning-fetch-extras-nothing ()
+  (should (equal '(nil nil) (seq-take (sp-org-issues-test--fetch-extras nil) 2))))
 #+end_src
 
 ** The command and the greeting
