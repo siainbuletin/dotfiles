@@ -53,6 +53,18 @@ Installs Company without enabling it globally. Individual modes turn it on, for 
   :ensure (:wait t))
 #+end_src
 
+* amx
+
+=amx= (the =M-x= package that remembers commands) is not installed by this configuration and nothing here loads it. A file called =amx-items= was nevertheless tracked at the root of the config folder; it held only amx's initial command list and an empty =amx-data=, so amx had never recorded any use. If a package pulls amx in, =amx-save-file= is now =amx-items= in =sp-cache-dir=, set after amx loads. See [[file:../base/sp-globals.org::*State files: where each one lives][State files]].
+
+#+begin_src emacs-lisp -i
+;;;; amx
+;; `amx' is not installed by this configuration; this only keeps its history
+;; file out of the config folder if another package brings it in.
+(with-eval-after-load 'amx
+  (setq amx-save-file (expand-file-name "amx-items" sp-cache-dir)))
+#+end_src
+
 * Vertico
 
 ** Vertico
