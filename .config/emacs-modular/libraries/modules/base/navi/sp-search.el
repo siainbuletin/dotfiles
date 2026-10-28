@@ -82,5 +82,93 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                           (unless (string-match "pdf$" x)
                             (swiper ivy-text)))))))
 
+;;;; Search menu
+;; One transient menu that gathers every search command of the configuration.
+;; Commands from packages that may be missing (or not installed yet) are shown
+;; only when `fboundp' says they exist, so the menu never offers a dead key.
+(require 'transient)
+
+(defvar sp-notes-dir)
+
+(defun sp-search--header ()
+  "Return the dashboard-style header line of `sp-search-menu'."
+  (let ((on (lambda (name active)
+              (propertize name 'face (if active 'success 'shadow)))))
+    (concat
+     (propertize "Searching in " 'face 'transient-heading)
+     (propertize (abbreviate-file-name default-directory) 'face 'bold)
+     (when-let* ((proj (and (fboundp 'project-current) (project-current))))
+       (concat "  (project "
+               (propertize (file-name-nondirectory
+                            (directory-file-name (project-root proj)))
+                           'face 'bold)
+               ")"))
+     "\n"
+     (propertize "Completion: " 'face 'transient-heading)
+     (funcall on "vertico" (bound-and-true-p vertico-mode)) " "
+     (funcall on "marginalia" (bound-and-true-p marginalia-mode)) " "
+     (funcall on "orderless" (featurep 'orderless)) " "
+     (funcall on "embark" (featurep 'embark))
+     (unless (executable-find "rg")
+       (concat "  " (propertize "rg not found" 'face 'error))))))
+
+(defun sp-search-in-notes ()
+  "Grep through the notes directory with `consult-ripgrep'."
+  (interactive)
+  (consult-ripgrep (and (boundp 'sp-notes-dir) sp-notes-dir)))
+
+(transient-define-prefix sp-search-menu ()
+  "All the search commands of the configuration in one place."
+  [:description sp-search--header
+   ["Here: buffer and directory"
+    ("l" "Lines in this buffer (consult-line)" consult-line)
+    ("i" "Headings and symbols (consult-imenu)" consult-imenu)
+    ("r" "Ripgrep in the project (consult-ripgrep)" consult-ripgrep)
+    ("d" "Ripgrep in a chosen directory" sp-search-in-input-dir)
+    ("f" "Fast file names (consult-snapfile)" consult-snapfile
+     :if (lambda () (fboundp 'consult-snapfile)))
+    ("T" "TODO/FIXME comments (consult-todo)" consult-todo
+     :if (lambda () (fboundp 'consult-todo)))]
+   ["Grep buffers (editable results)"
+    ("g" "rg: ripgrep with a menu" rg-menu
+     :if (lambda () (fboundp 'rg-menu)))
+    ("D" "deadgrep: interactive ripgrep" deadgrep
+     :if (lambda () (fboundp 'deadgrep)))
+    ("a" "ag: the silver searcher" ag
+     :if (lambda () (fboundp 'ag)))
+    ("R" "Recoll: full-text index (Ivy)" counsel-recoll
+     :if (lambda () (and (fboundp 'counsel-recoll) (executable-find "recollq"))))]]
+  [["Notes: plain text"
+    ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
+    ("N" "Grep org-node notes" org-node-grep
+     :if (lambda () (fboundp 'org-node-grep)))
+    ("v" "Grep vulpea notes" vulpea-grep
+     :if (lambda () (fboundp 'vulpea-grep)))
+    ("c" "Pick a note, then search all (consult-notes)" consult-notes
+     :if (lambda () (fboundp 'consult-notes)))
+    ("C" "Search in all notes (consult-notes)" consult-notes-search-in-all-notes
+     :if (lambda () (fboundp 'consult-notes-search-in-all-notes)))]
+   ["Semantic: by meaning"
+    ("s" "Semantic search (org-semantic)" org-semantic-find
+     :if (lambda () (fboundp 'org-semantic-find)))
+    ("S" "Semantic search in a directory" org-semantic-find-in-directory
+     :if (lambda () (fboundp 'org-semantic-find-in-directory)))
+    ("." "Semantic search from point" org-semantic-find-at-point
+     :if (lambda () (fboundp 'org-semantic-find-at-point)))
+    ("p" "p-search: combine evidence" p-search
+     :if (lambda () (fboundp 'p-search)))
+    ;; Slot for the tab-inbox engine of p-search. Add its command here once it
+    ;; exists; the :if keeps the key hidden until then.
+    ("t" "p-search: tab inbox" sp-tab-inbox-p-search
+     :if (lambda () (fboundp 'sp-tab-inbox-p-search)))
+    ("X" "Rebuild the semantic index" org-semantic-reindex
+     :if (lambda () (fboundp 'org-semantic-reindex)))]
+   ["Web and more"
+    ("o" "Omni search (consult-omni)" consult-omni
+     :if (lambda () (fboundp 'consult-omni)))]]
+  [("q" "Quit" transient-quit-one)])
+
+(keymap-global-set "C-c s m" #'sp-search-menu)
+
 (provide 'sp-search)
 ;; sp-search.el ends here

@@ -10,7 +10,7 @@ Literate source for =libraries/modules/base/navi/sp-search.el=.
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
-This navigation sub-module, loaded by =sp-navi=, installs the search packages: Consult and Counsel for in-buffer and project search, front-ends for =ag= and =rg=, Deadgrep, and =p-search=. It also adds a directory-prompting ripgrep command and a Counsel-based search over a Recoll full-text index.
+This navigation sub-module, loaded by =sp-navi=, installs the search packages: Consult and Counsel for in-buffer and project search, front-ends for =ag= and =rg=, Deadgrep, and =p-search=. It also adds a directory-prompting ripgrep command, a Counsel-based search over a Recoll full-text index, and =sp-search-menu=, a transient popup (=C-c s m=) that gathers all of these and the semantic and note searches of other modules.
 
 External programs used are =rg= (ripgrep), =ag= (the silver searcher) and =recollq= from Recoll. The commentary sketches future plans to tie search into =sp-browsing= and Embark; those plans are not implemented here.
 
@@ -198,6 +198,166 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                           (unless (string-match "pdf$" x)
                             (swiper ivy-text)))))))
 #+end_src
+
+* The search menu
+
+=sp-search-menu= is one transient popup that gathers every search command of the configuration, so that there is a single place to start from whatever kind of search is needed. It is bound to =C-c s m=.
+
+I read "a specially-decorated buffer, like Magit" as the transient popup with a dashboard-style header: it shows where the search will run (the current directory and project) and which completion frameworks are active (green when loaded, grey when not), and warns when =rg= is not installed. A real Magit-style status buffer was left out; the popup is opened from anywhere and closes after a command.
+
+Commands from packages that may be missing are listed with an =:if= test on =fboundp=, so the menu never offers a key that would fail. Nothing in the menu needs a package that the configuration does not already install.
+
+** Header and helpers
+
+=sp-search--header= builds the two header lines. =sp-search-in-notes= runs =consult-ripgrep= in =sp-notes-dir=.
+
+#+begin_src emacs-lisp -i
+;;;; Search menu
+;; One transient menu that gathers every search command of the configuration.
+;; Commands from packages that may be missing (or not installed yet) are shown
+;; only when `fboundp' says they exist, so the menu never offers a dead key.
+(require 'transient)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defvar sp-notes-dir)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-search--header ()
+  "Return the dashboard-style header line of `sp-search-menu'."
+  (let ((on (lambda (name active)
+              (propertize name 'face (if active 'success 'shadow)))))
+    (concat
+     (propertize "Searching in " 'face 'transient-heading)
+     (propertize (abbreviate-file-name default-directory) 'face 'bold)
+     (when-let* ((proj (and (fboundp 'project-current) (project-current))))
+       (concat "  (project "
+               (propertize (file-name-nondirectory
+                            (directory-file-name (project-root proj)))
+                           'face 'bold)
+               ")"))
+     "\n"
+     (propertize "Completion: " 'face 'transient-heading)
+     (funcall on "vertico" (bound-and-true-p vertico-mode)) " "
+     (funcall on "marginalia" (bound-and-true-p marginalia-mode)) " "
+     (funcall on "orderless" (featurep 'orderless)) " "
+     (funcall on "embark" (featurep 'embark))
+     (unless (executable-find "rg")
+       (concat "  " (propertize "rg not found" 'face 'error))))))
+#+end_src
+
+** The menu
+
+The commands, by group:
+
+| Key | Command                                  | What it does                                                                            |
+|-----+------------------------------------------+-----------------------------------------------------------------------------------------|
+| =l= | =consult-line=                           | Fuzzy search the lines of the current buffer; the preview follows the candidate.        |
+| =i= | =consult-imenu=                          | Jump to a heading or definition of the buffer.                                          |
+| =r= | =consult-ripgrep=                        | Ripgrep over the project; type =#= to split the pattern from a narrowing filter.        |
+| =d= | =sp-search-in-input-dir=                 | Same, but asks for the directory first.                                                 |
+| =f= | =consult-snapfile=                       | Fast file-name search through the snapfile server.                                      |
+| =T= | =consult-todo=                           | TODO, FIXME and NOTE keywords of the buffer or project.                                 |
+| =g= | =rg-menu=                                | Ripgrep front-end with a menu of options and an editable =rg-mode= results buffer.      |
+| =D= | =deadgrep=                               | Ripgrep with an interactive results buffer and live re-searching.                       |
+| =a= | =ag=                                     | The silver searcher, results in a =compilation= buffer.                                 |
+| =R= | =counsel-recoll=                         | Full-text search of the Recoll index (PDFs, mail, documents); needs =recollq=.          |
+| =n= | =sp-search-in-notes=                     | Ripgrep over the notes directory.                                                       |
+| =N= | =org-node-grep=                          | Grep the files that org-node knows about.                                               |
+| =v= | =vulpea-grep=                            | Grep the vulpea notes (shown only if the command exists).                               |
+| =c= | =consult-notes=                          | Pick a note by title from the denote source.                                            |
+| =C= | =consult-notes-search-in-all-notes=      | Ripgrep over all note sources.                                                          |
+| =s= | =org-semantic-find=                      | Search the notes by meaning, using embeddings.                                          |
+| =S= | =org-semantic-find-in-directory=         | Semantic search limited to a directory.                                                 |
+| =.= | =org-semantic-find-at-point=             | Semantic search using the text at point as the query.                                   |
+| =p= | =p-search=                               | Rank files by combining evidence (text, file names, Git history).                       |
+| =t= | =sp-tab-inbox-p-search=                  | *Slot:* the tab-inbox p-search engine. Hidden until that command exists.                |
+| =X= | =org-semantic-reindex=                   | Rebuild the semantic index (it also reindexes automatically).                           |
+| =o= | =consult-omni=                           | One query across web and local sources (shown only if installed).                       |
+
+#+begin_src emacs-lisp -i
+(defun sp-search-in-notes ()
+  "Grep through the notes directory with `consult-ripgrep'."
+  (interactive)
+  (consult-ripgrep (and (boundp 'sp-notes-dir) sp-notes-dir)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(transient-define-prefix sp-search-menu ()
+  "All the search commands of the configuration in one place."
+  [:description sp-search--header
+   ["Here: buffer and directory"
+    ("l" "Lines in this buffer (consult-line)" consult-line)
+    ("i" "Headings and symbols (consult-imenu)" consult-imenu)
+    ("r" "Ripgrep in the project (consult-ripgrep)" consult-ripgrep)
+    ("d" "Ripgrep in a chosen directory" sp-search-in-input-dir)
+    ("f" "Fast file names (consult-snapfile)" consult-snapfile
+     :if (lambda () (fboundp 'consult-snapfile)))
+    ("T" "TODO/FIXME comments (consult-todo)" consult-todo
+     :if (lambda () (fboundp 'consult-todo)))]
+   ["Grep buffers (editable results)"
+    ("g" "rg: ripgrep with a menu" rg-menu
+     :if (lambda () (fboundp 'rg-menu)))
+    ("D" "deadgrep: interactive ripgrep" deadgrep
+     :if (lambda () (fboundp 'deadgrep)))
+    ("a" "ag: the silver searcher" ag
+     :if (lambda () (fboundp 'ag)))
+    ("R" "Recoll: full-text index (Ivy)" counsel-recoll
+     :if (lambda () (and (fboundp 'counsel-recoll) (executable-find "recollq"))))]]
+  [["Notes: plain text"
+    ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
+    ("N" "Grep org-node notes" org-node-grep
+     :if (lambda () (fboundp 'org-node-grep)))
+    ("v" "Grep vulpea notes" vulpea-grep
+     :if (lambda () (fboundp 'vulpea-grep)))
+    ("c" "Pick a note, then search all (consult-notes)" consult-notes
+     :if (lambda () (fboundp 'consult-notes)))
+    ("C" "Search in all notes (consult-notes)" consult-notes-search-in-all-notes
+     :if (lambda () (fboundp 'consult-notes-search-in-all-notes)))]
+   ["Semantic: by meaning"
+    ("s" "Semantic search (org-semantic)" org-semantic-find
+     :if (lambda () (fboundp 'org-semantic-find)))
+    ("S" "Semantic search in a directory" org-semantic-find-in-directory
+     :if (lambda () (fboundp 'org-semantic-find-in-directory)))
+    ("." "Semantic search from point" org-semantic-find-at-point
+     :if (lambda () (fboundp 'org-semantic-find-at-point)))
+    ("p" "p-search: combine evidence" p-search
+     :if (lambda () (fboundp 'p-search)))
+    ;; Slot for the tab-inbox engine of p-search. Add its command here once it
+    ;; exists; the :if keeps the key hidden until then.
+    ("t" "p-search: tab inbox" sp-tab-inbox-p-search
+     :if (lambda () (fboundp 'sp-tab-inbox-p-search)))
+    ("X" "Rebuild the semantic index" org-semantic-reindex
+     :if (lambda () (fboundp 'org-semantic-reindex)))]
+   ["Web and more"
+    ("o" "Omni search (consult-omni)" consult-omni
+     :if (lambda () (fboundp 'consult-omni)))]]
+  [("q" "Quit" transient-quit-one)])
+#+end_src
+
+** Key
+
+=C-c s m= opens the menu. The prefix =C-c s= is shared: =sp-search= binds =C-c s l= and =C-c s r=, but =sp-keys= binds the same two keys to easysession later, so those two search keys are shadowed. The menu has =l= and =r= for them.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c s m" #'sp-search-menu)
+#+end_src
+
+** Links with Vertico and the other completion frameworks
+
+The menu itself is only a launcher. The commands in it read their candidates through =completing-read=, so whatever completion framework is active shapes what they look like:
+
+- *Vertico* (=sp-completion=) shows the candidates of every Consult command (=l=, =i=, =r=, =d=, =T=, =c=, =C=, =s=). Consult's async commands, such as =consult-ripgrep=, hand the typed text to =rg= and Vertico lists the output as it arrives. =vertico-buffer-mode= can show the same list in a side window.
+- *Vertico-posframe* (=sp-posframe=) draws the same minibuffer in a centred child frame.
+- *Orderless* (=sp-completion=) filters the candidates by space-separated components in any order. It applies to the candidates that Consult has already collected, for example the lines of =consult-line=; for the async grep commands the first part of the input (before the =#=) is the regexp passed to =rg=, and Orderless only filters afterwards.
+- *Marginalia* (=sp-completion=) adds annotations (file, size, mode) beside the candidates in the minibuffer.
+- *Embark* (=sp-embark=, =C-.=) acts on a candidate: open it elsewhere, copy it, or export the whole list. =embark-export= on =consult-ripgrep= or =consult-line= candidates opens a =grep-mode= or =occur= buffer (editing it in place would need =wgrep=, which is not installed); =embark-consult= adds previews and the collect/export hooks. This is the nearest thing to a Magit-like results buffer for these searches.
+- *Corfu* and *Cape* complete text in a buffer, not search; they have no link to this menu.
+- *Ivy* and *Counsel* are used only by =counsel-recoll=, which reads its candidates through =ivy-read=; =ivy-prescient= sorts them. It is the one command here that does not go through Vertico.
+- *Prescient* (=sp-minibuffer=, =vertico-prescient=) sorts recent choices first; with Orderless it only changes the order.
+
+The semantic commands (=org-semantic=) show their results in an =org-semantic-results-mode= buffer, not in the minibuffer, and =next-error-follow-minor-mode= is on there.
 
 * Provide
 
