@@ -97,8 +97,9 @@ Only its `:height' is used, as a multiple of the `default' height."
   :group 'faces)
 
 (defface sp-minibuffer-face '((t))
-  "Size of the text in the minibuffer and the posframe, set by the fontaine presets.
-Only its `:height' is used, as a multiple of the `default' height."
+  "Size of the text in the posframe, set by the fontaine presets.
+Only its `:height' is used, as a multiple of the `default' height.
+`sp-posframe-update-font' turns it into the posframe font."
   :group 'faces)
 
 (use-package fontaine
@@ -277,31 +278,11 @@ Text scaling:
 
 ** Larger minibuffer text
 
-The minibuffer uses the fontaine face =sp-minibuffer-face= (1.36 times the =default= height in =regular=, the same as =sp-text-face= in Org) for easier reading on a large screen, and follows the =text-scale= of the buffer it was opened from.
-
-- =sp-minibuffer= maps =sp-minibuffer-face= onto =default= in the minibuffer, then calls =text-scale-set= with the =text-scale-mode-amount= of the window that was selected when the minibuffer opened. So =text-scale-adjust= (=s-==, =s--=, =s-0=) in a buffer makes the text of the next =M-x=, file picker or note picker grow and shrink in step with the buffer's text. A minibuffer already open does not change size.
-- It is hooked on =minibuffer-setup-hook=, not =minibuffer-mode-hook=: the selected window is only known there. Calling =text-scale-set= with 0 for an unscaled buffer also clears the scale that a reused minibuffer buffer might have kept.
-- It does not touch =face-remapping-alist= otherwise. The earlier version in =sp-posframe= (#146) reset the whole list, which also dropped the text scale, so the posframe did not follow =text-scale-adjust=.
-- #156 took this out of the minibuffer while the glitching =M-x= text was being looked for, and the glitch went with the plain posframe. This puts the text size back (#161). The cause of the glitch was never found, so if it returns, remove =(add-hook 'minibuffer-setup-hook #'sp-minibuffer)= first.
-
-#+begin_src emacs-lisp -i
-(defun sp-minibuffer ()
-  "Size the minibuffer text like the buffer it was opened from.
-The base size is `sp-minibuffer-face', set by fontaine. On top of it the
-`text-scale' of the buffer that was selected when the minibuffer opened is
-applied, so `text-scale-adjust' grows the minibuffer text with the buffer's."
-  (face-remap-add-relative 'default 'sp-minibuffer-face)
-  (when-let* ((win (minibuffer-selected-window))
-              ((window-live-p win)))
-    (text-scale-set (buffer-local-value 'text-scale-mode-amount
-                                        (window-buffer win)))))
-
-(add-hook 'minibuffer-setup-hook #'sp-minibuffer)
-#+end_src
+The minibuffer text is sized in =sp-posframe=, not here. =sp-minibuffer-face= (1.36 times the =default= height in =regular=) is set by the fontaine presets, and =sp-posframe-update-font= turns it into the font of the posframe frame whenever a preset is set. Nothing is done per prompt. The earlier =sp-minibuffer= (#161), which remapped =default= and set the =text-scale= on =minibuffer-setup-hook=, is gone: it was suspected of mirroring the minibuffer and glitching =M-x=, and removing the hook line made that stop. See the [[file:sp-posframe.org::*Text size][=sp-posframe= doc]].
 
 ** Larger text buffers
 
-=sp-text-buffer= maps the fontaine face =sp-text-face= onto =default= in text modes (hooked on =text-mode-hook= in =sp-minibuffer=), so Org is =:sp-text-face-height= (1.36, which is what 4 =text-scale= steps of 1.08 came to) times the =default= height. =sp-minibuffer= does the same for the minibuffer with =sp-minibuffer-face=. Both faces are added to =fontaine-faces= in the fontaine block, so each preset sets its own sizes (1.0 in =presentation=, whose =default= height is already large). =text-scale= (=s-==, =s--=) still works on top of them.
+=sp-text-buffer= maps the fontaine face =sp-text-face= onto =default= in text modes, so Org is =:sp-text-face-height= (1.36, which is what 4 =text-scale= steps of 1.08 came to) times the =default= height. The posframe takes =sp-minibuffer-face= the same way, as a font. Both faces are added to =fontaine-faces= in the fontaine block, so each preset sets its own sizes (1.0 in =presentation=, whose =default= height is already large). =text-scale= (=s-==, =s--=) still works on top of them.
 
 The dashboard box text is sized by fontaine, not here: =sp-dashboard-menu-face= is added to =fontaine-faces= in the =:config= of the fontaine block above, and the =t= preset sets =:sp-dashboard-menu-face-height= to 1.0 (a multiple of the =default= height, like every non-=default= face in a preset). The value is 1.0 because the box lines and the text share one character grid: another height makes them differ in width and the boxes no longer line up. A preset may still override it.
 

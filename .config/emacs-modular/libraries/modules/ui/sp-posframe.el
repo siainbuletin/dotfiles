@@ -25,6 +25,19 @@ height is left to `vertico-posframe-get-size'."
     (plist-put size :max-width width)
     size))
 
+(defvar vertico-posframe-font)
+
+(defun sp-posframe-update-font ()
+  "Set `vertico-posframe-font' to the size of `sp-minibuffer-face'.
+The face height is a multiple of the `default' height; the font is the
+`default' family at that size in points.  Run once at load and again on every
+fontaine preset, never per prompt."
+  (let ((height (face-attribute 'sp-minibuffer-face :height nil t)))
+    (when (floatp height)
+      (setq vertico-posframe-font
+            (font-spec :family (face-attribute 'default :family)
+                       :size (/ (* height (face-attribute 'default :height)) 10.0))))))
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
@@ -37,6 +50,9 @@ height is left to `vertico-posframe-get-size'."
 
   :config
   (vertico-posframe-mode 1))
+
+(sp-posframe-update-font)
+(add-hook 'fontaine-set-preset-hook #'sp-posframe-update-font)
 
 (defun sp-posframe--match-border ()
   "Give the posframe border the background colour of the posframe itself.
