@@ -37,3 +37,13 @@ temp.org
 # diagrams are built from the dot blocks in the docs: see docs/Makefile
 docs/**/*.svg
 docs/.build/
+
+# state files that packages write at the root when no location is set
+# (they live in var/ and libraries/lambda-user/ now; see docs/tangles/base/sp-globals.org)
+/*.db
+/amx-items
+/savehist
+/places.eld
+/projects.eld
+/projectile-*.eld
+/agent-shell/

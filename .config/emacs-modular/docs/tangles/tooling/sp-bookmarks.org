@@ -37,6 +37,7 @@ The file header: the first line carries the file name, a short summary and the =
 Bookmark settings:
 
 - =bookmark= is built in, so =:ensure nil= stops the package manager from trying to install it.
+- =bookmark-default-file= is =bookmarks= in =sp-user-dir= (=libraries/lambda-user/=), the folder for personal files. Bookmarks are things you made, not something Emacs can rebuild, so they are not in =var/=, and unlike =var/= the folder is tracked by Git. Folder and reasoning: [[file:../base/sp-globals.org::*State files: where each one lives][State files]].
 - Setting =bookmark-save-flag= to 1 makes Emacs write the bookmark file after every single change, instead of only when Emacs exits, so bookmarks survive a crash.
 - ~C-x r D~ is bound to =bookmark-delete=, which complements the default ~C-x r m~ (set) and ~C-x r b~ (jump) bindings.
 
@@ -44,6 +45,7 @@ Bookmark settings:
 (use-package bookmark
   :ensure nil
   :custom
+  (bookmark-default-file (expand-file-name "bookmarks" sp-user-dir))
   (bookmark-save-flag 1)
   :bind
   ("C-x r D" . bookmark-delete))
