@@ -11,12 +11,12 @@
 (use-package ox
   :ensure nil
   :after org
-  
+
   :custom
   ;; Don't use bad hyperref value
   ;; https://emacs.stackexchange.com/a/46226/11934
   (org-latex-hyperref-template nil)
-  
+
   ;; Export settings
   (org-table-export-default-format "orgtbl-to-csv") ;; export for org-tables to csv
   (org-export-with-smart-quotes t)
@@ -27,7 +27,7 @@
   ;; (org-export-backends '(ascii beamer html icalendar latex odt pandoc hugo md))
   ;; org v8 bundled with Emacs 24.4
   (org-odt-preferred-output-format "docx")
-  
+
   :config
   ;; Only OSX need below setup
   (defun sp-odt-org-convert-process ()
@@ -342,7 +342,7 @@
   :ensure t
   :commands (htmlize-buffer))
 
-;;;; Clipboard conversion through Pandoc 
+;;;; Clipboard conversion through Pandoc
 ;; (initially lived in the file for functions in Lambda Emacs)
 (defun sp-org-to-markdown ()
   "convert clipboard contents from org to markdown and paste"
@@ -408,7 +408,6 @@
   (interactive)
   (kill-new (shell-command-to-string "pbpaste | pandoc -f markdown -t rtf | pbcopy"))
   (yank))
-
 
 ;; NOTE: piping to pbcopy doesn't seem to work but it is ready to paste as is
 (defun sp-org-to-rtf ()

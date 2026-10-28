@@ -37,7 +37,7 @@
 A column not listed uses the entry for t.  The :column-widths of a
 table's spec, saved with a view, override these."
   :type '(alist :key-type (choice symbol string) :value-type integer)
-  :group 'spcustom)
+  :group 'sp-collec-query)
 
 (defcustom sp-collec-query-exc-wrap 'wrap
   "How an exc table treats text longer than its column.

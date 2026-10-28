@@ -11,6 +11,7 @@
 ;;; Code:
 
 ;;;; Magit initial installation
+
 (use-package magit
   :ensure t
   :defer t

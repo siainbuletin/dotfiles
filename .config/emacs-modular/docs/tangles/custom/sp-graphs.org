@@ -3545,6 +3545,17 @@ the relation.  Clicking a node visits its note."
     (pop-to-buffer buffer)))
 #+end_src
 
+** Force-directed graph through another package: [[id:20261028T140146.203787][neonmei's vulpea-graph]]
+
+Since it's sharing the same namespace with 
+
+#+begin_src emacs-lisp
+(use-package vulpea-graph
+  :ensure (:type git :host github :repo "neonmei/vulpea-graph")
+  :commands (vulpea-graph)
+) 
+#+end_src
+
 * Provide
 
 The one feature of the module. The old file ends were =;;; sp-relationship-annotator.el ends here= and the like; there is now a single one.

@@ -72,8 +72,8 @@
   (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1))
 
 ;;;; Finding better functions
-;; Wilfred’s suggest function helps you find the right function. 
-;; Basically, you type in the parameters of a function, and then 
+;; Wilfred’s suggest function helps you find the right function.
+;; Basically, you type in the parameters of a function, and then
 ;; the desired output, and it will write the function call.
 (use-package suggest
   :ensure t)
