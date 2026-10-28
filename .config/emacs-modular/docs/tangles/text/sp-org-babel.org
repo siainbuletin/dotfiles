@@ -14,7 +14,7 @@ This module configures Org Babel. It sets up:
 
 - which languages can be executed in source blocks,
 - how tangled files are cleaned up,
-- a command to tangle the literate configuration in one go.
+- commands to tangle only the literate documents that changed (=sp-tangle-changed=), all of them (=sp-tangle-all=), to reload what was tangled, and to tangle on save.
 
 Details:
 
@@ -266,6 +266,8 @@ This shell is used to execute the Nushell command."
 
 * Tangle the literate configuration
 
+The commands here skip a document whose text is the same as when it was last tangled, so a change to one document no longer rewrites the other 130.
+
 ** Load ob-tangle
 
 Requires =ob-tangle= right away, which also triggers the post-tangle hooks set up above.
@@ -275,34 +277,169 @@ Requires =ob-tangle= right away, which also triggers the post-tangle hooks set u
 (require 'ob-tangle)
 #+end_src
 
-** Literate files
+** Finding the literate documents
 
-=sp-literate-org-dir= is =docs/tangles/= in the Emacs directory and =sp-literate-files= lists the Org files to tangle, in order: =early.org=, =core.org=, =ui.org= and =keys.org=. None of these four files currently exist in =docs/tangles/=, so the list looks out of date.
+=sp-literate-org-dir= is =docs/tangles/= in the Emacs directory. A document counts as a module document when its name starts with =sp-=, ends in =.org=, and its header has a =:tangle= path into =libraries/modules/=; this is the same filter the README uses, so the =-old.org= files and the notes that tangle elsewhere are left alone. The old =sp-literate-files= list (=early.org=, =core.org=, =ui.org= and =keys.org=, none of which exist any more) is gone.
 
 #+begin_src emacs-lisp -i
-(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory))
-(defvar sp-literate-files '("early.org" "core.org" "ui.org" "keys.org")
-  "Org files to tangle, in order.")
+(require 'cl-lib)
+
+(defvar sp-literate-org-dir (expand-file-name "docs/tangles/" user-emacs-directory)
+  "Folder with the literate Org documents of the modules.")
+
+(defun sp-tangle--module-doc-p (file)
+  "Non-nil if FILE has a `:tangle' path into `libraries/modules/'."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (re-search-forward ":tangle [./]*libraries/modules/" nil t)))
+
+(defun sp-tangle-docs ()
+  "Return the absolute names of all module documents below `sp-literate-org-dir'."
+  (cl-remove-if-not #'sp-tangle--module-doc-p
+                    (directory-files-recursively sp-literate-org-dir "^sp-.*[.]org\\'")))
 #+end_src
 
-** sp-tangle-all
+** Remembering what was tangled
 
-=sp-tangle-all= tangles each file in =sp-literate-files= without asking for evaluation confirmation, then reports how many files were written and their names, and returns that list. Its docstring mentions =sp-org-files=, but the variable it actually uses is =sp-literate-files=.
+=sp-tangle-cache-file= (=tangle-hashes.eld= in =sp-cache-dir=) is a Lisp file with one entry per document: the SHA-1 of the document's text as it was when it was last tangled, and the =.el= files that tangle wrote. Nothing but the document's own text decides whether it is up to date, so it works the same with yadm, with uncommitted edits, after =git pull= and after switching branches. Names are stored relative to =sp-literate-org-dir=, so the file survives moving the configuration.
+
+A document needs tangling when it has no entry, when its hash differs, or when one of the =.el= files it wrote is missing. Because the =:tangle= path is part of the document's text, changing it changes the hash, so the document is tangled again to the new place. The file it used to write is not deleted; =sp-tangle-changed= warns about it instead.
 
 #+begin_src emacs-lisp -i
+(defcustom sp-tangle-cache-file
+  (expand-file-name "tangle-hashes.eld"
+                    (if (boundp 'sp-cache-dir) sp-cache-dir user-emacs-directory))
+  "File remembering the hash and output files of each tangled document."
+  :type 'file
+  :group 'org-babel)
+
+(defun sp-tangle--read-cache ()
+  "Return the alist stored in `sp-tangle-cache-file', or nil."
+  (when (file-readable-p sp-tangle-cache-file)
+    (condition-case nil
+        (with-temp-buffer
+          (insert-file-contents sp-tangle-cache-file)
+          (read (current-buffer)))
+      (error nil))))
+
+(defun sp-tangle--write-cache (cache)
+  "Store the alist CACHE in `sp-tangle-cache-file'."
+  (make-directory (file-name-directory sp-tangle-cache-file) t)
+  (with-temp-file sp-tangle-cache-file
+    (let ((print-length nil) (print-level nil))
+      (prin1 cache (current-buffer)))))
+
+(defun sp-tangle--rel (file)
+  "Return FILE relative to `sp-literate-org-dir'."
+  (file-relative-name file sp-literate-org-dir))
+
+(defun sp-tangle--hash (file)
+  "Return the SHA-1 of the text of FILE."
+  (with-temp-buffer
+    (insert-file-contents-literally file)
+    (secure-hash 'sha1 (current-buffer))))
+
+(defun sp-tangle--stale-p (doc entry)
+  "Non-nil if DOC must be tangled, given its cache ENTRY (hash and outputs)."
+  (or (null entry)
+      (not (equal (plist-get entry :hash) (sp-tangle--hash doc)))
+      (cl-some (lambda (out)
+                 (not (file-exists-p (expand-file-name out sp-literate-org-dir))))
+               (plist-get entry :outputs))))
+#+end_src
+
+** sp-tangle-changed
+
+=sp-tangle-changed= tangles the module documents that are stale and returns the =.el= files it wrote. With a prefix argument (FORCE) it tangles every document. A document whose buffer is still open from an earlier tangle is re-read without asking if it changed on disk (for example after =git pull=). A document that fails to tangle is reported and keeps its old entry, so it is tried again next time; the other documents are not held up. Entries of documents that no longer exist are dropped.
+
+#+begin_src emacs-lisp -i
+(defun sp-tangle--run (docs force)
+  "Tangle the stale ones among DOCS (all of them if FORCE) and update the cache.
+Return the list of `.el' files written."
+  (let* ((org-confirm-babel-evaluate nil)
+         (revert-without-query '(".*")) ; a document pulled in by git is re-read silently
+         (cache (sp-tangle--read-cache))
+         (written '()) (failed '()) (skipped 0))
+    (dolist (doc docs)
+      (let* ((key (sp-tangle--rel doc))
+             (entry (cdr (assoc key cache))))
+        (if (not (or force (sp-tangle--stale-p doc entry)))
+            (cl-incf skipped)
+          (condition-case err
+              (let* ((hash (sp-tangle--hash doc))
+                     (outputs (org-babel-tangle-file doc))
+                     (rel (mapcar #'sp-tangle--rel outputs))
+                     (orphans (cl-set-difference (plist-get entry :outputs) rel
+                                                 :test #'equal)))
+                (setf (alist-get key cache nil nil #'equal)
+                      (list :hash hash :outputs rel))
+                (setq written (append written outputs))
+                (dolist (o orphans)
+                  (when (file-exists-p (expand-file-name o sp-literate-org-dir))
+                    (message "sp-tangle: %s no longer writes %s (left in place)"
+                             key (file-name-nondirectory o)))))
+            (error (push (format "%s (%s)" key (error-message-string err)) failed))))))
+    ;; Forget documents that were deleted or no longer tangle into the modules.
+    (when (equal docs (sp-tangle-docs))
+      (let ((live (mapcar #'sp-tangle--rel docs)))
+        (setq cache (cl-remove-if-not (lambda (e) (member (car e) live)) cache))))
+    (sp-tangle--write-cache cache)
+    (message "sp-tangle: tangled %d file(s) from %d document(s), %d up to date%s"
+             (length written) (- (length docs) skipped (length failed)) skipped
+             (if failed (format "; FAILED: %s" (string-join failed ", ")) ""))
+    written))
+
+;;;###autoload
+(defun sp-tangle-changed (&optional force)
+  "Tangle the module documents whose text changed since they were last tangled.
+With prefix argument FORCE, tangle all of them.  Return the files written."
+  (interactive "P")
+  (sp-tangle--run (sp-tangle-docs) force))
+
+;;;###autoload
 (defun sp-tangle-all ()
-  "Tangle every file in `sp-org-files' to its `:tangle' targets."
+  "Tangle every module document, changed or not.  Return the files written."
   (interactive)
-  (let ((org-confirm-babel-evaluate nil)
-        (tangled '()))
-    (dolist (name sp-literate-files)
-      (setq tangled
-            (append tangled
-                    (org-babel-tangle-file (expand-file-name name sp-literate-org-dir)))))
-    (message "Tangled %d file(s): %s"
-             (length tangled)
-             (mapconcat #'file-name-nondirectory tangled ", "))
-    tangled))
+  (sp-tangle-changed t))
+#+end_src
+
+** Reloading what changed
+
+=sp-tangle-changed-and-reload= tangles the stale documents and then reloads the modules that were written and are already loaded, so the edit can be tried straight away. It uses =sp-reload--run= when [[file:../../reload-modules/][sp-reload]] is installed, because that also undoes the old hooks and advice of the module; without it, it just calls =load= on each loaded module. A module that was never loaded is not loaded by this command.
+
+#+begin_src emacs-lisp -i
+(defun sp-tangle-changed-and-reload (&optional force)
+  "Tangle the changed module documents, then reload the modules they wrote.
+With prefix argument FORCE, tangle (and reload) all of them."
+  (interactive "P")
+  (let ((files (sp-tangle-changed force)))
+    (cond ((null files))
+          ((fboundp 'sp-reload--run) (sp-reload--run files))
+          (t (dolist (f files)
+               (when (featurep (intern (file-name-base f)))
+                 (load f nil t t)))))
+    files))
+#+end_src
+
+** Tangling when a document is saved
+
+=sp-tangle-on-save-mode= is a buffer-local minor mode that runs the same check on the one document being saved. It does nothing for a file that is not a module document. It is off by default; turn it on for a buffer with =M-x sp-tangle-on-save-mode=, or in every module document with =(add-hook 'org-mode-hook #'sp-tangle-on-save-mode)=.
+
+#+begin_src emacs-lisp -i
+(defun sp-tangle--after-save ()
+  "Tangle the visited file if it is a changed module document."
+  (when (and buffer-file-name
+             (file-in-directory-p buffer-file-name sp-literate-org-dir)
+             (string-match-p "\\`sp-.*[.]org\\'" (file-name-nondirectory buffer-file-name))
+             (sp-tangle--module-doc-p buffer-file-name))
+    (sp-tangle--run (list buffer-file-name) nil)))
+
+(define-minor-mode sp-tangle-on-save-mode
+  "Tangle a module document when it is saved, if its text changed."
+  :lighter " Tgl"
+  (if sp-tangle-on-save-mode
+      (add-hook 'after-save-hook #'sp-tangle--after-save nil t)
+    (remove-hook 'after-save-hook #'sp-tangle--after-save t)))
 #+end_src
 
 * Provide
