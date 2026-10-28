@@ -69,6 +69,8 @@ A plist. Every filter is optional and the filters are combined with /and/.
 | =:title-match=                   | regexp for the title, case-insensitive                                  |
 | =:columns=                       | =:title :tags :todo :level :priority :id :file :path= or a meta key     |
 | =:sort-by=, =:sort-desc=         | a column, and non-nil for descending                                    |
+| =:column-widths=                 | exc only: alist =(COLUMN . WIDTH)=; =t= stands for the columns not listed |
+| =:wrap=                          | exc only: =wrap= (wrap inside the width) or =fit= (size to the text)    |
 
 In a note, the same spec is the parameter list of a dynamic block:
 
@@ -95,6 +97,8 @@ In an exc table: =C-c o= opens the note in the row, =C-c q= edits the query in t
 =sp-collec-query-renderer= picks one: =auto= (the first that loads of exc, vui, org), =exc=, =vui= or =org=.
 
 - *exc* is https://github.com/yibie/grid-table (package name =exc= since 0.5.1), a spreadsheet drawn with ETAF. It is not part of emacs-taf; the organization at https://github.com/emacs-taf provides ETAF (=ecss=, =ebox=, =etaf=, =etaf-ui=). Checked on 2026-10-21 against exc 0.5.1, ecss 0.1.0, ebox 3.1.1 and etaf 0.3.1: it needs Emacs 29.1 or later and the three ETAF libraries, none of which is on a package archive. Only the rows and columns that fit the window are drawn.
+
+  Column width and word wrap are part of the spec, so a saved view keeps them with its columns: in the menu =w= sets the width of one column (or of =other=, the columns not listed) and =W= cycles the wrap between the option (default), =wrap= and =fit=. =wrap= keeps the widths and wraps long text onto more lines; =fit= sizes each column to its longest text, up to =sp-collec-query-exc-max-width= (80), and an explicit width still wins. The defaults are =sp-collec-query-exc-column-widths= and =sp-collec-query-exc-wrap=; a width in the spec overrides them. vui and Org ignore both keys.
 - *vui* is the component library the first version used.
 - *org* is a read-only Org buffer; no extra packages.
 
@@ -439,7 +443,7 @@ The keys a spec may carry:
   - children of a parent note,
   - level,
   - a title regexp.
-- =:columns=, =:sort-by= and =:sort-desc= shape the table.
+- =:columns=, =:sort-by= and =:sort-desc= shape the table; =:column-widths= and =:wrap= only change how the exc renderer draws it.
 - A "self" parent is resolved against the buffer the table is asked from, because a renderer may switch buffers before it queries.
 
 #+begin_src emacs-lisp -i
@@ -450,7 +454,7 @@ The keys a spec may carry:
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
     :parent-of :parent-prop :level :title-match
-    :columns :sort-by :sort-desc)
+    :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
 none of them); :DIRECTORIES a list of directories a note's file lies
@@ -461,7 +465,12 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:SORT-DESC non-nil to sort descending.")
+:SORT-DESC non-nil to sort descending; :COLUMN-WIDTHS an alist of
+\(COLUMN . WIDTH) giving the width in characters of a column in the exc
+table, T standing for the columns not listed; :WRAP `wrap' to wrap long
+text inside the width, or `fit' to size a column to its text, up to
+`sp-collec-query-exc-max-width'.  The last two only apply to the exc
+renderer and fall back to the options of the same name.")
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1415,6 +1424,8 @@ Each key's label shows the current value. The macro defines one description func
       (:columns (mapconcat #'sp-collec-query-menu--column-name value " "))
       (:sort-by (and value (sp-collec-query-menu--column-name value)))
       (:sort-desc (and value "descending"))
+      (:column-widths (sp-collec-query-menu--widths-text value))
+      (:wrap (and value (symbol-name value)))
       (:level (and value (if (eq value 'headings) "headings" "file-level")))
       (:parent-of (and value (format "%s%s" value
                                      (if-let* ((p (sp-collec-query-menu--get :parent-prop)))
@@ -1423,6 +1434,15 @@ Each key's label shows the current value. The macro defines one description func
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-menu--widths-text (widths)
+  "Return the alist WIDTHS as text, such as \"title=60 other=20\"."
+  (mapconcat (lambda (cell)
+               (format "%s=%d"
+                       (if (eq (car cell) t) "other"
+                         (sp-collec-query-menu--column-name (car cell)))
+                       (cdr cell)))
+             widths " "))
+
 (defun sp-collec-query-menu--describe (label key)
   "Return LABEL followed by the current value of KEY, highlighted."
   (let ((text (sp-collec-query-menu--value-text key)))
@@ -1453,6 +1473,8 @@ Each key's label shows the current value. The macro defines one description func
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-columns "Columns" :columns)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-sort "Sort by" :sort-by)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-widths "Column widths" :column-widths)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-wrap "Word wrap" :wrap)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1636,6 +1658,36 @@ One command per setting.
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-menu-set-width ()
+  "Set the width of one column in the exc table; an empty width clears it."
+  (interactive)
+  (let* ((columns (or (sp-collec-query-menu--get :columns) '(:title)))
+         (choice (completing-read
+                  "Width of column (\"other\" for the rest): "
+                  (cons "other" (mapcar #'sp-collec-query-menu--column-name columns))
+                  nil t))
+         (column (if (string= choice "other") t
+                   (sp-collec-query-menu--column choice)))
+         (current (alist-get column (sp-collec-query-menu--get :column-widths)
+                             nil nil #'equal))
+         (width (read-string (format "Width of %s in characters (empty: default): " choice)
+                             (and current (number-to-string current))))
+         (widths (cl-remove column
+                            (copy-sequence (sp-collec-query-menu--get :column-widths))
+                            :key #'car :test #'equal)))
+    (unless (string-empty-p width)
+      (let ((n (string-to-number width)))
+        (unless (> n 0) (user-error "A width is a number of characters"))
+        (setq widths (append widths (list (cons column n))))))
+    (sp-collec-query-menu--set :column-widths widths)))
+
+(defun sp-collec-query-menu-cycle-wrap ()
+  "Cycle the word wrap of the exc table: default, wrap, fit."
+  (interactive)
+  (sp-collec-query-menu--set
+   :wrap (pcase (sp-collec-query-menu--get :wrap)
+           ('nil 'wrap) ('wrap 'fit) (_ nil))))
+
 (defun sp-collec-query-menu-reset ()
   "Forget every setting."
   (interactive)
@@ -1735,7 +1787,9 @@ Open (or redraw the table the menu came from), preview the count, insert as a dy
    ["Shape"
      ("c" sp-collec-query-menu-set-columns :description sp-collec-query-menu--d-columns :transient t)
      ("o" sp-collec-query-menu-set-sort :description sp-collec-query-menu--d-sort :transient t)
-     ("O" sp-collec-query-menu-toggle-desc :description sp-collec-query-menu--d-desc :transient t)]
+     ("O" sp-collec-query-menu-toggle-desc :description sp-collec-query-menu--d-desc :transient t)
+     ("w" sp-collec-query-menu-set-width :description sp-collec-query-menu--d-widths :transient t)
+     ("W" sp-collec-query-menu-cycle-wrap :description sp-collec-query-menu--d-wrap :transient t)]
    ["Views"
      ("S" "Save view" sp-collec-query-menu-save :transient t)
      ("V" "Load view" sp-collec-query-menu-load :transient t)
@@ -1816,12 +1870,28 @@ Header, declarations, the column-width option and the buffer-local state. The st
 (defcustom sp-collec-query-exc-column-widths
   '((:title . 42) (:tags . 24) (:id . 38) (:path . 50) (t . 20))
   "Width in characters of each column in an exc table.
-A column not listed uses the entry for t."
+A column not listed uses the entry for t.  The :column-widths of a
+table's spec, saved with a view, override these."
   :type '(alist :key-type (choice symbol string) :value-type integer)
   :group 'sp-collec-query)
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defcustom sp-collec-query-exc-wrap 'wrap
+  "How an exc table treats text longer than its column.
+`wrap' keeps the widths of `sp-collec-query-exc-column-widths' and wraps
+long text onto more lines.  `fit' sizes each column to its longest text,
+up to `sp-collec-query-exc-max-width'; text beyond that still wraps.  The
+:wrap of a table's spec overrides this."
+  :type '(choice (const :tag "Wrap inside the column width" wrap)
+                 (const :tag "Fit the column to its text" fit))
+  :group 'sp-collec-query)
+
+(defcustom sp-collec-query-exc-max-width 80
+  "Widest a column may grow in characters when the table fits its columns."
+  :type 'integer
+  :group 'sp-collec-query)
+
 (defvar-local sp-collec-query-exc--spec nil
   "The resolved spec the current exc table shows.")
 (defvar-local sp-collec-query-exc--notes nil
@@ -1849,11 +1919,25 @@ A column not listed uses the entry for t."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-collec-query-exc--width (column)
-  "Return the width for COLUMN."
-  (or (alist-get column sp-collec-query-exc-column-widths nil nil #'equal)
-      (alist-get t sp-collec-query-exc-column-widths)
-      20))
+(defun sp-collec-query-exc--width (column spec &optional texts)
+  "Return the width for COLUMN of SPEC, whose cell and header text is TEXTS.
+A width in the spec's :column-widths wins; then, if the table fits its
+columns, the longest line in TEXTS up to `sp-collec-query-exc-max-width';
+then `sp-collec-query-exc-column-widths'."
+  (let ((own (plist-get spec :column-widths)))
+    (or (alist-get column own nil nil #'equal)
+        (and (eq (or (plist-get spec :wrap) sp-collec-query-exc-wrap) 'fit)
+             (min sp-collec-query-exc-max-width
+                  (apply #'max 1
+                         (mapcar (lambda (text)
+                                   (apply #'max 0
+                                          (mapcar #'string-width
+                                                  (split-string text "\n"))))
+                                 texts))))
+        (alist-get t own)
+        (alist-get column sp-collec-query-exc-column-widths nil nil #'equal)
+        (alist-get t sp-collec-query-exc-column-widths)
+        20)))
 #+end_src
 
 ** Building the grid
@@ -1892,14 +1976,21 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
   "Return an exc data source for SPEC and the list NOTES."
   (let* ((columns (plist-get spec :columns))
          (labels (mapcar #'sp-collec-query-header-label columns))
+         (rows (sp-collec-query-rows notes columns))
          (source (make-exc-default-data-source
                   labels
-                  (cons labels (sp-collec-query-rows notes columns))
+                  (cons labels rows)
                   (sp-collec-query-spec-summary spec))))
     (cl-loop for column in columns
              for i from 0
              do (exc-set-style-at source 0 i '(:bold t))
-             do (exc-set-column-width source i (sp-collec-query-exc--width column)))
+             do (exc-set-column-width
+                 source i
+                 (sp-collec-query-exc--width
+                  column spec
+                  (cons (nth i labels)
+                        (mapcar (lambda (row) (format "%s" (or (nth i row) "")))
+                                rows)))))
     (exc-set-frozen source 1 0)
     (sp-collec-query-exc--guard source columns (vconcat notes))
     source))
@@ -2267,3 +2358,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/164][#164]] ✨ Added links in cells: the vui and exc renderers show =[[id:..][title]]= in a meta column by its description (=sp-collec-query-linkify=); in vui RET or a click follows it. A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/165][#165]] 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=. A file in the old place is read until the new one is saved. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/168][#168]] 🔧 Changed the exc table to end one empty row after the last note, not at the bottom of the window: the sheet's row limit is set per buffer (=exc-calc-sheet-limit=). Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/169][#169]] ✨ Added =:column-widths= and =:wrap= to the spec, so a saved view keeps the exc column widths and word wrap of its columns; menu keys =w= and =W=; new options =sp-collec-query-exc-wrap= and =sp-collec-query-exc-max-width=. Not run in Emacs (none in the container).

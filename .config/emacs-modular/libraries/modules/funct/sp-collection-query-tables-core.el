@@ -25,7 +25,7 @@
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
     :parent-of :parent-prop :level :title-match
-    :columns :sort-by :sort-desc)
+    :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
 none of them); :DIRECTORIES a list of directories a note's file lies
@@ -36,7 +36,12 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:SORT-DESC non-nil to sort descending.")
+:SORT-DESC non-nil to sort descending; :COLUMN-WIDTHS an alist of
+\(COLUMN . WIDTH) giving the width in characters of a column in the exc
+table, T standing for the columns not listed; :WRAP `wrap' to wrap long
+text inside the width, or `fit' to size a column to its text, up to
+`sp-collec-query-exc-max-width'.  The last two only apply to the exc
+renderer and fall back to the options of the same name.")
 
 (defconst sp-collec-query-builtin-columns
   '(:title :tags :todo :level :priority :id :file :path)
