@@ -75,6 +75,7 @@ The header, commentary and the start of the code section. The commentary is writ
 ;; Installed with `use-package' (Elpaca `:ensure'):
 ;;   `discourse-graphs'  typed nodes in Org headings, SQLite cache, context panel
 ;;   `vulpea-graph'      interactive graph of Vulpea notes in the browser
+;;   `graph-fa2'         ForceAtlas2 layout drawn as SVG in an Emacs buffer
 ;;
 ;; Custom code, written here:
 ;;   Relationship annotator  relations between Vulpea notes, as a browser
@@ -83,6 +84,7 @@ The header, commentary and the start of the code section. The commentary is writ
 ;;     M-x rel-anno-outline-native buttons in an Emacs buffer
 ;;     M-x rel-anno-outline-vui    the same outline built with vui (trial)
 ;;     M-x rel-anno-svg            static Graphviz SVG (needs `dot')
+;;     M-x rel-anno-fa2            force-directed graph in an Emacs buffer
 ;;     M-x rel-anno-review         anomalies, gaps and strength of answers
 ;;   Live view               the same page served on 127.0.0.1, reloaded
 ;;                           when the graph data changes
@@ -318,6 +320,23 @@ Installs =vulpea-graph= along with its =assets= folder, which holds the browser 
   :after (websocket simple-httpd)
   :commands
   (vulpea-graph vulpea-graph-mode))
+#+end_src
+
+** graph-fa2 (new)
+
+This installs =graph-fa2= from the elij/graph-fa2 GitHub repository, with Elpaca and no clone on the =load-path=.
+
+- It is a ForceAtlas2 layout written in Emacs Lisp. The graph is drawn as SVG in an Emacs buffer (needs SVG support in Emacs), without a browser.
+- Nodes are plists with =:id=, =:label=, =:colour= and =:radius=; edges are plists with =:from=, =:to=, =:label=, =:colour= and =:directed=. Clicking a node runs =graph-fa2-node-clicked-functions= with the node id.
+- =graph-fa2-show-edge-labels= is on, so each link shows its relation. =graph-fa2-label-wrap-chars= is 18, so titles with tags wrap in a few lines. The engine (=graph-fa2-engine=, 3d by default) is left at the package default.
+- The command that feeds it is =rel-anno-fa2=, in the custom part below.
+
+#+begin_src emacs-lisp
+(use-package graph-fa2
+  :ensure (:host github :repo "elij/graph-fa2")
+  :custom
+  (graph-fa2-show-edge-labels t)
+  (graph-fa2-label-wrap-chars 18))
 #+end_src
 
 * Custom code
@@ -3265,6 +3284,113 @@ The page is served by Emacs on localhost and reloads when its data changes."
   (relationship-annotator-live--check-all t))
 #+end_src
 
+** Force-directed graph (=rel-anno-fa2=)
+
+A third view of the same scope as the browser graph, drawn in an Emacs buffer by =graph-fa2=. It reuses =relationship-annotator--read-scope= (starting note and depth), =relationship-annotator--build= and =relationship-annotator--scope=, so it shows the same notes as the browser page, and the depth you give still cuts the tree.
+
+- *Depth*: each node's radius follows its level below the starting note (=relationship-annotator-fa2-radius=, root 18, 3 less per level, never below 7), so the start is largest and deeper notes shrink. A node at the last level shows =(+N)= for the children it hides. With the 3d engine the layout also has its own perspective depth.
+- *Labels*: the title, then the tags as =#tag=.
+- *Colours*: the fill is the Notion palette colour (=sp-org-tag-groups-palette=) of the group (=sp-org-tag-group-of=, =sp-org-tag-groups-colors=) of the first tag that has a group; light or dark follows the frame background. Untagged notes use the default colour.
+- *Links*: parent links read "parent", the others read their relation label (=supports=, =opposes=, ...) in the colour set in =relationship-annotator-relations=; all are arrows.
+- Clicking a node visits its note.
+- Not tried in Emacs: the container has none, and graph-fa2 was read, not run.
+
+#+begin_src emacs-lisp
+;;;; Force-directed graph in a buffer
+
+(defcustom relationship-annotator-fa2-radius '(18 . 7)
+  "Node radius as (ROOT . MINIMUM): the starting note gets ROOT, each level 3 less, never below MINIMUM."
+  :type '(cons integer integer)
+  :group 'spcustom)
+
+(defun relationship-annotator-fa2--levels (scope start)
+  "Return a hash table from id to its level below START in SCOPE."
+  (let ((levels (make-hash-table :test #'equal))
+        (queue (list start)))
+    (puthash start 0 levels)
+    (while queue
+      (let ((id (pop queue)))
+        (dolist (kid (gethash id (plist-get scope :children)))
+          (unless (gethash kid levels)
+            (puthash kid (1+ (gethash id levels)) levels)
+            (setq queue (append queue (list kid)))))))
+    levels))
+
+(defun relationship-annotator-fa2--colour (note)
+  "Fill colour of NOTE from the group of its first grouped tag, see `sp-org-tag-groups-colors'."
+  (let* ((group (seq-some (lambda (tag) (car (sp-org-tag-group-of tag)))
+                          (and note (vulpea-note-tags note))))
+         (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
+         (entry (or (assq name sp-org-tag-groups-palette)
+                    (assq 'default sp-org-tag-groups-palette)))
+         (dark (eq (frame-parameter nil 'background-mode) 'dark)))
+    (nth (if dark 3 1) entry)))
+
+(defun relationship-annotator-fa2--nodes (scope start)
+  "Return the graph-fa2 nodes for SCOPE: title and tags as label, tag-group colour, size by level."
+  (let ((notes (plist-get scope :notes))
+        (levels (relationship-annotator-fa2--levels scope start)))
+    (mapcar
+     (lambda (id)
+       (let* ((note (relationship-annotator--note id notes))
+              (hidden (gethash id (plist-get scope :more)))
+              (tags (and note (mapcar (lambda (tag) (concat "#" tag))
+                                      (vulpea-note-tags note)))))
+         (list :id id
+               :label (string-join
+                       (delq nil (list (relationship-annotator--title id notes)
+                                       (and tags (string-join tags " "))
+                                       (and hidden (format "(+%d)" hidden))))
+                       " ")
+               :colour (relationship-annotator-fa2--colour note)
+               :radius (float (max (cdr relationship-annotator-fa2-radius)
+                                   (- (car relationship-annotator-fa2-radius)
+                                      (* 3 (gethash id levels 0))))))))
+     (plist-get scope :nodes))))
+
+(defun relationship-annotator-fa2--edges (scope)
+  "Return the graph-fa2 edges for SCOPE, each labelled with its relation."
+  (let (edges)
+    (maphash
+     (lambda (parent kids)
+       (dolist (kid kids)
+         (push (list :from parent :to kid :directed t
+                     :label (relationship-annotator--relation-style 'parent :label "parent")
+                     :colour (relationship-annotator--relation-style 'parent :color "#888888"))
+               edges)))
+     (plist-get scope :children))
+    (pcase-dolist (`(,subject ,relation ,object) (plist-get scope :links))
+      (push (list :from subject :to object :directed t
+                  :label (relationship-annotator--relation-style
+                          relation :label (symbol-name relation))
+                  :colour (relationship-annotator--relation-style relation :color "#888888"))
+            edges))
+    (nreverse edges)))
+
+;;;###autoload
+(defun rel-anno-fa2 ()
+  "Ask for a starting note and depth, then show a force-directed graph in a buffer.
+Nodes carry the title and tags and are coloured by tag group; links carry
+the relation.  Clicking a node visits its note."
+  (interactive)
+  (require 'graph-fa2)
+  (pcase-let* ((`(,start . ,depth) (relationship-annotator--read-scope))
+               (tree (relationship-annotator--build))
+               (scope (relationship-annotator--scope tree start depth))
+               (buffer (get-buffer-create "*rel-anno-fa2*")))
+    (setq graph-fa2-label-colour
+          (if (eq (frame-parameter nil 'background-mode) 'dark) "#d4d4d4" "#32302C"))
+    (with-current-buffer buffer
+      (graph-fa2-mode 1)
+      (add-hook 'graph-fa2-node-clicked-functions
+                (lambda (id) (relationship-annotator--visit id tree))
+                nil t))
+    (graph-fa2-start buffer
+                     (relationship-annotator-fa2--nodes scope start)
+                     (relationship-annotator-fa2--edges scope))
+    (pop-to-buffer buffer)))
+#+end_src
+
 * Provide
 
 The one feature of the module. The old file ends were =;;; sp-relationship-annotator.el ends here= and the like; there is now a single one.
@@ -3284,3 +3410,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/19][#19]] 🔧 Changed the module to =sp-relationship-annotator=: node types, relation patterns, an anomaly check, computed attributes and =rel-anno-review=, ported from =discourse-graphs=. Reverted by [[https://github.com/siainbuletin/dotfiles/pull/32][#32]] and restored by [[https://github.com/siainbuletin/dotfiles/pull/33][#33]].
 - [[https://github.com/siainbuletin/dotfiles/pull/58][#58]] 🔧 Changed =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and its live view into one module, =sp-graphs=; commands and options are unchanged. ([[https://github.com/siainbuletin/dotfiles/pull/57][#57]] was closed: its branch had the wrong number.)
+- [[https://github.com/siainbuletin/dotfiles/pull/173][#173]] ✨ Added =rel-anno-fa2=, a force-directed graph in an Emacs buffer with =graph-fa2=: titles and tags on the nodes, colours from the tag groups, the relation on each link, node size by depth.
