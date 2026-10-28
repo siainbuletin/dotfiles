@@ -1,8 +1,5 @@
 ;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
-The module's own summary: fontaine owns the fonts, and everything else here reacts to them.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
 
 ;; Typography for the whole configuration.  `fontaine' owns the font
