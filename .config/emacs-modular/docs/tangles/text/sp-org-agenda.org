@@ -63,6 +63,8 @@ The file header: the first line carries the file name, a short summary and the =
 ;; limited to the current subtree or region.
 
 ;;; Code:
+
+(require 'sp-org-id-link)
 #+end_src
 
 ** Agenda settings
@@ -117,12 +119,24 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
 
 ** org-other-agenda
 
-Installs =org-other-agenda= by yibie straight from GitHub through the package manager's =:ensure= recipe. Nothing is configured, bound or required here, so the package only does whatever its own autoloads provide; how it is meant to be used is not visible from this module.
+Installs =org-other-agenda= by yibie straight from GitHub through the package manager's =:ensure= recipe. The package otherwise does whatever its own autoloads provide.
+
+Its rows used to show a link in a heading unfolded, as =[[id:...][title]]=. =sp-org-agenda-linkify-title= runs the row title through =sp-org-link-linkify= (from =sp-org-id-link=, the same helper the query tables use for links in cells), so the row shows only the description in =org-link= face. It is added as =:filter-return= advice on =org-other-agenda--clean-title=, a private function of the package that produces every row title (and the title Embark gets); it is added when the package loads. If the package renames that function the advice stops applying and links show unfolded again. Titles without links, or any title when =org-link-descriptive= is nil, are unchanged. The rows already follow their own row on RET, so the link keymap is not what opens an entry there.
 
 #+begin_src emacs-lisp -i
 ;;;; Org other agenda (yibie)
 (use-package org-other-agenda
   :ensure (:host github :repo "yibie/org-other-agenda"))
+
+;; Show links in the rows by their description, as an Org buffer does,
+;; with the helper the query tables use (`sp-org-link-linkify').
+(defun sp-org-agenda-linkify-title (title)
+  "Return the row TITLE of `org-other-agenda' with its Org links described."
+  (sp-org-link-linkify title))
+
+(with-eval-after-load 'org-other-agenda
+  (advice-add 'org-other-agenda--clean-title :filter-return
+              #'sp-org-agenda-linkify-title))
 #+end_src
 
 * Agenda commands and hooks
@@ -632,3 +646,9 @@ Provides the =sp-agenda-views= feature and closes the file.
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/185][#185]] 🔧 =org-other-agenda= rows show links by their description (=sp-org-agenda-linkify-title=).

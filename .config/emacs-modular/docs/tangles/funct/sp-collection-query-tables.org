@@ -389,7 +389,7 @@ Everything that does not depend on how a table is drawn.
 
 - A table is a /spec/, a plist.
 - =sp-collec-query-query= turns it into notes with one =vulpea-db-query= predicate.
-- =sp-collec-query-cell= turns a note and a column into text; =sp-collec-query-linkify= shows the Org links in that text by their description, in =org-link= face, with RET or a click following them (nothing changes when =org-link-descriptive= is nil).
+- =sp-collec-query-cell= turns a note and a column into text; =sp-org-link-linkify= shows the Org links in that text by their description, in =org-link= face, with RET or a click following them (nothing changes when =org-link-descriptive= is nil).
 - The dynamic block, exc, vui and the Org buffer all call these, so a query behaves the same in all of them.
 
 ** Header and requires
@@ -421,6 +421,7 @@ Group, requires. The group =sp-collec-query= holds every option of the module fa
 (require 'subr-x)
 (require 'vulpea)
 (require 'org)
+(require 'sp-org-id-link)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -604,48 +605,6 @@ naming a meta key (several values are joined with \", \")."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defvar sp-collec-query-link-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'sp-collec-query-open-link)
-    (define-key map [mouse-1] #'sp-collec-query-open-link)
-    (define-key map [mouse-2] #'sp-collec-query-open-link)
-    map)
-  "Keymap on a link shown in a query table cell.")
-
-(defun sp-collec-query-open-link ()
-  "Follow the Org link in the table cell at point or at the last mouse click."
-  (interactive)
-  (when (mouse-event-p last-input-event)
-    (mouse-set-point last-input-event))
-  (let ((link (get-text-property (point) 'sp-collec-query-link)))
-    (if link
-        (org-link-open-from-string (format "[[%s]]" link))
-      (user-error "No link here"))))
-
-(defun sp-collec-query-has-link-p (text)
-  "Non-nil if TEXT contains an Org bracket link."
-  (and (string-match-p org-link-bracket-re text) t))
-
-(defun sp-collec-query-linkify (text)
-  "Return TEXT with its Org links shown the way an Org buffer shows them.
-Each [[target][description]] becomes its description alone in `org-link'
-face, and RET or a click follows the link.  Text is returned as is when
-`org-link-descriptive' is nil."
-  (if (not (and org-link-descriptive (sp-collec-query-has-link-p text)))
-      text
-    (let ((pos 0) out)
-      (while (string-match org-link-bracket-re text pos)
-        (let* ((link (org-link-unescape (match-string 1 text)))
-               (desc (or (match-string 2 text) link)))
-          (push (substring text pos (match-beginning 0)) out)
-          (push (propertize desc 'face 'org-link 'mouse-face 'highlight
-                            'help-echo link 'keymap sp-collec-query-link-map
-                            'sp-collec-query-link link)
-                out)
-          (setq pos (match-end 0))))
-      (push (substring text pos) out)
-      (apply #'concat (nreverse out)))))
-
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (if (keywordp column)
@@ -722,9 +681,9 @@ SPEC's :parent-of must be resolved already (see
 #+begin_src emacs-lisp -i
 (defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS.
-Links in the texts are shown by their description, see `sp-collec-query-linkify'."
+Links in the texts are shown by their description, see `sp-org-link-linkify'."
   (mapcar (lambda (note)
-            (mapcar (lambda (c) (sp-collec-query-linkify (sp-collec-query-cell note c)))
+            (mapcar (lambda (c) (sp-org-link-linkify (sp-collec-query-cell note c)))
                     columns))
           notes))
 #+end_src
@@ -2033,7 +1992,7 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
                 ((not (stringp (nth col columns)))
                  (user-error "The %s column is read-only"
                              (sp-collec-query-header-label (nth col columns))))
-                ((sp-collec-query-has-link-p
+                ((sp-org-link-has-link-p
                   (sp-collec-query-cell (aref notes (1- row)) (nth col columns)))
                  (user-error "This cell holds a link; edit it in the note"))
                 (t (sp-collec-query-write-meta (aref notes (1- row)) (nth col columns) value)
@@ -2263,12 +2222,12 @@ spec's sort."
                         ((eq c :title)
                          (vui-button (or (vulpea-note-title note) "")
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
-                        ((keywordp c) (sp-collec-query-linkify (sp-collec-query-cell note c)))
+                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-cell note c)))
                         ;; A field would show the raw [[id:..][..]] text and
                         ;; save the description over the link when edited.
-                        ((sp-collec-query-has-link-p
+                        ((sp-org-link-has-link-p
                           (or (car (vulpea-note-meta-get-list note c)) ""))
-                         (vui-text (sp-collec-query-linkify
+                         (vui-text (sp-org-link-linkify
                                     (sp-collec-query-cell note c))))
                         (t (vui-field
                             :value (or (car (vulpea-note-meta-get-list note c)) "")
@@ -2443,7 +2402,7 @@ Replaces the content of every =vulpea-table= block with a live table, and puts t
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/43][#43]] ✨ Added =sp-vulpea-table= as one entry point: a query menu (=C-c w T=), saved views, a =vulpea-table= block and three renderers (exc, vui and plain Org). Fixed title sorting, =|= in cells, heading rows rewriting the file's meta and inline tables leaving the note modified.
-- [[https://github.com/siainbuletin/dotfiles/pull/164][#164]] ✨ Added links in cells: the vui and exc renderers show =[[id:..][title]]= in a meta column by its description (=sp-collec-query-linkify=); in vui RET or a click follows it. A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/164][#164]] ✨ Added links in cells: the vui and exc renderers show =[[id:..][title]]= in a meta column by its description (=sp-collec-query-linkify=, now =sp-org-link-linkify=); in vui RET or a click follows it. A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/165][#165]] 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=. A file in the old place is read until the new one is saved. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/168][#168]] 🔧 Changed the exc table to end one empty row after the last note, not at the bottom of the window: the sheet's row limit is set per buffer (=exc-calc-sheet-limit=). Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/169][#169]] ✨ Added =:column-widths= and =:wrap= to the spec, so a saved view keeps the exc column widths and word wrap of its columns; menu keys =w= and =W=; new options =sp-collec-query-exc-wrap= and =sp-collec-query-exc-max-width=. Not run in Emacs (none in the container).
