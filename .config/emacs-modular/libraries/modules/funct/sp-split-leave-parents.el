@@ -482,8 +482,11 @@ directory."
     (let ((denote-rename-confirmations nil)
           (denote-save-buffers t))
       ;; TITLE `keep-current' reads the `#+title' written by the split;
-      ;; KEYWORDS are the note's tags; no signature, default date.
-      (denote-rename-file old 'keep-current (vulpea-note-tags note) nil nil))
+      ;; KEYWORDS are the note's tags; no signature, default date.  Older
+      ;; Denote versions have no DATE argument, so pass only what fits.
+      (apply #'denote-rename-file old 'keep-current (vulpea-note-tags note)
+             (let ((most (cdr (func-arity #'denote-rename-file))))
+               (take (if (integerp most) (max 0 (- most 3)) 2) '(nil nil)))))
     (let ((new (car (seq-difference
                      (directory-files dir nil directory-files-no-dot-files-regexp t)
                      before #'string-equal))))
