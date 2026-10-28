@@ -1807,6 +1807,7 @@ Header, declarations, the column-width option and the buffer-local state. The st
 (declare-function exc-etaf-goto "exc-etaf")
 (declare-function sp-collec-query-menu "sp-collection-query-tables-menu")
 (defvar exc--data-source)
+(defvar exc-calc-sheet-limit)
 (defvar sp-collec-query-menu--spec)
 (defvar sp-collec-query-menu--target)
 #+end_src
@@ -1830,6 +1831,7 @@ A column not listed uses the entry for t."
 (dolist (var '(sp-collec-query-exc--spec sp-collec-query-exc--notes
                sp-collec-query-exc--refresher))
   (put var 'permanent-local t))
+(put 'exc-calc-sheet-limit 'permanent-local t)
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -1934,6 +1936,10 @@ A minor mode with its own keymap (=C-c o= open the note, =C-c q= edit the query 
   "Run SPEC and draw the result in the current buffer."
   (let* ((notes (sp-collec-query-query spec))
          (source (sp-collec-query-exc--source spec notes)))
+    ;; exc draws empty rows below the data down to the end of the window;
+    ;; end the sheet one row after the last note, to add an entry there.
+    (setq-local exc-calc-sheet-limit
+                (cons (+ (length notes) 2) (cdr exc-calc-sheet-limit)))
     (exc--show-grid-in-current-buffer source (sp-collec-query-spec-summary spec))
     (setq sp-collec-query-exc--spec spec
           sp-collec-query-exc--notes (vconcat notes))
@@ -2260,3 +2266,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/43][#43]] ✨ Added =sp-vulpea-table= as one entry point: a query menu (=C-c w T=), saved views, a =vulpea-table= block and three renderers (exc, vui and plain Org). Fixed title sorting, =|= in cells, heading rows rewriting the file's meta and inline tables leaving the note modified.
 - [[https://github.com/siainbuletin/dotfiles/pull/164][#164]] ✨ Added links in cells: the vui and exc renderers show =[[id:..][title]]= in a meta column by its description (=sp-collec-query-linkify=); in vui RET or a click follows it. A cell with a link is read-only (vui shows text instead of a field, exc refuses the edit), so an edit cannot overwrite the link with its description. =sp-collec-query-link-titles= is unchanged: it only makes the /title/ column an =id:= link in the dynamic block and the Org buffer. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/165][#165]] 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=. A file in the old place is read until the new one is saved. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/168][#168]] 🔧 Changed the exc table to end one empty row after the last note, not at the bottom of the window: the sheet's row limit is set per buffer (=exc-calc-sheet-limit=). Not run in Emacs (none in the container).

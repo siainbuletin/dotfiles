@@ -27,6 +27,7 @@
 (declare-function exc-etaf-goto "exc-etaf")
 (declare-function sp-collec-query-menu "sp-collection-query-tables-menu")
 (defvar exc--data-source)
+(defvar exc-calc-sheet-limit)
 (defvar sp-collec-query-menu--spec)
 (defvar sp-collec-query-menu--target)
 
@@ -46,6 +47,7 @@ A column not listed uses the entry for t."
 (dolist (var '(sp-collec-query-exc--spec sp-collec-query-exc--notes
                sp-collec-query-exc--refresher))
   (put var 'permanent-local t))
+(put 'exc-calc-sheet-limit 'permanent-local t)
 
 (defun sp-collec-query-exc-available-p ()
   "Non-nil if exc and ETAF can be loaded."
@@ -122,6 +124,10 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
   "Run SPEC and draw the result in the current buffer."
   (let* ((notes (sp-collec-query-query spec))
          (source (sp-collec-query-exc--source spec notes)))
+    ;; exc draws empty rows below the data down to the end of the window;
+    ;; end the sheet one row after the last note, to add an entry there.
+    (setq-local exc-calc-sheet-limit
+                (cons (+ (length notes) 2) (cdr exc-calc-sheet-limit)))
     (exc--show-grid-in-current-buffer source (sp-collec-query-spec-summary spec))
     (setq sp-collec-query-exc--spec spec
           sp-collec-query-exc--notes (vconcat notes))
