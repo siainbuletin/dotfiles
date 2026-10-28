@@ -36,12 +36,16 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:SORT-DESC non-nil to sort descending; :COLUMN-WIDTHS an alist of
-\(COLUMN . WIDTH) giving the width in characters of a column in the exc
-table, T standing for the columns not listed; :WRAP `wrap' to wrap long
-text inside the width, or `fit' to size a column to its text, up to
-`sp-collec-query-exc-max-width'.  The last two only apply to the exc
-renderer and fall back to the options of the same name.")
+:SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
+columns, applied in order: the first is the primary key and each next
+one breaks the ties of those before it.  An element may be (COLUMN . asc)
+or (COLUMN . desc) to set its own direction, otherwise :SORT-DESC applies.
+:COLUMN-WIDTHS an alist of \(COLUMN . WIDTH) giving the width in
+characters of a column in the exc table, T standing for the columns not
+listed; :WRAP `wrap' to wrap long text inside the width, or `fit' to size
+a column to its text, up to `sp-collec-query-exc-max-width'.  The last
+two only apply to the exc renderer and fall back to the options of the
+same name.")
 
 (defconst sp-collec-query-builtin-columns
   '(:title :tags :todo :level :priority :id :file :path)
@@ -209,13 +213,41 @@ Numbers sort numerically and before text; empty cells go last."
           (num-b nil)
           (t (string-collate-lessp a b nil t)))))
 
-(defun sp-collec-query-sort (notes column &optional descending)
-  "Return NOTES sorted by COLUMN, reversed when DESCENDING."
-  (if (null column)
-      notes
-    (let ((sorted (seq-sort-by (lambda (n) (sp-collec-query-cell n column))
-                               #'sp-collec-query--sort-lessp notes)))
-      (if descending (reverse sorted) sorted))))
+(defun sp-collec-query-sort-keys (sort-by &optional descending)
+  "Return SORT-BY as a list of (COLUMN . DESCENDING) keys, primary first.
+SORT-BY is nil, one column, or a list of columns, each optionally
+(COLUMN . asc) or (COLUMN . desc); a plain column is descending when
+DESCENDING is non-nil."
+  (mapcar (lambda (key)
+            (if (consp key)
+                (cons (car key) (and (memq (cdr key) '(desc t)) t))
+              (cons key (and descending t))))
+          (if (listp sort-by) sort-by (list sort-by))))
+
+(defun sp-collec-query--keys-lessp (cells-a cells-b keys)
+  "Non-nil if the row CELLS-A sorts before CELLS-B under KEYS.
+Each key decides unless both cells are equal under it; then the next does."
+  (let (result decided)
+    (while (and keys (not decided))
+      (let* ((a (pop cells-a)) (b (pop cells-b)) (desc (cdr (pop keys))))
+        (cond ((sp-collec-query--sort-lessp a b)
+               (setq decided t result (not desc)))
+              ((sp-collec-query--sort-lessp b a)
+               (setq decided t result desc)))))
+    result))
+
+(defun sp-collec-query-sort (notes sort-by &optional descending)
+  "Return NOTES sorted by SORT-BY, descending when DESCENDING.
+SORT-BY is a column or a list of keys, see `sp-collec-query-sort-keys'.
+The sort is stable, so notes equal under every key keep their order."
+  (if-let* ((keys (sp-collec-query-sort-keys sort-by descending)))
+      (let ((rows (mapcar (lambda (n)
+                            (cons n (mapcar (lambda (k) (sp-collec-query-cell n (car k)))
+                                            keys)))
+                          notes)))
+        (mapcar #'car (sort rows (lambda (a b)
+                                   (sp-collec-query--keys-lessp (cdr a) (cdr b) keys)))))
+    notes))
 
 (defun sp-collec-query-query (spec)
   "Return the notes SPEC asks for, sorted.
@@ -262,7 +294,13 @@ Links in the texts are shown by their description, see `sp-collec-query-linkify'
       (add "children of" (and (plist-get spec :parent-of)
                               (format "%s" (plist-get spec :parent-of))))
       (add "level" (pcase (plist-get spec :level) (0 "file-level") ('headings "headings")))
-      (add "title ~" (plist-get spec :title-match)))
+      (add "title ~" (plist-get spec :title-match))
+      (add "sorted by" (mapcar (lambda (k)
+                                 (format "%s%s"
+                                         (if (keywordp (car k)) (substring (symbol-name (car k)) 1) (car k))
+                                         (if (cdr k) " desc" "")))
+                               (sp-collec-query-sort-keys (plist-get spec :sort-by)
+                                                          (plist-get spec :sort-desc)))))
     (if parts (string-join (nreverse parts) "; ") "all notes")))
 
 ;;;; Choosing notes
@@ -344,7 +382,7 @@ should run their query again.  A live table adds one while it is open.")
 The Vulpea database is updated by its own autosync; if tables sometimes
 show stale data, lengthen this."
   :type 'number
-  :group 'spcustom)
+  :group 'sp-collec-query)
 
 (defun sp-collec-query-refresh-all ()
   "Tell every open live query table to run its query again."

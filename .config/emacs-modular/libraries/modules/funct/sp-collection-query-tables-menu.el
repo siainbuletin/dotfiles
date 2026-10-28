@@ -89,7 +89,13 @@
       (:meta (mapconcat (lambda (c) (if (cdr c) (format "%s=%s" (car c) (cdr c)) (car c)))
                         value ", "))
       (:columns (mapconcat #'sp-collec-query-menu--column-name value " "))
-      (:sort-by (and value (sp-collec-query-menu--column-name value)))
+      (:sort-by (and value
+                     (mapconcat
+                      (lambda (k)
+                        (concat (sp-collec-query-menu--column-name (car k))
+                                (and (cdr k) ":desc")))
+                      (sp-collec-query-sort-keys value (sp-collec-query-menu--get :sort-desc))
+                      ", ")))
       (:sort-desc (and value "descending"))
       (:column-widths (sp-collec-query-menu--widths-text value))
       (:wrap (and value (symbol-name value)))
@@ -133,7 +139,7 @@
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-title "Title matches" :title-match)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-columns "Columns" :columns)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-sort "Sort by" :sort-by)
-(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction (default)" :sort-desc)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-widths "Column widths" :column-widths)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-wrap "Word wrap" :wrap)
 
@@ -259,18 +265,44 @@
     (sp-collec-query-menu--set
      :columns (mapcar #'sp-collec-query-menu--column cols))))
 
+(defun sp-collec-query-menu--read-sort-key (string)
+  "Return the sort key STRING names: COLUMN, or (COLUMN . desc) or (COLUMN . asc).
+STRING is a column name, optionally followed by \":asc\" or \":desc\"."
+  (if (string-match "\\`\\(.+\\):\\(asc\\|desc\\)\\'" string)
+      (cons (sp-collec-query-menu--column (match-string 1 string))
+            (intern (match-string 2 string)))
+    (sp-collec-query-menu--column string)))
+
 (defun sp-collec-query-menu-set-sort ()
-  "Set the column to sort by."
+  "Set the columns to sort by, in order: the first is the primary key.
+Each next column breaks the ties of those before it.  Add \":desc\" or
+\":asc\" to a column to give it its own direction."
   (interactive)
-  (let ((col (completing-read "Sort by (empty for none): "
-                              (or (mapcar #'sp-collec-query-menu--column-name
-                                          (sp-collec-query-menu--get :columns))
-                                  (sp-collec-query-menu--column-candidates)))))
+  (let* ((current (sp-collec-query-menu--get :sort-by))
+         (cols (completing-read-multiple
+                "Sort by, in order (column or column:desc; empty for none): "
+                (or (mapcar #'sp-collec-query-menu--column-name
+                            (sp-collec-query-menu--get :columns))
+                    (sp-collec-query-menu--column-candidates))
+                nil nil
+                (and current
+                     (concat (mapconcat
+                              (lambda (k)
+                                (if (consp k)
+                                    (format "%s:%s" (sp-collec-query-menu--column-name (car k)) (cdr k))
+                                  (sp-collec-query-menu--column-name k)))
+                              (if (listp current) current (list current))
+                              ",")
+                             ",")))))
+    (setq cols (delete "" cols))
     (sp-collec-query-menu--set
-     :sort-by (unless (string-empty-p col) (sp-collec-query-menu--column col)))))
+     :sort-by (let ((keys (mapcar #'sp-collec-query-menu--read-sort-key cols)))
+                (if (and keys (null (cdr keys)) (atom (car keys)))
+                    (car keys)
+                  keys)))))
 
 (defun sp-collec-query-menu-toggle-desc ()
-  "Toggle between ascending and descending order."
+  "Toggle the default direction, for the sort columns that do not set their own."
   (interactive)
   (sp-collec-query-menu--set :sort-desc (not (sp-collec-query-menu--get :sort-desc))))
 

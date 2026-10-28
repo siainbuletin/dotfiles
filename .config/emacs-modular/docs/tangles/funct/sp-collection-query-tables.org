@@ -68,7 +68,7 @@ A plist. Every filter is optional and the filters are combined with /and/.
 | =:level=                         | nil, =0= (file-level notes) or =headings=                               |
 | =:title-match=                   | regexp for the title, case-insensitive                                  |
 | =:columns=                       | =:title :tags :todo :level :priority :id :file :path= or a meta key     |
-| =:sort-by=, =:sort-desc=         | a column, and non-nil for descending                                    |
+| =:sort-by=, =:sort-desc=         | a column or a list of them (primary key first), and non-nil for descending |
 | =:column-widths=                 | exc only: alist =(COLUMN . WIDTH)=; =t= stands for the columns not listed |
 | =:wrap=                          | exc only: =wrap= (wrap inside the width) or =fit= (size to the text)    |
 
@@ -465,12 +465,16 @@ VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:SORT-DESC non-nil to sort descending; :COLUMN-WIDTHS an alist of
-\(COLUMN . WIDTH) giving the width in characters of a column in the exc
-table, T standing for the columns not listed; :WRAP `wrap' to wrap long
-text inside the width, or `fit' to size a column to its text, up to
-`sp-collec-query-exc-max-width'.  The last two only apply to the exc
-renderer and fall back to the options of the same name.")
+:SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
+columns, applied in order: the first is the primary key and each next
+one breaks the ties of those before it.  An element may be (COLUMN . asc)
+or (COLUMN . desc) to set its own direction, otherwise :SORT-DESC applies.
+:COLUMN-WIDTHS an alist of \(COLUMN . WIDTH) giving the width in
+characters of a column in the exc table, T standing for the columns not
+listed; :WRAP `wrap' to wrap long text inside the width, or `fit' to size
+a column to its text, up to `sp-collec-query-exc-max-width'.  The last
+two only apply to the exc renderer and fall back to the options of the
+same name.")
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -520,7 +524,7 @@ switches buffers."
 
 ** Querying
 
-One predicate over =vulpea-db-query=, which loads every note and filters in Lisp (linear in the number of notes, about ten microseconds each according to Vulpea's docstring). Sorting treats numbers as numbers, puts them before text and leaves empty cells last, so a rating column sorts as expected.
+One predicate over =vulpea-db-query=, which loads every note and filters in Lisp (linear in the number of notes, about ten microseconds each according to Vulpea's docstring). Sorting treats numbers as numbers, puts them before text and leaves empty cells last, so a rating column sorts as expected. =:sort-by= can be a list of columns: each compares only the notes equal under the ones before it (=sp-collec-query--keys-lessp=), and each has its own direction.
 
 #+begin_src emacs-lisp -i
 ;;;; Querying
@@ -666,13 +670,41 @@ Numbers sort numerically and before text; empty cells go last."
 #+end_src
 
 #+begin_src emacs-lisp -i
-(defun sp-collec-query-sort (notes column &optional descending)
-  "Return NOTES sorted by COLUMN, reversed when DESCENDING."
-  (if (null column)
-      notes
-    (let ((sorted (seq-sort-by (lambda (n) (sp-collec-query-cell n column))
-                               #'sp-collec-query--sort-lessp notes)))
-      (if descending (reverse sorted) sorted))))
+(defun sp-collec-query-sort-keys (sort-by &optional descending)
+  "Return SORT-BY as a list of (COLUMN . DESCENDING) keys, primary first.
+SORT-BY is nil, one column, or a list of columns, each optionally
+(COLUMN . asc) or (COLUMN . desc); a plain column is descending when
+DESCENDING is non-nil."
+  (mapcar (lambda (key)
+            (if (consp key)
+                (cons (car key) (and (memq (cdr key) '(desc t)) t))
+              (cons key (and descending t))))
+          (if (listp sort-by) sort-by (list sort-by))))
+
+(defun sp-collec-query--keys-lessp (cells-a cells-b keys)
+  "Non-nil if the row CELLS-A sorts before CELLS-B under KEYS.
+Each key decides unless both cells are equal under it; then the next does."
+  (let (result decided)
+    (while (and keys (not decided))
+      (let* ((a (pop cells-a)) (b (pop cells-b)) (desc (cdr (pop keys))))
+        (cond ((sp-collec-query--sort-lessp a b)
+               (setq decided t result (not desc)))
+              ((sp-collec-query--sort-lessp b a)
+               (setq decided t result desc)))))
+    result))
+
+(defun sp-collec-query-sort (notes sort-by &optional descending)
+  "Return NOTES sorted by SORT-BY, descending when DESCENDING.
+SORT-BY is a column or a list of keys, see `sp-collec-query-sort-keys'.
+The sort is stable, so notes equal under every key keep their order."
+  (if-let* ((keys (sp-collec-query-sort-keys sort-by descending)))
+      (let ((rows (mapcar (lambda (n)
+                            (cons n (mapcar (lambda (k) (sp-collec-query-cell n (car k)))
+                                            keys)))
+                          notes)))
+        (mapcar #'car (sort rows (lambda (a b)
+                                   (sp-collec-query--keys-lessp (cdr a) (cdr b) keys)))))
+    notes))
 #+end_src
 
 #+begin_src emacs-lisp -i
@@ -731,7 +763,13 @@ A one-line description of a spec, used in the menu header, the exc title and the
       (add "children of" (and (plist-get spec :parent-of)
                               (format "%s" (plist-get spec :parent-of))))
       (add "level" (pcase (plist-get spec :level) (0 "file-level") ('headings "headings")))
-      (add "title ~" (plist-get spec :title-match)))
+      (add "title ~" (plist-get spec :title-match))
+      (add "sorted by" (mapcar (lambda (k)
+                                 (format "%s%s"
+                                         (if (keywordp (car k)) (substring (symbol-name (car k)) 1) (car k))
+                                         (if (cdr k) " desc" "")))
+                               (sp-collec-query-sort-keys (plist-get spec :sort-by)
+                                                          (plist-get spec :sort-desc)))))
     (if parts (string-join (nreverse parts) "; ") "all notes")))
 #+end_src
 
@@ -1422,7 +1460,13 @@ Each key's label shows the current value. The macro defines one description func
       (:meta (mapconcat (lambda (c) (if (cdr c) (format "%s=%s" (car c) (cdr c)) (car c)))
                         value ", "))
       (:columns (mapconcat #'sp-collec-query-menu--column-name value " "))
-      (:sort-by (and value (sp-collec-query-menu--column-name value)))
+      (:sort-by (and value
+                     (mapconcat
+                      (lambda (k)
+                        (concat (sp-collec-query-menu--column-name (car k))
+                                (and (cdr k) ":desc")))
+                      (sp-collec-query-sort-keys value (sp-collec-query-menu--get :sort-desc))
+                      ", ")))
       (:sort-desc (and value "descending"))
       (:column-widths (sp-collec-query-menu--widths-text value))
       (:wrap (and value (symbol-name value)))
@@ -1472,7 +1516,7 @@ Each key's label shows the current value. The macro defines one description func
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-title "Title matches" :title-match)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-columns "Columns" :columns)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-sort "Sort by" :sort-by)
-(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction (default)" :sort-desc)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-widths "Column widths" :column-widths)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-wrap "Word wrap" :wrap)
 #+end_src
@@ -1639,20 +1683,46 @@ One command per setting.
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-menu--read-sort-key (string)
+  "Return the sort key STRING names: COLUMN, or (COLUMN . desc) or (COLUMN . asc).
+STRING is a column name, optionally followed by \":asc\" or \":desc\"."
+  (if (string-match "\\`\\(.+\\):\\(asc\\|desc\\)\\'" string)
+      (cons (sp-collec-query-menu--column (match-string 1 string))
+            (intern (match-string 2 string)))
+    (sp-collec-query-menu--column string)))
+
 (defun sp-collec-query-menu-set-sort ()
-  "Set the column to sort by."
+  "Set the columns to sort by, in order: the first is the primary key.
+Each next column breaks the ties of those before it.  Add \":desc\" or
+\":asc\" to a column to give it its own direction."
   (interactive)
-  (let ((col (completing-read "Sort by (empty for none): "
-                              (or (mapcar #'sp-collec-query-menu--column-name
-                                          (sp-collec-query-menu--get :columns))
-                                  (sp-collec-query-menu--column-candidates)))))
+  (let* ((current (sp-collec-query-menu--get :sort-by))
+         (cols (completing-read-multiple
+                "Sort by, in order (column or column:desc; empty for none): "
+                (or (mapcar #'sp-collec-query-menu--column-name
+                            (sp-collec-query-menu--get :columns))
+                    (sp-collec-query-menu--column-candidates))
+                nil nil
+                (and current
+                     (concat (mapconcat
+                              (lambda (k)
+                                (if (consp k)
+                                    (format "%s:%s" (sp-collec-query-menu--column-name (car k)) (cdr k))
+                                  (sp-collec-query-menu--column-name k)))
+                              (if (listp current) current (list current))
+                              ",")
+                             ",")))))
+    (setq cols (delete "" cols))
     (sp-collec-query-menu--set
-     :sort-by (unless (string-empty-p col) (sp-collec-query-menu--column col)))))
+     :sort-by (let ((keys (mapcar #'sp-collec-query-menu--read-sort-key cols)))
+                (if (and keys (null (cdr keys)) (atom (car keys)))
+                    (car keys)
+                  keys)))))
 #+end_src
 
 #+begin_src emacs-lisp -i
 (defun sp-collec-query-menu-toggle-desc ()
-  "Toggle between ascending and descending order."
+  "Toggle the default direction, for the sort columns that do not set their own."
   (interactive)
   (sp-collec-query-menu--set :sort-desc (not (sp-collec-query-menu--get :sort-desc))))
 #+end_src
@@ -2154,13 +2224,24 @@ The component. Titles are buttons, meta columns are editable fields, and the "So
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-vui--promote (keys column)
+  "Return KEYS with COLUMN as the primary key.
+When COLUMN already is the primary key its direction flips; otherwise it
+is put first, ascending, and the other keys follow as tie-breakers."
+  (if (equal (car (car keys)) column)
+      (cons (cons column (not (cdr (car keys)))) (cdr keys))
+    (cons (cons column nil)
+          (seq-remove (lambda (k) (equal (car k) column)) keys))))
+
 (vui-defcomponent sp-collec-query (spec)
   "A live table of the notes SPEC asks for, with clickable titles.
 Meta columns are editable fields that write back to their note.  Click a
-column in the \"Sort by\" row to sort by it, and again to reverse."
+column in the \"Sort by\" row to sort by it, and again to reverse; the
+columns clicked before stay as tie-breakers, in the order clicked last
+(the number after the arrow is the rank).  \"Reset\" goes back to the
+spec's sort."
   :state ((refresh-tick 0)
-          (sort-override nil)
-          (sort-desc nil))
+          (sort-override nil))
   :render
   (progn
     (vui-use-effect ()
@@ -2168,11 +2249,12 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
         (add-hook 'sp-collec-query-refresh-functions fn)
         (lambda () (remove-hook 'sp-collec-query-refresh-functions fn))))
     (let* ((columns (plist-get spec :columns))
-           (effective-sort (or sort-override (plist-get spec :sort-by)))
-           (descending (if sort-override sort-desc (plist-get spec :sort-desc)))
+           (keys (or sort-override
+                     (sp-collec-query-sort-keys (plist-get spec :sort-by)
+                                                (plist-get spec :sort-desc))))
            (notes (sp-collec-query-sort
                    (sp-collec-query-query (plist-put (copy-sequence spec) :sort-by nil))
-                   effective-sort descending))
+                   keys))
            (rows (mapcar
                   (lambda (note)
                     (mapcar
@@ -2202,19 +2284,25 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
        (vui-newline)
        (apply #'vui-hstack
               (vui-text "Sort by: " :face 'shadow)
-              (mapcar
-               (lambda (c)
-                 (vui-button
-                  (concat (sp-collec-query-header-label c)
-                          (cond ((not (equal effective-sort c)) "")
-                                (descending " ↓") (t " ↑")))
-                  :on-click (lambda ()
-                              (if (equal effective-sort c)
-                                  (progn (vui-set-state :sort-override c)
-                                         (vui-set-state :sort-desc (not descending)))
-                                (vui-set-state :sort-override c)
-                                (vui-set-state :sort-desc nil)))))
-               columns))
+              (append
+               (mapcar
+                (lambda (c)
+                  (let ((rank (seq-position keys c (lambda (k col) (equal (car k) col)))))
+                    (vui-button
+                     (concat (sp-collec-query-header-label c)
+                             (if rank
+                                 (format " %s%s" (if (cdr (nth rank keys)) "↓" "↑")
+                                         (if (cdr keys) (1+ rank) ""))
+                               ""))
+                     :on-click (lambda ()
+                                 (vui-set-state
+                                  :sort-override
+                                  (sp-collec-query-vui--promote keys c))))))
+                columns)
+               (and sort-override
+                    (list (vui-button "Reset"
+                                      :on-click (lambda ()
+                                                  (vui-set-state :sort-override nil)))))))
        (vui-newline)
        (vui-table :columns (mapcar (lambda (c)
                                      (list :header (sp-collec-query-header-label c)
@@ -2359,3 +2447,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/165][#165]] 🔧 Changed the views file to =sp-collection-query-tables-views.el= in =sp-etc-dir=, not =user-emacs-directory=. A file in the old place is read until the new one is saved. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/168][#168]] 🔧 Changed the exc table to end one empty row after the last note, not at the bottom of the window: the sheet's row limit is set per buffer (=exc-calc-sheet-limit=). Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/169][#169]] ✨ Added =:column-widths= and =:wrap= to the spec, so a saved view keeps the exc column widths and word wrap of its columns; menu keys =w= and =W=; new options =sp-collec-query-exc-wrap= and =sp-collec-query-exc-max-width=. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/172][#172]] ✨ Added sorting by several columns: =:sort-by= may be a list, applied in order (the first column is the primary key, each next one breaks the ties of those before it), and an element may be =(COLUMN . asc)= or =(COLUMN . desc)= for its own direction; a single column still works. The sort is stable, so ties keep the query order (before, descending reversed them). The menu's =o= reads the columns in order (=rating,title:desc=), =O= is the default direction for those without their own; vui keeps the columns clicked before as tie-breakers (the number after the arrow is the rank) with a Reset button; the summary line says "sorted by". exc and Org take the spec as is. Not run in Emacs beyond the sort tests in =tests/sp-collection-query-tables-test.el= (core with stubbed Vulpea); menu and vui not run.
