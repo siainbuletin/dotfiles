@@ -584,7 +584,7 @@ The =i= prefix lists the open issues of the issue tracker.
 It solves the same problem as the issue views, scoping the agenda to one set of files, and copies the approach of [[file:../custom/sp-org-issues.org][=sp-org-issues=]] (its =sp-org-issues--agenda-files= and the =i i= / =i b= views). How it is built, the same way as the issue views:
 
 - It restricts =org-agenda-files= to the config files and binds =vulpea-para-agenda-inhibit-files-update=, otherwise vulpea-para would put the PARA files back before the block runs.
-- It uses a =todo= block with an empty match, so every open keyword counts, including the =#+todo:= keywords a file declares for itself. It does not depend on the global =org-todo-keywords=, which =sp-org-keywords= sets and other code could overwrite late.
+- It uses a =todo= block with an empty match, so every open keyword counts, including the =#+todo:= keywords a file declares for itself. It names no keyword, but it still relies on =org-todo-keywords=: the empty match means "any keyword that is not a done state", and Org decides which words those are from each buffer's keywords (the global =org-todo-keywords= that =sp-org-keywords= sets, or a file's own =#+todo:= line). So a heading whose keyword is in neither list is not a TODO to the view, and a keyword in the done part of its sequence (DONE, CNCL) is left out.
 - Only this view changes =org-agenda-prefix-format= (the =todo= entry), through the view's own settings. The global prefix in =sp-org-agenda= is untouched.
 - =sp-agenda-views-file-title= reads the title straight from the buffer, with the buffer widened, and falls back to the file name. It runs with point on the entry, which is how the prefix format evaluates =%(...)=.
 
