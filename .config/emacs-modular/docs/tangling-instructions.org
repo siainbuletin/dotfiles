@@ -1,9 +1,9 @@
 #+title: Tangling the literate configuration
 #+startup: overview
 
-How the literate sources in =docs/tangles/= are turned into the =.el= modules in =libraries/modules/=. Commands and paths are relative to =~/.config/emacs-modular=. For what the configuration is and where each module lives, see [[file:main.org][main.org]].
+How the literate sources in =docs/tangles/= are turned into the =.el= modules in =libraries/modules/=. Commands and paths are relative to =~/.config/emacs-modular=. For what the configuration is and where each module lives, see [[file:../README.org][README.org]].
 
-Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:main.org::*Module tree][docs/main.org]].
+Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:../README.org::*Module tree][README.org]].
 
 * Where a file tangles to
 

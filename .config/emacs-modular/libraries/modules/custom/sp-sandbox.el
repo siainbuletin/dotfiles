@@ -3,7 +3,7 @@
 ;;; Commentary:
 
 ;; Commands for the fish function `emacs-pr' (see "Testing a pull request in a
-;; sandbox" in docs/main.org), so a sandbox can be started, reset and removed from
+;; sandbox" in README.org), so a sandbox can be started, reset and removed from
 ;; the Emacs I am already working in.  The sandbox is a second Emacs process with
 ;; its own worktree, packages and copy of the notes; this one is not touched.
 

@@ -10,7 +10,7 @@ Literate source for =libraries/modules/custom/sp-sandbox.el=.
 
 This module puts the fish function =emacs-pr= behind =M-x= commands, so a sandbox can be started from the Emacs I already work in.
 
-- The function is =~/.config/fish/functions/emacs-pr.fish=, described in [[file:../../main.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]].
+- The function is =~/.config/fish/functions/emacs-pr.fish=, described in [[file:../../../README.org::*Testing a pull request in a sandbox][Testing a pull request in a sandbox]].
 - The sandbox is a separate Emacs process, so the live one is untouched and keeps running.
 - The commands run fish in a process of their own and show its output in =*emacs-pr*=.
 - fish and =emacs= must be on Emacs's =exec-path=, which =sp-env= arranges on macOS.
@@ -21,7 +21,7 @@ The commentary at the top of the module says:
 
 #+begin_quote
 Commands for the fish function `emacs-pr' (see "Testing a pull request in a
-sandbox" in docs/main.org), so a sandbox can be started, reset and removed from
+sandbox" in README.org), so a sandbox can be started, reset and removed from
 the Emacs I am already working in.  The sandbox is a second Emacs process with
 its own worktree, packages and copy of the notes; this one is not touched.
 #+end_quote
@@ -38,7 +38,7 @@ The file header: the first line carries the file name, a short summary and the =
 ;;; Commentary:
 
 ;; Commands for the fish function `emacs-pr' (see "Testing a pull request in a
-;; sandbox" in docs/main.org), so a sandbox can be started, reset and removed from
+;; sandbox" in README.org), so a sandbox can be started, reset and removed from
 ;; the Emacs I am already working in.  The sandbox is a second Emacs process with
 ;; its own worktree, packages and copy of the notes; this one is not touched.
 

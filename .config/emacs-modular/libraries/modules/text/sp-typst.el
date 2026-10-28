@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Exports the literate documentation (docs/main.org, the architecture notes and
+;; Exports the literate documentation (README.org, the architecture notes and
 ;; the doc of every module) to one PDF through ox-typst and the `typst' command,
 ;; and any single Org file the same way.  The assembly of the book, the template
 ;; (docs/typst/template.typ) and the batch driver (docs/typst/export.el) are
@@ -115,14 +115,14 @@ Backups, empty files and, unless `sp-typst-include-old', `-old.org' docs are lef
   (let (parts)
     (push (cons "Overview"
                 (seq-filter (lambda (f) (file-exists-p (sp-typst--file f)))
-                            '("docs/main.org")))
+                            '("README.org")))
           parts)
     (dolist (directory sp-typst-doc-directories)
       (push (cons (capitalize (file-name-nondirectory directory))
                   (sp-typst--org-files directory))
             parts))
     (push (cons "Design notes"
-                (remove "docs/main.org" (sp-typst--org-files "docs")))
+                (sp-typst--org-files "docs"))
           parts)
     (dolist (sub (directory-files (sp-typst--file "docs/tangles") nil "\\`[^.]"))
       (let ((directory (concat "docs/tangles/" sub)))
