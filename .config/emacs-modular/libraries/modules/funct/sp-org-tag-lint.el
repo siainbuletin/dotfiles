@@ -8,7 +8,8 @@
 ;; probably a typo of, and the notes that have no #+filetags: line.
 ;; `sp-org-tag-add' registers a new note tag in the registry file and
 ;; loads it again, so it works at once.  `sp-org-tag-read-note-tags' asks
-;; for the tags of a new note.
+;; for the tags of a new note, in a menu grouped by `sp-org-tag-groups-alist'
+when `sp-org-tag-groups' is loaded.
 
 ;;; Code:
 
@@ -147,9 +148,11 @@ decline."
     (while (null result)
       (let ((tags (delete-dups
                    (seq-remove #'string-empty-p
-                               (completing-read-multiple
-                                (or prompt "Note tags (comma-separated): ")
-                                (sp-org-tag-lint-note-tags))))))
+                               (let ((prompt (or prompt "Note tags (comma-separated): "))
+                                     (candidates (sp-org-tag-lint-note-tags)))
+                                 (if (fboundp 'sp-org-tag-groups-read-tags)
+                                     (sp-org-tag-groups-read-tags prompt candidates)
+                                   (completing-read-multiple prompt candidates)))))))
         (setq result
               (seq-filter
                (lambda (tag)

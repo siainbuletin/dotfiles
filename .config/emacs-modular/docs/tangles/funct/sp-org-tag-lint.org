@@ -69,7 +69,8 @@ Dependencies and behaviour:
 ;; probably a typo of, and the notes that have no #+filetags: line.
 ;; `sp-org-tag-add' registers a new note tag in the registry file and
 ;; loads it again, so it works at once.  `sp-org-tag-read-note-tags' asks
-;; for the tags of a new note.
+;; for the tags of a new note, in a menu grouped by `sp-org-tag-groups-alist'
+;; when `sp-org-tag-groups' is loaded.
 
 ;;; Code:
 #+end_src
@@ -253,7 +254,7 @@ tag.  Return TAG."
 
 * Prompting for the tags of a new note
 
-The prompt completes from the note tags and asks for at least one, so no note is created without a tag; =C-g= aborts. A tag outside the registry is offered for registration, and dropped when you decline. Several tags are separated with a comma.
+The prompt completes from the note tags, headed by their tag group (=sp-org-tag-groups-read-tags=) when =sp-org-tag-groups= is loaded, and asks for at least one, so no note is created without a tag; =C-g= aborts. A tag outside the registry is offered for registration, and dropped when you decline. Several tags are separated with a comma.
 
 #+begin_src emacs-lisp -i
 
@@ -267,9 +268,11 @@ decline."
     (while (null result)
       (let ((tags (delete-dups
                    (seq-remove #'string-empty-p
-                               (completing-read-multiple
-                                (or prompt "Note tags (comma-separated): ")
-                                (sp-org-tag-lint-note-tags))))))
+                               (let ((prompt (or prompt "Note tags (comma-separated): "))
+                                     (candidates (sp-org-tag-lint-note-tags)))
+                                 (if (fboundp 'sp-org-tag-groups-read-tags)
+                                     (sp-org-tag-groups-read-tags prompt candidates)
+                                   (completing-read-multiple prompt candidates)))))))
         (setq result
               (seq-filter
                (lambda (tag)
@@ -675,3 +678,4 @@ The tests use a temporary folder and a copy of the registry, so neither the real
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/105][#105]] ✨ Added the note-tag registry and =sp-org-tag-lint=: the note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (the task tags stay in =org-tag-alist=); =M-x sp-org-tag-lint= reports the unregistered tags of the vault, with the likely typo, and the notes without =#+filetags:=; =M-x sp-org-tag-add= registers a tag in that file and loads it again, no restart. Changed =sp-org-create-note-and-link= and the notes created by wikilink conversion to ask for the note's tags, and =sp-split-leave-parents= to ignore tag inheritance (=sp-split-inherit-tags=). 10 ERT tests; not run in a real vault or with vulpea.
+- [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] ✨ =sp-org-tag-read-note-tags= uses the tag-groups menu (=sp-org-tag-groups-read-tags=) when that module is loaded, so note creation, wikilink conversion and splitting a heading all show the tags by group. Not run in Emacs (none in the container).

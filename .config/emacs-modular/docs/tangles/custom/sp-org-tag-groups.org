@@ -817,6 +817,40 @@ A global minor mode. Turning it on adds the segment, the link decoration and the
     missing))
 #+end_src
 
+** Tag menu
+
+=sp-org-tag-groups-read-tags= reads several tags with =completing-read-multiple= over =sp-org-tag-groups-completion-table=: the tags are sorted and headed by their first group in =sp-org-tag-groups-alist= (tags in no group under "other"), each annotated with its group in the group's colour. =sp-org-tag-read-note-tags= (in =sp-org-tag-lint=) calls it when this module is loaded.
+
+#+begin_src emacs-lisp -i
+;;;; Tag menu
+(defun sp-org-tag-groups-completion-table (tags)
+  "A completion table over TAGS, sorted and headed by tag group.
+Tags in no group fall under \"other\"."
+  (let ((sorted (sort (copy-sequence tags)
+                      (lambda (a b)
+                        (let ((ga (or (car (sp-org-tag-group-of a)) "~other"))
+                              (gb (or (car (sp-org-tag-group-of b)) "~other")))
+                          (if (string= ga gb) (string< a b) (string< ga gb)))))))
+    (lambda (string pred action)
+      (if (eq action 'metadata)
+          `(metadata
+            (display-sort-function . identity)
+            (group-function
+             . ,(lambda (tag transform)
+                  (if transform tag (or (car (sp-org-tag-group-of tag)) "other"))))
+            (annotation-function
+             . ,(lambda (tag)
+                  (concat " " (propertize (or (car (sp-org-tag-group-of tag)) "other")
+                                          'face (sp-org-tag-groups--chip-face tag))))))
+        (complete-with-action action sorted string pred)))))
+
+(defun sp-org-tag-groups-read-tags (prompt tags)
+  "Read several of TAGS with PROMPT, grouped by tag group.
+Return the chosen tags as a list of strings; typing a tag not in TAGS
+is allowed."
+  (completing-read-multiple prompt (sp-org-tag-groups-completion-table tags)))
+#+end_src
+
 * Provide
 
 Provides the =sp-org-tag-groups= feature and closes the file.
@@ -835,3 +869,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/108][#108]] ✨ Added =sp-select-note=, a note selector of my own: it calls =vulpea-select-from= with the emoji of the note's tags in front of the title and the tags in a column at the right edge, as small dimmed text, whose width follows the frame width (=sp-org-tag-groups-select-column-fraction=). With =sp-org-tag-groups-mode= on, =vulpea-select= (and =vulpea-find=, =vulpea-insert=) also get the emoji in front of titles; rules can leave a note selection with =:select nil=. =M-x sp-insert-note= is =vulpea-insert= with the same emoji and tag column. The link and note commands that chose a note with =vulpea-select=, =vulpea-insert= or their own completion now call these two (=sp-org-create-note-and-link= and the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note, the query-table note picker).
 - [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag groups: =sp-org-tag-groups-alist= groups the note tags into groups (the shape proposed in ADR 0020) and =sp-org-tag-groups-colors= gives each group one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.
 - [[https://github.com/siainbuletin/dotfiles/pull/158][#158]] 🐛 Fixed =sp-insert-note= and =sp-select-note= taking seconds to open: because the tag column depends on the frame width, the candidate cache is off and vulpea rebuilds every note's title and tag column on each call, and each of those looked up the tag group, the palette colour and the rules again. =sp-org-tag-groups--memoize= now remembers the chip face of each tag, the emoji of each tag list and the chips of each tag list and width, until one of the rules, groups, colours, palette, tag face height or theme (light/dark) changes. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] ✨ Added the tag menu: =sp-org-tag-groups-read-tags= and =sp-org-tag-groups-completion-table= show the tags to pick headed by tag group, used by =sp-org-tag-read-note-tags=. Not run in Emacs (none in the container).
