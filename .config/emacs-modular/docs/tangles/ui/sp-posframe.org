@@ -89,19 +89,6 @@ height is left to `vertico-posframe-get-size'."
     (plist-put size :max-width width)
     size))
 
-(defvar vertico-posframe-font)
-
-(defun sp-posframe-update-font ()
-  "Set `vertico-posframe-font' to the size of `sp-minibuffer-face'.
-The face height is a multiple of the `default' height; the font is the
-`default' family at that size in points.  Run once at load and again on every
-fontaine preset, never per prompt."
-  (let ((height (face-attribute 'sp-minibuffer-face :height nil t)))
-    (when (floatp height)
-      (setq vertico-posframe-font
-            (font-spec :family (face-attribute 'default :family)
-                       :size (/ (* height (face-attribute 'default :height)) 10.0))))))
-
 (use-package vertico-posframe
   :ensure t
   :after vertico
@@ -121,9 +108,6 @@ fontaine preset, never per prompt."
 =sp-posframe--match-border= sets the =vertico-posframe-border= face to the background of the posframe (falling back to =default=), so the 4 pixels of border read as padding. It runs once the package is loaded and on =enable-theme-functions=, so it follows theme changes.
 
 #+begin_src emacs-lisp -i
-(sp-posframe-update-font)
-(add-hook 'fontaine-set-preset-hook #'sp-posframe-update-font)
-
 (defun sp-posframe--match-border ()
   "Give the posframe border the background colour of the posframe itself.
 The border then reads as padding. It is run again on every theme change."
@@ -140,13 +124,24 @@ The border then reads as padding. It is run again on every theme change."
 
 * Text size
 
-The posframe text is larger than =default= by =:sp-minibuffer-face-height= (1.36 in =regular=, 1.0 in =presentation=), a fontaine face set in =sp-fonts=. =sp-posframe-update-font= turns it into =vertico-posframe-font=, a font spec with the =default= family and the size in points (height times the =default= height, divided by 10), which =vertico-posframe= gives to the child frame. It runs once at load and on =fontaine-set-preset-hook=, so a preset change resizes the next posframe; nothing runs per prompt.
+There is no text size of its own: the posframe, like the minibuffer, uses the =default= face. Two ways of enlarging it were tried and removed, and Sia still wants it larger, so this is the open item of the rebuild plan (step 2).
 
-This is step 2 of the rebuild plan below. It replaces the =sp-minibuffer= hook of #161 (=face-remap-add-relative= on =default= and =text-scale-set= in the minibuffer buffer on =minibuffer-setup-hook=), which mirrored the minibuffer and glitched =M-x=; removing the hook line stopped that. Consequences: the text size no longer follows =text-scale-adjust= of the calling buffer, and prompts that stay at the bottom of the frame (plain =read-string=, =y-or-n-p=) and the terminal fallback keep the =default= size. If the glitch returns, set =vertico-posframe-font= to nil first.
+- *#161, face remap per prompt.* =sp-minibuffer= remapped =default= to a larger face and set the =text-scale= on =minibuffer-setup-hook=. The minibuffer was mirrored and =M-x= glitched; removing the hook line stopped it.
+- *#174, font on the posframe.* =vertico-posframe-font= was set to a =font-spec= of the =default= family at 1.36 times the =default= height, once at load and on =fontaine-set-preset-hook=. Sia reported that it broke how the window is drawn: the scratch buffer and the dashboard were drawn in the same window and overlapped, and =M-x= could not open =vertico-posframe= until =(vertico-posframe-mode -1)= was evaluated; everything was fine after that. The text-scale part is gone for good and so is the font (#179), together with the =sp-minibuffer-face= face and its fontaine keys.
+
+** Is it fontaine?
+
+Probably not, but this was read from the sources of =fontaine=, =posframe= and =vertico-posframe=, not run in Emacs (none in the container).
+
+- =fontaine= only sets faces: it calls =custom-theme-set-faces= for the faces of the preset (=default=, =fixed-pitch=, =variable-pitch=, the mode lines and the faces added to =fontaine-faces=) and knows nothing about child frames or the =font= frame parameter. Any family it can set on =default= is a normal font, and "Aporetic Sans Mono" is one. A face that is only a =:height= multiple (=sp-minibuffer-face=) is read by the code that wants it; nothing in =fontaine= applies it to a frame.
+- The more likely cause is in =posframe=. =vertico-posframe= passes =vertico-posframe-font= as the =:font= of =posframe-show=, which sets it as the font of the child frame (it defaults to the font of the =default= face of the parent). But =posframe= works out the frame's pixel size and position in the font of the parent: =(* (default-font-width) width)= and =(* (default-line-height) height)= in =posframe--set-frame-size= and =posframe--set-frame-size-and-position=, and the same two products as =:posframe-width= and =:posframe-height= for the poshandler that centres it. With a font 1.36 times larger in the child, the text needs more room than the frame is given, which fits the clipping and overlap, and the 75% width of =sp-posframe-get-size= becomes about 100% of the frame. The error that stopped =M-x= was not seen, so this is a guess.
+- Not ruled out: that a =font-spec= (rather than a font name string) is not accepted for the frame parameter in that Emacs; that the size in points (=:size= 20.4) differs from the size of the =default= face on that screen; or that the child frame was created before the preset was set.
+
+What to try next, one at a time, each in its own pull request (and set =vertico-posframe-mode= to nil to get =M-x= back if it hangs): (1) =vertico-posframe-font= as a plain font name string with the size in the name, to rule out the font-spec; (2) the same string and a smaller width, so that the width in the child's font is 75%; (3) a larger =default= face for everything, through the fontaine preset (=:default-height=), which keeps every size consistent and needs no posframe setting.
 
 * What was removed, and why
 
-The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a text size of its own, and had a debug command. (The fixed width came back in #163, the text size in #161.) The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The tried attempts are in "Problems with getting the centred posframe right" below; the CHANGELOG only has a summary. If the glitch remains with this plain setup, it is not in this module: look at =popper= and the other packages that change windows.
+The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a text size of its own, and had a debug command. (The fixed width came back in #163; the text size is still open, see "Text size".) The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The tried attempts are in "Problems with getting the centred posframe right" below; the CHANGELOG only has a summary. If the glitch remains with this plain setup, it is not in this module: look at =popper= and the other packages that change windows.
 
 * Problems with getting the centred posframe right
 
@@ -172,7 +167,8 @@ The posframe for =M-x= and the note selectors took many pull requests in three d
 | #148 | Text sizes from fontaine faces (=sp-minibuffer-face=). | Kept the faces, but the minibuffer was still scaled per prompt. |
 | #152 | Prompt block by colours instead of =:inverse-video= and =:box=; the dotted line's overlay advances with the text like Vertico's. | Fixed the glitch at start-up only; it came back after working in Org. |
 | #154 | Dimming remaps only =default= and the faces on the visible text (before, over a thousand faces); debug command =C-c ?=. | Did not stop the glitch. The =*Minibuf-1*= buffer seen in an ordinary window was never explained (a backtrace advice printed nothing). Gone in #156. |
-| #161 | Minibuffer text back at =sp-minibuffer-face=, with the =text-scale= of the calling buffer, on =minibuffer-setup-hook=. | The per-prompt face remap mirrored the minibuffer and glitched =M-x=; removing the hook line stopped it. Replaced in #174. |
+| #161 | Minibuffer text back at =sp-minibuffer-face=, with the =text-scale= of the calling buffer, on =minibuffer-setup-hook=. | The per-prompt face remap mirrored the minibuffer and glitched =M-x=; removing the hook line stopped it. Replaced by #174. |
+| #174 | Text size set once on the posframe font (=vertico-posframe-font=, from =sp-minibuffer-face= by =sp-posframe-update-font=). | The scratch buffer and the dashboard were drawn on the same window and overlapped, and =M-x= could not open the posframe until =vertico-posframe-mode= was turned off. Removed in #179, with the text scale and the face; see "Text size". |
 
 ** What worked, and what is still waiting
 
@@ -184,7 +180,6 @@ The posframe for =M-x= and the note selectors took many pull requests in three d
 | #156 | Everything stripped but the centred frame with 4 pixels of padding. | Stayed. Sia confirmed the glitch was gone; this is step 0 of the rebuild plan. |
 | #157 | History of the attempts and the rebuild plan (below). | Stayed. |
 | #163 | Fixed width of 75% of the frame, again through =sp-posframe-get-size=. | Stayed. |
-| #174 | Text size set once on the posframe font (=vertico-posframe-font=, from =sp-minibuffer-face= by =sp-posframe-update-font=); replaces #161. | Open, not confirmed. See "Text size". |
 
 What is still gone: the nano-style prompt, the dotted line and the dimming. See "Rebuilding the setup from zero" for how they could come back.
 
@@ -228,7 +223,7 @@ What the history shows:
 The plain setup of #156 is step 0. The plan below adds one thing at a time, each in its own pull request, so a bug points at one change. A step is accepted only when it has passed the checks at the end.
 
 1. *Step 0, the baseline (#156).* Centred frame, padding, nothing else. Use it for a few days in Org with the =*Messages*= popup open. If the glitch or the =*Minibuf-1*= window still happens here, the cause is outside the module (suspects: =popper=, which displays buffers in side windows, and other window hooks such as =sp-set-window-margins= on =window-configuration-change-hook=). In that case find it first, with =emacs -Q= and only =vertico=, =vertico-posframe= and =popper= installed (see the sandbox script in the project files), before adding anything.
-2. *Text size.* Use the package's own option, =vertico-posframe-font= (the font of the posframe frame), or set the face of the frame, instead of remapping =default= inside the minibuffer buffer. The earlier attempts remapped faces in the buffer that the posframe displays and computed the frame size from another font; that mismatch is the best guess for clipped text. Never reset =face-remapping-alist= of the minibuffer.
+2. *Text size.* Still open: #174 tried =vertico-posframe-font= and it overlapped windows and stopped =M-x= (see "Text size" and what to try next there). Never reset =face-remapping-alist= of the minibuffer.
 3. *Width.* Set =vertico-posframe-width= or =-min-width= to a number instead of replacing =vertico-posframe-size-function=.
 4. *Prompt look.* Style the prompt with the =minibuffer-prompt= face itself (=set-face-attribute=, colours and weight, no =:box= and no =:inverse-video=), for every prompt, not only =M-x=. A look for one command only needs a per-command variable, not a hook that adds remaps.
 5. *Dotted line.* Make it part of what Vertico draws, not a second overlay at the end of the input. Options, simplest first: a line character in the prompt string; an advice on the function that formats the candidates; a =vertico-multiform= setting for =execute-extended-command=. Do not create an overlay at =point-max=: Vertico's candidate list lives there and the two compete (in #152's output the dotted line was drawn under the candidates, not under the input).

@@ -22,12 +22,6 @@
 Only its `:height' is used, as a multiple of the `default' height."
   :group 'faces)
 
-(defface sp-minibuffer-face '((t))
-  "Size of the text in the posframe, set by the fontaine presets.
-Only its `:height' is used, as a multiple of the `default' height.
-`sp-posframe-update-font' turns it into the posframe font."
-  :group 'faces)
-
 (use-package fontaine
   :ensure (:wait t)
   :demand t
@@ -51,16 +45,14 @@ Only its `:height' is used, as a multiple of the `default' height.
       :mode-line-inactive-height 220
       ;; The default height is already large here.
       :sp-text-face-height 1.0
-      :sp-minibuffer-face-height 1.0
       :line-spacing 0.2)
      (t
       ;; 1.0 keeps the dashboard boxes on the grid of the `default' font; any other
       ;; value makes the box text and the box lines differ in width and misalign.
       :sp-dashboard-menu-face-height 1.0
-      ;; Org and the other text modes, and the minibuffer with the posframe, are
+      ;; Org and the other text modes are
       ;; 1.36 times the `default' height (4 `text-scale' steps of 1.08).
       :sp-text-face-height 1.36
-      :sp-minibuffer-face-height 1.36
       :default-weight regular
       :bold-weight bold
       :italic-slant italic)))
@@ -68,7 +60,7 @@ Only its `:height' is used, as a multiple of the `default' height.
   ;; Faces of this configuration that the presets also size: a preset reads
   ;; `:FACE-height' as a multiple of the `default' height.  This has to run
   ;; before the first preset is set.
-  (dolist (face '(sp-dashboard-menu-face sp-text-face sp-minibuffer-face))
+  (dolist (face '(sp-dashboard-menu-face sp-text-face))
     (add-to-list 'fontaine-faces face t))
   (fontaine-set-preset (or (fontaine-restore-latest-preset) 'regular))
   (fontaine-mode 1))
