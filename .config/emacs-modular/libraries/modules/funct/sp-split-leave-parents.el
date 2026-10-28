@@ -467,6 +467,28 @@ Denote identifier.  The line goes after `#+filetags', else after
              (insert "\n#+identifier: " ident)))))
       (save-buffer))))
 
+(declare-function sp-org-tag-read-note-tags "sp-org-tag-lint")
+
+(defcustom sp-split-ask-tags t
+  "When non-nil, ask for the tags of a split-out note that has none.
+The menu is `sp-org-tag-read-note-tags' (grouped by tag group); the tags
+go into `#+filetags' and the Denote file name."
+  :type 'boolean
+  :group 'sp-split)
+
+(defun sp-split--set-filetags (path tags)
+  "Write TAGS as the `#+filetags' line of the note at PATH."
+  (with-current-buffer (find-file-noselect path)
+    (org-with-wide-buffer
+     (goto-char (point-min))
+     (let ((case-fold-search t)
+           (line (format "#+filetags: :%s:" (mapconcat #'identity tags ":"))))
+       (cond ((re-search-forward "^#\\+filetags:.*$" nil t)
+              (replace-match line t t))
+             ((re-search-forward "^#\\+title:.*$" nil t)
+              (insert "\n" line)))))
+    (save-buffer)))
+
 (defun sp-split--denote-rename (note)
   "Rename the file of NOTE with Denote's naming scheme, then re-sync vulpea.
 Return the note as vulpea knows it afterwards.  The org ID stays the
@@ -476,6 +498,12 @@ return value is not relied on, the new name is found by diffing the
 directory."
   (let* ((old (vulpea-note-path note))
          (id (vulpea-note-id note))
+         (tags (or (vulpea-note-tags note)
+                   (when (and sp-split-ask-tags (require 'sp-org-tag-lint nil t))
+                     (let ((chosen (sp-org-tag-read-note-tags
+                                    (format "Tags for \"%s\": " (vulpea-note-title note)))))
+                       (sp-split--set-filetags old chosen)
+                       chosen))))
          (dir (file-name-directory old))
          (before (directory-files dir nil directory-files-no-dot-files-regexp t)))
     ;; No prompts, and save the front matter Denote rewrites.
@@ -484,7 +512,7 @@ directory."
       ;; TITLE `keep-current' reads the `#+title' written by the split;
       ;; KEYWORDS are the note's tags; no signature, default date.  Older
       ;; Denote versions have no DATE argument, so pass only what fits.
-      (apply #'denote-rename-file old 'keep-current (vulpea-note-tags note)
+      (apply #'denote-rename-file old 'keep-current tags
              (let ((most (cdr (func-arity #'denote-rename-file))))
                (take (if (integerp most) (max 0 (- most 3)) 2) '(nil nil)))))
     (let ((new (car (seq-difference

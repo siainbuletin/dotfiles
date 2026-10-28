@@ -613,6 +613,34 @@ title, without the emoji."
              (if missing (mapconcat #'identity missing ", ") ""))
     missing))
 
+;;;; Tag menu
+(defun sp-org-tag-groups-completion-table (tags)
+  "A completion table over TAGS, sorted and headed by tag group.
+Tags in no group fall under \"other\"."
+  (let ((sorted (sort (copy-sequence tags)
+                      (lambda (a b)
+                        (let ((ga (or (car (sp-org-tag-group-of a)) "~other"))
+                              (gb (or (car (sp-org-tag-group-of b)) "~other")))
+                          (if (string= ga gb) (string< a b) (string< ga gb)))))))
+    (lambda (string pred action)
+      (if (eq action 'metadata)
+          `(metadata
+            (display-sort-function . identity)
+            (group-function
+             . ,(lambda (tag transform)
+                  (if transform tag (or (car (sp-org-tag-group-of tag)) "other"))))
+            (annotation-function
+             . ,(lambda (tag)
+                  (concat " " (propertize (or (car (sp-org-tag-group-of tag)) "other")
+                                          'face (sp-org-tag-groups--chip-face tag))))))
+        (complete-with-action action sorted string pred)))))
+
+(defun sp-org-tag-groups-read-tags (prompt tags)
+  "Read several of TAGS with PROMPT, grouped by tag group.
+Return the chosen tags as a list of strings; typing a tag not in TAGS
+is allowed."
+  (completing-read-multiple prompt (sp-org-tag-groups-completion-table tags)))
+
 ;;; Provide:
 
 (provide 'sp-org-tag-groups)
