@@ -115,7 +115,7 @@ Backups, empty files and, unless `sp-typst-include-old', `-old.org' docs are lef
   (let (parts)
     (push (cons "Overview"
                 (seq-filter (lambda (f) (file-exists-p (sp-typst--file f)))
-                            '("docs/main.org" "README.org")))
+                            '("docs/main.org")))
           parts)
     (dolist (directory sp-typst-doc-directories)
       (push (cons (capitalize (file-name-nondirectory directory))

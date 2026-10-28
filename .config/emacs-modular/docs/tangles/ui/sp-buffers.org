@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-buffers.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module covers two things: how the buffer list looks and behaves (the built-in =ibuffer=, with icons from =nerd-icons-ibuffer=), and how transient pop-up buffers such as help, messages and compilation output are displayed (Karthik Chikmagalur's =popper= package, using settings adapted from Lambda Emacs).
 

@@ -7,7 +7,7 @@ Literate source for =libraries/modules/custom/sp-graphs.el= and its page templat
 - Every line of both files lives in the source blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where the Emacs Lisp is written.
 - Each HTML block carries its own path.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=.
 

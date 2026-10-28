@@ -11,7 +11,7 @@ This is the skeleton of a typesetting environment built on [[https://typst.app][
 ** What it does
 
 #+begin_example
-docs/main.org, README.org, docs/architecture/*.org, docs/tangles/<dir>/sp-*.org
+docs/main.org, docs/architecture/*.org, docs/tangles/<dir>/sp-*.org
         │  sp-typst--prepare: one Org text, one heading per doc, links fixed
         ▼
 docs/typst/.build/emacs-modular.org
@@ -192,7 +192,7 @@ Backups, empty files and, unless `sp-typst-include-old', `-old.org' docs are lef
   (let (parts)
     (push (cons "Overview"
                 (seq-filter (lambda (f) (file-exists-p (sp-typst--file f)))
-                            '("docs/main.org" "README.org")))
+                            '("docs/main.org")))
           parts)
     (dolist (directory sp-typst-doc-directories)
       (push (cons (capitalize (file-name-nondirectory directory))

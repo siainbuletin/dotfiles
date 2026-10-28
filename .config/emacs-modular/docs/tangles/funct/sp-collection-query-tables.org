@@ -5,7 +5,7 @@ Literate source for the =sp-collection-query-tables= family in =libraries/module
 
 - Seven modules are written from this one file, each under its own heading below.
 - The =:tangle= path is set per heading, in a property drawer, as in =sp-org-agenda.org=.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 - This document replaces =sp-vulpea-dblock.org=, =sp-vulpea-vui-table.org= and =sp-collection-query-tables-views.org=.
 
 * What it is for

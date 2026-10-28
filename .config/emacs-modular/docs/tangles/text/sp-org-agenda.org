@@ -12,7 +12,7 @@ How tangling works here:
 - There is no file-wide =#+PROPERTY= line for =:tangle=, because that would send every block to one file.
 - Instead each top-level heading carries a =:header-args:emacs-lisp:= property in its own drawer, saying where the blocks under it are written.
 - The last heading, "Agenda views module", points at =sp-agenda-views.el=.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -579,7 +579,7 @@ The =i= prefix lists the open issues of the issue tracker.
 
 ** Config file views
 
-=c= lists every open TODO heading in the Org files of the dotfiles (the yadm repository in =~=): the docs in =docs/tangles/=, =README.org=, =CHANGELOG.org=, the ADRs. Each line starts with the =#+title:= of the file it comes from, in a 36 character column, instead of the Area and Project category the other views show. The file title is the useful label here, because these files are not vulpea-para areas or projects, so they have no category of their own.
+=c= lists every open TODO heading in the Org files of the dotfiles (the yadm repository in =~=): the docs in =docs/tangles/=, =docs/main.org=, =CHANGELOG.org=, the ADRs. Each line starts with the =#+title:= of the file it comes from, in a 36 character column, instead of the Area and Project category the other views show. The file title is the useful label here, because these files are not vulpea-para areas or projects, so they have no category of their own.
 
 It solves the same problem as the issue views, scoping the agenda to one set of files, and copies the approach of [[file:../custom/sp-org-issues.org][=sp-org-issues=]] (its =sp-org-issues--agenda-files= and the =i i= / =i b= views). How it is built, the same way as the issue views:
 

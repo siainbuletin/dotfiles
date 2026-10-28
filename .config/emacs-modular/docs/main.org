@@ -8,6 +8,8 @@
 TODO - this cookie with the export date should be updated to reflect the new document. There should be a way to implement dynamic properties in a document anyway.
 [ Last revised and exported on *{{{latest-export-date}}}*, with a word count of *{{{word-count}}}*. ]
 
+This is a modular Emacs configuration: =init.el= loads sub-libraries from =libraries/modules/=, and each module has a literate Org source in =docs/tangles/=, in subdirectories that mirror those of =libraries/modules/=. This file is the root of the literate configuration: it has the module tree below, and the other documents hang off it. How to turn the sources into =.el= files is in [[file:tangling-instructions.org][Tangling instructions]].
+
 * LARGE UPDATE: OCTOBER 2026
 
 The configuration now works by generating different ~.el~ files for different needs and functionalities within Emacs, and it's supposed to be loaded conditionally, based on whatever needs I might have for my configuration (as well as proper debugging).
@@ -37,6 +39,60 @@ For motivations of why this configuration is set up in this way, please refer to
 - [[file:architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
 - [[file:relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
+* Testing a pull request in a sandbox
+
+=emacs-pr= (a fish function in =~/.config/fish/functions/emacs-pr.fish=) starts a second Emacs on the code of a pull request, next to your normal one. Nothing is checked out in =~=, your live configuration keeps running on =main=, and the pull request cannot touch your real notes. It needs yadm, git, fish and Emacs 29 or later (for =--init-directory=), and it assumes macOS with APFS, because it copies files with =cp -c=.
+
+** Usage
+
+#+begin_src sh :tangle no :eval never
+emacs-pr 7        # fetch PR #7 and start an Emacs on it
+emacs-pr 7        # again, later: update to the PR's latest commit and start again
+emacs-pr rm 7     # remove the worktree, packages, notes copy and fetched ref of PR #7
+emacs-pr reset 7  # give PR #7 a fresh copy of ~/notes next time
+emacs-pr reseed   # drop the package seed (see below)
+emacs-pr --help     # print this usage, with the folders it uses
+#+end_src
+
+From the Emacs you already work in, the module =sp-sandbox= has the same as commands: =M-x sp-sandbox-pr= (the number defaults to the =22= or =#22= at point, so it works on a PR mentioned in a note), =sp-sandbox-remove=, =sp-sandbox-reset-notes= and =sp-sandbox-reseed=. They run the fish function in a process of their own and show its output in =*emacs-pr*=. The sandbox is a separate Emacs process: your live Emacs keeps running and is not touched, so you can note down what needs fixing in the live one while the PR runs next to it.
+
+- The PR number is the one on GitHub. The code comes from =pull/N/head= of =origin=, so it works for any PR on the repository, whoever opened it, and needs no branch name.
+- The worktree is =~/src/dotfiles-wt/pr-N=, the same folder that =sp-org-issues= and Magit's =% g= use for worktrees. It is a detached checkout of the PR's head, so running =emacs-pr N= again only moves it to the newest commit. Edits you make in it are lost on the next run; commit them on a branch of your own first.
+- Close the sandbox Emacs the way you close any Emacs. Any number of sandboxes can run at once, next to your live Emacs.
+- When you are done with a PR, =emacs-pr rm N= deletes everything that belongs to it.
+
+** What it does
+
+1. =yadm fetch origin +pull/N/head:refs/sandbox/pr-N= puts the PR on a ref that is not a branch, so it can never clash with a branch checked out elsewhere. =yadm worktree add --detach= makes the worktree (or =git checkout --detach= updates it).
+2. It starts =emacs --init-directory ~/src/dotfiles-wt/pr-N/.config/emacs-modular=. The configuration finds everything relative to =user-emacs-directory=, so the PR's packages, caches and state live in that worktree's =var/=, which git ignores.
+3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes= and =~/Documents= path (the bibliography is under it) in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
+4. =GIT_CONFIG_GLOBAL= keeps pointing at your real =~/.gitconfig=, so commits in the sandbox still have your name. SSH is unaffected by =HOME=.
+5. It remaps the absolute =/Users/.../= entries of =org-agenda-files= (if the configuration still sets them) to the sandbox home.
+
+** Packages: a copy per sandbox, made from a seed
+
+A fresh worktree has no packages, and elpaca would install all of them again. Instead:
+
+- The first run clones your live =var/elpaca= into =~/.cache/emacs-sandbox/seed=. This is the /seed/. It is a one-time clone (APFS copy-on-write: instant, and the files share disk space until one of them changes).
+- Every PR then gets its own clone of the seed as =var/elpaca= in its worktree, when the worktree is first started. Elpaca's build folders hold /absolute/ symlinks into its =sources/= folder, so the script repoints every symlink that targets the seed at the new copy; without that, a sandbox could rebuild another tree's packages.
+- So no two Emacs processes ever write to the same =elpaca= folder: your live Emacs has =~/.config/emacs-modular/var/elpaca=, the seed is never used by a running Emacs, and each sandbox has its own. Corruption could only come from two elpaca processes in the /same/ folder, and that no longer happens.
+- A PR that uses only packages you already have starts as fast as your normal Emacs. A PR that adds or updates a package installs just that one, into its own copy only; a second PR that needs the same package installs it again.
+- Native compilation is the one thing shared: all sandboxes use =~/.cache/emacs-sandbox/eln-cache=. Emacs is built to let several instances share an eln cache, and it saves compiling the same packages for every PR. Compilation runs in the background.
+- After you update packages in your live Emacs, =emacs-pr reseed= drops the seed. Sandboxes that exist keep their packages; new ones clone the live state again.
+
+** What is not isolated
+
+- Anything the configuration reaches by an absolute path other than the agenda files (for example =/Users/siainbuletin/...= in a PR's own code) still points at the real folder.
+- The sandbox shares your network, your =PATH= and your running programs. A PR that starts a server, syncs with GitHub or calls an external tool does so for real.
+- The locations (in =sp-globals=, the former =sp-paths=) can also be overridden one by one with environment variables such as =SP_NOTES_DIR=. =emacs-pr= does not need them, because it replaces =HOME= as a whole.
+
+** If it goes wrong
+
+- =yadm fetch= fails: check =yadm remote -v= (it needs an =origin= that serves =pull/N/head=, as GitHub does).
+- =cp: illegal option -- c=: the folder is not on APFS or =cp= is not the macOS one; copy =~/notes= and =var/elpaca= by hand to =~/.cache/emacs-sandbox/home/pr-N/notes= and =~/.cache/emacs-sandbox/seed=.
+- A package fails to load in one sandbox: =emacs-pr rm N= and run =emacs-pr N= again for a clean copy of everything (add =emacs-pr reseed= first if the live packages changed).
+- The notes in a sandbox look stale: =emacs-pr reset N= gives that PR a fresh copy of =~/notes= next time.
+
 * Module tree
 
 Where the modules live:
@@ -44,7 +100,7 @@ Where the modules live:
 - Modules live in =libraries/modules/=, one subdirectory per area.
 - The tree below mirrors those subdirectories. Each heading is a directory.
 - Each entry links to the module's literate source in =docs/tangles/= and to the =.el= file that the source tangles to.
-- To tangle them, see [[file:../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle them, see [[file:tangling-instructions.org][Tangling instructions]].
 
 ** academic/
 

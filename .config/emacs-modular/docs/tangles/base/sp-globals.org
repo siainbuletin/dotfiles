@@ -6,7 +6,7 @@ Literate source for =libraries/modules/base/sp-globals.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module is the one file to open when one of my own settings has to change: where my files live, which credentials file is read, who I am, what the dashboard keeps private, and the habits (prompts, bells, backups) that used to be spread over the modules that happen to use them.
 
