@@ -146,7 +146,47 @@ This is step 2 of the rebuild plan below. It replaces the =sp-minibuffer= hook o
 
 * What was removed, and why
 
-The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a text size of its own, and had a debug command. (The fixed width came back in #163, the text size in #161.) The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The history is in the CHANGELOG and in git. If the glitch remains with this plain setup, it is not in this module: look at =popper= and the other packages that change windows.
+The module used to style =M-x= like nano (an inverse prompt and a dotted line under the input), dim the frame behind the posframe, give the posframe a text size of its own, and had a debug command. (The fixed width came back in #163, the text size in #161.) The text typed in =M-x= glitched and disappeared, and the changes of #152 and #154 did not stop it in Org; the cause was never found, so all of it is gone (#156). The tried attempts are in "Problems with getting the centred posframe right" below; the CHANGELOG only has a summary. If the glitch remains with this plain setup, it is not in this module: look at =popper= and the other packages that change windows.
+
+* Problems with getting the centred posframe right
+
+The posframe for =M-x= and the note selectors took many pull requests in three days (2026-10-26 to 2026-10-28). The table lists each attempt, what it tried and how it ended; the next section, "How it got here: the attempts", has the commits. "Gone" means the code was removed in #156; "back" means it was added again later by itself. None of the changes was run in Emacs by the author; each was checked by Sia afterwards.
+
+** What did not work
+
+| PR | Attempt | Outcome and why it failed |
+|----+---------+---------------------------|
+| #114 | Nano-style =M-x= in =sp-mini-frame=: inverse bold prompt, box, dotted line under the input. | First time the typed text glitched and disappeared. Gone in #134. |
+| #115 | Centred =M-x= with nano text styling, in =sp-mini-frame=. | Same glitch. Gone in #134. |
+| #119 | =sp-mini-frame= sized to Vertico's candidates, centred, with padding. | Sizing and centring worked, but it led to #128 (clipped candidates) and to the hang (#122). Centring and padding stayed. |
+| #121 | Colours of the =M-x= text taken from the =default= face; errors in the styling no longer abort the prompt. | The text still blended into the background. Replaced by #123. |
+| #122 | Fixed frame height instead of resizing, against the hang on macOS. | Did not stop the hang (98% CPU in =M-x=); a fixed height stayed until #136. |
+| #123 | Remapped the minibuffer's =default= face to the theme colours. | Fixed the colour, but it is one of the face remaps in the minibuffer buffer that later attempts suspect. Gone in #134. |
+| #128 | Frame height followed the scaled minibuffer text, so the last candidates were not cut off. | Worked for the cut-off; the hang remained. Gone with =mini-frame= in #136. |
+| #134 | Back to the plain =mini-frame=: nano prompt, dotted line, colour handling and dimming removed. | =M-x= still hung Emacs on macOS, so the cause was =mini-frame-mode= itself. Replaced in #136. |
+| #138 | Nano prompt, dotted line (300 characters cut by =truncate-lines=) and note dimming added back, on =vertico-posframe=. | The glitch came back, with the posframe as well as with =mini-frame=, so the frame package was not the cause. Gone in #156. |
+| #140 | Border in the background colour (reads as padding); dimming behind every posframe prompt. | Part of the dimming that #154 and #156 later blame for slow redisplay. Gone in #156 (the padding stayed). |
+| #144 | Fixed width of 75% of the frame through =vertico-posframe-size-function=. | Removed in #156 with everything else while the glitch was hunted; back in #163. |
+| #145 | Same text size in every prompt: text scale reset to 0 in posframe prompts. | Replaced by #146 the next day. |
+| #146 | Posframe text at the size of Org: face remaps dropped, text scale set to =sp-fonts-text-scale-steps=. | Part of the per-prompt remapping; gone in #156. |
+| #148 | Text sizes from fontaine faces (=sp-minibuffer-face=). | Kept the faces, but the minibuffer was still scaled per prompt. |
+| #152 | Prompt block by colours instead of =:inverse-video= and =:box=; the dotted line's overlay advances with the text like Vertico's. | Fixed the glitch at start-up only; it came back after working in Org. |
+| #154 | Dimming remaps only =default= and the faces on the visible text (before, over a thousand faces); debug command =C-c ?=. | Did not stop the glitch. The =*Minibuf-1*= buffer seen in an ordinary window was never explained (a backtrace advice printed nothing). Gone in #156. |
+| #161 | Minibuffer text back at =sp-minibuffer-face=, with the =text-scale= of the calling buffer, on =minibuffer-setup-hook=. | The per-prompt face remap mirrored the minibuffer and glitched =M-x=; removing the hook line stopped it. Replaced in #174. |
+
+** What worked, and what is still waiting
+
+| PR | Change | State |
+|----+--------+-------|
+| #136 | =mini-frame= replaced by =vertico-posframe= (centred, =-border-width= 4, 13 candidates). | Stayed. The hang is gone; it was never traced. |
+| #137 | =sp-mini-frame= renamed =sp-posframe= (file, feature, doc, =init.el=). | Stayed. |
+| #142 | =vertico-preselect= is =first=, so =C-x b= no longer creates a buffer from a partial name (=M-RET= submits what you typed). | Stayed. Not about the glitch. |
+| #156 | Everything stripped but the centred frame with 4 pixels of padding. | Stayed. Sia confirmed the glitch was gone; this is step 0 of the rebuild plan. |
+| #157 | History of the attempts and the rebuild plan (below). | Stayed. |
+| #163 | Fixed width of 75% of the frame, again through =sp-posframe-get-size=. | Stayed. |
+| #174 | Text size set once on the posframe font (=vertico-posframe-font=, from =sp-minibuffer-face= by =sp-posframe-update-font=); replaces #161. | Open, not confirmed. See "Text size". |
+
+What is still gone: the nano-style prompt, the dotted line and the dimming. See "Rebuilding the setup from zero" for how they could come back.
 
 * How it got here: the attempts
 
