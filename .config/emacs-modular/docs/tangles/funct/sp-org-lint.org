@@ -2216,12 +2216,41 @@ Denote identifier.  The line goes after `#+filetags', else after
       (save-buffer))))
 #+end_src
 
+*** Asking for tags
+
+A split-out note often has no tags, so before it is renamed =sp-split--denote-rename= asks for them (=sp-split-ask-tags=, on by default) with =sp-org-tag-read-note-tags=. That is the same menu as in note creation: the tags headed by their group in =sp-org-tag-groups-alist= when =sp-org-tag-groups= is loaded, a plain completion otherwise. The tags go into the =#+filetags= line of the new file (=sp-split--set-filetags=) and become the Denote keywords, so the file name keeps Denote's own casing.
+
+#+begin_src emacs-lisp -i
+(declare-function sp-org-tag-read-note-tags "sp-org-tag-lint")
+
+(defcustom sp-split-ask-tags t
+  "When non-nil, ask for the tags of a split-out note that has none.
+The menu is `sp-org-tag-read-note-tags' (grouped by tag group); the tags
+go into `#+filetags' and the Denote file name."
+  :type 'boolean
+  :group 'sp-split)
+
+(defun sp-split--set-filetags (path tags)
+  "Write TAGS as the `#+filetags' line of the note at PATH."
+  (with-current-buffer (find-file-noselect path)
+    (org-with-wide-buffer
+     (goto-char (point-min))
+     (let ((case-fold-search t)
+           (line (format "#+filetags: :%s:" (mapconcat #'identity tags ":"))))
+       (cond ((re-search-forward "^#\\+filetags:.*$" nil t)
+              (replace-match line t t))
+             ((re-search-forward "^#\\+title:.*$" nil t)
+              (insert "\n" line)))))
+    (save-buffer)))
+#+end_src
+
 *** Renaming with Denote
 
 =sp-split--denote-rename= renames the new note's file using =denote-rename-file=.
 
 - Confirmations are off and buffers are saved.
-- Keeps the title written by the split and uses the note's tags as keywords.
+- Keeps the title written by the split and uses the note's tags (asked for when it has none) as keywords.
+- Passes only the optional arguments the installed Denote accepts (=func-arity=): older versions have no DATE argument, and passing it raised =wrong-number-of-arguments=.
 - The return value of that function is not relied on, so the new name is found by comparing the directory listing before and after.
 - Then it:
   - adds the identifier keyword,
@@ -2241,14 +2270,23 @@ return value is not relied on, the new name is found by diffing the
 directory."
   (let* ((old (vulpea-note-path note))
          (id (vulpea-note-id note))
+         (tags (or (vulpea-note-tags note)
+                   (when (and sp-split-ask-tags (require 'sp-org-tag-lint nil t))
+                     (let ((chosen (sp-org-tag-read-note-tags
+                                    (format "Tags for \"%s\": " (vulpea-note-title note)))))
+                       (sp-split--set-filetags old chosen)
+                       chosen))))
          (dir (file-name-directory old))
          (before (directory-files dir nil directory-files-no-dot-files-regexp t)))
     ;; No prompts, and save the front matter Denote rewrites.
     (let ((denote-rename-confirmations nil)
           (denote-save-buffers t))
       ;; TITLE `keep-current' reads the `#+title' written by the split;
-      ;; KEYWORDS are the note's tags; no signature, default date.
-      (denote-rename-file old 'keep-current (vulpea-note-tags note) nil nil))
+      ;; KEYWORDS are the note's tags; no signature, default date.  Older
+      ;; Denote versions have no DATE argument, so pass only what fits.
+      (apply #'denote-rename-file old 'keep-current tags
+             (let ((most (cdr (func-arity #'denote-rename-file))))
+               (take (if (integerp most) (max 0 (- most 3)) 2) '(nil nil)))))
     (let ((new (car (seq-difference
                      (directory-files dir nil directory-files-no-dot-files-regexp t)
                      before #'string-equal))))
@@ -2567,3 +2605,4 @@ Test fixtures:
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/106][#106]] 🔧 Changed =sp-vulpea-split= to =sp-split-leave-parents= (stacked on #105): the module is now =libraries/modules/funct/sp-split-leave-parents.el=, its doc is a section of =docs/tangles/funct/sp-org-lint.org= that tangles it separately, =sp-vulpea-ext= requires the new name, and the module tree and the load-order graph are updated.
+- [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] 🐛 Fixed =sp-split-leave-parents= failing with =(wrong-number-of-arguments denote-rename-file 5)=: the installed Denote has no DATE argument, so only the optional arguments it accepts are passed. ✨ A split-out note with no tags now asks for them with the tag-groups menu (=sp-split-ask-tags=), writes =#+filetags= and is named by Denote from them. Not run in Emacs (none in the container).
