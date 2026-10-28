@@ -62,7 +62,7 @@ Colours nested parentheses, brackets and braces by depth in all programming mode
 
 Installs a set of deferred major modes, each loaded only when a matching file is opened:
 - =x509-mode= for viewing certificates,
-- =yaml-mode=, =json-mode=, =dockerfile-mode= and =docker-compose-mode=,
+- =yaml-mode=, =json-mode=, =dockerfile-mode=,
 - =dot-mode=,
 - =elf-mode= for ELF binaries and =demangle-mode= for C++ symbol demangling,
 - =systemd= for unit files.
@@ -81,10 +81,6 @@ Installs a set of deferred major modes, each loaded only when a matching file is
   :defer t)
 
 (use-package dockerfile-mode
-  :ensure t
-  :defer t)
-
-(use-package docker-compose-mode
   :ensure t
   :defer t)
 
