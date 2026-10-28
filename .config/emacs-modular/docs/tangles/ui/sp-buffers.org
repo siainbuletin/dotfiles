@@ -110,11 +110,10 @@ Nothing in the config calls =ibuffer-switch-to-saved-filter-groups=, so the grou
 
 ** Icons in ibuffer
 
-Loads =nerd-icons-ibuffer=. As the comment notes, the mode itself is enabled from =sp-icons=.
+As the comment notes, the mode itself is enabled from =sp-icons=. There's no need to have it here.
 
 #+begin_src emacs-lisp -i
 ;; nerd-icons-ibuffer is already called in sp-icons.el
-(require 'nerd-icons-ibuffer)
 #+end_src
 
 ** Buffer menu and C-x C-b

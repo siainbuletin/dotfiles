@@ -58,7 +58,6 @@
          )
 
 ;; nerd-icons-ibuffer is already called in sp-icons.el
-(require 'nerd-icons-ibuffer)
 
 ;; Always group items in buffer menu
 (setq mouse-buffer-menu-mode-mult 0)
