@@ -1,0 +1,74 @@
+#+title: Tangling the literate configuration
+#+startup: overview
+
+How the literate sources in =docs/tangles/= are turned into the =.el= modules in =libraries/modules/=. Commands and paths are relative to =~/.config/emacs-modular=. For what the configuration is and where each module lives, see [[file:../README.org][README.org]].
+
+Nearly every module in =libraries/modules/= has a literate source in the matching subdirectory of =docs/tangles/= (the module tree marks the ones that don't yet): the module =libraries/modules/ui/sp-x.el= is written from =docs/tangles/ui/sp-x.org=. Older notes with no module of their own, such as =org-config.org=, stay at the top of =docs/tangles/=. The modules are grouped by directory in the module tree of [[file:../README.org::*Module tree][README.org]].
+
+* Where a file tangles to
+
+The file header of each literate source says where it tangles (a few documents that write several modules do it per heading, see below). Its second line is a =#+PROPERTY= line like this one, from =docs/tangles/media/sp-ai.org=:
+
+#+begin_example
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/media/sp-ai.el :comments no :padline yes :noweb no :mkdirp yes
+#+end_example
+
+- =:tangle= is the path of the =.el= file, relative to the =.org= file. 
+  - Every =emacs-lisp= block in the file goes there, in order, unless the block says otherwise.
+- =:comments no= keeps Org from adding link comments to the =.el= file
+- =:padline yes= puts one blank line between blocks, so tangling reproduces the module as it is.
+- =:mkdirp yes= creates the module's directory if it is missing.
+
+A few documents write more than one module. =docs/tangles/text/sp-org-agenda.org= writes both =sp-org-agenda.el= and =sp-agenda-views.el=, so it has no file-wide =#+PROPERTY= line for =:tangle=. Each of its top-level headings carries the same settings in a property drawer instead, as =:header-args:emacs-lisp:= with its own =:tangle= path, and the blocks under a heading go to that heading's file:
+
+#+begin_example
+,* Agenda views module
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle ../../../libraries/modules/text/sp-agenda-views.el :comments no :padline yes :noweb no :mkdirp yes
+:END:
+#+end_example
+
+Tangling such a document (=C-c C-v t=) writes all of its files, and the tangle-all commands below pick it up because its drawers contain the same =:tangle= path. To add a block to the second module, put it under a heading with the second path.
+
+Blocks with =:tangle no=, such as the ones under a =Sandbox= heading, are for trying configuration out with =C-c C-c= and never reach the =.el= file. To adopt something from the sandbox, move it into a block without =:tangle no=.
+
+* Tangling one file
+
+Open the literate source and press =C-c C-v t= (=org-babel-tangle=). This rewrites the =.el= file named in the header from the blocks in the file; nothing is tangled unless you run it. If you just edited the =#+PROPERTY= line, press =C-c C-c= on it first so Org picks up the change.
+
+* Tangling only what changed
+
+=sp-tangle-changed= (from =sp-org-babel=) tangles just the literate sources whose text changed since they were last tangled, instead of all of them. Run =M-x sp-tangle-changed=; with a prefix argument (=C-u M-x sp-tangle-changed=) it tangles every source. It prints how many documents it tangled and how many were up to date, and returns the =.el= files it wrote.
+
+It compares a SHA-1 of each source with the one stored in =tangle-hashes.eld= in =sp-cache-dir=, which is written after a successful tangle. That needs no git, so it works with yadm and with edits that are not committed. A source is tangled again when its hash differs, when it has no entry yet, or when an =.el= file it wrote is missing. If you change the =:tangle= path of a source, the source is tangled to the new file; the old file stays and a message says so. A source that fails is reported and tried again next time.
+
+- =M-x sp-tangle-changed-and-reload= also reloads the modules it wrote (through =sp-reload= when that is installed), skipping modules that are not loaded.
+- =M-x sp-tangle-on-save-mode= tangles a source when you save it, if it changed; add it to =org-mode-hook= to do that in every module source.
+- If you edited an =.el= file by hand and want the source's version back, use the prefix argument.
+
+From a shell, run from =~/.config/emacs-modular= (the module's package forms are not needed, only a cache directory):
+
+#+begin_src sh :tangle no :eval never
+emacs --batch -l org --eval '(progn (setq user-emacs-directory (expand-file-name "~/.config/emacs-modular/")) (defvar sp-cache-dir "~/.cache/emacs/") (defmacro use-package (&rest _)) (load (expand-file-name "libraries/modules/text/sp-org-babel.el" user-emacs-directory) nil t) (sp-tangle-changed))'
+#+end_src
+
+* Tangling everything
+
+=M-x sp-tangle-all= rewrites every module (it is =sp-tangle-changed= with the prefix argument). Without Emacs's =sp-org-babel= loaded, evaluate this block with =C-c C-c=. It tangles each literate source whose header points into =libraries/modules/=, and skips the older documents in =docs/tangles/= (the =-old.org= files and the notes that tangle elsewhere). It does not update the hash cache, so the next =sp-tangle-changed= tangles everything once more.
+
+#+begin_src emacs-lisp :tangle no :results silent
+(let ((default-directory (expand-file-name "~/.config/emacs-modular/")))
+  (dolist (f (directory-files-recursively "docs/tangles" "^sp-.*[.]org$"))
+    (with-temp-buffer
+      (insert-file-contents f)
+      (when (re-search-forward ":tangle [./]*libraries/modules/" nil t)
+        (org-babel-tangle-file f)))))
+#+end_src
+
+The same thing from a shell (it works in fish and bash), run from =~/.config/emacs-modular=:
+
+#+begin_src sh :tangle no :eval never
+emacs --batch -l org --eval '(dolist (f (directory-files-recursively "docs/tangles" "^sp-.*[.]org$")) (with-temp-buffer (insert-file-contents f) (when (re-search-forward ":tangle [./]*libraries/modules/" nil t) (org-babel-tangle-file f))))'
+#+end_src
+
+Afterwards, =git diff= shows what changed. Org ends every tangled file with a newline, so modules that had none gain one, the modules that are still empty are replaced by the skeleton in their literate source, and any literate source edited since its =.el= file brings those edits in.

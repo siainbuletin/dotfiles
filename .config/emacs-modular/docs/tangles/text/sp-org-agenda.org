@@ -12,7 +12,7 @@ How tangling works here:
 - There is no file-wide =#+PROPERTY= line for =:tangle=, because that would send every block to one file.
 - Instead each top-level heading carries a =:header-args:emacs-lisp:= property in its own drawer, saying where the blocks under it are written.
 - The last heading, "Agenda views module", points at =sp-agenda-views.el=.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 

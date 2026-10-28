@@ -8,7 +8,7 @@ Literate source for the academic modules in =libraries/modules/academic/=.
 - Each module keeps its own file and its own =provide=.
 - =sp-academic= still loads the others with =require=, so a profile only lists =sp-academic=.
 - Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading. The =#+PROPERTY= line above is the default, for the master module.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The files have no newline after their last line (except where noted). Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 

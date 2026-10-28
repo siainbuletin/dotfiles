@@ -8,7 +8,7 @@ Literate source for the Vulpea modules in =libraries/modules/vulpea/=.
 - No module loads them as a group; =sp-org-ext= requires them.
 - Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading.
 - The =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The sub-modules are not new.
 
