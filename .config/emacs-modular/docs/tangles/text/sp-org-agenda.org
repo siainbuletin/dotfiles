@@ -581,7 +581,7 @@ The =i= prefix lists the open issues of the issue tracker.
 
 =c= lists every open TODO heading in the Org files of the dotfiles (the yadm repository in =~=): the docs in =docs/tangles/=, =README.org=, =CHANGELOG.org=, the ADRs. Each line starts with the =#+title:= of the file it comes from, in a 36 character column, instead of the Area and Project category the other views show. The file title is the useful label here, because these files are not vulpea-para areas or projects, so they have no category of their own.
 
-How it is built, the same way as the issue views:
+It solves the same problem as the issue views, scoping the agenda to one set of files, and copies the approach of [[file:../custom/sp-org-issues.org][=sp-org-issues=]] (its =sp-org-issues--agenda-files= and the =i i= / =i b= views). How it is built, the same way as the issue views:
 
 - It restricts =org-agenda-files= to the config files and binds =vulpea-para-agenda-inhibit-files-update=, otherwise vulpea-para would put the PARA files back before the block runs.
 - It uses a =todo= block with an empty match, so every open keyword counts, including the =#+todo:= keywords a file declares for itself. It does not depend on the global =org-todo-keywords=, which =sp-org-keywords= sets and other code could overwrite late.
