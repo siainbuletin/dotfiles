@@ -568,8 +568,9 @@ it.  The default skips hidden folders and the usual attachment ones."
   :group 'spcustom)
 
 (defcustom sp-org-lint-fn-backup-directory
-  (expand-file-name "sp-org-lint-backups/" user-emacs-directory)
-  "Folder that receives a copy of every file before it is changed."
+  (expand-file-name "org-lint-backups/" sp-var-dir)
+  "Folder that receives a copy of every file before it is changed.
+It is below `sp-var-dir', which Git ignores."
   :type 'directory
   :group 'spcustom)
 
@@ -923,7 +924,7 @@ File safety:
 - Files are read as UTF-8 and written back as UTF-8.
 - A file with carriage returns is refused rather than rewritten.
 - The text of a file is identified by its SHA-1. The preview records it and the apply step compares it, so a file edited after the preview is skipped.
-- The backup is a copy under =sp-org-lint-fn-backup-directory=. If it cannot be made, the file is not written.
+- The backup is a copy under =sp-org-lint-fn-backup-directory= (=org-lint-backups/= in =sp-var-dir=, which Git ignores). If it cannot be made, the file is not written.
 - The new text goes to a temporary file in the same folder and is renamed over the original.
 
 Another Emacs (the one you work in) may have the same files open, so the apply step is careful in these ways:
@@ -2606,3 +2607,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/106][#106]] 🔧 Changed =sp-vulpea-split= to =sp-split-leave-parents= (stacked on #105): the module is now =libraries/modules/funct/sp-split-leave-parents.el=, its doc is a section of =docs/tangles/funct/sp-org-lint.org= that tangles it separately, =sp-vulpea-ext= requires the new name, and the module tree and the load-order graph are updated.
 - [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] 🐛 Fixed =sp-split-leave-parents= failing with =(wrong-number-of-arguments denote-rename-file 5)=: the installed Denote has no DATE argument, so only the optional arguments it accepts are passed. ✨ A split-out note with no tags now asks for them with the tag-groups menu (=sp-split-ask-tags=), writes =#+filetags= and is named by Denote from them. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/186][#186]] 🔧 Changed =sp-org-lint-fn-backup-directory= to =org-lint-backups/= under =sp-var-dir= (was =sp-org-lint-backups/= in the config folder, so the copies showed up in Git). =var/= is already in the ignore list of this folder; no backup was tracked, so nothing had to be removed from the repository. The old folder, if it exists on your machine, can be deleted by hand. Not run in Emacs (none in the container).
