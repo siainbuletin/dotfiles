@@ -15,7 +15,14 @@
 (when noninteractive
   (dolist (feature '(vulpea vulpea-para sp-vulpea-para))
     (provide feature))
-  (defvar vulpea-para-done-keywords nil))
+  (defvar vulpea-para-done-keywords nil)
+  ;; Paths of sp-globals, which needs the whole configuration to load.
+  (defvar sp-yadm-repo "/tmp/yadm/repo.git")
+  (defvar sp-src-dir "/tmp/src")
+  (defvar sp-clones-dir "/tmp/clones")
+  (unless (fboundp 'sp-path)
+    (defun sp-path (dir &rest parts)
+      (apply #'concat (file-name-as-directory dir) parts))))
 
 (load (expand-file-name
        "../libraries/modules/custom/sp-org-issues.el"
@@ -327,6 +334,135 @@ It fails for the repository failing/repo."
 
 (ert-deftest sp-org-issues-morning-fetch-nothing ()
   (should (equal '(nil nil) (sp-org-issues-test--fetch nil))))
+
+(ert-deftest sp-org-issues-morning-parse-prs-reads-labels ()
+  (let* ((json "[{\"number\":17,\"title\":\"T\",\"labels\":[{\"name\":\"needs-further-testing\"},{\"name\":\"x\"}]},
+ {\"number\":18,\"title\":\"U\",\"labels\":[]}]")
+         (prs (sp-org-issues-morning--parse-prs json "dotfiles")))
+    (should (equal '("needs-further-testing" "x") (plist-get (car prs) :labels)))
+    (should-not (plist-get (cadr prs) :labels))))
+
+(ert-deftest sp-org-issues-morning-testing-prs ()
+  (let ((prs (list (sp-org-issues-test--pr 1 :labels '("needs-further-testing"))
+                   (sp-org-issues-test--pr 2 :labels '("other"))
+                   (sp-org-issues-test--pr 3))))
+    (should (equal '(1) (mapcar (lambda (pr) (plist-get pr :number))
+                                (sp-org-issues-morning--testing-prs prs))))
+    (let ((sp-org-issues-morning-testing-label "other"))
+      (should (equal '(2) (mapcar (lambda (pr) (plist-get pr :number))
+                                  (sp-org-issues-morning--testing-prs prs)))))))
+
+(defconst sp-org-issues-test--comments-json
+  "[{\"html_url\":\"https://github.com/o/r/pull/17#issuecomment-1\",
+ \"issue_url\":\"https://api.github.com/repos/o/r/issues/17\",
+ \"user\":{\"login\":\"siainbuletin\"},
+ \"body\":\"Note to self: try this on the Mac\\nsecond line\"},
+ {\"html_url\":\"https://github.com/o/r/pull/17#issuecomment-2\",
+ \"issue_url\":\"https://api.github.com/repos/o/r/issues/17\",
+ \"user\":{\"login\":\"siainbuletin\"},\"body\":\"Please also fix the docs\"},
+ {\"html_url\":\"https://github.com/o/r/pull/17#issuecomment-3\",
+ \"issue_url\":\"https://api.github.com/repos/o/r/issues/17\",
+ \"user\":{\"login\":\"someone-else\"},\"body\":\"Note to self: not yours\"},
+ {\"html_url\":\"https://github.com/o/r/pull/18#discussion_r4\",
+ \"pull_request_url\":\"https://api.github.com/repos/o/r/pulls/18\",
+ \"user\":{\"login\":\"siainbuletin\"},\"body\":\"  note to self: [check] later\"}]"
+  "Comments as GitHub's REST API answers them.")
+
+(ert-deftest sp-org-issues-morning-parse-notes ()
+  (let ((notes (sp-org-issues-morning--parse-notes
+                sp-org-issues-test--comments-json "dotfiles")))
+    ;; only your own comments that start with the marker
+    (should (= 2 (length notes)))
+    (let ((note (car notes)))
+      (should (equal "dotfiles" (plist-get note :repo)))
+      (should (= 17 (plist-get note :number)))
+      (should (equal "https://github.com/o/r/pull/17#issuecomment-1"
+                     (plist-get note :url)))
+      ;; the marker and the lines after the first are not part of the text
+      (should (equal "try this on the Mac" (plist-get note :text))))
+    ;; a review comment names its pull request in another field
+    (should (= 18 (plist-get (cadr notes) :number)))
+    ;; square brackets would break the Org link
+    (should-not (string-match-p "[][]" (plist-get (cadr notes) :text)))))
+
+(ert-deftest sp-org-issues-morning-notes-are-for-open-prs-only ()
+  (let* ((notes (sp-org-issues-morning--parse-notes
+                 sp-org-issues-test--comments-json "dotfiles"))
+         (kept (sp-org-issues-morning--open-notes
+                notes (list (sp-org-issues-test--pr 18)))))
+    (should (equal '(18) (mapcar (lambda (note) (plist-get note :number)) kept)))
+    ;; the same number in another repository is another pull request
+    (should-not (sp-org-issues-morning--open-notes
+                 notes (list (sp-org-issues-test--pr 18 :repo "other"))))))
+
+(ert-deftest sp-org-issues-morning-render-notes-and-testing ()
+  (let* ((notes (list (list :repo "dotfiles" :number 17 :text "try this on the Mac"
+                            :url "https://github.com/o/r/pull/17#issuecomment-1")))
+         (testing (list (sp-org-issues-test--pr 19 :title "Tint boxes")))
+         (text (sp-org-issues-morning--render
+                nil sp-org-issues-test--now nil
+                (list :notes notes :testing testing))))
+    (should (string-match-p "^\\* Notes to self" text))
+    (should (string-match-p
+             "\\[\\[https://github.com/o/r/pull/17#issuecomment-1\\]\\[dotfiles #17\\]\\] try this on the Mac"
+             text))
+    (should (string-match-p "^\\* Needs further testing" text))
+    (should (string-match-p "\\[\\[https://github.com/o/r/pull/19\\]\\[dotfiles #19\\]\\] Tint boxes"
+                            text))))
+
+(ert-deftest sp-org-issues-morning-render-leaves-out-empty-sections ()
+  (let ((text (sp-org-issues-morning--render nil sp-org-issues-test--now nil)))
+    (should-not (string-match-p "Notes to self" text))
+    (should-not (string-match-p "Needs further testing" text))))
+
+(defun sp-org-issues-test--fake-gh-api ()
+  "Write a script that answers `gh api' like GitHub, and return its path.
+It fails for failing/repo and answers the pull request comments with nothing."
+  (let ((script (make-temp-file "fake-gh-api" nil ".sh")))
+    (with-temp-file script
+      (insert "#!/bin/sh\n"
+              "case \"$*\" in *failing/repo*) echo boom >&2; exit 1;; esac\n"
+              "echo \"$*\" >> \"$FAKE_GH_LOG\"\n"
+              "case \"$*\" in *pulls/comments*) echo '[]'; exit 0;; esac\n"
+              "cat <<'EOF'\n"
+              sp-org-issues-test--comments-json "\n"
+              "EOF\n"))
+    (set-file-modes script #o755)
+    script))
+
+(defun sp-org-issues-test--fetch-notes (repos)
+  "Fetch the notes of REPOS with the fake gh and return (NOTES FAILED ARGS)."
+  (let* ((script (sp-org-issues-test--fake-gh-api))
+         (log (make-temp-file "fake-gh-log"))
+         (process-environment (cons (concat "FAKE_GH_LOG=" log) process-environment))
+         result)
+    (unwind-protect
+        (let ((sp-org-issues-gh-program script)
+              (deadline (+ (float-time) 10)))
+          (sp-org-issues-morning--fetch-notes
+           repos (lambda (notes failed)
+                   (setq result (list notes failed
+                                      (with-temp-buffer
+                                        (insert-file-contents log)
+                                        (buffer-string))))))
+          (while (and (not result) (< (float-time) deadline))
+            (accept-process-output nil 0.1)))
+      (delete-file script)
+      (delete-file log))
+    result))
+
+(ert-deftest sp-org-issues-morning-fetch-notes ()
+  (pcase-let ((`(,notes ,failed ,args)
+               (sp-org-issues-test--fetch-notes
+                '(("dotfiles" . "o/r") ("bad" . "failing/repo")))))
+    (should (= 2 (length notes)))
+    (should (equal '("bad") failed))
+    ;; both kinds of comment are read, through the REST API
+    (should (string-match-p "api repos/o/r/issues/comments" args))
+    (should (string-match-p "api repos/o/r/pulls/comments" args))))
+
+(ert-deftest sp-org-issues-morning-fetch-notes-nothing ()
+  (should (equal '(nil nil) (seq-take (sp-org-issues-test--fetch-notes nil) 2))))
 
 (ert-deftest sp-org-issues-morning-repos ()
   (let ((sp-org-issues-repos
