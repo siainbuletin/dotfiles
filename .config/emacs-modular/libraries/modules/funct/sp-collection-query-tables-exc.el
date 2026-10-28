@@ -34,9 +34,25 @@
 (defcustom sp-collec-query-exc-column-widths
   '((:title . 42) (:tags . 24) (:id . 38) (:path . 50) (t . 20))
   "Width in characters of each column in an exc table.
-A column not listed uses the entry for t."
+A column not listed uses the entry for t.  The :column-widths of a
+table's spec, saved with a view, override these."
   :type '(alist :key-type (choice symbol string) :value-type integer)
   :group 'spcustom)
+
+(defcustom sp-collec-query-exc-wrap 'wrap
+  "How an exc table treats text longer than its column.
+`wrap' keeps the widths of `sp-collec-query-exc-column-widths' and wraps
+long text onto more lines.  `fit' sizes each column to its longest text,
+up to `sp-collec-query-exc-max-width'; text beyond that still wraps.  The
+:wrap of a table's spec overrides this."
+  :type '(choice (const :tag "Wrap inside the column width" wrap)
+                 (const :tag "Fit the column to its text" fit))
+  :group 'sp-collec-query)
+
+(defcustom sp-collec-query-exc-max-width 80
+  "Widest a column may grow in characters when the table fits its columns."
+  :type 'integer
+  :group 'sp-collec-query)
 
 (defvar-local sp-collec-query-exc--spec nil
   "The resolved spec the current exc table shows.")
@@ -59,11 +75,25 @@ A column not listed uses the entry for t."
   (unless (sp-collec-query-exc-available-p)
     (user-error "exc is not available: it needs Emacs 29.1 and the ecss, ebox, etaf and exc checkouts on `load-path' (see `sp-collec-query-renderer')")))
 
-(defun sp-collec-query-exc--width (column)
-  "Return the width for COLUMN."
-  (or (alist-get column sp-collec-query-exc-column-widths nil nil #'equal)
-      (alist-get t sp-collec-query-exc-column-widths)
-      20))
+(defun sp-collec-query-exc--width (column spec &optional texts)
+  "Return the width for COLUMN of SPEC, whose cell and header text is TEXTS.
+A width in the spec's :column-widths wins; then, if the table fits its
+columns, the longest line in TEXTS up to `sp-collec-query-exc-max-width';
+then `sp-collec-query-exc-column-widths'."
+  (let ((own (plist-get spec :column-widths)))
+    (or (alist-get column own nil nil #'equal)
+        (and (eq (or (plist-get spec :wrap) sp-collec-query-exc-wrap) 'fit)
+             (min sp-collec-query-exc-max-width
+                  (apply #'max 1
+                         (mapcar (lambda (text)
+                                   (apply #'max 0
+                                          (mapcar #'string-width
+                                                  (split-string text "\n"))))
+                                 texts))))
+        (alist-get t own)
+        (alist-get column sp-collec-query-exc-column-widths nil nil #'equal)
+        (alist-get t sp-collec-query-exc-column-widths)
+        20)))
 
 ;;;; Building the grid
 
@@ -92,14 +122,21 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
   "Return an exc data source for SPEC and the list NOTES."
   (let* ((columns (plist-get spec :columns))
          (labels (mapcar #'sp-collec-query-header-label columns))
+         (rows (sp-collec-query-rows notes columns))
          (source (make-exc-default-data-source
                   labels
-                  (cons labels (sp-collec-query-rows notes columns))
+                  (cons labels rows)
                   (sp-collec-query-spec-summary spec))))
     (cl-loop for column in columns
              for i from 0
              do (exc-set-style-at source 0 i '(:bold t))
-             do (exc-set-column-width source i (sp-collec-query-exc--width column)))
+             do (exc-set-column-width
+                 source i
+                 (sp-collec-query-exc--width
+                  column spec
+                  (cons (nth i labels)
+                        (mapcar (lambda (row) (format "%s" (or (nth i row) "")))
+                                rows)))))
     (exc-set-frozen source 1 0)
     (sp-collec-query-exc--guard source columns (vconcat notes))
     source))
