@@ -391,6 +391,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-author-notes ;; author notes and Works tables from pub-author (preview first)
                     'sp-org-lint
 
                     ;; Programming modules
