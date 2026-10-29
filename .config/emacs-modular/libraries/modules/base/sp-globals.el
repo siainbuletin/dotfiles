@@ -87,7 +87,7 @@ With SKIP-NIL, a nil value leaves TARGET alone."
   "Where my own git projects live."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~/cloned-scan-ai/")
+(defcustom sp-clones-dir (sp-paths--dir "SP_CLONES_DIR" "~")
   "Folder holding the cloned-utilities and cloned-scan-ai checkouts."
   :type 'directory :group 'spcustom)
 
@@ -164,7 +164,7 @@ here."
   :group 'spcustom)
 
 ;; Moved here from sp-academic.el.
-(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/") 
+(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/")
   "User citation notes directory."
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")

@@ -6,7 +6,7 @@ Literate source for =libraries/modules/custom/sp-vc-ai-workbench.el=.
 
 - Every =emacs-lisp= block below goes into that file, except blocks marked =:tangle no=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The commentary at the top of the module says:
 

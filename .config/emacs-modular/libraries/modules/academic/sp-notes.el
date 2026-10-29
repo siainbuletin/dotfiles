@@ -40,7 +40,7 @@ log/ instead. Kept because old entries still live in workbook/."
   :ensure t
   ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
   ;; :after consult
-  
+
   :commands
   (consult-notes
              consult-notes-search-in-all-notes)
@@ -61,7 +61,7 @@ log/ instead. Kept because old entries still live in workbook/."
 ;;
 ;; The better option would be adapting this to the ID-based workflow
 ;; by making it query IDs.
-;; 
+;;
 ;; But this means making use of a different consult plugin.
 (defun sp-denote-notebook ()
   "Open `consult-notes in buffer window rather than minibuffer."

@@ -7,7 +7,7 @@ Literate source for =libraries/modules/custom/sp-graphs.el= and its page templat
 - Every line of both files lives in the source blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where the Emacs Lisp is written.
 - Each HTML block carries its own path.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=.
 
@@ -3542,6 +3542,17 @@ the relation.  Clicking a node visits its note."
                      (relationship-annotator-fa2--nodes scope start)
                      (relationship-annotator-fa2--edges scope))
     (pop-to-buffer buffer)))
+#+end_src
+
+** Force-directed graph through another package: [[id:20261028T140146.203787][neonmei's vulpea-graph]]
+
+Since it's sharing the same namespace with 
+
+#+begin_src emacs-lisp
+(use-package vulpea-graph
+  :ensure (:type git :host github :repo "neonmei/vulpea-graph")
+  :commands (vulpea-graph)
+) 
 #+end_src
 
 * Provide

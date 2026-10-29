@@ -16,8 +16,8 @@
   :defer t)
 
 ;; One caveat I want to be upfront about: markdown-ts-mode is still experimental,
-;; and you have to opt into it. As the header of markdown-ts-mode.el notes, it 
-;; isn't wired up to auto-mode-alist yet, so it won't take over .md files on its 
+;; and you have to opt into it. As the header of markdown-ts-mode.el notes, it
+;; isn't wired up to auto-mode-alist yet, so it won't take over .md files on its
 ;; own. For now you pull in the library with M-x load-library RET markdown-ts-mode,
 ;; then turn it on in a bufferf, or add it to auto-mode-alist yourself if you're feeling brave.
 
@@ -25,16 +25,16 @@
 (use-package markdown-mode
   :ensure t
   :commands (markdown-mode gfm-mode)
-  
+
   :mode (("\\.markdown\\'" . markdown-mode)
          ("\\.md\\'"       . markdown-mode)
          ("README\\.md\\'" . gfm-mode))
-  
+
   :bind (:map markdown-mode-map
          ("s-*" . markdown-insert-list-item)
          ("s-b" . markdown-insert-bold)
          ("s-i" . markdown-insert-italic))
-  
+
   :config
   (setq markdown-enable-math nil
         markdown-enable-wiki-links t
@@ -45,7 +45,7 @@
         markdown-unordered-list-item-prefix "-   "
         markdown-header-scaling t
         markdown-use-pandoc-style-yaml-metadata t)
-  
+
   (setq markdown-live-preview-window-function 'sp--markdown-live-preview-window-xwidget)
 
   (defun sp--markdown-live-preview-window-xwidget (file)
@@ -74,7 +74,7 @@
 (use-package markdown-toc
   :ensure t
   :after markdown-mode
-  :hook 
+  :hook
   (markdown-mode . markdown-toc-mode))
 
 ;; macro: delete backslashes in paragraph to cleanup markdown conversion

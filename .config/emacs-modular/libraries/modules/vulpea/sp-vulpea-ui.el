@@ -20,7 +20,7 @@
   ;; vulpea': vulpea loads lazily, so the key would stay undefined until then.
   :bind
   (("C-x t s" . vulpea-ui-sidebar-toggle))
-  
+
   :custom
   ;; Position: 'right (default), 'left, 'top, 'bottom
   (vulpea-ui-sidebar-position 'right)
@@ -57,19 +57,19 @@
                                        )
    			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
    			                :sort ("Modified" . t)))
-        
+
            ("open-questions" . (:filter (:tags-all ("question")
                                          :level 1 ;; this will only bring up headings at first
                                          )
                                 :columns (title (meta "q-status") links tags modified)
                                 :sort ("Modified" . t)
            ))
-        
+
            ("music" . (:filter (:tags-all ("music")
                                :level 0)
                        :columns (title (meta "year") (meta "genre") tags modified)
                        :sort ("title" . t)))
-        
+
            ("albums" . (:filter (:tags-all ("album"))
                         :columns (title
                                    (meta "creator" :width 60)

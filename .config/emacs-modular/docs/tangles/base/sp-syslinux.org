@@ -6,7 +6,7 @@ Literate source for =libraries/modules/base/sp-syslinux.el=.
 
 - Every =emacs-lisp= block below goes into that file, except blocks marked =:tangle no=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module is the Linux counterpart of =sp-syswin=, which handles running Emacs on Windows.
 

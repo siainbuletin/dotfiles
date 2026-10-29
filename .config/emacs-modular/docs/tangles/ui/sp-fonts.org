@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-fonts.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module sets up typography around =fontaine=. Its presets own:
 
@@ -42,9 +42,6 @@ The file header: the first line carries the file name, a short summary and the =
 #+begin_src emacs-lisp -i
 ;;; sp-fonts.el --- Fonts, text scaling and line highlighting -*- lexical-binding: t; -*-
 
-The module's own summary: fontaine owns the fonts, and everything else here reacts to them.
-
-#+begin_src emacs-lisp -i
 ;;; Commentary:
 
 ;; Typography for the whole configuration.  `fontaine' owns the font

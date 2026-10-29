@@ -23,7 +23,7 @@
   :after vulpea)
 
 ;; Other modules for vulpea
-   
+
 (use-package vulpea-capf
   :ensure (:host github :repo "neonmei/vulpea-capf")
   :hook (org-mode . vulpea-capf-mode)

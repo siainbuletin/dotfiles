@@ -188,10 +188,10 @@ when the workspace is created."
   (setq projectile-project-search-path
         (list (sp-path sp-documents-dir "writing/")
               "~/.config/"))
-  
+
   :config
   (projectile-mode +1)
-  
+
   :bind (("C-c p" . projectile-command-map)
          :map projectile-mode-map
          ("C-c C-p" . projectile-command-map)

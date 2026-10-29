@@ -12,6 +12,8 @@
 
 ;;; Code:
 
+(require 'sp-org-id-link)
+
 ;;;; Org Agenda
 ;;;;; Agenda Settings
 (use-package org-agenda
@@ -53,6 +55,16 @@
 (use-package org-other-agenda
   :ensure (:host github :repo "yibie/org-other-agenda"))
 
+;; Show links in the rows by their description, as an Org buffer does,
+;; with the helper the query tables use (`sp-org-link-linkify').
+(defun sp-org-agenda-linkify-title (title)
+  "Return the row TITLE of `org-other-agenda' with its Org links described."
+  (sp-org-link-linkify title))
+
+(with-eval-after-load 'org-other-agenda
+  (advice-add 'org-other-agenda--clean-title :filter-return
+              #'sp-org-agenda-linkify-title))
+
 ;;;;; Agenda Jump to Dashboard
 (defun lem-jump-to-org-dashboard ()
   (interactive)
@@ -88,13 +100,13 @@
 ;;;; CONFIGURING THE FUNCTIONALITY
 ;; Scheduling with org-agenda
 
-(setq org-agenda-skip-scheduled-if-done t)
-(setq org-agenda-skip-timestamp-if-done t)
-(setq org-agenda-todo-ignore-scheduled 'future)
-(setq org-agenda-todo-ignore-deadlines 'far)
-(setq org-agenda-sorting-strategy
- '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
-;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
+  (setq org-agenda-skip-scheduled-if-done t)
+  (setq org-agenda-skip-timestamp-if-done t)
+  (setq org-agenda-todo-ignore-scheduled 'future)
+  (setq org-agenda-todo-ignore-deadlines 'far)
+  (setq org-agenda-sorting-strategy
+   '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
+  ;; Moved to `sp-globals': `sp-calendar-week-start-day' (1, Monday).
 
 ;;;; EXTENSIONS FOR ORG-AGENDA
 (use-package org-super-agenda

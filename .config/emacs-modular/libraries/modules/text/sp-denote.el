@@ -14,7 +14,7 @@
 (use-package denote
   :ensure t
   :commands (denote denote-create-note denote-link-ol-store)
-  
+
   :config
   (denote-rename-buffer-mode)
 

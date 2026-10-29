@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-org-id-link.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -128,6 +128,61 @@ is non-nil."
                  (org-match-string-no-properties 1))))
           (apply 'delete-region remove)
           (insert description)))))
+#+end_src
+
+** Show links by their description
+
+Org shows =[[target][description]]= as the description alone; text drawn outside an Org buffer (a table cell, an agenda row) keeps the raw form unless something does it.
+
+- =sp-org-link-linkify= returns TEXT with every bracket link replaced by its description in =org-link= face, and RET or a click follows the link through =sp-org-link-open=. Text without links, or any text when =org-link-descriptive= is nil, comes back unchanged.
+- =sp-org-link-has-link-p= tells whether TEXT holds a link.
+- Two callers: the query tables (vui and exc renderers, =sp-collection-query-tables-core=) and =org-other-agenda= (=sp-org-agenda=). They used to have a copy in the query tables as =sp-collec-query-linkify= and friends; it moved here so the agenda shares it.
+
+#+begin_src emacs-lisp -i
+;;;;; Show links by their description
+;; Used by the query tables and by `org-other-agenda', so a link in text
+;; that is not in an Org buffer looks and works like one in a buffer.
+(defvar sp-org-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'sp-org-link-open)
+    (define-key map [mouse-1] #'sp-org-link-open)
+    (define-key map [mouse-2] #'sp-org-link-open)
+    map)
+  "Keymap on a link shown by `sp-org-link-linkify'.")
+
+(defun sp-org-link-open ()
+  "Follow the Org link at point or at the last mouse click."
+  (interactive)
+  (when (mouse-event-p last-input-event)
+    (mouse-set-point last-input-event))
+  (let ((link (get-text-property (point) 'sp-org-link)))
+    (if link
+        (org-link-open-from-string (format "[[%s]]" link))
+      (user-error "No link here"))))
+
+(defun sp-org-link-has-link-p (text)
+  "Non-nil if TEXT contains an Org bracket link."
+  (and (string-match-p org-link-bracket-re text) t))
+
+(defun sp-org-link-linkify (text)
+  "Return TEXT with its Org links shown the way an Org buffer shows them.
+Each [[target][description]] becomes its description alone in `org-link'
+face, and RET or a click follows the link.  Text is returned as is when
+`org-link-descriptive' is nil."
+  (if (not (and org-link-descriptive (sp-org-link-has-link-p text)))
+      text
+    (let ((pos 0) out)
+      (while (string-match org-link-bracket-re text pos)
+        (let* ((link (org-link-unescape (match-string 1 text)))
+               (desc (or (match-string 2 text) link)))
+          (push (substring text pos (match-beginning 0)) out)
+          (push (propertize desc 'face 'org-link 'mouse-face 'highlight
+                            'help-echo link 'keymap sp-org-link-map
+                            'sp-org-link link)
+                out)
+          (setq pos (match-end 0))))
+      (push (substring text pos) out)
+      (apply #'concat (nreverse out)))))
 #+end_src
 
 ** Link to the configuration docs
@@ -273,3 +328,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/150][#150]] ✨ Added =sp-org-insert-config-doc-link=, =sp-config-docs-directory= and =sp-org-doc-title=: insert a =file:= link to a configuration doc from any Org note.
 - [[https://github.com/siainbuletin/dotfiles/pull/155][#155]] ✨ Added completion for =help:=, =info:= and =man:= links in =org-insert-link= (=sp-org-link-complete-help=, =-info=, =-man=, =sp-org-link-follow-man=).
 - [[https://github.com/siainbuletin/dotfiles/pull/166][#166]] 🐛 Fixed clicking a =help:= link: it now opens through =sp-org-link-follow-help=.
+- [[https://github.com/siainbuletin/dotfiles/pull/185][#185]] 🔧 Moved the link display helper here from the query tables: =sp-org-link-linkify=, =sp-org-link-has-link-p=, =sp-org-link-open= and =sp-org-link-map= (were =sp-collec-query-*=).

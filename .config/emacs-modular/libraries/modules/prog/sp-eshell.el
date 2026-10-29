@@ -10,20 +10,20 @@
 (eval-and-compile
   ;; Try to load lambda themes
   (require 'lambda-themes nil t)
-  
+
   ;; Ensure all required faces are defined
   (unless (facep 'lambda-meek)
     (defface lambda-meek
       '((t :inherit shadow))
       "Fallback meek face for eshell."
       :group 'faces))
-  
+
   (unless (facep 'lambda-mild)
-    (defface lambda-mild  
+    (defface lambda-mild
       '((t :inherit shadow))
       "Fallback mild face for eshell."
       :group 'faces))
-  
+
   (unless (facep 'lambda-yellow)
     (defface lambda-yellow
       '((t :inherit warning))
@@ -574,7 +574,6 @@ any directory proferred by `consult-dir'."
                     (consult-dir--pick "Switch directory: ")))))
      (t (eshell/cd (if regexp (eshell-find-previous-directory regexp)
                      (completing-read "cd: " eshell-dirs)))))))
-
 
 ;;;;;; Jump to Project Root
 (defun eshell/cg () (interactive) (eshell/cd (vc-git-root ".")))

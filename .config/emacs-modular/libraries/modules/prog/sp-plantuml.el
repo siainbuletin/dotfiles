@@ -45,7 +45,7 @@
 
           (use-local-map (make-sparse-keymap))
           (local-set-key (kbd "q") 'quit-window)
-          
+
           (clear-image-cache png-file)
           (insert-image (create-image png-file))
           (setq header-line-format "Press 'q' to close.")
