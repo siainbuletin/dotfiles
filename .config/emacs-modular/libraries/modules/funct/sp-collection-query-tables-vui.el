@@ -51,7 +51,7 @@ spec's sort."
                      (lambda (c)
                        (cond
                         ((eq c :title)
-                         (vui-button (or (vulpea-note-title note) "")
+                         (vui-button (sp-collec-query-title-label note)
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
                         ((keywordp c) (sp-org-link-linkify (sp-collec-query-cell note c)))
                         ;; A field would show the raw [[id:..][..]] text and

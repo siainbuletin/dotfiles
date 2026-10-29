@@ -80,7 +80,7 @@
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: X\n\n* Bio\ntext\n")
     (should (equal (sp-author-notes--person-pass) '(basics works table)))
     (let ((text (buffer-string)))
-      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :columns (:title \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Bio\ntext\n" text))
+      (should (string-match-p "#\\+title: X\n\n\\* Basics\n\n\\* Works\n\n#\\+BEGIN: collection-query-table :parent-of \"self\" :parent-prop \"pub-author\" :fold-tag \"booksection\" :fold-prop \"bib-parent\" :columns (:title :sections \"read-status\" \"read-priority\" \"pub-year\" \"relevance-factor\") :sort-by \"pub-year\"\n#\\+END:\n\n\\* Bio\ntext\n" text))
       ;; idempotent
       (should (null (sp-author-notes--person-pass)))
       (should (equal text (buffer-string))))))
