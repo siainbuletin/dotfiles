@@ -1209,6 +1209,197 @@ completion; the menu (`sp-collec-query-menu') inserts its own draft."
   (org-update-dblock))
 #+end_src
 
+** Keeping dynamic blocks up to date
+
+A =collection-query-table= block only changes when you run =C-c C-x C-u= (=org-dblock-update=) on it. =sp-collec-query-dblock-auto-mode= does that step for you. It is a global mode and it is off until you turn it on, for example in your init file or with =M-x sp-collec-query-dblock-auto-mode=:
+
+#+begin_example
+(sp-collec-query-dblock-auto-mode 1)
+#+end_example
+
+The "database" the blocks read is Vulpea's SQLite database, which Vulpea's own autosync keeps up to date as notes are saved. The mode does not write to it and does not watch it; it re-runs the blocks at the moments when it may have changed:
+
+- =open=: a few moments after you visit an Org file that contains a block, so opening is not slowed down.
+- =save=: after you save any Org note, =sp-collec-query-dblock-delay= seconds later (Vulpea needs time to read the saved file), every open buffer that contains a block is updated.
+
+=sp-collec-query-dblock-update-on= picks either or both. Only the blocks named in =sp-collec-query-dblock-names= are touched (the table block and its old name), never clock tables or other dynamic blocks, so it stays cheap and predictable. A buffer without a block is skipped by a text search, with no query.
+
+Two things keep it from misbehaving:
+
+- A block whose new table is the same as the old one leaves the buffer alone: the text is compared, and a buffer that was unmodified stays unmodified. So nothing is marked as changed on every visit, and there is no save loop.
+- The buffer is not saved unless you ask (=sp-collec-query-dblock-save=). When you do, only a buffer that was unmodified before the update is saved, never one with edits of yours in it, and the save made by the mode does not trigger another round.
+
+One thing it does not change: a block with =:parent-of "self"= still adds an ID to a file that has none (see "Left as they were" in the section on what was wrong), so opening such a note with the mode on writes that ID.
+
+#+begin_src emacs-lisp -i
+;;;; Keeping dynamic blocks up to date
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defgroup sp-collec-query-dblock nil
+  "Updating query table dynamic blocks without asking."
+  :group 'sp-collec-query)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-dblock-update-on '(open save)
+  "When `sp-collec-query-dblock-auto-mode' updates dynamic blocks.
+`open' updates a note's blocks when its file is visited; `save' updates
+the blocks in all open notes some seconds after any Org note is saved."
+  :type '(set (const :tag "When a file is opened" open)
+              (const :tag "After any Org note is saved" save))
+  :group 'sp-collec-query-dblock)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-dblock-names '("collection-query-table" "vulpea-table")
+  "Names of the dynamic blocks `sp-collec-query-dblock-auto-mode' updates.
+Other dynamic blocks, such as clock tables, are never touched."
+  :type '(repeat string)
+  :group 'sp-collec-query-dblock)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-dblock-delay 2.0
+  "Seconds after a save before open notes have their blocks updated.
+The Vulpea database is updated by its own autosync; if blocks show the
+state from before the save, lengthen this."
+  :type 'number
+  :group 'sp-collec-query-dblock)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defcustom sp-collec-query-dblock-save nil
+  "Non-nil to save a note after its blocks changed.
+Only a note that had no unsaved edits before the update is saved."
+  :type 'boolean
+  :group 'sp-collec-query-dblock)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defvar sp-collec-query-dblock--saving nil
+  "Non-nil while the mode itself saves a buffer, so that save starts no new round.")
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defvar sp-collec-query-dblock--timer nil)
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock--regexp ()
+  "Return the regexp matching the begin line of a block to update."
+  (format "^[ \t]*#\\+BEGIN:[ \t]+%s\\_>"
+          (regexp-opt sp-collec-query-dblock-names t)))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock-has-block-p ()
+  "Non-nil if the current buffer contains a block to update."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (re-search-forward (sp-collec-query-dblock--regexp) nil t)))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock-update-buffer ()
+  "Update every query table dynamic block in the current buffer.
+Return non-nil if the text of the buffer changed.  A buffer that was
+unmodified and whose blocks came out the same is left unmodified.  With
+`sp-collec-query-dblock-save', a buffer that was unmodified and changed
+is saved."
+  (interactive)
+  (when (and (derived-mode-p 'org-mode)
+             (fboundp 'vulpea-db-query)
+             (not buffer-read-only)
+             (sp-collec-query-dblock-has-block-p))
+    (let ((was-modified (buffer-modified-p))
+          (before (buffer-hash))
+          (regexp (sp-collec-query-dblock--regexp))
+          (case-fold-search t))
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (while (re-search-forward regexp nil t)
+            (beginning-of-line)
+            (condition-case err
+                (org-update-dblock)
+              (error (message "Query table block in %s: %s"
+                              (buffer-name) (error-message-string err))))
+            (unless (re-search-forward "^[ \t]*#\\+END" nil t)
+              (goto-char (point-max))))))
+      (let ((changed (not (equal before (buffer-hash)))))
+        (cond ((not changed)
+               (unless was-modified (set-buffer-modified-p nil)))
+              ((and sp-collec-query-dblock-save buffer-file-name (not was-modified))
+               (let ((sp-collec-query-dblock--saving t))
+                 (save-buffer))))
+        changed))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock-update-all ()
+  "Update the query table blocks in every open Org file buffer."
+  (interactive)
+  (let ((count 0))
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (when (and buffer-file-name
+                   (sp-collec-query-dblock-update-buffer))
+          (setq count (1+ count)))))
+    (when (called-interactively-p 'any)
+      (message "Query table blocks changed in %d buffer%s" count (if (= count 1) "" "s")))
+    count))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock--on-open ()
+  "Update the blocks of the file just visited, once Emacs is idle."
+  (when (and (memq 'open sp-collec-query-dblock-update-on)
+             buffer-file-name
+             (derived-mode-p 'org-mode))
+    (let ((buffer (current-buffer)))
+      (run-with-idle-timer
+       0.5 nil
+       (lambda ()
+         (when (buffer-live-p buffer)
+           (with-current-buffer buffer
+             (sp-collec-query-dblock-update-buffer))))))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun sp-collec-query-dblock--after-save ()
+  "Schedule an update of all open blocks after an Org note is saved."
+  (when (and (memq 'save sp-collec-query-dblock-update-on)
+             (not sp-collec-query-dblock--saving)
+             buffer-file-name
+             (derived-mode-p 'org-mode))
+    (when (timerp sp-collec-query-dblock--timer)
+      (cancel-timer sp-collec-query-dblock--timer))
+    (setq sp-collec-query-dblock--timer
+          (run-with-timer sp-collec-query-dblock-delay nil
+                          #'sp-collec-query-dblock-update-all))))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(define-minor-mode sp-collec-query-dblock-auto-mode
+  "Update query table dynamic blocks without running `org-dblock-update'.
+See `sp-collec-query-dblock-update-on' for when."
+  :global t
+  :group 'sp-collec-query-dblock
+  (if sp-collec-query-dblock-auto-mode
+      (progn (add-hook 'find-file-hook #'sp-collec-query-dblock--on-open)
+             (add-hook 'after-save-hook #'sp-collec-query-dblock--after-save))
+    (remove-hook 'find-file-hook #'sp-collec-query-dblock--on-open)
+    (remove-hook 'after-save-hook #'sp-collec-query-dblock--after-save)
+    (when (timerp sp-collec-query-dblock--timer)
+      (cancel-timer sp-collec-query-dblock--timer)
+      (setq sp-collec-query-dblock--timer nil))))
+#+end_src
+
 ** Org buffer renderer
 
 A read-only =sp-collec-query-org-mode= buffer; =g= runs the query again.
@@ -2407,3 +2598,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/168][#168]] 🔧 Changed the exc table to end one empty row after the last note, not at the bottom of the window: the sheet's row limit is set per buffer (=exc-calc-sheet-limit=). Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/169][#169]] ✨ Added =:column-widths= and =:wrap= to the spec, so a saved view keeps the exc column widths and word wrap of its columns; menu keys =w= and =W=; new options =sp-collec-query-exc-wrap= and =sp-collec-query-exc-max-width=. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/172][#172]] ✨ Added sorting by several columns: =:sort-by= may be a list, applied in order (the first column is the primary key, each next one breaks the ties of those before it), and an element may be =(COLUMN . asc)= or =(COLUMN . desc)= for its own direction; a single column still works. The sort is stable, so ties keep the query order (before, descending reversed them). The menu's =o= reads the columns in order (=rating,title:desc=), =O= is the default direction for those without their own; vui keeps the columns clicked before as tie-breakers (the number after the arrow is the rank) with a Reset button; the summary line says "sorted by". exc and Org take the spec as is. Not run in Emacs beyond the sort tests in =tests/sp-collection-query-tables-test.el= (core with stubbed Vulpea); menu and vui not run.
+- [[https://github.com/siainbuletin/dotfiles/pull/192][#192]] ✨ Added =sp-collec-query-dblock-auto-mode=, off by default, which runs =org-dblock-update= on the =collection-query-table= blocks (and the old =vulpea-table= name) when a note is opened and some seconds after any Org note is saved, so the blocks follow the Vulpea database without =C-c C-x C-u=. Options: =sp-collec-query-dblock-update-on=, =-names=, =-delay=, =-save=; command =sp-collec-query-dblock-update-all=. A block with the same result leaves the buffer unmodified, and nothing is saved unless =-save= is set. Tested in Emacs 29.3 in batch with stubbed block writer (7 tests in =tests/sp-collection-query-tables-test.el=); not run against a real Vulpea database or in the interactive config.
