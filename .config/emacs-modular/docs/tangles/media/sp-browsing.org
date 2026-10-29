@@ -20,6 +20,19 @@ The commentary at the top of the module says:
 Creating the environment for browsing within Emacs.
 #+end_quote
 
+For design considerations (extended, personal), see [[id:8014cc97-450e-4ab0-9ec1-a5ec116f0160][Browser in Emacs]].
+
+For getting information delivered as a newsfeed directly to Emacs, see [[file:../inputs.org][Input management (for RSS and other sources)]]. This is for /fetching/ information by myself, not having it be delivered to me.
+
+* Usage for the different packages
+
+- [[id:20261022T210418.014321][eww]]
+- [[id:DBC62B9D-E339-4306-95D0-DA887EAD72DC][elpher]]
+- [[id:7558b0a8-ee13-42d3-8b87-ec5c670e368c][consult-omni]] (for browsing inside the minibuffer)
+- browsers that came as a result of Emacs 32 (canvas feature)
+- [[id:20261023T103452.098802][embr.el]]
+- controlling [[id:80fb667b-f59c-4138-86d3-e97d6d06910a][Qutebrowser]] with Emacs
+
 * File header
 
 ** Header and commentary
@@ -31,7 +44,9 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;;; Commentary:
 
-;; Creating the environment for browsing within Emacs.
+;; Good, focused browsing should happen as much as possible within
+;; Emacs. This means that some of the workflows that have me context-
+;; switching between Emacs and the browser is eliminated.
 
 ;;; Code:
 
@@ -90,14 +105,401 @@ Some caveats: =thing-at-point--list= does not appear to be a standard Emacs func
 
 * Further browsers
 
-** Elpher and consult-omni placeholders
-
-Empty headers reserved for Elpher and =consult-omni= configuration.
-
-The =consult-omni= header is the place where the package gets installed. [[file:../academic/sp-fetch-academic.org::*consult-omni (future)][sp-fetch-academic]] has a placeholder that will use it for scholarly searches once it works here; the working recipe is still the switched-off block in the old doc ([[file:sp-browsing-old.org][sp-browsing-old]]).
+** Elpher placeholder
 
 #+begin_src emacs-lisp -i
 ;;;; Elpher
+#+end_src
 
+** consult-omni
+*** Explainer for the functionality
+
+The =consult-omni= header is the place where the package gets installed. [[file:../academic/sp-fetch-academic.org::*consult-omni (future)][sp-fetch-academic]] has a placeholder that will use it for scholarly searches once it works here; the working recipe is still the switched-off block in the old doc ([[file:sp-browsing-old.org][sp-browsing-old]]).
+
+To set consult-omni up properly, you should provide sources for the information that will show up. Currently, the ones that I want are:
+
+|   |   |   |   |   |
+|---+---+---+---+---|
+|   |   |   |   |   |
+
+See what sources should have dynamic commands (meaning completion)
+- sending the query to the servers multiple times especially if you type slowly! Depending on the service provider and the API model, you may want to avoid hitting the server too frequently
+
+Define when you actually need ~consult-omni~ for multiple sources.
+
+You can also use this for querying local sources, if needed.
+
+#+begin_quote
+For example one user may define separate interactive commands to query web sources, v.s. local sources, while another user may want to define interactive commands for knowledge sources (academic references, notes, …) v.s. utilities (apps, buffers, files,…).
+#+end_quote
+
+*** Bootstrapping the package
+
+#+begin_src emacs-lisp -i
 ;;;; consult-omni
+  (use-package consult-omni
+    :ensure (:type git :host github :repo "armindarvish/consult-omni" :branch "main" :files (:defaults "sources/*.el"))
+    :after consult
+
+    :custom
+    (consult-omni-show-preview t) ;;; show previews
+    (consult-omni-preview-key "C-o") ;;; set the preview key to C-o
+    (consult-omni-highlight-matches-in-minibuffer t) ;;; highlight matches in minibuffer
+    (consult-omni-highlight-matches-in-file t) ;;; highlight matches in files
+    (consult-omni-default-count 5) ;;; set default count
+    (consult-omni-default-page 0) ;;; set the default page (default is 0 for the first page)
+
+    ;; optionally change the consult-omni debounce, throttle and delay.
+    ;; Adjust these (e.g. increase to avoid hiting a source (e.g. an API) too frequently)
+    (consult-omni-dynamic-input-debounce 0.8)
+    (consult-omni-dynamic-input-throttle 1.6)
+    (consult-omni-dynamic-refresh-delay 0.8)
+    ;; Optionally set backend for http request (either 'url, 'request, or 'plz)
+    ;; (consult-omni-http-retrieve-backend 'plz)
+
+    :config
+    (require 'consult-omni-embark)  ;; Load Embark Actions
+    (require 'consult-omni-sources) ;; Load default sources into consult-omni
+    (consult-omni-sources-load-modules))
+#+end_src
+
+
+
+#+begin_src emacs-lisp :tangle no :eval never
+       ;;; set multiple sources for consult-omni-multi command. Change these lists as needed for different interactive commands. Keep in mind that each source has to be a key in `consult-omni-sources-alist'.
+  (setq consult-omni-multi-sources '("calc"
+                                     ;; "File"
+                                     ;; "Buffer"
+                                     ;; "Bookmark"
+                                     "Apps"
+                                     ;; "Brave"
+                                     "Dictionary"
+                                     "Google"
+                                     "Wikipedia"
+                                     "elfeed"
+                                     ;; "mu4e"
+                                     ;; "buffers text search"
+                                     "Notes Search"
+                                     "Org Agenda"
+                                     "GitHub"
+                                     ;; "Invidious"
+                                     "YouTube"))
+#+end_src
+
+Per source customization
+
+Set API KEYs. It is recommended to use a function that returns the string for better security.
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq consult-omni-google-customsearch-key "AIzaSyATWnKE9vvojb4GxN8Qxyh49LIUtlQQ7yQ")
+  (setq consult-omni-google-customsearch-cx "174666cd8e7b94976")
+  ;; (setq consult-omni-brave-api-key "YOUR-BRAVE-API-KEY-OR-FUNCTION")
+  ;; (setq consult-omni-stackexchange-api-key "YOUR-STACKEXCHANGE-API-KEY-OR-FUNCTION")
+  ;; (setq consult-omni-pubmed-api-key "YOUR-PUBMED-API-KEY-OR-FUNCTION")
+#+end_src
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; default terminal
+  (setq consult-omni-embark-default-term #'vterm)
+
+  ;; default video player (I haven't actually set up mpv)
+  ;; (setq consult-omni-embark-video-default-player  #'mpv-play-url)
+#+end_src
+
+Cosmetic settings:
+
+#+begin_src emacs-lisp :tangle no :eval never
+  ;; pretty prompt for launcher
+  (setq consult-omni-open-with-prompt "  ")
+#+end_src
+
+     ;;; Pick you favorite autosuggest command.
+
+     #+begin_src emacs-lisp :tangle no :eval never
+       (setq consult-omni-default-autosuggest-command #'consult-omni-dynamic-brave-autosuggest) ;;or any other autosuggest source you define
+     #+end_src
+
+Integrating with notes search.
+
+     #+begin_src emacs-lisp :tangle no :eval never
+       ;;; Optionally Set back-end for notes search to ripgrep-all (requires ripgrep-all) so it's faster across the board
+       ;; (setq consult-omni-notes-backend-command "rga")
+     #+end_src
+
+     #+begin_src emacs-lisp :tangle no :eval never
+           ;;; Set your shorthand favorite interactive command
+       (setq consult-omni-default-interactive-command #'consult-omni-multi)
+     #+end_src
+
+
+*** Adding some separate interactive commands
+
+Adding different interactive commands from the consult-omni-multi, which will just perform a search for everything.
+
+Consulting the web (=consult-omni-web=):
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defvar consult-omni-web-sources (list "gptel"
+                                         "Brave"
+                                         "elfeed"
+                                         "mu4e"
+                                         "Wikipedia"
+                                         "GitHub"
+                                         "Invidious"
+                                         ))
+  (defun consult-omni-web (&optional initial prompt sources no-callback &rest args)
+    "Interactive web search”
+
+  This is similar to `consult-omni-multi', but runs the search on
+  web sources defined in `consult-omni-web-sources'.
+  See `consult-omni-multi' for more details."
+    (interactive "P")
+    (let ((prompt (or prompt (concat "[" (propertize "consult-omni-web" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+          (sources (or sources consult-omni-web-sources)))
+      (consult-omni-multi initial prompt sources no-callback args)))
+#+end_src
+
+
+
+
+Consulting local files (=consult-omni-local=):
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (defvar consult-omni-local-sources (list "ripgrep"
+                                           "mdfind"
+                                           "Notes Search"
+                                           "Apps"
+                                           "Org Agenda"))
+  (defun consult-omni-local (&optional initial prompt sources no-callback &rest args)
+    "Interactive local search”
+
+  This is similar to `consult-omni-multi', but runs the search on
+  local sources defined in `consult-omni-local-sources'.
+  See `consult-omni-multi' for more details.
+  "
+    (interactive "P")
+    (let ((prompt (or prompt (concat "[" (propertize "consult-omni-local" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+          (sources (or sources consult-omni-local-sources)))
+      (consult-omni-multi initial prompt sources no-callback args)))
+#+end_src
+
+
+Consulting academic search engines (=consult-omni-scholar=):
+
+#+begin_src emacs-lisp :tangle no :eval never
+  (setq consult-omni-scholar-sources (list "PubMed" "Scopus" "Notes Search" "gptel"))
+
+  (defun consult-omni-scholar (&optional initial prompt sources no-callback &rest args)
+    "Interactive “multi-source acadmic literature” search
+
+  This is similar to `consult-omni-multi', but runs the search on
+  academic literature sources defined in `consult-omni-scholar-sources'.
+  See `consult-omni-multi' for more details.
+  "
+    (interactive "P")
+    (let ((prompt (or prompt (concat "[" (propertize "consult-omni-multi" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+          (sources (or sources consult-omni-scholar-sources)))
+      (consult-omni-multi initial prompt sources no-callback args)))
+#+end_src
+
+
+*** Configuring autosuggestion at point (another custom setting)
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+  ;; AutoSuggest at point
+  (defun consult-omni-autosuggest-at-point ()
+    (interactive)
+    (let ((input (or (thing-at-point 'url) (thing-at-point 'filename) (thing-at-point 'symbol) (thing-at-point 'sexp) (thing-at-point 'word))))
+      (when (and (minibuffer-window-active-p (selected-window))
+                 (equal (substring input 0 1) (consult--async-split-initial nil)))
+        (setq input (substring input 1)))
+      (consult-omni-brave-autosuggest input)))
+#+end_src
+
+While I've managed to get the =use-package= call to work, I unfortunately can't actually get the package to work because of a "function not defined" error with a bunch of things in this package. Remains to be seen for later on.
+
+Another error that I'm getting with =consult-omni= is "Args out of range". This has been reported to the author.
+
+The "args out of range error" was caused by the fact that I hadn't set the API key for the Brave browser.
+
+The dynamic commands are important so that I don't end up overloading the APIs I'm working with.
+
+*** Setting up =consult-omni= as an application launcher replacement
+
+What is the point of =universal-launcher=, then, if I have =consult-omni=?
+
+*** TODO Setting up the sources for =consult-omni=
+
+
+#+begin_src emacs-lisp :tangle no :eval never
+(consult-omni-define-source "Brave"
+                            :narrow-char ?b
+                            :type 'dynamic
+                            :require-match t
+                            :face 'consult-omni-engine-title-face
+                            :request #'consult-omni--brave-fetch-results
+                            :preview-key consult-omni-preview-key
+                            :search-hist 'consult-omni--search-history
+                            :select-hist 'consult-omni--selection-history
+                            :enabled (lambda () (bound-and-true-p consult-omni-brave-api-key))
+                            :group #'consult-omni--group-function
+                            :sort t
+                            :static 'both)
+#+end_src
+
+** Loading the sources from =consult-omni=
+
+#+begin_src emacs-lisp :tangle no :eval never
+(require 'consult-omni-sources)
+(consult-omni-sources-load-modules)
+#+end_src
+
+** TODO Making the queries from =consult-omni= show up in a different buffer
+
+For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "_Queries injected in editor buffers_".
+
+** Other code for consult-omni
+
+#+begin_src emacs-lisp :tangle "init.el" :eval never
+(use-package consult-omni
+  :ensure (consult-omni :type git :host github :repo "armindarvish/consult-omni" :branch "main" :files (:defaults "sources/*.el"))
+  :after consult
+
+  :custom
+  (consult-omni-show-preview t) ;;; show previews
+  (consult-omni-preview-key "C-o") ;;; set the preview key to C-o
+  (consult-omni-highlight-matches-in-minibuffer t) ;;; highlight matches in minibuffer
+  (consult-omni-highlight-matches-in-file t) ;;; highlight matches in files
+  (consult-omni-default-count 5) ;;; set default count
+  (consult-omni-default-page 0) ;;; set the default page (default is 0 for the first page)
+
+  ;; optionally change the consult-omni debounce, throttle and delay.
+  ;; Adjust these (e.g. increase to avoid hiting a source (e.g. an API) too frequently)
+  (consult-omni-dynamic-input-debounce 0.8)
+  (consult-omni-dynamic-input-throttle 1.6)
+  (consult-omni-dynamic-refresh-delay 0.8)
+  ;; Optionally set backend for http request (either 'url, 'request, or 'plz)
+  ;; (consult-omni-http-retrieve-backend 'plz)
+
+  :config
+  (require 'consult-omni-sources)   ;; Load Sources Core code
+  (require 'consult-omni-embark)   ;; Load Embark Actions
+
+  ;; Either load all source modules or a selected list
+
+     ;;; Select a list of modules you want to aload, otherwise all sources all laoded
+     					; (setq consult-omni-sources-modules-to-load (list 'consult-omni-wkipedia 'consult-omni-notes))
+  (consult-omni-sources-load-modules))
+
+;;; set multiple sources for consult-omni-multi command. Change these lists as needed for different interactive commands. Keep in mind that each source has to be a key in `consult-omni-sources-alist'.
+(setq consult-omni-multi-sources '("calc"
+                                   ;; "File"
+                                   ;; "Buffer"
+                                   ;; "Bookmark"
+                                   "Apps"
+                                   ;; "Brave"
+                                   "Dictionary"
+                                   "Google"
+                                   "Wikipedia"
+                                   "elfeed"
+                                   ;; "mu4e"
+                                   ;; "buffers text search"
+                                   "Notes Search"
+                                   "Org Agenda"
+                                   "GitHub"
+                                   ;; "Invidious"
+                                   "YouTube"))
+
+				   ;; Per source customization
+
+     ;;; Set API KEYs. It is recommended to use a function that returns the string for better security.
+				   (setq consult-omni-google-customsearch-key "AIzaSyATWnKE9vvojb4GxN8Qxyh49LIUtlQQ7yQ")
+				   (setq consult-omni-google-customsearch-cx "174666cd8e7b94976")
+				   ;; (setq consult-omni-brave-api-key "YOUR-BRAVE-API-KEY-OR-FUNCTION")
+				   ;; (setq consult-omni-stackexchange-api-key "YOUR-STACKEXCHANGE-API-KEY-OR-FUNCTION")
+				   ;; (setq consult-omni-pubmed-api-key "YOUR-PUBMED-API-KEY-OR-FUNCTION")
+
+				   ;; default terminal
+				   (setq consult-omni-embark-default-term #'vterm)
+
+				   ;; default video player (I haven't actually set up mpv)
+				   ;; (setq consult-omni-embark-video-default-player  #'mpv-play-url)
+
+				   ;; pretty prompt for launcher
+				   (setq consult-omni-open-with-prompt "  ")
+
+   ;;; Set your shorthand favorite interactive command
+				   (setq consult-omni-default-interactive-command #'consult-omni-multi)
+
+   ;;; Pick you favorite autosuggest command.
+				   (setq consult-omni-default-autosuggest-command #'consult-omni-dynamic-brave-autosuggest) ;;or any other autosuggest source you define
+
+;;; Optionally Set back-end for notes search to ripgrep-all (requires ripgrep-all) so it's faster across the board
+				   ;; (setq consult-omni-notes-backend-command "rga")
+
+    ;;; Set your shorthand favorite interactive command
+				   (setq consult-omni-default-interactive-command #'consult-omni-multi))
+
+
+
+(defvar consult-omni-web-sources (list "gptel"
+                                       "Brave"
+                                       "elfeed"
+                                       "mu4e"
+                                       "Wikipedia"
+                                       "GitHub"
+                                       "Invidious"
+                                       ))
+(defun consult-omni-web (&optional initial prompt sources no-callback &rest args)
+  "Interactive web search”
+
+This is similar to `consult-omni-multi', but runs the search on
+web sources defined in `consult-omni-web-sources'.
+See `consult-omni-multi' for more details.
+"
+  (interactive "P")
+  (let ((prompt (or prompt (concat "[" (propertize "consult-omni-web" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+        (sources (or sources consult-omni-web-sources)))
+    (consult-omni-multi initial prompt sources no-callback args)))
+
+(defvar consult-omni-local-sources (list "ripgrep"
+                                         "mdfind"
+                                         "Notes Search"
+                                         "Apps"
+                                         "Org Agenda"))
+(defun consult-omni-local (&optional initial prompt sources no-callback &rest args)
+  "Interactive local search”
+
+This is similar to `consult-omni-multi', but runs the search on
+local sources defined in `consult-omni-local-sources'.
+See `consult-omni-multi' for more details.
+"
+  (interactive "P")
+  (let ((prompt (or prompt (concat "[" (propertize "consult-omni-local" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+        (sources (or sources consult-omni-local-sources)))
+    (consult-omni-multi initial prompt sources no-callback args)))
+
+
+(setq consult-omni-scholar-sources (list "PubMed" "Scopus" "Notes Search" "gptel"))
+
+(defun consult-omni-scholar (&optional initial prompt sources no-callback &rest args)
+  "Interactive “multi-source acadmic literature” search
+
+This is similar to `consult-omni-multi', but runs the search on
+academic literature sources defined in `consult-omni-scholar-sources'.
+See `consult-omni-multi' for more details.
+"
+  (interactive "P")
+  (let ((prompt (or prompt (concat "[" (propertize "consult-omni-multi" 'face 'consult-omni-prompt-face) "]" " Search:  ")))
+        (sources (or sources consult-omni-scholar-sources)))
+    (consult-omni-multi initial prompt sources no-callback args)))
+
+;; AutoSuggest at point
+(defun consult-omni-autosuggest-at-point ()
+  (interactive)
+  (let ((input (or (thing-at-point 'url) (thing-at-point 'filename) (thing-at-point 'symbol) (thing-at-point 'sexp) (thing-at-point 'word))))
+    (when (and (minibuffer-window-active-p (selected-window))
+               (equal (substring input 0 1) (consult--async-split-initial nil)))
+      (setq input (substring input 1)))
+    (consult-omni-brave-autosuggest input)))
 #+end_src
