@@ -3,11 +3,11 @@
 #+status: proposed
 
 * Context
-I keep Emacs open all day and write my documents in it. Developing the configuration in the same Emacs means restarts, context switches and, when I tangle in =~=, uncommitted generated =.el= files that conflict on merge. A fresh tangle of the docs also differs from the committed modules today (three real differences, 36 whitespace-only ones), so the generated files had already drifted.
+I keep Emacs open all day and write my documents in it. Developing the configuration in the same Emacs means restarts, context switches and, when I tangle in =~=, uncommitted generated =.el= files that conflict on merge. A fresh tangle of the docs also differs from the committed modules today (two real differences, 36 whitespace-only ones), so the generated files had already drifted.
 
 * Decision
 - =stable= is a branch that only moves by fast-forward from =main=. A plain clone of it, =~/src/dotfiles-stable=, is the =writing= profile in =.emacs-profiles.el=. The Emacs I develop in is the =sandbox= profile (=~/.config/emacs-modular=). Each has its own =server-name= and =SP_PROFILE=.
-- A GitHub Action, =tangle-check=, tangles every module doc and fails when a committed module differs (ignoring trailing whitespace and blank lines). Known differences are listed in =tools/tangle-drift-allow.txt= and the list may only shrink.
+- A GitHub Action, =tangle-check=, tangles every module doc and fails when a committed module differs (ignoring whitespace and blank lines). Known differences are listed in =tools/tangle-drift-allow.txt= and the list may only shrink.
 - Pull requests are still tried with =emacs-pr N= ([[file:0018-emacs-pr-sandbox-and-reload.org][0018]]).
 - The long explanation and the comparison are in [[file:../.config/emacs-modular/docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
 

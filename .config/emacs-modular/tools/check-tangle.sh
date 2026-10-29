@@ -3,8 +3,9 @@
 # Run from anywhere inside the repository: tools/check-tangle.sh
 #
 # 1. Tangles every doc in place (tools/tangle-all.el).
-# 2. Compares each .el with its committed version, ignoring trailing whitespace
-#    and blank lines (the committed files have them stripped).
+# 2. Compares each .el with its committed version, ignoring whitespace
+#    and blank lines (the committed files have them stripped, and the indentation Org
+#    gives lines inside a string differs between Org versions).
 # 3. Files listed in tools/tangle-drift-allow.txt are known drift: reported, not
 #    failing.  An entry that no longer drifts fails the check, so the list shrinks.
 #
@@ -19,7 +20,7 @@ summary=${GITHUB_STEP_SUMMARY:-/dev/null}
 emacs -Q --batch -l tools/tangle-all.el
 
 drift=$(for f in $(git ls-files 'libraries/modules/*.el'); do
-  n=$(git diff --ignore-space-at-eol --ignore-blank-lines -U0 -- "$f" | grep -c '^@@' || true)
+  n=$(git diff --ignore-all-space --ignore-blank-lines -U0 -- "$f" | grep -c '^@@' || true)
   [ "$n" -gt 0 ] && echo "$f"
 done || true)
 

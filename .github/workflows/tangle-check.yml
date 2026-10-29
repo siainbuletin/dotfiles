@@ -31,4 +31,4 @@ jobs:
       - run: .config/emacs-modular/tools/check-tangle.sh
       - name: Show the drift
         if: failure()
-        run: git diff --ignore-space-at-eol --ignore-blank-lines --stat -- .config/emacs-modular/libraries
+        run: git diff --ignore-all-space --ignore-blank-lines --stat -- .config/emacs-modular/libraries

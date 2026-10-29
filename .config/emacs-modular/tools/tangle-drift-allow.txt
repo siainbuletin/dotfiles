@@ -4,5 +4,3 @@
 libraries/modules/custom/sp-graphs.el
 # prog/sp-prog-misc: the .el has a docker-compose-mode block the doc lacks.
 libraries/modules/prog/sp-prog-misc.el
-# tooling/sp-dashboard: indentation inside a docstring (line ~619) differs.
-libraries/modules/tooling/sp-dashboard.el
