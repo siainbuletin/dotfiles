@@ -3,6 +3,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 
 (when noninteractive
   (provide 'vulpea)
@@ -50,6 +51,84 @@
 
 (ert-deftest sp-collec-query-test-no-key-keeps-the-order ()
   (should (equal (sp-collec-query-test--titles nil) '("d" "a" "c" "b" "e"))))
+
+;;;; Dynamic blocks kept up to date
+
+(when noninteractive
+  (unless (fboundp 'vulpea-db-query) (defun vulpea-db-query (&rest _) nil))
+  (load (expand-file-name
+         "../libraries/modules/funct/sp-collection-query-tables-org.el"
+         (file-name-directory (or load-file-name buffer-file-name)))
+        nil t))
+
+(defvar sp-collec-query-test--table "| a |"
+  "What the stubbed block writer inserts.")
+
+(defmacro sp-collec-query-test--with-note (text &rest body)
+  "Run BODY in an Org file buffer holding TEXT, saved and unmodified."
+  `(let* ((file (make-temp-file "dblock" nil ".org" ,text))
+          (buffer (find-file-noselect file)))
+     (unwind-protect
+         (with-current-buffer buffer
+           (cl-letf (((symbol-function 'org-dblock-write:collection-query-table)
+                      (lambda (_params) (insert sp-collec-query-test--table))))
+             ,@body))
+       (kill-buffer buffer)
+       (delete-file file))))
+
+(defconst sp-collec-query-test--note
+  "* A\n#+BEGIN: collection-query-table :tags (\"x\")\n| a |\n#+END:\n\n#+BEGIN: clocktable\nkeep\n#+END:\n")
+
+(ert-deftest sp-collec-query-test-dblock-same-result-leaves-buffer-unmodified ()
+  (sp-collec-query-test--with-note sp-collec-query-test--note
+    (let ((sp-collec-query-test--table "| a |"))
+      (should-not (sp-collec-query-dblock-update-buffer))
+      (should-not (buffer-modified-p)))))
+
+(ert-deftest sp-collec-query-test-dblock-new-result-is-written ()
+  (sp-collec-query-test--with-note sp-collec-query-test--note
+    (let ((sp-collec-query-test--table "| b |"))
+      (should (sp-collec-query-dblock-update-buffer))
+      (should (buffer-modified-p))
+      (should (string-match-p "| b |" (buffer-string)))
+      (should (string-match-p "clocktable\nkeep" (buffer-string))))))
+
+(ert-deftest sp-collec-query-test-dblock-saves-only-when-asked ()
+  (sp-collec-query-test--with-note sp-collec-query-test--note
+    (let ((sp-collec-query-test--table "| b |"))
+      (let ((sp-collec-query-dblock-save t))
+        (should (sp-collec-query-dblock-update-buffer))
+        (should-not (buffer-modified-p))
+        (should (string-match-p "| b |" (with-temp-buffer (insert-file-contents file) (buffer-string))))))))
+
+(ert-deftest sp-collec-query-test-dblock-never-saves-edited-buffer ()
+  (sp-collec-query-test--with-note sp-collec-query-test--note
+    (let ((sp-collec-query-test--table "| b |")
+          (sp-collec-query-dblock-save t))
+      (goto-char (point-max))
+      (insert "my edit\n")
+      (should (sp-collec-query-dblock-update-buffer))
+      (should (buffer-modified-p)))))
+
+(ert-deftest sp-collec-query-test-dblock-buffer-without-block-is-skipped ()
+  (sp-collec-query-test--with-note "* A\nnothing here\n"
+    (should-not (sp-collec-query-dblock-has-block-p))
+    (should-not (sp-collec-query-dblock-update-buffer))))
+
+(ert-deftest sp-collec-query-test-dblock-old-block-name-is-updated ()
+  (sp-collec-query-test--with-note "* A\n#+BEGIN: vulpea-table\nold\n#+END:\n"
+    (let ((sp-collec-query-test--table "| a |"))
+      (cl-letf (((symbol-function 'org-dblock-write:vulpea-table)
+                 #'org-dblock-write:collection-query-table))
+        (should (sp-collec-query-dblock-update-buffer))
+        (should (string-match-p "| a |" (buffer-string)))))))
+
+(ert-deftest sp-collec-query-test-dblock-mode-hooks-come-and-go ()
+  (sp-collec-query-dblock-auto-mode 1)
+  (should (memq #'sp-collec-query-dblock--after-save after-save-hook))
+  (sp-collec-query-dblock-auto-mode -1)
+  (should-not (memq #'sp-collec-query-dblock--after-save after-save-hook))
+  (should-not (memq #'sp-collec-query-dblock--on-open find-file-hook)))
 
 (provide 'sp-collection-query-tables-test)
 ;;; sp-collection-query-tables-test.el ends here

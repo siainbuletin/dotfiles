@@ -1,0 +1,445 @@
+#+TITLE: sp-tab-psearch.el: p-search over the tab inbox, collected into a note
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-tab-psearch.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-tab-psearch.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+
+This module is a search engine for the link inbox of [[file:sp-tab-inbox.org][sp-tab-inbox]], built on [[https://github.com/zkry/p-search][p-search]], with a way to file the results into a note.
+
+- *Commands you start from* (a menu such as =sp-search= can list these):
+  - =sp-tab-psearch= asks for a query and opens a p-search session over the inbox. The ideas are ranked by meaning, by =org-semantic=. With =C-u= a word query (p-search's own text query) is added, so both count.
+  - =sp-tab-psearch-engine= opens the same search as a search box ("p-search engine"): type a query, press the Search button, get the ranked list.
+  - =sp-tab-psearch-collect-results= and =sp-tab-psearch-collect-idea= file results into a note; they are also the embark actions (see below).
+- *Only the inbox is searched.* The candidates are the lines of the files in =sp-tab-inbox-dir=, one candidate per line (an "idea"), and the semantic query is scoped with =dir:= to the same folder, so nothing else in the notes can appear.
+- *Collecting* reuses =sp-tab-inbox-collect-all=: the lines move under the chosen note's Resources heading in the background, each leaves a link behind, and a note title that does not exist yet creates a new note.
+
+** Decisions and assumptions
+
+- "Embark collect" is read as an *embark action on the result set*, not as an =embark-collect= buffer. In a p-search buffer, =embark-act= (=C-.=) on a result offers /collect this idea/ (=c=) and /collect the top N results/ (=C=); =C-.= cycles (=embark-cycle=) to the target "results" for the same set. The reason is that p-search results are not completion candidates, so =embark-collect= has nothing to list.
+- The semantic ranking is org-semantic's /order/ of passages: an idea in the first hit scores 0.9, one in the last hit 0.55, and ideas that no hit contains score 0.3, so they stay last. The grouping by note and section that org-semantic's own results buffer does is not used, because the unit here is a single line.
+- The semantic search is /blocking/ (it waits up to =org-semantic-timeout= seconds) while the prior is calculated.
+- =org-semantic= only finds the inbox if it indexed it. If =inbox/tabs/= is named in =.org-semantic-ignore=, or sits outside the vault (=org-semantic-vault-root=), the semantic prior finds nothing (outside the vault it signals an error).
+- p-search itself is installed by [[file:../base/navi/sp-search.org][sp-search]] with =use-package= and Elpaca; this module installs nothing and waits for p-search with =with-eval-after-load=.
+
+* File header
+
+#+begin_src emacs-lisp
+;;; sp-tab-psearch.el --- p-search over the tab inbox, collected into a note -*- lexical-binding: t; -*-
+;; Package-Requires: ((emacs "29.1") (p-search "0") (vulpea "2"))
+
+;;; Commentary:
+
+;; A p-search engine that searches the link inbox (`sp-tab-inbox-dir')
+;; and nothing else, and a way to file the results into a note.
+;;
+;; - `sp-tab-psearch' starts a p-search session over the ideas (the lines)
+;;   of the inbox files, ranked by meaning with `org-semantic'.  With a
+;;   prefix argument a word query is added as well.
+;; - `sp-tab-psearch-engine' is the same as a search box.
+;; - In the p-search buffer, embark offers `sp-tab-psearch-collect-idea' and
+;;   `sp-tab-psearch-collect-results': they move the lines into a note you
+;;   pick or create, with `sp-tab-inbox-collect-all'.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'sp-tab-inbox)
+#+end_src
+
+** Declarations
+
+The packages below are loaded when the commands run, so only their names are declared.
+
+#+begin_src emacs-lisp
+(declare-function org-semantic-search "org-semantic")
+(declare-function org-semantic-hits "org-semantic")
+(declare-function org-semantic-hit-file "org-semantic")
+(declare-function org-semantic-hit-line "org-semantic")
+(declare-function org-semantic-hit-start-line "org-semantic")
+(declare-function org-semantic-hit-end-line "org-semantic")
+(declare-function org-semantic-vault-or-error "org-semantic")
+(declare-function org-semantic-notes-root "org-semantic")
+(declare-function p-search-setup-buffer "p-search")
+(declare-function p-search-engine "p-search")
+(declare-function sp-select-note "sp-org-tag-groups")
+(defvar p-search-posterior-probs)
+(defvar p-search-active-candidate-generators)
+(defvar p-search-top-n)
+(defvar embark-target-finders)
+(defvar embark-keymap-alist)
+(defvar embark-general-map)
+#+end_src
+
+* Configuration
+
+#+begin_src emacs-lisp
+(defcustom sp-tab-psearch-file-regexp "\\.\\(?:org\\|txt\\|md\\)\\'"
+  "Files of `sp-tab-inbox-dir' whose lines are searched, as a regexp."
+  :type 'regexp
+  :group 'spcustom)
+
+(defcustom sp-tab-psearch-ranking "semantic"
+  "How org-semantic ranks the ideas: \"semantic\" or \"lexical\"."
+  :type '(choice (const "semantic") (const "lexical"))
+  :group 'spcustom)
+
+(defcustom sp-tab-psearch-max-notes 200
+  "How many inbox files org-semantic may answer with (its K)."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-tab-psearch-passages-per-file 100
+  "How many passages one inbox file may contribute (org-semantic's per-file)."
+  :type 'integer
+  :group 'spcustom)
+
+(defconst sp-tab-psearch-skip-re
+  "\\`\\(?:\\*+[ \t]\\|#\\|:[[:alnum:]_@#%-]+:\\)"
+  "Lines of an inbox file that are not ideas: headings, keywords, drawers.")
+#+end_src
+
+* Ideas
+
+Each non-blank line that is not structure is a candidate. Its text is kept in =sp-tab-psearch--text=, keyed by =(FILE . LINE)=, which is also the element of the p-search document id =(tab-idea (FILE . LINE))=. FILE is the true name, so it compares equal to the file org-semantic reports.
+
+#+begin_src emacs-lisp
+(defvar sp-tab-psearch--text (make-hash-table :test #'equal)
+  "Map from (FILE . LINE) to the trimmed text of that line of the inbox.")
+
+(defun sp-tab-psearch--files (regexp)
+  "Return the files of `sp-tab-inbox-dir' whose names match REGEXP."
+  (when (file-directory-p sp-tab-inbox-dir)
+    (directory-files-recursively (expand-file-name sp-tab-inbox-dir) regexp)))
+
+(defun sp-tab-psearch--file-ideas (file)
+  "Return the ideas of FILE as a list of (LINE . TEXT).
+An open buffer visiting FILE wins over the file on disk, like the sidebar."
+  (with-temp-buffer
+    (if-let* ((buf (find-buffer-visiting file)))
+        (insert (with-current-buffer buf
+                  (save-restriction
+                    (widen)
+                    (buffer-substring-no-properties (point-min) (point-max)))))
+      (insert-file-contents file))
+    (goto-char (point-min))
+    (let (result)
+      (while (not (eobp))
+        (let ((text (string-trim (buffer-substring-no-properties
+                                  (line-beginning-position)
+                                  (line-end-position)))))
+          (unless (or (string-empty-p text)
+                      (string-match-p sp-tab-psearch-skip-re text))
+            (push (cons (line-number-at-pos) text) result)))
+        (forward-line 1))
+      (nreverse result))))
+#+end_src
+
+* The p-search pieces
+
+Everything that needs p-search is defined once it is loaded.
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'p-search
+  (declare-function p-search-candidate-generator-create "p-search")
+  (declare-function p-search-prior-template-create "p-search")
+  (declare-function p-search-documentize "p-search")
+  (declare-function p-search-def-property "p-search")
+  (declare-function p-search-def-function "p-search")
+  (declare-function p-search-prior-arguments "p-search")
+  (declare-function p-search-set-score "p-search")
+  (declare-function p-search-prior-complete "p-search")
+  (defvar p-search-score-yes)
+  (defvar p-search-score-no)
+  (defvar p-search-candidate-generators)
+  (defvar p-search-prior-templates)
+#+end_src
+
+** Documents
+
+A document of type =tab-idea= has the element =(FILE . LINE)=. =line-offset= is what makes =p-search-find-document= land on the line, since the preview of a one-line document is line 1.
+
+#+begin_src emacs-lisp
+  (p-search-def-property
+   'tab-idea 'name
+   (lambda (el) (format "%s:%d" (file-name-nondirectory (car el)) (cdr el))))
+  (p-search-def-property
+   'tab-idea 'content (lambda (el) (or (gethash el sp-tab-psearch--text) "")))
+  (p-search-def-property 'tab-idea 'file-name #'car)
+  (p-search-def-property 'tab-idea 'line-offset (lambda (el) (1- (cdr el))))
+  (p-search-def-function
+   'tab-idea 'p-search-goto-document (lambda (el) (find-file-other-window (car el))))
+#+end_src
+
+** Candidate generator
+
+#+begin_src emacs-lisp
+  (defun sp-tab-psearch--generate (args)
+    "Return the ideas of the inbox as p-search documents.  ARGS are the options."
+    (clrhash sp-tab-psearch--text)
+    (let ((regexp (or (alist-get 'filename-regexp args)
+                      sp-tab-psearch-file-regexp))
+          documents)
+      (dolist (file (sp-tab-psearch--files regexp))
+        (let ((true (file-truename file)))
+          (pcase-dolist (`(,line . ,text) (sp-tab-psearch--file-ideas file))
+            (let ((el (cons true line)))
+              (puthash el text sp-tab-psearch--text)
+              (push (p-search-documentize (list 'tab-idea el)) documents)))))
+      (nreverse documents)))
+
+  (defconst sp-tab-psearch-candidate-generator
+    (p-search-candidate-generator-create
+     :id 'sp-tab-psearch-candidate-generator
+     :name "TAB INBOX"
+     :input-spec '()
+     :options-spec `((filename-regexp . (p-search-infix-regexp
+                                         :key "-f"
+                                         :description "Filename Pattern"
+                                         :default-value ,sp-tab-psearch-file-regexp)))
+     :function #'sp-tab-psearch--generate
+     :lighter-function (lambda (_args) "TabInbox"))
+    "Candidate generator: every idea (line) in `sp-tab-inbox-dir'.")
+
+  (add-to-list 'p-search-candidate-generators sp-tab-psearch-candidate-generator)
+#+end_src
+
+** Semantic prior
+
+The query goes to org-semantic with a =dir:= predicate for the inbox. Each hit names a file and a span of lines; every idea inside the span gets the hit's score. Hits arrive best first.
+
+#+begin_src emacs-lisp
+  (defun sp-tab-psearch--vault ()
+    "Return the org-semantic vault the inbox belongs to."
+    (with-temp-buffer
+      (setq default-directory (file-name-as-directory
+                               (expand-file-name sp-tab-inbox-dir)))
+      (org-semantic-vault-or-error)))
+
+  (defun sp-tab-psearch--scope (vault)
+    "Return the `dir:' predicate that limits a query to the inbox of VAULT."
+    (let* ((notes (org-semantic-notes-root vault))
+           (here (directory-file-name
+                  (file-truename (expand-file-name sp-tab-inbox-dir))))
+           (rel (and (file-in-directory-p here notes)
+                     (file-relative-name here notes))))
+      (unless (and rel (not (equal rel ".")))
+        (user-error "The tab inbox %s is not a subfolder of the org-semantic notes %s"
+                    here notes))
+      (if (string-match-p "[[:space:]]" rel)
+          (format "dir:\"%s\" " rel)
+        (format "dir:%s " rel))))
+
+  (defun sp-tab-psearch--hits (query)
+    "Return org-semantic's hits for QUERY, inside the inbox, best first."
+    (require 'org-semantic)
+    (let ((vault (sp-tab-psearch--vault)))
+      (org-semantic-hits
+       (org-semantic-search (concat (sp-tab-psearch--scope vault) query)
+                            :vault vault
+                            :k sp-tab-psearch-max-notes
+                            :per-file sp-tab-psearch-passages-per-file
+                            :mode sp-tab-psearch-ranking))))
+
+  (defun sp-tab-psearch--semantic-init (prior)
+    "Score the ideas for the semantic PRIOR from org-semantic's ranking."
+    (let ((query (string-trim
+                  (or (alist-get 'query-string (p-search-prior-arguments prior))
+                      ""))))
+      (unless (string-empty-p query)
+        (let* ((hits (sp-tab-psearch--hits query))
+               (n (length hits))
+               (i 0))
+          (p-search-set-score prior :default p-search-score-no)
+          (dolist (hit hits)
+            (let* ((file (file-truename (org-semantic-hit-file hit)))
+                   (start (or (org-semantic-hit-start-line hit)
+                              (org-semantic-hit-line hit)))
+                   (end (or (org-semantic-hit-end-line hit) start))
+                   (score (- 0.9 (* 0.35 (/ (float i) (max 1 (1- n)))))))
+              (cl-loop for line from start to end
+                       when (gethash (cons file line) sp-tab-psearch--text)
+                       do (let ((id (list 'tab-idea (cons file line))))
+                            ;; the best hit that holds an idea decides its score
+                            (unless (gethash id (p-search-prior-results prior))
+                              (p-search-set-score prior id score))))
+              (cl-incf i)))))
+      (p-search-prior-complete prior)))
+
+  (defconst sp-tab-psearch-prior-semantic
+    (p-search-prior-template-create
+     :id 'sp-tab-psearch-prior-semantic
+     :group "tab inbox"
+     :name "semantic query"
+     :required-properties '(file-name)
+     :input-spec '((query-string . (p-search-infix-string
+                                    :key "s"
+                                    :description "Semantic query")))
+     :initialize-function #'sp-tab-psearch--semantic-init
+     :transient-key-string "se")
+    "Prior: ideas that org-semantic ranks high for the query score high.")
+
+  (add-to-list 'p-search-prior-templates sp-tab-psearch-prior-semantic))
+#+end_src
+
+* Starting a search
+
+#+begin_src emacs-lisp
+(defun sp-tab-psearch--preset (query &optional word-query engine)
+  "Return the p-search preset for QUERY over the inbox.
+WORD-QUERY adds p-search's own text query.  ENGINE marks the semantic prior
+as the one the search box of `p-search-engine' feeds."
+  `(:group ((:candidate-generator sp-tab-psearch-candidate-generator :args nil)
+            (:prior-template sp-tab-psearch-prior-semantic
+             :args ((query-string . ,query))
+             ,@(and engine '(:search-engine-arg-name query-string)))
+            ,@(and word-query
+                   `((:prior-template p-search-prior-query
+                      :args ((query-string . ,query))))))))
+
+;;;###autoload
+(defun sp-tab-psearch (query &optional word-query)
+  "Search the ideas of the tab inbox for QUERY, ranked by meaning.
+With a prefix argument WORD-QUERY, p-search's word query is added too.
+In the result buffer, `embark-act' offers to collect results into a note."
+  (interactive (list (read-string "Search the tab inbox: ")
+                     current-prefix-arg))
+  (require 'p-search)
+  (when (string-blank-p query)
+    (user-error "Empty query"))
+  (p-search-setup-buffer (sp-tab-psearch--preset query word-query)))
+
+;;;###autoload
+(defun sp-tab-psearch-engine ()
+  "Open a p-search engine (a search box) over the ideas of the tab inbox."
+  (interactive)
+  (require 'p-search)
+  (p-search-engine (sp-tab-psearch--preset "" nil t)))
+#+end_src
+
+* Collecting
+
+An idea is a =(FILE LINE TEXT)= list, the shape =sp-tab-inbox-collect-all= takes.
+
+#+begin_src emacs-lisp
+(defun sp-tab-psearch--idea (id)
+  "Return (FILE LINE TEXT) for the p-search document ID, or nil."
+  (when (eq (car-safe id) 'tab-idea)
+    (let* ((el (cadr id))
+           (text (gethash el sp-tab-psearch--text)))
+      (and text (list (car el) (cdr el) text)))))
+
+(defun sp-tab-psearch--ranked-ids ()
+  "Return the document ids of the session, best first."
+  (mapcar #'car
+          (sort (seq-filter #'car (append p-search-posterior-probs nil))
+                #'p-search--compare-scored-documents)))
+
+(defun sp-tab-psearch-collect-ideas (ideas)
+  "Move IDEAS, a list of (FILE LINE TEXT), into a note you pick or create."
+  (unless ideas
+    (user-error "No ideas to collect"))
+  (let ((picked (sp-select-note
+                 (format "Collect %d idea%s into note"
+                         (length ideas) (if (cdr ideas) "s" ""))
+                 :require-match nil
+                 :filter-fn (lambda (n) (zerop (vulpea-note-level n))))))
+    (unless picked
+      (user-error "No note chosen"))
+    (sp-tab-inbox-collect-all ideas (sp-tab-inbox--ensure-note picked))))
+
+;;;###autoload
+(defun sp-tab-psearch-collect-results (n)
+  "Collect the N best results of this p-search session into a note."
+  (interactive
+   (list (read-number "Collect the top N ideas: "
+                      (min p-search-top-n (length p-search-posterior-probs)))))
+  (unless (bound-and-true-p p-search-posterior-probs)
+    (user-error "No p-search results here"))
+  (sp-tab-psearch-collect-ideas
+   (seq-take (delq nil (mapcar #'sp-tab-psearch--idea (sp-tab-psearch--ranked-ids)))
+             n)))
+
+;;;###autoload
+(defun sp-tab-psearch-collect-idea ()
+  "Collect the result at point into a note."
+  (interactive)
+  (sp-tab-psearch-collect-ideas
+   (list (or (sp-tab-psearch--idea (get-char-property (point) 'p-search-result))
+             (user-error "No tab inbox idea at point")))))
+
+;;;###autoload
+(defun sp-tab-psearch-visit-idea ()
+  "Visit the result at point, on its line."
+  (interactive)
+  (if-let* ((idea (sp-tab-psearch--idea (get-char-property (point) 'p-search-result))))
+      (progn (find-file-other-window (nth 0 idea))
+             (goto-char (point-min))
+             (forward-line (1- (nth 1 idea))))
+    (user-error "No tab inbox idea at point")))
+#+end_src
+
+* Key bindings
+
+Next to the =org-semantic= keys of [[file:../academic/sp-semantic.org][sp-semantic]] (=C-c k s=, =S=, =.=, =R=): =C-c k t= is =sp-tab-psearch=, =C-c k T= is =sp-tab-psearch-engine=. The binding block is at the end of the file, after the embark code.
+
+* Embark
+
+Two targets in a p-search buffer: the idea at point (=sp-tab-idea=) and the whole result set (=sp-tab-idea-results=). Both are only offered in a session that has the tab inbox generator.
+
+#+begin_src emacs-lisp
+(defun sp-tab-psearch--session-p ()
+  "Non-nil in a p-search buffer whose candidates come from the tab inbox."
+  (and (derived-mode-p 'p-search-mode)
+       (seq-some (lambda (gen+args)
+                   (eq (p-search-candidate-generator-id (car gen+args))
+                       'sp-tab-psearch-candidate-generator))
+                 p-search-active-candidate-generators)))
+
+(defun sp-tab-psearch-target-idea ()
+  "Embark target finder: the tab inbox result at point."
+  (when (sp-tab-psearch--session-p)
+    (when-let* ((idea (sp-tab-psearch--idea
+                       (get-char-property (point) 'p-search-result))))
+      (cons 'sp-tab-idea
+            (format "%s:%d %s" (file-name-nondirectory (nth 0 idea))
+                    (nth 1 idea) (nth 2 idea))))))
+
+(defun sp-tab-psearch-target-results ()
+  "Embark target finder: the result set of a tab inbox p-search session."
+  (when (and (sp-tab-psearch--session-p) p-search-posterior-probs)
+    (cons 'sp-tab-idea-results
+          (format "%d ideas" (length p-search-posterior-probs)))))
+
+(with-eval-after-load 'embark
+  (defvar-keymap sp-tab-psearch-idea-map
+    :doc "Embark actions on one tab inbox result."
+    :parent embark-general-map
+    "RET" #'sp-tab-psearch-visit-idea
+    "c" #'sp-tab-psearch-collect-idea
+    "C" #'sp-tab-psearch-collect-results)
+  (defvar-keymap sp-tab-psearch-results-map
+    :doc "Embark actions on the result set of a tab inbox search."
+    :parent embark-general-map
+    "RET" #'sp-tab-psearch-collect-results
+    "C" #'sp-tab-psearch-collect-results)
+  (add-to-list 'embark-keymap-alist '(sp-tab-idea . sp-tab-psearch-idea-map))
+  (add-to-list 'embark-keymap-alist '(sp-tab-idea-results . sp-tab-psearch-results-map))
+  (add-to-list 'embark-target-finders #'sp-tab-psearch-target-results)
+  (add-to-list 'embark-target-finders #'sp-tab-psearch-target-idea))
+
+(keymap-global-set "C-c k t" #'sp-tab-psearch)
+(keymap-global-set "C-c k T" #'sp-tab-psearch-engine)
+
+(provide 'sp-tab-psearch)
+;; sp-tab-psearch.el ends here
+#+end_src
+
+* Changes by pull request
+
+- (this PR) Added the module: the tab inbox candidate generator, the semantic prior, =sp-tab-psearch=, =sp-tab-psearch-engine= and the embark collect actions. Tested in headless Emacs 29.3 with a stub for org-semantic; the real org-semantic server, the Elpaca install and the sidebar interplay were not run.
