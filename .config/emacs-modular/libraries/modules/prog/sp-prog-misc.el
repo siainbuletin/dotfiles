@@ -31,10 +31,6 @@
   :ensure t
   :defer t)
 
-(use-package docker-compose-mode
-  :ensure t
-  :defer t)
-
 (use-package json-mode
   :ensure t
   :defer t)
