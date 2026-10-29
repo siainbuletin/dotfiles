@@ -36,6 +36,7 @@ For motivations of why this configuration is set up in this way, please refer to
 * Design notes
 
 - [[file:docs/architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
+- [[file:docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]] :: A stable =writing= Emacs next to the development one, the CI check that the tangled modules match their docs, =emacsclient= and Hammerspoon, and how the other dotfiles fit
 - [[file:docs/architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:docs/architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
 - [[file:docs/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
@@ -312,67 +313,9 @@ Deciding on the order is not trivial: [[file:docs/architecture/load-order.org][M
 ** TODO Write literate configuration for all of the ~.el~ files
 ** TODO Make a test run for tangling the configuration using the newly written function from Claude
 
-* Functionality of the literate configuration
+* Tangling
 
-If you want a literate configuration that works on smaller files, you need to properly set up the main configuration file (in this case =README.org=). This is the file from which we'll be doing all tasks of transforming the org documents into Emacs Lisp documents.
-
-The process goes as follows:
-
-1. Write the configuration in the main file (=README.org=) or the respective submodules
-2. Export the =README.org= file (which has all of the =#+INCLUDE:= directives to =temp.org=
-3. From =temp.org=, execute all of the code blocks with =org-babel-execute-buffer=
-4. After executing the entire buffer, tangle with the normal =org-babel-tangle=
-
-The =temp.org= file also has to be be evaluated with =C-c C-v C-t=. This will export everything to the proper Emacs Lisp files.
-
-The configuration files (e.g. =init.el= and the modules) will be created upon acting on the =org-babel-tangle= function.
-
-These files can either be "manually" copied to the =~/.emacs.d= directory, or through =Chemacs2=, the literate config can be added as an alternative profile
-
-See also =org-babel-execute-subtree= for the process in which =org-babel= actually works.
-
-** Preparing files for the configuration
-
-When including submodules into the main configuration, they have to be declared as such: =#+INCLUDE: path/to/file.org src org=.
-
-This can also be relative, you don't have to give the full path to the system directory. It can be relative to the directory in which you find =config.org=.
-
-** Being careful while editing the literate configuration
-
-If you don't want to overwrite your changes:
-
-- Make all changes directly in the =README.org= file.
-- Then use =C-c C-v C-t= (=M-x org-babel-tangle=) to propagate the changes to the files.
-- The "direction" where each file will be sent is part of the org source block syntax.
-
-For example, when writing changes to my =early-init.el= file, the source block will be written as such
-
-This is essential for the multi-Org file compilation process.
-
-- By default, =org-babel= supports tangling to Emacs Lisp.
-- You have to add the =org= module if you want to be tangling from multiple org-mode documents at once.
-
-#+begin_src emacs-lisp :tangle "init.el" :eval never
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (org . t)
-     (R . t))
-)
-#+end_src
-
-** Writing the Provide section of a module doc
-
-Every module doc ends its module with a =Provide= heading. Keep it short:
-
-- one sentence saying which feature the module provides,
-- then a single source block holding the whole =;;; Provide= segment: the section marker, the =(provide 'sp-x)= form and the =;;; sp-x.el ends here= line, together.
-
-Rules:
-
-- Do not give the marker, the form and the footer a sub-heading and a block each.
-- When the module's last section is a topical one (hooks, keybindings), keep it under its own heading and give =Provide= its own heading after it, at the same level.
-- Merging the blocks does not change the tangled file: blocks are joined by one blank line either way.
+How the module docs become =.el= files (=sp-tangle-changed=, tangle all, the =:tangle= headers, the Provide section rule) is in [[file:docs/tangling-instructions.org][Tangling instructions]]. How the tangled files are checked in CI, and how the stable and sandbox Emacsen use them, is in [[file:docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
 
 * Protocol for replicating the configuration across machines
 

@@ -1,0 +1,8 @@
+# Modules whose committed .el differs from what their doc tangles to (2026-10-29).
+# Decide per file which side is right, fix the doc or the .el, then delete the line.
+# custom/sp-graphs: the doc has a vulpea-graph use-package block the .el lacks.
+libraries/modules/custom/sp-graphs.el
+# prog/sp-prog-misc: the .el has a docker-compose-mode block the doc lacks.
+libraries/modules/prog/sp-prog-misc.el
+# tooling/sp-dashboard: indentation inside a docstring (line ~619) differs.
+libraries/modules/tooling/sp-dashboard.el

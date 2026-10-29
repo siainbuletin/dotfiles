@@ -1,0 +1,34 @@
+name: tangle-check
+
+# Checks that the committed libraries/modules/**/*.el are what their literate docs
+# tangle to (.config/emacs-modular/tools/check-tangle.sh).  Known drift is listed in
+# tools/tangle-drift-allow.txt.  Watch it with: gh run list --workflow tangle-check.yml
+# or gh run watch; see docs/architecture/stable-and-sandbox-emacs.org.
+
+on:
+  pull_request:
+    paths:
+      - '.config/emacs-modular/docs/tangles/**'
+      - '.config/emacs-modular/libraries/modules/**'
+      - '.config/emacs-modular/tools/**'
+      - '.github/workflows/tangle-check.yml'
+  push:
+    branches: [main, stable]
+    paths:
+      - '.config/emacs-modular/docs/tangles/**'
+      - '.config/emacs-modular/libraries/modules/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tangle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y emacs-nox
+      - run: .config/emacs-modular/tools/check-tangle.sh
+      - name: Show the drift
+        if: failure()
+        run: git diff --ignore-space-at-eol --ignore-blank-lines --stat -- .config/emacs-modular/libraries

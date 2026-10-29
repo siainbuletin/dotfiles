@@ -1,0 +1,129 @@
+#+title: Stable and sandbox Emacs, and checking the tangle
+#+startup: overview
+#+date: 2026-10-29
+
+How I write documents in a stable Emacs while the configuration changes in another, and how I know the tangled =.el= files are what their docs say. Decision record: [[file:../../../../adr/0022-stable-and-sandbox-emacs.org][0022]]. How tangling works: [[file:../tangling-instructions.org][Tangling instructions]].
+
+*What has and has not been run.* Written from a Linux container, not from my Mac. Run there: the tangle check (=tools/check-tangle.sh=, both passing and failing cases), and a timed batch tangle with Emacs 29.3. Not run: the GitHub Action (it is new in the same pull request), the =writing= and =sandbox= profiles, =emacsclient= daemons, Hammerspoon, =gh dash=. Facts taken from documentation I fetched are marked /(docs)/; the rest is from memory and marked /(memory)/ or /untested/.
+
+* The setup
+
+| Name      | What it is                                                         | Where                                             | Changes when                     |
+|-----------+--------------------------------------------------------------------+---------------------------------------------------+----------------------------------|
+| =writing= | the stable Emacs I write notes in; the =stable= branch             | plain clone =~/src/dotfiles-stable=               | I fast-forward it, on purpose    |
+| =sandbox= | the Emacs I develop and test in; =main= in =~= (yadm)              | =~/.config/emacs-modular=                         | every merge to =main=            |
+| =emacs-pr N= | throwaway Emacs for one pull request                            | =~/src/dotfiles-wt/pr-N= (see [[file:../../../../adr/0018-emacs-pr-sandbox-and-reload.org][0018]]) | never; removed afterwards |
+
+Both permanent profiles are in =~/.emacs-profiles.el= (Chemacs2), each with its own =server-name= and an =SP_PROFILE= variable, so the config can pick a different theme and a simpler dashboard per profile (that part is not written yet, see /Open/). The =default= profile is unchanged.
+
+** Why a branch and a second clone
+
+- The =.el= files are committed, so a checkout of =stable= is a complete configuration. It needs no tangling, and nothing I do in =~= can reach it.
+- =main= cannot be checked out twice, so the second checkout needs its own branch. =stable= is =main= as of the last time I trusted it.
+- Each checkout has its own =var/= (packages, caches, =vulpea.db=), so the two Emacsen cannot corrupt each other's state. The cost is a second copy of the packages (below) and a second Vulpea database.
+- Chemacs2 only chooses which directory Emacs starts from. That is the whole difference from =emacs --init-directory DIR= /(memory)/: Chemacs2 remembers named profiles with extra settings (=server-name=, =env=), the flag is a one-off.
+
+** Setting it up (fish, on the Mac, untested)
+
+#+begin_src fish
+git clone -b stable https://github.com/siainbuletin/dotfiles.git ~/src/dotfiles-stable
+# seed the packages from the live config (APFS clone, as emacs-pr does); then repoint
+# elpaca's absolute symlinks at the copy, see ~/.config/fish/functions/emacs-pr.fish
+cp -cR ~/.config/emacs-modular/var/elpaca ~/src/dotfiles-stable/.config/emacs-modular/var/elpaca
+emacs --with-profile writing
+#+end_src
+
+** Promoting to =stable=
+
+After a change has run in =sandbox= long enough that I trust it, and the =tangle-check= run on =main= is green:
+
+#+begin_src fish
+git -C ~/src/dotfiles-stable fetch origin
+git -C ~/src/dotfiles-stable merge --ff-only origin/main
+git -C ~/src/dotfiles-stable push origin HEAD:stable
+#+end_src
+
+The push must be a fast-forward; if it is not, =stable= was edited by hand and that needs looking at. Restart =writing= when it suits me, not when the merge lands. To go back, check out the previous merge commit of =main= in the =stable= clone and push it with =--force-with-lease=; I would rather not need that.
+
+* Checking the tangle in CI
+
+=.github/workflows/tangle-check.yml= runs =tools/check-tangle.sh= on pull requests that touch a doc, a module or the tools, on pushes to =main= and =stable=, and by hand. It installs Emacs 29, tangles every module doc in place with =tools/tangle-all.el= (5 to 6 s for 132 docs in my 4-core container; a GitHub runner was not timed) and compares each module with its committed version. It ignores trailing whitespace and blank lines, because the committed modules have them stripped and a plain tangle does not.
+
+Known drift is in =tools/tangle-drift-allow.txt=: three modules that differ today (=sp-graphs=, =sp-prog-misc=, =sp-dashboard=). They are reported but do not fail. An entry that stops drifting fails the job until I delete it, so the list can only shrink. Fixing one means deciding which side is right: the doc (re-tangle and commit) or the =.el= (move the edit into the doc).
+
+** Watching it
+
+- Shell: =gh run list --workflow tangle-check.yml --limit 5=, =gh run watch=, =gh run view --log-failed= /(memory: stable gh subcommands)/. =gh pr checks= shows the checks of a pull request.
+- =gh dash= /(docs: it is a dashboard of per-repo PR and issue sections, YAML config, vim-style keys, "custom actions"; I could not fetch the docs site, so the rest is memory)/: installed with =gh extension install dlvhdr/gh-dash=, configured in =~/.config/gh-dash/config.yml=. It shows a PR's check status; whether it lists workflow runs I did not confirm. A custom keybinding can run =gh run watch= from the PR list. /Untested./
+- Emacs: nothing in Forge lists workflow runs that I know of /(memory)/. The smallest thing that works is a command that runs the same =gh= call in a buffer; I have not added it to a module:
+
+#+begin_src emacs-lisp :tangle no
+(defun sp-gh-runs (&optional watch)
+  "Show the latest GitHub Actions runs of this repository; with WATCH, follow one."
+  (interactive "P")
+  (async-shell-command (if watch "gh run watch" "gh run list --limit 15") "*gh runs*"))
+#+end_src
+
+* Is =emacsclient= better?
+
+Short answer: use it for the =writing= Emacs, not as a replacement for having two profiles.
+
+- *What it gives.* A running Emacs (a daemon) keeps buffers, the Vulpea database and the agenda in memory while frames come and go. Closing a frame, or a crash of the GUI part, does not lose the session, and a new frame is instant. Anything outside Emacs (a shell, Hammerspoon, a launcher, =org-protocol=) can open a file or run code in it.
+- *What it does not give.* A restart of the server is still a restart, and the daemon runs one configuration. The stable-versus-development split still needs two servers.
+- *Two servers.* Each profile has its own =server-name= (set in =.emacs-profiles.el=; =sp-server= starts the server only if =server-running-p= says none is running for that name). Talk to one with =emacsclient -s writing= /(docs: =-s= picks the socket by name)/.
+- *Starting one.* =emacsclient --alternate-editor=""= starts =emacs --daemon= when none is running /(docs)/, but that starts the default profile, so for =writing= the alternate editor has to be a command that includes =--with-profile writing=: =emacsclient -s writing -c -n -a "emacs --daemon --with-profile writing"= /(untested)/. A launchd agent that starts the daemon at login is the clean way.
+- *Things that change in a daemon.* Settings that depend on a GUI (fonts, themes, frame sizes) must be applied per frame (=server-after-make-frame-hook=), the environment comes from launchd rather than my shell (=sp-env= already works on =exec-path=), and a frame made by =emacsclient -c= is not raised by itself on macOS /(memory)/. All /untested/ with this configuration.
+
+* Hammerspoon and =emacsclient=
+
+They work well together; the one hard rule is how Hammerspoon starts programs. From the =hs.task= documentation /(docs)/: =launchPath= must be the full path of the executable (not =emacsclient=), arguments are a table that is not passed through a shell, the callback gets the exit code, stdout and stderr, a task object can be used once, a task inherits Hammerspoon's environment (which has a short =PATH=), and =waitUntilExit= blocks all of Hammerspoon and must not be used. A sketch, /untested/:
+
+#+begin_src lua
+-- ~/.config/hammerspoon/init.lua
+local emacsclient = "/opt/homebrew/bin/emacsclient"   -- check with `which emacsclient`
+local function ec(profile, args)
+  hs.task.new(emacsclient, function(code, out, err)
+    if code ~= 0 then hs.alert.show("emacsclient " .. profile .. ": " .. (err or "")) end
+  end, hs.fnutils.concat({"-s", profile}, args)):start()
+end
+hs.hotkey.bind({"alt"}, "e", function() ec("writing", {"-c", "-n"}) end)         -- new writing frame
+hs.hotkey.bind({"alt", "shift"}, "e", function() ec("sandbox", {"-c", "-n"}) end) -- new sandbox frame
+-- capture: ec("writing", {"-n", "-e", "(org-capture)"})
+#+end_src
+
+- *Telling the two Emacsen apart in window rules.* Both processes are called "Emacs", so match on the frame title: set =frame-title-format= from =SP_PROFILE= (for example "writing" or "sandbox") and use =hs.window.filter= or =hs.window.find= on the title. =emacsclient -c -F= can also set a frame parameter at creation /(docs)/.
+- *Focus.* If =emacsclient -c= opens behind other windows, call =hs.window:focus()= from the callback instead of fighting Emacs. /(memory)/
+- *The other way (Emacs asking Hammerspoon).* Loading =hs.ipc= in Hammerspoon and installing its command-line tool lets Emacs run =hs -c "..."= through =shell-command= /(memory)/. I would use it only for window actions that Emacs cannot do.
+- *Migrating from Aerospace.* The repository still has =.config/aerospace/aerospace.toml= and the stackline spoon. Port rules to Hammerspoon one at a time, keep each behind a hotkey while testing, and reload with =hs.reload()=, which takes a moment and does not touch Emacs.
+
+* Three ways to keep the config correct
+
+| Approach                                     | What it protects against                          | When it runs        | Cost                                                         | Verdict |
+|----------------------------------------------+---------------------------------------------------+---------------------+--------------------------------------------------------------+---------|
+| *CI tangle check* (this document)            | a doc and its module drifting apart; hand edits to generated files | every PR and push to =main=/=stable= | about 5 s of Emacs per run; the allow-list to maintain | adopted |
+| *Nix-like: no =.el= files in the repository* | drift becomes impossible; conflicts in generated files too | at first start and after each pull | a one-time untracking of ~360 files; every module needs a doc; first start of a fresh clone pays about 4 to 6 s; GitHub shows only the =.org= | not now; revisit once the allow-list is empty |
+| *=emacs-pr N= (the fish workflow)*           | a pull request that breaks Emacs at start-up or in use | when I run it, on my Mac | a second Emacs, a package cache, a fake HOME; manual         | keep, for trying a PR by hand |
+
+They answer different questions. The CI check says "the files are consistent"; it cannot say "the feature works". =emacs-pr= says "it works for me" but cannot say "the files are consistent", and it only runs when I remember. The Nix-like way would make the first question moot, at the price of the migration. So: CI check always; =emacs-pr= for anything I will use; the Nix-like way later. The numbers behind this are in the tangle timing: 167 files from 130 docs in 4.2 s cold, 0.1 s to check which docs are stale /(measured in the container)/.
+
+* The rest of the dotfiles
+
+The same shape fits the other programs: *the live copy is =main= in =~=; a change is tried from a worktree or clone, never by editing the live files.* What differs is how to point the program somewhere else:
+
+| Program            | Try a branch without touching the live config                          | Cheap check before that |
+|--------------------+------------------------------------------------------------------------+-------------------------|
+| fish               | =XDG_CONFIG_HOME=<worktree>/.config fish= /(memory)/                    | =fish --no-execute file.fish= /(memory)/ |
+| Hammerspoon        | change =MJConfigFile= with =defaults write= to the worktree's =init.lua=, then =hs.reload()=; restore it after /(memory, untested)/ | =luac -p init.lua= |
+| Aerospace          | its config path is configurable; check =aerospace --help= /(not checked)/ | parse the TOML |
+| Alacritty, lazygit, yazi | each has a flag or variable for its config path (=--config-file=, =LG_CONFIG_FILE=, =YAZI_CONFIG_HOME=) /(memory)/ | their own validate/dry-run, where there is one |
+| i3, sway, polybar, picom (Arch machines) | the =-c= / =--config= flag /(memory)/; =i3 -C= and =sway -C= only check the file | the same |
+
+Two small additions would give the rest of the repository what the tangle check gives Emacs: a second job in the same workflow that syntax-checks the fish files, the Hammerspoon init and the TOML/YAML files, and a =fish= function =dotfiles-try APP= that does the =XDG_CONFIG_HOME= trick for the programs that honour it. Neither is written. The =stable= branch is a branch of the whole repository, but only the =writing= Emacs reads it; everything else keeps running on =main= in =~=, because other programs reload in a second and have no state to protect.
+
+* Open
+
+- The three entries in =tools/tangle-drift-allow.txt=.
+- =SP_PROFILE= is set but nothing reads it yet: the =writing= theme, the simpler dashboard and the frame title are to be written (in =sp-config-profiles.el=, and the dashboard/theme modules).
+- Whether =default= should become =writing=, so that a bare =emacs= opens the stable one. Left unchanged.
+- A syntax-check job for the non-Emacs files, and =dotfiles-try=.
+- The Emacs side of watching CI (=sp-gh-runs= is only a sketch above).
