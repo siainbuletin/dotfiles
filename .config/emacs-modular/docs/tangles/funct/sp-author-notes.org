@@ -21,8 +21,10 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 
 The block is a query table (see [[file:sp-collection-query-tables.org][sp-collection-query-tables]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
 
+Notes tagged =booksection= are not listed. Their =bib-parent= link points at the =book= note (the schema in =sp-vulpea.org= requires it), and =:fold-tag "booksection"= counts them in the =Sections= column of that book's row, adding the book if it has no =pub-author= of its own. The title links get the emoji of the note's tags from =sp-org-tag-groups= (the Org buffer decorates =id:= links itself), so a =filetags= column is not needed. Blocks that already exist are not changed; add =:fold-tag "booksection" :fold-prop "bib-parent"= and the =:sections= column to them by hand.
+
 #+begin_example
-,#+BEGIN: collection-query-table :parent-of "self" :parent-prop "pub-author" :columns (:title "read-status" "read-priority" "pub-year" "relevance-factor") :sort-by "pub-year"
+,#+BEGIN: collection-query-table :parent-of "self" :parent-prop "pub-author" :fold-tag "booksection" :fold-prop "bib-parent" :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor") :sort-by "pub-year"
 ,#+END:
 #+end_example
 
@@ -133,10 +135,12 @@ you wrote as \"First Last\"."
 
 (defcustom sp-author-notes-works-spec
   '(:parent-of "self" :parent-prop "pub-author"
-    :columns (:title "read-status" "read-priority" "pub-year" "relevance-factor")
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
     :sort-by "pub-year")
   "The spec of the `collection-query-table' block put in the Works heading.
-See `sp-collec-query-spec-keys'.  :title is the note title, the citekey."
+See `sp-collec-query-spec-keys'.  :title is the note title, the citekey.
+Book sections are left out and counted in :sections on their book."
   :type 'sexp
   :group 'sp-author-notes)
 
