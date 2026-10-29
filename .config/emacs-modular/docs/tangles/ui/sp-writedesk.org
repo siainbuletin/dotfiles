@@ -40,7 +40,8 @@ The file header: the first line carries the file name, a short summary and the =
 
 * Olivetti
 
-** Olivetti
+** Simple =olivetti= installation
+
 
 Installs Olivetti and enables =olivetti-mode= in every Org buffer, wrapping the body to 80 columns (with a minimum of 100 columns of window before it narrows further). =C-c w o= runs =sp-olivetti=.
 
@@ -104,6 +105,16 @@ and moves point to the last location."
       (olivetti-mode t))))
 #+end_src
 
+* org-view-mode
+
+The package should make it easier to read an org buffer while editing.
+
+#+begin_src emacs-lisp -i
+;;; org-view-mode
+(use-package org-view-mode
+  :ensure t)
+#+end_src
+
 * Writeroom
 
 ** Writeroom mode
@@ -124,8 +135,8 @@ Entering Writeroom also applies the typewriter scrolling settings below.
   :commands (writeroom-mode)
 
   :config
-  ;; (setq writeroom-fullscreen-effect 'maximized)
-  (setq writeroom-width 95)
+  (setq writeroom-fullscreen-effect 'maximized)
+  (setq writeroom-width 125)
   (setq writeroom-mode-line t)
   (setq writeroom-bottom-divider-width 0)
 
@@ -157,3 +168,8 @@ Provides the =sp-writedesk= feature and closes the file.
 (provide 'sp-writedesk)
 ;; sp-writedesk.el ends here.
 #+end_src
+
+* Tasks
+** TODO Add justification to the lines
+
+[2026-10-29 Thu] This was theoretically done in my old configuration from ~emacs-include~
