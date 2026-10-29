@@ -6,7 +6,7 @@ Literate source for =libraries/modules/media/sp-music-comp.el=.
 
 - Every =emacs-lisp= block below goes into that file, except blocks marked =:tangle no=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module is meant to hold the configuration for writing and working with music from Emacs. The planning notes in =sp-music-composition.org= describe the goals: control an audio server, write scores declaratively in the spirit of OpusModus rather than engraving by hand, and live-code music through REPLs.
 

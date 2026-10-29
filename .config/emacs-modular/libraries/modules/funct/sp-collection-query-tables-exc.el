@@ -37,7 +37,7 @@
 A column not listed uses the entry for t.  The :column-widths of a
 table's spec, saved with a view, override these."
   :type '(alist :key-type (choice symbol string) :value-type integer)
-  :group 'spcustom)
+  :group 'sp-collec-query)
 
 (defcustom sp-collec-query-exc-wrap 'wrap
   "How an exc table treats text longer than its column.
@@ -111,7 +111,7 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
                 ((not (stringp (nth col columns)))
                  (user-error "The %s column is read-only"
                              (sp-collec-query-header-label (nth col columns))))
-                ((sp-collec-query-has-link-p
+                ((sp-org-link-has-link-p
                   (sp-collec-query-cell (aref notes (1- row)) (nth col columns)))
                  (user-error "This cell holds a link; edit it in the note"))
                 (t (sp-collec-query-write-meta (aref notes (1- row)) (nth col columns) value)

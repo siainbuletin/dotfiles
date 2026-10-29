@@ -17,7 +17,7 @@
   (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
 
 ;; This one actually has to be installed from the source to work well
-;; (use-package chai 
+;; (use-package chai
 ;;  :ensure t)
 
 (use-package calibredb

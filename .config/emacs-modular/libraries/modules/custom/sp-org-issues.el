@@ -381,6 +381,16 @@ whose pull request is no longer open.  The others are issue states."
   :type 'file
   :group 'spcustom)
 
+(defcustom sp-org-issues-morning-self "siainbuletin"
+  "GitHub login whose comments starting with `Note to self:' are reminders."
+  :type 'string
+  :group 'spcustom)
+
+(defcustom sp-org-issues-morning-testing-label "needs-further-testing"
+  "Label of the pull requests listed under Needs further testing."
+  :type 'string
+  :group 'spcustom)
+
 (defcustom sp-org-issues-gh-program "gh"
   "The GitHub command line client, logged in with `gh auth login'."
   :type 'string
@@ -620,8 +630,26 @@ FETCHED lists the repositories whose pull requests were read."
             (plist-get item :reason)
             (plist-get item :score))))
 
-(defun sp-org-issues-morning--render (items now &optional notes)
-  "Return the Org text of the morning list for ITEMS at NOW, with NOTES."
+(defun sp-org-issues-morning--section (heading lines)
+  "Return the Org section HEADING with the list LINES, or nil when LINES is empty."
+  (when lines
+    (concat "\n* " heading "\n" (mapconcat #'identity lines "\n") "\n")))
+
+(defun sp-org-issues-morning--note-line (note)
+  "Return the Org list line that links to the comment NOTE."
+  (format "- [[%s][%s #%s]] %s" (plist-get note :url) (plist-get note :repo)
+          (plist-get note :number) (plist-get note :text)))
+
+(defun sp-org-issues-morning--testing-line (pr)
+  "Return the Org list line that links to the pull request PR."
+  (format "- [[%s][%s #%s]] %s%s" (plist-get pr :url) (plist-get pr :repo)
+          (plist-get pr :number) (plist-get pr :title)
+          (if (plist-get pr :merged) " (merged)" " (open)")))
+
+(defun sp-org-issues-morning--render (items now &optional notes extras)
+  "Return the Org text of the morning list for ITEMS at NOW, with NOTES.
+EXTRAS is a plist: :notes are the notes to self and :testing the
+pull requests to test further, each under a section of its own."
   (let* ((today (seq-take (seq-filter (lambda (item)
                                         (>= (plist-get item :score)
                                             sp-org-issues-morning-park-below))
@@ -639,7 +667,13 @@ FETCHED lists the repositories whose pull requests were read."
      (when parked
        (concat "\n* Parked\n"
                (mapconcat #'sp-org-issues-morning--line parked "\n")
-               "\n")))))
+               "\n"))
+     (sp-org-issues-morning--section
+      "Notes to self"
+      (mapcar #'sp-org-issues-morning--note-line (plist-get extras :notes)))
+     (sp-org-issues-morning--section
+      "Needs further testing"
+      (mapcar #'sp-org-issues-morning--testing-line (plist-get extras :testing))))))
 
 (defun sp-org-issues-morning--fetch (repos callback)
   "Read the open pull requests of REPOS, then call CALLBACK.
@@ -674,6 +708,110 @@ and the labels of the repositories that could not be read."
                     (next))))))))
       (next))))
 
+(defconst sp-org-issues-morning--note-prefix "note to self:"
+  "What a comment starts with (any case) to be a reminder for yourself.")
+
+(defun sp-org-issues-morning--parse-testing (json label)
+  "Return the pull requests in the JSON of a `gh api' issue listing.
+Tag each with the repository LABEL.  Issues are left out, and so are
+pull requests closed without a merge: what is listed is open or merged."
+  (let (prs)
+    (dolist (entry (json-parse-string json :object-type 'alist :array-type 'list
+                                      :null-object nil :false-object nil))
+      (let* ((pull (alist-get 'pull_request entry))
+             (merged (alist-get 'merged_at pull)))
+        (when (and pull (or merged (equal (alist-get 'state entry) "open")))
+          (push (list :repo label :number (alist-get 'number entry)
+                      :title (alist-get 'title entry)
+                      :url (alist-get 'html_url entry)
+                      :merged (and merged t))
+                prs))))
+    (nreverse prs)))
+
+(defun sp-org-issues-morning--parse-notes (json label)
+  "Return the notes to self in the JSON of a `gh api' comment listing.
+Tag each with the repository LABEL.  A note is a comment of
+`sp-org-issues-morning-self' that starts with `Note to self:'."
+  (let (notes)
+    (dolist (comment (json-parse-string json :object-type 'alist :array-type 'list
+                                        :null-object nil :false-object nil))
+      (let ((body (string-trim-left (or (alist-get 'body comment) "")))
+            (user (alist-get 'login (alist-get 'user comment)))
+            (pr-url (or (alist-get 'issue_url comment)
+                        (alist-get 'pull_request_url comment))))
+        (when (and (equal user sp-org-issues-morning-self)
+                   (string-prefix-p sp-org-issues-morning--note-prefix body t)
+                   (sp-org-issues-morning--pr-number pr-url))
+          (push (list :repo label
+                      :number (sp-org-issues-morning--pr-number pr-url)
+                      :url (alist-get 'html_url comment)
+                      :text (thread-last
+                              (substring body (length sp-org-issues-morning--note-prefix))
+                              (string-trim)
+                              (replace-regexp-in-string "\n.*" "")
+                              (replace-regexp-in-string "\\[" "(")
+                              (replace-regexp-in-string "\\]" ")")))
+                notes))))
+    (nreverse notes)))
+
+(defun sp-org-issues-morning--open-notes (notes prs)
+  "Return those of NOTES that are on one of the open pull requests PRS."
+  (seq-filter (lambda (note)
+                (seq-find (lambda (pr)
+                            (and (equal (plist-get pr :repo) (plist-get note :repo))
+                                 (equal (plist-get pr :number) (plist-get note :number))))
+                          prs))
+              notes))
+
+(defun sp-org-issues-morning--extras-requests (slug)
+  "Return the (KIND . ENDPOINT) requests that read SLUG (owner/name)."
+  (list (cons :notes (format "repos/%s/issues/comments?sort=updated&direction=desc&per_page=100" slug))
+        (cons :notes (format "repos/%s/pulls/comments?sort=updated&direction=desc&per_page=100" slug))
+        (cons :testing (format "repos/%s/issues?labels=%s&state=all&per_page=100"
+                               slug (url-hexify-string sp-org-issues-morning-testing-label)))))
+
+(defun sp-org-issues-morning--fetch-extras (repos callback)
+  "Read the notes to self and the pull requests to test of REPOS, then call CALLBACK.
+REPOS is a list of (LABEL . OWNER/NAME).  CALLBACK gets a plist with
+:notes and :testing, and the labels of the repositories that could not be
+read.  Everything goes through the REST API (`gh api'): the conversation
+and review comments, newest first, and the issues with the testing label."
+  (let ((extras nil) (failed nil)
+        (todo (mapcan (lambda (repo)
+                        (mapcar (lambda (request) (cons repo request))
+                                (sp-org-issues-morning--extras-requests (cdr repo))))
+                      repos)))
+    (cl-labels
+        ((next ()
+           (if (null todo)
+               (funcall callback extras (delete-dups (nreverse failed)))
+             (pcase-let* ((`(,repo ,kind . ,endpoint) (pop todo))
+                          (out (generate-new-buffer " *sp-gh*"))
+                          (err (generate-new-buffer " *sp-gh-err*")))
+               (make-process
+                :name "sp-gh" :buffer out :stderr err :noquery t
+                :command (list sp-org-issues-gh-program "api" endpoint)
+                :sentinel
+                (lambda (process _event)
+                  (unless (process-live-p process)
+                    (condition-case nil
+                        (if (zerop (process-exit-status process))
+                            (let ((json (with-current-buffer out (buffer-string))))
+                              (setq extras
+                                    (plist-put extras kind
+                                               (append (plist-get extras kind)
+                                                       (if (eq kind :notes)
+                                                           (sp-org-issues-morning--parse-notes
+                                                            json (car repo))
+                                                         (sp-org-issues-morning--parse-testing
+                                                          json (car repo)))))))
+                          (push (car repo) failed))
+                      (error (push (car repo) failed)))
+                    (kill-buffer out)
+                    (kill-buffer err)
+                    (next))))))))
+      (next))))
+
 (defvar sp-org-issues-morning-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'sp-org-issues-morning)
@@ -684,10 +822,11 @@ and the labels of the repositories that could not be read."
 (define-derived-mode sp-org-issues-morning-mode org-mode "Morning"
   "Org mode for the read-only morning list.")
 
-(defun sp-org-issues-morning--show (issues prs failed repos &optional notes)
+(defun sp-org-issues-morning--show (issues prs failed repos &optional notes extras)
   "Show the morning list for ISSUES and PRS.
 FAILED lists the repositories that could not be read, out of REPOS.
-NOTES are extra remarks for the top of the list."
+NOTES are extra remarks for the top of the list.  EXTRAS is the plist
+of `sp-org-issues-morning--render'."
   (let* ((now (current-time))
          (fetched (seq-remove (lambda (label) (member label failed))
                               (mapcar #'car repos)))
@@ -696,7 +835,7 @@ NOTES are extra remarks for the top of the list."
                                 failed)
                         notes))
          (text (sp-org-issues-morning--render
-                (sp-org-issues-morning--items issues prs now fetched) now notes)))
+                (sp-org-issues-morning--items issues prs now fetched) now notes extras)))
     (with-current-buffer (get-buffer-create "*Morning*")
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -715,7 +854,16 @@ NOTES are extra remarks for the top of the list."
     (if (and repos (executable-find sp-org-issues-gh-program))
         (sp-org-issues-morning--fetch
          repos (lambda (prs failed)
-                 (sp-org-issues-morning--show issues prs failed repos)))
+                 (sp-org-issues-morning--fetch-extras
+                  repos (lambda (extras extras-failed)
+                          (sp-org-issues-morning--show
+                           issues prs failed repos
+                           (mapcar (lambda (label)
+                                     (format "Notes and testing labels could not be read for %s" label))
+                                   extras-failed)
+                           (list :notes (sp-org-issues-morning--open-notes
+                                         (plist-get extras :notes) prs)
+                                 :testing (plist-get extras :testing)))))))
       (sp-org-issues-morning--show
        issues nil nil nil
        (when repos

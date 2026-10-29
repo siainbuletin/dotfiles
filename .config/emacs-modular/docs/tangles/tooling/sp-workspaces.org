@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-workspaces.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module builds named workspaces on top of =tab-bar= and =tabspaces=. A workspace is a tab with its own isolated set of buffers.
 
@@ -327,6 +327,12 @@ Enables =projectile-mode= globally with caching.
 - Its command map is on =C-c p=, and also on =C-c C-p= inside =projectile-mode-map=.
 - =<f5>=, =S-<f5>= and =<f6>= compile, test and run the project.
 
+Where its files go (see [[file:../base/sp-globals.org::*State files: where each one lives][State files]]):
+
+- =projectile-known-projects-file= is =projectile-bookmarks.eld= in =sp-etc-dir=: the list of projects is kept.
+- =projectile-frecency-file= is =projectile-frecency.eld= in =sp-cache-dir=: visit counts for ranking, rebuilt as you work.
+- =project-list-file= (the built-in =project.el= list) is =project-list= in =sp-cache-dir=.
+
 Two things conflict here:
 
 - =projectile-project-search-path= is set twice: to the writing and config directories in =:init=, and to =~/git= and =~/src= in =:custom=. Which list takes effect depends on use-package's evaluation order, not on clear intent.
@@ -356,7 +362,13 @@ Two things conflict here:
   :custom
   (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
+  ;; Known projects are kept; the visit counts and the project.el list can be
+  ;; rebuilt.
+  (projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" sp-etc-dir))
+  (projectile-frecency-file (expand-file-name "projectile-frecency.eld" sp-cache-dir))
   )
+
+(setq project-list-file (expand-file-name "project-list" sp-cache-dir))
 #+end_src
 
 * Footer

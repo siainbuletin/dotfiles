@@ -71,6 +71,51 @@ is non-nil."
           (apply 'delete-region remove)
           (insert description)))))
 
+;;;;; Show links by their description
+;; Used by the query tables and by `org-other-agenda', so a link in text
+;; that is not in an Org buffer looks and works like one in a buffer.
+(defvar sp-org-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'sp-org-link-open)
+    (define-key map [mouse-1] #'sp-org-link-open)
+    (define-key map [mouse-2] #'sp-org-link-open)
+    map)
+  "Keymap on a link shown by `sp-org-link-linkify'.")
+
+(defun sp-org-link-open ()
+  "Follow the Org link at point or at the last mouse click."
+  (interactive)
+  (when (mouse-event-p last-input-event)
+    (mouse-set-point last-input-event))
+  (let ((link (get-text-property (point) 'sp-org-link)))
+    (if link
+        (org-link-open-from-string (format "[[%s]]" link))
+      (user-error "No link here"))))
+
+(defun sp-org-link-has-link-p (text)
+  "Non-nil if TEXT contains an Org bracket link."
+  (and (string-match-p org-link-bracket-re text) t))
+
+(defun sp-org-link-linkify (text)
+  "Return TEXT with its Org links shown the way an Org buffer shows them.
+Each [[target][description]] becomes its description alone in `org-link'
+face, and RET or a click follows the link.  Text is returned as is when
+`org-link-descriptive' is nil."
+  (if (not (and org-link-descriptive (sp-org-link-has-link-p text)))
+      text
+    (let ((pos 0) out)
+      (while (string-match org-link-bracket-re text pos)
+        (let* ((link (org-link-unescape (match-string 1 text)))
+               (desc (or (match-string 2 text) link)))
+          (push (substring text pos (match-beginning 0)) out)
+          (push (propertize desc 'face 'org-link 'mouse-face 'highlight
+                            'help-echo link 'keymap sp-org-link-map
+                            'sp-org-link link)
+                out)
+          (setq pos (match-end 0))))
+      (push (substring text pos) out)
+      (apply #'concat (nreverse out)))))
+
 ;;;;; Link to the configuration docs
 ;; Plain `file:' links, so the docs stay out of the vulpea database.
 (declare-function sp-find-file-pick "sp-navi")

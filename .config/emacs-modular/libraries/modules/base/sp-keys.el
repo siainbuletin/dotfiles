@@ -39,13 +39,13 @@ the line, respectively."
 (use-package ironkey
   :ensure (:type git :host github :repo "JimDBh/ironkey")
   :demand t
-  :hook 
+  :hook
   ((after-init . ironkey-update))
-  
+
   :config
   (setq ironkey-iron-alist `((,(kbd "M-.") . nil) ;; command in global-map
                              (,(kbd "C-x p") . nil))) ;; prefix keymap in global-map
-                             
+
   (ironkey-mode t))
 
 ;;;;; Bind Key
@@ -335,7 +335,7 @@ the line, respectively."
 ;; Reducing the delay makes key discovery appear sooner, but it also increases the likelihood
 ;; that a popup will appear during an ordinary key sequence. (For experienced users with
 ;; memorized prefixes, a longer delay can reduce visual interruptions.)
-;; 
+;;
 ;; source: https://www.jamescherti.com/emacs-user-interface-better-responsiveness-and-latency/
 
 (setq which-key-idle-delay 0.75)
@@ -438,8 +438,6 @@ an inline branching lambda from the prior implementation."
 
 ;; TODO: Add org and markdown keybindings
 ;;;; End keybindings
-
-
 
 (use-package hydra
   :ensure (:wait t))

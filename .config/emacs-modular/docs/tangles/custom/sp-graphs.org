@@ -7,7 +7,7 @@ Literate source for =libraries/modules/custom/sp-graphs.el= and its page templat
 - Every line of both files lives in the source blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where the Emacs Lisp is written.
 - Each HTML block carries its own path.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and =sp-relationship-annotator-live=.
 
@@ -138,8 +138,7 @@ Setup:
 
 - The package is fetched from GitHub through Elpaca, including the prebuilt HTML and assets of its web UI.
 - Notes are scanned recursively under =sp-notes-dir= (=~/notes/= unless =SP_NOTES_DIR= says otherwise), with Denote integration turned on.
-- The database is configured to live in =~/.config/emacs-include/=.
-- A =discourse-graphs.db= file also sits at the root of this repository, which suggests the location has changed at some point.
+- The database lives in =discourse-graphs.db= under =sp-var-dir= (=var/=, ignored by Git). It used to be configured for =~/.config/emacs-include/=, while an older copy sat, tracked, at the root of this repository (see [[file:../base/sp-globals.org::*State files: where each one lives][State files]]).
 
 Everything under this heading is settings and the =use-package= form for the package. None of it is a function of mine.
 
@@ -245,7 +244,7 @@ The closing parenthesis on its own line ends the =use-package= form.
   (list sp-notes-dir)
   )
   (setq dg-recursive t)
-  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
+  (setq dg-db-file (expand-file-name "discourse-graphs.db" sp-var-dir)) ;; this is where the SQLite will live
 
 (discourse-graphs-mode 1)
 )
@@ -3545,6 +3544,17 @@ the relation.  Clicking a node visits its note."
     (pop-to-buffer buffer)))
 #+end_src
 
+** Force-directed graph through another package: [[id:20261028T140146.203787][neonmei's vulpea-graph]]
+
+Since it's sharing the same namespace with 
+
+#+begin_src emacs-lisp
+(use-package vulpea-graph
+  :ensure (:type git :host github :repo "neonmei/vulpea-graph")
+  :commands (vulpea-graph)
+) 
+#+end_src
+
 * Provide
 
 The one feature of the module. The old file ends were =;;; sp-relationship-annotator.el ends here= and the like; there is now a single one.
@@ -3566,3 +3576,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/58][#58]] 🔧 Changed =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and its live view into one module, =sp-graphs=; commands and options are unchanged. ([[https://github.com/siainbuletin/dotfiles/pull/57][#57]] was closed: its branch had the wrong number.)
 - [[https://github.com/siainbuletin/dotfiles/pull/173][#173]] ✨ Added =rel-anno-fa2=, a force-directed graph in an Emacs buffer with =graph-fa2=: titles and tags on the nodes, colours from the tag groups, the relation on each link, node size by depth.
 - [[https://github.com/siainbuletin/dotfiles/pull/175][#175]] 🔧 Changed =rel-anno-fa2=: nodes drawn 4 times farther apart, a 75% opaque box behind each label, theme colours instead of the Notion palette, and the 2d engine.
+- [[https://github.com/siainbuletin/dotfiles/pull/187][#187]] 🔧 Changed =dg-db-file= to =discourse-graphs.db= under =sp-var-dir=.

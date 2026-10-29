@@ -107,6 +107,88 @@
   :config (citar-embark-mode)
   )
 
+;;;; Citation hover
+;; Show the formatted reference of the citation under the mouse or point.
+(defcustom sp-cite-hover-display '(tooltip echo)
+  "Where to show the reference of the `[cite:@key]' link under the mouse or point.
+`tooltip' sets the `help-echo' of the link, shown when the mouse hovers over
+it.  `echo' adds an Eldoc function, which shows the reference in the echo area
+when point is on the link.  Set it to nil to turn both off."
+  :type '(set (const :tag "Tooltip on mouse hover" tooltip)
+              (const :tag "Echo area when point is on the link" echo))
+  :group 'sp)
+
+(defconst sp-cite-hover--link-regexp
+  "\\[cite\\(?:/[-_/[:alnum:]]*\\)?:[^]]*\\]"
+  "Regexp matching an Org citation such as `[cite/t:see @key1; @key2 p. 3]'.")
+
+(defconst sp-cite-hover--key-regexp
+  "@\\([-.:?!`'/*@+|(){}<>&_^$#%~[:alnum:]]+\\)"
+  "Regexp matching a citation key, with the key itself in group 1.")
+
+(defun sp-cite-hover--key-at (pos)
+  "Return the citation key at POS, or the first key of the citation around it.
+Return nil when POS is not inside a `[cite:]' link."
+  (save-excursion
+    (goto-char pos)
+    (let ((line-start (line-beginning-position))
+          (line-end (line-end-position))
+          found)
+      (while (and (not found)
+                  (re-search-backward "\\[cite" line-start t))
+        (when (and (looking-at sp-cite-hover--link-regexp)
+                   (<= pos (match-end 0)))
+          (setq found (cons (match-beginning 0) (match-end 0)))))
+      (when found
+        (goto-char (car found))
+        (let (first at-pos)
+          (while (and (not at-pos)
+                      (re-search-forward sp-cite-hover--key-regexp
+                                         (min (cdr found) line-end) t))
+            (unless first (setq first (match-string-no-properties 1)))
+            (when (and (<= (match-beginning 0) pos) (<= pos (match-end 0)))
+              (setq at-pos (match-string-no-properties 1))))
+          (or at-pos first))))))
+
+(defun sp-cite-hover--reference (key)
+  "Return the formatted reference of KEY from the bibliography, or nil.
+It uses the `preview' template of `citar-templates'."
+  (when (and key (require 'citar nil t))
+    (when-let* ((entry (citar-get-entry key))
+                (text (citar-format--entry (citar-get-template 'preview) entry)))
+      (string-trim (substring-no-properties text)))))
+
+(defun sp-cite-hover--help-echo (_window object pos)
+  "Return the reference of the citation at POS in OBJECT for `help-echo'."
+  (when (and (memq 'tooltip sp-cite-hover-display) (bufferp object))
+    (with-current-buffer object
+      (when-let* ((key (sp-cite-hover--key-at pos)))
+        (or (sp-cite-hover--reference key)
+            (format "@%s: not found in the bibliography" key))))))
+
+(defun sp-cite-hover--fontify (limit)
+  "Put the `help-echo' tooltip on the citations up to LIMIT.
+It is a font-lock matcher: it adds the property and never fontifies."
+  (while (re-search-forward sp-cite-hover--link-regexp limit t)
+    (add-text-properties (match-beginning 0) (match-end 0)
+                         '(help-echo sp-cite-hover--help-echo)))
+  nil)
+
+(defun sp-cite-hover--eldoc (callback &rest _)
+  "Eldoc function: show the reference of the citation at point with CALLBACK."
+  (when (memq 'echo sp-cite-hover-display)
+    (when-let* ((key (sp-cite-hover--key-at (point)))
+                (text (sp-cite-hover--reference key)))
+      (funcall callback text :thing (concat "@" key) :face 'font-lock-doc-face))))
+
+(defun sp-cite-hover-setup ()
+  "Turn on the citation tooltip and echo area reference in this Org buffer."
+  (add-hook 'eldoc-documentation-functions #'sp-cite-hover--eldoc nil t)
+  (font-lock-add-keywords nil '((sp-cite-hover--fontify)) 'append)
+  (font-lock-flush))
+
+(add-hook 'org-mode-hook #'sp-cite-hover-setup)
+
 (defvar sia-citar-library-backup-path (sp-path sp-literature-dir "backup"))
 
 (provide 'sp-citations)

@@ -1,0 +1,21 @@
+#+title: sp-conditional-loading: load different packages of modules for different needs
+
+* Describing the need
+
+In [[id:0e5fe797-ec1d-4463-9f08-dbd36e3bbf31][Lambda Emacs]], it was possible to declaratively load different configurations of Emacs using different [[id:4373fded-3f55-4ca0-9431-a586ca7669c2][CLI]] switches.
+
+This makes it possible to exclude files that aren't needed at the time (and conditionally load them).
+
+It would be good if I could find a manner to trigger this loading from the command-line.
+
+It would be especially useful if it could include support for loading on different systems more efficiently (even including a configuration that could work for the N900 in the future)
+
+I don't yet know how to get this done.
+
+** How to go about this
+
+[[id:0e5fe797-ec1d-4463-9f08-dbd36e3bbf31][Lambda Emacs]] already allows you to load different modules in pre-configured 'shipped' versions of Lambda Emacs.
+
+With Claude, I added the possibility to recurse into the different ~libraries/~ subfolders to find the relevant ~.el~ files for the process.
+
+See the module ~conditional-loading.el~

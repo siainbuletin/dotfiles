@@ -4,14 +4,14 @@
 
 Literate source for =libraries/modules/text/sp-typst.el= and for three files in =docs/typst/=: =template.typ=, =Makefile= and =export.el=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each of the other blocks carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-This is the skeleton of a typesetting environment built on [[https://typst.app][Typst]] that works from Org. The first use is the one asked for: turn this configuration's own documentation (=docs/main.org=, the architecture notes and the literate doc of every module) into one PDF. The decision and the alternatives are in [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]]. The empty =docs/tangles/sp-typst.org= that stood here before is replaced by this file; the older Typst notes are in =sp-typesetting.org= (the =ox-typst= line there is superseded by the module below).
+This is the skeleton of a typesetting environment built on [[https://typst.app][Typst]] that works from Org. The first use is the one asked for: turn this configuration's own documentation (=README.org=, the architecture notes and the literate doc of every module) into one PDF. The decision and the alternatives are in [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]]. The empty =docs/tangles/sp-typst.org= that stood here before is replaced by this file; the older Typst notes are in =sp-typesetting.org= (the =ox-typst= line there is superseded by the module below).
 
 * Overview
 
 ** What it does
 
 #+begin_example
-docs/main.org, README.org, docs/architecture/*.org, docs/tangles/<dir>/sp-*.org
+README.org, docs/architecture/*.org, docs/tangles/<dir>/sp-*.org
         │  sp-typst--prepare: one Org text, one heading per doc, links fixed
         ▼
 docs/typst/.build/emacs-modular.org
@@ -59,7 +59,7 @@ The docs are written to be tangled and read in Emacs, not to be one book. Export
 
 ;;; Commentary:
 
-;; Exports the literate documentation (docs/main.org, the architecture notes and
+;; Exports the literate documentation (README.org, the architecture notes and
 ;; the doc of every module) to one PDF through ox-typst and the `typst' command,
 ;; and any single Org file the same way.  The assembly of the book, the template
 ;; (docs/typst/template.typ) and the batch driver (docs/typst/export.el) are
@@ -192,14 +192,14 @@ Backups, empty files and, unless `sp-typst-include-old', `-old.org' docs are lef
   (let (parts)
     (push (cons "Overview"
                 (seq-filter (lambda (f) (file-exists-p (sp-typst--file f)))
-                            '("docs/main.org" "README.org")))
+                            '("README.org")))
           parts)
     (dolist (directory sp-typst-doc-directories)
       (push (cons (capitalize (file-name-nondirectory directory))
                   (sp-typst--org-files directory))
             parts))
     (push (cons "Design notes"
-                (remove "docs/main.org" (sp-typst--org-files "docs")))
+                (sp-typst--org-files "docs"))
           parts)
     (dolist (sub (directory-files (sp-typst--file "docs/tangles") nil "\\`[^.]"))
       (let ((directory (concat "docs/tangles/" sub)))
@@ -364,7 +364,7 @@ is the table made by `sp-typst--known'."
 
 * Assembling the book
 
-The preamble sets the title page data, the options that suit these docs, the two macros that =main.org= expects and the =typst_header= lines that load the template. The template is imported as =template.typ= from the build folder, where =sp-typst--export= copies it before each export. Typst refuses to import a file outside its project root, and =ox-typst= sets that root to the folder of the =.typ= file (or a common parent of it and the images), so a copy beside the =.typ= is the one place that always works.
+The preamble sets the title page data, the options that suit these docs, the two macros that =README.org= expects and the =typst_header= lines that load the template. The template is imported as =template.typ= from the build folder, where =sp-typst--export= copies it before each export. Typst refuses to import a file outside its project root, and =ox-typst= sets that root to the folder of the =.typ= file (or a common parent of it and the images), so a copy beside the =.typ= is the one place that always works.
 
 The options: =^:{}= so that =sp_x= is not a subscript (only =a_{b}= is), =d:nil= to leave the drawers (=BACKLINKS=, =LOGBOOK=) out, =broken-links:t= so a link to something outside the book does not stop the export, =H:9= so deep headings stay headings, and =toc:t=. The table of contents depth is set in the template.
 
@@ -677,7 +677,7 @@ Not run: Elpaca installing =ox-typst= and =typst-ts-mode= (neither is installed 
 
 * Not yet done
 
-- The module is in =sp-late-modules= of =init.el=, and has an entry in =docs/main.org=, but the dependency graph in =docs/architecture/load-order.org= does not show it.
+- The module is in =sp-late-modules= of =init.el=, and has an entry in =README.org=, but the dependency graph in =docs/architecture/load-order.org= does not show it.
 - ADRs (=adr/=, outside the configuration folder) are not in the book. Add the folder to =sp-typst-doc-directories= once the root is the repository.
 - Citations: =ox-typst= turns =cite:= links into a Typst =#bibliography=; the book has none, and the thesis workflow that needs it (=typst-setup.org=, =passions.bib=) is not wired up.
 - A project template for a manuscript (title page, chapters in separate files, bibliography, Romanian language settings as in =typst-setup.org=) would be a second template next to =template.typ=; the book template is meant as the first of them.

@@ -37,7 +37,7 @@
   :ensure t)
 
 (use-package supersonic
-  :ensure t 
+  :ensure t
   :commands supersonic
   :bind (("C-c m" . supersonic))
   :custom
