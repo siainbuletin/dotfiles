@@ -139,6 +139,164 @@ Its rows used to show a link in a heading unfolded, as =[[id:...][title]]=. =sp-
               #'sp-org-agenda-linkify-title))
 #+end_src
 
+** org-other-agenda colours
+
+The board draws everything with 17 faces of its own, and the package sets them to fixed hex colours (a Tokyo Night blue, amber and green) that clash with the =sp=, Lambda, Ef and Doric themes. Here each of those faces is set from a theme face instead, so the board follows the theme in use.
+
+Two variables decide everything; both are =defcustom=s, and the doc "Changing the accents" below says what to edit.
+
+- =sp-org-agenda-board-accents= says which theme faces make up each *accent*. An accent is a list of faces; the first one that has a colour in the current theme wins. The first face is the semantic face of the =sp= themes (=sp-urgent=, =sp-crucial=, =sp-focus=, ... from =sp-theme-engine=); the second is a standard face that every theme defines (=error=, =warning=, =link=, ...), so the board is coloured in the Lambda, Ef and Doric themes too, where the =sp-*= faces are empty.
+- =sp-org-agenda-board-roles= says which accent each face of the board uses.
+
+The seven accents, from the most to the least important:
+
+| Accent    | Theme faces                | Meaning                                  | Used by |
+|-----------+----------------------------+------------------------------------------+---------|
+| =urgent=  | =sp-urgent=, =error=       | needs attention now                      | priority A, overdue heading |
+| =crucial= | =sp-crucial=, =warning=    | deadline, today                          | today, query bar, marked rows |
+| =focus=   | =sp-focus=, =link=         | the current thing, navigation            | date headers, active tab, work time block |
+| =positive= | =success=                 | running, going well                      | clocked entry, life time block |
+| =calm=    | =font-lock-type-face=      | a second cool hue, so tags differ from dates | tags, other time block |
+| =meek=    | =sp-meek=, =shadow=        | secondary text                           | dim text, inactive tab, hour labels |
+| =mild=    | =sp-mild=, =shadow=        | noise                                    | blocked entries, half-hour labels |
+
+The foreground faces just =:inherit= the accent faces, so they follow a theme change by themselves. The faces that need a /colour/ (the active tab and the three time blocks have a background) read the accent's foreground and are set again by =sp-org-agenda-board-apply= after every theme change (=sp-after-load-theme-hook=). A block background is the accent mixed into the theme background (=sp-org-agenda-board-block-mix=, 18% by default), with the normal foreground on top, so it is readable in light and dark themes alike.
+
+#+begin_src emacs-lisp -i
+;;;; Org other agenda: colours from the theme
+(defgroup sp-org-agenda-board nil
+  "Colours of the `org-other-agenda' board, taken from the theme in use."
+  :group 'faces)
+
+(defcustom sp-org-agenda-board-accents
+  '((urgent   sp-urgent error)
+    (crucial  sp-crucial warning)
+    (focus    sp-focus link)
+    (positive success)
+    (calm     font-lock-type-face)
+    (meek     sp-meek shadow)
+    (mild     sp-mild shadow))
+  "The accents of the board, an alist of (ACCENT FACE...).
+The colour of an accent is the foreground of the first FACE that has one
+in the current theme: a semantic face of the `sp' themes first, then a
+standard face that every theme defines."
+  :group 'sp-org-agenda-board
+  :type '(alist :key-type symbol :value-type (repeat face))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-org-agenda-board-apply)
+           (sp-org-agenda-board-apply))))
+
+(defcustom sp-org-agenda-board-roles
+  '((org-other-agenda-day            focus    bold)
+    (org-other-agenda-today          crucial  bold)
+    (org-other-agenda-a              urgent   bold)
+    (org-other-agenda-overdue        urgent)
+    (org-other-agenda-clock          positive bold)
+    (org-other-agenda-tag            calm)
+    (org-other-agenda-query          crucial)
+    (org-other-agenda-dim            meek)
+    (org-other-agenda-tab            meek)
+    (org-other-agenda-hour           meek)
+    (org-other-agenda-blocked        mild)
+    (org-other-agenda-halfhour       mild)
+    (org-other-agenda-active-tab     focus    tab)
+    (org-other-agenda-blk-a          focus    block)
+    (org-other-agenda-blk-b          positive block)
+    (org-other-agenda-blk-c          calm     block)
+    (org-other-agenda-marked         crucial  wave))
+  "Which accent each face of the board uses, a list of (FACE ACCENT [KIND]).
+KIND is `bold' (bold text), `tab' (the accent as background), `block' (a
+tinted background), `wave' (an underline) or nil (plain text)."
+  :group 'sp-org-agenda-board
+  :type '(repeat (list face symbol (choice (const nil) symbol)))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-org-agenda-board-apply)
+           (sp-org-agenda-board-apply))))
+
+(defcustom sp-org-agenda-board-block-mix 0.18
+  "How much of the accent goes into the background of a time block (0 to 1)."
+  :group 'sp-org-agenda-board
+  :type 'float)
+
+(defun sp-org-agenda-board--faces (accent)
+  "Return the theme faces of ACCENT."
+  (or (cdr (assq accent sp-org-agenda-board-accents))
+      (error "No accent %s in `sp-org-agenda-board-accents'" accent)))
+
+(defun sp-org-agenda-board--colour (accent)
+  "Return the colour of ACCENT in the current theme."
+  (or (seq-some (lambda (face)
+                  (let ((colour (and (facep face)
+                                     (face-attribute face :foreground nil t))))
+                    (and (stringp colour) colour)))
+                (sp-org-agenda-board--faces accent))
+      (face-attribute 'default :foreground nil)))
+
+(defun sp-org-agenda-board--mix (colour other amount)
+  "Return COLOUR with AMOUNT (0 to 1) of OTHER mixed in, as #rrggbb."
+  (let ((a (color-name-to-rgb colour))
+        (b (color-name-to-rgb other)))
+    (if (and a b)
+        (apply #'color-rgb-to-hex
+               (append (cl-mapcar (lambda (x y) (+ (* (- 1 amount) x) (* amount y)))
+                                  a b)
+                       '(2)))
+      colour)))
+
+(defun sp-org-agenda-board--spec (accent kind)
+  "Return the face spec of a face using ACCENT as KIND.
+The package's own colours are cleared with `unspecified': a spec added
+on top of a `defface' spec does not replace it, it is merged into it."
+  (let* ((faces (seq-filter #'facep (sp-org-agenda-board--faces accent)))
+         (colour (sp-org-agenda-board--colour accent))
+         (background (face-attribute 'default :background nil))
+         (foreground (face-attribute 'default :foreground nil))
+         (attrs (list :inherit faces :foreground 'unspecified
+                      :background 'unspecified :weight 'unspecified
+                      :underline 'unspecified)))
+    (pcase kind
+      ('tab   (setq attrs (plist-put attrs :foreground background))
+              (setq attrs (plist-put attrs :background colour))
+              (setq attrs (plist-put attrs :weight 'bold)))
+      ('block (setq attrs (plist-put attrs :inherit nil))
+              (setq attrs (plist-put attrs :foreground foreground))
+              (setq attrs (plist-put attrs :background
+                                     (sp-org-agenda-board--mix
+                                      background colour
+                                      sp-org-agenda-board-block-mix))))
+      ('wave  (setq attrs (plist-put attrs :inherit nil))
+              (setq attrs (plist-put attrs :underline
+                                     (list :color colour :style 'wave))))
+      ('bold  (setq attrs (plist-put attrs :weight 'bold))))
+    (list (cons t attrs))))
+
+(defun sp-org-agenda-board-apply (&rest _)
+  "Set the faces of the board from the accents of the current theme."
+  (pcase-dolist (`(,face ,accent ,kind) sp-org-agenda-board-roles)
+    (face-spec-set face (sp-org-agenda-board--spec accent kind))))
+
+(with-eval-after-load 'org-other-agenda
+  (sp-org-agenda-board-apply)
+  (add-hook 'sp-after-load-theme-hook #'sp-org-agenda-board-apply 90))
+#+end_src
+
+*** Changing the accents
+
+Everything is in the two variables above (=M-x customize-variable=, or =setq= in the sandbox block of this doc).
+
+- *Swap which accent a face uses*: edit its row in =sp-org-agenda-board-roles=. To make the priority-A marker the amber colour of today, change =(org-other-agenda-a urgent bold)= to =(org-other-agenda-a crucial bold)=. To reorder the accents of the date headers, today and the clock, change the second element of the rows =org-other-agenda-day=, =-today= and =-clock=.
+- *Change what an accent looks like*: edit its row in =sp-org-agenda-board-accents=. Put the face you want first: =(focus sp-strong link)=, or a face of any theme. The first face with a foreground in the current theme wins.
+- *Change which theme face stands behind an accent in the =sp= themes*: that is =sp-theme-semantic= (=sp-urgent :foreground err= and so on) in [[file:../ui/sp-theme-engine.org][sp-theme-engine]], or a flavor's =:semantic= entries.
+- *Block tint*: =sp-org-agenda-board-block-mix=.
+
+The row kinds: =bold= bold text, =tab= the accent as background with the theme background as text, =block= a tinted background, =wave= a wavy underline, nothing for plain text.
+
+The default order of importance, which decides which colour a new use should take: =urgent= (priority A, overdue), =crucial= (today, query, marked), =focus= (date headers, active tab, work blocks), =positive= (clock, life blocks), =calm= (tags, other blocks), =meek= (secondary text), =mild= (noise). Faces that mean the same thing share an accent, so only the first three need to stand apart from each other and from the text colour.
+
+Not covered: faces of the packages the board is built on (=textui=, =embark=) and the Org faces it reuses for TODO keywords and priorities, which already follow the theme.
+
 * Agenda commands and hooks
 :PROPERTIES:
 :header-args:emacs-lisp: :tangle ../../../libraries/modules/text/sp-org-agenda.el :comments no :padline yes :noweb no :mkdirp yes
@@ -759,4 +917,5 @@ Provides the =sp-agenda-views= feature and closes the file.
 
 What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
+- [[https://github.com/siainbuletin/dotfiles/pull/191][#191]] 🔧 =org-other-agenda= faces take their colours from the theme (=sp-org-agenda-board-accents=, =sp-org-agenda-board-roles=), see "org-other-agenda colours".
 - [[https://github.com/siainbuletin/dotfiles/pull/185][#185]] 🔧 =org-other-agenda= rows show links by their description (=sp-org-agenda-linkify-title=).
