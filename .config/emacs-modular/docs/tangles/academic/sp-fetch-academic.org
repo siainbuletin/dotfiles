@@ -294,6 +294,17 @@ Nothing below is tangled.
 ;; (defun sp-fetch-academic-omni () ...)
 #+end_src
 
+* Planned features
+** Add a way to mark sources read in an article to be added to the database later on
+
+Ideally, I could perform a search on gogle scholar for that article and mark it as me wanting to pull it in the future
+- the point is being able to have it on hand as rapidly as possible
+
+** Inboxing articles that are coming into my inbox folder
+
+They should be formatted accordingly (with the proper title)
+- have something that would make them show up in [[id:ff696ffc-d1d9-444b-a186-4d1c603b4015][DEVONthink]]
+
 * Provide
 
 Provides the =sp-fetch-academic= feature and closes the file.

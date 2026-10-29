@@ -4,7 +4,7 @@
 
 Literate source for =libraries/modules/text/sp-typst.el= and for three files in =docs/typst/=: =template.typ=, =Makefile= and =export.el=. The =:tangle= path in the =#+PROPERTY= line at the top of this file says where the Emacs Lisp is written, and each of the other blocks carries its own path; see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README for how to tangle.
 
-This is the skeleton of a typesetting environment built on [[https://typst.app][Typst]] that works from Org. The first use is the one asked for: turn this configuration's own documentation (=README.org=, the architecture notes and the literate doc of every module) into one PDF. The decision and the alternatives are in [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]]. The empty =docs/tangles/sp-typst.org= that stood here before is replaced by this file; the older Typst notes are in =sp-typesetting.org= (the =ox-typst= line there is superseded by the module below).
+This is the skeleton of a typesetting environment built on [[id:fffbabdf-f689-4a06-90e9-19dafc9ba851][Typst]] that works from Org. The first use is the one asked for: turn this configuration's own documentation (=README.org=, the architecture notes and the literate doc of every module) into one PDF. The decision and the alternatives are in [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]]. The empty =docs/tangles/sp-typst.org= that stood here before is replaced by this file; the older Typst notes are in =sp-typesetting.org= (the =ox-typst= line there is superseded by the module below).
 
 * Overview
 
@@ -683,6 +683,11 @@ Not run: Elpaca installing =ox-typst= and =typst-ts-mode= (neither is installed 
 - A project template for a manuscript (title page, chapters in separate files, bibliography, Romanian language settings as in =typst-setup.org=) would be a second template next to =template.typ=; the book template is meant as the first of them.
 - Live preview while writing: =tinymist= can serve one in the browser for a =.typ= file; an Org buffer has no =.typ= until it is exported, so the useful version is "export this file on save and let the PDF viewer reload", which is not written.
 - Inline Typst maths in Org buffers (previewing =$...$= as images) is a different package family; not looked at here.
+
+* Tasks for Sia
+** TODO test the Makefile with generating a Typst document of the modifications made to Emacs
+
+Read more about [[id:c3b4eab0-c8fb-4980-87d3-412dd33f747b][GNU Make]] to understand what it does.
 
 * Changes by pull request
 

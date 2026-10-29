@@ -17,16 +17,21 @@ I write a loose brain dump of what the thesis needs next. Claude comes back with
 - *citekeys to look up*: a checklist of the sources that are not in my bibliography yet, with what to find and which tasks need each one;
 - *questions* it could not settle from the dump.
 
-Emacs checks the citekeys itself against the =.bib= files, so a key counts as "to look up" because it is missing from the bibliography, not because Claude says so. The result is shown in a buffer first, where it can be edited, and =C-c C-c= files it under a heading of the thesis's task file.
+Emacs checks the citekeys itself against the =.bib= files, so a key counts as "to look up" because it is missing from the bibliography, not because Claude says so. 
+- The result is shown in a buffer first, where it can be edited, and =C-c C-c= files it under a heading of the thesis's task file.
+
+@@comment:It's necessary to establish where the 'thesis task file' actually is.@@
 
 ** The module is not tied to the dotfiles
 
 The module is portable.
 
 - It needs only Emacs 28.1 and Org 9.5 (both come with Emacs 29) and the =claude= command.
-- It never mentions =sp-paths=, =vulpea= or any other module of this configuration.
+- It never mentions =sp-globals=, =vulpea= or any other module of this configuration.
 - So the single file =sp-thesis-dump.el= can be copied into the thesis repo's Emacs setup, or into any other configuration, and loaded with =(require 'sp-thesis-dump)=.
-- What changes between projects is a handful of variables. The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project. The thesis repo then carries its own settings, and so does every other project.
+   + @@comment:This is in case I want to make a special thesis repo, which is put under version control and linked with my [[id:7e9d8466-d1ff-491a-82c8-d3c937c9575a][Zettelkasten]]@@
+- What changes between projects is a handful of variables.
+   + The command asks for the ones that are missing, and can write the answers to a =.dir-locals.el= in the project. The thesis repo then carries its own settings, and so does every other project.
 
 #+begin_src emacs-lisp :tangle no
 ;; In the thesis repo, .dir-locals.el (written by M-x sp-thesis-dump when asked):
@@ -42,16 +47,15 @@ The module is portable.
 
 ** What "org-mcp" means here
 
-About "org-mcp":
+Making use of =org-mcp=:
+- Since I can't bring Claude into Emacs, but the other way around, I'm supplying information from my =org= files to work with Claude
+- The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the Claude project files) say that =vulpea-mcp= searches and creates notes, and that editing existing Org content needs a separate =org-mcp= server.
 
-- The vulpea-mcp notes (=vulpea-mcp-explainer.md= in the project files) say that =vulpea-mcp= searches and creates notes, and that editing existing Org content needs a separate =org-mcp= server.
-- I read "org-mcp" as that: an MCP server that runs inside Emacs and gives Claude tools to read (and edit) Org files.
-- MCP always has the model as the client, so Emacs cannot "send to Claude via org-mcp".
-- The module does it the other way round:
+The order:
 
 1. Emacs starts =claude -p= (Claude Code's non-interactive mode) in the project directory and gives it the prompt on standard input.
 2. If the =org-mcp= tools are allowed (=sp-thesis-dump-claude-allowed-tools=), Claude may use them to read my task file and notes for context. The prompt tells it not to change anything with them.
-3. Claude's answer is a JSON object. Emacs turns it into Org and files it. The writing is done by Emacs and not by Claude, so the result can be reviewed and edited first.
+3. Claude's answer is a [[id:07eee949-ec7c-4a3f-8388-eee433bedde1][JSON]] object. Emacs turns it into Org and files it. The writing is done by Emacs and not by Claude, so the result can be reviewed and edited first.
 
 Without any MCP server the module still works: it puts the headlines already under the target heading, the known citekeys and an optional outline file into the prompt itself.
 

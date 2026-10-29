@@ -1,0 +1,8 @@
+#+title: sp-trails.el: Identify browsing trails in tree-like structures
+
+* COMMENT Describing the problem
+
+Often, when browsing/researching something, I end up opening a lot of browser pages, including academic articles that I may want to revisit and look at afterwards, in order to build a thesis and write [[id:7e9d8466-d1ff-491a-82c8-d3c937c9575a][Zettelkasten]] based on it.
+
+For possible developments in the academic workflow I'm developing (see [[file:~/.config/emacs-modular/docs/tangles/academic/sp-academic.org][sp-academic: the academic master module and its four sub-modules]], especially [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]]), I want to add a design specifically made for research questions
+- for this, see [[file:~/.config/emacs-modular/docs/tangles/research-question-states.org][Research question states]] and [[file:~/.config/emacs-modular/docs/tangles/custom/sp-thesis-dump.org][sp-thesis-dump.el: Brain-dump thesis ideas, get annotated tasks and citekeys]]
