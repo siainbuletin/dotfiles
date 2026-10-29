@@ -145,20 +145,6 @@ Entering Writeroom also applies the typewriter scrolling settings below.
 )
 #+end_src
 
-** Typewriter scrolling
-
-=lem-writing-mode-scroll-settings= sets a very large =scroll-margin=, capped by =maximum-scroll-margin= at a quarter of the window, so the cursor line stays near the vertical centre while you type. The settings are buffer-local and are not undone when Writeroom is turned off.
-
-#+begin_src emacs-lisp -i
-(defun lem-writing-mode-scroll-settings ()
-  "Center cursor for typewriter-like scrolling during writing."
-  (progn
-    (setq-local scroll-preserve-screen-position t
-                scroll-conservatively 0
-                maximum-scroll-margin 0.25
-                scroll-margin 99999)))
-#+end_src
-
 * Provide
 
 Provides the =sp-writedesk= feature and closes the file.
