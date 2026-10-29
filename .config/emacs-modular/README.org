@@ -234,6 +234,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/text/sp-org-taskman-extra.org][sp-org-taskman-extra]] :: Org task management: keywords, tags, projects and GTD ([[file:libraries/modules/text/sp-org-taskman-extra.el][sp-org-taskman-extra.el]])
 - [[file:docs/tangles/text/sp-org-time.org][sp-org-time]] :: Org time tracking and scheduling tools ([[file:libraries/modules/text/sp-org-time.el][sp-org-time.el]])
 - [[file:docs/tangles/text/sp-tab-inbox.org][sp-tab-inbox]] :: Link inbox sidebar widgets for vulpea-ui ([[file:libraries/modules/text/sp-tab-inbox.el][sp-tab-inbox.el]])
+- [[file:tangles/text/sp-tab-psearch.org][sp-tab-psearch]] :: p-search over the tab inbox, collected into a note ([[file:../libraries/modules/text/sp-tab-psearch.el][sp-tab-psearch.el]])
 - [[file:docs/tangles/text/sp-typst.org][sp-typst]] :: PDF of the docs and of Org files, typeset with Typst; =docs/typst/= holds its template and Makefile ([[file:libraries/modules/text/sp-typst.el][sp-typst.el]])
 
 ** tooling/
