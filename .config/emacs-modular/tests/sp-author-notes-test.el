@@ -5,6 +5,10 @@
 
 (defvar sp-author-notes-test--n 0)
 
+(defun org-dblock-write:collection-query-table (_params)
+  "Stand-in for the real block writer, which needs vulpea."
+  (insert "FILLED"))
+
 (defun sp-author-notes-test--write (file &rest lines)
   "Write LINES to FILE, creating its folder."
   (make-directory (file-name-directory file) t)
@@ -20,6 +24,7 @@
           (sp-author-notes-directory vault)
           (sp-author-notes-litnotes-directory (expand-file-name "litnotes/" vault))
           (sp-author-notes-backup-directory (expand-file-name "backups/" vault))
+          (sp-author-notes-redirect-function (lambda (&rest _) nil))
           (sp-author-notes--stub-ids nil))
      (unwind-protect
          (cl-letf (((symbol-function 'sp-org--write-note)
@@ -32,12 +37,13 @@
                          (format "#+filetags: :%s:" (string-join tags ":")) "")
                         (push (cons id file) sp-author-notes--stub-ids)
                         id)))
+                   ((symbol-function 'vulpea-db-query) #'ignore)
                    ((symbol-function 'org-id-find)
                     (lambda (id &rest _) (when-let* ((f (cdr (assoc id sp-author-notes--stub-ids)))) (cons f 1))))
                    ((symbol-function 'require)
                     (let ((orig (symbol-function 'require)))
                       (lambda (feature &rest args)
-                        (if (eq feature 'sp-org-link-conversion) t (apply orig feature args))))))
+                        (if (memq feature '(sp-org-link-conversion sp-collection-query-tables)) t (apply orig feature args))))))
            ,@body)
        (delete-directory vault t))))
 
@@ -120,25 +126,24 @@
         (should-not (file-exists-p (expand-file-name "new-1.org" vault)))
         (with-temp-buffer (sp-author-notes--render run)
                           (should (string-match-p "PREVIEW" (buffer-string)))))
-      ;; "Richard Roe" exists but is not a person: nothing is created for it
+      ;; "Richard Roe" exists but is not a person: it gets tagged
       (let ((run (sp-author-notes--run t)))
         (should (null (sp-author-notes--run-created run)))
-        (should (seq-some (lambda (p) (string-match-p "not tagged person" (nth 2 p)))
-                          (sp-author-notes--run-problems run)))
-        (should (seq-some (lambda (p) (string-match-p "no note in" (nth 2 p)))
-                          (sp-author-notes--run-problems run))))
+        (should (equal (mapcar #'car (sp-author-notes--run-tagged run)) '("Richard Roe")))
+        (should (= 1 (length (sp-author-notes--run-orphans run)))))
+      (should (string-match-p "#\\+filetags: :person:" (sp-author-notes-test--read (expand-file-name "other.org" vault))))
       (should (string-match-p "- pub-author :: \\[\\[id:ann\\]\\[Ann Lee\\]\\]"
                               (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
-      ;; b: Ann linked, Roe left plain
-      (should (string-match-p "- pub-author :: \\[\\[id:ann\\]\\[Ann Lee\\]\\], Richard Roe"
+      ;; b: Ann and Roe linked
+      (should (string-match-p "- pub-author :: \\[\\[id:ann\\]\\[Ann Lee\\]\\], \\[\\[id:o\\]\\[Richard Roe\\]\\]"
                               (sp-author-notes-test--read (expand-file-name "litnotes/b.org" vault))))
       ;; c: suspect key untouched
       (should (string-match-p "- pub-auhtro :: x"
                               (sp-author-notes-test--read (expand-file-name "litnotes/c.org" vault))))
       (let ((ann (sp-author-notes-test--read (expand-file-name "ann.org" vault))))
-        (should (string-match-p "\\* Basics\nbio\n\n\\* Works\n\n#\\+BEGIN: collection-query-table" ann)))
+        (should (string-match-p "\\* Basics\nbio\n\n\\* Works\n\n#\\+BEGIN: collection-query-table[^\n]*\nFILLED\n#\\+END:" ann)))
       (should (file-exists-p (expand-file-name "backups/" vault)))
-      ;; second run: only the unfixable remains, no changes
+      ;; second run: nothing left to change
       (let ((run (sp-author-notes--run t)))
         (should (= 0 (sp-author-notes--change-count run)))))))
 
@@ -165,16 +170,63 @@
         (should (string-match-p "\\* Basics\n\n\\* Works" note))))
     (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t))))))
 
-(ert-deftest sp-author-notes-test-unsaved-buffer-skipped ()
+(ert-deftest sp-author-notes-test-unsaved-buffer-saved ()
   (sp-author-notes-test--with-vault
     (let ((file (expand-file-name "litnotes/a.org" vault)))
-      (sp-author-notes-test--write file "#+title: x" "" "- pub-authro :: Z" "")
+      (sp-author-notes-test--write file "#+title: x" "" "- pub-authro :: [[id:q][Q]]" "")
       (let ((buf (find-file-noselect file)))
         (unwind-protect
-            (progn (with-current-buffer buf (insert "edit"))
+            (progn (with-current-buffer buf (goto-char (point-max)) (insert "my edit\n"))
+                   (let ((run (sp-author-notes--run nil)))
+                     (should (equal (sp-author-notes--run-saved run) (list file)))
+                     (should-not (string-match-p "my edit" (sp-author-notes-test--read file))))
                    (let ((run (sp-author-notes--run t)))
-                     (should (string-match-p "pub-authro" (sp-author-notes-test--read file)))
-                     (should (seq-some (lambda (p) (string-match-p "Unsaved" (nth 2 p)))
-                                       (sp-author-notes--run-problems run)))))
-          (with-current-buffer buf (set-buffer-modified-p nil))
+                     (should (equal (sp-author-notes--run-saved run) (list file)))
+                     (should-not (buffer-modified-p buf))
+                     (let ((text (sp-author-notes-test--read file)))
+                       (should (string-match-p "my edit" text))
+                       (should (string-match-p "- pub-author :: " text)))))
+          (set-buffer-modified-p nil)
           (kill-buffer buf))))))
+
+(ert-deftest sp-author-notes-test-moves-works-above-basics ()
+  (with-temp-buffer
+    (insert "#+title: X\n\n* Works\nmine\n** Sub\n* Bio\n* Basics\nb\n* After\n")
+    (should (equal (sp-author-notes--person-pass) '(moved-works table)))
+    (let ((text (buffer-string)))
+      (should (string-match-p "\\* Bio\n\n?\\* Basics\nb\n\n\\* Works\nmine\n\n#\\+BEGIN: [^\n]*\n#\\+END:\n\n\\*\\* Sub\n\n\\* After\n" text))
+      (should (null (sp-author-notes--person-pass)))
+      (should (equal text (buffer-string))))))
+
+(ert-deftest sp-author-notes-test-tag-pass ()
+  (with-temp-buffer
+    (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n#+filetags: :music:\n")
+    (sp-author-notes--tag-pass)
+    (should (string-match-p "#\\+filetags: :music:person:\n" (buffer-string))))
+  (with-temp-buffer
+    (insert ":PROPERTIES:\n:ID: a\n:END:\n#+title: A\n\ntext\n")
+    (sp-author-notes--tag-pass)
+    (should (string-match-p "#\\+title: A\n#\\+filetags: :person:\n\ntext" (buffer-string)))))
+
+(ert-deftest sp-author-notes-test-orphan-redirect ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Ann Lee" "ann")
+    (let ((file (expand-file-name "litnotes/a.org" vault))
+          (asked nil))
+      (sp-author-notes-test--write file "#+title: x" "" "- pub-author :: [[id:gone][Ann Lee]]" "")
+      (let ((run (sp-author-notes--run nil)))
+        (should (equal (car (last (car (sp-author-notes--run-orphans run)))) "Ann Lee"))
+        (should (string-match-p "id:gone" (sp-author-notes-test--read file))))
+      (let ((sp-author-notes-redirect-function
+             (lambda (id desc suggestion candidates)
+               (setq asked (list id desc suggestion (mapcar #'car candidates)))
+               (cdr (assoc suggestion candidates)))))
+        (sp-author-notes--run t))
+      (should (equal asked '("gone" "Ann Lee" "Ann Lee" ("Ann Lee"))))
+      (should (string-match-p "pub-author :: \\[\\[id:ann\\]\\[Ann Lee\\]\\]$"
+                              (string-trim-right (sp-author-notes-test--read file))))
+      ;; declined: left alone
+      (sp-author-notes-test--write file "#+title: x" "" "- pub-author :: [[id:gone][Zed]]" "")
+      (let ((sp-author-notes-redirect-function (lambda (&rest _) nil)))
+        (sp-author-notes--run t))
+      (should (string-match-p "id:gone" (sp-author-notes-test--read file))))))

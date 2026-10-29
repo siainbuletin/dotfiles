@@ -85,6 +85,15 @@ See `sp-collec-query-spec-keys'.  :title is the note title, the citekey."
   :type 'sexp
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-redirect-function #'sp-author-notes-read-redirect
+  "Function that asks where a link to an ID that no note has should point.
+It is called with the orphan ID, the description of the link (or nil), the
+title of the person note with that name (or nil) and an alist of
+\(TITLE . ID) of every person note.  It returns the ID to use, or nil to
+leave the link alone."
+  :type 'function
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-backup-directory
   (expand-file-name "author-notes-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
@@ -254,6 +263,12 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
   authors        ; list of (ID . NAME), each author once
   people         ; list of (NAME ID FILE ADDED)
   problems       ; list of (FILE LINE TEXT)
+  tagged         ; list of (NAME ID FILE): notes that were given the person tag
+  saved          ; list of files whose unsaved buffer was saved first
+  orphans        ; list of (FILE LINE ID DESCRIPTION NEW-ID SUGGESTION)
+  orphan-choices ; hash: orphan ID -> chosen ID or `none'
+  backed-up      ; hash: files already copied to the backup folder
+  filled         ; list of files whose tables were filled
   litnote-count)
 
 (defun sp-author-notes--problem (run file line text)
@@ -292,11 +307,39 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
     (push (list name id file) (sp-author-notes--run-created run))
     id))
 
+(defun sp-author-notes--tag-pass ()
+  "Add `sp-author-notes-person-tag' to the #+filetags: of the buffer.
+A note that has none gets the line after its #+title:, or after its
+property drawer.  Return t."
+  (let ((case-fold-search t)
+        (limit (sp-author-notes--first-heading)))
+    (goto-char (point-min))
+    (cond
+     ((re-search-forward "^#\\+filetags:[ \t]*\\(.*?\\)[ \t]*$" limit t)
+      (let* ((old (match-string-no-properties 1))
+             (new (cond ((string-empty-p old) (format ":%s:" sp-author-notes-person-tag))
+                        ((string-match-p ":" old)
+                         (concat old (if (string-suffix-p ":" old) "" ":")
+                                 sp-author-notes-person-tag ":"))
+                        (t (concat old " " sp-author-notes-person-tag)))))
+        (sp-author-notes--replace (match-beginning 1) (match-end 1) new)))
+     ((re-search-forward "^#\\+title:.*$" limit t)
+      (insert (format "\n#+filetags: :%s:" sp-author-notes-person-tag)))
+     (t
+      (goto-char (point-min))
+      (when (looking-at "[ \t]*:PROPERTIES:")
+        (re-search-forward "^[ \t]*:END:[ \t]*$" limit t)
+        (forward-line 1))
+      (insert (format "#+filetags: :%s:\n" sp-author-notes-person-tag))))
+    t))
+
 (defun sp-author-notes--resolve-1 (run name file line)
-  "Work out what to do for NAME, found at FILE and LINE."
+  "Work out what to do for NAME, found at FILE and LINE.
+Return (id ID), (pending) or (skip)."
   (let* ((matches (gethash (sp-author-notes--title-key name)
                            (sp-author-notes--run-by-title run)))
-         (persons (seq-filter #'sp-author-notes--person-p matches)))
+         (persons (seq-filter #'sp-author-notes--person-p matches))
+         (others (seq-remove #'sp-author-notes--person-p matches)))
     (cond
      ((cdr persons)
       (sp-author-notes--problem
@@ -310,12 +353,26 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
          run (plist-get (car persons) :file) nil
          (format "The note \"%s\" has no :ID:; left as it is" name))
         '(skip)))
-     (matches
+     ((cdr others)
       (sp-author-notes--problem
-       run (plist-get (car matches) :file) nil
-       (format "A note titled \"%s\" exists but is not tagged %s; no author note made"
-               name sp-author-notes-person-tag))
+       run file line (format "%d notes are titled \"%s\" and none is tagged %s; left as they are"
+                             (length others) name sp-author-notes-person-tag))
       '(skip))
+     (others
+      (let ((entry (car others)))
+        (if (not (plist-get entry :id))
+            (progn (sp-author-notes--problem
+                    run (plist-get entry :file) nil
+                    (format "The note \"%s\" is not tagged %s and has no :ID:; left as it is"
+                            name sp-author-notes-person-tag))
+                   '(skip))
+          (when (sp-author-notes--process-file
+                 run (plist-get entry :file) #'sp-author-notes--tag-pass)
+            (plist-put entry :tags (append (plist-get entry :tags)
+                                           (list sp-author-notes-person-tag)))
+            (push (list name (plist-get entry :id) (plist-get entry :file))
+                  (sp-author-notes--run-tagged run)))
+          (list 'id (plist-get entry :id)))))
      ((sp-author-notes--run-apply run)
       (list 'id (sp-author-notes--create run name)))
      (t
@@ -340,6 +397,60 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
     (delete-region beg end)
     (insert text)))
 
+(defun sp-author-notes--link-description (raw)
+  "The description of the ID link RAW, or nil."
+  (when (string-match sp-author-notes--id-link-re raw)
+    (match-string 2 raw)))
+
+(defun sp-author-notes--person-candidates (run)
+  "An alist (TITLE . ID) of every person note in RUN's vault."
+  (let (out)
+    (maphash (lambda (id entry)
+               (when (and (sp-author-notes--person-p entry) (plist-get entry :title))
+                 (push (cons (plist-get entry :title) id) out)))
+             (sp-author-notes--run-by-id run))
+    (sort out (lambda (a b) (string-collate-lessp (car a) (car b) nil t)))))
+
+(defun sp-author-notes-read-redirect (id description suggestion candidates)
+  "Ask which person note a link to the orphan ID should point to.
+DESCRIPTION is the text of the link, SUGGESTION the title of the person
+note with that name or nil, CANDIDATES an alist (TITLE . ID).  Return an
+ID, or nil when the answer is empty."
+  (let ((choice (completing-read
+                 (format "No note has the ID %s (\"%s\").  Point the link to (empty: leave it): "
+                         id (or description ""))
+                 (mapcar #'car candidates) nil t suggestion)))
+    (cdr (assoc choice candidates))))
+
+(defun sp-author-notes--check-link (run id raw file line)
+  "Check the ID link RAW found at FILE and LINE.
+Return (ID . RAW) to use: the same, unless the ID is an orphan that the
+user redirected to another person note.  An orphan is recorded for the
+report, with the person note of the same name as a suggestion."
+  (if (gethash id (sp-author-notes--run-by-id run))
+      (cons id raw)
+    (let* ((description (sp-author-notes--link-description raw))
+           (suggestion (when description
+                         (let ((m (seq-filter #'sp-author-notes--person-p
+                                              (gethash (sp-author-notes--title-key description)
+                                                       (sp-author-notes--run-by-title run)))))
+                           (and m (null (cdr m)) (plist-get (car m) :title)))))
+           (choices (sp-author-notes--run-orphan-choices run))
+           (choice (gethash id choices 'unasked)))
+      (when (and (eq choice 'unasked) (sp-author-notes--run-apply run))
+        (setq choice (or (funcall sp-author-notes-redirect-function
+                                  id description suggestion
+                                  (sp-author-notes--person-candidates run))
+                         'none))
+        (puthash id choice choices))
+      (let ((new (and (stringp choice) choice)))
+        (push (list file line id description new suggestion)
+              (sp-author-notes--run-orphans run))
+        (if new
+            (cons new (format "[[id:%s][%s]]" new
+                              (plist-get (gethash new (sp-author-notes--run-by-id run)) :title)))
+          (cons id raw))))))
+
 (defun sp-author-notes--litnote-pass (run file)
   "Fix the key typos and link the plain authors in the buffer, a note from FILE."
   (let (fixes suspects converted authors unparsed)
@@ -357,8 +468,11 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
                 (dolist (item items)
                   (pcase item
                     (`(:link ,id ,raw)
-                     (push (cons id nil) authors)
-                     (push raw parts))
+                     (let* ((new (sp-author-notes--check-link run id raw file line))
+                            (id (car new)) (raw (cdr new)))
+                       (when (and (not (equal (cdr new) (nth 2 item)))) (setq changed t))
+                       (push (cons id nil) authors)
+                       (push raw parts)))
                     (`(:name ,name)
                      (let ((id (sp-author-notes--resolve run name file line)))
                        (cond
@@ -451,6 +565,17 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
       (sp-author-notes--insert-at (sp-author-notes--first-heading)
                                   (format "* %s\n" sp-author-notes-basics-heading))
       (push 'basics added))
+    (let ((basics (sp-author-notes--find-heading sp-author-notes-basics-heading))
+          (works (sp-author-notes--find-heading sp-author-notes-works-heading)))
+      (when (and works (< (car works) (car basics)))
+        (let* ((beg (car works))
+               (text (buffer-substring beg (sp-author-notes--subtree-end beg (cdr works)))))
+          (delete-region beg (sp-author-notes--subtree-end beg (cdr works)))
+          (let ((basics (sp-author-notes--find-heading sp-author-notes-basics-heading)))
+            (sp-author-notes--insert-at
+             (sp-author-notes--subtree-end (car basics) (cdr basics))
+             (if (string-suffix-p "\n" text) text (concat text "\n"))))
+          (push 'moved-works added))))
     (unless (sp-author-notes--find-heading sp-author-notes-works-heading)
       (let ((basics (sp-author-notes--find-heading sp-author-notes-basics-heading)))
         (sp-author-notes--insert-at
@@ -466,7 +591,9 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
 
 (defun sp-author-notes--backup (run file)
   "Copy FILE to the backup folder of RUN."
-  (when sp-author-notes-backup-directory
+  (when (and sp-author-notes-backup-directory
+             (not (gethash file (sp-author-notes--run-backed-up run))))
+    (puthash file t (sp-author-notes--run-backed-up run))
     (let* ((root (file-name-as-directory (expand-file-name sp-author-notes-directory)))
            (rel (if (string-prefix-p root file)
                     (substring file (length root))
@@ -479,27 +606,31 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
 
 (defun sp-author-notes--process-file (run file pass)
   "Run PASS in a temporary buffer with the text of FILE, and write it when RUN applies.
-PASS is called with no arguments.  Return its value in a list, or nil
-when FILE has unsaved changes in a buffer, which is reported."
-  (let ((visiting (find-buffer-visiting file)))
-    (if (and visiting (buffer-modified-p visiting))
-        (progn (sp-author-notes--problem
-                run file nil "Unsaved changes in its buffer; skipped")
-               nil)
-      (with-temp-buffer
-        (sp-author-notes--insert-file file)
-        (let ((before (buffer-string))
-              (result (funcall pass)))
-          (when (and (sp-author-notes--run-apply run)
-                     (not (string= before (buffer-string))))
-            (sp-author-notes--backup run file)
-            (let ((coding-system-for-write 'utf-8))
-              (write-region (point-min) (point-max) file nil 'silent))
-            (when visiting
-              (with-current-buffer visiting (revert-buffer t t t)))
-            (when (fboundp 'vulpea-db-update-file)
-              (ignore-errors (vulpea-db-update-file file))))
-          (list result))))))
+PASS is called with no arguments.  Return its value in a list.  A buffer
+of FILE with unsaved changes is saved first (and FILE is recorded in
+`sp-author-notes--run-saved'); a preview reads the text of the buffer."
+  (let* ((visiting (find-buffer-visiting file))
+         (dirty (and visiting (buffer-modified-p visiting)))
+         (apply (sp-author-notes--run-apply run)))
+    (when dirty
+      (cl-pushnew file (sp-author-notes--run-saved run) :test #'string=)
+      (when apply (with-current-buffer visiting (save-buffer))))
+    (with-temp-buffer
+      (if (and dirty (not apply))
+          (insert (with-current-buffer visiting
+                    (buffer-substring-no-properties (point-min) (point-max))))
+        (sp-author-notes--insert-file file))
+      (let ((before (buffer-string))
+            (result (funcall pass)))
+        (when (and apply (not (string= before (buffer-string))))
+          (sp-author-notes--backup run file)
+          (let ((coding-system-for-write 'utf-8))
+            (write-region (point-min) (point-max) file nil 'silent))
+          (when visiting
+            (with-current-buffer visiting (revert-buffer t t t)))
+          (when (fboundp 'vulpea-db-update-file)
+            (ignore-errors (vulpea-db-update-file file))))
+        (list result)))))
 
 (defun sp-author-notes--new-note-additions ()
   "What the person pass adds to a note that has only the title and the tag."
@@ -507,12 +638,44 @@ when FILE has unsaved changes in a buffer, which is reported."
     (insert ":PROPERTIES:\n:ID: x\n:END:\n#+title: x\n\n")
     (sp-author-notes--person-pass)))
 
+(defun sp-author-notes--populate (run file)
+  "Fill the query table blocks for `sp-author-notes-key' in FILE.
+The note is saved when that changed it, after a copy to the backup
+folder.  A failure is recorded as a problem."
+  (condition-case err
+      (let* ((visiting (find-buffer-visiting file))
+             (buffer (or visiting (find-file-noselect file))))
+        (unwind-protect
+            (with-current-buffer buffer
+              (let ((modified (buffer-modified-p))
+                    (before (buffer-string))
+                    (case-fold-search t))
+                (save-excursion
+                  (goto-char (point-min))
+                  (while (re-search-forward
+                          (format "^[ \t]*#\\+begin:[ \t]*collection-query-table\\_>.*:parent-prop[ \t]+\"%s\""
+                                  (regexp-quote sp-author-notes-key))
+                          nil t)
+                    (beginning-of-line)
+                    (org-update-dblock)
+                    (forward-line 1)))
+                (unless (string= before (buffer-string))
+                  (when modified (error "Buffer has unsaved changes"))
+                  (sp-author-notes--backup run file)
+                  (save-buffer))
+                (push file (sp-author-notes--run-filled run))))
+          (unless visiting (kill-buffer buffer))))
+    (error (sp-author-notes--problem
+            run file nil (format "The table was not filled: %s" (error-message-string err))))))
+
 (defun sp-author-notes--run (apply)
   "Do the whole job, writing files only when APPLY is non-nil.  Return the run."
   (let ((run (sp-author-notes--make-run
               :apply apply
               :stamp (format-time-string "%Y%m%dT%H%M%S")
-              :names (make-hash-table :test #'equal)))
+              :names (make-hash-table :test #'equal)
+              :orphan-choices (make-hash-table :test #'equal)
+              :backed-up (make-hash-table :test #'equal)))
         (seen (make-hash-table :test #'equal)))
     (sp-author-notes--index run)
     ;; Litnotes: key typos, plain names to links.
@@ -540,14 +703,11 @@ when FILE has unsaved changes in a buffer, which is reported."
                   (sp-author-notes--run-people run))
           (let ((entry (gethash id (sp-author-notes--run-by-id run))))
             (cond
-             ((null entry)
-              (sp-author-notes--problem
-               run nil nil (format "A link points at the ID %s, which no note in %s has"
-                                   id sp-author-notes-directory)))
+             ((null entry))             ; an orphan ID, in the orphan section
              ((not (sp-author-notes--person-p entry))
               (sp-author-notes--problem
                run (plist-get entry :file) nil
-               (format "\"%s\" is a pub-author but is not tagged %s; no Works table added"
+               (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
                        (plist-get entry :title) sp-author-notes-person-tag)))
              (t
               (when-let* ((wrapped (sp-author-notes--process-file
@@ -555,7 +715,18 @@ when FILE has unsaved changes in a buffer, which is reported."
                 (push (list (plist-get entry :title) id (plist-get entry :file)
                             (car wrapped))
                       (sp-author-notes--run-people run)))))))))
+    ;; Tables.
+    (when apply
+      (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+          (sp-author-notes--problem
+           run nil nil "Tables not filled: the query tables and vulpea are not loaded")
+        (dolist (p (sp-author-notes--run-people run))
+          (when (nth 2 p) (sp-author-notes--populate run (nth 2 p))))))
     (setf (sp-author-notes--run-people run) (nreverse (sp-author-notes--run-people run))
+          (sp-author-notes--run-orphans run) (nreverse (sp-author-notes--run-orphans run))
+          (sp-author-notes--run-tagged run) (nreverse (sp-author-notes--run-tagged run))
+          (sp-author-notes--run-saved run) (nreverse (sp-author-notes--run-saved run))
+          (sp-author-notes--run-filled run) (nreverse (sp-author-notes--run-filled run))
           (sp-author-notes--run-problems run) (nreverse (sp-author-notes--run-problems run))
           (sp-author-notes--run-created run) (nreverse (sp-author-notes--run-created run))
           (sp-author-notes--run-pending run) (nreverse (sp-author-notes--run-pending run)))
@@ -595,6 +766,9 @@ when FILE has unsaved changes in a buffer, which is reported."
                         (sp-author-notes--run-litnotes run)))
      (length (sp-author-notes--run-created run))
      (length (sp-author-notes--run-pending run))
+     (length (sp-author-notes--run-tagged run))
+     (length (sp-author-notes--run-saved run))
+     (length (seq-filter (lambda (o) (nth 4 o)) (sp-author-notes--run-orphans run)))
      (apply #'+ (mapcar (lambda (p) (length (nth 3 p))) (sp-author-notes--run-people run)))))
 
 (defun sp-author-notes--render (run)
@@ -653,6 +827,35 @@ when FILE has unsaved changes in a buffer, which is reported."
           (sp-author-notes--insert-line
            (format "  %s:%d  %s" (sp-author-notes--short (car c)) (nth 3 c) (nth 1 c))
            (car c) (nth 3 c)))))
+    ;; Tagged
+    (let ((tagged (sp-author-notes--run-tagged run)))
+      (sp-author-notes--heading (if apply "Notes tagged for authors" "Notes to tag as authors") (length tagged))
+      (if (null tagged) (insert "  none\n")
+        (dolist (tg tagged)
+          (sp-author-notes--insert-line
+           (format "  %s  + :%s:" (nth 0 tg) sp-author-notes-person-tag) (nth 2 tg)))))
+    ;; Saved buffers
+    (let ((saved (sp-author-notes--run-saved run)))
+      (sp-author-notes--heading (if apply "Buffers saved first (they had unsaved changes)"
+                                  "Buffers that will be saved first (unsaved changes)")
+                                (length saved))
+      (if (null saved) (insert "  none\n")
+        (dolist (f saved)
+          (sp-author-notes--insert-line (format "  %s" (sp-author-notes--short f)) f))))
+    ;; Orphan IDs
+    (let ((orphans (sp-author-notes--run-orphans run)))
+      (sp-author-notes--heading "Links to an ID that no note has" (length orphans))
+      (if (null orphans) (insert "  none\n")
+        (dolist (o orphans)
+          (pcase-let ((`(,file ,line ,id ,desc ,new ,suggestion) o))
+            (sp-author-notes--insert-line
+             (format "  %s:%d  %s (\"%s\")  %s" (sp-author-notes--short file) line id (or desc "")
+                     (cond (new (format "-> redirected to %s"
+                                        (plist-get (gethash new (sp-author-notes--run-by-id run)) :title)))
+                           (apply "left as it is")
+                           (suggestion (format "will ask; suggestion: %s" suggestion))
+                           (t "will ask where it should point")))
+             file line)))))
     ;; Author notes
     (let ((changed (seq-filter (lambda (p) (nth 3 p)) people))
           (same (seq-remove (lambda (p) (nth 3 p)) people)))
@@ -664,7 +867,11 @@ when FILE has unsaved changes in a buffer, which is reported."
            (nth 2 p))))
       (sp-author-notes--heading "Author notes already complete" (length same))
       (dolist (p same)
-        (sp-author-notes--insert-line (format "  %s" (nth 0 p)) (nth 2 p))))
+        (sp-author-notes--insert-line (format "  %s" (nth 0 p)) (nth 2 p)))
+      (when apply
+        (sp-author-notes--heading "Tables filled" (length (sp-author-notes--run-filled run)))
+        (insert (format "  %d, from the vulpea database; if the links were only just written and the database\n  has not caught up, update a table with C-c C-c\n"
+                        (length (sp-author-notes--run-filled run))))))
     ;; Problems
     (let ((unparsed (cl-loop for (file . r) in lits
                              append (mapcar (lambda (u) (cons file u)) (plist-get r :unparsed))))
