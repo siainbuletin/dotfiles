@@ -8,7 +8,10 @@
 (when noninteractive
   (provide 'vulpea)
   (defun vulpea-note-title (note) (plist-get note :title))
-  (defun vulpea-note-meta-get-list (note key) (cdr (assoc key (plist-get note :meta)))))
+  (defun vulpea-note-id (note) (plist-get note :id))
+  (defun vulpea-note-tags (note) (plist-get note :tags))
+  (defun vulpea-db-get-by-id (id) (cdr (assoc id sp-collec-query-test-db)))
+  (defun vulpea-note-meta-get-list (note key &optional _type) (cdr (assoc key (plist-get note :meta)))))
 
 (load (expand-file-name
        "../libraries/modules/funct/sp-collection-query-tables-core.el"
@@ -51,6 +54,29 @@
 
 (ert-deftest sp-collec-query-test-no-key-keeps-the-order ()
   (should (equal (sp-collec-query-test--titles nil) '("d" "a" "c" "b" "e"))))
+
+;;;; Folding notes into their parent
+
+(defvar sp-collec-query-test-db
+  '(("b2" . (:id "b2" :title "Other book" :tags ("book")))))
+
+(ert-deftest sp-collec-query-test-fold-counts-sections-on-the-book ()
+  (let* ((book (list :id "b1" :title "Book" :tags '("book")))
+         (s1 (list :id "s1" :title "Ch 1" :tags '("booksection") :meta '(("bib-parent" "b1"))))
+         (s2 (list :id "s2" :title "Ch 2" :tags '("booksection") :meta '(("bib-parent" "b1" "b2"))))
+         (paper (list :id "p" :title "Paper" :tags '("journalarticle")))
+         (spec '(:fold-tag "booksection" :fold-prop "bib-parent"))
+         (out (sp-collec-query--fold (list book s1 s2 paper) spec)))
+    ;; sections leave; the missing book b2 is added from the database
+    (should (equal (sort (mapcar (lambda (n) (plist-get n :id)) out) #'string<)
+                   '("b1" "b2" "p")))
+    (should (equal (sp-collec-query-cell book :sections) "2"))
+    (should (equal (sp-collec-query-cell (cdr (assoc "b2" sp-collec-query-test-db)) :sections) "1"))
+    (should (equal (sp-collec-query-cell paper :sections) ""))))
+
+(ert-deftest sp-collec-query-test-no-fold-tag-changes-nothing ()
+  (let ((notes (list (list :id "s1" :tags '("booksection")))))
+    (should (eq (sp-collec-query--fold notes nil) notes))))
 
 ;;;; Dynamic blocks kept up to date
 

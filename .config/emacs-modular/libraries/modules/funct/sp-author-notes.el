@@ -78,10 +78,12 @@ you wrote as \"First Last\"."
 
 (defcustom sp-author-notes-works-spec
   '(:parent-of "self" :parent-prop "pub-author"
-    :columns (:title "read-status" "read-priority" "pub-year" "relevance-factor")
+    :fold-tag "booksection" :fold-prop "bib-parent"
+    :columns (:title :sections "read-status" "read-priority" "pub-year" "relevance-factor")
     :sort-by "pub-year")
   "The spec of the `collection-query-table' block put in the Works heading.
-See `sp-collec-query-spec-keys'.  :title is the note title, the citekey."
+See `sp-collec-query-spec-keys'.  :title is the note title, the citekey.
+Book sections are left out and counted in :sections on their book."
   :type 'sexp
   :group 'sp-author-notes)
 

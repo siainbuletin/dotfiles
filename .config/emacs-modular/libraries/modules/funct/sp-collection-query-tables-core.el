@@ -25,7 +25,7 @@
 
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
-    :parent-of :parent-prop :level :title-match
+    :parent-of :parent-prop :level :title-match :fold-tag :fold-prop
     :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
@@ -35,6 +35,9 @@ one of which the note links to; :META a list of (KEY . VALUE) where a nil
 VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 \"self\", checked against the meta key :PARENT-PROP (default \"parents\");
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
+:FOLD-TAG a tag whose notes are left out of the table and counted on the
+note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
+in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
@@ -49,7 +52,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path)
+  '(:title :tags :todo :level :priority :id :file :path :sections)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -148,6 +151,8 @@ naming a meta key (several values are joined with \", \")."
     (:id (or (vulpea-note-id note) ""))
     (:file (file-name-nondirectory (vulpea-note-path note)))
     (:path (abbreviate-file-name (vulpea-note-path note)))
+    (:sections (let ((n (gethash note sp-collec-query--folded 0)))
+                 (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
      (string-join (vulpea-note-meta-get-list note column) ", "))
     (_ "")))
@@ -208,21 +213,64 @@ The sort is stable, so notes equal under every key keep their order."
                                    (sp-collec-query--keys-lessp (cdr a) (cdr b) keys)))))
     notes))
 
+(defvar sp-collec-query--folded (make-hash-table :test #'eq :weakness 'key)
+  "Number of folded notes per note object returned by `sp-collec-query-query'.")
+
+(defun sp-collec-query--fold (notes spec)
+  "Return NOTES without the notes tagged :fold-tag of SPEC.
+Each one is counted in `sp-collec-query--folded' on the note its meta key
+:fold-prop links to; that parent is added when NOTES lack it, and is
+dropped from the count when no note has the ID."
+  (if-let* ((tag (plist-get spec :fold-tag)))
+      (let* ((prop (or (plist-get spec :fold-prop) "bib-parent"))
+             (kept (seq-remove (lambda (n) (member tag (vulpea-note-tags n))) notes))
+             (by-id (make-hash-table :test #'equal))
+             (counts (make-hash-table :test #'equal)))
+        (dolist (n kept) (puthash (vulpea-note-id n) n by-id))
+        (dolist (n notes)
+          (when (member tag (vulpea-note-tags n))
+            (dolist (id (delete-dups (vulpea-note-meta-get-list n prop 'link)))
+              (cl-incf (gethash id counts 0))
+              (unless (gethash id by-id)
+                (when-let* ((parent (ignore-errors (vulpea-db-get-by-id id))))
+                  (puthash id parent by-id)
+                  (push parent kept))))))
+        (maphash (lambda (id count)
+                   (when-let* ((parent (gethash id by-id)))
+                     (puthash parent count sp-collec-query--folded)))
+                 counts)
+        kept)
+    notes))
+
 (defun sp-collec-query-query (spec)
   "Return the notes SPEC asks for, sorted.
 SPEC's :parent-of must be resolved already (see
 `sp-collec-query-resolve-spec')."
   (let ((spec (sp-collec-query-spec-normalize spec)))
     (sp-collec-query-sort
-     (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+     (sp-collec-query--fold
+      (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+      spec)
      (plist-get spec :sort-by)
      (plist-get spec :sort-desc))))
 
+(defun sp-collec-query-title-label (note)
+  "Return the title of NOTE with the emoji of its tags in front, if any.
+The emoji come from `sp-org-tag-groups'; without it the plain title."
+  (if (fboundp 'sp-org-tag-groups-describe-note)
+      (sp-org-tag-groups-describe-note note)
+    (sp-collec-query-cell note :title)))
+
 (defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS.
-Links in the texts are shown by their description, see `sp-org-link-linkify'."
+Links in the texts are shown by their description, see `sp-org-link-linkify'.
+The title column carries the emoji of the note's tags."
   (mapcar (lambda (note)
-            (mapcar (lambda (c) (sp-org-link-linkify (sp-collec-query-cell note c)))
+            (mapcar (lambda (c)
+                      (sp-org-link-linkify
+                       (if (eq c :title)
+                           (sp-collec-query-title-label note)
+                         (sp-collec-query-cell note c))))
                     columns))
           notes))
 
@@ -254,6 +302,7 @@ Links in the texts are shown by their description, see `sp-org-link-linkify'."
                               (format "%s" (plist-get spec :parent-of))))
       (add "level" (pcase (plist-get spec :level) (0 "file-level") ('headings "headings")))
       (add "title ~" (plist-get spec :title-match))
+      (add "folding" (plist-get spec :fold-tag))
       (add "sorted by" (mapcar (lambda (k)
                                  (format "%s%s"
                                          (if (keywordp (car k)) (substring (symbol-name (car k)) 1) (car k))
