@@ -34,8 +34,8 @@
   "Don't assume that sentences should have two spaces after
 periods. This ain't a typewriter."
   (setq sentence-end-double-space nil))
-  
-;;;; Useful writing functions 
+
+;;;; Useful writing functions
 (show-paren-mode 1) ;; Show the closing parens by default --- I actually don't think that this works
 (delete-selection-mode 1) ;; The selected text will be overwritten when you start typing
 
@@ -55,7 +55,7 @@ periods. This ain't a typewriter."
 
   :commands (org-mode)
   :mode (("\\.org$" . org-mode))
- 
+
   :bind
   (:map org-mode-map
    ("C-M-k" . org-metaup)
@@ -68,16 +68,16 @@ periods. This ain't a typewriter."
    ("M-H" . org-shiftleft)
    ;; Reorganising notes through vulpea
    ("C-x s t" . sp-split-leave-parents)
- 
+
    ;; easily emphasize text
    ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))
    ("s-i" . (lambda () (interactive) (org-emphasize-dwim ?/)))
    ("s-M-`" . org-emphasize-with-verbatim-dwim)
    ("s-M-~" . org-emphasize-with-code-dwim)
-   
+
    ;; better pasting behavior in org-mode
    ("s-v" . org-yank)
-   
+
    ;; Toggling items in the hierarchy
    ("C-x t i" . org-toggle-item)
    ("C-x t h" . org-toggle-heading)
@@ -88,7 +88,7 @@ periods. This ain't a typewriter."
    ;; Footnotes
    ("C-c f n" . org-footnote-new)
    ("C-c f q" . org-footnote-normalize)
-   
+
    ;; Visibility for the markup
    ("C-c l d" . org-toggle-link-display)
 
@@ -217,7 +217,7 @@ periods. This ain't a typewriter."
 (defun sp-org-deadline-highlighting ()
   (add-hook 'after-save-hook #'sp-org-highlight-todays-deadlines nil t)
   (sp-org-highlight-todays-deadlines))
-  
+
 (add-hook 'org-mode-hook #'org-indent-mode)
 
 (setq org-agenda-breadcrumbs-separator " ) ")

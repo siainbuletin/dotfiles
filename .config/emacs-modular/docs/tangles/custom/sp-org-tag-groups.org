@@ -8,7 +8,7 @@ Literate source for =libraries/modules/custom/sp-org-tag-groups.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 * Basic functionality
 
@@ -851,7 +851,7 @@ is allowed."
   (completing-read-multiple prompt (sp-org-tag-groups-completion-table tags)))
 #+end_src
 
-* Provide
+* Provides
 
 Provides the =sp-org-tag-groups= feature and closes the file.
 
@@ -862,6 +862,12 @@ Provides the =sp-org-tag-groups= feature and closes the file.
 ;; sp-org-tag-groups.el ends here.
 #+end_src
 
+* Tasks remaining
+** TODO Set up the emojis for each tag type
+** TODO Check the colors for each tag type
+** TODO Set up the org families
+** TODO See where the new keywords are actually stored
+** TODO What can you really do with context tags?
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].

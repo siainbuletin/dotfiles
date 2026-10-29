@@ -147,7 +147,6 @@ Only its `:height' is used, as a multiple of the `default' height."
   "Make the font in the text buffer generally larger, by `sp-text-face'."
   (face-remap-add-relative 'default 'sp-text-face))
 
-
 (use-package mixed-pitch
   :ensure t
 
@@ -220,4 +219,4 @@ DELTA would be something like 1 or -1.  The next
 
 ;;; Provide
 (provide 'sp-fonts)
-;; sp-fonts.el ends here.
+;;; sp-fonts.el ends here

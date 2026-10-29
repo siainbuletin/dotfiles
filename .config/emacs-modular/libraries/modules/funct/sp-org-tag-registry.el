@@ -55,6 +55,7 @@
         ("concept")
         ("emacs")
         ("audio")
+        ("process")
         ;; sp-org-tag-add: new tags go above this line
         ))
 

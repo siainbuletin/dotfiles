@@ -60,7 +60,7 @@
   :ensure (:wait t)
   :demand t ;; this makes sure that the macro `transient-define-prefix` can actually be called by the time we get to `sp-keys.el`
   :commands (transient-setup transient-show transient-help)
-  
+
   :custom
   (transient-levels-file (concat sp-cache-dir "transient/levels.el"))
   (transient-values-file (concat sp-cache-dir "transient/values.el"))
@@ -81,8 +81,8 @@
 ;; This is loading the library of default functions coming from Emacs Prelude. Lots
 ;; of useful defaults that you can start working in Emacs with.
 ;;
-;; Crux bundles many useful interactive commands to enhance your overall Emacs 
-;; experience. 
+;; Crux bundles many useful interactive commands to enhance your overall Emacs
+;; experience.
 
 (use-package crux
   :ensure t

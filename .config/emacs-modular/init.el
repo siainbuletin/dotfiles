@@ -240,6 +240,7 @@ the order of `sp-late-modules', for example when debugging."
     sp-notes
     sp-trails ;; For gathering links from browser sessions
     sp-semantic
+    sp-tab-psearch ;; p-search over the tab inbox (after sp-semantic, sp-search and sp-tab-inbox)
     ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
     ;; annotator and its live localhost view, in one module.
     sp-graphs
@@ -390,6 +391,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-author-notes ;; author notes and Works tables from pub-author (preview first)
+                    'sp-author-notes-bibtex ;; BibTeX works of an author with no litnote yet, offers to create it
                     'sp-org-lint
 
                     ;; Programming modules

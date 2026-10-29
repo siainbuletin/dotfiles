@@ -1431,10 +1431,10 @@ splash is drawn again with the current settings."
             (when-let* ((box (sp-dashboard--layer-box sp-dashboard-content-layer)))
               (insert-char ?\n (max 0 (- (+ (nth 1 box) (nth 3 box) 2)
                                          (line-number-at-pos)))))
-            
+
             ;; Simple centered layout
             (let* ((center-col (max 0 (/ (- (window-width) 60) 2))))
-              
+
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
@@ -1445,23 +1445,23 @@ splash is drawn again with the current settings."
                   (insert-char ?\s (+ center-col 19))
                   (insert-image image)
                   (insert-char ?\n 2)))
-              
+
               (let ((welcome-text "Welcome to λ-Emacs")
                     (version-text (format "GNU Emacs version %d.%d" emacs-major-version emacs-minor-version))
                     (init-info (funcall sp-dashboard-init-info)))
-                
+
                 ;; Welcome text
                 (let ((welcome-center (max 0 (- content-col (/ (length welcome-text) 2)))))
                   (insert-char ?\s welcome-center)
                   (insert (propertize welcome-text 'face 'sp-dashboard-title-face))
                   (insert-char ?\n 2))
-                
+
                 ;; Version text
                 (let ((version-center (max 0 (- content-col (/ (length version-text) 2)))))
                   (insert-char ?\s version-center)
                   (insert (propertize version-text 'face 'sp-dashboard-header-face))
                   (insert-char ?\n 1))
-                
+
                 ;; Init info
                 (let ((init-center (max 0 (- content-col (/ (length init-info) 2)))))
                   (insert-char ?\s init-center)
@@ -1478,7 +1478,7 @@ splash is drawn again with the current settings."
             (let* ((current-line (line-number-at-pos))
                    (footer-padding (max 1 (- (sp-dashboard--lines) current-line 2))))
               (insert-char ?\n footer-padding))
-            
+
             ;; Footer text centered
             (defvar sp-dashboard-footer "   " "Footer text.")
             (let ((footer-center (max 0 (- (sp-dashboard--layer-column sp-dashboard-footer-layer)
@@ -1753,7 +1753,7 @@ caught from outside (see the doc)."
   :global nil
   :keymap sp-dashboard-mode-map
   :group 'sp-dashboard
-  
+
   :require 'sp-dashboard
   (buffer-disable-undo)
   (auto-revert-mode -1)
@@ -1762,7 +1762,7 @@ caught from outside (see the doc)."
     (linum-mode -1))
   (when (>= emacs-major-version 26)
     (display-line-numbers-mode -1))
-  
+
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
@@ -1770,7 +1770,7 @@ caught from outside (see the doc)."
   (setq-local global-hl-line-mode nil)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
-  
+
   ;; No margin or fringe in splash buffer
   (setq-local left-margin-width nil
               right-margin-width nil)
@@ -1789,7 +1789,7 @@ caught from outside (see the doc)."
               mouse-wheel-mode nil)
   (add-hook 'activate-mark-hook #'sp-dashboard--no-region nil t)
   (add-hook 'post-command-hook #'sp-dashboard--mark-focus nil t)
-  
+
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))

@@ -58,7 +58,7 @@
          (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
          "* %U\n %i\n %a")))
 
-;; See also sp-vulpea.el for task capturing 
+;; See also sp-vulpea.el for task capturing
 
 ;;;;; Create Capture Frame
 ;; have these functions available for server
@@ -81,3 +81,24 @@
     (lem-insert-weather)))
 
 (provide 'sp-org-capture)
+
+(setq org-capture-templates
+              '(
+                ("f" "Fleeting note"
+                 item
+                 (file+headline org-default-notes-file "Notes")
+                 "- %?")
+
+                ;; I want to replace this with something that doesn't rely on denote
+                ("p" "Permanent note" plain
+                 (file denote-last-path)
+                 #'denote-org-capture
+                 :no-save t
+                 :immediate-finish nil
+                 :kill-buffer t
+                 :jump-to-captured t)
+
+                ("t" "New task" entry
+                 (file+headline org-default-notes-file "Tasks")
+                 "* TODO %i%?"))
+)

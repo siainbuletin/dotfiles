@@ -55,7 +55,7 @@ digraph modules {
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
 
-    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-tab-psearch  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
     l3 [label="sp-vcontrol  →  sp-magit-style  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
     l4 [label="sp-terminal  sp-eshell\nsp-org-tag-groups  sp-thesis-dump\nsp-typst", color="#3a6ea5"];
@@ -153,7 +153,7 @@ The =Package-Requires= headers were read from each package's upstream repository
 
 ** Late modules
 
-The list of modules that load after startup is the variable =sp-late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. At the time of writing it holds =sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-graphs= (graphs of notes, including the relationship annotator and its live view), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-org-tag-groups= and =sp-thesis-dump=, =sp-typst=, in dependency order (=sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=). =sp-ai= is not in it: it starts the MCP servers that Claude connects to, so it loads with the startup modules (see [[file:../tangles/media/sp-ai.org][sp-ai]]). =lem--default-modules= requires everything else and then calls =sp-schedule-late-modules=, which:
+The list of modules that load after startup is the variable =sp-late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. At the time of writing it holds =sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-tab-psearch= (p-search over the tab inbox), =sp-graphs= (graphs of notes, including the relationship annotator and its live view), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-org-tag-groups= and =sp-thesis-dump=, =sp-typst=, in dependency order (=sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=). =sp-ai= is not in it: it starts the MCP servers that Claude connects to, so it loads with the startup modules (see [[file:../tangles/media/sp-ai.org][sp-ai]]). =lem--default-modules= requires everything else and then calls =sp-schedule-late-modules=, which:
 
 1. adds a function to =elpaca-after-init-hook=, so nothing is queued before Elpaca has finished the packages of the early modules;
 2. from there, waits for Emacs to be idle for 0.5 seconds, then requires each late module (a failing one is logged and the rest still load);
@@ -214,7 +214,7 @@ The order inside the UI, tooling and Org groups is unchanged, because I found no
 1. Find what its packages require (the =Package-Requires= header of each).
 2. If a required package is installed by another module, put the new module after it. If it is a package you install in the same module, declare it first.
 3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =sp-late-modules= instead.
-4. Add it to the graph above and to the module tree in [[file:../main.org][main.org]].
+4. Add it to the graph above and to the module tree in [[file:../../README.org][README.org]].
 
 * What has been checked
 

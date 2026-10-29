@@ -12,7 +12,7 @@
 
 (use-package ibuffer
   :ensure nil
-  
+
   :custom ;; this is for customizing variables. :config is for functions
   (ibuffer-display-summary nil)
   (ibuffer-use-other-window nil)
@@ -58,7 +58,6 @@
          )
 
 ;; nerd-icons-ibuffer is already called in sp-icons.el
-(require 'nerd-icons-ibuffer)
 
 ;; Always group items in buffer menu
 (setq mouse-buffer-menu-mode-mult 0)
@@ -91,11 +90,11 @@
      help-mode
      compilation-mode
      vulpea-sidebar-ui-mode))
-  
+
   :init
   ;; For echo area hints
   (popper-echo-mode +1)
-  
+
   :config
   ;; Display functions for popup buffers at top, where they are easy to read.
   ;; This is just a slight modification of the existing functions.
@@ -111,7 +110,7 @@
      `((window-height . ,popper-window-height)
        (side . top)
        (slot . 1))))
-       
+
   ;; Displaying functions on the side if wanted
   (defun popper-select-popup-right (buffer &optional _alist)
     "Display and switch to popup-buffer BUFFER at the top of the screen."

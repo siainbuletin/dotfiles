@@ -158,6 +158,5 @@
   "Title of an Org buffer in the header line (the text of its `#+title:').
 Used by `sp-nano-style'.  Only the text of the title is shown, not its face.")
 
-
 (provide 'sp-faces)
 ;;; sp-faces.el ends here

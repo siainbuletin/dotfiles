@@ -68,7 +68,7 @@ The last three are the numbers of the regexp groups holding that part, or nil.")
 
 (defvar sp-theme-metadata-exceptions
   '(
-    ;; (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; catppuccin has been removed
+    (catppuccin :background dark :description "Catppuccin, its flavor is `catppuccin-flavor'") ;; removed catppuccin, I don't like it
     )
   "Metadata that a theme file cannot give, an alist of (THEME . PLIST).")
 

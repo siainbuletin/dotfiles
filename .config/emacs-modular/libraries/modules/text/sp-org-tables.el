@@ -55,7 +55,7 @@
 (defun sia-render-org-tables-in-buffer ()
   (save-excursion
     (org-element-map (org-element-parse-buffer) 'table 'sia-render-org-table)))
-    
+
 ;;;; Org Table Wrap
 ;; see https://emacs.stackexchange.com/a/30871/11934
 (defun org-table-wrap-to-width (width)
@@ -113,15 +113,15 @@
 
 ;;;; Force monospace font in org tables
 ;; If you use variable-pitch (a.k.a. “proportional”) fonts in Org buffers (e.g. using
-;; org-variable-pitch), you probably use monospace fonts for Org tables, so they align 
-;; properly. However, other elements in a table (such as links, or perhaps timestamps) 
-;; may still use variable-pitch fonts, which breaks alignment. This code fixes that by 
-;; forcibly applying the org-table face family to entire Org tables (which are detected 
-;; by finding existing text with the org-table face, which makes use of Org’s built-in 
+;; org-variable-pitch), you probably use monospace fonts for Org tables, so they align
+;; properly. However, other elements in a table (such as links, or perhaps timestamps)
+;; may still use variable-pitch fonts, which breaks alignment. This code fixes that by
+;; forcibly applying the org-table face family to entire Org tables (which are detected
+;; by finding existing text with the org-table face, which makes use of Org’s built-in
 ;; fontification).
-;; 
+;;
 ;; To use, activate unpackaged/org-table-face-mode. You may want to add it to org-mode-hook.
-;; 
+;;
 ;; source: https://github.com/alphapapa/unpackaged.el#force-monospace-face-in-tables
 
 ;;;###autoload

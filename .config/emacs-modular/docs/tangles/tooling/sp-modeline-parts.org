@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-modeline-parts.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module holds the segments of the mode line at the bottom of each window. =sp-lambda-modeline= and =sp-prot-modeline= both use it, so the two look and behave the same. Nothing happens until one of them calls =sp-modeline-parts-install=.
 

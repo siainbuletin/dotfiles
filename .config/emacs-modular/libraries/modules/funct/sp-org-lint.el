@@ -334,8 +334,9 @@ it.  The default skips hidden folders and the usual attachment ones."
   :group 'spcustom)
 
 (defcustom sp-org-lint-fn-backup-directory
-  (expand-file-name "sp-org-lint-backups/" user-emacs-directory)
-  "Folder that receives a copy of every file before it is changed."
+  (expand-file-name "org-lint-backups/" sp-var-dir)
+  "Folder that receives a copy of every file before it is changed.
+It is below `sp-var-dir', which Git ignores."
   :type 'directory
   :group 'spcustom)
 

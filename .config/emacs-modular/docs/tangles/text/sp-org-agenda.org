@@ -12,7 +12,7 @@ How tangling works here:
 - There is no file-wide =#+PROPERTY= line for =:tangle=, because that would send every block to one file.
 - Instead each top-level heading carries a =:header-args:emacs-lisp:= property in its own drawer, saying where the blocks under it are written.
 - The last heading, "Agenda views module", points at =sp-agenda-views.el=.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -63,6 +63,8 @@ The file header: the first line carries the file name, a short summary and the =
 ;; limited to the current subtree or region.
 
 ;;; Code:
+
+(require 'sp-org-id-link)
 #+end_src
 
 ** Agenda settings
@@ -117,13 +119,183 @@ Configures the built-in =org-agenda= library, loaded when =org-agenda= is first 
 
 ** org-other-agenda
 
-Installs =org-other-agenda= by yibie straight from GitHub through the package manager's =:ensure= recipe. Nothing is configured, bound or required here, so the package only does whatever its own autoloads provide; how it is meant to be used is not visible from this module.
+Installs =org-other-agenda= by yibie straight from GitHub through the package manager's =:ensure= recipe. The package otherwise does whatever its own autoloads provide.
+
+Its rows used to show a link in a heading unfolded, as =[[id:...][title]]=. =sp-org-agenda-linkify-title= runs the row title through =sp-org-link-linkify= (from =sp-org-id-link=, the same helper the query tables use for links in cells), so the row shows only the description in =org-link= face. It is added as =:filter-return= advice on =org-other-agenda--clean-title=, a private function of the package that produces every row title (and the title Embark gets); it is added when the package loads. If the package renames that function the advice stops applying and links show unfolded again. Titles without links, or any title when =org-link-descriptive= is nil, are unchanged. The rows already follow their own row on RET, so the link keymap is not what opens an entry there.
 
 #+begin_src emacs-lisp -i
 ;;;; Org other agenda (yibie)
 (use-package org-other-agenda
   :ensure (:host github :repo "yibie/org-other-agenda"))
+
+;; Show links in the rows by their description, as an Org buffer does,
+;; with the helper the query tables use (`sp-org-link-linkify').
+(defun sp-org-agenda-linkify-title (title)
+  "Return the row TITLE of `org-other-agenda' with its Org links described."
+  (sp-org-link-linkify title))
+
+(with-eval-after-load 'org-other-agenda
+  (advice-add 'org-other-agenda--clean-title :filter-return
+              #'sp-org-agenda-linkify-title))
 #+end_src
+
+** org-other-agenda colours
+
+The board draws everything with 17 faces of its own, and the package sets them to fixed hex colours (a Tokyo Night blue, amber and green) that clash with the =sp=, Lambda, Ef and Doric themes. Here each of those faces is set from a theme face instead, so the board follows the theme in use.
+
+Two variables decide everything; both are =defcustom=s, and the doc "Changing the accents" below says what to edit.
+
+- =sp-org-agenda-board-accents= says which theme faces make up each *accent*. An accent is a list of faces; the first one that has a colour in the current theme wins. The first face is the semantic face of the =sp= themes (=sp-urgent=, =sp-crucial=, =sp-focus=, ... from =sp-theme-engine=); the second is a standard face that every theme defines (=error=, =warning=, =link=, ...), so the board is coloured in the Lambda, Ef and Doric themes too, where the =sp-*= faces are empty.
+- =sp-org-agenda-board-roles= says which accent each face of the board uses.
+
+The seven accents, from the most to the least important:
+
+| Accent    | Theme faces                | Meaning                                  | Used by |
+|-----------+----------------------------+------------------------------------------+---------|
+| =urgent=  | =sp-urgent=, =error=       | needs attention now                      | priority A, overdue heading |
+| =crucial= | =sp-crucial=, =warning=    | deadline, today                          | today, query bar, marked rows |
+| =focus=   | =sp-focus=, =link=         | the current thing, navigation            | date headers, active tab, work time block |
+| =positive= | =success=                 | running, going well                      | clocked entry, life time block |
+| =calm=    | =font-lock-type-face=      | a second cool hue, so tags differ from dates | tags, other time block |
+| =meek=    | =sp-meek=, =shadow=        | secondary text                           | dim text, inactive tab, hour labels |
+| =mild=    | =sp-mild=, =shadow=        | noise                                    | blocked entries, half-hour labels |
+
+The foreground faces just =:inherit= the accent faces, so they follow a theme change by themselves. The faces that need a /colour/ (the active tab and the three time blocks have a background) read the accent's foreground and are set again by =sp-org-agenda-board-apply= after every theme change (=sp-after-load-theme-hook=). A block background is the accent mixed into the theme background (=sp-org-agenda-board-block-mix=, 18% by default), with the normal foreground on top, so it is readable in light and dark themes alike.
+
+#+begin_src emacs-lisp -i
+;;;; Org other agenda: colours from the theme
+(defgroup sp-org-agenda-board nil
+  "Colours of the `org-other-agenda' board, taken from the theme in use."
+  :group 'faces)
+
+(defcustom sp-org-agenda-board-accents
+  '((urgent   sp-urgent error)
+    (crucial  sp-crucial warning)
+    (focus    sp-focus link)
+    (positive success)
+    (calm     font-lock-type-face)
+    (meek     sp-meek shadow)
+    (mild     sp-mild shadow))
+  "The accents of the board, an alist of (ACCENT FACE...).
+The colour of an accent is the foreground of the first FACE that has one
+in the current theme: a semantic face of the `sp' themes first, then a
+standard face that every theme defines."
+  :group 'sp-org-agenda-board
+  :type '(alist :key-type symbol :value-type (repeat face))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-org-agenda-board-apply)
+           (sp-org-agenda-board-apply))))
+
+(defcustom sp-org-agenda-board-roles
+  '((org-other-agenda-day            focus    bold)
+    (org-other-agenda-today          crucial  bold)
+    (org-other-agenda-a              urgent   bold)
+    (org-other-agenda-overdue        urgent)
+    (org-other-agenda-clock          positive bold)
+    (org-other-agenda-tag            calm)
+    (org-other-agenda-query          crucial)
+    (org-other-agenda-dim            meek)
+    (org-other-agenda-tab            meek)
+    (org-other-agenda-hour           meek)
+    (org-other-agenda-blocked        mild)
+    (org-other-agenda-halfhour       mild)
+    (org-other-agenda-active-tab     focus    tab)
+    (org-other-agenda-blk-a          focus    block)
+    (org-other-agenda-blk-b          positive block)
+    (org-other-agenda-blk-c          calm     block)
+    (org-other-agenda-marked         crucial  wave))
+  "Which accent each face of the board uses, a list of (FACE ACCENT [KIND]).
+KIND is `bold' (bold text), `tab' (the accent as background), `block' (a
+tinted background), `wave' (an underline) or nil (plain text)."
+  :group 'sp-org-agenda-board
+  :type '(repeat (list face symbol (choice (const nil) symbol)))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when (fboundp 'sp-org-agenda-board-apply)
+           (sp-org-agenda-board-apply))))
+
+(defcustom sp-org-agenda-board-block-mix 0.18
+  "How much of the accent goes into the background of a time block (0 to 1)."
+  :group 'sp-org-agenda-board
+  :type 'float)
+
+(defun sp-org-agenda-board--faces (accent)
+  "Return the theme faces of ACCENT."
+  (or (cdr (assq accent sp-org-agenda-board-accents))
+      (error "No accent %s in `sp-org-agenda-board-accents'" accent)))
+
+(defun sp-org-agenda-board--colour (accent)
+  "Return the colour of ACCENT in the current theme."
+  (or (seq-some (lambda (face)
+                  (let ((colour (and (facep face)
+                                     (face-attribute face :foreground nil t))))
+                    (and (stringp colour) colour)))
+                (sp-org-agenda-board--faces accent))
+      (face-attribute 'default :foreground nil)))
+
+(defun sp-org-agenda-board--mix (colour other amount)
+  "Return COLOUR with AMOUNT (0 to 1) of OTHER mixed in, as #rrggbb."
+  (let ((a (color-name-to-rgb colour))
+        (b (color-name-to-rgb other)))
+    (if (and a b)
+        (apply #'color-rgb-to-hex
+               (append (cl-mapcar (lambda (x y) (+ (* (- 1 amount) x) (* amount y)))
+                                  a b)
+                       '(2)))
+      colour)))
+
+(defun sp-org-agenda-board--spec (accent kind)
+  "Return the face spec of a face using ACCENT as KIND.
+The package's own colours are cleared with `unspecified': a spec added
+on top of a `defface' spec does not replace it, it is merged into it."
+  (let* ((faces (seq-filter #'facep (sp-org-agenda-board--faces accent)))
+         (colour (sp-org-agenda-board--colour accent))
+         (background (face-attribute 'default :background nil))
+         (foreground (face-attribute 'default :foreground nil))
+         (attrs (list :inherit faces :foreground 'unspecified
+                      :background 'unspecified :weight 'unspecified
+                      :underline 'unspecified)))
+    (pcase kind
+      ('tab   (setq attrs (plist-put attrs :foreground background))
+              (setq attrs (plist-put attrs :background colour))
+              (setq attrs (plist-put attrs :weight 'bold)))
+      ('block (setq attrs (plist-put attrs :inherit nil))
+              (setq attrs (plist-put attrs :foreground foreground))
+              (setq attrs (plist-put attrs :background
+                                     (sp-org-agenda-board--mix
+                                      background colour
+                                      sp-org-agenda-board-block-mix))))
+      ('wave  (setq attrs (plist-put attrs :inherit nil))
+              (setq attrs (plist-put attrs :underline
+                                     (list :color colour :style 'wave))))
+      ('bold  (setq attrs (plist-put attrs :weight 'bold))))
+    (list (cons t attrs))))
+
+(defun sp-org-agenda-board-apply (&rest _)
+  "Set the faces of the board from the accents of the current theme."
+  (pcase-dolist (`(,face ,accent ,kind) sp-org-agenda-board-roles)
+    (face-spec-set face (sp-org-agenda-board--spec accent kind))))
+
+(with-eval-after-load 'org-other-agenda
+  (sp-org-agenda-board-apply)
+  (add-hook 'sp-after-load-theme-hook #'sp-org-agenda-board-apply 90))
+#+end_src
+
+*** Changing the accents
+
+Everything is in the two variables above (=M-x customize-variable=, or =setq= in the sandbox block of this doc).
+
+- *Swap which accent a face uses*: edit its row in =sp-org-agenda-board-roles=. To make the priority-A marker the amber colour of today, change =(org-other-agenda-a urgent bold)= to =(org-other-agenda-a crucial bold)=. To reorder the accents of the date headers, today and the clock, change the second element of the rows =org-other-agenda-day=, =-today= and =-clock=.
+- *Change what an accent looks like*: edit its row in =sp-org-agenda-board-accents=. Put the face you want first: =(focus sp-strong link)=, or a face of any theme. The first face with a foreground in the current theme wins.
+- *Change which theme face stands behind an accent in the =sp= themes*: that is =sp-theme-semantic= (=sp-urgent :foreground err= and so on) in [[file:../ui/sp-theme-engine.org][sp-theme-engine]], or a flavor's =:semantic= entries.
+- *Block tint*: =sp-org-agenda-board-block-mix=.
+
+The row kinds: =bold= bold text, =tab= the accent as background with the theme background as text, =block= a tinted background, =wave= a wavy underline, nothing for plain text.
+
+The default order of importance, which decides which colour a new use should take: =urgent= (priority A, overdue), =crucial= (today, query, marked), =focus= (date headers, active tab, work blocks), =positive= (clock, life blocks), =calm= (tags, other blocks), =meek= (secondary text), =mild= (noise). Faces that mean the same thing share an accent, so only the first three need to stand apart from each other and from the text colour.
+
+Not covered: faces of the packages the board is built on (=textui=, =embark=) and the Org faces it reuses for TODO keywords and priorities, which already follow the theme.
 
 * Agenda commands and hooks
 :PROPERTIES:
@@ -371,6 +543,7 @@ This heading and everything under it is written to =sp-agenda-views.el=, not =sp
 - =org-agenda-custom-commands= is assigned once, here, from the lists below. No other module adds to it.
 - Loaded last among the Org modules (see [[file:../../../../../adr/0009-one-agenda-owner-per-setting.org][ADR 0009]]).
 - The PARA view needs =vulpea-para=. The issue views need =sp-org-issues=, whose functions they call.
+- The config view (=c=) searches the Org files of the dotfiles themselves and needs nothing beyond =sp-globals= for =sp-yadm-repo=.
 - The views use only the keywords of =sp-org-keywords=.
 
 ** File header
@@ -390,7 +563,11 @@ This heading and everything under it is written to =sp-agenda-views.el=, not =sp
 ;;; Code:
 
 (require 'org-agenda)
+(require 'seq)
+(require 'subr-x)
 (require 'vulpea-para)
+
+(defvar sp-yadm-repo)
 
 (declare-function sp-org-issues--agenda-files "sp-org-issues")
 (declare-function org-gtd-agenda-transient "org-gtd")
@@ -409,6 +586,7 @@ All the keys that open or act in the agenda are here. The letters after =C-c o a
 | =C-c o a d D n e w p R r u W l= | The native views, listed below          | here, in the views         |
 | =C-c o a q=               | The org-ql views                              | here, in the views         |
 | =C-c o a i i=, =C-c o a i b= | The issue board, issues with a branch      | here, in the views         |
+| =C-c o a c=               | The open TODOs of the config files            | here, in the views         |
 | =C-c d e n p s=           | org-gtd engage, next, process inbox, stuck    | =sp-org-taskman-extra=     |
 
 #+begin_src emacs-lisp -i
@@ -571,6 +749,107 @@ The =i= prefix lists the open issues of the issue tracker.
   "The issue views, as `org-agenda-custom-commands' entries.")
 #+end_src
 
+** Config file views
+
+=c= lists every open TODO heading in the Org files of the dotfiles (the yadm repository in =~=): the docs in =docs/tangles/=, =README.org=, =CHANGELOG.org=, the ADRs. Each line starts with the =#+title:= of the file it comes from, in a 36 character column, instead of the Area and Project category the other views show. The file title is the useful label here, because these files are not vulpea-para areas or projects, so they have no category of their own.
+
+It solves the same problem as the issue views, scoping the agenda to one set of files, and copies the approach of [[file:../custom/sp-org-issues.org][=sp-org-issues=]] (its =sp-org-issues--agenda-files= and the =i i= / =i b= views). How it is built, the same way as the issue views:
+
+- It restricts =org-agenda-files= to the config files and binds =vulpea-para-agenda-inhibit-files-update=, otherwise vulpea-para would put the PARA files back before the block runs.
+- It uses a =todo= block with an empty match, so every open keyword counts, including the =#+todo:= keywords a file declares for itself. It names no keyword, but it still relies on =org-todo-keywords=: the empty match means "any keyword that is not a done state", and Org decides which words those are from each buffer's keywords (the global =org-todo-keywords= that =sp-org-keywords= sets, or a file's own =#+todo:= line). So a heading whose keyword is in neither list is not a TODO to the view, and a keyword in the done part of its sequence (DONE, CNCL) is left out.
+- Only this view changes =org-agenda-prefix-format= (the =todo= entry), through the view's own settings. The global prefix in =sp-org-agenda= is untouched.
+- =sp-agenda-views-file-title= reads the title straight from the buffer, with the buffer widened, and falls back to the file name. It runs with point on the entry, which is how the prefix format evaluates =%(...)=.
+
+Where the files come from is the choice =sp-agenda-views-config-source=:
+
+- =yadm= (the default) asks the yadm repository: =git --git-dir=<sp-yadm-repo> --work-tree=~ ls-files -- '*.org'=. This is exactly "the Org files that are part of my configuration", so a new tracked doc shows up with no setting to change, and notes in =~/notes=, which yadm does not track, never leak into the view. It needs =git= on the =PATH= and the repository at =sp-yadm-repo=.
+- =dirs= searches every Org file below the folders of =sp-agenda-views-config-dirs= (by default =~/.config/emacs-modular/= and =~/adr/=). It needs no repository, so it also works on a machine without yadm, but it finds untracked files and misses tracked files outside the listed folders.
+
+I chose the yadm mode as the default because the request was for the files of the yadm repository, and kept the folder list as the fallback. If no file is found the command signals a =user-error= that names the source, so an empty view is not mistaken for "nothing to do".
+
+*** Why agenda views like this one matter
+
+The agenda builds a view from two things: which files it reads (=org-agenda-files=) and which headings in them match. Everything else (the PARA blocks, the issue board, this view) is a different combination of the two.
+
+- *TODO keywords say what state a heading is in; tags say what it is about.* The config view asks only about state, with a =todo= block. A tag search (=tags-todo "+work"=) asks about the topic. A heading can answer both, and the views above mix the two where it helps: the issue views use keywords for the board (=PROG=, =NEXT=, =WAIT=, =TODO=) and a tag or property for one repository or for "has a branch".
+- *Scoping the files is what makes a view cheap and calm.* The default agenda reads every PARA file, so TODOs written in the docs of the configuration (a "fix this later" under a module's doc) would otherwise be mixed into the daily agenda or never seen. A file-set view collects them in one place, on demand, and leaves the daily agenda alone. Because the view restricts the files itself, nothing about =org-agenda-files= changes for the other views.
+- *Showing the file title tells you where to go.* Config TODOs are scattered over many files. The title in the first column is the same breadcrumb that the Area and Project category is in the PARA views, so you can scan for the module the TODO belongs to before you open it.
+- *A TODO in the docs is the cheapest way to keep a loose end.* A heading such as "TODO check on a Mac" under the module's own doc stays next to what it is about, and this view brings all of them together. The issue tracker (=i i=, =i b=) is for work that gets a branch and a pull request; the config view is for the small notes that never will.
+
+To add another file-set view, add an entry to =sp-agenda-views-config= (or a list of its own) that binds =org-agenda-files= to a function returning the files, binds =vulpea-para-agenda-inhibit-files-update=, and picks the prefix it needs. Keywords belong in =sp-org-keywords=, the view and its key in this module.
+
+#+begin_src emacs-lisp -i
+;;;; Config files
+
+(defcustom sp-agenda-views-config-source 'yadm
+  "Where the config view finds the Org files it searches for TODO headings.
+`yadm' means the Org files tracked by the yadm repository (`sp-yadm-repo'),
+and `dirs' means every Org file below `sp-agenda-views-config-dirs'."
+  :type '(choice (const :tag "Org files tracked by yadm" yadm)
+                 (const :tag "Org files below the listed folders" dirs))
+  :group 'spcustom)
+
+(defcustom sp-agenda-views-config-dirs
+  '("~/.config/emacs-modular/" "~/adr/")
+  "Folders searched by the config view when the source is `dirs'."
+  :type '(repeat directory)
+  :group 'spcustom)
+
+(defun sp-agenda-views--yadm-org-files ()
+  "Return the Org files tracked by yadm, as absolute names."
+  (let ((default-directory (file-name-as-directory (expand-file-name "~"))))
+    (with-temp-buffer
+      (when (zerop (process-file "git" nil t nil
+                                 (concat "--git-dir=" (expand-file-name sp-yadm-repo))
+                                 (concat "--work-tree=" default-directory)
+                                 "ls-files" "-z" "--" "*.org"))
+        (mapcar (lambda (file) (expand-file-name file default-directory))
+                (split-string (buffer-string) "\0" t))))))
+
+(defun sp-agenda-views--dirs-org-files ()
+  "Return the Org files below `sp-agenda-views-config-dirs'."
+  (seq-mapcat (lambda (dir)
+                (when (file-directory-p dir)
+                  (directory-files-recursively (expand-file-name dir) "\\.org\\'")))
+              sp-agenda-views-config-dirs))
+
+(defun sp-agenda-views-config-files ()
+  "Return the existing Org files of my configuration, without lock files."
+  (let ((files (seq-filter
+                (lambda (file)
+                  (and (file-regular-p file)
+                       (not (string-prefix-p ".#" (file-name-nondirectory file)))))
+                (if (eq sp-agenda-views-config-source 'yadm)
+                    (sp-agenda-views--yadm-org-files)
+                  (sp-agenda-views--dirs-org-files)))))
+    (or (delete-dups files)
+        (user-error "No Org files found for the config view (source: %s)"
+                    sp-agenda-views-config-source))))
+
+(defun sp-agenda-views-file-title ()
+  "Return the `#+title:' of the current buffer, as a 36 character column.
+Fall back to the file name when the file has no title.  Meant for
+`org-agenda-prefix-format', which runs it with point on the entry."
+  (let ((title (save-excursion
+                 (save-restriction
+                   (widen)
+                   (goto-char (point-min))
+                   (when (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
+                     (string-trim (match-string 1)))))))
+    (truncate-string-to-width
+     (or title (file-name-base (or (buffer-file-name (buffer-base-buffer)) "")))
+     36 nil ?\s "…")))
+
+(defconst sp-agenda-views-config
+  '(("c" "Config TODOs" todo ""
+     ((org-agenda-files (sp-agenda-views-config-files))
+      (vulpea-para-agenda-inhibit-files-update t)
+      (org-agenda-prefix-format '((todo . " %(sp-agenda-views-file-title) ")))
+      (org-agenda-overriding-header "TODOs in the config files")
+      (org-agenda-buffer-name "*Config TODOs*"))))
+  "The config view, as an `org-agenda-custom-commands' entry.")
+#+end_src
+
 ** org-ql views
 
 Blocks built with =org-ql-block= (from =org-ql=, installed in =sp-org-agenda=).
@@ -613,13 +892,14 @@ A view on the space key, built from vulpea-para's blocks: items to refile, today
 
 ** The command list
 
-The one assignment. The PARA view comes first, then the native views, the org-ql views and the issue views.
+The one assignment. The PARA view comes first, then the native views, the org-ql views, the config view and the issue views.
 
 #+begin_src emacs-lisp -i
 (setq org-agenda-custom-commands
       (append sp-agenda-views-para
               sp-agenda-views-native
               sp-agenda-views-ql
+              sp-agenda-views-config
               (when (featurep 'sp-org-issues)
                 sp-agenda-views-issues)))
 #+end_src
@@ -632,3 +912,10 @@ Provides the =sp-agenda-views= feature and closes the file.
 (provide 'sp-agenda-views)
 ;; sp-agenda-views.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/191][#191]] 🔧 =org-other-agenda= faces take their colours from the theme (=sp-org-agenda-board-accents=, =sp-org-agenda-board-roles=), see "org-other-agenda colours".
+- [[https://github.com/siainbuletin/dotfiles/pull/185][#185]] 🔧 =org-other-agenda= rows show links by their description (=sp-org-agenda-linkify-title=).

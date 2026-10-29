@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-backups.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module decides where Emacs keeps backup files and auto-save files, turns on aggressive automatic saving of every modified file, disables lock files and enables =savehist= so minibuffer history survives restarts. It relies on the directory constants =sp-var-dir= and =sp-cache-dir= from =early-init.el= and installs the =vc-backup= package.
 
@@ -148,16 +148,15 @@ Disables the =.#file= lock files Emacs creates while a buffer has unsaved change
 
 ** savehist
 
-Enables =savehist-mode=, which saves minibuffer history between sessions, with the history file stored in =sp-var-dir=. The mode is turned on in =:init= and the file is set in =:config=, after the mode has already read its default file, so the first session may read history from the default location.
+Enables =savehist-mode=, which saves minibuffer history between sessions, with the history file stored in =sp-var-dir=. The file is set in =:init=, before the mode is turned on, so the mode reads and writes =var/savehist= from the first start. (It used to be set in =:config=, after the mode had read its default file in the config folder, which is why a =savehist= file stayed there.)
 
 #+begin_src emacs-lisp -i
 ;; What do you do with the saved history?
 (use-package savehist
   :ensure nil
   :init
-  (savehist-mode t)
-  :config
-  (setq savehist-file (expand-file-name "savehist" sp-var-dir)))
+  (setq savehist-file (expand-file-name "savehist" sp-var-dir))
+  (savehist-mode t))
 #+end_src
 
 * Provide
