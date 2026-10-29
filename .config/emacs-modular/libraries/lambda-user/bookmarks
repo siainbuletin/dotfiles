@@ -2,7 +2,13 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("To-do's for Emacs configuration"
+(("Dotfiles repository"
+  (filename . "~/src/dotfiles/")
+  (front-context-string . ".config\n  drwxr-")
+  (rear-context-string . ".2k 10-27 18:29 ")
+  (position . 155)
+  (last-modified 27362 27990 310650 0))
+("To-do's for Emacs configuration"
   (filename . "~/.config/emacs-modular/docs/todo.org")
   (front-context-string . "\n\n* Configuratio")
   (rear-context-string . "he configuration")
