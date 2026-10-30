@@ -65,10 +65,14 @@ ignored).  Put plain `setq' forms in it, for example
 
 ;; `:load-path' reads a list as a list of paths and evaluates each symbol in it
 ;; as a variable, so the paths go through variables.
+(use-package browser-hist
+  :ensure (browser-hist :host github :repo "agzam/browser-hist.el")
+  :demand t) ; `consult-omni-browser-history' requires it
+
 (use-package consult-omni
   :ensure nil
   :load-path (sp-consult-omni-dir sp-consult-omni-sources-dir)
-  :after consult
+  :after (consult browser-hist)
 
   :custom
   (consult-omni-show-preview t) ;;; show previews

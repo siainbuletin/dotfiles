@@ -64,7 +64,9 @@
 ;; (require 'org-dataview)
 
 (use-package org-special-block-extras
-  :ensure t)
+  :ensure (org-special-block-extras
+           :host github :repo "alhassy/org-special-block-extras"
+           :files ("lisp/*.el" "lisp/tooltips.css" "lisp/tooltips.js")))
 
 ;;;; org-context
 ;; Allows saving the context of an Org-mode entry, such as when refiling,
