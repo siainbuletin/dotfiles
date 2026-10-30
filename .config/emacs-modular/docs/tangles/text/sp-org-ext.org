@@ -178,11 +178,13 @@ Commented out: loading a local clone of =org-dataview=, presumably an attempt at
 
 ** org-special-block-extras
 
-Installs =org-special-block-extras=, which adds custom special blocks and link types that export to HTML and LaTeX. It is not configured further here.
+Installs =org-special-block-extras=, which adds custom special blocks and link types that export to HTML and LaTeX. It is not configured further here. The recipe lists =lisp/*.el= and =lisp/tooltips.css= and =lisp/tooltips.js=: the package keeps its code in =lisp/= and inlines the two tooltip files into exported HTML, and warns that tooltips will not open when they are not next to the library.
 
 #+begin_src emacs-lisp -i
 (use-package org-special-block-extras
-  :ensure t)
+  :ensure (org-special-block-extras
+           :host github :repo "alhassy/org-special-block-extras"
+           :files ("lisp/*.el" "lisp/tooltips.css" "lisp/tooltips.js")))
 #+end_src
 
 ** org-context

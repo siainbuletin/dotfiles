@@ -319,9 +319,15 @@ Refer to the documentation for how to install it with [[id:20261030T003159.60807
 [cite:@arthur-1979-dialec-value-form]
 
 #+begin_src emacs-lisp -i
+(use-package request :ensure t)
+(use-package counsel :ensure t)
+
 (use-package litdb
-  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el"))
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el")
+  :after (hydra request counsel org-ref))
 #+end_src
+
+The =litdb.el= header has no =Package-Requires=, so Elpaca installs none of what it =require='s (=hydra=, =request=, =counsel=; =openalex= comes with =org-ref=). Without them the load failed with =Cannot load litdb=; they are installed here, and =litdb= waits for them with =:after=.
 
 *** TODO Test whether this package is actually pulled with the recipe
 

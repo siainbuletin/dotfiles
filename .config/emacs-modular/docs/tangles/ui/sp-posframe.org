@@ -89,6 +89,8 @@ height is left to `vertico-posframe-get-size'."
     (plist-put size :max-width width)
     size))
 
+(require 'sp-completion) ; vertico is ordered here, before vertico-posframe needs it
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
@@ -102,6 +104,8 @@ height is left to `vertico-posframe-get-size'."
   :config
   (vertico-posframe-mode 1))
 #+end_src
+
+The =require= of =sp-completion= before =use-package vertico-posframe= makes Elpaca queue =vertico= first. Otherwise it queued =vertico= as a dependency of =vertico-posframe= (this module loads before =sp-minibuffer=, which is what requires =sp-completion=) and warned =vertico previously queued as dependency of: (vertico-posframe)= when =sp-completion= ordered it later.
 
 ** Border as padding
 

@@ -25,6 +25,8 @@ height is left to `vertico-posframe-get-size'."
     (plist-put size :max-width width)
     size))
 
+(require 'sp-completion) ; vertico is ordered here, before vertico-posframe needs it
+
 (use-package vertico-posframe
   :ensure t
   :after vertico
