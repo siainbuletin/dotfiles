@@ -85,6 +85,22 @@ It is then the directory with a .dir-locals.el above this one, else the
   :type 'integer
   :group 'spcustom)
 
+(defcustom sp-thesis-dump-trust-local-variables nil
+  "Non-nil means treat every file-local variable as safe while the module runs.
+The module then binds `enable-local-variables' to :all when it reads the
+project's .dir-locals.el and when it visits the task file, so Emacs does not
+ask about unsafe values.  Nothing is changed outside those two places.
+This is a risk: any variable in those files is applied without a question,
+including values that could run code (for example hooks or `eval' forms
+allowed by `enable-local-eval').  Turn it on only for projects you wrote
+yourself.  It describes the machine, so it is not read from .dir-locals.el."
+  :type 'boolean
+  :group 'spcustom)
+
+(defun sp-thesis-dump--local-variables-setting ()
+  "Value for `enable-local-variables' while the module visits project files."
+  (if sp-thesis-dump-trust-local-variables :all enable-local-variables))
+
 (defun sp-thesis-dump--list-of-strings-p (value)
   "Non-nil when VALUE is a list of strings."
   (and (listp value) (seq-every-p #'stringp value)))
@@ -183,7 +199,8 @@ Its start goes into the prompt so tasks fit the structure of the thesis."
   "Alist of the project variables as they are for files in ROOT."
   (with-temp-buffer
     (setq default-directory root)
-    (hack-dir-local-variables-non-file-buffer)
+    (let ((enable-local-variables (sp-thesis-dump--local-variables-setting)))
+      (hack-dir-local-variables-non-file-buffer))
     (mapcar (lambda (var) (cons var (buffer-local-value var (current-buffer))))
             sp-thesis-dump--project-variables)))
 
@@ -662,7 +679,9 @@ Signal an error with a readable message when there is none."
         (result (current-buffer))
         start)
     (make-directory (file-name-directory (sp-thesis-dump--tasks-path ctx)) t)
-    (with-current-buffer (find-file-noselect (sp-thesis-dump--tasks-path ctx))
+    (with-current-buffer (let ((enable-local-variables
+                                (sp-thesis-dump--local-variables-setting)))
+                           (find-file-noselect (sp-thesis-dump--tasks-path ctx)))
       (unless (derived-mode-p 'org-mode) (org-mode))
       (widen)
       (save-excursion
