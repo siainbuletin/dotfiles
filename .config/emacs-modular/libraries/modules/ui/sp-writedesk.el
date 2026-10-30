@@ -90,6 +90,43 @@ and moves point to the last location."
   :type '(choice integer float)
   :group 'sp-reading)
 
+(defcustom sp-reading-progress 'page
+  "How the header line shows the place in the text.
+`page' is a fake page count (see `sp-reading-words-per-page'), `percent'
+the share of the text before point."
+  :type '(choice (const page) (const percent))
+  :group 'sp-reading)
+
+(defcustom sp-reading-words-per-page 300
+  "Words in one fake page, for the page count of `sp-reading-progress'."
+  :type 'integer
+  :group 'sp-reading)
+
+(defcustom sp-reading-bar-width 16
+  "Width in characters of the progress bar in the mode line."
+  :type 'integer
+  :group 'sp-reading)
+
+(defcustom sp-reading-bars t
+  "Non-nil shows the reading header line and mode line.
+Nil leaves both lines as they are and only changes margins and spacing."
+  :type 'boolean
+  :group 'sp-reading)
+
+(defface sp-reading-marker
+  '((t :inverse-video t :weight bold))
+  "Face of the state marker (RW, RO or **) at the left of the header line."
+  :group 'sp-reading)
+
+(defvar-local sp-reading--remaps nil
+  "Face remapping cookies added by `sp-reading-mode'.")
+
+(defvar-local sp-reading--count nil
+  "Cache of the word count: (KEY . WORDS), KEY is the buffer state.")
+
+(defvar-local sp-reading--title nil
+  "Cache of the title: (TICK . TITLE).")
+
 (defvar-local sp-reading--saved nil
   "Alist of the buffer settings changed by `sp-reading-mode'.")
 
@@ -104,6 +141,87 @@ and moves point to the last location."
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (sp-reading--apply-window window))))
 
+;; Header line and mode line
+(defun sp-reading--total-words ()
+  "Number of words in the accessible part of the buffer, cached."
+  (let ((key (list (buffer-chars-modified-tick) (point-min) (point-max))))
+    (unless (equal (car sp-reading--count) key)
+      (setq sp-reading--count (cons key (count-words (point-min) (point-max)))))
+    (cdr sp-reading--count)))
+
+(defun sp-reading--fraction ()
+  "Share of the accessible text that lies before point, from 0.0 to 1.0."
+  (let ((span (- (point-max) (point-min))))
+    (if (zerop span)
+        0.0
+      (/ (float (- (point) (point-min))) span))))
+
+(defun sp-reading--progress-string ()
+  "The place in the text as a fake page count or a percentage."
+  (if (eq sp-reading-progress 'page)
+      (let ((pages (max 1 (ceiling (sp-reading--total-words)
+                                   sp-reading-words-per-page))))
+        (format "page %d/%d"
+                (max 1 (ceiling (* (sp-reading--fraction) pages)))
+                pages))
+    (format "%d%%" (round (* 100 (sp-reading--fraction))))))
+
+(defun sp-reading--title ()
+  "The #+title of the buffer, or its name when it has none."
+  (let ((tick (buffer-chars-modified-tick)))
+    (unless (eq (car sp-reading--title) tick)
+      (setq sp-reading--title
+            (cons tick
+                  (save-excursion
+                    (save-restriction
+                      (widen)
+                      (goto-char (point-min))
+                      (when (re-search-forward
+                             "^#\\+title:[ \t]*\\(.*?\\)[ \t]*$" nil t)
+                        (match-string-no-properties 1)))))))
+    (or (cdr sp-reading--title) (buffer-name))))
+
+(defun sp-reading--header ()
+  "Header line: state marker and title at the left, words and place at the right."
+  (let* ((marker (cond (buffer-read-only " RO ")
+                       ((buffer-modified-p) " ** ")
+                       (t " RW ")))
+         (words (if (use-region-p)
+                    (format "%d of %d words"
+                            (count-words (region-beginning) (region-end))
+                            (sp-reading--total-words))
+                  (format "%d words" (sp-reading--total-words))))
+         (right (format "%s  ·  %s " words (sp-reading--progress-string))))
+    (concat (propertize marker 'face 'sp-reading-marker)
+            "  " (sp-reading--title)
+            (propertize " " 'display
+                        `(space :align-to (- right ,(string-width right))))
+            right)))
+
+(defun sp-reading--footer ()
+  "Mode line: a progress bar at the left, line and column at the right."
+  (let* ((filled (round (* (sp-reading--fraction) sp-reading-bar-width)))
+         (bar (concat (make-string filled ?━)
+                      (make-string (- sp-reading-bar-width filled) ?─)))
+         (right (format-mode-line "%l:%c ")))
+    (concat " " bar
+            (propertize " " 'display
+                        `(space :align-to (- right ,(string-width right))))
+            right)))
+
+(defun sp-reading--remap-faces ()
+  "Make the header line and mode line plain, in the colours of the text."
+  (let ((fg (face-foreground 'default nil t))
+        (bg (face-background 'default nil t))
+        (height (face-attribute 'default :height nil t)))
+    (push (face-remap-add-relative 'header-line :foreground fg :background bg
+                                   :underline fg :box nil)
+          sp-reading--remaps)
+    (dolist (face '(mode-line mode-line-inactive))
+      (push (face-remap-add-relative face :foreground fg :background bg
+                                     :overline fg :box nil :height height)
+            sp-reading--remaps))))
+
 (defun sp-reading--save (var)
   "Remember the local state of VAR so that it can be restored."
   (push (list var (local-variable-p var) (and (boundp var) (symbol-value var)))
@@ -113,8 +231,10 @@ and moves point to the last location."
 (define-minor-mode sp-reading-mode
   "Toggle a reading layout for long prose in the current buffer.
 
-Sets wide margins, extra line spacing and no fringes, wraps lines at
-the window edge and turns `olivetti-mode' off while it is active
+Sets wide margins, extra line spacing and no fringes, shows a header
+line (state, title, word count, fake page or percentage; see
+`sp-reading-progress') and a mode line with a progress bar, wraps
+lines at the window edge and turns `olivetti-mode' off while it is active
 (it would fight for the same margins).  Turning the mode off puts
 every setting back as it was."
   :lighter " Read"
@@ -126,7 +246,8 @@ every setting back as it was."
           (when olivetti-mode (olivetti-mode -1)))
         (dolist (var '(line-spacing left-margin-width right-margin-width
                        left-fringe-width right-fringe-width
-                       word-wrap truncate-lines))
+                       word-wrap truncate-lines
+                       header-line-format mode-line-format))
           (sp-reading--save var))
         (push (list 'visual-line-mode nil (bound-and-true-p visual-line-mode))
               sp-reading--saved)
@@ -136,6 +257,10 @@ every setting back as it was."
                     left-fringe-width 0
                     right-fringe-width 0)
         (visual-line-mode 1)
+        (when sp-reading-bars
+          (sp-reading--remap-faces)
+          (setq-local header-line-format '(:eval (sp-reading--header))
+                      mode-line-format '(:eval (sp-reading--footer))))
         (add-hook 'window-configuration-change-hook #'sp-reading--refresh nil t)
         (sp-reading--refresh))
     (remove-hook 'window-configuration-change-hook #'sp-reading--refresh t)
@@ -148,6 +273,8 @@ every setting back as it was."
               (local (set (make-local-variable var) value))
               (t (kill-local-variable var)))))
     (setq sp-reading--saved nil)
+    (mapc #'face-remap-remove-relative sp-reading--remaps)
+    (setq sp-reading--remaps nil)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-margins window left-margin-width right-margin-width)
       (set-window-fringes window nil nil))))
