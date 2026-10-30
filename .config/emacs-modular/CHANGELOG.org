@@ -160,6 +160,7 @@ The table of what was tried, why each failed, and the rebuild plan: [[file:docs/
 
 - [[https://github.com/siainbuletin/dotfiles/pull/131][#131]] (Claude) ✨ Added =sp-quick-capture=: a global-hotkey, Things-style quick entry that writes a task with tags and a deadline into =inbox.org= (=Buy milk #errands !fri=). Details: [[file:docs/tangles/text/sp-quick-capture.org::*Changes by pull request][=sp-quick-capture= doc]].
 - [[https://github.com/siainbuletin/dotfiles/pull/159][#159]] (Claude) ✨ Added =tools/quick-capture-native=: ask for the task in a macOS dialog instead of an Emacs frame (which hung on macOS and was tiled by AeroSpace). Details: [[file:docs/tangles/text/sp-quick-capture.org::*Changes by pull request][=sp-quick-capture= doc]].
+- [[https://github.com/siainbuletin/dotfiles/pull/198][#198]] (Claude) ✨ Added a queue to quick capture: =tools/quick-capture-native= writes the line to =~/.local/state/quick-capture= and returns at once, and =sp-quick-capture-drain= files it in =inbox.org= when Emacs is free (busy, hung, restarted or not yet started), with the capture time for =:CREATED:= and relative dates. Follows #159. Details: [[file:docs/tangles/text/sp-quick-capture.org::*The queue][=sp-quick-capture= doc, The queue]]. Tested in Emacs 29.3 in batch and with a stopped and a dead daemon; not run on macOS.
 
 * Links in notes
 /2026-10-27 to 2026-10-28./ Completion and following for =help:=, =info:= and =man:= links, and links to the configuration docs.
