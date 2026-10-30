@@ -1,0 +1,22 @@
+
+#+title: consult-omni - Changelog
+#+author: Armin Darvish
+#+language: en
+
+* Development
+
+* Version 0.2 (2024-12-24)
+
+- Cleaned up the code and docstrings.
+- Fixed some bugs and improves elements of UI.
+- Added the ability to define minimum input length per source
+  (see =:min-input= keyword arg in =consult-omni-define-source=)
+- Added the ability to define a funciton to check if input is valid per source
+  (see =:valid-input= keyword arg in ==consult-omni-define-source==)
+- Added a new source for "Projects".
+- Improve default action for new items (See #33)
+
+
+* Version 0.1 (2023-08-18)
+
+Initial stable release

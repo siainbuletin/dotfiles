@@ -14,7 +14,7 @@ The module brings references and papers in from the web.
 - DOI: =org-ref= resolves a DOI to a BibTeX entry and can fetch the PDF.
 - Download: a command that saves a PDF from a URL into the literature folder and writes it into the =file= field of the entry.
 - Keys: every entry, however it arrives, gets the key from the scheme in [[file:sp-academic.org::*Citation keys][Citation keys]].
-- Later: =consult-omni= for browsing scholarly sources from the minibuffer. Only a marked placeholder for now, see [[*consult-omni (future)]].
+- consult-omni: =sp-fetch-academic-omni= searches OpenAlex, PubMed and Scopus from the minibuffer (=consult-omni= is set up in [[file:../media/sp-browsing.org][sp-browsing]]) and hands the chosen result to the DOI or download command. Why it is not Google Scholar: [[file:../media/sp-browsing.org::*Google Scholar: biblio-gscholar or consult-omni][the comparison]].
 
 It is required by =sp-academic= after =sp-bibprocess=, so a profile only lists =sp-academic=.
 
@@ -31,6 +31,7 @@ Keys, under the =C-c w b= prefix of the academic modules:
 | =C-c w b b= | =sp-fetch-academic-biblio-lookup= | search a backend or enter a DOI, insert the entry |
 | =C-c w b i= | =sp-fetch-academic-doi=           | add an entry from a DOI with =org-ref=, optionally fetch the PDF |
 | =C-c w b u= | =sp-fetch-academic-download=      | download a PDF from a URL and attach it        |
+| =C-c w b s= | =sp-fetch-academic-omni=          | search scholarly sources with consult-omni, add the chosen paper by DOI (or PDF address) |
 
 * Header
 
@@ -48,7 +49,8 @@ The file header, a commentary and the =;;; Code:= marker. It requires =sp-bibpro
 ;; into the literature folder and attaches it to its BibTeX entry. Citation keys
 ;; come from the `bibtex-autokey' scheme set in `sp-bibprocess'.
 ;;
-;; Planned: `consult-omni' for scholarly sources (see the placeholder below).
+;; `consult-omni' (set up in `sp-browsing') searches OpenAlex, PubMed and Scopus
+;; and hands the chosen result to the DOI or download command.
 
 ;;; Code:
 
@@ -264,9 +266,40 @@ Inside a BibTeX entry, name the file after its key and attach it."
     file))
 #+end_src
 
+* Searching with consult-omni
+
+=sp-fetch-academic-omni= runs =consult-omni-scholar= (defined in =sp-browsing=; sources in =consult-omni-scholar-sources=: OpenAlex, PubMed, Scopus, doi.org, notes) with the callback switched off, so the command gets the selected candidate back instead of opening its page.
+
+- A result with a =:doi= property (OpenAlex, Scopus and PubMed set it) goes to =sp-fetch-academic-doi=, which adds the entry and offers the PDF.
+- A result with only a =:pdf-url= (OpenAlex, for open access works) goes to =sp-fetch-academic-download=.
+- Anything else is refused with a message.
+
+Not run against the real sources: the property names were read from the source modules.
+
+#+begin_src emacs-lisp -i
+;;;; Searching with consult-omni
+
+;;;###autoload
+(defun sp-fetch-academic-omni ()
+  "Search scholarly sources with consult-omni and add the chosen paper.
+A result with a DOI goes to `sp-fetch-academic-doi'; one with only the URL of
+a PDF goes to `sp-fetch-academic-download'."
+  (interactive)
+  (unless (require 'sp-browsing nil t)
+    (user-error "The sp-browsing module (consult-omni) did not load"))
+  (let* ((cand (consult-omni-scholar nil nil nil t))
+         (doi (and (stringp cand) (get-text-property 0 :doi cand)))
+         (pdf (and (stringp cand) (get-text-property 0 :pdf-url cand))))
+    (cond ((and (stringp doi) (not (string-empty-p doi)))
+           (sp-fetch-academic-doi doi))
+          ((and (stringp pdf) (not (string-empty-p pdf)))
+           (sp-fetch-academic-download pdf))
+          (t (user-error "That result has neither a DOI nor a PDF address")))))
+#+end_src
+
 * Keys
 
-Binds the three commands under the =C-c w b= prefix the other academic modules use. =i= (import by DOI) and =u= (URL) were free.
+Binds the four commands under the =C-c w b= prefix the other academic modules use. =i= (import by DOI), =u= (URL) and =s= (search with consult-omni) were free.
 
 #+begin_src emacs-lisp -i
 ;;;; Keys
@@ -274,6 +307,7 @@ Binds the three commands under the =C-c w b= prefix the other academic modules u
 (global-set-key (kbd "C-c w b b") #'sp-fetch-academic-biblio-lookup)
 (global-set-key (kbd "C-c w b i") #'sp-fetch-academic-doi)
 (global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
+(global-set-key (kbd "C-c w b s") #'sp-fetch-academic-omni)
 #+end_src
 
 * litdb
@@ -296,24 +330,6 @@ Refer to the documentation for how to install it with [[id:20261030T003159.60807
 ** Configuring the MCP server so it works with Claude as well
 
 * Planned features
-** consult-omni (future)
-
-*** Placeholder
-
-*Not configured yet.* =consult-omni= searches many sources (Google Scholar, OpenAlex, Wikipedia, notes) from one minibuffer prompt. It is to be installed in =sp-browsing=, not here; the empty =consult-omni= heading and the working recipe, which is switched off because it caused errors at startup, are in [[file:../media/sp-browsing.org::*Elpher and consult-omni placeholders][Elpher and consult-omni placeholders]].
-
-When it works there, this module will get:
-
-- a command that sends a =consult-omni= scholar search to the same insertion path as =sp-fetch-academic-biblio-lookup=,
-- a way to hand a selected result URL to =sp-fetch-academic-download= or its DOI to =sp-fetch-academic-doi=.
-
-Nothing below is tangled.
-
-#+begin_src emacs-lisp :tangle no :eval never
-;; TODO(consult-omni): needs `consult-omni' from `sp-browsing' first.
-;; (defun sp-fetch-academic-omni () ...)
-#+end_src
-
 ** TODO Add a way to mark sources read in an article to be added to the database later on
 
 Ideally, I could perform a search on gogle scholar for that article and mark it as me wanting to pull it in the future

@@ -1,0 +1,16 @@
+#+title: consult-omni (vendored copy)
+
+A copy of [[https://github.com/armindarvish/consult-omni][consult-omni]] by Armin Darvish, kept in the configuration so that it can be fixed here. It is loaded by =sp-browsing= (=:ensure nil= with =:load-path=), not installed by Elpaca.
+
+- Upstream commit :: =3a126ee54479755408faed10da945dbc2366303b= (version 0.3, 2026-06-24).
+- License :: GPL-3.0-or-later. Every file keeps its own copyright and license header, =LICENSE= is the text of the GPL-3.0 (upstream ships no =LICENSE= file; the =SPDX-License-Identifier: GPL-3.0-or-later= line in =consult-omni.el= is what it states).
+- Copied :: =consult-omni.el=, =consult-omni-embark.el=, =sources/*.el=, =README.org=, =CHANGELOG.org=. Not copied: =consult-omni.org= (the literate source of =consult-omni.el=, which is a tangle of it; the =.el= files are what runs).
+
+* Local patches
+
+Marked "Local patch" in the code. To update, copy the upstream files over this folder and apply these again.
+
+1. =consult-omni.el=: new =consult-omni--check-enabled-sources=, called by =consult-omni--multi-dynamic= and =consult-omni--multi-static= after the enabled sources are chosen. With no enabled source it signals a =user-error= that says what to check, instead of =Args out of range: [], 0= from =(aref sources 0)=.
+2. =consult-omni.el=: =consult-omni--multi-lookup= no longer calls =aref= on an empty vector.
+
+The cause of the error in this configuration was not in the package: see [[file:../../../../docs/tangles/media/sp-browsing.org::*Why the search failed with "Args out of range"][sp-browsing, Why the search failed]].
