@@ -55,7 +55,7 @@
   :ensure t
   :commands (citar-open-notes
              citar-insert-citation)
-  
+
   :custom
   ;; Use with org citation
   (org-cite-global-bibliography sp-bibtex-files)
@@ -66,11 +66,11 @@
   (citar-library-file-extensions '("pdf" "jpg"))
   (citar-file-additional-files-separator "-")
   (citar-notes-paths (list (or sp-bib-notes sp-notes-dir)))
-  
+
   ;; Working at point
   (citar-at-point-function 'embark-act) ;; use embark with at-point
 
-  (citar-additional-fields 
+  (citar-additional-fields
     '("doi"
       "url"))   ;; What exactly can you do with these additional fields?
 
@@ -92,7 +92,7 @@
   :bind
          (("C-c w b o" . citar-open))
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
-         
+
          :hook
          (LaTeX-mode . citar-capf-setup)
          (org-mode . citar-capf-setup)

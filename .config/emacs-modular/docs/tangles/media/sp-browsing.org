@@ -182,7 +182,7 @@ See [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][
 Defining the sources themselves (see table for how each one of them is used)
 - This limits the sources that consult-omni loads to ONLY those defined in ~consult-omni-sources-modules-to-load~.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no
 (setq consult-omni-sources-modules-to-load '(consult-omni-google
                                              consult-omni-wikipedia))
 (consult-omni-sources-load-modules)

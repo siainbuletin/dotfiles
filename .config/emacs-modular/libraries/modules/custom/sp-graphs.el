@@ -9,7 +9,6 @@
 ;; Installed with `use-package' (Elpaca `:ensure'):
 ;;   `discourse-graphs'  typed nodes in Org headings, SQLite cache, context panel
 ;;   `vulpea-graph'      interactive graph of Vulpea notes in the browser
-;;   `graph-fa2'         ForceAtlas2 layout drawn as SVG in an Emacs buffer
 ;;
 ;; Custom code, written here:
 ;;   Relationship annotator  relations between Vulpea notes, as a browser
@@ -18,7 +17,6 @@
 ;;     M-x rel-anno-outline-native buttons in an Emacs buffer
 ;;     M-x rel-anno-outline-vui    the same outline built with vui (trial)
 ;;     M-x rel-anno-svg            static Graphviz SVG (needs `dot')
-;;     M-x rel-anno-fa2            force-directed graph in an Emacs buffer
 ;;     M-x rel-anno-review         anomalies, gaps and strength of answers
 ;;   Live view               the same page served on 127.0.0.1, reloaded
 ;;                           when the graph data changes
@@ -131,7 +129,7 @@
   (list sp-notes-dir)
   )
   (setq dg-recursive t)
-  (setq dg-db-file (expand-file-name "discourse-graphs.db" sp-var-dir)) ;; this is where the SQLite will live
+  (setq dg-db-file "~/.config/emacs-include/discourse-graphs.db") ;; this is where the SQLite will live
 
 (discourse-graphs-mode 1)
 )
@@ -141,13 +139,6 @@
   :after (websocket simple-httpd)
   :commands
   (vulpea-graph vulpea-graph-mode))
-
-(use-package graph-fa2
-  :ensure (:host github :repo "elij/graph-fa2")
-  :custom
-  (graph-fa2-engine '2d)
-  (graph-fa2-show-edge-labels t)
-  (graph-fa2-label-wrap-chars 18))
 
 ;;; Custom code: the relationship annotator, then its live view
 
@@ -1737,251 +1728,6 @@ The page is served by Emacs on localhost and reloads when its data changes."
   "Make every open live page reload now."
   (interactive)
   (relationship-annotator-live--check-all t))
-
-;;;; Force-directed graph in a buffer
-
-(defcustom relationship-annotator-fa2-radius '(18 . 7)
-  "Node radius as (ROOT . MINIMUM): the starting note gets ROOT, each level 3 less, never below MINIMUM."
-  :type '(cons integer integer)
-  :group 'spcustom)
-
-(defun relationship-annotator-fa2--levels (scope start)
-  "Return a hash table from id to its level below START in SCOPE."
-  (let ((levels (make-hash-table :test #'equal))
-        (queue (list start)))
-    (puthash start 0 levels)
-    (while queue
-      (let ((id (pop queue)))
-        (dolist (kid (gethash id (plist-get scope :children)))
-          (unless (gethash kid levels)
-            (puthash kid (1+ (gethash id levels)) levels)
-            (setq queue (append queue (list kid)))))))
-    levels))
-
-;; Colours come from the theme in use, not from the palette of
-;; `sp-org-tag-groups': each group's Notion colour name is looked up here
-;; and read from the foreground of the face, so the graph follows
-;; `load-theme'.
-(defcustom relationship-annotator-fa2-group-faces
-  '((default . default) (gray . shadow) (brown . font-lock-variable-name-face)
-    (orange . warning) (yellow . font-lock-type-face) (green . success)
-    (blue . font-lock-function-name-face) (purple . font-lock-keyword-face)
-    (pink . font-lock-string-face) (red . error))
-  "Face whose foreground colours the nodes of a tag group, by its colour name.
-The names are those of `sp-org-tag-groups-colors'."
-  :type '(alist :key-type symbol :value-type face)
-  :group 'spcustom)
-
-(defcustom relationship-annotator-fa2-spread 4.0
-  "How many times farther apart than the layout puts them the nodes are drawn.
-The labels keep their size, so a larger value leaves more room between
-them; the whole graph is drawn on a canvas this many times larger, so
-zoom in to read it."
-  :type 'number
-  :group 'spcustom)
-
-(defcustom relationship-annotator-fa2-box-opacity 0.75
-  "Opacity of the box behind the label of a node."
-  :type 'number
-  :group 'spcustom)
-
-(defvar relationship-annotator-fa2--active nil
-  "Non-nil once `rel-anno-fa2' has run: the advice below then acts.")
-
-(defun relationship-annotator-fa2--hex (colour &optional fallback)
-  "COLOUR, a name or hex string, as \"#rrggbb\"; FALLBACK when it is not a colour."
-  (if-let* ((values (and (stringp colour)
-                         (not (member colour '("unspecified" "unspecified-fg" "unspecified-bg")))
-                         (color-values colour))))
-      (apply #'format "#%02x%02x%02x" (mapcar (lambda (v) (ash v -8)) values))
-    fallback))
-
-(defun relationship-annotator-fa2--face-colour (face)
-  "Foreground of FACE in the current theme as hex, or nil."
-  (relationship-annotator-fa2--hex (face-foreground face nil t)))
-
-(defun relationship-annotator-fa2--theme-colour (kind)
-  "The theme's `fg' or `bg' as hex."
-  (if (eq kind 'fg)
-      (relationship-annotator-fa2--hex (face-foreground 'default nil t) "#d4d4d4")
-    (relationship-annotator-fa2--hex (face-background 'default nil t) "#1e1e2e")))
-
-(defun relationship-annotator-fa2--luminance (hex)
-  "Relative luminance of HEX, from 0 to 1."
-  (pcase-let ((`(,r ,g ,b) (color-name-to-rgb hex)))
-    (+ (* 0.2126 r) (* 0.7152 g) (* 0.0722 b))))
-
-(defun relationship-annotator-fa2--contrast (fill)
-  "The theme's foreground or background, whichever reads better on FILL."
-  (let ((fg (relationship-annotator-fa2--theme-colour 'fg))
-        (bg (relationship-annotator-fa2--theme-colour 'bg)))
-    (if (> (abs (- (relationship-annotator-fa2--luminance fill)
-                   (relationship-annotator-fa2--luminance fg)))
-           (abs (- (relationship-annotator-fa2--luminance fill)
-                   (relationship-annotator-fa2--luminance bg))))
-        fg bg)))
-
-(defun relationship-annotator-fa2--colour (note)
-  "Fill colour of NOTE: the theme colour of the group of its first grouped tag."
-  (let* ((group (seq-some (lambda (tag) (car (sp-org-tag-group-of tag)))
-                          (and note (vulpea-note-tags note))))
-         (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default)))
-    (or (relationship-annotator-fa2--face-colour
-         (or (cdr (assq name relationship-annotator-fa2-group-faces)) 'default))
-        (relationship-annotator-fa2--theme-colour 'fg))))
-
-(defun relationship-annotator-fa2--nodes (scope start)
-  "Return the graph-fa2 nodes for SCOPE: title and tags as label, tag-group colour, size by level."
-  (let ((notes (plist-get scope :notes))
-        (levels (relationship-annotator-fa2--levels scope start)))
-    (mapcar
-     (lambda (id)
-       (let* ((note (relationship-annotator--note id notes))
-              (hidden (gethash id (plist-get scope :more)))
-              (tags (and note (mapcar (lambda (tag) (concat "#" tag))
-                                      (vulpea-note-tags note)))))
-         (list :id id
-               :label (string-join
-                       (delq nil (list (relationship-annotator--title id notes)
-                                       (and tags (string-join tags " "))
-                                       (and hidden (format "(+%d)" hidden))))
-                       " ")
-               :colour (relationship-annotator-fa2--colour note)
-               :radius (float (max (cdr relationship-annotator-fa2-radius)
-                                   (- (car relationship-annotator-fa2-radius)
-                                      (* 3 (gethash id levels 0))))))))
-     (plist-get scope :nodes))))
-
-(defun relationship-annotator-fa2--edges (scope)
-  "Return the graph-fa2 edges for SCOPE, each labelled with its relation."
-  (let (edges)
-    (maphash
-     (lambda (parent kids)
-       (dolist (kid kids)
-         (push (list :from parent :to kid :directed t
-                     :label (relationship-annotator--relation-style 'parent :label "parent")
-                     :colour (relationship-annotator--relation-style 'parent :color "#888888"))
-               edges)))
-     (plist-get scope :children))
-    (pcase-dolist (`(,subject ,relation ,object) (plist-get scope :links))
-      (push (list :from subject :to object :directed t
-                  :label (relationship-annotator--relation-style
-                          relation :label (symbol-name relation))
-                  :colour (relationship-annotator--relation-style relation :color "#888888"))
-            edges))
-    (nreverse edges)))
-
-;;;; Boxes behind labels, and room between nodes
-;; graph-fa2 draws a label as bare text and lays the nodes out in a space
-;; that doesn't know how big the labels are.  Two pieces of advice fix
-;; that for `rel-anno-fa2' without changing the package: the nodes are
-;; spread by `relationship-annotator-fa2-spread', and after each frame is
-;; written a box is put behind every node label.
-
-(defun relationship-annotator-fa2--spread-args (args)
-  "Scale the X and Y of ARGS, the arguments of `graph-fa2-normalise-coords'."
-  (if relationship-annotator-fa2--active
-      (pcase-let ((`(,x ,y ,z) args))
-        (list (* x relationship-annotator-fa2-spread)
-              (* y relationship-annotator-fa2-spread) z))
-    args))
-
-(defun relationship-annotator-fa2--unspread (coords)
-  "Undo the spread on COORDS, the result of `graph-fa2-denormalise-coords'."
-  (if (and relationship-annotator-fa2--active coords)
-      (pcase-let ((`(,x ,y ,z) coords))
-        (list (truncate (/ x relationship-annotator-fa2-spread))
-              (truncate (/ y relationship-annotator-fa2-spread)) z))
-    coords))
-
-(defconst relationship-annotator-fa2--label-regexp
-  (concat "  <circle [^>]*fill=\"\\(#[0-9a-fA-F]+\\)\"[^>]*/>\n"
-          "  <text fill=\"[^\"]*\" font-size=\"\\([0-9.]+\\)\"")
-  "A node circle followed by its label text; group 1 is the fill, 2 the size.")
-
-(defun relationship-annotator-fa2--box-labels (start end)
-  "Put a box behind each node label between START and END, and recolour the text."
-  (let ((end (copy-marker end))
-        (bg (relationship-annotator-fa2--theme-colour 'bg)))
-    (save-excursion
-      (goto-char start)
-      ;; Edge labels have a fixed dark outline; follow the theme instead.
-      (while (search-forward "stroke=\"#1e1e2e\"" end t)
-        (replace-match (format "stroke=\"%s\"" bg) t t))
-      (goto-char start)
-      (while (re-search-forward relationship-annotator-fa2--label-regexp end t)
-        (let* ((fill (match-string 1))
-               (size (string-to-number (match-string 2)))
-               (text-start (save-excursion (goto-char (match-end 0))
-                                           (line-beginning-position)))
-               (text-end (save-excursion (search-forward "</text>" end t) (point)))
-               (lines nil) (x 0.0) (top nil) (bottom nil))
-          (save-excursion
-            (goto-char text-start)
-            (while (re-search-forward
-                    "<tspan x=\"\\([-0-9.]+\\)\" y=\"\\([-0-9.]+\\)\">\\([^<]*\\)</tspan>"
-                    text-end t)
-              (setq x (string-to-number (match-string 1)))
-              (let ((y (string-to-number (match-string 2))))
-                (setq top (min (or top y) y) bottom (max (or bottom y) y)))
-              (push (length (match-string 3)) lines)))
-          (when lines
-            (let* ((width (+ 8 (* 0.6 size (apply #'max lines))))
-                   (rect (format "  <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" rx=\"4\" fill=\"%s\" fill-opacity=\"%.2f\" />\n"
-                                 (- x (/ width 2)) (- top size) width
-                                 (+ 6 size (- bottom top)) fill
-                                 relationship-annotator-fa2-box-opacity)))
-              (goto-char text-start)
-              (insert rect)
-              (when (re-search-forward "<text fill=\"[^\"]*\"" end t)
-                (replace-match (format "<text fill=\"%s\""
-                                       (relationship-annotator-fa2--contrast fill))
-                               t t))
-              (goto-char (search-forward "</text>" end t)))))))))
-
-(defun relationship-annotator-fa2--render-advice (original ctx len)
-  "Call ORIGINAL on CTX and LEN, then box the labels it wrote."
-  (let ((start (point-marker)))
-    (prog1 (funcall original ctx len)
-      (when relationship-annotator-fa2--active
-        (relationship-annotator-fa2--box-labels start (point))))))
-
-(with-eval-after-load 'graph-fa2
-  (advice-add 'graph-fa2-normalise-coords :filter-args
-              #'relationship-annotator-fa2--spread-args)
-  (advice-add 'graph-fa2-denormalise-coords :filter-return
-              #'relationship-annotator-fa2--unspread)
-  (advice-add 'graph-fa2--render-svg :around
-              #'relationship-annotator-fa2--render-advice))
-
-;;;###autoload
-(defun rel-anno-fa2 ()
-  "Ask for a starting note and depth, then show a force-directed graph in a buffer.
-Nodes carry the title and tags in a box and are coloured by tag group in the colours of the theme; links carry
-the relation.  Clicking a node visits its note."
-  (interactive)
-  (require 'graph-fa2)
-  (pcase-let* ((`(,start . ,depth) (relationship-annotator--read-scope))
-               (tree (relationship-annotator--build))
-               (scope (relationship-annotator--scope tree start depth))
-               (buffer (get-buffer-create "*rel-anno-fa2*")))
-    (setq relationship-annotator-fa2--active t
-          graph-fa2-canvas-size (* 500.0 relationship-annotator-fa2-spread)
-          graph-fa2-label-colour (relationship-annotator-fa2--theme-colour 'fg)
-          graph-fa2-edge-label-colour (relationship-annotator-fa2--theme-colour 'fg)
-          graph-fa2-edge-colour (or (relationship-annotator-fa2--face-colour 'shadow)
-                                    graph-fa2-edge-colour))
-    ;; The cache is keyed on the nodes and edges, not on these settings.
-    (graph-fa2-clear-cache)
-    (with-current-buffer buffer
-      (graph-fa2-mode 1)
-      (add-hook 'graph-fa2-node-clicked-functions
-                (lambda (id) (relationship-annotator--visit id tree))
-                nil t))
-    (graph-fa2-start buffer
-                     (relationship-annotator-fa2--nodes scope start)
-                     (relationship-annotator-fa2--edges scope))
-    (pop-to-buffer buffer)))
 
 (provide 'sp-graphs)
 ;;; sp-graphs.el ends here

@@ -276,9 +276,29 @@ Binds the three commands under the =C-c w b= prefix the other academic modules u
 (global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
 #+end_src
 
-* consult-omni (future)
+* litdb
 
-** Placeholder
+Refer to the documentation for how to install it with [[id:20261030T003159.608078][pipx]] or with [[id:d1a410ce-044f-4062-bb4f-ee4bfa5b84e9][uv]]. It doesn't run on its own.
+
+** Linking litdb to Emacs
+
+[cite:@arthur-1979-dialec-value-form]
+
+#+begin_src emacs-lisp -i
+(use-package litdb
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el"))
+#+end_src
+
+*** TODO Test whether this package is actually pulled with the recipe
+
+** Doing vector search with litdb
+
+** Configuring the MCP server so it works with Claude as well
+
+* Planned features
+** consult-omni (future)
+
+*** Placeholder
 
 *Not configured yet.* =consult-omni= searches many sources (Google Scholar, OpenAlex, Wikipedia, notes) from one minibuffer prompt. It is to be installed in =sp-browsing=, not here; the empty =consult-omni= heading and the working recipe, which is switched off because it caused errors at startup, are in [[file:../media/sp-browsing.org::*Elpher and consult-omni placeholders][Elpher and consult-omni placeholders]].
 
@@ -294,13 +314,12 @@ Nothing below is tangled.
 ;; (defun sp-fetch-academic-omni () ...)
 #+end_src
 
-* Planned features
-** Add a way to mark sources read in an article to be added to the database later on
+** TODO Add a way to mark sources read in an article to be added to the database later on
 
 Ideally, I could perform a search on gogle scholar for that article and mark it as me wanting to pull it in the future
 - the point is being able to have it on hand as rapidly as possible
 
-** Inboxing articles that are coming into my inbox folder
+** TODO Inboxing articles that are coming into my inbox folder
 
 They should be formatted accordingly (with the proper title)
 - have something that would make them show up in [[id:ff696ffc-d1d9-444b-a186-4d1c603b4015][DEVONthink]]

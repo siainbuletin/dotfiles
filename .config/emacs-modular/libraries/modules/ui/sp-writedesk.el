@@ -48,28 +48,24 @@ and moves point to the last location."
       (text-scale-set 1)
       (olivetti-mode t))))
 
+;;; org-view-mode
+(use-package org-view-mode
+  :ensure t)
+
 ;;;; Writeroom
 (use-package writeroom-mode
   :ensure t
   :commands (writeroom-mode)
 
   :config
-  ;; (setq writeroom-fullscreen-effect 'maximized)
-  (setq writeroom-width 95)
+  (setq writeroom-fullscreen-effect 'maximized)
+  (setq writeroom-width 125)
   (setq writeroom-mode-line t)
   (setq writeroom-bottom-divider-width 0)
 
   ;; better scrolling while writing
   (add-hook 'writeroom-mode-hook #'lem-writing-mode-scroll-settings)
 )
-
-(defun lem-writing-mode-scroll-settings ()
-  "Center cursor for typewriter-like scrolling during writing."
-  (progn
-    (setq-local scroll-preserve-screen-position t
-                scroll-conservatively 0
-                maximum-scroll-margin 0.25
-                scroll-margin 99999)))
 
 (provide 'sp-writedesk)
 ;; sp-writedesk.el ends here.
