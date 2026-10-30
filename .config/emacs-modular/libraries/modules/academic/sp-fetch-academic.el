@@ -7,7 +7,8 @@
 ;; into the literature folder and attaches it to its BibTeX entry. Citation keys
 ;; come from the `bibtex-autokey' scheme set in `sp-bibprocess'.
 ;;
-;; Planned: `consult-omni' for scholarly sources (see the placeholder below).
+;; `consult-omni' (set up in `sp-browsing') searches OpenAlex, PubMed and Scopus
+;; and hands the chosen result to the DOI or download command.
 
 ;;; Code:
 
@@ -139,11 +140,31 @@ Inside a BibTeX entry, name the file after its key and attach it."
     (message "Saved %s" file)
     file))
 
+;;;; Searching with consult-omni
+
+;;;###autoload
+(defun sp-fetch-academic-omni ()
+  "Search scholarly sources with consult-omni and add the chosen paper.
+A result with a DOI goes to `sp-fetch-academic-doi'; one with only the URL of
+a PDF goes to `sp-fetch-academic-download'."
+  (interactive)
+  (unless (require 'sp-browsing nil t)
+    (user-error "The sp-browsing module (consult-omni) did not load"))
+  (let* ((cand (consult-omni-scholar nil nil nil t))
+         (doi (and (stringp cand) (get-text-property 0 :doi cand)))
+         (pdf (and (stringp cand) (get-text-property 0 :pdf-url cand))))
+    (cond ((and (stringp doi) (not (string-empty-p doi)))
+           (sp-fetch-academic-doi doi))
+          ((and (stringp pdf) (not (string-empty-p pdf)))
+           (sp-fetch-academic-download pdf))
+          (t (user-error "That result has neither a DOI nor a PDF address")))))
+
 ;;;; Keys
 
 (global-set-key (kbd "C-c w b b") #'sp-fetch-academic-biblio-lookup)
 (global-set-key (kbd "C-c w b i") #'sp-fetch-academic-doi)
 (global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
+(global-set-key (kbd "C-c w b s") #'sp-fetch-academic-omni)
 
 (use-package litdb
   :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el"))
