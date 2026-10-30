@@ -145,5 +145,8 @@ Inside a BibTeX entry, name the file after its key and attach it."
 (global-set-key (kbd "C-c w b i") #'sp-fetch-academic-doi)
 (global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
 
+(use-package litdb
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el"))
+
 (provide 'sp-fetch-academic)
 ;;; sp-fetch-academic.el ends here
