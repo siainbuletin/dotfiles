@@ -176,5 +176,84 @@ A `font-lock-keywords' function that searches up to LIMIT."
              while applied
              finally return applied-p)))
 
+;;;; Obsidian-style tables
+;; `org-table-widget' (see `sp-textui') already draws a table as a clean widget.
+;; These settings keep it from fighting `org-modern', switch off the zebra
+;; stripes and make the borders and the header quiet, as in Obsidian.  The
+;; borders are blended from the theme colours, so they follow every theme.
+
+(defgroup sp-org-tables nil
+  "Quiet, Obsidian-like Org tables."
+  :group 'org
+  :prefix "sp-org-tables-")
+
+(defcustom sp-org-tables-border-strength 0.22
+  "How visible table borders are, from 0 (invisible) to 1 (text colour)."
+  :type 'number)
+
+(defcustom sp-org-tables-header-strength 0.07
+  "How strongly the header row background differs from the buffer background."
+  :type 'number)
+
+;; `org-modern' draws its own table borders; the widget must be the only one.
+(setq org-modern-table nil)
+
+(defun sp-org-tables--blend (strength)
+  "The theme foreground mixed into the background by STRENGTH, as #rrggbb.
+Return nil when either colour is unknown (a terminal without colours)."
+  (and-let* ((fg (color-name-to-rgb (face-attribute 'default :foreground nil 'default)))
+             (bg (color-name-to-rgb (face-attribute 'default :background nil 'default))))
+    (apply #'color-rgb-to-hex
+           (append (cl-mapcar (lambda (f b) (+ (* strength f) (* (- 1 strength) b)))
+                              fg bg)
+                   '(2)))))
+
+(defun sp-org-tables-update-faces (&rest _)
+  "Make the table widget faces quiet, from the colours of the current theme."
+  (when (facep 'org-table-widget-border)
+    (when-let* ((border (sp-org-tables--blend sp-org-tables-border-strength)))
+      (set-face-attribute 'org-table-widget-border nil
+                          :inherit 'unspecified :foreground border))
+    (set-face-attribute 'org-table-widget-header nil
+                        :inherit 'bold
+                        :background (or (sp-org-tables--blend sp-org-tables-header-strength)
+                                        'unspecified))))
+
+(with-eval-after-load 'org-table-widget
+  (setq org-table-widget-zebra-stripe nil
+        org-table-widget-use-unicode-borders t)
+  (sp-org-tables-update-faces))
+
+(add-hook 'enable-theme-functions #'sp-org-tables-update-faces)
+
+;;;; Quiet pipes in the plain-text table
+;; In a terminal, or while a table is revealed for editing, the source shows.
+;; This mode dims its `|' separators and rule lines, so the cell text stands out.
+
+(defface sp-org-tables-pipe
+  '((t :inherit shadow))
+  "Face for the separators and rule lines of a plain-text Org table.")
+
+(defun sp-org-tables--pipe-matcher (limit)
+  "Find the next table `|' or rule line up to LIMIT, for font-lock."
+  (catch 'found
+    (while (re-search-forward "^[ \t]*|[-+|]*$\\||" limit t)
+      (when (memq 'org-table (ensure-list (get-text-property (match-beginning 0) 'face)))
+        (throw 'found t)))))
+
+(defvar sp-org-tables--pipe-keywords
+  '((sp-org-tables--pipe-matcher 0 'sp-org-tables-pipe prepend)))
+
+;;;###autoload
+(define-minor-mode sp-org-tables-quiet-pipes-mode
+  "Dim the `|' separators and rule lines of plain-text Org tables."
+  :global nil
+  (if sp-org-tables-quiet-pipes-mode
+      (font-lock-add-keywords nil sp-org-tables--pipe-keywords 'append)
+    (font-lock-remove-keywords nil sp-org-tables--pipe-keywords))
+  (font-lock-flush))
+
+(add-hook 'org-mode-hook #'sp-org-tables-quiet-pipes-mode)
+
 (provide 'sp-org-tables)
 ;; sp-org-tables.el ends here.
