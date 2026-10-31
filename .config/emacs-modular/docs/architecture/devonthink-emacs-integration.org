@@ -35,7 +35,7 @@ Use DEVONthink as the store for PDFs and Emacs as the place where you read about
 - =literature= has 15,812 records. The first 2,000 are almost all PDFs (a few HTML and unknown).
 - File names are already citekeys (=harrison-2010-therborn-post-marx.pdf=).
 - Unread flag: 15,668 records are unread, so the flag is not maintained; it cannot be the read/unread switch on its own.
-- Annotations: about 1,100 records report a non-zero annotation count. This is the set that has highlights worth indexing page by page. (I did not check whether the count includes notes and not only highlights.)
+- Annotations: about 1,100 records report a non-zero annotation count. For the one PDF I compared, the count equalled the number of highlight annotations stored in the PDF file itself, so it is the set with highlights worth indexing. The PDFs are /indexed/ files (their path is in =~/Documents/literature/=), so the text and the highlights can be read from the file with PyMuPDF, and DEVONthink's plain text has no page breaks, which is why the pages come from the file.
 - There are no custom metadata fields and one tag.
 - The database package must never be edited as files; all access goes through DEVONthink's scripting interface (=osascript= or the DEVONthink MCP).
 
@@ -90,7 +90,7 @@ The unread flag cannot decide tier 1 (see the probe above). The two signals that
 
 Row format, so results can open the right place:
 
-- =source=: the record's DEVONthink reference URL for a document row (its item link), and the same URL with a page anchor for a page row. The page anchor syntax (=?page=N=) is documented for DEVONthink item links; it must be tested on your install before the format is frozen.
+- =source=: the record's DEVONthink reference URL for a document row (its item link), and the same URL with a page anchor for a page row. The page anchor (=?page=N=) is counted from 0, as DEVONthink's own highlight export writes it. The litdb index of highlighted pages is built by =tools/devonthink-to-litdb.py= and searched by =sp-litdb= ([[file:../tangles/academic/sp-litdb.org][sp-litdb doc]]).
 - =extra= (JSON): citekey, title, UUID, page number, kind (=page=, =highlight=, =document=), annotation date, and the modification date of the record, so a rerun can skip unchanged records.
 
 The script, =tools/devonthink-to-litdb.py=, runs with =litdb='s own Python (the one inside its uv tool), enumerates the =literature= database through JXA (JavaScript for Automation), reads plain text per record from DEVONthink (its own OCR layer; nothing is extracted again), and calls =add_source=. The first run is slow, because =litdb= imports =sentence_transformers= and encodes every chunk; that is a delay, not a crash. Later runs only touch records whose modification date changed.
@@ -167,11 +167,11 @@ Recommended: a custom metadata field of type URL named =litnote=. DEVONthink can
 - litdb is used as an engine only for pages with highlights; the index stays in the order of hundreds of thousands of chunks at most (estimate, to measure after the first run).
 - The record-to-litnote link needs a custom metadata field in DEVONthink and an org-protocol or URL handler on macOS.
 - Tags and the unread flag stay in DEVONthink; read status stays in the litnote. The union of annotation count and =read-status= decides what is indexed.
-- /Untested/: nothing here was run in Emacs or against litdb on the Mac. The page anchor syntax, the annotation count semantics, the metadata field and the URL handler are the four points to verify first.
+- /Untested/: nothing here was run in Emacs or against litdb on the Mac. The page anchor and the annotation count were checked on one record on 2026-10-31 (both as described above); the metadata field and the URL handler are still to verify.
 
 * Order of work
 
-1. Probe: page anchor (=?page=N=), annotation count versus highlight count, and what the =litnote= metadata field can store. Small script, results added to this page.
+1. Probe what the =litnote= metadata field can store, and the URL handler. (The page anchor and annotation count are done.)
 2. =sp-devonthink= core: citekey-to-UUID cache, the =devonthink:= link type, open from a litnote and from =citar=.
 3. Browse and tags.
 4. =tools/devonthink-to-litdb.py=, tier 1 only, then the Emacs search front end over both engines.
