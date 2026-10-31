@@ -141,9 +141,15 @@ leave the link alone."
     (sp-author-notes--insert-file file 4096)
     (let ((case-fold-search t)
           (limit (sp-author-notes--first-heading))
-          id title tags)
+          id title tags denote)
       (goto-char (point-min))
-      (when (re-search-forward "^[ \t]*:ID:[ \t]+\\([^ \t\n]+\\)" limit t)
+      (when (re-search-forward "^#\\+identifier:[ \\t]*\\([^ \\t\n]+\\)" limit t)
+        (setq denote (match-string-no-properties 1)))
+      (unless denote
+        (when (string-match "\\`\\([0-9]\\{8\\}T[0-9]\\{6\\}\\)" (file-name-nondirectory file))
+          (setq denote (match-string 1 (file-name-nondirectory file)))))
+      (goto-char (point-min))
+      (when (re-search-forward "^[ \\t]*:ID:[ \t]+\\([^ \t\n]+\\)" limit t)
         (setq id (match-string-no-properties 1)))
       (goto-char (point-min))
       (when (re-search-forward "^#\\+title:[ \t]*\\(.*?\\)[ \t]*$" limit t)
@@ -151,7 +157,7 @@ leave the link alone."
       (goto-char (point-min))
       (while (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" limit t)
         (setq tags (append tags (split-string (match-string-no-properties 1) "[: \t]+" t))))
-      (list :file file :id id :title title :tags tags))))
+      (list :file file :id id :title title :tags tags :denote denote))))
 
 (defun sp-author-notes--title-key (title)
   "TITLE as a lookup key: downcased, with white space collapsed."
@@ -221,10 +227,19 @@ known key is never a typo."
   "\\[\\[id:\\([^]]+\\)\\]\\(?:\\[\\([^]]*\\)\\]\\)?\\]"
   "An ID link; group 1 is the ID and group 2 the description, if any.")
 
+(defconst sp-author-notes--denote-link-re
+  "\\[\\[denote:\\([^]]+\\)\\]\\(?:\\[\\([^]]*\\)\\]\\)?\\]"
+  "A Denote link; group 1 is the identifier and group 2 the description, if any.")
+
+(defconst sp-author-notes--token-re
+  (concat sp-author-notes--id-link-re "\\|" "\\[\\[denote:\\([^]]+\\)\\]\\(?:\\[[^]]*\\]\\)?\\]"
+          "\\|[\"“]\\([^\"“”]*\\)[\"”]")
+  "A link or a quoted name in a value; group 1 is an ID, 3 a Denote identifier, 4 a quoted name.")
+
 (defun sp-author-notes--clean-name (name)
-  "NAME without BibTeX braces and extra white space, flipped when asked for."
+  "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for."
   (let* ((name (string-trim (replace-regexp-in-string
-                             "[ \t\n]+" " " (replace-regexp-in-string "[{}]" "" name))))
+                             "[ \t\n]+" " " (replace-regexp-in-string "[{}\"“”]" "" name))))
          (parts (split-string name "," t "[ \t]+")))
     (if (and sp-author-notes-flip-names
              (= (length parts) 2)
@@ -233,24 +248,42 @@ known key is never a typo."
         (concat (cadr parts) " " (car parts))
       name)))
 
+(defun sp-author-notes--plain-names (text)
+  "The names in TEXT, which has no links or quoted names.
+A stray quote mark is dropped.  Names are separated by `;' or `and'."
+  (seq-remove #'string-empty-p
+              (mapcar (lambda (n) (sp-author-notes--clean-name (string-trim n "[ \t,]+" "[ \t,]+")))
+                      (split-string text "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))))
+
 (defun sp-author-notes--parse-value (value)
   "Split the meta VALUE into authors.
-Return a list of (:link ID RAW) and (:name NAME) items, in order, or
-`unparsed' when the value mixes links with other words."
-  (if (string-match-p sp-author-notes--id-link-re value)
-      (let ((rest value) (items nil))
-        (while (string-match sp-author-notes--id-link-re rest)
-          (push (list :link (match-string 1 rest) (match-string 0 rest)) items)
-          (setq rest (concat (substring rest 0 (match-beginning 0))
-                             " " (substring rest (match-end 0)))))
-        (if (string-match-p "[[:alnum:]]"
-                            (replace-regexp-in-string "\\_<and\\_>" "" rest))
-            'unparsed
-          (nreverse items)))
-    (mapcar (lambda (name) (list :name name))
-            (seq-remove #'string-empty-p
-                        (mapcar #'sp-author-notes--clean-name
-                                (split-string value "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))))))
+Return a list of (:link ID RAW), (:denote IDENTIFIER RAW) and (:name NAME)
+items, in order, or `unparsed' when links are mixed with other words.
+A name can be quoted (\"Ann Lee\", \"Bo Roe\" or \"Ann Lee\" \"Bo Roe\"), so the
+comma between quoted names separates them; a quote mark with no partner
+is dropped."
+  (let ((pos 0) items loose linked)
+    (while (string-match sp-author-notes--token-re value pos)
+      (let* ((beg (match-beginning 0)) (end (match-end 0))
+             (token (cond ((match-string 1 value)
+                           (list :link (match-string 1 value) (match-string 0 value)))
+                          ((match-string 3 value)
+                           (list :denote (match-string 3 value) (match-string 0 value)))
+                          (t (list :quoted (match-string 4 value)))))
+             (before (substring value pos beg)))
+        (dolist (name (sp-author-notes--plain-names before))
+          (push (list :name name) items)
+          (push name loose))
+        (if (eq (car token) :quoted)
+            (let ((name (sp-author-notes--clean-name (cadr token))))
+              (unless (string-empty-p name) (push (list :name name) items)))
+          (setq linked t)
+          (push token items))
+        (setq pos end)))
+    (dolist (name (sp-author-notes--plain-names (substring value pos)))
+      (push (list :name name) items)
+      (push name loose))
+    (if (and linked loose) 'unparsed (nreverse items))))
 
 (cl-defstruct (sp-author-notes--run (:constructor sp-author-notes--make-run)
                                     (:copier nil))
@@ -258,6 +291,7 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
   stamp          ; folder name of the backups of this run
   by-title       ; hash: title key -> list of index entries
   by-id          ; hash: ID -> index entry
+  by-denote      ; hash: Denote identifier -> index entry
   names          ; hash: name key -> resolution
   litnotes       ; list of (FILE . RESULT)
   created        ; list of (NAME ID FILE)
@@ -280,16 +314,20 @@ Return a list of (:link ID RAW) and (:name NAME) items, in order, or
 (defun sp-author-notes--index (run)
   "Fill the title and ID tables of RUN from the vault."
   (let ((by-title (make-hash-table :test #'equal))
-        (by-id (make-hash-table :test #'equal)))
+        (by-id (make-hash-table :test #'equal))
+        (by-denote (make-hash-table :test #'equal)))
     (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
       (let ((entry (ignore-errors (sp-author-notes--file-head file))))
         (when entry
           (when-let* ((id (plist-get entry :id)))
             (puthash id entry by-id))
+          (when-let* ((denote (plist-get entry :denote)))
+            (puthash denote entry by-denote))
           (when-let* ((title (plist-get entry :title)))
             (push entry (gethash (sp-author-notes--title-key title) by-title))))))
     (setf (sp-author-notes--run-by-title run) by-title
-          (sp-author-notes--run-by-id run) by-id)))
+          (sp-author-notes--run-by-id run) by-id
+          (sp-author-notes--run-by-denote run) by-denote)))
 
 (defun sp-author-notes--person-p (entry)
   "Non-nil if the index ENTRY is tagged with `sp-author-notes-person-tag'."
@@ -453,9 +491,27 @@ report, with the person note of the same name as a suggestion."
                               (plist-get (gethash new (sp-author-notes--run-by-id run)) :title)))
           (cons id raw))))))
 
+(defun sp-author-notes--denote-to-id (run identifier raw file line)
+  "Turn the Denote link RAW, to IDENTIFIER, into an ID link.
+Return (ID . NEW-RAW), or nil, recording a problem, when no note in the
+vault has that identifier and an :ID:."
+  (let* ((entry (gethash identifier (sp-author-notes--run-by-denote run)))
+         (id (and entry (plist-get entry :id))))
+    (cond
+     (id (cons id (format "[[id:%s][%s]]" id
+                          (or (and (string-match sp-author-notes--denote-link-re raw)
+                                   (match-string 2 raw))
+                              (plist-get entry :title)))))
+     (t (sp-author-notes--problem
+         run file line
+         (if entry
+             (format "The Denote link %s points at a note with no :ID:; left as it is" identifier)
+           (format "No note has the Denote identifier %s; link left as it is" identifier)))
+        nil))))
+
 (defun sp-author-notes--litnote-pass (run file)
   "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed)
+  (let (fixes suspects converted authors unparsed denoted)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -474,6 +530,15 @@ report, with the person note of the same name as a suggestion."
                             (id (car new)) (raw (cdr new)))
                        (when (and (not (equal (cdr new) (nth 2 item)))) (setq changed t))
                        (push (cons id nil) authors)
+                       (push raw parts)))
+                    (`(:denote ,identifier ,raw)
+                     (if-let* ((conv (sp-author-notes--denote-to-id run identifier raw file line)))
+                         (let ((new (sp-author-notes--check-link
+                                     run (car conv) (cdr conv) file line)))
+                           (push (list identifier (car new) line) denoted)
+                           (push (cons (car new) nil) authors)
+                           (push (cdr new) parts)
+                           (setq changed t))
                        (push raw parts)))
                     (`(:name ,name)
                      (let ((id (sp-author-notes--resolve run name file line)))
@@ -500,7 +565,7 @@ report, with the person note of the same name as a suggestion."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed)))
+          :authors authors :unparsed unparsed :denoted denoted)))
 
 (defun sp-author-notes--dblock-text ()
   "The text of the query table block for `sp-author-notes-works-spec'."
@@ -688,6 +753,7 @@ folder.  A failure is recorded as a problem."
                               run file (lambda () (sp-author-notes--litnote-pass run file))))
                     (result (car wrapped)))
           (when (or (plist-get result :fixes) (plist-get result :suspects)
+                    (plist-get result :denoted)
                     (plist-get result :converted) (plist-get result :unparsed))
             (push (cons file result) (sp-author-notes--run-litnotes run)))
           (dolist (author (plist-get result :authors))
@@ -766,6 +832,8 @@ folder.  A failure is recorded as a problem."
   (+ (apply #'+ (mapcar (lambda (e) (+ (length (plist-get (cdr e) :fixes))
                                        (length (plist-get (cdr e) :converted))))
                         (sp-author-notes--run-litnotes run)))
+     (apply #'+ (mapcar (lambda (e) (length (plist-get (cdr e) :denoted)))
+                        (sp-author-notes--run-litnotes run)))
      (length (sp-author-notes--run-created run))
      (length (sp-author-notes--run-pending run))
      (length (sp-author-notes--run-tagged run))
@@ -829,6 +897,18 @@ folder.  A failure is recorded as a problem."
           (sp-author-notes--insert-line
            (format "  %s:%d  %s" (sp-author-notes--short (car c)) (nth 3 c) (nth 1 c))
            (car c) (nth 3 c)))))
+    ;; Denote links
+    (let ((den (cl-loop for (file . r) in lits
+                        append (mapcar (lambda (d) (cons file d)) (plist-get r :denoted)))))
+      (sp-author-notes--heading (if apply "Denote links turned into ID links"
+                                  "Denote links to turn into ID links")
+                                (length den))
+      (if (null den) (insert "  none\n")
+        (dolist (d den)
+          (sp-author-notes--insert-line
+           (format "  %s:%d  denote:%s -> id:%s" (sp-author-notes--short (car d)) (nth 3 d)
+                   (nth 1 d) (nth 2 d))
+           (car d) (nth 3 d)))))
     ;; Tagged
     (let ((tagged (sp-author-notes--run-tagged run)))
       (sp-author-notes--heading (if apply "Notes tagged for authors" "Notes to tag as authors") (length tagged))

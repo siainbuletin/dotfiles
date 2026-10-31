@@ -230,3 +230,44 @@
       (let ((sp-author-notes-redirect-function (lambda (&rest _) nil)))
         (sp-author-notes--run t))
       (should (string-match-p "id:gone" (sp-author-notes-test--read file))))))
+
+(ert-deftest sp-author-notes-test-parse-quoted ()
+  (should (equal (sp-author-notes--parse-value
+                  "\"Frederick Conrad\", \"Jason Corey\", \"Samantha Goldstein\", \"Joseph Ostrow\", \"Michael Sadowsky\"")
+                 '((:name "Frederick Conrad") (:name "Jason Corey") (:name "Samantha Goldstein")
+                   (:name "Joseph Ostrow") (:name "Michael Sadowsky"))))
+  (should (equal (sp-author-notes--parse-value "\"J. N. Wright\" \"Peter G. Lucas\"")
+                 '((:name "J. N. Wright") (:name "Peter G. Lucas"))))
+  (should (equal (sp-author-notes--parse-value "\"Tim Wildschut")
+                 '((:name "Tim Wildschut"))))
+  (should (equal (sp-author-notes--parse-value "\"Ann Lee\", \"Bo Roe")
+                 '((:name "Ann Lee") (:name "Bo Roe"))))
+  (should (equal (sp-author-notes--parse-value "\"Lee, Ann\"")
+                 '((:name "Ann Lee"))))
+  (should (equal (sp-author-notes--parse-value "[[denote:20251213T235944][Leigh Claire La Berge]], \"Bo Roe\"")
+                 '((:denote "20251213T235944" "[[denote:20251213T235944][Leigh Claire La Berge]]")
+                   (:name "Bo Roe"))))
+  (should (eq (sp-author-notes--parse-value "Dr. [[denote:1][A]]") 'unparsed)))
+
+(ert-deftest sp-author-notes-test-quoted-and-denote-run ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "20251213T235944--leigh__person.org" vault)
+     ":PROPERTIES:" ":ID: leigh" ":END:" "#+title: Leigh Claire La Berge" "#+filetags: :person:" "")
+    (let ((file (expand-file-name "litnotes/a.org" vault)))
+      (sp-author-notes-test--write
+       file "#+title: x" ""
+       "- pub-author :: [[denote:20251213T235944][Leigh Claire La Berge]], \"Tim Wildschut\", \"Bo Roe\""
+       "- pub-author :: [[denote:19990101T000000][Nobody]]" "")
+      (let ((run (sp-author-notes--run nil)))
+        (should (equal (sp-author-notes--run-pending run) '("Tim Wildschut" "Bo Roe")))
+        (should (string-match-p "denote:2025" (sp-author-notes-test--read file))))
+      (let* ((run (sp-author-notes--run t))
+             (text (sp-author-notes-test--read file)))
+        (should (= 2 (length (sp-author-notes--run-created run))))
+        (should (string-match-p "pub-author :: \\[\\[id:leigh\\]\\[Leigh Claire La Berge\\]\\], \\[\\[id:new-[0-9]+\\]\\[Tim Wildschut\\]\\], \\[\\[id:new-[0-9]+\\]\\[Bo Roe\\]\\]" text))
+        ;; unknown identifier stays, reported
+        (should (string-match-p "denote:19990101T000000" text))
+        (should (seq-some (lambda (p) (string-match-p "Denote identifier 19990101" (nth 2 p)))
+                          (sp-author-notes--run-problems run))))
+      (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t)))))))
