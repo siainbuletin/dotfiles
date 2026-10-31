@@ -43,7 +43,7 @@
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
-
+ 
 ;; Personal functions for better searching
 
 ;; Acting on searches
@@ -509,7 +509,11 @@ QUERY is the search that produced them; it is stored in the view."
      :if (lambda () (fboundp 'org-semantic-reindex)))]
    ["Web and more"
     ("o" "Omni search (consult-omni)" consult-omni
-     :if (lambda () (fboundp 'consult-omni)))]]
+     :if (lambda () (fboundp 'consult-omni)))
+    ("b" "litdb: my article database" consult-omni-litdb
+     :if (lambda () (fboundp 'consult-omni-litdb)))
+    ("B" "litdb: by meaning" consult-omni-litdb-semantic
+     :if (lambda () (fboundp 'consult-omni-litdb-semantic)))]]
   [("q" "Quit" transient-quit-one)])
 
 (define-advice transient--show (:around (fn &rest args) sp-search-top)
