@@ -97,10 +97,19 @@ the share of the text before point."
   :type '(choice (const page) (const percent))
   :group 'sp-reading)
 
-(defcustom sp-reading-words-per-page 300
-  "Words in one fake page, for the page count of `sp-reading-progress'."
-  :type 'integer
+(defcustom sp-reading-words-per-page nil
+  "Words in one fake page, for the page count of `sp-reading-progress'.
+Nil measures it: a page is what the window shows, so it follows the
+text scale, the window size, the margins and the line spacing.  An
+integer fixes the page size."
+  :type '(choice (const :tag "Measure the window" nil) integer)
   :group 'sp-reading)
+
+(defconst sp-reading--default-page 300
+  "Words per page until the window has been measured.")
+
+(defconst sp-reading--page-samples 16
+  "Number of window measurements averaged for the page size.")
 
 (defcustom sp-reading-bar-width 16
   "Width in characters of the progress bar in the mode line."
@@ -120,6 +129,10 @@ Nil leaves both lines as they are and only changes margins and spacing."
 
 (defvar-local sp-reading--remaps nil
   "Face remapping cookies added by `sp-reading-mode'.")
+
+(defvar-local sp-reading--page nil
+  "Measured page size: a list (KEY START SAMPLES WORDS).
+KEY is the window layout the samples belong to.")
 
 (defvar-local sp-reading--count nil
   "Cache of the word count: (KEY . WORDS), KEY is the buffer state.")
@@ -156,13 +169,56 @@ Nil leaves both lines as they are and only changes margins and spacing."
         0.0
       (/ (float (- (point) (point-min))) span))))
 
+(defun sp-reading--window ()
+  "The window to measure: the selected one when it shows this buffer."
+  (if (eq (window-buffer) (current-buffer))
+      (selected-window)
+    (get-buffer-window (current-buffer))))
+
+(defun sp-reading--words-per-page ()
+  "Words that fill one page of the window, averaged over recent views.
+The layout key holds the pixel size of the text area, the text scale and
+the line spacing, so a change of any of them starts a new measurement.
+A view that reaches the end of the buffer is not counted, since the
+page is then not full."
+  (if sp-reading-words-per-page
+      sp-reading-words-per-page
+    (let ((window (sp-reading--window)))
+      (when window
+        (let* ((key (list (window-body-width window t)
+                          (window-body-height window t)
+                          (if (boundp 'text-scale-mode-amount)
+                              text-scale-mode-amount
+                            0)
+                          line-spacing))
+               (start (window-start window))
+               (end (window-end window))
+               (state sp-reading--page))
+          (unless (equal (car state) key)
+            (setq state (list key nil 0 nil)))
+          (when (and (not (equal (nth 1 state) start))
+                     (< end (point-max))
+                     (> end start))
+            (let* ((sample (count-words start end))
+                   (n (min (1+ (nth 2 state)) sp-reading--page-samples))
+                   (mean (nth 3 state)))
+              (setq state (list key start n
+                                (if mean
+                                    (+ mean (/ (- sample mean) (float n)))
+                                  (float sample))))))
+          (setq sp-reading--page state)))
+      (or (and sp-reading--page (nth 3 sp-reading--page)
+               (max 1 (round (nth 3 sp-reading--page))))
+          sp-reading--default-page))))
+
 (defun sp-reading--progress-string ()
   "The place in the text as a fake page count or a percentage."
   (if (eq sp-reading-progress 'page)
-      (let ((pages (max 1 (ceiling (sp-reading--total-words)
-                                   sp-reading-words-per-page))))
+      (let* ((per-page (or (sp-reading--words-per-page)
+                           sp-reading--default-page))
+             (pages (max 1 (ceiling (sp-reading--total-words) per-page))))
         (format "page %d/%d"
-                (max 1 (ceiling (* (sp-reading--fraction) pages)))
+                (min pages (max 1 (ceiling (* (sp-reading--fraction) pages))))
                 pages))
     (format "%d%%" (round (* 100 (sp-reading--fraction))))))
 
