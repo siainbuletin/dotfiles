@@ -18,7 +18,8 @@ The files have no newline after their last line (except where noted). Org always
 | [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, citation keys and attachment checks |
 | [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
-| [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-denote and citar-vulpea |
+| [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-vulpea |
+| [[*sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | Dry-run report and conversion of =#+reference:= to =ROAM_REFS= |
 
 The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
 
@@ -929,100 +930,70 @@ Provides the =sp-citations= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-litnotes.el
 :END:
 
-This academic module connects bibliography entries to notes.
+This academic module connects bibliography entries to notes. Literature notes are Vulpea notes; =citar-denote= is no longer used.
 
-- =citar-denote= creates one Denote file per reference (file-level literature notes) in a =litnotes= subdirectory.
-- =citar-vulpea= supports literature notes as Vulpea nodes inside larger files.
-- Both mark notes with the =litnote= keyword.
+- =citar-vulpea= makes Citar use Vulpea notes, tagged =litnote=, in =~/notes/litnotes=.
+- A note's citation key is the =@key= value of its =ROAM_REFS= property (the property Org-roam and Vulpea use for references), not a =#+reference:= keyword. =sp-litnotes-refs= converts the existing notes.
 
-It builds on Citar (configured in the citation module) and on Denote and Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
+It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
 
-** File-level literature notes
-
-*** citar-denote
-
-Installs and enables =citar-denote-mode=, which makes Citar use Denote files as notes.
-
-- Citar always creates a note when you open notes for a reference that has none.
-- New literature notes are titled with author, year and title (=citar-denote-title-format=), using at most two author names (=citar-denote-title-format-authors=).
-- They are tagged with the Denote keyword =litnote= (=citar-denote-keyword=) and stored in the =litnotes= subdirectory of the Denote directory (=citar-denote-subdir=).
-- These four settings used to be =setq= forms after the =use-package=; they are now in its =:custom= block.
-- Global keys:
-  - =C-c w b c=: create a note,
-  - =C-c w b n=: open one,
-  - =C-c w b x=: add a nocite reference.
-- In Org buffers:
-  - =C-c w b k= and =C-c w b K=: add or remove a citekey from the current note,
-  - =C-c w b d=: run the do-what-I-mean command,
-  - =C-c w b e=: open the bibliography entry.
-
-#+begin_src emacs-lisp -i
-;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
-
-;;; Commentary:
-
-;; This academic module connects bibliography entries to notes. `citar-denote'
-;; creates one Denote file per reference (file-level literature notes) in a
-;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
-;; Vulpea nodes inside larger files.
-
-;;; Code:
-
-;;;; File-level literature notes
-(use-package citar-denote
-  :ensure (:wait t)
-
-  :custom
-  (citar-open-always-create-notes t)
-  (citar-denote-title-format 'author-year-title)
-  (citar-denote-title-format-authors '2)
-  (citar-denote-keyword "litnote")
-  (citar-denote-subdir "litnotes")
-
-  :init
-  (citar-denote-mode)
-  
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-denote-open-note)
-   ("C-c w b x" . citar-denote-nocite)
-   
-   :map org-mode-map
-   ("C-c w b k" . citar-denote-add-citekey)
-   ("C-c w b K" . citar-denote-remove-citekey)
-   ("C-c w b d" . citar-denote-dwim)
-   ("C-c w b e" . citar-denote-open-reference-entry)))
-#+end_src
-
-** Node-level literature notes
+** Literature notes as Vulpea nodes
 
 *** citar-vulpea
 
-Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be linked to Vulpea nodes.
+Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulpea-mode=, which registers it as Citar's notes source.
 
-- Notes use the =litnote= tag.
-- Citation keys are stored in a =REFERENCES= property.
-- Notes are titled "author (date) title" and live in =~/notes/litnotes=.
-- A comment says the title template still needs to match the citar-denote convention.
+- Notes use the =litnote= tag and the =ROAM_REFS= property, notes are titled "author (date) title" and live in =~/notes/litnotes=.
+- Citar always creates a note when you open notes for a reference that has none (=citar-open-always-create-notes=, which was set by the =citar-denote= block).
+- Global keys: =C-c w b c= creates a note, =C-c w b n= opens one.
+- In Org buffers: =C-c w b k= and =C-c w b K= add or remove a citekey of the current note, =C-c w b d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-c w b e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
+- =C-c w b x= (=citar-denote-nocite=) is gone; =citar-vulpea= has no equivalent.
+- The title template still has to be matched to the titles of the existing notes (many are just the citekey).
 
 #+begin_src emacs-lisp -i
-;;;; Node-level literature note configuration
+;;; sp-litnotes.el --- Literature notes with citar-vulpea -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This academic module connects bibliography entries to notes.  `citar-vulpea'
+;; makes Citar use Vulpea notes as literature notes, with the citation key in
+;; the `ROAM_REFS' property.  `sp-litnotes-refs' converts notes made by
+;; `citar-denote' (which used a `#+reference:' keyword).
+
+;;; Code:
+
+;;;; Literature notes as Vulpea nodes
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)
-  
+
   :custom
   ;; Tag used to identify bibliographic notes
   (citar-vulpea-keyword "litnote")
-  
+
   ;; Name of the property used for citation keys
-  (citar-vulpea-references-property "REFERENCES")
-  
+  (citar-vulpea-references-property "ROAM_REFS")
+
   ;; Template for new note titles
-  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
+  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the titles of the existing notes
 
   (citar-vulpea-notes-directory (sp-path sp-notes-dir "litnotes/")) ;; Directory to store notes (nil uses vulpea-default-notes-directory)
-)
+
+  ;; Create a note when opening notes for a reference that has none
+  (citar-open-always-create-notes t)
+
+  :config
+  (citar-vulpea-mode 1)
+
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-open-notes)
+
+   :map org-mode-map
+   ("C-c w b k" . citar-vulpea-add-reference)
+   ("C-c w b K" . citar-vulpea-remove-reference)
+   ("C-c w b d" . citar-vulpea-dwim)
+   ("C-c w b e" . citar-open-entry)))
 #+end_src
 
 ** Provide
@@ -1030,8 +1001,288 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be lin
 Provides the =sp-litnotes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
+(require 'sp-litnotes-refs)
+
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
+#+end_src
+
+* sp-litnotes-refs.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-litnotes-refs.el
+:END:
+
+Moves the reference of each literature note from the =#+reference:= keyword of =citar-denote= to the =ROAM_REFS= property that =citar-vulpea= reads. Required by =sp-litnotes=.
+
+- =M-x sp-litnotes-refs-report= is a dry run: it writes nothing and shows a report in =*litnote refs*=.
+- =M-x sp-litnotes-refs-convert= shows the same report, asks once, copies each note it changes to =litnote-refs-backups/= under =sp-var-dir=, and writes. It is safe to run again.
+- What it does to a note in =sp-litnotes-refs-directory= (default =~/notes/litnotes/=):
+  - =convert=: no =ROAM_REFS=, has =#+reference: key=. It adds =:ROAM_REFS: @key= to the top property drawer and removes the keyword.
+  - =merge=: has both. The keys are joined (no key twice) and the keyword is removed.
+  - =normalise=: =ROAM_REFS= holds the key as =key=, =cite:key= or =[cite:@key]=. It is rewritten as =@key=; URLs and DOIs in the value are kept as they are. =citar-vulpea= only reads =@key=, so a bare key is invisible to it.
+  - =ok= and =no-reference= notes are not touched.
+  - =no-id=: the note has no top-level property drawer with an =:ID:=, so it is not a file-level Vulpea node. It is listed and skipped.
+- The report also shows:
+  - keys that no registered =.bib= file has (=sp-bibtex-files=),
+  - keys used by more than one note,
+  - for every key whether a PDF named after it is in =sp-literature-dir=, or only one named after its =crossref= parent (a book section whose PDF is the book). The later DEVONthink link needs this: see [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]].
+- BibTeX files are read with a small scanner (entry key and =crossref= field only), not a full parser.
+- The =#+reference:= keyword is deleted from converted notes, so the Denote-based commands no longer find the key. The backup folder has the old files.
+
+#+begin_src emacs-lisp -i
+;;; sp-litnotes-refs.el --- Move litnote references to ROAM_REFS -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `citar-denote' stored a note's citation key in a `#+reference:' keyword.
+;; `citar-vulpea' reads `@key' values from a property, `ROAM_REFS'.  This module
+;; reports what would change (`sp-litnotes-refs-report') and then converts the
+;; notes (`sp-litnotes-refs-convert').  Nothing is written by the report.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+
+(defvar sp-notes-dir)
+(defvar sp-var-dir)
+(defvar sp-literature-dir)
+(defvar sp-bibtex-files)
+
+(defgroup sp-litnotes-refs nil
+  "Convert literature note references to ROAM_REFS."
+  :group 'sp-academic)
+
+(defcustom sp-litnotes-refs-directory
+  (expand-file-name "litnotes/" (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes"))
+  "Folder with the literature notes."
+  :type 'directory)
+
+(defcustom sp-litnotes-refs-backup-directory
+  (expand-file-name "litnote-refs-backups/"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "Folder where `sp-litnotes-refs-convert' copies each note before changing it."
+  :type 'directory)
+
+(defconst sp-litnotes-refs--key-regexp "\\`[[:alnum:]_:-]+\\'"
+  "Regexp for a citation key; the same characters `citar-vulpea' accepts.")
+
+;;;; Reading references
+
+(defun sp-litnotes-refs--tokens (string)
+  "Split the reference STRING into (KEYS . OTHERS).
+KEYS are citation keys without a prefix; OTHERS are values that are not keys
+(URLs, DOIs) and are kept as they are.  `@key', `key', `cite:key' and
+`[cite:@a;@b]' are all read."
+  (let ((clean (replace-regexp-in-string "\\[cite[^:]*:\\|\\]" "" (or string "")))
+        keys others)
+    (dolist (token (split-string clean "[ \t;,]+" t))
+      (let ((bare (replace-regexp-in-string "\\`\\(cite:\\)?@?" "" token)))
+        (cond ((string-match-p "\\`https?:\\|\\`doi:\\|/" token) (push token others))
+              ((string-match-p sp-litnotes-refs--key-regexp bare) (push bare keys))
+              (t (push token others)))))
+    (cons (nreverse keys) (nreverse others))))
+
+(defun sp-litnotes-refs--parse (file)
+  "Read the reference data of the note FILE as a plist.
+The keys are :file, :id, :roam (the =ROAM_REFS= value), :keyword (the
+=#+reference:= value) and :drawer (non-nil when the note starts with a
+property drawer, which a file-level Vulpea node needs)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (id roam keyword drawer-end (case-fold-search t))
+      (goto-char (point-min))
+      (when (looking-at ":PROPERTIES:[ \t]*$")
+        (when (re-search-forward "^:END:[ \t]*$" nil t)
+          (setq drawer-end (line-beginning-position))
+          (goto-char (point-min))
+          (when (re-search-forward "^:ID:[ \t]+\\(.+\\)$" drawer-end t)
+            (setq id (match-string 1)))
+          (goto-char (point-min))
+          (when (re-search-forward "^:ROAM_REFS:[ \t]*\\(.*\\)$" drawer-end t)
+            (setq roam (string-trim (match-string 1))))))
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+reference:[ \t]*\\(.*\\)$" nil t)
+        (setq keyword (string-trim (match-string 1))))
+      (list :file file :id id :roam roam :keyword keyword
+            :drawer (and drawer-end t)))))
+
+;;;; Planning
+
+(defun sp-litnotes-refs--plan (parsed)
+  "Say what to do with the note PARSED (see `sp-litnotes-refs--parse').
+Returns PARSED plus :status and :refs, the new =ROAM_REFS= value.  The status is
+one of `no-id', `no-reference', `ok', `normalise', `convert' and `merge'."
+  (let* ((roam (and parsed (plist-get parsed :roam)))
+         (roam (and roam (not (string-empty-p roam)) roam))
+         (keyword (let ((k (plist-get parsed :keyword)))
+                    (and k (not (string-empty-p k)) k)))
+         (from-roam (sp-litnotes-refs--tokens roam))
+         (from-key (sp-litnotes-refs--tokens keyword))
+         (keys (delete-dups (append (car from-roam) (car from-key))))
+         (others (delete-dups (append (cdr from-roam) (cdr from-key))))
+         (refs (string-join (append (mapcar (lambda (k) (concat "@" k)) keys) others) " "))
+         (status (cond ((not (and (plist-get parsed :drawer) (plist-get parsed :id))) 'no-id)
+                       ((and (not roam) (not keyword)) 'no-reference)
+                       ((not keyword) (if (equal roam refs) 'ok 'normalise))
+                       (roam 'merge)
+                       (t 'convert))))
+    (append parsed (list :status status :keys keys :refs refs))))
+
+;;;; Bibliography and PDFs
+
+(defun sp-litnotes-refs--bib-index (files)
+  "Read the BibTeX FILES into a hash table of key to crossref (or :none)."
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (file files)
+      (when (file-readable-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (while (re-search-forward
+                  "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
+            (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
+              (let ((key (match-string 2))
+                    (end (save-excursion (or (and (re-search-forward "^@" nil t)
+                                                  (line-beginning-position))
+                                             (point-max))))
+                    crossref)
+                (save-excursion
+                  (when (re-search-forward
+                         "^[ \t]*crossref[ \t]*=[ \t]*[{\"]\\([^}\"]+\\)" end t)
+                    (setq crossref (match-string 1))))
+                (puthash key (or crossref :none) table)))))))
+    table))
+
+(defun sp-litnotes-refs--pdf (key index)
+  "Return how the PDF for KEY is found: `own', `crossref' or nil.
+A book section often has no PDF of its own; its crossref entry (the book) does."
+  (let ((dir (if (boundp 'sp-literature-dir) sp-literature-dir "~/Documents/literature/"))
+        (parent (gethash key index)))
+    (cond ((file-exists-p (expand-file-name (concat key ".pdf") dir)) 'own)
+          ((and (stringp parent)
+                (file-exists-p (expand-file-name (concat parent ".pdf") dir)))
+           'crossref))))
+
+;;;; Report
+
+(defun sp-litnotes-refs--plans (&optional directory)
+  "Plans for every note in DIRECTORY (default `sp-litnotes-refs-directory')."
+  (mapcar (lambda (file) (sp-litnotes-refs--plan (sp-litnotes-refs--parse file)))
+          (directory-files (or directory sp-litnotes-refs-directory) t "\\.org\\'")))
+
+(defun sp-litnotes-refs--report-text (plans index)
+  "Return the dry-run report for PLANS, looking keys up in INDEX."
+  (let ((by-status (make-hash-table :test 'eq))
+        (by-key (make-hash-table :test 'equal))
+        (pdf-counts (list (cons 'own 0) (cons 'crossref 0) (cons nil 0)))
+        unknown)
+    (dolist (plan plans)
+      (push plan (gethash (plist-get plan :status) by-status))
+      (dolist (key (plist-get plan :keys))
+        (push plan (gethash key by-key))
+        (unless (gethash key index) (push (cons key plan) unknown))
+        (cl-incf (alist-get (sp-litnotes-refs--pdf key index) pdf-counts nil nil #'eq))))
+    (with-temp-buffer
+      (insert (format "#+title: Litnote references: dry run\n\nFolder: =%s=\nNotes: %d\n\n"
+                      sp-litnotes-refs-directory (length plans)))
+      (insert "* Counts\n")
+      (dolist (status '(convert merge normalise ok no-reference no-id))
+        (insert (format "- %s: %d\n" status (length (gethash status by-status)))))
+      (insert (format "- keys not in any registered .bib: %d\n" (length unknown)))
+      (insert (format "- keys with a PDF of their own: %d; through crossref: %d; none: %d\n\n"
+                      (alist-get 'own pdf-counts) (alist-get 'crossref pdf-counts)
+                      (alist-get nil pdf-counts nil nil #'eq)))
+      (dolist (spec '((convert "Would add ROAM_REFS and drop #+reference:")
+                      (merge "Has both: would merge into ROAM_REFS and drop #+reference:")
+                      (normalise "ROAM_REFS in another format: would rewrite as @key")
+                      (no-id "No top-level :ID: drawer: not a Vulpea file node, skipped")))
+        (when-let* ((items (reverse (gethash (car spec) by-status))))
+          (insert (format "* %s (%d)\n" (cadr spec) (length items)))
+          (dolist (plan items)
+            (insert (format "- =%s=: %s -> %s\n"
+                            (file-name-nondirectory (plist-get plan :file))
+                            (or (plist-get plan :keyword) (plist-get plan :roam) "")
+                            (plist-get plan :refs))))
+          (insert "\n")))
+      (when unknown
+        (insert (format "* Keys that no registered .bib has (%d)\n" (length unknown)))
+        (dolist (item (reverse unknown))
+          (insert (format "- %s in =%s=\n" (car item)
+                          (file-name-nondirectory (plist-get (cdr item) :file)))))
+        (insert "\n"))
+      (let (dups)
+        (maphash (lambda (key notes) (when (cdr notes) (push (cons key notes) dups))) by-key)
+        (when dups
+          (insert (format "* Keys used by more than one note (%d)\n" (length dups)))
+          (dolist (dup (sort dups (lambda (a b) (string< (car a) (car b)))))
+            (insert (format "- %s: %s\n" (car dup)
+                            (mapconcat (lambda (p) (file-name-nondirectory (plist-get p :file)))
+                                       (cdr dup) ", "))))))
+      (buffer-string))))
+
+;;;###autoload
+(defun sp-litnotes-refs-report ()
+  "Show what `sp-litnotes-refs-convert' would do.  Writes nothing."
+  (interactive)
+  (let* ((plans (sp-litnotes-refs--plans))
+         (index (sp-litnotes-refs--bib-index (if (boundp 'sp-bibtex-files) sp-bibtex-files nil)))
+         (text (sp-litnotes-refs--report-text plans index)))
+    (with-current-buffer (get-buffer-create "*litnote refs*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert text)
+        (org-mode)
+        (goto-char (point-min))
+        (read-only-mode 1)))
+    (pop-to-buffer "*litnote refs*")
+    plans))
+
+;;;; Conversion
+
+(defun sp-litnotes-refs--apply (file refs)
+  "Set =ROAM_REFS= to REFS in the property drawer of FILE and drop =#+reference:=."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (re-search-forward "^:END:[ \t]*$")
+    (let ((end (copy-marker (line-beginning-position))))
+      (goto-char (point-min))
+      (if (re-search-forward "^:ROAM_REFS:.*$" end t)
+          (replace-match (concat ":ROAM_REFS: " refs) t t)
+        (goto-char end)
+        (insert ":ROAM_REFS: " refs "\n")))
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (while (re-search-forward "^#\\+reference:.*\n" nil t)
+        (replace-match "" t t)))
+    (write-region nil nil file nil 'silent)))
+
+;;;###autoload
+(defun sp-litnotes-refs-convert ()
+  "Convert the notes of the report, after showing it and asking.
+Each changed note is copied to `sp-litnotes-refs-backup-directory' first.  Notes
+with no top-level :ID: drawer are left alone.  Running it again changes nothing."
+  (interactive)
+  (let* ((plans (sp-litnotes-refs-report))
+         (todo (cl-remove-if-not
+                (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
+                plans)))
+    (cond ((null todo) (message "Nothing to convert."))
+          ((yes-or-no-p (format "Write %d notes (backups in %s)? "
+                                (length todo) sp-litnotes-refs-backup-directory))
+           (make-directory sp-litnotes-refs-backup-directory t)
+           (dolist (plan todo)
+             (let ((file (plist-get plan :file)))
+               (copy-file file (expand-file-name (file-name-nondirectory file)
+                                                 sp-litnotes-refs-backup-directory)
+                          t)
+               (sp-litnotes-refs--apply file (plist-get plan :refs))))
+           (message "Converted %d notes." (length todo)))
+          (t (message "Nothing written.")))))
+
+(provide 'sp-litnotes-refs)
+;; sp-litnotes-refs.el ends here
 #+end_src
 
 * Changes by pull request
@@ -1040,3 +1291,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/90][#90]] 🔧 Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed.
 - [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added the reference hover for =[cite:@key]= links in =sp-citations= (tooltip and Eldoc echo area, =sp-cite-hover-display=).
+- [[https://github.com/siainbuletin/dotfiles/pull/210][#210]] 🔧 Replaced =citar-denote= with =citar-vulpea= in =sp-litnotes= (=ROAM_REFS= property, =citar-vulpea-mode= on) and ✨ added =sp-litnotes-refs= (=sp-litnotes-refs-report= dry run, =sp-litnotes-refs-convert=).

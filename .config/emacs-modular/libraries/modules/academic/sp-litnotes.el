@@ -1,40 +1,15 @@
-;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
+;;; sp-litnotes.el --- Literature notes with citar-vulpea -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This academic module connects bibliography entries to notes. `citar-denote'
-;; creates one Denote file per reference (file-level literature notes) in a
-;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
-;; Vulpea nodes inside larger files.
+;; This academic module connects bibliography entries to notes.  `citar-vulpea'
+;; makes Citar use Vulpea notes as literature notes, with the citation key in
+;; the `ROAM_REFS' property.  `sp-litnotes-refs' converts notes made by
+;; `citar-denote' (which used a `#+reference:' keyword).
 
 ;;; Code:
 
-;;;; File-level literature notes
-(use-package citar-denote
-  :ensure (:wait t)
-
-  :custom
-  (citar-open-always-create-notes t)
-  (citar-denote-title-format 'author-year-title)
-  (citar-denote-title-format-authors '2)
-  (citar-denote-keyword "litnote")
-  (citar-denote-subdir "litnotes")
-
-  :init
-  (citar-denote-mode)
-
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-denote-open-note)
-   ("C-c w b x" . citar-denote-nocite)
-
-   :map org-mode-map
-   ("C-c w b k" . citar-denote-add-citekey)
-   ("C-c w b K" . citar-denote-remove-citekey)
-   ("C-c w b d" . citar-denote-dwim)
-   ("C-c w b e" . citar-denote-open-reference-entry)))
-
-;;;; Node-level literature note configuration
+;;;; Literature notes as Vulpea nodes
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)
@@ -44,13 +19,30 @@
   (citar-vulpea-keyword "litnote")
 
   ;; Name of the property used for citation keys
-  (citar-vulpea-references-property "REFERENCES")
+  (citar-vulpea-references-property "ROAM_REFS")
 
   ;; Template for new note titles
-  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
+  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the titles of the existing notes
 
   (citar-vulpea-notes-directory (sp-path sp-notes-dir "litnotes/")) ;; Directory to store notes (nil uses vulpea-default-notes-directory)
-)
+
+  ;; Create a note when opening notes for a reference that has none
+  (citar-open-always-create-notes t)
+
+  :config
+  (citar-vulpea-mode 1)
+
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-open-notes)
+
+   :map org-mode-map
+   ("C-c w b k" . citar-vulpea-add-reference)
+   ("C-c w b K" . citar-vulpea-remove-reference)
+   ("C-c w b d" . citar-vulpea-dwim)
+   ("C-c w b e" . citar-open-entry)))
+
+(require 'sp-litnotes-refs)
 
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
