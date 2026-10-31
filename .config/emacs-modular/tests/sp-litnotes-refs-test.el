@@ -5,6 +5,7 @@
 
 (defvar sp-literature-dir)
 (defvar sp-bibtex-files)
+(defvar sp-bibliography-dir)
 
 (defun sp-litnotes-refs-test--write (file &rest lines)
   (make-directory (file-name-directory file) t)
@@ -22,8 +23,9 @@
           (bib (expand-file-name "refs.bib" root))
           (sp-litnotes-refs-directory dir)
           (sp-litnotes-refs-backup-directory (expand-file-name "backups/" root))
+          (sp-litnotes-refs-inbox-bib (expand-file-name "master.bib" root))
           (sp-literature-dir lit)
-          (sp-bibtex-files (list bib)))
+          (sp-bibtex-files (list bib (expand-file-name "master.bib" root))))
      (make-directory lit t)
      (unwind-protect (progn ,@body) (delete-directory root t))))
 
@@ -97,6 +99,52 @@
       (should (string-match-p "through crossref: 1" text))
       (should (string-match-p "keys not in any registered .bib: 1" text))
       (should (string-match-p "nowhere in =b.org=" text)))))
+
+
+(ert-deftest sp-litnotes-refs-creates-ids-and-stubs ()
+  (sp-litnotes-refs-test--with-vault
+    (with-temp-file bib (insert "@book{known-1, title = {K}}\n"))
+    (with-temp-file (expand-file-name "newkey-1.pdf" lit) (insert "x"))
+    (let ((a (expand-file-name "a.org" dir))
+          (b (expand-file-name "b.org" dir))
+          (answers nil))
+      (sp-litnotes-refs-test--write a
+        "#+title:      Nostalgia and its Discontents" "#+filetags:   :journalarticle:litnote:"
+        "#+reference:  newkey-1" "" "- pub-author :: [[id:x][Svetlana Boym]]"
+        "- pub-year :: 2007" "- pub-title :: \"The Future of Nostalgia\"" "body")
+      (sp-litnotes-refs-test--write b
+        ":PROPERTIES:" ":ID:       def" ":END:" "#+title: b" "#+reference: known-1")
+      (cl-letf (((symbol-function 'yes-or-no-p)
+                 (lambda (prompt) (push prompt answers) t))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-litnotes-refs-convert)
+        (should (= (length answers) 3))
+        (let ((text (sp-litnotes-refs-test--read a)))
+          (should (string-match-p "\\`:PROPERTIES:\n:ID: +[0-9a-f-]+\n:ROAM_REFS: @newkey-1\n:END:\n" text))
+          (should-not (string-match-p "#\\+reference" text))
+          (should (string-match-p "^- pub-year :: 2007$" text)))
+        (should (string-match-p "^:ROAM_REFS: @known-1$" (sp-litnotes-refs-test--read b)))
+        (let ((inbox (sp-litnotes-refs-test--read sp-litnotes-refs-inbox-bib)))
+          (should (string-match-p "@article{newkey-1," inbox))
+          (should (string-match-p "title += {The Future of Nostalgia}" inbox))
+          (should (string-match-p "author += {Svetlana Boym}" inbox))
+          (should (string-match-p "year += {2007}" inbox))
+          (should (string-match-p "file += {~/Documents/literature/newkey-1.pdf}" inbox))
+          (should-not (string-match-p "known-1" inbox)))
+        (let ((notes (list (sp-litnotes-refs-test--read a) (sp-litnotes-refs-test--read b)
+                           (sp-litnotes-refs-test--read sp-litnotes-refs-inbox-bib))))
+          (setq answers nil)
+          (sp-litnotes-refs-convert)
+          (should-not answers)
+          (should (equal notes (list (sp-litnotes-refs-test--read a) (sp-litnotes-refs-test--read b)
+                                     (sp-litnotes-refs-test--read sp-litnotes-refs-inbox-bib)))))))))
+
+(ert-deftest sp-litnotes-refs-stub-types-and-title ()
+  (should (equal (sp-litnotes-refs--entry-type '("booksection" "litnote")) "incollection"))
+  (should (equal (sp-litnotes-refs--entry-type '("litnote")) "misc"))
+  (let ((stub (sp-litnotes-refs--stub '(:file "/x/n.org" :title "k-1" :tags ("book") :meta nil) "k-1")))
+    (should (string-match-p "@book{k-1," stub))
+    (should-not (string-match-p "title" stub))))
 
 (provide 'sp-litnotes-refs-test)
 ;;; sp-litnotes-refs-test.el ends here
