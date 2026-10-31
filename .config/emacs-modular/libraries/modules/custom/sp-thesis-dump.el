@@ -85,7 +85,7 @@ It is then the directory with a .dir-locals.el above this one, else the
   :type 'integer
   :group 'spcustom)
 
-(defcustom sp-thesis-dump-trust-local-variables nil
+(defcustom sp-thesis-dump-trust-local-variables t
   "Non-nil means treat every file-local variable as safe while the module runs.
 The module then binds `enable-local-variables' to :all when it reads the
 project's .dir-locals.el and when it visits the task file, so Emacs does not
