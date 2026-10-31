@@ -143,7 +143,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 
 ** Loading the sub-modules
 
-Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]).
+Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]). =sp-litdb= (the search of the pages you highlighted in DEVONthink, [[file:sp-litdb.org][its own doc]]) is required last.
 
 #+begin_src emacs-lisp -i
 ;;;; Requiring sub-libraries
@@ -153,6 +153,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-citations)
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
+(require 'sp-litdb)
 #+end_src
 
 ** Helper libraries

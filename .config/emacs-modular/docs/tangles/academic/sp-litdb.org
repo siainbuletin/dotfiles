@@ -1,0 +1,398 @@
+#+TITLE: sp-litdb.el: search the pages you highlighted in DEVONthink
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-litdb.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-litdb.el=. It is the Emacs side of an index of the pages you highlighted in DEVONthink PDFs; the index is built by =tools/devonthink-to-litdb.py= and searched through =tools/litdb-query.py=. Design: [[file:../../architecture/devonthink-emacs-integration.org][DEVONthink and Emacs]].
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* What it is for
+
+Two searches answer different questions, and they are meant to be used together.
+
+| Search | Looks in | Answers |
+|--------+----------+---------|
+| =org-semantic= (=C-c k s=) | your notes (the vault) | what /I wrote/ about it |
+| =sp-litdb-search= (=C-c k l=) | the pages you highlighted in DEVONthink PDFs | where /the literature/ discussed it, on which page |
+| DEVONthink's own search | every PDF in the database | any word, anywhere, including documents you have not read |
+
+=sp-litdb= does not replace the other two. =org-semantic= never sees the PDFs, and DEVONthink's search does not rank by meaning. The index is deliberately small: only pages with a highlight. A page you highlighted is a page you read and judged worth keeping, so a hit is both on topic and already vetted by you. For documents without highlights use DEVONthink's search first (it is fast: a search over 15,812 records took about half a second).
+
+* Building a map of the research
+
+1. =C-c k s= in your notes: what you already wrote on the topic.
+2. =C-c k l=: see where, and in which words, the literature discussed it. The list is ranked, each line is =key p. N= and the start of the page, with the score and the number of highlights as the annotation. =RET= opens the page in DEVONthink.
+3. Before choosing, run =embark-collect= (=C-.= then =S=, or your binding) on the list. The hits stay in a buffer you can keep, and every hit is an =embark= target of the category =sp-litdb=.
+4. Mark the hits that matter (=embark-select=) and run =embark-act-all=:
+   - =n= collects them into a note you pick, under a heading =litdb: QUERY=. Each hit is a link to its page in DEVONthink, a =[cite:@key]= and the text you highlighted there. That is the raw material of a map: with the citation layer of the relationship annotator ([[file:../../architecture/relationship-annotator-citation-layer.org][design]]) the cites become edges you can refine.
+   - =l= inserts a link to the page, =c= inserts =[cite:@key p. N]=, =o= opens it.
+5. Run the same query in =org-semantic= and litdb side by side: the notes you wrote and the pages you read, for one question.
+
+* Keys
+
+| Key | Command | What it does |
+|-----+---------+--------------|
+| =C-c k l= | =sp-litdb-search= | search; with =C-u= choose words, meaning or both |
+| =C-c k I= | =sp-litdb-index= | index new and changed highlighted pages (output in =*litdb index*=) |
+
+Within the results, with =embark=: =o= open, =l= insert link, =c= insert citation, =n= collect into a note.
+
+* The index
+
+** What is indexed
+
+For every PDF record in DEVONthink that has highlights, one litdb row for each page that has at least one highlight.
+
+- The page text and the highlight text come from the PDF file, through PyMuPDF (the records are indexed files, so the highlights are in the file; DEVONthink's =annotationCount= matched the number of highlight annotations in the one file I compared).
+- The row's source is the record's own item address with the page, =x-devonthink-item://UUID?page=N=. DEVONthink counts pages from 0 here: the record =okane-2018-introd-adorno-marx= has highlights on the page DEVONthink calls =page=5=, which is page 6 of the PDF. The hit shows the page as printed in the PDF.
+- The row's text is the highlights first, then the page text, so the highlights weigh more in the meaning search.
+- The row's extra data holds the record's UUID, citation key (the file name), page, highlights and modification date. A record is skipped when the modification date is the one stored; a changed record has its rows replaced.
+- Records with no highlights, and records whose file is missing, are not indexed. Nothing is written to DEVONthink.
+
+** How big it is
+
+One record with 29 highlights on 8 pages took about 4 seconds to index (including loading the model, which dominates). The database has about 1,100 records with highlights; the number of highlighted pages is not known until the script is run with =--dry-run=. As a rough estimate (not measured), a few thousand rows to a few tens of thousands, minutes to indexing and tens of megabytes. Index everything and it would be millions of chunks, and mostly pages you never read; that is why only highlighted pages are indexed.
+
+** Running the indexer
+
+#+begin_example
+~/.local/share/uv/tools/litdb/bin/python tools/devonthink-to-litdb.py --dry-run
+~/.local/share/uv/tools/litdb/bin/python tools/devonthink-to-litdb.py
+#+end_example
+
+- =--dry-run= lists the records and how many highlighted pages each would give; it writes nothing and loads no model.
+- Options: =--uuid U= (one record, may be repeated), =--limit N=, =--force= (reindex unchanged records), =--database NAME= (default =literature=).
+- The first run loads =sentence_transformers=, which takes a long time to import. That is the expected delay, not a hang.
+- The index is the =litdb.libsql= file next to =litdb.toml= (=~/=, or =LITDB_ROOT=). To start over, remove the rows with =litdb remove SOURCE= or delete the file.
+
+** The search process
+
+=litdb vsearch= loads the embedding model on every call. =tools/litdb-query.py= keeps it loaded and answers JSON lines on standard input (words, meaning, or both merged by reciprocal rank); Emacs starts it on the first search, which waits for the model, and later searches are quick. =M-x sp-litdb-stop= stops it. It only reads the database.
+
+* Limits
+
+- Only pages with a highlight are searchable. A passage you never highlighted is found by DEVONthink's search, not here.
+- The page number is the one in the PDF file; for a book section whose PDF is the whole book the page is the book's.
+- A hit's candidate string is remembered for the session: after restarting Emacs, search again before acting on an old =embark-collect= buffer.
+- Other litdb sources (papers added with =litdb add=) appear as hits without a key or page and open with =browse-url=.
+- /Untested/: nothing was run in Emacs on the Mac. The indexer and the search process were run on one real record in the shell (8 rows, all three search modes). The Emacs commands, Embark integration and note collection are checked only with stubs.
+
+* sp-litdb.el
+
+#+begin_src emacs-lisp -i
+;;; sp-litdb.el --- Search the litdb index of highlighted PDF pages -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `tools/devonthink-to-litdb.py' indexes the highlighted pages of the PDFs in
+;; DEVONthink in litdb.  This module searches that index from Emacs through
+;; `tools/litdb-query.py', a process that keeps litdb's embedding model loaded,
+;; and shows the hits as completion candidates of the category `sp-litdb' so that
+;; Embark can act on them and collect them.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'json)
+(require 'subr-x)
+(require 'org)
+
+(defvar embark-keymap-alist)
+(defvar embark-multitarget-actions)
+(defvar embark-default-action-overrides)
+
+(defgroup sp-litdb nil
+  "Search the litdb index of highlighted PDF pages."
+  :group 'spcustom)
+
+(defcustom sp-litdb-python (expand-file-name "~/.local/share/uv/tools/litdb/bin/python")
+  "Python of the litdb tool (it has litdb, PyMuPDF and the embedding model)."
+  :type 'file)
+
+(defcustom sp-litdb-query-script (expand-file-name "tools/litdb-query.py" user-emacs-directory)
+  "The search process script."
+  :type 'file)
+
+(defcustom sp-litdb-index-script (expand-file-name "tools/devonthink-to-litdb.py" user-emacs-directory)
+  "The script that indexes the highlighted pages of DEVONthink PDFs."
+  :type 'file)
+
+(defcustom sp-litdb-default-mode 'hybrid
+  "How `sp-litdb-search' searches: `hybrid', `vector' (meaning) or `fulltext' (words)."
+  :type '(choice (const hybrid) (const vector) (const fulltext)))
+
+(defcustom sp-litdb-results 25
+  "Number of hits `sp-litdb-search' asks for."
+  :type 'integer)
+
+(defcustom sp-litdb-timeout 180
+  "Seconds to wait for the search process (the first search loads the model)."
+  :type 'number)
+
+;;;; The search process
+
+(defvar sp-litdb--process nil "The search process, started on first use.")
+(defvar sp-litdb--ready nil "Non-nil once the process has loaded its model.")
+(defvar sp-litdb--partial "" "Output of the process not yet ended by a newline.")
+(defvar sp-litdb--pending nil "Answers received, as an alist of id to answer.")
+(defvar sp-litdb--id 0 "Number of the last request.")
+
+(defun sp-litdb--parse-line (line)
+  "Store the answer in LINE, a JSON object the process printed."
+  (unless (string-empty-p line)
+    (when-let* ((obj (ignore-errors
+                       (json-parse-string line :object-type 'alist :array-type 'list
+                                               :null-object nil :false-object nil))))
+      (if (alist-get 'ready obj)
+          (setq sp-litdb--ready t)
+        (push (cons (alist-get 'id obj) obj) sp-litdb--pending)))))
+
+(defun sp-litdb--filter (_process string)
+  "Collect STRING, and parse each complete line."
+  (setq sp-litdb--partial (concat sp-litdb--partial string))
+  (while (string-match "\n" sp-litdb--partial)
+    (let ((line (substring sp-litdb--partial 0 (match-beginning 0))))
+      (setq sp-litdb--partial (substring sp-litdb--partial (match-end 0)))
+      (sp-litdb--parse-line line))))
+
+(defun sp-litdb--ensure ()
+  "Start the search process when it is not running, and wait until it is ready."
+  (unless (process-live-p sp-litdb--process)
+    (dolist (file (list sp-litdb-python sp-litdb-query-script))
+      (unless (file-exists-p file)
+        (user-error "sp-litdb: %s is missing (see the sp-litdb doc)" file)))
+    (setq sp-litdb--ready nil sp-litdb--partial "" sp-litdb--pending nil
+          sp-litdb--process
+          (make-process :name "litdb" :noquery t :connection-type 'pipe
+                        :coding 'utf-8
+                        :command (list sp-litdb-python sp-litdb-query-script)
+                        :filter #'sp-litdb--filter
+                        :stderr (get-buffer-create " *litdb stderr*"))))
+  (unless sp-litdb--ready
+    (message "litdb: loading the embedding model (first search only)...")
+    (let ((deadline (+ (float-time) sp-litdb-timeout)))
+      (while (and (not sp-litdb--ready) (process-live-p sp-litdb--process)
+                  (< (float-time) deadline))
+        (accept-process-output sp-litdb--process 0.2)))
+    (unless sp-litdb--ready
+      (user-error "sp-litdb: the search process did not start (see ` *litdb stderr*')"))))
+
+(defun sp-litdb--request (mode query n)
+  "Ask the process for N hits for QUERY in MODE; return the list of results."
+  (sp-litdb--ensure)
+  (let* ((id (cl-incf sp-litdb--id))
+         (deadline (+ (float-time) sp-litdb-timeout))
+         answer)
+    (process-send-string
+     sp-litdb--process
+     (concat (json-serialize `((id . ,id) (mode . ,(symbol-name mode))
+                               (query . ,query) (n . ,n)))
+             "\n"))
+    (while (and (not (setq answer (assq id sp-litdb--pending)))
+                (process-live-p sp-litdb--process)
+                (< (float-time) deadline))
+      (accept-process-output sp-litdb--process 0.2))
+    (setq sp-litdb--pending (assq-delete-all id sp-litdb--pending))
+    (unless answer (user-error "sp-litdb: no answer from litdb"))
+    (when-let* ((error-text (alist-get 'error (cdr answer))))
+      (user-error "litdb: %s" error-text))
+    (alist-get 'results (cdr answer))))
+
+;;;###autoload
+(defun sp-litdb-stop ()
+  "Stop the search process (it starts again on the next search)."
+  (interactive)
+  (when (process-live-p sp-litdb--process)
+    (delete-process sp-litdb--process))
+  (setq sp-litdb--process nil sp-litdb--ready nil))
+
+;;;; Hits
+
+(cl-defstruct (sp-litdb-hit (:constructor sp-litdb-hit--make) (:copier nil))
+  source citekey page uuid score snippet highlights query)
+
+(defvar sp-litdb--hits (make-hash-table :test 'equal)
+  "Candidate string to `sp-litdb-hit', for the hits of every search so far.")
+
+(defun sp-litdb--hit (result query)
+  "Make a `sp-litdb-hit' from one RESULT of the process, found for QUERY."
+  (let ((extra (alist-get 'extra result)))
+    (sp-litdb-hit--make
+     :source (alist-get 'source result)
+     :citekey (alist-get 'citekey extra)
+     :page (alist-get 'page extra)
+     :uuid (alist-get 'uuid extra)
+     :score (alist-get 'score result)
+     :snippet (or (alist-get 'snippet result) "")
+     :highlights (alist-get 'highlights extra)
+     :query query)))
+
+(defun sp-litdb--label (hit)
+  "The text of HIT in a candidate list: key, page and the start of the page."
+  (format "%s%s  %s"
+          (or (sp-litdb-hit-citekey hit)
+              (file-name-nondirectory (sp-litdb-hit-source hit)))
+          (if (sp-litdb-hit-page hit) (format " p. %s" (sp-litdb-hit-page hit)) "")
+          (truncate-string-to-width
+           (replace-regexp-in-string "[\n\t ]+" " " (sp-litdb-hit-snippet hit)) 100)))
+
+(defun sp-litdb--candidates (hits)
+  "Candidate strings for HITS, made unique, and remembered in `sp-litdb--hits'."
+  (let (seen)
+    (mapcar (lambda (hit)
+              (let* ((label (sp-litdb--label hit))
+                     (cand (if (member label seen)
+                               (format "%s [%s]" label (sp-litdb-hit-source hit))
+                             label)))
+                (push cand seen)
+                (puthash cand hit sp-litdb--hits)
+                cand))
+            hits)))
+
+(defun sp-litdb--annotate (candidate)
+  "Score and highlight count of CANDIDATE."
+  (when-let* ((hit (gethash candidate sp-litdb--hits)))
+    (format "  %.2f%s" (or (sp-litdb-hit-score hit) 0.0)
+            (if-let* ((n (length (sp-litdb-hit-highlights hit))) ((> n 0)))
+                (format "  %d highlight%s" n (if (= n 1) "" "s"))
+              ""))))
+
+(defun sp-litdb--table (candidates)
+  "A completion table for CANDIDATES, in rank order, of category `sp-litdb'."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        '(metadata (category . sp-litdb)
+                   (display-sort-function . identity)
+                   (cycle-sort-function . identity)
+                   (annotation-function . sp-litdb--annotate))
+      (complete-with-action action candidates string pred))))
+
+(defun sp-litdb--hit-for (candidate)
+  "The hit of CANDIDATE, or an error when the search was not made in this session."
+  (or (gethash (substring-no-properties candidate) sp-litdb--hits)
+      (user-error "Unknown litdb hit; search again")))
+
+;;;; Searching
+
+;;;###autoload
+(defun sp-litdb-search (query &optional choose-mode)
+  "Search the litdb index for QUERY and open the hit you choose in DEVONthink.
+With a prefix argument, choose how to search (words, meaning or both).  The hits
+are completion candidates of the category `sp-litdb': run `embark-collect' on
+them to keep the list, and `embark-act' or `embark-act-all' for the actions."
+  (interactive (list (read-string "litdb: " (when (use-region-p)
+                                              (buffer-substring-no-properties
+                                               (region-beginning) (region-end))))
+                     current-prefix-arg))
+  (let* ((mode (if choose-mode
+                   (intern (completing-read "Search: " '("hybrid" "vector" "fulltext") nil t))
+                 sp-litdb-default-mode))
+         (hits (mapcar (lambda (result) (sp-litdb--hit result query))
+                       (sp-litdb--request mode query sp-litdb-results))))
+    (unless hits (user-error "No hits for %s" query))
+    (sp-litdb-open
+     (completing-read (format "litdb (%s) %s: " mode query)
+                      (sp-litdb--table (sp-litdb--candidates hits)) nil t))))
+
+;;;; Actions
+
+(defun sp-litdb--url (hit)
+  "The address of HIT's source."
+  (sp-litdb-hit-source hit))
+
+;;;###autoload
+(defun sp-litdb-open (candidate)
+  "Open CANDIDATE: in DEVONthink at its page, or with `browse-url' for a web page."
+  (interactive (list (completing-read "Hit: " (hash-table-keys sp-litdb--hits) nil t)))
+  (let ((url (sp-litdb--url (sp-litdb--hit-for candidate))))
+    (if (string-prefix-p "x-devonthink-item:" url)
+        (call-process "open" nil 0 nil url)
+      (browse-url url))))
+
+(defun sp-litdb--description (hit)
+  "Link text for HIT: the key and the page."
+  (concat (or (sp-litdb-hit-citekey hit) (sp-litdb-hit-source hit))
+          (if (sp-litdb-hit-page hit) (format " p. %s" (sp-litdb-hit-page hit)) "")))
+
+(defun sp-litdb-insert-link (candidate)
+  "Insert an Org link to CANDIDATE's page in DEVONthink."
+  (interactive (list (completing-read "Hit: " (hash-table-keys sp-litdb--hits) nil t)))
+  (let ((hit (sp-litdb--hit-for candidate)))
+    (insert (org-link-make-string (sp-litdb--url hit) (sp-litdb--description hit)))))
+
+(defun sp-litdb-insert-cite (candidate)
+  "Insert an Org citation of CANDIDATE with its page, such as [cite:@key p. 6]."
+  (interactive (list (completing-read "Hit: " (hash-table-keys sp-litdb--hits) nil t)))
+  (let ((hit (sp-litdb--hit-for candidate)))
+    (unless (sp-litdb-hit-citekey hit) (user-error "This hit has no citation key"))
+    (insert (format "[cite:@%s%s]" (sp-litdb-hit-citekey hit)
+                    (if (sp-litdb-hit-page hit) (format " p. %s" (sp-litdb-hit-page hit)) "")))))
+
+(defun sp-litdb--entry (hit)
+  "An Org list item for HIT: the link, its highlights and the start of the page."
+  (concat "- " (org-link-make-string (sp-litdb--url hit) (sp-litdb--description hit))
+          (when (sp-litdb-hit-citekey hit) (format " [cite:@%s]" (sp-litdb-hit-citekey hit)))
+          "\n"
+          (mapconcat (lambda (h) (format "  - %s\n" h)) (sp-litdb-hit-highlights hit) "")))
+
+(defun sp-litdb-collect-to-note (candidates)
+  "Append CANDIDATES (a list of hits) to a note you choose, under one heading.
+The heading names the search; each hit is a link to its page in DEVONthink, its
+citation and its highlights.  The note is left unsaved so you can read it."
+  (interactive (list (completing-read-multiple "Hits: " (hash-table-keys sp-litdb--hits) nil t)))
+  (let* ((hits (mapcar #'sp-litdb--hit-for candidates))
+         (note (vulpea-select "Collect into note" :require-match t))
+         (query (sp-litdb-hit-query (car hits))))
+    (find-file (vulpea-note-path note))
+    (goto-char (point-max))
+    (unless (bolp) (insert "\n"))
+    (insert (format "\n* litdb: %s\n" query) (mapconcat #'sp-litdb--entry hits ""))
+    (message "Collected %d hits into %s" (length hits) (vulpea-note-title note))))
+
+;;;; DEVONthink links in Org
+
+;; DEVONthink's own item links, such as [[x-devonthink-item://UUID?page=5][key p. 6]],
+;; open in DEVONthink when followed in Org.
+(org-link-set-parameters
+ "x-devonthink-item"
+ :follow (lambda (path _arg) (call-process "open" nil 0 nil (concat "x-devonthink-item:" path))))
+
+;;;; Embark
+
+(defvar-keymap sp-litdb-embark-map
+  :doc "Embark actions for hits of `sp-litdb-search'."
+  "o" #'sp-litdb-open
+  "l" #'sp-litdb-insert-link
+  "c" #'sp-litdb-insert-cite
+  "n" #'sp-litdb-collect-to-note)
+
+(with-eval-after-load 'embark
+  (add-to-list 'embark-keymap-alist '(sp-litdb . sp-litdb-embark-map))
+  (add-to-list 'embark-multitarget-actions 'sp-litdb-collect-to-note)
+  (add-to-list 'embark-default-action-overrides '(sp-litdb . sp-litdb-open)))
+
+;;;; Indexing
+
+;;;###autoload
+(defun sp-litdb-index ()
+  "Index the highlighted pages of DEVONthink PDFs in litdb, in a buffer.
+Only new and changed records are done; see `tools/devonthink-to-litdb.py'."
+  (interactive)
+  (sp-litdb-stop)
+  (let ((buffer (get-buffer-create "*litdb index*")))
+    (with-current-buffer buffer (erase-buffer))
+    (make-process :name "litdb-index" :buffer buffer :noquery t
+                  :command (list sp-litdb-python sp-litdb-index-script))
+    (display-buffer buffer)))
+
+;;;; Keys
+
+(keymap-global-set "C-c k l" #'sp-litdb-search)
+(keymap-global-set "C-c k I" #'sp-litdb-index)
+
+(provide 'sp-litdb)
+;; sp-litdb.el ends here
+#+end_src
+
