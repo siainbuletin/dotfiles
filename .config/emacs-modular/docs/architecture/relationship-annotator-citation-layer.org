@@ -1,0 +1,109 @@
+#+title: relationship-annotator: a layer of possible citations
+#+date: 2026-10-31
+#+status: proposed
+
+This is a design, not an implementation. Nothing here has been run. It reads =sp-graphs= (=relationship-annotator=) as on =main= on 2026-10-31, and builds on the DEVONthink design in [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]] and the =ROAM_REFS= change of litnotes (#210).
+
+* Goal
+
+On the graph of a concept note, such as /value form/ with its children (each with a =parents= meta key), also show the bibliography that refers to it:
+
+1. As a separate relationship, a layer of /possible citations/ that can be switched off.
+2. First built only from =[cite:@key]= mentions in your own Org notes.
+3. Then, one by one, refined into a typed relation from =discourse-graphs= (=supports=, =opposes=, =defends=, =is-part-of=, ...).
+4. Later, extended with candidates from DEVONthink's similarity between records.
+
+* How the annotator works now
+
+- All relations are one alist, =relationship-annotator-relations=. Each has a =:label=, a colour, a direction, an inverse label, subject and object types, and =:sources=: where to read edges (a meta key, a file property, or the inverse of those).
+- =relationship-annotator--edges= reads every source of every relation from =vulpea.db= and returns edges =(SUBJECT RELATION OBJECT)=. =parent= builds the tree; the others are labelled links between notes that are both in view.
+- Edges are always read from the notes' own text; the module stores nothing. Typed edges you write are visible in the notes and survive without the annotator.
+- A relation that does not fit its subject and object types is reported as an anomaly, not refused.
+- There is no notion of a layer: every relation in the alist is always drawn.
+
+* The citation layer
+
+** Where the candidates come from
+
+A candidate edge is =note CITES litnote=: the note's text has =[cite:@key]= (org-cite syntax, including =[cite/t:@key]=, several keys separated by =;= and prefixes or page suffixes) and the key's litnote is a note with =@key= in =ROAM_REFS=.
+
+The cite lives inside a note (file-level or heading-level node), so the edge starts at the nearest enclosing node. For the /value form/ example, a =[cite:@marx-1867-capital]= in the note of one child is an edge from that child; whether the concept itself inherits it is the roll-up option below.
+
+** Reading citations from Vulpea
+
+Vulpea has an extractor mechanism (=make-vulpea-extractor= with its own tables). The proposal is one extractor, =citations=, with a table =(note-id, citekey, position)= filled while the note is indexed:
+
+- Candidates are then an SQL join (citation table with the =ROAM_REFS= property of the litnotes), not a scan of every file each time the graph is drawn.
+- It stays up to date with the database sync, so the live view of the annotator sees new citations by itself.
+- Without the extractor the fallback is a scan of the notes' text with a regexp for =[cite...:...]=, slower and without positions.
+
+Whether Vulpea stores =ROAM_REFS= values in a queryable form (it stores note properties, which the =citar-vulpea= code reads) must be checked first.
+
+** A relation, and a layer
+
+The relation is declared like the others, with two new keys:
+
+#+begin_example
+(cites :label "cites" :color "#999999" :style dashed :layer citations
+       :subject-types (idea claim) :object-types (source)
+       :sources ((citations)))     ; a new kind of source
+#+end_example
+
+- =:layer= names a group of relations. A new option, =relationship-annotator-layers=, lists the layers that are on (default: all but =citations=), and a command, =rel-anno-toggle-layer=, switches one; the outline, the browser graph, the SVG and the live view all skip relations of a layer that is off.
+- A relation with no =:layer= is always on, so the existing setup does not change.
+- =:style= (dashed or faded) is only drawn; a candidate looks different from a typed edge.
+- =:sources= gets a new source kind, =(citations)=, read from the extractor table above. A source kind is a small function; the existing kinds do not change.
+- Types: litnotes would be =source= nodes (a file tag, as the type sources of =relationship-annotator-type-sources= already allow), so a candidate never shows as a type anomaly.
+
+** Refining a candidate into a typed relation
+
+A command, =rel-anno-cite-refine=, on a candidate edge (in the outline, or from the graph by =embark= on the litnote):
+
+1. Asks for the relation among =supports=, =opposes=, =defends=, =is-part-of=, ... (the relations of =relationship-annotator-relations= whose object type fits, plus any you add).
+2. Writes the typed edge in the note as the existing sources already do: a =- supports :: [[id:...]]= meta line, or the matching property. The subject of =supports= is the evidence; for a cite the subject is the litnote (it supports the concept), so the line goes in the litnote when the relation is read from the subject's side, or in the concept note as the inverse meta key. The inverse form keeps the citing note in charge and is the proposal.
+3. The candidate disappears, because a typed edge between the same two notes now exists: the layer only shows pairs that have no typed edge yet.
+
+=defends= and =is-part-of= do not exist in =relationship-annotator-relations= (it has =parent=, =supports=, =opposes=, =informs=, =answers=); they would be added with their own colours, directions and types. =is-part-of= overlaps with =parent=; whether it is a second tree or the same relation under another label is for you to decide.
+
+** Roll-up
+
+A citation in a child could count for its ancestors, so the concept note shows what its whole subtree cites. Off by default; when on, an inherited candidate is drawn fainter than a direct one and shows the note it comes from. Cost: the number of candidates grows with the subtree.
+
+* Phase 2: candidates from DEVONthink
+
+A second layer, =similar=, off by default, with a candidate =note SIMILAR litnote= when DEVONthink's see-also (=compare=, which returned 40 records for a record in a test on 2026-10-31) ranks the litnote's record near the note's concept:
+
+- A DEVONthink record can only be compared if it exists there. A concept note is not a record, so the options are to compare the records of the litnotes the note already cites (similar to what it cites), or to search DEVONthink for the note's title and aliases, or to import the note's text as a record. Whether =compare= accepts text instead of a record is untested.
+- The record to litnote step uses the citekey map of =sp-devonthink= (record file name equals citekey), so this phase needs #209's first step.
+- Results are cached per note with the DEVONthink modification date, because each =osascript= call takes about half a second.
+- It is a layer of its own, never mixed into =citations=, and refined with the same command.
+
+* Alternatives considered
+
+- /Write the candidates into the notes as meta lines./ Rejected: each unreviewed candidate would add text to notes; the layer would not be switchable and would need cleaning.
+- /A second SQLite file for candidates./ Rejected for phase 1: the Vulpea extractor keeps citations in =vulpea.db= under the same sync; a second file needs its own freshness handling.
+- /Rescan the files on every redraw./ Rejected: it works for a small vault but not the live view, and has no positions.
+- /Make =cites= a typed relation like the others, with no layer./ Rejected: you asked for a layer you can turn off, and a citation has no meaning until refined.
+- /Port discourse-graphs' commands for creating links./ Not needed: refinement writes the same meta lines and properties the annotator already reads.
+
+* Consequences
+
+- Changes to =sp-graphs=: =:layer= and =:style= on relations, =relationship-annotator-layers=, the =(citations)= source, =rel-anno-toggle-layer= and =rel-anno-cite-refine=; the browser page template has to read the layer and style.
+- A new Vulpea extractor and table in =vulpea.db=; the first sync after adding it re-indexes the notes.
+- Notes that cite a key with no litnote are not edges. They are listed in the report of the layer (and optionally drawn as a node with the key as its title).
+- /Untested/: nothing was run. Open points, in the order to verify them: how Vulpea exposes =ROAM_REFS= and the extractor API in your installed version; whether the browser page can draw a dashed edge; whether =compare= accepts text.
+
+* Open questions for you
+
+1. Should a citation in a child note roll up to the concept? (Proposal: off by default.)
+2. Is =is-part-of= a second tree, or another label for =parent=?
+3. Should a cited key with no litnote appear as a node, or only in the report?
+4. When refining, should the line go in the concept note (proposal) or in the litnote?
+
+* Order of work
+
+1. Probe the two Vulpea points above; write results here.
+2. Layers: =:layer=, =:style=, =rel-anno-toggle-layer=; no citations yet.
+3. The =citations= extractor and the =cites= relation: phase 1.
+4. =rel-anno-cite-refine= and the added relations.
+5. Phase 2 after the DEVONthink citekey map (#209).
