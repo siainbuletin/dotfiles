@@ -152,7 +152,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/custom/sp-org-tag-groups.org][sp-org-tag-groups]] :: Org tags as emoji in the modeline and on links ([[file:libraries/modules/custom/sp-org-tag-groups.el][sp-org-tag-groups.el]])
 - [[file:docs/tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - [[file:docs/tangles/custom/sp-embr.org][sp-embr]] :: Show the live relationship graph in an Emacs buffer with embr.el or xwidget-webkit, and compare them ([[file:libraries/modules/custom/sp-embr.el][sp-embr.el]])
-- [[file:docs/tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude (not loaded or tangled while it is redesigned)
+- [[file:docs/planned/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude (not loaded or tangled while it is redesigned)
 - sp-trails :: no literate source yet ([[file:libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:docs/tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:docs/tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
