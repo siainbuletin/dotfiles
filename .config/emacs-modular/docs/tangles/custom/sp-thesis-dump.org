@@ -158,7 +158,31 @@ It is then the directory with a .dir-locals.el above this one, else the
   "Most characters of the context file to put in the prompt."
   :type 'integer
   :group 'spcustom)
+
+(defcustom sp-thesis-dump-trust-local-variables nil
+  "Non-nil means treat every file-local variable as safe while the module runs.
+The module then binds `enable-local-variables' to :all when it reads the
+project's .dir-locals.el and when it visits the task file, so Emacs does not
+ask about unsafe values.  Nothing is changed outside those two places.
+This is a risk: any variable in those files is applied without a question,
+including values that could run code (for example hooks or `eval' forms
+allowed by `enable-local-eval').  Turn it on only for projects you wrote
+yourself.  It describes the machine, so it is not read from .dir-locals.el."
+  :type 'boolean
+  :group 'spcustom)
+
+(defun sp-thesis-dump--local-variables-setting ()
+  "Value for `enable-local-variables' while the module visits project files."
+  (if sp-thesis-dump-trust-local-variables :all enable-local-variables))
 #+end_src
+
+** Trusting local variables
+
+By default Emacs asks before it applies unsafe file-local or directory-local variables, and that question also appears when this module reads =.dir-locals.el= or visits the task file.
+
+- =sp-thesis-dump-trust-local-variables= (default =nil=) turns the question off: while the module runs, =enable-local-variables= is bound to =:all= in two places only, when the project's directory-local variables are read and when the task file is visited. Nothing global is changed.
+- *Risk:* every variable in those files is then applied without a question, including values that can run code (hooks, or =eval= forms where =enable-local-eval= allows them). Turn it on only for projects you wrote yourself.
+- It describes the machine, so like the =claude= settings it has no =:safe= predicate and a =.dir-locals.el= cannot switch it on for itself.
 
 ** Project options
 
@@ -272,7 +296,8 @@ The root comes from an explicit setting, a =.dir-locals.el= above the current di
   "Alist of the project variables as they are for files in ROOT."
   (with-temp-buffer
     (setq default-directory root)
-    (hack-dir-local-variables-non-file-buffer)
+    (let ((enable-local-variables (sp-thesis-dump--local-variables-setting)))
+      (hack-dir-local-variables-non-file-buffer))
     (mapcar (lambda (var) (cons var (buffer-local-value var (current-buffer))))
             sp-thesis-dump--project-variables)))
 #+end_src
@@ -817,7 +842,9 @@ The answer is shown for review. Everything in it can be edited, including deleti
         (result (current-buffer))
         start)
     (make-directory (file-name-directory (sp-thesis-dump--tasks-path ctx)) t)
-    (with-current-buffer (find-file-noselect (sp-thesis-dump--tasks-path ctx))
+    (with-current-buffer (let ((enable-local-variables
+                                (sp-thesis-dump--local-variables-setting)))
+                           (find-file-noselect (sp-thesis-dump--tasks-path ctx)))
       (unless (derived-mode-p 'org-mode) (org-mode))
       (widen)
       (save-excursion

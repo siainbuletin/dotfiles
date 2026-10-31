@@ -166,8 +166,12 @@ a PDF goes to `sp-fetch-academic-download'."
 (global-set-key (kbd "C-c w b u") #'sp-fetch-academic-download)
 (global-set-key (kbd "C-c w b s") #'sp-fetch-academic-omni)
 
+(use-package request :ensure t)
+(use-package counsel :ensure t)
+
 (use-package litdb
-  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el"))
+  :ensure (litdb :type git :host github :repo "jkitchin/litdb" :branch "main" :files "litdb.el")
+  :after (hydra request counsel org-ref))
 
 (provide 'sp-fetch-academic)
 ;;; sp-fetch-academic.el ends here
