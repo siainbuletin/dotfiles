@@ -12,6 +12,10 @@ Most of my operating system needs revolve around Emacs. Although there's a regul
 
 All of the existing configurations and their names (so you can start with Emacs with the proper flair in the terminal, as ~emacs --with-profile=<name>~ can be found declared in ~.emacs.profiles.el~ in the top directory.
 
+** Listening list
+
+A listening list built from my vulpea album notes and Last.fm history: it records when I first listened to an album in full, flags partial listens for rating, shuffles the next album, and syncs the queue to my iPod. The plan is in [[file:.config/listening/PLAN.org][.config/listening/PLAN.org]]; nothing in it is built yet.
+
 ** Reviewing and merging AI-made changes on macOS
 
 On my Mac, most changes to this repository are written by Claude in a cloud session and arrive as pull requests, often several at once and sometimes stacked. This section summarises the choices I use now. The reasons, the alternatives I looked at and the consequences are in the decision records in [[file:adr/README.org][adr/]], one file per decision. Nothing here applies to the Arch machines above.

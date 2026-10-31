@@ -1,0 +1,101 @@
+#+title: Listening list: plan
+#+date: 2026-10-28
+#+status: draft, waiting for my edits before step 1 starts
+#+STARTUP: content
+
+A listening list that draws from albums I have already shown interest in, records the date I first listened to each one /in full/ from my Last.fm history, lets me shuffle for the next album, and puts the queue on my iPod.
+
+#+begin_quote
+*What has and has not been run.* This plan was written from a Linux container. Nothing in it has been built or tried yet. Last.fm, beets, =beets-alternatives=, libgpod and Navidrome details come from their documentation; I have not checked them against my own machines.
+#+end_quote
+
+* What I already have
+
+- *Wishlist links.* Several =.md= files of RateYourMusic and Bandcamp links.
+- *vulpea notes.* =.org= notes tagged =album= or =musician=. The =album= schema in [[file:../emacs-modular/libraries/modules/vulpea/sp-vulpea-schemas.el][sp-vulpea-schemas.el]] already has =creator=, =name=, =genre=, =genre-influences=, =year= and =rating= (a number).
+- *beets.* A large local library. It stays local and is not uploaded anywhere. [[file:../emacs-modular/docs/tangles/media/sp-beets.org][sp-beets]] already gives =beets-edit-mode= in Emacs.
+- *Last.fm.* Full scrobble history. The API key is not stored in this repository (see [[*Secrets]]).
+- *iPod on stock OS.* Not Rockbox. Synced from both macOS and Arch Linux, and later from my Navidrome server.
+
+* Rules
+
+- *Fully listened* means every track on the album's tracklist was scrobbled in one listening session. A session ends after a gap of more than 3 hours with no scrobble from that album. The gap is a setting.
+- *First listened* is the date of the first session that counts as fully listened.
+- *Partial listen*: a session that played some tracks of an album but not all. It is flagged, and Emacs asks me to rate the album or mark it to revisit.
+- My notes are the source of truth. The script only reads Last.fm and beets, and only Elisp writes to my notes.
+
+* New fields on album notes
+
+Added to the =album= schema as vulpea meta, like the existing fields:
+
+| Field            | Type   | Meaning                                                  |
+|------------------+--------+----------------------------------------------------------|
+| =listen-status=  | string | one of =queued=, =listened=, =partial=, =revisit=, =dropped= |
+| =first-listened= | date   | date of the first full session                           |
+| =last-partial=   | date   | date of the latest partial session, while unresolved      |
+| =rym=            | string | RateYourMusic URL                                        |
+| =bandcamp=       | string | Bandcamp URL                                             |
+| =mbid=           | string | MusicBrainz release group ID, when known (best for matching) |
+
+=rating= is reused as it is.
+
+* Steps
+
+** 1. Gather the wishlist into vulpea
+
+- A one-off import reads the =.md= files and pulls out every RYM and Bandcamp link.
+- RYM URLs (=/release/album/<artist>/<album>/=) and Bandcamp URLs (=<artist>.bandcamp.com/album/<album>=) give the artist and title slugs.
+- Each link is matched to an existing =album= note by creator and name. If none matches, a new note is created with =listen-status: queued=.
+- RYM has no public API, so =year= and =genre= come from MusicBrainz where it finds a match. Otherwise they are left empty, and the schema check lists them for me to fill in.
+- Albums already in beets get their =mbid= from beets, which makes the later matching reliable.
+- Output: a review buffer listing what was matched, created or skipped, before anything is written.
+
+** 2. History script
+
+A small Python script, =.config/listening/lastfm-listens=, run from Emacs or the shell.
+
+- Fetches scrobbles with =user.getRecentTracks= (200 per page) and caches them in SQLite under =$XDG_DATA_HOME/listening/=. After the first full download it only asks for scrobbles newer than the last one it has.
+- Groups each album's scrobbles into sessions (see [[*Rules]]).
+- Gets each album's tracklist from beets first (=beet ls -f=), then Last.fm =album.getInfo=, then MusicBrainz. Bonus tracks and differing editions are the hard case. Where sources disagree, the beets tracklist wins.
+- Prints JSON: one entry per album with its complete sessions, partial sessions, the tracks missed, and the MBID and names used for matching.
+- It writes nothing outside its own cache.
+
+** 3. Emacs layer (=sp-listening=)
+
+A literate module, =docs/tangles/media/sp-listening.org=, tangled to =libraries/modules/media/sp-listening.el= like the other media modules.
+
+- =sp-listening-sync-history= runs the script and reads the JSON. It matches albums to notes by =mbid=, then by creator and name. It sets =first-listened= and =listen-status: listened=, and shows anything unmatched in a buffer.
+- For each partial listen it asks, one album at a time: rate now (writes =rating=), mark =revisit=, or =dropped=.
+- =sp-listening-shuffle= picks a random =queued= album. It takes optional filters by genre, year range or creator from the existing metadata, and can favour albums that have waited longest.
+- An org-ql view (or a dashboard block, like the existing ones) shows the queue, recent listens and open partials.
+
+** 4. Sync to the iPod, and later Navidrome
+
+One =.config/listening/sync= command with a swappable /source/ and /target/, so it works the same on macOS and Linux.
+
+- *Queue to beets.* Queued albums that beets has get a flexible field, =beet modify listen_queue=1=. Albums that finish or drop get it removed.
+- *Source:* beets now. Later, Navidrome through the Subsonic API: the script keeps a "Listening queue" playlist there and downloads its files.
+- *Target:* a =beets-alternatives= collection with the query =listen_queue:1=. It fills a staging folder and converts to AAC or ALAC, since stock OS cannot play FLAC or Opus.
+- *Last step, per machine.* On Linux, a libgpod-based tool writes the iPod database directly; which tool is still to choose. On macOS, the staging folder is added to a "Listening queue" playlist in Music (scriptable with =osascript=), and Finder syncs it.
+- Bandcamp-only albums I don't own yet stay in the Emacs queue but cannot sync until they are in beets.
+
+* Where the code lives
+
+| Piece                 | Path                                                   |
+|-----------------------+--------------------------------------------------------|
+| This plan             | =.config/listening/PLAN.org=                           |
+| History script, sync  | =.config/listening/=                                   |
+| Emacs module          | =.config/emacs-modular/docs/tangles/media/sp-listening.org= |
+| Schema fields         | =sp-vulpea-schemas.el=                                 |
+| beets-alternatives config | my beets =config.yaml= (not in this repository yet) |
+
+* Secrets
+
+The Last.fm API key never goes into this repository. Emacs reads it with =auth-source= (from =~/.authinfo.gpg=, host =ws.audioscrobbler.com=) and passes it to the script in the environment variable =LASTFM_API_KEY=. The shell uses the same variable.
+
+* Open questions
+
+- Is a 3-hour gap the right session boundary, or should "every track" count across several days?
+- Where do the =.md= wishlist files live, and what does one look like? One sample is enough.
+- A sample =album= note, so the import matches how I write meta and file names.
+- Which libgpod tool on Arch, and is my beets =config.yaml= worth adding to this repository?
