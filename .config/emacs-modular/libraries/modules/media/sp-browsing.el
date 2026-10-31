@@ -69,6 +69,14 @@ ignored).  Put plain `setq' forms in it, for example
   :ensure (browser-hist :host github :repo "agzam/browser-hist.el")
   :demand t) ; `consult-omni-browser-history' requires it
 
+(defun sp-consult-omni-load-module (symbol)
+  "Load the consult-omni source SYMBOL; skip it when a package it needs is missing."
+  (condition-case err
+      (require symbol nil t)
+    (error
+     (message "consult-omni: source `%s' skipped: %s" symbol (error-message-string err))
+     nil)))
+
 (use-package consult-omni
   :ensure nil
   :load-path (sp-consult-omni-dir sp-consult-omni-sources-dir)
@@ -98,6 +106,10 @@ ignored).  Put plain `setq' forms in it, for example
   ;; themselves are defined when the loader runs.  Without this call the list
   ;; of sources stays empty and any search fails with "Args out of range: [], 0".
   (require 'consult-omni-sources)
+  ;; A source requires the package it searches (`elfeed', `notmuch', `consult-gh'...).
+  ;; `require' with NOERROR only covers the source file itself, so one missing
+  ;; package aborted this whole `:config'.  Skip that source and say so.
+  (advice-add 'consult-omni-sources--load-module :override #'sp-consult-omni-load-module)
   (consult-omni-sources-load-modules)
   ;; Embark actions on the results
   (with-eval-after-load 'embark-consult
