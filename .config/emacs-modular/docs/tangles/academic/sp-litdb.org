@@ -53,7 +53,7 @@ For every PDF record in DEVONthink that has highlights, one litdb row for each p
 
 ** How big it is
 
-One record with 29 highlights on 8 pages took about 4 seconds to index (including loading the model, which dominates). The database has about 1,100 records with highlights; the number of highlighted pages is not known until the script is run with =--dry-run=. As a rough estimate (not measured), a few thousand rows to a few tens of thousands, minutes to indexing and tens of megabytes. Index everything and it would be millions of chunks, and mostly pages you never read; that is why only highlighted pages are indexed.
+Measured with =--dry-run= on 2026-10-31: 899 PDF records have highlights, with 31,105 highlights on 5,001 highlighted pages. That is 5,001 litdb rows. One record with 29 highlights on 8 pages took about 4 seconds to index, nearly all of it loading the model; reading the 899 PDFs for the dry run took about twenty minutes (PDF reading, not embedding, is the slow part, and the dry run reads every file). The full indexing time and the size of the database file have not been measured. Index everything and it would be millions of chunks, mostly of pages you never read; that is why only highlighted pages are indexed.
 
 ** Running the indexer
 
@@ -68,6 +68,9 @@ One record with 29 highlights on 8 pages took about 4 seconds to index (includin
 - The index is the =litdb.libsql= file next to =litdb.toml= (=~/=, or =LITDB_ROOT=). To start over, remove the rows with =litdb remove SOURCE= or delete the file.
 
 ** The search process
+
+=consult-omni= (=sp-browsing=, #207) also has a litdb source. It starts the =litdb= command for every search, which loads the embedding model each time, and it shows the plain source of each row. =sp-litdb= keeps one process with the model loaded, shows =key p. N= candidates, and has the Embark actions below; the two do not conflict, and the consult-omni source is still the way to search litdb together with the web sources.
+
 
 =litdb vsearch= loads the embedding model on every call. =tools/litdb-query.py= keeps it loaded and answers JSON lines on standard input (words, meaning, or both merged by reciprocal rank); Emacs starts it on the first search, which waits for the model, and later searches are quick. =M-x sp-litdb-stop= stops it. It only reads the database.
 
