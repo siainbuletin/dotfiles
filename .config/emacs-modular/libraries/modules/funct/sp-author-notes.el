@@ -96,6 +96,14 @@ leave the link alone."
   :type 'function
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-disambiguate-function #'sp-author-notes-read-disambiguation
+  "Function that decides what a list of names separated by commas means.
+It is called with the text and the list of names proposed for it, when
+the changes are written.  It returns the names to make authors of, or
+nil to leave the text as it is."
+  :type 'function
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-backup-directory
   (expand-file-name "author-notes-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
@@ -248,17 +256,45 @@ known key is never a typo."
         (concat (cadr parts) " " (car parts))
       name)))
 
+(defun sp-author-notes--comma-proposal (segment)
+  "Propose the authors of SEGMENT, a list with more than one comma, as a list of names.
+When the text before the first comma has two words or more, every
+comma-separated piece is a name: \"Ann Lee, Bo Roe, Cy Poe\".  Otherwise
+the pieces are \"Last, First\" pairs, flipped when
+`sp-author-notes-flip-names' is set.  Nil when the pieces cannot be paired."
+  (let ((pieces (split-string segment "," t "[ \t]+")))
+    (if (string-match-p "[ \t]" (car pieces))
+        (mapcar #'sp-author-notes--clean-name pieces)
+      (when (cl-evenp (length pieces))
+        (cl-loop for (last first) on pieces by #'cddr
+                 collect (sp-author-notes--clean-name (concat last ", " first)))))))
+
+(defun sp-author-notes-read-disambiguation (raw names)
+  "Ask whether RAW is the authors NAMES.  Return NAMES when it is, else nil."
+  (when (y-or-n-p (format "\"%s\" may be %d authors: %s.  Make one author each? "
+                          raw (length names) (string-join names " | ")))
+    names))
+
 (defun sp-author-notes--plain-names (text)
   "The names in TEXT, which has no links or quoted names.
-A stray quote mark is dropped.  Names are separated by `;' or `and'."
-  (seq-remove #'string-empty-p
-              (mapcar (lambda (n) (sp-author-notes--clean-name (string-trim n "[ \t,]+" "[ \t,]+")))
-                      (split-string text "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))))
+A stray quote mark is dropped.  Names are separated by `;' or `and'.
+Each element is a name, or (:ambiguous RAW NAMES) for a piece with more
+than one comma, which may be one author or several: RAW is the text and
+NAMES the split proposed by `sp-author-notes--comma-proposal'."
+  (let (out)
+    (dolist (segment (split-string (replace-regexp-in-string "[\"“”]" "" text)
+                                   "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))
+      (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
+        (cond ((string-empty-p segment))
+              ((> (length (split-string segment "," t "[ \t]+")) 2)
+               (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
+              (t (push (sp-author-notes--clean-name segment) out)))))
+    (seq-remove (lambda (x) (and (stringp x) (string-empty-p x))) (nreverse out))))
 
 (defun sp-author-notes--parse-value (value)
   "Split the meta VALUE into authors.
-Return a list of (:link ID RAW), (:denote IDENTIFIER RAW) and (:name NAME)
-items, in order, or `unparsed' when links are mixed with other words.
+Return a list of (:link ID RAW), (:denote IDENTIFIER RAW), (:name NAME) and
+\(:ambiguous RAW NAMES) items, in order, or `unparsed' when links are mixed with other words.
 A name can be quoted (\"Ann Lee\", \"Bo Roe\" or \"Ann Lee\" \"Bo Roe\"), so the
 comma between quoted names separates them; a quote mark with no partner
 is dropped."
@@ -272,7 +308,7 @@ is dropped."
                           (t (list :quoted (match-string 4 value)))))
              (before (substring value pos beg)))
         (dolist (name (sp-author-notes--plain-names before))
-          (push (list :name name) items)
+          (push (if (stringp name) (list :name name) name) items)
           (push name loose))
         (if (eq (car token) :quoted)
             (let ((name (sp-author-notes--clean-name (cadr token))))
@@ -281,7 +317,7 @@ is dropped."
           (push token items))
         (setq pos end)))
     (dolist (name (sp-author-notes--plain-names (substring value pos)))
-      (push (list :name name) items)
+      (push (if (stringp name) (list :name name) name) items)
       (push name loose))
     (if (and linked loose) 'unparsed (nreverse items))))
 
@@ -511,7 +547,7 @@ vault has that identifier and an :ID:."
 
 (defun sp-author-notes--litnote-pass (run file)
   "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed denoted)
+  (let (fixes suspects converted authors unparsed denoted ambiguous)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -523,6 +559,19 @@ vault has that identifier and an :ID:."
             (if (eq items 'unparsed)
                 (push (cons value line) unparsed)
               (let (parts changed)
+                (cl-flet ((do-name (name line)
+                            (let ((id (sp-author-notes--resolve run name file line)))
+                              (cond
+                               ((stringp id)
+                                (push (cons id name) authors)
+                                (push (format "[[id:%s][%s]]" id name) parts)
+                                (push (list name id line) converted)
+                                (setq changed t))
+                               ((eq id :pending)
+                                (push (cons nil name) authors)
+                                (push (list name nil line) converted)
+                                (push name parts))
+                               (t (push name parts))))))
                 (dolist (item items)
                   (pcase item
                     (`(:link ,id ,raw)
@@ -540,19 +589,14 @@ vault has that identifier and an :ID:."
                            (push (cdr new) parts)
                            (setq changed t))
                        (push raw parts)))
-                    (`(:name ,name)
-                     (let ((id (sp-author-notes--resolve run name file line)))
-                       (cond
-                        ((stringp id)
-                         (push (cons id name) authors)
-                         (push (format "[[id:%s][%s]]" id name) parts)
-                         (push (list name id line) converted)
-                         (setq changed t))
-                        ((eq id :pending)
-                         (push (cons nil name) authors)
-                         (push (list name nil line) converted)
-                         (push name parts))
-                        (t (push name parts)))))))
+                    (`(:name ,name) (do-name name line))
+                    (`(:ambiguous ,raw ,names)
+                     (let ((chosen (and names (sp-author-notes--run-apply run)
+                                        (funcall sp-author-notes-disambiguate-function raw names))))
+                       (push (list raw names line chosen) ambiguous)
+                       (if chosen
+                           (dolist (name chosen) (do-name name line))
+                         (push raw parts)))))))
                 (when changed
                   (sp-author-notes--replace
                    (plist-get entry :value-beg) (plist-get entry :value-end)
@@ -565,7 +609,8 @@ vault has that identifier and an :ID:."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed :denoted denoted)))
+          :authors authors :unparsed unparsed :denoted denoted
+          :ambiguous ambiguous)))
 
 (defun sp-author-notes--dblock-text ()
   "The text of the query table block for `sp-author-notes-works-spec'."
@@ -753,7 +798,7 @@ folder.  A failure is recorded as a problem."
                               run file (lambda () (sp-author-notes--litnote-pass run file))))
                     (result (car wrapped)))
           (when (or (plist-get result :fixes) (plist-get result :suspects)
-                    (plist-get result :denoted)
+                    (plist-get result :denoted) (plist-get result :ambiguous)
                     (plist-get result :converted) (plist-get result :unparsed))
             (push (cons file result) (sp-author-notes--run-litnotes run)))
           (dolist (author (plist-get result :authors))
@@ -897,6 +942,21 @@ folder.  A failure is recorded as a problem."
           (sp-author-notes--insert-line
            (format "  %s:%d  %s" (sp-author-notes--short (car c)) (nth 3 c) (nth 1 c))
            (car c) (nth 3 c)))))
+    ;; Disambiguation
+    (let ((amb (cl-loop for (file . r) in lits
+                        append (mapcar (lambda (a) (cons file a)) (plist-get r :ambiguous)))))
+      (sp-author-notes--heading "Lists of names with commas, to disambiguate" (length amb))
+      (if (null amb) (insert "  none\n")
+        (dolist (a amb)
+          (pcase-let ((`(,file ,raw ,names ,line ,chosen) (list (car a) (nth 1 a) (nth 2 a) (nth 3 a) (nth 4 a))))
+            (sp-author-notes--insert-line
+             (format "  %s:%d  \"%s\"\n      as %d: %s\n      %s"
+                     (sp-author-notes--short file) line raw (length names)
+                     (string-join names " | ")
+                     (cond (chosen "split into these authors")
+                           (apply "left as it is")
+                           (t "will ask whether to split it")))
+             file line)))))
     ;; Denote links
     (let ((den (cl-loop for (file . r) in lits
                         append (mapcar (lambda (d) (cons file d)) (plist-get r :denoted)))))
