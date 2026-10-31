@@ -10,7 +10,7 @@ On the graph of a concept note, such as /value form/ with its children (each wit
 
 1. As a separate relationship, a layer of /possible citations/ that can be switched off.
 2. First built only from =[cite:@key]= mentions in your own Org notes.
-3. Then, one by one, refined into a typed relation from =discourse-graphs= (=supports=, =opposes=, =defends=, =is-part-of=, ...).
+3. Then, one by one, refined into a typed relation (=supports=, =opposes=, =develops=; =is-part-of= is reserved for later).
 4. Later, extended with candidates from DEVONthink's similarity between records.
 
 * How the annotator works now
@@ -21,17 +21,87 @@ On the graph of a concept note, such as /value form/ with its children (each wit
 - A relation that does not fit its subject and object types is reported as an anomaly, not refused.
 - There is no notion of a layer: every relation in the alist is always drawn.
 
+* What a "note" is here
+
+A /note/ is a Vulpea node: a whole file with a top-level =:ID:= (the =Value form= concept note is one), or a heading with its own =:ID:= inside a file. The /value form/ file has headings with their own =:ID:= and a =parents= line, such as /Negative dialectics and the development of the value form/ (parent: /Negative dialectics/). Those headings are what "a child note" means in this design: a node that has its own ID and its own =parents=, whether it is a separate file or a heading inside the parent's file.
+
+* How each note ends up related by citation
+
+** The rule
+
+A =[cite:@key]= belongs to the /nearest node above it/ that has an =:ID:=. If the text is under a heading with no =:ID:=, it climbs to the heading above, and at the top to the file's own node. Every key in the citation (=[cite:@a; @b p. 5]=, =[cite/t:@a]=) makes one edge:
+
+#+begin_example
+NODE --cites--> LITNOTE        (the note whose ROAM_REFS has @key)
+#+end_example
+
+The edge runs from the citing note to the thing cited, so a litnote never "cites" a concept: it is cited by it. Reading it backwards from the litnote gives its inverse, "cited by". Two notes that cite the same litnote are not joined to each other by an edge; they meet at that litnote's node, which is how the graph shows that they draw on the same source.
+
+Details:
+
+- The same key cited twice in one node is one edge (the number of mentions can be shown as its weight).
+- A litnote can itself cite other litnotes (a review that cites an article): that is an edge between two litnotes, handled by the same rule. A litnote citing its own key is ignored.
+- A key that appears in the text but has no =.bib= entry either is still a key; see the next section for what it becomes.
+
+** A worked example
+
+Suppose these are your notes (the keys are made up for the example):
+
+| Node                                                    | Kind                     | What its text cites                        |
+|---------------------------------------------------------+--------------------------+--------------------------------------------|
+| Value form                                              | concept, file node       | =[cite:@backhaus-1969-dialek-wertf]= under "Important articles on the value form", which has no ID of its own |
+| Negative dialectics and the development of the value form | heading node, =parents= Value form | =[cite:@arthur-2002-new-dialec-marx; @reichelt-2008-neue-marx]= |
+| Later developments                                      | heading node under the one above, =parents= it | =[cite:@arthur-2002-new-dialec-marx p. 14]= |
+| Is the value form dialectical?                          | heading node, =parents= Value form | =[cite:@heinrich-2012-intro-marx]=, which has no litnote |
+
+The litnotes are =backhaus-1969-dialek-wertf=, =arthur-2002-new-dialec-marx= and =reichelt-2008-neue-marx=. The key =heinrich-2012-intro-marx= has no litnote yet.
+
+Edges the layer would create (all dashed, all =cites=):
+
+#+begin_example
+Value form                                    -> backhaus-1969-dialek-wertf       (litnote)
+Negative dialectics and the development ...   -> arthur-2002-new-dialec-marx      (litnote)
+Negative dialectics and the development ...   -> reichelt-2008-neue-marx          (litnote)
+Later developments                            -> arthur-2002-new-dialec-marx      (litnote, one node, two citing notes)
+Is the value form dialectical?                -> heinrich-2012-intro-marx         (key only, no litnote)
+#+end_example
+
+and the picture around /Value form/ (the =parent= edges are the tree that exists today):
+
+#+begin_example
+Value form ---------------------------------------> backhaus-1969-dialek-wertf
+ ├─ Negative dialectics and the dev... --> arthur-2002-new-dialec-marx <-- Later developments
+ │       │                                                                  ▲
+ │       └--> reichelt-2008-neue-marx                      (child of the previous node)
+ └─ Is the value form dialectical? ---> ┌ ─ ─ ─ ─ ─ ─ ─ ┐
+                                        heinrich-2012-intro-marx   (dotted: not started)
+                                        └ ─ ─ ─ ─ ─ ─ ─ ┘
+#+end_example
+
+Because the layer is a separate group of edges, switching it off leaves only the tree.
+
+** Roll-up: what the concept shows for its children
+
+By the rule above, /Value form/ is related by citation only to what its /own/ text cites: =backhaus-1969-dialek-wertf=. Nothing the child nodes cite is attributed to it. Roll-up is an option that changes this: with it on, /Value form/ also shows the citations of its descendants, so it would also point at =arthur-2002-new-dialec-marx=, =reichelt-2008-neue-marx= and =heinrich-2012-intro-marx=. An inherited edge is drawn fainter than a direct one, and its tooltip names the note it comes from (here, the child). It is off by default because a concept with a large subtree would otherwise be surrounded by every source of every descendant. Which default you want is still open (see the questions at the end).
+
+** A citekey with no litnote
+
+A key that no note has in =ROAM_REFS= still appears in the graph, as a /key-only node/ drawn differently so it is clear that no work has begun on it:
+
+- Dotted outline, muted fill, and a label such as "no note yet" in the place where other nodes show their badge.
+- The node's title is the entry's title from the =.bib= file when the key is found there (with the author and year), otherwise the key itself. It has no ID: its identity is the key, so two notes citing it point at one node.
+- It is a leaf: it has no =parent= edges and no typed relations of its own.
+- Acting on it (=embark= or =RET= in the outline) offers =citar-create-note=. Once the litnote exists, the key-only node is replaced by the real note and the edges follow, with nothing written to the citing notes.
+
 * The citation layer
 
 ** Where the candidates come from
 
-A candidate edge is =note CITES litnote=: the note's text has =[cite:@key]= (org-cite syntax, including =[cite/t:@key]=, several keys separated by =;= and prefixes or page suffixes) and the key's litnote is a note with =@key= in =ROAM_REFS=.
-
-The cite lives inside a note (file-level or heading-level node), so the edge starts at the nearest enclosing node. For the /value form/ example, a =[cite:@marx-1867-capital]= in the note of one child is an edge from that child; whether the concept itself inherits it is the roll-up option below.
+A candidate is the =cites= edge of the rule above: a =[cite:@key]= in the text of a node, resolved to the litnote whose =ROAM_REFS= has =@key=, or to a key-only node when there is none.
 
 ** Reading citations from Vulpea
 
-Vulpea has an extractor mechanism (=make-vulpea-extractor= with its own tables). The proposal is one extractor, =citations=, with a table =(note-id, citekey, position)= filled while the note is indexed:
+Vulpea has an extractor mechanism (=make-vulpea-extractor= with its own tables). The proposal is one extractor, =citations=, with a table =(note-id, citekey, position)= filled while the note is indexed. The extractor applies the rule: it records each cite against the nearest enclosing node with an ID.
 
 - Candidates are then an SQL join (citation table with the =ROAM_REFS= property of the litnotes), not a scan of every file each time the graph is drawn.
 - It stays up to date with the database sync, so the live view of the annotator sees new citations by itself.
@@ -53,21 +123,59 @@ The relation is declared like the others, with two new keys:
 - A relation with no =:layer= is always on, so the existing setup does not change.
 - =:style= (dashed or faded) is only drawn; a candidate looks different from a typed edge.
 - =:sources= gets a new source kind, =(citations)=, read from the extractor table above. A source kind is a small function; the existing kinds do not change.
-- Types: litnotes would be =source= nodes (a file tag, as the type sources of =relationship-annotator-type-sources= already allow), so a candidate never shows as a type anomaly.
+- Types: litnotes would be =source= nodes (a file tag, as the type sources of =relationship-annotator-type-sources= already allow), so a candidate never shows as a type anomaly. Key-only nodes are =source= nodes too.
 
-** Refining a candidate into a typed relation
+* Refining a candidate into a typed relation
 
-A command, =rel-anno-cite-refine=, on a candidate edge (in the outline, or from the graph by =embark= on the litnote):
+** The relations
 
-1. Asks for the relation among =supports=, =opposes=, =defends=, =is-part-of=, ... (the relations of =relationship-annotator-relations= whose object type fits, plus any you add).
-2. Writes the typed edge in the note as the existing sources already do: a =- supports :: [[id:...]]= meta line, or the matching property. The subject of =supports= is the evidence; for a cite the subject is the litnote (it supports the concept), so the line goes in the litnote when the relation is read from the subject's side, or in the concept note as the inverse meta key. The inverse form keeps the citing note in charge and is the proposal.
-3. The candidate disappears, because a typed edge between the same two notes now exists: the layer only shows pairs that have no typed edge yet.
+The refinement choices are =supports=, =opposes= and =develops=. =supports= and =opposes= exist in =relationship-annotator-relations=; =develops= is new (subject: source, object: idea or claim, an inverse label "Developed By", its own colour and direction). =is-part-of= is deliberately left out of this design: its meaning (a second tree, or another label for =parent=) is to be defined later. Its name is reserved so nothing else takes it, and the refine command will list it as soon as it is defined, with no other change.
 
-=defends= and =is-part-of= do not exist in =relationship-annotator-relations= (it has =parent=, =supports=, =opposes=, =informs=, =answers=); they would be added with their own colours, directions and types. =is-part-of= overlaps with =parent=; whether it is a second tree or the same relation under another label is for you to decide.
+The subject of each is the cited source and the object is the citing note: the litnote supports, opposes or develops the concept.
 
-** Roll-up
+** Both places
 
-A citation in a child could count for its ancestors, so the concept note shows what its whole subtree cites. Off by default; when on, an inherited candidate is drawn fainter than a direct one and shows the note it comes from. Cost: the number of candidates grows with the subtree.
+Refining a candidate writes the relation in two places, so that either side shows it without the annotator:
+
+*** In the concept note (the citing note)
+
+Under that note's =Resources= heading, in a subheading =Indexed references=, three separate lists:
+
+#+begin_example
+* Resources
+** Academic
+** Other
+** Indexed references
+*** Supports
+- [[id:...][arthur-2002-new-dialec-marx]] [cite:@arthur-2002-new-dialec-marx]
+*** Opposes
+- [[id:...][...]] [cite:@...]
+*** Develops
+- [[id:...][reichelt-2008-neue-marx]] [cite:@reichelt-2008-neue-marx]
+#+end_example
+
+- =Indexed references= is created under =Resources= when missing, and =Resources= is created at the end of the note when missing. For a heading node (a child), "its =Resources= heading" is a =Resources= heading one level below it, created the same way.
+- Each of the three lists is a heading with a plain list, so it folds and can be queried. It could also be three bare lists under =Indexed references=; the headings are used because Org can fold and link them.
+- A new source kind, =(section "Indexed references" "Supports")=, reads the links in that list back as edges, with the litnote as subject. The existing kinds only read meta keys and file properties, and the list is the human-facing form, so it is the one the annotator reads on this side.
+
+*** In the litnote
+
+The litnote gets the existing meta line for the relation, with the concept as object: =- supports :: [[id:...][Value form]]= (the litnote is the subject, which is exactly what the =(meta "supports")= source reads today). Several concepts go in the same line, as the annotator already allows.
+
+*** Keeping the two in step
+
+- An edge is the union of both sides: a relation that is written on only one side still counts, and is drawn normally.
+- =rel-anno-cite-check= lists relations that are written on one side only, and, for a key-only node, relations that cannot be written on the litnote side yet because the litnote does not exist.
+- =rel-anno-cite-sync= writes the missing side (the litnote side once the litnote is created from a key-only node, or the concept side for a relation that was typed by hand in a litnote). It shows what it would write first.
+- A candidate disappears as soon as a typed edge exists between the same two notes, on either side.
+
+** The command
+
+=rel-anno-cite-refine=, on a candidate (in the outline, or from the graph through =embark= on the litnote):
+
+1. Asks for the relation: =supports=, =opposes= or =develops=.
+2. Writes both places.
+3. The candidate disappears because a typed edge now exists.
 
 * Phase 2: candidates from DEVONthink
 
@@ -84,26 +192,25 @@ A second layer, =similar=, off by default, with a candidate =note SIMILAR litnot
 - /A second SQLite file for candidates./ Rejected for phase 1: the Vulpea extractor keeps citations in =vulpea.db= under the same sync; a second file needs its own freshness handling.
 - /Rescan the files on every redraw./ Rejected: it works for a small vault but not the live view, and has no positions.
 - /Make =cites= a typed relation like the others, with no layer./ Rejected: you asked for a layer you can turn off, and a citation has no meaning until refined.
-- /Port discourse-graphs' commands for creating links./ Not needed: refinement writes the same meta lines and properties the annotator already reads.
+- /Write the refinement only in the concept note, or only in the litnote./ Rejected: you asked for both, so each side reads on its own.
+- /Port discourse-graphs' commands for creating links./ Not needed: refinement writes the same kinds of lines the annotator already reads.
 
 * Consequences
 
-- Changes to =sp-graphs=: =:layer= and =:style= on relations, =relationship-annotator-layers=, the =(citations)= source, =rel-anno-toggle-layer= and =rel-anno-cite-refine=; the browser page template has to read the layer and style.
+- Changes to =sp-graphs=: =:layer= and =:style= on relations, =relationship-annotator-layers=, the =(citations)= and =(section ...)= source kinds, the =develops= relation, key-only nodes with their own decoration, =rel-anno-toggle-layer=, =rel-anno-cite-refine=, =rel-anno-cite-check= and =rel-anno-cite-sync=; the browser page template has to read the layer, style and the key-only decoration.
 - A new Vulpea extractor and table in =vulpea.db=; the first sync after adding it re-indexes the notes.
-- Notes that cite a key with no litnote are not edges. They are listed in the report of the layer (and optionally drawn as a node with the key as its title).
-- /Untested/: nothing was run. Open points, in the order to verify them: how Vulpea exposes =ROAM_REFS= and the extractor API in your installed version; whether the browser page can draw a dashed edge; whether =compare= accepts text.
+- The refinement adds an =Indexed references= subheading to =Resources= of the concept note and a meta line to the litnote; both are plain Org that exist without the annotator.
+- /Untested/: nothing was run. Open points, in the order to verify them: how Vulpea exposes =ROAM_REFS= and the extractor API in your installed version; whether the browser page can draw a dashed edge and a dotted node; whether =compare= accepts text.
 
 * Open questions for you
 
-1. Should a citation in a child note roll up to the concept? (Proposal: off by default.)
-2. Is =is-part-of= a second tree, or another label for =parent=?
-3. Should a cited key with no litnote appear as a node, or only in the report?
-4. When refining, should the line go in the concept note (proposal) or in the litnote?
+1. Roll-up (see "Roll-up: what the concept shows for its children"): should /Value form/ also show what its children cite? The proposal is off by default.
+2. =is-part-of=: left for later definition, as asked. Nothing else is needed from you until then.
 
 * Order of work
 
 1. Probe the two Vulpea points above; write results here.
 2. Layers: =:layer=, =:style=, =rel-anno-toggle-layer=; no citations yet.
-3. The =citations= extractor and the =cites= relation: phase 1.
-4. =rel-anno-cite-refine= and the added relations.
+3. The =citations= extractor, the =cites= relation and key-only nodes: phase 1.
+4. =rel-anno-cite-refine= with =supports=, =opposes= and =develops=, the two writes, then check and sync.
 5. Phase 2 after the DEVONthink citekey map (#209).
