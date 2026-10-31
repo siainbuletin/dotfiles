@@ -1,9 +1,9 @@
 #+TITLE: sp-thesis-dump.el: Brain-dump thesis ideas, get annotated tasks and citekeys
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/custom/sp-thesis-dump.el :comments no :padline yes :noweb no :mkdirp yes
-#+PROPERTY: header-args:markdown :tangle ../../architecture/skills/thesis-brain-dump/SKILL.md :comments no :padline no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle no :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:markdown :tangle no :comments no :padline no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=.
+*Not tangled for now:* the module is being redesigned, so every block here has =:tangle no=, =libraries/modules/custom/sp-thesis-dump.el= was removed and the module is not loaded by =init.el=. The old tangle targets were =libraries/modules/custom/sp-thesis-dump.el= and for the companion Claude skill =docs/architecture/skills/thesis-brain-dump/SKILL.md=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order. The skill is in the =markdown= block at the end.
 - The =:tangle= paths in the =#+PROPERTY= lines at the top say where they are written.
@@ -63,7 +63,7 @@ Without any MCP server the module still works: it puts the headlines already und
 
 ** File header and commentary
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 ;; -*- lexical-binding: t -*-
 ;;; sp-thesis-dump.el --- Brain-dump thesis ideas, get annotated Org tasks and citekeys
 
@@ -95,7 +95,7 @@ Without any MCP server the module still works: it puts the headlines already und
 
 These describe the machine, not the project, so they are not safe as directory-local variables.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 ;;; Code:
 
 (require 'cl-lib)
@@ -158,31 +158,7 @@ It is then the directory with a .dir-locals.el above this one, else the
   "Most characters of the context file to put in the prompt."
   :type 'integer
   :group 'spcustom)
-
-(defcustom sp-thesis-dump-trust-local-variables nil
-  "Non-nil means treat every file-local variable as safe while the module runs.
-The module then binds `enable-local-variables' to :all when it reads the
-project's .dir-locals.el and when it visits the task file, so Emacs does not
-ask about unsafe values.  Nothing is changed outside those two places.
-This is a risk: any variable in those files is applied without a question,
-including values that could run code (for example hooks or `eval' forms
-allowed by `enable-local-eval').  Turn it on only for projects you wrote
-yourself.  It describes the machine, so it is not read from .dir-locals.el."
-  :type 'boolean
-  :group 'spcustom)
-
-(defun sp-thesis-dump--local-variables-setting ()
-  "Value for `enable-local-variables' while the module visits project files."
-  (if sp-thesis-dump-trust-local-variables :all enable-local-variables))
 #+end_src
-
-** Trusting local variables
-
-By default Emacs asks before it applies unsafe file-local or directory-local variables, and that question also appears when this module reads =.dir-locals.el= or visits the task file.
-
-- =sp-thesis-dump-trust-local-variables= (default =nil=) turns the question off: while the module runs, =enable-local-variables= is bound to =:all= in two places only, when the project's directory-local variables are read and when the task file is visited. Nothing global is changed.
-- *Risk:* every variable in those files is then applied without a question, including values that can run code (hooks, or =eval= forms where =enable-local-eval= allows them). Turn it on only for projects you wrote yourself.
-- It describes the machine, so like the =claude= settings it has no =:safe= predicate and a =.dir-locals.el= cannot switch it on for itself.
 
 ** Project options
 
@@ -191,7 +167,7 @@ These are the variables prompted for and saved in the project's =.dir-locals.el=
 - Paths are relative to the project root.
 - Each has a =:safe= predicate, so Emacs accepts it from =.dir-locals.el= without asking.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--list-of-strings-p (value)
   "Non-nil when VALUE is a list of strings."
   (and (listp value) (seq-every-p #'stringp value)))
@@ -275,7 +251,7 @@ Its start goes into the prompt so tasks fit the structure of the thesis."
 
 The root comes from an explicit setting, a =.dir-locals.el= above the current directory, or the project the buffer is in. The project variables are read the way Emacs would for a file in the root: a temporary buffer visiting the root gets its directory-local variables applied, including Emacs's safety check.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defvar sp-thesis-dump--last-root nil
   "Project directory of the last dump.")
 
@@ -296,8 +272,7 @@ The root comes from an explicit setting, a =.dir-locals.el= above the current di
   "Alist of the project variables as they are for files in ROOT."
   (with-temp-buffer
     (setq default-directory root)
-    (let ((enable-local-variables (sp-thesis-dump--local-variables-setting)))
-      (hack-dir-local-variables-non-file-buffer))
+    (hack-dir-local-variables-non-file-buffer)
     (mapcar (lambda (var) (cons var (buffer-local-value var (current-buffer))))
             sp-thesis-dump--project-variables)))
 #+end_src
@@ -306,7 +281,7 @@ The root comes from an explicit setting, a =.dir-locals.el= above the current di
 
 The task file and the bibliography are asked for when unset, because the command cannot work without the first and cannot tell known from unknown citekeys without the second. Everything else has a default and is asked only with a prefix argument.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--split (string separator)
   "Split STRING at the regexp SEPARATOR, trimming and dropping empty parts."
   (seq-remove #'string-empty-p
@@ -375,7 +350,7 @@ Return (VALUES . CHANGED), CHANGED being the alist of the new answers."
 
 The answers go into the =nil= entry of the project's =.dir-locals.el=, which is created if missing. Other entries of the file are kept; its comments are not (it is read and printed again).
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--write-dir-locals (root answers)
   "Store the alist ANSWERS in the nil entry of ROOT's .dir-locals.el."
   (let* ((file (expand-file-name ".dir-locals.el" root))
@@ -425,7 +400,7 @@ FORCE asks for every project variable."
 
 The keys are read from the =@type{key,= lines of the BibTeX files. =@string=, =@preamble= and =@comment= entries have no comma after the first word, so they are skipped.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--bib-keys (root files)
   "Citekeys in the BibTeX FILES (relative to ROOT)."
   (let (keys)
@@ -444,7 +419,7 @@ The keys are read from the =@type{key,= lines of the BibTeX files. =@string=, =@
 
 The prompt lists the headlines already under the target heading so Claude does not propose the same task twice. The headings this module writes itself are left out.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defconst sp-thesis-dump--own-headings
   "\\`\\(Brain dump\\|Citekeys\\|Questions\\|Raw dump\\)"
   "Headlines written by this module, which do not count as tasks.")
@@ -500,7 +475,7 @@ The prompt lists the headlines already under the target heading so Claude does n
 
 The instructions are in the prompt and not in a system prompt, so that nothing has to be installed in the project for the module to work. The answer format is a single JSON object, which is easier to check than Org text.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defconst sp-thesis-dump--instructions
   "You are helping me plan my thesis.  Below is a brain dump of ideas, loosely
 written.  Turn it into concrete tasks and list the sources I need to look up.
@@ -578,7 +553,7 @@ Calling Claude:
 - The process runs in the project root, so Claude Code picks up the project's own =CLAUDE.md=, settings and skills.
 - The call is asynchronous: Emacs stays usable and the result buffer appears when Claude is done.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--command (ctx)
   "The command line that runs Claude for CTX."
   (let ((mcp sp-thesis-dump-claude-mcp-config))
@@ -640,7 +615,7 @@ Calling Claude:
 
 The answer is =claude -p='s JSON envelope, whose =result= is Claude's text. That text should be the JSON object of the prompt, but models sometimes add a sentence or a code fence, so the object is cut out from the first ={= to the last =}=.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--payload (output)
   "The JSON object Claude answered in the envelope OUTPUT, as an alist.
 Signal an error with a readable message when there is none."
@@ -688,7 +663,7 @@ Rendering the result:
 - A key is *to look up* when it is not in the bibliography, whichever list Claude put it in.
 - A key that differs from a known key only in letter case is replaced by the known one.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defun sp-thesis-dump--clean (value)
   "VALUE as a trimmed single line, or nil when it is not a string or is blank."
   (when (stringp value)
@@ -798,7 +773,7 @@ Rendering the result:
 
 The answer is shown for review. Everything in it can be edited, including deleting tasks that are not wanted; =C-c C-c= files what is there.
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (defvar-local sp-thesis-dump--ctx nil
   "Project context of this thesis-dump buffer.")
 
@@ -842,9 +817,7 @@ The answer is shown for review. Everything in it can be edited, including deleti
         (result (current-buffer))
         start)
     (make-directory (file-name-directory (sp-thesis-dump--tasks-path ctx)) t)
-    (with-current-buffer (let ((enable-local-variables
-                                (sp-thesis-dump--local-variables-setting)))
-                           (find-file-noselect (sp-thesis-dump--tasks-path ctx)))
+    (with-current-buffer (find-file-noselect (sp-thesis-dump--tasks-path ctx))
       (unless (derived-mode-p 'org-mode) (org-mode))
       (widen)
       (save-excursion
@@ -869,7 +842,7 @@ The answer is shown for review. Everything in it can be edited, including deleti
 
 ** The dump buffer
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (define-derived-mode sp-thesis-dump-mode org-mode "Thesis-Dump"
   "Org buffer for a thesis brain dump, to be sent to Claude."
   (setq header-line-format
@@ -899,7 +872,7 @@ The answer is shown for review. Everything in it can be edited, including deleti
 
 * Commands
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 ;;;###autoload
 (defun sp-thesis-dump (&optional reconfigure)
   "Open a buffer for a thesis brain dump.
@@ -937,7 +910,7 @@ RECONFIGURE is as for `sp-thesis-dump'."
 
 * Provide
 
-#+begin_src emacs-lisp -i
+#+begin_src emacs-lisp :tangle no -i
 (provide 'sp-thesis-dump)
 ;; sp-thesis-dump.el ends here.
 #+end_src
@@ -972,7 +945,7 @@ The same procedure for Claude Code itself, for when the dump is typed into a Cla
 - Copy the tangled folder to =.claude/skills/thesis-brain-dump/= in the thesis repo.
 - It uses the =org-mcp= tools when they are connected, and edits the Org file otherwise.
 
-#+begin_src markdown
+#+begin_src markdown :tangle no
 ---
 name: thesis-brain-dump
 description: Turn a brain dump of thesis ideas into annotated Org tasks plus the citekeys to look up. Use when the user pastes loose ideas for their thesis workflow and wants tasks and sources.
