@@ -1046,6 +1046,23 @@ The dashboard remembers whether it was drawn as public.
 - If the status changed, a visible Dashboard is redrawn in its window.
 - A hidden one is killed, so it never reappears showing entries it should no longer show.
 
+** Entry cache
+
+The boxes list the open TODOs of the agenda files, and reading them through Org (visiting each file, starting =org-mode=, walking its headings) took about 2.6 s for 100 files, at every start and every redraw. They are now cached per file.
+
+- =sp-dashboard-entries-cache-file= (=dashboard-entries.eld= in =sp-cache-dir=) holds, for each agenda file, its modification time, its size and its open TODO entries.
+- At start only a file that is new, or whose time or size changed, is read through Org. The others come from the cache. A cached file that no longer exists is dropped.
+- The cache is dropped as a whole when =org-todo-keywords= changed, because that decides which headings are open. A file's own =#+TODO:= line is covered by its time and size.
+- Deadlines and scheduled dates are cached as absolute days and turned into days from today when read, so a cached entry is not a day out of date tomorrow.
+- A changed file is read from disk in a temporary buffer (no mode hooks, nothing left open), so a buffer that visits an older version cannot put stale entries in the cache. A buffer with unsaved changes is read instead, and nothing is cached for it.
+- The echo area says =[dashboard] read 100 agenda files: 99 cached, 1 re-read, in 0.01s= (and =, 2 dropped=), and the cache file is written only when something changed.
+- During one draw a list of files is still read once for all the boxes, and the public/private filtering stays in =sp-dashboard--todos=, after the read, so the cache holds private entries as well.
+- =M-x sp-dashboard-clear-entries-cache= forgets everything and redraws.
+
+Measured on 100 agenda files (339 open TODOs, Emacs 31.1 in batch with =-Q=, so none of the =org-mode= hooks of the real configuration run; a start with them takes longer, and so gains more): 2.5 to 3.1 s before; 1.2 s on the first start with no cache file; 0.00 to 0.01 s with every file cached; 0.5 s when one file changed (the first read starts Org).
+
+The reading engine was compared with org-ql on the same files and entries. org-ql finds the same 339 entries once archived trees are excluded (=(not (tags "ARCHIVE"))=); by itself it also returns the three TODOs under an =ARCHIVE= heading that the dashboard leaves out. Its time was within the noise of =org-map-entries= (2.5 to 3.4 s cold, almost all of it visiting the files), so the cache keeps =org-map-entries=, which needs no package.
+
 #+begin_src emacs-lisp -i
 ;;;; Agenda boxes
 ;; One box per agenda, laid out in a grid, each listing its most urgent TODOs.
@@ -1282,25 +1299,27 @@ nil turns the timer off; the Focus files are still watched."
       (seq-some (lambda (tag) (member tag tags)) sp-dashboard-private-tags)))
 
 ;;;;; Collecting the TODOs
-(defun sp-dashboard--days-until (timestamp)
-  "Return the days from today to the Org TIMESTAMP string, or nil."
+(defun sp-dashboard--day-number (timestamp)
+  "Return the absolute day number of the Org TIMESTAMP string, or nil."
   (when timestamp
-    (- (org-time-string-to-absolute timestamp) (org-today))))
+    (org-time-string-to-absolute timestamp)))
 
 (defun sp-dashboard--entry ()
-  "Return a plist describing the open TODO at point, or nil."
+  "Return a plist describing the open TODO at point, or nil.
+:deadline and :scheduled are absolute day numbers, which stay true as the days
+go by; `sp-dashboard--read-entries' turns them into days from today.  The
+strings carry no text properties, so the plist can go to the cache file."
   (when (org-entry-is-todo-p)
-    (let ((heading (org-get-heading t t t t)))
-      (list :heading heading
-            :state (org-get-todo-state)
-            :priority (org-get-priority
-                       (buffer-substring (line-beginning-position)
-                                         (line-end-position)))
-            :deadline (sp-dashboard--days-until (org-entry-get nil "DEADLINE"))
-            :scheduled (sp-dashboard--days-until (org-entry-get nil "SCHEDULED"))
-            :tags (org-get-tags)
-            :file buffer-file-name
-            :pos (point)))))
+    (list :heading (substring-no-properties (org-get-heading t t t t))
+          :state (substring-no-properties (org-get-todo-state))
+          :priority (org-get-priority
+                     (buffer-substring (line-beginning-position)
+                                       (line-end-position)))
+          :deadline (sp-dashboard--day-number (org-entry-get nil "DEADLINE"))
+          :scheduled (sp-dashboard--day-number (org-entry-get nil "SCHEDULED"))
+          :tags (mapcar #'substring-no-properties (org-get-tags))
+          :file buffer-file-name
+          :pos (point))))
 
 (defun sp-dashboard--score (entry)
   "Return how urgent ENTRY is; higher is more urgent."
@@ -1321,29 +1340,160 @@ boxes say they are loading instead of reading the wrong files.")
   "Hash table of the entries read from each list of files during one draw.
 Nil outside a draw, when nothing is kept.")
 
+(defcustom sp-dashboard-entries-cache-file
+  (expand-file-name "dashboard-entries.eld" sp-cache-dir)
+  "File that keeps the open TODOs of each agenda file between sessions.
+Each file is stored with its modification time and size, and is read again
+only when one of them changed."
+  :type 'file
+  :group 'sp-dashboard)
+
+(defconst sp-dashboard--entries-file-version 1
+  "Version of the cache file format; raise it when the entry plist changes.")
+
+(defvar sp-dashboard--file-entries nil
+  "Hash table from an agenda file to (MTIME SIZE ENTRIES), or nil until used.
+ENTRIES are the open TODO plists of `sp-dashboard--entry'.")
+
+(defvar sp-dashboard--entries-signature nil
+  "What the entries in `sp-dashboard--file-entries' were read with.
+See `sp-dashboard--entries-signature-now'.")
+
+(defun sp-dashboard--entries-signature-now ()
+  "Return what decides which headings are open TODOs: the format and the keywords."
+  (list sp-dashboard--entries-file-version org-todo-keywords))
+
+(defun sp-dashboard--file-entries ()
+  "Return the table of per-file entries, reading the cache file the first time."
+  (or sp-dashboard--file-entries
+      (let ((table (make-hash-table :test #'equal)))
+        (condition-case nil
+            (when (file-readable-p sp-dashboard-entries-cache-file)
+              (let ((data (with-temp-buffer
+                            (insert-file-contents sp-dashboard-entries-cache-file)
+                            (read (current-buffer)))))
+                (setq sp-dashboard--entries-signature (plist-get data :signature))
+                (dolist (item (plist-get data :files))
+                  (puthash (car item) (cdr item) table))))
+          (error (clrhash table)))
+        (setq sp-dashboard--file-entries table))))
+
+(defun sp-dashboard--save-file-entries ()
+  "Write `sp-dashboard--file-entries' to `sp-dashboard-entries-cache-file'."
+  (let (items)
+    (maphash (lambda (file value) (push (cons file value) items))
+             sp-dashboard--file-entries)
+    (condition-case err
+        (progn
+          (make-directory (file-name-directory sp-dashboard-entries-cache-file) t)
+          (with-temp-file sp-dashboard-entries-cache-file
+            (let ((print-length nil)
+                  (print-level nil))
+              (prin1 (list :signature sp-dashboard--entries-signature
+                           :files items)
+                     (current-buffer)))))
+      (error (message "[dashboard] could not write the entry cache: %s"
+                      (error-message-string err))))))
+
+(defun sp-dashboard--file-stamp (file)
+  "Return (MTIME SIZE) of FILE, the key its entries are cached under, or nil."
+  (when-let* ((attributes (and (file-readable-p file) (file-attributes file))))
+    (list (float-time (file-attribute-modification-time attributes))
+          (file-attribute-size attributes))))
+
+(defun sp-dashboard--scan-file (file unsaved)
+  "Return the open TODO entries of FILE as (t . ENTRIES), or nil if Org fails.
+FILE is read from disk in a temporary buffer, so a buffer visiting an older
+version never gives the cache stale entries and no buffer or mode hook is
+left behind.  When UNSAVED, the buffer visiting FILE is read instead."
+  (condition-case nil
+      (cons t (delq nil
+                    (if unsaved
+                        (with-current-buffer (get-file-buffer file)
+                          (save-restriction
+                            (widen)
+                            (org-map-entries #'sp-dashboard--entry nil nil 'archive)))
+                      (with-temp-buffer
+                        (insert-file-contents file)
+                        (setq buffer-file-name file)
+                        (delay-mode-hooks (org-mode))
+                        (org-map-entries #'sp-dashboard--entry nil nil 'archive)))))
+    (error nil)))
+
+(defun sp-dashboard--relative-entry (entry today)
+  "Return a copy of ENTRY whose :deadline and :scheduled are days from TODAY."
+  (let ((copy (copy-sequence entry)))
+    (dolist (key '(:deadline :scheduled) copy)
+      (when-let* ((day (plist-get copy key)))
+        (setq copy (plist-put copy key (- day today)))))))
+
 (defun sp-dashboard--read-entries (files)
   "Return every open TODO of FILES as entry plists, in no particular order.
-During a draw (`sp-dashboard--entries-cache') a list of files is read once,
-however many boxes show it."
+Each file is read through Org only when it is new or its modification time or
+size changed since the entries were cached (`sp-dashboard-entries-cache-file');
+cached files of the same name that no longer exist are dropped, and the whole
+cache goes when `org-todo-keywords' changed.  During a draw
+(`sp-dashboard--entries-cache') a list of files is read once, however many
+boxes show it."
   (require 'org)
   (or (and sp-dashboard--entries-cache
            (gethash files sp-dashboard--entries-cache))
-      (let ((started (float-time))
-            (count 0)
-            entries)
+      (let* ((started (float-time))
+             (table (sp-dashboard--file-entries))
+             (today (org-today))
+             (signature (sp-dashboard--entries-signature-now))
+             (changed nil)
+             (count 0)
+             (hits 0)
+             (dropped 0)
+             entries)
+        (unless (equal signature sp-dashboard--entries-signature)
+          (clrhash table)
+          (setq sp-dashboard--entries-signature signature
+                changed t))
         (dolist (file files)
-          (when (file-readable-p file)
+          (when-let* ((stamp (sp-dashboard--file-stamp file)))
             (setq count (1+ count))
-            (condition-case nil
-                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-                  (when entry
-                    (push entry entries)))
-              (error nil))))
-        (message "[dashboard] read %d agenda file%s in %.2fs"
-                 count (if (= count 1) "" "s") (- (float-time) started))
+            (let* ((cached (gethash file table))
+                   ;; Unsaved changes are in the buffer, not on disk: read them
+                   ;; and keep nothing.
+                   (unsaved (when-let* ((buffer (get-file-buffer file)))
+                              (buffer-modified-p buffer)))
+                   (file-entries
+                    (if (and cached (not unsaved) (equal (seq-take cached 2) stamp))
+                        (progn (setq hits (1+ hits))
+                               (nth 2 cached))
+                      (when-let* ((read (sp-dashboard--scan-file file unsaved)))
+                        (unless unsaved
+                          (puthash file (append stamp (list (cdr read))) table)
+                          (setq changed t))
+                        (cdr read)))))
+              (dolist (entry file-entries)
+                (push (sp-dashboard--relative-entry entry today) entries)))))
+        (maphash (lambda (file _)
+                   (unless (file-exists-p file)
+                     (remhash file table)
+                     (setq dropped (1+ dropped)
+                           changed t)))
+                 table)
+        (when changed
+          (sp-dashboard--save-file-entries))
+        (message "[dashboard] read %d agenda file%s: %d cached, %d re-read%s, in %.2fs"
+                 count (if (= count 1) "" "s") hits (- count hits)
+                 (if (> dropped 0) (format ", %d dropped" dropped) "")
+                 (- (float-time) started))
         (when sp-dashboard--entries-cache
           (puthash files entries sp-dashboard--entries-cache))
         entries)))
+
+(defun sp-dashboard-clear-entries-cache ()
+  "Forget the cached TODOs of every agenda file and redraw the dashboard."
+  (interactive)
+  (setq sp-dashboard--file-entries nil
+        sp-dashboard--entries-signature nil)
+  (when (file-exists-p sp-dashboard-entries-cache-file)
+    (delete-file sp-dashboard-entries-cache-file))
+  (sp-dashboard-refresh))
 
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
@@ -2398,3 +2548,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/113][#113]] 🔧 Changed the width of the dashboard boxes to its own option, =sp-dashboard-box-width= (36 columns each, borders included; it was 29 and tied to the banner), replacing =sp-dashboard-lane-width=. The banner and the title are now centred on the two columns of boxes, and the right column is as wide as the boxes or the banner, whichever is wider. Layout tested headless and in graphical Emacs 29.3.
 - [[https://github.com/siainbuletin/dotfiles/pull/124][#124]] 🐛 Fixed the slow start-up and hangs since the vulpea scan was deferred: =vulpea-db-autosync-mode= now starts five idle seconds after start-up with =vulpea-db-sync-scan-on-enable= =background= (files listed by a subprocess, only changed files parsed from the queue), replacing =sp-vulpea-scan-once=, whose foreground =vulpea-db-sync-full-scan= froze Emacs and was started by the dashboard visiting the agenda files. The dashboard reads each list of agenda files once per draw (=sp-dashboard--read-entries=) instead of once per box, shows =loading agenda files...= until =org-agenda-files= is set (=sp-dashboard-agenda-ready=) and is redrawn when it is. Added echo-area messages for the autosync start, the agenda-files refresh and the dashboard reads, each with its time. Not run in Emacs (none in the container); the cause is read from the code and unconfirmed.
 - [[https://github.com/siainbuletin/dotfiles/pull/133][#133]] 🐛 Fixed a =*scratch*= window opening beside the Dashboard at start-up: the setup now closes the other windows before drawing the Dashboard. Cause read from the code and =tabspaces= source, not run in Emacs.
+- [[https://github.com/siainbuletin/dotfiles/pull/213][#213]] 🔧 Cached the open TODOs of each agenda file in =dashboard-entries.eld= (=sp-dashboard-entries-cache-file=): only new or changed files are read at start, deleted ones are dropped, and a change of =org-todo-keywords= drops the cache. Deadlines are cached as absolute days. See [[*Entry cache][Entry cache]]. Follows #124. Tested in Emacs 31.1 batch.
