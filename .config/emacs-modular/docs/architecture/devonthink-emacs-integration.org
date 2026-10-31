@@ -61,6 +61,8 @@ A small module, =sp-devonthink= (in =libraries/modules/academic/=, loaded from =
 
 ** Search from Emacs
 
+DEVONthink search is the first run and the default; =litdb= is an optional second step for searching by meaning. Tested on 2026-10-31 on the =literature= database (15,812 records): a search for one word returned 1,455 hits in about half a second including the =osascript= start-up, and =compare= (DEVONthink's "see also") returned 40 similar records for the first hit. The concordance is not in the scripting dictionary that I checked, so it is not promised from Emacs; its two uses are covered by search operators (passed through as typed) and see-also, and the record can be opened in DEVONthink to use the concordance there.
+
 Two engines, one front end, as =consult= or =completing-read= sources:
 
 | Engine                 | Good for                                         | Where it runs                        |
