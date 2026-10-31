@@ -120,7 +120,7 @@ Highlights from DEVONthink (=extract_record_highlights= in the DEVONthink MCP) c
 | =l= link            | insert a =devonthink:= link to the record                 |
 | =t= tags            | read and set tags                                         |
 
-Tags are read from, and written to, DEVONthink only by its scripting interface (=osascript=); the prompt completes from =list_database_tags=. Tags stay in DEVONthink; this design does not mirror them into the litnote, to avoid two copies that drift apart. A later option is to mirror a small, fixed set (for example =read=) into the litnote's =read-status=.
+Tags are read from, and written to, DEVONthink only by its scripting interface (=osascript=). The prompt completes from the database's existing tags (=list_database_tags=) but does not require a match: a new topic keyword typed there is created in DEVONthink by the same write, so you are not limited to the tags that already exist. A tag that does not exist yet is marked =(new)= in the prompt, so a typo does not create a stray tag unnoticed. Several tags can be assigned at once to the marked records of the browser. The =literature= database currently has one tag, whose name holds several keywords joined by commas (=negativity,value form,New German Reading of Marx,=); a one-off command splits it into separate tags, after a preview. Tags stay in DEVONthink; this design does not mirror them into the litnote, to avoid two copies that drift apart. A later option is to mirror a small, fixed set (for example =read=) into the litnote's =read-status=.
 
 ** The two-way link between a record and its litnote
 
