@@ -9,17 +9,17 @@
   (should (equal (sp-split--extract-id-links "Plain title")
                  '("Plain title")))
   (should (equal (sp-split--extract-id-links "Reading [[id:a1][Alpha]] notes")
-                 '("Reading notes" . ("[[id:a1][Alpha]]"))))
+                 '("Reading Alpha notes" . ("[[id:a1][Alpha]]"))))
   (should (equal (sp-split--extract-id-links "[[id:a1][Alpha]] and [[id:b2]] and [[id:a1][Alpha]]")
-                 '("and and" . ("[[id:a1][Alpha]]" "[[id:b2]]")))))
+                 '("Alpha and and Alpha" . ("[[id:a1][Alpha]]" "[[id:b2]]")))))
 
 (ert-deftest sp-split-test-extract-keeps-other-links ()
   (should (equal (sp-split--extract-id-links "See [[https://x.org][X]] [[id:a1][A]]")
-                 '("See [[https://x.org][X]]" . ("[[id:a1][A]]")))))
+                 '("See [[https://x.org][X]] A" . ("[[id:a1][A]]")))))
 
 (ert-deftest sp-split-test-extract-only-links ()
   (should (equal (sp-split--extract-id-links "[[id:a1][Alpha]]")
-                 '("Alpha"))))
+                 '("Alpha" . ("[[id:a1][Alpha]]")))))
 
 (ert-deftest sp-split-test-seealso-new-line ()
   (should (equal (sp-split--body-with-seealso "Text." '("[[id:a1][A]]" "[[id:b2][B]]"))

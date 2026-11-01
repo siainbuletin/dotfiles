@@ -1867,8 +1867,9 @@ A heading can carry id links (=[[id:...][Name]]=). They do not belong in the tit
 
 =sp-split--extract-id-links= returns the heading text without its id links, and the links themselves.
 
+- Each link is replaced in the title by its description text, so only the ID is stripped; a link without a description leaves nothing.
 - Duplicate links are listed once, and extra spaces left by the removal are tidied.
-- If nothing but links makes up the heading, the title becomes the links' descriptions and no link is moved, so the note keeps a title.
+- If nothing is left of the title (only description-less links), the title is the displayed link text and no link is moved, so the note keeps a title.
 
 =sp-split--body-with-seealso= records the links in the body.
 
@@ -1884,7 +1885,8 @@ A heading can carry id links (=[[id:...][Name]]=). They do not belong in the tit
 (defun sp-split--extract-id-links (title)
   "Return (CLEAN-TITLE . LINKS) for the heading text TITLE.
 LINKS are the id links found in TITLE, as strings, in order and without
-duplicates; CLEAN-TITLE is TITLE without them, whitespace tidied.  When
+duplicates; CLEAN-TITLE is TITLE with each link replaced by its description
+(nothing, for a link without one), whitespace tidied.  When
 nothing would be left of TITLE, it is returned as the text of its links'
 descriptions and LINKS is nil, so the new note still has a title."
   (let ((links nil)
@@ -1897,7 +1899,13 @@ descriptions and LINKS is nil, so the new note still has a title."
       (let ((clean (string-trim
                     (replace-regexp-in-string
                      "[ \t]+" " "
-                     (replace-regexp-in-string sp-split--id-link-regexp "" title t t)
+                     (replace-regexp-in-string
+                      sp-split--id-link-regexp
+                      (lambda (m)
+                        (save-match-data
+                          (string-match sp-split--id-link-regexp m)
+                          (or (match-string 2 m) "")))
+                      title t t)
                      t t))))
         (if (string-empty-p clean)
             (cons (org-link-display-format title) nil)
@@ -5886,17 +5894,17 @@ emacs -Q --batch -L libraries/modules/funct -l tests/sp-split-leave-parents-test
   (should (equal (sp-split--extract-id-links "Plain title")
                  '("Plain title")))
   (should (equal (sp-split--extract-id-links "Reading [[id:a1][Alpha]] notes")
-                 '("Reading notes" . ("[[id:a1][Alpha]]"))))
+                 '("Reading Alpha notes" . ("[[id:a1][Alpha]]"))))
   (should (equal (sp-split--extract-id-links "[[id:a1][Alpha]] and [[id:b2]] and [[id:a1][Alpha]]")
-                 '("and and" . ("[[id:a1][Alpha]]" "[[id:b2]]")))))
+                 '("Alpha and and Alpha" . ("[[id:a1][Alpha]]" "[[id:b2]]")))))
 
 (ert-deftest sp-split-test-extract-keeps-other-links ()
   (should (equal (sp-split--extract-id-links "See [[https://x.org][X]] [[id:a1][A]]")
-                 '("See [[https://x.org][X]]" . ("[[id:a1][A]]")))))
+                 '("See [[https://x.org][X]] A" . ("[[id:a1][A]]")))))
 
 (ert-deftest sp-split-test-extract-only-links ()
   (should (equal (sp-split--extract-id-links "[[id:a1][Alpha]]")
-                 '("Alpha"))))
+                 '("Alpha" . ("[[id:a1][Alpha]]")))))
 
 (ert-deftest sp-split-test-seealso-new-line ()
   (should (equal (sp-split--body-with-seealso "Text." '("[[id:a1][A]]" "[[id:b2][B]]"))

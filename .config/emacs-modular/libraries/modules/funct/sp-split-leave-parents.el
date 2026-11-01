@@ -170,7 +170,8 @@ PARENT-ID is the id LINK points to."
 (defun sp-split--extract-id-links (title)
   "Return (CLEAN-TITLE . LINKS) for the heading text TITLE.
 LINKS are the id links found in TITLE, as strings, in order and without
-duplicates; CLEAN-TITLE is TITLE without them, whitespace tidied.  When
+duplicates; CLEAN-TITLE is TITLE with each link replaced by its description
+(nothing, for a link without one), whitespace tidied.  When
 nothing would be left of TITLE, it is returned as the text of its links'
 descriptions and LINKS is nil, so the new note still has a title."
   (let ((links nil)
@@ -183,7 +184,13 @@ descriptions and LINKS is nil, so the new note still has a title."
       (let ((clean (string-trim
                     (replace-regexp-in-string
                      "[ \t]+" " "
-                     (replace-regexp-in-string sp-split--id-link-regexp "" title t t)
+                     (replace-regexp-in-string
+                      sp-split--id-link-regexp
+                      (lambda (m)
+                        (save-match-data
+                          (string-match sp-split--id-link-regexp m)
+                          (or (match-string 2 m) "")))
+                      title t t)
                      t t))))
         (if (string-empty-p clean)
             (cons (org-link-display-format title) nil)
