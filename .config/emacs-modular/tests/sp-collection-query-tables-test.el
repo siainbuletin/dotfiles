@@ -194,4 +194,8 @@
       (should (equal (sp-collec-query-cell note :devonthink) "")))
     (puthash "book 1.pdf" "UUID-1" sp-collec-query--dt-uuids)
     (should (equal (sp-collec-query-cell note :devonthink)
-                   "[[x-devonthink-item://UUID-1][DEVONthink]]"))))
+                   "[[x-devonthink-item://UUID-1][x]]"))))
+
+(ert-deftest sp-collec-query-test-devonthink-header-is-short ()
+  (should (equal (sp-collec-query-header-label :devonthink) "DT"))
+  (should (equal (sp-collec-query-header-label :pdf) "Pdf")))
