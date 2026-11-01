@@ -99,6 +99,21 @@
 
 (define-key org-mode-map (kbd "M-<insert>") #'sp-org-toggle-narrow-and-sidebar)
 
+;; IDs in the collection views as links
+(defun sp-vulpea-ui-collection-link-ids (orig note col ctx)
+  "Show IDs in meta, property and computed cells as Org links.
+Around `vulpea-ui-collection--column-raw-value' (ORIG, NOTE, COL, CTX): a
+bare note ID becomes the title of its note, and links are shown by their
+description, in `org-link' face, followed with RET or a click."
+  (let ((value (funcall orig note col ctx)))
+    (if (and (memq (plist-get col :id) '(meta property fn))
+             (stringp value) (not (string-empty-p value)))
+        (sp-org-link-linkify (sp-org-link-link-ids value))
+      value)))
+
+(advice-add 'vulpea-ui-collection--column-raw-value :around
+            #'sp-vulpea-ui-collection-link-ids)
+
 ;; the backlinks widget
 
 ;;;; Custom vulpea-ui widget for unlinked mentions in a tab folder

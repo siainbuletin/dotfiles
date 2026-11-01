@@ -391,6 +391,27 @@ With =vulpea-ui-respect-narrowing= on, the sidebar only reflects the visible, na
 (define-key org-mode-map (kbd "M-<insert>") #'sp-org-toggle-narrow-and-sidebar)
 #+end_src
 
+** Links in collection views
+
+=vulpea-ui= draws the cells of a collection view as plain strings in a =tabulated-list=, so a meta value such as =[[ID:806b...][Thesis]]= showed raw, and a bare ID showed as a string of digits. =sp-vulpea-ui-collection-link-ids= is =:around= advice on =vulpea-ui-collection--column-raw-value=: for =meta=, =property= and =fn= columns it runs the value through =sp-org-link-link-ids= (a bare ID that is a note becomes its title as a link; =[[ID:..]]= becomes =[[id:..]]=) and =sp-org-link-linkify= (both in =sp-org-id-link=). The cell then shows the description in =org-link= face, and RET or a click on it follows the link, while RET elsewhere in the row still visits the note. Column widths and sorting use the shown text. The column's own tooltip (the full text) replaces the link's.
+
+#+begin_src emacs-lisp -i
+;; IDs in the collection views as links
+(defun sp-vulpea-ui-collection-link-ids (orig note col ctx)
+  "Show IDs in meta, property and computed cells as Org links.
+Around `vulpea-ui-collection--column-raw-value' (ORIG, NOTE, COL, CTX): a
+bare note ID becomes the title of its note, and links are shown by their
+description, in `org-link' face, followed with RET or a click."
+  (let ((value (funcall orig note col ctx)))
+    (if (and (memq (plist-get col :id) '(meta property fn))
+             (stringp value) (not (string-empty-p value)))
+        (sp-org-link-linkify (sp-org-link-link-ids value))
+      value)))
+
+(advice-add 'vulpea-ui-collection--column-raw-value :around
+            #'sp-vulpea-ui-collection-link-ids)
+#+end_src
+
 ** Backlinks widget
 
 *** Previews
