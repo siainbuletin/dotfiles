@@ -96,5 +96,33 @@
         (should (plist-get (sp-author-notes-bibtex--at-point) :key))
         (kill-buffer)))))
 
+(ert-deftest sp-an-bib-test-no-files ()
+  (let ((sp-bibtex-files nil) (sp-bibliography-dir "/nonexistent/bib/"))
+    (should-error (sp-author-notes-bibtex--files) :type 'user-error))
+  (let ((sp-bibtex-files '("/nonexistent/master.bib")))
+    (let ((err (should-error (sp-author-notes-bibtex--files) :type 'user-error)))
+      (should (string-match-p "master.bib" (cadr err))))))
+
+(ert-deftest sp-an-bib-test-missing-file-skipped ()
+  (sp-an-bib-test--with-vault
+    (let ((sp-bibtex-files (list "/nonexistent/master.bib" bib)))
+      (should (equal (sp-author-notes-bibtex--files) (list bib)))
+      (should (= 2 (length (sp-author-notes-bibtex--compute)))))))
+
+(ert-deftest sp-an-bib-test-many-people-is-fast ()
+  "Thousands of people against thousands of entries must not be quadratic."
+  (sp-an-bib-test--with-vault
+    (with-temp-file bib
+      (dotimes (i 3000)
+        (insert (format "@article{k%d,\n  author = {Last%d, First%d},\n  title = {T},\n  year = {2000}}\n" i i i))))
+    (dotimes (i 1500)
+      (sp-an-bib-test--write (expand-file-name (format "q%d.org" i) vault)
+                             ":PROPERTIES:" (format ":ID: q%d" i) ":END:"
+                             (format "#+title: First%d Last%d" i i) "#+filetags: :person:" ""))
+    (let* ((start (float-time))
+           (groups (sp-author-notes-bibtex--compute)))
+      (should (= 1500 (length groups)))
+      (should (< (- (float-time) start) 20)))))
+
 (provide 'sp-author-notes-bibtex-test)
 ;;; sp-author-notes-bibtex-test.el ends here

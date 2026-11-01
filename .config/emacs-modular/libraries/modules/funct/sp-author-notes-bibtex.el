@@ -34,10 +34,25 @@
 (defconst sp-author-notes-bibtex--buffer-name "*Author works (BibTeX)*")
 
 (defun sp-author-notes-bibtex--files ()
-  "The .bib files to read: `sp-bibtex-files', else those of `sp-bibliography-dir'."
-  (cond ((and (boundp 'sp-bibtex-files) sp-bibtex-files) sp-bibtex-files)
-        ((and (boundp 'sp-bibliography-dir) (file-directory-p sp-bibliography-dir))
-         (directory-files sp-bibliography-dir t "\\`[[:alnum:]].*\\.bib\\'"))))
+  "The readable .bib files: `sp-bibtex-files', else those of `sp-bibliography-dir'.
+Signal a `user-error' that says what is wrong when there is none.  A file
+of the list that is missing is reported with `message' and skipped."
+  (let* ((listed (cond ((and (boundp 'sp-bibtex-files) sp-bibtex-files) sp-bibtex-files)
+                       ((and (boundp 'sp-bibliography-dir) sp-bibliography-dir
+                             (file-directory-p sp-bibliography-dir))
+                        (directory-files sp-bibliography-dir t "\\`[[:alnum:]].*\\.bib\\'"))))
+         (readable (seq-filter #'file-readable-p listed))
+         (missing (seq-remove #'file-readable-p listed)))
+    (cond
+     ((null listed)
+      (user-error "No BibTeX files: `sp-bibtex-files' is empty and `sp-bibliography-dir' (%s) has no .bib file; run `sp-bibtex-register'"
+                  (if (boundp 'sp-bibliography-dir) sp-bibliography-dir "unset")))
+     ((null readable)
+      (user-error "None of the BibTeX files can be read: %s" (string-join missing ", ")))
+     (t (when missing
+          (message "sp-author-notes-bibtex: skipping unreadable BibTeX file%s: %s"
+                   (if (cdr missing) "s" "") (string-join missing ", ")))
+        readable))))
 
 (defun sp-author-notes-bibtex--split-authors (field)
   "The names in the BibTeX author FIELD, flipped to First Last, braces removed."
@@ -123,21 +138,67 @@ REFERENCES, ROAM_REFS, #+reference: and @key alike."
       (sp-author-notes-bibtex--cover-file table file))
     table))
 
-(defun sp-author-notes-bibtex--matches (person entries covered)
-  "The matches of PERSON in ENTRIES that have no litnote: a list of (ENTRY . CONFIDENCE).
-COVERED is the table of `sp-author-notes-bibtex--covered'."
-  (let (matches)
-    (dolist (entry entries)
-      (unless (gethash (plist-get entry :key) covered)
-        (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
-                                   for m = (sp-author-notes-bibtex--match
-                                            (plist-get person :title) a)
-                                   when (eq m 'exact) return 'exact
-                                   when m collect m into found
-                                   finally return (car found))))
-          (push (cons entry conf) matches))))
+(defun sp-author-notes-bibtex--possible-key (name)
+  "The key under which the author NAME can be a possible match, or nil.
+It is the last word and the first letter of the first word, as
+`sp-author-notes-bibtex--match' compares them."
+  (let ((words (split-string (sp-author-notes--title-key
+                              (sp-author-notes--clean-name name))
+                             "[ .]+" t)))
+    (when (cdr words)
+      (cons (car (last words)) (aref (car words) 0)))))
+
+(defun sp-author-notes-bibtex--index-entry (index entry covered)
+  "Add ENTRY to INDEX unless its key is in COVERED.
+INDEX is (EXACT POSSIBLE . ORDER): two hash tables from the name key and
+from the possible key of an author to the entries, and a hash table from an
+entry to its number.  Looking a person up in them replaces comparing the
+person with every author of every entry, which took hours with thousands of
+people and tens of thousands of entries."
+  (let ((exact (car index)) (possible (cadr index)) (order (cddr index)))
+    (puthash entry (hash-table-count order) order)
+    (unless (gethash (plist-get entry :key) covered)
+      (dolist (author (plist-get entry :authors))
+        (push entry (gethash (sp-author-notes--title-key author) exact))
+        (when-let* ((key (sp-author-notes-bibtex--possible-key author)))
+          (push entry (gethash key possible)))))))
+
+(defun sp-author-notes-bibtex--make-index ()
+  "An empty index for `sp-author-notes-bibtex--index-entry'."
+  (cl-list* (make-hash-table :test #'equal :size 4096)
+         (make-hash-table :test #'equal :size 4096)
+         (make-hash-table :test #'eq :size 4096)))
+
+(defun sp-author-notes-bibtex--matches (person index)
+  "The matches of PERSON in INDEX: a list of (ENTRY . CONFIDENCE).
+INDEX is the one `sp-author-notes-bibtex--index-entry' fills with the entries
+that have no litnote.  Only the entries that share the name or the last name
+and initial with PERSON are compared."
+  (let ((title (plist-get person :title))
+        (candidates (make-hash-table :test #'eq))
+        (order (cddr index))
+        matches)
+    (dolist (entry (gethash (sp-author-notes--title-key
+                             (sp-author-notes--clean-name title))
+                            (car index)))
+      (puthash entry t candidates))
+    (when-let* ((key (sp-author-notes-bibtex--possible-key title)))
+      (dolist (entry (gethash key (cadr index)))
+        (puthash entry t candidates)))
+    (maphash
+     (lambda (entry _)
+       (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
+                                  for m = (sp-author-notes-bibtex--match title a)
+                                  when (eq m 'exact) return 'exact
+                                  when m collect m into found
+                                  finally return (car found))))
+         (push (cons entry conf) matches)))
+     candidates)
     (when matches
-      (sort (nreverse matches)
+      ;; In the order of the files, then by year (`sort' is stable).
+      (setq matches (sort matches (lambda (a b) (< (gethash (car a) order)
+                                                   (gethash (car b) order)))))
+      (sort matches
             (lambda (a b)
               (string< (or (plist-get (car a) :year) "")
                        (or (plist-get (car b) :year) "")))))))
@@ -168,11 +229,13 @@ of a big file is pushed to JOB, so that no slice parses it all."
 (defun sp-author-notes-bibtex--compute-job (callback)
   "Find the additional works in slices and call CALLBACK with the list.
 The list is the one `sp-author-notes-bibtex--compute' returns.  Return the job."
-  (let (entries people result
+  (let ((files (sp-author-notes-bibtex--files)) ; a user-error here reaches the command
+        (index (sp-author-notes-bibtex--make-index))
+        entries people result
         (covered (make-hash-table :test #'equal)))
     (sp-async-work-run
      "Author works"
-     (list (list "reading BibTeX" #'sp-author-notes-bibtex--files
+     (list (list "reading BibTeX" (lambda () files)
                  (lambda (item job)
                    (sp-author-notes-bibtex--bib-step
                     item job (lambda (found) (dolist (e found) (push e entries))))))
@@ -184,11 +247,14 @@ The list is the one `sp-author-notes-bibtex--compute' returns.  Return the job."
                  (lambda (file _job)
                    (let ((head (sp-author-notes--file-head file)))
                      (when (sp-author-notes-bibtex--person-p head) (push head people)))))
+           (list "indexing"
+                 (lambda () (nreverse entries))
+                 (lambda (entry _job)
+                   (sp-author-notes-bibtex--index-entry index entry covered)))
            (list "matching"
-                 (lambda () (setq entries (nreverse entries)) (nreverse people))
+                 (lambda () (nreverse people))
                  (lambda (person _job)
-                   (when-let* ((matches (sp-author-notes-bibtex--matches
-                                         person entries covered)))
+                   (when-let* ((matches (sp-author-notes-bibtex--matches person index)))
                      (push (cons person matches) result)))))
      :done (lambda (_job) (funcall callback (nreverse result))))))
 
