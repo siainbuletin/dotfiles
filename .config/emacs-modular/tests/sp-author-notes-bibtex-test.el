@@ -1,6 +1,8 @@
 ;;; sp-author-notes-bibtex-test.el --- Tests for sp-author-notes-bibtex -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
 (require 'sp-author-notes-bibtex)
 
 (defvar sp-bibtex-files)

@@ -1,6 +1,8 @@
 ;;; sp-litnotes-titles-test.el --- Tests for sp-litnotes-titles -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
 (require 'sp-litnotes-titles)
 
 (defun sp-litnotes-titles-test--write (file &rest lines)

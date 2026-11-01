@@ -2387,6 +2387,8 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 5. Fills the tables from the Vulpea database, so they are not left for =C-c C-c=.
 6. Shows a report buffer with everything above, and the same list as a preview before anything is written.
 
+*Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. The preview and the write are separate jobs. The questions about ambiguous names are asked in this Emacs, in the middle of a slice. As before, a note with unsaved changes in its buffer is saved first when you apply, and the files are copied to the backup folder before they are written.
+
 The block is a query table (see [[file:sp-collection-query-tables.org][sp-collection-query-tables]]) with =:parent-of "self"= and =:parent-prop "pub-author"=: it lists the notes whose =pub-author= links point at the note the block is in. =:parent-of= compares IDs, which is why plain names are converted to links first.
 
 Notes tagged =booksection= are not listed. Their =bib-parent= link points at the =book= note (the schema in =sp-vulpea.org= requires it), and =:fold-tag "booksection"= counts them in the =Sections= column of that book's row, adding the book if it has no =pub-author= of its own. The title links get the emoji of the note's tags from =sp-org-tag-groups= (the Org buffer decorates =id:= links itself), so a =filetags= column is not needed. Blocks that already exist are not changed; add =:fold-tag "booksection" :fold-prop "bib-parent"= and the =:sections= column to them by hand.
@@ -2438,6 +2440,7 @@ What it does not do: it reads =litnotes/= only, so works that exist only as BibT
 (require 'seq)
 (require 'subr-x)
 (require 'org)
+(require 'sp-async-work)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -2831,23 +2834,29 @@ changed, and dropped names get no note.")
   "Record the problem TEXT at FILE and LINE in RUN."
   (push (list file line text) (sp-author-notes--run-problems run)))
 
+(defun sp-author-notes--index-start (run)
+  "Give RUN empty title, ID and Denote tables."
+  (setf (sp-author-notes--run-by-title run) (make-hash-table :test #'equal)
+        (sp-author-notes--run-by-id run) (make-hash-table :test #'equal)
+        (sp-author-notes--run-by-denote run) (make-hash-table :test #'equal)))
+
+(defun sp-author-notes--index-file (run file)
+  "Add the head of the note FILE to the title and ID tables of RUN."
+  (let ((entry (ignore-errors (sp-author-notes--file-head file))))
+    (when entry
+      (when-let* ((id (plist-get entry :id)))
+        (puthash id entry (sp-author-notes--run-by-id run)))
+      (when-let* ((denote (plist-get entry :denote)))
+        (puthash denote entry (sp-author-notes--run-by-denote run)))
+      (when-let* ((title (plist-get entry :title)))
+        (push entry (gethash (sp-author-notes--title-key title)
+                             (sp-author-notes--run-by-title run)))))))
+
 (defun sp-author-notes--index (run)
   "Fill the title and ID tables of RUN from the vault."
-  (let ((by-title (make-hash-table :test #'equal))
-        (by-id (make-hash-table :test #'equal))
-        (by-denote (make-hash-table :test #'equal)))
-    (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
-      (let ((entry (ignore-errors (sp-author-notes--file-head file))))
-        (when entry
-          (when-let* ((id (plist-get entry :id)))
-            (puthash id entry by-id))
-          (when-let* ((denote (plist-get entry :denote)))
-            (puthash denote entry by-denote))
-          (when-let* ((title (plist-get entry :title)))
-            (push entry (gethash (sp-author-notes--title-key title) by-title))))))
-    (setf (sp-author-notes--run-by-title run) by-title
-          (sp-author-notes--run-by-id run) by-id
-          (sp-author-notes--run-by-denote run) by-denote)))
+  (sp-author-notes--index-start run)
+  (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
+    (sp-author-notes--index-file run file)))
 
 (defun sp-author-notes--person-p (entry)
   "Non-nil if the index ENTRY is tagged with `sp-author-notes-person-tag'."
@@ -3314,8 +3323,68 @@ folder.  A failure is recorded as a problem."
     (error (sp-author-notes--problem
             run file nil (format "The table was not filled: %s" (error-message-string err))))))
 
-(defun sp-author-notes--run (apply)
-  "Do the whole job, writing files only when APPLY is non-nil.  Return the run."
+(defun sp-author-notes--litnote-step (run seen file)
+  "Check the litnote FILE for RUN; SEEN is the table of the authors found so far."
+  (when-let* ((wrapped (sp-author-notes--process-file
+                        run file (lambda () (sp-author-notes--litnote-pass run file))))
+              (result (car wrapped)))
+    (when (or (plist-get result :fixes) (plist-get result :suspects)
+              (plist-get result :denoted) (plist-get result :ambiguous)
+              (plist-get result :converted) (plist-get result :unparsed))
+      (push (cons file result) (sp-author-notes--run-litnotes run)))
+    (dolist (author (plist-get result :authors))
+      (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
+        (unless (gethash key seen)
+          (puthash key t seen)
+          (push author (sp-author-notes--run-authors run)))))))
+
+(defun sp-author-notes--author-step (run author)
+  "Plan the note of AUTHOR, an (ID . NAME) pair, for RUN."
+  (pcase-let ((`(,id . ,name) author))
+    (if (null id)
+        (push (list name nil nil (sp-author-notes--new-note-additions))
+              (sp-author-notes--run-people run))
+      (let ((entry (gethash id (sp-author-notes--run-by-id run))))
+        (cond
+         ((null entry))                 ; an orphan ID, in the orphan section
+         ((not (sp-author-notes--person-p entry))
+          (sp-author-notes--problem
+           run (plist-get entry :file) nil
+           (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
+                   (plist-get entry :title) sp-author-notes-person-tag)))
+         (t
+          (when-let* ((wrapped (sp-author-notes--process-file
+                                run (plist-get entry :file) #'sp-author-notes--person-pass)))
+            (push (list (plist-get entry :title) id (plist-get entry :file)
+                        (car wrapped))
+                  (sp-author-notes--run-people run)))))))))
+
+(defun sp-author-notes--table-items (run)
+  "The author notes of RUN whose tables are to be filled; nil when that cannot be done."
+  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+      (progn
+        (sp-author-notes--problem
+         run nil nil "Tables not filled: the query tables and vulpea are not loaded")
+        nil)
+    (seq-filter #'identity (mapcar (lambda (p) (nth 2 p)) (sp-author-notes--run-people run)))))
+
+(defun sp-author-notes--finish-run (run)
+  "Put the lists of RUN, which were built back to front, in reading order."
+  (setf (sp-author-notes--run-people run) (nreverse (sp-author-notes--run-people run))
+        (sp-author-notes--run-orphans run) (nreverse (sp-author-notes--run-orphans run))
+        (sp-author-notes--run-tagged run) (nreverse (sp-author-notes--run-tagged run))
+        (sp-author-notes--run-saved run) (nreverse (sp-author-notes--run-saved run))
+        (sp-author-notes--run-filled run) (nreverse (sp-author-notes--run-filled run))
+        (sp-author-notes--run-problems run) (nreverse (sp-author-notes--run-problems run))
+        (sp-author-notes--run-created run) (nreverse (sp-author-notes--run-created run))
+        (sp-author-notes--run-pending run) (nreverse (sp-author-notes--run-pending run))))
+
+(defun sp-author-notes--run-job (apply callback)
+  "Do the whole job in slices, writing files only when APPLY is non-nil.
+Call CALLBACK with the run when it is done; return the job.  The stages are
+the reading of the author notes, of the litnotes, the planning of each
+author note and, when APPLY, the filling of the tables.  Questions are asked
+in the middle of a slice, in this Emacs, as they always were."
   (let ((run (sp-author-notes--make-run
               :apply apply
               :stamp (format-time-string "%Y%m%dT%H%M%S")
@@ -3323,61 +3392,42 @@ folder.  A failure is recorded as a problem."
               :orphan-choices (make-hash-table :test #'equal)
               :backed-up (make-hash-table :test #'equal)))
         (seen (make-hash-table :test #'equal)))
-    (sp-author-notes--index run)
-    ;; Litnotes: key typos, plain names to links.
-    (let ((files (sp-author-notes--org-files sp-author-notes-litnotes-directory)))
-      (setf (sp-author-notes--run-litnote-count run) (length files))
-      (dolist (file files)
-        (when-let* ((wrapped (sp-author-notes--process-file
-                              run file (lambda () (sp-author-notes--litnote-pass run file))))
-                    (result (car wrapped)))
-          (when (or (plist-get result :fixes) (plist-get result :suspects)
-                    (plist-get result :denoted) (plist-get result :ambiguous)
-                    (plist-get result :converted) (plist-get result :unparsed))
-            (push (cons file result) (sp-author-notes--run-litnotes run)))
-          (dolist (author (plist-get result :authors))
-            (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
-              (unless (gethash key seen)
-                (puthash key t seen)
-                (push author (sp-author-notes--run-authors run))))))))
-    (setf (sp-author-notes--run-litnotes run) (nreverse (sp-author-notes--run-litnotes run))
-          (sp-author-notes--run-authors run) (nreverse (sp-author-notes--run-authors run)))
-    ;; Author notes.
-    (dolist (author (sp-author-notes--run-authors run))
-      (pcase-let ((`(,id . ,name) author))
-        (if (null id)
-            (push (list name nil nil (sp-author-notes--new-note-additions))
-                  (sp-author-notes--run-people run))
-          (let ((entry (gethash id (sp-author-notes--run-by-id run))))
-            (cond
-             ((null entry))             ; an orphan ID, in the orphan section
-             ((not (sp-author-notes--person-p entry))
-              (sp-author-notes--problem
-               run (plist-get entry :file) nil
-               (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
-                       (plist-get entry :title) sp-author-notes-person-tag)))
-             (t
-              (when-let* ((wrapped (sp-author-notes--process-file
-                                    run (plist-get entry :file) #'sp-author-notes--person-pass)))
-                (push (list (plist-get entry :title) id (plist-get entry :file)
-                            (car wrapped))
-                      (sp-author-notes--run-people run)))))))))
-    ;; Tables.
-    (when apply
-      (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
-          (sp-author-notes--problem
-           run nil nil "Tables not filled: the query tables and vulpea are not loaded")
-        (dolist (p (sp-author-notes--run-people run))
-          (when (nth 2 p) (sp-author-notes--populate run (nth 2 p))))))
-    (setf (sp-author-notes--run-people run) (nreverse (sp-author-notes--run-people run))
-          (sp-author-notes--run-orphans run) (nreverse (sp-author-notes--run-orphans run))
-          (sp-author-notes--run-tagged run) (nreverse (sp-author-notes--run-tagged run))
-          (sp-author-notes--run-saved run) (nreverse (sp-author-notes--run-saved run))
-          (sp-author-notes--run-filled run) (nreverse (sp-author-notes--run-filled run))
-          (sp-author-notes--run-problems run) (nreverse (sp-author-notes--run-problems run))
-          (sp-author-notes--run-created run) (nreverse (sp-author-notes--run-created run))
-          (sp-author-notes--run-pending run) (nreverse (sp-author-notes--run-pending run)))
-    run))
+    (sp-async-work-run
+     "Author notes"
+     (list (list "reading the vault"
+                 (lambda ()
+                   (sp-author-notes--index-start run)
+                   (sp-author-notes--org-files sp-author-notes-directory))
+                 (lambda (file _job) (sp-author-notes--index-file run file)))
+           (list "checking litnotes"
+                 (lambda ()
+                   (let ((files (sp-author-notes--org-files
+                                 sp-author-notes-litnotes-directory)))
+                     (setf (sp-author-notes--run-litnote-count run) (length files))
+                     files))
+                 (lambda (file _job) (sp-author-notes--litnote-step run seen file)))
+           (list "author notes"
+                 (lambda ()
+                   (setf (sp-author-notes--run-litnotes run)
+                         (nreverse (sp-author-notes--run-litnotes run))
+                         (sp-author-notes--run-authors run)
+                         (nreverse (sp-author-notes--run-authors run)))
+                   (sp-author-notes--run-authors run))
+                 (lambda (author _job) (sp-author-notes--author-step run author)))
+           (list "filling tables"
+                 (lambda () (and apply (sp-author-notes--table-items run)))
+                 (lambda (file _job) (sp-author-notes--populate run file))))
+     :done (lambda (_job)
+             (sp-author-notes--finish-run run)
+             (funcall callback run)))))
+
+(defun sp-author-notes--run (apply)
+  "Do the whole job at once, writing files only when APPLY is non-nil.  Return the run.
+The commands use `sp-author-notes--run-job', which does it in slices."
+  (let ((sp-async-work-synchronous t) result)
+    (sp-author-notes--run-job apply (lambda (run) (setq result run)))
+    result))
+
 #+end_src
 
 ** Report
@@ -3623,19 +3673,29 @@ a dropped one, A writes what is left, g shows the preview again.")
 ;;;###autoload
 (defun sp-author-notes-preview ()
   "Show what `sp-author-notes' would do, and write nothing.
-Drops anything that an earlier report left out with `d'."
+The vault is read in slices, so Emacs stays usable; the report opens when it
+is read.  Drops anything that an earlier report left out with `d'."
   (interactive)
   (setq sp-author-notes--excluded nil)
-  (sp-author-notes--show (sp-author-notes--run nil)))
+  (sp-author-notes--run-then nil #'sp-author-notes--show))
+
+(defun sp-author-notes--run-then (apply callback)
+  "Run the job in slices, then call CALLBACK with the run.  Say that it started."
+  (message "Author notes: %s in the background (M-x sp-async-work-cancel stops it)"
+           (if apply "writing" "reading"))
+  (sp-author-notes--run-job apply callback))
 
 (defun sp-author-notes-refresh ()
   "Show the preview again, keeping what was dropped from the list."
   (interactive)
   (let ((line (line-number-at-pos)))
-    (sp-author-notes--show (sp-author-notes--run nil))
-    (with-current-buffer sp-author-notes--buffer-name
-      (goto-char (point-min))
-      (forward-line (1- line)))))
+    (sp-author-notes--run-then
+     nil
+     (lambda (run)
+       (sp-author-notes--show run)
+       (with-current-buffer sp-author-notes--buffer-name
+         (goto-char (point-min))
+         (forward-line (1- line)))))))
 
 (defun sp-author-notes--key-at-point ()
   "The key of the candidate on the report line at point."
@@ -3662,25 +3722,22 @@ to create is dropped by name: no note is made and the name stays plain."
 ;;;###autoload
 (defun sp-author-notes-apply ()
   "Do the job and show the report, without asking.
-What was dropped from the report with `d' is left out."
+What was dropped from the report with `d' is left out.  The files are
+written in slices, so Emacs stays usable; the report opens when all are done."
   (interactive)
-  (let ((run (sp-author-notes--run t)))
-    (sp-author-notes--show run)
-    (setq sp-author-notes--excluded nil)
-    (message "Author notes: %d change%s written"
-             (sp-author-notes--change-count run)
-             (if (= 1 (sp-author-notes--change-count run)) "" "s"))
-    run))
+  (sp-author-notes--run-then
+   t
+   (lambda (run)
+     (sp-author-notes--show run)
+     (setq sp-author-notes--excluded nil)
+     (message "Author notes: %d change%s written"
+              (sp-author-notes--change-count run)
+              (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
-;;;###autoload
-(defun sp-author-notes ()
-  "Make author notes from the `pub-author' meta key of the litnotes.
-Show the plan first.  Then write it, or stay in the report to drop
-candidates with `d' and write what is left with `A'.  See the doc
-docs/tangles/funct/sp-org-lint.org."
-  (interactive)
-  (let* ((run (sp-author-notes-preview))
-         (n (sp-author-notes--change-count run)))
+(defun sp-author-notes--ask (run)
+  "Show the report of RUN and ask what to do with its changes."
+  (sp-author-notes--show run)
+  (let ((n (sp-author-notes--change-count run)))
     (if (zerop n)
         (message "Author notes: nothing to do")
       (pcase (car (read-multiple-choice
@@ -3691,6 +3748,16 @@ docs/tangles/funct/sp-org-lint.org."
         (?y (sp-author-notes-apply))
         (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
         (_ (message "Nothing written"))))))
+
+;;;###autoload
+(defun sp-author-notes ()
+  "Make author notes from the `pub-author' meta key of the litnotes.
+Read the vault in slices (Emacs stays usable) and show the plan.  Then write
+it, or stay in the report to drop candidates with `d' and write what is
+left with `A'.  See the doc docs/tangles/funct/sp-org-lint.org."
+  (interactive)
+  (setq sp-author-notes--excluded nil)
+  (sp-author-notes--run-then nil #'sp-author-notes--ask))
 
 (provide 'sp-author-notes)
 ;;; sp-author-notes.el ends here
@@ -3717,6 +3784,8 @@ The =Works= table that [[*sp-author-notes.el][sp-author-notes]] puts in an autho
 2. Takes every =:person:= note of the vault and compares its title with the =author= field of each entry. A name matches /exactly/ when both read the same after flipping =Last, First= to =First Last=; it is a /possible/ match when the last name and the first initial agree (=J. Smith= and =John Smith=).
 3. Leaves out the entries that already have a literature note: a note in =litnotes/= whose head (the property drawer and the =#+= lines) or file name holds the key, as in =REFERENCES=, =ROAM_REFS=, =#+reference:= or =@key=.
 4. Shows the rest in a report buffer, one section per author note, with the key, year, title, =.bib= file and how sure the match is.
+
+*Runs in the background.* The =.bib= files (200 entries per slice, so a big file does not hold Emacs), the litnotes and the author notes are read in slices (see [[file:sp-async-work.org][sp-async-work]]); the progress is in the mode line and the report opens, or refreshes, when the reading is done.
 
 In the report buffer:
 
@@ -3754,6 +3823,7 @@ Not done: a BibTeX entry with several authors is listed under each author note i
 (require 'seq)
 (require 'subr-x)
 (require 'bibtex)
+(require 'sp-async-work)
 (require 'sp-author-notes)
 
 (defvar sp-bibtex-files)
@@ -3790,6 +3860,29 @@ Not done: a BibTeX entry with several authors is listed under each author note i
           (split-string (replace-regexp-in-string "[ \t\n]+" " " field)
                         "[ \t]+and[ \t]+" t "[ \t]+")))
 
+(defun sp-author-notes-bibtex--parse-some (file limit)
+  "Parse the entries of FILE from point in the current buffer, at most LIMIT of them.
+LIMIT nil means all.  Return (ENTRIES . MORE); MORE is non-nil when LIMIT
+was reached, so that the end of the buffer may not be."
+  (let ((count 0) entries)
+    (while (and (or (null limit) (< count limit))
+                (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t))
+      (cl-incf count)
+      (let ((beg (match-beginning 0)))
+        (goto-char beg)
+        (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
+                    (key (cdr (assoc "=key=" entry)))
+                    (author (cdr (assoc "author" entry))))
+          (push (list :key key
+                      :title (replace-regexp-in-string
+                              "[{}]" "" (or (cdr (assoc "title" entry)) ""))
+                      :year (or (cdr (assoc "year" entry)) "")
+                      :authors (sp-author-notes-bibtex--split-authors author)
+                      :file file :pos beg)
+                entries))
+        (goto-char (min (point-max) (1+ beg)))))
+    (cons (nreverse entries) (and limit (>= count limit)))))
+
 (defun sp-author-notes-bibtex--entries (files)
   "The entries of the .bib FILES as plists (:key :title :year :authors :file :pos)."
   (let (entries)
@@ -3799,21 +3892,8 @@ Not done: a BibTeX entry with several authors is listed under each author note i
           (insert-file-contents file)
           (delay-mode-hooks (bibtex-mode))
           (goto-char (point-min))
-          (while (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t)
-            (let ((beg (match-beginning 0)))
-              (goto-char beg)
-              (when-let* ((entry (ignore-errors (bibtex-parse-entry t)))
-                          (key (cdr (assoc "=key=" entry)))
-                          (author (cdr (assoc "author" entry))))
-                (push (list :key key
-                            :title (replace-regexp-in-string
-                                    "[{}]" "" (or (cdr (assoc "title" entry)) ""))
-                            :year (or (cdr (assoc "year" entry)) "")
-                            :authors (sp-author-notes-bibtex--split-authors author)
-                            :file file :pos beg)
-                      entries))
-              (goto-char (min (point-max) (1+ beg))))))))
-    (nreverse entries)))
+          (setq entries (append entries (car (sp-author-notes-bibtex--parse-some file nil)))))))
+    entries))
 
 (defun sp-author-notes-bibtex--match (person author)
   "How the name AUTHOR matches the title PERSON: `exact', `possible' or nil."
@@ -3833,14 +3913,26 @@ Not done: a BibTeX entry with several authors is listed under each author note i
 
 #+begin_src emacs-lisp -i
 
+(defun sp-author-notes-bibtex--person-p (head)
+  "Non-nil when HEAD, from `sp-author-notes--file-head', is a :person: note."
+  (and (plist-get head :title) (plist-get head :id)
+       (member sp-author-notes-person-tag (plist-get head :tags))))
+
 (defun sp-author-notes-bibtex--people ()
   "The :person: notes of the vault, as plists from `sp-author-notes--file-head'."
   (seq-filter
-   (lambda (head)
-     (and (plist-get head :title) (plist-get head :id)
-          (member sp-author-notes-person-tag (plist-get head :tags))))
+   #'sp-author-notes-bibtex--person-p
    (mapcar #'sp-author-notes--file-head
            (sp-author-notes--org-files sp-author-notes-directory))))
+
+(defun sp-author-notes-bibtex--cover-file (table file)
+  "Add the words in the head and the file name of the litnote FILE to TABLE, as FILE."
+  (with-temp-buffer
+    (sp-author-notes--insert-file file 4096)
+    (let ((text (concat (file-name-nondirectory file) "\n"
+                        (buffer-substring (point-min) (sp-author-notes--first-heading)))))
+      (dolist (word (split-string text "[^[:alnum:]_.-]+" t))
+        (unless (gethash word table) (puthash word file table))))))
 
 (defun sp-author-notes-bibtex--covered ()
   "A hash table: every word in the head or the file name of a litnote to its file.
@@ -3848,38 +3940,84 @@ A BibTeX key is covered when it is such a word, which holds for
 REFERENCES, ROAM_REFS, #+reference: and @key alike."
   (let ((table (make-hash-table :test #'equal)))
     (dolist (file (sp-author-notes--org-files sp-author-notes-litnotes-directory))
-      (with-temp-buffer
-        (sp-author-notes--insert-file file 4096)
-        (let ((text (concat (file-name-nondirectory file) "\n"
-                            (buffer-substring (point-min) (sp-author-notes--first-heading)))))
-          (dolist (word (split-string text "[^[:alnum:]_.-]+" t))
-            (unless (gethash word table) (puthash word file table))))))
+      (sp-author-notes-bibtex--cover-file table file))
     table))
 
+(defun sp-author-notes-bibtex--matches (person entries covered)
+  "The matches of PERSON in ENTRIES that have no litnote: a list of (ENTRY . CONFIDENCE).
+COVERED is the table of `sp-author-notes-bibtex--covered'."
+  (let (matches)
+    (dolist (entry entries)
+      (unless (gethash (plist-get entry :key) covered)
+        (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
+                                   for m = (sp-author-notes-bibtex--match
+                                            (plist-get person :title) a)
+                                   when (eq m 'exact) return 'exact
+                                   when m collect m into found
+                                   finally return (car found))))
+          (push (cons entry conf) matches))))
+    (when matches
+      (sort (nreverse matches)
+            (lambda (a b)
+              (string< (or (plist-get (car a) :year) "")
+                       (or (plist-get (car b) :year) "")))))))
+
+(defun sp-author-notes-bibtex--bib-step (item job add)
+  "Read some entries of the .bib file ITEM, and call ADD with them.
+ITEM is a file name, or (FILE . BUFFER) for one that is half read; the rest
+of a big file is pushed to JOB, so that no slice parses it all."
+  (let* ((file (if (consp item) (car item) item))
+         (buffer (if (consp item)
+                     (cdr item)
+                   (when (file-readable-p file)
+                     (let ((b (generate-new-buffer " *sp-author-works bib*")))
+                       (sp-async-work-on-cleanup job (lambda () (kill-buffer b)))
+                       (with-current-buffer b
+                         (insert-file-contents file)
+                         (delay-mode-hooks (bibtex-mode))
+                         (goto-char (point-min)))
+                       b)))))
+    (when buffer
+      (let ((result (with-current-buffer buffer
+                      (sp-author-notes-bibtex--parse-some file 200))))
+        (funcall add (car result))
+        (if (cdr result)
+            (sp-async-work-push job (cons file buffer))
+          (kill-buffer buffer))))))
+
+(defun sp-author-notes-bibtex--compute-job (callback)
+  "Find the additional works in slices and call CALLBACK with the list.
+The list is the one `sp-author-notes-bibtex--compute' returns.  Return the job."
+  (let (entries people result
+        (covered (make-hash-table :test #'equal)))
+    (sp-async-work-run
+     "Author works"
+     (list (list "reading BibTeX" #'sp-author-notes-bibtex--files
+                 (lambda (item job)
+                   (sp-author-notes-bibtex--bib-step
+                    item job (lambda (found) (dolist (e found) (push e entries))))))
+           (list "reading litnotes"
+                 (lambda () (sp-author-notes--org-files sp-author-notes-litnotes-directory))
+                 (lambda (file _job) (sp-author-notes-bibtex--cover-file covered file)))
+           (list "reading authors"
+                 (lambda () (sp-author-notes--org-files sp-author-notes-directory))
+                 (lambda (file _job)
+                   (let ((head (sp-author-notes--file-head file)))
+                     (when (sp-author-notes-bibtex--person-p head) (push head people)))))
+           (list "matching"
+                 (lambda () (setq entries (nreverse entries)) (nreverse people))
+                 (lambda (person _job)
+                   (when-let* ((matches (sp-author-notes-bibtex--matches
+                                         person entries covered)))
+                     (push (cons person matches) result)))))
+     :done (lambda (_job) (funcall callback (nreverse result))))))
+
 (defun sp-author-notes-bibtex--compute ()
-  "The additional works: a list of (PERSON . MATCHES).
-MATCHES is a list of (ENTRY . CONFIDENCE).  Only people with at least one entry that has no literature note are listed."
-  (let ((entries (sp-author-notes-bibtex--entries (sp-author-notes-bibtex--files)))
-        (covered (sp-author-notes-bibtex--covered))
-        result)
-    (dolist (person (sp-author-notes-bibtex--people))
-      (let (matches)
-        (dolist (entry entries)
-          (unless (gethash (plist-get entry :key) covered)
-            (when-let* ((conf (cl-loop for a in (plist-get entry :authors)
-                                       for m = (sp-author-notes-bibtex--match
-                                                (plist-get person :title) a)
-                                       when (eq m 'exact) return 'exact
-                                       when m collect m into found
-                                       finally return (car found))))
-              (push (cons entry conf) matches))))
-        (when matches
-          (push (cons person (sort (nreverse matches)
-                                   (lambda (a b)
-                                     (string< (or (plist-get (car a) :year) "")
-                                              (or (plist-get (car b) :year) "")))))
-                result))))
-    (nreverse result)))
+  "The additional works: a list of (PERSON . MATCHES), found all at once.
+MATCHES is a list of (ENTRY . CONFIDENCE).  Only people with at least one entry that has no literature note are listed.  `sp-author-notes-bibtex' finds them in slices instead."
+  (let ((sp-async-work-synchronous t) groups)
+    (sp-author-notes-bibtex--compute-job (lambda (found) (setq groups found)))
+    groups))
 #+end_src
 
 ** Creating a literature note
@@ -3975,19 +4113,25 @@ Return non-nil when the line was added."
 
 ;;;###autoload
 (defun sp-author-notes-bibtex ()
-  "Show the BibTeX works of the author notes that have no literature note yet."
+  "Show the BibTeX works of the author notes that have no literature note yet.
+The BibTeX files and the notes are read in slices, so Emacs stays usable;
+the report opens, or is refreshed, when they are read."
   (interactive)
-  (let ((groups (sp-author-notes-bibtex--compute)))
-    (with-current-buffer (get-buffer-create sp-author-notes-bibtex--buffer-name)
-      (let ((line (line-number-at-pos)))
-        (sp-author-notes-bibtex-report-mode)
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (sp-author-notes-bibtex--render groups)
-          (goto-char (point-min))
-          (forward-line (1- line))))
-      (pop-to-buffer (current-buffer)))
-    groups))
+  (let (found)
+    (message "Reading BibTeX files and notes in the background...")
+    (sp-author-notes-bibtex--compute-job
+     (lambda (groups)
+       (setq found groups)
+       (with-current-buffer (get-buffer-create sp-author-notes-bibtex--buffer-name)
+         (let ((line (line-number-at-pos)))
+           (sp-author-notes-bibtex-report-mode)
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (sp-author-notes-bibtex--render groups)
+             (goto-char (point-min))
+             (forward-line (1- line))))
+         (pop-to-buffer (current-buffer)))))
+    found))
 
 (defun sp-author-notes-bibtex--at-point ()
   (or (get-text-property (line-beginning-position) 'sp-entry)
@@ -4054,6 +4198,8 @@ Return non-nil when the line was added."
 
 Moves the reference of each literature note from the =#+reference:= keyword of =citar-denote= to the =ROAM_REFS= property that =citar-vulpea= reads. Required by =sp-litnotes=.
 
+*Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. =sp-litnotes-refs-convert= asks its (up to three) questions as soon as the report is open, before any writing, so nothing asks you anything while you work on something else. A note is written only if it still reads as it did in the report; a note with unsaved changes in its buffer is skipped, and an open buffer without changes is reverted.
+
 - =M-x sp-litnotes-refs-report= is a dry run: it writes nothing and shows a report in =*litnote refs*=.
 - =M-x sp-litnotes-refs-convert= shows the same report and then asks up to three questions, each only when there is something to do: move the references of the notes that have an ID; create an ID for the notes that have none; add stub entries to the inbox BibTeX file. Every note it changes, and the inbox file, is copied to =litnote-refs-backups/= under =sp-var-dir= first. It is safe to run again.
 - What it does to a note in =sp-litnotes-refs-directory= (default =~/notes/litnotes/=):
@@ -4084,6 +4230,7 @@ Moves the reference of each literature note from the =#+reference:= keyword of =
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-async-work)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -4201,27 +4348,31 @@ one of `no-id', `no-reference', `ok', `normalise', `convert' and `merge'."
 
 ;;;; Bibliography and PDFs
 
+(defun sp-litnotes-refs--bib-index-file (file table)
+  "Add the keys of the BibTeX FILE to the hash table TABLE (key to crossref or :none)."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
+        (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
+          (let ((key (match-string 2))
+                (end (save-excursion (or (and (re-search-forward "^@" nil t)
+                                              (line-beginning-position))
+                                         (point-max))))
+                crossref)
+            (save-excursion
+              (when (re-search-forward
+                     "^[ \t]*crossref[ \t]*=[ \t]*[{\"]\\([^}\"]+\\)" end t)
+                (setq crossref (match-string 1))))
+            (puthash key (or crossref :none) table)))))))
+
 (defun sp-litnotes-refs--bib-index (files)
   "Read the BibTeX FILES into a hash table of key to crossref (or :none)."
   (let ((table (make-hash-table :test 'equal)))
     (dolist (file files)
-      (when (file-readable-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (goto-char (point-min))
-          (while (re-search-forward
-                  "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
-            (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
-              (let ((key (match-string 2))
-                    (end (save-excursion (or (and (re-search-forward "^@" nil t)
-                                                  (line-beginning-position))
-                                             (point-max))))
-                    crossref)
-                (save-excursion
-                  (when (re-search-forward
-                         "^[ \t]*crossref[ \t]*=[ \t]*[{\"]\\([^}\"]+\\)" end t)
-                    (setq crossref (match-string 1))))
-                (puthash key (or crossref :none) table)))))))
+      (sp-litnotes-refs--bib-index-file file table))
     table))
 
 (defun sp-litnotes-refs--pdf (key index)
@@ -4293,6 +4444,25 @@ A key used by several notes gets one entry, from the first note."
   (mapcar (lambda (file) (sp-litnotes-refs--plan (sp-litnotes-refs--parse file)))
           (directory-files (or directory sp-litnotes-refs-directory) t "\\.org\\'")))
 
+(defun sp-litnotes-refs--bib-files ()
+  "The BibTeX files to look keys up in."
+  (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))
+
+(defun sp-litnotes-refs--scan (callback)
+  "Read the notes and the BibTeX files in slices, then call CALLBACK with PLANS and INDEX.
+Nothing is written.  Return the job."
+  (let (plans (index (make-hash-table :test 'equal)))
+    (sp-async-work-run
+     "Litnote refs"
+     (list (list "reading notes"
+                 (lambda () (directory-files sp-litnotes-refs-directory t "\\.org\\'"))
+                 (lambda (file _job)
+                   (push (sp-litnotes-refs--plan (sp-litnotes-refs--parse file)) plans)))
+           (list "reading BibTeX"
+                 #'sp-litnotes-refs--bib-files
+                 (lambda (file _job) (sp-litnotes-refs--bib-index-file file index))))
+     :done (lambda (_job) (funcall callback (nreverse plans) index)))))
+
 (defun sp-litnotes-refs--report-text (plans index)
   "Return the dry-run report for PLANS, looking keys up in INDEX."
   (let ((by-status (make-hash-table :test 'eq))
@@ -4354,11 +4524,17 @@ A key used by several notes gets one entry, from the first note."
 
 ;;;###autoload
 (defun sp-litnotes-refs-report ()
-  "Show what `sp-litnotes-refs-convert' would do.  Writes nothing."
+  "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
+The notes are read in slices, so Emacs stays usable; the report opens
+when they are read."
   (interactive)
-  (let* ((plans (sp-litnotes-refs--plans))
-         (index (sp-litnotes-refs--bib-index (if (boundp 'sp-bibtex-files) sp-bibtex-files nil)))
-         (text (sp-litnotes-refs--report-text plans index)))
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-refs--scan
+   (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
+
+(defun sp-litnotes-refs--show-report (plans index)
+  "Show the report for PLANS and INDEX in `*litnote refs*'."
+  (let ((text (sp-litnotes-refs--report-text plans index)))
     (with-current-buffer (get-buffer-create "*litnote refs*")
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -4366,8 +4542,7 @@ A key used by several notes gets one entry, from the first note."
         (org-mode)
         (goto-char (point-min))
         (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")
-    plans))
+    (pop-to-buffer "*litnote refs*")))
 
 ;;;; Conversion
 
@@ -4421,6 +4596,29 @@ An empty REFS leaves =ROAM_REFS= alone."
     (dolist (stub stubs) (insert "\n" (cdr stub)))
     (write-region nil nil sp-litnotes-refs-inbox-bib nil 'silent)))
 
+;; A note is written only if it still has the plan of the report.
+(defun sp-litnotes-refs--current-p (plan)
+  "Non-nil when the note of PLAN reads as it did when the report was made."
+  (let ((now (ignore-errors (sp-litnotes-refs--plan
+                             (sp-litnotes-refs--parse (plist-get plan :file))))))
+    (and now
+         (eq (plist-get now :status) (plist-get plan :status))
+         (equal (plist-get now :refs) (plist-get plan :refs)))))
+
+(defun sp-litnotes-refs--write-note (plan create-id)
+  "Write PLAN after a backup.  Return `written' or the reason it was skipped.
+A note whose buffer has unsaved changes, or that changed since the report,
+is left alone.  An open buffer without changes is reverted."
+  (let* ((file (plist-get plan :file))
+         (buffer (find-buffer-visiting file)))
+    (cond
+     ((and buffer (buffer-modified-p buffer)) "unsaved changes in its buffer")
+     ((not (sp-litnotes-refs--current-p plan)) "changed since the report")
+     (t (sp-litnotes-refs--backup file)
+        (sp-litnotes-refs--apply file (plist-get plan :refs) create-id)
+        (when buffer (with-current-buffer buffer (revert-buffer t t t)))
+        'written))))
+
 ;;;###autoload
 (defun sp-litnotes-refs-convert ()
   "Convert the notes of the report, after showing it and asking three times.
@@ -4428,35 +4626,58 @@ An empty REFS leaves =ROAM_REFS= alone."
 2. Create an ID (and move the reference) in the notes that have none.
 3. Add stub entries to `sp-litnotes-refs-inbox-bib' for the keys that no
    registered .bib file has.
-Each question is asked only when there is something to do, and each changed note
-and the inbox file is copied to `sp-litnotes-refs-backup-directory' first.
-Running it again changes nothing."
+The notes are read in slices and the report opens; the three questions
+follow at once, so that nothing interrupts you later.  Each question is
+asked only when there is something to do.  The notes are then written in
+slices, each copied to `sp-litnotes-refs-backup-directory' first; one with
+unsaved changes in its buffer, or changed since the report, is skipped.
+The inbox file is copied too.  Running it again changes nothing."
   (interactive)
-  (let* ((plans (sp-litnotes-refs-report))
-         (index (sp-litnotes-refs--bib-index
-                 (if (boundp 'sp-bibtex-files) sp-bibtex-files nil)))
-         (todo (cl-remove-if-not
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-refs--scan #'sp-litnotes-refs--convert-plans))
+
+(defun sp-litnotes-refs--convert-plans (plans index)
+  "Show the report of PLANS and INDEX, ask the questions and write what was agreed."
+  (sp-litnotes-refs--show-report plans index)
+  (let* ((todo (cl-remove-if-not
                 (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
                 plans))
          (no-id (cl-remove-if-not (lambda (p) (eq (plist-get p :status) 'no-id)) plans))
          (stubs (sp-litnotes-refs--stubs plans index))
-         (written 0) (ids 0) (added 0))
-    (when (and todo (yes-or-no-p (format "Move the reference of %d notes to ROAM_REFS (backups in %s)? "
-                                         (length todo) sp-litnotes-refs-backup-directory)))
-      (dolist (plan todo)
-        (sp-litnotes-refs--backup (plist-get plan :file))
-        (sp-litnotes-refs--apply (plist-get plan :file) (plist-get plan :refs))
-        (cl-incf written)))
-    (when (and no-id (yes-or-no-p (format "Create an ID for %d notes that have none? " (length no-id))))
-      (dolist (plan no-id)
-        (sp-litnotes-refs--backup (plist-get plan :file))
-        (sp-litnotes-refs--apply (plist-get plan :file) (plist-get plan :refs) t)
-        (cl-incf ids)))
-    (when (and stubs (yes-or-no-p (format "Add %d stub entries to %s? " (length stubs)
-                                          (file-name-nondirectory sp-litnotes-refs-inbox-bib))))
-      (sp-litnotes-refs--append-stubs stubs)
-      (setq added (length stubs)))
-    (message "Converted %d notes, created %d IDs, added %d stub entries." written ids added)))
+         (todo (and todo (yes-or-no-p (format "Move the reference of %d notes to ROAM_REFS (backups in %s)? "
+                                              (length todo) sp-litnotes-refs-backup-directory))
+                    todo))
+         (no-id (and no-id (yes-or-no-p (format "Create an ID for %d notes that have none? " (length no-id)))
+                     no-id))
+         (stubs (and stubs (yes-or-no-p (format "Add %d stub entries to %s? " (length stubs)
+                                                (file-name-nondirectory sp-litnotes-refs-inbox-bib)))
+                     stubs))
+         (written 0) (ids 0) (added 0) skipped)
+    (cl-flet ((write-note (plan create-id)
+                (let ((result (sp-litnotes-refs--write-note plan create-id)))
+                  (cond ((not (eq result 'written))
+                         (push (format "%s (%s)" (file-name-nondirectory (plist-get plan :file))
+                                       result)
+                               skipped))
+                        (create-id (cl-incf ids))
+                        (t (cl-incf written))))))
+      (when (or todo no-id stubs)
+        (sp-async-work-run
+         "Litnote refs"
+         (list (list "writing notes" (lambda () todo)
+                     (lambda (plan _job) (write-note plan nil)))
+               (list "creating IDs" (lambda () no-id)
+                     (lambda (plan _job) (write-note plan t)))
+               (list "adding stubs" (lambda () (and stubs (list stubs)))
+                     (lambda (list _job)
+                       (sp-litnotes-refs--append-stubs list)
+                       (setq added (length list)))))
+         :done (lambda (_job)
+                 (message "Converted %d notes, created %d IDs, added %d stub entries%s."
+                          written ids added
+                          (if skipped
+                              (format "; skipped %s" (string-join (nreverse skipped) ", "))
+                            ""))))))))
 
 (provide 'sp-litnotes-refs)
 ;; sp-litnotes-refs.el ends here
@@ -4468,6 +4689,8 @@ Running it again changes nothing."
 :END:
 
 Sets the title of each literature note to a short reference built from =pub-author=, =pub-year= and =pub-title= (=Reuten (2014) The value form as a social form=), and renames the file to the citation key alone, keeping the =:ID:=. Since the citation key is in =ROAM_REFS= (see =sp-litnotes-refs=), the title no longer has to be the key. Required by =sp-litnotes=; it works before or after the =ROAM_REFS= conversion.
+
+*Runs in the background.* The notes are read and written in slices (see [[file:sp-async-work.org][sp-async-work]]), so Emacs stays usable: the progress is in the mode line, =M-x sp-async-work-cancel= stops the job, and the report opens when the reading is done. A note that changed between the report and the write, or that has unsaved changes in its buffer, is skipped and named in the summary. The questions for missing values are asked in this Emacs, between slices.
 
 - =M-x sp-litnotes-titles-report= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
 - =M-x sp-litnotes-titles-apply= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
@@ -4498,6 +4721,7 @@ Sets the title of each literature note to a short reference built from =pub-auth
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-async-work)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -4775,33 +4999,66 @@ DIRECTORY is the folder of the notes; names are compared without case."
 #+begin_src emacs-lisp -i
 ;;;; Links to the old names
 
-(defun sp-litnotes-titles--file-links (plans)
-  "Alist of (OLD-NAME . FILES) for the renamed PLANS that =file:= links name.
-Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
-  (let ((old (make-hash-table :test 'equal)) found)
+(defun sp-litnotes-titles--old-names (plans)
+  "Hash table of the old file names (without folder) of the renamed PLANS."
+  (let ((old (make-hash-table :test 'equal)))
     (dolist (plan plans)
       (when (eq (plist-get plan :name-status) 'rename)
         (puthash (file-name-nondirectory (plist-get plan :file)) t old)))
-    (when (and (> (hash-table-count old) 0)
-               (file-directory-p sp-litnotes-titles-link-directory))
-      (dolist (file (directory-files-recursively
-                     sp-litnotes-titles-link-directory "\\`[^.#].*\\.org\\'"))
-        (when (file-readable-p file)
-          (with-temp-buffer
-            (insert-file-contents file)
-            (while (re-search-forward "\\[\\[file:\\([^]]+\\.org\\)" nil t)
-              (let ((name (file-name-nondirectory (match-string 1))))
-                (when (gethash name old)
-                  (cl-pushnew file (alist-get name found nil nil #'equal)
-                              :test #'equal))))))))
-    found))
-#+end_src
+    old))
 
-** Report
+(defun sp-litnotes-titles--link-files (old)
+  "The Org files under `sp-litnotes-titles-link-directory' to search for the names in OLD."
+  (when (and (> (hash-table-count old) 0)
+             (file-directory-p sp-litnotes-titles-link-directory))
+    (directory-files-recursively
+     sp-litnotes-titles-link-directory "\\`[^.#].*\\.org\\'")))
 
-The dry run, an Org buffer: counts (with the number of failed items), then per note the old and new title, old and new file name and the files that link to the old name; then every failed group (=Failed: ...=), and notes that would get the same title.
+(defun sp-litnotes-titles--scan-links (file old found)
+  "Add the old names of OLD that =file:= links in FILE name to the alist cell FOUND.
+FOUND is a cons whose car is the alist (OLD-NAME . FILES)."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (while (re-search-forward "\\[\\[file:\\([^]]+\\.org\\)" nil t)
+        (let ((name (file-name-nondirectory (match-string 1))))
+          (when (gethash name old)
+            (cl-pushnew file (alist-get name (car found) nil nil #'equal)
+                        :test #'equal)))))))
 
-#+begin_src emacs-lisp -i
+(defun sp-litnotes-titles--file-links (plans)
+  "Alist of (OLD-NAME . FILES) for the renamed PLANS that =file:= links name.
+Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
+  (let* ((old (sp-litnotes-titles--old-names plans))
+         (found (list nil)))
+    (dolist (file (sp-litnotes-titles--link-files old))
+      (sp-litnotes-titles--scan-links file old found))
+    (car found)))
+
+(defun sp-litnotes-titles--scan (callback)
+  "Read the notes in slices and call CALLBACK with PLANS and LINKS.
+LINKS is the alist of `sp-litnotes-titles--file-links'.  The folder of the
+links is searched in slices too, file by file.  Nothing is written.
+Return the job."
+  (let* ((dir (file-name-as-directory sp-litnotes-titles-directory))
+         plans old (found (list nil)))
+    (sp-async-work-run
+     "Litnote titles"
+     (list (list "reading notes"
+                 (lambda () (directory-files dir t "\\`[^.#].*\\.org\\'"))
+                 (lambda (file _job)
+                   (push (sp-litnotes-titles--plan
+                          (sp-litnotes-titles--parse-with-overrides file))
+                         plans)))
+           (list "looking for links"
+                 (lambda ()
+                   (setq plans (sp-litnotes-titles--mark-collisions (nreverse plans) dir)
+                         old (sp-litnotes-titles--old-names plans))
+                   (sp-litnotes-titles--link-files old))
+                 (lambda (file _job)
+                   (sp-litnotes-titles--scan-links file old found))))
+     :done (lambda (_job) (funcall callback plans (car found))))))
+
 ;;;; Report
 
 (defconst sp-litnotes-titles--promptable
@@ -4897,31 +5154,30 @@ The dry run, an Org buffer: counts (with the number of failed items), then per n
 
 ;;;###autoload
 (defun sp-litnotes-titles-report ()
-  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing."
+  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing.
+The notes are read in slices, so Emacs stays usable; the report opens
+when they are read."
   (interactive)
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
 
-(defun sp-litnotes-titles--show-report ()
-  "Show the report for the current plans, and return them."
-  (let* ((plans (sp-litnotes-titles--plans))
-         (text (sp-litnotes-titles--report-text plans (sp-litnotes-titles--file-links plans))))
-    (with-current-buffer (get-buffer-create "*litnote titles*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote titles*")
-    plans))
-#+end_src
+(defun sp-litnotes-titles--show-report (&optional callback)
+  "Read the notes, show the report and call CALLBACK with the plans.
+Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-titles--scan
+   (lambda (plans links)
+     (let ((text (sp-litnotes-titles--report-text plans links)))
+       (with-current-buffer (get-buffer-create "*litnote titles*")
+         (let ((inhibit-read-only t))
+           (erase-buffer)
+           (insert text)
+           (org-mode)
+           (goto-char (point-min))
+           (read-only-mode 1)))
+       (pop-to-buffer "*litnote titles*"))
+     (when callback (funcall callback plans)))))
 
-** Writing
-
-For each note: skip when another Emacs holds a lock or its buffer has unsaved changes; copy it to a time-stamped folder of =sp-litnotes-titles-backup-directory=; write the title and check the =:ID:= is the same; rename; then =vulpea-db--forget-file= for the old path, =org-id-add-location= and =vulpea-db-update-file= for the new one. A failure on one note is reported and the others go on.
-
-#+begin_src emacs-lisp -i
 ;;;; Writing
 
 (defun sp-litnotes-titles--backup (file stamp)
@@ -5026,49 +5282,91 @@ changed."
                        (cl-incf typed))))))))
     typed))
 
-;;;###autoload
-(defun sp-litnotes-titles-apply ()
-  "Set the litnote titles to Chicago-style references and rename them to the citekey.
-Shows the report; when notes failed for a missing title, author or year, offers to
-ask for the values (used for the title only), then shows it again and asks once
-before writing.  Every note is copied to a time-stamped folder in
-`sp-litnotes-titles-backup-directory' before it is written; the Vulpea database
-is updated after each change.  The `:ID:' is never touched, so `id:' links keep
-working; `file:' links to old names are listed in the report but not changed.
-Running it again changes nothing."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
-  (let* ((plans (sp-litnotes-titles--show-report))
-         (failed (cl-remove-if-not
-                  (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
-                  plans)))
-    (when (and failed
-               (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
-                                 (length failed)))
-               (> (sp-litnotes-titles--resolve failed) 0))
-      (setq plans (sp-litnotes-titles--show-report))))
-  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p
-                                (sp-litnotes-titles--plans))))
+;; A note is written only if it still gets the title and name of the report.
+(defun sp-litnotes-titles--current-p (plan)
+  "Non-nil when the note of PLAN would still get the title and name PLAN has."
+  (let ((now (ignore-errors
+               (sp-litnotes-titles--plan
+                (sp-litnotes-titles--parse-with-overrides (plist-get plan :file))))))
+    (and now
+         (equal (plist-get now :id) (plist-get plan :id))
+         (equal (plist-get now :new-title) (plist-get plan :new-title))
+         (equal (plist-get now :new-name) (plist-get plan :new-name)))))
+
+(defvar sp-litnotes-titles--last-results nil
+  "What the last `sp-litnotes-titles-apply' wrote: a plist per note.")
+
+(defun sp-litnotes-titles--write-all (todo)
+  "Write the plans TODO in slices, after a backup of each, and report at the end."
+  (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
+         results)
+    (sp-async-work-run
+     "Litnote titles"
+     (list (list "writing"
+                 (lambda () todo)
+                 (lambda (plan _job)
+                   (push (if (sp-litnotes-titles--current-p plan)
+                             (sp-litnotes-titles--apply-plan plan stamp)
+                           (list :file (plist-get plan :file) :status 'skipped
+                                 :why "changed since the report"))
+                         results))))
+     :done (lambda (_job)
+             (setq results (nreverse results))
+             (let ((bad (cl-remove-if (lambda (r) (eq (plist-get r :status) 'written))
+                                      results)))
+               (message "Wrote %d of %d litnotes; backups in %s%s"
+                        (- (length results) (length bad)) (length results)
+                        (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)
+                        (if bad
+                            (format "; %s" (mapconcat
+                                            (lambda (r) (format "%s %s (%s)"
+                                                                (plist-get r :status)
+                                                                (file-name-nondirectory (plist-get r :file))
+                                                                (plist-get r :why)))
+                                            bad ", "))
+                          "")))
+             (setq sp-litnotes-titles--last-results results)))))
+
+(defun sp-litnotes-titles--confirm-and-write (plans)
+  "Ask once about the changes in PLANS, then write them."
+  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p plans)))
     (if (null todo)
         (message "Nothing to change.")
       (when (yes-or-no-p (format "Write %d litnotes (backups in %s)? "
                                  (length todo) sp-litnotes-titles-backup-directory))
-        (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
-               (results (mapcar (lambda (plan) (sp-litnotes-titles--apply-plan plan stamp))
-                                todo))
-               (bad (cl-remove-if (lambda (r) (eq (plist-get r :status) 'written)) results)))
-          (message "Wrote %d of %d litnotes; backups in %s%s"
-                   (- (length results) (length bad)) (length results)
-                   (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)
-                   (if bad
-                       (format "; %s" (mapconcat
-                                       (lambda (r) (format "%s %s (%s)"
-                                                           (plist-get r :status)
-                                                           (file-name-nondirectory (plist-get r :file))
-                                                           (plist-get r :why)))
-                                       bad ", "))
-                     ""))
-          results)))))
+        (sp-litnotes-titles--write-all todo)))))
+
+(defun sp-litnotes-titles--after-report (plans)
+  "Offer to ask for what the failed PLANS lack, then go on to write."
+  (let ((failed (cl-remove-if-not
+                 (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
+                 plans)))
+    (if (and failed
+             (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
+                               (length failed)))
+             (> (sp-litnotes-titles--resolve failed) 0))
+        (sp-litnotes-titles--show-report #'sp-litnotes-titles--confirm-and-write)
+      (sp-litnotes-titles--confirm-and-write plans))))
+
+;;;###autoload
+(defun sp-litnotes-titles-apply ()
+  "Set the litnote titles to Chicago-style references and rename them to the citekey.
+The notes are read in slices, so Emacs stays usable, and the report opens.
+When notes failed for a missing title, author or year, you are offered to
+type the values (used for the title only); the report is made again and you
+are asked once before anything is written.  Every note is copied to a
+time-stamped folder in `sp-litnotes-titles-backup-directory' before it is
+written, in slices; a note with unsaved changes in its buffer, or changed
+since the report, is skipped.  The Vulpea database is updated after each
+change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
+links to old names are listed in the report but not changed.  Running it
+again changes nothing.  Only when `sp-async-work-synchronous' is set does
+this return the results, a plist per note."
+  (interactive)
+  (clrhash sp-litnotes-titles--overrides)
+  (setq sp-litnotes-titles--last-results nil)
+  (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
+  sp-litnotes-titles--last-results)
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here

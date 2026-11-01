@@ -1,6 +1,8 @@
 ;;; sp-author-notes-test.el --- Tests for sp-author-notes -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
 (require 'sp-author-notes)
 
 (defvar sp-author-notes-test--n 0)
@@ -363,3 +365,29 @@
         (re-search-forward "^  author ann lee$")
         (sp-author-notes-restore)
         (should (null sp-author-notes--excluded))))))
+
+(ert-deftest sp-author-notes-test-apply-in-slices ()
+  "The commands read and write from timers, and the result equals the one-go run."
+  (sp-author-notes-test--with-vault
+    (let ((sp-async-work-synchronous nil) (sp-async-work-slice 0.001))
+      (dotimes (i 25)
+        (sp-author-notes-test--write
+         (expand-file-name (format "litnotes/l%d.org" i) vault)
+         ":PROPERTIES:" (format ":ID: l%d" i) ":END:" "#+title: x" ""
+         (format "- pub-author :: Author%d Name" i) ""))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-author-notes-preview)
+        (should (sp-async-work-find "Author notes"))
+        (let ((limit (+ (float-time) 30)))
+          (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
+        (with-current-buffer sp-author-notes--buffer-name
+          (should (string-match-p "Author7 Name" (buffer-string))))
+        (should-not (file-exists-p (expand-file-name "new-1.org" vault)))
+        (sp-author-notes-apply)
+        (let ((limit (+ (float-time) 30)))
+          (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
+        (should (string-match-p "pub-author :: \\[\\[id:new-"
+                                (sp-author-notes-test--read (expand-file-name "litnotes/l24.org" vault))))
+        (let ((sp-async-work-synchronous t))
+          (should (= 0 (sp-author-notes--change-count (sp-author-notes--run nil)))))))))
+

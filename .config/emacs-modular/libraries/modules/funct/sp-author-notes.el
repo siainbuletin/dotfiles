@@ -16,6 +16,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'org)
+(require 'sp-async-work)
 (require 'sp-globals nil t)
 
 (defvar sp-notes-dir)
@@ -373,23 +374,29 @@ changed, and dropped names get no note.")
   "Record the problem TEXT at FILE and LINE in RUN."
   (push (list file line text) (sp-author-notes--run-problems run)))
 
+(defun sp-author-notes--index-start (run)
+  "Give RUN empty title, ID and Denote tables."
+  (setf (sp-author-notes--run-by-title run) (make-hash-table :test #'equal)
+        (sp-author-notes--run-by-id run) (make-hash-table :test #'equal)
+        (sp-author-notes--run-by-denote run) (make-hash-table :test #'equal)))
+
+(defun sp-author-notes--index-file (run file)
+  "Add the head of the note FILE to the title and ID tables of RUN."
+  (let ((entry (ignore-errors (sp-author-notes--file-head file))))
+    (when entry
+      (when-let* ((id (plist-get entry :id)))
+        (puthash id entry (sp-author-notes--run-by-id run)))
+      (when-let* ((denote (plist-get entry :denote)))
+        (puthash denote entry (sp-author-notes--run-by-denote run)))
+      (when-let* ((title (plist-get entry :title)))
+        (push entry (gethash (sp-author-notes--title-key title)
+                             (sp-author-notes--run-by-title run)))))))
+
 (defun sp-author-notes--index (run)
   "Fill the title and ID tables of RUN from the vault."
-  (let ((by-title (make-hash-table :test #'equal))
-        (by-id (make-hash-table :test #'equal))
-        (by-denote (make-hash-table :test #'equal)))
-    (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
-      (let ((entry (ignore-errors (sp-author-notes--file-head file))))
-        (when entry
-          (when-let* ((id (plist-get entry :id)))
-            (puthash id entry by-id))
-          (when-let* ((denote (plist-get entry :denote)))
-            (puthash denote entry by-denote))
-          (when-let* ((title (plist-get entry :title)))
-            (push entry (gethash (sp-author-notes--title-key title) by-title))))))
-    (setf (sp-author-notes--run-by-title run) by-title
-          (sp-author-notes--run-by-id run) by-id
-          (sp-author-notes--run-by-denote run) by-denote)))
+  (sp-author-notes--index-start run)
+  (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
+    (sp-author-notes--index-file run file)))
 
 (defun sp-author-notes--person-p (entry)
   "Non-nil if the index ENTRY is tagged with `sp-author-notes-person-tag'."
@@ -812,8 +819,68 @@ folder.  A failure is recorded as a problem."
     (error (sp-author-notes--problem
             run file nil (format "The table was not filled: %s" (error-message-string err))))))
 
-(defun sp-author-notes--run (apply)
-  "Do the whole job, writing files only when APPLY is non-nil.  Return the run."
+(defun sp-author-notes--litnote-step (run seen file)
+  "Check the litnote FILE for RUN; SEEN is the table of the authors found so far."
+  (when-let* ((wrapped (sp-author-notes--process-file
+                        run file (lambda () (sp-author-notes--litnote-pass run file))))
+              (result (car wrapped)))
+    (when (or (plist-get result :fixes) (plist-get result :suspects)
+              (plist-get result :denoted) (plist-get result :ambiguous)
+              (plist-get result :converted) (plist-get result :unparsed))
+      (push (cons file result) (sp-author-notes--run-litnotes run)))
+    (dolist (author (plist-get result :authors))
+      (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
+        (unless (gethash key seen)
+          (puthash key t seen)
+          (push author (sp-author-notes--run-authors run)))))))
+
+(defun sp-author-notes--author-step (run author)
+  "Plan the note of AUTHOR, an (ID . NAME) pair, for RUN."
+  (pcase-let ((`(,id . ,name) author))
+    (if (null id)
+        (push (list name nil nil (sp-author-notes--new-note-additions))
+              (sp-author-notes--run-people run))
+      (let ((entry (gethash id (sp-author-notes--run-by-id run))))
+        (cond
+         ((null entry))                 ; an orphan ID, in the orphan section
+         ((not (sp-author-notes--person-p entry))
+          (sp-author-notes--problem
+           run (plist-get entry :file) nil
+           (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
+                   (plist-get entry :title) sp-author-notes-person-tag)))
+         (t
+          (when-let* ((wrapped (sp-author-notes--process-file
+                                run (plist-get entry :file) #'sp-author-notes--person-pass)))
+            (push (list (plist-get entry :title) id (plist-get entry :file)
+                        (car wrapped))
+                  (sp-author-notes--run-people run)))))))))
+
+(defun sp-author-notes--table-items (run)
+  "The author notes of RUN whose tables are to be filled; nil when that cannot be done."
+  (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
+      (progn
+        (sp-author-notes--problem
+         run nil nil "Tables not filled: the query tables and vulpea are not loaded")
+        nil)
+    (seq-filter #'identity (mapcar (lambda (p) (nth 2 p)) (sp-author-notes--run-people run)))))
+
+(defun sp-author-notes--finish-run (run)
+  "Put the lists of RUN, which were built back to front, in reading order."
+  (setf (sp-author-notes--run-people run) (nreverse (sp-author-notes--run-people run))
+        (sp-author-notes--run-orphans run) (nreverse (sp-author-notes--run-orphans run))
+        (sp-author-notes--run-tagged run) (nreverse (sp-author-notes--run-tagged run))
+        (sp-author-notes--run-saved run) (nreverse (sp-author-notes--run-saved run))
+        (sp-author-notes--run-filled run) (nreverse (sp-author-notes--run-filled run))
+        (sp-author-notes--run-problems run) (nreverse (sp-author-notes--run-problems run))
+        (sp-author-notes--run-created run) (nreverse (sp-author-notes--run-created run))
+        (sp-author-notes--run-pending run) (nreverse (sp-author-notes--run-pending run))))
+
+(defun sp-author-notes--run-job (apply callback)
+  "Do the whole job in slices, writing files only when APPLY is non-nil.
+Call CALLBACK with the run when it is done; return the job.  The stages are
+the reading of the author notes, of the litnotes, the planning of each
+author note and, when APPLY, the filling of the tables.  Questions are asked
+in the middle of a slice, in this Emacs, as they always were."
   (let ((run (sp-author-notes--make-run
               :apply apply
               :stamp (format-time-string "%Y%m%dT%H%M%S")
@@ -821,61 +888,41 @@ folder.  A failure is recorded as a problem."
               :orphan-choices (make-hash-table :test #'equal)
               :backed-up (make-hash-table :test #'equal)))
         (seen (make-hash-table :test #'equal)))
-    (sp-author-notes--index run)
-    ;; Litnotes: key typos, plain names to links.
-    (let ((files (sp-author-notes--org-files sp-author-notes-litnotes-directory)))
-      (setf (sp-author-notes--run-litnote-count run) (length files))
-      (dolist (file files)
-        (when-let* ((wrapped (sp-author-notes--process-file
-                              run file (lambda () (sp-author-notes--litnote-pass run file))))
-                    (result (car wrapped)))
-          (when (or (plist-get result :fixes) (plist-get result :suspects)
-                    (plist-get result :denoted) (plist-get result :ambiguous)
-                    (plist-get result :converted) (plist-get result :unparsed))
-            (push (cons file result) (sp-author-notes--run-litnotes run)))
-          (dolist (author (plist-get result :authors))
-            (let ((key (or (car author) (concat "name:" (sp-author-notes--title-key (cdr author))))))
-              (unless (gethash key seen)
-                (puthash key t seen)
-                (push author (sp-author-notes--run-authors run))))))))
-    (setf (sp-author-notes--run-litnotes run) (nreverse (sp-author-notes--run-litnotes run))
-          (sp-author-notes--run-authors run) (nreverse (sp-author-notes--run-authors run)))
-    ;; Author notes.
-    (dolist (author (sp-author-notes--run-authors run))
-      (pcase-let ((`(,id . ,name) author))
-        (if (null id)
-            (push (list name nil nil (sp-author-notes--new-note-additions))
-                  (sp-author-notes--run-people run))
-          (let ((entry (gethash id (sp-author-notes--run-by-id run))))
-            (cond
-             ((null entry))             ; an orphan ID, in the orphan section
-             ((not (sp-author-notes--person-p entry))
-              (sp-author-notes--problem
-               run (plist-get entry :file) nil
-               (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
-                       (plist-get entry :title) sp-author-notes-person-tag)))
-             (t
-              (when-let* ((wrapped (sp-author-notes--process-file
-                                    run (plist-get entry :file) #'sp-author-notes--person-pass)))
-                (push (list (plist-get entry :title) id (plist-get entry :file)
-                            (car wrapped))
-                      (sp-author-notes--run-people run)))))))))
-    ;; Tables.
-    (when apply
-      (if (not (and (fboundp 'vulpea-db-query) (require 'sp-collection-query-tables nil t)))
-          (sp-author-notes--problem
-           run nil nil "Tables not filled: the query tables and vulpea are not loaded")
-        (dolist (p (sp-author-notes--run-people run))
-          (when (nth 2 p) (sp-author-notes--populate run (nth 2 p))))))
-    (setf (sp-author-notes--run-people run) (nreverse (sp-author-notes--run-people run))
-          (sp-author-notes--run-orphans run) (nreverse (sp-author-notes--run-orphans run))
-          (sp-author-notes--run-tagged run) (nreverse (sp-author-notes--run-tagged run))
-          (sp-author-notes--run-saved run) (nreverse (sp-author-notes--run-saved run))
-          (sp-author-notes--run-filled run) (nreverse (sp-author-notes--run-filled run))
-          (sp-author-notes--run-problems run) (nreverse (sp-author-notes--run-problems run))
-          (sp-author-notes--run-created run) (nreverse (sp-author-notes--run-created run))
-          (sp-author-notes--run-pending run) (nreverse (sp-author-notes--run-pending run)))
-    run))
+    (sp-async-work-run
+     "Author notes"
+     (list (list "reading the vault"
+                 (lambda ()
+                   (sp-author-notes--index-start run)
+                   (sp-author-notes--org-files sp-author-notes-directory))
+                 (lambda (file _job) (sp-author-notes--index-file run file)))
+           (list "checking litnotes"
+                 (lambda ()
+                   (let ((files (sp-author-notes--org-files
+                                 sp-author-notes-litnotes-directory)))
+                     (setf (sp-author-notes--run-litnote-count run) (length files))
+                     files))
+                 (lambda (file _job) (sp-author-notes--litnote-step run seen file)))
+           (list "author notes"
+                 (lambda ()
+                   (setf (sp-author-notes--run-litnotes run)
+                         (nreverse (sp-author-notes--run-litnotes run))
+                         (sp-author-notes--run-authors run)
+                         (nreverse (sp-author-notes--run-authors run)))
+                   (sp-author-notes--run-authors run))
+                 (lambda (author _job) (sp-author-notes--author-step run author)))
+           (list "filling tables"
+                 (lambda () (and apply (sp-author-notes--table-items run)))
+                 (lambda (file _job) (sp-author-notes--populate run file))))
+     :done (lambda (_job)
+             (sp-author-notes--finish-run run)
+             (funcall callback run)))))
+
+(defun sp-author-notes--run (apply)
+  "Do the whole job at once, writing files only when APPLY is non-nil.  Return the run.
+The commands use `sp-author-notes--run-job', which does it in slices."
+  (let ((sp-async-work-synchronous t) result)
+    (sp-author-notes--run-job apply (lambda (run) (setq result run)))
+    result))
 
 (defvar sp-author-notes-report-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1110,19 +1157,29 @@ a dropped one, A writes what is left, g shows the preview again.")
 ;;;###autoload
 (defun sp-author-notes-preview ()
   "Show what `sp-author-notes' would do, and write nothing.
-Drops anything that an earlier report left out with `d'."
+The vault is read in slices, so Emacs stays usable; the report opens when it
+is read.  Drops anything that an earlier report left out with `d'."
   (interactive)
   (setq sp-author-notes--excluded nil)
-  (sp-author-notes--show (sp-author-notes--run nil)))
+  (sp-author-notes--run-then nil #'sp-author-notes--show))
+
+(defun sp-author-notes--run-then (apply callback)
+  "Run the job in slices, then call CALLBACK with the run.  Say that it started."
+  (message "Author notes: %s in the background (M-x sp-async-work-cancel stops it)"
+           (if apply "writing" "reading"))
+  (sp-author-notes--run-job apply callback))
 
 (defun sp-author-notes-refresh ()
   "Show the preview again, keeping what was dropped from the list."
   (interactive)
   (let ((line (line-number-at-pos)))
-    (sp-author-notes--show (sp-author-notes--run nil))
-    (with-current-buffer sp-author-notes--buffer-name
-      (goto-char (point-min))
-      (forward-line (1- line)))))
+    (sp-author-notes--run-then
+     nil
+     (lambda (run)
+       (sp-author-notes--show run)
+       (with-current-buffer sp-author-notes--buffer-name
+         (goto-char (point-min))
+         (forward-line (1- line)))))))
 
 (defun sp-author-notes--key-at-point ()
   "The key of the candidate on the report line at point."
@@ -1149,25 +1206,22 @@ to create is dropped by name: no note is made and the name stays plain."
 ;;;###autoload
 (defun sp-author-notes-apply ()
   "Do the job and show the report, without asking.
-What was dropped from the report with `d' is left out."
+What was dropped from the report with `d' is left out.  The files are
+written in slices, so Emacs stays usable; the report opens when all are done."
   (interactive)
-  (let ((run (sp-author-notes--run t)))
-    (sp-author-notes--show run)
-    (setq sp-author-notes--excluded nil)
-    (message "Author notes: %d change%s written"
-             (sp-author-notes--change-count run)
-             (if (= 1 (sp-author-notes--change-count run)) "" "s"))
-    run))
+  (sp-author-notes--run-then
+   t
+   (lambda (run)
+     (sp-author-notes--show run)
+     (setq sp-author-notes--excluded nil)
+     (message "Author notes: %d change%s written"
+              (sp-author-notes--change-count run)
+              (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
-;;;###autoload
-(defun sp-author-notes ()
-  "Make author notes from the `pub-author' meta key of the litnotes.
-Show the plan first.  Then write it, or stay in the report to drop
-candidates with `d' and write what is left with `A'.  See the doc
-docs/tangles/funct/sp-org-lint.org."
-  (interactive)
-  (let* ((run (sp-author-notes-preview))
-         (n (sp-author-notes--change-count run)))
+(defun sp-author-notes--ask (run)
+  "Show the report of RUN and ask what to do with its changes."
+  (sp-author-notes--show run)
+  (let ((n (sp-author-notes--change-count run)))
     (if (zerop n)
         (message "Author notes: nothing to do")
       (pcase (car (read-multiple-choice
@@ -1178,6 +1232,16 @@ docs/tangles/funct/sp-org-lint.org."
         (?y (sp-author-notes-apply))
         (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
         (_ (message "Nothing written"))))))
+
+;;;###autoload
+(defun sp-author-notes ()
+  "Make author notes from the `pub-author' meta key of the litnotes.
+Read the vault in slices (Emacs stays usable) and show the plan.  Then write
+it, or stay in the report to drop candidates with `d' and write what is
+left with `A'.  See the doc docs/tangles/funct/sp-org-lint.org."
+  (interactive)
+  (setq sp-author-notes--excluded nil)
+  (sp-author-notes--run-then nil #'sp-author-notes--ask))
 
 (provide 'sp-author-notes)
 ;;; sp-author-notes.el ends here
