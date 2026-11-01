@@ -611,6 +611,32 @@ naming a meta key (several values are joined with \", \")."
 #+end_src
 
 #+begin_src emacs-lisp -i
+(defun sp-collec-query-link-ids (text)
+  "Return TEXT with each bare note ID in it written as an id: link.
+TEXT may hold several values joined with \", \".  A value that is an ID
+of a note in the database becomes [[id:ID][title]]; anything else,
+links included, is kept."
+  (mapconcat
+   (lambda (part)
+     (let ((note (and (string-match-p "\\`[[:alnum:]][[:alnum:].:_-]\\{7,\\}\\'" part)
+                      (fboundp 'vulpea-db-get-by-id)
+                      (vulpea-db-get-by-id part))))
+       (if (and note (vulpea-note-title note))
+           (format "[[id:%s][%s]]" (vulpea-note-id note)
+                   (replace-regexp-in-string "[][]" "" (vulpea-note-title note)))
+         part)))
+   (split-string text ", ")
+   ", "))
+
+(defun sp-collec-query-display-cell (note column)
+  "Return the text of COLUMN for NOTE, with note IDs written as links.
+This covers the :id column and meta values that are an ID.  Sorting
+keeps using `sp-collec-query-cell', so it still compares the plain text."
+  (let ((text (sp-collec-query-cell note column)))
+    (if (or (eq column :id) (stringp column))
+        (sp-collec-query-link-ids text)
+      text)))
+
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (if (keywordp column)
@@ -734,13 +760,13 @@ The emoji come from `sp-org-tag-groups'; without it the plain title."
 (defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS.
 Links in the texts are shown by their description, see `sp-org-link-linkify'.
-The title column carries the emoji of the note's tags."
+The title column carries the emoji of the note's tags; IDs are links."
   (mapcar (lambda (note)
             (mapcar (lambda (c)
                       (sp-org-link-linkify
                        (if (eq c :title)
                            (sp-collec-query-title-label note)
-                         (sp-collec-query-cell note c))))
+                         (sp-collec-query-display-cell note c))))
                     columns))
           notes))
 #+end_src
@@ -1208,7 +1234,7 @@ the other renderers show them by their description."
 #+begin_src emacs-lisp -i
 (defun sp-collec-query--org-cell (note column)
   "Return the Org text of COLUMN for NOTE."
-  (let ((text (sp-collec-query--org-escape (sp-collec-query-cell note column))))
+  (let ((text (sp-collec-query--org-escape (sp-collec-query-display-cell note column))))
     (if (and sp-collec-query-link-titles (eq column :title)
              (vulpea-note-id note) (not (string-empty-p text)))
         (format "[[id:%s][%s]]" (vulpea-note-id note)
@@ -2242,7 +2268,7 @@ COLUMNS are the table's columns and NOTES a vector of its notes."
                  (user-error "The %s column is read-only"
                              (sp-collec-query-header-label (nth col columns))))
                 ((sp-org-link-has-link-p
-                  (sp-collec-query-cell (aref notes (1- row)) (nth col columns)))
+                  (sp-collec-query-display-cell (aref notes (1- row)) (nth col columns)))
                  (user-error "This cell holds a link; edit it in the note"))
                 (t (sp-collec-query-write-meta (aref notes (1- row)) (nth col columns) value)
                    (funcall original s row col value))))
@@ -2471,13 +2497,13 @@ spec's sort."
                         ((eq c :title)
                          (vui-button (sp-collec-query-title-label note)
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
-                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-cell note c)))
+                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-display-cell note c)))
                         ;; A field would show the raw [[id:..][..]] text and
                         ;; save the description over the link when edited.
                         ((sp-org-link-has-link-p
-                          (or (car (vulpea-note-meta-get-list note c)) ""))
+                          (sp-collec-query-display-cell note c))
                          (vui-text (sp-org-link-linkify
-                                    (sp-collec-query-cell note c))))
+                                    (sp-collec-query-display-cell note c))))
                         (t (vui-field
                             :value (or (car (vulpea-note-meta-get-list note c)) "")
                             :on-change (lambda (val)
