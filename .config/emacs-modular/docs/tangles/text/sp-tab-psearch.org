@@ -23,7 +23,7 @@ This module is a search engine for the link inbox of [[file:sp-tab-inbox.org][sp
 - The semantic ranking is org-semantic's /order/ of passages: an idea in the first hit scores 0.9, one in the last hit 0.55, and ideas that no hit contains score 0.3, so they stay last. The grouping by note and section that org-semantic's own results buffer does is not used, because the unit here is a single line.
 - The semantic search is /blocking/ (it waits up to =org-semantic-timeout= seconds) while the prior is calculated.
 - =org-semantic= only finds the inbox if it indexed it. If =inbox/tabs/= is named in =.org-semantic-ignore=, or sits outside the vault (=org-semantic-vault-root=), the semantic prior finds nothing (outside the vault it signals an error).
-- p-search itself is installed by [[file:../base/navi/sp-search.org][sp-search]] with =use-package= and Elpaca; this module installs nothing and waits for p-search with =with-eval-after-load=.
+- p-search itself is installed by [[file:../custom/sp-search-browsing-trails.org][sp-search]] with =use-package= and Elpaca; this module installs nothing and waits for p-search with =with-eval-after-load=.
 
 * File header
 

@@ -14,7 +14,7 @@ The module brings references and papers in from the web.
 - DOI: =org-ref= resolves a DOI to a BibTeX entry and can fetch the PDF.
 - Download: a command that saves a PDF from a URL into the literature folder and writes it into the =file= field of the entry.
 - Keys: every entry, however it arrives, gets the key from the scheme in [[file:sp-academic.org::*Citation keys][Citation keys]].
-- consult-omni: =sp-fetch-academic-omni= searches OpenAlex, PubMed and Scopus from the minibuffer (=consult-omni= is set up in [[file:../media/sp-browsing.org][sp-browsing]]) and hands the chosen result to the DOI or download command. Why it is not Google Scholar: [[file:../media/sp-browsing.org::*Google Scholar: biblio-gscholar or consult-omni][the comparison]].
+- consult-omni: =sp-fetch-academic-omni= searches OpenAlex, PubMed and Scopus from the minibuffer (=consult-omni= is set up in [[file:../custom/sp-search-browsing-trails.org][sp-browsing]]) and hands the chosen result to the DOI or download command. Why it is not Google Scholar: [[file:../custom/sp-search-browsing-trails.org::*Google Scholar: biblio-gscholar or consult-omni][the comparison]].
 
 It is required by =sp-academic= after =sp-bibprocess=, so a profile only lists =sp-academic=.
 

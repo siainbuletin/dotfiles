@@ -140,7 +140,7 @@ Where the modules live:
 - [[file:docs/tangles/base/navi/sp-consult-snapfile.org][sp-consult-snapfile]] :: Fast file search with consult-snapfile ([[file:libraries/modules/base/navi/sp-consult-snapfile.el][sp-consult-snapfile.el]])
 - [[file:docs/tangles/base/navi/sp-dired.org][sp-dired]] :: Dired and Dirvish file management ([[file:libraries/modules/base/navi/sp-dired.el][sp-dired.el]])
 - [[file:docs/tangles/base/navi/sp-goto.org][sp-goto]] :: Clickable addresses and quick file jumps ([[file:libraries/modules/base/navi/sp-goto.el][sp-goto.el]])
-- [[file:docs/tangles/base/navi/sp-search.org][sp-search]] :: Search tools: Consult, grep front-ends and Recoll ([[file:libraries/modules/base/navi/sp-search.el][sp-search.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-search]] :: Search tools: Consult, grep front-ends and Recoll ([[file:libraries/modules/base/navi/sp-search.el][sp-search.el]])
 
 ** custom/
 
@@ -153,7 +153,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - [[file:docs/tangles/custom/sp-embr.org][sp-embr]] :: Show the live relationship graph in an Emacs buffer with embr.el or xwidget-webkit, and compare them ([[file:libraries/modules/custom/sp-embr.el][sp-embr.el]])
 - [[file:docs/planned/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude (not loaded or tangled while it is redesigned)
-- sp-trails :: no literate source yet ([[file:libraries/modules/custom/sp-trails.el][sp-trails.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-trails]] :: Browsing trails tied to research questions; the doc has the problem statement only, the code is not tangled yet ([[file:libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:docs/tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:docs/tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
 - [[file:docs/tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
@@ -182,7 +182,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 
 - [[file:docs/tangles/media/sp-ai.org][sp-ai]] :: AI and LLM integration ([[file:libraries/modules/media/sp-ai.el][sp-ai.el]])
 - [[file:docs/tangles/media/sp-beets.org][sp-beets]] :: Editing beets metadata in Emacs ([[file:libraries/modules/media/sp-beets.el][sp-beets.el]])
-- [[file:docs/tangles/media/sp-browsing.org][sp-browsing]] :: Web browsing inside Emacs ([[file:libraries/modules/media/sp-browsing.el][sp-browsing.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-browsing]] :: Web browsing inside Emacs ([[file:libraries/modules/media/sp-browsing.el][sp-browsing.el]])
 - [[file:docs/tangles/media/sp-instant-messenger.org][sp-instant-messenger]] :: Instant messaging from Emacs ([[file:libraries/modules/media/sp-instant-messenger.el][sp-instant-messenger.el]])
 - [[file:docs/tangles/media/sp-mail.org][sp-mail]] :: Mail management in Emacs ([[file:libraries/modules/media/sp-mail.el][sp-mail.el]])
 - [[file:docs/tangles/media/sp-multimedia.org][sp-multimedia]] :: Music and media playback ([[file:libraries/modules/media/sp-multimedia.el][sp-multimedia.el]])

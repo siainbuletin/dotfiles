@@ -13,4 +13,4 @@ Marked "Local patch" in the code. To update, copy the upstream files over this f
 1. =consult-omni.el=: new =consult-omni--check-enabled-sources=, called by =consult-omni--multi-dynamic= and =consult-omni--multi-static= after the enabled sources are chosen. With no enabled source it signals a =user-error= that says what to check, instead of =Args out of range: [], 0= from =(aref sources 0)=.
 2. =consult-omni.el=: =consult-omni--multi-lookup= no longer calls =aref= on an empty vector.
 
-The cause of the error in this configuration was not in the package: see [[file:../../../../docs/tangles/media/sp-browsing.org::*Why the search failed with "Args out of range"][sp-browsing, Why the search failed]].
+The cause of the error in this configuration was not in the package: see [[file:../../../../docs/tangles/custom/sp-search-browsing-trails.org::*Why the search failed with "Args out of range"][sp-browsing, Why the search failed]].
