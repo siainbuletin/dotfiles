@@ -55,7 +55,7 @@
   :ensure t
   :commands (citar-open-notes
              citar-insert-citation)
-
+  
   :custom
   ;; Use with org citation
   (org-cite-global-bibliography sp-bibtex-files)
@@ -66,11 +66,11 @@
   (citar-library-file-extensions '("pdf" "jpg"))
   (citar-file-additional-files-separator "-")
   (citar-notes-paths (list (or sp-bib-notes sp-notes-dir)))
-
+  
   ;; Working at point
   (citar-at-point-function 'embark-act) ;; use embark with at-point
 
-  (citar-additional-fields
+  (citar-additional-fields 
     '("doi"
       "url"))   ;; What exactly can you do with these additional fields?
 
@@ -92,7 +92,7 @@
   :bind
          (("C-c w b o" . citar-open))
          (:map org-mode-map :package org ("C-c b" . #'org-cite-insert))
-
+         
          :hook
          (LaTeX-mode . citar-capf-setup)
          (org-mode . citar-capf-setup)
@@ -152,11 +152,15 @@ Return nil when POS is not inside a `[cite:]' link."
 
 (defun sp-cite-hover--reference (key)
   "Return the formatted reference of KEY from the bibliography, or nil.
-It uses the `preview' template of `citar-templates'."
-  (when (and key (require 'citar nil t))
-    (when-let* ((entry (citar-get-entry key))
-                (text (citar-format--entry (citar-get-template 'preview) entry)))
-      (string-trim (substring-no-properties text)))))
+It uses `citar-format-reference', which applies the `preview' template of
+`citar-templates'.  Any error from citar gives nil, so a hover never breaks."
+  (when (and key (require 'citar nil t) (fboundp 'citar-format-reference))
+    (and-let* ((entry (ignore-errors (citar-get-entry key)))
+               (text (ignore-errors (citar-format-reference (list key))))
+               ((stringp text))
+               (text (string-trim (substring-no-properties text)))
+               ((not (string-empty-p text))))
+      text)))
 
 (defun sp-cite-hover--help-echo (_window object pos)
   "Return the reference of the citation at POS in OBJECT for `help-echo'."
