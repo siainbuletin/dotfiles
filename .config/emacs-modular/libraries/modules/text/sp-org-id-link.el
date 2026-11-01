@@ -116,6 +116,24 @@ face, and RET or a click follows the link.  Text is returned as is when
       (push (substring text pos) out)
       (apply #'concat (nreverse out)))))
 
+(defun sp-org-link-link-ids (text)
+  "Return TEXT with each bare note ID in it written as an id: link.
+TEXT may hold several values joined with \", \".  A value that is the ID
+of a note in the Vulpea database becomes [[id:ID][title]].  Anything
+else is kept, links included, except that a link written [[ID:...]] gets
+a lower-case type so Org can follow it."
+  (mapconcat
+   (lambda (part)
+     (let ((note (and (string-match-p "\\`[[:alnum:]][[:alnum:].:_-]\\{7,\\}\\'" part)
+                      (fboundp 'vulpea-db-get-by-id)
+                      (vulpea-db-get-by-id part))))
+       (if (and note (vulpea-note-title note))
+           (format "[[id:%s][%s]]" (vulpea-note-id note)
+                   (replace-regexp-in-string "[][]" "" (vulpea-note-title note)))
+         (replace-regexp-in-string "\\[\\[ID:" "[[id:" part t t))))
+   (split-string text ", ")
+   ", "))
+
 ;;;;; Link to the configuration docs
 ;; Plain `file:' links, so the docs stay out of the vulpea database.
 (declare-function sp-find-file-pick "sp-navi")
