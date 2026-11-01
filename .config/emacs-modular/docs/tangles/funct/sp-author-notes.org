@@ -13,7 +13,7 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 =M-x sp-author-notes= does, in this order:
 
 1. Reads every note in =litnotes/= (the file-level meta list only) and *fixes typos of the key*: =pub-authro=, =pub-autor= and =Pub_Author= become =pub-author=. A key two edits away is only reported.
-2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and=, but not by a comma because =Smith, John= is one name. Each name gets its own note.
+2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and=, but not by a single comma because =Smith, John= is one name; more than one comma is a case for disambiguation, see below. Each name gets its own note.
 3. *Creates a note tagged =:person:=* for every plain name that has no note, with =sp-org--write-note= (the function behind =sp-org-create-note-and-link=; there is no function called =sp-org--create-note=), and replaces the plain name in the litnote by an ID link to it. An existing note is found by its title, ignoring case; if it is not tagged =person= it is given that tag in its =#+filetags:=.
 4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=.
 5. Fills the tables from the Vulpea database, so they are not left for =C-c C-c=.
@@ -36,6 +36,7 @@ Safety:
 - Before a file is changed it is copied to =sp-author-notes-backup-directory= (a folder per run).
 - A file with unsaved changes in a buffer is saved first, and the report lists it. The preview lists the buffers it will save.
 - A link to an ID that no note has (an orphan) is listed with the suggestion of the person note of that name. When the changes are written you are asked where it should point (=sp-author-notes-redirect-function=; an empty answer leaves it). A linked note that is not a =person= is only reported.
+- A list of unquoted names with more than one comma (=Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina=) can be one author or several, so it is its own case: the report shows how it would be split (each piece a name, or =Last, First= pairs when the first piece is a single word) and, when the changes are written, you are asked whether to split it (=sp-author-notes-disambiguate-function=). Left as it is otherwise.
 - Left alone and reported: two notes with one title, a note without an ID, and a value that mixes links with other text.
 
 What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= get a =Works= section, not every =person= note.
@@ -150,6 +151,14 @@ It is called with the orphan ID, the description of the link (or nil), the
 title of the person note with that name (or nil) and an alist of
 \(TITLE . ID) of every person note.  It returns the ID to use, or nil to
 leave the link alone."
+  :type 'function
+  :group 'sp-author-notes)
+
+(defcustom sp-author-notes-disambiguate-function #'sp-author-notes-read-disambiguation
+  "Function that decides what a list of names separated by commas means.
+It is called with the text and the list of names proposed for it, when
+the changes are written.  It returns the names to make authors of, or
+nil to leave the text as it is."
   :type 'function
   :group 'sp-author-notes)
 
@@ -328,17 +337,45 @@ A value without links is split at =;= and at =and= into plain names. A value of 
         (concat (cadr parts) " " (car parts))
       name)))
 
+(defun sp-author-notes--comma-proposal (segment)
+  "Propose the authors of SEGMENT, a list with more than one comma, as a list of names.
+When the text before the first comma has two words or more, every
+comma-separated piece is a name: \"Ann Lee, Bo Roe, Cy Poe\".  Otherwise
+the pieces are \"Last, First\" pairs, flipped when
+`sp-author-notes-flip-names' is set.  Nil when the pieces cannot be paired."
+  (let ((pieces (split-string segment "," t "[ \t]+")))
+    (if (string-match-p "[ \t]" (car pieces))
+        (mapcar #'sp-author-notes--clean-name pieces)
+      (when (cl-evenp (length pieces))
+        (cl-loop for (last first) on pieces by #'cddr
+                 collect (sp-author-notes--clean-name (concat last ", " first)))))))
+
+(defun sp-author-notes-read-disambiguation (raw names)
+  "Ask whether RAW is the authors NAMES.  Return NAMES when it is, else nil."
+  (when (y-or-n-p (format "\"%s\" may be %d authors: %s.  Make one author each? "
+                          raw (length names) (string-join names " | ")))
+    names))
+
 (defun sp-author-notes--plain-names (text)
   "The names in TEXT, which has no links or quoted names.
-A stray quote mark is dropped.  Names are separated by `;' or `and'."
-  (seq-remove #'string-empty-p
-              (mapcar (lambda (n) (sp-author-notes--clean-name (string-trim n "[ \t,]+" "[ \t,]+")))
-                      (split-string text "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))))
+A stray quote mark is dropped.  Names are separated by `;' or `and'.
+Each element is a name, or (:ambiguous RAW NAMES) for a piece with more
+than one comma, which may be one author or several: RAW is the text and
+NAMES the split proposed by `sp-author-notes--comma-proposal'."
+  (let (out)
+    (dolist (segment (split-string (replace-regexp-in-string "[\"“”]" "" text)
+                                   "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))
+      (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
+        (cond ((string-empty-p segment))
+              ((> (length (split-string segment "," t "[ \t]+")) 2)
+               (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
+              (t (push (sp-author-notes--clean-name segment) out)))))
+    (seq-remove (lambda (x) (and (stringp x) (string-empty-p x))) (nreverse out))))
 
 (defun sp-author-notes--parse-value (value)
   "Split the meta VALUE into authors.
-Return a list of (:link ID RAW), (:denote IDENTIFIER RAW) and (:name NAME)
-items, in order, or `unparsed' when links are mixed with other words.
+Return a list of (:link ID RAW), (:denote IDENTIFIER RAW), (:name NAME) and
+\(:ambiguous RAW NAMES) items, in order, or `unparsed' when links are mixed with other words.
 A name can be quoted (\"Ann Lee\", \"Bo Roe\" or \"Ann Lee\" \"Bo Roe\"), so the
 comma between quoted names separates them; a quote mark with no partner
 is dropped."
@@ -352,7 +389,7 @@ is dropped."
                           (t (list :quoted (match-string 4 value)))))
              (before (substring value pos beg)))
         (dolist (name (sp-author-notes--plain-names before))
-          (push (list :name name) items)
+          (push (if (stringp name) (list :name name) name) items)
           (push name loose))
         (if (eq (car token) :quoted)
             (let ((name (sp-author-notes--clean-name (cadr token))))
@@ -361,7 +398,7 @@ is dropped."
           (push token items))
         (setq pos end)))
     (dolist (name (sp-author-notes--plain-names (substring value pos)))
-      (push (list :name name) items)
+      (push (if (stringp name) (list :name name) name) items)
       (push name loose))
     (if (and linked loose) 'unparsed (nreverse items))))
 
@@ -613,7 +650,7 @@ vault has that identifier and an :ID:."
 
 (defun sp-author-notes--litnote-pass (run file)
   "Fix the key typos and link the plain authors in the buffer, a note from FILE."
-  (let (fixes suspects converted authors unparsed denoted)
+  (let (fixes suspects converted authors unparsed denoted ambiguous)
     (dolist (entry (sp-author-notes--meta-entries))
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
@@ -625,6 +662,19 @@ vault has that identifier and an :ID:."
             (if (eq items 'unparsed)
                 (push (cons value line) unparsed)
               (let (parts changed)
+                (cl-flet ((do-name (name line)
+                            (let ((id (sp-author-notes--resolve run name file line)))
+                              (cond
+                               ((stringp id)
+                                (push (cons id name) authors)
+                                (push (format "[[id:%s][%s]]" id name) parts)
+                                (push (list name id line) converted)
+                                (setq changed t))
+                               ((eq id :pending)
+                                (push (cons nil name) authors)
+                                (push (list name nil line) converted)
+                                (push name parts))
+                               (t (push name parts))))))
                 (dolist (item items)
                   (pcase item
                     (`(:link ,id ,raw)
@@ -642,19 +692,14 @@ vault has that identifier and an :ID:."
                            (push (cdr new) parts)
                            (setq changed t))
                        (push raw parts)))
-                    (`(:name ,name)
-                     (let ((id (sp-author-notes--resolve run name file line)))
-                       (cond
-                        ((stringp id)
-                         (push (cons id name) authors)
-                         (push (format "[[id:%s][%s]]" id name) parts)
-                         (push (list name id line) converted)
-                         (setq changed t))
-                        ((eq id :pending)
-                         (push (cons nil name) authors)
-                         (push (list name nil line) converted)
-                         (push name parts))
-                        (t (push name parts)))))))
+                    (`(:name ,name) (do-name name line))
+                    (`(:ambiguous ,raw ,names)
+                     (let ((chosen (and names (sp-author-notes--run-apply run)
+                                        (funcall sp-author-notes-disambiguate-function raw names))))
+                       (push (list raw names line chosen) ambiguous)
+                       (if chosen
+                           (dolist (name chosen) (do-name name line))
+                         (push raw parts)))))))
                 (when changed
                   (sp-author-notes--replace
                    (plist-get entry :value-beg) (plist-get entry :value-end)
@@ -667,7 +712,8 @@ vault has that identifier and an :ID:."
                                           (plist-get entry :key-end) (cdr state)))
             (push (cons key line) suspects)))))
     (list :fixes fixes :suspects suspects :converted converted
-          :authors authors :unparsed unparsed :denoted denoted)))
+          :authors authors :unparsed unparsed :denoted denoted
+          :ambiguous ambiguous)))
 #+end_src
 
 ** The person pass
@@ -885,7 +931,7 @@ folder.  A failure is recorded as a problem."
                               run file (lambda () (sp-author-notes--litnote-pass run file))))
                     (result (car wrapped)))
           (when (or (plist-get result :fixes) (plist-get result :suspects)
-                    (plist-get result :denoted)
+                    (plist-get result :denoted) (plist-get result :ambiguous)
                     (plist-get result :converted) (plist-get result :unparsed))
             (push (cons file result) (sp-author-notes--run-litnotes run)))
           (dolist (author (plist-get result :authors))
@@ -1034,6 +1080,21 @@ folder.  A failure is recorded as a problem."
           (sp-author-notes--insert-line
            (format "  %s:%d  %s" (sp-author-notes--short (car c)) (nth 3 c) (nth 1 c))
            (car c) (nth 3 c)))))
+    ;; Disambiguation
+    (let ((amb (cl-loop for (file . r) in lits
+                        append (mapcar (lambda (a) (cons file a)) (plist-get r :ambiguous)))))
+      (sp-author-notes--heading "Lists of names with commas, to disambiguate" (length amb))
+      (if (null amb) (insert "  none\n")
+        (dolist (a amb)
+          (pcase-let ((`(,file ,raw ,names ,line ,chosen) (list (car a) (nth 1 a) (nth 2 a) (nth 3 a) (nth 4 a))))
+            (sp-author-notes--insert-line
+             (format "  %s:%d  \"%s\"\n      as %d: %s\n      %s"
+                     (sp-author-notes--short file) line raw (length names)
+                     (string-join names " | ")
+                     (cond (chosen "split into these authors")
+                           (apply "left as it is")
+                           (t "will ask whether to split it")))
+             file line)))))
     ;; Denote links
     (let ((den (cl-loop for (file . r) in lits
                         append (mapcar (lambda (d) (cons file d)) (plist-get r :denoted)))))
@@ -1180,3 +1241,4 @@ What each pull request changed in this module; the one-line summary is in [[file
 - [[https://github.com/siainbuletin/dotfiles/pull/193][#193]] ✨ Added the module. Reading of the data: =pub-author= is a note-type, multi-valued key (=sp-vulpea-schemas=, =base-text= and =incollection=) and the existing code reads it as =[[id:...][Name]]= links (=sp-vulpea-grouped-backlinks=), so links are the normal form and plain names are converted. The table uses =:parent-prop= because =:parent-of= already compares the IDs in a link-typed meta key. Not run in the real vault, with vulpea or in a GUI.
 - [[https://github.com/siainbuletin/dotfiles/pull/193][#193]] (follow-up) ✨ Moves =Works= below =Basics=, tags a same-title note =person=, asks where an orphan ID link should point (=sp-author-notes-redirect-function=), saves unsaved buffers first, fills the tables when the changes are written; the preview and report list each.
 - [[https://github.com/siainbuletin/dotfiles/pull/204][#204]] ✨ Quoted names (also with a stray quote mark, and without a comma between them) are split into one author each; Denote links become ID links through the =#+identifier:= or the file name of the target.
+- [[https://github.com/siainbuletin/dotfiles/pull/212][#212]] ✨ A piece of unquoted names with more than one comma is a disambiguation case: shown with a proposed split, and the split is asked for when writing.
