@@ -278,14 +278,55 @@ naming a meta key (several values are joined with \", \")."
      (string-join (vulpea-note-meta-get-list note column) ", "))
     (_ "")))
 
+(defconst sp-collec-query--key-regexp
+  "\\(?:@\\|\\<cite:&?\\)\\([^][:space:]\",;]+\\)"
+  "Regexp for a citation key in a ROAM_REFS value; group 1 is the key.")
+
+(defcustom sp-collec-query-note-link-columns '("pub-title")
+  "Meta columns whose text is shown as a link to the note itself.
+Following the link opens the note in Org, like the :title column does."
+  :type '(repeat string)
+  :group 'sp-collec-query)
+
+(defun sp-collec-query--open-bib-entry (key)
+  "Open the BibTeX entry KEY in its .bib file."
+  (if (fboundp 'citar-open-entry)
+      (citar-open-entry key)
+    (user-error "citar is not available to open %s" key)))
+
+(with-eval-after-load 'org
+  (org-link-set-parameters "sp-bib" :follow #'sp-collec-query--open-bib-entry))
+
+(defun sp-collec-query--refs-links (text)
+  "Return TEXT with each citation key in it written as an sp-bib: link."
+  (replace-regexp-in-string
+   sp-collec-query--key-regexp
+   (lambda (match)
+     (string-match sp-collec-query--key-regexp match)
+     (let ((key (match-string 1 match)))
+       (format "[[sp-bib:%s][@%s]]" (org-link-escape key) key)))
+   text t t))
+
+(defun sp-collec-query--note-link (note text)
+  "Return TEXT as a link to NOTE, or TEXT when it is empty or NOTE has no ID."
+  (if (or (string-empty-p text) (null (vulpea-note-id note)))
+      text
+    (format "[[id:%s][%s]]" (vulpea-note-id note)
+            (replace-regexp-in-string "[][]" "" text))))
+
 (defun sp-collec-query-display-cell (note column)
   "Return the text of COLUMN for NOTE, with note IDs written as links.
-This covers the :id column and meta values that are an ID.  Sorting
+This covers the :id column and meta values that are an ID; :refs keys
+open their BibTeX entry and the columns of `sp-collec-query-note-link-columns'
+open the note.  Sorting
 keeps using `sp-collec-query-cell', so it still compares the plain text."
   (let ((text (sp-collec-query-cell note column)))
-    (if (or (eq column :id) (stringp column))
-        (sp-org-link-link-ids text)
-      text)))
+    (cond ((eq column :refs) (sp-collec-query--refs-links text))
+          ((and (stringp column) (member column sp-collec-query-note-link-columns))
+           (sp-collec-query--note-link note text))
+          ((or (eq column :id) (stringp column))
+           (sp-org-link-link-ids text))
+          (t text))))
 
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."

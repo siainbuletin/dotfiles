@@ -199,3 +199,16 @@
 (ert-deftest sp-collec-query-test-devonthink-header-is-short ()
   (should (equal (sp-collec-query-header-label :devonthink) "DT"))
   (should (equal (sp-collec-query-header-label :pdf) "Pdf")))
+
+(ert-deftest sp-collec-query-test-refs-keys-link-to-bibtex ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@smith2020 cite:jones2021 https://x.org")))))
+    (should (equal (sp-collec-query-display-cell note :refs)
+                   "[[sp-bib:smith2020][@smith2020]] [[sp-bib:jones2021][@jones2021]] https://x.org"))
+    (should (equal (sp-collec-query-cell note :refs)
+                   "@smith2020 cite:jones2021 https://x.org"))))
+
+(ert-deftest sp-collec-query-test-pub-title-links-to-the-note ()
+  (let ((note '(:title "x" :id "ID-1" :meta (("pub-title" "A [odd] title")))))
+    (should (equal (sp-collec-query-display-cell note "pub-title")
+                   "[[id:ID-1][A odd title]]"))
+    (should (equal (sp-collec-query-display-cell '(:id "ID-2" :meta nil) "pub-title") ""))))
