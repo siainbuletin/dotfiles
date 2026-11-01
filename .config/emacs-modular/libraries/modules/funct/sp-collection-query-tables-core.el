@@ -157,6 +157,15 @@ naming a meta key (several values are joined with \", \")."
      (string-join (vulpea-note-meta-get-list note column) ", "))
     (_ "")))
 
+(defun sp-collec-query-display-cell (note column)
+  "Return the text of COLUMN for NOTE, with note IDs written as links.
+This covers the :id column and meta values that are an ID.  Sorting
+keeps using `sp-collec-query-cell', so it still compares the plain text."
+  (let ((text (sp-collec-query-cell note column)))
+    (if (or (eq column :id) (stringp column))
+        (sp-org-link-link-ids text)
+      text)))
+
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
   (if (keywordp column)
@@ -264,13 +273,13 @@ The emoji come from `sp-org-tag-groups'; without it the plain title."
 (defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS.
 Links in the texts are shown by their description, see `sp-org-link-linkify'.
-The title column carries the emoji of the note's tags."
+The title column carries the emoji of the note's tags; IDs are links."
   (mapcar (lambda (note)
             (mapcar (lambda (c)
                       (sp-org-link-linkify
                        (if (eq c :title)
                            (sp-collec-query-title-label note)
-                         (sp-collec-query-cell note c))))
+                         (sp-collec-query-display-cell note c))))
                     columns))
           notes))
 
