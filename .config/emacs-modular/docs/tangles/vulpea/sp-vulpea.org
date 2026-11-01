@@ -303,10 +303,14 @@ Installs =vulpea-ui=, waiting for the install to finish so the settings below ap
   (vulpea-ui-backlinks-prose-chars-before 30)
   (vulpea-ui-backlinks-prose-chars-after 50)
   ;; Filter which notes appear in backlinks
-  ;; (function receiving vulpea-note, return non-nil to include)
+  ;; (function receiving vulpea-note, return non-nil to include).
+  ;; NOTE is nil when the linking file is not in the vulpea database yet
+  ;; (new, unsynced or untracked file); keep such files instead of
+  ;; signalling (wrong-type-argument vulpea-note nil) from the sync timer.
   (vulpea-ui-backlinks-note-filter
    (lambda (note)
-     (not (member "archive" (vulpea-note-tags note)))))
+     (or (null note)
+         (not (member "archive" (vulpea-note-tags note))))))
   ;; Filter by context type
   ;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
   (vulpea-ui-backlinks-context-types t)
