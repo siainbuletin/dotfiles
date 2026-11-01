@@ -1,8 +1,17 @@
 #+TITLE: sp-org-lint.el: Lint and tidy Org lists, footnotes, author notes and litnotes
-#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-lint.el :comments no :padline yes :noweb no :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-org-lint-others.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
-Literate source for =libraries/modules/funct/sp-org-lint.el=.
+Literate source for the =sp-org-lint= family of modules in =libraries/modules/funct/=. One document, several =.el= files:
+
+| File | Holds |
+|------+-------|
+| =sp-org-lint.el= | only =require= lines for the submodules below |
+| =sp-org-lint-others.el= | everything in this document that is not a bigger submodule: the list commands (=sp-org-lint-list=, =sp-org-lint-resources=, =sp-org-mark-list=) |
+| =sp-org-lint-footnotes.el= | the footnote linter and its headless worker |
+| =sp-author-notes.el=, =sp-author-notes-bibtex.el=, =sp-litnotes-refs.el=, =sp-litnotes-titles.el= | the author and litnote lint commands (sections below) |
+
+=sp-split-leave-parents.el= is also documented here but is not required by =sp-org-lint=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
@@ -21,7 +30,7 @@ This module provides two commands for tidying plain lists in Org buffers, aimed 
 
 This document also holds a second module, =sp-split-leave-parents=, in its own section (see [[*sp-split-leave-parents.el][sp-split-leave-parents.el]]); it tangles to =libraries/modules/funct/sp-split-leave-parents.el=. It splits a heading into its own note, so it is one of the note-tidying commands; the =sp-org-lint= code does not depend on it.
 
-This document is also the home of the lint and tidy commands for authors and literature notes. Each is its own section and tangles to its own file, so the headless footnote worker below keeps loading a small =sp-org-lint.el=:
+This document is also the home of the lint and tidy commands for authors and literature notes. Each is its own section and tangles to its own file, so the headless footnote worker below loads only =sp-org-lint-footnotes.el=:
 
 | Section | File | Lints |
 |---------+------+-------|
@@ -49,7 +58,7 @@ Dependencies and behaviour:
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-org-lint.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
+;;; sp-org-lint-others.el --- Lint and tidy plain lists in Org buffers -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -59,30 +68,23 @@ The file header: the first line carries the file name, a short summary and the =
 ;; blank lines between items and drops items whose https link already appeared
 ;; earlier.
 ;;
-;; `sp-org-lint-footnotes' lints the footnotes of the whole vulpea vault: it
-;; moves the definitions of a trailing `Footnotes' heading to the heading that
-;; contains their reference, and reports orphan definitions and dangling
-;; references.  A second, headless Emacs reads the files, so Emacs stays
-;; usable; the report comes first and nothing is changed (after a backup)
-;; until you apply it.
+;; This is the part of the `sp-org-lint' family that is not a bigger
+;; submodule; `sp-org-lint' requires it.  Footnotes are in
+;; `sp-org-lint-footnotes'.
 
 ;;; Code:
 #+end_src
 
 ** Required libraries
 
-Loads the Org core, list and element libraries, plus =subr-x= for string helpers such as =string-trim=, =seq= and =cl-lib= for the footnote linter, and =sp-globals= (if present) for the notes folder.
+Loads the Org core, list and element libraries, plus =subr-x= for string helpers such as =string-trim= and =cl-lib=.
 
 #+begin_src emacs-lisp -i
 (require 'cl-lib)
-(require 'seq)
 (require 'org)
 (require 'org-list)
 (require 'org-element)
 (require 'subr-x)
-(require 'sp-globals nil t)
-
-(defvar sp-notes-dir)
 #+end_src
 
 ** List item pattern
@@ -519,6 +521,9 @@ sublists travel with their parent item but are not re-sorted."
 #+end_src
 
 * Sectional footnotes
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/funct/sp-org-lint-footnotes.el
+:END:
 
 A second feature of the module lints the footnotes of the whole vault.
 
@@ -527,6 +532,34 @@ A second feature of the module lints the footnotes of the whole vault.
 - =sp-org-lint-footnotes= finds those and moves each definition to the heading that contains its reference.
 
 *Nothing is written without a preview, and nothing blocks Emacs.* The command lists the Org files of the vulpea database, hands them to a second, headless Emacs that reads them one at a time, and shows what it finds in a report buffer while it works. Applying the changes is a separate key in that buffer; it runs in the headless Emacs too, after copying every file to a backup folder.
+
+** File header
+
+This section tangles to =sp-org-lint-footnotes.el=, so the headless worker can load it alone. It needs =seq=, =cl-lib= and, when present, =sp-globals= for the notes folder.
+
+#+begin_src emacs-lisp -i
+;;; sp-org-lint-footnotes.el --- Lint the footnotes of the vulpea vault -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-org-lint-footnotes' lints the footnotes of the whole vulpea vault: it
+;; moves the definitions of a trailing `Footnotes' heading to the heading that
+;; contains their reference, and reports orphan definitions and dangling
+;; references.  A second, headless Emacs loads this file and reads the files,
+;; so Emacs stays usable; the report comes first and nothing is changed
+;; (after a backup) until you apply it.  Required by `sp-org-lint'.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'org)
+(require 'org-element)
+(require 'subr-x)
+(require 'sp-globals nil t)
+
+(defvar sp-notes-dir)
+#+end_src
 
 ** What moves where
 
@@ -1039,7 +1072,7 @@ and :status, `written' (with :backup and :moves) or `skipped' (with
 
 The headless worker:
 
-- The main Emacs starts =emacs -Q --batch -l sp-org-lint.el --eval (sp-org-lint-fn--batch CONTROL-FILE)=.
+- The main Emacs starts =emacs -Q --batch -l sp-org-lint-footnotes.el --eval (sp-org-lint-fn--batch CONTROL-FILE)=.
 - The control file holds a plist with =:mode= (=plan= or =apply=) and =:files=.
 - For =apply=, the files are (FILE . SHA) pairs and =:backup-root= is set.
 - The worker prints one line per file, prefixed with =SPLINT = and written with every non-ASCII character escaped, so the output is the same in any locale.
@@ -1047,7 +1080,7 @@ The headless worker:
 - The plan lines do not carry the new text.
 
 #+begin_src emacs-lisp -i
-(defvar sp-org-lint--library (or load-file-name (locate-library "sp-org-lint"))
+(defvar sp-org-lint--library (or load-file-name (locate-library "sp-org-lint-footnotes"))
   "File this library was loaded from; the headless Emacs loads the same one.")
 
 (defun sp-org-lint-fn--emit (object)
@@ -1333,7 +1366,7 @@ All the state of a run is kept in a buffer-local plist in the report buffer: the
   "Start the worker for PHASE (`scan' or `apply') on FILES in this buffer.
 EXTRA is a plist merged into the control file."
   (unless (and sp-org-lint--library (file-exists-p sp-org-lint--library))
-    (user-error "Cannot find sp-org-lint.el to load in the worker Emacs"))
+    (user-error "Cannot find sp-org-lint-footnotes.el to load in the worker Emacs"))
   (let* ((buffer (current-buffer))
          (ctl (make-temp-file "sp-org-lint-" nil ".eld"))
          (err (generate-new-buffer " *sp-org-lint stderr*"))
@@ -1457,11 +1490,48 @@ are skipped.  The work is done by a second Emacs."
                              (list :backup-root root)))))
 #+end_src
 
-* Provide
+** Provide
 
-Provides the =sp-org-lint= feature and closes the file.
+Provides the =sp-org-lint-footnotes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
+
+(provide 'sp-org-lint-footnotes)
+;;; sp-org-lint-footnotes.el ends here
+#+end_src
+
+* Provide
+
+Provides the =sp-org-lint-others= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+
+(provide 'sp-org-lint-others)
+;;; sp-org-lint-others.el ends here
+#+end_src
+
+* sp-org-lint.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/funct/sp-org-lint.el
+:END:
+
+The entry point: it only requires the submodules, so =(require 'sp-org-lint)= (the Functions block of =init.el=) loads all of them. The two litnote modules are also required by =sp-litnotes=; requiring a feature twice does nothing. =sp-split-leave-parents= is not required here (nothing in this family depends on it).
+
+#+begin_src emacs-lisp -i
+;;; sp-org-lint.el --- Lint and tidy Org lists, footnotes, author notes and litnotes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Requires the submodules; see docs/tangles/funct/sp-org-lint.org.
+
+;;; Code:
+
+(require 'sp-org-lint-others)
+(require 'sp-org-lint-footnotes)
+(require 'sp-author-notes)
+(require 'sp-author-notes-bibtex)
+(require 'sp-litnotes-refs)
+(require 'sp-litnotes-titles)
 
 (provide 'sp-org-lint)
 ;;; sp-org-lint.el ends here
