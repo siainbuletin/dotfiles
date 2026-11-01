@@ -25,6 +25,7 @@
           (sp-author-notes-litnotes-directory (expand-file-name "litnotes/" vault))
           (sp-author-notes-backup-directory (expand-file-name "backups/" vault))
           (sp-author-notes-redirect-function (lambda (&rest _) nil))
+          (sp-author-notes-disambiguate-function (lambda (&rest _) nil))
           (sp-author-notes--stub-ids nil))
      (unwind-protect
          (cl-letf (((symbol-function 'sp-org--write-note)
@@ -227,7 +228,8 @@
                               (string-trim-right (sp-author-notes-test--read file))))
       ;; declined: left alone
       (sp-author-notes-test--write file "#+title: x" "" "- pub-author :: [[id:gone][Zed]]" "")
-      (let ((sp-author-notes-redirect-function (lambda (&rest _) nil)))
+      (let ((sp-author-notes-redirect-function (lambda (&rest _) nil))
+          (sp-author-notes-disambiguate-function (lambda (&rest _) nil)))
         (sp-author-notes--run t))
       (should (string-match-p "id:gone" (sp-author-notes-test--read file))))))
 
@@ -271,3 +273,41 @@
         (should (seq-some (lambda (p) (string-match-p "Denote identifier 19990101" (nth 2 p)))
                           (sp-author-notes--run-problems run))))
       (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t)))))))
+
+(ert-deftest sp-author-notes-test-parse-comma-lists ()
+  (should (equal (sp-author-notes--parse-value
+                  "Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina, Cecilio Alam")
+                 '((:ambiguous "Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina, Cecilio Alam"
+                               ("Francisco López-Muñoz" "Gabriel Rubio" "Juan D. Molina" "Cecilio Alam")))))
+  (should (equal (sp-author-notes--parse-value "Smith, John, Doe, Jane")
+                 '((:ambiguous "Smith, John, Doe, Jane" ("John Smith" "Jane Doe")))))
+  (should (equal (sp-author-notes--parse-value "Smith, John, Doe")
+                 '((:ambiguous "Smith, John, Doe" nil))))
+  ;; one comma stays one name; "and" still splits
+  (should (equal (sp-author-notes--parse-value "Smith, John and Ann Lee, Bo Roe, Cy Poe")
+                 '((:name "John Smith")
+                   (:ambiguous "Ann Lee, Bo Roe, Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe"))))))
+
+(ert-deftest sp-author-notes-test-comma-list-run ()
+  (sp-author-notes-test--with-vault
+    (let ((file (expand-file-name "litnotes/a.org" vault))
+          (raw "Ann Lee, Bo Roe, Cy Poe"))
+      (sp-author-notes-test--write file "#+title: x" "" (concat "- pub-author :: " raw) "")
+      ;; preview: a case, nothing pending, nothing written
+      (let ((run (sp-author-notes--run nil)))
+        (should (null (sp-author-notes--run-pending run)))
+        (should (equal (nth 1 (car (plist-get (cdar (sp-author-notes--run-litnotes run)) :ambiguous)))
+                       '("Ann Lee" "Bo Roe" "Cy Poe")))
+        (with-temp-buffer (sp-author-notes--render run)
+                          (should (string-match-p "to disambiguate (1)" (buffer-string)))))
+      ;; declined: left as it is
+      (let ((run (sp-author-notes--run t)))
+        (should (null (sp-author-notes--run-created run)))
+        (should (string-match-p (regexp-quote raw) (sp-author-notes-test--read file))))
+      ;; accepted: one note each
+      (let* ((sp-author-notes-disambiguate-function (lambda (_raw names) names))
+             (run (sp-author-notes--run t))
+             (text (sp-author-notes-test--read file)))
+        (should (= 3 (length (sp-author-notes--run-created run))))
+        (should (string-match-p "Ann Lee\\]\\], \\[\\[id:new-[0-9]+\\]\\[Bo Roe\\]\\], \\[\\[id:new-[0-9]+\\]\\[Cy Poe\\]\\]$"
+                                (string-trim-right text)))))))
