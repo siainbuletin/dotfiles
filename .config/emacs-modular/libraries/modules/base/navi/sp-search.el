@@ -513,7 +513,9 @@ QUERY is the search that produced them; it is stored in the view."
     ("b" "litdb: my article database" consult-omni-litdb
      :if (lambda () (fboundp 'consult-omni-litdb)))
     ("B" "litdb: by meaning" consult-omni-litdb-semantic
-     :if (lambda () (fboundp 'consult-omni-litdb-semantic)))]]
+     :if (lambda () (fboundp 'consult-omni-litdb-semantic)))
+    ("j" "Search and record results in a trail" sp-trails-search
+     :if (lambda () (fboundp 'sp-trails-search)))]]
   [("q" "Quit" transient-quit-one)])
 
 (define-advice transient--show (:around (fn &rest args) sp-search-top)

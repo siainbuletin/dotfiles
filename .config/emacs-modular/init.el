@@ -240,6 +240,7 @@ the order of `sp-late-modules', for example when debugging."
     sp-notes
     sp-trails ;; For gathering links from browser sessions
     sp-browsing ;; consult-omni searches (web, local notes, scholarly sources)
+    sp-trails-search ;; search from a trail and record chosen results (after sp-trails and sp-browsing)
     sp-semantic
     sp-tab-psearch ;; p-search over the tab inbox (after sp-semantic, sp-search and sp-tab-inbox)
     ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
