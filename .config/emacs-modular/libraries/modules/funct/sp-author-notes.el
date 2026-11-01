@@ -1164,7 +1164,7 @@ What was dropped from the report with `d' is left out."
   "Make author notes from the `pub-author' meta key of the litnotes.
 Show the plan first.  Then write it, or stay in the report to drop
 candidates with `d' and write what is left with `A'.  See the doc
-docs/tangles/funct/sp-author-notes.org."
+docs/tangles/funct/sp-org-lint.org."
   (interactive)
   (let* ((run (sp-author-notes-preview))
          (n (sp-author-notes--change-count run)))
