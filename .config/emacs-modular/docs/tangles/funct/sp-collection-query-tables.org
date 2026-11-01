@@ -700,7 +700,7 @@ JSON.stringify(out);"
   (let ((files (mapcar #'file-name-nondirectory (sp-collec-query--root-files note))))
     (sp-collec-query--dt-lookup files)
     (mapconcat (lambda (name)
-                 (format "[[x-devonthink-item://%s][DEVONthink]]"
+                 (format "[[x-devonthink-item://%s][x]]"
                          (gethash name sp-collec-query--dt-uuids)))
                (seq-uniq (seq-filter (lambda (n) (stringp (gethash n sp-collec-query--dt-uuids)))
                                      files)
@@ -743,9 +743,9 @@ keeps using `sp-collec-query-cell', so it still compares the plain text."
 
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
-  (if (keywordp column)
-      (capitalize (substring (symbol-name column) 1))
-    column))
+  (cond ((eq column :devonthink) "DT")
+        ((keywordp column) (capitalize (substring (symbol-name column) 1)))
+        (t column)))
 #+end_src
 
 #+begin_src emacs-lisp -i
