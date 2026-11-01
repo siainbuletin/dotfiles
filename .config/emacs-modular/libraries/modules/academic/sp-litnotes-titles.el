@@ -20,6 +20,7 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-async-work)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -273,26 +274,65 @@ DIRECTORY is the folder of the notes; names are compared without case."
 
 ;;;; Links to the old names
 
-(defun sp-litnotes-titles--file-links (plans)
-  "Alist of (OLD-NAME . FILES) for the renamed PLANS that =file:= links name.
-Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
-  (let ((old (make-hash-table :test 'equal)) found)
+(defun sp-litnotes-titles--old-names (plans)
+  "Hash table of the old file names (without folder) of the renamed PLANS."
+  (let ((old (make-hash-table :test 'equal)))
     (dolist (plan plans)
       (when (eq (plist-get plan :name-status) 'rename)
         (puthash (file-name-nondirectory (plist-get plan :file)) t old)))
-    (when (and (> (hash-table-count old) 0)
-               (file-directory-p sp-litnotes-titles-link-directory))
-      (dolist (file (directory-files-recursively
-                     sp-litnotes-titles-link-directory "\\`[^.#].*\\.org\\'"))
-        (when (file-readable-p file)
-          (with-temp-buffer
-            (insert-file-contents file)
-            (while (re-search-forward "\\[\\[file:\\([^]]+\\.org\\)" nil t)
-              (let ((name (file-name-nondirectory (match-string 1))))
-                (when (gethash name old)
-                  (cl-pushnew file (alist-get name found nil nil #'equal)
-                              :test #'equal))))))))
-    found))
+    old))
+
+(defun sp-litnotes-titles--link-files (old)
+  "The Org files under `sp-litnotes-titles-link-directory' to search for the names in OLD."
+  (when (and (> (hash-table-count old) 0)
+             (file-directory-p sp-litnotes-titles-link-directory))
+    (directory-files-recursively
+     sp-litnotes-titles-link-directory "\\`[^.#].*\\.org\\'")))
+
+(defun sp-litnotes-titles--scan-links (file old found)
+  "Add the old names of OLD that =file:= links in FILE name to the alist cell FOUND.
+FOUND is a cons whose car is the alist (OLD-NAME . FILES)."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (while (re-search-forward "\\[\\[file:\\([^]]+\\.org\\)" nil t)
+        (let ((name (file-name-nondirectory (match-string 1))))
+          (when (gethash name old)
+            (cl-pushnew file (alist-get name (car found) nil nil #'equal)
+                        :test #'equal)))))))
+
+(defun sp-litnotes-titles--file-links (plans)
+  "Alist of (OLD-NAME . FILES) for the renamed PLANS that =file:= links name.
+Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
+  (let* ((old (sp-litnotes-titles--old-names plans))
+         (found (list nil)))
+    (dolist (file (sp-litnotes-titles--link-files old))
+      (sp-litnotes-titles--scan-links file old found))
+    (car found)))
+
+(defun sp-litnotes-titles--scan (callback)
+  "Read the notes in slices and call CALLBACK with PLANS and LINKS.
+LINKS is the alist of `sp-litnotes-titles--file-links'.  The folder of the
+links is searched in slices too, file by file.  Nothing is written.
+Return the job."
+  (let* ((dir (file-name-as-directory sp-litnotes-titles-directory))
+         plans old (found (list nil)))
+    (sp-async-work-run
+     "Litnote titles"
+     (list (list "reading notes"
+                 (lambda () (directory-files dir t "\\`[^.#].*\\.org\\'"))
+                 (lambda (file _job)
+                   (push (sp-litnotes-titles--plan
+                          (sp-litnotes-titles--parse-with-overrides file))
+                         plans)))
+           (list "looking for links"
+                 (lambda ()
+                   (setq plans (sp-litnotes-titles--mark-collisions (nreverse plans) dir)
+                         old (sp-litnotes-titles--old-names plans))
+                   (sp-litnotes-titles--link-files old))
+                 (lambda (file _job)
+                   (sp-litnotes-titles--scan-links file old found))))
+     :done (lambda (_job) (funcall callback plans (car found))))))
 
 ;;;; Report
 
@@ -389,24 +429,29 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
 
 ;;;###autoload
 (defun sp-litnotes-titles-report ()
-  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing."
+  "Show what `sp-litnotes-titles-apply' would do.  Writes nothing.
+The notes are read in slices, so Emacs stays usable; the report opens
+when they are read."
   (interactive)
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
 
-(defun sp-litnotes-titles--show-report ()
-  "Show the report for the current plans, and return them."
-  (let* ((plans (sp-litnotes-titles--plans))
-         (text (sp-litnotes-titles--report-text plans (sp-litnotes-titles--file-links plans))))
-    (with-current-buffer (get-buffer-create "*litnote titles*")
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text)
-        (org-mode)
-        (goto-char (point-min))
-        (read-only-mode 1)))
-    (pop-to-buffer "*litnote titles*")
-    plans))
+(defun sp-litnotes-titles--show-report (&optional callback)
+  "Read the notes, show the report and call CALLBACK with the plans.
+Reading is done in slices; the report opens, and CALLBACK runs, when it is done."
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-titles--scan
+   (lambda (plans links)
+     (let ((text (sp-litnotes-titles--report-text plans links)))
+       (with-current-buffer (get-buffer-create "*litnote titles*")
+         (let ((inhibit-read-only t))
+           (erase-buffer)
+           (insert text)
+           (org-mode)
+           (goto-char (point-min))
+           (read-only-mode 1)))
+       (pop-to-buffer "*litnote titles*"))
+     (when callback (funcall callback plans)))))
 
 ;;;; Writing
 
@@ -506,49 +551,91 @@ changed."
                        (cl-incf typed))))))))
     typed))
 
-;;;###autoload
-(defun sp-litnotes-titles-apply ()
-  "Set the litnote titles to Chicago-style references and rename them to the citekey.
-Shows the report; when notes failed for a missing title, author or year, offers to
-ask for the values (used for the title only), then shows it again and asks once
-before writing.  Every note is copied to a time-stamped folder in
-`sp-litnotes-titles-backup-directory' before it is written; the Vulpea database
-is updated after each change.  The `:ID:' is never touched, so `id:' links keep
-working; `file:' links to old names are listed in the report but not changed.
-Running it again changes nothing."
-  (interactive)
-  (clrhash sp-litnotes-titles--overrides)
-  (let* ((plans (sp-litnotes-titles--show-report))
-         (failed (cl-remove-if-not
-                  (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
-                  plans)))
-    (when (and failed
-               (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
-                                 (length failed)))
-               (> (sp-litnotes-titles--resolve failed) 0))
-      (setq plans (sp-litnotes-titles--show-report))))
-  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p
-                                (sp-litnotes-titles--plans))))
+;; A note is written only if it still gets the title and name of the report.
+(defun sp-litnotes-titles--current-p (plan)
+  "Non-nil when the note of PLAN would still get the title and name PLAN has."
+  (let ((now (ignore-errors
+               (sp-litnotes-titles--plan
+                (sp-litnotes-titles--parse-with-overrides (plist-get plan :file))))))
+    (and now
+         (equal (plist-get now :id) (plist-get plan :id))
+         (equal (plist-get now :new-title) (plist-get plan :new-title))
+         (equal (plist-get now :new-name) (plist-get plan :new-name)))))
+
+(defvar sp-litnotes-titles--last-results nil
+  "What the last `sp-litnotes-titles-apply' wrote: a plist per note.")
+
+(defun sp-litnotes-titles--write-all (todo)
+  "Write the plans TODO in slices, after a backup of each, and report at the end."
+  (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
+         results)
+    (sp-async-work-run
+     "Litnote titles"
+     (list (list "writing"
+                 (lambda () todo)
+                 (lambda (plan _job)
+                   (push (if (sp-litnotes-titles--current-p plan)
+                             (sp-litnotes-titles--apply-plan plan stamp)
+                           (list :file (plist-get plan :file) :status 'skipped
+                                 :why "changed since the report"))
+                         results))))
+     :done (lambda (_job)
+             (setq results (nreverse results))
+             (let ((bad (cl-remove-if (lambda (r) (eq (plist-get r :status) 'written))
+                                      results)))
+               (message "Wrote %d of %d litnotes; backups in %s%s"
+                        (- (length results) (length bad)) (length results)
+                        (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)
+                        (if bad
+                            (format "; %s" (mapconcat
+                                            (lambda (r) (format "%s %s (%s)"
+                                                                (plist-get r :status)
+                                                                (file-name-nondirectory (plist-get r :file))
+                                                                (plist-get r :why)))
+                                            bad ", "))
+                          "")))
+             (setq sp-litnotes-titles--last-results results)))))
+
+(defun sp-litnotes-titles--confirm-and-write (plans)
+  "Ask once about the changes in PLANS, then write them."
+  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p plans)))
     (if (null todo)
         (message "Nothing to change.")
       (when (yes-or-no-p (format "Write %d litnotes (backups in %s)? "
                                  (length todo) sp-litnotes-titles-backup-directory))
-        (let* ((stamp (format-time-string "%Y%m%dT%H%M%S"))
-               (results (mapcar (lambda (plan) (sp-litnotes-titles--apply-plan plan stamp))
-                                todo))
-               (bad (cl-remove-if (lambda (r) (eq (plist-get r :status) 'written)) results)))
-          (message "Wrote %d of %d litnotes; backups in %s%s"
-                   (- (length results) (length bad)) (length results)
-                   (expand-file-name (concat stamp "/") sp-litnotes-titles-backup-directory)
-                   (if bad
-                       (format "; %s" (mapconcat
-                                       (lambda (r) (format "%s %s (%s)"
-                                                           (plist-get r :status)
-                                                           (file-name-nondirectory (plist-get r :file))
-                                                           (plist-get r :why)))
-                                       bad ", "))
-                     ""))
-          results)))))
+        (sp-litnotes-titles--write-all todo)))))
+
+(defun sp-litnotes-titles--after-report (plans)
+  "Offer to ask for what the failed PLANS lack, then go on to write."
+  (let ((failed (cl-remove-if-not
+                 (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
+                 plans)))
+    (if (and failed
+             (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
+                               (length failed)))
+             (> (sp-litnotes-titles--resolve failed) 0))
+        (sp-litnotes-titles--show-report #'sp-litnotes-titles--confirm-and-write)
+      (sp-litnotes-titles--confirm-and-write plans))))
+
+;;;###autoload
+(defun sp-litnotes-titles-apply ()
+  "Set the litnote titles to Chicago-style references and rename them to the citekey.
+The notes are read in slices, so Emacs stays usable, and the report opens.
+When notes failed for a missing title, author or year, you are offered to
+type the values (used for the title only); the report is made again and you
+are asked once before anything is written.  Every note is copied to a
+time-stamped folder in `sp-litnotes-titles-backup-directory' before it is
+written, in slices; a note with unsaved changes in its buffer, or changed
+since the report, is skipped.  The Vulpea database is updated after each
+change.  The `:ID:' is never touched, so `id:' links keep working; `file:'
+links to old names are listed in the report but not changed.  Running it
+again changes nothing.  Only when `sp-async-work-synchronous' is set does
+this return the results, a plist per note."
+  (interactive)
+  (clrhash sp-litnotes-titles--overrides)
+  (setq sp-litnotes-titles--last-results nil)
+  (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
+  sp-litnotes-titles--last-results)
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here

@@ -11,6 +11,7 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'sp-async-work)
 
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
@@ -128,27 +129,31 @@ one of `no-id', `no-reference', `ok', `normalise', `convert' and `merge'."
 
 ;;;; Bibliography and PDFs
 
+(defun sp-litnotes-refs--bib-index-file (file table)
+  "Add the keys of the BibTeX FILE to the hash table TABLE (key to crossref or :none)."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
+        (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
+          (let ((key (match-string 2))
+                (end (save-excursion (or (and (re-search-forward "^@" nil t)
+                                              (line-beginning-position))
+                                         (point-max))))
+                crossref)
+            (save-excursion
+              (when (re-search-forward
+                     "^[ \t]*crossref[ \t]*=[ \t]*[{\"]\\([^}\"]+\\)" end t)
+                (setq crossref (match-string 1))))
+            (puthash key (or crossref :none) table)))))))
+
 (defun sp-litnotes-refs--bib-index (files)
   "Read the BibTeX FILES into a hash table of key to crossref (or :none)."
   (let ((table (make-hash-table :test 'equal)))
     (dolist (file files)
-      (when (file-readable-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (goto-char (point-min))
-          (while (re-search-forward
-                  "^@\\([[:alpha:]]+\\)[ \t]*[{(][ \t]*\\([^, \t\n]+\\)[ \t]*," nil t)
-            (unless (member (downcase (match-string 1)) '("comment" "string" "preamble"))
-              (let ((key (match-string 2))
-                    (end (save-excursion (or (and (re-search-forward "^@" nil t)
-                                                  (line-beginning-position))
-                                             (point-max))))
-                    crossref)
-                (save-excursion
-                  (when (re-search-forward
-                         "^[ \t]*crossref[ \t]*=[ \t]*[{\"]\\([^}\"]+\\)" end t)
-                    (setq crossref (match-string 1))))
-                (puthash key (or crossref :none) table)))))))
+      (sp-litnotes-refs--bib-index-file file table))
     table))
 
 (defun sp-litnotes-refs--pdf (key index)
@@ -220,6 +225,25 @@ A key used by several notes gets one entry, from the first note."
   (mapcar (lambda (file) (sp-litnotes-refs--plan (sp-litnotes-refs--parse file)))
           (directory-files (or directory sp-litnotes-refs-directory) t "\\.org\\'")))
 
+(defun sp-litnotes-refs--bib-files ()
+  "The BibTeX files to look keys up in."
+  (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))
+
+(defun sp-litnotes-refs--scan (callback)
+  "Read the notes and the BibTeX files in slices, then call CALLBACK with PLANS and INDEX.
+Nothing is written.  Return the job."
+  (let (plans (index (make-hash-table :test 'equal)))
+    (sp-async-work-run
+     "Litnote refs"
+     (list (list "reading notes"
+                 (lambda () (directory-files sp-litnotes-refs-directory t "\\.org\\'"))
+                 (lambda (file _job)
+                   (push (sp-litnotes-refs--plan (sp-litnotes-refs--parse file)) plans)))
+           (list "reading BibTeX"
+                 #'sp-litnotes-refs--bib-files
+                 (lambda (file _job) (sp-litnotes-refs--bib-index-file file index))))
+     :done (lambda (_job) (funcall callback (nreverse plans) index)))))
+
 (defun sp-litnotes-refs--report-text (plans index)
   "Return the dry-run report for PLANS, looking keys up in INDEX."
   (let ((by-status (make-hash-table :test 'eq))
@@ -281,11 +305,17 @@ A key used by several notes gets one entry, from the first note."
 
 ;;;###autoload
 (defun sp-litnotes-refs-report ()
-  "Show what `sp-litnotes-refs-convert' would do.  Writes nothing."
+  "Show what `sp-litnotes-refs-convert' would do.  Writes nothing.
+The notes are read in slices, so Emacs stays usable; the report opens
+when they are read."
   (interactive)
-  (let* ((plans (sp-litnotes-refs--plans))
-         (index (sp-litnotes-refs--bib-index (if (boundp 'sp-bibtex-files) sp-bibtex-files nil)))
-         (text (sp-litnotes-refs--report-text plans index)))
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-refs--scan
+   (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
+
+(defun sp-litnotes-refs--show-report (plans index)
+  "Show the report for PLANS and INDEX in `*litnote refs*'."
+  (let ((text (sp-litnotes-refs--report-text plans index)))
     (with-current-buffer (get-buffer-create "*litnote refs*")
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -293,8 +323,7 @@ A key used by several notes gets one entry, from the first note."
         (org-mode)
         (goto-char (point-min))
         (read-only-mode 1)))
-    (pop-to-buffer "*litnote refs*")
-    plans))
+    (pop-to-buffer "*litnote refs*")))
 
 ;;;; Conversion
 
@@ -348,6 +377,29 @@ An empty REFS leaves =ROAM_REFS= alone."
     (dolist (stub stubs) (insert "\n" (cdr stub)))
     (write-region nil nil sp-litnotes-refs-inbox-bib nil 'silent)))
 
+;; A note is written only if it still has the plan of the report.
+(defun sp-litnotes-refs--current-p (plan)
+  "Non-nil when the note of PLAN reads as it did when the report was made."
+  (let ((now (ignore-errors (sp-litnotes-refs--plan
+                             (sp-litnotes-refs--parse (plist-get plan :file))))))
+    (and now
+         (eq (plist-get now :status) (plist-get plan :status))
+         (equal (plist-get now :refs) (plist-get plan :refs)))))
+
+(defun sp-litnotes-refs--write-note (plan create-id)
+  "Write PLAN after a backup.  Return `written' or the reason it was skipped.
+A note whose buffer has unsaved changes, or that changed since the report,
+is left alone.  An open buffer without changes is reverted."
+  (let* ((file (plist-get plan :file))
+         (buffer (find-buffer-visiting file)))
+    (cond
+     ((and buffer (buffer-modified-p buffer)) "unsaved changes in its buffer")
+     ((not (sp-litnotes-refs--current-p plan)) "changed since the report")
+     (t (sp-litnotes-refs--backup file)
+        (sp-litnotes-refs--apply file (plist-get plan :refs) create-id)
+        (when buffer (with-current-buffer buffer (revert-buffer t t t)))
+        'written))))
+
 ;;;###autoload
 (defun sp-litnotes-refs-convert ()
   "Convert the notes of the report, after showing it and asking three times.
@@ -355,35 +407,58 @@ An empty REFS leaves =ROAM_REFS= alone."
 2. Create an ID (and move the reference) in the notes that have none.
 3. Add stub entries to `sp-litnotes-refs-inbox-bib' for the keys that no
    registered .bib file has.
-Each question is asked only when there is something to do, and each changed note
-and the inbox file is copied to `sp-litnotes-refs-backup-directory' first.
-Running it again changes nothing."
+The notes are read in slices and the report opens; the three questions
+follow at once, so that nothing interrupts you later.  Each question is
+asked only when there is something to do.  The notes are then written in
+slices, each copied to `sp-litnotes-refs-backup-directory' first; one with
+unsaved changes in its buffer, or changed since the report, is skipped.
+The inbox file is copied too.  Running it again changes nothing."
   (interactive)
-  (let* ((plans (sp-litnotes-refs-report))
-         (index (sp-litnotes-refs--bib-index
-                 (if (boundp 'sp-bibtex-files) sp-bibtex-files nil)))
-         (todo (cl-remove-if-not
+  (message "Reading the litnotes in the background...")
+  (sp-litnotes-refs--scan #'sp-litnotes-refs--convert-plans))
+
+(defun sp-litnotes-refs--convert-plans (plans index)
+  "Show the report of PLANS and INDEX, ask the questions and write what was agreed."
+  (sp-litnotes-refs--show-report plans index)
+  (let* ((todo (cl-remove-if-not
                 (lambda (p) (memq (plist-get p :status) '(convert merge normalise)))
                 plans))
          (no-id (cl-remove-if-not (lambda (p) (eq (plist-get p :status) 'no-id)) plans))
          (stubs (sp-litnotes-refs--stubs plans index))
-         (written 0) (ids 0) (added 0))
-    (when (and todo (yes-or-no-p (format "Move the reference of %d notes to ROAM_REFS (backups in %s)? "
-                                         (length todo) sp-litnotes-refs-backup-directory)))
-      (dolist (plan todo)
-        (sp-litnotes-refs--backup (plist-get plan :file))
-        (sp-litnotes-refs--apply (plist-get plan :file) (plist-get plan :refs))
-        (cl-incf written)))
-    (when (and no-id (yes-or-no-p (format "Create an ID for %d notes that have none? " (length no-id))))
-      (dolist (plan no-id)
-        (sp-litnotes-refs--backup (plist-get plan :file))
-        (sp-litnotes-refs--apply (plist-get plan :file) (plist-get plan :refs) t)
-        (cl-incf ids)))
-    (when (and stubs (yes-or-no-p (format "Add %d stub entries to %s? " (length stubs)
-                                          (file-name-nondirectory sp-litnotes-refs-inbox-bib))))
-      (sp-litnotes-refs--append-stubs stubs)
-      (setq added (length stubs)))
-    (message "Converted %d notes, created %d IDs, added %d stub entries." written ids added)))
+         (todo (and todo (yes-or-no-p (format "Move the reference of %d notes to ROAM_REFS (backups in %s)? "
+                                              (length todo) sp-litnotes-refs-backup-directory))
+                    todo))
+         (no-id (and no-id (yes-or-no-p (format "Create an ID for %d notes that have none? " (length no-id)))
+                     no-id))
+         (stubs (and stubs (yes-or-no-p (format "Add %d stub entries to %s? " (length stubs)
+                                                (file-name-nondirectory sp-litnotes-refs-inbox-bib)))
+                     stubs))
+         (written 0) (ids 0) (added 0) skipped)
+    (cl-flet ((write-note (plan create-id)
+                (let ((result (sp-litnotes-refs--write-note plan create-id)))
+                  (cond ((not (eq result 'written))
+                         (push (format "%s (%s)" (file-name-nondirectory (plist-get plan :file))
+                                       result)
+                               skipped))
+                        (create-id (cl-incf ids))
+                        (t (cl-incf written))))))
+      (when (or todo no-id stubs)
+        (sp-async-work-run
+         "Litnote refs"
+         (list (list "writing notes" (lambda () todo)
+                     (lambda (plan _job) (write-note plan nil)))
+               (list "creating IDs" (lambda () no-id)
+                     (lambda (plan _job) (write-note plan t)))
+               (list "adding stubs" (lambda () (and stubs (list stubs)))
+                     (lambda (list _job)
+                       (sp-litnotes-refs--append-stubs list)
+                       (setq added (length list)))))
+         :done (lambda (_job)
+                 (message "Converted %d notes, created %d IDs, added %d stub entries%s."
+                          written ids added
+                          (if skipped
+                              (format "; skipped %s" (string-join (nreverse skipped) ", "))
+                            ""))))))))
 
 (provide 'sp-litnotes-refs)
 ;; sp-litnotes-refs.el ends here
