@@ -1,0 +1,229 @@
+#!/bin/bash
+# ipod-no-autosync: stop macOS from syncing an iPod as soon as it is plugged in,
+# so Legacy Scrobbler can read the iPod's "Play Counts" file first.
+#
+# Usage: ipod-no-autosync [on|off|status|backup [DIR]|agent install|agent remove]
+#
+#   on        Turn automatic iPod sync off (the default command). Safe to rerun.
+#   off       Undo: put the preferences back to what they were before "on".
+#   status    Show the preferences, the sync agent and any mounted iPods.
+#   backup    Copy "Play Counts" and "iTunesDB" from every mounted iPod into
+#             DIR (default $XDG_DATA_HOME/listening/ipod-backups).
+#   agent install|remove
+#             A launchd agent that runs "backup" whenever a volume mounts.
+#
+# Written for macOS Catalina (10.15) and later, where Finder and its helper
+# AMPDevicesAgent sync iPods; com.apple.iTunes covers Mojave and earlier.
+# Written for /bin/bash 3.2, so no associative arrays or ${var,,}.
+
+set -u
+
+# domain:key pairs this script manages.
+PREFS="com.apple.AMPDevicesAgent:dontAutomaticallySyncIPods
+com.apple.iTunes:dontAutomaticallySyncIPods"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/listening"
+STATE_FILE="$STATE_DIR/ipod-no-autosync.prev"
+BACKUP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/listening/ipod-backups"
+VOLUMES="${IPOD_VOLUMES:-/Volumes}"   # overridable for testing
+AGENT_LABEL="local.listening.ipod-backup"
+AGENT_PLIST="$HOME/Library/LaunchAgents/$AGENT_LABEL.plist"
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'ipod-no-autosync: %s\n' "$*" >&2; exit 1; }
+
+require_macos() {
+  [ "$(uname -s)" = Darwin ] || die "this only works on macOS (uname says $(uname -s))."
+}
+
+# Prints 1, 0 or "unset".
+pref_value() {
+  local v
+  if v=$(defaults read "$1" "$2" 2>/dev/null); then
+    case "$v" in
+      1|true|YES) say 1 ;;
+      0|false|NO) say 0 ;;
+      *) say "$v" ;;
+    esac
+  else
+    say unset
+  fi
+}
+
+# AMPDevicesAgent caches its preferences; launchd restarts it on the next
+# device connection (or right away), and it then reads the new value.
+restart_agent() {
+  if pgrep -x AMPDevicesAgent >/dev/null 2>&1; then
+    killall AMPDevicesAgent 2>/dev/null && say "Restarted AMPDevicesAgent so it rereads the setting."
+  fi
+}
+
+cmd_on() {
+  require_macos
+  local changed=0 line domain key cur
+  mkdir -p "$STATE_DIR"
+  for line in $PREFS; do
+    domain=${line%%:*}; key=${line#*:}
+    cur=$(pref_value "$domain" "$key")
+    # Remember the value from before the first "on", for "off".
+    if ! grep -q "^$line=" "$STATE_FILE" 2>/dev/null; then
+      say "$line=$cur" >>"$STATE_FILE"
+    fi
+    if [ "$cur" = 1 ]; then
+      say "Already set: $domain $key = true"
+    else
+      defaults write "$domain" "$key" -bool true
+      say "Set: $domain $key = true (was $cur)"
+      changed=1
+    fi
+  done
+  [ "$changed" = 1 ] && restart_agent
+  say ""
+  say "Also check, once, with the iPod plugged in: Finder sidebar > the iPod >"
+  say "General > untick \"Automatically sync when this iPod is connected\"."
+}
+
+cmd_off() {
+  require_macos
+  local line domain key prev changed=0
+  for line in $PREFS; do
+    domain=${line%%:*}; key=${line#*:}
+    prev=$(grep "^$line=" "$STATE_FILE" 2>/dev/null | head -n 1 | cut -d= -f2)
+    case "${prev:-unset}" in
+      unset) defaults delete "$domain" "$key" 2>/dev/null && changed=1
+             say "Removed: $domain $key (back to the macOS default)" ;;
+      0)     defaults write "$domain" "$key" -bool false; changed=1
+             say "Restored: $domain $key = false" ;;
+      1)     say "Left as it was before: $domain $key = true" ;;
+      *)     say "Not touched: $domain $key had the unexpected value '$prev'" ;;
+    esac
+  done
+  rm -f "$STATE_FILE"
+  [ "$changed" = 1 ] && restart_agent
+  return 0
+}
+
+# Mounted volumes that look like an iPod (iPod_Control/iTunes exists).
+ipod_volumes() {
+  local v
+  for v in "$VOLUMES"/*; do
+    [ -d "$v/iPod_Control/iTunes" ] && say "$v"
+  done
+}
+
+cmd_status() {
+  require_macos
+  local line domain key v
+  say "macOS $(sw_vers -productVersion 2>/dev/null)"
+  for line in $PREFS; do
+    domain=${line%%:*}; key=${line#*:}
+    v=$(pref_value "$domain" "$key")
+    case "$v" in
+      1) say "  $domain $key = true (auto-sync blocked)" ;;
+      0) say "  $domain $key = false (auto-sync allowed)" ;;
+      *) say "  $domain $key = $v (auto-sync allowed)" ;;
+    esac
+  done
+  if pgrep -x AMPDevicesAgent >/dev/null 2>&1; then
+    say "AMPDevicesAgent is running."
+  else
+    say "AMPDevicesAgent is not running."
+  fi
+  if [ -f "$AGENT_PLIST" ]; then
+    say "Backup agent: installed ($AGENT_PLIST)"
+  else
+    say "Backup agent: not installed"
+  fi
+  local found=0
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    found=1
+    if [ -f "$v/iPod_Control/iTunes/Play Counts" ]; then
+      say "iPod at $v: Play Counts present (unsynced plays are still on it)"
+    else
+      say "iPod at $v: no Play Counts file (no plays since the last sync)"
+    fi
+  done <<EOF
+$(ipod_volumes)
+EOF
+  [ "$found" = 1 ] || say "No iPod mounted. (Disk use must be on for it to mount.)"
+}
+
+cmd_backup() {
+  local dest_root="${1:-$BACKUP_DIR}" v name latest dest stamp
+  stamp=$(date +%Y-%m-%dT%H%M%S)
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    name=$(basename "$v")
+    if [ ! -f "$v/iPod_Control/iTunes/Play Counts" ]; then
+      say "$name: no Play Counts file, nothing to back up."
+      continue
+    fi
+    latest=$(ls -1d "$dest_root/$name"/*/ 2>/dev/null | tail -n 1)
+    latest=${latest%/}
+    if [ -n "$latest" ] && cmp -s "$v/iPod_Control/iTunes/Play Counts" "$latest/Play Counts"; then
+      say "$name: unchanged since $latest"
+      continue
+    fi
+    dest="$dest_root/$name/$stamp"
+    mkdir -p "$dest"
+    # Play Counts refers to tracks by their position in iTunesDB; keep them together.
+    cp -p "$v/iPod_Control/iTunes/Play Counts" "$dest/" || die "copy failed for $name"
+    [ -f "$v/iPod_Control/iTunes/iTunesDB" ] && cp -p "$v/iPod_Control/iTunes/iTunesDB" "$dest/"
+    say "$name: backed up to $dest"
+  done <<EOF
+$(ipod_volumes)
+EOF
+}
+
+script_path() {
+  local d
+  d=$(cd "$(dirname "$0")" && pwd) || die "cannot find my own folder"
+  say "$d/$(basename "$0")"
+}
+
+cmd_agent() {
+  require_macos
+  case "${1:-}" in
+    install)
+      mkdir -p "$(dirname "$AGENT_PLIST")" "$BACKUP_DIR"
+      cat >"$AGENT_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$AGENT_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$(script_path)</string>
+    <string>backup</string>
+  </array>
+  <key>StartOnMount</key><true/>
+  <key>StandardOutPath</key><string>$BACKUP_DIR/agent.log</string>
+  <key>StandardErrorPath</key><string>$BACKUP_DIR/agent.log</string>
+</dict>
+</plist>
+EOF
+      launchctl bootout "gui/$(id -u)/$AGENT_LABEL" 2>/dev/null
+      launchctl bootstrap "gui/$(id -u)" "$AGENT_PLIST" || die "launchctl bootstrap failed"
+      say "Installed $AGENT_PLIST; it runs \"backup\" on every mount."
+      ;;
+    remove)
+      launchctl bootout "gui/$(id -u)/$AGENT_LABEL" 2>/dev/null
+      rm -f "$AGENT_PLIST"
+      say "Removed the backup agent."
+      ;;
+    *) die "usage: ipod-no-autosync agent install|remove" ;;
+  esac
+}
+
+case "${1:-on}" in
+  on)      cmd_on ;;
+  off)     cmd_off ;;
+  status)  cmd_status ;;
+  backup)  shift; cmd_backup "$@" ;;
+  agent)   shift; cmd_agent "$@" ;;
+  -h|--help|help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown command '$1' (try --help)" ;;
+esac

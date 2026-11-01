@@ -79,12 +79,32 @@ One =.config/listening/sync= command with a swappable /source/ and /target/, so 
 - *Last step, per machine.* On Linux, a libgpod-based tool writes the iPod database directly; which tool is still to choose. On macOS, the staging folder is added to a "Listening queue" playlist in Music (scriptable with =osascript=), and Finder syncs it.
 - Bandcamp-only albums I don't own yet stay in the Emacs queue but cannot sync until they are in beets.
 
+** macOS: keep the iPod's plays for Legacy Scrobbler
+
+When Finder (or iTunes/Music on older macOS) syncs the iPod, it reads =iPod_Control/iTunes/Play Counts= and deletes it, so Legacy Scrobbler has nothing left to scrobble. That happened on 2026-11-01. [[file:ipod-no-autosync][=ipod-no-autosync=]] stops the automatic sync on plug-in:
+
+#+begin_src sh
+~/.config/listening/ipod-no-autosync           # same as "on"; safe to rerun
+~/.config/listening/ipod-no-autosync status    # settings, agent, mounted iPods, Play Counts present?
+~/.config/listening/ipod-no-autosync off       # undo, back to the values from before "on"
+~/.config/listening/ipod-no-autosync backup    # copy Play Counts + iTunesDB off every mounted iPod
+~/.config/listening/ipod-no-autosync agent install   # run "backup" on every mount (agent remove to undo)
+#+end_src
+
+- *on* sets =dontAutomaticallySyncIPods= to true in =com.apple.AMPDevicesAgent= (the helper behind Finder's device sync, macOS 10.15 and later) and in =com.apple.iTunes= (10.14 and earlier), then restarts =AMPDevicesAgent= so it reads the change. It saves the earlier values in =$XDG_STATE_HOME/listening/= for *off*.
+- Once, with the iPod plugged in, also untick /Automatically sync when this iPod is connected/ under the iPod's General tab in Finder. That box is stored per device, and the script does not change it.
+- Backups go to =$XDG_DATA_HOME/listening/ipod-backups/<iPod name>/<time>/=, skipped when Play Counts has not changed. Play Counts refers to tracks by their position in =iTunesDB=, so the two are kept together.
+- Order on the Mac: plug in, run Legacy Scrobbler, then press Sync in Finder by hand if the queue playlist (above) should go on.
+
+*Not tested on a Mac.* The script was written and run in a Linux container against stand-ins for =defaults=, =killall= and =/Volumes=. Not checked: that current macOS still honours the =AMPDevicesAgent= key, whether Finder reads Play Counts on connect even without a sync (the backup agent is the fallback for that, and it may lose the race), and the launchd agent itself.
+
 * Where the code lives
 
 | Piece                 | Path                                                   |
 |-----------------------+--------------------------------------------------------|
 | This plan             | =.config/listening/PLAN.org=                           |
 | History script, sync  | =.config/listening/=                                   |
+| iPod auto-sync guard  | =.config/listening/ipod-no-autosync=                   |
 | Emacs module          | =.config/emacs-modular/docs/tangles/media/sp-listening.org= |
 | Schema fields         | =sp-vulpea-schemas.el=                                 |
 | beets-alternatives config | my beets =config.yaml= (not in this repository yet) |
