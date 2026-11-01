@@ -255,5 +255,90 @@ Return nil when either colour is unknown (a terminal without colours)."
 
 (add-hook 'org-mode-hook #'sp-org-tables-quiet-pipes-mode)
 
+;;;; Following links in table widgets
+;; The widget draws a row as an overlay `before-string'; the source of the row
+;; stays hidden underneath.  A click or RET therefore lands on the source, not
+;; on the link that was drawn, and `org-open-at-point' then offers every link of
+;; the entry.  These functions read the link from the drawn text instead.
+
+(defun sp-org-tables--string-links (string)
+  "The links drawn in STRING, as a list of (URI . TEXT) in order, without repeats.
+URI comes from the `htmlize-link' property that Org puts on a link, which the
+widget keeps in its cells."
+  (let ((pos 0) (len (length string)) links)
+    (while (< pos len)
+      (let* ((next (or (next-single-property-change pos 'htmlize-link string) len))
+             (uri (plist-get (get-text-property pos 'htmlize-link string) :uri)))
+        (when (stringp uri)
+          (let ((text (string-trim
+                       (apply #'concat
+                              (cl-loop for i from pos below next
+                                       unless (get-text-property i 'invisible string)
+                                       collect (string (aref string i)))))))
+            (if-let* ((old (assoc uri links)))
+                (when (string-empty-p (cdr old)) (setcdr old text))
+              (push (cons uri text) links))))
+        (setq pos next)))
+    (nreverse links)))
+
+(defun sp-org-tables--widget-overlay (&optional position)
+  "The table widget row overlay at POSITION (point by default), or nil."
+  (seq-find (lambda (overlay) (overlay-get overlay 'org-table-widget))
+            (overlays-at (or position (point)))))
+
+(defun sp-org-tables--open-uri (uri)
+  "Follow the Org link target URI, as `org-open-at-point' does on a link."
+  (org-link-open-from-string (format "[[%s]]" uri)))
+
+(defun sp-org-tables--choose-link (links)
+  "Follow the only link in LINKS, or ask which of them to follow."
+  (sp-org-tables--open-uri
+   (if (null (cdr links))
+       (caar links)
+     (let* ((choices (mapcar (lambda (link)
+                               (cons (format "%s  (%s)" (cdr link) (car link))
+                                     (car link)))
+                             links))
+            (choice (completing-read "Follow link: " (mapcar #'car choices) nil t)))
+       (cdr (assoc choice choices))))))
+
+(defun sp-org-tables-open-row-link ()
+  "Follow a link of the table widget row at point; return nil if there is none.
+One link is followed at once.  The choice menu only appears when the row has
+several links, because RET cannot tell which one was meant (a click can)."
+  (when-let* ((overlay (sp-org-tables--widget-overlay))
+              (links (sp-org-tables--string-links
+                      (or (overlay-get overlay 'before-string) ""))))
+    (sp-org-tables--choose-link links)
+    t))
+
+(defun sp-org-tables-follow-link ()
+  "Follow the link of the table widget row at point, or do what RET did before."
+  (interactive)
+  (unless (sp-org-tables-open-row-link)
+    (call-interactively #'org-return)))
+
+(defun sp-org-tables--clicked-uri (event)
+  "The link target drawn at the position of mouse EVENT in a table widget, or nil."
+  (let* ((posn (event-start event))
+         (hit (posn-string posn)))
+    (and (consp hit) (stringp (car hit))
+         (bound-and-true-p org-table-widget-mode)
+         (sp-org-tables--widget-overlay (posn-point posn))
+         (plist-get (get-text-property (cdr hit) 'htmlize-link (car hit)) :uri))))
+
+(define-advice org-open-at-mouse (:around (orig event) sp-org-tables-widget-link)
+  "Follow the link that was clicked in a table widget, with no menu."
+  (if-let* ((uri (sp-org-tables--clicked-uri event)))
+      (progn (select-window (posn-window (event-start event)))
+             (sp-org-tables--open-uri uri))
+    (funcall orig event)))
+
+;; `C-c C-o' on a widget row follows its link too.
+(add-hook 'org-open-at-point-functions #'sp-org-tables-open-row-link)
+
+(with-eval-after-load 'org-table-widget
+  (keymap-set org-table-widget-map "RET" #'sp-org-tables-follow-link))
+
 (provide 'sp-org-tables)
 ;; sp-org-tables.el ends here.
