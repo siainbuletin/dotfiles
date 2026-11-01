@@ -33,7 +33,12 @@
 ;;    definitions that left with the subtree.  Copies after the first
 ;;    get a suffixed label (`[fn:smith]', `[fn:smith-2]', ...).
 ;;
-;; Steps 1, 2 and 4 hook `vulpea-split--write-file', a private function of
+;; 5. Moves id links out of the heading text (`sp-split-links-to-seealso').
+;;    The title of the new note is the heading without its
+;;    `[[id:...][...]]' links, and they go into a `- seealso ::' meta line
+;;    in its body.
+;;
+;; Steps 1, 2, 4 and 5 hook `vulpea-split--write-file', a private function of
 ;; vulpea, and only act while `sp-split-leave-parents' is running.  A
 ;; plain `vulpea-split-heading' is unchanged.
 
@@ -43,6 +48,7 @@
 (require 'org-id)
 (require 'subr-x)
 (require 'seq)
+(require 'cl-lib)
 (require 'vulpea)
 (require 'denote)
 
@@ -73,6 +79,13 @@ It is the value of `org-use-tag-inheritance' while `sp-split-leave-parents' runs
   "When non-nil, keep footnote definitions with the headings that cite them.
 Definitions are copied, per heading, into the new note and, for those
 that leave with the subtree, into the source note."
+  :type 'boolean
+  :group 'sp-split)
+
+(defcustom sp-split-links-to-seealso t
+  "When non-nil, move id links out of the split heading's title.
+They are removed from the title of the new note and listed in a
+`- seealso ::' meta line in its body."
   :type 'boolean
   :group 'sp-split)
 
@@ -146,6 +159,77 @@ PARENT-ID is the id LINK points to."
         (cond
          ((string-empty-p body) line)
          ;; Body opens with meta already: join that list.
+         ((string-match-p "\\`[ \t]*[-+][ \t]+[^ \t\n]+[ \t]+::" body)
+          (concat line "\n" body))
+         (t (concat line "\n\n" body))))))))
+
+(defconst sp-split--id-link-regexp
+  "\\[\\[id:\\([^]\n]+\\)\\]\\(?:\\[\\([^]\n]*\\)\\]\\)?\\]"
+  "Match an id link; group 1 is the ID, group 2 the description, if any.")
+
+(defun sp-split--extract-id-links (title)
+  "Return (CLEAN-TITLE . LINKS) for the heading text TITLE.
+LINKS are the id links found in TITLE, as strings, in order and without
+duplicates; CLEAN-TITLE is TITLE with each link replaced by its description
+(nothing, for a link without one), whitespace tidied.  When
+nothing would be left of TITLE, it is returned as the text of its links'
+descriptions and LINKS is nil, so the new note still has a title."
+  (let ((links nil)
+        (start 0))
+    (while (string-match sp-split--id-link-regexp title start)
+      (setq start (match-end 0))
+      (cl-pushnew (match-string 0 title) links :test #'equal))
+    (if (null links)
+        (cons title nil)
+      (let ((clean (string-trim
+                    (replace-regexp-in-string
+                     "[ \t]+" " "
+                     (replace-regexp-in-string
+                      sp-split--id-link-regexp
+                      (lambda (m)
+                        (save-match-data
+                          (string-match sp-split--id-link-regexp m)
+                          (or (match-string 2 m) "")))
+                      title t t)
+                     t t))))
+        (if (string-empty-p clean)
+            (cons (org-link-display-format title) nil)
+          (cons clean (nreverse links)))))))
+
+(defun sp-split--body-with-seealso (body links)
+  "Return BODY with the id LINKS recorded in its `seealso' meta line.
+A link whose ID is already on the line is not added again.  Like
+`sp-split--body-with-parent', only the text before the first child
+heading is looked at."
+  (let* ((case-fold-search nil)
+         (top-end (or (string-match "^\\*+ " body) (length body)))
+         (top (substring body 0 top-end))
+         (rest (substring body top-end)))
+    (cond
+     ((null links) body)
+     ((string-match
+       "^\\([ \t]*[-+][ \t]+seealso[ \t]+::[ \t]*\\)\\(.*\\)$" top)
+      (let* ((mb (match-beginning 0))
+             (me (match-end 0))
+             (prefix (match-string 1 top))
+             (existing (string-trim (match-string 2 top)))
+             (new (seq-remove
+                   (lambda (l)
+                     (string-match sp-split--id-link-regexp l)
+                     (string-search (concat "id:" (match-string 1 l)) existing))
+                   links)))
+        (if (null new)
+            body
+          (concat (substring top 0 mb)
+                  prefix existing
+                  (if (string-empty-p existing) "" ", ")
+                  (string-join new ", ")
+                  (substring top me)
+                  rest))))
+     (t
+      (let ((line (concat "- seealso :: " (string-join links ", "))))
+        (cond
+         ((string-empty-p body) line)
          ((string-match-p "\\`[ \t]*[-+][ \t]+[^ \t\n]+[ \t]+::" body)
           (concat line "\n" body))
          (t (concat line "\n\n" body))))))))
@@ -431,7 +515,13 @@ running."
       ;; vulpea has already run its checks, so a refused split never gets
       ;; this far.
       (let* ((parent (sp-split--parent-link id))
+             ;; Id links in the heading go to a `seealso' line, not the title.
+             (extracted (if sp-split-links-to-seealso
+                            (sp-split--extract-id-links title)
+                          (cons title nil)))
+             (title (car extracted))
              (body (sp-split--fn-check-body body id))
+             (body (sp-split--body-with-seealso body (cdr extracted)))
              (body (if parent
                        (sp-split--body-with-parent
                         body (car parent) (cdr parent))
