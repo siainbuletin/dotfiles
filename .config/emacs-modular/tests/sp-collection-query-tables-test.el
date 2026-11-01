@@ -157,18 +157,41 @@
   (should-not (memq #'sp-collec-query-dblock--after-save after-save-hook))
   (should-not (memq #'sp-collec-query-dblock--on-open find-file-hook)))
 
+(defvar sp-collec-query-test-bib
+  '(("chap1" ("crossref" . "book1"))
+    ("chap2" ("crossref" . "book1"))
+    ("book1" ("file" . "/lib/book 1.pdf"))
+    ("loop1" ("crossref" . "loop2"))
+    ("loop2" ("crossref" . "loop1"))
+    ("lone" ("crossref" . "missing"))))
+
+(defun citar-get-entry (key) (cdr (assoc key sp-collec-query-test-bib)))
+
 (defun citar-get-files (key)
   (let ((h (make-hash-table :test 'equal)))
-    (when (equal key "smith2020") (puthash key '("/lib/smith 2020.pdf") h))
+    (when (equal key "book1") (puthash key '("/lib/book 1.pdf") h))
     h))
 
+(ert-deftest sp-collec-query-test-crossref-root ()
+  (should (equal (sp-collec-query--crossref-root "chap1") "book1"))
+  (should (equal (sp-collec-query--crossref-root "book1") "book1"))
+  (should (equal (sp-collec-query--crossref-root "lone") "lone"))
+  (should (member (sp-collec-query--crossref-root "loop1") '("loop1" "loop2"))))
+
 (ert-deftest sp-collec-query-test-refs-and-pdf-columns ()
-  (let ((note '(:title "x" :props (("ROAM_REFS" . "@smith2020 @nofile https://x.org")))))
-    (should (equal (sp-collec-query-cell note :refs) "@smith2020 @nofile https://x.org"))
-    (should (equal (sp-collec-query--citekeys note) '("smith2020" "nofile")))
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1 @chap2 @book1 @lone https://x.org")))))
+    (should (equal (sp-collec-query-cell note :refs)
+                   "@chap1 @chap2 @book1 @lone https://x.org"))
+    (should (equal (sp-collec-query--citekeys note) '("chap1" "chap2" "book1" "lone")))
+    (should (equal (sp-collec-query--root-keys note) '("book1" "lone")))
     (should (equal (sp-collec-query-cell note :pdf)
-                   "[[file:/lib/smith 2020.pdf][smith 2020.pdf]]"))
+                   "[[sp-open:/lib/book 1.pdf][book 1.pdf]]"))
     (should (equal (sp-collec-query-cell '(:title "y") :pdf) ""))))
 
-(provide 'sp-collection-query-tables-test)
-;;; sp-collection-query-tables-test.el ends here
+(ert-deftest sp-collec-query-test-devonthink-column ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1 @chap2")))))
+    (cl-letf (((symbol-function 'sp-collec-query--dt-running-p) (lambda () nil)))
+      (should (equal (sp-collec-query-cell note :devonthink) "")))
+    (puthash "book 1.pdf" "UUID-1" sp-collec-query--dt-uuids)
+    (should (equal (sp-collec-query-cell note :devonthink)
+                   "[[x-devonthink-item://UUID-1][DEVONthink]]"))))

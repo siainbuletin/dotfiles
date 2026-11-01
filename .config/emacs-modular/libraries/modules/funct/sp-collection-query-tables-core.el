@@ -40,7 +40,8 @@ note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
 in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:REFS shows the ROAM_REFS property and :PDF the files of its citation keys;
+:REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
+keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
 columns, applied in order: the first is the primary key and each next
 one breaks the ties of those before it.  An element may be (COLUMN . asc)
@@ -53,7 +54,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf)
+  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -155,19 +156,105 @@ Both `@key' and `cite:key' are read; URLs are skipped."
         (setq pos (match-end 0)))
       (nreverse keys))))
 
-(defun sp-collec-query--pdf-links (note)
-  "Return the files of NOTE's citation keys as Org file links.
-The files are those `citar-get-files' finds, so they follow
-`citar-library-paths'; the text is empty without citar or a file."
-  (if (not (fboundp 'citar-get-files))
-      ""
-    (let (links)
-      (dolist (key (sp-collec-query--citekeys note))
+(defun sp-collec-query--crossref-root (key)
+  "Return the top-level key of KEY: the end of its `crossref' chain.
+A book chapter points to its book; the book is the key whose file counts.
+The chain stops at a key without a parent, with a parent that has no entry
+in the bibliography, or when a key comes up twice."
+  (let ((seen (list key)) (current key) parent)
+    (while (and (fboundp 'citar-get-entry)
+                (setq parent (cdr (assoc-string
+                                   "crossref" (ignore-errors (citar-get-entry current)) t)))
+                (stringp parent)
+                (not (member parent seen))
+                (ignore-errors (citar-get-entry parent)))
+      (push parent seen)
+      (setq current parent))
+    current))
+
+(defun sp-collec-query--root-keys (note)
+  "Return the top-level citation keys of NOTE, each once."
+  (delete-dups (mapcar #'sp-collec-query--crossref-root
+                       (sp-collec-query--citekeys note))))
+
+(defun sp-collec-query--root-files (note)
+  "Return the files of NOTE's top-level keys, each once.
+The files are those `citar-get-files' finds from the `file' field of the
+BibTeX entry and `citar-library-paths'."
+  (when (fboundp 'citar-get-files)
+    (let (files)
+      (dolist (key (sp-collec-query--root-keys note))
         (dolist (file (gethash key (citar-get-files key)))
-          (push (format "[[file:%s][%s]]" (org-link-escape file)
-                        (file-name-nondirectory file))
-                links)))
-      (string-join (nreverse links) ", "))))
+          (push (expand-file-name file) files)))
+      (delete-dups (nreverse files)))))
+
+(defun sp-collec-query--open-file (path)
+  "Open PATH with the default application of the system."
+  (if (eq system-type 'darwin)
+      (call-process "open" nil 0 nil path)
+    (call-process "xdg-open" nil 0 nil path)))
+
+(with-eval-after-load 'org
+  (org-link-set-parameters "sp-open" :follow #'sp-collec-query--open-file))
+
+(defun sp-collec-query--pdf-links (note)
+  "Return the files of NOTE's top-level keys as links in the default reader.
+A key that is a chapter of a book gives the book's file, once.  The text
+is empty without citar or a file."
+  (mapconcat (lambda (file)
+               (format "[[sp-open:%s][%s]]" (org-link-escape file)
+                       (file-name-nondirectory file)))
+             (sp-collec-query--root-files note) ", "))
+
+(defvar sp-collec-query--dt-uuids (make-hash-table :test 'equal)
+  "File name to the UUID of its DEVONthink record, or :none.")
+
+(defconst sp-collec-query--dt-script
+  "const app = Application('DEVONthink'); const out = {};
+for (const name of %s) { const found = app.lookupRecordsWithFile(name);
+  if (found.length) out[name] = found[0].uuid(); }
+JSON.stringify(out);"
+  "JXA that maps file names to the UUIDs of DEVONthink records.")
+
+(defun sp-collec-query--dt-running-p ()
+  "Non-nil if DEVONthink runs, so that a lookup does not start it."
+  (and (eq system-type 'darwin)
+       (zerop (call-process "pgrep" nil nil nil "-f" "DEVONthink"))))
+
+(defun sp-collec-query--dt-lookup (names)
+  "Cache the DEVONthink UUIDs of the file NAMES in one call to DEVONthink."
+  (setq names (seq-remove (lambda (n) (gethash n sp-collec-query--dt-uuids))
+                          (delete-dups (copy-sequence names))))
+  (when (and names (sp-collec-query--dt-running-p))
+    (let ((found (ignore-errors
+                   (with-temp-buffer
+                     (call-process "osascript" nil t nil "-l" "JavaScript" "-e"
+                                   (format sp-collec-query--dt-script
+                                           (json-encode (vconcat names))))
+                     (goto-char (point-min))
+                     (json-parse-buffer :object-type 'alist)))))
+      (dolist (name names)
+        (puthash name (or (cdr (assq (intern name) found)) :none)
+                 sp-collec-query--dt-uuids)))))
+
+(defun sp-collec-query--dt-warm (notes)
+  "Look up the DEVONthink records for the files of NOTES in one go."
+  (sp-collec-query--dt-lookup
+   (mapcar #'file-name-nondirectory
+           (seq-mapcat #'sp-collec-query--root-files notes))))
+
+(defun sp-collec-query--dt-links (note)
+  "Return the DEVONthink item links of NOTE's top-level files, each once."
+  (let ((files (mapcar #'file-name-nondirectory (sp-collec-query--root-files note))))
+    (sp-collec-query--dt-lookup files)
+    (mapconcat (lambda (name)
+                 (format "[[x-devonthink-item://%s][DEVONthink]]"
+                         (gethash name sp-collec-query--dt-uuids)))
+               (seq-uniq (seq-filter (lambda (n) (stringp (gethash n sp-collec-query--dt-uuids)))
+                                     files)
+                         (lambda (a b) (equal (gethash a sp-collec-query--dt-uuids)
+                                              (gethash b sp-collec-query--dt-uuids))))
+               ", ")))
 
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
@@ -184,6 +271,7 @@ naming a meta key (several values are joined with \", \")."
     (:path (abbreviate-file-name (vulpea-note-path note)))
     (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
     (:pdf (sp-collec-query--pdf-links note))
+    (:devonthink (sp-collec-query--dt-links note))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
@@ -284,14 +372,22 @@ dropped from the count when no note has the ID."
         kept)
     notes))
 
+(defun sp-collec-query--warm (notes spec)
+  "Return NOTES, after looking up what the columns of SPEC need in one go."
+  (when (memq :devonthink (plist-get spec :columns))
+    (sp-collec-query--dt-warm notes))
+  notes)
+
 (defun sp-collec-query-query (spec)
   "Return the notes SPEC asks for, sorted.
 SPEC's :parent-of must be resolved already (see
 `sp-collec-query-resolve-spec')."
   (let ((spec (sp-collec-query-spec-normalize spec)))
     (sp-collec-query-sort
-     (sp-collec-query--fold
-      (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+     (sp-collec-query--warm
+      (sp-collec-query--fold
+       (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+       spec)
       spec)
      (plist-get spec :sort-by)
      (plist-get spec :sort-desc))))
