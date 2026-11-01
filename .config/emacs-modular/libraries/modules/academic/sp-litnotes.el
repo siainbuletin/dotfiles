@@ -43,6 +43,7 @@
    ("C-c w b e" . citar-open-entry)))
 
 (require 'sp-litnotes-refs)
+(require 'sp-litnotes-titles)
 
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
