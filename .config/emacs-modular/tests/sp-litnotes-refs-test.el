@@ -1,6 +1,8 @@
 ;;; sp-litnotes-refs-test.el --- Tests for sp-litnotes-refs -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
 (require 'sp-litnotes-refs)
 
 (defvar sp-literature-dir)

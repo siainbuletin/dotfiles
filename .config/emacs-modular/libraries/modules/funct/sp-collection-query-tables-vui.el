@@ -53,13 +53,13 @@ spec's sort."
                         ((eq c :title)
                          (vui-button (sp-collec-query-title-label note)
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
-                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-cell note c)))
+                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-display-cell note c)))
                         ;; A field would show the raw [[id:..][..]] text and
                         ;; save the description over the link when edited.
                         ((sp-org-link-has-link-p
-                          (or (car (vulpea-note-meta-get-list note c)) ""))
+                          (sp-collec-query-display-cell note c))
                          (vui-text (sp-org-link-linkify
-                                    (sp-collec-query-cell note c))))
+                                    (sp-collec-query-display-cell note c))))
                         (t (vui-field
                             :value (or (car (vulpea-note-meta-get-list note c)) "")
                             :on-change (lambda (val)
