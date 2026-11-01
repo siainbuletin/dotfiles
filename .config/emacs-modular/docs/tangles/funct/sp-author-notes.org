@@ -13,7 +13,7 @@ Literature notes in =litnotes/= list their authors under the meta key =pub-autho
 =M-x sp-author-notes= does, in this order:
 
 1. Reads every note in =litnotes/= (the file-level meta list only) and *fixes typos of the key*: =pub-authro=, =pub-autor= and =Pub_Author= become =pub-author=. A key two edits away is only reported.
-2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and=, but not by a single comma because =Smith, John= is one name; more than one comma is a case for disambiguation, see below. Each name gets its own note.
+2. Collects the authors. A value is made of ID links (=[[id:...][Name]]=, what the =base-text= schema in =sp-vulpea-schemas= asks for), Denote links (=[[denote:20251213T235944][Name]]=, turned into ID links when a note with that identifier and an =:ID:= exists) and names. Quoted names (="Ann Lee", "Bo Roe"= or ="Ann Lee" "Bo Roe"=) are separated by what is between the quotes; a quote mark with no partner (="Tim Wildschut=) is dropped. Unquoted names may be separated by =;= or =and= (as BibTeX writes them; =Ann Lee, Bo Roe, and Cy Poe= is a list with commas, see below), but not by a single comma because =Smith, John= is one name; more than one comma is a case for disambiguation, see below. Each name gets its own note.
 3. *Creates a note tagged =:person:=* for every plain name that has no note, with =sp-org--write-note= (the function behind =sp-org-create-note-and-link=; there is no function called =sp-org--create-note=), and replaces the plain name in the litnote by an ID link to it. An existing note is found by its title, ignoring case; if it is not tagged =person= it is given that tag in its =#+filetags:=.
 4. In every author note that is tagged =:person:=, makes sure a level-1 =Basics= heading exists, then a =Works= heading after it, and puts a =collection-query-table= dynamic block in =Works= unless the note already has one for =pub-author=.
 5. Fills the tables from the Vulpea database, so they are not left for =C-c C-c=.
@@ -37,6 +37,7 @@ Safety:
 - A file with unsaved changes in a buffer is saved first, and the report lists it. The preview lists the buffers it will save.
 - A link to an ID that no note has (an orphan) is listed with the suggestion of the person note of that name. When the changes are written you are asked where it should point (=sp-author-notes-redirect-function=; an empty answer leaves it). A linked note that is not a =person= is only reported.
 - A list of unquoted names with more than one comma (=Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina=) can be one author or several, so it is its own case: the report shows how it would be split (each piece a name, or =Last, First= pairs when the first piece is a single word) and, when the changes are written, you are asked whether to split it (=sp-author-notes-disambiguate-function=). Left as it is otherwise.
+- In the report, =d= drops the candidate on the line from the plan and shows the preview again, =u= brings it back, =A= writes what is left. A note (a litnote, an author note, a note to tag) is dropped as a file: it is not read or changed. An author to create is dropped by name: no note is made and the name stays plain. The command asks =y= (write all), =r= (review in the report) or =q=.
 - Left alone and reported: two notes with one title, a note without an ID, and a value that mixes links with other text.
 
 What it does not do: it reads =litnotes/= only, so works that exist only as BibTeX entries have no note and do not appear in a =Works= table until they get a literature note. Only people who appear under =pub-author= get a =Works= section, not every =person= note.
@@ -356,20 +357,40 @@ the pieces are \"Last, First\" pairs, flipped when
                           raw (length names) (string-join names " | ")))
     names))
 
+(defun sp-author-notes--and-list-p (pieces)
+  "Non-nil if PIECES, a text split at `and', is one list of names with commas.
+That is so when the last piece has no comma and an earlier one has a
+comma after two words or more: `Ann Lee, Bo Roe, and Cy Poe'.  BibTeX's
+`Lee, Ann and Roe, Bo' is not one, nor is `Lee, Ann and Bo Roe'."
+  (and (cdr pieces)
+       (not (string-match-p "," (car (last pieces))))
+       (seq-some (lambda (piece)
+                   (and (string-match-p "," piece)
+                        (string-match-p "[ \t]" (string-trim (car (split-string piece ","))))))
+                 pieces)))
+
 (defun sp-author-notes--plain-names (text)
   "The names in TEXT, which has no links or quoted names.
-A stray quote mark is dropped.  Names are separated by `;' or `and'.
-Each element is a name, or (:ambiguous RAW NAMES) for a piece with more
-than one comma, which may be one author or several: RAW is the text and
-NAMES the split proposed by `sp-author-notes--comma-proposal'."
+A stray quote mark is dropped.  Names are separated by `;' or `and' (as
+BibTeX writes them).  Each element is a name, or (:ambiguous RAW NAMES)
+for a piece with more than one comma, or a list with commas that ends in
+`and', which may be one author or several: RAW is the text and NAMES the
+split proposed by `sp-author-notes--comma-proposal'."
   (let (out)
-    (dolist (segment (split-string (replace-regexp-in-string "[\"“”]" "" text)
-                                   "\\(?:[ \t]*;[ \t]*\\|[ \t]+and[ \t]+\\)" t))
-      (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
-        (cond ((string-empty-p segment))
-              ((> (length (split-string segment "," t "[ \t]+")) 2)
-               (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
-              (t (push (sp-author-notes--clean-name segment) out)))))
+    (dolist (semi (split-string (replace-regexp-in-string "[\"“”]" "" text) "[ \t]*;[ \t]*" t))
+      (let ((pieces (split-string semi "[ \t]+and[ \t]+" t)))
+        (if (sp-author-notes--and-list-p pieces)
+            (push (list :ambiguous (string-trim semi "[ \t,]+" "[ \t,]+")
+                        (mapcar #'sp-author-notes--clean-name
+                                (seq-mapcat (lambda (piece) (split-string piece "," t "[ \t]+"))
+                                            pieces)))
+                  out)
+          (dolist (segment pieces)
+            (let ((segment (string-trim segment "[ \t,]+" "[ \t,]+")))
+              (cond ((string-empty-p segment))
+                    ((> (length (split-string segment "," t "[ \t]+")) 2)
+                     (push (list :ambiguous segment (sp-author-notes--comma-proposal segment)) out))
+                    (t (push (sp-author-notes--clean-name segment) out))))))))
     (seq-remove (lambda (x) (and (stringp x) (string-empty-p x))) (nreverse out))))
 
 (defun sp-author-notes--parse-value (value)
@@ -431,6 +452,12 @@ A run holds what it found and did. It is the same code for the preview and for t
   backed-up      ; hash: files already copied to the backup folder
   filled         ; list of files whose tables were filled
   litnote-count)
+
+(defvar sp-author-notes--excluded nil
+  "Candidates the user dropped from the report with `d'.
+Each is the absolute file name of a note, or \"name:\" and the title key
+of an author whose note would be made.  Dropped files are not read or
+changed, and dropped names get no note.")
 
 (defun sp-author-notes--problem (run file line text)
   "Record the problem TEXT at FILE and LINE in RUN."
@@ -530,6 +557,8 @@ Return (id ID), (pending) or (skip)."
        run file line (format "%d notes are titled \"%s\" and none is tagged %s; left as they are"
                              (length others) name sp-author-notes-person-tag))
       '(skip))
+     ((and others (member (plist-get (car others) :file) sp-author-notes--excluded))
+      '(skip))
      (others
       (let ((entry (car others)))
         (if (not (plist-get entry :id))
@@ -556,6 +585,8 @@ Return (id ID), (pending) or (skip)."
   (let* ((key (sp-author-notes--title-key name))
          (table (sp-author-notes--run-names run))
          (found (or (gethash key table)
+                    (and (member (concat "name:" key) sp-author-notes--excluded)
+                         (puthash key '(skip) table))
                     (puthash key (sp-author-notes--resolve-1 run name file line) table))))
     (pcase found
       (`(id ,id) id)
@@ -843,31 +874,33 @@ The file is read into a temporary buffer, the pass edits that, and only if it ch
 
 (defun sp-author-notes--process-file (run file pass)
   "Run PASS in a temporary buffer with the text of FILE, and write it when RUN applies.
-PASS is called with no arguments.  Return its value in a list.  A buffer
+PASS is called with no arguments.  Return its value in a list, or nil
+when FILE was dropped from the report (`sp-author-notes--excluded').  A buffer
 of FILE with unsaved changes is saved first (and FILE is recorded in
 `sp-author-notes--run-saved'); a preview reads the text of the buffer."
   (let* ((visiting (find-buffer-visiting file))
          (dirty (and visiting (buffer-modified-p visiting)))
          (apply (sp-author-notes--run-apply run)))
-    (when dirty
-      (cl-pushnew file (sp-author-notes--run-saved run) :test #'string=)
-      (when apply (with-current-buffer visiting (save-buffer))))
-    (with-temp-buffer
-      (if (and dirty (not apply))
-          (insert (with-current-buffer visiting
-                    (buffer-substring-no-properties (point-min) (point-max))))
-        (sp-author-notes--insert-file file))
-      (let ((before (buffer-string))
-            (result (funcall pass)))
-        (when (and apply (not (string= before (buffer-string))))
-          (sp-author-notes--backup run file)
-          (let ((coding-system-for-write 'utf-8))
-            (write-region (point-min) (point-max) file nil 'silent))
-          (when visiting
-            (with-current-buffer visiting (revert-buffer t t t)))
-          (when (fboundp 'vulpea-db-update-file)
-            (ignore-errors (vulpea-db-update-file file))))
-        (list result)))))
+    (unless (member file sp-author-notes--excluded)
+      (when dirty
+        (cl-pushnew file (sp-author-notes--run-saved run) :test #'string=)
+        (when apply (with-current-buffer visiting (save-buffer))))
+      (with-temp-buffer
+        (if (and dirty (not apply))
+            (insert (with-current-buffer visiting
+                      (buffer-substring-no-properties (point-min) (point-max))))
+          (sp-author-notes--insert-file file))
+        (let ((before (buffer-string))
+              (result (funcall pass)))
+          (when (and apply (not (string= before (buffer-string))))
+            (sp-author-notes--backup run file)
+            (let ((coding-system-for-write 'utf-8))
+              (write-region (point-min) (point-max) file nil 'silent))
+            (when visiting
+              (with-current-buffer visiting (revert-buffer t t t)))
+            (when (fboundp 'vulpea-db-update-file)
+              (ignore-errors (vulpea-db-update-file file))))
+          (list result))))))
 
 #+end_src
 
@@ -988,12 +1021,16 @@ folder.  A failure is recorded as a problem."
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'sp-author-notes-visit)
     (define-key map (kbd "A") #'sp-author-notes-apply)
-    (define-key map (kbd "g") #'sp-author-notes-preview)
+    (define-key map (kbd "g") #'sp-author-notes-refresh)
+    (define-key map (kbd "d") #'sp-author-notes-exclude)
+    (define-key map (kbd "u") #'sp-author-notes-restore)
     map)
   "Keymap of `sp-author-notes-report-mode'.")
 
 (define-derived-mode sp-author-notes-report-mode special-mode "Authors"
-  "Report of `sp-author-notes'.  RET visits, A applies the preview, g shows it again.")
+  "Report of `sp-author-notes'.
+RET visits, d drops the candidate on the line from the list, u restores
+a dropped one, A writes what is left, g shows the preview again.")
 
 (defconst sp-author-notes--buffer-name "*Author notes*")
 
@@ -1002,9 +1039,14 @@ folder.  A failure is recorded as a problem."
   (let ((root (file-name-as-directory (expand-file-name sp-author-notes-directory))))
     (if (and file (string-prefix-p root file)) (substring file (length root)) (or file ""))))
 
-(defun sp-author-notes--insert-line (text &optional file line)
-  "Insert the report line TEXT; RET on it visits FILE at LINE."
-  (insert (if file (propertize text 'sp-author-file file 'sp-author-line line) text) "\n"))
+(defun sp-author-notes--insert-line (text &optional file line key)
+  "Insert the report line TEXT; RET on it visits FILE at LINE.
+`d' drops KEY from the plan, by default FILE."
+  (insert (if (or file key)
+              (propertize text 'sp-author-file file 'sp-author-line line
+                          'sp-author-key (or key file))
+            text)
+          "\n"))
 
 (defun sp-author-notes--heading (title count)
   "Insert a section heading TITLE with COUNT."
@@ -1070,7 +1112,7 @@ folder.  A failure is recorded as a problem."
         (dolist (m made)
           (sp-author-notes--insert-line
            (format "  %s%s" (car m) (if (cadr m) (format "  (%s)" (sp-author-notes--short (cadr m))) ""))
-           (cadr m)))))
+           (cadr m) nil (concat "name:" (sp-author-notes--title-key (car m)))))))
     ;; Converted
     (let ((conv (cl-loop for (file . r) in lits
                          append (mapcar (lambda (c) (cons file c)) (plist-get r :converted)))))
@@ -1168,9 +1210,19 @@ folder.  A failure is recorded as a problem."
            (format "  %s%s  %s" (sp-author-notes--short (nth 0 p))
                    (if (nth 1 p) (format ":%d" (nth 1 p)) "") (nth 2 p))
            (nth 0 p) (nth 1 p)))))
+    ;; Dropped
+    (when sp-author-notes--excluded
+      (sp-author-notes--heading "Dropped from the list (u brings one back)"
+                                (length sp-author-notes--excluded))
+      (dolist (key sp-author-notes--excluded)
+        (sp-author-notes--insert-line
+         (format "  %s" (if (string-prefix-p "name:" key)
+                           (format "author %s" (substring key 5))
+                         (sp-author-notes--short key)))
+         nil nil key)))
     (insert (if apply
                 "\nRET visit   g preview again\n"
-              "\nRET visit   A write these changes   g preview again\n"))))
+              "\nRET visit   d drop the candidate on the line   u restore   A write what is left   g refresh\n"))))
 
 (defun sp-author-notes--show (run)
   "Show the report of RUN."
@@ -1202,16 +1254,51 @@ folder.  A failure is recorded as a problem."
 
 ;;;###autoload
 (defun sp-author-notes-preview ()
-  "Show what `sp-author-notes' would do, and write nothing."
+  "Show what `sp-author-notes' would do, and write nothing.
+Drops anything that an earlier report left out with `d'."
   (interactive)
+  (setq sp-author-notes--excluded nil)
   (sp-author-notes--show (sp-author-notes--run nil)))
+
+(defun sp-author-notes-refresh ()
+  "Show the preview again, keeping what was dropped from the list."
+  (interactive)
+  (let ((line (line-number-at-pos)))
+    (sp-author-notes--show (sp-author-notes--run nil))
+    (with-current-buffer sp-author-notes--buffer-name
+      (goto-char (point-min))
+      (forward-line (1- line)))))
+
+(defun sp-author-notes--key-at-point ()
+  "The key of the candidate on the report line at point."
+  (or (get-text-property (line-beginning-position) 'sp-author-key)
+      (user-error "No candidate on this line")))
+
+(defun sp-author-notes-exclude ()
+  "Drop the candidate on this line from the plan and show the preview again.
+A note is dropped as a file: nothing in it is read or changed.  An author
+to create is dropped by name: no note is made and the name stays plain."
+  (interactive)
+  (cl-pushnew (sp-author-notes--key-at-point) sp-author-notes--excluded :test #'equal)
+  (sp-author-notes-refresh))
+
+(defun sp-author-notes-restore ()
+  "Bring the dropped candidate on this line back into the plan."
+  (interactive)
+  (let ((key (sp-author-notes--key-at-point)))
+    (unless (member key sp-author-notes--excluded)
+      (user-error "This line is not dropped"))
+    (setq sp-author-notes--excluded (delete key sp-author-notes--excluded))
+    (sp-author-notes-refresh)))
 
 ;;;###autoload
 (defun sp-author-notes-apply ()
-  "Do the job and show the report, without asking."
+  "Do the job and show the report, without asking.
+What was dropped from the report with `d' is left out."
   (interactive)
   (let ((run (sp-author-notes--run t)))
     (sp-author-notes--show run)
+    (setq sp-author-notes--excluded nil)
     (message "Author notes: %d change%s written"
              (sp-author-notes--change-count run)
              (if (= 1 (sp-author-notes--change-count run)) "" "s"))
@@ -1220,15 +1307,22 @@ folder.  A failure is recorded as a problem."
 ;;;###autoload
 (defun sp-author-notes ()
   "Make author notes from the `pub-author' meta key of the litnotes.
-Show the plan first; write it after you agree.  See the doc
+Show the plan first.  Then write it, or stay in the report to drop
+candidates with `d' and write what is left with `A'.  See the doc
 docs/tangles/funct/sp-author-notes.org."
   (interactive)
   (let* ((run (sp-author-notes-preview))
          (n (sp-author-notes--change-count run)))
     (if (zerop n)
         (message "Author notes: nothing to do")
-      (when (y-or-n-p (format "Write %d change%s? " n (if (= n 1) "" "s")))
-        (sp-author-notes-apply)))))
+      (pcase (car (read-multiple-choice
+                   (format "%d change%s" n (if (= n 1) "" "s"))
+                   '((?y "write" "Write all of them now")
+                     (?r "review" "Stay in the report: d drops a candidate, u restores, A writes the rest")
+                     (?q "quit" "Write nothing"))))
+        (?y (sp-author-notes-apply))
+        (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
+        (_ (message "Nothing written"))))))
 
 (provide 'sp-author-notes)
 ;;; sp-author-notes.el ends here
@@ -1242,3 +1336,4 @@ What each pull request changed in this module; the one-line summary is in [[file
 - [[https://github.com/siainbuletin/dotfiles/pull/193][#193]] (follow-up) ✨ Moves =Works= below =Basics=, tags a same-title note =person=, asks where an orphan ID link should point (=sp-author-notes-redirect-function=), saves unsaved buffers first, fills the tables when the changes are written; the preview and report list each.
 - [[https://github.com/siainbuletin/dotfiles/pull/204][#204]] ✨ Quoted names (also with a stray quote mark, and without a comma between them) are split into one author each; Denote links become ID links through the =#+identifier:= or the file name of the target.
 - [[https://github.com/siainbuletin/dotfiles/pull/212][#212]] ✨ A piece of unquoted names with more than one comma is a disambiguation case: shown with a proposed split, and the split is asked for when writing.
+- [[https://github.com/siainbuletin/dotfiles/pull/223][#223]] ✨ =and= lists with commas are a disambiguation case; =d= / =u= / =A= in the report drop, restore and write the candidates.

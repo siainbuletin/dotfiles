@@ -311,3 +311,55 @@
         (should (= 3 (length (sp-author-notes--run-created run))))
         (should (string-match-p "Ann Lee\\]\\], \\[\\[id:new-[0-9]+\\]\\[Bo Roe\\]\\], \\[\\[id:new-[0-9]+\\]\\[Cy Poe\\]\\]$"
                                 (string-trim-right text)))))))
+
+(ert-deftest sp-author-notes-test-parse-and-lists ()
+  ;; BibTeX forms stay as they were
+  (should (equal (sp-author-notes--parse-value "Smith, John and Doe, Jane")
+                 '((:name "John Smith") (:name "Jane Doe"))))
+  (should (equal (sp-author-notes--parse-value "Smith, John and Ann Lee")
+                 '((:name "John Smith") (:name "Ann Lee"))))
+  (should (equal (sp-author-notes--parse-value "Ann Lee and Bo Roe and Cy Poe")
+                 '((:name "Ann Lee") (:name "Bo Roe") (:name "Cy Poe"))))
+  ;; a list with commas that ends in "and" is one case
+  (should (equal (sp-author-notes--parse-value "Ann Lee, Bo Roe, and Cy Poe")
+                 '((:ambiguous "Ann Lee, Bo Roe, and Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe")))))
+  (should (equal (sp-author-notes--parse-value "Ann Lee, Bo Roe and Cy Poe; Di Fay")
+                 '((:ambiguous "Ann Lee, Bo Roe and Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe"))
+                   (:name "Di Fay")))))
+
+(ert-deftest sp-author-notes-test-exclude ()
+  (sp-author-notes-test--with-vault
+    (let ((a (expand-file-name "litnotes/a.org" vault))
+          (b (expand-file-name "litnotes/b.org" vault)))
+      (sp-author-notes-test--write a "#+title: x" "" "- pub-authro :: Ann Lee" "")
+      (sp-author-notes-test--write b "#+title: y" "" "- pub-author :: Bo Roe" "")
+      ;; dropping a name: no note, the name stays
+      (let ((sp-author-notes--excluded (list "name:ann lee")))
+        (let ((run (sp-author-notes--run t)))
+          (should (equal (mapcar #'car (sp-author-notes--run-created run)) '("Bo Roe")))
+          (should (string-match-p "pub-author :: Ann Lee" (sp-author-notes-test--read a)))))
+      ;; dropping a file: not read or changed
+      (sp-author-notes-test--write a "#+title: x" "" "- pub-authro :: Cy Poe" "")
+      (let ((sp-author-notes--excluded (list a)))
+        (let ((run (sp-author-notes--run nil)))
+          (should (null (sp-author-notes--run-pending run)))
+          (should (null (sp-author-notes--run-litnotes run)))
+          (with-temp-buffer
+            (sp-author-notes--render run)
+            (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))))))))
+
+(ert-deftest sp-author-notes-test-report-keys ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write (expand-file-name "litnotes/a.org" vault)
+                                 "#+title: x" "" "- pub-author :: Ann Lee" "")
+    (let ((sp-author-notes--excluded nil))
+      (sp-author-notes-preview)
+      (with-current-buffer sp-author-notes--buffer-name
+        (goto-char (point-min))
+        (re-search-forward "^  Ann Lee$")
+        (sp-author-notes-exclude)
+        (should (equal sp-author-notes--excluded '("name:ann lee")))
+        (goto-char (point-min))
+        (re-search-forward "^  author ann lee$")
+        (sp-author-notes-restore)
+        (should (null sp-author-notes--excluded))))))
