@@ -9,6 +9,7 @@
   (provide 'vulpea)
   (defun vulpea-note-title (note) (plist-get note :title))
   (defun vulpea-note-id (note) (plist-get note :id))
+  (defun vulpea-note-properties (note) (plist-get note :props))
   (defun vulpea-note-tags (note) (plist-get note :tags))
   (defun vulpea-db-get-by-id (id) (cdr (assoc id sp-collec-query-test-db)))
   (defun vulpea-note-meta-get-list (note key &optional _type) (cdr (assoc key (plist-get note :meta)))))
@@ -155,6 +156,19 @@
   (sp-collec-query-dblock-auto-mode -1)
   (should-not (memq #'sp-collec-query-dblock--after-save after-save-hook))
   (should-not (memq #'sp-collec-query-dblock--on-open find-file-hook)))
+
+(defun citar-get-files (key)
+  (let ((h (make-hash-table :test 'equal)))
+    (when (equal key "smith2020") (puthash key '("/lib/smith 2020.pdf") h))
+    h))
+
+(ert-deftest sp-collec-query-test-refs-and-pdf-columns ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@smith2020 @nofile https://x.org")))))
+    (should (equal (sp-collec-query-cell note :refs) "@smith2020 @nofile https://x.org"))
+    (should (equal (sp-collec-query--citekeys note) '("smith2020" "nofile")))
+    (should (equal (sp-collec-query-cell note :pdf)
+                   "[[file:/lib/smith 2020.pdf][smith 2020.pdf]]"))
+    (should (equal (sp-collec-query-cell '(:title "y") :pdf) ""))))
 
 (provide 'sp-collection-query-tables-test)
 ;;; sp-collection-query-tables-test.el ends here

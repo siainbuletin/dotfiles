@@ -40,6 +40,7 @@ note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
 in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
+:REFS shows the ROAM_REFS property and :PDF the files of its citation keys;
 :SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
 columns, applied in order: the first is the primary key and each next
 one breaks the ties of those before it.  An element may be (COLUMN . asc)
@@ -52,7 +53,7 @@ two only apply to the exc renderer and fall back to the options of the
 same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path :sections)
+  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -138,6 +139,36 @@ switches buffers."
                (string-match-p (plist-get spec :title-match)
                                (or (vulpea-note-title note) "")))))))
 
+(defun sp-collec-query--property (note name)
+  "Return the value of the file or heading property NAME of NOTE, or nil.
+NAME is compared without regard to case."
+  (cdr (seq-find (lambda (cell) (string-equal-ignore-case (car cell) name))
+                 (vulpea-note-properties note))))
+
+(defun sp-collec-query--citekeys (note)
+  "Return the citation keys in the ROAM_REFS property of NOTE.
+Both `@key' and `cite:key' are read; URLs are skipped."
+  (and-let* ((refs (sp-collec-query--property note "ROAM_REFS")))
+    (let ((pos 0) keys)
+      (while (string-match "\\(?:@\\|\\<cite:&?\\)\\([^][:space:]\",;]+\\)" refs pos)
+        (push (match-string 1 refs) keys)
+        (setq pos (match-end 0)))
+      (nreverse keys))))
+
+(defun sp-collec-query--pdf-links (note)
+  "Return the files of NOTE's citation keys as Org file links.
+The files are those `citar-get-files' finds, so they follow
+`citar-library-paths'; the text is empty without citar or a file."
+  (if (not (fboundp 'citar-get-files))
+      ""
+    (let (links)
+      (dolist (key (sp-collec-query--citekeys note))
+        (dolist (file (gethash key (citar-get-files key)))
+          (push (format "[[file:%s][%s]]" (org-link-escape file)
+                        (file-name-nondirectory file))
+                links)))
+      (string-join (nreverse links) ", "))))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -151,6 +182,8 @@ naming a meta key (several values are joined with \", \")."
     (:id (or (vulpea-note-id note) ""))
     (:file (file-name-nondirectory (vulpea-note-path note)))
     (:path (abbreviate-file-name (vulpea-note-path note)))
+    (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
+    (:pdf (sp-collec-query--pdf-links note))
     (:sections (let ((n (gethash note sp-collec-query--folded 0)))
                  (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
