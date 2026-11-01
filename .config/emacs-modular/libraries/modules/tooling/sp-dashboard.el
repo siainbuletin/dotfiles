@@ -934,25 +934,27 @@ nil turns the timer off; the Focus files are still watched."
       (seq-some (lambda (tag) (member tag tags)) sp-dashboard-private-tags)))
 
 ;;;;; Collecting the TODOs
-(defun sp-dashboard--days-until (timestamp)
-  "Return the days from today to the Org TIMESTAMP string, or nil."
+(defun sp-dashboard--day-number (timestamp)
+  "Return the absolute day number of the Org TIMESTAMP string, or nil."
   (when timestamp
-    (- (org-time-string-to-absolute timestamp) (org-today))))
+    (org-time-string-to-absolute timestamp)))
 
 (defun sp-dashboard--entry ()
-  "Return a plist describing the open TODO at point, or nil."
+  "Return a plist describing the open TODO at point, or nil.
+:deadline and :scheduled are absolute day numbers, which stay true as the days
+go by; `sp-dashboard--read-entries' turns them into days from today.  The
+strings carry no text properties, so the plist can go to the cache file."
   (when (org-entry-is-todo-p)
-    (let ((heading (org-get-heading t t t t)))
-      (list :heading heading
-            :state (org-get-todo-state)
-            :priority (org-get-priority
-                       (buffer-substring (line-beginning-position)
-                                         (line-end-position)))
-            :deadline (sp-dashboard--days-until (org-entry-get nil "DEADLINE"))
-            :scheduled (sp-dashboard--days-until (org-entry-get nil "SCHEDULED"))
-            :tags (org-get-tags)
-            :file buffer-file-name
-            :pos (point)))))
+    (list :heading (substring-no-properties (org-get-heading t t t t))
+          :state (substring-no-properties (org-get-todo-state))
+          :priority (org-get-priority
+                     (buffer-substring (line-beginning-position)
+                                       (line-end-position)))
+          :deadline (sp-dashboard--day-number (org-entry-get nil "DEADLINE"))
+          :scheduled (sp-dashboard--day-number (org-entry-get nil "SCHEDULED"))
+          :tags (mapcar #'substring-no-properties (org-get-tags))
+          :file buffer-file-name
+          :pos (point))))
 
 (defun sp-dashboard--score (entry)
   "Return how urgent ENTRY is; higher is more urgent."
@@ -973,29 +975,160 @@ boxes say they are loading instead of reading the wrong files.")
   "Hash table of the entries read from each list of files during one draw.
 Nil outside a draw, when nothing is kept.")
 
+(defcustom sp-dashboard-entries-cache-file
+  (expand-file-name "dashboard-entries.eld" sp-cache-dir)
+  "File that keeps the open TODOs of each agenda file between sessions.
+Each file is stored with its modification time and size, and is read again
+only when one of them changed."
+  :type 'file
+  :group 'sp-dashboard)
+
+(defconst sp-dashboard--entries-file-version 1
+  "Version of the cache file format; raise it when the entry plist changes.")
+
+(defvar sp-dashboard--file-entries nil
+  "Hash table from an agenda file to (MTIME SIZE ENTRIES), or nil until used.
+ENTRIES are the open TODO plists of `sp-dashboard--entry'.")
+
+(defvar sp-dashboard--entries-signature nil
+  "What the entries in `sp-dashboard--file-entries' were read with.
+See `sp-dashboard--entries-signature-now'.")
+
+(defun sp-dashboard--entries-signature-now ()
+  "Return what decides which headings are open TODOs: the format and the keywords."
+  (list sp-dashboard--entries-file-version org-todo-keywords))
+
+(defun sp-dashboard--file-entries ()
+  "Return the table of per-file entries, reading the cache file the first time."
+  (or sp-dashboard--file-entries
+      (let ((table (make-hash-table :test #'equal)))
+        (condition-case nil
+            (when (file-readable-p sp-dashboard-entries-cache-file)
+              (let ((data (with-temp-buffer
+                            (insert-file-contents sp-dashboard-entries-cache-file)
+                            (read (current-buffer)))))
+                (setq sp-dashboard--entries-signature (plist-get data :signature))
+                (dolist (item (plist-get data :files))
+                  (puthash (car item) (cdr item) table))))
+          (error (clrhash table)))
+        (setq sp-dashboard--file-entries table))))
+
+(defun sp-dashboard--save-file-entries ()
+  "Write `sp-dashboard--file-entries' to `sp-dashboard-entries-cache-file'."
+  (let (items)
+    (maphash (lambda (file value) (push (cons file value) items))
+             sp-dashboard--file-entries)
+    (condition-case err
+        (progn
+          (make-directory (file-name-directory sp-dashboard-entries-cache-file) t)
+          (with-temp-file sp-dashboard-entries-cache-file
+            (let ((print-length nil)
+                  (print-level nil))
+              (prin1 (list :signature sp-dashboard--entries-signature
+                           :files items)
+                     (current-buffer)))))
+      (error (message "[dashboard] could not write the entry cache: %s"
+                      (error-message-string err))))))
+
+(defun sp-dashboard--file-stamp (file)
+  "Return (MTIME SIZE) of FILE, the key its entries are cached under, or nil."
+  (when-let* ((attributes (and (file-readable-p file) (file-attributes file))))
+    (list (float-time (file-attribute-modification-time attributes))
+          (file-attribute-size attributes))))
+
+(defun sp-dashboard--scan-file (file unsaved)
+  "Return the open TODO entries of FILE as (t . ENTRIES), or nil if Org fails.
+FILE is read from disk in a temporary buffer, so a buffer visiting an older
+version never gives the cache stale entries and no buffer or mode hook is
+left behind.  When UNSAVED, the buffer visiting FILE is read instead."
+  (condition-case nil
+      (cons t (delq nil
+                    (if unsaved
+                        (with-current-buffer (get-file-buffer file)
+                          (save-restriction
+                            (widen)
+                            (org-map-entries #'sp-dashboard--entry nil nil 'archive)))
+                      (with-temp-buffer
+                        (insert-file-contents file)
+                        (setq buffer-file-name file)
+                        (delay-mode-hooks (org-mode))
+                        (org-map-entries #'sp-dashboard--entry nil nil 'archive)))))
+    (error nil)))
+
+(defun sp-dashboard--relative-entry (entry today)
+  "Return a copy of ENTRY whose :deadline and :scheduled are days from TODAY."
+  (let ((copy (copy-sequence entry)))
+    (dolist (key '(:deadline :scheduled) copy)
+      (when-let* ((day (plist-get copy key)))
+        (setq copy (plist-put copy key (- day today)))))))
+
 (defun sp-dashboard--read-entries (files)
   "Return every open TODO of FILES as entry plists, in no particular order.
-During a draw (`sp-dashboard--entries-cache') a list of files is read once,
-however many boxes show it."
+Each file is read through Org only when it is new or its modification time or
+size changed since the entries were cached (`sp-dashboard-entries-cache-file');
+cached files of the same name that no longer exist are dropped, and the whole
+cache goes when `org-todo-keywords' changed.  During a draw
+(`sp-dashboard--entries-cache') a list of files is read once, however many
+boxes show it."
   (require 'org)
   (or (and sp-dashboard--entries-cache
            (gethash files sp-dashboard--entries-cache))
-      (let ((started (float-time))
-            (count 0)
-            entries)
+      (let* ((started (float-time))
+             (table (sp-dashboard--file-entries))
+             (today (org-today))
+             (signature (sp-dashboard--entries-signature-now))
+             (changed nil)
+             (count 0)
+             (hits 0)
+             (dropped 0)
+             entries)
+        (unless (equal signature sp-dashboard--entries-signature)
+          (clrhash table)
+          (setq sp-dashboard--entries-signature signature
+                changed t))
         (dolist (file files)
-          (when (file-readable-p file)
+          (when-let* ((stamp (sp-dashboard--file-stamp file)))
             (setq count (1+ count))
-            (condition-case nil
-                (dolist (entry (org-map-entries #'sp-dashboard--entry nil (list file) 'archive))
-                  (when entry
-                    (push entry entries)))
-              (error nil))))
-        (message "[dashboard] read %d agenda file%s in %.2fs"
-                 count (if (= count 1) "" "s") (- (float-time) started))
+            (let* ((cached (gethash file table))
+                   ;; Unsaved changes are in the buffer, not on disk: read them
+                   ;; and keep nothing.
+                   (unsaved (when-let* ((buffer (get-file-buffer file)))
+                              (buffer-modified-p buffer)))
+                   (file-entries
+                    (if (and cached (not unsaved) (equal (seq-take cached 2) stamp))
+                        (progn (setq hits (1+ hits))
+                               (nth 2 cached))
+                      (when-let* ((read (sp-dashboard--scan-file file unsaved)))
+                        (unless unsaved
+                          (puthash file (append stamp (list (cdr read))) table)
+                          (setq changed t))
+                        (cdr read)))))
+              (dolist (entry file-entries)
+                (push (sp-dashboard--relative-entry entry today) entries)))))
+        (maphash (lambda (file _)
+                   (unless (file-exists-p file)
+                     (remhash file table)
+                     (setq dropped (1+ dropped)
+                           changed t)))
+                 table)
+        (when changed
+          (sp-dashboard--save-file-entries))
+        (message "[dashboard] read %d agenda file%s: %d cached, %d re-read%s, in %.2fs"
+                 count (if (= count 1) "" "s") hits (- count hits)
+                 (if (> dropped 0) (format ", %d dropped" dropped) "")
+                 (- (float-time) started))
         (when sp-dashboard--entries-cache
           (puthash files entries sp-dashboard--entries-cache))
         entries)))
+
+(defun sp-dashboard-clear-entries-cache ()
+  "Forget the cached TODOs of every agenda file and redraw the dashboard."
+  (interactive)
+  (setq sp-dashboard--file-entries nil
+        sp-dashboard--entries-signature nil)
+  (when (file-exists-p sp-dashboard-entries-cache-file)
+    (delete-file sp-dashboard-entries-cache-file))
+  (sp-dashboard-refresh))
 
 (defun sp-dashboard--todos (files mode)
   "Return the entries of FILES to list for MODE, most urgent first.
@@ -1431,10 +1564,10 @@ splash is drawn again with the current settings."
             (when-let* ((box (sp-dashboard--layer-box sp-dashboard-content-layer)))
               (insert-char ?\n (max 0 (- (+ (nth 1 box) (nth 3 box) 2)
                                          (line-number-at-pos)))))
-
+            
             ;; Simple centered layout
             (let* ((center-col (max 0 (/ (- (window-width) 60) 2))))
-
+              
               ;; Add the lambda image, centered and reasonably sized
               (when (and (> (window-width) 80) (> (window-height) 20)
                          (null sp-dashboard-art-layers))
@@ -1445,23 +1578,23 @@ splash is drawn again with the current settings."
                   (insert-char ?\s (+ center-col 19))
                   (insert-image image)
                   (insert-char ?\n 2)))
-
+              
               (let ((welcome-text "Welcome to λ-Emacs")
                     (version-text (format "GNU Emacs version %d.%d" emacs-major-version emacs-minor-version))
                     (init-info (funcall sp-dashboard-init-info)))
-
+                
                 ;; Welcome text
                 (let ((welcome-center (max 0 (- content-col (/ (length welcome-text) 2)))))
                   (insert-char ?\s welcome-center)
                   (insert (propertize welcome-text 'face 'sp-dashboard-title-face))
                   (insert-char ?\n 2))
-
+                
                 ;; Version text
                 (let ((version-center (max 0 (- content-col (/ (length version-text) 2)))))
                   (insert-char ?\s version-center)
                   (insert (propertize version-text 'face 'sp-dashboard-header-face))
                   (insert-char ?\n 1))
-
+                
                 ;; Init info
                 (let ((init-center (max 0 (- content-col (/ (length init-info) 2)))))
                   (insert-char ?\s init-center)
@@ -1478,7 +1611,7 @@ splash is drawn again with the current settings."
             (let* ((current-line (line-number-at-pos))
                    (footer-padding (max 1 (- (sp-dashboard--lines) current-line 2))))
               (insert-char ?\n footer-padding))
-
+            
             ;; Footer text centered
             (defvar sp-dashboard-footer "   " "Footer text.")
             (let ((footer-center (max 0 (- (sp-dashboard--layer-column sp-dashboard-footer-layer)
@@ -1753,7 +1886,7 @@ caught from outside (see the doc)."
   :global nil
   :keymap sp-dashboard-mode-map
   :group 'sp-dashboard
-
+  
   :require 'sp-dashboard
   (buffer-disable-undo)
   (auto-revert-mode -1)
@@ -1762,7 +1895,7 @@ caught from outside (see the doc)."
     (linum-mode -1))
   (when (>= emacs-major-version 26)
     (display-line-numbers-mode -1))
-
+  
   (setq-local buffer-read-only t)
   (setq-local cursor-type nil)
   (setq-local hl-line-mode -1)
@@ -1770,7 +1903,7 @@ caught from outside (see the doc)."
   (setq-local global-hl-line-mode nil)
   (setq-local mode-line-format nil)
   (setq-local header-line-format nil)
-
+  
   ;; No margin or fringe in splash buffer
   (setq-local left-margin-width nil
               right-margin-width nil)
@@ -1789,7 +1922,7 @@ caught from outside (see the doc)."
               mouse-wheel-mode nil)
   (add-hook 'activate-mark-hook #'sp-dashboard--no-region nil t)
   (add-hook 'post-command-hook #'sp-dashboard--mark-focus nil t)
-
+  
   ;; Use Emacs state if Evil is active so single-key bindings work
   (when (bound-and-true-p evil-mode)
     (evil-emacs-state))
