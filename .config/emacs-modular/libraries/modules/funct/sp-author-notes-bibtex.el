@@ -5,7 +5,7 @@
 ;; `sp-author-notes-bibtex' lists, for every :person: note, the entries of
 ;; the registered BibTeX files whose author field names that person and
 ;; that have no literature note yet, and offers to create the note.  See the
-;; doc docs/tangles/funct/sp-author-notes-bibtex.org.
+;; doc docs/tangles/funct/sp-org-lint.org.
 
 ;;; Code:
 
