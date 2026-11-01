@@ -82,6 +82,7 @@ The text of a box is the background colour of the theme. The faces are =sp-model
 (declare-function org-get-todo-state "org")
 (declare-function org-back-to-heading "org")
 (declare-function org-clock-goto "org-clock")
+(declare-function org-clock-update-mode-line "org-clock")
 (defvar org-clock-heading)
 (defvar org-clock-marker)
 (defvar org-clock-history)
@@ -403,9 +404,35 @@ The last key and command are kept in two variables, so they stay on screen after
 (defvar sp-modeline-parts-clock-map
   (let ((map (make-sparse-keymap)))
     (define-key map [mode-line mouse-1] #'org-clock-goto)
-    (define-key map [mode-line mouse-3] #'org-agenda)
+    (define-key map [mode-line mouse-2] #'org-agenda)
+    (define-key map [mode-line mouse-3] #'sp-modeline-parts-clock-rename)
     map)
-  "Keymap of the clocked task: mouse-1 goes to the entry, mouse-3 opens the agenda.")
+  "Keymap of the clocked task.
+mouse-1 goes to the entry, mouse-2 opens the agenda, mouse-3 renames it.")
+
+(defun sp-modeline-parts-clock-rename (&optional heading)
+  "Rename the clocked-in entry to HEADING and refresh the mode line.
+Interactively, prompt for the new heading, starting from the current one.
+The todo keyword, priority and tags of the entry are kept."
+  (interactive)
+  (unless (and (featurep 'org-clock) (org-clocking-p)
+               (markerp org-clock-marker) (marker-buffer org-clock-marker))
+    (user-error "No clock is running"))
+  (with-current-buffer (marker-buffer org-clock-marker)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char org-clock-marker)
+        (org-back-to-heading t)
+        (let ((new (or heading
+                       (read-string "Clocked heading: "
+                                    (org-get-heading t t t t)))))
+          (when (string-empty-p (string-trim new))
+            (user-error "The heading cannot be empty"))
+          (org-edit-headline new)
+          (setq org-clock-heading (org-get-heading t t t t))))))
+  (org-clock-update-mode-line)
+  (force-mode-line-update t))
 
 (defun sp-modeline-parts--clock-state ()
   "Return the todo keyword of the clocked entry, or nil."
@@ -431,7 +458,7 @@ The last key and command are kept in two variables, so they stay on screen after
                (propertize (format " %s %s " heading time)
                            'face (if selected nil 'shadow)))
        'mouse-face 'mode-line-highlight
-       'help-echo (format "Clocked: %s (%s)\nmouse-1: go to the entry\nmouse-3: org-agenda"
+       'help-echo (format "Clocked: %s (%s)\nmouse-1: go to the entry\nmouse-2: org-agenda\nmouse-3: rename the entry"
                           heading time)
        'local-map sp-modeline-parts-clock-map))))
 #+end_src
