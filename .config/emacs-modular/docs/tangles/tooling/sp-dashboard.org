@@ -1415,8 +1415,13 @@ left behind.  When UNSAVED, the buffer visiting FILE is read instead."
                             (org-map-entries #'sp-dashboard--entry nil nil 'archive)))
                       (with-temp-buffer
                         (insert-file-contents file)
+                        ;; Inserting marks the buffer modified; with a file name
+                        ;; set, killing it would ask "Buffer *temp* modified;
+                        ;; kill anyway?" once per file.
+                        (set-buffer-modified-p nil)
                         (setq buffer-file-name file)
                         (delay-mode-hooks (org-mode))
+                        (set-buffer-modified-p nil)
                         (org-map-entries #'sp-dashboard--entry nil nil 'archive)))))
     (error nil)))
 
