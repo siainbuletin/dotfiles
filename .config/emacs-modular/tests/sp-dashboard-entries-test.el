@@ -114,5 +114,14 @@
     (with-current-buffer (find-file-noselect a) (set-buffer-modified-p nil))
     (should (= 1 (length (nth 2 (gethash a sp-dashboard--file-entries)))))))
 
+(ert-deftest sp-dashboard-entries-test-scan-leaves-no-prompting-buffer ()
+  "Scanning a file must not leave a modified temp buffer that asks on kill."
+  (sp-dashboard-entries-test--with-files ((a "* TODO one\n"))
+    (let (asked)
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) (setq asked t)))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) (setq asked t))))
+        (sp-dashboard--scan-file a nil))
+      (should-not asked))))
+
 (provide 'sp-dashboard-entries-test)
 ;;; sp-dashboard-entries-test.el ends here
