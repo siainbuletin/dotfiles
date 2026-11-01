@@ -6,11 +6,12 @@
 ;; `ROAM_REFS' (see `sp-litnotes-refs'), so the note can carry a readable title.
 ;; This module sets `#+title:' to a Chicago-style reference built from the
 ;; `pub-author', `pub-year' and `pub-title' meta lines, for example
-;; "Reuten, Geert (2014) The value form as a social form", and renames the file
+;; "Reuten (2014) The value form as a social form", and renames the file
 ;; to the citation key alone (`kant2009ideea.org'), keeping the `:ID:'.
 ;;
 ;; `sp-litnotes-titles-report' shows what would change and writes nothing.
-;; `sp-litnotes-titles-apply' shows the same report, asks once, copies every
+;; `sp-litnotes-titles-apply' shows the same report, offers to fill in what the
+;; failed notes lack (a year, the authors, a title), asks once, copies every
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
 ;; converted the note yet.
@@ -53,14 +54,14 @@ Those links are reported, not changed; =id:= links keep working."
   "When non-nil, `sp-litnotes-titles-apply' renames the files to the citekey."
   :type 'boolean)
 
-(defcustom sp-litnotes-titles-et-al-threshold 10
-  "With more authors than this, the title lists the first seven and `et al.'."
+(defcustom sp-litnotes-titles-et-al-from 4
+  "With this many authors or more, the title lists the first two and `et al.'."
   :type 'integer)
 
 (defcustom sp-litnotes-titles-format-function #'sp-litnotes-titles-format
   "Function of the author names, the year and the title that returns the new title.
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
-string or nil."
+string."
   :type 'function)
 
 ;;;; Reading a note
@@ -173,36 +174,25 @@ be one author or several, so it makes the whole value `ambiguous'."
       (plain (substring raw pos)))
     (if ambiguous 'ambiguous (nreverse names))))
 
-(defun sp-litnotes-titles--given-first (name)
-  "NAME, a (LAST . FIRST) pair, as \"First Last\"."
-  (string-trim (concat (cdr name) " " (car name))))
-
-(defun sp-litnotes-titles--inverted (name)
-  "NAME, a (LAST . FIRST) pair, as \"Last, First\"."
-  (if (string-empty-p (cdr name)) (car name) (concat (car name) ", " (cdr name))))
-
 (defun sp-litnotes-titles-format (names year title)
-  "A Chicago-style reference: \"Last, First, and First Last (YEAR) TITLE\".
-The first author is inverted, two authors are joined with `and', three or more
-with commas and `and'; above `sp-litnotes-titles-et-al-threshold' authors the
-first seven are listed, then `et al.'.  A missing YEAR is written `n.d.'."
-  (let* ((many (> (length names) sp-litnotes-titles-et-al-threshold))
-         (shown (if many (cl-subseq names 0 7) names))
-         (first (sp-litnotes-titles--inverted (car shown)))
-         (rest (mapcar #'sp-litnotes-titles--given-first (cdr shown)))
-         (authors (cond (many (string-join (cons first (append rest '("et al."))) ", "))
-                        ((null rest) first)
-                        ((null (cdr rest)) (format "%s, and %s" first (car rest)))
-                        (t (format "%s, %s, and %s" first
-                                   (string-join (butlast rest) ", ") (car (last rest)))))))
-    (format "%s (%s) %s" authors (or year "n.d.") title)))
+  "A reference with last names only: \"Last (YEAR) TITLE\".
+Two authors are \"A and B\", three \"A, B and C\"; with
+`sp-litnotes-titles-et-al-from' authors or more the first two and `et al.':
+\"A, B et al.\"."
+  (let* ((last (mapcar #'car names))
+         (authors (cond ((>= (length last) sp-litnotes-titles-et-al-from)
+                         (format "%s, %s et al." (nth 0 last) (nth 1 last)))
+                        ((null (cdr last)) (car last))
+                        (t (format "%s and %s" (string-join (butlast last) ", ")
+                                   (car (last last)))))))
+    (format "%s (%s) %s" authors year title)))
 
 ;;;; Planning
 
 (defun sp-litnotes-titles--plan (parsed)
   "Add to PARSED, from `sp-litnotes-titles--parse', what to do with the note.
 The result has :title-status (`no-id', `no-pub-title', `empty-title',
-`no-author', `ambiguous-author', `same' or `change'), :new-title, :new-name and
+`no-author', `ambiguous-author', `no-year', `same' or `change'), :new-title, :new-name and
 :name-status (`rename', `same-name', `no-citekey', or later `exists',
 `key-clash', `case-only').  The new name is the first citation key and
 =.org=; :keys has all of them."
@@ -211,15 +201,16 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
          (authors (and raw (sp-litnotes-titles--authors raw)))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
-         (new-title (and (consp authors)
+         (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
+         (new-title (and (consp authors) year
                          pub (not (string-empty-p pub))
-                         (funcall sp-litnotes-titles-format-function
-                                  authors (plist-get parsed :year) pub)))
+                         (funcall sp-litnotes-titles-format-function authors year pub)))
          (title-status (cond ((not (plist-get parsed :id)) 'no-id)
                              ((null pub) 'no-pub-title)
                              ((string-empty-p pub) 'empty-title)
                              ((eq authors 'ambiguous) 'ambiguous-author)
                              ((null authors) 'no-author)
+                             ((null year) 'no-year)
                              ((equal new-title title) 'same)
                              (t 'change)))
          (usable (plist-get parsed :id))
@@ -254,11 +245,23 @@ DIRECTORY is the folder of the notes; names are compared without case."
      targets)
     plans))
 
+(defvar sp-litnotes-titles--overrides (make-hash-table :test 'equal)
+  "Values typed in by `sp-litnotes-titles--resolve', by file: a plist of
+:pub, :author and :year that replaces what the note has.")
+
+(defun sp-litnotes-titles--parse-with-overrides (file)
+  "`sp-litnotes-titles--parse' of FILE, with the values typed in for it."
+  (let ((parsed (sp-litnotes-titles--parse file)))
+    (cl-loop for (key value) on (gethash file sp-litnotes-titles--overrides) by #'cddr
+             do (setq parsed (plist-put parsed key value)))
+    parsed))
+
 (defun sp-litnotes-titles--plans (&optional directory)
   "Plans for every note in DIRECTORY (default `sp-litnotes-titles-directory')."
   (let ((dir (file-name-as-directory (or directory sp-litnotes-titles-directory))))
     (sp-litnotes-titles--mark-collisions
-     (mapcar (lambda (file) (sp-litnotes-titles--plan (sp-litnotes-titles--parse file)))
+     (mapcar (lambda (file)
+               (sp-litnotes-titles--plan (sp-litnotes-titles--parse-with-overrides file)))
              (directory-files dir t "\\`[^.#].*\\.org\\'"))
      dir)))
 
@@ -293,12 +296,17 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
 
 ;;;; Report
 
+(defconst sp-litnotes-titles--promptable
+  '(no-pub-title empty-title no-author ambiguous-author no-year)
+  "Title statuses that `sp-litnotes-titles--resolve' can fix by asking.")
+
 (defconst sp-litnotes-titles--reasons
   '((no-id . "No :ID: in a top-level property drawer: skipped altogether")
     (no-pub-title . "No pub-title line: skipped")
     (empty-title . "pub-title has no value: skipped")
     (no-author . "No pub-author line or no name in it: title left as it is")
     (ambiguous-author . "pub-author has a piece with several commas (one author or several?): title left as it is")
+    (no-year . "No pub-year: title left as it is")
     (no-citekey . "No citation key in ROAM_REFS or #+reference:: not renamed")
     (exists . "A file with the citekey name already exists: not renamed")
     (key-clash . "Notes with the same first citekey: not renamed")
@@ -324,6 +332,10 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
       (dolist (item sp-litnotes-titles--reasons)
         (when (> (gethash (car item) counts 0) 0)
           (insert (format "- %s: %d\n" (cdr item) (gethash (car item) counts 0)))))
+      (insert (format "- failed items (apply asks you for the values that are missing): %d\n"
+                      (cl-count-if (lambda (p) (memq (plist-get p :title-status)
+                                                     sp-litnotes-titles--promptable))
+                                   plans)))
       (insert (format "- notes written by apply: %d\n\n" (length changing)))
       (when changing
         (insert (format "* Would change (%d)\n" (length changing)))
@@ -352,7 +364,7 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
                                       (eq (plist-get p :name-status) (car item))))
                       plans)))
           (when group
-            (insert (format "\n* %s (%d)\n" (cdr item) (length group)))
+            (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
               (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
                               (file-name-nondirectory (plist-get plan :file))
@@ -379,6 +391,11 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
 (defun sp-litnotes-titles-report ()
   "Show what `sp-litnotes-titles-apply' would do.  Writes nothing."
   (interactive)
+  (clrhash sp-litnotes-titles--overrides)
+  (sp-litnotes-titles--show-report))
+
+(defun sp-litnotes-titles--show-report ()
+  "Show the report for the current plans, and return them."
   (let* ((plans (sp-litnotes-titles--plans))
          (text (sp-litnotes-titles--report-text plans (sp-litnotes-titles--file-links plans))))
     (with-current-buffer (get-buffer-create "*litnote titles*")
@@ -445,17 +462,73 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
             (list :file file :status 'written :new new))
         (error (list :file file :status 'failed :why (error-message-string err))))))))
 
+;;;; Asking for what is missing
+
+(defun sp-litnotes-titles--prompt (plan status)
+  "The question for the failed PLAN of title STATUS, and the field it fills."
+  (let ((name (file-name-nondirectory (plist-get plan :file)))
+        (context (format "author %s, year %s, title %s"
+                         (or (plist-get plan :author) "-") (or (plist-get plan :year) "-")
+                         (or (plist-get plan :pub) "-"))))
+    (pcase status
+      ((or 'no-pub-title 'empty-title)
+       (cons :pub (format "%s (%s)\nTitle (empty skips): " name context)))
+      ((or 'no-author 'ambiguous-author)
+       (cons :author (format "%s (%s)\nAuthors as \"Last, First; Last, First\" (empty skips): "
+                             name context)))
+      ('no-year (cons :year (format "%s (%s)\nYear (empty skips): " name context))))))
+
+(defun sp-litnotes-titles--resolve (plans)
+  "Ask for the missing values of the failed PLANS; return how many were typed.
+An empty answer leaves the note as it is.  The values are used for the title
+only and kept in `sp-litnotes-titles--overrides'; the note's meta lines are not
+changed."
+  (let ((typed 0))
+    (dolist (plan plans)
+      (when (memq (plist-get plan :title-status) sp-litnotes-titles--promptable)
+        (let ((file (plist-get plan :file)) (go t))
+          (while go
+            (let* ((current (sp-litnotes-titles--plan
+                             (sp-litnotes-titles--parse-with-overrides file)))
+                   (status (plist-get current :title-status))
+                   (ask (and (memq status sp-litnotes-titles--promptable)
+                             (sp-litnotes-titles--prompt current status)))
+                   (answer (and ask (string-trim (read-string (cdr ask))))))
+              (cond ((or (null ask) (string-empty-p answer)) (setq go nil))
+                    ((and (eq (car ask) :author)
+                          (not (consp (sp-litnotes-titles--authors answer))))
+                     (message "Could not read authors from \"%s\"; skipping %s"
+                              answer (file-name-nondirectory file))
+                     (setq go nil))
+                    (t (puthash file (plist-put (gethash file sp-litnotes-titles--overrides)
+                                                (car ask) answer)
+                                sp-litnotes-titles--overrides)
+                       (cl-incf typed))))))))
+    typed))
+
 ;;;###autoload
 (defun sp-litnotes-titles-apply ()
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
-Shows the report and asks once.  Every note is copied to a time-stamped folder in
+Shows the report; when notes failed for a missing title, author or year, offers to
+ask for the values (used for the title only), then shows it again and asks once
+before writing.  Every note is copied to a time-stamped folder in
 `sp-litnotes-titles-backup-directory' before it is written; the Vulpea database
 is updated after each change.  The `:ID:' is never touched, so `id:' links keep
 working; `file:' links to old names are listed in the report but not changed.
 Running it again changes nothing."
   (interactive)
-  (let* ((plans (sp-litnotes-titles-report))
-         (todo (cl-remove-if-not #'sp-litnotes-titles--changes-p plans)))
+  (clrhash sp-litnotes-titles--overrides)
+  (let* ((plans (sp-litnotes-titles--show-report))
+         (failed (cl-remove-if-not
+                  (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
+                  plans)))
+    (when (and failed
+               (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
+                                 (length failed)))
+               (> (sp-litnotes-titles--resolve failed) 0))
+      (setq plans (sp-litnotes-titles--show-report))))
+  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p
+                                (sp-litnotes-titles--plans))))
     (if (null todo)
         (message "Nothing to change.")
       (when (yes-or-no-p (format "Write %d litnotes (backups in %s)? "

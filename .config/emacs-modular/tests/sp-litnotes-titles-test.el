@@ -48,15 +48,17 @@
 (ert-deftest sp-litnotes-titles-format ()
   (should (equal (sp-litnotes-titles-format '(("Reuten" . "Geert")) "2014"
                                             "The value form as a social form")
-                 "Reuten, Geert (2014) The value form as a social form"))
-  (should (equal (sp-litnotes-titles-format '(("Lee" . "Ann") ("Roe" . "Bo")) nil "T")
-                 "Lee, Ann, and Bo Roe (n.d.) T"))
+                 "Reuten (2014) The value form as a social form"))
+  (should (equal (sp-litnotes-titles-format '(("Lee" . "Ann") ("Roe" . "Bo")) "2000" "T")
+                 "Lee and Roe (2000) T"))
   (should (equal (sp-litnotes-titles-format '(("A" . "a") ("B" . "b") ("C" . "c")) "1" "T")
-                 "A, a, b B, and c C (1) T"))
-  (let ((sp-litnotes-titles-et-al-threshold 2))
-    (should (equal (sp-litnotes-titles-format
-                    (mapcar (lambda (n) (cons n "x")) '("A" "B" "C" "D" "E" "F" "G" "H")) "1" "T")
-                   "A, x, x B, x C, x D, x E, x F, x G, et al. (1) T"))))
+                 "A, B and C (1) T"))
+  (should (equal (sp-litnotes-titles-format
+                  '(("A" . "a") ("B" . "b") ("C" . "c") ("D" . "d")) "1" "T")
+                 "A, B et al. (1) T"))
+  (should (equal (sp-litnotes-titles-format
+                  '(("A" . "a") ("B" . "b") ("C" . "c") ("D" . "d") ("E" . "e")) "1" "T")
+                 "A, B et al. (1) T")))
 
 (ert-deftest sp-litnotes-titles-keys ()
   (should (equal (sp-litnotes-titles--keys "@a1 b2 cite:c3 [cite:@d4;@e5] https://x/y") '("a1" "b2" "c3" "d4" "e5")))
@@ -69,7 +71,7 @@
                                    "- pub-title :: The value form as a social form")
     (sp-litnotes-titles-test--write (expand-file-name "20240102T120000--b__litnote.org" dir)
       ":PROPERTIES:" ":ID: 2" ":END:" "#+reference: kant2009" "#+title: kant2009"
-      "- pub-author :: Kant, Immanuel" "- pub-title :: Critique")
+      "- pub-author :: Kant, Immanuel" "- pub-year :: 1781" "- pub-title :: Critique")
     (sp-litnotes-titles-test--note dir "nopub.org" "3" "- pub-author :: Lee, Ann")
     (sp-litnotes-titles-test--note dir "noauthor.org" "4" "- pub-title :: Alone")
     (sp-litnotes-titles-test--note dir "amb.org" "5" "- pub-author :: A B, C D, E F"
@@ -80,8 +82,8 @@
       ":PROPERTIES:" ":ID: 7" ":END:" "- pub-author :: Lee, Ann" "- pub-title :: T")
     ;; already right
     (sp-litnotes-titles-test--write (expand-file-name "same.org" dir)
-      ":PROPERTIES:" ":ID: 8" ":ROAM_REFS: @same" ":END:" "#+title: Lee, Ann (n.d.) T"
-      "- pub-author :: Lee, Ann" "- pub-title :: T")
+      ":PROPERTIES:" ":ID: 8" ":ROAM_REFS: @same" ":END:" "#+title: Lee (2000) T"
+      "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: T")
     ;; two notes with one key, and a key whose file exists
     (sp-litnotes-titles-test--write (expand-file-name "x1.org" dir)
       ":PROPERTIES:" ":ID: 9" ":ROAM_REFS: @dup" ":END:" "- pub-author :: Lee, Ann" "- pub-title :: T")
@@ -95,13 +97,13 @@
                ("amb.org" ambiguous-author same-name)
                ("noauthor.org" no-author same-name)
                ("noid.org" no-id nil)
-               ("nokey.org" change no-citekey)
+               ("nokey.org" no-year no-citekey)
                ("nopub.org" no-pub-title same-name)
                ("reuten2014value.org" change same-name)
                ("same.org" same same-name)
-               ("x1.org" change key-clash)
-               ("x2.org" change key-clash)
-               ("x3.org" change exists))))))
+               ("x1.org" no-year key-clash)
+               ("x2.org" no-year key-clash)
+               ("x3.org" no-year exists))))))
 
 (ert-deftest sp-litnotes-titles-report-writes-nothing ()
   (sp-litnotes-titles-test--with-vault
@@ -119,7 +121,7 @@
         (with-current-buffer "*litnote titles*"
           (should (string-match-p "file: 20240101T120000--a.org -> =reuten2014value.org="
                                   (buffer-string)))
-          (should (string-match-p "title: a -> Reuten, Geert (2014) Value" (buffer-string)))
+          (should (string-match-p "title: a -> Reuten (2014) Value" (buffer-string)))
           (should (string-match-p "links to the old name in: =ref.org=" (buffer-string))))))))
 
 (ert-deftest sp-litnotes-titles-apply-writes-and-is-idempotent ()
@@ -130,7 +132,7 @@
       "- pub-title :: \"Critique of pure reason\"" "body")
     (sp-litnotes-titles-test--write (expand-file-name "notitle.org" dir)
       ":PROPERTIES:" ":ID: 2" ":ROAM_REFS: @notitle" ":END:"
-      "- pub-author :: Lee, Ann" "- pub-title :: No Title")
+      "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: No Title")
     (let ((old (expand-file-name "20240101T120000--a__litnote.org" dir))
           (new (expand-file-name "kant2009.org" dir)))
       (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
@@ -138,12 +140,12 @@
         (sp-litnotes-titles-apply)
         (should-not (file-exists-p old))
         (let ((text (sp-litnotes-titles-test--read new)))
-          (should (string-match-p "^#\\+title: Kant, Immanuel (1781) Critique of pure reason$" text))
+          (should (string-match-p "^#\\+title: Kant (1781) Critique of pure reason$" text))
           (should (string-match-p "^:ID:       1$" text))
           (should (string-match-p "^#\\+reference:  kant2009$" text))
           (should (string-match-p "^body$" text)))
         (let ((text (sp-litnotes-titles-test--read (expand-file-name "notitle.org" dir))))
-          (should (string-match-p ":END:\n#\\+title: Lee, Ann (n.d.) No Title\n- pub-author" text)))
+          (should (string-match-p ":END:\n#\\+title: Lee (2000) No Title\n- pub-author" text)))
         (let* ((stamp (car (directory-files sp-litnotes-titles-backup-directory t "\\`[^.]")))
                (backup (expand-file-name "20240101T120000--a__litnote.org" stamp)))
           (should (string-match-p "#\\+title: kant2009$" (sp-litnotes-titles-test--read backup))))
@@ -153,7 +155,7 @@
 
 (ert-deftest sp-litnotes-titles-apply-skips-unsaved-buffer ()
   (sp-litnotes-titles-test--with-vault
-    (sp-litnotes-titles-test--note dir "alpha.org" "1" "- pub-author :: Lee, Ann" "- pub-title :: Alpha")
+    (sp-litnotes-titles-test--note dir "alpha.org" "1" "- pub-author :: Lee, Ann" "- pub-year :: 2000" "- pub-title :: Alpha")
     (let* ((file (expand-file-name "alpha.org" dir))
            (buffer (find-file-noselect file)))
       (unwind-protect
@@ -166,6 +168,36 @@
                 (should (string-match-p "#\\+title: old$" (sp-litnotes-titles-test--read file))))))
         (with-current-buffer buffer (set-buffer-modified-p nil))
         (kill-buffer buffer)))))
+
+(ert-deftest sp-litnotes-titles-apply-asks-for-missing-values ()
+  (sp-litnotes-titles-test--with-vault
+    (sp-litnotes-titles-test--note dir "noyear.org" "1" "- pub-author :: Lee, Ann" "- pub-title :: T")
+    (sp-litnotes-titles-test--note dir "amb.org" "2" "- pub-author :: A B, C D, E F"
+                                   "- pub-year :: 1999" "- pub-title :: U")
+    (sp-litnotes-titles-test--note dir "skip.org" "3" "- pub-title :: V")
+    (let ((asked nil))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t))
+                ((symbol-function 'pop-to-buffer) #'ignore)
+                ((symbol-function 'read-string)
+                 (lambda (prompt &rest _)
+                   (push prompt asked)
+                   (cond ((string-match-p "\\`noyear" prompt) "2001")
+                         ((string-match-p "\\`amb" prompt) "Ann Bo; Cy Di")
+                         (t "")))))
+        (sp-litnotes-titles-apply)
+        (should (string-match-p "^#\\+title: Lee (2001) T$"
+                                (sp-litnotes-titles-test--read (expand-file-name "noyear.org" dir))))
+        (should (string-match-p "^#\\+title: Bo and Di (1999) U$"
+                                (sp-litnotes-titles-test--read (expand-file-name "amb.org" dir))))
+        ;; skip.org: author skipped by an empty answer, nothing written
+        (should (string-match-p "^#\\+title: old$"
+                                (sp-litnotes-titles-test--read (expand-file-name "skip.org" dir))))
+        (should (= 3 (length asked)))
+        ;; the report lists the failure
+        (sp-litnotes-titles-report)
+        (with-current-buffer "*litnote titles*"
+          (should (string-match-p "Failed: No pub-author" (buffer-string))))))))
 
 (provide 'sp-litnotes-titles-test)
 ;; sp-litnotes-titles-test.el ends here

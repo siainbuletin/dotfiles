@@ -20,7 +20,7 @@ The files have no newline after their last line (except where noted). Org always
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
 | [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-vulpea |
 | [[*sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | Dry-run report and conversion of =#+reference:= to =ROAM_REFS= |
-| [[*sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | Dry-run report, Chicago-style titles and citekey file names for litnotes |
+| [[*sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | Dry-run report, short reference titles and citekey file names for litnotes |
 
 The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
 
@@ -1429,11 +1429,11 @@ Running it again changes nothing."
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-litnotes-titles.el
 :END:
 
-Sets the title of each literature note to a Chicago-style reference built from =pub-author=, =pub-year= and =pub-title=, and renames the file to the citation key alone, keeping the =:ID:=. Since the citation key is in =ROAM_REFS= (see =sp-litnotes-refs=), the title no longer has to be the key. Required by =sp-litnotes=; it works before or after the =ROAM_REFS= conversion.
+Sets the title of each literature note to a short reference built from =pub-author=, =pub-year= and =pub-title= (=Reuten (2014) The value form as a social form=), and renames the file to the citation key alone, keeping the =:ID:=. Since the citation key is in =ROAM_REFS= (see =sp-litnotes-refs=), the title no longer has to be the key. Required by =sp-litnotes=; it works before or after the =ROAM_REFS= conversion.
 
-- =M-x sp-litnotes-titles-report= is a dry run: it writes nothing and shows =*litnote titles*=.
-- =M-x sp-litnotes-titles-apply= shows the same report, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
-- Left alone and listed: notes without an =:ID:= drawer, without =pub-title= or with an empty one, without =pub-author= or with an ambiguous one (the title only); notes with no citation key, a key whose file exists, or a key two notes share (the rename only).
+- =M-x sp-litnotes-titles-report= is a dry run: it writes nothing and shows =*litnote titles*=, with a =Failed:= section for every note that cannot be done.
+- =M-x sp-litnotes-titles-apply= shows the same report, offers to ask for the missing titles, authors and years, asks once, copies every note to =litnote-title-backups/<time>/= under =sp-var-dir=, then writes the titles, renames the files (=sp-litnotes-titles-rename-files=) and updates the Vulpea database. Running it again changes nothing.
+- Failed and left alone: notes without an =:ID:= drawer; without =pub-title=, without =pub-author= or with an ambiguous one, without =pub-year= (the title); with no citation key, a key whose file exists, or a key two notes share (the rename only).
 
 ** Header and options
 
@@ -1446,11 +1446,12 @@ Sets the title of each literature note to a Chicago-style reference built from =
 ;; `ROAM_REFS' (see `sp-litnotes-refs'), so the note can carry a readable title.
 ;; This module sets `#+title:' to a Chicago-style reference built from the
 ;; `pub-author', `pub-year' and `pub-title' meta lines, for example
-;; "Reuten, Geert (2014) The value form as a social form", and renames the file
+;; "Reuten (2014) The value form as a social form", and renames the file
 ;; to the citation key alone (`kant2009ideea.org'), keeping the `:ID:'.
 ;;
 ;; `sp-litnotes-titles-report' shows what would change and writes nothing.
-;; `sp-litnotes-titles-apply' shows the same report, asks once, copies every
+;; `sp-litnotes-titles-apply' shows the same report, offers to fill in what the
+;; failed notes lack (a year, the authors, a title), asks once, copies every
 ;; note to a backup folder and only then writes.  The key is read from
 ;; `ROAM_REFS', or from a `#+reference:' keyword when `sp-litnotes-refs' has not
 ;; converted the note yet.
@@ -1493,14 +1494,14 @@ Those links are reported, not changed; =id:= links keep working."
   "When non-nil, `sp-litnotes-titles-apply' renames the files to the citekey."
   :type 'boolean)
 
-(defcustom sp-litnotes-titles-et-al-threshold 10
-  "With more authors than this, the title lists the first seven and `et al.'."
+(defcustom sp-litnotes-titles-et-al-from 4
+  "With this many authors or more, the title lists the first two and `et al.'."
   :type 'integer)
 
 (defcustom sp-litnotes-titles-format-function #'sp-litnotes-titles-format
   "Function of the author names, the year and the title that returns the new title.
 The names are a list of (LAST . FIRST) pairs (FIRST may be empty), the year a
-string or nil."
+string."
   :type 'function)
 #+end_src
 
@@ -1580,7 +1581,7 @@ the note has no such line before its first heading."
 
 ** Authors and the title
 
-=pub-author= is read as =Last, First=, =First Last= (the surname is the last word with lower-case particles such as =van=), =[[id:..][First Last]]= links and quoted names, separated by =;=, =and= or between links. A plain piece with more than one comma could be one author or several, so the note is flagged =ambiguous-author= and its title is left alone. The title follows Chicago: the first author inverted, then =First Last=; two authors =A, and B=, three or more =A, B, and C=; over =sp-litnotes-titles-et-al-threshold= authors the first seven and =et al.=; the year in parentheses (=n.d.= when missing) and the title: =Reuten, Geert (2014) The value form as a social form=. =sp-litnotes-titles-format-function= replaces the formatting.
+=pub-author= is read as =Last, First=, =First Last= (the surname is the last word with lower-case particles such as =van=), =[[id:..][First Last]]= links and quoted names, separated by =;=, =and= or between links. A plain piece with more than one comma could be one author or several, so the note is flagged =ambiguous-author=. The title uses last names only: =Reuten (2014) The value form as a social form=; two authors =A and B=, three =A, B and C=, and with =sp-litnotes-titles-et-al-from= (4) authors or more the first two and =et al.= (=A, B et al.=). =sp-litnotes-titles-format-function= replaces the formatting.
 
 #+begin_src emacs-lisp -i
 ;;;; Authors and the title
@@ -1625,34 +1626,23 @@ be one author or several, so it makes the whole value `ambiguous'."
       (plain (substring raw pos)))
     (if ambiguous 'ambiguous (nreverse names))))
 
-(defun sp-litnotes-titles--given-first (name)
-  "NAME, a (LAST . FIRST) pair, as \"First Last\"."
-  (string-trim (concat (cdr name) " " (car name))))
-
-(defun sp-litnotes-titles--inverted (name)
-  "NAME, a (LAST . FIRST) pair, as \"Last, First\"."
-  (if (string-empty-p (cdr name)) (car name) (concat (car name) ", " (cdr name))))
-
 (defun sp-litnotes-titles-format (names year title)
-  "A Chicago-style reference: \"Last, First, and First Last (YEAR) TITLE\".
-The first author is inverted, two authors are joined with `and', three or more
-with commas and `and'; above `sp-litnotes-titles-et-al-threshold' authors the
-first seven are listed, then `et al.'.  A missing YEAR is written `n.d.'."
-  (let* ((many (> (length names) sp-litnotes-titles-et-al-threshold))
-         (shown (if many (cl-subseq names 0 7) names))
-         (first (sp-litnotes-titles--inverted (car shown)))
-         (rest (mapcar #'sp-litnotes-titles--given-first (cdr shown)))
-         (authors (cond (many (string-join (cons first (append rest '("et al."))) ", "))
-                        ((null rest) first)
-                        ((null (cdr rest)) (format "%s, and %s" first (car rest)))
-                        (t (format "%s, %s, and %s" first
-                                   (string-join (butlast rest) ", ") (car (last rest)))))))
-    (format "%s (%s) %s" authors (or year "n.d.") title)))
+  "A reference with last names only: \"Last (YEAR) TITLE\".
+Two authors are \"A and B\", three \"A, B and C\"; with
+`sp-litnotes-titles-et-al-from' authors or more the first two and `et al.':
+\"A, B et al.\"."
+  (let* ((last (mapcar #'car names))
+         (authors (cond ((>= (length last) sp-litnotes-titles-et-al-from)
+                         (format "%s, %s et al." (nth 0 last) (nth 1 last)))
+                        ((null (cdr last)) (car last))
+                        (t (format "%s and %s" (string-join (butlast last) ", ")
+                                   (car (last last)))))))
+    (format "%s (%s) %s" authors year title)))
 #+end_src
 
 ** Planning
 
-Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped.
+Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-author=, =ambiguous-author=, =no-year=, =same=, =change=) and a name status (=rename=, =same-name=, =no-citekey=, =exists=, =key-clash=, =case-only=). A missing year is a failure, not =n.d.=. The new file name is the first citation key and =.org= (nothing else: no identifier, no keywords). A name that cannot be used leaves the title change in place and only the rename is skipped. Values typed in by the user (next section) replace what the note has, for the title only.
 
 #+begin_src emacs-lisp -i
 ;;;; Planning
@@ -1660,7 +1650,7 @@ Each note gets a title status (=no-id=, =no-pub-title=, =empty-title=, =no-autho
 (defun sp-litnotes-titles--plan (parsed)
   "Add to PARSED, from `sp-litnotes-titles--parse', what to do with the note.
 The result has :title-status (`no-id', `no-pub-title', `empty-title',
-`no-author', `ambiguous-author', `same' or `change'), :new-title, :new-name and
+`no-author', `ambiguous-author', `no-year', `same' or `change'), :new-title, :new-name and
 :name-status (`rename', `same-name', `no-citekey', or later `exists',
 `key-clash', `case-only').  The new name is the first citation key and
 =.org=; :keys has all of them."
@@ -1669,15 +1659,16 @@ The result has :title-status (`no-id', `no-pub-title', `empty-title',
          (authors (and raw (sp-litnotes-titles--authors raw)))
          (title (plist-get parsed :title))
          (old-name (file-name-nondirectory (plist-get parsed :file)))
-         (new-title (and (consp authors)
+         (year (let ((y (plist-get parsed :year))) (and y (not (string-empty-p y)) y)))
+         (new-title (and (consp authors) year
                          pub (not (string-empty-p pub))
-                         (funcall sp-litnotes-titles-format-function
-                                  authors (plist-get parsed :year) pub)))
+                         (funcall sp-litnotes-titles-format-function authors year pub)))
          (title-status (cond ((not (plist-get parsed :id)) 'no-id)
                              ((null pub) 'no-pub-title)
                              ((string-empty-p pub) 'empty-title)
                              ((eq authors 'ambiguous) 'ambiguous-author)
                              ((null authors) 'no-author)
+                             ((null year) 'no-year)
                              ((equal new-title title) 'same)
                              (t 'change)))
          (usable (plist-get parsed :id))
@@ -1712,11 +1703,23 @@ DIRECTORY is the folder of the notes; names are compared without case."
      targets)
     plans))
 
+(defvar sp-litnotes-titles--overrides (make-hash-table :test 'equal)
+  "Values typed in by `sp-litnotes-titles--resolve', by file: a plist of
+:pub, :author and :year that replaces what the note has.")
+
+(defun sp-litnotes-titles--parse-with-overrides (file)
+  "`sp-litnotes-titles--parse' of FILE, with the values typed in for it."
+  (let ((parsed (sp-litnotes-titles--parse file)))
+    (cl-loop for (key value) on (gethash file sp-litnotes-titles--overrides) by #'cddr
+             do (setq parsed (plist-put parsed key value)))
+    parsed))
+
 (defun sp-litnotes-titles--plans (&optional directory)
   "Plans for every note in DIRECTORY (default `sp-litnotes-titles-directory')."
   (let ((dir (file-name-as-directory (or directory sp-litnotes-titles-directory))))
     (sp-litnotes-titles--mark-collisions
-     (mapcar (lambda (file) (sp-litnotes-titles--plan (sp-litnotes-titles--parse file)))
+     (mapcar (lambda (file)
+               (sp-litnotes-titles--plan (sp-litnotes-titles--parse-with-overrides file)))
              (directory-files dir t "\\`[^.#].*\\.org\\'"))
      dir)))
 
@@ -1758,10 +1761,14 @@ Searches `sp-litnotes-titles-link-directory'; =id:= links need no change."
 
 ** Report
 
-The dry run, an Org buffer: counts, then per note the old and new title, old and new file name and the files that link to the old name; then every skipped or flagged group, and notes that would get the same title.
+The dry run, an Org buffer: counts (with the number of failed items), then per note the old and new title, old and new file name and the files that link to the old name; then every failed group (=Failed: ...=), and notes that would get the same title.
 
 #+begin_src emacs-lisp -i
 ;;;; Report
+
+(defconst sp-litnotes-titles--promptable
+  '(no-pub-title empty-title no-author ambiguous-author no-year)
+  "Title statuses that `sp-litnotes-titles--resolve' can fix by asking.")
 
 (defconst sp-litnotes-titles--reasons
   '((no-id . "No :ID: in a top-level property drawer: skipped altogether")
@@ -1769,6 +1776,7 @@ The dry run, an Org buffer: counts, then per note the old and new title, old and
     (empty-title . "pub-title has no value: skipped")
     (no-author . "No pub-author line or no name in it: title left as it is")
     (ambiguous-author . "pub-author has a piece with several commas (one author or several?): title left as it is")
+    (no-year . "No pub-year: title left as it is")
     (no-citekey . "No citation key in ROAM_REFS or #+reference:: not renamed")
     (exists . "A file with the citekey name already exists: not renamed")
     (key-clash . "Notes with the same first citekey: not renamed")
@@ -1794,6 +1802,10 @@ The dry run, an Org buffer: counts, then per note the old and new title, old and
       (dolist (item sp-litnotes-titles--reasons)
         (when (> (gethash (car item) counts 0) 0)
           (insert (format "- %s: %d\n" (cdr item) (gethash (car item) counts 0)))))
+      (insert (format "- failed items (apply asks you for the values that are missing): %d\n"
+                      (cl-count-if (lambda (p) (memq (plist-get p :title-status)
+                                                     sp-litnotes-titles--promptable))
+                                   plans)))
       (insert (format "- notes written by apply: %d\n\n" (length changing)))
       (when changing
         (insert (format "* Would change (%d)\n" (length changing)))
@@ -1822,7 +1834,7 @@ The dry run, an Org buffer: counts, then per note the old and new title, old and
                                       (eq (plist-get p :name-status) (car item))))
                       plans)))
           (when group
-            (insert (format "\n* %s (%d)\n" (cdr item) (length group)))
+            (insert (format "\n* Failed: %s (%d)\n" (cdr item) (length group)))
             (dolist (plan group)
               (insert (format "- =%s=: title %s; pub-author %s; pub-title %s%s\n"
                               (file-name-nondirectory (plist-get plan :file))
@@ -1849,6 +1861,11 @@ The dry run, an Org buffer: counts, then per note the old and new title, old and
 (defun sp-litnotes-titles-report ()
   "Show what `sp-litnotes-titles-apply' would do.  Writes nothing."
   (interactive)
+  (clrhash sp-litnotes-titles--overrides)
+  (sp-litnotes-titles--show-report))
+
+(defun sp-litnotes-titles--show-report ()
+  "Show the report for the current plans, and return them."
   (let* ((plans (sp-litnotes-titles--plans))
          (text (sp-litnotes-titles--report-text plans (sp-litnotes-titles--file-links plans))))
     (with-current-buffer (get-buffer-create "*litnote titles*")
@@ -1864,7 +1881,7 @@ The dry run, an Org buffer: counts, then per note the old and new title, old and
 
 ** Writing
 
-For each note: skip when another Emacs holds a lock or its buffer has unsaved changes; copy it to a time-stamped folder of =sp-litnotes-titles-backup-directory=; write the title and check the =:ID:= is the same; rename; then =vulpea-db--forget-file= for the old path, =org-id-add-location= and =vulpea-db-update-file= for the new one. A failure on one note is reported and the others go on. =sp-litnotes-titles-apply= asks once.
+For each note: skip when another Emacs holds a lock or its buffer has unsaved changes; copy it to a time-stamped folder of =sp-litnotes-titles-backup-directory=; write the title and check the =:ID:= is the same; rename; then =vulpea-db--forget-file= for the old path, =org-id-add-location= and =vulpea-db-update-file= for the new one. A failure on one note is reported and the others go on.
 
 #+begin_src emacs-lisp -i
 ;;;; Writing
@@ -1920,18 +1937,80 @@ For each note: skip when another Emacs holds a lock or its buffer has unsaved ch
               (ignore-errors (vulpea-db-update-file new)))
             (list :file file :status 'written :new new))
         (error (list :file file :status 'failed :why (error-message-string err))))))))
+#+end_src
+
+** Asking for what is missing
+
+The notes that failed for a missing or ambiguous title, author or year can be fixed by answering a question for each (the question shows what the note has). An empty answer skips the note or leaves it failed. The answers are used for the title only and are not written to the note's meta lines. =sp-litnotes-titles-apply= asks whether to do this after showing the report, shows the report again, and then asks once before writing.
+
+#+begin_src emacs-lisp -i
+;;;; Asking for what is missing
+
+(defun sp-litnotes-titles--prompt (plan status)
+  "The question for the failed PLAN of title STATUS, and the field it fills."
+  (let ((name (file-name-nondirectory (plist-get plan :file)))
+        (context (format "author %s, year %s, title %s"
+                         (or (plist-get plan :author) "-") (or (plist-get plan :year) "-")
+                         (or (plist-get plan :pub) "-"))))
+    (pcase status
+      ((or 'no-pub-title 'empty-title)
+       (cons :pub (format "%s (%s)\nTitle (empty skips): " name context)))
+      ((or 'no-author 'ambiguous-author)
+       (cons :author (format "%s (%s)\nAuthors as \"Last, First; Last, First\" (empty skips): "
+                             name context)))
+      ('no-year (cons :year (format "%s (%s)\nYear (empty skips): " name context))))))
+
+(defun sp-litnotes-titles--resolve (plans)
+  "Ask for the missing values of the failed PLANS; return how many were typed.
+An empty answer leaves the note as it is.  The values are used for the title
+only and kept in `sp-litnotes-titles--overrides'; the note's meta lines are not
+changed."
+  (let ((typed 0))
+    (dolist (plan plans)
+      (when (memq (plist-get plan :title-status) sp-litnotes-titles--promptable)
+        (let ((file (plist-get plan :file)) (go t))
+          (while go
+            (let* ((current (sp-litnotes-titles--plan
+                             (sp-litnotes-titles--parse-with-overrides file)))
+                   (status (plist-get current :title-status))
+                   (ask (and (memq status sp-litnotes-titles--promptable)
+                             (sp-litnotes-titles--prompt current status)))
+                   (answer (and ask (string-trim (read-string (cdr ask))))))
+              (cond ((or (null ask) (string-empty-p answer)) (setq go nil))
+                    ((and (eq (car ask) :author)
+                          (not (consp (sp-litnotes-titles--authors answer))))
+                     (message "Could not read authors from \"%s\"; skipping %s"
+                              answer (file-name-nondirectory file))
+                     (setq go nil))
+                    (t (puthash file (plist-put (gethash file sp-litnotes-titles--overrides)
+                                                (car ask) answer)
+                                sp-litnotes-titles--overrides)
+                       (cl-incf typed))))))))
+    typed))
 
 ;;;###autoload
 (defun sp-litnotes-titles-apply ()
   "Set the litnote titles to Chicago-style references and rename them to the citekey.
-Shows the report and asks once.  Every note is copied to a time-stamped folder in
+Shows the report; when notes failed for a missing title, author or year, offers to
+ask for the values (used for the title only), then shows it again and asks once
+before writing.  Every note is copied to a time-stamped folder in
 `sp-litnotes-titles-backup-directory' before it is written; the Vulpea database
 is updated after each change.  The `:ID:' is never touched, so `id:' links keep
 working; `file:' links to old names are listed in the report but not changed.
 Running it again changes nothing."
   (interactive)
-  (let* ((plans (sp-litnotes-titles-report))
-         (todo (cl-remove-if-not #'sp-litnotes-titles--changes-p plans)))
+  (clrhash sp-litnotes-titles--overrides)
+  (let* ((plans (sp-litnotes-titles--show-report))
+         (failed (cl-remove-if-not
+                  (lambda (p) (memq (plist-get p :title-status) sp-litnotes-titles--promptable))
+                  plans)))
+    (when (and failed
+               (y-or-n-p (format "%d notes failed for a missing title, author or year.  Fill them in now? "
+                                 (length failed)))
+               (> (sp-litnotes-titles--resolve failed) 0))
+      (setq plans (sp-litnotes-titles--show-report))))
+  (let ((todo (cl-remove-if-not #'sp-litnotes-titles--changes-p
+                                (sp-litnotes-titles--plans))))
     (if (null todo)
         (message "Nothing to change.")
       (when (yes-or-no-p (format "Write %d litnotes (backups in %s)? "
@@ -1966,4 +2045,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added the reference hover for =[cite:@key]= links in =sp-citations= (tooltip and Eldoc echo area, =sp-cite-hover-display=).
 - [[https://github.com/siainbuletin/dotfiles/pull/210][#210]] 🔧 Replaced =citar-denote= with =citar-vulpea= in =sp-litnotes= (=ROAM_REFS= property, =citar-vulpea-mode= on) and ✨ added =sp-litnotes-refs= (=sp-litnotes-refs-report= dry run, =sp-litnotes-refs-convert=).
 - [[https://github.com/siainbuletin/dotfiles/pull/221][#221]] ✨ Added =sp-litnotes-titles= (=sp-litnotes-titles-report= dry run, =sp-litnotes-titles-apply=): copies =pub-title= to =#+title:= and renames the litnote files to match, keeping the Denote identifier, keywords and =:ID:=.
-- [[https://github.com/siainbuletin/dotfiles/pull/224][#224]] 🔧 Changed =sp-litnotes-titles=: the title is a Chicago-style reference (=Reuten, Geert (2014) The value form as a social form=) from =pub-author=, =pub-year= and =pub-title=, and the file is named after the citation key alone (=reuten2014value.org=).
+- [[https://github.com/siainbuletin/dotfiles/pull/224][#224]] 🔧 Changed =sp-litnotes-titles=: the title is a short reference with last names (=Reuten (2014) The value form as a social form=; =A and B=, =A, B and C=, =A, B et al.= from four authors), a missing year fails, apply asks for the values failed notes lack, and the file is named after the citation key alone (=reuten2014value.org=).
