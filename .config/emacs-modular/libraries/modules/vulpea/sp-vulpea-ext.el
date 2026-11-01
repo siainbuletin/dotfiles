@@ -37,6 +37,8 @@
 
 (require 'sp-vulpea-convert-properties)
 
+(require 'sp-vulpea-convert-keywords)
+
 ;; Grouping backlinks based on the property that it's representing
 
 (require 'sp-vulpea-grouped-backlinks)
