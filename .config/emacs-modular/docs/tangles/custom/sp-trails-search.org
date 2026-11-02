@@ -12,7 +12,7 @@ Literate source for =libraries/modules/custom/sp-trails-search.el=.
 
 * Basic functionality
 
-[[file:sp-trails.org][sp-trails]] records the pages that /the browser/ reports (org-protocol). Many research steps start earlier, with a /search/: =consult-omni= (web, OpenAlex, PubMed, litdb, my notes), reached from the =sp-search= menu (=C-c s m=). This module closes that gap, so a search becomes the first branch of a trail:
+[[file:sp-search-browsing-trails.org::*sp-trails.el][sp-trails]] records the pages that /the browser/ reports (org-protocol). Many research steps start earlier, with a /search/: =consult-omni= (web, OpenAlex, PubMed, litdb, my notes), reached from the =sp-search= menu (=C-c s m=). This module closes that gap, so a search becomes the first branch of a trail:
 
 1. =sp-trails-search= (=o= in =sp-trails-map=, =j= in the =sp-search= menu) asks which =consult-omni= search to run, starts or resumes a trail if none is current, and runs the search.
 2. Pressing =RET= on a result opens it in the external browser, as before, /and/ adds it to the trail as a =TOREAD= page. Nothing is recorded, and nothing is opened, while the results are only being looked at.
