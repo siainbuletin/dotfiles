@@ -36,11 +36,11 @@ The table modules (=sp-collection-query-tables=, a custom module of mine) are de
 Load order:
 
 - =sp-org-ext= requires, in this order: =sp-vulpea-base=, =sp-vulpea-ui=, =sp-vulpea-para=, =sp-vulpea-schemas=, =sp-vulpea-ext=, then =sp-collection-query-tables=.
-- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks= and =sp-split-leave-parents=.
+- =sp-vulpea-ext= requires =sp-vulpea-convert-properties=, =sp-vulpea-convert-keywords=, =sp-vulpea-grouped-backlinks= and =sp-refile= (which holds =sp-split-leave-parents=).
 - Nothing requires =sp-vulpea-ext-back= (an empty slot) or =sp-vulpea-org-ql= (a draft that runs a query when loaded).
 - Both are still tangled, so the files stay in step with their docs.
 
-=sp-split-leave-parents= (the heading splitter) is not in this group any more: it is documented, and tangled, in =docs/tangles/funct/sp-org-lint.org=, with the other note-tidying commands.
+=sp-split-leave-parents= (the heading splitter) is not in this group: it is documented, and tangled, in =docs/tangles/funct/sp-refile.org=, together with =sp-refile=.
 
 * sp-vulpea-base.el
 :PROPERTIES:
@@ -1100,11 +1100,11 @@ Loads =sp-vulpea-grouped-backlinks=, which sorts a note's backlinks into plain m
 
 *** Smarter heading split
 
-Loads =sp-split-leave-parents=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
+Loads =sp-refile=, which holds =sp-split-leave-parents=, which wraps =vulpea-split-heading= so that a heading moved into its own note gets a =parents= meta line pointing back at its source and leaves a link behind.
 
 #+begin_src emacs-lisp -i
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
-(require 'sp-split-leave-parents)
+(require 'sp-refile)
 #+end_src
 
 ** Provide

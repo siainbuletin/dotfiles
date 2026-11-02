@@ -178,7 +178,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
 - [[file:docs/tangles/funct/sp-org-tag-lint.org][sp-org-tag-lint]] :: Lint Org tags against the tag registry, add tags without restarting, prompt for a new note's tags ([[file:libraries/modules/funct/sp-org-tag-lint.el][sp-org-tag-lint.el]], with the data file [[file:libraries/modules/funct/sp-org-tag-registry.el][sp-org-tag-registry.el]])
 - [[file:docs/tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy Org lists and footnotes, and the doc of the author and litnote lint commands; sp-org-lint.el requires the submodules ([[file:libraries/modules/funct/sp-org-lint-others.el][others]], [[file:libraries/modules/funct/sp-org-lint-footnotes.el][footnotes]])
-- [[file:docs/tangles/funct/sp-org-lint.org::*sp-split-leave-parents.el][sp-split-leave-parents]] :: Split a heading into its own note, keeping parents and a link ([[file:libraries/modules/funct/sp-split-leave-parents.el][sp-split-leave-parents.el]])
+- [[file:docs/tangles/funct/sp-refile.org][sp-refile]] :: One command to refile a heading, split it into its own note (keeping parents and a link) or merge a note ([[file:libraries/modules/funct/sp-refile.el][sp-refile.el]])
 
 ** media/
 

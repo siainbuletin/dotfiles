@@ -43,9 +43,9 @@ periods. This ain't a typewriter."
 
 (global-unset-key (kbd "C-x t i")) ;; this will be later set in the bind-key
 
-;; `use-package' :bind would otherwise autoload `sp-split-leave-parents' from
+;; `use-package' :bind would otherwise autoload `sp-refile' from
 ;; "org", which does not define it; point the autoload at its own module.
-(autoload 'sp-split-leave-parents "sp-split-leave-parents" nil t)
+(autoload 'sp-refile "sp-refile" nil t)
 (autoload 'sp-org-insert-config-doc-link "sp-org-id-link" nil t)
 
 ;; Use Org from source rather than built in
@@ -67,7 +67,7 @@ periods. This ain't a typewriter."
    ("M-L" . org-shiftright)
    ("M-H" . org-shiftleft)
    ;; Reorganising notes through vulpea
-   ("C-x s t" . sp-split-leave-parents)
+   ("C-x s t" . sp-refile)
 
    ;; easily emphasize text
    ("s-b" . (lambda () (interactive) (org-emphasize-dwim ?*)))

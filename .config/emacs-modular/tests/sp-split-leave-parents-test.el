@@ -3,7 +3,7 @@
 (require 'ert)
 (dolist (f '(vulpea denote))
   (unless (require f nil t) (provide f)))
-(require 'sp-split-leave-parents)
+(require 'sp-refile)
 
 (ert-deftest sp-split-test-extract-links ()
   (should (equal (sp-split--extract-id-links "Plain title")
