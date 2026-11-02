@@ -199,51 +199,6 @@ A heading comment reserved for commands that act on search results; nothing is d
   (let ((current-prefix-arg '(4))) (call-interactively #'consult-ripgrep)))
 #+end_src
 
-*** Recoll query function
-
-=counsel-recoll-function= runs =recollq -b= on the input asynchronously, once at least three characters have been typed, returning matching file URLs.
-
-- The search string is placed inside single quotes on the shell command line, so a query containing a quote breaks it.
-- It calls =counsel-more-chars=, which newer Counsel releases have replaced with =ivy-more-chars=. It may need updating.
-
-#+begin_src emacs-lisp -i
-;; More advanced searching
-
-(defun counsel-recoll-function (string &rest _unused)
-  "Issue recallq for STRING."
-  (if (< (length string) 3)
-      (counsel-more-chars 3)
-    (counsel--async-command
-     (format "recollq -b '%s'" string))
-    nil))
-#+end_src
-
-*** Recoll search command
-
-=counsel-recoll= searches the Recoll index with Ivy and opens the selected file.
-
-- For non-PDF files it then starts =swiper= with the same query, so you land on the matches inside the file.
-- It reuses =counsel-git-grep-history= as its history.
-
-#+begin_src emacs-lisp -i
-(defun counsel-recoll (&optional initial-input)
-  "Search for a string in the recoll database.
-You'll be given a list of files that match.
-Selecting a file will launch `swiper' for that file.
-INITIAL-INPUT can be given as the initial minibuffer input."
-  (interactive)
-  (ivy-read "recoll: " 'counsel-recoll-function
-            :initial-input initial-input
-            :dynamic-collection t
-            :history 'counsel-git-grep-history
-            :action (lambda (x)
-                      (when (string-match "file://\\(.*\\)\\'" x)
-                        (let ((file-name (match-string 1 x)))
-                          (find-file file-name)
-                          (unless (string-match "pdf$" x)
-                            (swiper ivy-text)))))))
-#+end_src
-
 ** The search menu
 
 =M-x sp-search= (=C-c s m=) is the entry point. It shows a Magit-style buffer, =*sp-search*=, as the first screen, and opens the transient menu =sp-search-menu= at the top of the frame over it. The buffer has a header (the search directory and project, which completion frameworks are active in green, a warning if =rg= is missing), the current search with its results grouped by file, and the list of saved views. The menu gathers every search command of the configuration; closing it leaves the buffer, and =?= opens it again.

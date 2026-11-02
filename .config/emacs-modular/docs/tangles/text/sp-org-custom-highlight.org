@@ -75,7 +75,7 @@ There are several issues with editing this properly afterwards.
 To avoid typing the full syntax, bind a small insertion command:
 
 #+begin_src emacs-lisp -i
-(defun my-org-insert-inline-comment ()
+(defun sp-org-insert-inline-comment ()
   (interactive)
   (if (use-region-p)
       (let ((text (buffer-substring (region-beginning) (region-end))))

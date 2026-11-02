@@ -62,24 +62,51 @@ Other points:
 
 The modeline in use is lambda-line. Whether it prints =global-mode-string= has not been checked, so the header line is the fallback.
 
-** Selecting notes
+** Selecting notes (custom defined functions)
 
-With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-groups-describe-note=, which returns the emoji of the note's tags, a space and the title. It depends on the note alone, so vulpea's candidate cache stays valid (it is dropped once when the mode is turned on or off, so the new strings are built). The tags come from =vulpea-note-tags=, and the rules apply with the =select= context.
+With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-groups-describe-note=, which returns the emoji of the note's tags, a space and the title. 
+- It depends on the note alone, so vulpea's candidate cache stays valid (it is dropped once when the mode is turned on or off, so the new strings are built).
+- The tags come from =vulpea-note-tags=, and the rules apply with the =select= context.
 
-=sp-select-note= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
+=sp-select-note= is the selector of my own. 
+- It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
+   + The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property.
+      * =N= is =sp-org-tag-groups-select-column-fraction= of the frame width (a third by default), at least =sp-org-tag-groups-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
+   + *Each tag is a chip*: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85).
+      * The colour is the colour of the tag's group, see "Tag groups and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
+   + The tags stay part of the candidate text, so *they can be matched*: typing =deep= narrows the list to notes with that tag.
+      * @@comment: this one is particularly essential@@
+   + A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
-- The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property. =N= is =sp-org-tag-groups-select-column-fraction= of the frame width (a third by default), at least =sp-org-tag-groups-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
-- Each tag is a chip: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85). The colour is the colour of the tag's group, see "Tag groups and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
-- The tags stay part of the candidate text, so they can be matched: typing =deep= narrows the list to notes with that tag.
-- A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
+=M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title.
+- It takes the keywords of =vulpea-insert=.
+- No key is bound to either.
 
-=M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. No key is bound to either. The commands that link to or pick a note (=sp-org-create-note-and-link=, the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note and the query-table pickers) call them, so every picker looks the same. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+Other commands that link to or pick a note
+- =sp-org-create-note-and-link=,
+- the wikilink conversion,
+- =sp-tab-inbox=, =sp-move-region-to-heading=,
+- the graph start note
+- the query-table pickers
+
+These other commands call my custom =sp-select-note= or =sp-insert-note= so that *every picker looks the same*. 
+- Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
 ** Tag groups and their colours
 
-=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no group, or in a group without a colour, gets =default=.
+=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. 
+- Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=).
+- A tag that is in no group, or in a group without a colour, gets =default=.
+   + @@comment: which one is actually default?@@
 
-As in Notion, a colour is a pair: a light tinted background and a dark text colour on a light theme, a dark muted background and a light text colour on a dark theme. =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=). The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off. The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
+As in Notion, a colour is a pair: 
+- a light tinted background and a dark text colour on a light theme,
+- a dark muted background and a light text colour on a dark theme.
+
+How this functions here:
+- =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=).
+- The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off.
+- The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
 
 The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-groups-alist= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested groups are not followed.
 
@@ -134,7 +161,6 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
     ("@home"              :emoji "🏠")
     ("@uni"               :emoji "🎓")
     ("@computer"          :emoji "💻")
-    ("@phone"             :emoji "📱")
     ("@planning"          :emoji "🗺️")
     ("@configuration"     :emoji "⚙️")
     ("@writing"           :emoji "✍️")
