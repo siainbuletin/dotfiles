@@ -1,0 +1,31 @@
+#+title: Image preview
+
+* Better image display in org-mode
+
+How can I hide the syntax of the figures attached?
+- how can I adapt the folders of org-attach for this case?
+
+
+* Images in dired
+
+(use-package emacs
+  :custom
+  (image-dired-external-viewer "gimp")
+  :bind
+  ((:map image-mode-map
+         ("k" . image-kill-buffer)
+         ("<right>" . image-next-file)
+         ("<left>"  . image-previous-file))
+   (:map dired-mode-map
+         ("C-<return>" . image-dired-dired-display-external))))
+
+(use-package image-dired
+  :bind
+  (("C-c w I" . image-dired))
+  (:map image-dired-thumbnail-mode-map
+        ("C-<right>" . image-dired-display-next)
+        ("C-<left>"  . image-dired-display-previous)))
+
+* Images in dirvish
+
+This is more important than =dired= for the purposes.
