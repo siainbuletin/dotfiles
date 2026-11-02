@@ -63,6 +63,8 @@
         ("thesis")
         ("format")
         ("website")
+        ("plugin")
+        ("workflow")
         ;; sp-org-tag-add: new tags go above this line
         ))
 
