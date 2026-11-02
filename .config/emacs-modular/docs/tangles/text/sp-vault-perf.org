@@ -1,0 +1,88 @@
+#+TITLE: sp-vault-perf.el: Org and Emacs settings for a vault of about 10,000 notes
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/text/sp-vault-perf.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/text/sp-vault-perf.el=. To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+The vault in =~/notes= has about 9,800 =.org= files. A sample of a hanging start showed about 55% of the time in garbage collection and the rest in =org-element= parsing, inside the =vulpea-db-autosync-mode= start in =sp-vulpea-base=. This module holds the settings that make that work cheaper and do not touch the two things other work changes: =gc-cons-threshold= (=init.el=) and the autosync delay (=sp-vulpea-base=).
+
+* Settings
+
+#+begin_src emacs-lisp
+;;; sp-vault-perf.el --- Settings for a vault of about 10,000 notes -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Cheaper defaults for Org and Emacs when the vault has thousands of files.
+;; `gc-cons-threshold' and the vulpea autosync delay are set elsewhere on
+;; purpose (init.el, sp-vulpea-base.el).  `M-x sp-vault-perf-report' shows what
+;; the vault costs.
+
+;;; Code:
+#+end_src
+
+** Process output
+
+The background vulpea scan lists the files in a subprocess and reads its output. The default read size is 4 KB on Emacs 29, which means thousands of small reads for 10,000 paths. 1 MB is the usual value.
+
+#+begin_src emacs-lisp
+(setq read-process-output-max (* 1024 1024))
+#+end_src
+
+** Redisplay and fonts
+
+Right-to-left text handling and font cache compaction cost time on every redisplay and every GC. Notes are left-to-right, so both are turned off. =global-so-long-mode= switches off the expensive modes in a buffer with a very long line (a pasted blob in a note) instead of freezing Emacs.
+
+#+begin_src emacs-lisp
+(setq-default bidi-paragraph-direction 'left-to-right)
+(setq bidi-inhibit-bpa t)
+(setq inhibit-compacting-font-caches t)
+(global-so-long-mode 1)
+#+end_src
+
+** Org
+
+=org-agenda-inhibit-startup= stops the agenda from applying startup options (folding, inline images) to each file it visits. The element cache (=org-element-use-cache=) and its persistent copy (=org-element-cache-persistent=) are the defaults, so they are set only to make sure nothing earlier turned them off.
+
+#+begin_src emacs-lisp
+(setq org-agenda-inhibit-startup t)
+(setq org-element-use-cache t)
+(setq org-element-cache-persistent t)
+#+end_src
+
+* Report
+
+=sp-vault-perf-report= answers "what does my vault cost?" without a profiler: the number of files, the size of the vulpea database, the Org ID table, the agenda files, and the garbage collection so far in this session.
+
+#+begin_src emacs-lisp
+(defun sp-vault-perf--file-size (file)
+  "Return the size of FILE in megabytes, or nil when it does not exist."
+  (when (and file (file-exists-p file))
+    (/ (file-attribute-size (file-attributes file)) 1048576.0)))
+
+(defun sp-vault-perf-report ()
+  "Show what the vault costs: files, database, ID table and GC so far."
+  (interactive)
+  (let* ((dirs (bound-and-true-p vulpea-db-sync-directories))
+         (files (apply #'append
+                       (mapcar (lambda (d)
+                                 (when (file-directory-p d)
+                                   (directory-files-recursively d "\\.org\\'")))
+                               dirs)))
+         (ids (and (bound-and-true-p org-id-locations)
+                   (hash-table-p org-id-locations)
+                   (hash-table-count org-id-locations))))
+    (message (concat "[vault] %d org files; vulpea.db %s MB; org-id table %s ids; "
+                     "%d agenda files; %d GCs, %.1fs in GC; gc-cons-threshold %d")
+             (length files)
+             (let ((s (sp-vault-perf--file-size
+                       (bound-and-true-p vulpea-db-location))))
+               (if s (format "%.0f" s) "?"))
+             (or ids "?")
+             (length (org-agenda-files t))
+             gcs-done gc-elapsed gc-cons-threshold)))
+#+end_src
+
+#+begin_src emacs-lisp
+(provide 'sp-vault-perf)
+#+end_src
