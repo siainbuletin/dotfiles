@@ -21,7 +21,10 @@
 ;;;; claude-code
 (use-package claude-code
   :ensure (:type git :host github :repo "stevemolitor/claude-code.el")
-  :after (inheritenv vterm eat))
+  :init
+  ;; vterm is not installed (see sp-terminal): eat needs no native module.
+  (setq claude-code-terminal-backend 'eat)
+  :after (inheritenv eat))
 
 ;;;; eca
 (use-package eca
