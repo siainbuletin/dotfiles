@@ -10,14 +10,14 @@
 ;; Olivetti makes sure that every org buffer is being wrapped properly.
 (use-package olivetti
   :ensure t
-
+  
   :custom
   (olivetti-minimum-body 100)
   (olivetti-body-width 0.8)
-
+  
   :bind
   (("C-c w o" . sp-olivetti))
-
+  
   :hook
   (org-mode . olivetti-mode))
 
@@ -85,9 +85,29 @@ and moves point to the last location."
   :type 'integer
   :group 'sp-reading)
 
-(defcustom sp-reading-line-spacing 1
-  "Extra space between lines, as in `line-spacing' (book-mode: 1)."
+(defcustom sp-reading-line-spacing 0.3
+  "Extra space between lines, as in `line-spacing'.
+A float is a share of the line height (book-mode uses 1 pixel)."
   :type '(choice integer float)
+  :group 'sp-reading)
+
+(defcustom sp-reading-frame-size '(81 . 51)
+  "Text columns and lines of the frame in reading mode, or nil to keep it.
+The margins are added to the columns.  The size is restored when the
+mode is turned off.  Fullscreen, maximised and non-graphical frames are
+never resized."
+  :type '(choice (const :tag "Do not resize" nil)
+                 (cons :tag "Columns . lines" integer integer))
+  :group 'sp-reading)
+
+(defcustom sp-reading-paginate t
+  "Non-nil makes the scroll commands turn whole pages in reading mode."
+  :type 'boolean
+  :group 'sp-reading)
+
+(defcustom sp-reading-paragraph-glyph "§"
+  "Glyph in the margin of a fourth-level heading, which runs into its text."
+  :type 'string
   :group 'sp-reading)
 
 (defcustom sp-reading-progress 'page
@@ -278,6 +298,113 @@ page is then not full."
                                      :overline fg :box nil :height height)
             sp-reading--remaps))))
 
+;; Margin glyphs for headings and lists (Rougier's article example)
+(defun sp-reading--margin (glyph)
+  "A display property that shows GLYPH, right aligned, in the left margin."
+  `((margin left-margin)
+    ,(propertize (format (format "%%%ds" sp-reading-left-margin) glyph)
+                 'face 'shadow)))
+
+(defun sp-reading--make-keywords ()
+  "Font-lock keywords that move heading stars and bullets to the margin.
+Levels 1 to 3 get #, ## and ###.  A level 4 heading is a run-in
+paragraph head: its glyph is in the margin and the line break after it
+is hidden, so its title leads straight into the paragraph below."
+  (append
+   (mapcar (lambda (level)
+             `(,(format "^\\(\\*\\{%d\\} \\)" level)
+               1 '(face nil display ,(sp-reading--margin
+                                       (concat (make-string level ?#) " ")))))
+           '(1 2 3))
+   `(("^\\*\\{4\\} .*?\\(\n\\)" 1 '(face nil display " - "))
+     ("^\\(\\*\\{4\\} \\)"
+      1 '(face nil display ,(sp-reading--margin
+                              (concat sp-reading-paragraph-glyph " "))))
+     ("^\\(- \\)"
+      1 '(face nil display ,(sp-reading--margin "• "))))))
+
+(defvar-local sp-reading--keywords nil
+  "The font-lock keywords added by `sp-reading-mode', kept to remove them.")
+
+;; Frame size
+(defun sp-reading--resize-frame ()
+  "Give the selected frame the page shape, remembering its size."
+  (let ((frame (selected-frame)))
+    (when (and sp-reading-frame-size
+               (display-graphic-p frame)
+               (not (frame-parameter frame 'fullscreen))
+               (not (frame-parameter frame 'sp-reading-size)))
+      (set-frame-parameter frame 'sp-reading-size
+                           (cons (frame-parameter frame 'width)
+                                 (frame-parameter frame 'height)))
+      (set-frame-parameter frame 'width (+ (car sp-reading-frame-size)
+                                           sp-reading-left-margin
+                                           sp-reading-right-margin))
+      (set-frame-parameter frame 'height (cdr sp-reading-frame-size)))))
+
+(defun sp-reading--restore-frame ()
+  "Put the selected frame back to the size it had before reading mode."
+  (let* ((frame (selected-frame))
+         (size (frame-parameter frame 'sp-reading-size)))
+    (when size
+      (set-frame-parameter frame 'width (car size))
+      (set-frame-parameter frame 'height (cdr size))
+      (set-frame-parameter frame 'sp-reading-size nil))))
+
+;; Pagination
+(defun sp-reading-next-page ()
+  "Show the next page: the text starts where the last one stopped."
+  (interactive)
+  (let* ((window (selected-window))
+         (end (window-end window t)))
+    (if (>= end (point-max))
+        (message "End of text")
+      (let ((start (save-excursion
+                     (goto-char end)
+                     (vertical-motion 0)
+                     (point))))
+        (when (<= start (window-start window))
+          (setq start end))
+        (set-window-start window start)
+        (goto-char start)))))
+
+(defun sp-reading-previous-page ()
+  "Show the previous page: it ends where this one starts."
+  (interactive)
+  (let* ((window (selected-window))
+         (start (window-start window)))
+    (if (<= start (point-min))
+        (message "Beginning of text")
+      (let* ((lines (max 1 (count-screen-lines start (window-end window t)
+                                               nil window)))
+             (new (save-excursion
+                    (goto-char start)
+                    (vertical-motion (- lines))
+                    (point))))
+        (set-window-start window new)
+        (goto-char new)))))
+
+(defvar sp-reading-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [remap scroll-up-command] #'sp-reading--scroll-up)
+    (define-key map [remap scroll-down-command] #'sp-reading--scroll-down)
+    map)
+  "Keymap of `sp-reading-mode'.")
+
+(defun sp-reading--scroll-up (&optional arg)
+  "Turn to the next page, or scroll as usual when ARG is given."
+  (interactive "P")
+  (if (and sp-reading-paginate (not arg))
+      (sp-reading-next-page)
+    (scroll-up-command arg)))
+
+(defun sp-reading--scroll-down (&optional arg)
+  "Turn to the previous page, or scroll as usual when ARG is given."
+  (interactive "P")
+  (if (and sp-reading-paginate (not arg))
+      (sp-reading-previous-page)
+    (scroll-down-command arg)))
+
 (defun sp-reading--save (var)
   "Remember the local state of VAR so that it can be restored."
   (push (list var (local-variable-p var) (and (boundp var) (symbol-value var)))
@@ -290,7 +417,10 @@ page is then not full."
 Sets wide margins, extra line spacing and no fringes, shows a header
 line (state, title, word count, fake page or percentage; see
 `sp-reading-progress') and a mode line with a progress bar, wraps
-lines at the window edge and turns `olivetti-mode' off while it is active
+lines at the window edge, moves Org heading stars and bullets to the
+margin (a level 4 heading runs into its paragraph), resizes the frame,
+makes the scroll commands turn whole pages (see `sp-reading-paginate')
+and turns `olivetti-mode' off while it is active
 (it would fight for the same margins).  Turning the mode off puts
 every setting back as it was."
   :lighter " Read"
@@ -303,7 +433,8 @@ every setting back as it was."
         (dolist (var '(line-spacing left-margin-width right-margin-width
                        left-fringe-width right-fringe-width
                        word-wrap truncate-lines
-                       header-line-format mode-line-format))
+                       header-line-format mode-line-format
+                       font-lock-extra-managed-props))
           (sp-reading--save var))
         (push (list 'visual-line-mode nil (bound-and-true-p visual-line-mode))
               sp-reading--saved)
@@ -317,9 +448,21 @@ every setting back as it was."
           (sp-reading--remap-faces)
           (setq-local header-line-format '(:eval (sp-reading--header))
                       mode-line-format '(:eval (sp-reading--footer))))
+        (when (derived-mode-p 'org-mode)
+          (setq sp-reading--keywords (sp-reading--make-keywords))
+          (setq-local font-lock-extra-managed-props
+                      (cons 'display font-lock-extra-managed-props))
+          (font-lock-add-keywords nil sp-reading--keywords 'append)
+          (font-lock-flush))
+        (sp-reading--resize-frame)
         (add-hook 'window-configuration-change-hook #'sp-reading--refresh nil t)
         (sp-reading--refresh))
     (remove-hook 'window-configuration-change-hook #'sp-reading--refresh t)
+    (when sp-reading--keywords
+      (font-lock-remove-keywords nil sp-reading--keywords)
+      (setq sp-reading--keywords nil)
+      ;; `display' is still a managed property here, so this clears our margin text.
+      (font-lock-unfontify-buffer))
     (dolist (entry sp-reading--saved)
       (pcase-let ((`(,var ,local ,value) entry))
         (cond ((eq var 'olivetti-mode)
@@ -331,6 +474,9 @@ every setting back as it was."
     (setq sp-reading--saved nil)
     (mapc #'face-remap-remove-relative sp-reading--remaps)
     (setq sp-reading--remaps nil)
+    (when (derived-mode-p 'org-mode)
+      (font-lock-flush))
+    (sp-reading--restore-frame)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-margins window left-margin-width right-margin-width)
       (set-window-fringes window nil nil))))
