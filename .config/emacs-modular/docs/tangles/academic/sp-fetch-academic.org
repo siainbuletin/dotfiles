@@ -329,8 +329,6 @@ Refer to the documentation for how to install it with [[id:20261030T003159.60807
 
 The =litdb.el= header has no =Package-Requires=, so Elpaca installs none of what it =require='s (=hydra=, =request=, =counsel=; =openalex= comes with =org-ref=). Without them the load failed with =Cannot load litdb=; they are installed here, and =litdb= waits for them with =:after=.
 
-*** TODO Test whether this package is actually pulled with the recipe
-
 ** Doing vector search with litdb
 
 ** Configuring the MCP server so it works with Claude as well

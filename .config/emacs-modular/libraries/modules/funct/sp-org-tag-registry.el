@@ -62,6 +62,7 @@
         ("zettel")
         ("thesis")
         ("format")
+        ("website")
         ;; sp-org-tag-add: new tags go above this line
         ))
 
