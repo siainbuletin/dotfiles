@@ -34,13 +34,12 @@
 ;; code review harness
 (use-package code-review
   :ensure t
-  ;; code-review defines its database class on `emacsql-sqlite-connection',
-  ;; which forge pulls in. Loading code-review before that gives "Given parent
-  ;; class emacsql-sqlite-connection is not a class".
-  :after forge
-  :init
-  (require 'emacsql-sqlite)
-
+  ;; Load only when a review is started. code-review defines its database
+  ;; class on `emacsql-sqlite-connection', which the installed emacsql may not
+  ;; provide ("Given parent class emacsql-sqlite-connection is not a class").
+  ;; Loading it eagerly (even `:after forge') broke Magit, so `yadm' failed.
+  :defer t
+  :commands (code-review-start code-review-forge-pr-at-point)
   :custom
   (code-review-fill-column 80) ;; Define line wrap in comment sections.
   (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
