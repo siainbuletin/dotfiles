@@ -1024,7 +1024,7 @@ In =auto= mode:
 =sp-dashboard-condition-focus= is true when:
 
 - the file =sp-dashboard-focus-flag-file= exists, or
-- macOS reports a Focus as on in =~/Library/DoNotDisturb/DB/Assertions.json=. Reading it can need Full Disk Access for Emacs; without it only the flag file works.
+- macOS reports a Focus as on in =~/Library/DoNotDisturb/DB/Assertions.json=, and =sp-dashboard-read-macos-focus= is non-nil. It is *nil by default*: the file is protected, and without Full Disk Access every read and watch is refused and =tccd= (the macOS privacy daemon) spins on the attempts. With it nil, the file is neither read nor watched, and only the flag file works.
 
 Focus options:
 
@@ -1164,16 +1164,27 @@ nil means any Focus that macOS reports as on."
   :type '(repeat string)
   :group 'spcustom)
 
+(defcustom sp-dashboard-read-macos-focus nil
+  "Non-nil means read and watch the macOS Focus file to find out if a Focus is on.
+The file, ~/Library/DoNotDisturb/DB/Assertions.json, is protected: Emacs
+needs Full Disk Access to open it.  Without that, every read and every watch
+is refused and `tccd', the macOS privacy daemon, logs each attempt and can
+use a lot of CPU.  While this is nil the file is never touched; the flag file
+`sp-dashboard-focus-flag-file' still works."
+  :type 'boolean
+  :group 'spcustom)
+
 (defconst sp-dashboard--focus-assertions-file
   "~/Library/DoNotDisturb/DB/Assertions.json"
   "Where macOS records the Focus modes that are on.")
 
 (defun sp-dashboard--active-focus-identifiers ()
   "Return the identifiers of the Focus modes macOS reports as on, or nil.
-Reading the file can need Full Disk Access for Emacs; without it this is nil."
+Always nil, without touching the file, unless `sp-dashboard-read-macos-focus'
+is non-nil.  Reading the file needs Full Disk Access for Emacs."
   (let ((file (expand-file-name sp-dashboard--focus-assertions-file))
         ids)
-    (when (file-readable-p file)
+    (when (and sp-dashboard-read-macos-focus (file-readable-p file))
       (condition-case nil
           (let ((json (with-temp-buffer
                         (insert-file-contents file)
@@ -1271,7 +1282,8 @@ nil turns the timer off; the Focus files are still watched."
   (unless sp-dashboard--public-watches
     (require 'filenotify)
     (sp-dashboard--watch-file sp-dashboard-focus-flag-file)
-    (sp-dashboard--watch-file sp-dashboard--focus-assertions-file)))
+    (when sp-dashboard-read-macos-focus
+      (sp-dashboard--watch-file sp-dashboard--focus-assertions-file))))
 
 (defun sp-dashboard-public-p ()
   "Return non-nil when private entries must stay out of the dashboard."
