@@ -7,3 +7,4 @@ synology/secrets.yaml
 *.blb
 *.log
 state.pickle
+library.db
