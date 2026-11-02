@@ -43,7 +43,7 @@
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
- 
+
 ;; Personal functions for better searching
 
 ;; Acting on searches

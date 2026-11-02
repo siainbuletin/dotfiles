@@ -10,9 +10,25 @@ Literate source for =libraries/modules/text/sp-org-custom-highlight.el=.
 
 A tiny module that makes Org inline export snippets of the form =@@comment:...@@= stand out visually, so they can be used as review notes inside running text. It defines one face and adds a font-lock rule in =org-mode-hook=.
 
-The file has no header, no =provide= form, and is not required by =init.el= or any other module, so at present it is not loaded. To use it, it would need a =(provide 'sp-org-custom-highlight)= line and a =require= from one of the Org modules.
+The file is required by =sp-org-ext=, To use it, it would need a =(provide 'sp-org-custom-highlight)= line and a =require= from one of the Org modules.
 
 * Inline comment highlighting
+
+** Header
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-org-custom-highlight.el --- Org emphasis helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Small function which creates a bespoke org-mode comment which is supposed
+;; to mimic the behavior of comments in Obsidian, making them stand out in the
+;; text as tasks I need to take care of.
+
+;;; Code:
+#+end_src
 
 ** The comment face
 
@@ -43,4 +59,12 @@ On every Org buffer, adds a font-lock keyword that matches =@@comment:= followed
                 (2 'my-org-inline-comment prepend)
                 (3 'shadow prepend)))
              'append)))
+#+end_src
+
+* Provide
+
+Provides the =sp-org-custom-highlight= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-org-custom-highlight)
 #+end_src

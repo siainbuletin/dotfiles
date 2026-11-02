@@ -24,6 +24,8 @@
 (require 'sp-vulpea-ext)
 (require 'sp-collection-query-tables) ;; my own table modules
 
+(require 'sp-org-custom-highlight)
+
 ;;;;; Other extensions
 
 ;;;; Org Contrib

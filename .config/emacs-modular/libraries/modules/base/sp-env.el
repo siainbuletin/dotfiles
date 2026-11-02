@@ -37,7 +37,6 @@
                  "STARDICT_DATA_DIR"))
     (exec-path-from-shell-copy-env var)))
 
-
 ;; Configuring the load-path (all of this is now done recursively from the
 ;; variables I have set from the user in ealy-init.el)
 

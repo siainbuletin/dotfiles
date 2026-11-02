@@ -1,3 +1,13 @@
+;;; sp-org-custom-highlight.el --- Org emphasis helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Small function which creates a bespoke org-mode comment which is supposed
+;; to mimic the behavior of comments in Obsidian, making them stand out in the
+;; text as tasks I need to take care of.
+
+;;; Code:
+
 (defface my-org-inline-comment
   '((t :background "#fff3a3" :foreground "black"))
   "Face for @@comment:...@@ inline comments.")
@@ -11,3 +21,5 @@
                 (2 'my-org-inline-comment prepend)
                 (3 'shadow prepend)))
              'append)))
+
+(provide 'sp-org-custom-highlight)

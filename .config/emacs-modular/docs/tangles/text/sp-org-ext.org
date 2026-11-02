@@ -99,6 +99,14 @@ Because they are only reached through this file, disabling =sp-org-ext= also dis
 (require 'sp-collection-query-tables) ;; my own table modules
 #+end_src
 
+** Personal org extensions
+
+This loads [[file:~/.config/emacs-modular/docs/tangles/text/sp-org-custom-highlight.org][sp-org-custom-highlight.el: Highlighting inline comments in Org]]
+
+#+begin_src emacs-lisp -i
+(require 'sp-org-custom-highlight)
+#+end_src
+
 * Other Org packages
 
 ** org-contrib

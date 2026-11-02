@@ -10,14 +10,14 @@
 ;; Olivetti makes sure that every org buffer is being wrapped properly.
 (use-package olivetti
   :ensure t
-  
+
   :custom
   (olivetti-minimum-body 100)
   (olivetti-body-width 0.8)
-  
+
   :bind
   (("C-c w o" . sp-olivetti))
-  
+
   :hook
   (org-mode . olivetti-mode))
 
