@@ -361,6 +361,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Org modules: `sp-org-agenda' declares org-super-agenda
                     ;; and then org-ql, which requires it.
                     'sp-org-base
+                    'sp-vault-perf ;; settings for a vault of ~10k notes (docs/tangles/text/sp-vault-perf.org)
                     'sp-org-keywords ;; the one list of TODO keywords
                     'sp-denote
                     'sp-org-appearance
