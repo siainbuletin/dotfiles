@@ -28,7 +28,6 @@
     ("@home"              :emoji "🏠")
     ("@uni"               :emoji "🎓")
     ("@computer"          :emoji "💻")
-    ("@phone"             :emoji "📱")
     ("@planning"          :emoji "🗺️")
     ("@configuration"     :emoji "⚙️")
     ("@writing"           :emoji "✍️")
