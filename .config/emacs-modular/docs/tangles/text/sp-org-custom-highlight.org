@@ -86,7 +86,7 @@ To avoid typing the full syntax, bind a small insertion command:
     (backward-char 2)))
 
 (with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c h") #'sp-org-insert-inline-comment))
+  (define-key org-mode-map (kbd "C-c h") #'my-org-insert-inline-comment))
 #+end_src
 
 With a region selected, C-c h wraps it, which gives roughly the ==text== workflow.

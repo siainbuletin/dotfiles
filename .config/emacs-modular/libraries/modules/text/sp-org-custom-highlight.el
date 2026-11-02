@@ -23,7 +23,7 @@ Inherits `lazy-highlight', which `sp-themes' tints from the theme in use.")
                 (3 'shadow prepend)))
              'append)))
 
-(defun sp-org-insert-inline-comment ()
+(defun my-org-insert-inline-comment ()
   (interactive)
   (if (use-region-p)
       (let ((text (buffer-substring (region-beginning) (region-end))))
@@ -33,6 +33,6 @@ Inherits `lazy-highlight', which `sp-themes' tints from the theme in use.")
     (backward-char 2)))
 
 (with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c h") #'sp-org-insert-inline-comment))
+  (define-key org-mode-map (kbd "C-c h") #'my-org-insert-inline-comment))
 
 (provide 'sp-org-custom-highlight)

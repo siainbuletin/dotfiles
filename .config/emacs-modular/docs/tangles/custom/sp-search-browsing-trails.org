@@ -199,39 +199,6 @@ A heading comment reserved for commands that act on search results; nothing is d
   (let ((current-prefix-arg '(4))) (call-interactively #'consult-ripgrep)))
 #+end_src
 
-*** Recoll full-text search (Ivy)
-
-=counsel-recoll= searches the Recoll index through =recollq= and =ivy-read=, then opens the chosen file (with =swiper= for anything but a PDF). It is the one command here outside Vertico, and the =R= key of the menu below calls it when =recollq= is installed. These two definitions were in the tangled =sp-search.el= but had dropped out of this doc when the three search docs were merged, so a re-tangle removed them while the menu still called the command.
-
-#+begin_src emacs-lisp -i
-;; More advanced searching
-
-(defun counsel-recoll-function (string &rest _unused)
-  "Issue recallq for STRING."
-  (if (< (length string) 3)
-      (counsel-more-chars 3)
-    (counsel--async-command
-     (format "recollq -b '%s'" string))
-    nil))
-
-(defun counsel-recoll (&optional initial-input)
-  "Search for a string in the recoll database.
-You'll be given a list of files that match.
-Selecting a file will launch `swiper' for that file.
-INITIAL-INPUT can be given as the initial minibuffer input."
-  (interactive)
-  (ivy-read "recoll: " 'counsel-recoll-function
-            :initial-input initial-input
-            :dynamic-collection t
-            :history 'counsel-git-grep-history
-            :action (lambda (x)
-                      (when (string-match "file://\\(.*\\)\\'" x)
-                        (let ((file-name (match-string 1 x)))
-                          (find-file file-name)
-                          (unless (string-match "pdf$" x)
-                            (swiper ivy-text)))))))
-#+end_src
-
 ** The search menu
 
 =M-x sp-search= (=C-c s m=) is the entry point. It shows a Magit-style buffer, =*sp-search*=, as the first screen, and opens the transient menu =sp-search-menu= at the top of the frame over it. The buffer has a header (the search directory and project, which completion frameworks are active in green, a warning if =rg= is missing), the current search with its results grouped by file, and the list of saved views. The menu gathers every search command of the configuration; closing it leaves the buffer, and =?= opens it again.
