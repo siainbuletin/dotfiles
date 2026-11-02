@@ -18,7 +18,13 @@ The files have no newline after their last line (except where noted). Org always
 | [[*sp-bibprocess.el]] | =libraries/modules/academic/sp-bibprocess.el= | BibTeX files, citation keys and attachment checks |
 | [[*sp-pdfprocess.el]] | =libraries/modules/academic/sp-pdfprocess.el= | PDF metadata and the emacs-reader viewer |
 | [[*sp-citations.el]] | =libraries/modules/academic/sp-citations.el= | Citations with org-cite, CSL and Citar |
-| [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-denote and citar-vulpea |
+| [[*sp-litnotes.el]] | =libraries/modules/academic/sp-litnotes.el= | Literature notes with citar-vulpea |
+| [[file:../funct/sp-org-lint.org::*sp-litnotes-refs.el][sp-litnotes-refs.el]] | =libraries/modules/academic/sp-litnotes-refs.el= | Litnote lint: dry-run report and conversion of =#+reference:= to =ROAM_REFS= (doc in sp-org-lint.org) |
+| [[file:../funct/sp-org-lint.org::*sp-litnotes-titles.el][sp-litnotes-titles.el]] | =libraries/modules/academic/sp-litnotes-titles.el= | Litnote lint: dry-run report, short reference titles and citekey file names for litnotes (doc in sp-org-lint.org) |
+| [[file:../funct/sp-org-lint.org::*sp-author-notes.el][sp-author-notes.el]] | =libraries/modules/funct/sp-author-notes.el= | Author lint: author notes, =Works= tables and link checks from =pub-author= (doc in sp-org-lint.org) |
+| [[file:../funct/sp-org-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]] | =libraries/modules/funct/sp-author-notes-bibtex.el= | Author lint: BibTeX works of an author with no litnote yet (doc in sp-org-lint.org) |
+
+The last four rows are the author and litnote lint commands (=sp-litnotes-refs-report=, =sp-litnotes-refs-convert=, =sp-litnotes-titles-report=, =sp-litnotes-titles-apply=, =sp-author-notes=, =sp-author-notes-bibtex=). Their literate source is now in [[file:../funct/sp-org-lint.org][sp-org-lint.org]], one section each; the =.el= files and the =sp-litnotes= requires are unchanged.
 
 The fifth sub-module, =sp-fetch-academic= (search, DOI and download), has its own doc, [[file:sp-fetch-academic.org][sp-fetch-academic.org]].
 
@@ -143,7 +149,7 @@ File header, a note that the module needs to be better defined, and the roadmap 
 
 ** Loading the sub-modules
 
-Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]).
+Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and keys, =sp-pdfprocess= for PDFs, =sp-citations= for the =citar= and =org-cite= setup, =sp-litnotes= for literature notes and =sp-fetch-academic= for searching and downloading ([[file:sp-fetch-academic.org][its own doc]]). =sp-litdb= (the search of the pages you highlighted in DEVONthink, [[file:sp-litdb.org][its own doc]]) is required last.
 
 #+begin_src emacs-lisp -i
 ;;;; Requiring sub-libraries
@@ -153,6 +159,7 @@ Requires the five academic sub-modules: =sp-bibprocess= for BibTeX files and key
 (require 'sp-citations)
 (require 'sp-litnotes)
 (require 'sp-fetch-academic)
+(require 'sp-litdb)
 #+end_src
 
 ** Helper libraries
@@ -455,8 +462,11 @@ Also:
      ("file" "Relative or absolute path to attachments" "")))
   :config
   (sp-bibtex-register)
+  :hook (bibtex-mode . sp-bibtex-setup-completion)
   :bind
   (("C-c w b r" . sp-bibtex-register)
+   ("C-c w b l" . sp-bibtex-lint-report)
+   ("C-c w b L" . sp-bibtex-lint-apply)
    :map bibtex-mode-map
    ("H-b" . org-ref-bibtex-hydra/body))
 )
@@ -541,6 +551,453 @@ Two reports that compare the files stored in =sp-bibliography-dir= against the =
     (message "%s BibTeX files without matching attachment." (length missing))
     (dolist (file missing)
       (message file))))
+#+end_src
+
+** Linting the .bib files
+
+The lint and its completion are described in the order of the code. Nothing here creates author notes; the vault only provides the names to match and to complete.
+
+*** Options and requirements
+
+#+begin_src emacs-lisp -i
+;;;; Linting the .bib files
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'bibtex)
+(require 'sp-async-work)
+
+(defvar sp-var-dir)
+(defvar sp-bibliography-dir)
+(declare-function sp-author-notes-bibtex--people "sp-author-notes-bibtex")
+
+(defgroup sp-bibtex nil
+  "BibTeX files, names and lint."
+  :group 'convenience
+  :prefix "sp-bibtex-")
+
+(defcustom sp-bibtex-field-order
+  '("author" "editor" "title" "subtitle" "booktitle" "journaltitle" "journal"
+    "series" "edition" "volume" "number" "pages" "publisher" "address"
+    "location" "institution" "school" "year" "date" "month" "doi" "isbn"
+    "issn" "url" "urldate" "file" "keywords" "abstract" "note")
+  "The order of the fields in an entry; fields not listed follow, in their order."
+  :type '(repeat string)
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-name-particles
+  '("van" "von" "de" "der" "den" "del" "della" "di" "da" "du" "la" "le"
+    "ten" "ter" "bin" "al" "el")
+  "Lower case words that belong to the last name when it is written after the first name."
+  :type '(repeat string)
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-lint-backup-directory
+  (expand-file-name "bibtex-lint-backups/"
+                    (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
+  "Folder where a .bib file is copied before `sp-bibtex-lint-apply' writes it."
+  :type 'directory
+  :group 'sp-bibtex)
+
+(defcustom sp-bibtex-people-cache-seconds 600
+  "Seconds the list of author notes is kept for name completion and the lint."
+  :type 'integer
+  :group 'sp-bibtex)
+#+end_src
+
+*** Names
+
+Names are the base of the lint. A name in an =author= or =editor= field is canonical when it reads =Last, First= (=van Gogh, Vincent=, =Smith, John=). =sp-bibtex-canonical-name= turns =John Smith= into =Smith, John=, keeps lower case particles (=sp-bibtex-name-particles=) with the last name, and leaves corporate names in braces (={Big Corp}=), =others= and one-word names alone. Splitting at =and= and at spaces ignores what is inside braces.
+
+#+begin_src emacs-lisp -i
+(defun sp-bibtex--unwrap (value)
+  "VALUE without its outer braces or quotes, and the delimiter pair; nil if it has none.
+Return (TEXT . OPEN), or nil for a value that is a macro or a concatenation."
+  (let ((value (string-trim value)))
+    (when (> (length value) 1)
+      (let ((open (aref value 0)) (close (aref value (1- (length value)))))
+        (cond
+         ((and (eq open ?{) (eq close ?}) (sp-bibtex--balanced-p (substring value 1 -1)))
+          (cons (substring value 1 -1) ?{))
+         ((and (eq open ?\") (eq close ?\") (not (string-search "\"" (substring value 1 -1))))
+          (cons (substring value 1 -1) ?\")))))))
+
+(defun sp-bibtex--balanced-p (text)
+  "Non-nil when the braces of TEXT never close more than they open and end even."
+  (let ((depth 0) (ok t))
+    (dolist (c (string-to-list text))
+      (cond ((eq c ?{) (cl-incf depth))
+            ((eq c ?}) (cl-decf depth) (when (< depth 0) (setq ok nil)))))
+    (and ok (= depth 0))))
+
+(defun sp-bibtex--split-depth0 (text separator-re)
+  "Split TEXT at the matches of SEPARATOR-RE that are outside braces."
+  (let ((depth 0) (start 0) (i 0) (n (length text)) parts)
+    (while (< i n)
+      (let ((c (aref text i)))
+        (cond ((eq c ?{) (cl-incf depth) (cl-incf i))
+              ((eq c ?}) (cl-decf depth) (cl-incf i))
+              ((and (= depth 0) (eq (string-match separator-re text i) i))
+               (push (substring text start i) parts)
+               (setq i (match-end 0) start i))
+              (t (cl-incf i)))))
+    (push (substring text start) parts)
+    (nreverse parts)))
+
+(defun sp-bibtex-split-names (text)
+  "The names in the author or editor TEXT, split at \" and \" outside braces."
+  (seq-remove #'string-empty-p
+              (mapcar #'string-trim
+                      (sp-bibtex--split-depth0 (replace-regexp-in-string "[ \t\n]+" " " text)
+                                               "[ \t]+and[ \t]+"))))
+
+(defun sp-bibtex-canonical-name (name)
+  "NAME as \"Last, First\".  A corporate {Name}, \"others\" and one-word names stay."
+  (let ((name (string-trim (replace-regexp-in-string "[ \t\n]+" " " name))))
+    (cond
+     ((or (string-empty-p name) (equal name "others")
+          (and (eq (aref name 0) ?{) (sp-bibtex--balanced-p name)
+               (= 1 (length (sp-bibtex--split-depth0 name "[ \t]+")))))
+      name)
+     ((string-search "," name)
+      (string-join (mapcar #'string-trim (sp-bibtex--split-depth0 name ",")) ", "))
+     (t
+      (let ((words (sp-bibtex--split-depth0 name "[ \t]+")))
+        (if (null (cdr words))
+            name
+          (let ((last (list (car (last words))))
+                (rest (butlast words)))
+            (while (and rest (member (car (last rest)) sp-bibtex-name-particles))
+              (push (car (last rest)) last)
+              (setq rest (butlast rest)))
+            (if (null rest)
+                name
+              (format "%s, %s" (string-join last " ") (string-join rest " "))))))))))
+
+(defun sp-bibtex-canonical-names (text)
+  "The author or editor TEXT with every name in the canonical form."
+  (string-join (mapcar #'sp-bibtex-canonical-name (sp-bibtex-split-names text)) " and "))
+
+(defun sp-bibtex--name-key (canonical)
+  "A lookup key for the CANONICAL name: lower case, no braces, dots or extra spaces."
+  (string-trim (replace-regexp-in-string
+                "[ \t]+" " "
+                (replace-regexp-in-string "[{}.]" "" (downcase canonical)))))
+#+end_src
+
+*** The author notes
+
+Author notes (=:person:= notes) are only /read/: =sp-bibtex-people= indexes their titles in the canonical form and keeps the index for =sp-bibtex-people-cache-seconds=. A name in a =.bib= file that is close to an author note (two edits, same first letters) is reported as a likely typo of it. A name with no note is /not/ reported and no note is ever created.
+
+#+begin_src emacs-lisp -i
+(defvar sp-bibtex--people-cache nil
+  "(TIME . INDEX) of the author notes, see `sp-bibtex-people'.")
+
+(defun sp-bibtex--make-people (titles)
+  "The index of the person TITLES: a plist of :names, :keys and :buckets."
+  (let ((keys (make-hash-table :test #'equal))
+        (buckets (make-hash-table :test #'equal))
+        names)
+    (dolist (title titles)
+      (let* ((canonical (sp-bibtex-canonical-name title))
+             (key (sp-bibtex--name-key canonical)))
+        (unless (gethash key keys)
+          (puthash key canonical keys)
+          (push canonical names)
+          (push canonical (gethash (sp-bibtex--bucket key) buckets)))))
+    (list :names (sort names #'string<) :keys keys :buckets buckets
+          :memo (make-hash-table :test #'equal))))
+
+(defun sp-bibtex--bucket (key)
+  "The bucket of the name KEY: the first letter of the last name and the first of the first name."
+  (let ((parts (split-string key ", " t)))
+    (format "%s|%s"
+            (if parts (substring (car parts) 0 (min 1 (length (car parts)))) "")
+            (if (cdr parts) (substring (cadr parts) 0 (min 1 (length (cadr parts)))) ""))))
+
+(defun sp-bibtex-people (&optional refresh)
+  "The index of the author notes, read again when REFRESH or older than the cache time."
+  (interactive "P")
+  (when (or refresh (null sp-bibtex--people-cache)
+            (> (- (float-time) (car sp-bibtex--people-cache))
+               sp-bibtex-people-cache-seconds))
+    (require 'sp-author-notes-bibtex)
+    (setq sp-bibtex--people-cache
+          (cons (float-time)
+                (sp-bibtex--make-people
+                 (mapcar (lambda (head) (plist-get head :title))
+                         (sp-author-notes-bibtex--people))))))
+  (cdr sp-bibtex--people-cache))
+
+(defun sp-bibtex--suggestion (canonical people)
+  "The author note a name CANONICAL is probably a typo of, or nil.
+It is the note in the same bucket with a name at most two edits away.  A name
+that has a note, or none close to it, gets nil."
+  (let ((key (sp-bibtex--name-key canonical)))
+    (unless (gethash key (plist-get people :keys))
+      (let* ((memo (plist-get people :memo))
+             (known (gethash key memo 'none)))
+        (if (not (eq known 'none))
+            known
+          (puthash key
+                   (seq-find (lambda (candidate)
+                               (<= (string-distance key (sp-bibtex--name-key candidate)) 2))
+                             (gethash (sp-bibtex--bucket key) (plist-get people :buckets)))
+                   memo))))))
+#+end_src
+
+*** Entries
+
+An entry is read with =bibtex-parse-entry= (raw values, in file order). Linting it gives the fields with canonical names in the order of =sp-bibtex-field-order= and a list of what differs. An entry that is rewritten is written as =@type{key,= with the fields aligned at the equal sign; its values keep their delimiters and text. An entry with a =%= comment line inside would lose it, so it is reported and never rewritten. The reading runs in slices of 100 entries through =sp-async-work=, like =sp-author-notes-bibtex=.
+
+#+begin_src emacs-lisp -i
+(defun sp-bibtex--field-rank (name)
+  "The rank of the field NAME in `sp-bibtex-field-order'; unlisted fields come last."
+  (or (seq-position sp-bibtex-field-order (downcase name)) (length sp-bibtex-field-order)))
+
+(defun sp-bibtex--lint-fields (fields people)
+  "Lint the FIELDS, an alist of name and raw value.
+Return (NEW-FIELDS . PROBLEMS): the fields with canonical names, in the
+configured order, and a list of strings that say what differs."
+  (let (problems new)
+    (dolist (field fields)
+      (let ((name (car field)) (value (cdr field)))
+        (when (member (downcase name) '("author" "editor"))
+          (when-let* ((unwrapped (sp-bibtex--unwrap value))
+                      (text (car unwrapped)))
+            (let ((fixed (sp-bibtex-canonical-names text)))
+              (unless (equal fixed (string-trim (replace-regexp-in-string "[ \t\n]+" " " text)))
+                (push (format "%s: %s → %s" name
+                              (replace-regexp-in-string "[ \t\n]+" " " text) fixed)
+                      problems)
+                (setq value (if (eq (cdr unwrapped) ?\")
+                                (format "\"%s\"" fixed)
+                              (format "{%s}" fixed))))
+              (when people
+                (dolist (n (sp-bibtex-split-names fixed))
+                  (when-let* ((near (sp-bibtex--suggestion n people)))
+                    (push (format "%s: %s is not an author note; did you mean %s?" name n near)
+                          problems)))))))
+        (push (cons name value) new)))
+    (setq new (nreverse new))
+    (let ((sorted (sort (copy-sequence new)
+                        (lambda (a b) (< (sp-bibtex--field-rank (car a))
+                                         (sp-bibtex--field-rank (car b)))))))
+      (unless (equal (mapcar #'car sorted) (mapcar #'car new))
+        (push (format "fields: %s → %s" (string-join (mapcar #'car new) " ")
+                      (string-join (mapcar #'car sorted) " "))
+              problems))
+      (cons sorted (nreverse problems)))))
+
+(defun sp-bibtex--entry-text (type key fields)
+  "The text of the entry TYPE, KEY and FIELDS (an alist of name and raw value)."
+  (let ((width (apply #'max 1 (mapcar (lambda (f) (length (car f))) fields))))
+    (concat "@" type "{" key ",\n"
+            (mapconcat (lambda (f)
+                         (format "  %s%s = %s," (car f)
+                                 (make-string (- width (length (car f))) ?\s) (cdr f)))
+                       fields "\n")
+            "\n}")))
+
+(defun sp-bibtex--lint-chunk (file limit people apply seen)
+  "Lint the entries from point in the current buffer, at most LIMIT of them.
+Return (RESULTS . MORE).  RESULTS lists (FILE KEY POSITION PROBLEMS); MORE is
+non-nil when LIMIT was reached.  SEEN is a hash table of the keys met so far.
+With APPLY the entries that differ are replaced in the buffer."
+  (let ((count 0) results)
+    (while (and (< count limit)
+                (re-search-forward "^[ \t]*@[[:alpha:]]+[ \t]*[{(]" nil t))
+      (cl-incf count)
+      (let ((beg (match-beginning 0))
+            (header (match-string 0)))
+        (goto-char beg)
+        (let* ((entry (ignore-errors (bibtex-parse-entry)))
+               (type (cdr (assoc "=type=" entry)))
+               (key (cdr (assoc "=key=" entry)))
+               (end (and entry (ignore-errors (bibtex-end-of-entry)))))
+          (if (not (and entry key end (not (member (downcase type) '("string" "preamble" "comment")))))
+              (progn
+                (unless (string-match-p "@[ \t]*\\(string\\|preamble\\|comment\\)" (downcase header))
+                  (push (list file (or key "?") beg
+                              '("could not be read (a comment inside?), left as it is"))
+                        results))
+                (goto-char (min (point-max) (1+ beg))))
+            (let* ((fields (seq-remove (lambda (f) (string-prefix-p "=" (car f))) entry))
+                   (linted (sp-bibtex--lint-fields fields people))
+                   (problems (cdr linted))
+                   (commented (save-excursion
+                                (goto-char beg)
+                                (re-search-forward "^[ \t]*%" end t))))
+              (when-let* ((first (gethash key seen)))
+                (push (format "duplicate key (also in %s)" (file-name-nondirectory first)) problems))
+              (puthash key (or (gethash key seen) file) seen)
+              (when commented
+                (setq problems (append problems '("has a comment inside, left as it is"))))
+              (when problems
+                (push (list file key beg problems) results))
+              (if (and apply (not commented)
+                       (not (equal fields (car linted)))
+                       (or (cl-some (lambda (p) (string-match-p "^\\(author\\|editor\\|fields\\):" p))
+                                    (cdr linted))))
+                  (let ((text (sp-bibtex--entry-text type key (car linted))))
+                    (goto-char beg)
+                    (delete-region beg end)
+                    (insert text))
+                (goto-char end)))))))
+    (cons (nreverse results) (>= count limit))))
+#+end_src
+
+*** Report and apply
+
+=M-x sp-bibtex-lint-report= (=C-c w b l=) lists the entries to fix, without changing a file. =M-x sp-bibtex-lint-apply= (=C-c w b L=) asks once, copies each file to =sp-bibtex-lint-backup-directory= and rewrites names and field order. Duplicate keys and names near an author note are only reported.
+
+#+begin_src emacs-lisp -i
+(defconst sp-bibtex-lint--buffer "*BibTeX lint*")
+
+(defun sp-bibtex-lint--files ()
+  "The .bib files to lint; a `user-error' says what is wrong when there are none."
+  (let ((files (seq-filter #'file-readable-p
+                           (if (boundp 'sp-bibtex-files) sp-bibtex-files nil))))
+    (or files
+        (user-error "No readable BibTeX files in `sp-bibtex-files'; run `sp-bibtex-register'"))))
+
+(defun sp-bibtex-lint--job (name files apply done)
+  "Run the lint job NAME over FILES; with APPLY write the changes.
+DONE gets the list of (FILE KEY POSITION PROBLEMS)."
+  (let ((people (condition-case nil (sp-bibtex-people) (error nil)))
+        (seen (make-hash-table :test #'equal))
+        (stamp (format-time-string "%Y%m%dT%H%M%S"))
+        all)
+    (sp-async-work-run
+     name
+     (list (list (if apply "rewriting BibTeX" "reading BibTeX") (lambda () files)
+                 (lambda (item job)
+                   (let* ((file (if (consp item) (car item) item))
+                          (buffer (if (consp item)
+                                      (cdr item)
+                                    (let ((b (generate-new-buffer " *sp-bibtex-lint*")))
+                                      (sp-async-work-on-cleanup job (lambda () (when (buffer-live-p b) (kill-buffer b))))
+                                      (when apply (sp-bibtex-lint--backup file stamp))
+                                      (with-current-buffer b
+                                        (insert-file-contents file)
+                                        (delay-mode-hooks (bibtex-mode))
+                                        (goto-char (point-min)))
+                                      b))))
+                     (with-current-buffer buffer
+                       (let ((result (sp-bibtex--lint-chunk file 100 people apply seen)))
+                         (setq all (append all (car result)))
+                         (if (cdr result)
+                             (sp-async-work-push job (cons file buffer))
+                           (when (and apply (buffer-modified-p))
+                             (write-region (point-min) (point-max) file nil 'silent)
+                             (when-let* ((visiting (find-buffer-visiting file)))
+                               (unless (buffer-modified-p visiting)
+                                 (with-current-buffer visiting (revert-buffer t t t)))))
+                           (kill-buffer buffer))))))))
+     :done (lambda (_job) (funcall done all)))))
+
+(defun sp-bibtex-lint--backup (file stamp)
+  "Copy FILE to the STAMP sub-folder of `sp-bibtex-lint-backup-directory'."
+  (let ((dir (expand-file-name (concat stamp "/") sp-bibtex-lint-backup-directory)))
+    (make-directory dir t)
+    (copy-file file (expand-file-name (file-name-nondirectory file) dir) t)))
+
+(defvar sp-bibtex-lint-report-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "RET") #'sp-bibtex-lint-visit)
+    (define-key map (kbd "g") #'sp-bibtex-lint-report)
+    map)
+  "Keymap of `sp-bibtex-lint-report-mode'.")
+
+(define-derived-mode sp-bibtex-lint-report-mode special-mode "BibTeX lint"
+  "Report of `sp-bibtex-lint-report'.
+\\{sp-bibtex-lint-report-mode-map}")
+
+(defun sp-bibtex-lint--render (results)
+  "Show RESULTS, a list of (FILE KEY POSITION PROBLEMS), in the report buffer."
+  (with-current-buffer (get-buffer-create sp-bibtex-lint--buffer)
+    (sp-bibtex-lint-report-mode)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (format "BibTeX lint: %d entr%s to fix.  RET visit   g refresh   M-x sp-bibtex-lint-apply to rewrite\n"
+                      (length results) (if (= 1 (length results)) "y" "ies")))
+      (dolist (r results)
+        (let ((start (point)))
+          (insert (format "\n* %s  [%s]\n" (nth 1 r) (file-name-nondirectory (nth 0 r))))
+          (dolist (p (nth 3 r)) (insert "  - " p "\n"))
+          (put-text-property start (point) 'sp-bibtex-entry r)))
+      (goto-char (point-min)))
+    (pop-to-buffer (current-buffer))))
+
+(defun sp-bibtex-lint-visit ()
+  "Visit the BibTeX entry of the section at point."
+  (interactive)
+  (let ((r (or (get-text-property (point) 'sp-bibtex-entry)
+               (user-error "No entry here"))))
+    (find-file-other-window (nth 0 r))
+    (goto-char (nth 2 r))))
+
+;;;###autoload
+(defun sp-bibtex-lint-report ()
+  "List what the .bib files of `sp-bibtex-files' break, without changing them.
+It checks the author and editor names (canonical form `Last, First', and
+names one typo away from an author note), the order of the fields
+(`sp-bibtex-field-order') and duplicate keys.  Notes for authors are never made."
+  (interactive)
+  (let ((files (sp-bibtex-lint--files)))
+    (sp-bibtex-lint--job "BibTeX lint" files nil #'sp-bibtex-lint--render)))
+
+;;;###autoload
+(defun sp-bibtex-lint-apply ()
+  "Rewrite names and field order in the .bib files after one question.
+Each file is copied to `sp-bibtex-lint-backup-directory' first.  Duplicate
+keys and names near an author note are reported, not changed; an entry with a
+comment inside is left alone."
+  (interactive)
+  (let ((files (sp-bibtex-lint--files)))
+    (when (seq-find #'buffer-modified-p (delq nil (mapcar #'find-buffer-visiting files)))
+      (user-error "Save the open .bib buffers first"))
+    (when (yes-or-no-p (format "Rewrite names and field order in %d .bib file%s (backups in %s)? "
+                               (length files) (if (cdr files) "s" "")
+                               sp-bibtex-lint-backup-directory))
+      (sp-bibtex-lint--job "BibTeX rewrite" files t
+                           (lambda (results)
+                             (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-report)"
+                                      (length results) (if (= 1 (length results)) "y" "ies")))))))
+#+end_src
+
+*** Completion
+
+=sp-bibtex-author-capf= completes the name under the cursor in an =author= or =editor= field (after =\{=, a quote or =and=) from the author notes, in the canonical form, so names are picked instead of typed. It is added to =completion-at-point-functions= in =bibtex-mode=.
+
+#+begin_src emacs-lisp -i
+(defun sp-bibtex-author-capf ()
+  "Complete a name in an author or editor field from the author notes.
+Add to `completion-at-point-functions' in `bibtex-mode'."
+  (when-let* ((_ (save-excursion
+                             (re-search-backward "^[ \t]*\\([[:alnum:]_-]+\\)[ \t]*=" nil t)))
+              (name (match-string-no-properties 1))
+              ((member (downcase name) '("author" "editor")))
+              (value-start (match-end 0))
+              ((string-match-p "[{\"]" (buffer-substring-no-properties value-start (point))))
+              (people (sp-bibtex-people)))
+    (let* ((end (point))
+           (start (save-excursion
+                    (if (re-search-backward "\\(?:[{\"]\\|\\band[ \t\n]+\\)" value-start t)
+                        (match-end 0)
+                      end))))
+      (when (<= start end)
+        (list start end
+              (lambda (string pred action)
+                (let ((completion-ignore-case t))
+                  (complete-with-action action (plist-get people :names) string pred)))
+              :exclusive 'no)))))
+
+(defun sp-bibtex-setup-completion ()
+  "Complete author names in this `bibtex-mode' buffer."
+  (add-hook 'completion-at-point-functions #'sp-bibtex-author-capf nil t))
 #+end_src
 
 ** Footer
@@ -868,11 +1325,15 @@ Return nil when POS is not inside a `[cite:]' link."
 
 (defun sp-cite-hover--reference (key)
   "Return the formatted reference of KEY from the bibliography, or nil.
-It uses the `preview' template of `citar-templates'."
-  (when (and key (require 'citar nil t))
-    (when-let* ((entry (citar-get-entry key))
-                (text (citar-format--entry (citar-get-template 'preview) entry)))
-      (string-trim (substring-no-properties text)))))
+It uses `citar-format-reference', which applies the `preview' template of
+`citar-templates'.  Any error from citar gives nil, so a hover never breaks."
+  (when (and key (require 'citar nil t) (fboundp 'citar-format-reference))
+    (and-let* ((entry (ignore-errors (citar-get-entry key)))
+               (text (ignore-errors (citar-format-reference (list key))))
+               ((stringp text))
+               (text (string-trim (substring-no-properties text)))
+               ((not (string-empty-p text))))
+      text)))
 
 (defun sp-cite-hover--help-echo (_window object pos)
   "Return the reference of the citation at POS in OBJECT for `help-echo'."
@@ -929,100 +1390,70 @@ Provides the =sp-citations= feature and closes the file.
 :header-args:emacs-lisp+: :tangle ../../../libraries/modules/academic/sp-litnotes.el
 :END:
 
-This academic module connects bibliography entries to notes.
+This academic module connects bibliography entries to notes. Literature notes are Vulpea notes; =citar-denote= is no longer used.
 
-- =citar-denote= creates one Denote file per reference (file-level literature notes) in a =litnotes= subdirectory.
-- =citar-vulpea= supports literature notes as Vulpea nodes inside larger files.
-- Both mark notes with the =litnote= keyword.
+- =citar-vulpea= makes Citar use Vulpea notes, tagged =litnote=, in =~/notes/litnotes=.
+- A note's citation key is the =@key= value of its =ROAM_REFS= property (the property Org-roam and Vulpea use for references), not a =#+reference:= keyword. =sp-litnotes-refs= converts the existing notes.
 
-It builds on Citar (configured in the citation module) and on Denote and Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
+It builds on Citar (configured in the citation module) and on Vulpea. It is required by =sp-academic=. The =C-c w b= prefix holds the literature-note keys.
 
-** File-level literature notes
-
-*** citar-denote
-
-Installs and enables =citar-denote-mode=, which makes Citar use Denote files as notes.
-
-- Citar always creates a note when you open notes for a reference that has none.
-- New literature notes are titled with author, year and title (=citar-denote-title-format=), using at most two author names (=citar-denote-title-format-authors=).
-- They are tagged with the Denote keyword =litnote= (=citar-denote-keyword=) and stored in the =litnotes= subdirectory of the Denote directory (=citar-denote-subdir=).
-- These four settings used to be =setq= forms after the =use-package=; they are now in its =:custom= block.
-- Global keys:
-  - =C-c w b c=: create a note,
-  - =C-c w b n=: open one,
-  - =C-c w b x=: add a nocite reference.
-- In Org buffers:
-  - =C-c w b k= and =C-c w b K=: add or remove a citekey from the current note,
-  - =C-c w b d=: run the do-what-I-mean command,
-  - =C-c w b e=: open the bibliography entry.
-
-#+begin_src emacs-lisp -i
-;;; sp-litnotes.el --- Literature notes with citar-denote and citar-vulpea -*- lexical-binding: t; -*-
-
-;;; Commentary:
-
-;; This academic module connects bibliography entries to notes. `citar-denote'
-;; creates one Denote file per reference (file-level literature notes) in a
-;; `litnotes' subdirectory, and `citar-vulpea' supports literature notes as
-;; Vulpea nodes inside larger files.
-
-;;; Code:
-
-;;;; File-level literature notes
-(use-package citar-denote
-  :ensure (:wait t)
-
-  :custom
-  (citar-open-always-create-notes t)
-  (citar-denote-title-format 'author-year-title)
-  (citar-denote-title-format-authors '2)
-  (citar-denote-keyword "litnote")
-  (citar-denote-subdir "litnotes")
-
-  :init
-  (citar-denote-mode)
-  
-  :bind
-  (("C-c w b c" . citar-create-note)
-   ("C-c w b n" . citar-denote-open-note)
-   ("C-c w b x" . citar-denote-nocite)
-   
-   :map org-mode-map
-   ("C-c w b k" . citar-denote-add-citekey)
-   ("C-c w b K" . citar-denote-remove-citekey)
-   ("C-c w b d" . citar-denote-dwim)
-   ("C-c w b e" . citar-denote-open-reference-entry)))
-#+end_src
-
-** Node-level literature notes
+** Literature notes as Vulpea nodes
 
 *** citar-vulpea
 
-Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be linked to Vulpea nodes.
+Installs =citar-vulpea=, loaded after Citar and Vulpea, and turns on =citar-vulpea-mode=, which registers it as Citar's notes source.
 
-- Notes use the =litnote= tag.
-- Citation keys are stored in a =REFERENCES= property.
-- Notes are titled "author (date) title" and live in =~/notes/litnotes=.
-- A comment says the title template still needs to match the citar-denote convention.
+- Notes use the =litnote= tag and the =ROAM_REFS= property, notes are titled "author (date) title" and live in =~/notes/litnotes=.
+- Citar always creates a note when you open notes for a reference that has none (=citar-open-always-create-notes=, which was set by the =citar-denote= block).
+- Global keys: =C-c w b c= creates a note, =C-c w b n= opens one.
+- In Org buffers: =C-c w b k= and =C-c w b K= add or remove a citekey of the current note, =C-c w b d= runs the do-what-I-mean command (opens the reference of the note, or offers to add one), =C-c w b e= opens a bibliography entry (it asks which; =citar-denote-open-reference-entry= took it from the note).
+- =C-c w b x= (=citar-denote-nocite=) is gone; =citar-vulpea= has no equivalent.
+- The title template still has to be matched to the titles of the existing notes (many are just the citekey).
 
 #+begin_src emacs-lisp -i
-;;;; Node-level literature note configuration
+;;; sp-litnotes.el --- Literature notes with citar-vulpea -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This academic module connects bibliography entries to notes.  `citar-vulpea'
+;; makes Citar use Vulpea notes as literature notes, with the citation key in
+;; the `ROAM_REFS' property.  `sp-litnotes-refs' converts notes made by
+;; `citar-denote' (which used a `#+reference:' keyword).
+
+;;; Code:
+
+;;;; Literature notes as Vulpea nodes
 (use-package citar-vulpea
   :ensure t
   :after (citar vulpea)
-  
+
   :custom
   ;; Tag used to identify bibliographic notes
   (citar-vulpea-keyword "litnote")
-  
+
   ;; Name of the property used for citation keys
-  (citar-vulpea-references-property "REFERENCES")
-  
+  (citar-vulpea-references-property "ROAM_REFS")
+
   ;; Template for new note titles
-  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the citar-denote workflow
+  (citar-vulpea-note-title-template "${author} (${date}) ${title}") ;; this has to be adapted to the titles of the existing notes
 
   (citar-vulpea-notes-directory (sp-path sp-notes-dir "litnotes/")) ;; Directory to store notes (nil uses vulpea-default-notes-directory)
-)
+
+  ;; Create a note when opening notes for a reference that has none
+  (citar-open-always-create-notes t)
+
+  :config
+  (citar-vulpea-mode 1)
+
+  :bind
+  (("C-c w b c" . citar-create-note)
+   ("C-c w b n" . citar-open-notes)
+
+   :map org-mode-map
+   ("C-c w b k" . citar-vulpea-add-reference)
+   ("C-c w b K" . citar-vulpea-remove-reference)
+   ("C-c w b d" . citar-vulpea-dwim)
+   ("C-c w b e" . citar-open-entry)))
 #+end_src
 
 ** Provide
@@ -1030,9 +1461,30 @@ Installs =citar-vulpea=, loaded after Citar and Vulpea, so references can be lin
 Provides the =sp-litnotes= feature and closes the file.
 
 #+begin_src emacs-lisp -i
+(require 'sp-litnotes-refs)
+(require 'sp-litnotes-titles)
+
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
 #+end_src
+
+* Tasks and planned features (+ brainstorming)
+** TODO See what's up with these BibTeX field properties
+
+(setq bibtex-entry-format
+      `(page-dashes required-fields
+         numerical-fields whitespace last-comma delimiters
+         unify-case sort-fields))
+
+(setq bibtex-field-delimiters 'double-quotes)
+(setq bibtex-entry-delimiters 'braces)
+
+** TODO See if it would be a good idea to use Rougier's PDF drop mode for capturing PDF files
+
+;; (straight-use-package
+;; '(pdf-drop-mode :type git :host github :repo "rougier/pdf-drop-mode"))
+
+Still, perhaps it would be better to just make use of DEVONthink's native capturing features for this, since it already uses a watch folder for pulling in references.
 
 * Changes by pull request
 
@@ -1040,3 +1492,6 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/90][#90]] 🔧 Changed the BibTeX setup in =sp-academic=, =sp-bibprocess= and =sp-citations=: one citation-key scheme (=smith-2017-atten-is=) set once, one registered list of =.bib= files for Org, Citar, org-ref and helm-bibtex, Citar's library, notes and icons options now applied, and the repeated definitions removed.
 - [[https://github.com/siainbuletin/dotfiles/pull/PRNUM][#PRNUM]] ✨ Added the reference hover for =[cite:@key]= links in =sp-citations= (tooltip and Eldoc echo area, =sp-cite-hover-display=).
+- [[https://github.com/siainbuletin/dotfiles/pull/210][#210]] 🔧 Replaced =citar-denote= with =citar-vulpea= in =sp-litnotes= (=ROAM_REFS= property, =citar-vulpea-mode= on) and ✨ added =sp-litnotes-refs= (=sp-litnotes-refs-report= dry run, =sp-litnotes-refs-convert=).
+- [[https://github.com/siainbuletin/dotfiles/pull/221][#221]] ✨ Added =sp-litnotes-titles= (=sp-litnotes-titles-report= dry run, =sp-litnotes-titles-apply=): copies =pub-title= to =#+title:= and renames the litnote files to match, keeping the Denote identifier, keywords and =:ID:=.
+- [[https://github.com/siainbuletin/dotfiles/pull/224][#224]] 🔧 Changed =sp-litnotes-titles=: the title is a short reference with last names (=Reuten (2014) The value form as a social form=; =A and B=, =A, B and C=, =A, B et al.= from four authors), a missing year fails, apply asks for the values failed notes lack, and the file is named after the citation key alone (=reuten2014value.org=).

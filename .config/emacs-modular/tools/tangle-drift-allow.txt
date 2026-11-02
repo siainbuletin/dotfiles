@@ -1,4 +1,3 @@
-# Modules whose committed .el differs from what their doc tangles to (2026-10-29).
+# Modules whose committed .el differs from what their doc tangles to.
 # Decide per file which side is right, fix the doc or the .el, then delete the line.
-# custom/sp-graphs: the doc has a vulpea-graph use-package block the .el lacks.
-libraries/modules/custom/sp-graphs.el
+# One module path per line (libraries/modules/...). Empty on 2026-10-30.

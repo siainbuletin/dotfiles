@@ -135,5 +135,59 @@
        (when-let* ((buf (get-file-buffer file))) (kill-buffer buf))
        (delete-directory dir t)))))
 
+(defmacro sp-quick-capture-test--with-spool (&rest body)
+  "Run BODY with a temporary inbox and spool; bind `dir', `file' and `spool'."
+  `(let* ((dir (make-temp-file "sp-qc" t))
+          (file (expand-file-name "inbox.org" dir))
+          (spool (expand-file-name "spool" dir))
+          (sp-quick-capture-file file)
+          (sp-quick-capture-spool-dir spool))
+     (make-directory spool)
+     (unwind-protect (progn ,@body)
+       (when-let* ((buf (get-file-buffer file))) (kill-buffer buf))
+       (delete-directory dir t))))
+
+(defun sp-quick-capture-test--spool (spool name line time)
+  (let ((f (expand-file-name name spool)))
+    (with-temp-file f (insert line "\n"))
+    (set-file-times f time)
+    f))
+
+(ert-deftest sp-quick-capture-test-drain-uses-capture-time ()
+  (sp-quick-capture-test--with-tags
+   (sp-quick-capture-test--with-spool
+    ;; Captured Friday 2026-10-23, filed whenever: "!tom" is the 24th.
+    (sp-quick-capture-test--spool spool "1-a.txt" "Buy milk #errands !tom"
+                                  sp-quick-capture-test--now)
+    (should (= (sp-quick-capture-drain) 1))
+    (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+      (should (string-match-p "TODO Buy milk +:@errands:" text))
+      (should (string-match-p "DEADLINE: <2026-10-24 Sat>" text))
+      (should (string-match-p ":CREATED:  \\[2026-10-23 12:00\\]" text)))
+    (should-not (sp-quick-capture-pending)))))
+
+(ert-deftest sp-quick-capture-test-drain-keeps-order-and-ignores-partial ()
+  (sp-quick-capture-test--with-spool
+   (sp-quick-capture-test--spool spool "2-b.txt" "second" sp-quick-capture-test--now)
+   (sp-quick-capture-test--spool spool "1-a.txt" "first" sp-quick-capture-test--now)
+   (sp-quick-capture-test--spool spool ".new.XYZ" "half written" sp-quick-capture-test--now)
+   (should (= (sp-quick-capture-drain) 2))
+   (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+     (should (< (string-match "first" text) (string-match "second" text)))
+     (should-not (string-match-p "half written" text)))
+   (should (file-exists-p (expand-file-name ".new.XYZ" spool)))))
+
+(ert-deftest sp-quick-capture-test-drain-parks-failures ()
+  (sp-quick-capture-test--with-spool
+   (sp-quick-capture-test--spool spool "1-a.txt" "#deep" sp-quick-capture-test--now)
+   (sp-quick-capture-test--spool spool "2-b.txt" "fine" sp-quick-capture-test--now)
+   (should (= (sp-quick-capture-drain) 1))
+   (should (file-exists-p (expand-file-name "failed/1-a.txt" spool)))
+   (should-not (sp-quick-capture-pending))))
+
+(ert-deftest sp-quick-capture-test-drain-without-spool ()
+  (let ((sp-quick-capture-spool-dir "/nonexistent/sp-qc-spool"))
+    (should (= (sp-quick-capture-drain) 0))))
+
 (provide 'sp-quick-capture-test)
 ;;; sp-quick-capture-test.el ends here

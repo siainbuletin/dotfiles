@@ -1,0 +1,273 @@
+#+TITLE: sp-async-work.el: Long jobs that leave Emacs usable
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-async-work.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-async-work.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* Why this exists
+
+The author and litnote commands ([[file:sp-org-lint.org::*sp-author-notes.el][sp-author-notes]], [[file:sp-org-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex]], [[file:sp-org-lint.org::*sp-litnotes-refs.el][sp-litnotes-refs]], [[file:sp-org-lint.org::*sp-litnotes-titles.el][sp-litnotes-titles]]) read every note of the vault, and some read every BibTeX entry. Run in one go they freeze Emacs for as long as that takes.
+
+There were two ways to avoid that:
+
+1. *A second Emacs* (what the footnote lint in [[file:sp-org-lint.org::*Sectional footnotes][sp-org-lint]] does, with =emacs -Q --batch=). It fits a job that is a pure function from a file to a result. These commands are not: they ask questions in the middle (which of two readings of =Smith, John, Doe, Jane= is right, what to type for a missing year), they look names up in the Vulpea database and the =id:= links of the running Emacs, they create notes through the interactive note machinery, and they update the Vulpea database and the open buffers after writing. A headless Emacs has none of that, so the work would have to be cut into a worker part and a main part for every command, and the two copies of the logic kept equal.
+2. *Cutting the job into slices* in the same Emacs, with a timer. Every question, every database call and every buffer check stays exactly where it was; the job just gives control back to Emacs every 50 ms, and stops early when you press a key. Nothing runs in parallel, so there is no race between the job and your editing: a slice is an ordinary command that happens to run between two of your keystrokes.
+
+This module is option 2. A job is a list of /stages/; a stage is a list of items and a function that handles one item. Reading one note, parsing one =.bib= file or writing one note is an item, so a slice ends at the next item boundary. (A single huge item still takes its time: that is the price of not having a second process.)
+
+What the commands keep from before:
+
+- The report comes first, and nothing is written until you agree.
+- Every written file is copied to a backup folder first.
+- A file is checked again right before it is written (open and unsaved, changed since the report), so editing a note while a job runs is safe.
+
+What is new:
+
+- The progress is in the mode line, for example =[Litnote titles writing 12/340]=.
+- =M-x sp-async-work-cancel= stops a job. Files already written stay written (each has its backup); the rest are left alone.
+- A job waits while you are typing in the minibuffer, so its questions never interrupt your own.
+- =sp-async-work-synchronous=, when non-nil, runs every job to the end before the command returns. The tests use it.
+
+* File header
+
+#+begin_src emacs-lisp -i
+;;; sp-async-work.el --- Run long jobs in slices so Emacs stays usable -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-async-work-run' runs a job made of stages.  A stage is a list of items
+;; and a function that handles one item.  Items are handled in slices of
+;; `sp-async-work-slice' seconds, between your keystrokes, so Emacs stays
+;; usable.  The progress is shown in the mode line; `sp-async-work-cancel'
+;; stops a job.  See docs/tangles/funct/sp-async-work.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+#+end_src
+
+* Settings
+
+#+begin_src emacs-lisp -i
+(defgroup sp-async-work nil
+  "Run long jobs in slices so Emacs stays usable."
+  :group 'convenience
+  :prefix "sp-async-work-")
+
+(defcustom sp-async-work-slice 0.05
+  "Seconds a job works before it gives control back to Emacs."
+  :type 'number
+  :group 'sp-async-work)
+
+(defcustom sp-async-work-pause 0.01
+  "Seconds Emacs gets between two slices of a job."
+  :type 'number
+  :group 'sp-async-work)
+
+(defvar sp-async-work-synchronous nil
+  "When non-nil, `sp-async-work-run' runs the whole job before it returns.
+The tests bind this; the commands behave as usual otherwise.")
+#+end_src
+
+* The job
+
+A job holds the stages still to do, the stage it is working on (=current=), the items still to handle in it (=queue=) and the counts that the mode line shows. =cleanup= is a list of functions to call when the job ends in any way, for a step that opened a buffer.
+
+#+begin_src emacs-lisp -i
+(cl-defstruct (sp-async-work-job (:constructor sp-async-work--make) (:copier nil))
+  name          ; string, also the key of `sp-async-work-find'
+  stages        ; stages not started yet
+  current       ; (LABEL ITEMS-FUNCTION STEP-FUNCTION) of the running stage
+  queue         ; items of the running stage still to handle
+  (total 0) (done 0)
+  timer
+  (status 'running) ; running, finished, cancelled or failed
+  finish error-function cleanup)
+
+(defvar sp-async-work--jobs nil
+  "The jobs that are running, newest first.")
+
+(defun sp-async-work-find (name)
+  "Return the running job called NAME, or nil."
+  (seq-find (lambda (job) (equal (sp-async-work-job-name job) name))
+            sp-async-work--jobs))
+
+(defun sp-async-work-push (job item)
+  "Add ITEM to the front of the items of the running stage of JOB.
+A step uses this to handle a big item in several slices: handle a part of
+it, then push the rest."
+  (push item (sp-async-work-job-queue job))
+  (cl-incf (sp-async-work-job-total job)))
+
+(defun sp-async-work-on-cleanup (job function)
+  "Call FUNCTION when JOB ends, however it ends."
+  (push function (sp-async-work-job-cleanup job)))
+#+end_src
+
+* The mode line
+
+#+begin_src emacs-lisp -i
+(defun sp-async-work--mode-line ()
+  "The progress of the running jobs, for the mode line."
+  (when sp-async-work--jobs
+    (mapconcat
+     (lambda (job)
+       (let ((label (car (sp-async-work-job-current job))))
+         (propertize
+          (format " [%s%s %d/%d]" (sp-async-work-job-name job)
+                  (if label (concat " " label) "")
+                  (sp-async-work-job-done job) (sp-async-work-job-total job))
+          'help-echo "M-x sp-async-work-cancel stops the job"
+          'face 'mode-line-emphasis)))
+     (reverse sp-async-work--jobs) "")))
+
+(defvar sp-async-work--mode-line-entry '(:eval (sp-async-work--mode-line))
+  "What `global-mode-string' holds for this library.")
+
+(defun sp-async-work--show-in-mode-line ()
+  "Make sure the progress of the jobs is in the mode line."
+  (unless (listp global-mode-string)
+    (setq global-mode-string (list global-mode-string)))
+  (add-to-list 'global-mode-string 'sp-async-work--mode-line-entry t))
+#+end_src
+
+=global-mode-string= is a list in a normal Emacs, but a configuration may have set it to a string; the code above wraps it in that case. The entry is a symbol whose value is an =:eval= form, so it is added only once and the mode line shows it only while a job runs.
+
+* Running a job
+
+A slice handles items until the time is up, or a key is waiting, but always at least one, so a job makes progress even when keys are pressed all the time. The minibuffer check is first: when you are in the middle of typing an answer, the job waits half a second and looks again, so its own questions never replace yours.
+
+A stage starts by calling its items function, so a later stage can use what an earlier one found. When the last stage has no items left the job is finished and calls its =:done= function with the job.
+
+An error in an item stops the job (the timer would otherwise repeat it) and goes to =:on-error=, or to a message. In synchronous mode the error is signalled to the caller, as in any function.
+
+#+begin_src emacs-lisp -i
+(defun sp-async-work--end (job status)
+  "End JOB with STATUS: stop its timer, run its cleanups and forget it."
+  (setf (sp-async-work-job-status job) status)
+  (when (timerp (sp-async-work-job-timer job))
+    (cancel-timer (sp-async-work-job-timer job)))
+  (setf (sp-async-work-job-timer job) nil)
+  (setq sp-async-work--jobs (delq job sp-async-work--jobs))
+  (dolist (function (sp-async-work-job-cleanup job))
+    (ignore-errors (funcall function)))
+  (setf (sp-async-work-job-cleanup job) nil)
+  (force-mode-line-update t))
+
+(defun sp-async-work--begin-stage (job)
+  "Start the next stage of JOB."
+  (let ((stage (pop (sp-async-work-job-stages job))))
+    (setf (sp-async-work-job-current job) stage
+          (sp-async-work-job-done job) 0
+          (sp-async-work-job-queue job) (funcall (nth 1 stage)))
+    (setf (sp-async-work-job-total job) (length (sp-async-work-job-queue job)))))
+
+(defun sp-async-work--work (job synchronous)
+  "Handle items of JOB: all of them when SYNCHRONOUS, else for one slice."
+  (let ((deadline (+ (float-time) sp-async-work-slice))
+        (first t))
+    (while (and (eq (sp-async-work-job-status job) 'running)
+                (or synchronous first
+                    (and (< (float-time) deadline) (not (input-pending-p)))))
+      (setq first nil)
+      (cond ((sp-async-work-job-queue job)
+             (let ((item (pop (sp-async-work-job-queue job))))
+               (funcall (nth 2 (sp-async-work-job-current job)) item job)
+               (cl-incf (sp-async-work-job-done job))))
+            ((sp-async-work-job-stages job)
+             (sp-async-work--begin-stage job))
+            (t
+             (sp-async-work--end job 'finished)
+             (when (sp-async-work-job-finish job)
+               (funcall (sp-async-work-job-finish job) job)))))))
+
+(defun sp-async-work--fail (job err)
+  "End JOB because of the error ERR."
+  (sp-async-work--end job 'failed)
+  (if (sp-async-work-job-error-function job)
+      (funcall (sp-async-work-job-error-function job) err job)
+    (message "%s stopped: %s" (sp-async-work-job-name job) (error-message-string err))))
+
+(defun sp-async-work--schedule (job delay)
+  "Run the next slice of JOB after DELAY seconds."
+  (when (eq (sp-async-work-job-status job) 'running)
+    (setf (sp-async-work-job-timer job)
+          (run-with-timer delay nil #'sp-async-work--slice job))))
+
+(defun sp-async-work--slice (job)
+  "One slice of JOB, run by its timer."
+  (setf (sp-async-work-job-timer job) nil)
+  (when (eq (sp-async-work-job-status job) 'running)
+    (if (> (minibuffer-depth) 0)
+        (sp-async-work--schedule job 0.5)
+      (condition-case err
+          (sp-async-work--work job nil)
+        (error (sp-async-work--fail job err)))
+      (force-mode-line-update t)
+      (sp-async-work--schedule job sp-async-work-pause))))
+
+;;;###autoload
+(cl-defun sp-async-work-run (name stages &key done on-error)
+  "Run the job NAME made of STAGES, in slices; return the job.
+Each stage is a list (LABEL ITEMS-FUNCTION STEP-FUNCTION).  When the stage
+starts, ITEMS-FUNCTION is called with no arguments and returns the list of
+items.  STEP-FUNCTION is called with an item and the job for every item,
+and may add more with `sp-async-work-push'.  DONE is called with the job
+after the last item of the last stage; ON-ERROR with the error and the job
+when a step signals one.  A job of the same NAME that runs already is an
+error.  With `sp-async-work-synchronous' the job is finished when this
+returns."
+  (when (sp-async-work-find name)
+    (user-error "%s is still running; M-x sp-async-work-cancel stops it" name))
+  (let ((job (sp-async-work--make :name name :stages stages :finish done
+                                  :error-function on-error)))
+    (sp-async-work--show-in-mode-line)
+    (push job sp-async-work--jobs)
+    (if sp-async-work-synchronous
+        (condition-case err
+            (sp-async-work--work job t)
+          (error (sp-async-work--end job 'failed)
+                 (signal (car err) (cdr err))))
+      (sp-async-work--schedule job 0))
+    job))
+#+end_src
+
+* Cancelling
+
+#+begin_src emacs-lisp -i
+(defun sp-async-work-cancel-job (job)
+  "Stop JOB.  What it already did stays done."
+  (when (eq (sp-async-work-job-status job) 'running)
+    (sp-async-work--end job 'cancelled)
+    (message "%s cancelled after %d of %d" (sp-async-work-job-name job)
+             (sp-async-work-job-done job) (sp-async-work-job-total job))))
+
+;;;###autoload
+(defun sp-async-work-cancel ()
+  "Stop a running job, asking which when there are several."
+  (interactive)
+  (let ((jobs sp-async-work--jobs))
+    (cond ((null jobs) (message "No job is running"))
+          ((null (cdr jobs)) (sp-async-work-cancel-job (car jobs)))
+          (t (sp-async-work-cancel-job
+              (sp-async-work-find
+               (completing-read "Stop: " (mapcar #'sp-async-work-job-name jobs) nil t)))))))
+
+(defun sp-async-work-wait (job &optional timeout)
+  "Wait until JOB has ended, for at most TIMEOUT seconds (default 30).
+Meant for scripts and tests that start a job without
+`sp-async-work-synchronous'.  Return the status of the job."
+  (let ((limit (+ (float-time) (or timeout 30))))
+    (while (and (eq (sp-async-work-job-status job) 'running)
+                (< (float-time) limit))
+      (sit-for 0.02))
+    (sp-async-work-job-status job)))
+
+(provide 'sp-async-work)
+;;; sp-async-work.el ends here
+#+end_src

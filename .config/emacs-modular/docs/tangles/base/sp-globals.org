@@ -304,13 +304,14 @@ here."
 
 The citation notes folder and the note template (the bibliography is every =.bib= file in =sp-bibliography-dir=; the old =sp-bibliography= option is removed).
 
-- They are =nil= by default, so they are settings waiting to be filled in.
+- =sp-bib-notes= defaults to =litnotes/= below =sp-notes-dir=, evaluated when the file loads. Its default was once the quoted list =(sp-path sp-notes-dir "litnotes/")=, which citar received as data and rejected with "=citar-notes-paths= should be a list of directories".
 - They used to be defined in =sp-academic=, before its sub-modules are required, because the =use-package= forms of =sp-citations= and =citar-denote= read them while Elpaca may still be loading that file. This module loads long before, so the ordering problem is gone.
 
 #+begin_src emacs-lisp -i
 ;; Moved here from sp-academic.el.
-(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/") 
+(defcustom sp-bib-notes (sp-path sp-notes-dir "litnotes/")
   "User citation notes directory."
+  :type 'directory
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
 

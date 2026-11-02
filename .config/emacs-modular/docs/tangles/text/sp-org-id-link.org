@@ -136,6 +136,7 @@ Org shows =[[target][description]]= as the description alone; text drawn outside
 
 - =sp-org-link-linkify= returns TEXT with every bracket link replaced by its description in =org-link= face, and RET or a click follows the link through =sp-org-link-open=. Text without links, or any text when =org-link-descriptive= is nil, comes back unchanged.
 - =sp-org-link-has-link-p= tells whether TEXT holds a link.
+- =sp-org-link-link-ids= writes each bare note ID in TEXT (several joined with =, =) as =[[id:ID][title]]=, looking the title up in the Vulpea database, and lower-cases a =[[ID:...]]= type so the link can be followed. Pass its result to =sp-org-link-linkify=. The query tables and the =vulpea-ui= collection views use the pair.
 - Two callers: the query tables (vui and exc renderers, =sp-collection-query-tables-core=) and =org-other-agenda= (=sp-org-agenda=). They used to have a copy in the query tables as =sp-collec-query-linkify= and friends; it moved here so the agenda shares it.
 
 #+begin_src emacs-lisp -i
@@ -183,6 +184,24 @@ face, and RET or a click follows the link.  Text is returned as is when
           (setq pos (match-end 0))))
       (push (substring text pos) out)
       (apply #'concat (nreverse out)))))
+
+(defun sp-org-link-link-ids (text)
+  "Return TEXT with each bare note ID in it written as an id: link.
+TEXT may hold several values joined with \", \".  A value that is the ID
+of a note in the Vulpea database becomes [[id:ID][title]].  Anything
+else is kept, links included, except that a link written [[ID:...]] gets
+a lower-case type so Org can follow it."
+  (mapconcat
+   (lambda (part)
+     (let ((note (and (string-match-p "\\`[[:alnum:]][[:alnum:].:_-]\\{7,\\}\\'" part)
+                      (fboundp 'vulpea-db-get-by-id)
+                      (vulpea-db-get-by-id part))))
+       (if (and note (vulpea-note-title note))
+           (format "[[id:%s][%s]]" (vulpea-note-id note)
+                   (replace-regexp-in-string "[][]" "" (vulpea-note-title note)))
+         (replace-regexp-in-string "\\[\\[ID:" "[[id:" part t t))))
+   (split-string text ", ")
+   ", "))
 #+end_src
 
 ** Link to the configuration docs

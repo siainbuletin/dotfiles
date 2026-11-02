@@ -9,6 +9,7 @@
   (provide 'vulpea)
   (defun vulpea-note-title (note) (plist-get note :title))
   (defun vulpea-note-id (note) (plist-get note :id))
+  (defun vulpea-note-properties (note) (plist-get note :props))
   (defun vulpea-note-tags (note) (plist-get note :tags))
   (defun vulpea-db-get-by-id (id) (cdr (assoc id sp-collec-query-test-db)))
   (defun vulpea-note-meta-get-list (note key &optional _type) (cdr (assoc key (plist-get note :meta)))))
@@ -156,5 +157,58 @@
   (should-not (memq #'sp-collec-query-dblock--after-save after-save-hook))
   (should-not (memq #'sp-collec-query-dblock--on-open find-file-hook)))
 
-(provide 'sp-collection-query-tables-test)
-;;; sp-collection-query-tables-test.el ends here
+(defvar sp-collec-query-test-bib
+  '(("chap1" ("crossref" . "book1"))
+    ("chap2" ("crossref" . "book1"))
+    ("book1" ("file" . "/lib/book 1.pdf"))
+    ("loop1" ("crossref" . "loop2"))
+    ("loop2" ("crossref" . "loop1"))
+    ("lone" ("crossref" . "missing"))))
+
+(defun citar-get-entry (key) (cdr (assoc key sp-collec-query-test-bib)))
+
+(defun citar-get-files (key)
+  (let ((h (make-hash-table :test 'equal)))
+    (when (equal key "book1") (puthash key '("/lib/book 1.pdf") h))
+    h))
+
+(ert-deftest sp-collec-query-test-crossref-root ()
+  (should (equal (sp-collec-query--crossref-root "chap1") "book1"))
+  (should (equal (sp-collec-query--crossref-root "book1") "book1"))
+  (should (equal (sp-collec-query--crossref-root "lone") "lone"))
+  (should (member (sp-collec-query--crossref-root "loop1") '("loop1" "loop2"))))
+
+(ert-deftest sp-collec-query-test-refs-and-pdf-columns ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1 @chap2 @book1 @lone https://x.org")))))
+    (should (equal (sp-collec-query-cell note :refs)
+                   "@chap1 @chap2 @book1 @lone https://x.org"))
+    (should (equal (sp-collec-query--citekeys note) '("chap1" "chap2" "book1" "lone")))
+    (should (equal (sp-collec-query--root-keys note) '("book1" "lone")))
+    (should (equal (sp-collec-query-cell note :pdf)
+                   "[[sp-open:/lib/book 1.pdf][book 1.pdf]]"))
+    (should (equal (sp-collec-query-cell '(:title "y") :pdf) ""))))
+
+(ert-deftest sp-collec-query-test-devonthink-column ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@chap1 @chap2")))))
+    (cl-letf (((symbol-function 'sp-collec-query--dt-running-p) (lambda () nil)))
+      (should (equal (sp-collec-query-cell note :devonthink) "")))
+    (puthash "book 1.pdf" "UUID-1" sp-collec-query--dt-uuids)
+    (should (equal (sp-collec-query-cell note :devonthink)
+                   "[[x-devonthink-item://UUID-1][x]]"))))
+
+(ert-deftest sp-collec-query-test-devonthink-header-is-short ()
+  (should (equal (sp-collec-query-header-label :devonthink) "DT"))
+  (should (equal (sp-collec-query-header-label :pdf) "Pdf")))
+
+(ert-deftest sp-collec-query-test-refs-keys-link-to-bibtex ()
+  (let ((note '(:title "x" :props (("ROAM_REFS" . "@smith2020 cite:jones2021 https://x.org")))))
+    (should (equal (sp-collec-query-display-cell note :refs)
+                   "[[sp-bib:smith2020][@smith2020]] [[sp-bib:jones2021][@jones2021]] https://x.org"))
+    (should (equal (sp-collec-query-cell note :refs)
+                   "@smith2020 cite:jones2021 https://x.org"))))
+
+(ert-deftest sp-collec-query-test-pub-title-links-to-the-note ()
+  (let ((note '(:title "x" :id "ID-1" :meta (("pub-title" "A [odd] title")))))
+    (should (equal (sp-collec-query-display-cell note "pub-title")
+                   "[[id:ID-1][A odd title]]"))
+    (should (equal (sp-collec-query-display-cell '(:id "ID-2" :meta nil) "pub-title") ""))))

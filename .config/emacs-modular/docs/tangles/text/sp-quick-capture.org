@@ -63,6 +63,10 @@ One line, words separated by spaces. A word that is not special is part of the t
 ;;
 ;; Also reachable as org-protocol://sp-quick-capture[?text=...].
 ;;
+;; tools/quick-capture-native does not wait for Emacs: it writes the line
+;; to a spool folder, and `sp-quick-capture-drain' files the lines in
+;; inbox.org when Emacs is next free (see "The queue" in the doc).
+;;
 ;; Documented in docs/tangles/text/sp-quick-capture.org.
 
 ;;; Code:
@@ -111,6 +115,22 @@ Uses `ns-do-hide-emacs' on macOS, and only when no other visible frame
 of Emacs is left to hide, so a capture started from your Emacs window
 does not hide it."
   :type 'boolean
+  :group 'sp-quick-capture)
+
+(defcustom sp-quick-capture-spool-dir
+  (or (getenv "QUICK_CAPTURE_SPOOL")
+      (expand-file-name "quick-capture"
+                        (or (getenv "XDG_STATE_HOME") "~/.local/state")))
+  "Folder where `tools/quick-capture-native' leaves lines to capture.
+The script uses the same default, so change both or neither."
+  :type 'directory
+  :group 'sp-quick-capture)
+
+(defcustom sp-quick-capture-drain-interval 30
+  "Seconds of idle time after which queued lines are filed, or nil for never.
+The queue is also emptied once shortly after this module loads, and by
+the script each time it queues a line."
+  :type '(choice (const :tag "Never" nil) natnum)
   :group 'sp-quick-capture)
 #+end_src
 
@@ -314,8 +334,9 @@ The entry is written straight into the file instead of going through =org-captur
   "Return the absolute file name that receives the tasks."
   (expand-file-name (or sp-quick-capture-file org-default-notes-file)))
 
-(defun sp-quick-capture-insert (parsed)
+(defun sp-quick-capture-insert (parsed &optional time)
   "Write the task PARSED (from `sp-quick-capture-parse') into the inbox.
+TIME is when it was captured (default: now); it sets :CREATED:.
 Return the title."
   (let ((title (plist-get parsed :title)))
     (when (string-empty-p (string-trim title))
@@ -349,7 +370,7 @@ Return the title."
              (unless (string-empty-p planning) (insert planning "\n")))
            (insert ":PROPERTIES:\n"
                    ":ID:       " (org-id-new) "\n"
-                   ":CREATED:  " (format-time-string "[%Y-%m-%d %H:%M]") "\n"
+                   ":CREATED:  " (format-time-string "[%Y-%m-%d %H:%M]" time) "\n"
                    ":END:\n")
            (goto-char start)
            (when (plist-get parsed :tags)
@@ -483,6 +504,82 @@ The =window-system= parameter is passed on purpose: a daemon started with =--fg-
         (sp-quick-capture--maybe-hide))))))
 #+end_src
 
+* The queue
+
+A capture should not depend on what the main Emacs is doing. =emacsclient -e= waits for Emacs to evaluate the form, so with Emacs busy (a long =org-agenda= or Vulpea sync) the hotkey hangs, and with Emacs not running the line was lost. So =tools/quick-capture-native= no longer talks to Emacs for the capture itself: it writes the line to a file in the spool folder (=sp-quick-capture-spool-dir=, by default =~/.local/state/quick-capture=) and only then pokes Emacs with =emacsclient -n=, which does not wait. The file is the task until it is filed; =sp-quick-capture-drain= reads the files oldest first, writes each one into the inbox and deletes it.
+
+- The file is written under a dot name and renamed, so Emacs never reads half a line. Its name starts with the epoch seconds of the capture, which orders the queue, and its modification time is the capture time: =!tom= and =^fri= count from then, and =:CREATED:= is that time, even when the line is filed days later.
+- A line that cannot be filed (an empty title, or an error while writing) is moved to =failed/= in the spool folder and reported in the echo area. Move it back one level to try again.
+- The drain runs when the script pokes Emacs, once 2 seconds after this module loads (lines captured while Emacs was not running), and after =sp-quick-capture-drain-interval= seconds of idle time. In batch Emacs no timer is set.
+- The live preview and the tag completion of the Emacs box are not part of this path, as before (see below). The drain reports in the echo area, so tag warnings show there, not in the macOS notification.
+
+#+begin_src emacs-lisp -i
+;;;; The queue
+
+(defvar sp-quick-capture--draining nil
+  "Non-nil while `sp-quick-capture-drain' runs, so it does not nest.")
+
+(defun sp-quick-capture-pending ()
+  "Return the queued capture files, oldest first."
+  (when (file-directory-p sp-quick-capture-spool-dir)
+    (directory-files sp-quick-capture-spool-dir t "\\`[0-9]+-.*\\.txt\\'")))
+
+(defun sp-quick-capture--file-one (file)
+  "File the line in FILE into the inbox and delete FILE.  Return the preview."
+  (let* ((line (with-temp-buffer
+                 (insert-file-contents file)
+                 (string-trim (buffer-string))))
+         (time (file-attribute-modification-time (file-attributes file)))
+         (parsed (sp-quick-capture-parse line time)))
+    (sp-quick-capture-insert parsed time)
+    (delete-file file)
+    (sp-quick-capture-preview parsed)))
+
+(defun sp-quick-capture--park (file)
+  "Move FILE to the failed/ folder of the spool."
+  (let ((dir (expand-file-name "failed" sp-quick-capture-spool-dir)))
+    (make-directory dir t)
+    (rename-file file (expand-file-name (file-name-nondirectory file) dir) t)))
+
+;;;###autoload
+(defun sp-quick-capture-drain ()
+  "File every queued line in the inbox.  Return how many were filed."
+  (interactive)
+  (let ((done 0) (failed 0))
+    (unless sp-quick-capture--draining
+      (let ((sp-quick-capture--draining t))
+        (dolist (file (sp-quick-capture-pending))
+          (condition-case err
+              (let ((preview (sp-quick-capture--file-one file)))
+                (cl-incf done)
+                (message "Captured: %s" preview))
+            (error
+             (cl-incf failed)
+             (message "Quick capture: %s moved to failed/ (%s)"
+                      (file-name-nondirectory file) (error-message-string err))
+             (sp-quick-capture--park file))))))
+    (when (and (called-interactively-p 'interactive) (zerop (+ done failed)))
+      (message "Quick capture: the queue is empty"))
+    done))
+
+(defvar sp-quick-capture--drain-timer nil
+  "Idle timer that runs `sp-quick-capture-drain'.")
+
+(defun sp-quick-capture--schedule ()
+  "(Re)start the idle timer according to `sp-quick-capture-drain-interval'."
+  (when (timerp sp-quick-capture--drain-timer)
+    (cancel-timer sp-quick-capture--drain-timer))
+  (setq sp-quick-capture--drain-timer
+        (and sp-quick-capture-drain-interval
+             (run-with-idle-timer sp-quick-capture-drain-interval t
+                                  #'sp-quick-capture-drain))))
+
+(unless noninteractive
+  (sp-quick-capture--schedule)
+  ;; Lines captured while Emacs was not running.
+  (run-with-idle-timer 2 nil #'sp-quick-capture-drain))
+#+end_src
+
 * org-protocol
 
 =org-protocol://sp-quick-capture= opens the box. =org-protocol://sp-quick-capture?text=…= captures =text= at once. The handler returns nil so =emacsclient= is not left waiting for a buffer.
@@ -520,16 +617,18 @@ The frame, the preview overlay, =org-protocol= from outside and the hotkey could
 The Emacs frame of =sp-quick-capture-popup= has not been confirmed to work on macOS: in the first try the frame was blank and Emacs hung (the beachball), and a tiling window manager such as AeroSpace stretches it to a full tile. =tools/quick-capture-native= avoids the frame:
 
 1. macOS's own dialog (=osascript=, =display dialog=) asks for the line. It is a plain native window, so there is nothing for AeroSpace to tile and nothing in Emacs to hang.
-2. The script sends the line to the running Emacs with =emacsclient -e '(sp-quick-capture "…")'=, with backslashes and quotes escaped.
-3. A macOS notification shows what was written (=→ Buy milk  :@errands:  due 2026-10-30 Fri=) or the error.
+2. The script writes the line to the spool folder and pokes the running Emacs with =emacsclient -n -e '(sp-quick-capture-drain)'=, in the background, so a busy or hung Emacs cannot hold the hotkey. See [[*The queue][The queue]]: the task is safe on disk whether Emacs is busy, not running or hung.
+3. A macOS notification says the line is queued, or that Emacs could not be reached and the line stays queued. Emacs prints what it filed (=→ Buy milk  :@errands:  due 2026-10-30 Fri=) in the echo area.
 
-It loses the live preview and the TAB completion of tags, which need the minibuffer; the notification afterwards shows the same preview, with its warnings.
+It loses the live preview and the TAB completion of tags, which need the minibuffer. Called with an argument (=tools/quick-capture-native "Buy milk #errands"=) it queues that text without the dialog, which suits Hammerspoon, Shortcuts or a shell.
+
+A launcher that cannot run bash at all can still queue by creating the file itself: a file =<epoch seconds>-<anything>.txt= in the spool folder with the line as its content.
 
 * macOS setup
 
 See =tools/quick-capture= (the script) and the steps below.
 
-1. The Emacs server must be running: =sp-server= does this (=emacsclient= finds =/tmp/emacs$UID/server=, or =$TMPDIR/emacs$UID/server= on macOS). Check with =emacsclient -e '(+ 1 1)'=.
+1. The Emacs server is only needed for the immediate filing: =sp-server= starts it (=emacsclient= finds =/tmp/emacs$UID/server=, or =$TMPDIR/emacs$UID/server= on macOS). Check with =emacsclient -e '(+ 1 1)'=. Without it the line waits in the queue (=ls ~/.local/state/quick-capture=).
 2. Link the script: =ln -s ~/.config/emacs-modular/tools/quick-capture ~/.local/bin/quick-capture= (any folder on the =PATH= of the launcher; the script finds =emacsclient= in the usual places).
 3. Bind a global hotkey to run it:
    - Raycast: Create Script Command or add the script folder under Settings → Extensions → Script Commands, then give the command a hotkey.
@@ -546,3 +645,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/131][#131]] ✨ Added =sp-quick-capture=: a global-hotkey quick entry that writes a TODO into =inbox.org= from a small frame (=tools/quick-capture=) or from =org-protocol://sp-quick-capture=, with =#tag=, =!deadline= and =^scheduled= words, tag completion and a live preview. Not run in Emacs on macOS; the parser and the file writing are covered by =tests/sp-quick-capture-test.el=.
 - [[https://github.com/siainbuletin/dotfiles/pull/159][#159]] ✨ Added =tools/quick-capture-native=, which asks for the line in a macOS dialog instead of an Emacs frame (the frame hung on macOS and was tiled by AeroSpace), and made =sp-quick-capture= return the preview text. Not run on macOS.
+- [[https://github.com/siainbuletin/dotfiles/pull/198][#198]] ✨ Added the queue: =tools/quick-capture-native= writes the line to =sp-quick-capture-spool-dir= and does not wait for Emacs; =sp-quick-capture-drain= files the lines (on a poke from the script, 2 seconds after load and after =sp-quick-capture-drain-interval= idle seconds) with the capture time as =:CREATED:= and as the base of relative dates. 🔧 Changed =sp-quick-capture-insert= to take an optional capture time. Tested with =tests/sp-quick-capture-test.el= (4 new tests) and with a stopped and a dead Emacs daemon on Linux (the hotkey script returns in 0.02 s, the line is filed on resume); not run on macOS.

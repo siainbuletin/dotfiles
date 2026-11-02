@@ -1,6 +1,8 @@
 ;;; sp-author-notes-test.el --- Tests for sp-author-notes -*- lexical-binding: t; -*-
 
 (require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
 (require 'sp-author-notes)
 
 (defvar sp-author-notes-test--n 0)
@@ -25,6 +27,7 @@
           (sp-author-notes-litnotes-directory (expand-file-name "litnotes/" vault))
           (sp-author-notes-backup-directory (expand-file-name "backups/" vault))
           (sp-author-notes-redirect-function (lambda (&rest _) nil))
+          (sp-author-notes-disambiguate-function (lambda (&rest _) nil))
           (sp-author-notes--stub-ids nil))
      (unwind-protect
          (cl-letf (((symbol-function 'sp-org--write-note)
@@ -227,6 +230,164 @@
                               (string-trim-right (sp-author-notes-test--read file))))
       ;; declined: left alone
       (sp-author-notes-test--write file "#+title: x" "" "- pub-author :: [[id:gone][Zed]]" "")
-      (let ((sp-author-notes-redirect-function (lambda (&rest _) nil)))
+      (let ((sp-author-notes-redirect-function (lambda (&rest _) nil))
+          (sp-author-notes-disambiguate-function (lambda (&rest _) nil)))
         (sp-author-notes--run t))
       (should (string-match-p "id:gone" (sp-author-notes-test--read file))))))
+
+(ert-deftest sp-author-notes-test-parse-quoted ()
+  (should (equal (sp-author-notes--parse-value
+                  "\"Frederick Conrad\", \"Jason Corey\", \"Samantha Goldstein\", \"Joseph Ostrow\", \"Michael Sadowsky\"")
+                 '((:name "Frederick Conrad") (:name "Jason Corey") (:name "Samantha Goldstein")
+                   (:name "Joseph Ostrow") (:name "Michael Sadowsky"))))
+  (should (equal (sp-author-notes--parse-value "\"J. N. Wright\" \"Peter G. Lucas\"")
+                 '((:name "J. N. Wright") (:name "Peter G. Lucas"))))
+  (should (equal (sp-author-notes--parse-value "\"Tim Wildschut")
+                 '((:name "Tim Wildschut"))))
+  (should (equal (sp-author-notes--parse-value "\"Ann Lee\", \"Bo Roe")
+                 '((:name "Ann Lee") (:name "Bo Roe"))))
+  (should (equal (sp-author-notes--parse-value "\"Lee, Ann\"")
+                 '((:name "Ann Lee"))))
+  (should (equal (sp-author-notes--parse-value "[[denote:20251213T235944][Leigh Claire La Berge]], \"Bo Roe\"")
+                 '((:denote "20251213T235944" "[[denote:20251213T235944][Leigh Claire La Berge]]")
+                   (:name "Bo Roe"))))
+  (should (eq (sp-author-notes--parse-value "Dr. [[denote:1][A]]") 'unparsed)))
+
+(ert-deftest sp-author-notes-test-quoted-and-denote-run ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "20251213T235944--leigh__person.org" vault)
+     ":PROPERTIES:" ":ID: leigh" ":END:" "#+title: Leigh Claire La Berge" "#+filetags: :person:" "")
+    (let ((file (expand-file-name "litnotes/a.org" vault)))
+      (sp-author-notes-test--write
+       file "#+title: x" ""
+       "- pub-author :: [[denote:20251213T235944][Leigh Claire La Berge]], \"Tim Wildschut\", \"Bo Roe\""
+       "- pub-author :: [[denote:19990101T000000][Nobody]]" "")
+      (let ((run (sp-author-notes--run nil)))
+        (should (equal (sp-author-notes--run-pending run) '("Tim Wildschut" "Bo Roe")))
+        (should (string-match-p "denote:2025" (sp-author-notes-test--read file))))
+      (let* ((run (sp-author-notes--run t))
+             (text (sp-author-notes-test--read file)))
+        (should (= 2 (length (sp-author-notes--run-created run))))
+        (should (string-match-p "pub-author :: \\[\\[id:leigh\\]\\[Leigh Claire La Berge\\]\\], \\[\\[id:new-[0-9]+\\]\\[Tim Wildschut\\]\\], \\[\\[id:new-[0-9]+\\]\\[Bo Roe\\]\\]" text))
+        ;; unknown identifier stays, reported
+        (should (string-match-p "denote:19990101T000000" text))
+        (should (seq-some (lambda (p) (string-match-p "Denote identifier 19990101" (nth 2 p)))
+                          (sp-author-notes--run-problems run))))
+      (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t)))))))
+
+(ert-deftest sp-author-notes-test-parse-comma-lists ()
+  (should (equal (sp-author-notes--parse-value
+                  "Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina, Cecilio Alam")
+                 '((:ambiguous "Francisco López-Muñoz, Gabriel Rubio, Juan D. Molina, Cecilio Alam"
+                               ("Francisco López-Muñoz" "Gabriel Rubio" "Juan D. Molina" "Cecilio Alam")))))
+  (should (equal (sp-author-notes--parse-value "Smith, John, Doe, Jane")
+                 '((:ambiguous "Smith, John, Doe, Jane" ("John Smith" "Jane Doe")))))
+  (should (equal (sp-author-notes--parse-value "Smith, John, Doe")
+                 '((:ambiguous "Smith, John, Doe" nil))))
+  ;; one comma stays one name; "and" still splits
+  (should (equal (sp-author-notes--parse-value "Smith, John and Ann Lee, Bo Roe, Cy Poe")
+                 '((:name "John Smith")
+                   (:ambiguous "Ann Lee, Bo Roe, Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe"))))))
+
+(ert-deftest sp-author-notes-test-comma-list-run ()
+  (sp-author-notes-test--with-vault
+    (let ((file (expand-file-name "litnotes/a.org" vault))
+          (raw "Ann Lee, Bo Roe, Cy Poe"))
+      (sp-author-notes-test--write file "#+title: x" "" (concat "- pub-author :: " raw) "")
+      ;; preview: a case, nothing pending, nothing written
+      (let ((run (sp-author-notes--run nil)))
+        (should (null (sp-author-notes--run-pending run)))
+        (should (equal (nth 1 (car (plist-get (cdar (sp-author-notes--run-litnotes run)) :ambiguous)))
+                       '("Ann Lee" "Bo Roe" "Cy Poe")))
+        (with-temp-buffer (sp-author-notes--render run)
+                          (should (string-match-p "to disambiguate (1)" (buffer-string)))))
+      ;; declined: left as it is
+      (let ((run (sp-author-notes--run t)))
+        (should (null (sp-author-notes--run-created run)))
+        (should (string-match-p (regexp-quote raw) (sp-author-notes-test--read file))))
+      ;; accepted: one note each
+      (let* ((sp-author-notes-disambiguate-function (lambda (_raw names) names))
+             (run (sp-author-notes--run t))
+             (text (sp-author-notes-test--read file)))
+        (should (= 3 (length (sp-author-notes--run-created run))))
+        (should (string-match-p "Ann Lee\\]\\], \\[\\[id:new-[0-9]+\\]\\[Bo Roe\\]\\], \\[\\[id:new-[0-9]+\\]\\[Cy Poe\\]\\]$"
+                                (string-trim-right text)))))))
+
+(ert-deftest sp-author-notes-test-parse-and-lists ()
+  ;; BibTeX forms stay as they were
+  (should (equal (sp-author-notes--parse-value "Smith, John and Doe, Jane")
+                 '((:name "John Smith") (:name "Jane Doe"))))
+  (should (equal (sp-author-notes--parse-value "Smith, John and Ann Lee")
+                 '((:name "John Smith") (:name "Ann Lee"))))
+  (should (equal (sp-author-notes--parse-value "Ann Lee and Bo Roe and Cy Poe")
+                 '((:name "Ann Lee") (:name "Bo Roe") (:name "Cy Poe"))))
+  ;; a list with commas that ends in "and" is one case
+  (should (equal (sp-author-notes--parse-value "Ann Lee, Bo Roe, and Cy Poe")
+                 '((:ambiguous "Ann Lee, Bo Roe, and Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe")))))
+  (should (equal (sp-author-notes--parse-value "Ann Lee, Bo Roe and Cy Poe; Di Fay")
+                 '((:ambiguous "Ann Lee, Bo Roe and Cy Poe" ("Ann Lee" "Bo Roe" "Cy Poe"))
+                   (:name "Di Fay")))))
+
+(ert-deftest sp-author-notes-test-exclude ()
+  (sp-author-notes-test--with-vault
+    (let ((a (expand-file-name "litnotes/a.org" vault))
+          (b (expand-file-name "litnotes/b.org" vault)))
+      (sp-author-notes-test--write a "#+title: x" "" "- pub-authro :: Ann Lee" "")
+      (sp-author-notes-test--write b "#+title: y" "" "- pub-author :: Bo Roe" "")
+      ;; dropping a name: no note, the name stays
+      (let ((sp-author-notes--excluded (list "name:ann lee")))
+        (let ((run (sp-author-notes--run t)))
+          (should (equal (mapcar #'car (sp-author-notes--run-created run)) '("Bo Roe")))
+          (should (string-match-p "pub-author :: Ann Lee" (sp-author-notes-test--read a)))))
+      ;; dropping a file: not read or changed
+      (sp-author-notes-test--write a "#+title: x" "" "- pub-authro :: Cy Poe" "")
+      (let ((sp-author-notes--excluded (list a)))
+        (let ((run (sp-author-notes--run nil)))
+          (should (null (sp-author-notes--run-pending run)))
+          (should (null (sp-author-notes--run-litnotes run)))
+          (with-temp-buffer
+            (sp-author-notes--render run)
+            (should (string-match-p "Dropped from the list (u brings one back) (1)" (buffer-string)))))))))
+
+(ert-deftest sp-author-notes-test-report-keys ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write (expand-file-name "litnotes/a.org" vault)
+                                 "#+title: x" "" "- pub-author :: Ann Lee" "")
+    (let ((sp-author-notes--excluded nil))
+      (sp-author-notes-preview)
+      (with-current-buffer sp-author-notes--buffer-name
+        (goto-char (point-min))
+        (re-search-forward "^  Ann Lee$")
+        (sp-author-notes-exclude)
+        (should (equal sp-author-notes--excluded '("name:ann lee")))
+        (goto-char (point-min))
+        (re-search-forward "^  author ann lee$")
+        (sp-author-notes-restore)
+        (should (null sp-author-notes--excluded))))))
+
+(ert-deftest sp-author-notes-test-apply-in-slices ()
+  "The commands read and write from timers, and the result equals the one-go run."
+  (sp-author-notes-test--with-vault
+    (let ((sp-async-work-synchronous nil) (sp-async-work-slice 0.001))
+      (dotimes (i 25)
+        (sp-author-notes-test--write
+         (expand-file-name (format "litnotes/l%d.org" i) vault)
+         ":PROPERTIES:" (format ":ID: l%d" i) ":END:" "#+title: x" ""
+         (format "- pub-author :: Author%d Name" i) ""))
+      (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+        (sp-author-notes-preview)
+        (should (sp-async-work-find "Author notes"))
+        (let ((limit (+ (float-time) 30)))
+          (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
+        (with-current-buffer sp-author-notes--buffer-name
+          (should (string-match-p "Author7 Name" (buffer-string))))
+        (should-not (file-exists-p (expand-file-name "new-1.org" vault)))
+        (sp-author-notes-apply)
+        (let ((limit (+ (float-time) 30)))
+          (while (and sp-async-work--jobs (< (float-time) limit)) (sit-for 0.02)))
+        (should (string-match-p "pub-author :: \\[\\[id:new-"
+                                (sp-author-notes-test--read (expand-file-name "litnotes/l24.org" vault))))
+        (let ((sp-async-work-synchronous t))
+          (should (= 0 (sp-author-notes--change-count (sp-author-notes--run nil)))))))))
+

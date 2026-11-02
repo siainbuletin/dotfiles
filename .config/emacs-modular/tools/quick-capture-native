@@ -1,6 +1,7 @@
 #!/bin/bash
 # Quick capture without an Emacs frame: a native macOS dialog asks for the
-# line, then the running Emacs (sp-server) writes the task into inbox.org.
+# line, the script queues it in a spool folder, and Emacs writes the task
+# into inbox.org (sp-quick-capture-drain) as soon as it is free.
 # Bind this script to a global hotkey; see docs/tangles/text/sp-quick-capture.org.
 
 set -u
@@ -20,16 +21,18 @@ done
 notify() {
   osascript -e 'on run argv' \
             -e 'display notification (item 1 of argv) with title "Quick capture"' \
-            -e 'end run' "$1" >/dev/null 2>&1
+            -e 'end run' "$1" >/dev/null 2>&1 || true
 }
 
-if [ -z "${EMACSCLIENT:-}" ]; then
-  notify "emacsclient not found (set EMACSCLIENT)"
-  exit 1
-fi
+# Without emacsclient the line is still queued; Emacs files it at its next start.
+EMACSCLIENT=${EMACSCLIENT:-false}
 
-# Cancel raises an error in AppleScript; that ends in an empty line.
-line=$(osascript <<'OSA' 2>/dev/null
+# With an argument, queue that text and skip the dialog.
+if [ $# -gt 0 ]; then
+  line=$*
+else
+  # Cancel raises an error in AppleScript; that ends in an empty line.
+  line=$(osascript <<'OSA' 2>/dev/null
 try
   tell application "System Events"
     activate
@@ -41,17 +44,28 @@ on error
 end try
 OSA
 )
+fi
 
 [ -z "${line//[[:space:]]/}" ] && exit 0
 
-# Escape for an Emacs Lisp string.
-escaped=${line//\\/\\\\}
-escaped=${escaped//\"/\\\"}
-
-# No ALTERNATE_EDITOR: never start an Emacs of our own.
-if result=$("$EMACSCLIENT" -e "(sp-quick-capture \"$escaped\")" 2>&1); then
-  notify "${result//\"/}"
-else
-  notify "Failed: $result"
+# The line is the task from here on: it goes to the spool first, so it
+# survives Emacs being busy, hung, not running or restarted.  Same default
+# as `sp-quick-capture-spool-dir'.
+spool=${QUICK_CAPTURE_SPOOL:-${XDG_STATE_HOME:-$HOME/.local/state}/quick-capture}
+if ! mkdir -p "$spool" || ! tmp=$(mktemp "$spool/.new.XXXXXX"); then
+  notify "Cannot write to $spool"
   exit 1
 fi
+printf '%s\n' "$line" >"$tmp"
+# Epoch seconds first: they order the queue.  The rename is atomic, so
+# Emacs never reads half a line.
+mv "$tmp" "$spool/$(date +%s)-$$-$RANDOM.txt"
+
+# Poke Emacs in the background: even with -n, emacsclient waits for the
+# server to answer, which a busy or hung Emacs does not do.  The line is
+# already on disk, so nothing here may hold the hotkey.  No ALTERNATE_EDITOR:
+# never start an Emacs of our own.
+( "$EMACSCLIENT" -n -e '(sp-quick-capture-drain)' \
+    || notify "Emacs not reachable; the line stays queued" ) >/dev/null 2>&1 &
+
+notify "Queued: $line"

@@ -8,6 +8,10 @@
 ;;
 ;; Also reachable as org-protocol://sp-quick-capture[?text=...].
 ;;
+;; tools/quick-capture-native does not wait for Emacs: it writes the line
+;; to a spool folder, and `sp-quick-capture-drain' files the lines in
+;; inbox.org when Emacs is next free (see "The queue" in the doc).
+;;
 ;; Documented in docs/tangles/text/sp-quick-capture.org.
 
 ;;; Code:
@@ -52,6 +56,22 @@ Uses `ns-do-hide-emacs' on macOS, and only when no other visible frame
 of Emacs is left to hide, so a capture started from your Emacs window
 does not hide it."
   :type 'boolean
+  :group 'sp-quick-capture)
+
+(defcustom sp-quick-capture-spool-dir
+  (or (getenv "QUICK_CAPTURE_SPOOL")
+      (expand-file-name "quick-capture"
+                        (or (getenv "XDG_STATE_HOME") "~/.local/state")))
+  "Folder where `tools/quick-capture-native' leaves lines to capture.
+The script uses the same default, so change both or neither."
+  :type 'directory
+  :group 'sp-quick-capture)
+
+(defcustom sp-quick-capture-drain-interval 30
+  "Seconds of idle time after which queued lines are filed, or nil for never.
+The queue is also emptied once shortly after this module loads, and by
+the script each time it queues a line."
+  :type '(choice (const :tag "Never" nil) natnum)
   :group 'sp-quick-capture)
 
 ;;;; Dates
@@ -233,8 +253,9 @@ dates count from (default: now).  :warnings is a list of strings."
   "Return the absolute file name that receives the tasks."
   (expand-file-name (or sp-quick-capture-file org-default-notes-file)))
 
-(defun sp-quick-capture-insert (parsed)
+(defun sp-quick-capture-insert (parsed &optional time)
   "Write the task PARSED (from `sp-quick-capture-parse') into the inbox.
+TIME is when it was captured (default: now); it sets :CREATED:.
 Return the title."
   (let ((title (plist-get parsed :title)))
     (when (string-empty-p (string-trim title))
@@ -268,7 +289,7 @@ Return the title."
              (unless (string-empty-p planning) (insert planning "\n")))
            (insert ":PROPERTIES:\n"
                    ":ID:       " (org-id-new) "\n"
-                   ":CREATED:  " (format-time-string "[%Y-%m-%d %H:%M]") "\n"
+                   ":CREATED:  " (format-time-string "[%Y-%m-%d %H:%M]" time) "\n"
                    ":END:\n")
            (goto-char start)
            (when (plist-get parsed :tags)
@@ -386,6 +407,71 @@ Called interactively, it prompts for LINE.  The return value is what
               (user-error (message "%s" (error-message-string err)))))
         (when (frame-live-p frame) (delete-frame frame t))
         (sp-quick-capture--maybe-hide))))))
+
+;;;; The queue
+
+(defvar sp-quick-capture--draining nil
+  "Non-nil while `sp-quick-capture-drain' runs, so it does not nest.")
+
+(defun sp-quick-capture-pending ()
+  "Return the queued capture files, oldest first."
+  (when (file-directory-p sp-quick-capture-spool-dir)
+    (directory-files sp-quick-capture-spool-dir t "\\`[0-9]+-.*\\.txt\\'")))
+
+(defun sp-quick-capture--file-one (file)
+  "File the line in FILE into the inbox and delete FILE.  Return the preview."
+  (let* ((line (with-temp-buffer
+                 (insert-file-contents file)
+                 (string-trim (buffer-string))))
+         (time (file-attribute-modification-time (file-attributes file)))
+         (parsed (sp-quick-capture-parse line time)))
+    (sp-quick-capture-insert parsed time)
+    (delete-file file)
+    (sp-quick-capture-preview parsed)))
+
+(defun sp-quick-capture--park (file)
+  "Move FILE to the failed/ folder of the spool."
+  (let ((dir (expand-file-name "failed" sp-quick-capture-spool-dir)))
+    (make-directory dir t)
+    (rename-file file (expand-file-name (file-name-nondirectory file) dir) t)))
+
+;;;###autoload
+(defun sp-quick-capture-drain ()
+  "File every queued line in the inbox.  Return how many were filed."
+  (interactive)
+  (let ((done 0) (failed 0))
+    (unless sp-quick-capture--draining
+      (let ((sp-quick-capture--draining t))
+        (dolist (file (sp-quick-capture-pending))
+          (condition-case err
+              (let ((preview (sp-quick-capture--file-one file)))
+                (cl-incf done)
+                (message "Captured: %s" preview))
+            (error
+             (cl-incf failed)
+             (message "Quick capture: %s moved to failed/ (%s)"
+                      (file-name-nondirectory file) (error-message-string err))
+             (sp-quick-capture--park file))))))
+    (when (and (called-interactively-p 'interactive) (zerop (+ done failed)))
+      (message "Quick capture: the queue is empty"))
+    done))
+
+(defvar sp-quick-capture--drain-timer nil
+  "Idle timer that runs `sp-quick-capture-drain'.")
+
+(defun sp-quick-capture--schedule ()
+  "(Re)start the idle timer according to `sp-quick-capture-drain-interval'."
+  (when (timerp sp-quick-capture--drain-timer)
+    (cancel-timer sp-quick-capture--drain-timer))
+  (setq sp-quick-capture--drain-timer
+        (and sp-quick-capture-drain-interval
+             (run-with-idle-timer sp-quick-capture-drain-interval t
+                                  #'sp-quick-capture-drain))))
+
+(unless noninteractive
+  (sp-quick-capture--schedule)
+  ;; Lines captured while Emacs was not running.
+  (run-with-idle-timer 2 nil #'sp-quick-capture-drain))
 
 ;;;; org-protocol
 

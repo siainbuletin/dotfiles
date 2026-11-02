@@ -49,7 +49,7 @@ The push must be a fast-forward; if it is not, =stable= was edited by hand and t
 
 =.github/workflows/tangle-check.yml= runs =tools/check-tangle.sh= on pull requests that touch a doc, a module or the tools, on pushes to =main= and =stable=, and by hand. It installs Emacs 29, tangles every module doc in place with =tools/tangle-all.el= (5 to 6 s for 132 docs in my 4-core container; a GitHub runner was not timed) and compares each module with its committed version. It ignores whitespace and blank lines, because the committed modules have them stripped and a plain tangle does not (and Org indents lines inside strings differently between versions: the runner's Emacs and mine disagreed on =sp-dashboard=).
 
-Known drift is in =tools/tangle-drift-allow.txt=: two modules that differ today (=sp-graphs=, =sp-prog-misc=). They are reported but do not fail. An entry that stops drifting fails the job until I delete it, so the list can only shrink. Fixing one means deciding which side is right: the doc (re-tangle and commit) or the =.el= (move the edit into the doc).
+Known drift is in =tools/tangle-drift-allow.txt=: empty since 2026-10-30. When a module has to differ for a while, an entry there is reported but does not fail. An entry that stops drifting fails the job until I delete it, so the list can only shrink. Fixing one means deciding which side is right: the doc (re-tangle and commit) or the =.el= (move the edit into the doc).
 
 ** Watching it
 
@@ -122,7 +122,7 @@ Two small additions would give the rest of the repository what the tangle check 
 
 * Open
 
-- The two entries in =tools/tangle-drift-allow.txt=.
+- (Done 2026-10-30) =tools/tangle-drift-allow.txt= is empty: =sp-graphs= and =sp-prog-misc= were re-tangled on =main=, and =sp-fetch-academic= got the doc's =litdb= block in its =.el=. =docker-compose-mode= is not wanted and is gone from both.
 - =SP_PROFILE= is set but nothing reads it yet: the =writing= theme, the simpler dashboard and the frame title are to be written (in =sp-config-profiles.el=, and the dashboard/theme modules).
 - Whether =default= should become =writing=, so that a bare =emacs= opens the stable one. Left unchanged.
 - A syntax-check job for the non-Emacs files, and =dotfiles-try=.

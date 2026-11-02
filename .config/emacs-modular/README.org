@@ -140,7 +140,7 @@ Where the modules live:
 - [[file:docs/tangles/base/navi/sp-consult-snapfile.org][sp-consult-snapfile]] :: Fast file search with consult-snapfile ([[file:libraries/modules/base/navi/sp-consult-snapfile.el][sp-consult-snapfile.el]])
 - [[file:docs/tangles/base/navi/sp-dired.org][sp-dired]] :: Dired and Dirvish file management ([[file:libraries/modules/base/navi/sp-dired.el][sp-dired.el]])
 - [[file:docs/tangles/base/navi/sp-goto.org][sp-goto]] :: Clickable addresses and quick file jumps ([[file:libraries/modules/base/navi/sp-goto.el][sp-goto.el]])
-- [[file:docs/tangles/base/navi/sp-search.org][sp-search]] :: Search tools: Consult, grep front-ends and Recoll ([[file:libraries/modules/base/navi/sp-search.el][sp-search.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-search]] :: Search tools: Consult, grep front-ends and Recoll ([[file:libraries/modules/base/navi/sp-search.el][sp-search.el]])
 
 ** custom/
 
@@ -152,8 +152,9 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/custom/sp-org-tag-groups.org][sp-org-tag-groups]] :: Org tags as emoji in the modeline and on links ([[file:libraries/modules/custom/sp-org-tag-groups.el][sp-org-tag-groups.el]])
 - [[file:docs/tangles/custom/sp-sandbox.org][sp-sandbox]] :: Launch a pull request in a sandboxed Emacs ([[file:libraries/modules/custom/sp-sandbox.el][sp-sandbox.el]])
 - [[file:docs/tangles/custom/sp-embr.org][sp-embr]] :: Show the live relationship graph in an Emacs buffer with embr.el or xwidget-webkit, and compare them ([[file:libraries/modules/custom/sp-embr.el][sp-embr.el]])
-- [[file:docs/tangles/custom/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude ([[file:libraries/modules/custom/sp-thesis-dump.el][sp-thesis-dump.el]])
-- sp-trails :: no literate source yet ([[file:libraries/modules/custom/sp-trails.el][sp-trails.el]])
+- [[file:docs/planned/sp-thesis-dump.org][sp-thesis-dump]] :: Brain-dump thesis ideas, get annotated Org tasks and citekeys from Claude (not loaded or tangled while it is redesigned)
+- [[file:docs/tangles/custom/sp-trails-search.org][sp-trails-search]] :: Search with consult-omni from a trail and record the chosen results as pages ([[file:libraries/modules/custom/sp-trails-search.el][sp-trails-search.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-trails]] :: Browsing trails tied to research questions; the doc has the problem statement only, the code is not tangled yet ([[file:libraries/modules/custom/sp-trails.el][sp-trails.el]])
 - [[file:docs/tangles/custom/sp-vc-ai-workbench.org][sp-vc-ai-workbench]] :: parallel extension work with Magit and Claude Code ([[file:libraries/modules/custom/sp-vc-ai-workbench.el][sp-vc-ai-workbench.el]])
 - [[file:docs/tangles/custom/sp-relationship-annotator.org][sp-relationship-annotator]] :: Typed relationships between vulpea notes, as graphs and outlines ([[file:libraries/modules/custom/sp-relationship-annotator.el][sp-relationship-annotator.el]])
 - [[file:docs/tangles/custom/sp-relationship-annotator-live.org][sp-relationship-annotator-live]] :: The relationship graph served live on localhost ([[file:libraries/modules/custom/sp-relationship-annotator-live.el][sp-relationship-annotator-live.el]])
@@ -171,18 +172,19 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/funct/sp-helper-funct.org][sp-helper-funct]] :: Assorted helper commands and sensible defaults ([[file:libraries/modules/funct/sp-helper-funct.el][sp-helper-funct.el]])
 - [[file:docs/tangles/funct/sp-move-region-to-heading.org][sp-move-region-to-heading]] :: Move a region under a heading in another note ([[file:libraries/modules/funct/sp-move-region-to-heading.el][sp-move-region-to-heading.el]])
 - [[file:docs/tangles/funct/sp-open-externally.org][sp-open-externally]] :: Opening files in external applications ([[file:libraries/modules/funct/sp-open-externally.el][sp-open-externally.el]])
-- [[file:docs/tangles/funct/sp-author-notes.org][sp-author-notes]] :: Author notes and their Works tables from the pub-author meta key, preview first ([[file:libraries/modules/funct/sp-author-notes.el][sp-author-notes.el]])
-- [[file:docs/tangles/funct/sp-author-notes-bibtex.org][sp-author-notes-bibtex]] :: Works of an author that exist only in the BibTeX files, with an offer to create their litnotes ([[file:libraries/modules/funct/sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]])
+- [[file:docs/tangles/funct/sp-async-work.org][sp-async-work]] :: Run long jobs in slices so Emacs stays usable, with mode-line progress and cancel; used by the author and litnote commands ([[file:libraries/modules/funct/sp-async-work.el][sp-async-work.el]])
+- [[file:docs/tangles/funct/sp-org-lint.org::*sp-author-notes.el][sp-author-notes]] :: Author notes and their Works tables from the pub-author meta key, preview first ([[file:libraries/modules/funct/sp-author-notes.el][sp-author-notes.el]])
+- [[file:docs/tangles/funct/sp-org-lint.org::*sp-author-notes-bibtex.el][sp-author-notes-bibtex]] :: Works of an author that exist only in the BibTeX files, with an offer to create their litnotes ([[file:libraries/modules/funct/sp-author-notes-bibtex.el][sp-author-notes-bibtex.el]])
 - [[file:docs/tangles/funct/sp-org-link-conversion.org][sp-org-link-conversion]] :: Create notes and convert wikilinks to ID links ([[file:libraries/modules/funct/sp-org-link-conversion.el][sp-org-link-conversion.el]])
 - [[file:docs/tangles/funct/sp-org-tag-lint.org][sp-org-tag-lint]] :: Lint Org tags against the tag registry, add tags without restarting, prompt for a new note's tags ([[file:libraries/modules/funct/sp-org-tag-lint.el][sp-org-tag-lint.el]], with the data file [[file:libraries/modules/funct/sp-org-tag-registry.el][sp-org-tag-registry.el]])
-- [[file:docs/tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy plain lists in Org buffers ([[file:libraries/modules/funct/sp-org-lint.el][sp-org-lint.el]])
+- [[file:docs/tangles/funct/sp-org-lint.org][sp-org-lint]] :: Lint and tidy Org lists and footnotes, and the doc of the author and litnote lint commands; sp-org-lint.el requires the submodules ([[file:libraries/modules/funct/sp-org-lint-others.el][others]], [[file:libraries/modules/funct/sp-org-lint-footnotes.el][footnotes]])
 - [[file:docs/tangles/funct/sp-org-lint.org::*sp-split-leave-parents.el][sp-split-leave-parents]] :: Split a heading into its own note, keeping parents and a link ([[file:libraries/modules/funct/sp-split-leave-parents.el][sp-split-leave-parents.el]])
 
 ** media/
 
 - [[file:docs/tangles/media/sp-ai.org][sp-ai]] :: AI and LLM integration ([[file:libraries/modules/media/sp-ai.el][sp-ai.el]])
 - [[file:docs/tangles/media/sp-beets.org][sp-beets]] :: Editing beets metadata in Emacs ([[file:libraries/modules/media/sp-beets.el][sp-beets.el]])
-- [[file:docs/tangles/media/sp-browsing.org][sp-browsing]] :: Web browsing inside Emacs ([[file:libraries/modules/media/sp-browsing.el][sp-browsing.el]])
+- [[file:docs/tangles/custom/sp-search-browsing-trails.org][sp-browsing]] :: Web browsing inside Emacs ([[file:libraries/modules/media/sp-browsing.el][sp-browsing.el]])
 - [[file:docs/tangles/media/sp-instant-messenger.org][sp-instant-messenger]] :: Instant messaging from Emacs ([[file:libraries/modules/media/sp-instant-messenger.el][sp-instant-messenger.el]])
 - [[file:docs/tangles/media/sp-mail.org][sp-mail]] :: Mail management in Emacs ([[file:libraries/modules/media/sp-mail.el][sp-mail.el]])
 - [[file:docs/tangles/media/sp-multimedia.org][sp-multimedia]] :: Music and media playback ([[file:libraries/modules/media/sp-multimedia.el][sp-multimedia.el]])

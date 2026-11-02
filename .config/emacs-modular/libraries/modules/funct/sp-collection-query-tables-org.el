@@ -33,7 +33,7 @@ the other renderers show them by their description."
 
 (defun sp-collec-query--org-cell (note column)
   "Return the Org text of COLUMN for NOTE."
-  (let ((text (sp-collec-query--org-escape (sp-collec-query-cell note column))))
+  (let ((text (sp-collec-query--org-escape (sp-collec-query-display-cell note column))))
     (if (and sp-collec-query-link-titles (eq column :title)
              (vulpea-note-id note) (not (string-empty-p text)))
         (format "[[id:%s][%s]]" (vulpea-note-id note)
