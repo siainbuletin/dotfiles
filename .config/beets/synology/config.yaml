@@ -1,0 +1,47 @@
+# Tangled from ~/.config/beets/beets.org. Edit that file, not this one.
+
+directory: /music
+library: /config/musiclibrary.blb
+
+include:
+  - secrets.yaml
+plugins:
+  - web
+  - chroma
+  - fetchart
+  - embedart
+  - lastgenre
+  - scrub
+  - info
+  - missing
+  - duplicates
+import:
+  write: yes
+  copy: yes
+  move: no
+  resume: ask
+  incremental: yes
+  quiet_fallback: skip
+  log: /config/import.log
+paths:
+  default: $albumartist/$album%aunique{}/$track - $title
+  singleton: Non-Album/$artist - $title
+  comp: Compilations/$album%aunique{}/$track - $title
+
+art_filename: cover
+web:
+  host: 0.0.0.0
+  port: 8337
+
+fetchart:
+  auto: yes
+
+embedart:
+  auto: yes
+
+lastgenre:
+  auto: yes
+  source: album
+
+scrub:
+  auto: yes

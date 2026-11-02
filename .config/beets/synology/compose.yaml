@@ -1,0 +1,16 @@
+# Tangled from ~/.config/beets/beets.org. Edit that file, not this one.
+services:
+  beets:
+    image: lscr.io/linuxserver/beets:latest
+    container_name: beets
+    environment:
+      - PUID=1026
+      - PGID=100
+      - TZ=Etc/UTC
+    volumes:
+      - /volume1/docker/beets:/config
+      - /volume1/music:/music
+      - /volume1/music/_import:/downloads
+    ports:
+      - 8337:8337
+    restart: unless-stopped
