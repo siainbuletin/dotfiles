@@ -56,6 +56,57 @@
           ("NOTE:"  . ((lambda (tag) (svg-tag-make "NOTE:"  :face 'warning :inverse t))))
           ("TODO:"  . ((lambda (tag) (svg-tag-make "TODO:"  :face 'warning :inverse t)))))))
 
+;;;;; SVG tags for Org headings
+(defvar svg-tag-tags)
+(declare-function svg-tag-make "svg-tag-mode")
+(declare-function svg-tag-mode "svg-tag-mode")
+(defvar org-complex-heading-regexp)
+
+(defun sp-org-heading-svg-tags--in-tags-p (pos)
+  "Non-nil when POS is inside the tags of an Org heading, not in a title or keyword."
+  (save-match-data
+    (save-excursion
+      (goto-char pos)
+      (forward-line 0)
+      (and (eq (char-after) ?*)
+           (looking-at org-complex-heading-regexp)
+           (match-beginning 5)
+           (<= (match-beginning 5) pos)
+           (< pos (match-end 5))))))
+
+(defun sp-org-heading-svg-tags--chip (tag)
+  "Stock `svg-tag-make' chip of TAG (match 1) in an Org heading, else nil."
+  (when (and (display-graphic-p)
+             (sp-org-heading-svg-tags--in-tags-p (match-beginning 1)))
+    (svg-tag-make tag :face 'org-tag :inverse t)))
+
+(defun sp-org-heading-svg-tags--hide (_colon)
+  "Display nothing for a colon (match 1) around the tags of an Org heading."
+  (when (and (display-graphic-p)
+             (sp-org-heading-svg-tags--in-tags-p (match-beginning 1)))
+    ""))
+
+(define-minor-mode sp-org-heading-svg-tags-mode
+  "Draw the tags of Org headings in this buffer as stock SVG tags.
+Off unless switched on; nothing is enabled at start.  Only the tags at
+the end of a heading change: file-header keywords (#+filetags:) and TODO
+keywords are left alone."
+  :group 'spcustom
+  (cond
+   ((not sp-org-heading-svg-tags-mode)
+    (when (bound-and-true-p svg-tag-mode)
+      (svg-tag-mode -1)))
+   ((not (and (display-graphic-p) (image-type-available-p 'svg)
+              (require 'svg-tag-mode nil t)))
+    (setq sp-org-heading-svg-tags-mode nil)
+    (message "SVG tags need a graphic frame with SVG and svg-tag-mode"))
+   (t
+    (setq-local svg-tag-tags
+                '(("\\(:\\)[[:alnum:]_@#%]+" sp-org-heading-svg-tags--hide)
+                  ("\\([[:alnum:]_@#%]+\\):" sp-org-heading-svg-tags--chip)
+                  (":[ \t]*$" sp-org-heading-svg-tags--hide)))
+    (svg-tag-mode 1))))
+
 ;;;; Widgets
 (use-package wid-edit
   :ensure nil
