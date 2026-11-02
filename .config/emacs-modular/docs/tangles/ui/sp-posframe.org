@@ -257,3 +257,8 @@ Checks for every step, before it is merged:
 (provide 'sp-posframe)
 ;; sp-posframe.el ends here.
 #+end_src
+
+* Planned features
+** Better integration with Linux
+
+It could possibly be integrated with the eval section in StumpWM, if I wanted to use that as a window manager in Linux.

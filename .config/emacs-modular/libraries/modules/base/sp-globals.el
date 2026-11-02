@@ -164,8 +164,9 @@ here."
   :group 'spcustom)
 
 ;; Moved here from sp-academic.el.
-(defcustom sp-bib-notes '(sp-path sp-notes-dir "litnotes/")
+(defcustom sp-bib-notes (sp-path sp-notes-dir "litnotes/")
   "User citation notes directory."
+  :type 'directory
   :group 'spcustom
   :tag "Lambda-Emacs Citation Notes Directory")
 

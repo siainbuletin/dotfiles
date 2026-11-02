@@ -22,7 +22,7 @@
         ("archive")
         ("cemetery")
 
-        ;; People and bodies
+        ;; People and institutions
         ("person")
         ("musician")
         ("group")
@@ -52,9 +52,15 @@
         ("research-q")
         ("exploratory")
 
+        ;; Others
         ("concept")
         ("emacs")
         ("audio")
+        ("docs")
+        ("process")
+        ("library")
+        ("zettel")
+        ("thesis")
         ;; sp-org-tag-add: new tags go above this line
         ))
 

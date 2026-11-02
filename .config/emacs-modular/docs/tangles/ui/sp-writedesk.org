@@ -443,6 +443,14 @@ Provides the =sp-writedesk= feature and closes the file.
 #+end_src
 
 * Tasks
+** TODO Look at the rougier nano =nano-writer= module and what it has to offer for writing
+
+This was the same code that I first pulled into my very first configuration.
+
+;; This is supposed to improve org-mode visually
+(require 'nano-writer)
+(add-to-list 'major-mode-remap-alist '(org-mode . writer-mode))
+
 ** TODO Add justification to the lines
 
 [2026-10-29 Thu] This was theoretically done in my old configuration from ~emacs-include~

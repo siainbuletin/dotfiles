@@ -1468,6 +1468,24 @@ Provides the =sp-litnotes= feature and closes the file.
 ;; sp-litnotes.el ends here
 #+end_src
 
+* Tasks and planned features (+ brainstorming)
+** TODO See what's up with these BibTeX field properties
+
+(setq bibtex-entry-format
+      `(page-dashes required-fields
+         numerical-fields whitespace last-comma delimiters
+         unify-case sort-fields))
+
+(setq bibtex-field-delimiters 'double-quotes)
+(setq bibtex-entry-delimiters 'braces)
+
+** TODO See if it would be a good idea to use Rougier's PDF drop mode for capturing PDF files
+
+;; (straight-use-package
+;; '(pdf-drop-mode :type git :host github :repo "rougier/pdf-drop-mode"))
+
+Still, perhaps it would be better to just make use of DEVONthink's native capturing features for this, since it already uses a watch folder for pulling in references.
+
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
