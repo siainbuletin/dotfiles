@@ -273,6 +273,25 @@ needed to open the first buffer.")
   (when (fboundp 'elpaca-process-queues)
     (elpaca-process-queues)))
 
+(defun sp-ai-load ()
+  "Load `sp-ai', which installs and sets up all the AI packages.
+It is not part of start-up: this loads gptel, claude-code, eca, agent-shell,
+efrit and monet, and starts the vulpea-mcp and org-mcp servers that Claude
+reaches through `emacsclient'.  Elpaca installs what is missing and this
+waits for it, so the first call can take a while."
+  (interactive)
+  (cond
+   ((featurep 'sp-ai)
+    (message "sp-ai is already loaded"))
+   ((sp-require-module 'sp-ai)
+    ;; Orders declared after init are processed on their own only when a
+    ;; command is running interactively; wait so the packages are usable now.
+    (when (fboundp 'elpaca-wait)
+      (elpaca-wait))
+    (message "sp-ai loaded"))
+   (t
+    (user-error "Loading sp-ai failed, see *Messages*"))))
+
 (defun sp-schedule-late-modules ()
   "Load `sp-late-modules' now, or once Emacs is idle after Elpaca's init."
   (if sp-defer-late-modules
@@ -406,11 +425,8 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-prog-misc
                     ;; 'sp-vc-ai-workbench
 
-                    ;; AI tooling. Not late: it starts the vulpea-mcp and
-                    ;; org-mcp servers that Claude connects to through
-                    ;; emacsclient, so they have to be up as soon as the
-                    ;; daemon is.
-                    'sp-ai
+                    ;; AI tooling is not loaded here: it is slow to start.
+                    ;; Call `sp-ai-load' when you need it.
                     ))
    ;; The modules in `sp-late-modules' load once startup is done.
    (sp-schedule-late-modules)))

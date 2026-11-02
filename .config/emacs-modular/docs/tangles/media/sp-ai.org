@@ -135,7 +135,7 @@ How they are reached:
 - Neither has a network port.
 - Claude Code starts the stdio wrapper =emacs-mcp-stdio.sh= (in this folder). It passes every JSON-RPC line to a running Emacs through =emacsclient=.
 - So what is needed is any Emacs with a server socket: the GUI one, or a headless daemon.
-- =sp-ai= is therefore in the startup list of =init.el=, not among the late modules, so the servers are up as soon as the daemon is.
+- =sp-ai= is not loaded at startup, because it is slow. Run =M-x sp-ai-load= (defined in =init.el=) in the Emacs that Claude should reach, and the servers are up once it returns. In a daemon, run =emacsclient -s mcp -e '(sp-ai-load)'= once after it starts.
 
 ** mcp-server-lib
 
@@ -224,7 +224,7 @@ claude mcp add -s user -t stdio org-mcp -- ~/.config/emacs-modular/emacs-mcp-std
 
 What makes this work (from reading =emacs-mcp-stdio.sh=, =mcp-server-lib= and =org-mcp=):
 
-- The daemon runs the whole of =init.el=, so =sp-ai= registers both servers and starts the library.
+- =sp-ai-load= in the daemon registers both servers and starts the library; =init.el= alone no longer does.
 - =sp-server= starts the Emacs server in a daemon (its =:if= is =(or window-system (daemonp))=), under the name given after =--daemon=.
 - The wrapper only needs the socket.
 - A daemon named =mcp= keeps Claude's servers apart from the Emacs you work in, so you can restart either without the other.
