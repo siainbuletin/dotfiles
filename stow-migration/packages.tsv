@@ -1,0 +1,73 @@
+# package	os	path (relative to $HOME)	[destination inside the package, for renamed files]
+#
+# os is all, darwin, linux or windows. Windows packages are never stowed (Stow does not run there).
+# The longest matching path wins. A path matches itself and everything below it.
+# Special package names:  @root = stays at the repo root, same path;  - = dropped (git rm).
+#
+# --- Emacs ---
+emacs-modular	all	.config/emacs-modular
+emacs-chemacs	all	.emacs.d
+emacs-chemacs	all	.emacs-profiles.el
+emacs-chemacs	all	.config/emacs
+emacs-distributions	all	.config/emacs-distributions
+emacs-include	all	.config/emacs-include
+emacs-plus	darwin	.config/emacs-plus
+# --- shells ---
+fish	all	.config/fish
+zsh	all	.zshrc
+bash	all	.bashrc
+bash	all	.bash_profile
+bash	all	.bash_aliases
+bash	all	.profile
+# --- terminal and CLI tools ---
+alacritty	all	.config/alacritty
+alacritty-darwin	darwin	.config/alacritty/shell.toml##os.Darwin	.config/alacritty/shell.toml
+alacritty-linux	linux	.config/alacritty/shell.toml##os.Linux	.config/alacritty/shell.toml
+alacritty-windows	windows	.config/alacritty/shell.toml##os.Windows	.config/alacritty/shell.toml
+btop	all	.config/btop
+htop	all	.config/htop
+lazygit	all	.config/lazygit
+yazi	all	.config/yazi
+zellij	all	.config/zellij
+ripgrep-all	all	.config/ripgrep-all
+typlite	all	.config/typlite
+# --- research, notes, music ---
+beets	all	.config/beets
+bibiman	all	.config/bibiman
+cobib	all	.config/cobib
+cmus	all	.config/cmus
+audacious	all	.config/audacious
+rmpc	all	.config/rmpc
+termusic	all	.config/termusic
+qutebrowser	all	.config/qutebrowser
+nyxt	all	.config/nyxt
+# --- AI tooling (lands in ~/.claude) ---
+claude	all	.claude
+# --- macOS only ---
+aerospace	darwin	.config/aerospace
+hammerspoon	darwin	.config/hammerspoon
+# --- Linux desktop only ---
+i3	linux	.config/i3
+sway	linux	.config/sway
+polybar	linux	.config/polybar
+rofi	linux	.config/rofi
+picom	linux	.config/picom
+nitrogen	linux	.config/nitrogen
+xsettingsd	linux	.config/xsettingsd
+pacsea	linux	.config/pacsea
+fsearch	linux	.config/fsearch
+x11	linux	.xinitrc
+x11	linux	i3status.conf
+# --- stays at the repo root (not linked into $HOME) ---
+@root	all	README.org
+@root	all	adr
+@root	all	.github
+@root	all	stow-migration
+# --- dropped ---
+# X11 magic cookie: a host-specific credential, not a dotfile.
+-	all	.Xauthority
+# yadm's own settings; the file is useless without yadm.
+-	all	.config/yadm
+# The old blacklist .gitignore made for a repo whose work tree is $HOME; replaced.
+-	all	.gitignore
+-	all	.config/.gitignore
