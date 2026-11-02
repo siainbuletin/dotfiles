@@ -1,0 +1,270 @@
+#+TITLE: sp-refile.el: One command to move a heading or merge a note
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/funct/sp-refile.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/funct/sp-refile.el=. To tangle, see the Tangling section of [[file:../../../README.org][README.org]].
+
+* What it does
+
+=M-x sp-refile= (=C-c C-w= in Org buffers, =C-x s t=) is the one command for moving things around. It replaces three separate ones:
+
+| Before                              | Now                                                              |
+|-------------------------------------+------------------------------------------------------------------|
+| =org-refile= (heading, same file)   | pick a heading of the current note in the prompt                 |
+| =sp-split-leave-parents=            | pick =[New note: own file]= in the prompt                        |
+| =sp-move-region-to-heading= (M-a)   | pick =[Another note...]=, then a heading of it (or its top)      |
+| merging a whole note into another   | run it before the first heading (or with =C-u C-u=)              |
+
+** The prompt
+
+On a heading, =sp-refile= asks "Refile to" with one completion list:
+
+- every heading of the current note, by outline path (the heading itself and its children are left out, so a subtree is never moved into itself);
+- =[New note: own file]=: the heading becomes a note of its own, by =sp-split-leave-parents= (parents line, link left behind, Denote file name, footnotes and the =- seealso ::= line of the id links in the heading from #240). A prefix argument leaves no link there;
+- =[Another note...]=: asks for a note (the Vulpea prompt of =sp-select-note=), then for one of its headings or =[Top of note]=.
+
+The subtree keeps its =:ID:=, so links to it keep working wherever it goes. It is inserted as the last child of the target; the source subtree is removed only after the copy is in place and the target file is saved.
+
+** Merging a note
+
+Before the first heading of a note (or with =C-u C-u= anywhere) the whole note is the thing to move: you are asked for a target note and heading, and the note becomes a subtree there: the =#+title:= is the heading, =#+filetags:= its tags, the note's =:ID:= stays on the heading (links to the note still resolve), its text comes first and its headings follow, one level deeper. After you confirm, the old file is deleted (moved to the trash when =delete-by-moving-to-trash= is set).
+
+Vulpea's own =vulpea-merge= is not used: it is not in this configuration or in the Vulpea version of the container, so the merge here is built from Org functions only.
+
+** Compatibility
+
+=sp-split-leave-parents= stays the engine for the split (the code and its tests are unchanged) and still works by name; =sp-refile= calls it. =sp-move-region-to-heading= is for loose text, not for headings, and is not part of this command.
+
+* Code
+
+** Header
+
+#+begin_src emacs-lisp -i
+;;; sp-refile.el --- One command to refile a heading or merge a note -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; `sp-refile' moves the heading at point to another heading of the same
+;; note, to another note, or into a note of its own (`sp-split-leave-parents').
+;; Before the first heading it merges the whole note under a heading of
+;; another note.  See docs/tangles/funct/sp-refile.org.
+
+;;; Code:
+
+(require 'org)
+(require 'org-id)
+(require 'subr-x)
+(require 'seq)
+(require 'sp-split-leave-parents)
+(require 'sp-move-region-to-heading)
+
+(declare-function sp-select-note "sp-org-tag-groups")
+(declare-function vulpea-note-path "vulpea")
+(declare-function vulpea-note-p "vulpea")
+
+(defconst sp-refile--new-note "[New note: own file]"
+  "Prompt entry that splits the heading into a note of its own.")
+
+(defconst sp-refile--other-note "[Another note...]"
+  "Prompt entry that asks for another note, then a heading in it.")
+
+(defconst sp-refile--top "[Top of note]"
+  "Heading prompt entry for a new top-level heading at the end of a note.")
+#+end_src
+
+** Candidates in the current note
+
+The headings of the buffer as =(OUTLINE-PATH . MARKER)=, leaving out the subtree at point.
+
+#+begin_src emacs-lisp -i
+(defun sp-refile--local-candidates ()
+  "Return (OUTLINE-PATH . MARKER) for the headings of this buffer.
+The subtree at point is left out, so it cannot be moved into itself."
+  (let ((self (save-excursion (org-back-to-heading t) (point)))
+        (self-end (save-excursion (org-back-to-heading t)
+                                  (org-end-of-subtree t t) (point))))
+    (org-with-wide-buffer
+     (delq nil
+           (org-map-entries
+            (lambda ()
+              (unless (and (>= (point) self) (< (point) self-end))
+                (cons (mapconcat #'identity
+                                 (append (org-get-outline-path)
+                                         (list (org-get-heading t t t t)))
+                                 " > ")
+                      (point-marker)))))))))
+#+end_src
+
+** Moving a subtree
+
+TEXT is the subtree as a string. It goes in as the last child of the heading at TARGET, a marker; a nil TARGET puts it at the end of the file as a top-level heading. The target buffer is saved.
+
+#+begin_src emacs-lisp -i
+(defun sp-refile--insert (text target buffer)
+  "Insert the subtree TEXT as the last child of TARGET in BUFFER.
+TARGET is a marker, or nil for the end of BUFFER as a top-level heading.
+BUFFER is saved when it visits a file."
+  (with-current-buffer buffer
+    (org-with-wide-buffer
+     (let ((level 1))
+       (if target
+           (progn (goto-char target)
+                  (setq level (1+ (org-current-level)))
+                  (org-end-of-subtree t t))
+         (goto-char (point-max)))
+       (unless (bolp) (insert "\n"))
+       (let ((start (point)))
+         (insert text)
+         (unless (bolp) (insert "\n"))
+         ;; Re-level the inserted tree to LEVEL.
+         (save-excursion
+           (goto-char start)
+           (let ((delta (- level (org-current-level))))
+             (unless (zerop delta)
+               (org-map-region
+                (lambda ()
+                  (if (> delta 0)
+                      (dotimes (_ delta) (org-do-demote))
+                    (dotimes (_ (- delta)) (org-do-promote))))
+                start (point-max))))))))
+    (when buffer-file-name (save-buffer))))
+
+(defun sp-refile--move-heading (target buffer)
+  "Move the subtree at point under TARGET in BUFFER (see `sp-refile--insert').
+The copy is made and saved first, the original is removed after."
+  (let* ((src (current-buffer))
+         (beg (save-excursion (org-back-to-heading t) (copy-marker (point))))
+         (end (save-excursion (org-back-to-heading t)
+                              (org-end-of-subtree t t) (copy-marker (point))))
+         (text (buffer-substring-no-properties beg end)))
+    (when (and (eq buffer src) target
+               (>= target beg) (< target end))
+      (user-error "Cannot refile a heading into itself"))
+    (sp-refile--insert text target buffer)
+    (with-current-buffer src
+      (org-with-wide-buffer
+       (delete-region beg end))
+      (when buffer-file-name (save-buffer)))))
+#+end_src
+
+** Choosing another note
+
+#+begin_src emacs-lisp -i
+(defun sp-refile--read-other-note ()
+  "Ask for a note and one of its headings.
+Return (MARKER-OR-NIL . BUFFER); a nil marker means the end of the note."
+  (let* ((note (sp-select-note "Refile to note: " :require-match t))
+         (path (and (vulpea-note-p note) (vulpea-note-path note))))
+    (unless path (user-error "No target note selected"))
+    (let* ((cands (sp--org-heading-candidates path))
+           (choice (completing-read "Under heading: "
+                                    (cons sp-refile--top (mapcar #'car cands))
+                                    nil t))
+           (buf (find-file-noselect path)))
+      (cons (unless (string= choice sp-refile--top)
+              (cdr (assoc choice cands)))
+            buf))))
+#+end_src
+
+** Merging a whole note
+
+=sp-refile--note-as-subtree= turns the current note into one subtree string.
+
+#+begin_src emacs-lisp -i
+(defun sp-refile--note-as-subtree ()
+  "Return the whole current note as a level 1 subtree string.
+The title becomes the heading, `#+filetags' its tags, the note's ID
+stays in a property drawer, the text before the first heading comes
+first and the headings follow, one level deeper."
+  (let* ((text (org-with-wide-buffer (buffer-substring-no-properties
+                                      (point-min) (point-max))))
+         title tags id)
+    (with-temp-buffer
+      (insert text)
+      (delay-mode-hooks (org-mode))
+      (goto-char (point-min))
+      (let ((kw (org-collect-keywords '("TITLE" "FILETAGS"))))
+        (setq title (car (cdr (assoc "TITLE" kw)))
+              tags (split-string (or (car (cdr (assoc "FILETAGS" kw))) "")
+                                 ":" t "[ \t]+")))
+      (setq id (org-entry-get (point-min) "ID"))
+      (goto-char (point-min))
+      ;; Drop the front matter: the top property drawer and #+keywords.
+      (when (looking-at-p "[ \t]*:PROPERTIES:")
+        (when (re-search-forward "^[ \t]*:END:[ \t]*\n?" nil t)
+          (delete-region (point-min) (point))))
+      (goto-char (point-min))
+      (while (looking-at "[ \t]*#\\+[A-Za-z_]+:.*\n?")
+        (replace-match ""))
+      ;; Demote every existing heading by one.
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(\\*+\\) " nil t)
+        (replace-match "\\1* "))
+      (concat "* " (or title "Untitled")
+              (if tags (format " :%s:" (string-join tags ":")) "")
+              "\n"
+              (if id (format ":PROPERTIES:\n:ID:       %s\n:END:\n" id) "")
+              (string-trim-left (buffer-string) "\n+")))))
+
+(defun sp-refile--merge-note (target buffer)
+  "Merge the current note as a subtree under TARGET in BUFFER.
+Asks before the file of the current note is deleted afterwards."
+  (let ((file buffer-file-name)
+        (src (current-buffer)))
+    (unless file (user-error "This buffer is not a note file"))
+    (when (eq buffer src) (user-error "Cannot merge a note into itself"))
+    (unless (y-or-n-p (format "Merge %s into %s and delete it? "
+                              (file-name-nondirectory file)
+                              (buffer-name buffer)))
+      (user-error "Merge cancelled"))
+    (let ((text (sp-refile--note-as-subtree)))
+      (sp-refile--insert text target buffer)
+      (set-buffer-modified-p nil)
+      (kill-buffer src)
+      (delete-file file delete-by-moving-to-trash)
+      (when (fboundp 'vulpea-db-update-file)
+        (ignore-errors (vulpea-db-update-file file))))
+    (message "Merged %s" (file-name-nondirectory file))))
+#+end_src
+
+** The command
+
+#+begin_src emacs-lisp -i
+;;;###autoload
+(defun sp-refile (&optional arg)
+  "Move the heading at point, or merge the note when before its first heading.
+On a heading, choose from the headings of this note, `[New note: own
+file]' (split, see `sp-split-leave-parents'; a plain prefix argument
+leaves no link) or `[Another note...]'.  Before the first heading, or
+with `C-u C-u', the whole note is merged under a heading of another note."
+  (interactive "P")
+  (unless (derived-mode-p 'org-mode) (user-error "Not an Org buffer"))
+  (let ((merge (or (equal arg '(16))
+                   (org-with-wide-buffer
+                    (and (not (ignore-errors (org-back-to-heading t) t)))))))
+    (if merge
+        (pcase-let ((`(,target . ,buf) (sp-refile--read-other-note)))
+          (sp-refile--merge-note target buf))
+      (let* ((cands (sp-refile--local-candidates))
+             (choice (completing-read
+                      "Refile to: "
+                      (append (list sp-refile--new-note sp-refile--other-note)
+                              (mapcar #'car cands))
+                      nil t)))
+        (cond
+         ((string= choice sp-refile--new-note)
+          (let ((current-prefix-arg arg))
+            (sp-split-leave-parents (and arg t))))
+         ((string= choice sp-refile--other-note)
+          (pcase-let ((`(,target . ,buf) (sp-refile--read-other-note)))
+            (sp-refile--move-heading target buf)))
+         (t
+          (sp-refile--move-heading (cdr (assoc choice cands))
+                                   (current-buffer))))))))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c C-w") #'sp-refile))
+
+(provide 'sp-refile)
+;;; sp-refile.el ends here
+#+end_src

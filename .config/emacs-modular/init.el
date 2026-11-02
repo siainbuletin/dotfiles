@@ -389,6 +389,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-helper-funct
                     'sp-open-externally
                     'sp-move-region-to-heading
+                    'sp-refile ;; one command: refile, split into a note, merge a note
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
