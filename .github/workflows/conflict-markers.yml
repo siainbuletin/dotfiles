@@ -1,0 +1,21 @@
+name: conflict-markers
+
+# Fails when a file still has git conflict markers (<<<<<<<, >>>>>>>), which break
+# loading of data files such as sp-org-tag-registry.el.
+# Script: .config/emacs-modular/tools/check-conflict-markers.sh
+
+on:
+  pull_request:
+  push:
+    branches: [main, stable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: .config/emacs-modular/tools/check-conflict-markers.sh

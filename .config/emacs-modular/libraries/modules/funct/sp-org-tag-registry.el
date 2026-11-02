@@ -65,5 +65,20 @@
         ;; sp-org-tag-add: new tags go above this line
         ))
 
+;; A leftover git conflict marker in the list above reads as the symbols `<<<<<<<',
+;; `=======' or `>>>>>>>' and makes Org fail with "Invalid association in tag
+;; alist".  Drop such entries and say where they came from.
+(let ((bad (seq-remove (lambda (e) (or (stringp e) (consp e)))
+                       org-tag-persistent-alist)))
+  (when bad
+    (setq org-tag-persistent-alist
+          (seq-filter (lambda (e) (or (stringp e) (consp e)))
+                      org-tag-persistent-alist))
+    (display-warning
+     'sp-org-tag-registry
+     (format "Ignored %S in sp-org-tag-registry.el: resolve the git conflict markers there"
+             bad)
+     :error)))
+
 (provide 'sp-org-tag-registry)
 ;;; sp-org-tag-registry.el ends here
