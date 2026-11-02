@@ -1,6 +1,6 @@
 #+title: 0020 Tag groups are an alist of =(GROUP TAG…)=, turned into Org group tags
 #+date: 2026-10-25
-#+status: proposed (the open question on tags without a group is decided, 2026-11-02)
+#+status: accepted and implemented (2026-11-02, PR #248)
 
 * Context
 The note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (#105), a flat list of 27 tags that is only divided by comments ("People and bodies", "Music", ...). The comments are what I use to think about the tags, but no code can see them. I want /groups/ of tags by function (structure, people, music, literature, ...) so that:
@@ -74,6 +74,15 @@ A tag in no group is allowed. It belongs to a group named =unsorted=, which has 
 - =unsorted= is not a key of =sp-org-tag-groups-alist=; it is what is left over, so there is nothing to keep in step. A rule on the group (=(group . "unsorted")=) would match them, but none is defined.
 - No error and no warning; =M-x sp-org-tag-groups-list-unsorted= lists the tags still in it, to work through them.
 - /Untested/: not run in Emacs (none in the container).
+
+* Implemented (2026-11-02)
+The registry now works as decided above (PR #248). =sp-org-tag-groups-alist= is the source and =org-tag-persistent-alist= is derived from it; it is no longer edited by hand or kept in step with a second list.
+
+- =sp-org-tag-registry.el= sets =sp-org-tag-groups-alist= (the six groups) and =sp-org-tag-groups-ungrouped=, the tags in no group yet (=concept=, =emacs=, ...: the =unsorted= group), then sets =org-tag-persistent-alist= to =(sp-org-tag-groups-to-alist sp-org-tag-groups-alist sp-org-tag-groups-ungrouped)=. The marker line for =sp-org-tag-add= is at the end of the ungrouped list.
+- =sp-org-tag-groups-to-alist= (and the variables) live in =sp-org-tag-lint=, which loads the registry; =sp-org-tag-groups= requires it and no longer holds a copy of the data.
+- =sp-org-tag-add TAG GROUP= asks for the group (empty is =unsorted=) and inserts the tag after the last member of that group's element, or above the marker.
+- A group name is a tag too, so the group tags (=structure=, =who=, ...) are now registered, and a group name is in its own group. A member named like its group (=software=) is left out of the Org group-tag form, because the group tag matches itself; the ADR said this should work, and I did not run Org to check that it does, so I avoided it.
+- /Untested/: no Emacs in the container. Group-tag expansion by Org (=+music= finds =album=) was verified on the sketch in 2026-10-25, not on the real registry; =sp-org-tag-add= in a group (a =forward-sexp= edit of the file) is covered by an ERT test I could not run.
 
 * Open questions
 - Group names: the six above are my reading of the existing comments; "who" for people and bodies and "inquiry" are the least obvious.

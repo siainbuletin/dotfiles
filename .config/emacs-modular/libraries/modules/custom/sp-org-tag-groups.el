@@ -16,6 +16,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'sp-org-tag-lint)
 
 ;;;; Settings
 (defgroup sp-org-tag-groups nil
@@ -363,16 +364,13 @@ Keys: :emoji, a list of (EMOJI POSITION FACE TAGS) in tag order; and
   (force-mode-line-update t))
 
 ;;;; Tag groups and their colours
-(defcustom sp-org-tag-groups-alist
-  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
-    ("who"        "person" "musician" "group" "institution" "company")
-    ("music"      "album" "genre")
-    ("software"   "software" "package")
-    ("literature" "text" "book" "journalarticle" "booksection"
-                  "collection" "incollection")
-    ("inquiry"    "question" "error" "research-q" "exploratory"))
+(defcustom sp-org-tag-groups-alist nil
   "Groups of note tags: a list of (GROUP TAG…).
-A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
+A member may be (TAG . KEY), as in `org-tag-alist'.  The groups are set in
+`sp-org-tag-lint-registry-file' (sp-org-tag-registry.el), which also
+derives `org-tag-persistent-alist' from them; a value set there is kept.
+See ADR 0020."
+  :initialize #'custom-initialize-default
   :type '(repeat (cons (string :tag "Group") (repeat (choice string (cons string character)))))
   :group 'spcustom)
 
@@ -402,16 +400,13 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
   :type '(alist :key-type symbol :value-type (list string string string string))
   :group 'spcustom)
 
-(defconst sp-org-tag-groups-unsorted "unsorted"
-  "The group of a tag that `sp-org-tag-groups-alist' puts in no group.
-It has no emoji and no colour on purpose: that its definition is missing
-is the signal to sort the tag.  See ADR 0020.")
-
 (defun sp-org-tag-groups--explicit-groups (tag)
-  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none."
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none.
+A group name is a tag too, and it is in its own group."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
-           when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
-                                    members))
+           when (or (equal tag group)
+                    (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
+                                        members)))
            collect group))
 
 (defun sp-org-tag-group-of (tag)
@@ -637,12 +632,11 @@ title, without the emoji."
 
 (defun sp-org-tag-groups-unsorted-tags ()
   "The registered note tags that are in no group of `sp-org-tag-groups-alist'.
-Group names are not counted."
+Group names are not counted, as they are in their own group."
   (let (result)
     (dolist (entry org-tag-persistent-alist)
       (let ((tag (and (consp entry) (stringp (car entry)) (car entry))))
         (when (and tag
-                   (not (assoc tag sp-org-tag-groups-alist))
                    (null (sp-org-tag-groups--explicit-groups tag)))
           (cl-pushnew tag result :test #'equal))))
     (nreverse result)))

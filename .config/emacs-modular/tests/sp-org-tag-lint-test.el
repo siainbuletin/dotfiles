@@ -20,12 +20,18 @@
           (copy (expand-file-name "sp-org-tag-registry.el" dir))
           (sp-org-tag-lint-registry-file copy)
           (org-tag-persistent-alist org-tag-persistent-alist)
+          (sp-org-tag-groups-alist sp-org-tag-groups-alist)
+          (sp-org-tag-groups-ungrouped sp-org-tag-groups-ungrouped)
           (org-tag-alist '(("@home" . ?H))))
      (unwind-protect
          (progn
            (with-temp-file copy
-             (insert "(setq org-tag-persistent-alist\n      '((\"person\")\n        (\"album\")\n"
-                     "        " sp-org-tag-lint--sentinel "\n        ))\n"))
+             (insert "(setq sp-org-tag-groups-alist\n      '((\"music\" \"album\")\n        (\"who\" \"person\")))\n"
+                     "(setq sp-org-tag-groups-ungrouped\n      '(\"concept\"\n        "
+                     sp-org-tag-lint--sentinel "\n        ))\n"
+                     "(setq org-tag-persistent-alist\n"
+                     "      (sp-org-tag-groups-to-alist sp-org-tag-groups-alist"
+                     " sp-org-tag-groups-ungrouped))\n"))
            (load-file copy)
            ,@body)
        (delete-directory dir t))))
@@ -80,10 +86,28 @@
     (should (member "genre" (sp-org-tag-lint-note-tags)))
     (with-temp-buffer
       (insert-file-contents copy)
-      (should (search-forward "(\"genre\")" nil t))
+      (should (search-forward "\"genre\"\n" nil t))
       (should (search-forward sp-org-tag-lint--sentinel nil t)))
     (should-error (sp-org-tag-add "genre") :type 'user-error)
     (should-error (sp-org-tag-add "not a tag") :type 'user-error)))
+
+(ert-deftest sp-org-tag-lint-test-to-alist ()
+  (should (equal (sp-org-tag-groups-to-alist
+                  '(("music" "album" ("genre" . ?g)) ("software" "software" "package"))
+                  '("concept"))
+                 '((:startgrouptag) ("music") (:grouptags) ("album") ("genre" . ?g) (:endgrouptag)
+                   (:startgrouptag) ("software") (:grouptags) ("package") (:endgrouptag)
+                   ("concept")))))
+
+(ert-deftest sp-org-tag-lint-test-add-in-group ()
+  (sp-org-tag-lint-test--with-registry
+    (should (equal (sp-org-tag-add "genre" "music") "genre"))
+    (should (equal (assoc "music" sp-org-tag-groups-alist) '("music" "album" "genre")))
+    (should (member "genre" (sp-org-tag-lint-note-tags)))
+    (should-not (member "genre" sp-org-tag-groups-ungrouped))
+    (should (equal (sp-org-tag-add "newtag" "unsorted") "newtag"))
+    (should (member "newtag" sp-org-tag-groups-ungrouped))
+    (should-error (sp-org-tag-add "other" "nogroup") :type 'user-error)))
 
 (ert-deftest sp-org-tag-lint-test-add-similar-asks ()
   (sp-org-tag-lint-test--with-registry

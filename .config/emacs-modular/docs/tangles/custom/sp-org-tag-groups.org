@@ -85,7 +85,7 @@ A tag in no group of =sp-org-tag-groups-alist= is allowed (ADR 0020). =sp-org-ta
 
 As in Notion, a colour is a pair: a light tinted background and a dark text colour on a light theme, a dark muted background and a light text colour on a dark theme. =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=). The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off. The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
 
-The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-groups-alist= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested groups are not followed.
+=sp-org-tag-groups-alist= is not edited here: it is set in the registry file =sp-org-tag-registry.el=, which derives =org-tag-persistent-alist= from it (=sp-org-tag-groups-to-alist=, in =sp-org-tag-lint=), and =M-x sp-org-tag-add= puts a new tag in the element of its group. This module requires =sp-org-tag-lint=, which holds =sp-org-tag-groups-unsorted=. A group name is a tag too and is in its own group. Nested groups are not followed.
 
 ** Tag registry
 
@@ -120,6 +120,7 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'sp-org-tag-lint)
 #+end_src
 
 * Settings
@@ -532,16 +533,13 @@ How the emoji is added to a link:
 
 #+begin_src emacs-lisp -i
 ;;;; Tag groups and their colours
-(defcustom sp-org-tag-groups-alist
-  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
-    ("who"        "person" "musician" "group" "institution" "company")
-    ("music"      "album" "genre")
-    ("software"   "software" "package")
-    ("literature" "text" "book" "journalarticle" "booksection"
-                  "collection" "incollection")
-    ("inquiry"    "question" "error" "research-q" "exploratory"))
+(defcustom sp-org-tag-groups-alist nil
   "Groups of note tags: a list of (GROUP TAG…).
-A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
+A member may be (TAG . KEY), as in `org-tag-alist'.  The groups are set in
+`sp-org-tag-lint-registry-file' (sp-org-tag-registry.el), which also
+derives `org-tag-persistent-alist' from them; a value set there is kept.
+See ADR 0020."
+  :initialize #'custom-initialize-default
   :type '(repeat (cons (string :tag "Group") (repeat (choice string (cons string character)))))
   :group 'spcustom)
 
@@ -575,16 +573,13 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
 ** Looking up a tag's colour
 
 #+begin_src emacs-lisp -i
-(defconst sp-org-tag-groups-unsorted "unsorted"
-  "The group of a tag that `sp-org-tag-groups-alist' puts in no group.
-It has no emoji and no colour on purpose: that its definition is missing
-is the signal to sort the tag.  See ADR 0020.")
-
 (defun sp-org-tag-groups--explicit-groups (tag)
-  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none."
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none.
+A group name is a tag too, and it is in its own group."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
-           when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
-                                    members))
+           when (or (equal tag group)
+                    (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
+                                        members)))
            collect group))
 
 (defun sp-org-tag-group-of (tag)
@@ -844,12 +839,11 @@ A global minor mode. Turning it on adds the segment, the link decoration and the
 
 (defun sp-org-tag-groups-unsorted-tags ()
   "The registered note tags that are in no group of `sp-org-tag-groups-alist'.
-Group names are not counted."
+Group names are not counted, as they are in their own group."
   (let (result)
     (dolist (entry org-tag-persistent-alist)
       (let ((tag (and (consp entry) (stringp (car entry)) (car entry))))
         (when (and tag
-                   (not (assoc tag sp-org-tag-groups-alist))
                    (null (sp-org-tag-groups--explicit-groups tag)))
           (cl-pushnew tag result :test #'equal))))
     (nreverse result)))
@@ -929,3 +923,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] ✨ Added the tag menu: =sp-org-tag-groups-read-tags= and =sp-org-tag-groups-completion-table= show the tags to pick headed by tag group, used by =sp-org-tag-read-note-tags=. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/247][#247]] 🐛 Fixed the emoji in front of titles in =sp-select-note= being larger than the text: =sp-org-tag-groups-describe-note= puts them in =sp-org-tag-groups-select-emoji-face= (height 0.8, customizable).
 - [[https://github.com/siainbuletin/dotfiles/pull/248][#248]] ✨ Added the =unsorted= group (ADR 0020): a tag in no group of =sp-org-tag-groups-alist= is allowed, and =sp-org-tag-group-of= answers =("unsorted")= for it instead of nil, with no emoji, the default colour and no warning. The tag menu lists it under =unsorted=, last (it was "other"). =M-x sp-org-tag-groups-list-unsorted= lists the registered tags in it.
+- [[https://github.com/siainbuletin/dotfiles/pull/248][#248]] 🔧 Changed =sp-org-tag-groups-alist= to be set in =sp-org-tag-registry.el= (ADR 0020), which derives =org-tag-persistent-alist= from it; this module no longer holds a copy of the data (the default is nil, a value set by the registry is kept) and requires =sp-org-tag-lint=, which now defines =sp-org-tag-groups-unsorted=. A group name is in its own group.
