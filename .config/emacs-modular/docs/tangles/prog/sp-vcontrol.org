@@ -22,6 +22,7 @@ Notes:
 - The YADM helper opens Magit in the home directory. That only works if Git can see a repository there. =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup.
 - Loaded in the Programming group of the default module list in =init.el=.
 - The Forge and code-review parts have not been run in a test environment yet.
+- =code-review= loads lazily, so a failure in it cannot stop Magit or =yadm= from loading (see Code review below).
 
 * Magit
 
@@ -116,19 +117,20 @@ Installs =code-review=, which opens a pull request in its own buffer for reading
 
 The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), used to be written as =(setq ...)= inside =:custom=, which expects =(variable value)= pairs, so it never set the variable. It is a normal entry now.
 
-Order: =:after forge= and the =require= of =emacsql-sqlite= in =:init= make sure the class =emacsql-sqlite-connection= exists before code-review defines its database class on it. Without that, loading it gave =Given parent class emacsql-sqlite-connection is not a class=. This is the usual cause of that message; I could not run Emacs or read the installed versions to confirm it here.
+Loading: =code-review= is deferred (=:defer t=) and only loads when =code-review-start= or =code-review-forge-pr-at-point= is called. It used to have =:after forge= and a =require= of =emacsql-sqlite=, which loaded it as soon as Forge loaded, i.e. the first time Magit was used (for example =M-x yadm=). Its database class has the parent =emacsql-sqlite-connection=, and with the current emacsql that class does not exist even after =(require 'emacsql-sqlite)=. So loading it failed with =Given parent class emacsql-sqlite-connection is not a class= and nothing in Magit loaded (backtrace of 2026-11-02, from =magit-next-line= through =forge= to =code-review-db=). The =require= did not help and is removed.
+
+Now a broken =code-review= can only break the review commands, not Magit, Forge or =yadm=. If the review commands fail with the same message, =code-review= is out of step with =emacsql= and =closql=; fixes to try, in order: rebuild and update them (=M-x elpaca-update-all=), pin =emacsql= and =closql= to the versions =code-review= was written for, or remove the block. I could not run Emacs to confirm the version mismatch.
 
 #+begin_src emacs-lisp -i
 ;; code review harness
 (use-package code-review
   :ensure t
-  ;; code-review defines its database class on `emacsql-sqlite-connection',
-  ;; which forge pulls in. Loading code-review before that gives "Given parent
-  ;; class emacsql-sqlite-connection is not a class".
-  :after forge
-  :init
-  (require 'emacsql-sqlite)
-
+  ;; Load only when a review is started. code-review defines its database
+  ;; class on `emacsql-sqlite-connection', which the installed emacsql may not
+  ;; provide ("Given parent class emacsql-sqlite-connection is not a class").
+  ;; Loading it eagerly (even `:after forge') broke Magit, so `yadm' failed.
+  :defer t
+  :commands (code-review-start code-review-forge-pr-at-point)
   :custom
   (code-review-fill-column 80) ;; Define line wrap in comment sections.
   (code-review-new-buffer-window-strategy #'switch-to-buffer) ;; Change how code-review splits the buffer when opening a new PR. Defaults to #'switch-to-buffer-other-window.
