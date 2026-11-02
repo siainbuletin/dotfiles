@@ -482,8 +482,9 @@ missing, or whose source has no colour, is a neutral grey."
                    (if hue (sp-theme-blend fg hue 0.15) fg) chip-bg dark)))
     (cons chip-bg chip-fg)))
 
-(defun sp-org-tag-group-of (tag)
-  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+(defun sp-org-tag-groups--explicit-groups (tag)
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none.
+A group name is a tag too, and it is in its own group."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
            when (or (equal tag group)
                     (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
@@ -563,6 +564,158 @@ A group without a colour (such as `unsorted') gets the neutral `default'."
           (when chips (push " " chips))
           (push (propertize (concat " " tag " ") 'face (sp-org-tag-groups--chip-face tag)) chips))))
     (apply #'concat (nreverse chips))))
+
+;;;; SVG tags in the org buffer
+(defvar svg-tag-tags)
+(declare-function svg-tag-make "svg-tag-mode")
+(declare-function svg-tag-mode "svg-tag-mode")
+(defvar org-modern-tag)
+(defvar org-complex-heading-regexp)
+
+(defcustom sp-org-svg-tags-enable t
+  "Non-nil: draw the tags of Org headings as SVG chips (`svg-tag-mode').
+`sp-org-svg-tags-global-mode' is switched on with this setting when the
+module loads; toggle it later with \\[sp-org-svg-tags-global-mode]."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-show-emoji t
+  "Non-nil: put the emoji of a tag (see `sp-org-tag-groups-rules') in front of its chip.
+The emoji is the one `sp-select-note' shows, in the same face."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-radius 6
+  "Corner radius of the SVG tag chips, in pixels."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-padding 1
+  "Padding of the SVG tag chips, in characters."
+  :type 'integer
+  :group 'spcustom)
+
+(defconst sp-org-svg-tags--name "[[:alnum:]_@#%]+"
+  "Regexp of one tag name, as in `org-tag-re'.")
+
+(defun sp-org-svg-tags-available-p ()
+  "Non-nil when the selected frame can show SVG images."
+  (and (display-graphic-p) (image-type-available-p 'svg)))
+
+(defun sp-org-svg-tags--in-heading-tags-p (pos)
+  "Non-nil when POS is inside the tags of an Org heading."
+  (save-match-data
+    (save-excursion
+      (goto-char pos)
+      (forward-line 0)
+      (and (eq (char-after) ?*)
+           (looking-at org-complex-heading-regexp)
+           (match-beginning 5)
+           (<= (match-beginning 5) pos)
+           (< pos (match-end 5))))))
+
+(defun sp-org-svg-tags--drawable-p (pos)
+  "Non-nil when the tag at POS is drawn as SVG: a graphic frame, a heading tag."
+  (and (sp-org-svg-tags-available-p)
+       (sp-org-svg-tags--in-heading-tags-p pos)))
+
+(defun sp-org-svg-tags--emoji (tag)
+  "The emoji of TAG, with a space, in the emoji face of the selector; \"\" if none."
+  (if (not sp-org-svg-tags-show-emoji)
+      ""
+    (sp-org-tag-groups--memoize
+     (list 'svg-emoji tag)
+     (lambda ()
+       (let ((emoji (mapconcat #'car (plist-get (sp-org-tag-groups--decorate (list tag) 'select)
+                                                :emoji)
+                               " ")))
+         (if (string-empty-p emoji)
+             ""
+           (propertize (concat emoji " ") 'face 'sp-org-tag-groups-select-emoji-face)))))))
+
+(defun sp-org-svg-tags--leading-colon (_colon)
+  "Display of the colon before a tag (match 1): the tag's emoji, or nothing.
+The tag is the rest of the match.  nil, so the text stays, where no SVG is drawn."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    (sp-org-svg-tags--emoji (substring (match-string-no-properties 0) 1))))
+
+(defun sp-org-svg-tags--trailing-colon (_colon)
+  "Display of the colon that ends the tags of a heading (match 1): nothing."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    ""))
+
+(defun sp-org-svg-tags--chip (tag)
+  "The SVG chip of TAG (match 1), in the colour of its group, or nil.
+The colours are those of `sp-org-tag-groups--chip-face', so they follow
+the theme and the group of the tag (`unsorted' is neutral)."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    (let ((face (sp-org-tag-groups--chip-face tag)))
+      (svg-tag-make tag
+                    :face (list :foreground (plist-get face :foreground)
+                                :background (plist-get face :background))
+                    :padding sp-org-svg-tags-padding
+                    :margin 0
+                    :radius sp-org-svg-tags-radius))))
+
+(defun sp-org-svg-tags--entries ()
+  "The value of `svg-tag-tags' for the tags of Org headings.
+Three keywords, because `svg-tag-mode' puts one display on one match:
+each tag name becomes a chip, the colon before it becomes its emoji and
+the colon that ends the tags disappears."
+  `((,(concat "\\(:\\)" sp-org-svg-tags--name) sp-org-svg-tags--leading-colon)
+    (,(concat "\\(" sp-org-svg-tags--name "\\):") sp-org-svg-tags--chip)
+    (":[ \t]*$" sp-org-svg-tags--trailing-colon)))
+
+(defun sp-org-svg-tags--org-modern-tags-p ()
+  "Non-nil when `org-modern-mode' would draw the tags of this buffer too."
+  (and (bound-and-true-p org-modern-mode) (bound-and-true-p org-modern-tag)))
+
+(use-package svg-lib
+  :ensure t
+  :defer t)
+
+(use-package svg-tag-mode
+  :ensure (:host github :repo "rougier/svg-tag-mode")
+  :defer t
+  :commands svg-tag-mode)
+
+(define-minor-mode sp-org-svg-tags-mode
+  "Draw the tags of Org headings in this buffer as SVG chips.
+Needs a graphic frame with SVG support; elsewhere the mode stays off
+and the tags are plain text."
+  :group 'sp-org-tag-groups
+  (cond
+   ((not sp-org-svg-tags-mode)
+    (when (bound-and-true-p svg-tag-mode)
+      (svg-tag-mode -1)))
+   ((not (and (sp-org-svg-tags-available-p)
+              (require 'svg-tag-mode nil t)
+              (not (sp-org-svg-tags--org-modern-tags-p))))
+    (setq sp-org-svg-tags-mode nil))
+   (t
+    (setq-local svg-tag-tags (sp-org-svg-tags--entries))
+    (svg-tag-mode 1))))
+
+(defun sp-org-svg-tags--turn-on ()
+  "Turn `sp-org-svg-tags-mode' on in an Org buffer."
+  (when (derived-mode-p 'org-mode)
+    (sp-org-svg-tags-mode 1)))
+
+(define-globalized-minor-mode sp-org-svg-tags-global-mode
+  sp-org-svg-tags-mode sp-org-svg-tags--turn-on
+  :group 'sp-org-tag-groups)
+
+(defun sp-org-svg-tags-refresh (&rest _)
+  "Redraw the SVG tags of every buffer that has them, after a theme change."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (bound-and-true-p sp-org-svg-tags-mode)
+        (font-lock-flush)))))
+
+(add-hook 'sp-after-load-theme-hook #'sp-org-svg-tags-refresh)
+
+(when sp-org-svg-tags-enable
+  (sp-org-svg-tags-global-mode 1))
 
 ;;;; Selecting notes
 (declare-function vulpea-note-title "vulpea-note")
