@@ -273,6 +273,24 @@ needed to open the first buffer.")
   (when (fboundp 'elpaca-process-queues)
     (elpaca-process-queues)))
 
+(defun sp-ai-load ()
+  "Load all the AI packages (the `sp-ai' module) on demand.
+`sp-ai' is not loaded at startup: it installs and configures gptel,
+claude-code, agent-shell, eca, efrit and monet, and starts the
+mcp-server-lib, vulpea-mcp and org-mcp servers that Claude reaches
+through `emacsclient'.  Run this when you need them.  The terminal
+backend `eat' (from `sp-terminal') is loaded first, because
+claude-code waits for it."
+  (interactive)
+  (message "[sp-ai] loading the AI packages...")
+  (sp-require-module 'sp-terminal)
+  (when (sp-require-module 'sp-ai)
+    ;; Orders declared after init are only processed on their own when a
+    ;; command is running interactively.
+    (when (fboundp 'elpaca-process-queues)
+      (elpaca-process-queues))
+    (message "[sp-ai] loaded; Elpaca installs any missing package in the background")))
+
 (defun sp-schedule-late-modules ()
   "Load `sp-late-modules' now, or once Emacs is idle after Elpaca's init."
   (if sp-defer-late-modules
@@ -361,6 +379,7 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     ;; Org modules: `sp-org-agenda' declares org-super-agenda
                     ;; and then org-ql, which requires it.
                     'sp-org-base
+                    'sp-vault-perf ;; settings for a vault of ~10k notes (docs/tangles/text/sp-vault-perf.org)
                     'sp-org-keywords ;; the one list of TODO keywords
                     'sp-denote
                     'sp-org-appearance
@@ -406,11 +425,9 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-prog-misc
                     ;; 'sp-vc-ai-workbench
 
-                    ;; AI tooling. Not late: it starts the vulpea-mcp and
-                    ;; org-mcp servers that Claude connects to through
-                    ;; emacsclient, so they have to be up as soon as the
-                    ;; daemon is.
-                    'sp-ai
+                    ;; AI tooling (`sp-ai') is no longer loaded at startup:
+                    ;; its git packages made Elpaca block in `elpaca-wait'.
+                    ;; Run `M-x sp-ai-load' when you need it.
                     ))
    ;; The modules in `sp-late-modules' load once startup is done.
    (sp-schedule-late-modules)))
