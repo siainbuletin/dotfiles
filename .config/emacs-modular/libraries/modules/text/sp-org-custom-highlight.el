@@ -9,8 +9,9 @@
 ;;; Code:
 
 (defface my-org-inline-comment
-  '((t :background "#fff3a3" :foreground "black"))
-  "Face for @@comment:...@@ inline comments.")
+  '((t :inherit lazy-highlight))
+  "Face for @@comment:...@@ inline comments.
+Inherits `lazy-highlight', which `sp-themes' tints from the theme in use.")
 
 (add-hook 'org-mode-hook
           (lambda ()

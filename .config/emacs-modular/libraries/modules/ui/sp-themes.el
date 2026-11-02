@@ -256,7 +256,11 @@ Interactively, choose among the families first and the library after."
     (load-theme theme t)
     (when (eq sp-theme-disable-others 'after-load)
       (dolist (old (remq theme previous))
-        (disable-theme old)))
+        (disable-theme old))
+      ;; Disabling a theme recalculates the faces and drops the ones set
+      ;; with `set-face-attribute', so repaint those again.
+      (when (remq theme previous)
+        (run-hooks 'sp-after-load-theme-hook)))
     theme))
 
 (defun sp-load-theme-family (family)
@@ -459,6 +463,39 @@ appearance `sp-theme-appearance' reports."
 
 (with-eval-after-load 'kind-icon
   (add-hook 'sp-after-load-theme-hook #'kind-icon-reset-cache))
+
+;;;; Search highlight that follows the theme
+(autoload 'sp-theme-blend "sp-theme-engine")
+
+(defcustom sp-theme-lazy-highlight-source 'font-lock-keyword-face
+  "Face whose foreground tints `lazy-highlight' in themes that are not sp's."
+  :group 'spcustom
+  :type 'face)
+
+(defun sp-theme--hex (color)
+  "Return COLOR, a name or #rrggbb, as #rrggbb, or nil if it is not a colour."
+  (when-let* ((rgb (and (stringp color) (ignore-errors (color-values color)))))
+    (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (/ c 257)) rgb))))
+
+(defun sp-theme-update-lazy-highlight (&rest _)
+  "Make `lazy-highlight' match the enabled theme.
+The sp themes set it from their palette (the `bg-search-lazy' role), so
+this leaves them alone.  In any other theme the background is the
+foreground of `sp-theme-lazy-highlight-source' blended into the default
+background, stronger on a dark theme, with the default foreground."
+  (unless (seq-some (lambda (theme) (get theme 'sp-theme-flavor))
+                    custom-enabled-themes)
+    (let ((bg (sp-theme--hex (face-attribute 'default :background nil)))
+          (fg (sp-theme--hex (face-attribute 'default :foreground nil)))
+          (accent (sp-theme--hex
+                   (face-attribute sp-theme-lazy-highlight-source :foreground nil t))))
+      (when (and bg fg accent)
+        (set-face-attribute 'lazy-highlight nil
+                            :background (sp-theme-blend bg accent
+                                                        (if (sp-theme-dark-p) 0.32 0.22))
+                            :foreground fg)))))
+
+(add-hook 'sp-after-load-theme-hook #'sp-theme-update-lazy-highlight)
 
 (use-package easy-theme-preview
   :ensure t)

@@ -185,5 +185,21 @@
      (should-not sp-theme--auto-timer)
      (should-not (memq #'sp-theme-sync server-after-make-frame-hook)))))
 
+(ert-deftest sp-themes-test-lazy-highlight ()
+  (sp-themes-test--clean
+   (let ((old (face-attribute 'lazy-highlight :background nil)))
+     (unwind-protect
+         (progn
+           (cl-letf (((symbol-function 'face-attribute)
+                      (lambda (face attr &rest _)
+                        (pcase (list face attr)
+                          ('(default :background) "#000000")
+                          ('(default :foreground) "#ffffff")
+                          (_ "#ff0000"))))
+                     ((symbol-function 'sp-theme-dark-p) (lambda () t)))
+             (sp-theme-update-lazy-highlight))
+           (should (equal (face-attribute 'lazy-highlight :background) "#520000")))
+       (set-face-attribute 'lazy-highlight nil :background old)))))
+
 (provide 'sp-themes-test)
 ;;; sp-themes-test.el ends here
