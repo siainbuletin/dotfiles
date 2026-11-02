@@ -23,7 +23,7 @@
   :after vulpea)
 
 ;; Other modules for vulpea
-   
+
 (use-package vulpea-capf
   :ensure (:host github :repo "neonmei/vulpea-capf")
   :hook (org-mode . vulpea-capf-mode)
@@ -37,12 +37,14 @@
 
 (require 'sp-vulpea-convert-properties)
 
+(require 'sp-vulpea-convert-keywords)
+
 ;; Grouping backlinks based on the property that it's representing
 
 (require 'sp-vulpea-grouped-backlinks)
 
 ;;;; Making vulpea-split-heading smart (ensure backlinks)
-(require 'sp-split-leave-parents)
+(require 'sp-refile)
 
 (provide 'sp-vulpea-ext)
 ;; sp-vulpea-ext.el

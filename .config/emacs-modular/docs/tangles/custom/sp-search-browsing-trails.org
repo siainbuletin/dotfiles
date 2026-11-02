@@ -1,0 +1,1595 @@
+#+TITLE: Search, browsing and trails: sp-search, sp-browsing and sp-trails
+#+PROPERTY: header-args:emacs-lisp :tangle no :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for three modules that serve one goal: finding things, reading them and keeping track of the path taken.
+
+- One file tangles two =.el= files, one per module, each with its own =provide=: =sp-search= (=libraries/modules/base/navi/sp-search.el=) and =sp-browsing= (=libraries/modules/media/sp-browsing.el=).
+- =sp-trails= has no literate source of its own yet: its =.el= (=libraries/modules/custom/sp-trails.el=) is still edited directly, and its part below holds only the problem statement. Moving its code into this part is a later step.
+- Each part sets its =:tangle= path in the =:header-args:emacs-lisp+:= property of its top-level heading.
+- The =#+PROPERTY= line above is =:tangle no=, so a block outside a part is not written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- The three parts below are the three old docs, each kept whole: =docs/tangles/custom/sp-search-browsing-trails.org=, =docs/tangles/custom/sp-search-browsing-trails.org= and =docs/tangles/custom/sp-search-browsing-trails.org= (headings moved one level down, the text of each section unchanged). Their old-style doc =sp-browsing-old.org= stays where it is.
+
+* Comparison of the three modules
+
+Read from the three =.el= files and their docs as they are now. "Not here" means the module has no such function.
+
+| Aspect | [[*sp-search.el][sp-search]] | [[*sp-browsing.el][sp-browsing]] | [[*sp-trails.el][sp-trails]] |
+|--------+-------------+---------------+-------------|
+| Goal | Find text, files and notes with local tools; one menu for all searches | Browse and search the web, scholarly sources and notes from Emacs (=consult-omni=) | Record the pages visited during research as a tree, tied to a research question |
+| Module file | =libraries/modules/base/navi/sp-search.el= | =libraries/modules/media/sp-browsing.el= | =libraries/modules/custom/sp-trails.el= |
+| Literate source | This doc, tangled | This doc, tangled | This doc, text only (the =.el= is not tangled yet) |
+| Loaded by | =sp-navi= (navigation category) | =sp-late-modules= in =init.el= | =sp-late-modules= in =init.el= (just before =sp-browsing=) |
+| Search | Yes: in a buffer (=consult-line=, =consult-imenu=), a project or directory (ripgrep, ag, deadgrep), notes (ripgrep, =org-node-grep=, =vulpea-grep=, =consult-notes=), Recoll full text, semantic (=org-semantic=, =p-search=, tab inbox) | Yes: one prompt over many sources (=consult-omni=): web, scholarly (OpenAlex, PubMed, Scopus), notes (Vulpea title source, ripgrep, Org Agenda), litdb (full text, by meaning); scopes =consult-omni-web=, =-local=, =-scholar= | Not here; picks questions and trails with =completing-read= and org-ql. Searching from a trail is the work of #217 (=sp-trails-search=), not yet merged |
+| Capture / recording | Saved views: marked matches exported to an Org file that keeps the search parameters | Not here; the litdb and Vulpea sources return results, nothing is stored. =sp-fetch-academic-omni= (another module) adds a scholarly result to the BibTeX files | Yes: each page the browser reports becomes a heading with URL, title, optional quote and a todo state (=TOREAD=, =READ=, =PRUNED=) |
+| History / trail recording | Not here (only the saved views, re-run with =sp-search-run-view=) | Not here. =browser-hist= is installed (needed by the =consult-omni= browser-history source) | Yes, the core: a page reached from another page becomes its child, so the outline is the branching history. Also rebuilds a trail from Chrome history (=sp-trails-import-chrome=) |
+| Browser integration | None | Opens results with =browse-url= (external browser) and =eww-browse-url=; preview with =xwidget-webkit-browse-url=; the link command chooses EWW or the macOS default browser; Elpher (Gopher, Gemini) is a placeholder | =org-protocol= handler =sp-trail= receives URL, title, referrer and selected text from a browser extension; =monolith= saves a page as one HTML file; reads the Chromium-family History database |
+| Org integration | Saved views are Org files; note searches over Vulpea and org-node | Vulpea source; Org Agenda source | Trails and questions are Org headings; =org-edna= blocks archiving until every page is =READ= or =PRUNED=; archiving sets the question to =REVIEW=; =org-ql= finds questions and trails |
+| Result display | Own results buffer (=sp-search-mode=) with a =transient= menu on top | Minibuffer (Vertico etc.) with Embark actions on results | Org outline in =trails.org=; dashboard buffer =*sp-trails*= (=sp-trails-dashboard=) |
+| Keybindings | Global: =C-c s l= (=consult-line=), =C-c s r= (=consult-ripgrep=), =C-c s m= (=sp-search= menu); menu letters (=l i r d f T g D a R V O n N v c C s S p t P X o b B=); keys of =sp-search-mode-map=; =E= in =grep-mode= | None of its own: reached through =o=, =b= and =B= of the =sp-search= menu | =sp-trails-map= with =s p a g x w q d i=. No global key is bound to the map in the repository |
+| Main commands | =sp-search=, =sp-search-menu=, =sp-search-grep=, =sp-search-in-notes=, =sp-search-in-input-dir=, =counsel-recoll=, =sp-search-export=, =sp-search-run-view=, =sp-search-open-view=, =sp-search-export-grep-buffer=, mark and unmark commands | =consult-omni-web=, =consult-omni-local=, =consult-omni-scholar=, =consult-omni-litdb-semantic=, =open-link-at-point-or-minibuffer-with-choice=, =sp-consult-omni-ignore-new= | =sp-trails-resume-or-start=, =-start=, =-park=, =-archive=, =-goto=, =-prune=, =-snapshot=, =-declare-question=, =-dashboard=, =-import-chrome=, =sp-trails-add-page= |
+| Packages | =counsel=, =consult=, =ag=, =rg=, =deadgrep=, =p-search= (Elpaca) | =browser-hist= (Elpaca, GitHub); =consult-omni=, vendored in =libraries/modules/cloned/consult-omni/= | None installed by the module; requires =org=, =org-id=, =org-attach=, =org-protocol=, =org-ql=, =org-edna= (enabled elsewhere) |
+| External programs | =rg=, =ag=, =recollq= (Recoll) | =litdb= command line, macOS =open=; API keys in =var/consult-omni-secrets.el= (not tracked) | =monolith= (snapshots), a browser extension that calls =org-protocol://sp-trail=, Chrome-family History (SQLite, Emacs 29+) |
+| Storage | Saved views: =sp-search-views-dir=, else =search-views/= in =sp-notes-dir=; results buffer is in memory | None; only the vendored package and the secrets file | =sp-trails-file= (=trails.org= in =org-directory=); history path =sp-trails-chrome-history= is in =sp-globals= |
+| Customization | =sp-search-views-dir=, =sp-search-max-results=, =sp-search-menu-display-action= | =sp-consult-omni-secrets-file=, =sp-consult-omni-litdb-command=, =sp-consult-omni-litdb-timeout=, source lists =consult-omni-*-sources= | =sp-trails-file=, =sp-trails-question-files=, =sp-trails-quote-block=, =sp-trails-monolith-program= |
+| Links to the others | The commentary plans a tie to =sp-browsing=; the menu already holds the =consult-omni= commands | Doc plans to use =sp-trails= for notes integration | The doc notes that most of its code depends on selecting something in the browser |
+| Status | Done, working | Partly an outline; =consult-omni= setup is done, EWW and Elpher sections are mostly placeholders | Code works; doc is only the problem statement |
+
+** Overlaps to consider when restructuring
+
+- The =sp-search= menu already lists =consult-omni= (=o=, =b=, =B=), which =sp-browsing= defines: the search menu and the browsing module meet at those three commands.
+- Trails record pages the browser reports; searches (both parts) produce results that are not recorded in a trail. #217 adds =sp-trails-search= for this, as a separate module and doc, not in this file.
+- Three kinds of memory of what was found: saved views (=sp-search=, Org files), the litdb index (=sp-browsing=), trails (=sp-trails=, one Org file). They do not refer to each other.
+- Load order differs: =sp-search= with the navigation category, the other two late, =sp-trails= before =sp-browsing=.
+
+* sp-search.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/base/navi/sp-search.el
+:END:
+
+Literate source for =libraries/modules/base/navi/sp-search.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks of this part, in order.
+- The =:tangle= path is in the =:header-args:emacs-lisp+:= property of this part's heading.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This navigation sub-module, loaded by =sp-navi=, installs the search packages: Consult and Counsel for in-buffer and project search, front-ends for =ag= and =rg=, Deadgrep, and =p-search=. It also adds a directory-prompting ripgrep command, a Counsel-based search over a Recoll full-text index, and =sp-search-menu=, a results buffer with a transient menu on top (=C-c s m=) that gathers all of these and the semantic and note searches of other modules.
+
+External programs used are =rg= (ripgrep), =ag= (the silver searcher) and =recollq= from Recoll. The commentary sketches future plans to tie search into =sp-browsing= and Embark; those plans are not implemented here.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+This file is part of the category for /Navigation/ and should be treated as such.
+
+dired-x is necessary for making counsel-fd work
+This module includes packages that help with search within the buffer, in a directory
+or more complicated grep-like searches.
+
+It should also be somewhat integrated with sp-browsing.el, as it should pull in
+omni-search and similar packages, for bringing in as much information as possible, and perhaps
+acting on it in the future. The possibility of acting on this information is created through
+the embark package.
+
+See also possibilities for the vulpea ecosystem for this.
+#+end_quote
+
+** Header
+
+*** File header and commentary
+
+Describes the module as part of the navigation category, covering search within a buffer, a directory or with grep-like tools, and notes the intended links to =sp-browsing=, Embark and Vulpea.
+
+#+begin_src emacs-lisp -i
+;;; sp-search.el --- Search tools: Consult, grep front-ends and Recoll -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; This file is part of the category for /Navigation/ and should be treated as such.
+;;
+;; dired-x is necessary for making counsel-fd work
+;; This module includes packages that help with search within the buffer, in a directory
+;; or more complicated grep-like searches.
+;;
+;; It should also be somewhat integrated with sp-browsing.el, as it should pull in
+;; omni-search and similar packages, for bringing in as much information as possible, and perhaps
+;; acting on it in the future. The possibility of acting on this information is created through
+;; the embark package.
+;;
+;; See also possibilities for the vulpea ecosystem for this.
+
+;;; Code:
+#+end_src
+
+** Search packages
+
+*** Counsel
+
+Installs Counsel, the Ivy-based command collection. Here it is mainly used by the Recoll search below.
+
+#+begin_src emacs-lisp -i
+(use-package counsel
+  :ensure t
+)
+#+end_src
+
+*** Consult
+
+Installs Consult, the completing-read based search and navigation commands used throughout the config.
+
+#+begin_src emacs-lisp -i
+(use-package consult
+  :ensure t
+  )
+#+end_src
+
+*** Search keys
+
+Binds =C-c s l= to =consult-line= for searching lines in the current buffer, and =C-c s r= to =consult-ripgrep= for searching the current project.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c s l" #'consult-line)
+(keymap-global-set "C-c s r" #'consult-ripgrep)
+#+end_src
+
+*** ag
+
+Installs the =ag= package, a front-end for the silver searcher.
+
+#+begin_src emacs-lisp -i
+;; Global search
+
+(use-package ag
+  :ensure (:wait t))
+#+end_src
+
+*** rg
+
+Installs =rg=, a ripgrep front-end with a searchable, editable results buffer.
+
+#+begin_src emacs-lisp -i
+(use-package rg
+  :ensure (:wait t)
+  )
+#+end_src
+
+*** deadgrep
+
+Installs =deadgrep=, another ripgrep interface with an interactive results buffer.
+
+#+begin_src emacs-lisp -i
+(use-package deadgrep
+  :ensure (:wait t)
+  )
+#+end_src
+
+*** p-search
+
+Installs =p-search= from GitHub, a search tool that ranks files by combining several kinds of evidence (text, file names, Git history).
+
+#+begin_src emacs-lisp -i
+(use-package p-search
+  :ensure (:host github :repo "zkry/p-search"))
+ 
+;; Personal functions for better searching
+#+end_src
+
+** Personal search commands
+
+*** Placeholder
+
+A heading comment reserved for commands that act on search results; nothing is defined under it yet.
+
+#+begin_src emacs-lisp -i
+;; Acting on searches
+#+end_src
+
+*** Search a chosen directory
+
+=sp-search-in-input-dir= calls =consult-ripgrep= as if with =C-u=, which makes it ask for the directory to search before prompting for the pattern. It is bound to =D= under the leader map in =sp-keys=.
+
+#+begin_src emacs-lisp -i
+;; Functions written for searches
+;;;; Search given directory
+(defun sp-search-in-input-dir ()
+  "Grep for a string in the input directory using completing read function"
+  (interactive)
+  (let ((current-prefix-arg '(4))) (call-interactively #'consult-ripgrep)))
+#+end_src
+
+** The search menu
+
+=M-x sp-search= (=C-c s m=) is the entry point. It shows a Magit-style buffer, =*sp-search*=, as the first screen, and opens the transient menu =sp-search-menu= at the top of the frame over it. The buffer has a header (the search directory and project, which completion frameworks are active in green, a warning if =rg= is missing), the current search with its results grouped by file, and the list of saved views. The menu gathers every search command of the configuration; closing it leaves the buffer, and =?= opens it again.
+
+Commands from packages that may be missing are listed with an =:if= test on =fboundp=, so the menu never offers a key that would fail. Nothing in the menu needs a package that the configuration does not already install.
+
+*** Keys in the buffer
+
+| Key   | Command                    | What it does                                                         |
+|-------+----------------------------+----------------------------------------------------------------------|
+| =?=   | =sp-search-menu=           | Open the menu at the top.                                            |
+| =s=   | =sp-search-grep=           | New ripgrep search; =C-u= also asks for directory, glob, case, regexp. |
+| =g=   | =sp-search-rerun=          | Run the search again.                                                |
+| =m= / =u= | =sp-search-mark= / =sp-search-unmark= | Mark or unmark the match at point.                          |
+| =M= / =U= | =sp-search-mark-all= / =sp-search-unmark-all= | Mark or unmark every match.                         |
+| =x=   | =sp-search-export=         | Export the marked matches (all if none) to a saved view.             |
+| =RET= | =sp-search-visit=          | Visit the match at point, or run the saved view at point.            |
+| =V= / =O= | =sp-search-run-view= / =sp-search-open-view= | Run or open a saved view.                          |
+
+*** Saved views
+
+A saved view is an Org file in =sp-search-views-dir= (default: =search-views/= in =sp-notes-dir=), named =YYYYMMDD-query.org=. Nothing is stored in Lisp. It looks like this:
+
+#+begin_example
+,#+title: Search: org-node
+,#+filetags: :search_view:
+,#+date: [2026-10-28 Wed 22:30]
+
+,* Parameters
+:PROPERTIES:
+:SEARCH_TOOL: rg
+:SEARCH_QUERY: org-node
+:SEARCH_DIR: /Users/me/notes/
+:SEARCH_GLOB: *.org
+:SEARCH_CASE: smart
+:SEARCH_REGEXP: nil
+:END:
+
+Re-run this search with =M-x sp-search-run-view=.
+
+,* Results (2)
+- [[file:/Users/me/notes/a.org::12][a.org:12]] :: text of the match
+#+end_example
+
+=sp-search-run-view= (from the buffer with =V=, or inside the view file) reads the =SEARCH_*= properties and runs the search again, so a view works as a saved query whose chosen results are also kept as links. Searches made with Consult can be exported too: =embark-export= (=C-. E=) turns the candidates of =consult-ripgrep= into a =grep-mode= buffer; there =E= (=sp-search-export-grep-buffer=) exports the region, or the whole buffer, and asks for the query so it can be stored. The view files are plain Org files without an =ID=; add one if they should be vulpea notes.
+
+*** Settings
+
+Where the saved views go, how the menu is shown and how many results one search keeps. =sp-search-views-dir= defaults to a =search-views= folder in =sp-notes-dir=.
+
+#+begin_src emacs-lisp -i
+;;;; Search buffer and saved views
+;; `sp-search' opens a Magit-style results buffer with the transient menu on
+;; top. Results of the ripgrep runner can be marked and exported to an Org
+;; file that keeps the search parameters, a "saved view" that needs no Lisp.
+(require 'transient)
+(require 'seq)
+(require 'subr-x)
+
+(defvar sp-notes-dir)
+
+(defgroup sp-search nil
+  "One interface for all searches."
+  :group 'convenience)
+
+(defcustom sp-search-views-dir nil
+  "Directory of the saved search views (Org files).
+When nil, a `search-views' folder in `sp-notes-dir' is used."
+  :type '(choice (const :tag "In the notes directory" nil) directory)
+  :group 'sp-search)
+
+(defcustom sp-search-max-results 2000
+  "Most results one search keeps in the results buffer."
+  :type 'integer
+  :group 'sp-search)
+
+(defcustom sp-search-menu-display-action
+  '(display-buffer-in-side-window
+    (side . top) (slot . 0) (dedicated . t)
+    (window-height . fit-window-to-buffer)
+    (window-parameters (mode-line-format . none)))
+  "How `sp-search-menu' is displayed: a window at the top of the frame."
+  :type 'sexp
+  :group 'sp-search)
+
+(defun sp-search--views-dir ()
+  "Return the directory of the saved search views."
+  (file-name-as-directory
+   (or sp-search-views-dir
+       (expand-file-name "search-views"
+                         (if (boundp 'sp-notes-dir) sp-notes-dir user-emacs-directory)))))
+#+end_src
+
+*** Menu and buffer header
+
+=sp-search--header= builds the two header lines, shared by the menu and the results buffer.
+
+#+begin_src emacs-lisp -i
+(defun sp-search--header ()
+  "Return the dashboard-style header lines of the search buffer and menu."
+  (let ((on (lambda (name active)
+              (propertize name 'face (if active 'success 'shadow)))))
+    (concat
+     (propertize "Searching in " 'face 'transient-heading)
+     (propertize (abbreviate-file-name default-directory) 'face 'bold)
+     (when-let* ((proj (and (fboundp 'project-current) (project-current))))
+       (concat "  (project "
+               (propertize (file-name-nondirectory
+                            (directory-file-name (project-root proj)))
+                           'face 'bold)
+               ")"))
+     "\n"
+     (propertize "Completion: " 'face 'transient-heading)
+     (funcall on "vertico" (bound-and-true-p vertico-mode)) " "
+     (funcall on "marginalia" (bound-and-true-p marginalia-mode)) " "
+     (funcall on "orderless" (featurep 'orderless)) " "
+     (funcall on "embark" (featurep 'embark))
+     (unless (executable-find "rg")
+       (concat "  " (propertize "rg not found" 'face 'error))))))
+#+end_src
+
+*** Search the notes
+
+=sp-search-in-notes= runs =consult-ripgrep= in =sp-notes-dir=.
+
+#+begin_src emacs-lisp -i
+(defun sp-search-in-notes ()
+  "Grep through the notes directory with `consult-ripgrep'."
+  (interactive)
+  (consult-ripgrep (and (boundp 'sp-notes-dir) sp-notes-dir)))
+#+end_src
+
+*** The ripgrep runner
+
+=sp-search--rg= runs =rg= from a parameter list (=:query :dir :glob :case :regexp=) and returns one plist per match. The parameter list is also what a saved view stores.
+
+#+begin_src emacs-lisp -i
+(defvar-local sp-search--params nil
+  "Parameters of the search shown in this buffer.")
+(defvar-local sp-search--results nil
+  "Matches of the search shown in this buffer, one plist each.")
+
+(defun sp-search--rg (params)
+  "Run ripgrep as described by PARAMS and return its matches."
+  (let ((rg (or (executable-find "rg") (user-error "Ripgrep (rg) is not installed")))
+        (dir (expand-file-name (plist-get params :dir)))
+        (glob (plist-get params :glob))
+        results)
+    (with-temp-buffer
+      (apply #'call-process rg nil '(t nil) nil
+             "--line-number" "--no-heading" "--with-filename"
+             "--color" "never" "--max-columns" "500"
+             (append (pcase (plist-get params :case)
+                       ("sensitive" '("--case-sensitive"))
+                       ("ignore" '("--ignore-case"))
+                       (_ '("--smart-case")))
+                     (unless (plist-get params :regexp) '("--fixed-strings"))
+                     (when (and glob (not (string-empty-p glob)))
+                       (list "--glob" glob))
+                     (list "-e" (plist-get params :query) "--" dir)))
+      (goto-char (point-min))
+      (while (and (< (length results) sp-search-max-results)
+                  (re-search-forward "^\\(.+?\\):\\([0-9]+\\):\\(.*\\)$" nil t))
+        (push (list :file (match-string 1)
+                    :line (string-to-number (match-string 2))
+                    :text (string-trim (match-string 3))
+                    :marked nil)
+              results)))
+    (nreverse results)))
+#+end_src
+
+*** Saved views: files
+
+A saved view is an Org file. Its =Parameters= heading holds the search as =SEARCH_*= properties and its =Results= list holds one link per selected match, so the file can be read, linked and edited like any note. =sp-search--read-view= reads the properties back with a regexp, without loading Org.
+
+#+begin_src emacs-lisp -i
+(defun sp-search--slug (text)
+  "Return TEXT as a short file name part."
+  (let ((s (string-trim (replace-regexp-in-string "[^[:alnum:]]+" "-" (downcase text)) "-" "-")))
+    (if (string-empty-p s) "search" (substring s 0 (min 40 (length s))))))
+
+(defun sp-search--write-view (name params items)
+  "Write the saved view NAME for the search PARAMS with the matches ITEMS.
+Return the file written, which is also opened."
+  (require 'org)
+  (let* ((dir (sp-search--views-dir))
+         (base (format "%s-%s" (format-time-string "%Y%m%d") (sp-search--slug name)))
+         (file (expand-file-name (concat base ".org") dir))
+         (n 1)
+         (one-line (lambda (s) (replace-regexp-in-string "[\n\r]+" " " (or s "")))))
+    (make-directory dir t)
+    (while (file-exists-p file)
+      (setq n (1+ n)
+            file (expand-file-name (format "%s-%d.org" base n) dir)))
+    (with-temp-file file
+      (insert (format "#+title: Search: %s\n#+filetags: :search_view:\n#+date: %s\n\n"
+                      (funcall one-line (plist-get params :query))
+                      (format-time-string "[%Y-%m-%d %a %H:%M]"))
+              "* Parameters\n:PROPERTIES:\n"
+              (format ":SEARCH_TOOL: %s\n" (or (plist-get params :tool) "rg"))
+              (format ":SEARCH_QUERY: %s\n" (funcall one-line (plist-get params :query)))
+              (format ":SEARCH_DIR: %s\n" (plist-get params :dir))
+              (format ":SEARCH_GLOB: %s\n" (or (plist-get params :glob) ""))
+              (format ":SEARCH_CASE: %s\n" (or (plist-get params :case) "smart"))
+              (format ":SEARCH_REGEXP: %s\n" (if (plist-get params :regexp) "t" "nil"))
+              ":END:\n\nRe-run this search with =M-x sp-search-run-view=.\n\n"
+              (format "* Results (%d)\n" (length items)))
+      (dolist (r items)
+        (insert (format "- [[file:%s::%d][%s:%d]] :: %s\n"
+                        (org-link-escape (plist-get r :file)) (plist-get r :line)
+                        (file-name-nondirectory (plist-get r :file)) (plist-get r :line)
+                        (plist-get r :text)))))
+    (message "Saved view: %s" file)
+    (find-file-other-window file)
+    file))
+
+(defun sp-search--read-view (file)
+  "Return the SEARCH_* properties of the saved view FILE as a plist."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (plist)
+      (while (re-search-forward "^:SEARCH_\\([A-Z]+\\): ?\\(.*\\)$" nil t)
+        (setq plist (plist-put plist (intern (concat ":" (downcase (match-string 1))))
+                               (match-string 2))))
+      plist)))
+
+(defun sp-search--view-params (file)
+  "Return the search parameters stored in the saved view FILE."
+  (let ((p (sp-search--read-view file)))
+    (list :tool (plist-get p :tool)
+          :query (plist-get p :query)
+          :dir (plist-get p :dir)
+          :glob (plist-get p :glob)
+          :case (or (plist-get p :case) "smart")
+          :regexp (equal (plist-get p :regexp) "t"))))
+
+(defun sp-search--view-files ()
+  "Return the saved view files, newest first."
+  (let ((dir (sp-search--views-dir)))
+    (and (file-directory-p dir)
+         (sort (directory-files dir t "\\.org\\'") #'file-newer-than-file-p))))
+#+end_src
+
+*** Drawing the buffer
+
+=sp-search--render= redraws the buffer: the header, the current search with its results grouped by file (each line carries its index as a text property), and the list of saved views.
+
+#+begin_src emacs-lisp -i
+(defun sp-search--insert-views ()
+  "Insert the list of saved views."
+  (insert "\n" (propertize "Saved views" 'face 'bold)
+          (format " (%s)\n" (abbreviate-file-name (sp-search--views-dir))))
+  (if-let* ((files (sp-search--view-files)))
+      (dolist (f files)
+        (insert (propertize (format "  %s  %s\n" (file-name-base f)
+                                    (or (plist-get (sp-search--read-view f) :query) ""))
+                            'sp-search-view f)))
+    (insert "  none yet: select results and press x\n")))
+
+(defun sp-search--render ()
+  "Redraw the results buffer."
+  (let ((inhibit-read-only t)
+        (line (line-number-at-pos))
+        (params sp-search--params)
+        (results sp-search--results))
+    (erase-buffer)
+    (insert (sp-search--header) "\n\n")
+    (if (not params)
+        (insert (propertize "No search yet." 'face 'bold)
+                " Press s to search, ? for the menu.\n")
+      (let ((glob (plist-get params :glob)))
+        (insert (propertize "Search" 'face 'bold) "\n"
+                "  " (propertize (plist-get params :query) 'face 'font-lock-string-face)
+                " in " (abbreviate-file-name (plist-get params :dir)) "\n"
+                (format "  glob: %s, case: %s, %s\n"
+                        (if (member glob '(nil "")) "all files" glob)
+                        (plist-get params :case)
+                        (if (plist-get params :regexp) "regexp" "fixed string"))
+                (format "\nResults: %d, marked %d\n" (length results)
+                        (length (seq-filter (lambda (r) (plist-get r :marked)) results)))))
+      (let ((i 0) last)
+        (dolist (r results)
+          (unless (equal last (plist-get r :file))
+            (setq last (plist-get r :file))
+            (insert (propertize (file-relative-name last (plist-get params :dir))
+                                'face 'font-lock-function-name-face)
+                    "\n"))
+          (insert (propertize (format "%s %5d  %s\n"
+                                      (if (plist-get r :marked) "*" " ")
+                                      (plist-get r :line) (plist-get r :text))
+                              'sp-search-index i))
+          (setq i (1+ i)))))
+    (sp-search--insert-views)
+    (goto-char (point-min))
+    (forward-line (1- line))))
+#+end_src
+
+*** The mode
+
+=sp-search-mode= is a read-only special mode, like a Magit buffer: single keys act on the line at point. =?= opens the menu again.
+
+#+begin_src emacs-lisp -i
+(defvar-keymap sp-search-mode-map
+  :parent special-mode-map
+  "?" #'sp-search-menu
+  "s" #'sp-search-grep
+  "g" #'sp-search-rerun
+  "m" #'sp-search-mark
+  "u" #'sp-search-unmark
+  "M" #'sp-search-mark-all
+  "U" #'sp-search-unmark-all
+  "x" #'sp-search-export
+  "V" #'sp-search-run-view
+  "O" #'sp-search-open-view
+  "RET" #'sp-search-visit)
+
+(define-derived-mode sp-search-mode special-mode "Search"
+  "Major mode of the search buffer: results with marks and saved views."
+  (setq-local truncate-lines t))
+#+end_src
+
+*** Commands in the buffer
+
+=sp-search-grep= asks for a query and searches the project or current directory; with a prefix argument it also asks for the directory, a glob, the case mode and whether the query is a regexp. =RET= visits the match at point, or re-runs the saved view at point. =m= and =u= mark and unmark, =M= and =U= do all.
+
+#+begin_src emacs-lisp -i
+(defun sp-search--show (params)
+  "Run the search PARAMS and show its results in the search buffer."
+  (let ((results (sp-search--rg params))
+        (buf (get-buffer-create "*sp-search*")))
+    (with-current-buffer buf
+      (unless (derived-mode-p 'sp-search-mode) (sp-search-mode))
+      (setq sp-search--params params
+            sp-search--results results)
+      (goto-char (point-min))
+      (sp-search--render))
+    (pop-to-buffer-same-window buf)
+    (message "%d results" (length results))))
+
+(defun sp-search-grep (query &optional dir glob case-mode regexp)
+  "Search for QUERY with ripgrep and show the results in the search buffer.
+DIR, GLOB, CASE-MODE and REGEXP are asked for with a prefix argument."
+  (interactive
+   (let ((prefix current-prefix-arg))
+     (list (read-string "Search for: "
+                        (when (use-region-p)
+                          (buffer-substring-no-properties (region-beginning) (region-end))))
+           (if prefix (read-directory-name "In directory: ")
+             (if-let* ((p (and (fboundp 'project-current) (project-current))))
+                 (project-root p)
+               default-directory))
+           (when prefix (read-string "Glob (empty for all files): "))
+           (if prefix (completing-read "Case: " '("smart" "sensitive" "ignore") nil t nil nil "smart")
+             "smart")
+           (if prefix (y-or-n-p "Regexp (no: fixed string)? ") t))))
+  (sp-search--show (list :tool "rg" :query query
+                         :dir (expand-file-name (or dir default-directory))
+                         :glob glob :case (or case-mode "smart") :regexp regexp)))
+
+(defun sp-search-rerun ()
+  "Run the search of this buffer again."
+  (interactive)
+  (unless sp-search--params (user-error "No search to repeat"))
+  (sp-search--show sp-search--params))
+
+(defun sp-search-visit ()
+  "Visit the match at point, or run the saved view at point."
+  (interactive)
+  (if-let* ((view (get-text-property (point) 'sp-search-view)))
+      (sp-search-run-view view)
+    (if-let* ((i (get-text-property (point) 'sp-search-index))
+              (r (nth i sp-search--results)))
+        (progn (find-file-other-window (plist-get r :file))
+               (goto-char (point-min))
+               (forward-line (1- (plist-get r :line))))
+      (user-error "Nothing to open here"))))
+
+(defun sp-search--set-mark (flag)
+  "Set the mark of the match at point to FLAG, then go to the next line."
+  (if-let* ((i (get-text-property (line-beginning-position) 'sp-search-index)))
+      (progn (plist-put (nth i sp-search--results) :marked flag)
+             (sp-search--render)
+             (forward-line 1))
+    (user-error "No match on this line")))
+
+(defun sp-search-mark () "Mark the match at point for export." (interactive) (sp-search--set-mark t))
+(defun sp-search-unmark () "Unmark the match at point." (interactive) (sp-search--set-mark nil))
+
+(defun sp-search-mark-all (&optional unmark)
+  "Mark every match for export; with UNMARK non-nil unmark them all."
+  (interactive)
+  (dolist (r sp-search--results) (plist-put r :marked (not unmark)))
+  (sp-search--render))
+
+(defun sp-search-unmark-all () "Unmark every match." (interactive) (sp-search-mark-all t))
+#+end_src
+
+*** Export and saved views
+
+=sp-search-export= (=x=) writes the marked matches, or all of them when none is marked, to a new Org file with the search parameters. =sp-search-run-view= reads those parameters and runs the search again in the buffer; called from inside a view file it uses that file. Searches made with Consult can be exported too: =embark-export= turns the candidates into a =grep-mode= buffer, where =E= (=sp-search-export-grep-buffer=) exports the region, or the whole buffer, after asking for the query so it can be stored.
+
+#+begin_src emacs-lisp -i
+(defun sp-search-export (name)
+  "Export the marked matches (all if none) to the saved view NAME."
+  (interactive
+   (list (read-string "View name: " (sp-search--slug (or (plist-get sp-search--params :query) "")))))
+  (unless sp-search--params (user-error "No search to export"))
+  (let ((items (or (seq-filter (lambda (r) (plist-get r :marked)) sp-search--results)
+                   sp-search--results)))
+    (unless items (user-error "Nothing to export"))
+    (sp-search--write-view name sp-search--params items)
+    (sp-search--render)))
+
+(defun sp-search--pick-view-file ()
+  "Ask for a saved view file."
+  (let* ((files (or (sp-search--view-files)
+                    (user-error "No saved views in %s" (sp-search--views-dir))))
+         (alist (mapcar (lambda (f) (cons (file-name-base f) f)) files)))
+    (cdr (assoc (completing-read "Saved view: " alist nil t) alist))))
+
+(defun sp-search-run-view (file)
+  "Run the search stored in the saved view FILE and show it in the search buffer."
+  (interactive
+   (list (or (and buffer-file-name
+                  (plist-get (sp-search--read-view buffer-file-name) :query)
+                  buffer-file-name)
+             (sp-search--pick-view-file))))
+  (let ((params (sp-search--view-params file)))
+    (unless (plist-get params :query) (user-error "%s has no search parameters" file))
+    (sp-search--show params)))
+
+(defun sp-search-open-view (file)
+  "Open the saved view FILE."
+  (interactive (list (sp-search--pick-view-file)))
+  (find-file file))
+
+(defun sp-search-export-grep-buffer (query name)
+  "Export the grep lines of this buffer (or the region) to the saved view NAME.
+QUERY is the search that produced them; it is stored in the view."
+  (interactive
+   (let* ((q (read-string "Query that produced these results: "
+                          (car (bound-and-true-p grep-history))))
+          (n (read-string "View name: " (sp-search--slug q))))
+     (list q n)))
+  (let ((beg (if (use-region-p) (region-beginning) (point-min)))
+        (end (if (use-region-p) (region-end) (point-max)))
+        items)
+    (save-excursion
+      (goto-char beg)
+      (while (re-search-forward "^\\([^ \n:][^\n]*?\\):\\([0-9]+\\):\\(.*\\)$" end t)
+        (push (list :file (expand-file-name (match-string 1))
+                    :line (string-to-number (match-string 2))
+                    :text (string-trim (match-string 3)))
+              items)))
+    (unless items (user-error "No grep lines found"))
+    (sp-search--write-view name
+                           (list :tool "rg" :query query
+                                 :dir (expand-file-name default-directory)
+                                 :glob "" :case "smart" :regexp t)
+                           (nreverse items))))
+
+(with-eval-after-load 'grep
+  (keymap-set grep-mode-map "E" #'sp-search-export-grep-buffer))
+#+end_src
+
+*** The entry command
+
+=sp-search= is the command to launch: it shows the results buffer as the first screen and opens the menu on top of it.
+
+#+begin_src emacs-lisp -i
+(defun sp-search ()
+  "Open the search buffer, with the search menu on top."
+  (interactive)
+  (let ((buf (get-buffer-create "*sp-search*")))
+    (with-current-buffer buf
+      (unless (derived-mode-p 'sp-search-mode) (sp-search-mode))
+      (sp-search--render))
+    (pop-to-buffer-same-window buf)
+    (sp-search-menu)))
+#+end_src
+
+*** The menu
+
+The commands, by group (see the table below).
+
+#+begin_src emacs-lisp -i
+(transient-define-prefix sp-search-menu ()
+  "All the search commands of the configuration in one place."
+  [:description sp-search--header
+   ["Here: buffer and directory"
+    ("l" "Lines in this buffer (consult-line)" consult-line)
+    ("i" "Headings and symbols (consult-imenu)" consult-imenu)
+    ("r" "Ripgrep in the project (consult-ripgrep)" consult-ripgrep)
+    ("d" "Ripgrep in a chosen directory" sp-search-in-input-dir)
+    ("f" "Fast file names (consult-snapfile)" consult-snapfile
+     :if (lambda () (fboundp 'consult-snapfile)))
+    ("T" "TODO/FIXME comments (consult-todo)" consult-todo
+     :if (lambda () (fboundp 'consult-todo)))]
+   ["Grep buffers (editable results)"
+    ("g" "rg: ripgrep with a menu" rg-menu
+     :if (lambda () (fboundp 'rg-menu)))
+    ("D" "deadgrep: interactive ripgrep" deadgrep
+     :if (lambda () (fboundp 'deadgrep)))
+    ("a" "ag: the silver searcher" ag
+     :if (lambda () (fboundp 'ag))))]
+   ["Results buffer and saved views"
+    ("/" "Ripgrep into the results buffer" sp-search-grep)
+    ("V" "Run a saved view" sp-search-run-view)
+    ("O" "Open a saved view file" sp-search-open-view)]]
+  [["Notes: plain text"
+    ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
+    ("N" "Grep org-node notes" org-node-grep
+     :if (lambda () (fboundp 'org-node-grep)))
+    ("v" "Grep vulpea notes" vulpea-grep
+     :if (lambda () (fboundp 'vulpea-grep)))
+    ("c" "Pick a note, then search all (consult-notes)" consult-notes
+     :if (lambda () (fboundp 'consult-notes)))
+    ("C" "Search in all notes (consult-notes)" consult-notes-search-in-all-notes
+     :if (lambda () (fboundp 'consult-notes-search-in-all-notes)))]
+   ["Semantic: by meaning"
+    ("s" "Semantic search (org-semantic)" org-semantic-find
+     :if (lambda () (fboundp 'org-semantic-find)))
+    ("S" "Semantic search in a directory" org-semantic-find-in-directory
+     :if (lambda () (fboundp 'org-semantic-find-in-directory)))
+    ("." "Semantic search from point" org-semantic-find-at-point
+     :if (lambda () (fboundp 'org-semantic-find-at-point)))
+    ("p" "p-search: combine evidence" p-search
+     :if (lambda () (fboundp 'p-search)))
+    ("t" "Semantic search of the tab inbox" sp-tab-psearch
+     :if (lambda () (fboundp 'sp-tab-psearch)))
+    ("P" "Tab inbox p-search (search box)" sp-tab-psearch-engine
+     :if (lambda () (fboundp 'sp-tab-psearch-engine)))
+    ("X" "Rebuild the semantic index" org-semantic-reindex
+     :if (lambda () (fboundp 'org-semantic-reindex)))]
+   ["Web and more"
+    ("o" "Omni search (consult-omni)" consult-omni
+     :if (lambda () (fboundp 'consult-omni)))
+    ("b" "litdb: my article database" consult-omni-litdb
+     :if (lambda () (fboundp 'consult-omni-litdb)))
+    ("B" "litdb: by meaning" consult-omni-litdb-semantic
+     :if (lambda () (fboundp 'consult-omni-litdb-semantic)))
+    ("j" "Search and record results in a trail" sp-trails-search
+     :if (lambda () (fboundp 'sp-trails-search)))]]
+  [("q" "Quit" transient-quit-one)])
+#+end_src
+
+| Key | Command                                  | What it does                                                                            |
+|-----+------------------------------------------+-----------------------------------------------------------------------------------------|
+| =l= | =consult-line=                           | Fuzzy search the lines of the current buffer; the preview follows the candidate.        |
+| =i= | =consult-imenu=                          | Jump to a heading or definition of the buffer.                                          |
+| =r= | =consult-ripgrep=                        | Ripgrep over the project; type =#= to split the pattern from a narrowing filter.        |
+| =d= | =sp-search-in-input-dir=                 | Same, but asks for the directory first.                                                 |
+| =f= | =consult-snapfile=                       | Fast file-name search through the snapfile server.                                      |
+| =T= | =consult-todo=                           | TODO, FIXME and NOTE keywords of the buffer or project.                                 |
+| =g= | =rg-menu=                                | Ripgrep front-end with a menu of options and an editable =rg-mode= results buffer.      |
+| =D= | =deadgrep=                               | Ripgrep with an interactive results buffer and live re-searching.                       |
+| =a= | =ag=                                     | The silver searcher, results in a =compilation= buffer.                                 |
+| =R= | =counsel-recoll=                         | Full-text search of the Recoll index (PDFs, mail, documents); needs =recollq=.          |
+| =/= | =sp-search-grep=                        | Ripgrep into the results buffer, with marks and export to a saved view.                 |
+| =V= | =sp-search-run-view=                     | Run the search stored in a saved view again.                                            |
+| =O= | =sp-search-open-view=                    | Open a saved view file.                                                                 |
+| =n= | =sp-search-in-notes=                     | Ripgrep over the notes directory.                                                       |
+| =N= | =org-node-grep=                          | Grep the files that org-node knows about.                                               |
+| =v= | =vulpea-grep=                            | Grep the vulpea notes (shown only if the command exists).                               |
+| =c= | =consult-notes=                          | Pick a note by title from the denote source.                                            |
+| =C= | =consult-notes-search-in-all-notes=      | Ripgrep over all note sources.                                                          |
+| =s= | =org-semantic-find=                      | Search the notes by meaning, using embeddings.                                          |
+| =S= | =org-semantic-find-in-directory=         | Semantic search limited to a directory.                                                 |
+| =.= | =org-semantic-find-at-point=             | Semantic search using the text at point as the query.                                   |
+| =p= | =p-search=                               | Rank files by combining evidence (text, file names, Git history).                       |
+| =t= | =sp-tab-psearch=                      | Semantic search over the tab inbox (also =C-c k t=).                                    |
+| =P= | =sp-tab-psearch-engine=                  | Tab inbox p-search with a search box (also =C-c k T=).                                  |
+| =X= | =org-semantic-reindex=                   | Rebuild the semantic index (it also reindexes automatically).                           |
+| =o= | =consult-omni=                           | One query across web and local sources (shown only if installed).                       |
+
+*** Menu at the top
+
+The menu is always shown in a window at the top of the frame (=sp-search-menu-display-action=). Transient has one global display action, so an advice on =transient--show= swaps it only while =sp-search-menu= is the active prefix; Magit and the other menus keep theirs.
+
+#+begin_src emacs-lisp -i
+(define-advice transient--show (:around (fn &rest args) sp-search-top)
+  "Show `sp-search-menu' at the top of the frame."
+  (let ((transient-display-buffer-action
+         (if (eq transient-current-command 'sp-search-menu)
+             sp-search-menu-display-action
+           transient-display-buffer-action)))
+    (apply fn args)))
+#+end_src
+
+*** Key
+
+=C-c s m= opens =sp-search=: the results buffer with the menu on top.
+
+#+begin_src emacs-lisp -i
+(keymap-global-set "C-c s m" #'sp-search)
+#+end_src
+
+*** Links with Vertico and the other completion frameworks
+
+The menu itself is only a launcher. The commands in it read their candidates through =completing-read=, so whatever completion framework is active shapes what they look like:
+
+- *Vertico* (=sp-completion=) shows the candidates of every Consult command (=l=, =i=, =r=, =d=, =T=, =c=, =C=, =s=). Consult's async commands, such as =consult-ripgrep=, hand the typed text to =rg= and Vertico lists the output as it arrives. =vertico-buffer-mode= can show the same list in a side window.
+- *Vertico-posframe* (=sp-posframe=) draws the same minibuffer in a centred child frame.
+- *Orderless* (=sp-completion=) filters the candidates by space-separated components in any order. It applies to the candidates that Consult has already collected, for example the lines of =consult-line=; for the async grep commands the first part of the input (before the =#=) is the regexp passed to =rg=, and Orderless only filters afterwards.
+- *Marginalia* (=sp-completion=) adds annotations (file, size, mode) beside the candidates in the minibuffer.
+- *Embark* (=sp-embark=, =C-.=) acts on a candidate: open it elsewhere, copy it, or export the whole list. =embark-export= on =consult-ripgrep= or =consult-line= candidates opens a =grep-mode= or =occur= buffer (editing it in place would need =wgrep=, which is not installed); =embark-consult= adds previews and the collect/export hooks. This is the nearest thing to a Magit-like results buffer for these searches.
+- *Corfu* and *Cape* complete text in a buffer, not search; they have no link to this menu.
+- *Ivy* and *Counsel* are used only by =counsel-recoll=, which reads its candidates through =ivy-read=; =ivy-prescient= sorts them. It is the one command here that does not go through Vertico.
+- *Prescient* (=sp-minibuffer=, =vertico-prescient=) sorts recent choices first; with Orderless it only changes the order.
+
+The semantic commands (=org-semantic=) show their results in an =org-semantic-results-mode= buffer, not in the minibuffer, and =next-error-follow-minor-mode= is on there.
+
+** Provide
+
+Provides the =sp-search= feature and closes the file.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-search)
+;; sp-search.el ends here
+#+end_src
+
+* sp-browsing.el
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle ../../../libraries/modules/media/sp-browsing.el
+:END:
+
+Literate source for =libraries/modules/media/sp-browsing.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks of this part, in order.
+- The =:tangle= path is in the =:header-args:emacs-lisp+:= property of this part's heading.
+
+The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
+
+This module is meant to set up an environment for browsing from within Emacs: EWW, Elpher (for Gopher and Gemini) and =consult-omni=. Most of it is still an outline of section headers; the code is a command for opening a link either in EWW or in the macOS default browser, and the =consult-omni= setup: a vendored copy of the package, the search commands by scope (=consult-omni-web=, =consult-omni-local=, =consult-omni-scholar=) and a =Vulpea= source.
+
+The link command depends on =consult= and =consult-omni= and on the macOS =open= program. The module ends with a =provide= form and is listed in =sp-late-modules= in =init.el=, so it loads after startup.
+
+The commentary at the top of the module says:
+
+#+begin_quote
+Creating the environment for browsing within Emacs.
+#+end_quote
+
+For design considerations (extended, personal), see [[id:8014cc97-450e-4ab0-9ec1-a5ec116f0160][Browser in Emacs]].
+
+For getting information delivered as a newsfeed directly to Emacs, see [[file:../inputs.org][Input management (for RSS and other sources)]]. This is for /fetching/ information by myself, not having it be delivered to me.
+
+** Usage for the different packages
+
+- [[id:20261022T210418.014321][eww]]
+- [[id:DBC62B9D-E339-4306-95D0-DA887EAD72DC][elpher]]
+- [[id:7558b0a8-ee13-42d3-8b87-ec5c670e368c][consult-omni]] (for browsing inside the minibuffer)
+- browsers that came as a result of Emacs 32 (canvas feature)
+- [[id:20261023T103452.098802][embr.el]]
+- controlling [[id:80fb667b-f59c-4138-86d3-e97d6d06910a][Qutebrowser]] with Emacs
+
+** File header
+
+*** Header and commentary
+
+The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
+
+#+begin_src emacs-lisp -i
+;;; sp-browsing.el --- Web browsing inside Emacs -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Good, focused browsing should happen as much as possible within
+;; Emacs. This means that some of the workflows that have me context-
+;; switching between Emacs and the browser is eliminated.
+
+;;; Code:
+
+;;;; Defining variables
+
+;;;; EWW (built-in)
+#+end_src
+
+** Code outline
+
+** EWW helpers
+
+*** Open a link in EWW or the system browser
+
+=open-link-at-point-or-minibuffer-with-choice= finds a URL by trying, in order:
+
+1. the URL at point,
+2. a =consult= selection over URLs in the buffer,
+3. a =consult-omni= search,
+4. a plain prompt.
+
+Then:
+
+- It asks whether to open the URL in the macOS browser (via the shell =open= command) or in EWW.
+- For EWW it splits the window: the original keeps the top 20% and EWW gets the bottom 80%.
+
+Some caveats: =thing-at-point--list= does not appear to be a standard Emacs function, so the second fallback may error; =consult-omni= is called for its return value, which may not be a URL; and the =open= command only works on macOS.
+
+#+begin_src emacs-lisp -i
+;;;;; Helper functions for eww
+
+;; Open link in eww or browser
+(defun open-link-at-point-or-minibuffer-with-choice ()
+  "Use `consult` to select a link at point, in the buffer, from `consult-omni` results, or prompt for a URL.
+  Then choose to open it in macOS default browser or eww.
+  If 'eww' is chosen, the link is opened in a window that occupies 80% of the frame height below the current one."
+  (interactive)
+  (let* ((url (or (thing-at-point 'url)                             ;; Check if there's a URL at point
+                (consult--read (thing-at-point--list 'url))       ;; Use consult to select a URL from the buffer
+                (consult-omni)                                    ;; Use consult-omni results to select a link
+                (read-string "Enter URL: "))))                    ;; Fall back to manual URL entry
+    (if url
+      (let ((choice (completing-read "Open link in: " '("macOS Browser" "eww"))))
+        (cond
+         ((string-equal choice "macOS Browser")
+          (shell-command (concat "open " (shell-quote-argument url))))
+         ((string-equal choice "eww")
+          ;; Calculate the height for the top window (20% of the frame height)
+          (let ((window (selected-window))
+                (top-window-height (floor (* 0.2 (window-total-height)))))
+            ;; Split window with 20% height on top and 80% height for eww on the bottom
+            (select-window (split-window window top-window-height))
+            (eww url)))))
+      (message "No URL provided."))))
+#+end_src
+
+** Further browsers
+
+*** Elpher placeholder
+
+#+begin_src emacs-lisp -i
+;;;; Elpher
+#+end_src
+
+*** consult-omni
+
+**** Explainer for the functionality
+
+=consult-omni= searches many sources from one minibuffer prompt. This module keeps a copy of it in =libraries/modules/cloned/consult-omni/= ([[file:../../../libraries/modules/cloned/consult-omni/VENDORED.org][VENDORED.org]] has the upstream commit, the license and the local patches), so it can be fixed here, and loads it from there instead of letting Elpaca install it. [[file:../academic/sp-fetch-academic.org][sp-fetch-academic]] uses it for scholarly searches.
+
+The =browser-history= source requires =browser-hist=, which is not vendored: it is installed with =use-package= and an Elpaca recipe (=agzam/browser-hist.el=) before =consult-omni=, which waits for it with =:after=.
+
+Every source requires the package it searches (=elfeed=, =notmuch=, =consult-gh=, =consult-mu=...), and one that is not installed made the =:config= fail with =Cannot open load file ... elfeed=: =require= with =NOERROR= does not cover the packages a file requires in turn. =sp-consult-omni-load-module= replaces the loader's =consult-omni-sources--load-module= and skips such a source with a message in =*Messages*=. Install the package to get the source.
+
+To set consult-omni up properly, you should provide sources for the information that will show up. Currently, the ones that I want are:
+
+| Engine         | What I want it to do                                                             | Status                                                              |
+|----------------+----------------------------------------------------------------------------------+---------------------------------------------------------------------|
+| Google Scholar | Fetch articles based on keywords that I'm scoping and find myself wanting to use | Not a source, see [[*Google Scholar: biblio-gscholar or consult-omni][the comparison]]; OpenAlex is used instead      |
+| Litdb          | Should work directly with the database of articles that I already have on hand. | Done: the =litdb= source ([[*Consulting litdb][below]])                                 |
+| DEVONThink     | Curious if the backend would even allow such usage at any point                 | Not done, see the TODO below                                        |
+| Vulpea         | Search the titles of my notes without ripgrep                                    | Done: the =Vulpea= source ([[*A Vulpea source for the local search][below]])                      |
+
+See what sources should have dynamic commands (meaning completion)
+- sending the query to the servers multiple times especially if you type slowly! Depending on the service provider and the API model, you may want to avoid hitting the server too frequently
+
+Define when you actually need ~consult-omni~ for multiple sources.
+
+You can also use this for querying local sources, if needed.
+
+#+begin_quote
+For example one user may define separate interactive commands to query web sources, v.s. local sources, while another user may want to define interactive commands for knowledge sources (academic references, notes, …) v.s. utilities (apps, buffers, files,…).
+#+end_quote
+
+***** Running batch functions on ~consult-omni~
+
+#+begin_quote
+Dynamic collection allows for complex workflows on the fly. Change query parameters on the fly by passing arguments. Select a random set of results ad-hoc using embark and run embark actions on them. This allows batch processing as well. For example to add a long list of results to an org-mode note for later review (as shown in this YouTube video:
+#+end_quote
+
+See [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]] for how to do this in an academic workflow
+
+**** Why the search failed with "Args out of range"
+
+The error was =Args out of range: [], 0=. =[]= is an empty vector, and the only place in consult-omni that takes element 0 of the vector of enabled sources is =consult-omni--multi-lookup=. So every search ran with *no enabled source at all*.
+
+The cause was in the old configuration, not in the package:
+
+1. =(require 'consult-omni-sources)= does not define any source. It only defines the loader =consult-omni-sources-load-modules=. The call to the loader sat in a block marked =:tangle no= (the "Scoped source search" block of the old doc), so it never ran and =consult-omni--sources-alist= stayed empty.
+2. Every name in =consult-omni-multi-sources= is looked up in that alist; names that are not there are silently dropped. All of them were dropped, so =consult-omni-multi= asked for a vector of zero sources.
+3. Even with the sources loaded, a source whose =:enabled= test fails is dropped too: =Google= without =consult-omni-google-customsearch-key=, =Scopus= without its key, =GitHub= without the =consult-gh= package, =Notes Search= without =consult-omni-notes-files=. A list made only of such names fails the same way.
+
+The loader is now called in =:config=, after the API keys are loaded. Besides that, the vendored copy has a guard: when no source is enabled it says so (=consult-omni: no enabled sources; ...=) instead of failing in =aref=.
+
+There was a second bug in the three scope commands. They called =consult-omni-multi= with =args= in the position of =min-input= (the signature is =initial prompt sources no-callback min-input &rest args=), which made the minimum input length a list. They now go through one helper.
+
+Checked in Emacs 29.3 in batch: the vendored files read without syntax errors and the new guard signals the =user-error= on an empty vector. Not run with a real =consult-omni= session (the container has no MELPA access and no consult checkout was loaded), so a first search on the Mac is still the real test.
+
+**** Bootstrapping the package
+
+=:ensure nil= with =:load-path= loads the vendored copy; the paths are in constants, because =:load-path= evaluates the symbols in its list as variables (the same pattern as =sp-consult-snapfile=). The secrets file is where the API keys go, see [[*Per source customization][Per source customization]].
+
+#+begin_src emacs-lisp -i
+;;;; consult-omni
+
+;; A copy of consult-omni (GPL-3.0-or-later, Armin Darvish) lives in
+;; `libraries/modules/cloned/consult-omni/'; see VENDORED.org there for the
+;; version and the local patches.
+
+(defconst sp-consult-omni-dir
+  (expand-file-name "libraries/modules/cloned/consult-omni/" sp-emacs-dir)
+  "Folder with the vendored copy of consult-omni.")
+
+(defconst sp-consult-omni-sources-dir
+  (expand-file-name "sources/" sp-consult-omni-dir)
+  "Folder with the source modules (Google, OpenAlex, ...) of consult-omni.")
+
+(defcustom sp-consult-omni-secrets-file
+  (expand-file-name "consult-omni-secrets.el" sp-var-dir)
+  "File with the API keys of the consult-omni sources.
+It is loaded when consult-omni starts and is not tracked by Git (`var/' is
+ignored).  Put plain `setq' forms in it, for example
+\(setq consult-omni-brave-api-key \"...\")."
+  :group 'spcustom
+  :type 'file)
+
+;; `:load-path' reads a list as a list of paths and evaluates each symbol in it
+;; as a variable, so the paths go through variables.
+(use-package browser-hist
+  :ensure (browser-hist :host github :repo "agzam/browser-hist.el")
+  :demand t) ; `consult-omni-browser-history' requires it
+
+(defun sp-consult-omni-load-module (symbol)
+  "Load the consult-omni source SYMBOL; skip it when a package it needs is missing."
+  (condition-case err
+      (require symbol nil t)
+    (error
+     (message "consult-omni: source `%s' skipped: %s" symbol (error-message-string err))
+     nil)))
+
+(use-package consult-omni
+  :ensure nil
+  :load-path (sp-consult-omni-dir sp-consult-omni-sources-dir)
+  :after (consult browser-hist)
+
+  :custom
+  (consult-omni-show-preview t) ;;; show previews
+  (consult-omni-preview-key "C-o") ;;; set the preview key to C-o
+  (consult-omni-highlight-matches-in-minibuffer t) ;;; highlight matches in minibuffer
+  (consult-omni-highlight-matches-in-file t) ;;; highlight matches in files
+  (consult-omni-default-count 5) ;;; set default count
+  (consult-omni-default-page 0) ;;; set the default page (default is 0 for the first page)
+
+  (consult-omni-default-format-candidate 'consult-omni--higlight-format-candidate) ;; show annotations for the results
+
+  ;; Adjust these (e.g. increase to avoid hitting a source such as an API too frequently)
+  (consult-omni-dynamic-input-debounce 0.8)
+  (consult-omni-dynamic-input-throttle 1.6)
+  (consult-omni-dynamic-refresh-delay 0.8)
+  ;; Optionally set backend for http request (either 'url, 'request, or 'plz)
+  ;; (consult-omni-http-retrieve-backend 'plz)
+
+  :config
+  ;; API keys first: a source is only enabled once its key is set.
+  (load sp-consult-omni-secrets-file t t)
+  ;; `(require 'consult-omni-sources)' only defines the loader; the sources
+  ;; themselves are defined when the loader runs.  Without this call the list
+  ;; of sources stays empty and any search fails with "Args out of range: [], 0".
+  (require 'consult-omni-sources)
+  ;; A source requires the package it searches (`elfeed', `notmuch', `consult-gh'...).
+  ;; `require' with NOERROR only covers the source file itself, so one missing
+  ;; package aborted this whole `:config'.  Skip that source and say so.
+  (advice-add 'consult-omni-sources--load-module :override #'sp-consult-omni-load-module)
+  (consult-omni-sources-load-modules)
+  ;; Embark actions on the results
+  (with-eval-after-load 'embark-consult
+    (require 'consult-omni-embark)))
+#+end_src
+
+**** Sources for the multiple source search command
+
+Sources for the =consult-omni= command.
+
+The commentary in the repository says:[fn:1]
+
+#+begin_quote
+Change these lists as needed for different interactive commands. Keep in mind that each source has to be a key in `consult-omni-sources-alist'.
+#+end_quote
+
+Names whose source is not enabled (no key, program or package) are skipped, so the list can name more than is available.
+
+#+begin_src emacs-lisp -i
+(setq consult-omni-multi-sources '("Apps"
+                                   "buffers text search"
+                                   "Dictionary"
+                                   "doiorg"
+                                   "elfeed"
+                                   "Google"
+                                   "litdb"
+                                   "Notes Search"
+                                   "Org Agenda"
+                                   "GitHub"
+                                   "YouTube"
+                                   "Wikipedia"))
+#+end_src
+
+**** Browse function
+
+Understanding the functions
+- consult-omni-default-browse-function :: Default browse function for opening URLs. This can be set to external browser function by:
+- consult-omni-alternate-browse-function :: Secondary browse function for opening URLs. This can for example be set to eww or some other browsers for quick access to an alternative browser with embark actions.
+- consult-omni-default-preview-function :: Default function to use for previewing links. In this case I'm using xwidget-webkit, since I prefer that interface
+   + !@This can change at some point!@
+
+#+begin_src emacs-lisp -i
+(setq consult-omni-default-browse-function 'browse-url)
+(setq consult-omni-alternate-browse-function 'eww-browse-url)
+(setq consult-omni-default-preview-function #'xwidget-webkit-browse-url)
+#+end_src
+
+**** Per source customization
+
+API keys go in =sp-consult-omni-secrets-file= (=var/consult-omni-secrets.el=). =var/= is ignored by Git, so the keys never get committed; the file is loaded before the sources, because a source is only enabled once its key is set. The file holds plain =setq= forms:
+
+#+begin_src emacs-lisp :tangle no
+;; var/consult-omni-secrets.el -- not tracked by Git
+(setq consult-omni-google-customsearch-key "YOUR-GOOGLE-KEY")
+(setq consult-omni-google-customsearch-cx "YOUR-SEARCH-ENGINE-ID")
+(setq consult-omni-brave-api-key "YOUR-BRAVE-API-KEY")
+(setq consult-omni-scopus-api-key "YOUR-SCOPUS-API-KEY")
+(setq consult-omni-pubmed-api-key "YOUR-PUBMED-API-KEY")
+(setq consult-omni-stackexchange-api-key "YOUR-STACKEXCHANGE-API-KEY")
+(setq consult-omni-openai-api-key "YOUR-OPENAI-API-KEY")
+#+end_src
+
+Which keys exist (the =defcustom= of each source module in the vendored copy):
+
+| Variable                              | Source        | Needed? |
+|---------------------------------------+---------------+---------|
+| =consult-omni-google-customsearch-key= and =-cx= | Google        | yes, from the Programmable Search Engine and the Custom Search API |
+| =consult-omni-brave-api-key=          | Brave         | yes     |
+| =consult-omni-scopus-api-key=         | Scopus        | yes (Elsevier developer portal) |
+| =consult-omni-pubmed-api-key=         | PubMed        | optional (raises the rate limit; the source checks the variable to be enabled) |
+| =consult-omni-stackexchange-api-key=  | StackOverflow | optional |
+| =consult-omni-openai-api-key=         | ChatGPT       | yes     |
+| none                                  | Wikipedia, doi.org, OpenAlex, Dictionary, elfeed, Org Agenda, Vulpea, ripgrep | no |
+
+*The old doc had a real-looking Google Custom Search key and engine id in a commented-out line.* They are removed here, but they stay in the Git history: if that key is real, delete or rotate it in the Google Cloud console.
+
+**** Embark actions on the results
+
+=consult-omni-embark= is loaded once =embark-consult= is (see =:config= above).
+
+#+begin_src emacs-lisp :tangle no
+  ;; default terminal
+  (setq consult-omni-embark-default-term #'vterm)
+
+  ;; default video player (I haven't actually set up mpv)
+  ;; (setq consult-omni-embark-video-default-player  #'mpv-play-url)
+#+end_src
+
+**** TODO See what would be the best notes integration
+
+Make use of [[file:~/.config/emacs-modular/docs/tangles/custom/sp-search-browsing-trails.org][sp-trails.el: Identify browsing trails in tree-like structures]] and [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]], so you don't simply use [[id:98c86b77-2cac-46f5-937e-e1af27051d57][ripgrep]] or something else 
+
+Partly done: the =Vulpea= source searches the notes' titles in the Vulpea database ([[*A Vulpea source for the local search][below]]), and the scholarly results go into the BibTeX files through =sp-fetch-academic-omni=. Still open: saving a web result into a trail with =sp-trails=. That needs a decision on what a trail entry is (a URL line in the tab inbox, as =sp-tab-inbox= does, or a node in a trail), so it is not guessed here.
+
+[fn:1]  https://github.com/armindarvish/consult-omni
+
+**** Results first: never search the web by accident
+
+In =consult-omni-multi= the results arrive while you type. Pressing =RET= when the cursor is not on a result (the results are not there yet, or nothing matched) submits the input as a new candidate, and the default =consult-omni-default-new-function= (=consult-omni-external-search=) sends it to the search engine in the browser, which opened Google. =sp-consult-omni-ignore-new= replaces it: it does nothing but say so in the echo area. Only =RET= on a result calls the source's callback and opens it with =consult-omni-default-browse-function= (=browse-url=); =consult-omni-external-search= is still there when you do want a web search.
+
+#+begin_src emacs-lisp -i
+;; A search whose input matches no result must not leave Emacs: the default
+;; (`consult-omni-external-search') sends it to a web search engine in the
+;; browser when RET is pressed before the results have arrived.
+(defun sp-consult-omni-ignore-new (cand)
+  "Do nothing with the input CAND that is not one of the results."
+  (message "consult-omni: \"%s\" is not a result, nothing was opened; wait for the results, or use `consult-omni-external-search' to search the web"
+           (if (stringp cand) (substring-no-properties cand) cand))
+  nil)
+
+(setq consult-omni-default-new-function #'sp-consult-omni-ignore-new)
+#+end_src
+
+**** Better scope for searches
+
+Adding different interactive commands from the consult-omni-multi, which will just perform a search for everything.
+- these work as regular interactive commands
+
+All three go through one helper. It calls =consult-omni-multi= with =apply=, so the extra =ARGS= are spread and the =min-input= argument stays unset, and the commands are =(interactive)= with no prefix argument (a prefix argument is not a valid initial input).
+
+#+begin_src emacs-lisp -i
+(defun sp--consult-omni-scoped (label default-sources initial prompt sources no-callback args)
+  "Run `consult-omni-multi' on SOURCES, or on DEFAULT-SOURCES when nil.
+LABEL names the search in the prompt unless PROMPT is given.  INITIAL,
+NO-CALLBACK and ARGS are passed on; the minimum input length is left unset."
+  (let ((prompt (or prompt
+                    (concat "[" (propertize label 'face 'consult-omni-prompt-face) "]" " Search:  "))))
+    (apply #'consult-omni-multi initial prompt (or sources default-sources) no-callback nil args)))
+#+end_src
+
+***** Consulting the web (=consult-omni-web=):
+
+#+begin_src emacs-lisp -i
+(defvar consult-omni-web-sources (list "gptel"
+                                       "Brave"
+                                       "elfeed"
+                                       "mu4e"
+                                       "Wikipedia"
+                                       "GitHub"
+                                       "Invidious"))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun consult-omni-web (&optional initial prompt sources no-callback &rest args)
+  "Interactive web search.
+
+This is similar to `consult-omni-multi', but runs the search on
+web sources defined in `consult-omni-web-sources'.
+See `consult-omni-multi' for more details."
+  (interactive)
+  (sp--consult-omni-scoped "consult-omni-web" consult-omni-web-sources
+                           initial prompt sources no-callback args))
+#+end_src
+
+***** TODO see if you plug consult-omni search into DEVONThink
+
+Not done. DEVONthink has an AppleScript dictionary (=search "query" in database ...=), so a dynamic source could call =osascript= from its =:request= function and return the record names with their =x-devonthink-item://= links; =consult-omni-define-source= is all that is needed besides that. It can only be written and tested on the Mac with DEVONthink installed, so it is left as a task.
+
+***** Consulting litdb
+
+[[https://github.com/jkitchin/litdb][litdb]] is the database of articles I already have. Two sources call its command line program (=sp-consult-omni-litdb-command=, found on =exec-path=; the source is disabled when it is not):
+
+- =litdb= (narrow with =l=): =litdb fulltext=, quick, and part of =consult-omni-multi-sources=, so a default search lists its results with the others.
+- =litdb semantic= (narrow with =L=, command =consult-omni-litdb-semantic=): =litdb vsearch=, by meaning. It loads the embedding model on every call, so it is a command of its own and not in the default list.
+
+The program runs asynchronously and the previous call is killed when you type on, so Emacs does not freeze; =sp-consult-omni-litdb-timeout= (60 s) stops a call that hangs. *The first call after a start is slow* (litdb imports its libraries, and the semantic search the model), and results only show up after it. litdb prints through =rich=, so the command is given a =--fmt= template that puts one result on one line with printable separators (=␟= between source, score and text, =␞= after a result) and =COLUMNS=100000= so =rich= does not wrap it. A result is a web address (an OpenAlex work, a DOI) or a file, whatever litdb stored as its source: =RET= opens the address with =consult-omni-default-browse-function= or visits the file. Nothing in it is specific to the articles, so records that another tool puts into litdb (for example DEVONthink, see the TODO below) turn up too.
+
+Not run against a real litdb: the container has neither Emacs nor a litdb database. The command line options (=-n=, =-f=) and the =source=, =score=, =snippet=, =text= template variables were read from litdb 2.2.3.
+
+#+begin_src emacs-lisp -i
+;;;;; A litdb source for the local article database
+
+(defcustom sp-consult-omni-litdb-command "litdb"
+  "Name or path of the litdb command line program."
+  :group 'spcustom
+  :type 'string)
+
+(defcustom sp-consult-omni-litdb-timeout 60
+  "Seconds to wait for litdb before the search is given up.
+The first call after a start can take long: litdb imports its
+libraries (and, for the semantic search, loads the embedding model)."
+  :group 'spcustom
+  :type 'integer)
+
+(defvar sp--consult-omni-litdb-process nil
+  "The litdb process of the search in progress, if any.")
+
+(defconst sp--consult-omni-litdb-field-separator "␟"
+  "Printable character between the fields of a litdb result.")
+
+(defconst sp--consult-omni-litdb-record-separator "␞"
+  "Printable character after each litdb result.")
+
+(defun sp--consult-omni-litdb-format (field)
+  "Return the jinja template for the litdb result column FIELD.
+Newlines and square brackets are replaced: litdb prints through rich,
+which reads brackets as markup, and one result must stay on one line."
+  (format "%s|replace('\\n',' ')|replace('[','(')|replace(']',')')"
+          field))
+
+(defun sp--consult-omni-litdb-template (kind)
+  "Return the `--fmt' template of litdb for KIND, `fulltext' or `semantic'."
+  (let ((sep sp--consult-omni-litdb-field-separator))
+    (concat "{{ source }}" sep "{{ score|round(3) }}" sep "{{ "
+            (sp--consult-omni-litdb-format
+             (if (eq kind 'fulltext) "snippet" "text[:200]"))
+            " }}" sp--consult-omni-litdb-record-separator)))
+
+(defun sp--consult-omni-litdb-arguments (kind query count)
+  "Return the litdb arguments that search for QUERY.
+KIND is `fulltext' or `semantic'; COUNT is the number of results."
+  (if (eq kind 'fulltext)
+      ;; Quote each word: the full text index reads `-' and `:' as operators.
+      (append (list "fulltext" "-n" (number-to-string count)
+                    "-f" (sp--consult-omni-litdb-template kind))
+              (mapcar (lambda (word) (format "\"%s\"" (replace-regexp-in-string "\"" "" word)))
+                      (split-string query "[ \t]+" t)))
+    (append (list "vsearch" "-n" (number-to-string count)
+                  "-f" (sp--consult-omni-litdb-template kind))
+            (split-string query "[ \t]+" t))))
+
+(defun sp--consult-omni-litdb-address (source)
+  "Return the web address of the litdb SOURCE, or nil.
+A DOI is turned into a doi.org address."
+  (cond ((string-match-p "\\`https?://" source) source)
+        ((string-match-p "\\`10\\.[0-9]+/" source) (concat "https://doi.org/" source))
+        ((string-match-p "\\`doi:" source)
+         (concat "https://doi.org/" (substring source 4)))))
+
+(defun sp--consult-omni-litdb-candidate (record query name)
+  "Return the consult-omni candidate for the litdb RECORD found with QUERY.
+RECORD is the text of one result; NAME is the name of the source."
+  (let* ((fields (split-string record sp--consult-omni-litdb-field-separator))
+         (source (string-trim (or (nth 0 fields) "")))
+         (score (string-trim (or (nth 1 fields) "")))
+         (text (string-trim (or (nth 2 fields) "")))
+         (title (if (string-empty-p text) source text)))
+    (unless (string-empty-p source)
+      (consult-omni-propertize-by-plist
+       (copy-sequence title)
+       `(:title ,title :source ,name :url ,(sp--consult-omni-litdb-address source)
+         :search-url nil :query ,query :litdb-source ,source :score ,score)
+       0 1))))
+
+(defun sp--consult-omni-litdb-parse (output query name)
+  "Return the candidates of the litdb OUTPUT for QUERY, found by source NAME."
+  (delq nil
+        (mapcar (lambda (record) (sp--consult-omni-litdb-candidate record query name))
+                (split-string output sp--consult-omni-litdb-record-separator t "[ \t\n]+"))))
+
+(defun sp--consult-omni-litdb-run (kind name input callback args)
+  "Search litdb for INPUT without blocking Emacs and pass the results to CALLBACK.
+KIND is `fulltext' or `semantic'; NAME is the name of the consult-omni
+source; ARGS are the arguments consult-omni received."
+  (pcase-let* ((`(,query . _) (consult-omni--split-command
+                               input (seq-difference args (list :callback callback))))
+               (program (executable-find sp-consult-omni-litdb-command)))
+    (when (process-live-p sp--consult-omni-litdb-process)
+      (delete-process sp--consult-omni-litdb-process))
+    (when (and program query (not (string-blank-p query)))
+      (let* ((buffer (generate-new-buffer " *consult-omni-litdb*"))
+             ;; rich wraps lines at 80 columns when it does not print to a terminal;
+             ;; sh below drops standard error so warnings do not mix into the results
+             (process-environment (cons "COLUMNS=100000" process-environment))
+             (timer nil)
+             (process
+              (make-process
+               :name "consult-omni-litdb" :buffer buffer :noquery t
+               :command (append (list "sh" "-c" "exec \"$@\" 2>/dev/null" "sh" program)
+                               (sp--consult-omni-litdb-arguments
+                                kind query (max 1 (or consult-omni-default-count 5))))
+               :sentinel
+               (lambda (proc _event)
+                 (when (memq (process-status proc) '(exit signal))
+                   (when timer (cancel-timer timer))
+                   (let ((results (and (eq proc sp--consult-omni-litdb-process)
+                                       (zerop (process-exit-status proc))
+                                       (with-current-buffer buffer
+                                         (sp--consult-omni-litdb-parse (buffer-string) query name)))))
+                     (when (and (not (zerop (process-exit-status proc)))
+                                (eq proc sp--consult-omni-litdb-process))
+                       (message "litdb: search failed (exit %s); see `M-x list-processes'"
+                                (process-exit-status proc)))
+                     (when (and results (functionp callback))
+                       (funcall callback results)))
+                   (kill-buffer buffer))))))
+        (setq sp--consult-omni-litdb-process process)
+        (setq timer (run-at-time sp-consult-omni-litdb-timeout nil
+                                 (lambda () (when (process-live-p process)
+                                              (delete-process process)))))))
+    nil))
+
+(cl-defun sp-consult-omni-litdb-fetch-results (input &rest args &key callback &allow-other-keys)
+  "Run the litdb full text search for INPUT and pass the results to CALLBACK."
+  (apply #'sp--consult-omni-litdb-run 'fulltext "litdb" input callback args))
+
+(cl-defun sp-consult-omni-litdb-semantic-fetch-results (input &rest args &key callback &allow-other-keys)
+  "Run the litdb vector search for INPUT and pass the results to CALLBACK."
+  (apply #'sp--consult-omni-litdb-run 'semantic "litdb semantic" input callback args))
+
+(defun sp-consult-omni-litdb-callback (cand)
+  "Open the litdb result CAND: its web address in the browser, or its file."
+  (when (listp cand) (setq cand (car-safe cand)))
+  (let ((url (get-text-property 0 :url cand))
+        (source (get-text-property 0 :litdb-source cand)))
+    (cond ((and (stringp url) (not (string-empty-p url)))
+           (funcall consult-omni-default-browse-function url))
+          ((and (stringp source) (file-exists-p source))
+           (find-file source))
+          (t (message "litdb: nothing to open for \"%s\"" (or source cand))))))
+
+(defun sp--consult-omni-litdb-enabled ()
+  "Return non-nil when the litdb program can be run."
+  (and (executable-find sp-consult-omni-litdb-command) t))
+
+(with-eval-after-load 'consult-omni
+  ;; The full text search is quick.  The vector search loads the embedding
+  ;; model on every call, so it is only a command, not in the multi sources.
+  (dolist (spec `(("litdb" ?l sp-consult-omni-litdb-fetch-results)
+                  ("litdb semantic" ?L sp-consult-omni-litdb-semantic-fetch-results)))
+    (pcase-let ((`(,name ,char ,fetch) spec))
+      (eval
+       `(consult-omni-define-source ,name
+                                    :narrow-char ,char
+                                    :category 'consult-omni-litdb
+                                    :type 'dynamic
+                                    :require-match nil
+                                    :min-input 3
+                                    :request #',fetch
+                                    :on-return #'identity
+                                    :on-callback #'sp-consult-omni-litdb-callback
+                                    :preview-key consult-omni-preview-key
+                                    :search-hist 'consult-omni--search-history
+                                    :select-hist 'consult-omni--selection-history
+                                    :enabled #'sp--consult-omni-litdb-enabled
+                                    :group #'consult-omni--group-function
+                                    :sort t
+                                    :interactive consult-omni-intereactive-commands-type)
+       t))))
+#+end_src
+
+***** Consulting local files (=consult-omni-local=):
+
+****** A Vulpea source for the local search
+
+The =Vulpea= source answers the TODO "enter this search into vulpea without ripgrep". It is a dynamic source: for each input it runs =vulpea-db-query= with a predicate that keeps the notes whose title contains every word of the input (case-insensitive), and shows up to =consult-omni-default-count= of them. Selecting one visits the note. It searches titles only, not the text; ripgrep stays in the list for that.
+
+Not tested against the real Vulpea database: the container has no Vulpea. The calls (=vulpea-db-query= with a filter function, =vulpea-note-title=, =vulpea-note-path=) are the ones other modules of this configuration use, and =vulpea-visit= is used when it exists.
+
+#+begin_src emacs-lisp -i
+;;;;; A Vulpea source for the local search
+
+(defun sp--consult-omni-vulpea-items (query)
+  "Return the Vulpea notes whose title contains every word of QUERY."
+  (let ((case-fold-search t)
+        (words (mapcar #'regexp-quote (split-string query "[ \t]+" t))))
+    (when words
+      (vulpea-db-query
+       (lambda (note)
+         (let ((title (vulpea-note-title note)))
+           (and (stringp title)
+                (cl-every (lambda (word) (string-match-p word title)) words))))))))
+
+(defun sp--consult-omni-vulpea-candidate (note query)
+  "Return the consult-omni candidate for the Vulpea NOTE found with QUERY."
+  (consult-omni-propertize-by-plist
+   (copy-sequence (vulpea-note-title note))
+   `(:title ,(vulpea-note-title note) :source "Vulpea" :url nil :search-url nil
+     :query ,query :note ,note)
+   0 1))
+
+(defun sp-consult-omni-vulpea-callback (cand)
+  "Visit the Vulpea note of the consult-omni candidate CAND."
+  (when-let* ((note (get-text-property 0 :note cand)))
+    (if (fboundp 'vulpea-visit)
+        (vulpea-visit note)
+      (find-file (vulpea-note-path note)))))
+
+(cl-defun sp-consult-omni-vulpea-fetch-results (input &rest args &key callback &allow-other-keys)
+  "Find the Vulpea notes whose title matches INPUT and pass them to CALLBACK."
+  (pcase-let* ((`(,query . _) (consult-omni--split-command input (seq-difference args (list :callback callback))))
+               (results (mapcar (lambda (note) (sp--consult-omni-vulpea-candidate note query))
+                                (seq-take (sp--consult-omni-vulpea-items query)
+                                          (max 1 (or consult-omni-default-count 5))))))
+    (when (and results (functionp callback))
+      (funcall callback results))
+    results))
+
+(with-eval-after-load 'consult-omni
+  (consult-omni-define-source "Vulpea"
+                              :narrow-char ?v
+                              :category 'consult-omni-vulpea
+                              :type 'dynamic
+                              :require-match nil
+                              :request #'sp-consult-omni-vulpea-fetch-results
+                              :on-return #'identity
+                              :on-callback #'sp-consult-omni-vulpea-callback
+                              :preview-key consult-omni-preview-key
+                              :search-hist 'consult-omni--search-history
+                              :select-hist 'consult-omni--selection-history
+                              :enabled (lambda () (fboundp 'vulpea-db-query))
+                              :group #'consult-omni--group-function
+                              :sort t
+                              :interactive consult-omni-intereactive-commands-type))
+#+end_src
+
+****** actual code
+
+#+begin_src emacs-lisp -i
+(defvar consult-omni-local-sources (list "Vulpea"
+                                         "ripgrep"
+                                         "Org Agenda"))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun consult-omni-local (&optional initial prompt sources no-callback &rest args)
+  "Interactive local search.
+
+This is similar to `consult-omni-multi', but runs the search on
+local sources defined in `consult-omni-local-sources'.
+See `consult-omni-multi' for more details."
+  (interactive)
+  (sp--consult-omni-scoped "consult-omni-local" consult-omni-local-sources
+                           initial prompt sources no-callback args))
+#+end_src
+
+***** Consulting academic search engines (=consult-omni-scholar=):
+
+****** Integrate this with [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]]
+
+Done as =sp-fetch-academic-omni= (=C-c w b s=): it runs =consult-omni-scholar= and passes the DOI of the chosen result to =sp-fetch-academic-doi=, or its PDF address to =sp-fetch-academic-download=. The sources are the free ones first: OpenAlex needs no key, the others only skip themselves until their key is in the secrets file.
+
+****** Actual code
+
+#+begin_src emacs-lisp -i
+(defvar consult-omni-scholar-sources (list "OpenAlex"
+                                           "PubMed"
+                                           "Scopus"
+                                           "doiorg"
+                                           "Notes Search"
+                                           "gptel"))
+#+end_src
+
+#+begin_src emacs-lisp -i
+(defun consult-omni-scholar (&optional initial prompt sources no-callback &rest args)
+  "Interactive multi-source academic literature search.
+
+This is similar to `consult-omni-multi', but runs the search on
+academic literature sources defined in `consult-omni-scholar-sources'.
+See `consult-omni-multi' for more details."
+  (interactive)
+  (sp--consult-omni-scoped "consult-omni-scholar" consult-omni-scholar-sources
+                           initial prompt sources no-callback args))
+#+end_src
+
+**** Google Scholar: biblio-gscholar or consult-omni
+
+The question: add a Google Scholar source to consult-omni, or keep =biblio-gscholar= (loaded in =sp-fetch-academic=)?
+
+*Recommendation: keep =biblio-gscholar= for Google Scholar and do not write a consult-omni source for it. Use the consult-omni scholar search with OpenAlex, PubMed and Scopus for exploring, and join the two at the DOI.* This is from reading both sources; I could not reach Google Scholar from the container, so nothing below was measured.
+
+| | =biblio-gscholar= (existing) | A Google Scholar source for consult-omni |
+|-+-+-|
+| Data | Scrapes =scholar.google.com= HTML (there is no API), with a made-up cookie | Would have to scrape the same page; consult-omni has no Scholar source (upstream's README leaves scholar commands to the user) |
+| Requests per search | One search page, then one request per result for its BibTeX (synchronous, in the parser) | The same, repeated as you type: consult-omni is a dynamic search, re-run after =consult-omni-dynamic-input-debounce= (0.8 s) and at most every =-throttle= (1.6 s), and it queries every source of the list at once |
+| When Google blocks | You search when you decide to, so one CAPTCHA wall is rare and visible | Keystroke-driven searching is the pattern Scholar blocks first; the source would fail quietly in the middle of a list of sources, with Scholar's HTML error page parsed as "no results" |
+| What you get | Full BibTeX, ready to insert, through =biblio= | Titles and authors; the BibTeX needs the per-result request again, or a DOI lookup |
+| Merging sources | Separate command | One list with OpenAlex, PubMed, Scopus, notes |
+| Maintenance | Small, existing, one scraper | A second scraper to keep, or a dependency on =gscholar-bibtex= from the source |
+
+Why OpenAlex covers most of what Scholar was for: it is an open API (no key), indexes hundreds of millions of works, returns the DOI and, for open access works, the PDF address, which is exactly what =sp-fetch-academic-omni= needs. What Scholar has that OpenAlex lacks (ranking by citations, "cited by", books and theses coverage) are the reasons to keep =biblio-gscholar=: one explicit search at a time, with the BibTeX in hand.
+
+Revisit if =biblio-gscholar= stops working (Scholar changes its markup) or if a Scholar result list inside the consult-omni list becomes worth the CAPTCHA risk. A source that only runs on =RET= (=consult-omni-multi-static=) would lower the risk but not remove the scraper.
+
+**** TODO Customizing the sources for consult-omni
+
+This should be tailored later
+- ask Claude for the best settings for [[id:21a7b997-2488-4d01-90ae-5f648fad4a0c][Google Scholar]]: answered by the comparison above; no Scholar source is defined.
+
+Defining your own source is a call to =consult-omni-define-source=. The Brave one from the old doc, kept as the template (not tangled; Brave is already defined by =consult-omni-brave=, so redefining it is not needed):
+
+#+begin_src emacs-lisp :tangle no
+(consult-omni-define-source "Brave"
+                            :narrow-char ?b
+                            :type 'dynamic
+                            :require-match t
+                            :face 'consult-omni-engine-title-face
+                            :request #'consult-omni--brave-fetch-results
+                            :preview-key consult-omni-preview-key
+                            :search-hist 'consult-omni--search-history
+                            :select-hist 'consult-omni--selection-history
+                            :enabled (lambda () (bound-and-true-p consult-omni-brave-api-key))
+                            :group #'consult-omni--group-function
+                            :sort t
+                            :static 'both)
+#+end_src
+
+**** Provide
+
+Provides the =sp-browsing= feature (the module did not have a =provide= form) and closes the file. It is listed in =sp-late-modules= in =init.el=.
+
+#+begin_src emacs-lisp -i
+(provide 'sp-browsing)
+;;; sp-browsing.el ends here
+#+end_src
+
+** Tasks and planned improvements
+
+*** TODO Making the queries from =consult-omni= show up in a different buffer
+
+For this it would be really cool to get to implement the functionality that I want in replicating Dataview. This whole process is described in more detail in "_Queries injected in editor buffers_".
+
+This should basically hook into [[file:~/.config/emacs-modular/docs/tangles/text/sp-tab-psearch.org][sp-tab-psearch.el]] and [[file:~/.config/emacs-modular/docs/tangles/custom/sp-search-browsing-trails.org][sp-trails.el]], so you can collect the result of these searches and start making it actionable.
+
+*** TODO Make consult-omni into kind of an application launcher
+
+This would kind of end up clashing with [[id:31f5cf5a-c78d-4892-8e95-bc3da735209d][universal-launcher-el]]
+
+* sp-trails.el
+
+Identify browsing trails in tree-like structures (the old title of this doc).
+
+** Describing the problem
+
+Often, when browsing/researching something, I end up opening a lot of browser pages, including academic articles that I may want to revisit and look at afterwards, in order to build a thesis and write [[id:7e9d8466-d1ff-491a-82c8-d3c937c9575a][Zettelkasten]] based on it.
+
+For possible developments in the academic workflow I'm developing (see [[file:~/.config/emacs-modular/docs/tangles/academic/sp-academic.org][sp-academic: the academic master module and its four sub-modules]], especially [[file:~/.config/emacs-modular/docs/tangles/academic/sp-fetch-academic.org][sp-fetch-academic.el: fetch papers from the web and import them]]), I want to add a design specifically made for research questions
+- for this, see [[file:~/.config/emacs-modular/docs/tangles/research-question-states.org][Research question states]] and [[file:~/.config/emacs-modular/docs/tangles/custom/sp-thesis-dump.org][sp-thesis-dump.el: Brain-dump thesis ideas, get annotated tasks and citekeys]]
+
+Most of the development that Claude did with this is dependent on selecting something in the browser itself
+- perhaps it would be better if I adopted [[id:80fb667b-f59c-4138-86d3-e97d6d06910a][Qutebrowser]] for this purpose instead

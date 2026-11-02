@@ -35,6 +35,8 @@ This module replaces four: =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annota
 | Needs besides Emacs       | SQLite, =websocket= for the UI                                                            | =websocket= and =simple-httpd=, both from =sp-base-libraries=                    | =vulpea=, =vui= (outline trial only), Graphviz (SVG only)                                                       | The annotator, and a free port (8765)                                                     |
 | Settings in this file     | A lot: directories, database, overlays, node types, relation types, patterns, attributes  | None, only the recipe and the autoloaded commands                                | The =relationship-annotator-*= options                                                                          | =relationship-annotator-live-port= and =-debounce=                                        |
 
+
+
 ** How they differ
 
 - *Package or my code.* =discourse-graphs= and =vulpea-graph= are other people's code. What I own here is their recipe and, for =discourse-graphs=, their settings. The annotator and the live view are mine, so a bug in them is mine to fix and they are documented line by line below.
@@ -3274,9 +3276,21 @@ The one feature of the module. The old file ends were =;;; sp-relationship-annot
 ;;; sp-graphs.el ends here
 #+end_src
 
+* Tasks and planned features
+** TODO Try to find and use the phi-notes package again
+
+It had some nice features for usign for philosophical notes.
+
+See if you can install phi-notes with elpaca.
+
 * Sia's commentary
 
 The relationship annotator doesn't work that well in the [[id:20261027T150202.069446][xwidget]]
+
+* Tasks
+** Make the graph view of the relationsghip annotator  make it easier to collapse nodes to have easier readability
+
+Right now if you have a really connected notes, everything expand
 
 * Changes by pull request
 

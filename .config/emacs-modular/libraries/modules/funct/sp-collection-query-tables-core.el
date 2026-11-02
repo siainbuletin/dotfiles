@@ -14,6 +14,7 @@
 (require 'subr-x)
 (require 'vulpea)
 (require 'org)
+(require 'sp-org-id-link)
 
 (defgroup sp-collec-query nil
   "Tables of Vulpea notes."
@@ -24,8 +25,8 @@
 
 (defconst sp-collec-query-spec-keys
   '(:tags :tags-any :tags-none :directories :todo :links :meta
-    :parent-of :parent-prop :level :title-match
-    :columns :sort-by :sort-desc)
+    :parent-of :parent-prop :level :title-match :fold-tag :fold-prop
+    :columns :sort-by :sort-desc :column-widths :wrap)
   "Keys a table spec may carry.
 :TAGS, :TAGS-ANY and :TAGS-NONE are lists of tags (all, at least one,
 none of them); :DIRECTORIES a list of directories a note's file lies
@@ -34,12 +35,26 @@ one of which the note links to; :META a list of (KEY . VALUE) where a nil
 VALUE only asks for KEY to be present; :PARENT-OF an ID or the string
 \"self\", checked against the meta key :PARENT-PROP (default \"parents\");
 :LEVEL nil, 0 (file-level notes) or `headings'; :TITLE-MATCH a regexp;
+:FOLD-TAG a tag whose notes are left out of the table and counted on the
+note their meta key :FOLD-PROP (default \"bib-parent\") links to, shown
+in the :sections column (the parent is added when it is not a result);
 :COLUMNS the columns to show and :SORT-BY the column to sort on, each a
 keyword (see `sp-collec-query-builtin-columns') or the name of a meta key;
-:SORT-DESC non-nil to sort descending.")
+:REFS shows the ROAM_REFS property, :PDF the files of its top-level citation
+keys (opened in the default reader) and :DEVONTHINK their DEVONthink items;
+:SORT-DESC non-nil to sort descending.  :SORT-BY may also be a list of
+columns, applied in order: the first is the primary key and each next
+one breaks the ties of those before it.  An element may be (COLUMN . asc)
+or (COLUMN . desc) to set its own direction, otherwise :SORT-DESC applies.
+:COLUMN-WIDTHS an alist of \(COLUMN . WIDTH) giving the width in
+characters of a column in the exc table, T standing for the columns not
+listed; :WRAP `wrap' to wrap long text inside the width, or `fit' to size
+a column to its text, up to `sp-collec-query-exc-max-width'.  The last
+two only apply to the exc renderer and fall back to the options of the
+same name.")
 
 (defconst sp-collec-query-builtin-columns
-  '(:title :tags :todo :level :priority :id :file :path)
+  '(:title :tags :todo :level :priority :id :file :path :sections :refs :pdf :devonthink)
   "Columns that are not meta keys.")
 
 (defun sp-collec-query-spec-normalize (spec)
@@ -125,6 +140,122 @@ switches buffers."
                (string-match-p (plist-get spec :title-match)
                                (or (vulpea-note-title note) "")))))))
 
+(defun sp-collec-query--property (note name)
+  "Return the value of the file or heading property NAME of NOTE, or nil.
+NAME is compared without regard to case."
+  (cdr (seq-find (lambda (cell) (string-equal-ignore-case (car cell) name))
+                 (vulpea-note-properties note))))
+
+(defun sp-collec-query--citekeys (note)
+  "Return the citation keys in the ROAM_REFS property of NOTE.
+Both `@key' and `cite:key' are read; URLs are skipped."
+  (and-let* ((refs (sp-collec-query--property note "ROAM_REFS")))
+    (let ((pos 0) keys)
+      (while (string-match "\\(?:@\\|\\<cite:&?\\)\\([^][:space:]\",;]+\\)" refs pos)
+        (push (match-string 1 refs) keys)
+        (setq pos (match-end 0)))
+      (nreverse keys))))
+
+(defun sp-collec-query--crossref-root (key)
+  "Return the top-level key of KEY: the end of its `crossref' chain.
+A book chapter points to its book; the book is the key whose file counts.
+The chain stops at a key without a parent, with a parent that has no entry
+in the bibliography, or when a key comes up twice."
+  (let ((seen (list key)) (current key) parent)
+    (while (and (fboundp 'citar-get-entry)
+                (setq parent (cdr (assoc-string
+                                   "crossref" (ignore-errors (citar-get-entry current)) t)))
+                (stringp parent)
+                (not (member parent seen))
+                (ignore-errors (citar-get-entry parent)))
+      (push parent seen)
+      (setq current parent))
+    current))
+
+(defun sp-collec-query--root-keys (note)
+  "Return the top-level citation keys of NOTE, each once."
+  (delete-dups (mapcar #'sp-collec-query--crossref-root
+                       (sp-collec-query--citekeys note))))
+
+(defun sp-collec-query--root-files (note)
+  "Return the files of NOTE's top-level keys, each once.
+The files are those `citar-get-files' finds from the `file' field of the
+BibTeX entry and `citar-library-paths'."
+  (when (fboundp 'citar-get-files)
+    (let (files)
+      (dolist (key (sp-collec-query--root-keys note))
+        (dolist (file (gethash key (citar-get-files key)))
+          (push (expand-file-name file) files)))
+      (delete-dups (nreverse files)))))
+
+(defun sp-collec-query--open-file (path)
+  "Open PATH with the default application of the system."
+  (if (eq system-type 'darwin)
+      (call-process "open" nil 0 nil path)
+    (call-process "xdg-open" nil 0 nil path)))
+
+(with-eval-after-load 'org
+  (org-link-set-parameters "sp-open" :follow #'sp-collec-query--open-file))
+
+(defun sp-collec-query--pdf-links (note)
+  "Return the files of NOTE's top-level keys as links in the default reader.
+A key that is a chapter of a book gives the book's file, once.  The text
+is empty without citar or a file."
+  (mapconcat (lambda (file)
+               (format "[[sp-open:%s][%s]]" (org-link-escape file)
+                       (file-name-nondirectory file)))
+             (sp-collec-query--root-files note) ", "))
+
+(defvar sp-collec-query--dt-uuids (make-hash-table :test 'equal)
+  "File name to the UUID of its DEVONthink record, or :none.")
+
+(defconst sp-collec-query--dt-script
+  "const app = Application('DEVONthink'); const out = {};
+for (const name of %s) { const found = app.lookupRecordsWithFile(name);
+  if (found.length) out[name] = found[0].uuid(); }
+JSON.stringify(out);"
+  "JXA that maps file names to the UUIDs of DEVONthink records.")
+
+(defun sp-collec-query--dt-running-p ()
+  "Non-nil if DEVONthink runs, so that a lookup does not start it."
+  (and (eq system-type 'darwin)
+       (zerop (call-process "pgrep" nil nil nil "-f" "DEVONthink"))))
+
+(defun sp-collec-query--dt-lookup (names)
+  "Cache the DEVONthink UUIDs of the file NAMES in one call to DEVONthink."
+  (setq names (seq-remove (lambda (n) (gethash n sp-collec-query--dt-uuids))
+                          (delete-dups (copy-sequence names))))
+  (when (and names (sp-collec-query--dt-running-p))
+    (let ((found (ignore-errors
+                   (with-temp-buffer
+                     (call-process "osascript" nil t nil "-l" "JavaScript" "-e"
+                                   (format sp-collec-query--dt-script
+                                           (json-encode (vconcat names))))
+                     (goto-char (point-min))
+                     (json-parse-buffer :object-type 'alist)))))
+      (dolist (name names)
+        (puthash name (or (cdr (assq (intern name) found)) :none)
+                 sp-collec-query--dt-uuids)))))
+
+(defun sp-collec-query--dt-warm (notes)
+  "Look up the DEVONthink records for the files of NOTES in one go."
+  (sp-collec-query--dt-lookup
+   (mapcar #'file-name-nondirectory
+           (seq-mapcat #'sp-collec-query--root-files notes))))
+
+(defun sp-collec-query--dt-links (note)
+  "Return the DEVONthink item links of NOTE's top-level files, each once."
+  (let ((files (mapcar #'file-name-nondirectory (sp-collec-query--root-files note))))
+    (sp-collec-query--dt-lookup files)
+    (mapconcat (lambda (name)
+                 (format "[[x-devonthink-item://%s][x]]"
+                         (gethash name sp-collec-query--dt-uuids)))
+               (seq-uniq (seq-filter (lambda (n) (stringp (gethash n sp-collec-query--dt-uuids)))
+                                     files)
+                         (lambda (a b) (equal (gethash a sp-collec-query--dt-uuids)
+                                              (gethash b sp-collec-query--dt-uuids))))
+               ", ")))
+
 (defun sp-collec-query-cell (note column)
   "Return the text of COLUMN for NOTE.
 COLUMN is a keyword from `sp-collec-query-builtin-columns', or a string
@@ -138,57 +269,70 @@ naming a meta key (several values are joined with \", \")."
     (:id (or (vulpea-note-id note) ""))
     (:file (file-name-nondirectory (vulpea-note-path note)))
     (:path (abbreviate-file-name (vulpea-note-path note)))
+    (:refs (or (sp-collec-query--property note "ROAM_REFS") ""))
+    (:pdf (sp-collec-query--pdf-links note))
+    (:devonthink (sp-collec-query--dt-links note))
+    (:sections (let ((n (gethash note sp-collec-query--folded 0)))
+                 (if (> n 0) (number-to-string n) "")))
     ((pred stringp)
      (string-join (vulpea-note-meta-get-list note column) ", "))
     (_ "")))
 
-(defvar sp-collec-query-link-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'sp-collec-query-open-link)
-    (define-key map [mouse-1] #'sp-collec-query-open-link)
-    (define-key map [mouse-2] #'sp-collec-query-open-link)
-    map)
-  "Keymap on a link shown in a query table cell.")
+(defconst sp-collec-query--key-regexp
+  "\\(?:@\\|\\<cite:&?\\)\\([^][:space:]\",;]+\\)"
+  "Regexp for a citation key in a ROAM_REFS value; group 1 is the key.")
 
-(defun sp-collec-query-open-link ()
-  "Follow the Org link in the table cell at point or at the last mouse click."
-  (interactive)
-  (when (mouse-event-p last-input-event)
-    (mouse-set-point last-input-event))
-  (let ((link (get-text-property (point) 'sp-collec-query-link)))
-    (if link
-        (org-link-open-from-string (format "[[%s]]" link))
-      (user-error "No link here"))))
+(defcustom sp-collec-query-note-link-columns '("pub-title")
+  "Meta columns whose text is shown as a link to the note itself.
+Following the link opens the note in Org, like the :title column does."
+  :type '(repeat string)
+  :group 'sp-collec-query)
 
-(defun sp-collec-query-has-link-p (text)
-  "Non-nil if TEXT contains an Org bracket link."
-  (and (string-match-p org-link-bracket-re text) t))
+(defun sp-collec-query--open-bib-entry (key)
+  "Open the BibTeX entry KEY in its .bib file."
+  (if (fboundp 'citar-open-entry)
+      (citar-open-entry key)
+    (user-error "citar is not available to open %s" key)))
 
-(defun sp-collec-query-linkify (text)
-  "Return TEXT with its Org links shown the way an Org buffer shows them.
-Each [[target][description]] becomes its description alone in `org-link'
-face, and RET or a click follows the link.  Text is returned as is when
-`org-link-descriptive' is nil."
-  (if (not (and org-link-descriptive (sp-collec-query-has-link-p text)))
+(with-eval-after-load 'org
+  (org-link-set-parameters "sp-bib" :follow #'sp-collec-query--open-bib-entry))
+
+(defun sp-collec-query--refs-links (text)
+  "Return TEXT with each citation key in it written as an sp-bib: link."
+  (replace-regexp-in-string
+   sp-collec-query--key-regexp
+   (lambda (match)
+     (string-match sp-collec-query--key-regexp match)
+     (let ((key (match-string 1 match)))
+       (format "[[sp-bib:%s][@%s]]" (org-link-escape key) key)))
+   text t t))
+
+(defun sp-collec-query--note-link (note text)
+  "Return TEXT as a link to NOTE, or TEXT when it is empty or NOTE has no ID."
+  (if (or (string-empty-p text) (null (vulpea-note-id note)))
       text
-    (let ((pos 0) out)
-      (while (string-match org-link-bracket-re text pos)
-        (let* ((link (org-link-unescape (match-string 1 text)))
-               (desc (or (match-string 2 text) link)))
-          (push (substring text pos (match-beginning 0)) out)
-          (push (propertize desc 'face 'org-link 'mouse-face 'highlight
-                            'help-echo link 'keymap sp-collec-query-link-map
-                            'sp-collec-query-link link)
-                out)
-          (setq pos (match-end 0))))
-      (push (substring text pos) out)
-      (apply #'concat (nreverse out)))))
+    (format "[[id:%s][%s]]" (vulpea-note-id note)
+            (replace-regexp-in-string "[][]" "" text))))
+
+(defun sp-collec-query-display-cell (note column)
+  "Return the text of COLUMN for NOTE, with note IDs written as links.
+This covers the :id column and meta values that are an ID; :refs keys
+open their BibTeX entry and the columns of `sp-collec-query-note-link-columns'
+open the note.  Sorting
+keeps using `sp-collec-query-cell', so it still compares the plain text."
+  (let ((text (sp-collec-query-cell note column)))
+    (cond ((eq column :refs) (sp-collec-query--refs-links text))
+          ((and (stringp column) (member column sp-collec-query-note-link-columns))
+           (sp-collec-query--note-link note text))
+          ((or (eq column :id) (stringp column))
+           (sp-org-link-link-ids text))
+          (t text))))
 
 (defun sp-collec-query-header-label (column)
   "Return the heading text of COLUMN."
-  (if (keywordp column)
-      (capitalize (substring (symbol-name column) 1))
-    column))
+  (cond ((eq column :devonthink) "DT")
+        ((keywordp column) (capitalize (substring (symbol-name column) 1)))
+        (t column)))
 
 (defun sp-collec-query--sort-lessp (a b)
   "Non-nil if the cell text A sorts before B.
@@ -204,13 +348,76 @@ Numbers sort numerically and before text; empty cells go last."
           (num-b nil)
           (t (string-collate-lessp a b nil t)))))
 
-(defun sp-collec-query-sort (notes column &optional descending)
-  "Return NOTES sorted by COLUMN, reversed when DESCENDING."
-  (if (null column)
-      notes
-    (let ((sorted (seq-sort-by (lambda (n) (sp-collec-query-cell n column))
-                               #'sp-collec-query--sort-lessp notes)))
-      (if descending (reverse sorted) sorted))))
+(defun sp-collec-query-sort-keys (sort-by &optional descending)
+  "Return SORT-BY as a list of (COLUMN . DESCENDING) keys, primary first.
+SORT-BY is nil, one column, or a list of columns, each optionally
+(COLUMN . asc) or (COLUMN . desc); a plain column is descending when
+DESCENDING is non-nil."
+  (mapcar (lambda (key)
+            (if (consp key)
+                (cons (car key) (and (memq (cdr key) '(desc t)) t))
+              (cons key (and descending t))))
+          (if (listp sort-by) sort-by (list sort-by))))
+
+(defun sp-collec-query--keys-lessp (cells-a cells-b keys)
+  "Non-nil if the row CELLS-A sorts before CELLS-B under KEYS.
+Each key decides unless both cells are equal under it; then the next does."
+  (let (result decided)
+    (while (and keys (not decided))
+      (let* ((a (pop cells-a)) (b (pop cells-b)) (desc (cdr (pop keys))))
+        (cond ((sp-collec-query--sort-lessp a b)
+               (setq decided t result (not desc)))
+              ((sp-collec-query--sort-lessp b a)
+               (setq decided t result desc)))))
+    result))
+
+(defun sp-collec-query-sort (notes sort-by &optional descending)
+  "Return NOTES sorted by SORT-BY, descending when DESCENDING.
+SORT-BY is a column or a list of keys, see `sp-collec-query-sort-keys'.
+The sort is stable, so notes equal under every key keep their order."
+  (if-let* ((keys (sp-collec-query-sort-keys sort-by descending)))
+      (let ((rows (mapcar (lambda (n)
+                            (cons n (mapcar (lambda (k) (sp-collec-query-cell n (car k)))
+                                            keys)))
+                          notes)))
+        (mapcar #'car (sort rows (lambda (a b)
+                                   (sp-collec-query--keys-lessp (cdr a) (cdr b) keys)))))
+    notes))
+
+(defvar sp-collec-query--folded (make-hash-table :test #'eq :weakness 'key)
+  "Number of folded notes per note object returned by `sp-collec-query-query'.")
+
+(defun sp-collec-query--fold (notes spec)
+  "Return NOTES without the notes tagged :fold-tag of SPEC.
+Each one is counted in `sp-collec-query--folded' on the note its meta key
+:fold-prop links to; that parent is added when NOTES lack it, and is
+dropped from the count when no note has the ID."
+  (if-let* ((tag (plist-get spec :fold-tag)))
+      (let* ((prop (or (plist-get spec :fold-prop) "bib-parent"))
+             (kept (seq-remove (lambda (n) (member tag (vulpea-note-tags n))) notes))
+             (by-id (make-hash-table :test #'equal))
+             (counts (make-hash-table :test #'equal)))
+        (dolist (n kept) (puthash (vulpea-note-id n) n by-id))
+        (dolist (n notes)
+          (when (member tag (vulpea-note-tags n))
+            (dolist (id (delete-dups (vulpea-note-meta-get-list n prop 'link)))
+              (cl-incf (gethash id counts 0))
+              (unless (gethash id by-id)
+                (when-let* ((parent (ignore-errors (vulpea-db-get-by-id id))))
+                  (puthash id parent by-id)
+                  (push parent kept))))))
+        (maphash (lambda (id count)
+                   (when-let* ((parent (gethash id by-id)))
+                     (puthash parent count sp-collec-query--folded)))
+                 counts)
+        kept)
+    notes))
+
+(defun sp-collec-query--warm (notes spec)
+  "Return NOTES, after looking up what the columns of SPEC need in one go."
+  (when (memq :devonthink (plist-get spec :columns))
+    (sp-collec-query--dt-warm notes))
+  notes)
 
 (defun sp-collec-query-query (spec)
   "Return the notes SPEC asks for, sorted.
@@ -218,15 +425,31 @@ SPEC's :parent-of must be resolved already (see
 `sp-collec-query-resolve-spec')."
   (let ((spec (sp-collec-query-spec-normalize spec)))
     (sp-collec-query-sort
-     (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+     (sp-collec-query--warm
+      (sp-collec-query--fold
+       (vulpea-db-query (lambda (note) (sp-collec-query-note-matches-p note spec)))
+       spec)
+      spec)
      (plist-get spec :sort-by)
      (plist-get spec :sort-desc))))
 
+(defun sp-collec-query-title-label (note)
+  "Return the title of NOTE with the emoji of its tags in front, if any.
+The emoji come from `sp-org-tag-groups'; without it the plain title."
+  (if (fboundp 'sp-org-tag-groups-describe-note)
+      (sp-org-tag-groups-describe-note note)
+    (sp-collec-query-cell note :title)))
+
 (defun sp-collec-query-rows (notes columns)
   "Return one list of cell texts per note in NOTES, for COLUMNS.
-Links in the texts are shown by their description, see `sp-collec-query-linkify'."
+Links in the texts are shown by their description, see `sp-org-link-linkify'.
+The title column carries the emoji of the note's tags; IDs are links."
   (mapcar (lambda (note)
-            (mapcar (lambda (c) (sp-collec-query-linkify (sp-collec-query-cell note c)))
+            (mapcar (lambda (c)
+                      (sp-org-link-linkify
+                       (if (eq c :title)
+                           (sp-collec-query-title-label note)
+                         (sp-collec-query-display-cell note c))))
                     columns))
           notes))
 
@@ -257,7 +480,14 @@ Links in the texts are shown by their description, see `sp-collec-query-linkify'
       (add "children of" (and (plist-get spec :parent-of)
                               (format "%s" (plist-get spec :parent-of))))
       (add "level" (pcase (plist-get spec :level) (0 "file-level") ('headings "headings")))
-      (add "title ~" (plist-get spec :title-match)))
+      (add "title ~" (plist-get spec :title-match))
+      (add "folding" (plist-get spec :fold-tag))
+      (add "sorted by" (mapcar (lambda (k)
+                                 (format "%s%s"
+                                         (if (keywordp (car k)) (substring (symbol-name (car k)) 1) (car k))
+                                         (if (cdr k) " desc" "")))
+                               (sp-collec-query-sort-keys (plist-get spec :sort-by)
+                                                          (plist-get spec :sort-desc)))))
     (if parts (string-join (nreverse parts) "; ") "all notes")))
 
 ;;;; Choosing notes
@@ -339,7 +569,7 @@ should run their query again.  A live table adds one while it is open.")
 The Vulpea database is updated by its own autosync; if tables sometimes
 show stale data, lengthen this."
   :type 'number
-  :group 'spcustom)
+  :group 'sp-collec-query)
 
 (defun sp-collec-query-refresh-all ()
   "Tell every open live query table to run its query again."

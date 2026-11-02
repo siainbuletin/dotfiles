@@ -1,0 +1,22 @@
+#+title: 0022 A stable Emacs for writing, a sandbox for development, and a CI check of the tangle
+#+date: 2026-10-29
+#+status: proposed
+
+* Context
+I keep Emacs open all day and write my documents in it. Developing the configuration in the same Emacs means restarts, context switches and, when I tangle in =~=, uncommitted generated =.el= files that conflict on merge. A fresh tangle of the docs also differs from the committed modules today (two real differences, 36 whitespace-only ones), so the generated files had already drifted.
+
+* Decision
+- =stable= is a branch that only moves by fast-forward from =main=. A plain clone of it, =~/src/dotfiles-stable=, is the =writing= profile in =.emacs-profiles.el=. The Emacs I develop in is the =sandbox= profile (=~/.config/emacs-modular=). Each has its own =server-name= and =SP_PROFILE=.
+- A GitHub Action, =tangle-check=, tangles every module doc and fails when a committed module differs (ignoring whitespace and blank lines). Known differences are listed in =tools/tangle-drift-allow.txt= and the list may only shrink.
+- Pull requests are still tried with =emacs-pr N= ([[file:0018-emacs-pr-sandbox-and-reload.org][0018]]).
+- The long explanation and the comparison are in [[file:../.config/emacs-modular/docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
+
+* Alternatives considered
+- *No =.el= files in the repository* (the Nix way): makes drift impossible but needs every module to have a doc and a one-time untracking of about 360 files. Revisit when the allow-list is empty.
+- *Conditional loading in one checkout*: smaller module lists but the same code, so no stability against my own edits.
+- *Only =emacs-pr=*: tests a PR once, by hand; it does not check consistency.
+
+* Consequences
+- A second copy of the packages and a second Vulpea database, one per checkout.
+- I decide when =writing= changes (a fast-forward and a restart).
+- /Untested/: the workflow, the two profiles, =emacsclient= daemons and Hammerspoon, none of which ran on my Mac.

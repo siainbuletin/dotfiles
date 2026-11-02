@@ -6,7 +6,7 @@ Literate source for =libraries/modules/text/sp-org-ext.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
 
@@ -99,6 +99,14 @@ Because they are only reached through this file, disabling =sp-org-ext= also dis
 (require 'sp-collection-query-tables) ;; my own table modules
 #+end_src
 
+** Personal org extensions
+
+This loads [[file:~/.config/emacs-modular/docs/tangles/text/sp-org-custom-highlight.org][sp-org-custom-highlight.el: Highlighting inline comments in Org]]
+
+#+begin_src emacs-lisp -i
+(require 'sp-org-custom-highlight)
+#+end_src
+
 * Other Org packages
 
 ** org-contrib
@@ -178,11 +186,13 @@ Commented out: loading a local clone of =org-dataview=, presumably an attempt at
 
 ** org-special-block-extras
 
-Installs =org-special-block-extras=, which adds custom special blocks and link types that export to HTML and LaTeX. It is not configured further here.
+Installs =org-special-block-extras=, which adds custom special blocks and link types that export to HTML and LaTeX. It is not configured further here. The recipe lists =lisp/*.el= and =lisp/tooltips.css= and =lisp/tooltips.js=: the package keeps its code in =lisp/= and inlines the two tooltip files into exported HTML, and warns that tooltips will not open when they are not next to the library.
 
 #+begin_src emacs-lisp -i
 (use-package org-special-block-extras
-  :ensure t)
+  :ensure (org-special-block-extras
+           :host github :repo "alhassy/org-special-block-extras"
+           :files ("lisp/*.el" "lisp/tooltips.css" "lisp/tooltips.js")))
 #+end_src
 
 ** org-context

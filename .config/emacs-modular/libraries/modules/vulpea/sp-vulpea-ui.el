@@ -20,7 +20,7 @@
   ;; vulpea': vulpea loads lazily, so the key would stay undefined until then.
   :bind
   (("C-x t s" . vulpea-ui-sidebar-toggle))
-  
+
   :custom
   ;; Position: 'right (default), 'left, 'top, 'bottom
   (vulpea-ui-sidebar-position 'right)
@@ -38,10 +38,14 @@
   (vulpea-ui-backlinks-prose-chars-before 30)
   (vulpea-ui-backlinks-prose-chars-after 50)
   ;; Filter which notes appear in backlinks
-  ;; (function receiving vulpea-note, return non-nil to include)
+  ;; (function receiving vulpea-note, return non-nil to include).
+  ;; NOTE is nil when the linking file is not in the vulpea database yet
+  ;; (new, unsynced or untracked file); keep such files instead of
+  ;; signalling (wrong-type-argument vulpea-note nil) from the sync timer.
   (vulpea-ui-backlinks-note-filter
    (lambda (note)
-     (not (member "archive" (vulpea-note-tags note)))))
+     (or (null note)
+         (not (member "archive" (vulpea-note-tags note))))))
   ;; Filter by context type
   ;; t = all types, or a list of: meta, header, table, list, quote, code, footnote, prose
   (vulpea-ui-backlinks-context-types t)
@@ -57,19 +61,19 @@
                                        )
    			                :columns (title (meta "pub-title") (meta "pub-author") (meta "read-status") links tags modified)
    			                :sort ("Modified" . t)))
-        
+
            ("open-questions" . (:filter (:tags-all ("question")
                                          :level 1 ;; this will only bring up headings at first
                                          )
                                 :columns (title (meta "q-status") links tags modified)
                                 :sort ("Modified" . t)
            ))
-        
+
            ("music" . (:filter (:tags-all ("music")
                                :level 0)
                        :columns (title (meta "year") (meta "genre") tags modified)
                        :sort ("title" . t)))
-        
+
            ("albums" . (:filter (:tags-all ("album"))
                         :columns (title
                                    (meta "creator" :width 60)
@@ -98,6 +102,21 @@
   (vulpea-ui-sidebar-refresh))
 
 (define-key org-mode-map (kbd "M-<insert>") #'sp-org-toggle-narrow-and-sidebar)
+
+;; IDs in the collection views as links
+(defun sp-vulpea-ui-collection-link-ids (orig note col ctx)
+  "Show IDs in meta, property and computed cells as Org links.
+Around `vulpea-ui-collection--column-raw-value' (ORIG, NOTE, COL, CTX): a
+bare note ID becomes the title of its note, and links are shown by their
+description, in `org-link' face, followed with RET or a click."
+  (let ((value (funcall orig note col ctx)))
+    (if (and (memq (plist-get col :id) '(meta property fn))
+             (stringp value) (not (string-empty-p value)))
+        (sp-org-link-linkify (sp-org-link-link-ids value))
+      value)))
+
+(advice-add 'vulpea-ui-collection--column-raw-value :around
+            #'sp-vulpea-ui-collection-link-ids)
 
 ;; the backlinks widget
 

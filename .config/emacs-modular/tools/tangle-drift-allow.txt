@@ -1,0 +1,3 @@
+# Modules whose committed .el differs from what their doc tangles to.
+# Decide per file which side is right, fix the doc or the .el, then delete the line.
+# One module path per line (libraries/modules/...). Empty on 2026-10-30.

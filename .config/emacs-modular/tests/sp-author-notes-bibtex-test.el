@@ -1,0 +1,128 @@
+;;; sp-author-notes-bibtex-test.el --- Tests for sp-author-notes-bibtex -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'sp-async-work)
+(setq sp-async-work-synchronous t)
+(require 'sp-author-notes-bibtex)
+
+(defvar sp-bibtex-files)
+
+(defun sp-an-bib-test--write (file &rest lines)
+  (make-directory (file-name-directory file) t)
+  (with-temp-file file (insert (string-join lines "\n") "\n")))
+
+(defmacro sp-an-bib-test--with-vault (&rest body)
+  "Run BODY with a vault and a .bib file; `create-fn' makes a litnote."
+  (declare (indent 0))
+  `(let* ((vault (file-name-as-directory (make-temp-file "sp-bib" t)))
+          (sp-author-notes-directory vault)
+          (sp-author-notes-litnotes-directory (expand-file-name "litnotes/" vault))
+          (bib (expand-file-name "refs.bib" vault))
+          (sp-bibtex-files (list bib))
+          (sp-author-notes-bibtex-create-function
+           (lambda (key)
+             (sp-an-bib-test--write
+              (expand-file-name (format "litnotes/%s.org" key) vault)
+              ":PROPERTIES:" (format ":ID: lit-%s" key) ":END:"
+              (format "#+title: %s" key) "#+filetags: :litnote:" ""
+              "- pub-year :: 2020" "" "* Notes" "text"))))
+     (unwind-protect
+         (progn
+           (sp-an-bib-test--write bib
+            "@article{smith2020attention,"
+            "  author = {Smith, John and Doe, Jane},"
+            "  title = {{Attention} is something},"
+            "  year = {2020}}"
+            "@book{smith2018other,"
+            "  author = \"J. Smith\","
+            "  title = {Other},"
+            "  year = {2018}}"
+            "@article{doe2019covered,"
+            "  author = {Doe, Jane}, title = {Covered}, year = {2019}}")
+           (sp-an-bib-test--write
+            (expand-file-name "p1.org" vault)
+            ":PROPERTIES:" ":ID: p-smith" ":END:" "#+title: John Smith" "#+filetags: :person:" "")
+           (sp-an-bib-test--write
+            (expand-file-name "p2.org" vault)
+            ":PROPERTIES:" ":ID: p-doe" ":END:" "#+title: Jane Doe" "#+filetags: :person:" "")
+           (sp-an-bib-test--write
+            (expand-file-name "litnotes/doe.org" vault)
+            ":PROPERTIES:" ":ID: lit-doe" ":REFERENCES: @doe2019covered" ":END:"
+            "#+title: Covered" "")
+           ,@body)
+       (delete-directory vault t))))
+
+(ert-deftest sp-an-bib-test-match ()
+  (should (eq 'exact (sp-author-notes-bibtex--match "John Smith" "John Smith")))
+  (should (eq 'possible (sp-author-notes-bibtex--match "John Smith" "J. Smith")))
+  (should-not (sp-author-notes-bibtex--match "John Smith" "Mary Smith"))
+  (should-not (sp-author-notes-bibtex--match "John Smith" "John Smithers")))
+
+(ert-deftest sp-an-bib-test-compute ()
+  (sp-an-bib-test--with-vault
+    (let* ((groups (sp-author-notes-bibtex--compute))
+           (titles (mapcar (lambda (g) (plist-get (car g) :title)) groups)))
+      ;; Jane Doe's own entry has a litnote, but she co-wrote the other one.
+      (should (equal titles '("John Smith" "Jane Doe")))
+      (should (equal (mapcar (lambda (m) (plist-get (car m) :key)) (cdr (cadr groups)))
+                     '("smith2020attention")))
+      (should (equal (mapcar (lambda (m) (cons (plist-get (car m) :key) (cdr m)))
+                             (cdar groups))
+                     '(("smith2018other" . possible) ("smith2020attention" . exact)))))))
+
+(ert-deftest sp-an-bib-test-create-and-link ()
+  (sp-an-bib-test--with-vault
+    (let* ((groups (sp-author-notes-bibtex--compute))
+           (person (caar groups))
+           (entry (car (nth 1 (cdar groups))))
+           (file (sp-author-notes-bibtex--create person entry))
+           (text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+      (should (string-match-p "^- pub-author :: \\[\\[id:p-smith\\]\\[John Smith\\]\\]$" text))
+      (should (< (string-match "pub-year" text) (string-match "pub-author" text)))
+      (should (< (string-match "pub-author" text) (string-match "\\* Notes" text)))
+      ;; The entry is covered now.
+      (should (equal (mapcar (lambda (m) (plist-get (car m) :key)) (cdar (sp-author-notes-bibtex--compute)))
+                     '("smith2018other"))))))
+
+(ert-deftest sp-an-bib-test-report ()
+  (sp-an-bib-test--with-vault
+    (save-window-excursion
+      (sp-author-notes-bibtex)
+      (with-current-buffer sp-author-notes-bibtex--buffer-name
+        (should (string-match-p "John Smith  (2)" (buffer-string)))
+        (should (string-match-p "exact +smith2020attention" (buffer-string)))
+        (goto-char (point-min))
+        (search-forward "smith2020attention")
+        (should (plist-get (sp-author-notes-bibtex--at-point) :key))
+        (kill-buffer)))))
+
+(ert-deftest sp-an-bib-test-no-files ()
+  (let ((sp-bibtex-files nil) (sp-bibliography-dir "/nonexistent/bib/"))
+    (should-error (sp-author-notes-bibtex--files) :type 'user-error))
+  (let ((sp-bibtex-files '("/nonexistent/master.bib")))
+    (let ((err (should-error (sp-author-notes-bibtex--files) :type 'user-error)))
+      (should (string-match-p "master.bib" (cadr err))))))
+
+(ert-deftest sp-an-bib-test-missing-file-skipped ()
+  (sp-an-bib-test--with-vault
+    (let ((sp-bibtex-files (list "/nonexistent/master.bib" bib)))
+      (should (equal (sp-author-notes-bibtex--files) (list bib)))
+      (should (= 2 (length (sp-author-notes-bibtex--compute)))))))
+
+(ert-deftest sp-an-bib-test-many-people-is-fast ()
+  "Thousands of people against thousands of entries must not be quadratic."
+  (sp-an-bib-test--with-vault
+    (with-temp-file bib
+      (dotimes (i 3000)
+        (insert (format "@article{k%d,\n  author = {Last%d, First%d},\n  title = {T},\n  year = {2000}}\n" i i i))))
+    (dotimes (i 1500)
+      (sp-an-bib-test--write (expand-file-name (format "q%d.org" i) vault)
+                             ":PROPERTIES:" (format ":ID: q%d" i) ":END:"
+                             (format "#+title: First%d Last%d" i i) "#+filetags: :person:" ""))
+    (let* ((start (float-time))
+           (groups (sp-author-notes-bibtex--compute)))
+      (should (= 1500 (length groups)))
+      (should (< (- (float-time) start) 20)))))
+
+(provide 'sp-author-notes-bibtex-test)
+;;; sp-author-notes-bibtex-test.el ends here

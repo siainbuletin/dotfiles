@@ -383,7 +383,11 @@ Interactively, choose among the families first and the library after."
     (load-theme theme t)
     (when (eq sp-theme-disable-others 'after-load)
       (dolist (old (remq theme previous))
-        (disable-theme old)))
+        (disable-theme old))
+      ;; Disabling a theme recalculates the faces and drops the ones set
+      ;; with `set-face-attribute', so repaint those again.
+      (when (remq theme previous)
+        (run-hooks 'sp-after-load-theme-hook)))
     theme))
 
 (defun sp-load-theme-family (family)
@@ -619,6 +623,45 @@ Defines =sp-after-load-theme-hook= and advises =load-theme= to run it after ever
   (add-hook 'sp-after-load-theme-hook #'kind-icon-reset-cache))
 #+end_src
 
+** Search highlight that follows the theme
+
+Makes =lazy-highlight= (the other matches of an isearch, and the face the inline comments of [[file:../text/sp-org-custom-highlight.org][=sp-org-custom-highlight=]] inherit from) match every theme in use. The =sp-dark= and =sp-light= themes already set it from the =bg-search-lazy= role of their palette, so they are left alone. For the Lambda, Ef and Doric themes, =sp-theme-update-lazy-highlight= blends the foreground of =sp-theme-lazy-highlight-source= (default: the keyword face) into the default background, 32% on a dark theme and 22% on a light one, and keeps the default foreground. It runs from =sp-after-load-theme-hook=, so the colours follow every theme change, and =sp-load-theme= runs the hook again after it disabled the old themes, because disabling a theme drops faces set with =set-face-attribute=. =isearch= (the current match) is not touched: every theme in use already styles it to stand out.
+
+#+begin_src emacs-lisp -i
+;;;; Search highlight that follows the theme
+(autoload 'sp-theme-blend "sp-theme-engine")
+
+(defcustom sp-theme-lazy-highlight-source 'font-lock-keyword-face
+  "Face whose foreground tints `lazy-highlight' in themes that are not sp's."
+  :group 'spcustom
+  :type 'face)
+
+(defun sp-theme--hex (color)
+  "Return COLOR, a name or #rrggbb, as #rrggbb, or nil if it is not a colour."
+  (when-let* ((rgb (and (stringp color) (ignore-errors (color-values color)))))
+    (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (/ c 257)) rgb))))
+
+(defun sp-theme-update-lazy-highlight (&rest _)
+  "Make `lazy-highlight' match the enabled theme.
+The sp themes set it from their palette (the `bg-search-lazy' role), so
+this leaves them alone.  In any other theme the background is the
+foreground of `sp-theme-lazy-highlight-source' blended into the default
+background, stronger on a dark theme, with the default foreground."
+  (unless (seq-some (lambda (theme) (get theme 'sp-theme-flavor))
+                    custom-enabled-themes)
+    (let ((bg (sp-theme--hex (face-attribute 'default :background nil)))
+          (fg (sp-theme--hex (face-attribute 'default :foreground nil)))
+          (accent (sp-theme--hex
+                   (face-attribute sp-theme-lazy-highlight-source :foreground nil t))))
+      (when (and bg fg accent)
+        (set-face-attribute 'lazy-highlight nil
+                            :background (sp-theme-blend bg accent
+                                                        (if (sp-theme-dark-p) 0.32 0.22))
+                            :foreground fg)))))
+
+(add-hook 'sp-after-load-theme-hook #'sp-theme-update-lazy-highlight)
+#+end_src
+
 * Previewing themes
 
 =easy-theme-preview= is the only package left here: it previews themes in the buffer as you move through the list. It does not provide a theme.
@@ -794,6 +837,28 @@ Every theme file is read the same way. The themes of the families are all there,
 
 The appearance comes from the time of day when the source is =time=. The theme for an appearance is loaded once, and not again while it is current.
 
+** Search highlight
+
+In a theme that is not an sp theme, =lazy-highlight= gets a background tinted from the source face and the default foreground.
+
+#+begin_src emacs-lisp -i
+(ert-deftest sp-themes-test-lazy-highlight ()
+  (sp-themes-test--clean
+   (let ((old (face-attribute 'lazy-highlight :background nil)))
+     (unwind-protect
+         (progn
+           (cl-letf (((symbol-function 'face-attribute)
+                      (lambda (face attr &rest _)
+                        (pcase (list face attr)
+                          ('(default :background) "#000000")
+                          ('(default :foreground) "#ffffff")
+                          (_ "#ff0000"))))
+                     ((symbol-function 'sp-theme-dark-p) (lambda () t)))
+             (sp-theme-update-lazy-highlight))
+           (should (equal (face-attribute 'lazy-highlight :background) "#520000")))
+       (set-face-attribute 'lazy-highlight nil :background old)))))
+#+end_src
+
 #+begin_src emacs-lisp -i
 (ert-deftest sp-themes-test-time-appearance ()
   (let ((sp-theme-auto-source 'time))
@@ -905,3 +970,4 @@ What each pull request changed in this module, newest last; the one-line summary
 
 - [[https://github.com/siainbuletin/dotfiles/pull/89][#89]] 🔧 Changed the themes to be vendored in =libraries/themes/= (engines in =lib/=, the seven themes in use in =active/=, all others in =library/=, no Elpaca), grouped in four families (hard light, faded light, faded dark, hard dark) and loaded only by =sp-load-theme=: no confirmation, the old theme is disabled only after the new one loads, =T= loads a family. Removed =lem-dashboard=, =sp-archived-configs.el=, the dead Modus options and the theme-resetting =sp-disable-all-themes=; =sp-macos=, the toggle and the dashboard logo go through =sp-themes=. Added a list of the Modus faces a palette-only system would leave out.
 - [[https://github.com/siainbuletin/dotfiles/pull/100][#100]] ✨ Added the light or dark appearance per platform to =sp-theme-auto-mode=: =sp-theme-system-providers= and =sp-theme-system-watchers= name the function for macOS (=sp-macos=), Windows (=sp-syswin=: registry =AppsUseLightTheme=, polled) and Linux (=sp-syslinux=: freedesktop portal, gsettings or KDE, with a D-Bus watcher), and a source with no answer falls back to the time of day. Added the =ambient= source for macOS: a light sensor command (=sp-macos-light-sensor-command=) picks one of the four families, faded light, hard light, faded dark, hard dark, from the lux in the room, with a hysteresis margin. Changed =init.el= to load =sp-syswin= and =sp-syslinux=. 13 more ERT tests.
+- [[https://github.com/siainbuletin/dotfiles/pull/246][#246]] ✨ Added =sp-theme-update-lazy-highlight=: =lazy-highlight= is tinted from the theme in use (the sp themes keep their palette's), re-applied after every theme load, and =my-org-inline-comment= inherits it.

@@ -82,4 +82,4 @@ If you ever move the output folder, you change one variable.
 
 * Actual code used
 
-The actual org-babel library is part of the larger submodule for org and should be called as such. You can consult the architecture in ~main.org~.
+The actual org-babel library is part of the larger submodule for org and should be called as such. You can consult the architecture in ~README.org~.

@@ -4,12 +4,13 @@
 
 ;; `sp-org-tag-lint' reports the tags of the vault that are in neither
 ;; `org-tag-alist' (task tags) nor `org-tag-persistent-alist' (note tags,
-;; from sp-org-tag-registry.el), with the registered tag each one is
+;; derived from the groups in sp-org-tag-registry.el), with the tag each one is
 ;; probably a typo of, and the notes that have no #+filetags: line.
-;; `sp-org-tag-add' registers a new note tag in the registry file and
-;; loads it again, so it works at once.  `sp-org-tag-read-note-tags' asks
+;; `sp-org-tag-add' registers a new note tag, in the element of its group
+;; (or in none: the `unsorted' group), in the registry file and loads it
+;; again, so it works at once.  `sp-org-tag-read-note-tags' asks
 ;; for the tags of a new note, in a menu grouped by `sp-org-tag-groups-alist'
-when `sp-org-tag-groups' is loaded.
+;; when `sp-org-tag-groups' is loaded.
 
 ;;; Code:
 
@@ -31,7 +32,7 @@ when `sp-org-tag-groups' is loaded.
   (expand-file-name "sp-org-tag-registry.el"
                     (file-name-directory
                      (or load-file-name buffer-file-name default-directory)))
-  "The file that sets `org-tag-persistent-alist', edited by `sp-org-tag-add'."
+  "The file that sets the tag groups, edited by `sp-org-tag-add'."
   :type 'file
   :group 'sp-org-tag-lint)
 
@@ -59,6 +60,38 @@ The path is taken relative to the scanned folder when the file is in it."
 
 (defconst sp-org-tag-lint--tag-re "[[:alnum:]_@#%]+"
   "One Org tag.")
+
+(defvar sp-org-tag-groups-alist nil
+  "Groups of note tags: a list of (GROUP TAG…).  Set in the registry file.
+A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020.")
+
+(defvar sp-org-tag-groups-ungrouped nil
+  "Registered note tags that are in no group: the `unsorted' group.
+Set in the registry file.")
+
+(defconst sp-org-tag-groups-unsorted "unsorted"
+  "The group of a tag that `sp-org-tag-groups-alist' puts in no group.
+It has no emoji and no colour on purpose: that its definition is missing
+is the signal to sort the tag.  See ADR 0020.")
+
+(defun sp-org-tag-groups-to-alist (groups &optional ungrouped)
+  "The Org tag alist for GROUPS, a list of (GROUP TAG…), and the tags UNGROUPED.
+Each group becomes Org's group-tag form, so a match on the group finds
+its members.  A member with the name of its group is left out of the
+form, because the group tag matches itself.  Entries that are not
+strings or (STRING . KEY) are ignored."
+  (append
+   (cl-loop for group in groups
+            when (and (consp group) (stringp (car group)))
+            append (append
+                    (list '(:startgrouptag) (list (car group)) '(:grouptags))
+                    (cl-loop for member in (cdr group)
+                             when (and (stringp member) (not (string= member (car group))))
+                             collect (list member)
+                             when (and (consp member) (stringp (car member)))
+                             collect member)
+                    (list '(:endgrouptag))))
+   (mapcar #'list (seq-filter #'stringp ungrouped))))
 
 (when (file-exists-p sp-org-tag-lint-registry-file)
   (load sp-org-tag-lint-registry-file nil t))
@@ -93,8 +126,11 @@ The path is taken relative to the scanned folder when the file is in it."
                 best-distance distance))))
     best))
 
-(defun sp-org-tag-lint--insert-in-registry (tag)
-  "Write TAG into `sp-org-tag-lint-registry-file', above the marker line."
+(defun sp-org-tag-lint--insert-in-registry (tag &optional group)
+  "Write TAG into `sp-org-tag-lint-registry-file'.
+With GROUP, a group of `sp-org-tag-groups-alist', TAG becomes the last
+member of its element.  Otherwise TAG goes above the marker line, among
+the tags in no group."
   (let ((file sp-org-tag-lint-registry-file)
         (visiting (find-buffer-visiting sp-org-tag-lint-registry-file)))
     (unless (file-writable-p file)
@@ -106,36 +142,61 @@ The path is taken relative to the scanned folder when the file is in it."
       (with-temp-buffer
         (insert-file-contents file)
         (goto-char (point-min))
-        (unless (search-forward sp-org-tag-lint--sentinel nil t)
-          (user-error "No marker line \"%s\" in %s"
-                      sp-org-tag-lint--sentinel file))
-        (beginning-of-line)
-        (insert (make-string (current-indentation) ?\s) (format "(%S)\n" tag))
+        (if (or (null group) (string= group sp-org-tag-groups-unsorted))
+            (progn
+              (unless (search-forward sp-org-tag-lint--sentinel nil t)
+                (user-error "No marker line \"%s\" in %s"
+                            sp-org-tag-lint--sentinel file))
+              (beginning-of-line)
+              (insert (make-string (current-indentation) ?\s) (format "%S\n" tag)))
+          (unless (re-search-forward
+                   (concat "(" (regexp-quote (prin1-to-string group)) "\\(?:[ \t\n]\\|)\\)")
+                   nil t)
+            (user-error "No group %S in %s" group file))
+          (goto-char (match-beginning 0))
+          (with-syntax-table emacs-lisp-mode-syntax-table
+            (forward-sexp)
+            (backward-char)
+            (skip-chars-backward " \t\n"))
+          (insert (format " %S" tag)))
         (write-region nil nil file nil 'silent)))
     (when visiting
       (with-current-buffer visiting (revert-buffer t t t)))))
 
+(defun sp-org-tag-lint--read-group ()
+  "Ask for the group of a new tag, `unsorted' by default."
+  (completing-read "Group (empty for unsorted): "
+                   (append (mapcar #'car sp-org-tag-groups-alist)
+                           (list sp-org-tag-groups-unsorted))
+                   nil t nil nil sp-org-tag-groups-unsorted))
+
 ;;;###autoload
-(defun sp-org-tag-add (tag)
+(defun sp-org-tag-add (tag &optional group)
   "Register TAG as a note tag and make it available at once.
-TAG is inserted in `sp-org-tag-lint-registry-file', which is then
-loaded again.  Ask first when TAG looks like a typo of a registered
-tag.  Return TAG."
-  (interactive (list (read-string "New note tag: ")))
+TAG becomes a member of GROUP, a group of `sp-org-tag-groups-alist'; with
+no GROUP, or `unsorted', it is in no group yet.  The registry file
+`sp-org-tag-lint-registry-file' is edited and loaded again.  Ask first
+when TAG looks like a typo of a registered tag.  Return TAG."
+  (interactive (let ((tag (read-string "New note tag: ")))
+                 (list tag (sp-org-tag-lint--read-group))))
   (let ((tag (string-trim tag "[ \t:]+" "[ \t:]+"))
         (registered (sp-org-tag-lint-registered-tags)))
     (unless (string-match-p (concat "\\`" sp-org-tag-lint--tag-re "\\'") tag)
       (user-error "Not a valid Org tag: %S" tag))
     (when (member tag registered)
       (user-error "The tag %S is already registered" tag))
+    (unless (or (null group)
+                (string= group sp-org-tag-groups-unsorted)
+                (assoc group sp-org-tag-groups-alist))
+      (user-error "No tag group %S" group))
     (let ((near (sp-org-tag-lint--closest tag registered)))
       (when (and near
                  (not (y-or-n-p (format "%S is close to the registered tag %S.  Add it anyway? "
                                         tag near))))
         (user-error "Not added")))
-    (sp-org-tag-lint--insert-in-registry tag)
+    (sp-org-tag-lint--insert-in-registry tag group)
     (load-file sp-org-tag-lint-registry-file)
-    (message "Registered the note tag %S" tag)
+    (message "Registered the note tag %S in %s" tag (or group sp-org-tag-groups-unsorted))
     tag))
 
 ;;;###autoload

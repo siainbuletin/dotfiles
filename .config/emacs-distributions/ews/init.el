@@ -1,24 +1,3 @@
-;; Set package archives
-
-(use-package package
-  :config
-  (add-to-list 'package-archives
-               '("melpa" . "https://melpa.org/packages/"))
-  (package-initialize))
-
-;; Package Management
-
-(use-package use-package
-  :custom
-  (use-package-always-ensure t)
-  (package-native-compile t)
-  (warning-minimum-level :emergency))
-
-;; Load EWS functions
-
-(load-file (concat (file-name-as-directory user-emacs-directory)
-		   "ews.el"))
-
 ;; Check for missing external software
 
 (ews-missing-executables
@@ -681,25 +660,6 @@
   :bind
   ("C-x r d" . bookmark-delete))
 
-;; Image viewer
-
-(use-package emacs
-  :custom
-  (image-dired-external-viewer "gimp")
-  :bind
-  ((:map image-mode-map
-         ("k" . image-kill-buffer)
-         ("<right>" . image-next-file)
-         ("<left>"  . image-previous-file))
-   (:map dired-mode-map
-         ("C-<return>" . image-dired-dired-display-external))))
-
-(use-package image-dired
-  :bind
-  (("C-c w I" . image-dired))
-  (:map image-dired-thumbnail-mode-map
-        ("C-<right>" . image-dired-display-next)
-        ("C-<left>"  . image-dired-display-previous)))
 
 ;; Bind key for customising variables
 

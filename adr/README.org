@@ -31,3 +31,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0019-cross-platform-shell-setup.org][0019]] | One dotfiles repository, fish on macOS and Linux, PowerShell on Windows | proposed, Alacritty part done |
 | [[file:0020-tag-groups.org][0020]] | Tag groups are an alist of =(GROUP TAG…)=, turned into Org group tags | proposed |
 | [[file:0021-typst-for-pdf-of-the-docs.org][0021]] | Typeset the PDF of the docs with Typst, exported from Org by =ox-typst= | accepted |
+| [[file:0022-stable-and-sandbox-emacs.org][0022]] | A stable Emacs for writing, a sandbox for development, and a CI check of the tangle | proposed |

@@ -8,7 +8,7 @@ Literate source for =libraries/modules/custom/sp-org-tag-groups.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 * Basic functionality
 
@@ -62,26 +62,64 @@ Other points:
 
 The modeline in use is lambda-line. Whether it prints =global-mode-string= has not been checked, so the header line is the fallback.
 
-** Selecting notes
+** Selecting notes (custom defined functions)
 
-With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-groups-describe-note=, which returns the emoji of the note's tags, a space and the title. It depends on the note alone, so vulpea's candidate cache stays valid (it is dropped once when the mode is turned on or off, so the new strings are built). The tags come from =vulpea-note-tags=, and the rules apply with the =select= context.
+With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-groups-describe-note=, which returns the emoji of the note's tags, a space and the title. 
+- It depends on the note alone, so vulpea's candidate cache stays valid (it is dropped once when the mode is turned on or off, so the new strings are built).
+- The tags come from =vulpea-note-tags=, and the rules apply with the =select= context.
 
-=sp-select-note= is the selector of my own. It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
+=sp-select-note= is the selector of my own. 
+- It calls =vulpea-select-from= with the same describe function and an annotation function that puts the tags in a column at the right edge of the minibuffer:
+   + The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property.
+      * =N= is =sp-org-tag-groups-select-column-fraction= of the frame width (a third by default), at least =sp-org-tag-groups-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
+   + *Each tag is a chip*: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85).
+      * The colour is the colour of the tag's group, see "Tag groups and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
+   + The tags stay part of the candidate text, so *they can be matched*: typing =deep= narrows the list to notes with that tag.
+      * @@comment: this one is particularly essential@@
+   + A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
 
-- The tag text starts at the same screen column in every row, because it is preceded by a =(space :align-to (- right N))= display property. =N= is =sp-org-tag-groups-select-column-fraction= of the frame width (a third by default), at least =sp-org-tag-groups-select-column-min= columns, worked out when the selector starts, so a wide display gets a wide column and a narrow one a narrow column.
-- Each tag is a chip: its name with a space on either side, on a coloured background, in =sp-org-tag-groups-select-tags-face= (smaller than the title, height 0.85). The colour is the colour of the tag's group, see "Tag groups and their colours". The characters that fit in the column are counted from that height; chips that do not fit are replaced by an ellipsis.
-- The tags stay part of the candidate text, so they can be matched: typing =deep= narrows the list to notes with that tag.
-- A title that is longer than the room before the column pushes the tags to the right; it never overlaps them.
+=M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title.
+- It takes the keywords of =vulpea-insert=.
+- No key is bound to either.
 
-=M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title. It takes the keywords of =vulpea-insert=. No key is bound to either. The commands that link to or pick a note (=sp-org-create-note-and-link=, the wikilink conversion, =sp-tab-inbox=, =sp-move-region-to-heading=, the graph start note and the query-table pickers) call them, so every picker looks the same. Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
+Other commands that link to or pick a note
+- =sp-org-create-note-and-link=,
+- the wikilink conversion,
+- =sp-tab-inbox=, =sp-move-region-to-heading=,
+- the graph start note
+- the query-table pickers
+
+These other commands call my custom =sp-select-note= or =sp-insert-note= so that *every picker looks the same*. 
+- Vulpea's candidate cache is skipped while either command runs, since the column width belongs to the display and not to the note. Because =sp-select-note= takes the same keywords as =vulpea-select= (=:require-match=, =:filter-fn=, =:initial-prompt=, =:expand-aliases=), it can replace a call to =vulpea-select= anywhere.
 
 ** Tag groups and their colours
 
-=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no group, or in a group without a colour, gets =default=.
+=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. 
+- Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (the names, not the colours):
+  - =default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=).
+- A tag that is in no group, or in a group without a colour, gets =default=.
+   + @@comment: which one is actually default?@@
 
-As in Notion, a colour is a pair: a light tinted background and a dark text colour on a light theme, a dark muted background and a light text colour on a dark theme. =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=). The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off. The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
+As in Notion, a colour is a pair: 
+- a light tinted background and a dark text colour on a light theme,
+- a dark muted background and a light text colour on a dark theme.
 
-The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-groups-alist= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested groups are not followed.
+How this functions here:
+- =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=).
+- The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off.
+- The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
+
+The colours follow the theme. 
+- =sp-org-tag-groups-palette= keeps the ten slot names, but each slot now names where its hue comes from: a face (=error=, =warning=, =success=, =link=, =link-visited=, =shadow=, =font-lock-keyword-face=), a colour string, or a mix of two of them (=(A B WEIGHT)=); =nil= is a neutral grey. 
+- The sp themes colour those faces from their palette, so the chips use the theme's reds, greens and blues, and any other theme works through the same faces. =sp-org-tag-groups-palette-entry= works out the pair for a slot: the background is the hue blended into the =default= background (22% on a light theme, 32% on a dark one), the foreground is the =default= foreground with 15% of the hue, moved towards black or white until its contrast with the background is at least 4.5. 
+- =sp-org-tag-groups--theme-changed= is on =sp-after-load-theme-hook= (like =sp-theme-update-lazy-highlight= in [[file:../ui/sp-themes.org][sp-themes]]) and drops the remembered chips, so a theme change needs no restart. 
+- A group without a slot in =sp-org-tag-groups-colors=, such as =unsorted=, gets the neutral =default=.
+
+** The unsorted group
+
+A tag in no group of =sp-org-tag-groups-alist= is allowed (ADR 0020). =sp-org-tag-group-of= answers =("unsorted")= for it (=sp-org-tag-groups-unsorted=), so the tag menu lists it under =unsorted=, after the real groups, and its chip has the default colour. It never gets an emoji from its group and nothing warns or fails: emoji come from =sp-org-tag-groups-rules=, and the missing emoji is the signal that the tag's definition needs work. =M-x sp-org-tag-groups-list-unsorted= lists the registered tags in no group.
+
+=sp-org-tag-groups-alist= is not edited here: it is set in the registry file =sp-org-tag-registry.el=, which derives =org-tag-persistent-alist= from it (=sp-org-tag-groups-to-alist=, in =sp-org-tag-lint=), and =M-x sp-org-tag-add= puts a new tag in the element of its group. This module requires =sp-org-tag-lint=, which holds =sp-org-tag-groups-unsorted=. A group name is a tag too and is in its own group. Nested groups are not followed.
 
 ** Tag registry
 
@@ -116,6 +154,7 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'sp-org-tag-lint)
 #+end_src
 
 * Settings
@@ -134,7 +173,6 @@ The emoji need a colour emoji font. =sp-emoji-font= (a separate module in =ui/=)
     ("@home"              :emoji "🏠")
     ("@uni"               :emoji "🎓")
     ("@computer"          :emoji "💻")
-    ("@phone"             :emoji "📱")
     ("@planning"          :emoji "🗺️")
     ("@configuration"     :emoji "⚙️")
     ("@writing"           :emoji "✍️")
@@ -217,6 +255,13 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
 (defface sp-org-tag-groups-select-tags-face
   '((t :inherit shadow :height 0.85))
   "Face of the tags at the right of a note in `sp-select-note'."
+  :group 'spcustom)
+
+(defface sp-org-tag-groups-select-emoji-face
+  '((t :inherit default :height 0.8))
+  "Face of the emoji in front of a title in `sp-select-note'.
+Colour emoji fonts have taller glyphs than the text font, so a height
+below 1.0 makes them match the surrounding text."
   :group 'spcustom)
 #+end_src
 
@@ -521,16 +566,13 @@ How the emoji is added to a link:
 
 #+begin_src emacs-lisp -i
 ;;;; Tag groups and their colours
-(defcustom sp-org-tag-groups-alist
-  '(("structure"  "area" "project" "agenda" "archive" "cemetery")
-    ("who"        "person" "musician" "group" "institution" "company")
-    ("music"      "album" "genre")
-    ("software"   "software" "package")
-    ("literature" "text" "book" "journalarticle" "booksection"
-                  "collection" "incollection")
-    ("inquiry"    "question" "error" "research-q" "exploratory"))
+(defcustom sp-org-tag-groups-alist nil
   "Groups of note tags: a list of (GROUP TAG…).
-A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
+A member may be (TAG . KEY), as in `org-tag-alist'.  The groups are set in
+`sp-org-tag-lint-registry-file' (sp-org-tag-registry.el), which also
+derives `org-tag-persistent-alist' from them; a value set there is kept.
+See ADR 0020."
+  :initialize #'custom-initialize-default
   :type '(repeat (cons (string :tag "Group") (repeat (choice string (cons string character)))))
   :group 'spcustom)
 
@@ -541,35 +583,127 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
     ("software" . blue)
     ("literature" . brown)
     ("inquiry" . purple))
-  "Notion colour of each tag group, a name from `sp-org-tag-groups-palette'."
+  "Colour slot of each tag group, a name from `sp-org-tag-groups-palette'."
   :type '(alist :key-type string :value-type symbol)
   :group 'spcustom)
 
 (defcustom sp-org-tag-groups-palette
-  '((default "#E3E2E0" "#32302C" "#373737" "#D4D4D4")
-    (gray    "#E3E2E0" "#32302C" "#454B4E" "#D4D4D4")
-    (brown   "#EEE0DA" "#32302C" "#434040" "#D4D4D4")
-    (orange  "#FADEC9" "#32302C" "#594A3A" "#D4D4D4")
-    (yellow  "#FDECC8" "#32302C" "#59563B" "#D4D4D4")
-    (green   "#DBEDDB" "#32302C" "#354C4B" "#D4D4D4")
-    (blue    "#D3E5EF" "#32302C" "#364954" "#D4D4D4")
-    (purple  "#E8DEEE" "#32302C" "#443F57" "#D4D4D4")
-    (pink    "#F5E0E9" "#32302C" "#533B4C" "#D4D4D4")
-    (red     "#FFE2DD" "#32302C" "#594141" "#D4D4D4"))
-  "Tag colours after Notion: (NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)."
-  :type '(alist :key-type symbol :value-type (list string string string string))
+  '((default . nil)
+    (gray    . shadow)
+    (brown   . (warning shadow 0.45))
+    (orange  . (error warning 0.5))
+    (yellow  . warning)
+    (green   . success)
+    (blue    . link)
+    (purple  . font-lock-keyword-face)
+    (pink    . link-visited)
+    (red     . error))
+  "Where each tag colour comes from: an alist of (NAME . SOURCE).
+SOURCE is the face whose foreground gives the hue, a colour string, or
+\(A B WEIGHT) for WEIGHT (default 0.5) of B mixed into A, each a face or a
+colour.  nil is a neutral grey taken from the default face.  The chip
+colours are worked out from the source and the default face, so they
+follow the theme; see `sp-org-tag-groups-palette-entry'."
+  :type '(alist :key-type symbol
+                :value-type (choice (const :tag "Neutral" nil)
+                                    (face :tag "Face")
+                                    (string :tag "Colour")
+                                    (list :tag "Mix" (choice face string) (choice face string)
+                                          (number :tag "Weight" :value 0.5))))
   :group 'spcustom)
+
+(declare-function sp-theme-blend "sp-theme-engine")
+(declare-function sp-theme--rgb "sp-theme-engine")
+
+(defvar sp-org-tag-groups--theme-epoch 0
+  "Counts theme loads, so the remembered chip colours are dropped with the theme.")
+
+(defun sp-org-tag-groups--theme-changed (&rest _)
+  "Forget the chip colours, which come from the faces of the theme."
+  (cl-incf sp-org-tag-groups--theme-epoch))
+
+(add-hook 'sp-after-load-theme-hook #'sp-org-tag-groups--theme-changed)
+
+(defun sp-org-tag-groups--hex (color)
+  "COLOR, a name or #rrggbb, as #rrggbb, or nil if it is not a colour."
+  (cond ((not (stringp color)) nil)
+        ((string-match-p "\\`#[[:xdigit:]]\\{6\\}\\'" color) (downcase color))
+        ((when-let* ((rgb (ignore-errors (color-values color))))
+           (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (/ c 257)) rgb))))))
+
+(defun sp-org-tag-groups--source-color (source)
+  "The colour of SOURCE (see `sp-org-tag-groups-palette') as #rrggbb, or nil."
+  (cond ((null source) nil)
+        ((stringp source) (sp-org-tag-groups--hex source))
+        ((facep source)
+         (sp-org-tag-groups--hex (face-attribute source :foreground nil t)))
+        ((consp source)
+         (let ((a (sp-org-tag-groups--source-color (nth 0 source)))
+               (b (sp-org-tag-groups--source-color (nth 1 source))))
+           (cond ((and a b) (sp-theme-blend a b (or (nth 2 source) 0.5)))
+                 (t (or a b)))))))
+
+(defun sp-org-tag-groups--luminance (hex)
+  "Relative luminance of the colour HEX, 0 to 1."
+  (let ((lin (mapcar (lambda (c)
+                       (let ((c (/ c 255.0)))
+                         (if (<= c 0.03928) (/ c 12.92) (expt (/ (+ c 0.055) 1.055) 2.4))))
+                     (sp-theme--rgb hex))))
+    (+ (* 0.2126 (nth 0 lin)) (* 0.7152 (nth 1 lin)) (* 0.0722 (nth 2 lin)))))
+
+(defun sp-org-tag-groups--contrast (a b)
+  "WCAG contrast ratio between the colours A and B."
+  (let ((la (sp-org-tag-groups--luminance a)) (lb (sp-org-tag-groups--luminance b)))
+    (/ (+ (max la lb) 0.05) (+ (min la lb) 0.05))))
+
+(defun sp-org-tag-groups--legible (fg bg dark)
+  "FG pushed towards white (DARK) or black until it has contrast 4.5 on BG."
+  (let ((target (if dark "#ffffff" "#000000")) (step 0))
+    (while (and (< step 10) (< (sp-org-tag-groups--contrast fg bg) 4.5))
+      (setq step (1+ step)
+            fg (sp-theme-blend fg target 0.15)))
+    fg))
+
+(defun sp-org-tag-groups-palette-entry (name)
+  "The chip colours of palette slot NAME as (BACKGROUND . FOREGROUND), from the theme.
+The background is the hue of the slot's source blended into the
+background of the `default' face, stronger on a dark theme; the
+foreground is the default foreground with a little of the hue, pushed
+away from the background if the contrast is under 4.5.  A slot that is
+missing, or whose source has no colour, is a neutral grey."
+  (let* ((dark (eq (frame-parameter nil 'background-mode) 'dark))
+         (bg (or (sp-org-tag-groups--hex (face-attribute 'default :background nil t))
+                 (if dark "#000000" "#ffffff")))
+         (fg (or (sp-org-tag-groups--hex (face-attribute 'default :foreground nil t))
+                 (if dark "#ffffff" "#000000")))
+         (source (cdr (assq name sp-org-tag-groups-palette)))
+         (hue (sp-org-tag-groups--source-color source))
+         (chip-bg (if hue
+                      (sp-theme-blend bg hue (if dark 0.32 0.22))
+                    (sp-theme-blend bg fg (if dark 0.18 0.10))))
+         (chip-fg (sp-org-tag-groups--legible
+                   (if hue (sp-theme-blend fg hue 0.15) fg) chip-bg dark)))
+    (cons chip-bg chip-fg)))
 #+end_src
 
 ** Looking up a tag's colour
 
 #+begin_src emacs-lisp -i
-(defun sp-org-tag-group-of (tag)
-  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+(defun sp-org-tag-groups--explicit-groups (tag)
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none.
+A group name is a tag too, and it is in its own group."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
-           when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
-                                    members))
+           when (or (equal tag group)
+                    (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
+                                        members)))
            collect group))
+
+(defun sp-org-tag-group-of (tag)
+  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'.
+A tag in no group is in `sp-org-tag-groups-unsorted', so the result is
+never nil."
+  (or (sp-org-tag-groups--explicit-groups tag)
+      (list sp-org-tag-groups-unsorted)))
 
 (defvar sp-org-tag-groups--memo (make-hash-table :test #'equal)
   "Results of the selector's per-note work, by (KIND . ARGS).")
@@ -582,6 +716,7 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
   (list sp-org-tag-groups-rules sp-org-tag-groups-combo-consumes
         sp-org-tag-groups-link-position sp-org-tag-groups-alist
         sp-org-tag-groups-colors sp-org-tag-groups-palette
+        sp-org-tag-groups--theme-epoch
         (face-attribute 'sp-org-tag-groups-select-tags-face :height nil t)
         (frame-parameter nil 'background-mode)))
 
@@ -606,14 +741,14 @@ tag list instead of once per note."
    (cons 'face tag) (lambda () (sp-org-tag-groups--chip-face-1 tag))))
 
 (defun sp-org-tag-groups--chip-face-1 (tag)
-  "Work out the face of `sp-org-tag-groups--chip-face' for TAG."
+  "Work out the face of `sp-org-tag-groups--chip-face' for TAG.
+A group without a colour (such as `unsorted') gets the neutral `default'."
   (let* ((group (car (sp-org-tag-group-of tag)))
          (name (or (cdr (assoc group sp-org-tag-groups-colors)) 'default))
-         (entry (or (assq name sp-org-tag-groups-palette) (assq 'default sp-org-tag-groups-palette)))
-         (dark (eq (frame-parameter nil 'background-mode) 'dark)))
+         (entry (sp-org-tag-groups-palette-entry name)))
     (list :inherit 'sp-org-tag-groups-select-tags-face
-          :background (nth (if dark 3 1) entry)
-          :foreground (nth (if dark 4 2) entry))))
+          :background (car entry)
+          :foreground (cdr entry))))
 
 (defun sp-org-tag-groups--chips (tags columns)
   "TAGS as coloured chips, an ellipsis replacing those that exceed COLUMNS."
@@ -636,6 +771,193 @@ tag list instead of once per note."
           (when chips (push " " chips))
           (push (propertize (concat " " tag " ") 'face (sp-org-tag-groups--chip-face tag)) chips))))
     (apply #'concat (nreverse chips))))
+#+end_src
+
+* SVG tags in the org buffer
+
+The tags of Org headings are drawn as SVG chips with Nicolas Rougier's [[https://github.com/rougier/svg-tag-mode][svg-tag-mode]]. The colours and the emoji come from the tag groups above, so nothing about a tag is set twice.
+
+** Options and the test for a graphic frame
+
+SVG needs a graphic frame, so everything below asks =sp-org-svg-tags-available-p= (=display-graphic-p= and an SVG-capable build) first. In a terminal frame the mode stays off and the tags are plain text. =sp-org-svg-tags-enable= decides whether the global mode is switched on when the module loads; =M-x sp-org-svg-tags-global-mode= toggles it afterwards.
+
+#+begin_src emacs-lisp -i
+;;;; SVG tags in the org buffer
+(defvar svg-tag-tags)
+(declare-function svg-tag-make "svg-tag-mode")
+(declare-function svg-tag-mode "svg-tag-mode")
+(defvar org-modern-tag)
+(defvar org-complex-heading-regexp)
+
+(defcustom sp-org-svg-tags-enable t
+  "Non-nil: draw the tags of Org headings as SVG chips (`svg-tag-mode').
+`sp-org-svg-tags-global-mode' is switched on with this setting when the
+module loads; toggle it later with \\[sp-org-svg-tags-global-mode]."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-show-emoji t
+  "Non-nil: put the emoji of a tag (see `sp-org-tag-groups-rules') in front of its chip.
+The emoji is the one `sp-select-note' shows, in the same face."
+  :type 'boolean
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-radius 6
+  "Corner radius of the SVG tag chips, in pixels."
+  :type 'integer
+  :group 'spcustom)
+
+(defcustom sp-org-svg-tags-padding 1
+  "Padding of the SVG tag chips, in characters."
+  :type 'integer
+  :group 'spcustom)
+
+(defconst sp-org-svg-tags--name "[[:alnum:]_@#%]+"
+  "Regexp of one tag name, as in `org-tag-re'.")
+
+(defun sp-org-svg-tags-available-p ()
+  "Non-nil when the selected frame can show SVG images."
+  (and (display-graphic-p) (image-type-available-p 'svg)))
+#+end_src
+
+** Finding the tags of a heading
+
+=svg-tag-mode= matches regexps anywhere in the buffer, so each match asks whether it lies inside the tags group of an Org heading (group 5 of =org-complex-heading-regexp=). A =foo:= in a title or in the body is left alone.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-svg-tags--in-heading-tags-p (pos)
+  "Non-nil when POS is inside the tags of an Org heading."
+  (save-match-data
+    (save-excursion
+      (goto-char pos)
+      (forward-line 0)
+      (and (eq (char-after) ?*)
+           (looking-at org-complex-heading-regexp)
+           (match-beginning 5)
+           (<= (match-beginning 5) pos)
+           (< pos (match-end 5))))))
+
+(defun sp-org-svg-tags--drawable-p (pos)
+  "Non-nil when the tag at POS is drawn as SVG: a graphic frame, a heading tag."
+  (and (sp-org-svg-tags-available-p)
+       (sp-org-svg-tags--in-heading-tags-p pos)))
+#+end_src
+
+** What each part of a tag shows
+
+A heading =* Title :@writing:deep:= has three kinds of text to replace, and =svg-tag-mode= puts one display on one match, so each has its own keyword:
+- the *name* becomes a chip, coloured by =sp-org-tag-groups--chip-face= (the theme-derived palette of #249, so the chip follows the theme; an =unsorted= tag gets the neutral colour, #248);
+- the *colon before a name* shows the tag's emoji, taken from =sp-org-tag-groups--decorate= in the =select= context and put in =sp-org-tag-groups-select-emoji-face= (#247), exactly what =sp-select-note= shows, or nothing for a tag without emoji (such as an unsorted one);
+- the *colon that ends the tags* shows nothing.
+Every function returns nil outside a graphic frame or outside heading tags, so the text stays.
+
+#+begin_src emacs-lisp -i
+(defun sp-org-svg-tags--emoji (tag)
+  "The emoji of TAG, with a space, in the emoji face of the selector; \"\" if none."
+  (if (not sp-org-svg-tags-show-emoji)
+      ""
+    (sp-org-tag-groups--memoize
+     (list 'svg-emoji tag)
+     (lambda ()
+       (let ((emoji (mapconcat #'car (plist-get (sp-org-tag-groups--decorate (list tag) 'select)
+                                                :emoji)
+                               " ")))
+         (if (string-empty-p emoji)
+             ""
+           (propertize (concat emoji " ") 'face 'sp-org-tag-groups-select-emoji-face)))))))
+
+(defun sp-org-svg-tags--leading-colon (_colon)
+  "Display of the colon before a tag (match 1): the tag's emoji, or nothing.
+The tag is the rest of the match.  nil, so the text stays, where no SVG is drawn."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    (sp-org-svg-tags--emoji (substring (match-string-no-properties 0) 1))))
+
+(defun sp-org-svg-tags--trailing-colon (_colon)
+  "Display of the colon that ends the tags of a heading (match 1): nothing."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    ""))
+
+(defun sp-org-svg-tags--chip (tag)
+  "The SVG chip of TAG (match 1), in the colour of its group, or nil.
+The colours are those of `sp-org-tag-groups--chip-face', so they follow
+the theme and the group of the tag (`unsorted' is neutral)."
+  (when (sp-org-svg-tags--drawable-p (match-beginning 1))
+    (let ((face (sp-org-tag-groups--chip-face tag)))
+      (svg-tag-make tag
+                    :face (list :foreground (plist-get face :foreground)
+                                :background (plist-get face :background))
+                    :padding sp-org-svg-tags-padding
+                    :margin 0
+                    :radius sp-org-svg-tags-radius))))
+#+end_src
+
+** The keywords and the mode
+
+- =svg-lib= and =svg-tag-mode= are installed with =use-package= and Elpaca (=svg-tag-mode= from Nicolas Rougier's repository).
+- =sp-org-svg-tags-mode= is the buffer mode; =sp-org-svg-tags-global-mode= turns it on in Org buffers.
+- It stays off when =org-modern= would also draw the tags (=org-modern-tag= non-nil; it is nil in [[file:../text/sp-org-appearance.org][sp-org-appearance]]). =org-indent= only adds a line prefix, so the two do not interact, and =org-tags-column= is 0 there, so the chips need no alignment.
+- A theme change flushes the fontification of the buffers that have the mode, and the colours are worked out again from the new theme (=sp-after-load-theme-hook=).
+
+#+begin_src emacs-lisp -i
+(defun sp-org-svg-tags--entries ()
+  "The value of `svg-tag-tags' for the tags of Org headings.
+Three keywords, because `svg-tag-mode' puts one display on one match:
+each tag name becomes a chip, the colon before it becomes its emoji and
+the colon that ends the tags disappears."
+  `((,(concat "\\(:\\)" sp-org-svg-tags--name) sp-org-svg-tags--leading-colon)
+    (,(concat "\\(" sp-org-svg-tags--name "\\):") sp-org-svg-tags--chip)
+    (":[ \t]*$" sp-org-svg-tags--trailing-colon)))
+
+(defun sp-org-svg-tags--org-modern-tags-p ()
+  "Non-nil when `org-modern-mode' would draw the tags of this buffer too."
+  (and (bound-and-true-p org-modern-mode) (bound-and-true-p org-modern-tag)))
+
+(use-package svg-lib
+  :ensure t
+  :defer t)
+
+(use-package svg-tag-mode
+  :ensure (:host github :repo "rougier/svg-tag-mode")
+  :defer t
+  :commands svg-tag-mode)
+
+(define-minor-mode sp-org-svg-tags-mode
+  "Draw the tags of Org headings in this buffer as SVG chips.
+Needs a graphic frame with SVG support; elsewhere the mode stays off
+and the tags are plain text."
+  :group 'sp-org-tag-groups
+  (cond
+   ((not sp-org-svg-tags-mode)
+    (when (bound-and-true-p svg-tag-mode)
+      (svg-tag-mode -1)))
+   ((not (and (sp-org-svg-tags-available-p)
+              (require 'svg-tag-mode nil t)
+              (not (sp-org-svg-tags--org-modern-tags-p))))
+    (setq sp-org-svg-tags-mode nil))
+   (t
+    (setq-local svg-tag-tags (sp-org-svg-tags--entries))
+    (svg-tag-mode 1))))
+
+(defun sp-org-svg-tags--turn-on ()
+  "Turn `sp-org-svg-tags-mode' on in an Org buffer."
+  (when (derived-mode-p 'org-mode)
+    (sp-org-svg-tags-mode 1)))
+
+(define-globalized-minor-mode sp-org-svg-tags-global-mode
+  sp-org-svg-tags-mode sp-org-svg-tags--turn-on
+  :group 'sp-org-tag-groups)
+
+(defun sp-org-svg-tags-refresh (&rest _)
+  "Redraw the SVG tags of every buffer that has them, after a theme change."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (bound-and-true-p sp-org-svg-tags-mode)
+        (font-lock-flush)))))
+
+(add-hook 'sp-after-load-theme-hook #'sp-org-svg-tags-refresh)
+
+(when sp-org-svg-tags-enable
+  (sp-org-svg-tags-global-mode 1))
 #+end_src
 
 * Selecting notes
@@ -670,7 +992,10 @@ tag list instead of once per note."
   "NOTE's title with the emoji of its tags in front."
   (let ((emoji (sp-org-tag-groups--note-emoji note))
         (title (vulpea-note-title note)))
-    (if (string-empty-p emoji) title (concat emoji " " title))))
+    (if (string-empty-p emoji)
+        title
+      (concat (propertize emoji 'face 'sp-org-tag-groups-select-emoji-face)
+              " " title))))
 #+end_src
 
 ** The tag column
@@ -815,21 +1140,45 @@ A global minor mode. Turning it on adds the segment, the link decoration and the
     (message (if missing "Tags not in org-tag-alist: %s" "All rule tags are registered.%s")
              (if missing (mapconcat #'identity missing ", ") ""))
     missing))
+
+(defun sp-org-tag-groups-unsorted-tags ()
+  "The registered note tags that are in no group of `sp-org-tag-groups-alist'.
+Group names are not counted, as they are in their own group."
+  (let (result)
+    (dolist (entry org-tag-persistent-alist)
+      (let ((tag (and (consp entry) (stringp (car entry)) (car entry))))
+        (when (and tag
+                   (null (sp-org-tag-groups--explicit-groups tag)))
+          (cl-pushnew tag result :test #'equal))))
+    (nreverse result)))
+
+(defun sp-org-tag-groups-list-unsorted ()
+  "Report the note tags that are still in the `unsorted' group."
+  (interactive)
+  (let ((tags (sp-org-tag-groups-unsorted-tags)))
+    (message (if tags "Unsorted tags (add them to a group): %s" "No unsorted tags.%s")
+             (if tags (mapconcat #'identity tags ", ") ""))
+    tags))
 #+end_src
 
 ** Tag menu
 
-=sp-org-tag-groups-read-tags= reads several tags with =completing-read-multiple= over =sp-org-tag-groups-completion-table=: the tags are sorted and headed by their first group in =sp-org-tag-groups-alist= (tags in no group under "other"), each annotated with its group in the group's colour. =sp-org-tag-read-note-tags= (in =sp-org-tag-lint=) calls it when this module is loaded.
+=sp-org-tag-groups-read-tags= reads several tags with =completing-read-multiple= over =sp-org-tag-groups-completion-table=: the tags are sorted and headed by their first group in =sp-org-tag-groups-alist= (tags in no group under =unsorted=, last), each annotated with its group in the group's colour. =sp-org-tag-read-note-tags= (in =sp-org-tag-lint=) calls it when this module is loaded.
 
 #+begin_src emacs-lisp -i
 ;;;; Tag menu
+(defun sp-org-tag-groups--sort-key (tag)
+  "The group name to sort TAG under: `unsorted' last, behind every group."
+  (let ((group (car (sp-org-tag-group-of tag))))
+    (if (string= group sp-org-tag-groups-unsorted) (concat "~" group) group)))
+
 (defun sp-org-tag-groups-completion-table (tags)
   "A completion table over TAGS, sorted and headed by tag group.
-Tags in no group fall under \"other\"."
+Tags in no group fall under \"unsorted\"."
   (let ((sorted (sort (copy-sequence tags)
                       (lambda (a b)
-                        (let ((ga (or (car (sp-org-tag-group-of a)) "~other"))
-                              (gb (or (car (sp-org-tag-group-of b)) "~other")))
+                        (let ((ga (sp-org-tag-groups--sort-key a))
+                              (gb (sp-org-tag-groups--sort-key b)))
                           (if (string= ga gb) (string< a b) (string< ga gb)))))))
     (lambda (string pred action)
       (if (eq action 'metadata)
@@ -837,10 +1186,10 @@ Tags in no group fall under \"other\"."
             (display-sort-function . identity)
             (group-function
              . ,(lambda (tag transform)
-                  (if transform tag (or (car (sp-org-tag-group-of tag)) "other"))))
+                  (if transform tag (car (sp-org-tag-group-of tag)))))
             (annotation-function
              . ,(lambda (tag)
-                  (concat " " (propertize (or (car (sp-org-tag-group-of tag)) "other")
+                  (concat " " (propertize (car (sp-org-tag-group-of tag))
                                           'face (sp-org-tag-groups--chip-face tag))))))
         (complete-with-action action sorted string pred)))))
 
@@ -851,7 +1200,7 @@ is allowed."
   (completing-read-multiple prompt (sp-org-tag-groups-completion-table tags)))
 #+end_src
 
-* Provide
+* Provides
 
 Provides the =sp-org-tag-groups= feature and closes the file.
 
@@ -862,6 +1211,12 @@ Provides the =sp-org-tag-groups= feature and closes the file.
 ;; sp-org-tag-groups.el ends here.
 #+end_src
 
+* Tasks remaining
+** TODO Set up the emojis for each tag type
+** TODO Check the colors for each tag type
+** TODO Set up the org families
+** TODO See where the new keywords are actually stored
+** TODO What can you really do with context tags?
 * Changes by pull request
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
@@ -870,3 +1225,8 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag groups: =sp-org-tag-groups-alist= groups the note tags into groups (the shape proposed in ADR 0020) and =sp-org-tag-groups-colors= gives each group one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.
 - [[https://github.com/siainbuletin/dotfiles/pull/158][#158]] 🐛 Fixed =sp-insert-note= and =sp-select-note= taking seconds to open: because the tag column depends on the frame width, the candidate cache is off and vulpea rebuilds every note's title and tag column on each call, and each of those looked up the tag group, the palette colour and the rules again. =sp-org-tag-groups--memoize= now remembers the chip face of each tag, the emoji of each tag list and the chips of each tag list and width, until one of the rules, groups, colours, palette, tag face height or theme (light/dark) changes. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] ✨ Added the tag menu: =sp-org-tag-groups-read-tags= and =sp-org-tag-groups-completion-table= show the tags to pick headed by tag group, used by =sp-org-tag-read-note-tags=. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/247][#247]] 🐛 Fixed the emoji in front of titles in =sp-select-note= being larger than the text: =sp-org-tag-groups-describe-note= puts them in =sp-org-tag-groups-select-emoji-face= (height 0.8, customizable).
+- [[https://github.com/siainbuletin/dotfiles/pull/248][#248]] ✨ Added the =unsorted= group (ADR 0020): a tag in no group of =sp-org-tag-groups-alist= is allowed, and =sp-org-tag-group-of= answers =("unsorted")= for it instead of nil, with no emoji, the default colour and no warning. The tag menu lists it under =unsorted=, last (it was "other"). =M-x sp-org-tag-groups-list-unsorted= lists the registered tags in it.
+- [[https://github.com/siainbuletin/dotfiles/pull/248][#248]] 🔧 Changed =sp-org-tag-groups-alist= to be set in =sp-org-tag-registry.el= (ADR 0020), which derives =org-tag-persistent-alist= from it; this module no longer holds a copy of the data (the default is nil, a value set by the registry is kept) and requires =sp-org-tag-lint=, which now defines =sp-org-tag-groups-unsorted=. A group name is in its own group.
+- [[https://github.com/siainbuletin/dotfiles/pull/249][#249]] ✨ Added theme-derived tag colours: =sp-org-tag-groups-palette= maps each slot to a face or colour, =sp-org-tag-groups-palette-entry= blends it into the =default= face with contrast of at least 4.5, and the remembered chips are dropped on =sp-after-load-theme-hook=.
+- [[https://github.com/siainbuletin/dotfiles/pull/254][#254]] ✨ Added the SVG tags of Org headings (=sp-org-svg-tags-mode=, with =svg-tag-mode=), coloured by tag group, with the tag emoji in front.

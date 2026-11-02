@@ -60,9 +60,9 @@ See `sp-clean-whitespace-autosave-skip-modes'."
 
 ;;;; Add whitespace before and after heading
 ;;
-;; Ensure that blank lines exist between headings and between headings and their contents. 
+;; Ensure that blank lines exist between headings and between headings and their contents.
 ;; With prefix, operate on whole buffer. Ensures that blank lines exist after each headings’s
-;; drawers. Works on a subtree or a whole buffer. It also adds blank lines after drawers. 
+;; drawers. Works on a subtree or a whole buffer. It also adds blank lines after drawers.
 ;; Works well with *~org-return-dwim~.
 ;;
 ;; source: https://github.com/alphapapa/unpackaged.el#agenda-for-subtree-or-region

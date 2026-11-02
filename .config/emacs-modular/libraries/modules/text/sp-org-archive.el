@@ -54,4 +54,3 @@
   (palimpsest-send-top "C-c C-a")
   :config
   (setq palimpsest-trash-file-suffix ".archive"))
-  

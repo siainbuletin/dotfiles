@@ -89,13 +89,30 @@
       (:meta (mapconcat (lambda (c) (if (cdr c) (format "%s=%s" (car c) (cdr c)) (car c)))
                         value ", "))
       (:columns (mapconcat #'sp-collec-query-menu--column-name value " "))
-      (:sort-by (and value (sp-collec-query-menu--column-name value)))
+      (:sort-by (and value
+                     (mapconcat
+                      (lambda (k)
+                        (concat (sp-collec-query-menu--column-name (car k))
+                                (and (cdr k) ":desc")))
+                      (sp-collec-query-sort-keys value (sp-collec-query-menu--get :sort-desc))
+                      ", ")))
       (:sort-desc (and value "descending"))
+      (:column-widths (sp-collec-query-menu--widths-text value))
+      (:wrap (and value (symbol-name value)))
       (:level (and value (if (eq value 'headings) "headings" "file-level")))
       (:parent-of (and value (format "%s%s" value
                                      (if-let* ((p (sp-collec-query-menu--get :parent-prop)))
                                          (format " via %s" p) ""))))
       (_ (if (listp value) (string-join value ", ") value)))))
+
+(defun sp-collec-query-menu--widths-text (widths)
+  "Return the alist WIDTHS as text, such as \"title=60 other=20\"."
+  (mapconcat (lambda (cell)
+               (format "%s=%d"
+                       (if (eq (car cell) t) "other"
+                         (sp-collec-query-menu--column-name (car cell)))
+                       (cdr cell)))
+             widths " "))
 
 (defun sp-collec-query-menu--describe (label key)
   "Return LABEL followed by the current value of KEY, highlighted."
@@ -122,7 +139,9 @@
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-title "Title matches" :title-match)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-columns "Columns" :columns)
 (sp-collec-query-menu--defdesc sp-collec-query-menu--d-sort "Sort by" :sort-by)
-(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-desc "Direction (default)" :sort-desc)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-widths "Column widths" :column-widths)
+(sp-collec-query-menu--defdesc sp-collec-query-menu--d-wrap "Word wrap" :wrap)
 
 (defun sp-collec-query-menu--header ()
   "Return the heading of the menu."
@@ -246,20 +265,76 @@
     (sp-collec-query-menu--set
      :columns (mapcar #'sp-collec-query-menu--column cols))))
 
+(defun sp-collec-query-menu--read-sort-key (string)
+  "Return the sort key STRING names: COLUMN, or (COLUMN . desc) or (COLUMN . asc).
+STRING is a column name, optionally followed by \":asc\" or \":desc\"."
+  (if (string-match "\\`\\(.+\\):\\(asc\\|desc\\)\\'" string)
+      (cons (sp-collec-query-menu--column (match-string 1 string))
+            (intern (match-string 2 string)))
+    (sp-collec-query-menu--column string)))
+
 (defun sp-collec-query-menu-set-sort ()
-  "Set the column to sort by."
+  "Set the columns to sort by, in order: the first is the primary key.
+Each next column breaks the ties of those before it.  Add \":desc\" or
+\":asc\" to a column to give it its own direction."
   (interactive)
-  (let ((col (completing-read "Sort by (empty for none): "
-                              (or (mapcar #'sp-collec-query-menu--column-name
-                                          (sp-collec-query-menu--get :columns))
-                                  (sp-collec-query-menu--column-candidates)))))
+  (let* ((current (sp-collec-query-menu--get :sort-by))
+         (cols (completing-read-multiple
+                "Sort by, in order (column or column:desc; empty for none): "
+                (or (mapcar #'sp-collec-query-menu--column-name
+                            (sp-collec-query-menu--get :columns))
+                    (sp-collec-query-menu--column-candidates))
+                nil nil
+                (and current
+                     (concat (mapconcat
+                              (lambda (k)
+                                (if (consp k)
+                                    (format "%s:%s" (sp-collec-query-menu--column-name (car k)) (cdr k))
+                                  (sp-collec-query-menu--column-name k)))
+                              (if (listp current) current (list current))
+                              ",")
+                             ",")))))
+    (setq cols (delete "" cols))
     (sp-collec-query-menu--set
-     :sort-by (unless (string-empty-p col) (sp-collec-query-menu--column col)))))
+     :sort-by (let ((keys (mapcar #'sp-collec-query-menu--read-sort-key cols)))
+                (if (and keys (null (cdr keys)) (atom (car keys)))
+                    (car keys)
+                  keys)))))
 
 (defun sp-collec-query-menu-toggle-desc ()
-  "Toggle between ascending and descending order."
+  "Toggle the default direction, for the sort columns that do not set their own."
   (interactive)
   (sp-collec-query-menu--set :sort-desc (not (sp-collec-query-menu--get :sort-desc))))
+
+(defun sp-collec-query-menu-set-width ()
+  "Set the width of one column in the exc table; an empty width clears it."
+  (interactive)
+  (let* ((columns (or (sp-collec-query-menu--get :columns) '(:title)))
+         (choice (completing-read
+                  "Width of column (\"other\" for the rest): "
+                  (cons "other" (mapcar #'sp-collec-query-menu--column-name columns))
+                  nil t))
+         (column (if (string= choice "other") t
+                   (sp-collec-query-menu--column choice)))
+         (current (alist-get column (sp-collec-query-menu--get :column-widths)
+                             nil nil #'equal))
+         (width (read-string (format "Width of %s in characters (empty: default): " choice)
+                             (and current (number-to-string current))))
+         (widths (cl-remove column
+                            (copy-sequence (sp-collec-query-menu--get :column-widths))
+                            :key #'car :test #'equal)))
+    (unless (string-empty-p width)
+      (let ((n (string-to-number width)))
+        (unless (> n 0) (user-error "A width is a number of characters"))
+        (setq widths (append widths (list (cons column n))))))
+    (sp-collec-query-menu--set :column-widths widths)))
+
+(defun sp-collec-query-menu-cycle-wrap ()
+  "Cycle the word wrap of the exc table: default, wrap, fit."
+  (interactive)
+  (sp-collec-query-menu--set
+   :wrap (pcase (sp-collec-query-menu--get :wrap)
+           ('nil 'wrap) ('wrap 'fit) (_ nil))))
 
 (defun sp-collec-query-menu-reset ()
   "Forget every setting."
@@ -338,7 +413,9 @@
    ["Shape"
      ("c" sp-collec-query-menu-set-columns :description sp-collec-query-menu--d-columns :transient t)
      ("o" sp-collec-query-menu-set-sort :description sp-collec-query-menu--d-sort :transient t)
-     ("O" sp-collec-query-menu-toggle-desc :description sp-collec-query-menu--d-desc :transient t)]
+     ("O" sp-collec-query-menu-toggle-desc :description sp-collec-query-menu--d-desc :transient t)
+     ("w" sp-collec-query-menu-set-width :description sp-collec-query-menu--d-widths :transient t)
+     ("W" sp-collec-query-menu-cycle-wrap :description sp-collec-query-menu--d-wrap :transient t)]
    ["Views"
      ("S" "Save view" sp-collec-query-menu-save :transient t)
      ("V" "Load view" sp-collec-query-menu-load :transient t)

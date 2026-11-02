@@ -29,6 +29,10 @@
 
 (setq vulpea-db-sync-directories (list sp-notes-dir))
 
+;; The database is rebuilt from the notes, so it lives in `var/' (Git ignores
+;; it) and not in the config folder, where Vulpea puts it by default.
+(setq vulpea-db-location (expand-file-name "vulpea.db" sp-var-dir))
+
 (setq vulpea-db-parse-method 'single-temp-buffer)
 
 ;; Enable autosync a few idle seconds after start-up, not during init, and let

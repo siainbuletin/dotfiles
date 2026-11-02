@@ -12,6 +12,12 @@
 (use-package company
   :ensure (:wait t))
 
+;;;; amx
+;; `amx' is not installed by this configuration; this only keeps its history
+;; file out of the config folder if another package brings it in.
+(with-eval-after-load 'amx
+  (setq amx-save-file (expand-file-name "amx-items" sp-cache-dir)))
+
 ;;;; Vertico (base)
 (use-package vertico
   :ensure t

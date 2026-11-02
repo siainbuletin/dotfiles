@@ -14,13 +14,24 @@
 (require 'sp-collection-query-tables-core)
 (require 'sp-collection-query-tables-org)
 
+(defun sp-collec-query-vui--promote (keys column)
+  "Return KEYS with COLUMN as the primary key.
+When COLUMN already is the primary key its direction flips; otherwise it
+is put first, ascending, and the other keys follow as tie-breakers."
+  (if (equal (car (car keys)) column)
+      (cons (cons column (not (cdr (car keys)))) (cdr keys))
+    (cons (cons column nil)
+          (seq-remove (lambda (k) (equal (car k) column)) keys))))
+
 (vui-defcomponent sp-collec-query (spec)
   "A live table of the notes SPEC asks for, with clickable titles.
 Meta columns are editable fields that write back to their note.  Click a
-column in the \"Sort by\" row to sort by it, and again to reverse."
+column in the \"Sort by\" row to sort by it, and again to reverse; the
+columns clicked before stay as tie-breakers, in the order clicked last
+(the number after the arrow is the rank).  \"Reset\" goes back to the
+spec's sort."
   :state ((refresh-tick 0)
-          (sort-override nil)
-          (sort-desc nil))
+          (sort-override nil))
   :render
   (progn
     (vui-use-effect ()
@@ -28,26 +39,27 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
         (add-hook 'sp-collec-query-refresh-functions fn)
         (lambda () (remove-hook 'sp-collec-query-refresh-functions fn))))
     (let* ((columns (plist-get spec :columns))
-           (effective-sort (or sort-override (plist-get spec :sort-by)))
-           (descending (if sort-override sort-desc (plist-get spec :sort-desc)))
+           (keys (or sort-override
+                     (sp-collec-query-sort-keys (plist-get spec :sort-by)
+                                                (plist-get spec :sort-desc))))
            (notes (sp-collec-query-sort
                    (sp-collec-query-query (plist-put (copy-sequence spec) :sort-by nil))
-                   effective-sort descending))
+                   keys))
            (rows (mapcar
                   (lambda (note)
                     (mapcar
                      (lambda (c)
                        (cond
                         ((eq c :title)
-                         (vui-button (or (vulpea-note-title note) "")
+                         (vui-button (sp-collec-query-title-label note)
                                      :on-click (lambda () (find-file (vulpea-note-path note)))))
-                        ((keywordp c) (sp-collec-query-linkify (sp-collec-query-cell note c)))
+                        ((keywordp c) (sp-org-link-linkify (sp-collec-query-display-cell note c)))
                         ;; A field would show the raw [[id:..][..]] text and
                         ;; save the description over the link when edited.
-                        ((sp-collec-query-has-link-p
-                          (or (car (vulpea-note-meta-get-list note c)) ""))
-                         (vui-text (sp-collec-query-linkify
-                                    (sp-collec-query-cell note c))))
+                        ((sp-org-link-has-link-p
+                          (sp-collec-query-display-cell note c))
+                         (vui-text (sp-org-link-linkify
+                                    (sp-collec-query-display-cell note c))))
                         (t (vui-field
                             :value (or (car (vulpea-note-meta-get-list note c)) "")
                             :on-change (lambda (val)
@@ -62,19 +74,25 @@ column in the \"Sort by\" row to sort by it, and again to reverse."
        (vui-newline)
        (apply #'vui-hstack
               (vui-text "Sort by: " :face 'shadow)
-              (mapcar
-               (lambda (c)
-                 (vui-button
-                  (concat (sp-collec-query-header-label c)
-                          (cond ((not (equal effective-sort c)) "")
-                                (descending " ↓") (t " ↑")))
-                  :on-click (lambda ()
-                              (if (equal effective-sort c)
-                                  (progn (vui-set-state :sort-override c)
-                                         (vui-set-state :sort-desc (not descending)))
-                                (vui-set-state :sort-override c)
-                                (vui-set-state :sort-desc nil)))))
-               columns))
+              (append
+               (mapcar
+                (lambda (c)
+                  (let ((rank (seq-position keys c (lambda (k col) (equal (car k) col)))))
+                    (vui-button
+                     (concat (sp-collec-query-header-label c)
+                             (if rank
+                                 (format " %s%s" (if (cdr (nth rank keys)) "↓" "↑")
+                                         (if (cdr keys) (1+ rank) ""))
+                               ""))
+                     :on-click (lambda ()
+                                 (vui-set-state
+                                  :sort-override
+                                  (sp-collec-query-vui--promote keys c))))))
+                columns)
+               (and sort-override
+                    (list (vui-button "Reset"
+                                      :on-click (lambda ()
+                                                  (vui-set-state :sort-override nil)))))))
        (vui-newline)
        (vui-table :columns (mapcar (lambda (c)
                                      (list :header (sp-collec-query-header-label c)

@@ -24,6 +24,8 @@
 (require 'sp-vulpea-ext)
 (require 'sp-collection-query-tables) ;; my own table modules
 
+(require 'sp-org-custom-highlight)
+
 ;;;;; Other extensions
 
 ;;;; Org Contrib
@@ -64,10 +66,12 @@
 ;; (require 'org-dataview)
 
 (use-package org-special-block-extras
-  :ensure t)
+  :ensure (org-special-block-extras
+           :host github :repo "alhassy/org-special-block-extras"
+           :files ("lisp/*.el" "lisp/tooltips.css" "lisp/tooltips.js")))
 
 ;;;; org-context
-;; Allows saving the context of an Org-mode entry, such as when refiling, 
+;; Allows saving the context of an Org-mode entry, such as when refiling,
 ;; so that entries can be restored to their original location based on that context.
 (require 'org-context)
 

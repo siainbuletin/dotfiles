@@ -6,7 +6,7 @@ Literate source for =libraries/modules/tooling/sp-embark.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 Sets up Embark, which offers a menu of actions for whatever is at point or under the minibuffer cursor (a file, a buffer, a symbol, a URL and so on), together with its Consult integration. It is loaded from =init.el= among the utility modules.
 

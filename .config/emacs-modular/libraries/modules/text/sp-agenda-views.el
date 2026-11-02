@@ -12,7 +12,11 @@
 ;;; Code:
 
 (require 'org-agenda)
+(require 'seq)
+(require 'subr-x)
 (require 'vulpea-para)
+
+(defvar sp-yadm-repo)
 
 (declare-function sp-org-issues--agenda-files "sp-org-issues")
 (declare-function org-gtd-agenda-transient "org-gtd")
@@ -134,6 +138,76 @@
       (org-agenda-overriding-header "Issues with a branch"))))
   "The issue views, as `org-agenda-custom-commands' entries.")
 
+;;;; Config files
+
+(defcustom sp-agenda-views-config-source 'yadm
+  "Where the config view finds the Org files it searches for TODO headings.
+`yadm' means the Org files tracked by the yadm repository (`sp-yadm-repo'),
+and `dirs' means every Org file below `sp-agenda-views-config-dirs'."
+  :type '(choice (const :tag "Org files tracked by yadm" yadm)
+                 (const :tag "Org files below the listed folders" dirs))
+  :group 'spcustom)
+
+(defcustom sp-agenda-views-config-dirs
+  '("~/.config/emacs-modular/" "~/adr/")
+  "Folders searched by the config view when the source is `dirs'."
+  :type '(repeat directory)
+  :group 'spcustom)
+
+(defun sp-agenda-views--yadm-org-files ()
+  "Return the Org files tracked by yadm, as absolute names."
+  (let ((default-directory (file-name-as-directory (expand-file-name "~"))))
+    (with-temp-buffer
+      (when (zerop (process-file "git" nil t nil
+                                 (concat "--git-dir=" (expand-file-name sp-yadm-repo))
+                                 (concat "--work-tree=" default-directory)
+                                 "ls-files" "-z" "--" "*.org"))
+        (mapcar (lambda (file) (expand-file-name file default-directory))
+                (split-string (buffer-string) "\0" t))))))
+
+(defun sp-agenda-views--dirs-org-files ()
+  "Return the Org files below `sp-agenda-views-config-dirs'."
+  (seq-mapcat (lambda (dir)
+                (when (file-directory-p dir)
+                  (directory-files-recursively (expand-file-name dir) "\\.org\\'")))
+              sp-agenda-views-config-dirs))
+
+(defun sp-agenda-views-config-files ()
+  "Return the existing Org files of my configuration, without lock files."
+  (let ((files (seq-filter
+                (lambda (file)
+                  (and (file-regular-p file)
+                       (not (string-prefix-p ".#" (file-name-nondirectory file)))))
+                (if (eq sp-agenda-views-config-source 'yadm)
+                    (sp-agenda-views--yadm-org-files)
+                  (sp-agenda-views--dirs-org-files)))))
+    (or (delete-dups files)
+        (user-error "No Org files found for the config view (source: %s)"
+                    sp-agenda-views-config-source))))
+
+(defun sp-agenda-views-file-title ()
+  "Return the `#+title:' of the current buffer, as a 36 character column.
+Fall back to the file name when the file has no title.  Meant for
+`org-agenda-prefix-format', which runs it with point on the entry."
+  (let ((title (save-excursion
+                 (save-restriction
+                   (widen)
+                   (goto-char (point-min))
+                   (when (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
+                     (string-trim (match-string 1)))))))
+    (truncate-string-to-width
+     (or title (file-name-base (or (buffer-file-name (buffer-base-buffer)) "")))
+     36 nil ?\s "…")))
+
+(defconst sp-agenda-views-config
+  '(("c" "Config TODOs" todo ""
+     ((org-agenda-files (sp-agenda-views-config-files))
+      (vulpea-para-agenda-inhibit-files-update t)
+      (org-agenda-prefix-format '((todo . " %(sp-agenda-views-file-title) ")))
+      (org-agenda-overriding-header "TODOs in the config files")
+      (org-agenda-buffer-name "*Config TODOs*"))))
+  "The config view, as an `org-agenda-custom-commands' entry.")
+
 (autoload 'org-ql-block "org-ql")
 
 (defconst sp-agenda-views-ql
@@ -160,6 +234,7 @@
       (append sp-agenda-views-para
               sp-agenda-views-native
               sp-agenda-views-ql
+              sp-agenda-views-config
               (when (featurep 'sp-org-issues)
                 sp-agenda-views-issues)))
 

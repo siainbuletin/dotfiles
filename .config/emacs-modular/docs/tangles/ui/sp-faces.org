@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-faces.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module gathers settings that change how text and the cursor look: outline heading faces in Lisp files, SVG tags in code, TODO and number highlighting, a TODO navigation transient, pulsing the current line after jumps, and highlighting of edited regions with Goggles. It also defines a small =what-face= helper for inspecting faces.
 

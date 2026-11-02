@@ -6,7 +6,7 @@ Literate source for =libraries/modules/ui/sp-theme-engine.el=.
 
 - Every line of the module lives in the =emacs-lisp= blocks below, in order.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../../README.org::*Tangling the literate files][Tangling the literate files]] in the README.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
 This module builds the themes of the =sp= family, =sp-dark= and =sp-light= (files in =libraries/themes/sp/=). A theme there is three lines: the engine, a flavor and a name. Everything else is data that can be edited:
 

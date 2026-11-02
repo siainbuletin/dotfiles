@@ -239,7 +239,10 @@ the order of `sp-late-modules', for example when debugging."
     sp-academic
     sp-notes
     sp-trails ;; For gathering links from browser sessions
+    sp-browsing ;; consult-omni searches (web, local notes, scholarly sources)
+    sp-trails-search ;; search from a trail and record chosen results (after sp-trails and sp-browsing)
     sp-semantic
+    sp-tab-psearch ;; p-search over the tab inbox (after sp-semantic, sp-search and sp-tab-inbox)
     ;; Graphs of notes: discourse-graphs, vulpea-graph, the relationship
     ;; annotator and its live localhost view, in one module.
     sp-graphs
@@ -256,7 +259,6 @@ the order of `sp-late-modules', for example when debugging."
     sp-terminal
     sp-eshell
     sp-org-tag-groups ;; tags as emoji in the modeline and on links
-    sp-thesis-dump
     sp-typst ;; PDF of the docs and of Org files through Typst
     )
   "Modules that can wait until after startup, in dependency order.
@@ -387,9 +389,13 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-helper-funct
                     'sp-open-externally
                     'sp-move-region-to-heading
+                    'sp-refile ;; one command: refile, split into a note, merge a note
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
                     'sp-org-link-conversion
+                    'sp-async-work ;; long jobs in slices, with mode-line progress (author and litnote commands)
+                    'sp-author-notes ;; author notes and Works tables from pub-author (preview first)
+                    'sp-author-notes-bibtex ;; BibTeX works of an author with no litnote yet, offers to create it
                     'sp-org-lint
 
                     ;; Programming modules

@@ -159,11 +159,11 @@
 
 (use-package git-gutter
   :ensure t
-  
+
   :config
   (global-git-gutter-mode t)
   (setq git-gutter:update-interval 0.2)
-  
+
   :hook
   (prog-mode . git-gutter-mode)
 )
@@ -171,7 +171,7 @@
 ;; this will ensure that there's a git gutter in dired
 (use-package git-gutter-fringe
   :ensure t)
-         
+
 (global-set-key
  (kbd "C-c b")
  (lambda ()

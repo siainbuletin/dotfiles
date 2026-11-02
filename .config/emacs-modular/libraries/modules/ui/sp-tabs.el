@@ -113,7 +113,7 @@ questions.  Otherwise use completion to select the tab."
   :hook (after-init . tabspaces-mode)
   :commands (tabspaces-switch-or-create-workspace
              tabspaces-open-or-create-project-and-workspace)
-  
+
   :custom
   (tabspaces-use-filtered-buffers-as-default t)
   (tabspaces-default-tab "Home")
@@ -121,12 +121,12 @@ questions.  Otherwise use completion to select the tab."
   (tabspaces-include-buffers '("*scratch*"))
   (tabspaces-initialize-project-with-todo t)
   (tabspaces-todo-file-name "project-todo.org")
-  
+
   ;; sessions
   (tabspaces-session t)
   (tabspaces-session-auto-restore t)
   (tabspaces-session-file (expand-file-name "tabspaces-session.eld" sp-var-dir))
-  
+
   ;; additional options
   (tabspaces-fully-resolve-paths t)  ; Resolve relative project paths to absolute
   (tabspaces-exclude-buffers '("*Messages*" "*Compile-Log*"))  ; Additional buffers to exclude

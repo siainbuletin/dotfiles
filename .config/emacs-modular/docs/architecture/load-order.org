@@ -40,13 +40,13 @@ digraph modules {
     o2 [label="sp-org-export  sp-org-narrow  sp-org-id-link\nsp-org-tables\n(htmlize, ox-pandoc)"];
     o3 [label="sp-org-agenda\n(org-other-agenda, elegant-agenda-mode)\ndeclares first: org-super-agenda (:wait t)\nthen: org-ql (requires org-super-agenda)"];
     o4 [label="sp-org-taskman-extra\n(org-edna, then org-gtd)"];
-    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext\n(vulpea-ext requires sp-split-leave-parents,\nnow in funct/)"];
+    o5 [label="sp-org-ext\nrequires: org-node-mem, vulpea-base,\nvulpea-ui, vulpea-para,\nvulpea-schemas, vulpea-ext\n(vulpea-ext requires sp-refile,\nnow in funct/)"];
     o6 [label="sp-csv  sp-org-normalise\nsp-org-issues"];
     o7 [label="sp-org-capture  sp-agenda-views\n(last: each assigns its variable once)"];
     o1 -> o2 -> o3 -> o4 -> o5 -> o6 -> o7;
   }
   subgraph cluster_5 { label="5  Functions, programming and AI"; style=rounded; color="#999999"; fontname="Helvetica";
-    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-org-lint"];
+    f1 [label="sp-helper-funct  sp-open-externally\nsp-move-region-to-heading  sp-tab-inbox\nsp-org-tag-lint  sp-org-link-conversion\nsp-async-work  sp-org-lint"];
     g1 [label="sp-base-code"];
     g2 [label="sp-lisp\n(paredit)"];
     g3 [label="sp-prog-misc\n(emr)"];
@@ -55,10 +55,10 @@ digraph modules {
   }
   subgraph cluster_6 { label="6  Late: loaded when Emacs is idle after startup"; style="rounded,dashed"; color="#3a6ea5"; fontcolor="#3a6ea5"; fontname="Helvetica";
 
-    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
+    l1 [label="sp-academic  sp-notes  sp-trails  sp-semantic\nsp-tab-psearch  sp-graphs  sp-embr\n(org-ref, citar-org-node, ...)", color="#3a6ea5"];
     l2 [label="sp-sandbox", color="#3a6ea5"];
     l3 [label="sp-vcontrol  →  sp-magit-style  sp-merge-pick\n(magit, forge, code-review)", color="#3a6ea5"];
-    l4 [label="sp-terminal  sp-eshell\nsp-org-tag-groups  sp-thesis-dump\nsp-typst", color="#3a6ea5"];
+    l4 [label="sp-terminal  sp-eshell\nsp-org-tag-groups\nsp-typst", color="#3a6ea5"];
     lx [label="the list is sp-late-modules\n(sp-defer-late-modules)\nrequired from elpaca-after-init-hook,\nthen elpaca-process-queues", shape=note, fillcolor="#e8f0f8", color="#3a6ea5"];
     l4 -> lx [style=dotted, arrowhead=none];
     l1 -> l2 -> l3 -> l4;
@@ -153,7 +153,7 @@ The =Package-Requires= headers were read from each package's upstream repository
 
 ** Late modules
 
-The list of modules that load after startup is the variable =sp-late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. At the time of writing it holds =sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-graphs= (graphs of notes, including the relationship annotator and its live view), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-org-tag-groups= and =sp-thesis-dump=, =sp-typst=, in dependency order (=sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=). =sp-ai= is not in it: it starts the MCP servers that Claude connects to, so it loads with the startup modules (see [[file:../tangles/media/sp-ai.org][sp-ai]]). =lem--default-modules= requires everything else and then calls =sp-schedule-late-modules=, which:
+The list of modules that load after startup is the variable =sp-late-modules= in =init.el=; =sp-defer-late-modules= (default =t=) switches the deferral on. At the time of writing it holds =sp-academic=, =sp-notes=, =sp-trails=, =sp-semantic=, =sp-tab-psearch= (p-search over the tab inbox), =sp-graphs= (graphs of notes, including the relationship annotator and its live view), =sp-embr=, =sp-sandbox=, =sp-vcontrol=, =sp-magit-style=, =sp-merge-pick=, =sp-terminal=, =sp-eshell=, =sp-org-tag-groups= and =sp-typst=, in dependency order (=sp-vcontrol= before =sp-magit-style= and =sp-merge-pick=). =sp-ai= is not in it: it starts the MCP servers that Claude connects to, so it loads with the startup modules (see [[file:../tangles/media/sp-ai.org][sp-ai]]). =lem--default-modules= requires everything else and then calls =sp-schedule-late-modules=, which:
 
 1. adds a function to =elpaca-after-init-hook=, so nothing is queued before Elpaca has finished the packages of the early modules;
 2. from there, waits for Emacs to be idle for 0.5 seconds, then requires each late module (a failing one is logged and the rest still load);
@@ -200,7 +200,7 @@ Elpaca keeps one order per package. A second =:ensure t= for the same package is
 Two further errors in the same log were order problems inside a module:
 
 - *=sp-academic=* defined =sp-bibliography=, =sp-bib-notes= and =sp-citar-note= after it required =sp-citations= and =sp-litnotes=. It is a late module, and Elpaca runs the =:init= of a package once it is installed, which can be while the rest of the file is still loading (this is the likely cause; I could not run Emacs to confirm it), so =citar-denote= read =sp-bibliography= while it was void. The three =defcustom= forms are now the first thing in the file.
-- *=code-review=* is declared after =forge= but loaded without waiting for it, and its database class needs =emacsql-sqlite-connection=. It now has =:after forge= and requires =emacsql-sqlite= first.
+- *=code-review=* is declared after =forge= but loaded without waiting for it, and its database class needs =emacsql-sqlite-connection=. =:after forge= plus a =require= of =emacsql-sqlite= did not fix it (2026-11-02: the class is still missing, and the load broke Magit). It is now deferred (=:defer t=) and loads only when a review starts; see the =sp-vcontrol= doc.
 
 ** =sp-fetch-academic= loads inside =sp-academic=
 
@@ -214,7 +214,7 @@ The order inside the UI, tooling and Org groups is unchanged, because I found no
 1. Find what its packages require (the =Package-Requires= header of each).
 2. If a required package is installed by another module, put the new module after it. If it is a package you install in the same module, declare it first.
 3. If the rest of init needs the package at load time, give it =:ensure (:wait t)= and keep it near the top. If it is only used interactively, add the module to =sp-late-modules= instead.
-4. Add it to the graph above and to the module tree in [[file:../main.org][main.org]].
+4. Add it to the graph above and to the module tree in [[file:../../README.org][README.org]].
 
 * What has been checked
 

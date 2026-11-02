@@ -188,10 +188,10 @@ when the workspace is created."
   (setq projectile-project-search-path
         (list (sp-path sp-documents-dir "writing/")
               "~/.config/"))
-  
+
   :config
   (projectile-mode +1)
-  
+
   :bind (("C-c p" . projectile-command-map)
          :map projectile-mode-map
          ("C-c C-p" . projectile-command-map)
@@ -202,7 +202,13 @@ when the workspace is created."
   :custom
   (projectile-project-search-path (list sp-git-dir sp-src-dir))
   (projectile-enable-caching t)
+  ;; Known projects are kept; the visit counts and the project.el list can be
+  ;; rebuilt.
+  (projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" sp-etc-dir))
+  (projectile-frecency-file (expand-file-name "projectile-frecency.eld" sp-cache-dir))
   )
+
+(setq project-list-file (expand-file-name "project-list" sp-cache-dir))
 
 (provide 'sp-workspaces)
 ;; sp-workspaces.el ends here.
