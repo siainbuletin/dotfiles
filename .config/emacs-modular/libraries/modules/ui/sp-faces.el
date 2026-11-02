@@ -3,7 +3,7 @@
 ;;; Commentary:
 
 ;; This module gathers settings that change how text and the cursor look:
-;; outline heading faces in Lisp files, SVG tags in code, TODO and number
+;; outline heading faces in Lisp files, TODO and number
 ;; highlighting, a TODO navigation transient, pulsing the current line after
 ;; jumps, and highlighting of edited regions with Goggles. It also defines a
 ;; small `what-face' helper for inspecting faces.
@@ -37,23 +37,6 @@
   :config
   (setq reveal-auto-hide nil)
   (global-reveal-mode))
-
-;;;; SVG Library (For Tags/Labels/etc.)
-;;;;; SVG Tag Mode
-(use-package svg-tag-mode
-  :ensure t
-  :when (image-type-available-p 'svg)
-  :config
-  (setq svg-tag-tags
-        '(;; Replaces any occurence of :XXX: with a dynamic SVG tag displaying XXX
-          ("\\(:[A-Z]+:\\)" . ((lambda (tag)
-                                 (svg-tag-make tag :face 'success :inverse t :beg 1 :end -1))))
-          ;; other tags
-          ("DONE:"  . ((lambda (tag) (svg-tag-make "DONE:"  :face 'fringe  :inverse t ))))
-          ("FIXME:" . ((lambda (tag) (svg-tag-make "FIXME:" :face 'error   :inverse t))))
-          ("HACK:"  . ((lambda (tag) (svg-tag-make "HACK:"  :face 'warning :inverse t))))
-          ("NOTE:"  . ((lambda (tag) (svg-tag-make "NOTE:"  :face 'warning :inverse t))))
-          ("TODO:"  . ((lambda (tag) (svg-tag-make "TODO:"  :face 'warning :inverse t)))))))
 
 ;;;; Widgets
 (use-package wid-edit

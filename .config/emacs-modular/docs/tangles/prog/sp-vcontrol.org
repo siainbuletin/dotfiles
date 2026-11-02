@@ -150,3 +150,9 @@ Provides the =sp-vcontrol= feature and closes the file.
 (provide 'sp-vcontrol)
 ;; sp-vcontrol.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/244][#244]] 🐛 Fixed =M-x yadm= (Magit) failing with =Given parent class emacsql-sqlite-connection is not a class=: =code-review= is now deferred and loads only when a review starts, instead of when Forge loads (the earlier =:after forge= and =require= of =emacsql-sqlite= did not help). Follows #87 and #30. Not run in Emacs (none in the container); the version mismatch behind it is not confirmed.

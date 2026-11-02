@@ -537,3 +537,10 @@ Provides the =sp-globals= feature, and =sp-paths= as well, and closes the file.
 (provide 'sp-globals)
 ;; sp-globals.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/187][#187]] 🔧 Changed where state files live: =vulpea.db=, =discourse-graphs.db= and =savehist= are in =var/=, =bookmarks= is in =libraries/lambda-user/= (user data, tracked), the projectile and project.el lists are in =var/etc/= and =var/cache/=, and the stray =.db=, =.eld=, =amx-items= and =savehist= files are no longer tracked or are ignored at the root. =savehist-file= is now set before the mode starts. Details and the commands to copy your files first: [[file:sp-globals.org::*State files: where each one lives][=sp-globals= doc, State files]].
+- [[https://github.com/siainbuletin/dotfiles/pull/241][#241]] 🐛 Fixed =citar-notes-paths should be a list of directories= on citation insert: the default of =sp-bib-notes= was the quoted form =(sp-path sp-notes-dir "litnotes/")=, which citar received unevaluated. It is now the evaluated path (=~/notes/litnotes/=) with =:type 'directory=. Test: =tests/sp-globals-test.el=.

@@ -39,6 +39,12 @@ Magit (styled by =sp-magit-style=) stays for staging, small commits and messages
 
 =sp-vc-ai-workbench= (=libraries/modules/custom/=, literate source in =docs/tangles/custom/=) gives each task on my extension repositories its own git worktree, notes file and Claude Code session, for brainstorming only. The tools above handle what Claude produces in cloud sessions; both meet at the git worktree. It is commented out in =init.el= and has never been run. See [[file:adr/0008-workbench-for-brainstorming-only.org][0008]].
 
+** Homelab configuration
+
+Configuration for the services that run on my Synology NAS lives here too, as literate Org files that tangle to the files the NAS needs. Each folder has a script that tangles its Org file and copies the result to the NAS with =scp=; it runs from a shell, or from Emacs with =M-x compile= or =M-x async-shell-command=.
+
+- *beets* (music library manager, in Container Manager): [[file:.config/beets/beets.org][.config/beets/beets.org]] tangles the beets =config.yaml= and the Container Manager =compose.yaml= into =.config/beets/synology/=, and [[file:.config/beets/deploy-to-synology.sh][.config/beets/deploy-to-synology.sh]] copies them to =/volume1/docker/beets=. API keys go in a =secrets.yaml= that is kept out of the repository.
+
 ** Required software to install
 
 All names for the software are listed as they can be found either in the official Arch Linux repository or in the AUR. All may be downloadable through =pacman= or =paru= (prefered AUR helper in this case).

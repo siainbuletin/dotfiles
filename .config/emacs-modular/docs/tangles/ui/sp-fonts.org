@@ -869,3 +869,9 @@ Also note that adding a little extra space between lines makes text files easier
 #+begin_src emacs-lisp :tangle no
   (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/220][#220]] ✨ Added =M-x sp-font-cycle= to =sp-fonts=: a transient menu that previews fonts (left and right) and sizes (up and down) by kind (=k=): =mono= (every fixed-width font of the system, the start), =proportional= (the =variable-pitch= face, for prose), =curated= (=sp-font-cycle-families=) and =all=; the system lists work on macOS, Linux and Windows (=font-family-list=, fixed width found by glyph advance, hidden dot and =@= fonts skipped). =s= writes the previewed family and height into a fontaine preset (the current one by default; the variable-pitch family and height for =proportional=) in =docs/tangles/ui/sp-fonts.org= and =libraries/modules/ui/sp-fonts.el=, updates its row in the preset table and offers to reload the module; =y= copies the =set-face-attribute= form; =r= restores. 🔧 Added a =writing= preset (larger =Charter= variable-pitch font, more line spacing; a first guess). No key is bound. Follows #25. The doc and module rewrite and the tangle were checked in Emacs 29.3 batch on temporary copies; the menu, the system font lists and the reload were not run in a graphical Emacs.

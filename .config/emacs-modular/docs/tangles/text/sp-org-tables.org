@@ -508,3 +508,10 @@ Provides the =sp-org-tables= feature and closes the file.
 (provide 'sp-org-tables)
 ;; sp-org-tables.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/203][#203]] ✨ Added an Obsidian-style look for Org tables in =sp-org-tables=: =org-modern-table= is off so =org-modern= no longer draws its borders over the =org-table-widget= table, zebra stripes are off, the widget's borders and header row take quiet colours blended from the current theme (=sp-org-tables-border-strength=, =sp-org-tables-header-strength=; recomputed on every theme change), and =sp-org-tables-quiet-pipes-mode= (on in Org buffers) dims the =|= separators and rule lines of the plain-text table. The widget always draws a full grid, so the borders are faint, not removed. Follows =sp-textui=. 4 ERT tests in Emacs 29.3 batch (colour blend, =org-modern-table=, dimmed pipes); tangle agrees with the module; the widget itself and the colours were not seen on screen (no graphical Emacs in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/236][#236]] 🐛 Fixed links in =org-table-widget= tables opening a menu of every link in the entry: the widget hides the row source and draws the row as an overlay string, so a click or =RET= landed on the source and Org offered the links of the whole entry. A click now follows the link under the pointer (advice on =org-open-at-mouse=); =RET= and =C-c C-o= on a row follow its link, and ask only when the row has several (=sp-org-tables-follow-link=, =sp-org-tables-open-row-link=). 5 ERT tests in Emacs 29.3 batch with a faked widget row (=tests/sp-org-tables-links-test.el=); not run with the real widget in a graphical Emacs.

@@ -87,9 +87,8 @@ centres the text with these same margins."
 ;;;;; Frame Functions
 ;;;;;; Delete Frame or Quit
 (defun sp-delete-frame-or-quit ()
-  "Delete the selected frame & kill terminal buffers. If the last frame, kill Emacs."
+  "Delete the selected frame. If the last frame, kill Emacs."
   (interactive)
-  (kill-matching-buffers "*vterm" nil t)
   (when (condition-case nil (delete-frame)
           (error (save-buffers-kill-emacs))))
   (select-frame-set-input-focus (selected-frame)))

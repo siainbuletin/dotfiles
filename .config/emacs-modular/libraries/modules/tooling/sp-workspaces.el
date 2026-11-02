@@ -105,26 +105,6 @@ when the workspace is created."
       (rename-buffer "eshell-workspace")
       (delete-other-windows))))
 
-;;;;; Terminal Workspace
-  (defun sp-vterm-workspace ()
-    "Open vterm in home dir in its own workspace"
-    (interactive)
-    (let ((default-directory "~/"))
-      (require 'multi-vterm)
-      (multi-vterm-next)))
-
-(defun sp-open-new-terminal-and-workspace ()
-  "Open an empty buffer in its own workspace"
-  (interactive)
-  (require 'tabspaces)
-  (if (member "Terminal" (tabspaces--list-tabspaces))
-      (tab-bar-switch-to-tab "Terminal")
-    (progn
-      (tab-bar-new-tab)
-      (tab-bar-rename-tab "Terminal")
-      (sp-vterm-workspace)
-      (delete-other-windows))))
-
 ;;;;; Open Mu4e Email in Workspace
 (defun sp-open-email-in-workspace ()
   "Open mu4e email in its own workspace"
@@ -175,7 +155,6 @@ when the workspace is created."
   ("2" . sp-open-emacsd-in-workspace)
   ("3" . sp-open-agenda-in-workspace)
   ("4" . sp-open-notes-in-workspace)
-  ("6" . sp-open-new-terminal-and-workspace)
   ("5" . sp-open-email-in-workspace))
 (bind-key "N" #'sp-open-new-buffer-and-workspace 'project-prefix-map)
 

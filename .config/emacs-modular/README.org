@@ -206,7 +206,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/prog/sp-plantuml.org][sp-plantuml]] :: Minimal PlantUML mode with PNG preview ([[file:libraries/modules/prog/sp-plantuml.el][sp-plantuml.el]])
 - [[file:docs/tangles/prog/sp-prog-misc.org][sp-prog-misc]] :: Miscellaneous programming packages and editor defaults ([[file:libraries/modules/prog/sp-prog-misc.el][sp-prog-misc.el]])
 - [[file:docs/tangles/prog/sp-rust.org][sp-rust]] :: Rust editing ([[file:libraries/modules/prog/sp-rust.el][sp-rust.el]])
-- [[file:docs/tangles/prog/sp-terminal.org][sp-terminal]] :: Terminal emulators (vterm and eat) ([[file:libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
+- [[file:docs/tangles/prog/sp-terminal.org][sp-terminal]] :: Terminal emulator (eat) ([[file:libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
 - [[file:docs/tangles/prog/sp-tty-clipboard.org][sp-tty-clipboard]] :: Clipboard over OSC52 for terminal frames ([[file:libraries/modules/prog/sp-tty-clipboard.el][sp-tty-clipboard.el]])
 - [[file:docs/tangles/prog/sp-vcontrol.org][sp-vcontrol]] :: Version control with Magit ([[file:libraries/modules/prog/sp-vcontrol.el][sp-vcontrol.el]])
 - [[file:docs/tangles/prog/sp-xml.org][sp-xml]] :: XML editing with nXML ([[file:libraries/modules/prog/sp-xml.el][sp-xml.el]])
@@ -599,3 +599,9 @@ One advantage of the fact that I did my configuration in only one org file which
 The easiest thing that I can do right now for this purpose is to simply use the rendering in GitHub for seeing the sections of my org document, but this isn't too fortunate.
 
 I would like to be able to export this file as a multi-page HTML document that corresponds with the different org modules that I have set up.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/188][#188]] 🔧 Changed =README.org= and =docs/main.org= into one document, =README.org= at the top of the configuration: it has the introduction, the module tree and the sandbox how-to, and the tangling how-to moved to the new =docs/tangling-instructions.org=. Removed =docs/main.org=; the module docs, =sp-sandbox=, =sp-typst= (its book now starts with =README.org=) and the architecture notes point to the new places.
