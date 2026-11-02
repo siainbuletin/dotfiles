@@ -43,7 +43,6 @@
 (use-package svg-tag-mode
   :ensure t
   :when (image-type-available-p 'svg)
-  :hook (prog-mode . svg-tag-mode)
   :config
   (setq svg-tag-tags
         '(;; Replaces any occurence of :XXX: with a dynamic SVG tag displaying XXX
