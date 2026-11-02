@@ -482,8 +482,9 @@ missing, or whose source has no colour, is a neutral grey."
                    (if hue (sp-theme-blend fg hue 0.15) fg) chip-bg dark)))
     (cons chip-bg chip-fg)))
 
-(defun sp-org-tag-group-of (tag)
-  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+(defun sp-org-tag-groups--explicit-groups (tag)
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none.
+A group name is a tag too, and it is in its own group."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
            when (or (equal tag group)
                     (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
