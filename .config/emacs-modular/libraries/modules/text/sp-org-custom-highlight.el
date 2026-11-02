@@ -9,8 +9,9 @@
 ;;; Code:
 
 (defface my-org-inline-comment
-  '((t :background "#fff3a3" :foreground "black"))
-  "Face for @@comment:...@@ inline comments.")
+  '((t :inherit lazy-highlight))
+  "Face for @@comment:...@@ inline comments.
+Inherits `lazy-highlight', which `sp-themes' tints from the theme in use.")
 
 (add-hook 'org-mode-hook
           (lambda ()
@@ -21,5 +22,17 @@
                 (2 'my-org-inline-comment prepend)
                 (3 'shadow prepend)))
              'append)))
+
+(defun my-org-insert-inline-comment ()
+  (interactive)
+  (if (use-region-p)
+      (let ((text (buffer-substring (region-beginning) (region-end))))
+        (delete-region (region-beginning) (region-end))
+        (insert "@@comment:" text "@@"))
+    (insert "@@comment:@@")
+    (backward-char 2)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c h") #'my-org-insert-inline-comment))
 
 (provide 'sp-org-custom-highlight)

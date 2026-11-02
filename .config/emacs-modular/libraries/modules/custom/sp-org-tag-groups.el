@@ -113,6 +113,13 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
   "Face of the tags at the right of a note in `sp-select-note'."
   :group 'spcustom)
 
+(defface sp-org-tag-groups-select-emoji-face
+  '((t :inherit default :height 0.8))
+  "Face of the emoji in front of a title in `sp-select-note'.
+Colour emoji fonts have taller glyphs than the text font, so a height
+below 1.0 makes them match the surrounding text."
+  :group 'spcustom)
+
 ;;;; Matching rules
 (defun sp-org-tag-groups--rule-tags (rule)
   "The list of tags RULE requires."
@@ -493,7 +500,10 @@ tag list instead of once per note."
   "NOTE's title with the emoji of its tags in front."
   (let ((emoji (sp-org-tag-groups--note-emoji note))
         (title (vulpea-note-title note)))
-    (if (string-empty-p emoji) title (concat emoji " " title))))
+    (if (string-empty-p emoji)
+        title
+      (concat (propertize emoji 'face 'sp-org-tag-groups-select-emoji-face)
+              " " title))))
 
 (defvar sp-org-tag-groups--select-columns nil
   "Width in columns of the tag column while `sp-select-note' runs.")

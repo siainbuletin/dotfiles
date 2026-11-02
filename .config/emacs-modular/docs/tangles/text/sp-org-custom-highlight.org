@@ -35,12 +35,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 Org’s export snippet syntax ~@@backend:text@@~ is inline, and if no backend is named comment, every exporter drops it. That makes ~@@comment:like this@@~ a native inline comment that never appears in exported output. Org doesn’t style it by default, so add a font-lock rule:
 
-Defines =my-org-inline-comment=, a face with a pale yellow background and black text, like a highlighter mark. The colours are fixed, so on a dark theme the box will be bright.
+Defines =my-org-inline-comment=, which inherits =lazy-highlight=. That face is themed by =sp-themes= (see /Search highlight that follows the theme/ in [[file:../ui/sp-themes.org][its doc]]): the =sp-dark= and =sp-light= themes take it from their palette, any other theme gets a tint of its keyword colour over its background. So the comment box follows the theme and is no longer fixed pale yellow. The inheriting face updates by itself on a theme change, with no hook.
 
 #+begin_src emacs-lisp -i
 (defface my-org-inline-comment
-  '((t :background "#fff3a3" :foreground "black"))
-  "Face for @@comment:...@@ inline comments.")
+  '((t :inherit lazy-highlight))
+  "Face for @@comment:...@@ inline comments.
+Inherits `lazy-highlight', which `sp-themes' tints from the theme in use.")
 #+end_src
 
 ** Font-lock rule in Org buffers
