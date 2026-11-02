@@ -506,5 +506,52 @@ one week to the next, unchecking them at the same time"
               (sp-org-point-strictly-in-link-p))))
     (apply fn args)))
 
+;;;; Dynamic block templates
+(defgroup sp-org-dblock nil
+  "Inserting Org dynamic blocks from named templates."
+  :group 'org)
+
+(defcustom sp-org-dblock-templates
+  '(("Children of this note"
+     :name "collection-query-table"
+     :parent-of self
+     :columns (:title)
+     :sort-by :title))
+  "Named templates for `sp-org-dblock-insert-template'.
+Each element is (LABEL . PLIST).  PLIST is what `org-create-dblock'
+takes: :name is the dynamic block name and the other keys are its
+parameters.  For a `collection-query-table' block, `:parent-of self'
+means the note the block is in."
+  :type '(alist :key-type (string :tag "Label")
+                :value-type (plist :tag "Dynamic block"))
+  :group 'sp-org-dblock)
+
+(defcustom sp-org-dblock-update-after-insert t
+  "Non-nil to update a dynamic block right after inserting it (`C-c C-x C-u')."
+  :type 'boolean
+  :group 'sp-org-dblock)
+
+(defun sp-org-dblock-insert-template (label)
+  "Insert the dynamic block template LABEL at point.
+LABEL is picked with completion from `sp-org-dblock-templates'.  The
+block is filled in when `sp-org-dblock-update-after-insert' is non-nil,
+and point ends on its #+BEGIN line."
+  (interactive
+   (list (completing-read "Dynamic block template: "
+                          (mapcar #'car sp-org-dblock-templates) nil t)))
+  (let ((template (cdr (assoc label sp-org-dblock-templates))))
+    (unless template
+      (user-error "No dynamic block template named %S" label))
+    (unless (derived-mode-p 'org-mode)
+      (user-error "Dynamic blocks can only be inserted in Org buffers"))
+    (unless (bolp) (insert "\n"))
+    (org-create-dblock (copy-tree template))
+    (when sp-org-dblock-update-after-insert
+      (org-update-dblock))
+    (beginning-of-line)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template))
+
 (provide 'sp-org-base)
 ;; sp-org-base.el ends here.

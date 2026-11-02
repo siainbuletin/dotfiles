@@ -895,6 +895,63 @@ Advises =org-return= so =org-return-follows-link= only applies when point is str
     (apply fn args)))
 #+end_src
 
+* Dynamic block templates
+
+Named templates for Org dynamic blocks, so a block can be inserted on the fly without typing its parameters. Each template is =(LABEL . PLIST)=. The plist is what =org-create-dblock= takes: =:name= is the dynamic block's name, and every other key is a block parameter.
+
+Add templates by customizing =sp-org-dblock-templates= (=M-x customize-variable=) or with =add-to-list=. The default =collection-query-table= template lists the children of the note it is inserted in. It uses =:parent-of self=, which =sp-collection-query-tables= resolves on every update to the ID of the note the block is in (it adds an ID to the note if it has none), so the block keeps working when copied to another note.
+
+=M-x sp-org-dblock-insert-template= (also =C-c C-x t= in Org buffers) picks a template with completion, inserts it at point and, by default, updates it.
+
+#+begin_src emacs-lisp -i
+;;;; Dynamic block templates
+(defgroup sp-org-dblock nil
+  "Inserting Org dynamic blocks from named templates."
+  :group 'org)
+
+(defcustom sp-org-dblock-templates
+  '(("Children of this note"
+     :name "collection-query-table"
+     :parent-of self
+     :columns (:title)
+     :sort-by :title))
+  "Named templates for `sp-org-dblock-insert-template'.
+Each element is (LABEL . PLIST).  PLIST is what `org-create-dblock'
+takes: :name is the dynamic block name and the other keys are its
+parameters.  For a `collection-query-table' block, `:parent-of self'
+means the note the block is in."
+  :type '(alist :key-type (string :tag "Label")
+                :value-type (plist :tag "Dynamic block"))
+  :group 'sp-org-dblock)
+
+(defcustom sp-org-dblock-update-after-insert t
+  "Non-nil to update a dynamic block right after inserting it (`C-c C-x C-u')."
+  :type 'boolean
+  :group 'sp-org-dblock)
+
+(defun sp-org-dblock-insert-template (label)
+  "Insert the dynamic block template LABEL at point.
+LABEL is picked with completion from `sp-org-dblock-templates'.  The
+block is filled in when `sp-org-dblock-update-after-insert' is non-nil,
+and point ends on its #+BEGIN line."
+  (interactive
+   (list (completing-read "Dynamic block template: "
+                          (mapcar #'car sp-org-dblock-templates) nil t)))
+  (let ((template (cdr (assoc label sp-org-dblock-templates))))
+    (unless template
+      (user-error "No dynamic block template named %S" label))
+    (unless (derived-mode-p 'org-mode)
+      (user-error "Dynamic blocks can only be inserted in Org buffers"))
+    (unless (bolp) (insert "\n"))
+    (org-create-dblock (copy-tree template))
+    (when sp-org-dblock-update-after-insert
+      (org-update-dblock))
+    (beginning-of-line)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c C-x t") #'sp-org-dblock-insert-template))
+#+end_src
+
 * Provide
 
 Provides the =sp-org-base= feature and closes the file.
