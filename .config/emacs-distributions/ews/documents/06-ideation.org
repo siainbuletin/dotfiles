@@ -3,35 +3,8 @@
 #+bibliography: emacs-writing-studio.bib
 #+todo:         DRAFT EDITED | REVIEWED FINAL
 #+macro:        ews /Emacs Writing Studio/
-:NOTES:
-- [X] [[denote:20230907T074555][Note-taking methodologies]]
-- [X] One file vs multiple files
-- [X] [[denote:20220918T055032][Building a Second Brain]]
-- [X] [[https://en.wikipedia.org/wiki/Commonplace_book][Commonplace book - Wikipedia]]
-- [X] [[denote:20220718T175338][Zettelkasten]]
-- [X] [[denote:20230822T091357][Zettelkasten as septic tank and primordial soup]]
-- [X] [[denote:20230909T192133][Note taking habits of college students]]
-- [X] [[denote:20210728T184400][Taking Notes]]
-- [X] Fleeting notes configuration
-- [X] https://protesilaos.com/codelog/2024-03-22-re-advice-emacs-note-taking/
-:END:
 
-As you read literature, websites, or consume any other source of information, you might like to take notes about what you have learned. Perhaps a random inspiration strikes, and a thought pops into your mind. Note-taking has become a popular topic in recent years. The market for ideas is flooded with methods for taking and maintaining notes, all promising to create a digital second brain, also known as a Zettelkasten.
-
-This chapter explains how to use the Org and Denote packages to keep an electronic notebook and cultivate your digital ideas garden. The combination of these packages empowers you to collect notes, maintain a personal diary or journal, write a literature review, record laboratory results in a notebook, or any other imaginable use case. The approach described in this chapter is agnostic to any formal method. Emacs is flexible enough to allow you to implement almost any workflow you prefer.
-
-This first part of this chapter explains how to use Org as a frictionless note-taking tool, using a single file to capture your thoughts. The remainder of the chapter describes the Denote package ecosystem, as developed by Protesilaos (Prot) Stavrou and others. This package offers flexibility in managing a comprehensive collection of textual notes and other file types, enabling developing an interconnected second brain.
-
-* Thoughts on taking notes
-:PROPERTIES:
-:WORDCOUNT: 816
-:ID:       c174a092-52b0-453e-99d1-1e1c173f816a
-:END:
-Before the invention of writing, our ancestors shared knowledge by memorisation. People from these prehistoric cultures could recite thousands of lines from great works, such as the Iliad and the Mahabharata, and other epics from memory, aided by songs and rhymes [cite:@kelly_2016]. Words that rhyme are much easier to remember than plain prose. We can memorise hours of song lyrics flawlessly but fail to memorise a shopping list. When writing became common, the Greek philosopher Socrates lamented in his dialogue with /Phaedrus/ that it erodes our memory. More recent insights show that Socrates' argument was factually correct [cite:@kahn_1997_phaedrus].
-
-However, writing has freed our minds from being a storehouse of factual knowledge to being a creative machine. Human development accelerated when writing allowed people to free their minds from facts and use this brainpower to create new ideas. Productivity guru David Allen expressed it succinctly when he wrote, "The mind is for having ideas, not for holding them" [cite:@allen_2005]. Philosophers refer to Allen's intuition as the /extended mind thesis/, which suggests that the mind does not exclusively reside in the body but extends into the physical world [cite:@clark_1998], leading to the concept of the second brain.
-
-Taking notes to extend the fragility of human memory is as old as the art of writing itself. Since the 1970s, humanity has transitioned from writing words on paper to storing them electronically. In recent years, the need to keep notes has given rise to a cottage industry of blogs, books, YouTube channels, and note-taking applications to help people organise their minds and lives. Whether Luhmann's /Zettelkasten/, Carroll's /Bullet Journal/, or Forte's /Second Brain/, they all claim to solve personal knowledge management challenges by following a specific method [cite:@forte_2022;@kadavy_2021;@ryder_2021;].
+[cite:@forte_2022;@kadavy_2021;@ryder_2021;].
 
 These rigid workflows inevitably lead to failure because everybody has different needs. When taking notes creatively, the formal workflow only matters little. As your collection of notes expands, your methodology emerges organically. So, rather than worrying about some method promoted online, start writing and creating a process as your needs evolve.
 
@@ -51,21 +24,8 @@ The practical reality of taking notes is that we can distinguish between two cat
 :CUSTOM_ID: sec-fleeting
 :ID:       2e98750f-b16d-4210-bac0-8f0aef85090f
 :END:
-Fleeting notes capture the unexpected ideas that flit through the mind at unpredictable moments. A sudden insight, a movie quote, a to-do list reminder or anything else. These fleeting notes are temporary parking spots for thoughts. They might be ideas for a future project, tasks to complete, or something interesting to revisit later. A frictionless capture system, such as a trusty paper notebook, a phone app, or even the back of our hand, prevents these ideas from disappearing.
 
-The need to take fleeting notes also arises while using Emacs. Imagine writing a book when you suddenly remind yourself that you need to buy some milk; Org capture mode lets you capture this fleeting thought with just a few keystrokes, saving it for future review without derailing your current focus.
 
-Capturing a fleeting note with Org's capture feature is frictionless. Press =C-c c= (~org-capture~), and a selection screen pops up. Select 'Fleeting Note' with =f=, write your thoughts into the popup buffer, and press =C-c C-c= to save the note under the 'Notes' heading in your inbox as a list item. The capture system adds consecutive fleeting notes below the previous ones. If you decide it is not worth storing this thought, press =C-c C-k= to cancel the input.
-
-Once you're done, Emacs returns to where you left off, and you can happily proceed with your work with minimal disruption. The capture menu also has an option to add an item to your to-do list, stored in the same file but under a different heading. Chapter [[#chap-admin]] discusses managing projects and action lists.
-
-The ~org-default-notes-file~ variable defines the name and location of the inbox. By default, this variable is =~/.notes=. The dot indicates that this file is hidden. You can customise this variable to set your preferred inbox filename. The file is automatically created when you first use the capture mechanism. You are, of course, free to directly add other information to this file outside the capture system.
-
-As you create more fleeting notes, your inbox steadily fills with random musings. Undertaking a weekly review is a good habit to keep your inbox as empty as possible. This review involves converting promising thoughts to a permanent note or trashing them after they expire. Ideally, your inbox should trend towards zero content, as discussed in chapter [[#chap-admin]].
-
-You can use the universal argument with the ~org-capture~ command (=C-u C-c c=) to jump to the file for your chosen template. Using a double universal argument jumps to the most recently captured item (=C-u C-u C-c c=). Adding information through the capture system also creates a bookmark so you can find your latest notes with =C-x r b= (~bookmark-jump~) and select the =org-capture-last-stored= option.
-
-The capture functionality is a versatile system that enables you to create templates for various notes. EWS only defines two types of fleeting notes, but you can customise this system to add bespoke capture templates. You could, for example, create a separate entry for a shopping list and synchronise that file to your phone. Org opens the customisation screen for the ~org-capture-templates~ variable with =C-c c C=, which includes an extensive help file that describes the myriad of capture options. The Org manual (=C-h R org <Ret> g capture=) discusses developing capture templates in detail.
 
 * EDITED Permanent notes
 :PROPERTIES:
@@ -142,6 +102,7 @@ Using one large file for your notes is a great way to start commuting your thoug
 :WORDCOUNT: 4470
 :CUSTOM_ID: sec-denote
 :END:
+
 Using a single file is a nice way to start your journey, but once these files grow to gargantuan sizes, they become unwieldy. Most note-taking systems, therefore, use separate files to create a network of ideas. Emacs users have developed a slew of packages to write and manage collections of notes. EWS uses the Denote package. This package does not enforce any specific methodology or workflow. It can process both written notes in three plain text formats and binary files, such as photographs, PDF files, or any other file type you would like to store in your digital archive.
 
 The Denote package categorises your files using keywords. There is also an option to add a signature, which can designate a semantic order. Notes can also link to each other to form a network of thoughts. With these three mechanisms, you can use Denote to create an organic digital garden or implement a formal system, such as the Zettelkasten, Johnny.Decimal, or PARA method, or work according to your personal preferences.
