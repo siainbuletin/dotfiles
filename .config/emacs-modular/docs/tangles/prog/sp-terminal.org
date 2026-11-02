@@ -1,4 +1,4 @@
-#+TITLE: sp-terminal.el: Terminal emulators (vterm and eat)
+#+TITLE: sp-terminal.el: Terminal emulator (eat)
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/prog/sp-terminal.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
@@ -8,15 +8,10 @@ Literate source for =libraries/modules/prog/sp-terminal.el=.
 - The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
 - To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
 
-This module configures =vterm=, a fast terminal emulator built on the libvterm C library. It requires a compiled native module (so CMake and a C compiler on the system) and does not work on Windows, as the comment notes.
+This module installs =eat=, a terminal emulator written in Emacs Lisp, which =claude-code= in =sp-ai= waits for.
 
-This module does three things:
-
-- Styles vterm buffers to resemble the Dracula-style zsh terminal Sia uses.
-- Adds a small command to open a fresh, uniquely named vterm each time.
-- Installs =eat=, a terminal emulator written in Emacs Lisp.
-
-Both vterm and eat are terminal backends that =claude-code= in =sp-ai= waits for.
+- =vterm= is not installed (removed in the PR that follows #259): it needs a native module compiled with CMake, and with =vterm-always-compile-module= that build ran from the Elpaca queue and could block Emacs. See [[file:../../CHANGELOG.org][CHANGELOG]].
+- For scripts that do not need a terminal, use =M-x compile= or =M-x async-shell-command=.
 
 * File header
 
@@ -25,72 +20,14 @@ Both vterm and eat are terminal backends that =claude-code= in =sp-ai= waits for
 The file header: the first line carries the file name, a short summary and the =lexical-binding= cookie; then a short =;;; Commentary:= section and the =;;; Code:= marker.
 
 #+begin_src emacs-lisp -i
-;;; sp-terminal.el --- Terminal emulators (vterm and eat) -*- lexical-binding: t; -*-
+;;; sp-terminal.el --- Terminal emulator (eat) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; This module configures `vterm', a fast terminal emulator built on the
-;; libvterm C library. It requires a compiled native module (so CMake and a C
-;; compiler on the system) and does not work on Windows, as the comment notes.
+;; This module installs `eat', a terminal emulator written in Emacs Lisp (no
+;; native module). `vterm' is deliberately not installed.
 
 ;;; Code:
-#+end_src
-
-* vterm
-
-** The vterm package
-
-Installs =vterm= and sets =vterm-always-compile-module= so the native module is built without prompting.
-
-Keybindings:
-- ~C-M-S-x~ runs =siapip/start-vterm= (defined below) to open a new numbered terminal.
-- ~C-c C-x~ inside =vterm-mode-map= sends that key sequence straight to the terminal via =vterm--self-insert=, instead of letting Emacs handle it.
-- ~<f7>~ runs plain =vterm=, which reuses the default =*vterm*= buffer.
-
-The =vterm-mode= hook gives each terminal a black background and white text through =buffer-face-mode=, and enlarges the text by two steps. The two separate =:bind= keywords both take effect.
-
-#+begin_src emacs-lisp -i
-;; Does not work on Windows, but we can just avoid compiling dependencies and using it
-;; (if I'm ever forced to use Windows again for work or similar)
-(use-package vterm
-  :ensure t
-  :bind (("C-M-S-x" . siapip/start-vterm)
-         :map vterm-mode-map
-         ("C-c C-x" . 'vterm--self-insert))
-
-  :commands vterm
-
-  :custom
-  (vterm-always-compile-module t)
-
-  :hook
-  (vterm-mode . (lambda ()
-                  ;; Settings to mimic dracula I use for zsh.
-                  (setq-local buffer-face-mode-face '(:background "#000000" :foreground "#FFFFFF"))
-                  (buffer-face-mode 1)
-                  (text-scale-adjust 2)))
-
-  :bind
-  ("<f7>" . vterm))
-#+end_src
-
-** Opening numbered vterm buffers
-
-=sp-vterm-counter= is incremented on each call, and =siapip/start-vterm= opens a vterm in a buffer named =*vterm-N*=.
-
-- Every invocation gives a new terminal instead of switching to an existing one.
-- The counter never resets, so numbers keep growing during a session even if old terminals were killed.
-
-#+begin_src emacs-lisp -i
-;; Vterm counter
-(defvar sp-vterm-counter 0
-  "Counter to make unique vterm buffers.")
-(defun siapip/start-vterm ()
-    "Starts a new vterm buffer."
-  (interactive)
-  (setq sp-vterm-counter (1+ sp-vterm-counter))
-  (let ((buffer-name (format "*vterm-%d*" sp-vterm-counter)))
-    (vterm buffer-name)))
 #+end_src
 
 * EAT

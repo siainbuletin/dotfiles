@@ -22,7 +22,7 @@ The packages:
 
 Dependencies:
 
-- =claude-code= waits for =inheritenv= (from =sp-env=), =vterm= and =eat= (from =sp-terminal=).
+- =claude-code= waits for =inheritenv= (from =sp-env=) and =eat= (from =sp-terminal=).
 - =vulpea-mcp= ties this module to the Vulpea setup in =sp-vulpea-base=.
 
 * File header
@@ -74,14 +74,17 @@ Installs =gptel-agent=, which adds agent-style tool use on top of gptel. Nothing
 Installs =claude-code= from Steve Molitor's GitHub repository.
 
 - It runs the Claude Code command-line tool in a terminal buffer inside Emacs.
-- =:after= makes it load only once =inheritenv=, =vterm= and =eat= have all loaded. It can use either terminal backend, and uses inheritenv to pass the Emacs environment to the process.
-- If any of the three never loads (see the note on =inheritenv= in =sp-env=), claude-code is never configured either.
+- =:after= makes it load only once =inheritenv= and =eat= have both loaded. It uses the =eat= backend (=claude-code-terminal-backend=; vterm is no longer installed) and uses inheritenv to pass the Emacs environment to the process.
+- If either never loads (see the note on =inheritenv= in =sp-env=), claude-code is never configured either.
 
 #+begin_src emacs-lisp -i
 ;;;; claude-code
 (use-package claude-code
   :ensure (:type git :host github :repo "stevemolitor/claude-code.el")
-  :after (inheritenv vterm eat))
+  :init
+  ;; vterm is not installed (see sp-terminal): eat needs no native module.
+  (setq claude-code-terminal-backend 'eat)
+  :after (inheritenv eat))
 #+end_src
 
 ** eca

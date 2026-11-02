@@ -41,7 +41,7 @@ Magit (styled by =sp-magit-style=) stays for staging, small commits and messages
 
 ** Homelab configuration
 
-Configuration for the services that run on my Synology NAS lives here too, as literate Org files that tangle to the files the NAS needs. Each folder has a script that tangles its Org file and copies the result to the NAS with =scp=; it runs from a shell or from a terminal inside Emacs (=vterm=, =ansi-term=).
+Configuration for the services that run on my Synology NAS lives here too, as literate Org files that tangle to the files the NAS needs. Each folder has a script that tangles its Org file and copies the result to the NAS with =scp=; it runs from a shell, or from Emacs with =M-x compile= or =M-x async-shell-command=.
 
 - *beets* (music library manager, in Container Manager): [[file:.config/beets/beets.org][.config/beets/beets.org]] tangles the beets =config.yaml= and the Container Manager =compose.yaml= into =.config/beets/synology/=, and [[file:.config/beets/deploy-to-synology.sh][.config/beets/deploy-to-synology.sh]] copies them to =/volume1/docker/beets=. API keys go in a =secrets.yaml= that is kept out of the repository.
 
