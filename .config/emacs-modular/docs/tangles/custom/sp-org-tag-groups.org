@@ -94,25 +94,9 @@ These other commands call my custom =sp-select-note= or =sp-insert-note= so that
 
 ** Tag groups and their colours
 
-<<<<<<< HEAD
-=sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. 
-- Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten of Notion's tag palette (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=).
-- A tag that is in no group, or in a group without a colour, gets =default=.
-   + @@comment: which one is actually default?@@
-
-As in Notion, a colour is a pair: 
-- a light tinted background and a dark text colour on a light theme,
-- a dark muted background and a light text colour on a dark theme.
-
-How this functions here:
-- =sp-org-tag-groups-palette= holds the pairs (=(NAME LIGHT-BG LIGHT-FG DARK-BG DARK-FG)=).
-- The pairs are Notion's, written from memory, not read from a Notion source; change them there if a colour looks off.
-- The theme is read from the =background-mode= of the frame each time the selector draws, so changing the theme needs no restart.
-=======
 =sp-org-tag-groups-alist= sorts the note tags into groups by function, in the shape proposed in [[file:../../../../../adr/0020-tag-groups.org][ADR 0020]]: a list of =(GROUP TAG…)=. Each group has a colour in =sp-org-tag-groups-colors=, chosen from the ten slots of Notion's tag palette (the names, not the colours) (=default=, =gray=, =brown=, =orange=, =yellow=, =green=, =blue=, =purple=, =pink=, =red=). A tag that is in no group, or in a group without a colour, gets =default=.
 
 The colours follow the theme. =sp-org-tag-groups-palette= keeps the ten slot names, but each slot now names where its hue comes from: a face (=error=, =warning=, =success=, =link=, =link-visited=, =shadow=, =font-lock-keyword-face=), a colour string, or a mix of two of them (=(A B WEIGHT)=); =nil= is a neutral grey. The sp themes colour those faces from their palette, so the chips use the theme's reds, greens and blues, and any other theme works through the same faces. =sp-org-tag-groups-palette-entry= works out the pair for a slot: the background is the hue blended into the =default= background (22% on a light theme, 32% on a dark one), the foreground is the =default= foreground with 15% of the hue, moved towards black or white until its contrast with the background is at least 4.5. =sp-org-tag-groups--theme-changed= is on =sp-after-load-theme-hook= (like =sp-theme-update-lazy-highlight= in [[file:../ui/sp-themes.org][sp-themes]]) and drops the remembered chips, so a theme change needs no restart. A group without a slot in =sp-org-tag-groups-colors=, such as =unsorted=, gets the neutral =default=.
->>>>>>> e11bcc15b3e8af86590fc86e18b7f4d7eb35a039
 
 The registry file =sp-org-tag-registry.el= does not use =sp-org-tag-groups-alist= yet: it is still the flat =org-tag-persistent-alist=, and the two lists are kept in step by hand until the ADR is decided. Nested groups are not followed.
 
