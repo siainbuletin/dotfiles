@@ -21,6 +21,12 @@ This sub-library is called 'writedesk' because it's supposed to set up the space
 for longform writing within org-mode.
 #+end_quote
 
+Goals for developing this look:
+- readability :: The fonts should be thick enough, there should be enough space on the page, and have serif fonts in case of writing prose. The experience shall be as close as possible to that of writing in typography (in the case of writing prose).
+   + For code, I want the best readability with monospaced fonts.
+- command clarity :: Sometimes it isn't clear what happens when I use a keybinding by accident, so I want to avoid any potential data loss.
+- good documentation reading environment :: The original layout for the GNU Info pages is quite shit. I want to improve that and the appearance of EWW.  (see more in the Obsidian note about _Reading directly from Emacs_)
+
 * Header
 
 ** File header and commentary

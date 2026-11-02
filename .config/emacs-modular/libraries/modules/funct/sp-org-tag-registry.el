@@ -61,6 +61,7 @@
         ("library")
         ("zettel")
         ("thesis")
+        ("format")
         ;; sp-org-tag-add: new tags go above this line
         ))
 

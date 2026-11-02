@@ -158,3 +158,71 @@ Provides the =sp-notes= feature and closes the file.
 (provide 'sp-notes)
 ;;; sp-notes.el ends here
 #+end_src
+* Sia's commentary
+** Making this setup more fit for production notes
+
+See also [[id:39bca7ea-c3f0-4026-9ddd-cd685a9fd7e4][Drafting workflow]] and [[file:~/.config/emacs-modular/docs/tangles/ui/sp-writedesk.org][sp-writedesk.el: Writing desk: Olivetti and Writeroom]] for how to make this setup more suitable for extended research and writing
+
+*** Take the model from EWS
+
+The EWS book is written and produced with the EWS configuration and some other software listed below. The Org mode source code of the book is freely available in the =documents= folder, so you can also 'roll your own' with the Org export functionality and associated external software.
+
+The [[https://lucidmanager.org/tags/emacs][EWS website]] is the forerunner of the book and explains the configuration. There is also a [[https://www.youtube.com/playlist?list=PLGx4TR_jvOQDIT878vGDe1ElUlij3UEKI][YouTube playlist]] that demonstrates how to use /Emacs Writing Studio/.
+
+This repository is not a maintained Emacs package. It provides a starting point to develop a configuration for beginning Emacs users. More advanced users can copy ideas. The code will only be updated when there are bugs due to future changes in packages or Emacs itself.
+
+The EWS configuration follows the following principles:
+
+- Stay as close as humanly bearable to vanilla GNU Emacs
+- Leverage functionality of the latest Emacs version
+- Standard keyboard shortcuts
+- No configuration for writing code (~prog-mode~)
+- Centred around Org mode
+- No-code configuration (customisation tool instead of writing Emacs Lisp)
+ 
+Feel free to raise an issue if you have any suggestions on how to enhance the configuration, like to include additional packages useful to authors or fix some typos in the text.
+
+**** EWS Workflow
+The EWS configuration, associated website and book follow a basic workflow for authoring documents, visualised below.
+
+#+attr_html: :width 600
+[[file:documents/images/emacs-workflow.png]]
+
+- /Inspiration/ relates to reading, listening to and watching media such as e-books or lectures. Emacs can maintain and consume your bibliography or media collection.
+- /Ideation/ is the phase where we reflect on the ideas of others and develop our own. Emacs acts as a note-taking system in this phase.
+- /Production/ is the actual writing phase. EWS focuses on the capabilities of the Org mode package for writing projects.
+- /Publication/ is the last phase in which Org mode files are converted to the final product in ePub, PDF or office format.
+
+Another part of being a researcher and writer is /Administration/, which is not a phase in the process as such, but nevertheless essential. Administration in the EWS context relates to managing files and projects.
+
+**** Supporting Applications
+
+***** Inspiration
+- 
+- ~gs~ ([[https://www.ghostscript.com/][GhostScript]]) or ~mutool~ ([[https://mupdf.com/][MuPDF]]): View PDF files
+- ~pdftotext~ ([[https://poppler.freedesktop.org/][poppler-utils]]): Convert PDF to text (enable search)
+- ~soffice~ ([[https://www.libreoffice.org/][LibreOffice]]): View and create office documents
+- ~zip~: Unpack ePub documents
+- ~ddjvu~ ([[http://djvu.org/][DjVuLibre]]): View DjVu files
+- ~curl~: Reading RSS feeds
+- ~mpg321~, ~ogg123~ ([[https://www.xiph.org/][vorbis-tools]]), ~mplayer~, ~mpv~, or ~vlc~: Play music and watch videos
+     
+***** Production
+
+- ~hunspell~: Spellcheck. Also requires a hunspell dictionary
+- ~dvipng~: Preview mathematical notation (part of LaTeX)
+
+      
+***** Publication
+
+- ~convert~ ([[https://imagemagick.org/][ImageMagick]]) or =gm= ([[http://www.graphicsmagick.org/][GraphicsMagick]]): Convert image files
+- ~latex~ ([[https://www.latex-project.org/get/][TexLive, MacTex or MikTeX]]): Preview LaTeX and export Org to PDF
+- ~zip~: Create ePub and office documents
+
+**** Compiling the EWS book
+
+See [[file:~/.config/emacs-modular/docs/tangles/text/sp-typst.org][sp-typst.el: PDF of the literate docs and of Org files, typeset with Typst]]
+
+This repository contains the Org mode source files for the /Emacs Writing Studio/ book. The source files are optimised for export to PDF (using LaTeX) and ePub.
+
+To compile the book as a PDF, ePub you need the EWS configuration and the required supporting applications listed above. You will also need the [[https://graphviz.org/][Graphviz]] software, which draws some of the diagrams used in the book. Run the Org export function from inside the =00-emacs-writing-studio.org= file to generate the book.

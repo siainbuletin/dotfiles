@@ -9,11 +9,11 @@
   (position . 155)
   (last-modified 27362 27990 310650 0))
 ("To-do's for Emacs configuration"
-  (filename . "~/.config/emacs-modular/docs/todo.org")
-  (front-context-string . "\n\n* Configuratio")
-  (rear-context-string . "he configuration")
-  (position . 44)
-  (last-modified 27346 9633 389808 0))
+ (filename . "~/.config/emacs-modular/docs/todo.org")
+ (front-context-string . "\n\n* Configuratio")
+ (rear-context-string . "he configuration")
+ (position . 44)
+ (last-modified 27346 9633 389808 0))
 ("Inbox for tabs"
  (filename . "~/notes/inbox/tabs/")
  (front-context-string . ".DS_Store\n  -rw-")
@@ -52,11 +52,11 @@
  (position . 2133)
  (last-modified 26912 27411 361993 19000))
 ("BibTeX files"
- (filename . "~/bibliography/")
+ (filename . "~/Documents/bibliography/")
  (front-context-string . ".git\n  drwxr-xr-")
  (rear-context-string . "0K nov 20 13:46 ")
  (position . 150)
- (last-modified 1790148016238098000 . 1000000000))
+ (last-modified 27368 32786 754445 0))
 ("Literature folder"
  (filename . "~/Documents/literature/")
  (front-context-string . ".stfolder\n  drwx")
