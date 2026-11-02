@@ -138,10 +138,11 @@ Sets =vulpea-db-sync-directories= to =~/notes/= only.
 
 *** Automatic database sync
 
-Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change, five idle seconds after start-up (=sp-vulpea-start-autosync=) instead of while =init.el= loads. Emacs starts with the database as the last session left it, which queries and the agenda files can already use.
+Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note files change, =sp-vulpea-autosync-delay= idle seconds (30 by default) after start-up (=sp-vulpea-start-autosync=) instead of while =init.el= loads. Emacs starts with the database as the last session left it, which queries and the agenda files can already use.
 
 - =vulpea-db-sync-scan-on-enable= is =background=: the files are listed by a subprocess and queued, and the queue parses only the files whose content changed since the last scan, in batches while Emacs is idle. Changes made outside Emacs (a git pull, a sync) are picked up that way.
 - Nothing depends on which file is opened first. Before, the scan started two idle seconds after the first vault file was visited, which the dashboard did by reading the agenda files, and it ran =vulpea-db-sync-full-scan= in the foreground (listing, cleanup and dir-locals check in the main Emacs), which froze it.
+- =vulpea-select-cache-prewarm= is set to nil: with it on, vulpea reads every row of the database into a candidate cache for =vulpea-find= and =vulpea-insert= as soon as autosync starts, in 500-note chunks on the main thread (about 56% of the CPU in a batch profile of the real vault). Now the cache is built at the first =vulpea-find= or =vulpea-insert=, which pauses once. Not run in Emacs here.
 - The echo area shows =[vulpea] starting autosync...= and how long it took, then vulpea's own progress messages.
 - =M-x vulpea-db-sync-full-scan= is still there for a scan by hand, and =C-u= forces a re-index. Not run in Emacs here (none in the container).
 
@@ -152,6 +153,20 @@ Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note fil
 ;; note, the dashboard included, starts nothing.
 (setq vulpea-db-sync-scan-on-enable 'background)
 
+(defcustom sp-vulpea-autosync-delay 30
+  "Idle seconds after start-up before `vulpea-db-autosync-mode' is turned on.
+The first scan parses every changed file on the main thread, which makes
+Emacs unresponsive on a large vault, so it waits until Emacs has been idle."
+  :type 'integer
+  :group 'spcustom)
+
+;; Vulpea builds a candidate cache of every note for `vulpea-find' and
+;; `vulpea-insert' as soon as autosync is on, reading all rows of the database
+;; in 500-note chunks on the main thread (`vulpea-select-cache-prewarm').  With
+;; about 9,800 files that kept Emacs busy for minutes.  Without the prewarm the
+;; cache is built at the first `vulpea-find' or `vulpea-insert', which pauses once.
+(setq vulpea-select-cache-prewarm nil)
+
 (defun sp-vulpea-start-autosync ()
   "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
   (let ((started (float-time)))
@@ -161,7 +176,8 @@ Turns on =vulpea-db-autosync-mode=, which keeps the database updated as note fil
 
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (run-with-idle-timer 5 nil #'sp-vulpea-start-autosync)))
+            (run-with-idle-timer sp-vulpea-autosync-delay nil
+                                #'sp-vulpea-start-autosync)))
 #+end_src
 
 *** Alias property

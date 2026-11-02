@@ -41,6 +41,20 @@
 ;; note, the dashboard included, starts nothing.
 (setq vulpea-db-sync-scan-on-enable 'background)
 
+(defcustom sp-vulpea-autosync-delay 30
+  "Idle seconds after start-up before `vulpea-db-autosync-mode' is turned on.
+The first scan parses every changed file on the main thread, which makes
+Emacs unresponsive on a large vault, so it waits until Emacs has been idle."
+  :type 'integer
+  :group 'spcustom)
+
+;; Vulpea builds a candidate cache of every note for `vulpea-find' and
+;; `vulpea-insert' as soon as autosync is on, reading all rows of the database
+;; in 500-note chunks on the main thread (`vulpea-select-cache-prewarm').  With
+;; about 9,800 files that kept Emacs busy for minutes.  Without the prewarm the
+;; cache is built at the first `vulpea-find' or `vulpea-insert', which pauses once.
+(setq vulpea-select-cache-prewarm nil)
+
 (defun sp-vulpea-start-autosync ()
   "Turn on `vulpea-db-autosync-mode', which scans the vault in the background."
   (let ((started (float-time)))
@@ -50,7 +64,8 @@
 
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (run-with-idle-timer 5 nil #'sp-vulpea-start-autosync)))
+            (run-with-idle-timer sp-vulpea-autosync-delay nil
+                                #'sp-vulpea-start-autosync)))
 
 (setq vulpea-buffer-alias-property "ROAM_ALIASES") ;; By default, aliases are stored in ALIASES. To use ROAM_ALIASES for org-roam compatibility:
 
