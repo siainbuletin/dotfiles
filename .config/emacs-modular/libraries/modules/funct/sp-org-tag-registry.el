@@ -33,44 +33,6 @@
                       "collection" "incollection")
         ("inquiry"    "question" "error" "research-q" "exploratory")))
 
-<<<<<<< HEAD
-        ;; Music
-        ("album")
-        ("genre")
-
-        ;; Software
-        ("software")
-        ("package")
-
-        ;; Literature
-        ("text")
-        ("book")
-        ("journalarticle")
-        ("booksection")
-        ("collection")
-        ("incollection")
-
-        ;; Inquiries
-        ("inquiry")
-        ("question")
-        ("error")
-        ("research-q")
-        ("exploratory")
-
-        ;; Others
-        ("concept")
-        ("emacs")
-        ("audio")
-        ("docs")
-        ("process")
-        ("library")
-        ("zettel")
-        ("thesis")
-        ("format")
-        ("website")
-        ("plugin")
-        ("workflow")
-=======
 ;; Tags that are in no group yet: the `unsorted' group.
 (setq sp-org-tag-groups-ungrouped
       '("concept"
@@ -83,7 +45,8 @@
         "thesis"
         "format"
         "website"
->>>>>>> origin/main
+        "plugin"
+        "workflow"
         ;; sp-org-tag-add: new tags go above this line
         ))
 
