@@ -271,3 +271,9 @@ Meant for scripts and tests that start a job without
 (provide 'sp-async-work)
 ;;; sp-async-work.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/229][#229]] ✨ Added =sp-async-work= (stacked on #228, which moved the docs): the author and litnote commands (=sp-author-notes= and its preview and apply, =sp-author-notes-bibtex=, =sp-litnotes-refs-report= and =-convert=, =sp-litnotes-titles-report= and =-apply=) read and write the notes in slices of 50 ms from timers instead of in one go, so Emacs stays usable. The progress is in the mode line (=[Litnote titles writing 12/340]=), =M-x sp-async-work-cancel= stops a job, and a job waits while you type in the minibuffer. Questions (names, missing years, the confirmations) stay in this Emacs; =sp-litnotes-refs-convert= now asks its three questions up front. A second Emacs, like the footnote lint uses, was not chosen because these commands ask questions, query the Vulpea database and update open buffers. =sp-litnotes-refs-convert= and =sp-litnotes-titles-apply= skip a note whose buffer has unsaved changes or that changed since the report. =sp-litnotes-titles-apply= returns its results only when =sp-async-work-synchronous= is set. Doc =docs/tangles/funct/sp-async-work.org=, tests =tests/sp-async-work-test.el=. Not run: the real vault.

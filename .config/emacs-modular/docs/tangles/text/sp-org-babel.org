@@ -451,3 +451,9 @@ Provides the =sp-org-babel= feature and closes the file.
 (provide 'sp-org-babel)
 ;; sp-org-babel.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/180][#180]] ✨ Added =sp-tangle-changed=, which tangles only the literate docs whose text changed since they were last tangled (SHA-1 per doc in =tangle-hashes.eld= in =sp-cache-dir=; no git needed, so it works with yadm and uncommitted edits), plus =sp-tangle-changed-and-reload= and =sp-tangle-on-save-mode=. 🔧 Changed =sp-tangle-all= to tangle every module doc (it listed four docs that no longer exist; =sp-literate-files= is removed). A doc whose =:tangle= path changed is tangled to the new file and the old one is left in place with a message. Details: [[file:sp-org-babel.org::*Finding the literate documents][=sp-org-babel= doc]], [[file:../../../README.org::*Tangling only what changed][README]]. Tested in Emacs 29.3 in batch (all 130 docs: 167 files on the first run, 0 on the second); not run in the interactive config.

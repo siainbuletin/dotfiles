@@ -1024,3 +1024,10 @@ Testing status:
 - =--mcp-config= and =--allowedTools=, and the tool names of the =org-mcp= server;
 - the interactive side in a GUI Emacs on macOS: the prompts, the header lines and finding =claude= on =exec-path=;
 - the companion skill, which has never been run.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/201][#201]] ✨ Added =sp-thesis-dump-trust-local-variables= (off by default): when on, =enable-local-variables= is bound to =:all= only while =sp-thesis-dump= reads the project's =.dir-locals.el= and visits the task file, so Emacs does not ask about unsafe local variables; global settings are untouched. Risk: every variable in those files is applied unchecked, including code-running ones; the setting is global and cannot be switched on from a =.dir-locals.el=. Follows #36. Not run in Emacs (none in the container); paren balance and doc/module agreement checked by script.
+- [[https://github.com/siainbuletin/dotfiles/pull/205][#205]] 🔥 Removed the tangled =libraries/modules/custom/sp-thesis-dump.el=, the =sp-thesis-dump-trust-local-variables= option of #201 and the module from =sp-late-modules=, so the module can be redesigned. The doc moved to =docs/planned/= (outside =docs/tangles/=, since it is not meant to be tangled), and every block of the [[file:sp-thesis-dump.org][=sp-thesis-dump= doc]] (and its skill block) is =:tangle no=, so tangling cannot bring the file back. Nothing was run in Emacs (none in the container).
