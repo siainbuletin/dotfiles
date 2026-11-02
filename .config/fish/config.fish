@@ -6,7 +6,12 @@ source ~/.bash_aliases
 
 ## Run fastfetch as welcome message
 function fish_greeting
-    fastfetch
+    # No greeting inside Emacs (vterm, eat, exec-path-from-shell): fastfetch
+    # slows every shell Emacs starts, and a login shell run by
+    # exec-path-from-shell must not print or wait.
+    if not set -q INSIDE_EMACS
+        fastfetch
+    end
 end
 
 if status is-interactive
