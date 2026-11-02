@@ -218,6 +218,13 @@ all be present.  PLIST may have :emoji, :face, :position (`prefix' or
   '((t :inherit shadow :height 0.85))
   "Face of the tags at the right of a note in `sp-select-note'."
   :group 'spcustom)
+
+(defface sp-org-tag-groups-select-emoji-face
+  '((t :inherit default :height 0.8))
+  "Face of the emoji in front of a title in `sp-select-note'.
+Colour emoji fonts have taller glyphs than the text font, so a height
+below 1.0 makes them match the surrounding text."
+  :group 'spcustom)
 #+end_src
 
 * Matching rules
@@ -670,7 +677,10 @@ tag list instead of once per note."
   "NOTE's title with the emoji of its tags in front."
   (let ((emoji (sp-org-tag-groups--note-emoji note))
         (title (vulpea-note-title note)))
-    (if (string-empty-p emoji) title (concat emoji " " title))))
+    (if (string-empty-p emoji)
+        title
+      (concat (propertize emoji 'face 'sp-org-tag-groups-select-emoji-face)
+              " " title))))
 #+end_src
 
 ** The tag column
@@ -876,3 +886,4 @@ What each pull request changed in this module, newest last; the one-line summary
 - [[https://github.com/siainbuletin/dotfiles/pull/110][#110]] ✨ Added colours for tag groups: =sp-org-tag-groups-alist= groups the note tags into groups (the shape proposed in ADR 0020) and =sp-org-tag-groups-colors= gives each group one of Notion's ten tag colours, so the tags in =sp-select-note= and =sp-insert-note= are chips with a tinted background and dark text on a light theme, a muted background and light text on a dark theme (=sp-org-tag-groups-palette=, written from memory of Notion's values). Stacked on #108.
 - [[https://github.com/siainbuletin/dotfiles/pull/158][#158]] 🐛 Fixed =sp-insert-note= and =sp-select-note= taking seconds to open: because the tag column depends on the frame width, the candidate cache is off and vulpea rebuilds every note's title and tag column on each call, and each of those looked up the tag group, the palette colour and the rules again. =sp-org-tag-groups--memoize= now remembers the chip face of each tag, the emoji of each tag list and the chips of each tag list and width, until one of the rules, groups, colours, palette, tag face height or theme (light/dark) changes. Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/167][#167]] ✨ Added the tag menu: =sp-org-tag-groups-read-tags= and =sp-org-tag-groups-completion-table= show the tags to pick headed by tag group, used by =sp-org-tag-read-note-tags=. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/247][#247]] 🐛 Fixed the emoji in front of titles in =sp-select-note= being larger than the text: =sp-org-tag-groups-describe-note= puts them in =sp-org-tag-groups-select-emoji-face= (height 0.8, customizable).
