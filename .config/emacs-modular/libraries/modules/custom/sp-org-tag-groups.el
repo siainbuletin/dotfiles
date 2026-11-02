@@ -402,12 +402,24 @@ A member may be (TAG . KEY), as in `org-tag-alist'.  See ADR 0020."
   :type '(alist :key-type symbol :value-type (list string string string string))
   :group 'spcustom)
 
-(defun sp-org-tag-group-of (tag)
-  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'."
+(defconst sp-org-tag-groups-unsorted "unsorted"
+  "The group of a tag that `sp-org-tag-groups-alist' puts in no group.
+It has no emoji and no colour on purpose: that its definition is missing
+is the signal to sort the tag.  See ADR 0020.")
+
+(defun sp-org-tag-groups--explicit-groups (tag)
+  "The groups of TAG in `sp-org-tag-groups-alist', in its order; nil if none."
   (cl-loop for (group . members) in sp-org-tag-groups-alist
            when (member tag (mapcar (lambda (member) (if (consp member) (car member) member))
                                     members))
            collect group))
+
+(defun sp-org-tag-group-of (tag)
+  "The groups of TAG, as a list of names, in the order of `sp-org-tag-groups-alist'.
+A tag in no group is in `sp-org-tag-groups-unsorted', so the result is
+never nil."
+  (or (sp-org-tag-groups--explicit-groups tag)
+      (list sp-org-tag-groups-unsorted)))
 
 (defvar sp-org-tag-groups--memo (make-hash-table :test #'equal)
   "Results of the selector's per-note work, by (KIND . ARGS).")
@@ -623,14 +635,39 @@ title, without the emoji."
              (if missing (mapconcat #'identity missing ", ") ""))
     missing))
 
+(defun sp-org-tag-groups-unsorted-tags ()
+  "The registered note tags that are in no group of `sp-org-tag-groups-alist'.
+Group names are not counted."
+  (let (result)
+    (dolist (entry org-tag-persistent-alist)
+      (let ((tag (and (consp entry) (stringp (car entry)) (car entry))))
+        (when (and tag
+                   (not (assoc tag sp-org-tag-groups-alist))
+                   (null (sp-org-tag-groups--explicit-groups tag)))
+          (cl-pushnew tag result :test #'equal))))
+    (nreverse result)))
+
+(defun sp-org-tag-groups-list-unsorted ()
+  "Report the note tags that are still in the `unsorted' group."
+  (interactive)
+  (let ((tags (sp-org-tag-groups-unsorted-tags)))
+    (message (if tags "Unsorted tags (add them to a group): %s" "No unsorted tags.%s")
+             (if tags (mapconcat #'identity tags ", ") ""))
+    tags))
+
 ;;;; Tag menu
+(defun sp-org-tag-groups--sort-key (tag)
+  "The group name to sort TAG under: `unsorted' last, behind every group."
+  (let ((group (car (sp-org-tag-group-of tag))))
+    (if (string= group sp-org-tag-groups-unsorted) (concat "~" group) group)))
+
 (defun sp-org-tag-groups-completion-table (tags)
   "A completion table over TAGS, sorted and headed by tag group.
-Tags in no group fall under \"other\"."
+Tags in no group fall under \"unsorted\"."
   (let ((sorted (sort (copy-sequence tags)
                       (lambda (a b)
-                        (let ((ga (or (car (sp-org-tag-group-of a)) "~other"))
-                              (gb (or (car (sp-org-tag-group-of b)) "~other")))
+                        (let ((ga (sp-org-tag-groups--sort-key a))
+                              (gb (sp-org-tag-groups--sort-key b)))
                           (if (string= ga gb) (string< a b) (string< ga gb)))))))
     (lambda (string pred action)
       (if (eq action 'metadata)
@@ -638,10 +675,10 @@ Tags in no group fall under \"other\"."
             (display-sort-function . identity)
             (group-function
              . ,(lambda (tag transform)
-                  (if transform tag (or (car (sp-org-tag-group-of tag)) "other"))))
+                  (if transform tag (car (sp-org-tag-group-of tag)))))
             (annotation-function
              . ,(lambda (tag)
-                  (concat " " (propertize (or (car (sp-org-tag-group-of tag)) "other")
+                  (concat " " (propertize (car (sp-org-tag-group-of tag))
                                           'face (sp-org-tag-groups--chip-face tag))))))
         (complete-with-action action sorted string pred)))))
 

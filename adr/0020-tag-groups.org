@@ -1,6 +1,6 @@
 #+title: 0020 Tag groups are an alist of =(GROUP TAG…)=, turned into Org group tags
 #+date: 2026-10-25
-#+status: proposed
+#+status: proposed (the open question on tags without a group is decided, 2026-11-02)
 
 * Context
 The note tags are =org-tag-persistent-alist= in =sp-org-tag-registry.el= (#105), a flat list of 27 tags that is only divided by comments ("People and bodies", "Music", ...). The comments are what I use to think about the tags, but no code can see them. I want /groups/ of tags by function (structure, people, music, literature, ...) so that:
@@ -67,6 +67,14 @@ In Emacs 29.3 (Org 9.6), headless:
 - The existing registry file would be rewritten to this shape: its comment headings become the group names, so nothing is lost.
 - /Untested/: the =sp-org-tag-groups-to-alist= and =sp-org-tag-group-of= functions are written only as a sketch here (the conversion above was run); I have not checked how =org-ql= or vulpea queries treat group tags (Org's own tag matching does expand them), nor the completion grouping on my Mac.
 
+* Tags without a group
+A tag in no group is allowed. It belongs to a group named =unsorted=, which has no emoji and no colour on purpose: the missing emoji is the signal that the tag's definition needs work soon.
+
+- =sp-org-tag-group-of= answers =("unsorted")= for such a tag (=sp-org-tag-groups-unsorted=), so it is never nil. The tag menu lists the =unsorted= tags last, and the chips use the default colour.
+- =unsorted= is not a key of =sp-org-tag-groups-alist=; it is what is left over, so there is nothing to keep in step. A rule on the group (=(group . "unsorted")=) would match them, but none is defined.
+- No error and no warning; =M-x sp-org-tag-groups-list-unsorted= lists the tags still in it, to work through them.
+- /Untested/: not run in Emacs (none in the container).
+
 * Open questions
 - Group names: the six above are my reading of the existing comments; "who" for people and bodies and "inquiry" are the least obvious.
-- Whether a tag in no group is allowed (the lint warns) or refused by =sp-org-tag-add=.
+- /Decided 2026-11-02:/ a tag in no group is *allowed*, see below. (The lint does not warn and =sp-org-tag-add= does not refuse.)
