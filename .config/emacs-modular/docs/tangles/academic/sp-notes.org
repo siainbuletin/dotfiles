@@ -36,6 +36,11 @@ This is the configuration that was taken from Lambda Emacs
 This library provides settings fora basic notes workflow using the `Denote' package.
 #+end_quote
 
+* Sia's commentary
+
+Things I want from this module
+- The best note-taking method is the one you invent, and that progressively grows in complexity. An electronic second brain does not automatically lead to success. Your organic brain should dictate the second one, not vice versa [cite:@prot_2024].
+
 * Header
 
 ** File header and commentary

@@ -6,9 +6,8 @@
 
 [cite:@forte_2022;@kadavy_2021;@ryder_2021;].
 
-These rigid workflows inevitably lead to failure because everybody has different needs. When taking notes creatively, the formal workflow only matters little. As your collection of notes expands, your methodology emerges organically. So, rather than worrying about some method promoted online, start writing and creating a process as your needs evolve.
 
-The best note-taking method is the one you invent, and that progressively grows in complexity. An electronic second brain does not automatically lead to success. Your organic brain should dictate the second one, not vice versa [cite:@prot_2024].
+
 
 In my three decades working with paper and digital journals, I've learned that structure is only one critical aspect. What truly matters is the authenticity and originality of the recorded thoughts. Even Luhmann, the creator of the Zettelkasten method, saw his system as a "septic tank for ideas" (ZK II Zettel 9/8a2 =niklas-luhmann-archiv.de=).
 
