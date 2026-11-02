@@ -10,13 +10,13 @@ Literate source for =libraries/modules/tooling/sp-workspaces.el=.
 
 This module builds named workspaces on top of =tab-bar= and =tabspaces=. A workspace is a tab with its own isolated set of buffers.
 
-- The functions here open a fixed set of dedicated workspaces (Home, the config directory, the Org agenda, notes, a terminal, email), or switch to them if they already exist.
+- The functions here open a fixed set of dedicated workspaces (Home, the config directory, the Org agenda, notes, email), or switch to them if they already exist.
 - They are bound to number keys under the leader map from =sp-keys=.
 
 Dependencies:
 
 - =tabspaces= itself is declared in =sp-tabs=. This file only calls its internals, such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=.
-- Other dependencies: =project.el=, =magit=, =org=, =mu4e=, =multi-vterm=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=).
+- Other dependencies: =project.el=, =magit=, =org=, =mu4e=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=).
 - One helper it calls, =project-magit-dir=, is not defined anywhere in the repository. The command that relies on it stops with an error at that step.
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
@@ -203,38 +203,6 @@ when the workspace is created."
       (delete-other-windows))))
 #+end_src
 
-** vterm in the home directory
-
-=sp-vterm-workspace= opens the next =multi-vterm= terminal with the home directory as working directory. The unusual indentation of the form has no effect.
-
-#+begin_src emacs-lisp -i
-;;;;; Terminal Workspace
-  (defun sp-vterm-workspace ()
-    "Open vterm in home dir in its own workspace"
-    (interactive)
-    (let ((default-directory "~/"))
-      (require 'multi-vterm)
-      (multi-vterm-next)))
-#+end_src
-
-** Terminal workspace
-
-=sp-open-new-terminal-and-workspace= switches to or creates a "Terminal" tab containing a vterm from the helper above. Its docstring was copied from another function and still says it opens an empty buffer.
-
-#+begin_src emacs-lisp -i
-(defun sp-open-new-terminal-and-workspace ()
-  "Open an empty buffer in its own workspace"
-  (interactive)
-  (require 'tabspaces)
-  (if (member "Terminal" (tabspaces--list-tabspaces))
-      (tab-bar-switch-to-tab "Terminal")
-    (progn
-      (tab-bar-new-tab)
-      (tab-bar-rename-tab "Terminal")
-      (sp-vterm-workspace)
-      (delete-other-windows))))
-#+end_src
-
 ** Email workspace
 
 =sp-open-email-in-workspace= handles the "Email" tab.
@@ -301,7 +269,7 @@ when the workspace is created."
 
 ** Workspace keys
 
-Number keys on the leader map (=sp-prefix= followed by a digit) jump to the workspaces: 1 Home, 2 config, 3 agenda, 4 notes, 5 email, 6 terminal. =N= in =project-prefix-map= (so =C-x p N=) opens a new scratch project workspace.
+Number keys on the leader map (=sp-prefix= followed by a digit) jump to the workspaces: 1 Home, 2 config, 3 agenda, 4 notes, 5 email. =N= in =project-prefix-map= (so =C-x p N=) opens a new scratch project workspace.
 
 #+begin_src emacs-lisp -i
 ;;;; Workspace Keybindings
@@ -311,7 +279,6 @@ Number keys on the leader map (=sp-prefix= followed by a digit) jump to the work
   ("2" . sp-open-emacsd-in-workspace)
   ("3" . sp-open-agenda-in-workspace)
   ("4" . sp-open-notes-in-workspace)
-  ("6" . sp-open-new-terminal-and-workspace)
   ("5" . sp-open-email-in-workspace))
 (bind-key "N" #'sp-open-new-buffer-and-workspace 'project-prefix-map)
 #+end_src

@@ -189,6 +189,6 @@ Before the first run, on the NAS:
 
 The script calls =scp -O=, which uses the old SCP protocol instead of SFTP; DSM only answers SFTP when SFTP is turned on in /File Services/, and the old protocol works either way. Set =SYNOLOGY_SCP_LEGACY=0= to drop =-O=.
 
-From Emacs, run it in =M-x vterm=, =M-x ansi-term= or =M-x compile= (=M-x compile RET ~/.config/beets/deploy-to-synology.sh=). With a key in your SSH agent it needs no input, so =compile= works too; a password prompt needs a real terminal such as =vterm=.
+From Emacs, run it with =M-x compile= (=M-x compile RET ~/.config/beets/deploy-to-synology.sh=; use =C-u M-x compile= for a comint buffer that accepts input). With a key in your SSH agent it needs no input; for a password prompt use =C-u M-x compile=, or run it in a terminal outside Emacs.
 
 After copying, restart the container (/Container Manager → Project → beets → Action → Restart/) so beets reads the new configuration.

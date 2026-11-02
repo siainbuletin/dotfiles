@@ -67,7 +67,6 @@
   (dolist (mode '(eshell-mode
                   shell-mode
                   term-mode
-                  vterm-mode
                   eat-mode
                   inferior-emacs-lisp-mode
                   debugger-mode

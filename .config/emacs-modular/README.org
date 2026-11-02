@@ -206,7 +206,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/prog/sp-plantuml.org][sp-plantuml]] :: Minimal PlantUML mode with PNG preview ([[file:libraries/modules/prog/sp-plantuml.el][sp-plantuml.el]])
 - [[file:docs/tangles/prog/sp-prog-misc.org][sp-prog-misc]] :: Miscellaneous programming packages and editor defaults ([[file:libraries/modules/prog/sp-prog-misc.el][sp-prog-misc.el]])
 - [[file:docs/tangles/prog/sp-rust.org][sp-rust]] :: Rust editing ([[file:libraries/modules/prog/sp-rust.el][sp-rust.el]])
-- [[file:docs/tangles/prog/sp-terminal.org][sp-terminal]] :: Terminal emulators (vterm and eat) ([[file:libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
+- [[file:docs/tangles/prog/sp-terminal.org][sp-terminal]] :: Terminal emulator (eat) ([[file:libraries/modules/prog/sp-terminal.el][sp-terminal.el]])
 - [[file:docs/tangles/prog/sp-tty-clipboard.org][sp-tty-clipboard]] :: Clipboard over OSC52 for terminal frames ([[file:libraries/modules/prog/sp-tty-clipboard.el][sp-tty-clipboard.el]])
 - [[file:docs/tangles/prog/sp-vcontrol.org][sp-vcontrol]] :: Version control with Magit ([[file:libraries/modules/prog/sp-vcontrol.el][sp-vcontrol.el]])
 - [[file:docs/tangles/prog/sp-xml.org][sp-xml]] :: XML editing with nXML ([[file:libraries/modules/prog/sp-xml.el][sp-xml.el]])
