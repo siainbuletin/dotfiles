@@ -1,0 +1,10 @@
+# API keys and tokens for the Synology beets; see beets.org, section "Secrets".
+secrets.yaml
+synology/secrets.yaml
+
+# State a local beets would write next to its configuration.
+*.db
+*.blb
+*.log
+state.pickle
+library.db
