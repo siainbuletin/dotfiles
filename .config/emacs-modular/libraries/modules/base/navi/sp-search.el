@@ -43,7 +43,7 @@
 
 (use-package p-search
   :ensure (:host github :repo "zkry/p-search"))
-
+ 
 ;; Personal functions for better searching
 
 ;; Acting on searches
@@ -448,9 +448,7 @@ QUERY is the search that produced them; it is stored in the view."
     ("D" "deadgrep: interactive ripgrep" deadgrep
      :if (lambda () (fboundp 'deadgrep)))
     ("a" "ag: the silver searcher" ag
-     :if (lambda () (fboundp 'ag)))
-    ("R" "Recoll: full-text index (Ivy)" counsel-recoll
-     :if (lambda () (and (fboundp 'counsel-recoll) (executable-find "recollq"))))]
+     :if (lambda () (fboundp 'ag))))]
    ["Results buffer and saved views"
     ("/" "Ripgrep into the results buffer" sp-search-grep)
     ("V" "Run a saved view" sp-search-run-view)
