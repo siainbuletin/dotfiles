@@ -848,3 +848,24 @@ Provides the =sp-fonts= feature and closes the file.
 (provide 'sp-fonts)
 ;;; sp-fonts.el ends here
 #+end_src
+* Sia's commentary
+** Tasks and planned features
+
+*** TODO Increase the spacing between letters for the font that's in org blocks
+- see how this can be combined with [[file:~/.config/emacs-modular/docs/tangles/ui/sp-writedesk.org][sp-writedesk.el: Writing desk: Olivetti and Writeroom]]
+*** TODO Making ligatures work
+
+#+begin_src emacs-lisp :tangle no
+  (setq prettify-symbols-unprettify-at-point 'right-edge)
+
+  (global-prettify-symbols-mode +1)
+  (prettify-symbols-mode +1)
+#+end_src
+
+*** QUESTION What is the best way to add extra space between lines?
+
+Also note that adding a little extra space between lines makes text files easier to read.
+
+#+begin_src emacs-lisp :tangle no
+  (add-hook 'text-mode-hook (lambda () (setq-local line-spacing 0.1)))
+#+end_src
