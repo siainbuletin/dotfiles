@@ -102,6 +102,21 @@ A column-0 `*' is an Org heading, so it is not treated as a bullet.")
 
 ;;;; Searching
 
+(defcustom sp-tab-inbox-rg-limits
+  '("--no-config" "--threads" "2" "--max-filesize" "2M"
+    "--max-columns" "300" "--max-columns-preview" "--max-count" "20")
+  "Arguments that bound every `rg' run over `sp-tab-inbox-dir'.
+They skip files over 2 MB, cut very long lines, stop after 20 matches
+per file and use two threads, so a note with a common title cannot make
+ripgrep read the whole inbox into memory."
+  :type '(repeat string)
+  :group 'spcustom)
+
+(defcustom sp-tab-inbox-ignored-terms '("inbox" "home" "notes" "note" "index")
+  "Titles and aliases (case-insensitive) that are too common to search for."
+  :type '(repeat string)
+  :group 'spcustom)
+
 (defun sp-tab-inbox--note-ids (note)
   "Return the ID of NOTE plus every :ID: property in NOTE's file."
   (let ((path (vulpea-note-path note))
@@ -133,15 +148,20 @@ A column-0 `*' is an Org heading, so it is not treated as a bullet.")
 Matches that only sit inside id: links into NOTE's file are dropped."
   (when-let* ((rg (executable-find "rg"))
               (terms (seq-filter
-                      (lambda (s) (>= (length s) 3))
+                      (lambda (s)
+                        (and (>= (length s) 3)
+                             (not (member-ignore-case
+                                   s sp-tab-inbox-ignored-terms))))
                       (cons (vulpea-note-title note)
                             (vulpea-note-aliases note)))))
     (with-temp-buffer
       (apply #'call-process rg nil t nil
-             "--line-number" "--no-heading" "--with-filename"
-             "--ignore-case" "--fixed-strings" "--word-regexp"
-             (append (mapcan (lambda (term) (list "-e" term)) terms)
-                     (list (expand-file-name sp-tab-inbox-dir))))
+             (append
+              sp-tab-inbox-rg-limits
+              (list "--line-number" "--no-heading" "--with-filename"
+                    "--ignore-case" "--fixed-strings" "--word-regexp")
+              (mapcan (lambda (term) (list "-e" term)) terms)
+              (list (expand-file-name sp-tab-inbox-dir))))
       (goto-char (point-min))
       (let ((ids (sp-tab-inbox--note-ids note))
             result)
@@ -812,10 +832,12 @@ the note under the See also heading of the note the search started from."
               (ids (sp-tab-inbox--scope-ids note)))
     (with-temp-buffer
       (apply #'call-process rg nil t nil
-             "--line-number" "--no-heading" "--with-filename"
-             "--ignore-case" "--fixed-strings"
-             (append (mapcan (lambda (id) (list "-e" (concat "id:" id "]"))) ids)
-                     (list (expand-file-name sp-tab-inbox-dir))))
+             (append
+              sp-tab-inbox-rg-limits
+              (list "--line-number" "--no-heading" "--with-filename"
+                    "--ignore-case" "--fixed-strings")
+              (mapcan (lambda (id) (list "-e" (concat "id:" id "]"))) ids)
+              (list (expand-file-name sp-tab-inbox-dir))))
       (goto-char (point-min))
       (let (result)
         (while (re-search-forward "^\\(.+?\\):\\([0-9]+\\):" nil t)
