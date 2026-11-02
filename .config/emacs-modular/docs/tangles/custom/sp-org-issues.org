@@ -1939,3 +1939,9 @@ Blocks here are =:tangle no=. Evaluate them with =C-c C-c= to try things without
 (shell-command-to-string
  "git --git-dir=$HOME/.local/share/yadm/repo.git worktree list")
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/189][#189]] ✨ Added two sections to the morning list: *Notes to self* (your comments on open pull requests that start with =Note to self:=, each a link to the comment; Claude ignores them) and *Needs further testing* (pull requests labelled =needs-further-testing=, open or already merged), both read with =gh api= (REST). Follows #23. 32 tests in headless Emacs 29.3; the parsers were also run on live REST answers; the real =*Morning*= buffer not seen.

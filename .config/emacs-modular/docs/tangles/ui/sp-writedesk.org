@@ -610,3 +610,10 @@ This was the same code that I first pulled into my very first configuration.
 ** TODO Add justification to the lines
 
 [2026-10-29 Thu] This was theoretically done in my old configuration from ~emacs-include~
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/200][#200]] ✨ Added =sp-reading-mode= (=C-c w r=) to =sp-writedesk=: a minor mode for reading long Org prose with the margins (8 left, 6 right), line spacing (1) and zero fringes of Rougier's [[https://github.com/rougier/book-mode][book-mode]] article example. It also shows a header line (state marker, =#+title=, word count, and a fake page count (=page 3/12=, where a page is the words the window shows at the current text scale, averaged over recent views, or a fixed =sp-reading-words-per-page=) or a percentage, =sp-reading-progress=) and a mode line with a progress bar and line:column, in the style of book-mode's header and footer. It turns =olivetti-mode= off while active, wraps lines, and restores every setting it changed when toggled off. Toggle and restore tested in Emacs 29.3 batch; tangle matches; not seen on screen.
+- [[https://github.com/siainbuletin/dotfiles/pull/250][#250]] ✨ Added to =sp-reading-mode=: Rougier's margin glyphs for Org (=#=, =##=, =###= for heading levels 1 to 3, =•= for bullets, and a level 4 heading as a run-in paragraph head with =§= in the margin and its line break hidden), frame resizing to 81x51 text plus the margins (=sp-reading-frame-size=, restored on exit, never on fullscreen or non-graphical frames), and mock pagination: =C-v=, =M-v=, =<next>= and =<prior>= turn whole pages (=sp-reading-paginate=). 🔧 Changed the default line spacing from 1 pixel to 0.3 of the line height. Follows #200. Tested in Emacs 29.3 batch (glyph display properties and their removal, restore of settings, page turning with stubbed window functions); not seen in a real frame, so frame resizing and the real page turns are untried.

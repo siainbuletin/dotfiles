@@ -178,3 +178,9 @@ Recommended: a custom metadata field of type URL named =litnote=. DEVONthink can
 5. =sp-devonthink-sync= report, then the guarded backfill of =#+devonthink:= keywords and the record-side link.
 
 Each step is one pull request, in this order; the last two depend on the metadata field and the URL handler.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/209][#209]] 💡 Proposed the DEVONthink and Emacs integration in [[file:devonthink-emacs-integration.org][DEVONthink and Emacs]]: search through DEVONthink and =litdb=, page-level =devonthink:= links, browsing and tags from Emacs, and a two-way link between a record and its litnote by citekey. Only records with annotations or a read =read-status= are indexed page by page. Design only; nothing run on the Mac.

@@ -370,3 +370,9 @@ Provides the =sp-faces= feature and closes the file.
 (provide 'sp-faces)
 ;;; sp-faces.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/260][#260]] ✨ Added =M-x sp-org-heading-svg-tags-mode= to =sp-faces=: stock =svg-tag-mode= tags for the tags at the end of an Org heading, buffer-local and *off by default* (nothing runs at start). No tag-group colours or emoji; =#+filetags:= lines and TODO keywords are not touched; off in terminal frames. Redoes #254 (removed in #259) in the small form; the hang that led to #259 came from the vterm/fish setup. Not run in a graphic frame.

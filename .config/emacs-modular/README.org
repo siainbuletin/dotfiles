@@ -599,3 +599,9 @@ One advantage of the fact that I did my configuration in only one org file which
 The easiest thing that I can do right now for this purpose is to simply use the rendering in GitHub for seeing the sections of my org document, but this isn't too fortunate.
 
 I would like to be able to export this file as a multi-page HTML document that corresponds with the different org modules that I have set up.
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/188][#188]] 🔧 Changed =README.org= and =docs/main.org= into one document, =README.org= at the top of the configuration: it has the introduction, the module tree and the sandbox how-to, and the tangling how-to moved to the new =docs/tangling-instructions.org=. Removed =docs/main.org=; the module docs, =sp-sandbox=, =sp-typst= (its book now starts with =README.org=) and the architecture notes point to the new places.
