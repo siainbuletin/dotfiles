@@ -65,6 +65,8 @@
   (should (equal (sp-author-notes--key-state "pub-auhtro") '(suspect . "pub-author")))
   (should-not (sp-author-notes--key-state "pub-author"))
   (should-not (sp-author-notes--key-state "pub-editor"))
+  (should (equal (sp-author-notes--key-state "pub-editro") '(fix . "pub-editor")))
+  (should (equal (sp-author-notes--key-state "Pub_Editor") '(fix . "pub-editor")))
   (should (equal (sp-author-notes--key-state "bib-author") '(suspect . "pub-author")))
   (should-not (sp-author-notes--key-state "bib-parent"))
   (should-not (sp-author-notes--key-state "read-status")))
@@ -171,6 +173,19 @@
         (should (string-match-p (format "- pub-author :: \\[\\[id:%s\\]\\[Hannah Arendt\\]\\]" id) a))
         (should (string-match-p "#\\+filetags: :person:" note))
         (should (string-match-p "\\* Basics\n\n\\* Works" note))))
+    (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t))))))
+
+(ert-deftest sp-author-notes-test-pub-editor-linked-like-author ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+     "- pub-author :: Arendt, Hannah" "- pub-editro :: Kohn, Jerome" "")
+    (let ((run (sp-author-notes--run t)))
+      (should (= 2 (length (sp-author-notes--run-created run))))
+      (let ((a (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
+        (should (string-match-p "- pub-author :: \\[\\[id:[^]]+\\]\\[Hannah Arendt\\]\\]" a))
+        (should (string-match-p "- pub-editor :: \\[\\[id:[^]]+\\]\\[Jerome Kohn\\]\\]" a))))
     (should (= 0 (sp-author-notes--change-count (sp-author-notes--run t))))))
 
 (ert-deftest sp-author-notes-test-unsaved-buffer-saved ()
