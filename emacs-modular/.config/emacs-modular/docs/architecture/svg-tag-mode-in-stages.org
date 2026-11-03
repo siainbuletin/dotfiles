@@ -1,0 +1,228 @@
+#+title: Bringing svg-tag-mode back, in stages
+#+date: 2026-11-03
+#+status: proposed
+
+This is a plan, not an implementation: no code changes come with it. Written from a Linux container with no Emacs, so *nothing here has been run on the Mac*. What I could do was read the history of the earlier attempts (#254, #259, #260, #264, #266) and the source of =svg-tag-mode= 0.3.3 and =svg-lib= as they are on =master= of the two upstream repositories today. Claims about Emacs internals that I did not check in source are marked /(memory)/; read them as things to test, not as facts.
+
+* Goal
+
+Get Nicolas Rougier's [[https://github.com/rougier/svg-tag-mode][svg-tag-mode]] back in two steps, each its own pull request and each testable on its own:
+
+1. *Stage 1: the raw package.* Install it unmodified, off by default, with no hook, so that =M-x svg-tag-mode= is the only way to turn it on. Nothing of mine sits on top of it.
+2. *Stage 2: the extra tag rendering* first proposed in #254 / #260 / #264: tags of Org headings drawn as chips, coloured by tag group, with the tag's emoji in front, following the theme palette.
+
+Stage 2 does not start until the checklist of stage 1 has been run on the Mac and its results are written down.
+
+* What happened before
+
+| PR   | Date       | What it did                                                                                                                         | End                          |
+|------+------------+-------------------------------------------------------------------------------------------------------------------------------------+------------------------------|
+| (old) | ≤ 2026-10-29 | =sp-faces= configured =svg-tag-mode= with =:hook (prog-mode . svg-tag-mode)= and a global =svg-tag-tags= (=:XXX:=, =TODO:=, =FIXME:=...) | hook removed in 3f47ffe, block removed in #264 |
+| #254 | 2026-11-02 | =sp-org-svg-tags-mode= and =-global-mode= in =sp-org-tag-groups=: chip per tag, emoji on the colon before, last colon hidden; switched on /at module load/ | removed by #259: "blocked Emacs at start" |
+| #259 | 2026-11-02 | Removed #254                                                                                                                         | merged                       |
+| #260 | 2026-11-02 | =sp-org-heading-svg-tags-mode= in =sp-faces=: stock =svg-tag-make=, heading tags only, buffer-local, off by default                   | merged, then removed by #264 |
+| #264 | 2026-11-02 | Removed =svg-tag-mode= and #260's mode from =sp-faces= while hunting the start-up hang                                                | merged                       |
+
+The #254 code is recoverable with =git show 8c27fdb= (module, doc and tests); #260's with =git show d7306b3=. Both predate the Stow reorganisation, so their paths start with =.config/emacs-modular/=.
+
+What #254 did that is worth keeping:
+- Three =svg-tag-tags= entries, because =svg-tag-mode= puts one display on one match: =\(:\)NAME= (the colon before a tag shows its emoji), =\(NAME\):= (the name becomes a chip) and =:[ \t]*$= (the final colon shows nothing).
+- A predicate that checks that the match lies inside group 5 of =org-complex-heading-regexp=, so =foo:= in a title, a time such as =12:30= or a =#+filetags:= line is left alone.
+- Chip colours from =sp-org-tag-groups--chip-face= (the theme-derived palette), emoji from =sp-org-tag-groups--decorate= in the =select= context.
+- A =sp-after-load-theme-hook= function that calls =font-lock-flush= in buffers with the mode.
+- Four ERT tests of the regexps, the predicate and the nil-without-graphics behaviour (these ran in no Emacs either).
+
+What #254 did that I would not repeat:
+- It switched the global mode on /when the module loads/ (=(when sp-org-svg-tags-enable (sp-org-svg-tags-global-mode 1))=), with =(require 'svg-tag-mode nil t)= inside the mode function. At load time the package may not be built yet by Elpaca; that fails silently and is order-dependent.
+- It was global: every buffer that enters =org-mode=, including buffers an indexer opens, ran =svg-tag-mode-on=.
+- It was never run in a graphic frame.
+
+* Does SVG rendering make Emacs hang?
+
+*Short answer: I found no evidence that it did, and some evidence that it did not; but the package has a few costs that scale with the number of tags on screen and that nobody has measured.*
+
+** Evidence that svg-tag-mode was not the cause
+
+- Sia has since found that the hang came from other start-up work and is fixed.
+- The CHANGELOG entry for the hang records a native =sample= of the hung Emacs pointing at =vulpea-db-autosync-mode= re-indexing about 9,800 files on the main thread. #270 records that the =vulpea-select-cache-prewarm= alone was 56 % of the CPU in a batch profile of a copy of the real vault. None of that involves images.
+- =svg-tag-mode= had been in use, hooked on =prog-mode=, before #254 (see the table), with no hang reported against it.
+- #264 removed =svg-tag-mode= together with vterm (#261), the fastfetch greeting (#263) and others; it was one of many removals made at once, so its removal says nothing about it.
+
+** What the code does (read from source)
+
+From =svg-tag-mode.el= 0.3.3 and =svg-lib.el=:
+
+1. *Rendering is lazy.* =svg-tag-mode-on= adds one =font-lock= keyword per entry of =svg-tag-tags=, and a keyword function is called when =jit-lock= fontifies a region. So only text that is fontified gets an image: the visible window plus =jit-lock-chunk-size= padding, and the rest of the buffer only if something forces it (=font-lock-ensure=, =font-lock-fontify-buffer=, or stealth fontification when =jit-lock-stealth-time= is set; this configuration does not set it).
+2. *There is no tag cache in the package.* =svg-lib-tag= builds a new SVG (=svg-create=, two =svg-rectangle=, one =svg-text=) and calls =svg-image= on it for every match, every time the line is refontified. Identical tags produce identical SVG text, and Emacs's own image cache is keyed on the image spec /(memory)/, so the rasterised bitmap should be shared; the Lisp-side building is not.
+3. *=svg-lib-tag= calls =font-info= on every call* (=(font-info (format "%s-%d" font-family font-size))=), and =window-font-width= / =window-font-height=. =font-info= goes to the font backend /(memory)/ and is the first thing I would profile. If the font cannot be found it returns nil and =(aref font-info 2)= signals an error inside fontification, which =jit-lock= reports and then keeps retrying.
+4. *=svg-tag-mode-on= has global side effects.* It =advice-add='s =org-fontify-meta-lines-and-blocks= (an =:around= advice that itself advises =remove-text-properties= for the duration of each call), enables =cursor-sensor-mode= (a function runs at every point movement across a =display= boundary), and adds a lambda to =read-only-mode-hook= that does =(font-lock-flush (point-min) (point-max))= in whatever buffer toggles read-only. Magit, Forge and =view-mode= toggle read-only often; with the mode on in a big buffer, each toggle refontifies all of it (lazily, via =jit-lock=, but all of it).
+5. *The default pattern is unanchored.* =\(:\)NAME= matches in titles, body text, times and URLs. #254 compensated with the predicate; the predicate runs =looking-at org-complex-heading-regexp= per match on heading lines, which is cheap on one line and not free on a file with thousands of colons.
+6. *Emoji and SVG.* If an emoji were put /inside/ the SVG text, rendering would depend on librsvg / Pango font fallback and would differ between machines. #254 avoided this by putting the emoji in a =display= /string/ (text with a face), which Emacs shows with its normal fontset fallback. Stage 2 keeps that rule.
+7. *Image lifetime.* Emacs frees an image from its cache when it has not been displayed for =image-cache-eviction-delay= seconds (default 300) /(memory)/. A buffer with a few thousand distinct tags that is scrolled through can hold a few thousand small bitmaps for five minutes; with the same few tag names repeated, far fewer.
+
+** Ways SVG could still hurt (hypotheses, not findings)
+
+| #  | Hypothesis                                                                                                                      | Why it is plausible                                                            | How to test (see the checklist)               |
+|----+---------------------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------+-----------------------------------------------|
+| H1 | A /global/ mode turns itself on in buffers opened by an indexer (vulpea sync visits ~9,800 files) and each one runs =svg-tag-mode-on= | #254 used =define-globalized-minor-mode=; whether it skips temp buffers depends on how they are created /(memory)/ | Count buffers with the mode while autosync runs |
+| H2 | =font-info= or =svg-lib-tag= is slow per call, so a heading-rich screen stalls on scroll                                         | no cache in the package                                                        | =benchmark-run= on =svg-tag-make=; profiler during scroll |
+| H3 | =read-only-mode-hook= lambda refontifies a large buffer on each toggle                                                           | seen in source                                                                 | Toggle =read-only= in a 5 MB Org buffer with the mode on |
+| H4 | Memory grows when scrolling a huge Org file                                                                                      | one bitmap per distinct (text, colour, size)                                    | =image-cache-size= before and after scrolling |
+| H5 | The emoji font fallback on macOS is slow for the first emoji                                                                     | a one-off font lookup, not specific to SVG                                      | Time the first redisplay with an emoji tag    |
+| H6 | An error in a keyword function (no graphic frame, font missing) is retried on every redisplay                                    | =jit-lock= catches errors and keeps the region unfontified                       | Open the same file in =emacs -nw= with the mode on and read =*Messages*= |
+| H7 | A frame created later (emacsclient =-c=, or a terminal frame) shares the buffer, and the SVG is only valid for the frame it was made in | images carry the font metrics of the selected frame                             | Two frames, one graphic, one =-nw=            |
+
+I did not find anything in =librsvg= or Emacs that makes a /correct/ SVG hang on its own; a malformed SVG reaching librsvg is rejected with an error, not a loop /(memory)/. Anything I cannot back from the source above is a thing to measure.
+
+* Stage 1: the raw package
+
+** Scope
+
+- Install =svg-tag-mode= (and its dependency =svg-lib=, which Elpaca resolves from =Package-Requires=) with =use-package= and Elpaca =:ensure=, as the other modules do (no clone onto =load-path=).
+- *Off by default.* No hook, no global mode, no =setq= of =svg-tag-tags=, no advice of mine. The upstream default is a single entry for =:TODO:=; that is what "raw" means. =M-x svg-tag-mode= turns it on in the current buffer; =M-x global-svg-tag-mode= is upstream's, and not to be bound.
+- Guard on a graphic frame at /call time/ only if upstream's own error is not good enough; otherwise leave it, because a guard is not raw.
+- Where: =sp-faces= is where it lived before, so the doc =docs/tangles/ui/sp-faces.org= gets a section "SVG tags" and the tangled =.el= gets the form below, in the same pull request, with the =Changes by pull request= entry and a CHANGELOG line (feature set "Org heading tags as SVG chips").
+
+** Form
+
+#+begin_src emacs-lisp :tangle no
+(use-package svg-tag-mode
+  :ensure t          ; MELPA (memory); use (:host github :repo "rougier/svg-tag-mode") to follow master
+  :defer t
+  :commands (svg-tag-mode))
+#+end_src
+
+=:defer t= with =:commands= means nothing is loaded and nothing is built into the start-up path beyond what Elpaca does for any package. =:ensure t= vs. a git recipe: MELPA builds from =master= of the same repository, so both give 0.3.3; the git recipe is the choice if you want to pin a =:ref=. The decision is Sia's; I recommend =:ensure t=, as the old =sp-faces= block had it.
+
+** Test in a throwaway tag
+
+Upstream's default entry draws =:TODO:=. To see something without writing configuration, in a scratch buffer:
+
+#+begin_src emacs-lisp :tangle no
+(setq-local svg-tag-tags '((":TODO:" . ((lambda (_) (svg-tag-make "TODO"))))))
+(svg-tag-mode 1)
+#+end_src
+
+then type =:TODO:=. That is =setq-local= in a scratch buffer and leaves nothing in the configuration.
+
+** Done when
+
+All the "Stage 1" items of the checklist below pass, and start-up time with the package installed but the mode off is within noise of start-up without it.
+
+* Stage 2: the extra tag rendering
+
+Each sub-stage is its own pull request, in this order, because each depends on the one before. Stop after any sub-stage that fails a checklist item.
+
+| Sub-stage | What                                                                                                          | Reuses                              | Change from #254 / #260                                                                 |
+|-----------+---------------------------------------------------------------------------------------------------------------+-------------------------------------+-----------------------------------------------------------------------------------------|
+| 2a        | Heading tags only, with stock =org-tag= colours: one buffer-local mode, off by default                         | #260's predicate and three keywords | none; this is #260 again, so it is the baseline to compare 2b-2d against                |
+| 2b        | Chip colours from tag groups and the theme palette                                                             | =sp-org-tag-groups--chip-face=       | memoise the =svg-tag-make= result per (tag, theme epoch, frame font) so a refontify builds no SVG |
+| 2c        | Emoji from the =select= context, as a =display= /string/ on the leading colon                                  | =sp-org-tag-groups--decorate=        | emoji stays text, never inside the SVG (point 6 above)                                  |
+| 2d        | Refresh on theme change (=sp-after-load-theme-hook=) and the =org-modern-tag= guard                            | #254's refresh function             | refresh only buffers that are displayed in a window; flush the others lazily on =window-configuration-change= |
+| 2e (maybe) | A user-level switch that enables the mode in Org buffers that visit a file and are shown in a window         | /new/                               | replaces #254's =define-globalized-minor-mode= at load time; avoids H1                  |
+
+Rules that apply to all of 2a-2e, because they are the lessons of #254:
+- Never enable anything at module load. The mode is off until =M-x= or until a documented hook is added in a later, separate pull request.
+- Never =require= the package inside the mode function without =:defer t= / =:commands= in the =use-package= form that owns it; the function should =autoload=.
+- Stay inside =org-complex-heading-regexp= group 5, and test the predicate on lines with times, URLs and =#+filetags:=.
+- Keep a memo, with the theme epoch in its key, so that a theme change invalidates it.
+- Document in the literate doc what has and has not been run, as the other docs do.
+
+* Testing and debugging checklist (for the Mac)
+
+Run these in a graphic frame of the Emacs you normally use, unless the item says otherwise. Use =emacs-pr N= (see [[file:../../../../adr/0018-emacs-pr-sandbox-and-reload.org][ADR 0018]]) for the pull-request branch so that your normal Emacs and vault are untouched. Write the result of each item next to it in the pull request.
+
+** 0. Before anything: does this Emacs have SVG?
+
+- [ ] =M-: (image-type-available-p 'svg)= returns =t=.
+- [ ] =M-: (display-graphic-p)= returns =t= in the frame you test in.
+- [ ] =M-: system-configuration-features= contains =RSVG=. (If not, nothing in this plan can work and the first stage is an error message; stop here.)
+- [ ] =M-x emacs-version=, and note it in the pull request: Emacs 31 is where the =when-let= warning comes from, and image code changes between versions.
+- [ ] Note the font and size: =M-: (face-attribute 'default :family)= and =:height=.
+
+** 1. Batch checks (no GUI needed; run in fish)
+
+#+begin_src fish
+# The package loads and byte-compiles; this does not render anything
+emacs -Q --batch --init-directory (mktemp -d) \
+  --eval "(progn (package-initialize) (require 'svg-tag-mode) (message \"ok %S\" svg-tag-tags))"
+
+# Start-up time with the package installed but off: run 5 times, compare with the stage before
+for i in (seq 5)
+  emacs --init-directory ~/src/dotfiles-wt/pr-N/.config/emacs-modular \
+    --eval "(progn (message \"startup %s\" (emacs-init-time)) (kill-emacs))"
+end
+#+end_src
+
+- [ ] The first command prints =ok=. (Replace the =package-initialize= part with the Elpaca path if the package is installed through Elpaca.)
+- [ ] Start-up time with the package installed and the mode off is within noise of the stage before.
+- [ ] Stage 2: the ERT file for the module (as =tests/sp-org-tag-groups-test.el= was for #254) passes in batch with =emacs -Q --batch -l ... -f ert-run-tests-batch-and-exit=. Rendering functions stay stubbed (=svg-tag-make= is replaced), as the #254 tests did; batch cannot draw.
+- [ ] Stage 2: the =tangle= check (=tools/check-tangle.sh=) is green: doc and =.el= match.
+
+** 2. Stage 1 in a graphic frame
+
+- [ ] Fresh start: =M-x list-packages= (or Elpaca's UI) shows =svg-tag-mode= and =svg-lib= installed, and =M-: (featurep 'svg-tag-mode)= is =nil= until you call it. Nothing has loaded it.
+- [ ] In =*scratch*=: evaluate the two-line form from Stage 1, type =:TODO:=; a rounded chip appears and shows =TODO=.
+- [ ] Move point into the chip: the =svg-tag-action-at-point= default (=echo=) prints =TAG: :TODO:= in the echo area. No freeze on entering or leaving.
+- [ ] =M-x svg-tag-mode= off: the text =:TODO:= is back. On again: the chip is back.
+- [ ] *Toggle 20 times* in a 5,000-line Org buffer (=M-x svg-tag-mode= twice, 20 times; =C-x z= repeats). It stays responsive, and =M-: (advice-member-p #'svg-tag--org-fontify-meta-lines-and-blocks 'org-fontify-meta-lines-and-blocks)= is =t= while the mode is on and =nil= after the last buffer turns it off (the advice is global, so one buffer turning the mode off removes it for all: note whether other buffers lose their tags).
+- [ ] Turn on in a small Org file with real headings, no tags configured: nothing changes (the default entry is only =:TODO:=) and nothing prints in =*Messages*=.
+- [ ] Open the same buffer in a second, terminal frame (=emacsclient -nw= or =emacs -nw --eval '(switch-to-buffer ...)'=): text stays readable and =*Messages*= has no =jit-lock= errors (H6, H7).
+- [ ] Toggle =read-only= (=C-x C-q=) in a large Org buffer with the mode on and time it (H3): note the delay.
+
+** 3. Profiling
+
+The goal is a number for each hypothesis, so the decision to continue is not a guess.
+
+- [ ] *CPU while scrolling.* In a big Org file with many tagged headings (use a real vault file, then the biggest one), with the Stage 2 mode on:
+  =M-x profiler-start RET cpu+mem=, scroll the whole file with =C-v= held for 10 seconds, =M-x profiler-report=. Expand the tree: look for =svg-lib-tag=, =font-info=, =svg-image=, =svg-print=, =svg-tag--cursor-function=, =org-fontify-meta-lines-and-blocks=. Save the report text in the PR.
+- [ ] *Micro-benchmark of one tag* (H2): =M-: (benchmark-run 1000 (svg-tag-make "project" :face 'org-tag :inverse t))= in a graphic frame. Write down the seconds per 1000; anything over a second means stage 2 needs the memo before it ships.
+- [ ] *Memory* (H4): =M-: (image-cache-size)= (bytes, or use =M-x memory-report= and read the Image Cache line), scroll the big file, ask again, then wait =image-cache-eviction-delay= (300 s) or run =M-: (clear-image-cache)= and ask a third time. Compare with the process size in Activity Monitor (column "Memory") or =vmmap -summary (pgrep -x Emacs)=. Growth that does not come back after =clear-image-cache= is not the image cache.
+- [ ] *GC pressure*: =M-: (memory-use-counts)= before and after the scroll; =M-: gcs-done= and =gc-elapsed= before and after.
+- [ ] *Count the buffers* (H1): =M-: (cl-count-if (lambda (b) (buffer-local-value 'svg-tag-mode b)) (buffer-list))= while vulpea autosync runs. Expected: only the buffers you opened. A number in the thousands means the mode is global; stop and fix 2e.
+- [ ] *Emoji* (H5): with stage 2c on, time the first redisplay of a heading with an emoji tag, and a heading without one.
+- [ ] *Start-up profile.* =M-x profiler-start= cannot start before init. Use =emacs --eval '(profiler-start (quote cpu))'= via the =emacs-pr= profile, or compare =M-x emacs-init-time= and =M-x elpaca-log= with and without the new form.
+
+** 4. If Emacs freezes
+
+In this order, because each step is more drastic:
+
+1. Press =C-g= once, and wait three seconds. =C-g= only helps if the code is in Lisp.
+2. If =debug-on-quit= was set first (=M-: (setq debug-on-quit t)= before the test, or =M-x toggle-debug-on-quit=), =C-g= opens a backtrace buffer where the freeze is. Copy the backtrace into the PR. Turn it off afterwards.
+3. From another terminal: =kill -USR2 (pgrep -x Emacs)=. By default Emacs enters the debugger on =SIGUSR2= /(memory)/ (=debug-on-event=); this works even when =C-g= does not, as long as it is in Lisp.
+4. If neither answers, the stall is in C (librsvg, a font lookup): =sample (pgrep -x Emacs) 10 -file ~/emacs-sample.txt=, as you did for the autosync hang. Look for =rsvg_= / =svg_load= / =CTFont= / =image_load= in the hot stack.
+5. Last resort: =pkill -x Emacs=; the next start shows the autosave files.
+
+Useful switches before testing:
+- [ ] =emacs --debug-init= for errors at start.
+- [ ] =M-x toggle-debug-on-error= while testing a mode toggle: a keyword function that signals will show a backtrace instead of a silent skip.
+- [ ] To see which fontification errors are swallowed, watch =*Messages*= for =Fontification functions= / =jit-lock= lines while scrolling.
+
+** 5. Bisecting
+
+If something is slow and it is not clear whether SVG is the cause:
+- [ ] =M-x svg-tag-mode= off: does it go away? If yes, SVG (or its font-lock keywords) is involved.
+- [ ] =M-x cursor-sensor-mode= off while the mode is on: if the slowness goes, it is the cursor function.
+- [ ] Run the same steps in =emacs -Q= with only the stage-1 form; if it is fine there, the cause is an interaction with the rest of the configuration (=org-modern=, =vulpea=, =sp-fonts=), not the package.
+- [ ] =org-modern= is already on in Org buffers (=sp-org-appearance=, =org-modern-tag= is =nil=, so it does not draw tags): confirm that the two do not remove each other's =display= properties by turning =org-modern-mode= off and on with the SVG mode on.
+
+** 6. Stage gates
+
+| Gate | Pass condition                                                                                   |
+|------+--------------------------------------------------------------------------------------------------|
+| 1 → 2a | every item in sections 0-2 passes; start-up time unchanged                                      |
+| 2a → 2b | section 3 done on a real file: scroll profile shows no single SVG function over ~20 % of CPU; =image-cache-size= settles after =clear-image-cache= |
+| 2b → 2c | colours follow the theme after =M-x load-theme= without refontifying by hand; no memo growth across 20 theme switches |
+| 2c → 2d | the emoji shows next to the chip and the line height of a heading does not change                |
+| 2d → 2e | buffer count (H1) is small with autosync running                                                 |
+
+* Open questions for Sia
+
+- =:ensure t= (MELPA) or a git recipe for stage 1? I recommend =:ensure t=.
+- Is a terminal frame ever used (=emacs -nw=, SSH)? If yes, stage 2 must be a no-op there, which #254 handled with a predicate on every call.
+- Do you want the tag chips in the agenda too? =org-agenda= buffers are not fontified by the same keywords, so that is a separate piece of work, not part of this plan.
+- Which Org file is the biggest one with tags? It is the one section 3 is run on.
+
+* What has and has not been run
+
+Run: reading the history with =git=; reading =svg-tag-mode.el= 0.3.3 and =svg-lib.el= from the upstream repositories. Not run: any Emacs. Everything in the checklist is untested, and the claims marked /(memory)/ (image cache key and eviction delay, =SIGUSR2=, =font-info= cost, whether globalized modes reach temporary buffers, MELPA availability) are the first things to confirm or correct.
