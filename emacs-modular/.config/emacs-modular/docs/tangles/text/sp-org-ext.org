@@ -71,15 +71,6 @@ Requires the appearance, Babel, agenda and image modules.
 (require 'sp-org-images)
 #+end_src
 
-** ID-based workflows
-
-Requires =sp-org-node-mem=, the module for ID-based note workflows.
-
-#+begin_src emacs-lisp -i
-;;;;; ID-based workflows
-(require 'sp-org-node-mem)
-#+end_src
-
 ** Vulpea modules
 
 Loads the Vulpea stack:
