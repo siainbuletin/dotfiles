@@ -22,9 +22,15 @@
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 
 ;;;; YADM function to be able to work with dotfiles
+(declare-function sp-dotfiles-work-tree "sp-globals")
+
 (defun yadm ()
+  "Open Magit on the dotfiles (~/dotfiles with Stow, the home folder with yadm)."
   (interactive)
-  (magit-status "~/"))
+  (magit-status (sp-dotfiles-work-tree)))
+
+;; ~/.config/... are links into ~/dotfiles: visit the real file so Magit finds the repository
+(setq vc-follow-symlinks t)
 
 ;;;; Forge settings
 (use-package forge
