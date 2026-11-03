@@ -2,8 +2,10 @@
 # Read `man 5 sway` for a complete reference.
 
 ### Variables
-# Logo key (Mod4). Use Mod1 for Alt.
-set $mod Mod1
+# Layer key: Caps Lock, made a Super key (Mod4) in the input block below. The
+# same key is the layer key of AeroSpace on the Mac, and Alt stays free for
+# Emacs (Meta).
+set $mod Mod4
 # Home row direction keys, like vim
 set $left h
 set $down j
@@ -55,6 +57,10 @@ output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
 #
 # You can also configure each device individually.
 # Read `man 5 sway-input` for more information about this section.
+
+input type:keyboard {
+    xkb_options caps:super
+}
 
 ### Key bindings
 #

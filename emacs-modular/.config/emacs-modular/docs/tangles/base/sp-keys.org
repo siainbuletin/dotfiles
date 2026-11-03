@@ -161,7 +161,7 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 - =sp-prefix= is a user option holding the prefix string for all personal keys.
 - Its default is =C-;=.
 - It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
-- It is not =C-z=, =C-x=, =C-c= or =C-v=: =cua-mode= is on, so those keys undo, cut, copy and paste.
+- It is not =C-z=, =C-x=, =C-c= or =C-v=: on Linux and Windows =cua-mode= is on, and those keys undo, cut, copy and paste (on the Mac Command does, see =sp-text-manipulation=).
 - =flyspell-mode-map= used to bind =C-;=; =sp-spelling= now unbinds it, and its command lives on =C-; z p=.
 - Every prefix map below is built by appending a letter to this string.
 - Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]].
@@ -993,15 +993,6 @@ Installs =helm-descbinds= from GitHub, which provides a Helm interface for brows
 #+begin_src emacs-lisp -i
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
-#+end_src
-
-** Free C-z
-
-- Unbinds =C-z= globally, so it no longer suspends or iconifies Emacs.
-- It is not the leader key: with =cua-mode= on, =C-z= is undo (CUA keeps its own binding).
-
-#+begin_src emacs-lisp -i
-(global-unset-key (kbd "C-z"))
 #+end_src
 
 ** Rigid indentation

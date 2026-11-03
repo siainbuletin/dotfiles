@@ -559,8 +559,6 @@ an inline branching lambda from the prior implementation."
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
 
 
-(global-unset-key (kbd "C-z"))
-
 (keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 

@@ -267,6 +267,24 @@ These are outside the scope of a design note; they go into the first step.
    + In all cases the =C-c= hot keys keep a leader twin (=C-; a c=, =C-; a a=), so nothing depends on =C-c= with a region.
 - Not applied, and not run: this needs a real Emacs on the Mac to confirm the three =/(memory)/ points (the =cua-remap-control-*= options, the delay default, and how Command and Option behave with =mac-command-modifier= changed).
 
+** Same keys on macOS, Linux and Windows
+
+Decided on 2026-11-03: option C on the Mac, and the other two systems brought as close to it as the OS allows.
+
+- Three jobs, one key each, on every system:
+   + *Meta* is Alt (Option on the Mac). Nothing else grabs it: AeroSpace, i3 and sway no longer bind Alt.
+   + *Clipboard and undo* is the system's own key: Command on the Mac (=s-c=, =s-x=, =s-v=, =s-z=, =s-Z=), Ctrl on Linux and Windows (CUA, with =C-v= and =C-z= plain bindings). Both are set in =sp-text-manipulation=.
+   + *Window manager layer* is Caps Lock held, on the Mac and on Linux.
+- The window manager layer:
+   + Mac: Hammerspoon turns Caps Lock into =F18= (=hidutil=) and runs the =aerospace= commands (=hammerspoon/.config/hammerspoon/aerospace-keys.lua=); =aerospace.toml= no longer binds =alt-*= in main mode.
+   + Linux: =caps:super= in X (=setxkbmap=, i3) and in sway (=xkb_options=); both use =$mod= = Mod4, so Caps Lock is Super and the Windows key still works.
+   + Windows: no window manager is configured in this repository. If one is added, remap Caps Lock to a spare key with PowerToys Keyboard Manager and use that.
+- What stays different, because the hardware differs:
+   + Command sits where Alt sits on a PC keyboard, so the thumb position of the clipboard keys is not the same.
+   + =s-= keys in Emacs (=s-b=, =s-i=, =s-=, =s--=, =s-0=) are Command on the Mac and Caps Lock (or the Windows key) on Linux. i3 and sway only take the combinations they bind, so the rest reach Emacs; check =s-b= and =s-i= after the first run.
+   + On Linux and Windows =C-c= and =C-x= are still CUA's region trick (the C-c leader twins =C-; a c= and =C-; a a= avoid it).
+- Not run: none of this was tried on a real keyboard (no Emacs, i3, sway, AeroSpace or Hammerspoon in the container).
+
 ** which-key labels
 
 - A prefix map shows as "+prefix" unless it is labelled.
@@ -427,7 +445,7 @@ Applied in the pull request that follows #283, so the design can be tried:
 - New groups: =a= (agenda, capture, focus HUD) and =S= (sessions).
 - =pop-global-mark= is =C-; b P=.
 - Spelling: =C-; z p/n/.= (=C-;= is unbound in =flyspell-mode-map=).
-- The =C-z= unbinds in =sp-keys= and =sp-prog-misc= are back: =C-z= is not the leader, and under CUA it is undo.
+- =C-z= is not the leader. The two =C-z= unbinds in =sp-keys= and =sp-prog-misc= moved to =sp-text-manipulation=: unbound on the Mac, =undo= elsewhere.
 - =M-x sp-keys-audit= lists leader keys whose command is not defined, and the shims still alive.
 
 Not applied yet (left for later pull requests):
@@ -441,6 +459,6 @@ Decided on 2026-11-03: GUI only; root =C-;= (=C-z= is out because of CUA; to be 
 
 Still open:
 1. Whether =C-;= is comfortable to type and reaches Emacs on the Mac with Alfred running; if not, use a second key on the same map.
-2. How to get copy, cut, paste and undo without CUA's overlay (see [[*Replacing CUA][Replacing CUA]]): option A, B, C or D.
+2. Copy, cut, paste and undo: decided 2026-11-03, option C on the Mac and B elsewhere (see [[*Replacing CUA][Replacing CUA]] and [[*Same keys on macOS, Linux and Windows][Same keys on macOS, Linux and Windows]]). To confirm: Caps Lock is free to be the layer key.
 3. Which of the keys freed by CUA, if any, I want to reuse (see [[*Keys freed by CUA][Keys freed by CUA]]).
 4. Evil is gone. If it comes back, the last commit that had it is [[https://github.com/siainbuletin/dotfiles/tree/4164baced7367fac684a3c90bd66c8f537be70e6][4164bae]] (=sp-evil.el= and its doc under =libraries/modules/tooling/= and =docs/tangles/tooling/=); the leader would then also be mounted in Evil's normal-state map, which this design allows because it is a map object.

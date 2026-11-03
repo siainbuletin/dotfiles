@@ -6,8 +6,25 @@
 
 ;;; Code:
 
-;;;; Enabling CUA mode by default.
-(cua-mode)
+;;;; Copy, cut, paste and undo, as in every other app.
+(if (eq system-type 'darwin)
+    ;; Command is Super (`sp-macos'): plain keys, no CUA, so C-c and C-x are
+    ;; only prefixes.
+    (progn
+      (keymap-global-set "s-c" #'kill-ring-save)
+      (keymap-global-set "s-x" #'kill-region)
+      (keymap-global-set "s-v" #'yank)
+      (keymap-global-set "s-z" #'undo)
+      (keymap-global-set "s-Z" #'undo-redo)
+      (global-unset-key (kbd "C-z"))) ; stop me from freezing emacs
+  ;; No such key elsewhere: CUA only for C-c and C-x with a region; C-v and
+  ;; C-z are plain bindings.
+  (setq cua-remap-control-v nil
+        cua-remap-control-z nil)
+  (cua-mode)
+  (keymap-global-set "C-v" #'yank)
+  (keymap-global-set "C-z" #'undo)
+  (keymap-global-set "C-S-z" #'undo-redo))
 
 ;; Cleaning up unnecessary whitespace
 (defun sp-clean-whitespace (&optional Begin End)

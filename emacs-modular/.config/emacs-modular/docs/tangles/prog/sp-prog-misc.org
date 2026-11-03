@@ -117,15 +117,6 @@ Installs =easy-hugo= for managing a Hugo blog, and =gh-md= for rendering Markdow
 
 * Global keys and behaviour
 
-** Disable C-z
-
-- Unbinds =C-z= so it no longer suspends or minimises Emacs by accident.
-- Under =cua-mode= it stays undo.
-
-#+begin_src emacs-lisp -i
-(global-unset-key (kbd "C-z")) ; stop me from freezing emacs
-#+end_src
-
 ** Move lines up and down
 
 Binds =M-<up>= and =M-<down>= to =move-text-up= and =move-text-down=.

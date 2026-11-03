@@ -9,9 +9,10 @@
 
 ;;; Code:
 
-;; This is so that I can actually use the CMD key as my Meta key.
-(setq mac-command-modifier 'meta)
-(setq mac-option-modifier 'none)
+;; Command is Super (copy, cut, paste and undo are s-c, s-x, s-v and s-z, as in
+;; every other app) and Option is Meta.
+(setq mac-command-modifier 'super)
+(setq mac-option-modifier 'meta)
 (setq ns-right-command-modifier 'super)
 
 ;; Open with a specific MacOS app
