@@ -24,7 +24,11 @@
 (defun sp-org-slugify (title)
   "Turn TITLE into a filesystem-safe slug."
   (let ((slug (string-trim
-               (downcase (replace-regexp-in-string "[^[:alnum:]]+" "-" title))
+               (downcase (replace-regexp-in-string
+                          "[^[:alnum:]]+" "-"
+                          (if (require 'sp-author-notes nil t)
+                              (sp-author-notes-fold-diacritics title)
+                            title)))
                "-" "-")))
     (if (string-empty-p slug) "note" slug)))
 

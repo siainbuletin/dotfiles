@@ -77,7 +77,9 @@
   "The field NAME of ENTRY, braces removed and white space collapsed, or nil."
   (when-let* ((value (cdr (assoc-string name entry t)))
               (clean (string-trim (replace-regexp-in-string
-                                   "[ \t\n]+" " " (replace-regexp-in-string "[{}]" "" value)))))
+                                   "[ \t\n]+" " "
+                                   (replace-regexp-in-string
+                                    "[{}]" "" (sp-author-notes-latex-to-unicode value))))))
     (and (not (string-empty-p clean)) clean)))
 
 (defun sp-litnotes-meta--year (entry)

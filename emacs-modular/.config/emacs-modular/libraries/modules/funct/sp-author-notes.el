@@ -22,6 +22,8 @@
 (defvar sp-notes-dir)
 (defvar sp-var-dir)
 
+(require 'ucs-normalize)
+
 (declare-function sp-org--write-note "sp-org-link-conversion")
 (declare-function vulpea-db-update-file "vulpea-db")
 
@@ -111,6 +113,14 @@ nil to leave the text as it is."
   :type 'function
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-duplicate-function #'sp-author-notes-read-duplicate
+  "Function that picks one of several person notes that spell a name alike.
+It is called with the list of their index entries (plists with :title, :id and
+:file) when the changes are written, and returns the entry to use, or nil to
+leave the name alone."
+  :type 'function
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-backup-directory
   (expand-file-name "author-notes-backups/"
                     (if (boundp 'sp-var-dir) sp-var-dir user-emacs-directory))
@@ -174,9 +184,77 @@ nil to leave the text as it is."
         (setq tags (append tags (split-string (match-string-no-properties 1) "[: \t]+" t))))
       (list :file file :id id :title title :tags tags :denote denote))))
 
+(defconst sp-author-notes--fold-letters
+  '((?ø . "o") (?Ø . "O") (?đ . "d") (?Đ . "D") (?ð . "d") (?Ð . "D") (?ł . "l") (?Ł . "L")
+    (?ß . "ss") (?æ . "ae") (?Æ . "AE") (?œ . "oe") (?Œ . "OE") (?ı . "i") (?þ . "th")
+    (?Þ . "Th"))
+  "Letters with no decomposition and the ASCII they are folded to.")
+
+(defun sp-author-notes--comma-below (string)
+  "STRING in NFC with the cedilla s and t of Romanian written with a comma below."
+  (let ((s (ucs-normalize-NFC-string string)))
+    (dolist (pair '((#x15F . #x219) (#x15E . #x218) (#x163 . #x21B) (#x162 . #x21A)))
+      (setq s (subst-char-in-string (car pair) (cdr pair) s)))
+    s))
+
+(defun sp-author-notes-fold-diacritics (string)
+  "STRING with its accents removed: Søren Bulată and Soren Bulata fold alike.
+Ø, đ, ł, ß, æ and œ become o, d, l, ss, ae and oe; combining marks (also the
+comma below of ș and ț and the cedilla of ş and ţ) are dropped."
+  (let ((plain (mapconcat (lambda (c) (or (cdr (assq c sp-author-notes--fold-letters))
+                                          (string c)))
+                          string "")))
+    (replace-regexp-in-string (format "[%c-%c]" #x300 #x36f) ""
+                              (ucs-normalize-NFD-string plain))))
+
+(defconst sp-author-notes--latex-accents
+  '((?' . #x301) (?` . #x300) (?^ . #x302) (?\" . #x308) (?~ . #x303) (?= . #x304)
+    (?. . #x307) (?u . #x306) (?v . #x30C) (?c . #x327) (?H . #x30B) (?k . #x328)
+    (?r . #x30A))
+  "The LaTeX accent commands and the combining mark each one adds.")
+
+(defconst sp-author-notes--latex-letters
+  '(("oe" . "œ") ("OE" . "Œ") ("ae" . "æ") ("AE" . "Æ") ("aa" . "å") ("AA" . "Å")
+    ("ss" . "ß") ("o" . "ø") ("O" . "Ø") ("l" . "ł") ("L" . "Ł") ("i" . "i") ("j" . "j"))
+  "The LaTeX letter commands (`\\o', `\\aa', ...) and the character each one stands for.")
+
+(defun sp-author-notes-latex-to-unicode (string)
+  "STRING with BibTeX accents written as Unicode: S{\\o}ren is Søren, Bulat{\\u a} Bulată.
+Handles `{\\o}', `\\aa', `\\\"o', `\\'{e}', `\\u{a}', `\\v s', `\\c{s}' and the like, then
+writes the cedilla s and t as the Romanian comma-below ones."
+  (let ((s string))
+    (when (string-match-p "\\\\" s)
+      (setq s (replace-regexp-in-string
+               "\\\\\\(oe\\|OE\\|ae\\|AE\\|aa\\|AA\\|ss\\|o\\|O\\|l\\|L\\|i\\|j\\)\\_>\\(?: \\)?"
+               (lambda (m) (save-match-data
+                             (string-match "\\\\\\([a-zA-Z]+\\)" m)
+                             (cdr (assoc (match-string 1 m) sp-author-notes--latex-letters))))
+               s t t))
+      (setq s (replace-regexp-in-string
+               "\\\\\\(['`^\"~=.]\\)[ ]*\\(?:{\\([[:alpha:]]\\)}\\|\\([[:alpha:]]\\)\\)"
+               (lambda (m)
+                 (save-match-data
+                   (string-match "\\\\\\(.\\)[ ]*{?\\([[:alpha:]]\\)" m)
+                   (concat (match-string 2 m)
+                           (string (cdr (assq (aref (match-string 1 m) 0)
+                                              sp-author-notes--latex-accents))))))
+               s t t))
+      (setq s (replace-regexp-in-string
+               "\\\\\\([uvcHkr]\\)\\(?:{\\([[:alpha:]]\\)}\\|[ ]+\\([[:alpha:]]\\)\\)"
+               (lambda (m)
+                 (save-match-data
+                   (string-match "\\\\\\(.\\)[ {]*\\([[:alpha:]]\\)" m)
+                   (concat (match-string 2 m)
+                           (string (cdr (assq (aref (match-string 1 m) 0)
+                                              sp-author-notes--latex-accents))))))
+               s t t)))
+    (sp-author-notes--comma-below s)))
+
 (defun sp-author-notes--title-key (title)
-  "TITLE as a lookup key: downcased, with white space collapsed."
-  (downcase (string-trim (replace-regexp-in-string "[ \t\n]+" " " title))))
+  "TITLE as a lookup key: downcased, without accents, with white space collapsed.
+\"Søren Kierkegaard\" and \"Soren Kierkegaard\" have the same key."
+  (downcase (string-trim (replace-regexp-in-string
+                          "[ \t\n]+" " " (sp-author-notes-fold-diacritics title)))))
 
 (defconst sp-author-notes--meta-re
   "^\\(-[ \t]+\\)\\([^ \t:\n][^ \t\n]*\\)\\([ \t]+::\\)\\(?:[ \t]+\\(.*?\\)\\)?[ \t]*$"
@@ -259,7 +337,8 @@ Return nil, (fix . CANONICAL) or (suspect . CANONICAL); see `sp-author-notes--ke
 (defun sp-author-notes--clean-name (name)
   "NAME without quote marks, BibTeX braces and extra white space, flipped when asked for."
   (let* ((name (string-trim (replace-regexp-in-string
-                             "[ \t\n]+" " " (replace-regexp-in-string "[{}\"“”]" "" name))))
+                             "[ \t\n]+" " " (replace-regexp-in-string
+                                              "[{}\"“”]" "" (sp-author-notes-latex-to-unicode name)))))
          (parts (split-string name "," t "[ \t]+")))
     (if (and sp-author-notes-flip-names
              (= (length parts) 2)
@@ -286,6 +365,27 @@ the pieces are \"Last, First\" pairs, flipped when
   (when (y-or-n-p (format "\"%s\" may be %d authors: %s.  Make one author each? "
                           raw (length names) (string-join names " | ")))
     names))
+
+(defun sp-author-notes--accent-score (title)
+  "How many characters of TITLE the folding changes: more means better spelled."
+  (length (seq-filter (lambda (c) (not (equal (string c) (sp-author-notes-fold-diacritics (string c)))))
+                      title)))
+
+(defun sp-author-notes-read-duplicate (entries)
+  "Ask which of the person notes ENTRIES, spelled alike, to use; return its entry.
+The default is the spelling with the most accents."
+  (let* ((sorted (sort (copy-sequence entries)
+                       (lambda (a b) (> (sp-author-notes--accent-score (plist-get a :title))
+                                        (sp-author-notes--accent-score (plist-get b :title))))))
+         (alist (mapcar (lambda (e) (cons (format "%s [%s]" (plist-get e :title)
+                                                  (file-name-nondirectory (plist-get e :file)))
+                                          e))
+                        sorted))
+         (choice (completing-read
+                  (format "%d notes spell \"%s\" alike; use which? "
+                          (length entries) (plist-get (car sorted) :title))
+                  (mapcar #'car alist) nil t nil nil (caar alist))))
+    (cdr (assoc choice alist))))
 
 (defun sp-author-notes--and-list-p (pieces)
   "Non-nil if PIECES, a text split at `and', is one list of names with commas.
@@ -462,10 +562,19 @@ Return (id ID), (pending) or (skip)."
          (others (seq-remove #'sp-author-notes--person-p matches)))
     (cond
      ((cdr persons)
-      (sp-author-notes--problem
-       run file line (format "%d notes tagged %s are titled \"%s\"; left as it is"
-                             (length persons) sp-author-notes-person-tag name))
-      '(skip))
+      (let ((chosen (and (sp-author-notes--run-apply run)
+                         (funcall sp-author-notes-duplicate-function persons))))
+        (cond
+         ((and chosen (plist-get chosen :id)) (list 'id (plist-get chosen :id)))
+         (t (sp-author-notes--problem
+             run file line
+             (format "%d notes tagged %s are titled alike (%s); %s"
+                     (length persons) sp-author-notes-person-tag
+                     (mapconcat (lambda (e) (format "\"%s\"" (plist-get e :title))) persons ", ")
+                     (if (sp-author-notes--run-apply run)
+                         "left as it is"
+                       "apply will ask which one to use")))
+            '(skip)))))
      (persons
       (if-let* ((id (plist-get (car persons) :id)))
           (list 'id id)
@@ -1243,6 +1352,87 @@ written in slices, so Emacs stays usable; the report opens when all are done."
         (?y (sp-author-notes-apply))
         (?r (message "d drops the candidate on a line, u restores it, A writes the rest"))
         (_ (message "Nothing written"))))))
+
+;;;; Duplicate spellings
+
+(defun sp-author-notes--duplicate-groups (run)
+  "The groups of person notes in RUN that share a title key: lists of index entries."
+  (let (groups)
+    (maphash
+     (lambda (_key entries)
+       (let ((people (seq-uniq
+                      (seq-filter (lambda (e) (and (sp-author-notes--person-p e) (plist-get e :id)))
+                                  entries)
+                      (lambda (a b) (equal (plist-get a :id) (plist-get b :id))))))
+         (when (cdr people) (push people groups))))
+     (sp-author-notes--run-by-title run))
+    groups))
+
+(defun sp-author-notes--relink-pass (table)
+  "Point the person links of the buffer at other notes; return how many changed.
+TABLE maps an ID to (NEW-ID . NEW-TITLE)."
+  (let ((count 0))
+    (dolist (entry (sp-author-notes--meta-entries))
+      (when (and (member (plist-get entry :key) sp-author-notes-person-keys)
+                 (plist-get entry :value))
+        (let* ((value (plist-get entry :value))
+               (new (replace-regexp-in-string
+                     sp-author-notes--id-link-re
+                     (lambda (m)
+                       (save-match-data
+                         (string-match sp-author-notes--id-link-re m)
+                         (if-let* ((to (gethash (match-string 1 m) table)))
+                             (progn (cl-incf count) (format "[[id:%s][%s]]" (car to) (cdr to)))
+                           m)))
+                     value t t)))
+          (unless (equal new value)
+            (sp-author-notes--replace (plist-get entry :value-beg) (plist-get entry :value-end) new)))))
+    count))
+
+;;;###autoload
+(defun sp-author-notes-normalize-duplicates ()
+  "Offer to use one note for each person that has several notes spelled alike.
+Notes whose titles differ only in accents or case (Søren and Soren Kierkegaard)
+form a group.  For each group you pick the note to keep; then, after one question,
+the author and editor links of the litnotes that point at the other notes are
+pointed at the kept one, with backups.  The other notes are not merged or
+deleted: they are listed, so you can merge them."
+  (interactive)
+  (let* ((sp-async-work-synchronous t)
+         (run (sp-author-notes--make-run
+               :apply t :stamp (format-time-string "%Y%m%dT%H%M%S")
+               :names (make-hash-table :test #'equal)
+               :orphan-choices (make-hash-table :test #'equal)
+               :backed-up (make-hash-table :test #'equal)))
+         (table (make-hash-table :test #'equal))
+         losers)
+    (sp-author-notes--index-start run)
+    (dolist (file (sp-author-notes--org-files sp-author-notes-directory))
+      (sp-author-notes--index-file run file))
+    (let ((groups (sp-author-notes--duplicate-groups run)))
+      (if (null groups)
+          (message "No person notes spell a name alike")
+        (dolist (group groups)
+          (when-let* ((keep (funcall sp-author-notes-duplicate-function group)))
+            (dolist (e group)
+              (unless (equal (plist-get e :id) (plist-get keep :id))
+                (puthash (plist-get e :id) (cons (plist-get keep :id) (plist-get keep :title)) table)
+                (push e losers)))))
+        (cond
+         ((null losers) (message "Nothing chosen"))
+         ((not (y-or-n-p (format "Point the author and editor links of %d duplicate notes at the ones you chose?"
+                                 (length losers))))
+          (message "Nothing written"))
+         (t
+          (let ((total 0))
+            (dolist (file (sp-author-notes--org-files sp-author-notes-litnotes-directory))
+              (when-let* ((wrapped (sp-author-notes--process-file
+                                    run file (lambda () (sp-author-notes--relink-pass table)))))
+                (cl-incf total (or (car wrapped) 0))))
+            (message "Changed %d links.  Not merged, merge or delete them yourself: %s"
+                     total (mapconcat (lambda (e) (format "%s (%s)" (plist-get e :title)
+                                                          (file-name-nondirectory (plist-get e :file))))
+                                      (nreverse losers) "; ")))))))))
 
 ;;;###autoload
 (defun sp-author-notes ()
