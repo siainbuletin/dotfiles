@@ -1,0 +1,261 @@
+#+title: Global keybindings in one keymap per feature
+#+startup: overview
+#+date: 2026-11-03
+
+Design for moving every global keybinding into a keymap of its own per feature, mounted under one leader key, so that no two features can bind the same key by accident. Modelled on Lambda Emacs (=lambda-library/lambda-setup/lem-setup-keybindings.el= in the =lambda-emacs-modified= copy). *Design only: nothing in the configuration changes with this note.*
+
+*What has and has not been run.* Written from a Linux container with no Emacs in it. Everything about this configuration comes from reading the sources (=sp-keys.el= and a search of every module under =libraries/modules/=, without =cloned/= and =themes/=). Statements about Emacs and about packages are from memory and marked /(memory)/; they need one check in a real Emacs before a step is built on them. Packages' own default keymaps (Magit, Dired, gptel and so on) were not audited.
+
+* Summary
+
+- Today there are three keybinding systems side by side: the Lambda-style leader tree in =sp-keys= (=C-x C-SPC= plus 17 group maps), about 80 raw =keymap-global-set= / =global-set-key= calls and 60-odd =:bind= forms spread over the modules, and mode-local bindings that reuse the same =C-c <letter>= keys. Nothing checks them against each other, and the last one loaded silently wins.
+- The audit found *four global collisions* (=C-c s l=, =C-c s r=, =C-c m=, =<f6>=), *one three-way collision* (=C-c f=), *ten mode-local shadows* of global keys (Python and Org mostly), *one leader key that hides a built-in* (=C-x C-SPC= is =pop-global-mark=), and *eleven commands in the leader tree that I found no definition for*. Details in [[*What the audit found][What the audit found]].
+- Recommendation: keep Lambda's idea (one leader, one map per feature) but build it differently: each feature module owns a =defvar-keymap= and exports it; =sp-keys= only /mounts/ those maps under letters from a single registry table; a test compares that table with the live keymaps. Hot keys that should not take a leader (=C-c c=, =C-.=, =M-.=) are listed in the same table as exceptions. Mode-local keys move to =C-c C-<x>= or a local leader.
+- Roll it out in five small pull requests, the first of which changes no key (audit command and test), and keep the old keys for a while as shims that tell me where the key went.
+
+* What Lambda Emacs does
+
+The file is about 400 lines of =bind-keys= forms, one per group. The parts that matter:
+
+- *One personal prefix*, =lem-prefix= = =C-c C-SPC=, bound to =lem+leader-map= with =bind-keys :prefix-map ... :prefix=.
+- *One prefix map per feature*, each under a letter of the prefix: =b= buffers, =c= comments, =C= config, =M= compile, =e= eval, =f= files, =F= flymake, =m= mail, =n= notes (with =n b= for bibliography), =q= quit, =s= search, =S= spelling, =t= toggles, =g= version control, =w= windows, =W= workspaces, and an empty =u= map for the user's own keys. Each map has a name (=lem+buffer-keys=) so it can be extended or inspected by name.
+- *Hydras* for the long-running modes (transpose on =.=), which-key configured to show after 0.75 s or on =C-h= (=which-key-show-early-on-C-h=).
+- *No bindings in the feature modules.* The file says so itself: it separates keys from packages, but it is "the place to go to deal with all keybindings".
+
+What I take: the leader and the map per feature, the empty user map, the mnemonic letters, which-key as the discovery tool. What I do not take:
+
+- *Prefixes built from strings.* Every group re-derives its place with =(concat lem-prefix " b")=. A child prefix (=n b=) only works if its parent was bound earlier, and binding a child below a key that is still a command signals "starts with non-prefix key" at load time. Mounting map objects removes the order dependence ([[*The design][The design]]).
+- *All keys in one file.* It makes the audit easy and the feature module harder to read. The compromise below keeps the /map/ in the feature module (the module says what it offers) and the /letter/ in =sp-keys= (one place says where it lives).
+- *The prefix itself.* =C-c C-SPC= is a =C-c= + control character, which the Emacs conventions reserve for major modes /(memory)/. See [[*The leader key][The leader key]].
+- *No labels.* Lambda's groups show up in which-key as "+prefix". See [[*which-key labels][which-key labels]].
+
+* What exists in this configuration
+
+** =sp-keys= (the Lambda copy)
+
+=sp-keys.el= is the fifth module loaded (after =sp-globals=, =sp-encoding=, =sp-base-libraries=, =sp-interaction=; before =sp-navi= and all UI modules). It defines =sp-prefix= = =C-x C-SPC= and =lem+leader-map=, then the group maps (names still =lem+...=): =b c C M e f F m n n-b q s t u g w W=, plus =.= (transpose-words), =h= (help transient, defined in =sp-help=) and =1= to =5= (workspace jumps, defined in =sp-workspaces=). Hydras have become transients. Below the Lambda part it also holds a miscellany of raw bindings: =C->=, =C-<=, =C-+=, =C--=, =C-x t b=, =C-c s l/s/L/d/r/R= (easysession), =C-c e b b=, =C-M-z C-e=, =C-M-S-c=, =C-M-S-z=, =C-M-S-u=, =M-;=, =<home>=, =<end>=, and =C-z= unset. =ironkey= protects =M-.= and =C-x p= from minor-mode overrides.
+
+** Outside =sp-keys=
+
+88 top-level binding forms (79 of them =keymap-global-set= or =global-set-key=), 5 =bind-keys= forms, about 60 =:bind= forms, and mode-local =define-key= calls (Python alone has 28). There is no Evil, no General and no Meow in use: Evil is commented out in =init.el= and =sp-config-profiles.el= and =sp-helper-funct= only touches it inside =with-eval-after-load 'evil=. The tools in play are =bind-key= / =use-package :bind=, raw =keymap-global-set=, =ironkey=, =which-key=, =embark= and =transient=.
+
+** How the single-letter =C-c= space is used today
+
+Emacs reserves =C-c <letter>= for the user /(memory)/; there are only 52 of them, and this configuration already spends at least these as global prefixes or commands: =a b c d e f h i j k l m n o p r s t w z=. Some are package defaults used against the convention (=C-c p= projectile, =C-c C-p= projectile, =C-c C-d= helpful), some are my own, and the same letter is often used by two features. A single leader costs one slot and gives 52 child slots per level.
+
+* What the audit found
+
+"Global" means bound in =global-map= (or by =bind-key*= in =override-global-map=); "local" means bound in a mode map and so active only there. When two global bindings meet, the one evaluated last wins and nothing warns.
+
+** Two global commands on one key
+
+| Key      | First                                         | Second                                 | Result |
+|----------+-----------------------------------------------+----------------------------------------+--------|
+| =C-c s l= | =easysession-switch-to= (=sp-keys=)            | =consult-line= (=sp-search=)            | =sp-search= loads after =sp-keys= (=sp-navi= follows it), so easysession /load/ is lost |
+| =C-c s r= | =easysession-rename= (=sp-keys=)               | =consult-ripgrep= (=sp-search=)         | easysession /rename/ is lost |
+| =C-c m=   | =sp-goto-minibuffer-window= (=sp-windows=)      | =supersonic= (=sp-multimedia= =:bind=)   | whichever is evaluated last; the UI module loads before the media module, but see load order below |
+| =<f6>=    | =redraw-display= (=sp-windows=)                 | =projectile-run-project= (=sp-workspaces= =:bind=) | same |
+| =C-c f=   | =org-focus-hud= (=sp-org-time=)                 | =dirvish= (=sp-dired=), and in Org buffers the prefix =C-c f n/q= (footnotes) | three users of one key |
+| =C-c a= / =C-c o a= | =org-agenda= twice                      | (=sp-agenda-views=)                      | harmless duplicate |
+
+** A local binding hides a global one
+
+Most of these are fine as long as I know about them. The ones that cost something:
+
+| Key | Global | Local | Effect |
+|-----+--------+-------+--------|
+| =C-c p= | =projectile-command-map= | =python-mode-map=: =python-nav-backward-defun= | all of Projectile is unreachable in Python buffers |
+| =C-c C-p= | =projectile-command-map= | =python-mode-map=: =run-python= | same, and =C-c C-<x>= is the major-mode namespace |
+| =C-c e c= | =sia-execute-all-buffers= | =python-mode-map=: =flycheck-clear= | the global command is lost in Python buffers (the other =C-c e= keys merge) |
+| =M-.= | =embark-dwim= (protected by =ironkey=) | =python-mode-map=: =xref-find-definitions= | which wins depends on how =ironkey= treats major-mode maps (not read) |
+| =C-x s= | =save-some-buffers= | =org-mode-map=: =C-x s t= (=sp-refile=) | a prefix in the local map hides a /command/ in the global map, so =C-x s= (and =C-x s !=) stops working in Org buffers /(memory)/ |
+| =C-c f= | see above | =org-mode-map=: =C-c f n=, =C-c f q= | same mechanism: the two global =C-c f= commands vanish in Org |
+| =C-c C-d= | =helpful-at-point= | =org-mode= binds =org-deadline= there; Lisp buffers bind =C-c C-d h= (sly) | =helpful-at-point= is dead in Org and Lisp |
+| =C-:=, =C-.= | =avy-goto-char=, =embark-act= | =flyspell-mode-map= binds both (=sp-spelling=; Emacs' flyspell binds =C-.= by default /(memory)/) | both lost while flyspell is on |
+| =C-<return>= | =pulse-line= (=sp-faces=) | Org: =org-insert-heading-respect-content= /(memory)/ | lost in Org |
+| =M-a= | =sp-move-region-to-heading= | built in: =backward-sentence= | the global rebind takes a high-use motion key |
+
+A rule that explains the table: *a prefix and a command on the same key shadow each other; two prefixes merge.* =C-x t i/h/d= in =org-mode-map= and the global =C-x t= tab prefix merge (the tab commands still work in Org), but =C-x s t= against the global command =C-x s= does not /(memory)/. Any design has to treat "this key is a command somewhere" as a conflict with "this key is a prefix elsewhere".
+
+** Reserved and built-in keys that are taken
+
+- =C-x C-SPC= is the leader, and it is =pop-global-mark= /(memory)/. Nothing else in the repository binds =pop-global-mark=, so it is simply gone.
+- =C-x= is Emacs' own namespace and grows between versions. This configuration also binds =C-x C-f=, =C-x C-b=, =C-x C-r= (=recentf-open-files=, hides =find-file-read-only=), =C-x t b= (=transpose-buffers=, hides =switch-to-buffer-other-tab= in the tab prefix /(memory)/), =C-x w t/r/f/f= (the =EMACS-31= comment says they exist upstream in Emacs 31; confirm and drop them if so), =C-x n n=, =C-x r D=, =C-x s t=, =C-x t i/h/d/s=.
+- =C--= and =M--= (negative argument) are taken by =text-scale-decrease= and =font-size-decrease=; =M-== (=count-words-region=) and =M-+= by =font-size-increase=; =M-u/l/c= are rebound to the same =-dwim= commands Emacs already has.
+- =C-c <control char>= is for major modes: =C-c C-d=, =C-c C-p=, =C-c C-w= (=sp-refile= over =org-refile=, deliberate) and the Python =C-c C-r/b/l/p= (mostly python.el's own defaults /(memory)/).
+- =<f1>= is unbound globally by =sp-prog-misc= ("avoid help-for-help"), and Python re-binds =[f1]= locally. =C-h= is untouched. =C-z= is unbound twice.
+
+** Things that are probably bugs, found on the way
+
+These are outside the scope of a design note; they go into the first step.
+
+- *Commands in the leader tree with no definition in the repository*: =cpm-go-to-mail-inbox=, =cpm-go-to-mail-unread=, =cpm-open-email-in-workspace= (a =cpm-= prefix, left over from Lambda's author), =sp-compile-next-makefile=, =sp-eval-current-form=, =sp-flyspell-ispell-goto-next-error=, =sp-jump-in-buffer=, =sp-kill-all-emacsen=, =sp-kill-emacs-capture-daemon=, =sp-load-config=, =sp-spelling-transient=. The keys are bound; pressing them signals =void-function=. (Third-party commands such as =crux-*= or =vr/query-replace= were not checked.)
+- =sp-help.el=: after the =:bind= list closes there is a stray =("C-h f" . helpful-function)= form inside =use-package helpful=, before the closing parenthesis. Looks like a leftover from a commented block; =use-package= would reject or ignore it.
+- =sp-org-narrow.el=: =(bind-key* "C-x n n" #'sp-narrow-or-widen-dwim narrow-map)=. =bind-key*= takes =(key command &optional predicate)=, so =narrow-map= is read as the predicate, not as the map to bind in /(memory)/. The comment says the intent was to bind in =narrow-map=.
+- =sp-prog-misc.el=: =mouse-4= / =mouse-5= bound to scroll commands; wheel events are =wheel-up= / =wheel-down= since Emacs 29 /(memory)/.
+- =sp-keys.el=: the Lambda =S= (spelling) and =h= (hydra) groups were dropped or changed but their commands are still referenced; =find-emacs-config= points at =~/.emacs.d/siapip/siapip-emacs.el=, which is not this configuration.
+- =H-w= (=formatted-copy=) and =H-b= (=org-ref-bibtex-hydra=) use the Hyper key, which no code here maps to a physical key (see [[*Terminal and GUI][Terminal and GUI]]).
+
+* Caveats
+
+** Load order and timing
+
+- =keymap-global-set= at the top level of a module runs while init reads that module. The module order is =lem--default-modules= in =init.el= and is documented for another purpose in [[file:load-order.org][load-order.org]]; today it decides which of two conflicting keys wins, and nobody chose that.
+- =use-package :bind= for a package installed with =:ensure t= is, as far as I know, wrapped in an =elpaca= form and runs when Elpaca processes that package's queue entry, after init /(memory)/. If so, a =:bind= and a top-level =keymap-global-set= are ordered by something other than module order, and the order of two =:bind= forms depends on Elpaca's queue. *Do not infer the winner from the file order; read it from the live keymap.* This is the first thing to check in a real Emacs, and the reason the test below inspects the result and not the sources.
+- A map that does not exist yet cannot be extended: =org-mode-map=, =python-mode-map=, =projectile-command-map=, =tabspaces-command-map= belong to packages. Use =:bind (:map ...)= or =with-eval-after-load=. Feature maps created with =defvar-keymap= in this configuration always exist and can be mounted at any time, which is the main argument for them.
+- =tabspaces-command-map= is defined in =sp-tabs= and also re-built in the leader tree (=W= in =sp-keys=): the same twelve-odd commands in two maps with different letters (=n= rename vs none, =C= vs =c= for clear).
+- Mounting a map object (=(keymap-set sp-leader-map "t" sp-toggle-map)=) shares it: later =keymap-set= calls into the child are visible through the parent. Copying it (=copy-keymap=) loses that. Never copy.
+- =bind-keys :prefix-map X :prefix "C-x C-SPC b"= defines =X= /and/ binds the string path. If the parent is not yet a prefix, the binding fails. Mounting by object has no such order.
+
+** Keys that never reach Emacs
+
+The terminal sends fewer keys than the GUI /(memory)/:
+
+- Not distinguishable in a terminal without a keyboard protocol (kitty/CSI u, e.g. the =kkp= package): =C-:=, =C-;=, =C-.=, =C-,=, =C->=, =C-<=, =C-+=, =C-<return>=, =<C-tab>=, =C-M-S-<up/down/left/right>=, =S-<f11>=. In many terminals =C--= arrives as =C-_= (undo).
+- =C-x C-SPC= arrives as =C-x C-@= and works in most terminals, but terminal multiplexers can swallow =C-SPC=. The repository has a =zellij= config; if it is used with Emacs inside, check its key bindings against the leader.
+- macOS GUI: =mac-command-modifier= is =meta=, =mac-option-modifier= is =none=, =ns-right-command-modifier= is =super= (=sp-macos=). So: =s-= keys are on the /right/ Command only; Hyper (=H-=) is not mapped at all, so =H-w= and =H-b= cannot be typed; =M-= is Command, which collides with macOS menu shortcuts that the OS intercepts first (=M-`=, =M-h=, =M-m=).
+- Design consequence: *the leader tree must be reachable from a terminal and with the right-hand Command not pressed.* Anything that only exists as =s-=, =H-=, =C-M-S-= or =C-<punctuation>= is a convenience duplicate of a leader entry, never the only way.
+
+** The leader key
+
+Options, with what each costs:
+
+| Option | For | Against |
+|--------+-----+---------|
+| Keep =C-x C-SPC= | no muscle-memory change | hides =pop-global-mark=; inside Emacs' own =C-x= space |
+| =C-c C-SPC= (Lambda) | same shape as Lambda | =C-c= + control character is reserved for major modes /(memory)/, so any mode may take it |
+| =C-c <letter>= | the only user-reserved sequences | spends one of the 52 slots; all of them are used now |
+| =<f5>= to =<f9>= | reserved for users too | not on every keyboard; =<f5>=, =<f6>=, =<f8>=, =<f9>= are bound here already |
+| =s-SPC= / =H-SPC= | GUI only | not in a terminal; =s-= only on right Command |
+
+I recommend: *do not choose the root in step one.* The structure works under any root because the leader is a map object (=sp-leader-map=) and its key is one variable. Pick the root when the audit command (step 1) can report which candidate is free in every major mode I use. Until then keep =C-x C-SPC= and bind =pop-global-mark= to =C-x C-SPC SPC= so it is not lost. Also bind the same map to a second root (a function key) so there is a way in from keyboards or terminals where the first fails; two keys on one map object cost nothing.
+
+** which-key labels
+
+- A prefix map shows as "+prefix" unless it is labelled. Label the group where it is mounted with =which-key-add-keymap-based-replacements=, or build the entry as =(keymap-set sp-leader-map "t" (cons "toggle" sp-toggle-map))= /(memory)/; the config already uses the labelled-cons form in a comment in =sp-org-taskman-extra= (='("jump todos" . consult-todo)=). Which of the two works with the built-in which-key of Emacs 30 and 31 needs one test.
+- Individual commands show by symbol name. Anonymous lambdas (=org-journal-new-entry= in =sp-org-ext=, the emphasis lambdas in =sp-org-base=) show as "lambda"; give them names or labels.
+- =which-key-show-early-on-C-h= is already set, so =C-h= after any prefix lists it. That works for every leader group at no cost, but =C-h= inside a prefix whose map was /copied/ shows a stale list.
+- Labels are data, so they can live in the registry table and be applied in one loop.
+- A =defvar-keymap= can carry =:doc= and =:name= (Emacs 29+); use them, they show in =describe-keymap=.
+
+** Mode-specific overrides
+
+The leader is global, so a mode that binds the same root key as a command would hide the whole tree (Org's =C-c SPC=, if that were the root, is the example /(memory)/). Rules for the feature modules:
+
+1. Global feature keys go in the feature's map, never in =C-c <letter>= (and not in =C-c C-<x>=).
+2. Mode-local keys use =C-c C-<x>= (the major-mode namespace, and it merges with the major mode's own) or a /local leader/ =<leader> m= that each major mode fills through a variable (=sp-leader-local-map=, buffer-local, set by the mode hook). This replaces the 28 Python keys: =C-c e n/p/l/c/v= becomes =<leader> m e n= and so on, so Projectile and the others are no longer hidden.
+3. A mode that really needs a key that is global elsewhere (=M-.= in Python) says so in the registry as a deliberate local override; the test accepts a listed override and fails on an unlisted one.
+4. Do not use =bind-key*= (override map) except for keys that must work in every mode, and say which in the registry. Today it is used for =s-== =s--= =s-0= (fonts) and the =C-x n n= case above.
+
+** Migration and muscle memory
+
+- Count of keys that would move: the scattered =C-c <letter>= bindings (about 45 global) and the =sp-keys= extras. The 17 leader groups that already exist keep their letters, so the keys I use most (=C-x C-SPC b b=, =C-x C-SPC g s=, =C-x C-SPC f f=) do not change.
+- Shim for each moved key: bind the old key to a command that shows =Moved to <leader> a c= in the echo area, then runs the command, for a fixed period (for example until the CHANGELOG set for this work is closed). A table =sp-keys-moved= (old key, new key, since) generates them; the same table drives the test that a shim does not outlive its date.
+- Keep the hot keys. Candidates for the exceptions list: =C-c c= (capture), =C-c a= (agenda), =C-.= (embark-act), =M-.=, =C-x C-f=, =C-x C-b=. Each exception must have a reason in the table; any other global binding outside the leader is a test failure.
+- Denote is being phased out (ADR 0010): do not design a place for =C-c w d ...=, =C-c z= and =M-n ...=; remove them with the Denote removal, and give them no shim.
+- Muscle memory also lives in other tools: =gh dash=, Hammerspoon and the shell aliases in this repository do not send Emacs keys, but the fish =emacs-pr= helper and the sandbox profiles load =sp-keys= too, so the same table must work in the =writing= and =sandbox= profiles.
+
+** Testing for conflicts
+
+Three layers, from cheapest:
+
+1. *Registry test (batch, no packages).* The registry is an Org table in this design's follow-up doc (the =sp-keys= literate doc), tangled to a =defconst=. The test checks the table itself: no two rows with the same key, no row whose key is a strict prefix of another row's key unless it is a prefix row, every command is a symbol, every leader letter is used once. This runs in CI next to the tangle check, with the existing =ert= tests in =tests/=.
+2. *Live audit (needs the real Emacs).* =M-x sp-keys-audit= walks =global-map=, the leader map, and the maps listed in a variable (=org-mode-map=, =python-mode-map=, =dired-mode-map=, =magit-mode-map=, =org-agenda-mode-map=, the minor-mode maps in =minor-mode-map-alist=) with =map-keymap= and reports to a buffer: keys whose final binding differs from the registry; prefix-vs-command mismatches; local bindings that hide a global one; bound symbols that are not =commandp=; the same command on several keys. =describe-personal-keybindings= already reports =[was ...]= for anything bound through =bind-key= / =:bind=, so route as many bindings as possible through it. The raw =keymap-global-set= calls bypass it, which is the argument for one entry point.
+3. *Terminal check.* A short manual list: run =emacs -nw= in the terminal I use, press =C-h k= then each key in a fixed list and see which arrive. This does not automate well; keep it as a table in the doc with a date for the last run.
+
+The audit also doubles as the CI guard: a pull request that adds a global binding outside the registry fails layer 1.
+
+* The design
+
+** Shape
+
+#+begin_example
+sp-leader-map              (mounted at the leader key; one variable)
+ ├── b  sp-buffer-map      (owned by sp-buffers)
+ ├── g  sp-vc-map          (owned by sp-vcontrol)
+ ├── s  sp-search-map      (owned by sp-search)
+ ├── n  sp-notes-map       (owned by sp-notes)  ── b  sp-bib-map
+ ├── m  sp-local-map       (buffer-local: major-mode keys, the "local leader")
+ └── ...
+#+end_example
+
+- *Each feature module defines and exports one map* with =defvar-keymap= and fills it itself, so the module that owns a command is the one that says which key it has /inside its own map/.
+- *=sp-keys= owns the letters*: one table =(LETTER MAP LABEL)= and one loop that mounts each map under the leader and labels it. Changing a letter is a one-line change in one file; nobody else needs to know it.
+- *Leader, hot keys and exceptions* are in the same registry so the audit can read them.
+- Sketch (not code to tangle; style as in the project instructions):
+
+#+begin_src emacs-lisp :tangle no
+;; In the feature module (sp-search.el):
+(defvar-keymap sp-search-map
+  :doc "Search commands."
+  :name "Search"
+  "l" #'consult-line
+  "r" #'consult-ripgrep
+  "m" #'sp-search
+  "f" #'consult-snapfile)
+
+;; In sp-keys.el, the only place that knows the letters:
+(defconst sp-keys-groups
+  '(("s" sp-search-map "search")
+    ("S" sp-session-map "session")
+    ("g" sp-vc-map "git"))
+  "Leader letter, keymap variable and label of each feature group.")
+
+(defun sp-keys-mount-groups ()
+  "Mount every group of `sp-keys-groups' on `sp-leader-map'."
+  (dolist (group sp-keys-groups)
+    (when-let* ((map (and (boundp (nth 1 group)) (symbol-value (nth 1 group)))))
+      (keymap-set sp-leader-map (nth 0 group) (cons (nth 2 group) map)))))
+#+end_src
+
+A map that is not defined yet (a late module) is mounted when its module provides the feature: =(with-eval-after-load 'sp-search (sp-keys-mount-groups))=. Mounting twice is harmless.
+
+** Proposed letters
+
+Keep the 17 existing groups; move what is scattered into them where it fits and add the few missing ones. Letters marked * are new.
+
+| Letter | Group | Takes over |
+|--------+-------+------------|
+| =a*= | agenda and tasks | =C-c o a=, =C-c d e/p/n/s= (org-gtd), =C-c f= =org-focus-hud=, the =sp-org-issues= morning view; =C-c a= and =C-c c= stay as hot keys |
+| =b= | buffers | unchanged |
+| =B*= | bibliography | =C-c w b ...= (bibprocess, fetch-academic, citar, litnotes), =C-c b= citar insert; joins the existing =n b= |
+| =c= | comment | unchanged |
+| =C= | config | unchanged |
+| =e= | eval | =C-c e b b=, =C-c e c=; Python's =C-c e n/p/l/c/v= go to the local leader |
+| =f= | files | unchanged, plus =C-c f= dirvish |
+| =F= | flymake | unchanged |
+| =g= | git | unchanged; =C-c v= (merge-pick, Magit-local) stays local |
+| =h= | help | unchanged |
+| =k*= | knowledge search | =C-c k l/I= (litdb), =C-c k t/T= (tab-psearch), =C-c k s/S/./R= (semantic) |
+| =m= | mail | unchanged |
+| =M= | compile | unchanged |
+| =n= | notes | =n= vulpea (=M-o ...=), =n b= bibliography, =n d= Denote only until it is removed |
+| =p*= | projects | =C-c p= Projectile (no longer hidden by Python), project prefix =C-x p= stays |
+| =q= | quit | unchanged |
+| =r*= | reading and writing views | =C-c w r= reading mode, =C-c w o= olivetti, =C-c w e= elfeed |
+| =s= | search | =C-c s l/r/m/f=; session commands (easysession) move to =S*= |
+| =S*= | sessions | =C-c s s/L/d/R=, easysession's =l= and =r= back, no clash |
+| =t= | toggles | unchanged |
+| =T*= | trails | =sp-trails-map= (no key today) |
+| =u= | user | unchanged, empty |
+| =w= | windows | unchanged; also the =C-x w= layout commands (=t r f=) if they are not upstream in Emacs 31 |
+| =W= | workspaces | merge with =tabspaces-command-map= (one map, not two) |
+
+(Letters are a proposal: they change nothing until the registry is written.)
+
+** Steps
+
+Each is a pull request that can be merged on its own; none touches the others' keys.
+
+1. *Audit and test, no key changes.* =sp-keys-audit=, the registry skeleton filled from today's bindings (so it passes), the batch test, and the bug fixes above (void commands, the stray =helpful= form, the =narrow-map= argument).
+2. *Feature maps.* Each module gets its =defvar-keymap=; =sp-keys= mounts them; the current keys inside the leader tree are unchanged. Resolve the two real collisions (=C-c s l=, =C-c s r=) here, because moving the easysession keys to =S= is the same change.
+3. *Move the scattered global keys* with shims, in groups (academic =C-c w=, =C-c k=, org =C-c d=/=C-c f=, the rest), and decide the root key.
+4. *Mode-local keys* to =C-c C-<x>= or the local leader, starting with Python and Org.
+5. *Remove the shims* when the date in =sp-keys-moved= passes.
+
+* Open decisions
+
+1. The root key (see [[*The leader key][The leader key]]); recommended to decide after step 1.
+2. Whether Python's 28 local keys are moved (step 4) or kept for now: moving them gets Projectile back in Python buffers.
+3. How long shims live.
+4. Whether Evil comes back: the leader would then be mounted in the Evil normal-state map as well (=SPC=), which this design allows because it is a map object, but the =sp-evil= module is commented out and no choice is needed now.
