@@ -67,7 +67,7 @@ Installs =org-auto-scheduler= from the SSD2019 GitHub repository. No options are
 
 ** Focus HUD
 
-Configures =org-focus-hud=, now reached from the leader (=C-z a f=).
+Configures =org-focus-hud=, now reached from the leader (=C-; a f=).
 
 - Its display refreshes every 15 seconds and follows whichever task is newly clocked in.
 - The comment says it plugs into org-auto-scheduler and covers checklist focus.

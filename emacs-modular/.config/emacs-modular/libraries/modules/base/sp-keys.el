@@ -56,7 +56,7 @@ the line, respectively."
   (setq bind-key-describe-special-forms nil))
 
 ;;;;; Personal Keybindings Prefix
-(defcustom sp-prefix "C-z"
+(defcustom sp-prefix "C-;"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'spcustom)
@@ -350,6 +350,13 @@ the line, respectively."
            ("r" . easysession-rename)
            ("R" . easysession-reset))
 
+;;;;;; Spelling Keybindings
+(bind-keys :prefix-map lem+spelling-keys
+           :prefix (concat sp-prefix " z")
+           ("p" . flyspell-correct-previous)
+           ("n" . flyspell-correct-next)
+           ("." . flyspell-correct-at-point))
+
 ;;;;;; Moved keys (shims)
 (defconst sp-keys-moved
   '(("C-c s s" "S s" easysession-save-as)
@@ -551,6 +558,8 @@ an inline branching lambda from the prior implementation."
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
 
+
+(global-unset-key (kbd "C-z"))
 
 (keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length

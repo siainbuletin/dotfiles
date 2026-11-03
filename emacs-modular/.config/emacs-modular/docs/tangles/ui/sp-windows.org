@@ -600,8 +600,8 @@ With any other number of windows it does nothing.
 
 ** Keys moved to the leader
 
-- =C-c m= (jump to the minibuffer) is now =C-z w M=; =C-c m= belongs to =supersonic=.
-- =<f6>= (=redraw-display=) is now =C-z w D=; =<f6>= belongs to =projectile-run-project=.
+- =C-c m= (jump to the minibuffer) is now =C-; w M=; =C-c m= belongs to =supersonic=.
+- =<f6>= (=redraw-display=) is now =C-; w D=; =<f6>= belongs to =projectile-run-project=.
 - Both are bound in =sp-keys=.
 
 * Footer

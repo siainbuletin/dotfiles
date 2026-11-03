@@ -23,7 +23,7 @@ The graph is not the curved vector drawing of SourceGit: it is git's own lane la
 
 ** A walk through a merge
 
-1. =C-z g m= (or =M-x sp-merge-pick-log=) from a Magit buffer. For the dotfiles open =M-x magit-status= on =~/dotfiles= first, so the log starts from a repository Magit already knows.
+1. =C-; g m= (or =M-x sp-merge-pick-log=) from a Magit buffer. For the dotfiles open =M-x magit-status= on =~/dotfiles= first, so the log starts from a repository Magit already knows.
 2. Move to the commit (or branch tip) that should receive the merge and press =C-c v i=. Move to the one to merge in and press =C-c v f=. Both lines are highlighted and labelled.
 3. =C-c v p= previews the merge and lists the conflicting files. Press =RET= on one to see INTO, FROM and the merge base side by side in Ediff, or use =C-c v e= for any file, or =C-c v d= to read what FROM adds.
 4. =C-c v n= starts the merge without committing. Resolve in the status buffer (=e= on a conflicted file, Smerge in the file, =M= in the Ediff menu for all of them), commit with =c c=, or =m a= to abort.
@@ -462,7 +462,7 @@ Using it:
 
 - =C-c v= in any Magit buffer opens the menu. The marks stay when it closes.
 - The sequence: move to a commit, =C-c v i=, move to another, =C-c v f=, then =C-c v p=.
-- The graph log itself is on =C-z g m= (the =lem+vc-keys= map in =sp-keys=, which autoloads it).
+- The graph log itself is on =C-; g m= (the =lem+vc-keys= map in =sp-keys=, which autoloads it).
 - The late-loaded module installs the key and the refresh hook when Magit is first loaded.
 
 #+begin_src emacs-lisp -i

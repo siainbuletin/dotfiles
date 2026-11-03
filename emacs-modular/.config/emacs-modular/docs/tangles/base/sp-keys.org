@@ -13,7 +13,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 This module is the central place for keybindings in the config.
 
 - Almost every personal binding lives here, instead of being scattered across modules.
-- Bindings are grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-z= by default; =C-x C-SPC= is a shim that says so).
+- Bindings are grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-;= by default; =C-x C-SPC= is a shim that says so).
 - They are made with =bind-keys= and =bind-key= from the =bind-key= library that ships with =use-package=, and with the built-in =keymap-global-set= for plain global keys.
 
 Where the commands come from:
@@ -159,13 +159,16 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 ** The personal prefix
 
 - =sp-prefix= is a user option holding the prefix string for all personal keys.
-- Its default is =C-z=. It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
+- Its default is =C-;=.
+- It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
+- It is not =C-z=, =C-x=, =C-c= or =C-v=: =cua-mode= is on, so those keys undo, cut, copy and paste.
+- =flyspell-mode-map= used to bind =C-;=; =sp-spelling= now unbinds it, and its command lives on =C-; z p=.
 - Every prefix map below is built by appending a letter to this string.
 - Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]].
 
 #+begin_src emacs-lisp -i
 ;;;;; Personal Keybindings Prefix
-(defcustom sp-prefix "C-z"
+(defcustom sp-prefix "C-;"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'spcustom)
@@ -651,6 +654,20 @@ Notes:
            ("R" . easysession-reset))
 #+end_src
 
+** Spelling (z)
+
+- =lem+spelling-keys= is new: =p= corrects the previous misspelling, =n= the next one, =.= the word at point.
+- =p= replaces =C-;= in =flyspell-mode-map=, which is now the leader key.
+
+#+begin_src emacs-lisp -i
+;;;;;; Spelling Keybindings
+(bind-keys :prefix-map lem+spelling-keys
+           :prefix (concat sp-prefix " z")
+           ("p" . flyspell-correct-previous)
+           ("n" . flyspell-correct-next)
+           ("." . flyspell-correct-at-point))
+#+end_src
+
 ** Moved keys (shims)
 
 - =sp-keys-moved= lists each key that moved: old key, new key (below =sp-prefix=) and command.
@@ -976,6 +993,15 @@ Installs =helm-descbinds= from GitHub, which provides a Helm interface for brows
 #+begin_src emacs-lisp -i
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
+#+end_src
+
+** Free C-z
+
+- Unbinds =C-z= globally, so it no longer suspends or iconifies Emacs.
+- It is not the leader key: with =cua-mode= on, =C-z= is undo (CUA keeps its own binding).
+
+#+begin_src emacs-lisp -i
+(global-unset-key (kbd "C-z"))
 #+end_src
 
 ** Rigid indentation
