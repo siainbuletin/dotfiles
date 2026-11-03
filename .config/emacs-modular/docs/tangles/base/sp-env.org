@@ -76,7 +76,7 @@ Paths:
 =exec-path-from-shell=:
 
 - Only used under graphical window systems (mac, ns, x and pgtk), since a terminal Emacs already inherits the shell environment, and in a daemon, where =window-system= is nil at startup.
-- =GIT_CEILING_DIRECTORIES= is in the list so that yadm can work as the dotfiles repository in Emacs; it stops Git from searching parent directories.
+- =GIT_CEILING_DIRECTORIES= is in the list so that yadm can work as the dotfiles repository in Emacs; it stops Git from searching parent directories. It is not needed after the move to Stow (=stow-migration/=) and can then be removed.
 - =exec-path-from-shell-initialize= copies =PATH= and =MANPATH=.
 - The loop then copies further variables: spelling config, editor, GnuPG and pass locations, SSH agent socket, SSL certificate paths (including the Nix and Node ones) and StarDict data.
 
@@ -89,7 +89,7 @@ Paths:
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
                  "EDITOR"
-                 ;; So yadm can work as dotfiles in Emacs
+                 ;; Only needed while yadm is used (the ~/.git gitfile); harmless after the move to Stow
                  "GIT_CEILING_DIRECTORIES"
                  "GNUPGHOME"
                  "NIX_SSL_CERT_FILE"

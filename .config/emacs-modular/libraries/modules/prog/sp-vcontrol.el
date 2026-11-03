@@ -2,10 +2,9 @@
 
 ;;; Commentary:
 
-;; A short module that installs Magit, adds a helper for using it with YADM,
-;; the dotfile manager, and sets up Forge so Magit can work with GitHub pull
-;; requests and issues, and installs `code-review' for reviewing pull requests
-;; in Emacs. It depends on the `magit', `transient', `forge' and `code-review'
+;; A short module that installs Magit, sets up Forge so Magit can work with
+;; GitHub pull requests and issues, and installs `code-review' for reviewing
+;; pull requests in Emacs. It depends on the `magit', `transient', `forge' and `code-review'
 ;; packages.
 
 ;;; Code:
@@ -21,10 +20,9 @@
   :custom
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 
-;;;; YADM function to be able to work with dotfiles
-(defun yadm ()
-  (interactive)
-  (magit-status "~/"))
+;;;; Dotfiles are a normal repository (~/dotfiles, GNU Stow)
+;; ~/.config/... are links into ~/dotfiles: visit the real file so Magit finds the repository
+(setq vc-follow-symlinks t)
 
 ;;;; Forge settings
 (use-package forge
@@ -37,7 +35,7 @@
   ;; Load only when a review is started. code-review defines its database
   ;; class on `emacsql-sqlite-connection', which the installed emacsql may not
   ;; provide ("Given parent class emacsql-sqlite-connection is not a class").
-  ;; Loading it eagerly (even `:after forge') broke Magit, so `yadm' failed.
+  ;; Loading it eagerly (even `:after forge') broke Magit.
   :defer t
   :commands (code-review-start code-review-forge-pr-at-point)
   :custom
