@@ -1,5 +1,6 @@
 # ~/.config/fish/functions/emacs-pr.fish
 # Run PR N of siainbuletin/dotfiles in an isolated Emacs (no checkout in ~).
+# Works with the Stow setup (git in ~/dotfiles) and, until you move, with yadm.
 # Usage: emacs-pr 7          fetch/refresh PR 7 into ~/src/dotfiles-wt/pr-7 and launch
 #        emacs-pr rm 7       remove that worktree, its packages, its home and its ref
 #        emacs-pr reset 7    give PR 7 a fresh copy of ~/notes next time
@@ -16,6 +17,24 @@
 #
 # Usage notes and the reasoning: "Testing a pull request in a sandbox" in
 # ~/.config/emacs-modular/README.org.
+
+# git on the dotfiles repo: ~/dotfiles (Stow) when it exists, else yadm.
+function __emacs_pr_git
+    if test -d $HOME/dotfiles/.git
+        git -C $HOME/dotfiles $argv
+    else
+        yadm $argv
+    end
+end
+
+# The Emacs config inside a checkout: the Stow layout puts it under the emacs-modular package.
+function __emacs_pr_cfg --argument-names wt
+    if test -d $wt/emacs-modular/.config/emacs-modular
+        echo $wt/emacs-modular/.config/emacs-modular
+    else
+        echo $wt/.config/emacs-modular
+    end
+end
 
 # Repoint the absolute symlinks of an elpaca tree that was cloned from OLD so they target NEW.
 function __emacs_pr_repoint --argument-names old new
@@ -48,7 +67,7 @@ Each sandbox has its own packages and notes, so any number can run next to each 
 next to your live Emacs. The same commands exist inside Emacs as M-x sp-sandbox-pr,
 sp-sandbox-remove, sp-sandbox-reset-notes and sp-sandbox-reseed.
 
-Needs yadm, git and Emacs 29+, and macOS (APFS, for cp -c). More: "Testing a pull request
+Needs git (or yadm before the move) and Emacs 29+, and macOS (APFS, for cp -c). More: "Testing a pull request
 in a sandbox" in ~/.config/emacs-modular/README.org.'
 end
 
@@ -67,8 +86,8 @@ function emacs-pr --description 'Isolated Emacs for a dotfiles PR'
             return
         case rm
             set -l n $argv[2]
-            yadm worktree remove --force $real/src/dotfiles-wt/pr-$n
-            yadm update-ref -d refs/sandbox/pr-$n
+            __emacs_pr_git worktree remove --force $real/src/dotfiles-wt/pr-$n
+            __emacs_pr_git update-ref -d refs/sandbox/pr-$n
             rm -rf $cache/home/pr-$n
             return
         case reset
@@ -78,16 +97,18 @@ function emacs-pr --description 'Isolated Emacs for a dotfiles PR'
 
     set -l n $argv[1]
     set -l wt $real/src/dotfiles-wt/pr-$n
-    set -l var $wt/.config/emacs-modular/var
     set -l fake $cache/home/pr-$n   # becomes HOME inside this sandbox
 
     # Non-branch ref, so re-running never collides with a checked-out branch.
-    yadm fetch origin +pull/$n/head:refs/sandbox/pr-$n; or return
+    __emacs_pr_git fetch origin +pull/$n/head:refs/sandbox/pr-$n; or return
     if test -d $wt
         git -C $wt checkout --detach refs/sandbox/pr-$n; or return
     else
-        yadm worktree add --detach $wt refs/sandbox/pr-$n; or return
+        __emacs_pr_git worktree add --detach $wt refs/sandbox/pr-$n; or return
     end
+
+    set -l cfg (__emacs_pr_cfg $wt)
+    set -l var $cfg/var
 
     # ~/notes etc. resolve inside the fake HOME. cp -c = APFS clone: instant, no extra disk.
     if not test -d $fake/notes
@@ -118,6 +139,6 @@ function emacs-pr --description 'Isolated Emacs for a dotfiles PR'
     set -l remap "(when (boundp 'org-agenda-files) (setq org-agenda-files (mapcar (lambda (f) (string-replace \"$real/\" \"$fake/\" f)) org-agenda-files)))"
 
     env HOME=$fake GIT_CONFIG_GLOBAL=$real/.gitconfig \
-        emacs --init-directory $wt/.config/emacs-modular --eval $remap &
+        emacs --init-directory $cfg --eval $remap &
     disown
 end

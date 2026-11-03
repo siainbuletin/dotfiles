@@ -17,6 +17,7 @@
 (require 'vulpea-para)
 
 (defvar sp-yadm-repo)
+(declare-function sp-dotfiles-work-tree "sp-globals")
 
 (declare-function sp-org-issues--agenda-files "sp-org-issues")
 (declare-function org-gtd-agenda-transient "org-gtd")
@@ -156,7 +157,7 @@ and `dirs' means every Org file below `sp-agenda-views-config-dirs'."
 
 (defun sp-agenda-views--yadm-org-files ()
   "Return the Org files tracked by yadm, as absolute names."
-  (let ((default-directory (file-name-as-directory (expand-file-name "~"))))
+  (let ((default-directory (file-name-as-directory (expand-file-name (sp-dotfiles-work-tree)))))
     (with-temp-buffer
       (when (zerop (process-file "git" nil t nil
                                  (concat "--git-dir=" (expand-file-name sp-yadm-repo))

@@ -26,7 +26,7 @@
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
                  "EDITOR"
-                 ;; So yadm can work as dotfiles in Emacs
+                 ;; Only needed while yadm is used (the ~/.git gitfile); harmless after the move to Stow
                  "GIT_CEILING_DIRECTORIES"
                  "GNUPGHOME"
                  "NIX_SSL_CERT_FILE"

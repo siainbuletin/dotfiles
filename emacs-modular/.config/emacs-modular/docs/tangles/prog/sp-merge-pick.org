@@ -23,7 +23,7 @@ The graph is not the curved vector drawing of SourceGit: it is git's own lane la
 
 ** A walk through a merge
 
-1. =C-x C-SPC g m= (or =M-x sp-merge-pick-log=) from a Magit buffer. For the dotfiles open =M-x yadm= first: Magit cannot open =~= directly, so the log has to start from the repository Magit already knows.
+1. =C-x C-SPC g m= (or =M-x sp-merge-pick-log=) from a Magit buffer. For the dotfiles open =M-x magit-status= on =~/dotfiles= first, so the log starts from a repository Magit already knows.
 2. Move to the commit (or branch tip) that should receive the merge and press =C-c v i=. Move to the one to merge in and press =C-c v f=. Both lines are highlighted and labelled.
 3. =C-c v p= previews the merge and lists the conflicting files. Press =RET= on one to see INTO, FROM and the merge base side by side in Ediff, or use =C-c v e= for any file, or =C-c v d= to read what FROM adds.
 4. =C-c v n= starts the merge without committing. Resolve in the status buffer (=e= on a conflicted file, Smerge in the file, =M= in the Ediff menu for all of them), commit with =c c=, or =m a= to abort.
@@ -45,7 +45,7 @@ Not tested:
 
 - the Ediff session itself,
 - colours and glyph widths in a real frame or terminal,
-- =C-c v= on the dotfiles repository over =M-x yadm=,
+- =C-c v= on the dotfiles repository over =M-x magit-status= on =~/dotfiles=,
 - git older than 2.38 (the preview needs =merge-tree --write-tree=).
 
 The commentary at the top of the module says:
@@ -269,7 +269,7 @@ aligned, so the pattern accepts both."
   "Show a graph log of every branch, ready for marking two commits."
   (interactive)
   (unless (magit-toplevel)
-    (user-error "Not in a repository; open Magit first (M-x yadm for the dotfiles)"))
+    (user-error "Not in a repository; open Magit first (M-x magit-status on ~/dotfiles for the dotfiles)"))
   (magit-log-setup-buffer (list "--all") sp-merge-pick-log-arguments nil))
 
 (defun sp-merge-pick-set-into ()

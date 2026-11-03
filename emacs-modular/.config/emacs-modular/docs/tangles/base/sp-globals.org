@@ -191,9 +191,24 @@ The notes, documents, literature, bibliography, org, source and clone folders. T
   "The user data folder (XDG_DATA_HOME, defaulting to ~/.local/share)."
   :type 'directory :group 'spcustom)
 
-(defcustom sp-yadm-repo (sp-path sp-data-home "yadm/repo.git")
-  "The bare repository of the yadm dotfiles."
+(defcustom sp-dotfiles-dir (expand-file-name "~/dotfiles/")
+  "The dotfiles repository managed with GNU Stow (a normal clone)."
   :type 'directory :group 'spcustom)
+
+(defcustom sp-yadm-repo
+  (if (file-directory-p (expand-file-name ".git" sp-dotfiles-dir))
+      (expand-file-name ".git" sp-dotfiles-dir)
+    (sp-path sp-data-home "yadm/repo.git"))
+  "The Git directory of the dotfiles.
+The `.git' of `sp-dotfiles-dir' once the Stow setup exists, else the
+bare repository of the yadm dotfiles."
+  :type 'directory :group 'spcustom)
+
+(defun sp-dotfiles-work-tree ()
+  "Return the work tree of the dotfiles: `sp-dotfiles-dir', else the home folder (yadm)."
+  (if (string= (file-name-nondirectory (directory-file-name sp-yadm-repo)) ".git")
+      (file-name-directory (directory-file-name sp-yadm-repo))
+    "~/"))
 #+end_src
 
 * Chrome history
