@@ -86,3 +86,9 @@ Right-to-left text handling and font cache compaction cost time on every redispl
 #+begin_src emacs-lisp
 (provide 'sp-vault-perf)
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/268][#268]] ✨ Added =sp-vault-perf= (loaded right after =sp-org-base=): =read-process-output-max= of 1 MB (the background vulpea scan reads its file list from a subprocess); =bidi-paragraph-direction= left-to-right, =bidi-inhibit-bpa=, =inhibit-compacting-font-caches= and =global-so-long-mode=; =org-agenda-inhibit-startup= and the Org element cache pinned on; and =M-x sp-vault-perf-report= (file count, =vulpea.db= size, org-id table size, agenda files, GC count and time). Left out on purpose: =gc-cons-threshold=, gcmh or idle GC and the autosync delay. Not run in Emacs (none in the container); the effect on the start-up hang is not measured.
