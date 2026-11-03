@@ -224,6 +224,49 @@ These are outside the scope of a design note; they go into the first step.
    + the =C-c= keys that remain in modes (for example Org's) keep working under CUA only without a region, as before.
 - Not changed: =C-x= keys such as =C-x C-f= (no region needed) and =C-x s t= in Org.
 
+** Keys freed by CUA
+
+- CUA gives copy, cut, paste and undo to =C-c=, =C-x=, =C-v= and =C-z=. The Emacs keys for the same jobs are now duplicates:
+   + =C-y= (=yank=), duplicated by =C-v=;
+   + =C-w= (=kill-region=), duplicated by =C-x= with a region;
+   + =M-w= (=kill-ring-save=), duplicated by =C-c= with a region;
+   + =C-/=, =C-_= and =C-x u= (=undo=), duplicated by =C-z=. Keep one of them as a spare undo.
+- To check in Emacs:
+   + whether =M-y= (=yank-pop=) still works after =C-v=; if it does, keep it paired with =C-v=; if not, it is free too.
+- They can be rebound with a plain =keymap-global-set=. No advice is needed: advice changes what a function does, not which key runs it.
+- Caveats:
+   + =isearch= and the minibuffer have their own =C-y= and =C-w=; a global rebind does not touch them.
+   + Org remaps the command =yank=, not the key =C-y=, so rebinding the key does not break Org.
+   + Old habits: the first days, =C-y=, =C-w= and =M-w= would run the new commands.
+   + Other people's docs, and Emacs' own help, assume the old meanings.
+- Candidates, not applied: single keys for the hottest commands (capture, agenda, avy), which also takes pressure off =C-c <letter>=.
+- Nothing is rebound yet. I will see which ones I want as I keep using this setup.
+
+** Replacing CUA
+
+- What CUA does:
+   + =C-v= and =C-z= are bound in an overlay keymap (=cua-global-keymap=, via =emulation-mode-map-alists=). It beats =global-map=, so they cannot be rebound with =keymap-global-set=.
+   + =C-x= and =C-c= are cut and copy only while a region is active (/(memory)/). Otherwise they are the prefixes.
+   + =cua-prefix-override-inhibit-delay= decides how long CUA waits for a second key before it cuts or copies; a key typed within the delay makes =C-x= or =C-c= a prefix again. Check its value with =C-h v=.
+- Why the =C-c= and =C-x= case cannot be made "native":
+   + One key cannot be both copy and prefix while a region is active.
+   + A plain binding in =global-map= has to choose one: copy, or the prefix. CUA's delay is the way to have both.
+   + Doing it without CUA means rewriting that delay: read the next key within a timeout, and push it back as the prefix's second key.
+   + A =menu-item= binding with =:filter= can pick between the two commands by the region, but not by timing.
+- Options:
+   + *A. Keep CUA and tune it.* Set =cua-prefix-override-inhibit-delay= so a quickly typed =C-c C-c= with a region works. No new code. Remaining cost: a held =C-c= copies after the delay.
+   + *B. CUA for cut and copy only, native for the rest.* Set =cua-remap-control-v= and =cua-remap-control-z= to nil (/(memory)/), bind =C-v= to =yank= and =C-z= to =undo= (and =C-S-z= to =undo-redo=) in =global-map=. Then those two keys are ordinary bindings. =C-x= and =C-c= stay with CUA.
+   + *C. No CUA: use the platform keys.* On the Mac, Command is the copy key everywhere else. Make Command =super= and Option =meta=: =s-c=, =s-x=, =s-v=, =s-z= and =s-S-z= are plain, unambiguous bindings, and =C-c= and =C-x= are only prefixes again. Costs:
+      * Meta moves from Command to Option (=sp-macos= sets it the other way today), so =M-x= becomes Option+X.
+      * Option no longer types special characters. The Romanian input source (switched with Ctrl+Space) does that.
+      * Linux and Windows have no such key; they keep CUA (option A or B) there.
+   + *D. Remap outside Emacs.* Hammerspoon or Karabiner turns Command+C/X/V/Z, in Emacs only, into keys such as =<f13>= that Emacs binds natively. Same result as C without moving Meta, at the price of another tool in the chain.
+- Recommendation:
+   + Mac: C, if Meta on Option is acceptable; otherwise A.
+   + Linux and Windows: B.
+   + In all cases the =C-c= hot keys keep a leader twin (=C-; a c=, =C-; a a=), so nothing depends on =C-c= with a region.
+- Not applied, and not run: this needs a real Emacs on the Mac to confirm the three =/(memory)/ points (the =cua-remap-control-*= options, the delay default, and how Command and Option behave with =mac-command-modifier= changed).
+
 ** which-key labels
 
 - A prefix map shows as "+prefix" unless it is labelled.
@@ -398,5 +441,6 @@ Decided on 2026-11-03: GUI only; root =C-;= (=C-z= is out because of CUA; to be 
 
 Still open:
 1. Whether =C-;= is comfortable to type and reaches Emacs on the Mac with Alfred running; if not, use a second key on the same map.
-2. =cua-prefix-override-inhibit-delay=: check its value, and whether to raise it so =C-c c= works with a selection.
-3. Evil is gone. If it comes back, the last commit that had it is [[https://github.com/siainbuletin/dotfiles/tree/4164baced7367fac684a3c90bd66c8f537be70e6][4164bae]] (=sp-evil.el= and its doc under =libraries/modules/tooling/= and =docs/tangles/tooling/=); the leader would then also be mounted in Evil's normal-state map, which this design allows because it is a map object.
+2. How to get copy, cut, paste and undo without CUA's overlay (see [[*Replacing CUA][Replacing CUA]]): option A, B, C or D.
+3. Which of the keys freed by CUA, if any, I want to reuse (see [[*Keys freed by CUA][Keys freed by CUA]]).
+4. Evil is gone. If it comes back, the last commit that had it is [[https://github.com/siainbuletin/dotfiles/tree/4164baced7367fac684a3c90bd66c8f537be70e6][4164bae]] (=sp-evil.el= and its doc under =libraries/modules/tooling/= and =docs/tangles/tooling/=); the leader would then also be mounted in Evil's normal-state map, which this design allows because it is a map object.
