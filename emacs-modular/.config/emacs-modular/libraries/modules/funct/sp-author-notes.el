@@ -47,6 +47,12 @@
   :type 'string
   :group 'sp-author-notes)
 
+(defcustom sp-author-notes-person-keys '("pub-author" "pub-editor")
+  "The meta keys whose values name people: they are linked, fixed and made like authors.
+The `Works' tables still use `sp-author-notes-key' only."
+  :type '(repeat string)
+  :group 'sp-author-notes)
+
 (defcustom sp-author-notes-known-keys
   '("pub-author" "pub-editor" "pub-year" "pub-title" "pub-pages"
     "bib-parent" "relevance" "relevance-factor" "read-status" "read-priority")
@@ -212,15 +218,14 @@ nil to leave the text as it is."
                           (aset d (+ (* i (1+ lb)) j) best))))
       (ref la lb))))
 
-(defun sp-author-notes--key-state (key)
-  "Say whether the meta KEY is a typo of `sp-author-notes-key'.
+(defun sp-author-notes--key-state-1 (key canon)
+  "Say whether the meta KEY is a typo of the person key CANON.
 Return nil for a key that is fine or unrelated, (fix . CANONICAL) for a
 key one edit away (a swap of two letters is one edit) or only differing
 in case, `_' or space, and (suspect . CANONICAL) for a key two edits
 away, which is reported but not changed.  A key that is more like another
 known key is never a typo."
-  (let* ((canon sp-author-notes-key)
-         (n (replace-regexp-in-string "[_ ]" "-" (downcase key))))
+  (let* ((n (replace-regexp-in-string "[_ ]" "-" (downcase key))))
     (cond
      ((string= key canon) nil)
      ((member key sp-author-notes-known-keys) nil)
@@ -231,6 +236,12 @@ known key is never a typo."
                                            (remove canon sp-author-notes-known-keys)))))
         (cond ((and (<= d 1) (< d other)) (cons 'fix canon))
               ((and (<= d 2) (< d other)) (cons 'suspect canon))))))))
+
+(defun sp-author-notes--key-state (key)
+  "Say whether the meta KEY is a typo of one of `sp-author-notes-person-keys'.
+Return nil, (fix . CANONICAL) or (suspect . CANONICAL); see `sp-author-notes--key-state-1'."
+  (seq-some (lambda (canon) (sp-author-notes--key-state-1 key canon))
+            sp-author-notes-person-keys))
 
 (defconst sp-author-notes--id-link-re
   "\\[\\[id:\\([^]]+\\)\\]\\(?:\\[\\([^]]*\\)\\]\\)?\\]"
@@ -589,7 +600,7 @@ vault has that identifier and an :ID:."
       (let* ((key (plist-get entry :key))
              (line (plist-get entry :line))
              (state (sp-author-notes--key-state key))
-             (is-author (or (string= key sp-author-notes-key) (eq (car state) 'fix)))
+             (is-author (or (member key sp-author-notes-person-keys) (eq (car state) 'fix)))
              (value (plist-get entry :value)))
         (when (and is-author value (not (string-empty-p value)))
           (let ((items (sp-author-notes--parse-value value)))
@@ -846,7 +857,7 @@ folder.  A failure is recorded as a problem."
          ((not (sp-author-notes--person-p entry))
           (sp-author-notes--problem
            run (plist-get entry :file) nil
-           (format "\"%s\" is linked as a pub-author but is not tagged %s; nothing changed"
+           (format "\"%s\" is linked as an author or editor but is not tagged %s; nothing changed"
                    (plist-get entry :title) sp-author-notes-person-tag)))
          (t
           (when-let* ((wrapped (sp-author-notes--process-file
@@ -1002,7 +1013,7 @@ a dropped one, A writes what is left, g shows the preview again.")
         (dolist (f fixes)
           (sp-author-notes--insert-line
            (format "  %s:%d  %s -> %s" (sp-author-notes--short (car f)) (cddr f)
-                   (cadr f) sp-author-notes-key)
+                   (cadr f) (or (cdr (sp-author-notes--key-state (cadr f))) sp-author-notes-key))
            (car f) (cddr f))))
       (when suspects
         (sp-author-notes--heading "Possible typos, not changed" (length suspects))
