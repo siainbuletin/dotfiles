@@ -598,23 +598,11 @@ With any other number of windows it does nothing.
     (error "Minibuffer is not active")))
 #+end_src
 
-** Minibuffer key
+** Keys moved to the leader
 
-Binds =sp-goto-minibuffer-window= to =C-c m=.
-
-#+begin_src emacs-lisp -i
-(bind-key "C-c m" #'sp-goto-minibuffer-window)
-#+end_src
-
-** Redraw display
-
-=<f6>= runs =redraw-display=, which repaints every frame. It is useful when the screen shows rendering glitches.
-
-#+begin_src emacs-lisp -i
-;;;; Helper functions
-;; Redrawing the display when there's graphical errors
-(global-set-key (kbd "<f6>") 'redraw-display)
-#+end_src
+- =C-c m= (jump to the minibuffer) is now =C-z w M=; =C-c m= belongs to =supersonic=.
+- =<f6>= (=redraw-display=) is now =C-z w D=; =<f6>= belongs to =projectile-run-project=.
+- Both are bound in =sp-keys=.
 
 * Footer
 

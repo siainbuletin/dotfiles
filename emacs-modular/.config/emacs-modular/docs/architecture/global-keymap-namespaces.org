@@ -207,7 +207,7 @@ These are outside the scope of a design note; they go into the first step.
 *Recommendation: =C-z= as the root*, as one variable (=sp-prefix= becomes =sp-leader-key=).
 - =C-z= is already unbound by =sp-keys= and =sp-prog-misc= ("stop me from freezing emacs"); nothing in =libraries/modules/= binds it (=C-M-z= and =C-c C-z= are different keys); neither Alfred nor the input-source switch touches it.
 - A second mount of the same map object under =C-c z= is an optional fallback; =C-c z= (=list-denotes=) becomes free when the Denote bindings go.
-- =pop-global-mark= cannot stay on =C-x C-SPC= (it ends in =SPC=), so it goes to =C-z b m= (mark), next to =consult-mark= and =consult-global-mark= in the buffer group.
+- =pop-global-mark= cannot stay on =C-x C-SPC= (it ends in =SPC=), so it goes to =C-z b P= (previous position), because =b m= is =consult-mark= already.
 - To test in a real Emacs: that =C-z= reaches Emacs on the Mac with Alfred running.
 
 ** which-key labels
@@ -357,11 +357,31 @@ Each is a pull request that can be merged on its own; none touches the others' k
 4. *Mode-local keys* (Org) to =C-c C-<x>= or the local leader.
 5. *Remove shims* one by one when I say so.
 
+* Status of the steps
+
+Applied in the pull request that follows #283, so the design can be tried:
+- Leader root: =sp-prefix= is =C-z=. =C-x C-SPC= is a shim that prints the new key and waits for the next one.
+- Sessions: =C-z S= holds the six =easysession= commands. Their old =C-c s= keys are gone, except =s=, =L=, =d=, =R=, which are shims.
+- Collisions resolved:
+  + =C-c s l= and =C-c s r= now only mean =consult-line= and =consult-ripgrep=;
+  + =C-c m= is only =supersonic= (the minibuffer jump is =C-z w M=);
+  + =<f6>= is only =projectile-run-project= (redraw is =C-z w D=);
+  + =C-c f= is only the Org footnote prefix (dirvish is =C-z f d=, the focus HUD =C-z a f=).
+- New groups: =a= (agenda, capture, focus HUD) and =S= (sessions).
+- =pop-global-mark= is =C-z b P=.
+- =C-z= is no longer unbound (=sp-keys= and =sp-prog-misc= used to unbind it).
+- =M-x sp-keys-audit= lists leader keys whose command is not defined, and the shims still alive.
+
+Not applied yet (left for later pull requests):
+- One =defvar-keymap= per feature module and the registry table.
+- Moving the academic =C-c w=, =C-c k= and Org =C-c d= keys into the leader.
+- Local leader for Org, the batch test, the eleven undefined commands and the other bugs listed above.
+
 * Open decisions
 
 Decided on 2026-11-03: GUI only; root =C-z= (recommended above, to be confirmed in a real Emacs); Python removed; Evil removed; shims live until I remove them.
 
 Still open:
 1. Whether =C-z= works in practice on the Mac with Alfred (see [[*The leader key][The leader key]]); if not, the next candidate is a user-reserved =C-c <letter>= that the audit shows to be free.
-2. Where =pop-global-mark= goes (=C-z b m= proposed).
+2. Where =pop-global-mark= goes (applied as =C-z b P=).
 3. Evil is gone. If it comes back, the last commit that had it is [[https://github.com/siainbuletin/dotfiles/tree/4164baced7367fac684a3c90bd66c8f537be70e6][4164bae]] (=sp-evil.el= and its doc under =libraries/modules/tooling/= and =docs/tangles/tooling/=); the leader would then also be mounted in Evil's normal-state map, which this design allows because it is a map object.

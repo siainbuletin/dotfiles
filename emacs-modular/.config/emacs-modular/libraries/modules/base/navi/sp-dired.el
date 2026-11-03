@@ -107,9 +107,9 @@ Works in linux, MacOS, Microsoft Windows."
   (dirvish-preview-buffers-max-count 2)
 
   ;; Keybindings to move through the buffer
+  :commands dirvish
   :bind
-  (("C-c f" . dirvish)
-   :map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
+  (:map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
    (";"   . dired-up-directory)        ; So you can adjust `dired' bindings here
    ("?"   . dirvish-dispatch)          ; [?] a helpful cheatsheet
    ("a"   . dirvish-setup-menu)        ; [a]ttributes settings:`t' toggles mtime, `f' toggles fullframe, etc.
