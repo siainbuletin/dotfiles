@@ -20,9 +20,6 @@
   :custom
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 
-;;;; Dotfiles are a normal repository (~/dotfiles, GNU Stow)
-;; ~/.config/... are links into ~/dotfiles: visit the real file so Magit finds the repository
-(setq vc-follow-symlinks t)
 
 ;;;; Forge settings
 (use-package forge

@@ -7,8 +7,8 @@
 ;;
 ;; Treemacs is opened on demand with <f9>, never at startup. The tree shows a
 ;; single project, `sp-treemacs-root', instead of the project of the current
-;; buffer: the yadm repository's root is $HOME, so following the current
-;; project would show the whole home folder.
+;; buffer: the config is reached through symlinks from ~ into ~/dotfiles, so
+;; following the current project would jump between the two.
 
 ;;; Code:
 

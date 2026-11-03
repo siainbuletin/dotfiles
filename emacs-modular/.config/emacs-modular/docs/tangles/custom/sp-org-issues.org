@@ -77,7 +77,7 @@ and see everything with =C-c o a i i=.
 :PROPERTIES:
 :ID:       7B1E2D3C-4A5B-4C6D-8E7F-9A0B1C2D3E4F
 :CATEGORY: Issues > dotfiles
-:GIT_DIR:  ~/.local/share/yadm/repo.git
+:GIT_DIR:  ~/dotfiles/.git
 :WORKTREE_ROOT: ~/src/dotfiles-wt/
 :BASE:     main
 :URL:      https://github.com/siainbuletin/dotfiles
@@ -141,8 +141,8 @@ The file header: the first line carries the file name, a short summary and the =
 ;; - Every issue is an org-gtd single action (ORG_GTD: Actions), so a
 ;;   NEXT issue shows up in `org-gtd-engage' like any other next action.
 ;; - `sp-org-issues-start' gives an issue its own git worktree and opens
-;;   Magit there.  For the yadm dotfiles the worktree is added from the
-;;   yadm repository itself, so the live config in ~ is never touched.
+;;   Magit there.  For the dotfiles the worktree is added from the
+;;   repository itself (~/dotfiles), so the live config in ~ is never touched.
 ;; - `sp-org-issues-morning' ranks the open issues and the open pull
 ;;   requests of the same repositories (read with the gh client) into one
 ;;   list, and shows it on the first start of Emacs each day.
@@ -182,7 +182,6 @@ Dependencies:
 (declare-function magit-status "magit-status")
 (defvar org-agenda-overriding-header)
 (defvar org-state)
-(defvar magit-status-show-untracked-files)
 #+end_src
 
 * Settings
@@ -208,7 +207,7 @@ A customization group for the module, and the title the area is created with and
 
 =sp-org-issues-repos= lists the code bases that get a heading in a new issues file.
 
-- The dotfiles entry points at the yadm repository, and its worktrees go under =~/src/dotfiles-wt/=.
+- The dotfiles entry points at the dotfiles repository (=sp-yadm-repo=, which is =~/dotfiles/.git= once Stow is set up), and its worktrees go under =~/src/dotfiles-wt/=.
 - A repository added here later gets its heading the first time an issue is captured for it.
 
 #+begin_src emacs-lisp -i
@@ -234,24 +233,12 @@ go), :base (the branch new issue branches start from) and :url."
   :group 'spcustom)
 #+end_src
 
-** The yadm repository, and closing issues
+** Closing issues
 
-Worktrees and yadm:
-
-- The yadm repository sets =status.showUntrackedFiles= to =no=, because its worktree is the whole home folder.
-- Worktrees added from it share that setting, so Magit would hide new files there too.
-- This variable is how the module recognises those worktrees (see the last section).
-- The second option turns off the offer to remove a worktree when its issue is closed.
+- The option turns off the offer to remove a worktree when its issue is closed.
+- The dotfiles are a normal repository (=~/dotfiles=, GNU Stow), so their worktrees need no special Magit setting. The old yadm repository hid untracked files because its worktree was the home folder; the variable and hook that undid that are removed.
 
 #+begin_src emacs-lisp -i
-(defcustom sp-org-issues-yadm-repo sp-yadm-repo
-  "The yadm repository.
-
-Magit lists untracked files in worktrees added from it, although the
-repository sets status.showUntrackedFiles to no for the home folder."
-  :type 'directory
-  :group 'spcustom)
-
 (defcustom sp-org-issues-offer-worktree-removal t
   "Non-nil means offer to remove an issue's worktree when it is closed."
   :type 'boolean
@@ -632,25 +619,6 @@ When an issue becomes =DONE= or =CNCL= and still has a worktree, the module offe
 
 (add-hook 'org-after-todo-state-change-hook
           #'sp-org-issues--offer-worktree-removal)
-#+end_src
-
-** Untracked files in yadm worktrees
-
-In a status buffer for a worktree of the yadm repository, this sets =magit-status-show-untracked-files= locally, so new files show up there. Magit gives the buffer-local value of that variable priority over the repository's =status.showUntrackedFiles=, which stays =no= for the home folder.
-
-#+begin_src emacs-lisp -i
-(defun sp-org-issues--show-untracked-in-yadm-worktrees ()
-  "List untracked files in Magit when this is a worktree of the yadm repo."
-  (when-let* ((gitdir (magit-gitdir)))
-    (when (string-prefix-p
-           (file-name-as-directory
-            (expand-file-name "worktrees" sp-org-issues-yadm-repo))
-           (expand-file-name gitdir))
-      (setq-local magit-status-show-untracked-files t))))
-
-(with-eval-after-load 'magit
-  (add-hook 'magit-status-mode-hook
-            #'sp-org-issues--show-untracked-in-yadm-worktrees))
 #+end_src
 
 * Morning list
