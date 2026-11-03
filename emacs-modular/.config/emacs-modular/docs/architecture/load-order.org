@@ -172,7 +172,6 @@ Keys and commands that are defined, or whose package is installed, by a late mod
 | the =magit-*= keys of the version-control prefix (blame, commit, diff, log, status…) | =sp-keys=         | =sp-vcontrol=   |
 | =consult-notes=, =consult-notes-search-in-all-notes=                                 | =sp-keys=         | =sp-notes=      |
 | the =citar-*= and =citar-denote-*= keys                                              | =sp-keys=         | =sp-academic=   |
-| =yadm=                                                                               | =sp-vcontrol=     | =sp-vcontrol=   |
 | =sp-open-new-eshell-and-workspace=, which calls =lem-eshell-home=                    | =sp-workspaces=   | =sp-eshell=     |
 
 =sp-keys= only autoloads the =git-gutter= commands, not the =magit=, =consult-notes= or =citar= ones; pressing one of those keys before the late modules have loaded gives a void-function error. Nothing else that loads at startup calls into a late module.

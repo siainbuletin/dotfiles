@@ -26,8 +26,6 @@
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
                  "EDITOR"
-                 ;; Only needed while yadm is used (the ~/.git gitfile); harmless after the move to Stow
-                 "GIT_CEILING_DIRECTORIES"
                  "GNUPGHOME"
                  "NIX_SSL_CERT_FILE"
                  "NODE_EXTRA_CA_CERTS"

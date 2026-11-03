@@ -97,7 +97,7 @@ For: familiar tree keys, icons already set up (=treemacs-nerd-icons=).
 Against (treemacs):
 
 - treemacs's model is a workspace of file paths. Fitting heading markers and todo keywords into it means working against the package.
-- =sp-treemacs= only works around its project detection to begin with (the yadm repository root is =$HOME=).
+- =sp-treemacs= only works around its project detection to begin with (the config is reached through links from =~= into =~/dotfiles=).
 - Heavier than the problem.
 
 ** 4. A dedicated frame or child frame

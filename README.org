@@ -24,7 +24,7 @@ On my Mac, most changes to this repository are written by Claude in a cloud sess
 
 | Job                                    | Tool                                  | Decision |
 |----------------------------------------+---------------------------------------+----------|
-| Dotfiles repository, live config in =~= | =yadm= and =fish=                     | [[file:adr/0001-plain-clone-for-gui-git-tools.org][0001]] |
+| Dotfiles repository, live config in =~= | GNU Stow (=~/dotfiles=) and =fish=    | [[file:adr/0001-plain-clone-for-gui-git-tools.org][0001]] |
 | Visual branches, merges, conflicts     | SourceGit on the plain clone =~/src/dotfiles-test= | [[file:adr/0001-plain-clone-for-gui-git-tools.org][0001]], [[file:adr/0002-sourcegit-for-visual-git.org][0002]] |
 | Creating and merging PRs               | =gh= and GitHub's merge button, merge commits | [[file:adr/0003-merge-prs-on-github-with-merge-commits.org][0003]] |
 | PR branch names                        | the PR number first, e.g. =18-relationship-annotator= | [[file:adr/0004-number-prefixed-pr-branches.org][0004]] |

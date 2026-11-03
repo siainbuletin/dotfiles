@@ -11,7 +11,7 @@ How I write documents in a stable Emacs while the configuration changes in anoth
 | Name      | What it is                                                         | Where                                             | Changes when                     |
 |-----------+--------------------------------------------------------------------+---------------------------------------------------+----------------------------------|
 | =writing= | the stable Emacs I write notes in; the =stable= branch             | plain clone =~/src/dotfiles-stable=               | I fast-forward it, on purpose    |
-| =sandbox= | the Emacs I develop and test in; =main= in =~= (yadm)              | =~/.config/emacs-modular=                         | every merge to =main=            |
+| =sandbox= | the Emacs I develop and test in; =main= in =~/dotfiles=             | =~/.config/emacs-modular=                         | every merge to =main=            |
 | =emacs-pr N= | throwaway Emacs for one pull request                            | =~/src/dotfiles-wt/pr-N= (see [[file:../../../../adr/0018-emacs-pr-sandbox-and-reload.org][0018]]) | never; removed afterwards |
 
 Both permanent profiles are in =~/.emacs-profiles.el= (Chemacs2), each with its own =server-name= and an =SP_PROFILE= variable, so the config can pick a different theme and a simpler dashboard per profile (that part is not written yet, see /Open/). The =default= profile is unchanged.

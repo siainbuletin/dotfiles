@@ -42,7 +42,7 @@ For motivations of why this configuration is set up in this way, please refer to
 
 * Testing a pull request in a sandbox
 
-=emacs-pr= (a fish function in =~/.config/fish/functions/emacs-pr.fish=) starts a second Emacs on the code of a pull request, next to your normal one. Nothing is checked out in =~=, your live configuration keeps running on =main=, and the pull request cannot touch your real notes. It needs yadm, git, fish and Emacs 29 or later (for =--init-directory=), and it assumes macOS with APFS, because it copies files with =cp -c=.
+=emacs-pr= (a fish function in =~/.config/fish/functions/emacs-pr.fish=) starts a second Emacs on the code of a pull request, next to your normal one. Nothing is checked out in =~=, your live configuration keeps running on =main=, and the pull request cannot touch your real notes. It needs git, fish and Emacs 29 or later (for =--init-directory=), and it assumes macOS with APFS, because it copies files with =cp -c=.
 
 ** Usage
 
@@ -64,8 +64,8 @@ From the Emacs you already work in, the module =sp-sandbox= has the same as comm
 
 ** What it does
 
-1. =yadm fetch origin +pull/N/head:refs/sandbox/pr-N= puts the PR on a ref that is not a branch, so it can never clash with a branch checked out elsewhere. =yadm worktree add --detach= makes the worktree (or =git checkout --detach= updates it).
-2. It starts =emacs --init-directory ~/src/dotfiles-wt/pr-N/.config/emacs-modular=. The configuration finds everything relative to =user-emacs-directory=, so the PR's packages, caches and state live in that worktree's =var/=, which git ignores.
+1. =git fetch origin +pull/N/head:refs/sandbox/pr-N= (in =~/dotfiles=) puts the PR on a ref that is not a branch, so it can never clash with a branch checked out elsewhere. =git worktree add --detach= makes the worktree (or =git checkout --detach= updates it).
+2. It starts =emacs --init-directory ~/src/dotfiles-wt/pr-N/emacs-modular/.config/emacs-modular=. The configuration finds everything relative to =user-emacs-directory=, so the PR's packages, caches and state live in that worktree's =var/=, which git ignores.
 3. It sets =HOME= to =~/.cache/emacs-sandbox/home/pr-N= for that Emacs. Every =~/notes= and =~/Documents= path (the bibliography is under it) in the configuration then lands in that folder. The first run of a PR fills it with a copy of =~/notes= (an APFS clone, so instant and without extra disk use); later runs reuse it, so a sandbox keeps its own notes between runs. A PR that writes to the notes only changes its copy.
 4. =GIT_CONFIG_GLOBAL= keeps pointing at your real =~/.gitconfig=, so commits in the sandbox still have your name. SSH is unaffected by =HOME=.
 5. It remaps the absolute =/Users/.../= entries of =org-agenda-files= (if the configuration still sets them) to the sandbox home.
@@ -89,7 +89,7 @@ A fresh worktree has no packages, and elpaca would install all of them again. In
 
 ** If it goes wrong
 
-- =yadm fetch= fails: check =yadm remote -v= (it needs an =origin= that serves =pull/N/head=, as GitHub does).
+- =git fetch= fails: check =git -C ~/dotfiles remote -v= (it needs an =origin= that serves =pull/N/head=, as GitHub does).
 - =cp: illegal option -- c=: the folder is not on APFS or =cp= is not the macOS one; copy =~/notes= and =var/elpaca= by hand to =~/.cache/emacs-sandbox/home/pr-N/notes= and =~/.cache/emacs-sandbox/seed=.
 - A package fails to load in one sandbox: =emacs-pr rm N= and run =emacs-pr N= again for a clean copy of everything (add =emacs-pr reseed= first if the live packages changed).
 - The notes in a sandbox look stale: =emacs-pr reset N= gives that PR a fresh copy of =~/notes= next time.
@@ -259,7 +259,7 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/tooling/modeline-customization.org][modeline-customization]] :: How lambda-line and Prot's mode line differ, and the shared settings for changing both (a page, no code)
 - [[file:docs/tangles/tooling/sp-modeline-parts.org][sp-modeline-parts]] :: Mode line segments shared by the two modelines: window number, major mode box, word count or line and column, keycast, clocked Org task, in boxes with the accent colours of the theme ([[file:libraries/modules/tooling/sp-modeline-parts.el][sp-modeline-parts.el]])
 - [[file:docs/tangles/tooling/sp-nano-style.org][sp-nano-style]] :: Nano's header line (buffer name or Org title, project, clock) and mode line divider, shared by the two modelines ([[file:libraries/modules/tooling/sp-nano-style.el][sp-nano-style.el]])
-- [[file:docs/tangles/tooling/sp-network.org][sp-network]] :: Network: TRAMP yadm method and HTTP library ([[file:libraries/modules/tooling/sp-network.el][sp-network.el]])
+- [[file:docs/tangles/tooling/sp-network.org][sp-network]] :: Network: HTTP library ([[file:libraries/modules/tooling/sp-network.el][sp-network.el]])
 - [[file:docs/tangles/tooling/sp-scratch.org][sp-scratch]] :: Persistent scratch buffer ([[file:libraries/modules/tooling/sp-scratch.el][sp-scratch.el]])
 - [[file:docs/tangles/tooling/sp-server.org][sp-server]] :: Emacs server and daemon management ([[file:libraries/modules/tooling/sp-server.el][sp-server.el]])
 - [[file:docs/tangles/tooling/sp-spelling.org][sp-spelling]] :: Spell checking ([[file:libraries/modules/tooling/sp-spelling.el][sp-spelling.el]])
