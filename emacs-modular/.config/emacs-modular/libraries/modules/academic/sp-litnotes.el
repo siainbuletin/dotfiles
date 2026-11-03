@@ -44,6 +44,7 @@
 
 (require 'sp-litnotes-refs)
 (require 'sp-litnotes-titles)
+(require 'sp-litnotes-meta)
 
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
