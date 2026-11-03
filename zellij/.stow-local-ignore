@@ -1,0 +1,2 @@
+# Replaces the stow default list, which would skip README.*, .gitignore and friends.
+\.DS_Store
