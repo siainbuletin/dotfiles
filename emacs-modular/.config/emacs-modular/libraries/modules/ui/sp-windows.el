@@ -146,12 +146,6 @@
     (add-to-list 'pulsar-pulse-functions 'aw-split-window-fair)
     (add-to-list 'pulsar-pulse-functions 'aw-delete-window))
 
-  (when (fboundp 'evil-window-right)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-right)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-left)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-up)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-down))
-
   (pulsar-global-mode 1))
 
 ;; Function for close buffer and window

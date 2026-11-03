@@ -85,7 +85,6 @@
         sp-bookmarks
         sp-debug
         sp-embark
-        ;; sp-evil
         sp-help
         sp-indention
         sp-lambda-modeline
@@ -170,7 +169,6 @@
         sp-bookmarks
         sp-debug
         sp-embark
-        ;; sp-evil
         sp-help
         sp-indention
         sp-lambda-modeline

@@ -358,7 +358,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-bookmarks
                     'sp-debug
                     'sp-embark
-                    ;; 'sp-evil
                     'sp-help
                     'sp-indention
                     ;; 'sp-lambda-modeline
@@ -466,7 +465,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-bookmarks
                     'sp-debug
                     'sp-embark
-                    ;; 'sp-evil
                     'sp-help
                     'sp-indention
                     'sp-lambda-modeline

@@ -216,8 +216,7 @@ showed without logging them cannot be recovered."
 
 ;;;;;; Kill Current Buffer
 ;; (kill-this-buffer) is unreliable when not invoked from the menubar. So here's a
-;; wrapper on (kill-buffer) to kill the current buffer. This is sometimes better
-;; than (evil-delete-buffer) since it keeps the window.
+;; wrapper on (kill-buffer) to kill the current buffer, and it keeps the window.
 
 (defun sp-kill-this-buffer ()
   (interactive)
@@ -404,15 +403,6 @@ showed without logging them cannot be recovered."
       (setq deactivate-mark  t)
     (when (get-buffer "*Completions*") (delete-windows-on "*Completions*"))
     (abort-recursive-edit)))
-(with-eval-after-load 'evil
-  (define-key evil-normal-state-map [escape] 'keyboard-quit)
-  (define-key evil-visual-state-map [escape] 'keyboard-quit)
-  (define-key minibuffer-local-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-ns-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-completion-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-must-match-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-isearch-map [escape] 'minibuffer-keyboard-quit)
-  (global-set-key [escape] 'evil-exit-emacs-state))
 
 ;; Other functions to look through (this is an archive)
 ;; Emacs Writing Studio Customisation

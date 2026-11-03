@@ -109,8 +109,6 @@
       (?f . "FIXME")
       (?n . "NOTE"))
     "Mapping of narrow and keywords.")
-  ;; :config
-  ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
   )
 
 ;;;; Vulpea PARA and its settings should be added here (with the intention of going back to that file)

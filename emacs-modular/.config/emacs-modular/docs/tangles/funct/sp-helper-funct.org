@@ -19,7 +19,7 @@ This module is a grab bag of small interactive commands and a few global setting
 Dependencies:
 
 - Directory constants defined in =early-init.el=: =sp-emacs-dir=, =sp-setup-dir=, =sp-user-dir=.
-- Packages loaded lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers, =evil= for the escape key bindings.
+- Packages loaded lazily inside commands: =consult= for the config file finders, =titlecase= and =denote= for the heading and link helpers.
 - External programs, which some commands shell out to: =rg= (ripgrep), =curl=, =maim=.
 
 Loading and bindings:
@@ -398,14 +398,13 @@ User-buffer cycling:
 
 =sp-kill-this-buffer= is a thin wrapper around =kill-buffer=, because =kill-this-buffer= is unreliable outside the menu bar.
 
-- Unlike deleting the buffer through Evil, it keeps the window open.
+- It keeps the window open.
 - It is bound to =k= under the buffer prefix.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Kill Current Buffer
 ;; (kill-this-buffer) is unreliable when not invoked from the menubar. So here's a
-;; wrapper on (kill-buffer) to kill the current buffer. This is sometimes better
-;; than (evil-delete-buffer) since it keeps the window.
+;; wrapper on (kill-buffer) to kill the current buffer, and it keeps the window.
 
 (defun sp-kill-this-buffer ()
   (interactive)
@@ -671,11 +670,7 @@ It moves to a fresh line first if point is not at column zero, and leaves point 
 =minibuffer-keyboard-quit= is from Juanjo Alvarez's Vim migration guide.
 
 - It aborts the minibuffer, first just deactivating an active mark when Delete Selection mode is on.
-- Once Evil is loaded, escape is bound to:
-  - =keyboard-quit= in normal and visual state,
-  - this function in all the minibuffer keymaps,
-  - =evil-exit-emacs-state= globally.
-- =sp-evil= is commented out of the module list, so these bindings only take effect if Evil gets loaded some other way.
+- It is only defined here: the Evil-only escape bindings that used to call it were removed with Evil, so it is not bound to any key now.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Quit All the Things!
@@ -693,15 +688,6 @@ It moves to a fresh line first if point is not at column zero, and leaves point 
       (setq deactivate-mark  t)
     (when (get-buffer "*Completions*") (delete-windows-on "*Completions*"))
     (abort-recursive-edit)))
-(with-eval-after-load 'evil
-  (define-key evil-normal-state-map [escape] 'keyboard-quit)
-  (define-key evil-visual-state-map [escape] 'keyboard-quit)
-  (define-key minibuffer-local-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-ns-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-completion-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-must-match-map [escape] 'minibuffer-keyboard-quit)
-  (define-key minibuffer-local-isearch-map [escape] 'minibuffer-keyboard-quit)
-  (global-set-key [escape] 'evil-exit-emacs-state))
 #+end_src
 
 * Writing helpers from Emacs Writing Studio

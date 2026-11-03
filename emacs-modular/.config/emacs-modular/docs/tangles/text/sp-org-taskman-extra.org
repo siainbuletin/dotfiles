@@ -211,7 +211,6 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
 =consult-todo= lists those keywords across a buffer or project with Consult.
 
 - The =:init= redefines its narrowing keys so t, f and n narrow to TODO, FIXME and NOTE.
-- An Evil binding is commented out.
 - A trailing comment reserves this spot for Vulpea PARA settings.
 
 #+begin_src emacs-lisp -i
@@ -224,8 +223,6 @@ With =org-hierarchical-todo-statistics= set to nil, progress cookies count all T
       (?f . "FIXME")
       (?n . "NOTE"))
     "Mapping of narrow and keywords.")
-  ;; :config
-  ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
   )
 
 

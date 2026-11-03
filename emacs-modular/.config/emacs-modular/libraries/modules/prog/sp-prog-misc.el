@@ -55,10 +55,6 @@
   :ensure t
   :defer t)
 
-(use-package ein
-  :ensure t
-  :defer t)
-
 (global-unset-key (kbd "C-z")) ; stop me from freezing emacs
 
 (global-set-key (kbd "<M-up>") 'move-text-up)

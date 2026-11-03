@@ -236,7 +236,7 @@ The dividers, the fringe and the border around the frame are meant to vanish int
 
 - The delay is 0.15 seconds with the generic face. =<f8>= pulses the line on demand.
 - The =:config= adds many motion commands to =pulsar-pulse-functions=: recentering, scrolling, window and tab commands, bookmark jumps, and Org and outline heading motion.
-- It also adds =winner=, =winum=, =ace-window= and =evil= window commands when those are loaded.
+- It also adds =winner=, =winum= and =ace-window= window commands when those are loaded.
 - =ha-new-window= is in the list although it is not defined in this config. It appears to come from another person's setup.
 - Finally =pulsar-global-mode= is turned on.
 
@@ -283,12 +283,6 @@ The dividers, the fringe and the border around the frame are meant to vanish int
     (add-to-list 'pulsar-pulse-functions 'aw-split-window-horz)
     (add-to-list 'pulsar-pulse-functions 'aw-split-window-fair)
     (add-to-list 'pulsar-pulse-functions 'aw-delete-window))
-
-  (when (fboundp 'evil-window-right)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-right)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-left)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-up)
-    (add-to-list 'pulsar-pulse-functions 'evil-window-down))
 
   (pulsar-global-mode 1))
 #+end_src

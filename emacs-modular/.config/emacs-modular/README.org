@@ -250,7 +250,6 @@ Custom, bespoke functionality: modules I wrote myself for my own workflow, as op
 - [[file:docs/tangles/tooling/sp-completion.org][sp-completion]] :: Minibuffer completion with Vertico, Marginalia and Orderless ([[file:libraries/modules/tooling/sp-completion.el][sp-completion.el]])
 - [[file:docs/tangles/tooling/sp-debug.org][sp-debug]] :: Startup debugging and profiling ([[file:libraries/modules/tooling/sp-debug.el][sp-debug.el]])
 - [[file:docs/tangles/tooling/sp-embark.org][sp-embark]] :: Embark contextual actions ([[file:libraries/modules/tooling/sp-embark.el][sp-embark.el]])
-- [[file:docs/tangles/tooling/sp-evil.org][sp-evil]] :: Optional Evil (Vim emulation) layer ([[file:libraries/modules/tooling/sp-evil.el][sp-evil.el]])
 - [[file:docs/tangles/tooling/sp-help.org][sp-help]] :: Help, Info, dialogs and dictionaries ([[file:libraries/modules/tooling/sp-help.el][sp-help.el]])
 - [[file:docs/tangles/tooling/sp-indention.org][sp-indention]] :: Tabs, indentation width and indent keys ([[file:libraries/modules/tooling/sp-indention.el][sp-indention.el]])
 - [[file:docs/tangles/tooling/sp-lambda-modeline.org][sp-lambda-modeline]] :: Lambda-line header line and mode line, with tag emoji and theme colours ([[file:libraries/modules/tooling/sp-lambda-modeline.el][sp-lambda-modeline.el]])
