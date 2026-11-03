@@ -12,17 +12,17 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 A short module that:
 
-- installs Magit and adds a helper for using it with YADM, the dotfile manager,
+- installs Magit,
 - sets up Forge so Magit can work with GitHub pull requests and issues,
 - installs =code-review= for reviewing pull requests in Emacs.
 
 Notes:
 
 - Depends on the =magit=, =transient=, =forge= and =code-review= packages.
-- The YADM helper opens Magit in the home directory. That only works if Git can see a repository there. =sp-env= imports =GIT_CEILING_DIRECTORIES= from the shell for the same YADM setup.
+- The dotfiles are a normal repository in =~/dotfiles= (GNU Stow, see =stow-migration/README.md=), so Magit needs no special command: =M-x magit-status= on =~/dotfiles=, or pick it with =C-x p p= / =M-x magit-list-repositories=. The former =M-x yadm= is removed.
 - Loaded in the Programming group of the default module list in =init.el=.
 - The Forge and code-review parts have not been run in a test environment yet.
-- =code-review= loads lazily, so a failure in it cannot stop Magit or =yadm= from loading (see Code review below).
+- =code-review= loads lazily, so a failure in it cannot stop Magit from loading (see Code review below).
 
 * Magit
 
@@ -35,10 +35,9 @@ The file header: the first line carries the file name, a short summary and the =
 
 ;;; Commentary:
 
-;; A short module that installs Magit, adds a helper for using it with YADM,
-;; the dotfile manager, and sets up Forge so Magit can work with GitHub pull
-;; requests and issues, and installs `code-review' for reviewing pull requests
-;; in Emacs. It depends on the `magit', `transient', `forge' and `code-review'
+;; A short module that installs Magit, sets up Forge so Magit can work with
+;; GitHub pull requests and issues, and installs `code-review' for reviewing
+;; pull requests in Emacs. It depends on the `magit', `transient', `forge' and `code-review'
 ;; packages.
 
 ;;; Code:
@@ -64,27 +63,16 @@ Installs =magit=, loaded only after =transient=, and binds =C-M-g= to =magit=.
   (magit-bury-buffer-function 'magit-restore-window-configuration))
 #+end_src
 
-* YADM
+* Dotfiles
 
-** Magit on the home directory
-
-The =yadm= command opens =magit-status= on the dotfiles work tree: =~/dotfiles= once the Stow setup exists (=sp-dotfiles-dir=, see =stow-migration/README.md=), else =~/= for yadm. The name stays so the key and habit keep working.
+** Magit on ~/dotfiles
 
 - With Stow, =~/.config/emacs-modular/...= are symlinks into =~/dotfiles=. =vc-follow-symlinks= is set to =t= so that visiting one opens the real file and Magit, diff-hl and =project.el= find the repository.
 
-- YADM keeps its repository outside the home directory. So this only shows the dotfiles if the shell environment points Git at that repository (for example a =.git= link in the home directory).
-- The variables copied in =sp-env= suggest that is the setup, though the details are not in this config.
-- An earlier version used a TRAMP path =/yadm::= instead. A =yadm= TRAMP method is still defined in =sp-network=, but nothing uses it here any more.
+- Removed with the move to Stow: the =yadm= command (it opened Magit on =~/= or on the repository's work tree); the earlier TRAMP path =/yadm::= was already unused, and the =yadm= TRAMP method is still defined in =sp-network=.
 
 #+begin_src emacs-lisp -i
-;;;; YADM function to be able to work with dotfiles
-(declare-function sp-dotfiles-work-tree "sp-globals")
-
-(defun yadm ()
-  "Open Magit on the dotfiles (~/dotfiles with Stow, the home folder with yadm)."
-  (interactive)
-  (magit-status (sp-dotfiles-work-tree)))
-
+;;;; Dotfiles are a normal repository (~/dotfiles, GNU Stow)
 ;; ~/.config/... are links into ~/dotfiles: visit the real file so Magit finds the repository
 (setq vc-follow-symlinks t)
 #+end_src
@@ -125,9 +113,9 @@ Installs =code-review=, which opens a pull request in its own buffer for reading
 
 The third setting, =code-review-download-dir= (where binary files from a PR are saved, =/tmp/code-review/=), used to be written as =(setq ...)= inside =:custom=, which expects =(variable value)= pairs, so it never set the variable. It is a normal entry now.
 
-Loading: =code-review= is deferred (=:defer t=) and only loads when =code-review-start= or =code-review-forge-pr-at-point= is called. It used to have =:after forge= and a =require= of =emacsql-sqlite=, which loaded it as soon as Forge loaded, i.e. the first time Magit was used (for example =M-x yadm=). Its database class has the parent =emacsql-sqlite-connection=, and with the current emacsql that class does not exist even after =(require 'emacsql-sqlite)=. So loading it failed with =Given parent class emacsql-sqlite-connection is not a class= and nothing in Magit loaded (backtrace of 2026-11-02, from =magit-next-line= through =forge= to =code-review-db=). The =require= did not help and is removed.
+Loading: =code-review= is deferred (=:defer t=) and only loads when =code-review-start= or =code-review-forge-pr-at-point= is called. It used to have =:after forge= and a =require= of =emacsql-sqlite=, which loaded it as soon as Forge loaded, i.e. the first time Magit was used (for example the first =M-x magit-status=). Its database class has the parent =emacsql-sqlite-connection=, and with the current emacsql that class does not exist even after =(require 'emacsql-sqlite)=. So loading it failed with =Given parent class emacsql-sqlite-connection is not a class= and nothing in Magit loaded (backtrace of 2026-11-02, from =magit-next-line= through =forge= to =code-review-db=). The =require= did not help and is removed.
 
-Now a broken =code-review= can only break the review commands, not Magit, Forge or =yadm=. If the review commands fail with the same message, =code-review= is out of step with =emacsql= and =closql=; fixes to try, in order: rebuild and update them (=M-x elpaca-update-all=), pin =emacsql= and =closql= to the versions =code-review= was written for, or remove the block. I could not run Emacs to confirm the version mismatch.
+Now a broken =code-review= can only break the review commands, not Magit or Forge. If the review commands fail with the same message, =code-review= is out of step with =emacsql= and =closql=; fixes to try, in order: rebuild and update them (=M-x elpaca-update-all=), pin =emacsql= and =closql= to the versions =code-review= was written for, or remove the block. I could not run Emacs to confirm the version mismatch.
 
 #+begin_src emacs-lisp -i
 ;; code review harness
@@ -136,7 +124,7 @@ Now a broken =code-review= can only break the review commands, not Magit, Forge 
   ;; Load only when a review is started. code-review defines its database
   ;; class on `emacsql-sqlite-connection', which the installed emacsql may not
   ;; provide ("Given parent class emacsql-sqlite-connection is not a class").
-  ;; Loading it eagerly (even `:after forge') broke Magit, so `yadm' failed.
+  ;; Loading it eagerly (even `:after forge') broke Magit.
   :defer t
   :commands (code-review-start code-review-forge-pr-at-point)
   :custom

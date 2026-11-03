@@ -167,7 +167,7 @@ aligned, so the pattern accepts both."
   "Show a graph log of every branch, ready for marking two commits."
   (interactive)
   (unless (magit-toplevel)
-    (user-error "Not in a repository; open Magit first (M-x yadm for the dotfiles)"))
+    (user-error "Not in a repository; open Magit first (M-x magit-status on ~/dotfiles for the dotfiles)"))
   (magit-log-setup-buffer (list "--all") sp-merge-pick-log-arguments nil))
 
 (defun sp-merge-pick-set-into ()
