@@ -51,3 +51,9 @@ Provides the =sp-terminal= feature and closes the file.
 (provide 'sp-terminal)
 ;; sp-terminal.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/261][#261]] 🔥 Removed the vterm setup, a suspect for the start-up hang: vterm, =vterm-always-compile-module t=, =siapip/start-vterm= and the =<f7>= and =C-M-S-x= keys are gone from =sp-terminal=; =eat= (pure Lisp, no native module) stays because =claude-code= uses it. The Terminal workspace (=sp-vterm-workspace=, =sp-open-new-terminal-and-workspace=, leader key =6=, which used =multi-vterm=) is gone from =sp-workspaces=; =sp-ai= makes =claude-code= wait for =inheritenv= and =eat= only, with =claude-code-terminal-backend= set to =eat=; vterm leftovers are removed from =sp-frame= and =sp-evil=. The README and beets docs now say to run the deploy script with =M-x compile=. Not run in Emacs (none in the container).

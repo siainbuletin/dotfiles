@@ -271,3 +271,9 @@ Provides the =sp-ai= feature and closes the file.
 (provide 'sp-ai)
 ;; sp-ai.el ends here.
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/267][#267]] 🔧 Changed =sp-ai= out of the default module list in =init.el=: its git-sourced packages (=claude-code=, =efrit=, =vulpea-mcp=, =monet=) made Elpaca block in =elpaca-wait=, and it was the slowest module at start (about 12 to 15 s). New =M-x sp-ai-load= (defined in =init.el=) loads =sp-terminal= (the =eat= backend =claude-code= waits for), then =sp-ai=, then runs =elpaca-process-queues= so missing packages install. The MCP servers (=mcp-server-lib=, =vulpea-mcp=, =org-mcp=) are down until it runs, so Claude's MCP calls through =emacs-mcp-stdio.sh= get no answer; a headless daemon needs =emacsclient -s mcp -e '(sp-ai-load)'= after start. #269 did the same and was closed for this one. Not run in Emacs (none in the container); the parentheses of =init.el= were checked by script.
