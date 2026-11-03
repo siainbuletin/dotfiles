@@ -406,3 +406,63 @@
         (let ((sp-async-work-synchronous t))
           (should (= 0 (sp-author-notes--change-count (sp-author-notes--run nil)))))))))
 
+
+(ert-deftest sp-author-notes-test-fold-and-latex ()
+  (should (equal (sp-author-notes-fold-diacritics "Søren Bulată Ștefan Țepeș Lund") "Soren Bulata Stefan Tepes Lund"))
+  (should (equal (sp-author-notes-fold-diacritics "Łukasz Straße Æsop") "Lukasz Strasse AEsop"))
+  (should (equal (sp-author-notes--title-key "  Soren   KIERKEGAARD ") (sp-author-notes--title-key "Søren Kierkegaard")))
+  (should (equal (sp-author-notes--title-key "Ștefan Țepeș") (sp-author-notes--title-key "Stefan Tepes")))
+  (should (equal (sp-author-notes-latex-to-unicode "S{\\o}ren") "S{ø}ren"))
+  (should (equal (sp-author-notes-latex-to-unicode "Bulat{\\u a}") "Bulat{ă}"))
+  (should (equal (sp-author-notes-latex-to-unicode "\\c{S}tefan \\c t") "Ștefan ț"))
+  (should (equal (sp-author-notes-latex-to-unicode "\\'{\\i}\\^a G\\\"odel \\aa") "íâ Gödel å"))
+  (should (equal (sp-author-notes--clean-name "Kierkegaard, S{\\o}ren") "Søren Kierkegaard"))
+  ;; the cedilla s and t become the comma-below ones
+  (should (equal (sp-author-notes-latex-to-unicode "Ştefan Ţepeş") "Ștefan Țepeș")))
+
+(ert-deftest sp-author-notes-test-accent-insensitive-link ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Søren Kierkegaard" "p1")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+     "- pub-author :: Soren Kierkegaard" "")
+    (let ((run (sp-author-notes--run t)))
+      (should-not (sp-author-notes--run-created run))
+      (should (string-match-p "\\[\\[id:p1\\]\\[Soren Kierkegaard\\]\\]"
+                              (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault)))))))
+
+(ert-deftest sp-author-notes-test-duplicate-spellings-ask ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Søren Kierkegaard" "p1")
+    (sp-author-notes-test--person vault "Soren Kierkegaard" "p2")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+     "- pub-author :: S{\\o}ren Kierkegaard" "")
+    ;; the preview only reports
+    (let ((run (sp-author-notes--run nil)))
+      (should (seq-some (lambda (p) (string-match-p "titled alike" (nth 2 p)))
+                        (sp-author-notes--run-problems run))))
+    (let ((sp-author-notes-duplicate-function
+           (lambda (entries) (seq-find (lambda (e) (equal (plist-get e :id) "p1")) entries))))
+      (sp-author-notes--run t)
+      (should (string-match-p "\\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\]"
+                              (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault)))))))
+
+(ert-deftest sp-author-notes-test-normalize-duplicates ()
+  (sp-author-notes-test--with-vault
+    (sp-author-notes-test--person vault "Søren Kierkegaard" "p1")
+    (sp-author-notes-test--person vault "Soren Kierkegaard" "p2")
+    (sp-author-notes-test--write
+     (expand-file-name "litnotes/a.org" vault)
+     ":PROPERTIES:" ":ID: l1" ":END:" "#+title: x" ""
+     "- pub-author :: [[id:p2][Soren Kierkegaard]]"
+     "- pub-editor :: [[id:p2][Soren Kierkegaard]], [[id:other][Other]]" "")
+    (let ((sp-author-notes-duplicate-function
+           (lambda (entries) (seq-find (lambda (e) (equal (plist-get e :id) "p1")) entries))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (sp-author-notes-normalize-duplicates))
+      (let ((text (sp-author-notes-test--read (expand-file-name "litnotes/a.org" vault))))
+        (should (string-match-p "- pub-author :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\]\n" text))
+        (should (string-match-p "- pub-editor :: \\[\\[id:p1\\]\\[Søren Kierkegaard\\]\\], \\[\\[id:other\\]\\[Other\\]\\]" text))))))
