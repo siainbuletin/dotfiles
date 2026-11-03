@@ -3,6 +3,9 @@
 ~/.local/share/yadm/repo.git/objects/**
 ~/.local/share/yadm/repo.git/refs/**
 
+# secrets
+.authinfo
+
 # everything in the home directory, basically
 .backups/**
 .cache/**
@@ -41,8 +44,6 @@ paru/**
 ~/paru/
 Pictures/**
 state/**
-Zotero/**
-winboat/**
 
 # other created files
 .bash_history

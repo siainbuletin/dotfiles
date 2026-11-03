@@ -13,9 +13,6 @@
 (require 'sp-org-agenda)
 (require 'sp-org-images)
 
-;;;;; ID-based workflows
-(require 'sp-org-node-mem)
-
 ;;;;; Vulpea
 (require 'sp-vulpea-base)
 (require 'sp-vulpea-ui)
