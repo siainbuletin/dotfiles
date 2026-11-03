@@ -46,7 +46,8 @@
     (should (equal (sp-litnotes-meta--year (sp-litnotes-meta--entry "doe2015chapter")) "2014"))
     (let ((entry (sp-litnotes-meta--entry "lee2020")))
       (should (equal (sp-litnotes-meta--year entry) "2020"))
-      (should (equal (sp-litnotes-meta--author-names entry) '("Ann Lee"))))))
+      (should-not (sp-litnotes-meta--author-names entry))
+      (should (equal (sp-litnotes-meta--author-names entry "editor") '("Ann Lee"))))))
 
 (ert-deftest sp-litnotes-meta-set-lines ()
   (with-temp-buffer
@@ -102,6 +103,36 @@
               (should (string-match-p "- bib-project :: \\[\\[id:p\\]\\[Thesis\\]\\]" text)))
             ;; a second run changes nothing
             (should-not (sp-litnotes-meta-fill "doe2015chapter" file)))
+        (delete-directory dir t)))))
+
+(ert-deftest sp-litnotes-meta-offer-to-create-parent ()
+  (sp-litnotes-meta-test--with-bib sp-litnotes-meta-test--bib
+    (let* ((dir (make-temp-file "sp-meta-notes" t))
+           (sp-author-notes-litnotes-directory dir)
+           (sp-litnotes-meta-auto nil)
+           (asked 0) (filled nil))
+      (unwind-protect
+          (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) (cl-incf asked) t))
+                    ((symbol-function 'citar-create-note)
+                     (lambda (key &rest _)
+                       (with-temp-file (expand-file-name (concat key ".org") dir)
+                         (insert (format ":PROPERTIES:\n:ID: new-%s\n:ROAM_REFS: @%s\n:END:\n#+title: %s\n\n"
+                                         key key key)))))
+                    ((symbol-function 'sp-litnotes-meta-fill)
+                     (lambda (key &rest _) (push key filled))))
+            (let ((entry (sp-litnotes-meta--entry "doe2015chapter")))
+              (should (equal (sp-litnotes-meta--parent-value entry)
+                             "[[id:new-reuten2014book][reuten2014book]]"))
+              (should (= asked 1))
+              (should (equal filled '("reuten2014book")))))
+        (delete-directory dir t)))
+    ;; saying no leaves the line out
+    (let ((dir (make-temp-file "sp-meta-notes" t)))
+      (unwind-protect
+          (let ((sp-author-notes-litnotes-directory dir))
+            (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+              (should-not (sp-litnotes-meta--parent-value
+                           (sp-litnotes-meta--entry "doe2015chapter")))))
         (delete-directory dir t)))))
 
 (provide 'sp-litnotes-meta-test)

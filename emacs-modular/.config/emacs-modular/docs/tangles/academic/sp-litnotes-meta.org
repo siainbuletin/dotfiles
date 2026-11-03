@@ -14,7 +14,8 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 
 | Meta line    | Value                                                                                          |
 |--------------+------------------------------------------------------------------------------------------------|
-| =pub-author= | One link per author (=author=, else =editor=), to the author note found by name, else a new one |
+| =pub-author= | One link per =author=, to the author note found by name, else a new one |
+| =pub-editor= | The same for the =editor= field |
 | =pub-title=  | The =title= field, without braces                                                              |
 | =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
 | =bib-parent= | A link to the literature note of the =crossref= entry, when the entry has a crossref           |
@@ -25,7 +26,8 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 - *Existing values stay.* A line that already has a value is never changed; an empty one is filled. So the command is safe to run again on a note you edited, and =M-x sp-litnotes-meta-fill= fills the missing lines of an old note.
 - *Authors are matched by name.* The name is flipped to "First Last" (=sp-author-notes-flip-names=) and compared, ignoring case, with the title of every note in the Vulpea database. A note tagged =person= wins over other notes of the same title. With several =person= notes of that name you pick one. No fuzzy matching here: =M-x sp-author-notes= already finds likely duplicates later.
 - *A new author note* is written by =sp-org--write-note= (the same function =sp-author-notes= uses), with an ID and the =person= tag, and linked from the litnote. The names made during the session are remembered, because the database does not know them until it syncs, and two books by the same new author must not make two notes.
-- *=bib-parent= needs a note.* A crossref'd entry is linked only if it already has a literature note (found as =sp-author-notes-bibtex= finds covered keys). If it has none, the line is left out and a message names the key. The parent note is not created behind your back, because it would ask the same questions in turn.
+- *Editors* go to =pub-editor= and authors to =pub-author=; both are looked up and made as author notes alike. An entry with only editors (a collected volume) gets only =pub-editor=.
+- *=bib-parent= may create the parent note.* A crossref'd entry is linked when it has a literature note (found as =sp-author-notes-bibtex= finds covered keys). If it has none, you are asked whether to create it (=sp-litnotes-meta-offer-parent=). Creating it goes through =citar-create-note=, so the parent is filled the same way, with its own authors, editors and project question. If you say no, or it still is not found, the line is left out and a message names the key.
 - *=bib-project= is asked only when the note has none.* The picker lists the notes tagged =project=, with the thesis as default (=sp-litnotes-meta-default-project=).
 - *Nothing is written to a note with unsaved changes.*
 - Not run on the real vault yet.
@@ -94,6 +96,14 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
   :type 'string
   :group 'sp-litnotes-meta)
 
+(defcustom sp-litnotes-meta-offer-parent t
+  "Non-nil to offer to create the literature note of a crossref'd entry that has none."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defvar sp-litnotes-meta--depth 0
+  "How many parent notes are being made inside each other.")
+
 (defvar sp-litnotes-meta--created (make-hash-table :test #'equal)
   "Author notes made in this session: title key to (ID . TITLE).")
 #+end_src
@@ -136,11 +146,10 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
             (when-let* ((date (sp-litnotes-meta--field parent "date")))
               (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))))))
 
-(defun sp-litnotes-meta--author-names (entry)
-  "The names in the author field of ENTRY, else in its editor field, as First Last."
-  (when-let* ((field (or (sp-litnotes-meta--field entry "author")
-                         (sp-litnotes-meta--field entry "editor"))))
-    (sp-author-notes-bibtex--split-authors field)))
+(defun sp-litnotes-meta--author-names (entry &optional field)
+  "The names in the FIELD of ENTRY (default author), as First Last."
+  (when-let* ((text (sp-litnotes-meta--field entry (or field "author"))))
+    (sp-author-notes-bibtex--split-authors text)))
 #+end_src
 
 ** Author notes
@@ -187,9 +196,9 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
   "The Org link for TARGET, (ID . TITLE)."
   (format "[[id:%s][%s]]" (car target) (cdr target)))
 
-(defun sp-litnotes-meta--authors-value (entry)
-  "The pub-author value for ENTRY: the links to its authors, or nil."
-  (when-let* ((names (sp-litnotes-meta--author-names entry)))
+(defun sp-litnotes-meta--authors-value (entry &optional field)
+  "The links to the people in the FIELD of ENTRY (default author), or nil."
+  (when-let* ((names (sp-litnotes-meta--author-names entry field)))
     (mapconcat (lambda (name) (sp-litnotes-meta--link (sp-litnotes-meta--author-note name)))
                names ", ")))
 #+end_src
@@ -207,10 +216,20 @@ When =citar-create-note= makes a literature note (=C-c w b c=, or opening the no
 (defun sp-litnotes-meta--parent-value (entry)
   "The bib-parent value for ENTRY: a link to the note of its crossref, or nil."
   (when-let* ((ref (sp-litnotes-meta--field entry "crossref")))
-    (if-let* ((target (sp-litnotes-meta--note-for-key ref)))
-        (sp-litnotes-meta--link target)
-      (message "sp-litnotes-meta: %s has no literature note yet, bib-parent left empty" ref)
-      nil)))
+    (or (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+          (sp-litnotes-meta--link target))
+        (when (and sp-litnotes-meta-offer-parent
+                   (< sp-litnotes-meta--depth 3)
+                   (y-or-n-p (format "%s has no literature note.  Create it? " ref)))
+          (let ((sp-litnotes-meta--depth (1+ sp-litnotes-meta--depth)))
+            (citar-create-note ref)
+            ;; The advice fills it; fill it here when the advice is off.
+            (unless sp-litnotes-meta-auto
+              (ignore-errors (sp-litnotes-meta-fill ref))))
+          (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+            (sp-litnotes-meta--link target)))
+        (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
+               nil))))
 
 (defun sp-litnotes-meta--read-project ()
   "Pick a project in the minibuffer; return its link.  The default is the thesis."
@@ -298,6 +317,7 @@ lines that were changed."
       (let (changed)
         ;; Ask and look up only what the note still lacks.
         (dolist (spec `(("pub-author" . ,(lambda () (sp-litnotes-meta--authors-value entry)))
+                        ("pub-editor" . ,(lambda () (sp-litnotes-meta--authors-value entry "editor")))
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))

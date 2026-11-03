@@ -48,6 +48,14 @@
   :type 'string
   :group 'sp-litnotes-meta)
 
+(defcustom sp-litnotes-meta-offer-parent t
+  "Non-nil to offer to create the literature note of a crossref'd entry that has none."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defvar sp-litnotes-meta--depth 0
+  "How many parent notes are being made inside each other.")
+
 (defvar sp-litnotes-meta--created (make-hash-table :test #'equal)
   "Author notes made in this session: title key to (ID . TITLE).")
 
@@ -84,11 +92,10 @@
             (when-let* ((date (sp-litnotes-meta--field parent "date")))
               (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))))))
 
-(defun sp-litnotes-meta--author-names (entry)
-  "The names in the author field of ENTRY, else in its editor field, as First Last."
-  (when-let* ((field (or (sp-litnotes-meta--field entry "author")
-                         (sp-litnotes-meta--field entry "editor"))))
-    (sp-author-notes-bibtex--split-authors field)))
+(defun sp-litnotes-meta--author-names (entry &optional field)
+  "The names in the FIELD of ENTRY (default author), as First Last."
+  (when-let* ((text (sp-litnotes-meta--field entry (or field "author"))))
+    (sp-author-notes-bibtex--split-authors text)))
 
 (defun sp-litnotes-meta--person-p (note)
   "Non-nil when the Vulpea NOTE has `sp-author-notes-person-tag'."
@@ -131,9 +138,9 @@
   "The Org link for TARGET, (ID . TITLE)."
   (format "[[id:%s][%s]]" (car target) (cdr target)))
 
-(defun sp-litnotes-meta--authors-value (entry)
-  "The pub-author value for ENTRY: the links to its authors, or nil."
-  (when-let* ((names (sp-litnotes-meta--author-names entry)))
+(defun sp-litnotes-meta--authors-value (entry &optional field)
+  "The links to the people in the FIELD of ENTRY (default author), or nil."
+  (when-let* ((names (sp-litnotes-meta--author-names entry field)))
     (mapconcat (lambda (name) (sp-litnotes-meta--link (sp-litnotes-meta--author-note name)))
                names ", ")))
 
@@ -147,10 +154,20 @@
 (defun sp-litnotes-meta--parent-value (entry)
   "The bib-parent value for ENTRY: a link to the note of its crossref, or nil."
   (when-let* ((ref (sp-litnotes-meta--field entry "crossref")))
-    (if-let* ((target (sp-litnotes-meta--note-for-key ref)))
-        (sp-litnotes-meta--link target)
-      (message "sp-litnotes-meta: %s has no literature note yet, bib-parent left empty" ref)
-      nil)))
+    (or (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+          (sp-litnotes-meta--link target))
+        (when (and sp-litnotes-meta-offer-parent
+                   (< sp-litnotes-meta--depth 3)
+                   (y-or-n-p (format "%s has no literature note.  Create it? " ref)))
+          (let ((sp-litnotes-meta--depth (1+ sp-litnotes-meta--depth)))
+            (citar-create-note ref)
+            ;; The advice fills it; fill it here when the advice is off.
+            (unless sp-litnotes-meta-auto
+              (ignore-errors (sp-litnotes-meta-fill ref))))
+          (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+            (sp-litnotes-meta--link target)))
+        (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
+               nil))))
 
 (defun sp-litnotes-meta--read-project ()
   "Pick a project in the minibuffer; return its link.  The default is the thesis."
@@ -230,6 +247,7 @@ lines that were changed."
       (let (changed)
         ;; Ask and look up only what the note still lacks.
         (dolist (spec `(("pub-author" . ,(lambda () (sp-litnotes-meta--authors-value entry)))
+                        ("pub-editor" . ,(lambda () (sp-litnotes-meta--authors-value entry "editor")))
                         ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
                         ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
                         ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
