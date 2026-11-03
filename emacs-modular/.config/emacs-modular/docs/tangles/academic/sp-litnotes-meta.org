@@ -1,0 +1,344 @@
+#+TITLE: sp-litnotes-meta.el: fill the meta lines of a new literature note from BibTeX
+#+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-litnotes-meta.el :comments no :padline yes :noweb no :mkdirp yes
+#+STARTUP: content
+
+Literate source for =libraries/modules/academic/sp-litnotes-meta.el=.
+
+- Every line of the module lives in the =emacs-lisp= blocks below, in order.
+- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
+- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+
+* What it does
+
+When =citar-create-note= makes a literature note (=C-c w b c=, or opening the notes of a reference that has none), =sp-litnotes-meta= reads the BibTeX entry of the citation key and adds these meta lines to the first section of the note:
+
+| Meta line    | Value                                                                                          |
+|--------------+------------------------------------------------------------------------------------------------|
+| =pub-author= | One link per =author=, to the author note found by name, else a new one |
+| =pub-editor= | The same for the =editor= field |
+| =pub-title=  | The =title= field, without braces                                                              |
+| =pub-year=   | The =year= field, else the year of =date=, else the year of the =crossref= entry               |
+| =bib-parent= | A link to the literature note of the =crossref= entry, when the entry has a crossref           |
+| =bib-project= | A link picked in the minibuffer; the default is the thesis project                            |
+
+** Design choices
+
+- *Existing values stay.* A line that already has a value is never changed; an empty one is filled. So the command is safe to run again on a note you edited, and =M-x sp-litnotes-meta-fill= fills the missing lines of an old note.
+- *Authors are matched by name.* The name is flipped to "First Last" (=sp-author-notes-flip-names=) and compared, ignoring case, with the title of every note in the Vulpea database. A note tagged =person= wins over other notes of the same title. With several =person= notes of that name you pick one. No fuzzy matching here: =M-x sp-author-notes= already finds likely duplicates later.
+- *A new author note* is written by =sp-org--write-note= (the same function =sp-author-notes= uses), with an ID and the =person= tag, and linked from the litnote. The names made during the session are remembered, because the database does not know them until it syncs, and two books by the same new author must not make two notes.
+- *Editors* go to =pub-editor= and authors to =pub-author=; both are looked up and made as author notes alike. An entry with only editors (a collected volume) gets only =pub-editor=.
+- *=bib-parent= may create the parent note.* A crossref'd entry is linked when it has a literature note (found as =sp-author-notes-bibtex= finds covered keys). If it has none, you are asked whether to create it (=sp-litnotes-meta-offer-parent=). Creating it goes through =citar-create-note=, so the parent is filled the same way, with its own authors, editors and project question. If you say no, or it still is not found, the line is left out and a message names the key.
+- *=bib-project= is asked only when the note has none.* The picker lists the notes tagged =project=, with the thesis as default (=sp-litnotes-meta-default-project=).
+- *Nothing is written to a note with unsaved changes.*
+- Not run on the real vault yet.
+
+** Commands
+
+- =M-x sp-litnotes-meta-fill=: fill the note you are in (its citation key comes from =ROAM_REFS=).
+- =sp-litnotes-meta-auto= (default t): fill every note made by =citar-create-note=. Set it to nil to turn that off.
+
+* sp-litnotes-meta.el
+
+** Header
+
+#+begin_src emacs-lisp
+;;; sp-litnotes-meta.el --- Fill literature note meta lines from BibTeX -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; A new literature note gets pub-author (linked to author notes, made when
+;; missing), pub-title, pub-year, bib-parent (from the crossref) and
+;; bib-project (picked) from its BibTeX entry.  See the doc
+;; docs/tangles/academic/sp-litnotes-meta.org.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'bibtex)
+(require 'sp-author-notes)
+(require 'sp-author-notes-bibtex)
+(require 'sp-litnotes-titles)
+
+(declare-function citar-create-note "citar")
+(declare-function vulpea-db-query "vulpea-db")
+(declare-function vulpea-db-query-by-tags-some "vulpea-db")
+(declare-function vulpea-db-get-by-id "vulpea-db")
+(declare-function vulpea-note-id "vulpea-note")
+(declare-function vulpea-note-title "vulpea-note")
+(declare-function vulpea-note-tags "vulpea-note")
+(declare-function vulpea-note-level "vulpea-note")
+(declare-function sp-org--write-note "sp-org-link-conversion")
+#+end_src
+
+** Options
+
+#+begin_src emacs-lisp
+(defgroup sp-litnotes-meta nil
+  "Fill literature note meta lines from BibTeX."
+  :group 'sp-author-notes
+  :prefix "sp-litnotes-meta-")
+
+(defcustom sp-litnotes-meta-auto t
+  "Non-nil to fill every note that `citar-create-note' makes."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-default-project
+  '("806b08ac-3ed1-4338-a26e-3af9e0e9328c" . "Devalorizarea artei în capitalismul de platformă")
+  "The default of the bib-project picker, as (ID . TITLE)."
+  :type '(cons string string)
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-project-tag "project"
+  "The tag of the notes the bib-project picker offers."
+  :type 'string
+  :group 'sp-litnotes-meta)
+
+(defcustom sp-litnotes-meta-offer-parent t
+  "Non-nil to offer to create the literature note of a crossref'd entry that has none."
+  :type 'boolean
+  :group 'sp-litnotes-meta)
+
+(defvar sp-litnotes-meta--depth 0
+  "How many parent notes are being made inside each other.")
+
+(defvar sp-litnotes-meta--created (make-hash-table :test #'equal)
+  "Author notes made in this session: title key to (ID . TITLE).")
+#+end_src
+
+** The BibTeX entry
+
+=sp-litnotes-meta--entry= reads the entry of a key from the registered .bib files (the same list =sp-author-notes-bibtex= uses).
+
+#+begin_src emacs-lisp
+(defun sp-litnotes-meta--entry (key)
+  "The BibTeX entry KEY from the registered files, as an alist, or nil."
+  (catch 'found
+    (dolist (file (sp-author-notes-bibtex--files))
+      (with-temp-buffer
+        (let ((coding-system-for-read 'utf-8)) (insert-file-contents file))
+        (delay-mode-hooks (bibtex-mode))
+        (goto-char (point-min))
+        (when (re-search-forward
+               (format "^[ \t]*@[[:alpha:]]+[ \t]*[{(][ \t]*%s[ \t]*," (regexp-quote key)) nil t)
+          (goto-char (match-beginning 0))
+          (when-let* ((entry (ignore-errors (bibtex-parse-entry t))))
+            (throw 'found entry)))))))
+
+(defun sp-litnotes-meta--field (entry name)
+  "The field NAME of ENTRY, braces removed and white space collapsed, or nil."
+  (when-let* ((value (cdr (assoc-string name entry t)))
+              (clean (string-trim (replace-regexp-in-string
+                                   "[ \t\n]+" " " (replace-regexp-in-string "[{}]" "" value)))))
+    (and (not (string-empty-p clean)) clean)))
+
+(defun sp-litnotes-meta--year (entry)
+  "The year of ENTRY: its year, the year in its date, else that of its crossref."
+  (or (when-let* ((year (sp-litnotes-meta--field entry "year")))
+        (and (string-match "[0-9]\\{4\\}" year) (match-string 0 year)))
+      (when-let* ((date (sp-litnotes-meta--field entry "date")))
+        (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))
+      (when-let* ((ref (sp-litnotes-meta--field entry "crossref"))
+                  (parent (sp-litnotes-meta--entry ref)))
+        (or (sp-litnotes-meta--field parent "year")
+            (when-let* ((date (sp-litnotes-meta--field parent "date")))
+              (and (string-match "\\`[0-9]\\{4\\}" date) (match-string 0 date)))))))
+
+(defun sp-litnotes-meta--author-names (entry &optional field)
+  "The names in the FIELD of ENTRY (default author), as First Last."
+  (when-let* ((text (sp-litnotes-meta--field entry (or field "author"))))
+    (sp-author-notes-bibtex--split-authors text)))
+#+end_src
+
+** Author notes
+
+#+begin_src emacs-lisp
+(defun sp-litnotes-meta--person-p (note)
+  "Non-nil when the Vulpea NOTE has `sp-author-notes-person-tag'."
+  (member sp-author-notes-person-tag (vulpea-note-tags note)))
+
+(defun sp-litnotes-meta--find-person (name)
+  "The note for NAME as (ID . TITLE), or nil.  Several are an error to resolve by asking."
+  (let* ((key (sp-author-notes--title-key name))
+         (hits (vulpea-db-query
+                (lambda (note)
+                  (let ((title (vulpea-note-title note)))
+                    (and (stringp title)
+                         (eql 0 (vulpea-note-level note))
+                         (equal (sp-author-notes--title-key title) key))))))
+         (persons (seq-filter #'sp-litnotes-meta--person-p hits))
+         (pool (or persons hits)))
+    (cond
+     ((null pool) (gethash key sp-litnotes-meta--created))
+     ((null (cdr pool)) (cons (vulpea-note-id (car pool)) (vulpea-note-title (car pool))))
+     (t (let* ((alist (mapcar (lambda (n) (cons (format "%s [%s]" (vulpea-note-title n)
+                                                       (vulpea-note-id n))
+                                                n))
+                              pool))
+               (pick (cdr (assoc (completing-read (format "Which note is %s? " name)
+                                                  (mapcar #'car alist) nil t)
+                                 alist))))
+          (cons (vulpea-note-id pick) (vulpea-note-title pick)))))))
+
+(defun sp-litnotes-meta--author-note (name)
+  "The author note of NAME as (ID . TITLE); make it when there is none."
+  (or (sp-litnotes-meta--find-person name)
+      (progn
+        (require 'sp-org-link-conversion)
+        (let ((id (sp-org--write-note name (list sp-author-notes-person-tag))))
+          (message "Made the author note %s" name)
+          (puthash (sp-author-notes--title-key name) (cons id name)
+                   sp-litnotes-meta--created)))))
+
+(defun sp-litnotes-meta--link (target)
+  "The Org link for TARGET, (ID . TITLE)."
+  (format "[[id:%s][%s]]" (car target) (cdr target)))
+
+(defun sp-litnotes-meta--authors-value (entry &optional field)
+  "The links to the people in the FIELD of ENTRY (default author), or nil."
+  (when-let* ((names (sp-litnotes-meta--author-names entry field)))
+    (mapconcat (lambda (name) (sp-litnotes-meta--link (sp-litnotes-meta--author-note name)))
+               names ", ")))
+#+end_src
+
+** The parent and the project
+
+#+begin_src emacs-lisp
+(defun sp-litnotes-meta--note-for-key (key)
+  "The literature note of the citation KEY as (ID . TITLE), or nil."
+  (when-let* ((file (gethash key (sp-author-notes-bibtex--covered)))
+              (head (sp-author-notes--file-head file))
+              (id (plist-get head :id)))
+    (cons id (or (plist-get head :title) key))))
+
+(defun sp-litnotes-meta--parent-value (entry)
+  "The bib-parent value for ENTRY: a link to the note of its crossref, or nil."
+  (when-let* ((ref (sp-litnotes-meta--field entry "crossref")))
+    (or (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+          (sp-litnotes-meta--link target))
+        (when (and sp-litnotes-meta-offer-parent
+                   (< sp-litnotes-meta--depth 3)
+                   (y-or-n-p (format "%s has no literature note.  Create it? " ref)))
+          (let ((sp-litnotes-meta--depth (1+ sp-litnotes-meta--depth)))
+            (citar-create-note ref)
+            ;; The advice fills it; fill it here when the advice is off.
+            (unless sp-litnotes-meta-auto
+              (ignore-errors (sp-litnotes-meta-fill ref))))
+          (when-let* ((target (sp-litnotes-meta--note-for-key ref)))
+            (sp-litnotes-meta--link target)))
+        (progn (message "sp-litnotes-meta: %s has no literature note, bib-parent left empty" ref)
+               nil))))
+
+(defun sp-litnotes-meta--read-project ()
+  "Pick a project in the minibuffer; return its link.  The default is the thesis."
+  (let* ((default (let ((id (car sp-litnotes-meta-default-project)))
+                    (or (when-let* ((note (vulpea-db-get-by-id id)))
+                          (cons id (vulpea-note-title note)))
+                        sp-litnotes-meta-default-project)))
+         (alist (mapcar (lambda (n) (cons (vulpea-note-title n) (cons (vulpea-note-id n) (vulpea-note-title n))))
+                        (vulpea-db-query-by-tags-some (list sp-litnotes-meta-project-tag))))
+         (alist (if (assoc (cdr default) alist) alist (cons (cons (cdr default) default) alist)))
+         (choice (completing-read (format "bib-project (default %s): " (cdr default))
+                                  (mapcar #'car alist) nil t nil nil (cdr default))))
+    (sp-litnotes-meta--link (cdr (assoc choice alist)))))
+#+end_src
+
+** Writing the meta lines
+
+#+begin_src emacs-lisp
+(defconst sp-litnotes-meta--line-re "^-[ \t]+%s[ \t]+::\\(.*\\)$")
+
+(defun sp-litnotes-meta--has-value-p (key)
+  "Non-nil when the first section of the buffer has a KEY line with a value."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (and (re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key))
+                              (sp-author-notes--first-heading) t)
+           (not (string-empty-p (string-trim (match-string 1))))))))
+
+(defun sp-litnotes-meta--set (key value)
+  "Set the meta line KEY to VALUE in the first section of the buffer.
+Return `added' or `filled', or nil when the line already has a value."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let ((limit (sp-author-notes--first-heading))
+            (case-fold-search t))
+        (goto-char (point-min))
+        (cond
+         ((re-search-forward (format sp-litnotes-meta--line-re (regexp-quote key)) limit t)
+          (when (string-empty-p (string-trim (match-string 1)))
+            (replace-match (concat " " value) t t nil 1)
+            'filled))
+         (t
+          (goto-char (point-min))
+          (if (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t)
+              (progn (while (re-search-forward "^-[ \t]+[^ \t\n:]+[ \t]+::.*$" limit t))
+                     (end-of-line)
+                     (insert "\n"))
+            (goto-char limit)
+            (unless (bolp) (insert "\n"))
+            (insert "\n"))
+          (insert (format "- %s :: %s" key value))
+          (unless (eq (char-after) ?\n) (insert "\n"))
+          'added))))))
+#+end_src
+
+** Filling a note
+
+#+begin_src emacs-lisp
+(defun sp-litnotes-meta--buffer-key ()
+  "The first citation key of the ROAM_REFS of the current buffer, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^:ROAM_REFS:[ \t]*\\(.*\\)$" (sp-author-notes--first-heading) t)
+      (car (sp-litnotes-titles--keys (match-string 1))))))
+
+;;;###autoload
+(defun sp-litnotes-meta-fill (key &optional file)
+  "Fill the meta lines of the literature note of KEY from its BibTeX entry.
+FILE is the note; by default the current buffer's file, else the note
+found for KEY.  Lines that have a value are left alone.  Return the
+lines that were changed."
+  (interactive (list (or (sp-litnotes-meta--buffer-key)
+                         (user-error "No citation key in the ROAM_REFS of this buffer"))
+                     buffer-file-name))
+  (let* ((entry (or (sp-litnotes-meta--entry key)
+                    (user-error "No BibTeX entry %s in the registered files" key)))
+         (file (or file (gethash key (sp-author-notes-bibtex--covered))
+                   (user-error "No literature note found for %s" key)))
+         (buf (find-buffer-visiting file)))
+    (when (and buf (buffer-modified-p buf))
+      (user-error "%s has unsaved changes; save it first" (file-name-nondirectory file)))
+    (with-current-buffer (or buf (find-file-noselect file))
+      (let (changed)
+        ;; Ask and look up only what the note still lacks.
+        (dolist (spec `(("pub-author" . ,(lambda () (sp-litnotes-meta--authors-value entry)))
+                        ("pub-editor" . ,(lambda () (sp-litnotes-meta--authors-value entry "editor")))
+                        ("pub-title" . ,(lambda () (sp-litnotes-meta--field entry "title")))
+                        ("pub-year" . ,(lambda () (sp-litnotes-meta--year entry)))
+                        ("bib-parent" . ,(lambda () (sp-litnotes-meta--parent-value entry)))
+                        ("bib-project" . ,#'sp-litnotes-meta--read-project)))
+          (unless (sp-litnotes-meta--has-value-p (car spec))
+            (when-let* ((value (funcall (cdr spec)))
+                        (how (sp-litnotes-meta--set (car spec) value)))
+              (push (car spec) changed))))
+        (when changed (save-buffer))
+        (unless buf (kill-buffer))
+        (nreverse changed)))))
+
+(defun sp-litnotes-meta--after-create (key &rest _)
+  "Fill the note `citar-create-note' made for KEY, when `sp-litnotes-meta-auto'."
+  (when (and sp-litnotes-meta-auto (stringp key))
+    (condition-case err
+        (sp-litnotes-meta-fill key)
+      (error (message "sp-litnotes-meta: %s: %s" key (error-message-string err))))))
+
+(advice-add 'citar-create-note :after #'sp-litnotes-meta--after-create)
+
+(provide 'sp-litnotes-meta)
+;; sp-litnotes-meta.el ends here
+#+end_src

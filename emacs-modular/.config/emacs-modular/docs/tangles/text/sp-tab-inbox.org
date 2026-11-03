@@ -1474,3 +1474,9 @@ Provides the =sp-tab-inbox= feature and closes the file.
 (provide 'sp-tab-inbox)
 ;;; sp-tab-inbox.el ends here
 #+end_src
+
+* Changes by pull request
+
+What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
+
+- [[https://github.com/siainbuletin/dotfiles/pull/265][#265]] 🔧 Changed both =rg= runs over =~/notes/inbox/tabs/= (the sidebar widget search and the backlink search), which were unbounded and synchronous, to use =sp-tab-inbox-rg-limits= (=--no-config --threads 2 --max-filesize 2M --max-columns 300 --max-columns-preview --max-count 20=); titles in =sp-tab-inbox-ignored-terms= ("inbox", "home", "notes", ...) are no longer searched. Hardening found while looking for the start-up hang; neither this nor the =sp-dashboard= change is shown to cause it. Not run in Emacs (none in the container).

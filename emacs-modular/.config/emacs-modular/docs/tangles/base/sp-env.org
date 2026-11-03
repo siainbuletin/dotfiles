@@ -15,7 +15,6 @@ Also in this module:
 - a commented-out alternative from the modular configuration it was originally based on,
 - a command for piping the region through a shell command,
 - =inheritenv=, installed for the Claude Code setup in =sp-ai=,
-- a few more variables needed for using YADM from Emacs.
 
 The commentary notes that Windows and Linux still need their own solution.
 
@@ -76,7 +75,6 @@ Paths:
 =exec-path-from-shell=:
 
 - Only used under graphical window systems (mac, ns, x and pgtk), since a terminal Emacs already inherits the shell environment, and in a daemon, where =window-system= is nil at startup.
-- =GIT_CEILING_DIRECTORIES= is in the list so that yadm can work as the dotfiles repository in Emacs; it stops Git from searching parent directories. It is not needed after the move to Stow (=stow-migration/=) and can then be removed.
 - =exec-path-from-shell-initialize= copies =PATH= and =MANPATH=.
 - The loop then copies further variables: spelling config, editor, GnuPG and pass locations, SSH agent socket, SSL certificate paths (including the Nix and Node ones) and StarDict data.
 
@@ -89,8 +87,6 @@ Paths:
   (exec-path-from-shell-initialize)
   (dolist (var '("ASPELL_CONF"
                  "EDITOR"
-                 ;; Only needed while yadm is used (the ~/.git gitfile); harmless after the move to Stow
-                 "GIT_CEILING_DIRECTORIES"
                  "GNUPGHOME"
                  "NIX_SSL_CERT_FILE"
                  "NODE_EXTRA_CA_CERTS"

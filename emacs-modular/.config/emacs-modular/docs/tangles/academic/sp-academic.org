@@ -1463,6 +1463,7 @@ Provides the =sp-litnotes= feature and closes the file.
 #+begin_src emacs-lisp -i
 (require 'sp-litnotes-refs)
 (require 'sp-litnotes-titles)
+(require 'sp-litnotes-meta)
 
 (provide 'sp-litnotes)
 ;; sp-litnotes.el ends here
