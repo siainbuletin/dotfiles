@@ -37,6 +37,7 @@ For motivations of why this configuration is set up in this way, please refer to
 
 - [[file:docs/architecture/projects-sidebar-layout.org][A projects sidebar]] :: How to show writing projects and the =sp-org-issues= tracker in a side window: the options, a recommendation and a plan
 - [[file:docs/architecture/stable-and-sandbox-emacs.org][Stable and sandbox Emacs]] :: A stable =writing= Emacs next to the development one, the CI check that the tangled modules match their docs, =emacsclient= and Hammerspoon, and how the other dotfiles fit
+- [[file:docs/architecture/global-keymap-namespaces.org][Global keymaps per feature]] :: Design for one keymap per feature under a single leader, modelled on Lambda Emacs: the audit of today's key conflicts and shadowing, the caveats (leader key, load order, terminal and macOS keys, which-key labels, migration, testing) and a five-step plan. Design only.
 - [[file:docs/architecture/theme-system-design.org][The theme system]] :: The five theme packages compared, and the design of =libraries/themes/= and =sp-load-theme=. [[file:docs/architecture/modus-faces-outside-global-system.org][Modus faces outside a global face system]] lists what a palette-only system would not cover.
 - [[file:docs/relationship-annotator-vs-discourse-graphs.org][relationship-annotator vs discourse-graphs]] :: What the module and the =discourse-graphs= package share, where they differ, and what was not ported
 
