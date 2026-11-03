@@ -80,7 +80,6 @@ This is also currently being loaded alphabetically.
 - sp-bookmarks :: Bookmark management.
 - sp-debug :: If you ever need to do deep debugging for Elisp
 - sp-embark :: Specific settings for embark (and acting on items)
-- sp-evil :: DISABLED. Evil mode (currently there just for the sake of it, I don't want it loaded)
 - sp-help :: Improvements for the help module.
 - sp-indention ::
 - sp-lambda-line :: Separate modeline
@@ -146,7 +145,6 @@ Vulpea functions --- These are all now 'required' by =sp-org-ext= (some through 
 - ;; sp-lisp :: DISABLED (because not in use.)
 - ;; sp-go :: DISABLED (because not in use.)
 - ;; sp-c :: DISABLED (because not in use.)
-- ;; sp-python :: DISABLED (because not in use.)
 - ;; sp-rust :: DISABLED (because not in use.)
 - ;; sp-xml :: DISABLED (because not in use.)
 - ;; sp-nix :: DISABLED (because not in use.)
@@ -433,7 +431,6 @@ Modifications to be made by me, a human
         sp-bookmarks
         sp-debug
         sp-embark
-        ;; sp-evil
         sp-help
         sp-indention
         sp-lambda-line
@@ -518,7 +515,6 @@ Modifications to be made by me, a human
         sp-bookmarks
         sp-debug
         sp-embark
-        ;; sp-evil
         sp-help
         sp-indention
         sp-lambda-line

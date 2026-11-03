@@ -1940,9 +1940,6 @@ caught from outside (see the doc)."
   (add-hook 'activate-mark-hook #'sp-dashboard--no-region nil t)
   (add-hook 'post-command-hook #'sp-dashboard--mark-focus nil t)
 
-  ;; Use Emacs state if Evil is active so single-key bindings work
-  (when (bound-and-true-p evil-mode)
-    (evil-emacs-state))
   (sp-dashboard--isolate-menu)
   (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))

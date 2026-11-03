@@ -2408,7 +2408,6 @@ caught from outside (see the doc)."
 - Makes the buffer read-only.
 - Hides the cursor, mode line and header line, and removes margins and fringes.
 - Sets the global =inhibit-startup-screen= family of variables and =truncate-lines=.
-- When Evil is active, switches to Emacs state so the single-key bindings are not shadowed.
 - Its =:group= is =sp-dashboard=. It used to be =spcustom=, which this config never defines.
 
 #+begin_src emacs-lisp -i
@@ -2454,9 +2453,6 @@ caught from outside (see the doc)."
   (add-hook 'activate-mark-hook #'sp-dashboard--no-region nil t)
   (add-hook 'post-command-hook #'sp-dashboard--mark-focus nil t)
   
-  ;; Use Emacs state if Evil is active so single-key bindings work
-  (when (bound-and-true-p evil-mode)
-    (evil-emacs-state))
   (sp-dashboard--isolate-menu)
   (setq sp-dashboard--drawn-geometry (sp-dashboard--window-geometry))
   (goto-char (point-min))

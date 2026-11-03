@@ -101,9 +101,9 @@ Installs a set of deferred major modes, each loaded only when a matching file is
   :defer t)
 #+end_src
 
-** Blogging, Markdown preview and notebooks
+** Blogging and Markdown preview
 
-Installs =easy-hugo= for managing a Hugo blog, =gh-md= for rendering Markdown through the GitHub API, and =ein= for working with Jupyter notebooks. All are deferred.
+Installs =easy-hugo= for managing a Hugo blog, and =gh-md= for rendering Markdown through the GitHub API. Both are deferred.
 
 #+begin_src emacs-lisp -i
 (use-package easy-hugo
@@ -111,10 +111,6 @@ Installs =easy-hugo= for managing a Hugo blog, =gh-md= for rendering Markdown th
   :defer t)
 
 (use-package gh-md
-  :ensure t
-  :defer t)
-
-(use-package ein
   :ensure t
   :defer t)
 #+end_src

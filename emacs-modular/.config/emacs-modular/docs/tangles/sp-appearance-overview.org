@@ -68,12 +68,6 @@ introduced his Pulsar project is just what I need. Specifically, I might loose t
       (add-to-list 'pulsar-pulse-functions 'aw-split-window-fair)
       (add-to-list 'pulsar-pulse-functions 'aw-delete-window))
 
-    (when (fboundp 'evil-window-right)
-      (add-to-list 'pulsar-pulse-functions 'evil-window-right)
-      (add-to-list 'pulsar-pulse-functions 'evil-window-left)
-      (add-to-list 'pulsar-pulse-functions 'evil-window-up)
-      (add-to-list 'pulsar-pulse-functions 'evil-window-down))
-
     (pulsar-global-mode 1))
 #+end_src
 
@@ -614,8 +608,6 @@ Suggests to bind some keys to =hl-todo-next= in order to jump from tag to tag, b
       (?f . "FIXME")
       (?n . "NOTE"))
     "Mapping of narrow and keywords.")
-  ;; :config
-  ;; (evil-define-key '(normal) 'global "g t" '("jump todos" . consult-todo))
   )
 #+end_src
 
