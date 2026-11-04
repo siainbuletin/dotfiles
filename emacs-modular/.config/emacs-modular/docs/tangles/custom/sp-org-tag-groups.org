@@ -798,6 +798,7 @@ A group without a colour (such as `unsorted') gets the neutral `default'."
 (defvar vulpea-select-annotate-matchable)
 (defvar vulpea-select-cache)
 (declare-function vulpea-insert "vulpea")
+(declare-function vulpea-find "vulpea")
 
 (defun sp-org-tag-groups--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
