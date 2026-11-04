@@ -9,7 +9,7 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 
 | No.  | Decision                                                      | Status   |
 |------+---------------------------------------------------------------+----------|
-| [[file:0001-plain-clone-for-gui-git-tools.org][0001]] | Use a plain clone for GUI git tools, keep yadm for the live config | accepted |
+| [[file:0001-plain-clone-for-gui-git-tools.org][0001]] | Use a plain clone for GUI git tools, keep yadm for the live config | superseded by 0023 |
 | [[file:0002-sourcegit-for-visual-git.org][0002]] | Use SourceGit for branches, merges and conflicts              | accepted |
 | [[file:0003-merge-prs-on-github-with-merge-commits.org][0003]] | Merge PRs on GitHub with merge commits                        | accepted |
 | [[file:0004-number-prefixed-pr-branches.org][0004]] | Prefix PR branch names with the PR number                     | accepted |
@@ -32,4 +32,4 @@ Each record has a status (accepted, superseded or rejected), the context, the de
 | [[file:0020-tag-groups.org][0020]] | Tag groups are an alist of =(GROUP TAG…)=, turned into Org group tags | proposed |
 | [[file:0021-typst-for-pdf-of-the-docs.org][0021]] | Typeset the PDF of the docs with Typst, exported from Org by =ox-typst= | accepted |
 | [[file:0022-stable-and-sandbox-emacs.org][0022]] | A stable Emacs for writing, a sandbox for development, and a CI check of the tangle | proposed |
-| [[file:0023-stow-instead-of-yadm.org][0023]] | GNU Stow in =~/dotfiles= instead of yadm | proposed |
+| [[file:0023-stow-instead-of-yadm.org][0023]] | GNU Stow in =~/dotfiles= instead of yadm | accepted |
