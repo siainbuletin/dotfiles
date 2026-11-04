@@ -23,7 +23,7 @@
 ;; Includes focus for checklists - plugs into org-auto-scheduler
 (use-package org-focus-hud
   :ensure (:host github :repo "SSD2019/org-focus-hud")
-  :bind ("C-c f" . org-focus-hud)
+  :commands org-focus-hud
   :config
   ;; Optional: Customize refresh interval in seconds
   (setq org-focus-hud-refresh-interval 15)

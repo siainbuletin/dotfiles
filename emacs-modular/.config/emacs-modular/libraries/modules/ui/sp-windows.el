@@ -315,11 +315,5 @@
       (select-window (active-minibuffer-window))
     (error "Minibuffer is not active")))
 
-(bind-key "C-c m" #'sp-goto-minibuffer-window)
-
-;;;; Helper functions
-;; Redrawing the display when there's graphical errors
-(global-set-key (kbd "<f6>") 'redraw-display)
-
 (provide 'sp-windows)
 ;; sp-windows.el ends here.

@@ -56,7 +56,7 @@ the line, respectively."
   (setq bind-key-describe-special-forms nil))
 
 ;;;;; Personal Keybindings Prefix
-(defcustom sp-prefix "C-x C-SPC"
+(defcustom sp-prefix "C-;"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'spcustom)
@@ -71,6 +71,15 @@ the line, respectively."
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
            :prefix sp-prefix)
+
+;;;;; Legacy Leader (C-x C-SPC)
+(defun sp-keys-legacy-leader ()
+  "Say that the leader moved to `sp-prefix', then read the next key as usual."
+  (interactive)
+  (message "The leader moved to %s" sp-prefix)
+  (set-transient-map lem+leader-map))
+
+(keymap-global-set "C-x C-SPC" #'sp-keys-legacy-leader)
 
 ;;;;; Personal Keybindings by Group
 ;;;;;; Buffer Keys
@@ -91,6 +100,7 @@ the line, respectively."
            ("M" . consult-global-mark                )
            ("n" . sp-create-new-buffer              )
            ("N" . sp-new-buffer-new-frame           )
+           ("P" . pop-global-mark                    )
            ("p" . consult-project-buffer             )
            ("r" . revert-buffer                      )
            ("R" . crux-rename-file-and-buffer        )
@@ -156,6 +166,7 @@ the line, respectively."
            ("o" . crux-open-with                   )
            ("s" . save-buffer                      )
            ("r" . consult-recent-file              )
+           ("d" . dirvish                          )
            ("y" . sp-show-and-copy-buffer-filename))
 
 ;;;;;; Linting (Flymake)
@@ -305,6 +316,8 @@ the line, respectively."
            ("w" .  ace-window                      )
            ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
+           ("M" .  sp-goto-minibuffer-window       )
+           ("D" .  redraw-display                  )
            ("_" .  lem-split-window-below-and-focus))
 
 ;;;;;; Workspace Keybindings
@@ -319,6 +332,87 @@ the line, respectively."
            ("r"  .  tabspaces-remove-current-buffer)
            ("R"  .  tabspaces-remove-selected-buffer)
            ("s"  .  tabspaces-switch-or-create-workspace))
+
+;;;;;; Agenda Keybindings
+(bind-keys :prefix-map lem+agenda-keys
+           :prefix (concat sp-prefix " a")
+           ("a" . org-agenda)
+           ("c" . org-capture)
+           ("f" . org-focus-hud))
+
+;;;;;; Session Keybindings
+(bind-keys :prefix-map lem+session-keys
+           :prefix (concat sp-prefix " S")
+           ("l" . easysession-switch-to)
+           ("s" . easysession-save-as)
+           ("L" . easysession-switch-to-and-restore-geometry)
+           ("d" . easysession-delete)
+           ("r" . easysession-rename)
+           ("R" . easysession-reset))
+
+;;;;;; Spelling Keybindings
+(bind-keys :prefix-map lem+spelling-keys
+           :prefix (concat sp-prefix " z")
+           ("p" . flyspell-correct-previous)
+           ("n" . flyspell-correct-next)
+           ("." . flyspell-correct-at-point))
+
+;;;;;; Moved keys (shims)
+(defconst sp-keys-moved
+  '(("C-c s s" "S s" easysession-save-as)
+    ("C-c s L" "S L" easysession-switch-to-and-restore-geometry)
+    ("C-c s d" "S d" easysession-delete)
+    ("C-c s R" "S R" easysession-reset)
+    ("C-c e b b" "e b" eval-buffer))
+  "Old key, new key below `sp-prefix' and command of each key that moved.")
+
+(defun sp-keys--shim (old new command)
+  "Return a command that says OLD moved to NEW, then runs COMMAND."
+  (lambda ()
+    (interactive)
+    (message "%s moved to %s %s" old sp-prefix new)
+    (call-interactively command)))
+
+(defun sp-keys-define-shims ()
+  "Bind every old key of `sp-keys-moved' to a shim for its new key."
+  (dolist (entry sp-keys-moved)
+    (pcase-let ((`(,old ,new ,command) entry))
+      (keymap-global-set old (sp-keys--shim old new command)))))
+
+(sp-keys-define-shims)
+
+;;;;;; Audit of the leader tree
+(defun sp-keys--walk (map prefix function)
+  "Call FUNCTION with each key and binding of MAP, below the key string PREFIX."
+  (map-keymap
+   (lambda (event binding)
+     (let ((key (string-trim (concat prefix " " (key-description (vector event))))))
+       (if (and (symbolp binding) binding (keymapp binding))
+           (sp-keys--walk (indirect-function binding) key function)
+         (funcall function key binding))))
+   map))
+
+(defun sp-keys-audit ()
+  "List leader keys whose command is not defined, and the shims still alive."
+  (interactive)
+  (let (void)
+    (sp-keys--walk lem+leader-map sp-prefix
+                   (lambda (key binding)
+                     (when (and (symbolp binding) binding (not (fboundp binding)))
+                       (push (format "%s  %s" key binding) void))))
+    (with-current-buffer (get-buffer-create "*sp-keys-audit*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Leader: %s\n\n" sp-prefix))
+        (insert (format "Bound to a command that is not defined (%d):\n" (length void)))
+        (dolist (line (nreverse void))
+          (insert "  " line "\n"))
+        (insert (format "\nShims still alive (%d):\n" (length sp-keys-moved)))
+        (dolist (entry sp-keys-moved)
+          (insert (format "  %s -> %s %s\n" (nth 0 entry) sp-prefix (nth 1 entry))))
+        (goto-char (point-min)))
+      (special-mode)
+      (pop-to-buffer (current-buffer)))))
 
 ;;;;; Which Key (built-in baseline)
 ;; EMACS-29+ built-in (which-key was merged into Emacs core in 29,
@@ -464,24 +558,13 @@ an inline branching lambda from the prior implementation."
 (use-package helm-descbinds
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
 
-(global-unset-key (kbd "C-z"))
 
 (keymap-global-set "C->" #'indent-rigidly-right-to-tab-stop) ; Indent selection by one tab length
 (keymap-global-set "C-<" #'indent-rigidly-left-to-tab-stop)  ; De-indent selection by one tab length
 
 (keymap-global-set "C-x t b" 'transpose-buffers)
 
-;; Main keybindings
-(keymap-global-set "C-c s l" 'easysession-switch-to)  ; Load
-(keymap-global-set "C-c s s" 'easysession-save-as)  ; Save
 
-;; Other keybindings
-(keymap-global-set "C-c s L" 'easysession-switch-to-and-restore-geometry)
-(keymap-global-set "C-c s d" 'easysession-delete)
-(keymap-global-set "C-c s r" 'easysession-rename)
-(keymap-global-set "C-c s R" 'easysession-reset)
-
-(keymap-global-set "C-c e b b" 'eval-buffer)
 
 ;; THIS BIT WAS TRIGGERING AN ERROR BUT I DON'T KNOW WHY
 ;; (keymap-global-set "C-M-<up>") (lambda () (interactive)

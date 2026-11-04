@@ -43,8 +43,10 @@
   :ensure t
   :after flyspell
   :bind (:map flyspell-mode-map
-         ("C-;" . flyspell-correct-previous)
          ("C-:" . flyspell-correct-at-point))
+  :config
+  ;; C-; is the leader key (`sp-prefix').
+  (unbind-key "C-;" flyspell-mode-map)
   :custom
   (flyspell-correct-interface #'flyspell-correct-completing-read))
 

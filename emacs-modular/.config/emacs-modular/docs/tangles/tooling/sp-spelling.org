@@ -88,7 +88,9 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
 
 ** flyspell-correct
 
-=flyspell-correct= adds two keys in =flyspell-mode-map=: =C-;= corrects the previous misspelling and =C-:= corrects the word at point. Corrections are offered through the normal =completing-read= interface, so they show up in whatever minibuffer completion UI is active.
+- =flyspell-correct= adds =C-:= in =flyspell-mode-map=: it corrects the word at point.
+- =C-;= is the leader key, so it is unbound in =flyspell-mode-map= (Emacs binds it there to =flyspell-auto-correct-previous-word=). The correction of the previous misspelling is =C-; z p=.
+- Corrections are offered through the normal =completing-read= interface, so they show up in whatever minibuffer completion UI is active.
 
 #+begin_src emacs-lisp -i
 ;; completion of spellings
@@ -96,8 +98,10 @@ Flyspell is only configured when some speller (=aspell=, =hunspell= or =ispell=)
   :ensure t
   :after flyspell
   :bind (:map flyspell-mode-map
-         ("C-;" . flyspell-correct-previous)
          ("C-:" . flyspell-correct-at-point))
+  :config
+  ;; C-; is the leader key (`sp-prefix').
+  (unbind-key "C-;" flyspell-mode-map)
   :custom
   (flyspell-correct-interface #'flyspell-correct-completing-read))
 #+end_src

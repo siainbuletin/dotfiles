@@ -57,14 +57,22 @@ The file header: the first line carries the file name, a short summary and the =
 
 * Keyboard
 
-** Command as Meta
+** Command as Super, Option as Meta
 
-Makes the Command key act as Meta and leaves Option unmodified, so Option can still type special characters and work with AeroSpace. Using the right ~Control~ key as the ~Super~ key allows me to still use ~Command~ as ~Meta~ and shouldn't interfere with ~Option~ from AeroSpace at all.
+- =mac-command-modifier= is =super=: Command+C, X, V and Z are =s-c=, =s-x=, =s-v= and =s-z=, the same keys as in every other app (see =sp-text-manipulation=).
+- =mac-option-modifier= is =meta=: =M-x= is Option+X.
+- =ns-right-command-modifier= stays =super=, so both Command keys are Super.
+- Costs:
+   + Option no longer types special characters; the Romanian input source (Ctrl+Space) does that.
+   + Option is also what AeroSpace uses; a key that AeroSpace grabs never reaches Emacs. Check =M-x=, =M-w= and =M-f= first.
+- Before this, Command was Meta and Option was unmodified (design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]], "Replacing CUA", option C).
+- The same choices on Linux and Windows: [[file:../../architecture/global-keymap-namespaces.org]["Same keys on macOS, Linux and Windows"]].
 
 #+begin_src emacs-lisp -i
-;; This is so that I can actually use the CMD key as my Meta key.
-(setq mac-command-modifier 'meta)
-(setq mac-option-modifier 'none)
+;; Command is Super (copy, cut, paste and undo are s-c, s-x, s-v and s-z, as in
+;; every other app) and Option is Meta.
+(setq mac-command-modifier 'super)
+(setq mac-option-modifier 'meta)
 (setq ns-right-command-modifier 'super)
 #+end_src
 

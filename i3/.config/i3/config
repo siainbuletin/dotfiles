@@ -1,5 +1,8 @@
-# Set $mod key to the Windows key
+# Set $mod to the layer key: Caps Lock, made a Super key below. The same key
+# is the layer key of AeroSpace on the Mac (Hammerspoon, aerospace-keys.lua), so
+# Alt stays free for Emacs (Meta); the Windows key still works as $mod.
 set $mod Mod4
+exec_always --no-startup-id setxkbmap -option caps:super
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
@@ -71,7 +74,7 @@ bindsym $mod+Return exec alacritty
 bindsym $mod+q kill
 
 # start dmenu (a program launcher)
-bindsym mod1+space exec --no-startup-id dmenu_run
+bindsym $mod+d exec --no-startup-id dmenu_run
 # A more modern dmenu replacement is rofi:
 # bindcode $mod+40 exec "rofi -modi drun,run -show drun"
 # There also is i3-dmenu-desktop which only displays applications shipping a

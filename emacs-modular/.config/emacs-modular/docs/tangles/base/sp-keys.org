@@ -13,7 +13,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 This module is the central place for keybindings in the config.
 
 - Almost every personal binding lives here, instead of being scattered across modules.
-- Bindings are grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-x C-SPC= by default).
+- Bindings are grouped into prefix maps under a single personal leader prefix, =sp-prefix= (=C-;= by default; =C-x C-SPC= is a shim that says so).
 - They are made with =bind-keys= and =bind-key= from the =bind-key= library that ships with =use-package=, and with the built-in =keymap-global-set= for plain global keys.
 
 Where the commands come from:
@@ -158,11 +158,17 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 
 ** The personal prefix
 
-=sp-prefix= is a user option holding the prefix string for all personal keys, =C-x C-SPC= by default. Every prefix map below is built by appending a letter to this string.
+- =sp-prefix= is a user option holding the prefix string for all personal keys.
+- Its default is =C-;=.
+- It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
+- It is not =C-z=, =C-x=, =C-c= or =C-v=: on Linux and Windows =cua-mode= is on, and those keys undo, cut, copy and paste (on the Mac Command does, see =sp-text-manipulation=).
+- =flyspell-mode-map= used to bind =C-;=; =sp-spelling= now unbinds it, and its command lives on =C-; z p=.
+- Every prefix map below is built by appending a letter to this string.
+- Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]].
 
 #+begin_src emacs-lisp -i
 ;;;;; Personal Keybindings Prefix
-(defcustom sp-prefix "C-x C-SPC"
+(defcustom sp-prefix "C-;"
   "Prefix for all personal keybinds."
   :type 'string
   :group 'spcustom)
@@ -186,6 +192,24 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 ;; Use sp-prefix as leader namespace
 (bind-keys :prefix-map lem+leader-map
            :prefix sp-prefix)
+#+end_src
+
+** Legacy leader (C-x C-SPC)
+
+- =sp-keys-legacy-leader= answers the old leader key.
+- It prints where the leader is now (=sp-prefix=).
+- It then waits for the next key in =lem+leader-map=, so =C-x C-SPC b b= still works where the OS lets that key through.
+- Remove it when you decide the shims can go.
+
+#+begin_src emacs-lisp -i
+;;;;; Legacy Leader (C-x C-SPC)
+(defun sp-keys-legacy-leader ()
+  "Say that the leader moved to `sp-prefix', then read the next key as usual."
+  (interactive)
+  (message "The leader moved to %s" sp-prefix)
+  (set-transient-map lem+leader-map))
+
+(keymap-global-set "C-x C-SPC" #'sp-keys-legacy-leader)
 #+end_src
 
 * Leader prefix maps
@@ -223,6 +247,7 @@ Each block creates a named prefix map under =sp-prefix= followed by one letter. 
            ("M" . consult-global-mark                )
            ("n" . sp-create-new-buffer              )
            ("N" . sp-new-buffer-new-frame           )
+           ("P" . pop-global-mark                    )
            ("p" . consult-project-buffer             )
            ("r" . revert-buffer                      )
            ("R" . crux-rename-file-and-buffer        )
@@ -327,6 +352,7 @@ Notes:
            ("o" . crux-open-with                   )
            ("s" . save-buffer                      )
            ("r" . consult-recent-file              )
+           ("d" . dirvish                          )
            ("y" . sp-show-and-copy-buffer-filename))
 #+end_src
 
@@ -572,6 +598,8 @@ Notes:
            ("w" .  ace-window                      )
            ("x" .  lem-window-exchange-buffer     )
            ("-" .  split-window-below              )
+           ("M" .  sp-goto-minibuffer-window       )
+           ("D" .  redraw-display                  )
            ("_" .  lem-split-window-below-and-focus))
 #+end_src
 
@@ -592,6 +620,133 @@ Notes:
            ("r"  .  tabspaces-remove-current-buffer)
            ("R"  .  tabspaces-remove-selected-buffer)
            ("s"  .  tabspaces-switch-or-create-workspace))
+#+end_src
+
+** Agenda and tasks (a)
+
+- =lem+agenda-keys= is new: =a= agenda, =c= capture, =f= the focus HUD.
+- =org-focus-hud= used to sit on =C-c f=, which also belonged to =dirvish= and to the footnote keys in Org. Moving it here ends that three-way clash.
+- =C-c a= and =C-c c= stay as hot keys outside the leader.
+
+#+begin_src emacs-lisp -i
+;;;;;; Agenda Keybindings
+(bind-keys :prefix-map lem+agenda-keys
+           :prefix (concat sp-prefix " a")
+           ("a" . org-agenda)
+           ("c" . org-capture)
+           ("f" . org-focus-hud))
+#+end_src
+
+** Sessions (S)
+
+- =lem+session-keys= is new: the =easysession= commands, with the letters they had under =C-c s=.
+- =C-c s l= and =C-c s r= were also taken by =consult-line= and =consult-ripgrep= (loaded later), so the session /load/ and /rename/ keys never worked. Here all six work.
+
+#+begin_src emacs-lisp -i
+;;;;;; Session Keybindings
+(bind-keys :prefix-map lem+session-keys
+           :prefix (concat sp-prefix " S")
+           ("l" . easysession-switch-to)
+           ("s" . easysession-save-as)
+           ("L" . easysession-switch-to-and-restore-geometry)
+           ("d" . easysession-delete)
+           ("r" . easysession-rename)
+           ("R" . easysession-reset))
+#+end_src
+
+** Spelling (z)
+
+- =lem+spelling-keys= is new: =p= corrects the previous misspelling, =n= the next one, =.= the word at point.
+- =p= replaces =C-;= in =flyspell-mode-map=, which is now the leader key.
+
+#+begin_src emacs-lisp -i
+;;;;;; Spelling Keybindings
+(bind-keys :prefix-map lem+spelling-keys
+           :prefix (concat sp-prefix " z")
+           ("p" . flyspell-correct-previous)
+           ("n" . flyspell-correct-next)
+           ("." . flyspell-correct-at-point))
+#+end_src
+
+** Moved keys (shims)
+
+- =sp-keys-moved= lists each key that moved: old key, new key (below =sp-prefix=) and command.
+- =sp-keys--shim= builds a command that prints where the key went, then runs the command.
+- =sp-keys-define-shims= binds every old key to its shim.
+- The shims stay until you remove them: delete a row of =sp-keys-moved=.
+- Keys that moved without a shim, because they were not working or are used by another command now:
+  + =C-c s l=, =C-c s r= (now =consult-line=, =consult-ripgrep=),
+  + =C-c m= (now =supersonic=; the minibuffer jump is =w M=),
+  + =<f6>= (now =projectile-run-project=; redraw is =w D=),
+  + =C-c f= (now only the Org footnote prefix; dirvish is =f d=, the focus HUD =a f=).
+
+#+begin_src emacs-lisp -i
+;;;;;; Moved keys (shims)
+(defconst sp-keys-moved
+  '(("C-c s s" "S s" easysession-save-as)
+    ("C-c s L" "S L" easysession-switch-to-and-restore-geometry)
+    ("C-c s d" "S d" easysession-delete)
+    ("C-c s R" "S R" easysession-reset)
+    ("C-c e b b" "e b" eval-buffer))
+  "Old key, new key below `sp-prefix' and command of each key that moved.")
+
+(defun sp-keys--shim (old new command)
+  "Return a command that says OLD moved to NEW, then runs COMMAND."
+  (lambda ()
+    (interactive)
+    (message "%s moved to %s %s" old sp-prefix new)
+    (call-interactively command)))
+
+(defun sp-keys-define-shims ()
+  "Bind every old key of `sp-keys-moved' to a shim for its new key."
+  (dolist (entry sp-keys-moved)
+    (pcase-let ((`(,old ,new ,command) entry))
+      (keymap-global-set old (sp-keys--shim old new command)))))
+
+(sp-keys-define-shims)
+#+end_src
+
+** Audit of the leader tree
+
+- =M-x sp-keys-audit= opens =*sp-keys-audit*=.
+- It lists every leader key whose command is not defined.
+  + A command of a package that is not loaded yet shows up too; load the package and run it again.
+- It lists the shims still alive.
+- =sp-keys--walk= walks a keymap and calls a function on each key and binding, following prefix maps.
+
+#+begin_src emacs-lisp -i
+;;;;;; Audit of the leader tree
+(defun sp-keys--walk (map prefix function)
+  "Call FUNCTION with each key and binding of MAP, below the key string PREFIX."
+  (map-keymap
+   (lambda (event binding)
+     (let ((key (string-trim (concat prefix " " (key-description (vector event))))))
+       (if (and (symbolp binding) binding (keymapp binding))
+           (sp-keys--walk (indirect-function binding) key function)
+         (funcall function key binding))))
+   map))
+
+(defun sp-keys-audit ()
+  "List leader keys whose command is not defined, and the shims still alive."
+  (interactive)
+  (let (void)
+    (sp-keys--walk lem+leader-map sp-prefix
+                   (lambda (key binding)
+                     (when (and (symbolp binding) binding (not (fboundp binding)))
+                       (push (format "%s  %s" key binding) void))))
+    (with-current-buffer (get-buffer-create "*sp-keys-audit*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Leader: %s\n\n" sp-prefix))
+        (insert (format "Bound to a command that is not defined (%d):\n" (length void)))
+        (dolist (line (nreverse void))
+          (insert "  " line "\n"))
+        (insert (format "\nShims still alive (%d):\n" (length sp-keys-moved)))
+        (dolist (entry sp-keys-moved)
+          (insert (format "  %s -> %s %s\n" (nth 0 entry) sp-prefix (nth 1 entry))))
+        (goto-char (point-min)))
+      (special-mode)
+      (pop-to-buffer (current-buffer)))))
 #+end_src
 
 * Which-key
@@ -840,14 +995,6 @@ Installs =helm-descbinds= from GitHub, which provides a Helm interface for brows
   :ensure (:type git :host github :repo "emacs-helm/helm-descbinds"))
 #+end_src
 
-** Free C-z
-
-Unbinds =C-z= globally, so it no longer suspends or iconifies Emacs.
-
-#+begin_src emacs-lisp -i
-(global-unset-key (kbd "C-z"))
-#+end_src
-
 ** Rigid indentation
 
 =C->= and =C-<= shift the selected lines right or left by one tab stop.
@@ -863,30 +1010,6 @@ Binds =C-x t b= to =transpose-buffers=. Note that this overrides the built-in ta
 
 #+begin_src emacs-lisp -i
 (keymap-global-set "C-x t b" 'transpose-buffers)
-#+end_src
-
-** easysession bindings
-
-Global =C-c s= bindings for =easysession=: load and save sessions, load while restoring frame geometry, and delete, rename or reset a session. The package itself is configured elsewhere.
-
-#+begin_src emacs-lisp -i
-;; Main keybindings
-(keymap-global-set "C-c s l" 'easysession-switch-to)  ; Load
-(keymap-global-set "C-c s s" 'easysession-save-as)  ; Save
-
-;; Other keybindings
-(keymap-global-set "C-c s L" 'easysession-switch-to-and-restore-geometry)
-(keymap-global-set "C-c s d" 'easysession-delete)
-(keymap-global-set "C-c s r" 'easysession-rename)
-(keymap-global-set "C-c s R" 'easysession-reset)
-#+end_src
-
-** Eval buffer shortcut
-
-Another binding for =eval-buffer=, on =C-c e b b=.
-
-#+begin_src emacs-lisp -i
-(keymap-global-set "C-c e b b" 'eval-buffer)
 #+end_src
 
 ** Disabled font size keys

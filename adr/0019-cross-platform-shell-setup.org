@@ -63,6 +63,9 @@ git --git-dir=$HOME\.dotfiles --work-tree=$HOME checkout
 - *=##template= files*: needs the =envtpl= or =esh= engine on every machine.
 - *Setting only the login shell*: does not fix Alacritty if its shell path is wrong, and Alacritty does not read =$SHELL= when =shell= is set.
 
+* Related
+- Keys across systems (Meta on Alt/Option, Command or Ctrl for the clipboard, Caps Lock as the window manager layer on macOS and Linux): [[file:../emacs-modular/.config/emacs-modular/docs/architecture/global-keymap-namespaces.org]["Same keys on macOS, Linux and Windows"]].
+
 * Consequences
 - Unknown systems get no =shell.toml=; Alacritty then logs a warning and uses the login shell.
 - On Windows the config directory is =%APPDATA%\alacritty=, not =~/.config/alacritty=, so the import path in =alacritty.toml= needs a Windows variant too (/untested/).
