@@ -1,6 +1,6 @@
 #+title: 0001 Use a plain clone for GUI git tools, keep yadm for the live config
 #+date: 2026-10-21
-#+status: accepted
+#+status: superseded by 0023
 
 * Context
 =yadm= keeps the dotfiles in =~/.local/share/yadm/repo.git= with =~= as the work tree (=core.worktree=, =status.showUntrackedFiles=no=). GUI git clients look for a =.git= next to the files, so SourceGit, GitKraken and GitHub Desktop cannot open that layout properly (GitKraken refuses it). Magit works, but only through =(magit-status "~/")=, and the earlier TRAMP route (=/yadm::=) hung on =c c=.
@@ -16,3 +16,8 @@ Keep yadm as the way the live config in =~= is managed. For anything done in a G
 * Consequences
 - Two repositories on one machine; GitHub is the only thing that synchronises them. Fetch in both places.
 - Merging in the clone never changes the files in =~=.
+
+* Update 2026-11-04
+- Superseded by [[file:0023-stow-instead-of-yadm.org][0023]]: I moved to GNU Stow in =~/dotfiles= after all.
+- The "changed =$HOME= layout" objection above no longer outweighs the problems below.
+- The text above is kept as it was when decided.
