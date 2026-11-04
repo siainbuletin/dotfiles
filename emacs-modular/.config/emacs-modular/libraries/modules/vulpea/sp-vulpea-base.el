@@ -22,8 +22,7 @@
   ;; or set `vulpea-db-sync-directories' explicitly.
 
   :bind
-  (("M-o f" . vulpea-find)
-   :map org-mode-map
+  (:map org-mode-map
    ("M-o n a" . vulpea-buffer-alias-add))
 )
 

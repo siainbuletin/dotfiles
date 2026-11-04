@@ -576,6 +576,7 @@ A group without a colour (such as `unsorted') gets the neutral `default'."
 (defvar vulpea-select-annotate-matchable)
 (defvar vulpea-select-cache)
 (declare-function vulpea-insert "vulpea")
+(declare-function vulpea-find "vulpea")
 
 (defun sp-org-tag-groups--note-emoji (note)
   "The emoji of NOTE's tags, joined by spaces, or an empty string."
@@ -643,6 +644,21 @@ title, without the emoji."
   (interactive)
   (sp-org-tag-groups--with-tag-column
     (apply #'vulpea-insert args)))
+
+(defun sp-find-note (&rest args)
+  "Find a note and visit it, like `vulpea-find', with its emoji and tag column.
+ARGS are the keywords of `vulpea-find'.  Typing a title that does not
+exist offers to create the note, as `vulpea-find' does."
+  (interactive)
+  (sp-org-tag-groups--with-tag-column
+    (apply #'vulpea-find args)))
+
+;; My own key for it, instead of `vulpea-find'.
+(keymap-global-set "M-o f" #'sp-find-note)
+
+;; My own key for it, next to `M-o n a' (`vulpea-buffer-alias-add').
+(with-eval-after-load 'org
+  (keymap-set org-mode-map "M-o n i" #'sp-insert-note))
 
 (defvar sp-org-tag-groups--saved-describe-fn nil
   "Value of `vulpea-select-describe-fn' before `sp-org-tag-groups-mode'.")

@@ -87,7 +87,9 @@ Installs =vulpea= and waits for it to finish, so later code can call its functio
 - The empty =:init= only carries a comment copied from Doom-oriented documentation about =org-directory=.
 - =vulpea-db-sync-directories= is set further down.
 
-Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers runs =vulpea-buffer-alias-add= to add an alias to the current note.
+Keybindings:
+- ~M-o n a~ in Org buffers runs =vulpea-buffer-alias-add= to add an alias to the current note.
+- ~M-o f~ is =sp-find-note= (module =sp-org-tag-groups=), not =vulpea-find=, so notes show their tag emoji and colours.
 
 #+begin_src emacs-lisp -i
 (use-package vulpea
@@ -99,8 +101,7 @@ Keybindings: ~M-o f~ runs =vulpea-find= globally, and ~M-o n a~ in Org buffers r
   ;; or set `vulpea-db-sync-directories' explicitly.
 
   :bind
-  (("M-o f" . vulpea-find)
-   :map org-mode-map
+  (:map org-mode-map
    ("M-o n a" . vulpea-buffer-alias-add))
 )
 #+end_src
