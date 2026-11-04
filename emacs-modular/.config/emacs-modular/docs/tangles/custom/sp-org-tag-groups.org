@@ -82,8 +82,12 @@ With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-gro
 - It takes the keywords of =vulpea-insert=.
 - Keys:
    + =M-o n i= in Org buffers runs =sp-insert-note=, next to =M-o n a= (=vulpea-buffer-alias-add=, in =sp-vulpea-base=).
-   + =sp-select-note= is a function for other commands, not a command, so it has no key.
+   + =M-o f= runs =sp-find-note= (see below); =sp-select-note= is a function for other commands, not a command, so it has no key.
    + The =M-o n i= of the removed =org-node= module (=org-node-insert-link=) is gone, so the key is free.
+
+=M-x sp-find-note= is the same for finding a note: it runs =vulpea-find= with the emoji and the tag column, then visits the note.
+- It takes the keywords of =vulpea-find=; a title that does not exist offers to create the note, as there.
+- =M-o f= is bound to it globally, in place of =vulpea-find= (the binding was removed from =sp-vulpea-base=).
 
 Other commands that link to or pick a note
 - =sp-org-create-note-and-link=,
@@ -871,6 +875,17 @@ title, without the emoji."
   (interactive)
   (sp-org-tag-groups--with-tag-column
     (apply #'vulpea-insert args)))
+
+(defun sp-find-note (&rest args)
+  "Find a note and visit it, like `vulpea-find', with its emoji and tag column.
+ARGS are the keywords of `vulpea-find'.  Typing a title that does not
+exist offers to create the note, as `vulpea-find' does."
+  (interactive)
+  (sp-org-tag-groups--with-tag-column
+    (apply #'vulpea-find args)))
+
+;; My own key for it, instead of `vulpea-find'.
+(keymap-global-set "M-o f" #'sp-find-note)
 
 ;; My own key for it, next to `M-o n a' (`vulpea-buffer-alias-add').
 (with-eval-after-load 'org
