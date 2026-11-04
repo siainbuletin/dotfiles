@@ -3,11 +3,6 @@
 
 Changes to the dotfiles that are not the Emacs configuration: the repository layout, the other tools' settings and the scripts around them. Changes to the Emacs configuration are in [[file:emacs-modular/.config/emacs-modular/CHANGELOG.org][the Emacs changelog]]. Changes are grouped by the feature they build or fix. Within a set the pull requests follow the order they depend on each other, the base first. Each line starts with its pull request number, then the author, then what happened: ✨ Added, 🔧 Changed, 🐛 Fixed, 🔥 Removed, 💡 Proposed; the category headings are not repeated.
 
-* One layer key for window managers
-/2026-11-04./ Option is Meta in Emacs on the Mac, so AeroSpace, i3 and sway stop binding Alt/Option and share one layer key, Caps Lock held. Design: "Same keys on macOS, Linux and Windows" in [[file:emacs-modular/.config/emacs-modular/docs/architecture/global-keymap-namespaces.org][the keymap design]].
-
-- [[https://github.com/siainbuletin/dotfiles/pull/284][#284]] (Claude, open) 🔧 Changed =aerospace.toml=: the main-mode =alt-*= bindings are gone and the service-mode joins are =shift-hjkl=. ✨ Added =hammerspoon/.config/hammerspoon/aerospace-keys.lua=: Caps Lock becomes F18 (=hidutil=) and F18 held plus the old key runs the same =aerospace= command. 🔧 Changed i3 (=setxkbmap -option caps:super=, dmenu on =$mod+d= instead of Alt+Space) and sway (=$mod= is Mod4, =xkb_options caps:super=). Windows has no window manager here. Not run on any system (none in the container).
-
 * Moving from yadm to Stow
 /2026-11-02 to 2026-11-03./ The repository is a normal Git repository in =~/dotfiles= with one Stow package per tool, not a yadm repository on =$HOME=. The Emacs side of the move (=emacs-pr=, Magit, =sp-dotfiles-dir=) is in the Emacs changelog under "Reviewing and merging in Magit".
 
