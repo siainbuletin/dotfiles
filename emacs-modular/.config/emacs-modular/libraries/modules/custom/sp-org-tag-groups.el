@@ -644,6 +644,10 @@ title, without the emoji."
   (sp-org-tag-groups--with-tag-column
     (apply #'vulpea-insert args)))
 
+;; My own key for it, next to `M-o n a' (`vulpea-buffer-alias-add').
+(with-eval-after-load 'org
+  (keymap-set org-mode-map "M-o n i" #'sp-insert-note))
+
 (defvar sp-org-tag-groups--saved-describe-fn nil
   "Value of `vulpea-select-describe-fn' before `sp-org-tag-groups-mode'.")
 

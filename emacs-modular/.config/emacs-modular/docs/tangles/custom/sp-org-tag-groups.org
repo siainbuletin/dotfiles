@@ -80,7 +80,10 @@ With =sp-org-tag-groups-mode= on, =vulpea-select-describe-fn= is =sp-org-tag-gro
 
 =M-x sp-insert-note= is the same for inserting a link: it runs =vulpea-insert= with the emoji in front of the titles and the tag column, and the link text is the plain title.
 - It takes the keywords of =vulpea-insert=.
-- No key is bound to either.
+- Keys:
+   + =M-o n i= in Org buffers runs =sp-insert-note=, next to =M-o n a= (=vulpea-buffer-alias-add=, in =sp-vulpea-base=).
+   + =sp-select-note= is a function for other commands, not a command, so it has no key.
+   + The =M-o n i= of the removed =org-node= module (=org-node-insert-link=) is gone, so the key is free.
 
 Other commands that link to or pick a note
 - =sp-org-create-note-and-link=,
@@ -868,6 +871,10 @@ title, without the emoji."
   (interactive)
   (sp-org-tag-groups--with-tag-column
     (apply #'vulpea-insert args)))
+
+;; My own key for it, next to `M-o n a' (`vulpea-buffer-alias-add').
+(with-eval-after-load 'org
+  (keymap-set org-mode-map "M-o n i" #'sp-insert-note))
 #+end_src
 
 ** Switching the emoji in front of titles on and off
