@@ -506,6 +506,38 @@ one week to the next, unchecking them at the same time"
               (sp-org-point-strictly-in-link-p))))
     (apply fn args)))
 
+;;;; URL at point in Org buffers
+;; Org's `url' provider for `thing-at-point' can hand back a parsed link
+;; instead of a string; this one always returns a string or nil.
+(defconst sp-org-url-markdown-in-plain-re
+  "\\`[[:alpha:]][[:alnum:]+.-]*:\\(?://\\)?\\[[^]]*\\](\\([^)]+\\))\\'"
+  "A plain link whose path is a Markdown link; group 1 is the real address.")
+
+(defun sp-org-url-at-point ()
+  "The address of the Org link at point as a string, or nil.
+Used as the `url' provider of `thing-at-point' in Org buffers."
+  (when-let* ((link (org-element-context))
+              ((eq (org-element-type link) 'link))
+              (raw (or (org-element-property :raw-link link)
+                       (let ((type (org-element-property :type link))
+                             (path (org-element-property :path link)))
+                         (and (stringp type) (stringp path)
+                              (concat type ":" path)))))
+              ((stringp raw)))
+    (if (string-match sp-org-url-markdown-in-plain-re raw)
+        (match-string 1 raw)
+      raw)))
+
+(defun sp-org-url-install-provider ()
+  "Use `sp-org-url-at-point' for `url' in `thing-at-point' in this buffer."
+  (when (boundp 'thing-at-point-provider-alist)
+    (setq-local thing-at-point-provider-alist
+                (cons '(url . sp-org-url-at-point)
+                      (assq-delete-all 'url (copy-sequence
+                                             thing-at-point-provider-alist))))))
+
+(add-hook 'org-mode-hook #'sp-org-url-install-provider)
+
 ;;;; Dynamic block templates
 (defgroup sp-org-dblock nil
   "Inserting Org dynamic blocks from named templates."
