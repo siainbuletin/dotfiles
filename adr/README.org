@@ -1,7 +1,7 @@
 #+title: Architecture decision records
 #+startup: overview
 
-Decisions about this repository, one file each: how I work with AI-made changes (0001 to 0008, 0018) and how the larger features were built (0009 to 0017). The top-level [[file:../README.org::*Reviewing and merging AI-made changes on macOS][README.org]] only summarises the current choices and links here for the reasons.
+Decisions about this repository, one file each: how I work with AI-made changes (0001 to 0008, 0018) and how the larger features were built (0009 to 0017). The summary of the current choices is [[file:../emacs-modular/.config/emacs-modular/docs/architecture/macos-review-and-merge.org][macos-review-and-merge.org]]; the top-level README links to it, and this folder holds the reasons.
 
 Each record has a status (accepted, superseded or rejected), the context, the decision, the alternatives that were considered and the consequences. To change a decision, write a new record that supersedes the old one and set the old one's =#+status:= to =superseded by NNNN=; do not rewrite history.
 

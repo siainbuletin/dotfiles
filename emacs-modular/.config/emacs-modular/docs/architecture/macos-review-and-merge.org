@@ -1,0 +1,46 @@
+#+title: Reviewing and merging AI-made changes on macOS
+#+startup: overview
+
+How I review, try and merge the pull requests Claude writes for this repository. The top-level [[file:../../../../README.org][README.org]] only links here; the reasons for each choice are in the decision records in [[file:../../../../adr/README.org][adr/]].
+
+- Most changes arrive as pull requests from cloud sessions, often several at once and sometimes stacked.
+- This applies to my Mac only, not to the Arch machines in the README.
+- The repository is a normal clone in =~/dotfiles=, linked into =~= with GNU Stow ([[file:../../../../adr/0023-stow-instead-of-yadm.org][0023]]). There is no yadm and no second clone any more.
+
+#+begin_quote
+*What has and has not been run.* This was written from a Linux container, not from my Mac.
+- Tool details come from each project's documentation and source.
+- I have not confirmed any SourceGit button name, key or menu against the installed app.
+- =sp-vc-ai-workbench= has never been loaded.
+- The records mark what I have not tried as /untested/.
+#+end_quote
+
+* Current choices
+
+| Job                                    | Tool                                  | Decision |
+|----------------------------------------+---------------------------------------+----------|
+| Dotfiles repository, live config in =~= | GNU Stow (=~/dotfiles=, a normal clone) and =fish=    | [[file:../../../../adr/0001-plain-clone-for-gui-git-tools.org][0001]] |
+| Visual branches, merges, conflicts     | SourceGit on the clone =~/dotfiles= | [[file:../../../../adr/0001-plain-clone-for-gui-git-tools.org][0001]], [[file:../../../../adr/0002-sourcegit-for-visual-git.org][0002]] |
+| Creating and merging PRs               | =gh= and GitHub's merge button, merge commits | [[file:../../../../adr/0003-merge-prs-on-github-with-merge-commits.org][0003]] |
+| PR branch names                        | the PR number first, e.g. =18-relationship-annotator= | [[file:../../../../adr/0004-number-prefixed-pr-branches.org][0004]] |
+| Stacked PRs                            | merge the parent into the child, never rebase | [[file:../../../../adr/0005-update-stacked-prs-by-merging.org][0005]] |
+| =CHANGELOG.org= conflicts              | keep both sides, in Emacs with =smerge-mode= | [[file:../../../../adr/0006-changelog-keep-both-sides.org][0006]] |
+| Reading and trying PRs in Emacs        | Forge and =code-review= (=sp-vcontrol=), =emacs-pr= / =sp-sandbox= | [[file:../../../../adr/0007-emacs-tooling-for-pr-review.org][0007]] |
+| Brainstorming with Claude in Emacs     | =sp-vc-ai-workbench= (not loaded yet) | [[file:../../../../adr/0008-workbench-for-brainstorming-only.org][0008]] |
+
+- Magit (styled by =sp-magit-style=) stays for staging, small commits and messages.
+- Magit finds the repository through the Stow links because =vc-follow-symlinks= is set ([[file:../../../../adr/0023-stow-instead-of-yadm.org][0023]]).
+- The alternatives I considered and did not adopt are in the table in [[file:../../../../adr/0002-sourcegit-for-visual-git.org][0002]]:
+  - Graphite, git-branchless, jj, lazygit
+  - GitKraken, Sublime Merge, Fork, Meld
+  - VS Code, GitHub Desktop
+  - Magit ediff, =smerge-mode=, =consult-gh=, =magit-stack=
+
+* How =sp-vc-ai-workbench= fits
+
+- Module: =libraries/modules/custom/=; literate source in =docs/tangles/custom/=.
+- It gives each task on my extension repositories its own git worktree, notes file and Claude Code session.
+- It is for brainstorming only.
+- The tools above handle what Claude produces in cloud sessions; both meet at the git worktree.
+- It is commented out in =init.el= and has never been run.
+- See [[file:../../../../adr/0008-workbench-for-brainstorming-only.org][0008]].
