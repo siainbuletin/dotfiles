@@ -58,6 +58,7 @@ The file header: the first line carries the file name, a short summary and the =
    + =cua-remap-control-v= and =cua-remap-control-z= are =nil=, so CUA no longer owns =C-v= and =C-z=.
    + =cua-mode= is on: =C-c= and =C-x= copy and cut while a region is active, and are prefixes otherwise (CUA's short delay decides).
    + =C-v= is =yank=, =C-z= is =undo= and =C-S-z= is =undo-redo=, plain =global-map= bindings.
+- The same choices on all three systems: [[file:../../architecture/global-keymap-namespaces.org]["Same keys on macOS, Linux and Windows"]].
 - Why the split: one key cannot be both copy and a prefix, so only keys that are not prefixes (Command) avoid CUA. Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]], "Replacing CUA".
 
 #+begin_src emacs-lisp -i

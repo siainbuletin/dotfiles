@@ -66,6 +66,7 @@ The file header: the first line carries the file name, a short summary and the =
    + Option no longer types special characters; the Romanian input source (Ctrl+Space) does that.
    + Option is also what AeroSpace uses; a key that AeroSpace grabs never reaches Emacs. Check =M-x=, =M-w= and =M-f= first.
 - Before this, Command was Meta and Option was unmodified (design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]], "Replacing CUA", option C).
+- The same choices on Linux and Windows: [[file:../../architecture/global-keymap-namespaces.org]["Same keys on macOS, Linux and Windows"]].
 
 #+begin_src emacs-lisp -i
 ;; Command is Super (copy, cut, paste and undo are s-c, s-x, s-v and s-z, as in
