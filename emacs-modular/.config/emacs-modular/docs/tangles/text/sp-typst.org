@@ -693,4 +693,9 @@ Read more about [[id:c3b4eab0-c8fb-4980-87d3-412dd33f747b][GNU Make]] to underst
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/79][#79]] ✨ Added =sp-typst= (=libraries/modules/text/=, in =sp-late-modules= of =init.el=), which typesets the literate docs and single Org files into PDFs with Typst through =ox-typst= (Elpaca recipe), with =typst-ts-mode= and an optional =tinymist= setup for editing =.typ= files. =M-x sp-typst-export-book= assembles =docs/main.org=, the README, the architecture notes and every module doc into one Org text and exports it; =M-x sp-typst-export-file= does one file. =docs/typst/= holds =template.typ=, a Makefile (separate from the SVG Makefile) and the batch driver, all tangled from this file, which replaces the empty =docs/tangles/sp-typst.org=. Run in a headless Emacs 29.3 with Org 9.7.11 and Typst 0.15.1; not with Elpaca, =typst-ts-mode= or =tinymist=, and not on macOS. See [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]].
+- [[https://github.com/siainbuletin/dotfiles/pull/79][#79]]
+  - ✨ Added =sp-typst= (=libraries/modules/text/=, in =sp-late-modules= of =init.el=), which typesets the literate docs and single Org files into PDFs with Typst through =ox-typst= (Elpaca recipe), with =typst-ts-mode= and an optional =tinymist= setup for editing =.typ= files. =M-x sp-typst-export-book= assembles =docs/main.org=, the README, the architecture notes and every module doc into one Org text and exports it
+    - =M-x sp-typst-export-file= does one file. =docs/typst/= holds =template.typ=, a Makefile (separate from the SVG Makefile) and the batch driver, all tangled from this file, which replaces the empty =docs/tangles/sp-typst.org=.
+  - Run in a headless Emacs 29.3 with Org 9.7.11 and Typst 0.15.1
+    - not with Elpaca, =typst-ts-mode= or =tinymist=, and not on macOS.
+  - See [[file:../../../../../adr/0021-typst-for-pdf-of-the-docs.org][ADR 0021]].

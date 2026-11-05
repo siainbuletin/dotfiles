@@ -3296,6 +3296,14 @@ Right now if you have a really connected notes, everything expand
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/19][#19]] 🔧 Changed the module to =sp-relationship-annotator=: node types, relation patterns, an anomaly check, computed attributes and =rel-anno-review=, ported from =discourse-graphs=. Reverted by [[https://github.com/siainbuletin/dotfiles/pull/32][#32]] and restored by [[https://github.com/siainbuletin/dotfiles/pull/33][#33]].
-- [[https://github.com/siainbuletin/dotfiles/pull/58][#58]] 🔧 Changed =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and its live view into one module, =sp-graphs=; commands and options are unchanged. ([[https://github.com/siainbuletin/dotfiles/pull/57][#57]] was closed: its branch had the wrong number.)
-- [[https://github.com/siainbuletin/dotfiles/pull/175][#175]] 🔧 Changed =rel-anno-fa2= (follows #173): nodes are drawn =relationship-annotator-fa2-spread= (4) times farther apart so labels do not overlap, each label sits in a 75% opaque box, node colours are the foreground of theme faces (=relationship-annotator-fa2-group-faces=) instead of the Notion palette, and the engine is 2d. Layout and SVG tested in headless Emacs 29; not seen on screen.
+- [[https://github.com/siainbuletin/dotfiles/pull/19][#19]]
+  - 🔧 Changed the module to =sp-relationship-annotator=: node types, relation patterns, an anomaly check, computed attributes and =rel-anno-review=, ported from =discourse-graphs=.
+  - Reverted by [[https://github.com/siainbuletin/dotfiles/pull/32][#32]] and restored by [[https://github.com/siainbuletin/dotfiles/pull/33][#33]].
+- [[https://github.com/siainbuletin/dotfiles/pull/58][#58]]
+  - 🔧 Changed =sp-dgraphs=, =sp-dyn-graph=, =sp-relationship-annotator= and its live view into one module, =sp-graphs=
+    - commands and options are unchanged.
+  - ([[https://github.com/siainbuletin/dotfiles/pull/57][#57]] was closed: its branch had the wrong number.)
+- [[https://github.com/siainbuletin/dotfiles/pull/175][#175]]
+  - 🔧 Changed =rel-anno-fa2= (follows #173): nodes are drawn =relationship-annotator-fa2-spread= (4) times farther apart so labels do not overlap, each label sits in a 75% opaque box, node colours are the foreground of theme faces (=relationship-annotator-fa2-group-faces=) instead of the Notion palette, and the engine is 2d.
+  - Layout and SVG tested in headless Emacs 29
+    - not seen on screen.

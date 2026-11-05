@@ -267,6 +267,24 @@ It could possibly be integrated with the eval section in StumpWM, if I wanted to
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/174][#174]] 🔧 Changed the larger minibuffer text: =sp-minibuffer= and its =minibuffer-setup-hook= line (#161) are removed, because the per-prompt face remap mirrored the minibuffer and glitched =M-x= in =vertico-posframe=; the text size is now set once on the posframe font (=vertico-posframe-font=, from =sp-minibuffer-face= by =sp-posframe-update-font=, re-run on every fontaine preset). The size no longer follows =text-scale-adjust= of the calling buffer, and prompts at the bottom of the frame keep the =default= size. Supersedes #161. Not run in Emacs (none in the container).
-- [[https://github.com/siainbuletin/dotfiles/pull/179][#179]] 🔥 Removed the larger minibuffer and posframe text of #174: =vertico-posframe-font= (=sp-posframe-update-font=) drew the scratch buffer and the dashboard in the same window, overlapping, and =M-x= would not open the posframe until =vertico-posframe-mode= was turned off. The face =sp-minibuffer-face= and its fontaine keys go with it; no text scale is left in the minibuffer. The doc records the failure, why =fontaine= is probably not the cause (it only sets faces; =posframe= sizes the child frame in the parent's font) and what to try next. Follows #174. Not run in Emacs (none in the container).
-- [[https://github.com/siainbuletin/dotfiles/pull/202][#202]] 🐛 Fixed the five start-up messages: =vertico previously queued as dependency of (vertico-posframe)= (=sp-posframe= now requires =sp-completion= first); =tooltips.css= and =tooltips.js= missing in =org-special-block-extras= (recipe now ships =lisp/*.el= and the two tooltip files); =Cannot load litdb= (=request= and =counsel=, which the =litdb= header does not declare, are installed and =litdb= waits for them); =consult-omni= =Cannot open load file: browser-hist= (=browser-hist= installed with an Elpaca recipe before =consult-omni=). Follows #197 and #199. Docs updated in the four module docs. Not run in Emacs on the Mac: the recipes were checked against the upstream repositories' file layouts only.
+- [[https://github.com/siainbuletin/dotfiles/pull/174][#174]]
+  - 🔧 Changed the larger minibuffer text: =sp-minibuffer= and its =minibuffer-setup-hook= line (#161) are removed, because the per-prompt face remap mirrored the minibuffer and glitched =M-x= in =vertico-posframe=
+    - the text size is now set once on the posframe font (=vertico-posframe-font=, from =sp-minibuffer-face= by =sp-posframe-update-font=, re-run on every fontaine preset).
+  - The size no longer follows =text-scale-adjust= of the calling buffer, and prompts at the bottom of the frame keep the =default= size.
+  - Supersedes #161.
+  - Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/179][#179]]
+  - 🔥 Removed the larger minibuffer and posframe text of #174: =vertico-posframe-font= (=sp-posframe-update-font=) drew the scratch buffer and the dashboard in the same window, overlapping, and =M-x= would not open the posframe until =vertico-posframe-mode= was turned off.
+  - The face =sp-minibuffer-face= and its fontaine keys go with it
+    - no text scale is left in the minibuffer.
+  - The doc records the failure, why =fontaine= is probably not the cause (it only sets faces; =posframe= sizes the child frame in the parent's font) and what to try next.
+  - Follows #174.
+  - Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/202][#202]]
+  - 🐛 Fixed the five start-up messages: =vertico previously queued as dependency of (vertico-posframe)= (=sp-posframe= now requires =sp-completion= first)
+    - =tooltips.css= and =tooltips.js= missing in =org-special-block-extras= (recipe now ships =lisp/*.el= and the two tooltip files);
+    - =Cannot load litdb= (=request= and =counsel=, which the =litdb= header does not declare, are installed and =litdb= waits for them);
+    - =consult-omni= =Cannot open load file: browser-hist= (=browser-hist= installed with an Elpaca recipe before =consult-omni=).
+  - Follows #197 and #199.
+  - Docs updated in the four module docs.
+  - Not run in Emacs on the Mac: the recipes were checked against the upstream repositories' file layouts only.

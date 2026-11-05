@@ -604,4 +604,7 @@ I would like to be able to export this file as a multi-page HTML document that c
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/188][#188]] 🔧 Changed =README.org= and =docs/main.org= into one document, =README.org= at the top of the configuration: it has the introduction, the module tree and the sandbox how-to, and the tangling how-to moved to the new =docs/tangling-instructions.org=. Removed =docs/main.org=; the module docs, =sp-sandbox=, =sp-typst= (its book now starts with =README.org=) and the architecture notes point to the new places.
+- [[https://github.com/siainbuletin/dotfiles/pull/188][#188]]
+  - 🔧 Changed =README.org= and =docs/main.org= into one document, =README.org= at the top of the configuration: it has the introduction, the module tree and the sandbox how-to, and the tangling how-to moved to the new =docs/tangling-instructions.org=.
+  - Removed =docs/main.org=
+    - the module docs, =sp-sandbox=, =sp-typst= (its book now starts with =README.org=) and the architecture notes point to the new places.

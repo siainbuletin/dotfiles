@@ -219,4 +219,8 @@ A second layer, =similar=, off by default, with a candidate =note SIMILAR litnot
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/215][#215]] 💡 Proposed a switchable layer of possible citations for =relationship-annotator= in [[file:relationship-annotator-citation-layer.org][relationship-annotator: a layer of possible citations]]: candidates from =[cite:@key]= mentions (read by a Vulpea extractor), refined one by one into =supports=, =opposes= or =develops= (written both in the concept note, under =Resources=, =Indexed references=, and in the litnote; =is-part-of= left for later), cited keys with no litnote shown as their own kind of node, and later candidates from DEVONthink similarity. Follows #209 and #210. Design only; nothing run.
+- [[https://github.com/siainbuletin/dotfiles/pull/215][#215]]
+  - 💡 Proposed a switchable layer of possible citations for =relationship-annotator= in [[file:relationship-annotator-citation-layer.org][relationship-annotator: a layer of possible citations]]: candidates from =[cite:@key]= mentions (read by a Vulpea extractor), refined one by one into =supports=, =opposes= or =develops= (written both in the concept note, under =Resources=, =Indexed references=, and in the litnote; =is-part-of= left for later), cited keys with no litnote shown as their own kind of node, and later candidates from DEVONthink similarity.
+  - Follows #209 and #210.
+  - Design only
+    - nothing run.

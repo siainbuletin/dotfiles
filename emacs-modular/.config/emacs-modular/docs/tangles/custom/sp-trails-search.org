@@ -172,4 +172,9 @@ A candidate without an address (a note, a calendar entry) is passed on without b
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/217][#217]] ✨ Added =sp-trails-search= (=o= in =sp-trails-map=, =j= in the =sp-search= menu): runs a =consult-omni= search (web and notes, web, scholarly sources, my notes) from a trail; a result chosen with =RET= still opens in the browser and is also added to the current trail as a =TOREAD= page with =SEARCH_QUERY=, =SEARCH_SOURCE=, =DOI= and =AUTHORS=. Links followed from it in the browser become its children. The Embark action =t= records a result without opening it. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/217][#217]]
+  - ✨ Added =sp-trails-search= (=o= in =sp-trails-map=, =j= in the =sp-search= menu): runs a =consult-omni= search (web and notes, web, scholarly sources, my notes) from a trail
+    - a result chosen with =RET= still opens in the browser and is also added to the current trail as a =TOREAD= page with =SEARCH_QUERY=, =SEARCH_SOURCE=, =DOI= and =AUTHORS=.
+  - Links followed from it in the browser become its children.
+  - The Embark action =t= records a result without opening it.
+  - Not run in Emacs (none in the container).

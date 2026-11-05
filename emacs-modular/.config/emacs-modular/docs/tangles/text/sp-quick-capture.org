@@ -643,6 +643,16 @@ See =tools/quick-capture= (the script) and the steps below.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/131][#131]] ✨ Added =sp-quick-capture=: a global-hotkey quick entry that writes a TODO into =inbox.org= from a small frame (=tools/quick-capture=) or from =org-protocol://sp-quick-capture=, with =#tag=, =!deadline= and =^scheduled= words, tag completion and a live preview. Not run in Emacs on macOS; the parser and the file writing are covered by =tests/sp-quick-capture-test.el=.
-- [[https://github.com/siainbuletin/dotfiles/pull/159][#159]] ✨ Added =tools/quick-capture-native=, which asks for the line in a macOS dialog instead of an Emacs frame (the frame hung on macOS and was tiled by AeroSpace), and made =sp-quick-capture= return the preview text. Not run on macOS.
-- [[https://github.com/siainbuletin/dotfiles/pull/198][#198]] ✨ Added the queue: =tools/quick-capture-native= writes the line to =sp-quick-capture-spool-dir= and does not wait for Emacs; =sp-quick-capture-drain= files the lines (on a poke from the script, 2 seconds after load and after =sp-quick-capture-drain-interval= idle seconds) with the capture time as =:CREATED:= and as the base of relative dates. 🔧 Changed =sp-quick-capture-insert= to take an optional capture time. Tested with =tests/sp-quick-capture-test.el= (4 new tests) and with a stopped and a dead Emacs daemon on Linux (the hotkey script returns in 0.02 s, the line is filed on resume); not run on macOS.
+- [[https://github.com/siainbuletin/dotfiles/pull/131][#131]]
+  - ✨ Added =sp-quick-capture=: a global-hotkey quick entry that writes a TODO into =inbox.org= from a small frame (=tools/quick-capture=) or from =org-protocol://sp-quick-capture=, with =#tag=, =!deadline= and =^scheduled= words, tag completion and a live preview.
+  - Not run in Emacs on macOS
+    - the parser and the file writing are covered by =tests/sp-quick-capture-test.el=.
+- [[https://github.com/siainbuletin/dotfiles/pull/159][#159]]
+  - ✨ Added =tools/quick-capture-native=, which asks for the line in a macOS dialog instead of an Emacs frame (the frame hung on macOS and was tiled by AeroSpace), and made =sp-quick-capture= return the preview text.
+  - Not run on macOS.
+- [[https://github.com/siainbuletin/dotfiles/pull/198][#198]]
+  - ✨ Added the queue: =tools/quick-capture-native= writes the line to =sp-quick-capture-spool-dir= and does not wait for Emacs
+    - =sp-quick-capture-drain= files the lines (on a poke from the script, 2 seconds after load and after =sp-quick-capture-drain-interval= idle seconds) with the capture time as =:CREATED:= and as the base of relative dates.
+  - 🔧 Changed =sp-quick-capture-insert= to take an optional capture time.
+  - Tested with =tests/sp-quick-capture-test.el= (4 new tests) and with a stopped and a dead Emacs daemon on Linux (the hotkey script returns in 0.02 s, the line is filed on resume)
+    - not run on macOS.
