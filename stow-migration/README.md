@@ -54,6 +54,12 @@ plain files; remove them once `shell.toml` is a link.
 
 ## Daily use
 
+**Pulling changes from GitHub into Emacs.** `~/.config/emacs-modular` is a tree of links into
+`~/dotfiles`, so `git -C ~/dotfiles pull` is all that is needed for changed files: Emacs sees the new
+content at once (restart Emacs, or reload the changed module). Re-stow only when the pull adds or removes files:
+`cd ~/dotfiles && stow -R emacs-modular`. Never edit a file through a path that is not a link, and
+never use `yadm` once the cutover has run.
+
 ```fish
 cd ~/dotfiles
 stow fish            # link a package (reads .stowrc)
@@ -68,6 +74,15 @@ Set up another machine: `git clone <repo> ~/dotfiles && cd ~/dotfiles`, then
 **A new file** (for instance a new Emacs module): create it in the repo, not in `~`, then `stow -R <package>`.
 If you created it in `~` by mistake: `mv ~/.config/foo/bar ~/dotfiles/foo/.config/foo/bar && stow -R foo`.
 That is the safe way to do what `stow --adopt` does.
+
+### "cannot stow ... neither a link nor a directory"
+Stow found a real file where it wants a link. Run `stow -n -v <package>` to see the list. It means the
+cutover has not run (or the files were recreated in `~`): `~/.config/...` is still the old yadm
+checkout. Do **not** run plain `stow`/`--adopt` first. Check `yadm status` is clean, then run
+`migrate.sh backup`, `dryrun`, `cutover`, `verify`. If `dryrun` stops on "differ from the repo" and yadm
+is clean, the home files are just older than the repo: rerun with `STALE=ok` (they go to the backup
+like the rest). Do not `yadm pull` once the repo uses the Stow layout; it would reshuffle `~`.
+`verify` reports the stale files as "content differs from the backup" by design.
 
 ### `stow --adopt` caveats
 `--adopt` moves the existing file from `~` into the package, **overwriting the repo's version**, then links
