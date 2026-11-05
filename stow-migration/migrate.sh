@@ -14,7 +14,7 @@
 #   migrate.sh retire        move ~/.git (gitfile) and the yadm repo aside so yadm cannot be used by accident
 #   migrate.sh rollback      unstow, put the backed-up files and the yadm repo back
 #
-# Environment (all optional): DOT (default ~/dotfiles), TARGET (default $HOME; set it to a scratch
+# Environment (all optional): STALE=ok (accept files in $HOME that differ from the repo), DOT (default ~/dotfiles), TARGET (default $HOME; set it to a scratch
 # folder to rehearse), YADM_REPO, OS (darwin|linux; default from uname), BACKUP (backup folder).
 
 set -euo pipefail
@@ -233,7 +233,12 @@ cmd_dryrun() {
   say "identical, would be moved to the backup then linked: $move"
   say "not present in \$HOME (just linked, e.g. other OS or deleted): $missing"
   say "already symlinks (left alone; stow decides): $link"
-  [ "$differ" = 0 ] || die "$differ file(s) differ from the repo. Commit them in yadm (or discard) and redo restructure"
+  if [ "$differ" != 0 ]; then
+    # STALE=ok: the files in $HOME are older versions of repo files (the repo moved on since the
+    # yadm checkout); cutover moves them into the backup like the identical ones.
+    [ "${STALE:-}" = ok ] || die "$differ file(s) differ from the repo. If they are just old copies (yadm clean, repo newer), rerun with STALE=ok; if they hold local edits, commit them in yadm (or discard) and redo restructure"
+    warn "$differ stale file(s) will be moved to the backup (STALE=ok)"
+  fi
 }
 
 # ---------------------------------------------------------------- cutover
