@@ -16,6 +16,11 @@
       (keymap-global-set "s-v" #'yank)
       (keymap-global-set "s-z" #'undo)
       (keymap-global-set "s-Z" #'undo-redo)
+      (keymap-global-set "S-s-z" #'undo-redo)
+      ;; The Emacs defaults for the same jobs are unbound, so Command is the
+      ;; only way: no C-y, no C-_ / C-/ / C-? / C-x u.
+      (dolist (key '("C-y" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
+        (keymap-global-unset key))
       (global-unset-key (kbd "C-z"))) ; stop me from freezing emacs
   ;; No such key elsewhere: CUA only for C-c and C-x with a region; C-v and
   ;; C-z are plain bindings.

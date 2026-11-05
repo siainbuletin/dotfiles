@@ -51,7 +51,12 @@ The file header: the first line carries the file name, a short summary and the =
 
 - On the Mac (=system-type= is =darwin=):
    + =sp-macos= makes Command =super=, so the keys are =s-c= (=kill-ring-save=), =s-x= (=kill-region=), =s-v= (=yank=), =s-z= (=undo=) and =s-Z= (=undo-redo=, Command+Shift+Z).
+   + =S-s-z= is bound to =undo-redo= too, because that is the event Emacs receives for Command+Shift+Z on the Mac.
    + CUA mode is off, so =C-c= and =C-x= are only prefixes, and =C-v= is =scroll-up-command=.
+   + The Emacs defaults are unbound, so Command is the only way:
+      - =C-y= (=yank=).
+      - =C-_=, =C-/=, =C-?=, =C-M-_= and =C-x u= (undo and redo).
+   + =M-w= and =C-w= (copy and cut) are not touched.
    + =C-z= is unbound so it cannot suspend Emacs.
    + Org already binds =s-v= to =org-yank= (=sp-org-base=), which wins in Org buffers.
 - On Linux and Windows:
@@ -72,6 +77,11 @@ The file header: the first line carries the file name, a short summary and the =
       (keymap-global-set "s-v" #'yank)
       (keymap-global-set "s-z" #'undo)
       (keymap-global-set "s-Z" #'undo-redo)
+      (keymap-global-set "S-s-z" #'undo-redo)
+      ;; The Emacs defaults for the same jobs are unbound, so Command is the
+      ;; only way: no C-y, no C-_ / C-/ / C-? / C-x u.
+      (dolist (key '("C-y" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
+        (keymap-global-unset key))
       (global-unset-key (kbd "C-z"))) ; stop me from freezing emacs
   ;; No such key elsewhere: CUA only for C-c and C-x with a region; C-v and
   ;; C-z are plain bindings.
@@ -437,3 +447,4 @@ Provides the =sp-text-manipulation= feature and closes the file.
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/104][#104]] 🐛 Fixed =sp-clean-whitespace= disturbing text while typing in Org: the idle saves of =auto-save-visited-mode= and =lem-full-auto-save= run =before-save-hook=, so the cleanup stripped the space just typed and collapsed blank lines around point. The hook now calls =sp-clean-whitespace-before-save=, which skips modes in the new option =sp-clean-whitespace-autosave-skip-modes= (default =org-mode=) unless the save was explicit (=save-buffer=, =save-some-buffers=, =write-file=). Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/294][#294]] 🔧 Changed the Mac clipboard and undo keys to Command only: =C-y=, =C-_=, =C-/=, =C-?=, =C-M-_= and =C-x u= are unbound, and =S-s-z= joins =s-Z= for redo. Linux and Windows are unchanged. Not run in Emacs (none in the container).
