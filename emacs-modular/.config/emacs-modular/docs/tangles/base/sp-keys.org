@@ -161,7 +161,7 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 - =sp-prefix= is a user option holding the prefix string for all personal keys.
 - Its default is =C-;=.
 - It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
-- It is not =C-z=, =C-x=, =C-c= or =C-v=: on Linux and Windows =cua-mode= is on, and those keys undo, cut, copy and paste (on the Mac Command does, see =sp-text-manipulation=).
+- It is not =C-z=, =C-x=, =C-c= or =C-v=: these are the clipboard and undo keys (=C-v=, =C-z=) or prefixes (=C-x=, =C-c=); see =sp-text-manipulation=.
 - =flyspell-mode-map= used to bind =C-;=; =sp-spelling= now unbinds it, and its command lives on =C-; z p=.
 - Every prefix map below is built by appending a letter to this string.
 - Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]].

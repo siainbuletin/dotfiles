@@ -7,29 +7,32 @@
 ;;; Code:
 
 ;;;; Copy, cut, paste and undo, as in every other app.
-(if (eq system-type 'darwin)
-    ;; Command is Super (`sp-macos'): plain keys, no CUA, so C-c and C-x are
-    ;; only prefixes.
-    (progn
-      (keymap-global-set "s-c" #'kill-ring-save)
-      (keymap-global-set "s-x" #'kill-region)
-      (keymap-global-set "s-v" #'yank)
-      (keymap-global-set "s-z" #'undo)
-      (keymap-global-set "s-Z" #'undo-redo)
-      (keymap-global-set "S-s-z" #'undo-redo)
-      ;; The Emacs defaults for the same jobs are unbound, so Command is the
-      ;; only way: no C-y, no C-_ / C-/ / C-? / C-x u.
-      (dolist (key '("C-y" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
-        (keymap-global-unset key))
-      (global-unset-key (kbd "C-z"))) ; stop me from freezing emacs
-  ;; No such key elsewhere: CUA only for C-c and C-x with a region; C-v and
-  ;; C-z are plain bindings.
-  (setq cua-remap-control-v nil
-        cua-remap-control-z nil)
-  (cua-mode)
+(cond
+ ((eq system-type 'darwin)
+  ;; Command is Super (`sp-macos'): plain keys, no CUA, so C-c and C-x are
+  ;; only prefixes.
+  (keymap-global-set "s-c" #'kill-ring-save)
+  (keymap-global-set "s-x" #'kill-region)
+  (keymap-global-set "s-v" #'yank)
+  (keymap-global-set "s-z" #'undo)
+  (keymap-global-set "s-Z" #'undo-redo)
+  (keymap-global-set "S-s-z" #'undo-redo))
+ (t
+  ;; Linux and Windows: Ctrl instead of Command, still no CUA. C-c and C-x
+  ;; stay prefixes, so copy and cut take the Shift variants.
+  (keymap-global-set "C-S-c" #'kill-ring-save)
+  (keymap-global-set "C-S-x" #'kill-region)
   (keymap-global-set "C-v" #'yank)
   (keymap-global-set "C-z" #'undo)
-  (keymap-global-set "C-S-z" #'undo-redo))
+  (keymap-global-set "C-S-z" #'undo-redo)))
+
+;; The Emacs defaults for the same jobs are unbound, so there is one layer of
+;; keys: no C-y, no C-_ / C-/ / C-? / C-x u.
+(dolist (key '("C-y" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
+  (keymap-global-unset key))
+;; On the Mac C-z would suspend Emacs; stop me from freezing it.
+(when (eq system-type 'darwin)
+  (global-unset-key (kbd "C-z")))
 
 ;; Cleaning up unnecessary whitespace
 (defun sp-clean-whitespace (&optional Begin End)
