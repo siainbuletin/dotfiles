@@ -132,4 +132,10 @@ Two small additions would give the rest of the repository what the tangle check 
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/196][#196]] ✨ Added the =tangle-check= GitHub Action (=tools/check-tangle.sh=, =tools/tangle-all.el=): it tangles every module doc and fails when a committed module differs from it, ignoring whitespace and blank lines; two known differences are in =tools/tangle-drift-allow.txt=. Added the =writing= (stable clone) and =sandbox= profiles to =.emacs-profiles.el=, the =stable= branch, ADR 0022 and [[file:stable-and-sandbox-emacs.org][Stable and sandbox Emacs]]. 🔧 Moved the extended tangling text from =README.org= to [[file:../tangling-instructions.org][Tangling instructions]]. Not run on the Mac: the workflow, the profiles, =emacsclient= and Hammerspoon; the check itself ran in Emacs 29.3 in batch.
+- [[https://github.com/siainbuletin/dotfiles/pull/196][#196]]
+  - ✨ Added the =tangle-check= GitHub Action (=tools/check-tangle.sh=, =tools/tangle-all.el=): it tangles every module doc and fails when a committed module differs from it, ignoring whitespace and blank lines
+    - two known differences are in =tools/tangle-drift-allow.txt=.
+  - Added the =writing= (stable clone) and =sandbox= profiles to =.emacs-profiles.el=, the =stable= branch, ADR 0022 and [[file:stable-and-sandbox-emacs.org][Stable and sandbox Emacs]].
+  - 🔧 Moved the extended tangling text from =README.org= to [[file:../tangling-instructions.org][Tangling instructions]].
+  - Not run on the Mac: the workflow, the profiles, =emacsclient= and Hammerspoon
+    - the check itself ran in Emacs 29.3 in batch.

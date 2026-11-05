@@ -1336,4 +1336,10 @@ emacs -Q --batch -L libraries/modules/funct -l tests/sp-split-leave-parents-test
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/243][#243]] ✨ Added =sp-refile= (=C-x s t=, =C-c C-w=): one command that moves the heading at point to another heading of the note (what =org-refile= did), to another note, or into a note of its own, and merges a note into another when run before the first heading. Merging into the top of a note calls =vulpea-merge= (tags, meta and aliases folded in, links re-pointed); merging under a heading of the target builds a subtree from Org functions. 🔧 Changed: the code of =sp-split-leave-parents= (with the #240 =- seealso ::= handling and its tests) moved unchanged from =sp-org-lint.org= to the =sp-refile= doc and =sp-refile.el=; =sp-split-leave-parents.el= is gone, the feature and the command keep their names, =sp-vulpea-ext= requires =sp-refile=. 11 ERT tests in Emacs 29.3 batch (=tests/sp-refile-test.el=, =tests/sp-split-leave-parents-test.el=); prompts, split path and merge not run in the real vault.
+- [[https://github.com/siainbuletin/dotfiles/pull/243][#243]]
+  - ✨ Added =sp-refile= (=C-x s t=, =C-c C-w=): one command that moves the heading at point to another heading of the note (what =org-refile= did), to another note, or into a note of its own, and merges a note into another when run before the first heading.
+  - Merging into the top of a note calls =vulpea-merge= (tags, meta and aliases folded in, links re-pointed)
+    - merging under a heading of the target builds a subtree from Org functions.
+  - 🔧 Changed: the code of =sp-split-leave-parents= (with the #240 =- seealso ::= handling and its tests) moved unchanged from =sp-org-lint.org= to the =sp-refile= doc and =sp-refile.el=
+    - =sp-split-leave-parents.el= is gone, the feature and the command keep their names, =sp-vulpea-ext= requires =sp-refile=. 11 ERT tests in Emacs 29.3 batch (=tests/sp-refile-test.el=, =tests/sp-split-leave-parents-test.el=);
+    - prompts, split path and merge not run in the real vault.
