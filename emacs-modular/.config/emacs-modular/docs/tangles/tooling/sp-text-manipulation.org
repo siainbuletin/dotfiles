@@ -12,7 +12,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 
 This module collects editing behaviour that applies to text in general. It:
 
-- sets up copy, cut, paste and undo (Command keys on the Mac, CUA mode elsewhere),
+- sets up copy, cut, paste and undo (Command keys on the Mac, Ctrl keys elsewhere, no CUA),
 - cleans whitespace on every save,
 - adds commands for fixing blank lines around Org headings, filling and unfilling paragraphs, and copying an Org region as rich text,
 - makes yanking smarter about surrounding spaces,
@@ -51,36 +51,58 @@ The file header: the first line carries the file name, a short summary and the =
 
 - On the Mac (=system-type= is =darwin=):
    + =sp-macos= makes Command =super=, so the keys are =s-c= (=kill-ring-save=), =s-x= (=kill-region=), =s-v= (=yank=), =s-z= (=undo=) and =s-Z= (=undo-redo=, Command+Shift+Z).
+   + =S-s-z= is bound to =undo-redo= too, because that is the event Emacs receives for Command+Shift+Z on the Mac.
    + CUA mode is off, so =C-c= and =C-x= are only prefixes, and =C-v= is =scroll-up-command=.
+   + The Emacs defaults are unbound on every system:
+      - =C-y= (=yank=), =C-w= (=kill-region=) and =M-w= (=kill-ring-save=).
+      - =C-_=, =C-/=, =C-?=, =C-M-_= and =C-x u= (undo and redo).
    + =C-z= is unbound so it cannot suspend Emacs.
    + Org already binds =s-v= to =org-yank= (=sp-org-base=), which wins in Org buffers.
-- On Linux and Windows:
-   + =cua-remap-control-v= and =cua-remap-control-z= are =nil=, so CUA no longer owns =C-v= and =C-z=.
-   + =cua-mode= is on: =C-c= and =C-x= copy and cut while a region is active, and are prefixes otherwise (CUA's short delay decides).
-   + =C-v= is =yank=, =C-z= is =undo= and =C-S-z= is =undo-redo=, plain =global-map= bindings.
+- On Linux and Windows (Ctrl takes the place of Command):
+   + CUA mode is off here too, so there is one layer of keys.
+   + =C-S-c= is =kill-ring-save= and =C-S-x= is =kill-region=: plain =C-c= and =C-x= are prefixes, and only CUA could make them copy and cut.
+   + =C-v= is =yank=, =C-z= is =undo= and =C-S-z= is =undo-redo=.
+- On all systems the Emacs defaults are unbound (see above).
+- Caveats of unbinding =C-w=, =M-w= and =C-y=:
+   + Only the global bindings go. Maps that bind the key themselves keep it, for example =C-w= in =isearch-mode-map= (=isearch-yank-word-or-char=) and the =C-x C-w= (=write-file=) and =C-M-w= (=append-next-kill=) chords.
+   + Documentation, tutorials, the Emacs manual and other people's advice say =C-w=, =M-w= and =C-y=; those keys now say "undefined" here, so translate them to the new keys.
+   + Muscle memory: a stray =C-w= or =M-w= does nothing instead of killing text, which is safer than cutting by accident but silent apart from the echo-area message.
+   + The kill ring itself is unchanged: the new keys use the same =kill-region=, =kill-ring-save= and =yank=, so =M-y= (=yank-pop=) and =consult-yank-pop= still work after a paste. =M-y= only works right after a yank, so it follows the new paste key.
+   + Terminals inside Emacs (=vterm=, =eat=) pass =C-w= to the shell, where it deletes the previous word; this change does not affect them.
+   + Any mode or package whose docs or hydras tell you to press =C-w= or =M-w= (the global ones) needs the new key; this was not audited across the config, and a real Emacs session is needed to find them.
+   + Not run in Emacs here (none in the container).
 - The same choices on all three systems: [[file:../../architecture/global-keymap-namespaces.org]["Same keys on macOS, Linux and Windows"]].
-- Why the split: one key cannot be both copy and a prefix, so only keys that are not prefixes (Command) avoid CUA. Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]], "Replacing CUA".
+- Why Shift on copy and cut: one key cannot be both copy and a prefix, and CUA was the only way to do both. Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]], "Replacing CUA".
 
 #+begin_src emacs-lisp -i
 ;;;; Copy, cut, paste and undo, as in every other app.
-(if (eq system-type 'darwin)
-    ;; Command is Super (`sp-macos'): plain keys, no CUA, so C-c and C-x are
-    ;; only prefixes.
-    (progn
-      (keymap-global-set "s-c" #'kill-ring-save)
-      (keymap-global-set "s-x" #'kill-region)
-      (keymap-global-set "s-v" #'yank)
-      (keymap-global-set "s-z" #'undo)
-      (keymap-global-set "s-Z" #'undo-redo)
-      (global-unset-key (kbd "C-z"))) ; stop me from freezing emacs
-  ;; No such key elsewhere: CUA only for C-c and C-x with a region; C-v and
-  ;; C-z are plain bindings.
-  (setq cua-remap-control-v nil
-        cua-remap-control-z nil)
-  (cua-mode)
+(cond
+ ((eq system-type 'darwin)
+  ;; Command is Super (`sp-macos'): plain keys, no CUA, so C-c and C-x are
+  ;; only prefixes.
+  (keymap-global-set "s-c" #'kill-ring-save)
+  (keymap-global-set "s-x" #'kill-region)
+  (keymap-global-set "s-v" #'yank)
+  (keymap-global-set "s-z" #'undo)
+  (keymap-global-set "s-Z" #'undo-redo)
+  (keymap-global-set "S-s-z" #'undo-redo))
+ (t
+  ;; Linux and Windows: Ctrl instead of Command, still no CUA. C-c and C-x
+  ;; stay prefixes, so copy and cut take the Shift variants.
+  (keymap-global-set "C-S-c" #'kill-ring-save)
+  (keymap-global-set "C-S-x" #'kill-region)
   (keymap-global-set "C-v" #'yank)
   (keymap-global-set "C-z" #'undo)
-  (keymap-global-set "C-S-z" #'undo-redo))
+  (keymap-global-set "C-S-z" #'undo-redo)))
+
+;; The Emacs defaults for the same jobs are unbound, so there is one layer of
+;; keys: no C-y, no C-w, no M-w, no C-_ / C-/ / C-? / C-x u.
+(dolist (key '("C-y" "C-w" "M-w" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
+  (keymap-global-unset key))
+;; On the Mac C-z would suspend Emacs; stop me from freezing it.
+(when (eq system-type 'darwin)
+  (global-unset-key (kbd "C-z")))
+
 #+end_src
 
 * Whitespace cleanup
@@ -437,3 +459,4 @@ Provides the =sp-text-manipulation= feature and closes the file.
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
 - [[https://github.com/siainbuletin/dotfiles/pull/104][#104]] 🐛 Fixed =sp-clean-whitespace= disturbing text while typing in Org: the idle saves of =auto-save-visited-mode= and =lem-full-auto-save= run =before-save-hook=, so the cleanup stripped the space just typed and collapsed blank lines around point. The hook now calls =sp-clean-whitespace-before-save=, which skips modes in the new option =sp-clean-whitespace-autosave-skip-modes= (default =org-mode=) unless the save was explicit (=save-buffer=, =save-some-buffers=, =write-file=). Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/294][#294]] 🔧 Changed the Mac clipboard and undo keys to Command only: =C-y=, =C-w=, =M-w=, =C-_=, =C-/=, =C-?=, =C-M-_= and =C-x u= are unbound, and =S-s-z= joins =s-Z= for redo. Linux and Windows lose CUA too: =C-S-c=, =C-S-x=, =C-v=, =C-z= and =C-S-z= are plain bindings, and the same defaults are unbound. Not run in Emacs (none in the container).
