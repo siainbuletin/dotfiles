@@ -27,8 +27,8 @@
   (keymap-global-set "C-S-z" #'undo-redo)))
 
 ;; The Emacs defaults for the same jobs are unbound, so there is one layer of
-;; keys: no C-y, no C-_ / C-/ / C-? / C-x u.
-(dolist (key '("C-y" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
+;; keys: no C-y, no C-w, no M-w, no C-_ / C-/ / C-? / C-x u.
+(dolist (key '("C-y" "C-w" "M-w" "C-_" "C-/" "C-?" "C-M-_" "C-x u"))
   (keymap-global-unset key))
 ;; On the Mac C-z would suspend Emacs; stop me from freezing it.
 (when (eq system-type 'darwin)
