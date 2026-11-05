@@ -1,8 +1,10 @@
-# Set $mod to the layer key: Caps Lock, made a Super key below. The same key
-# is the layer key of AeroSpace on the Mac (Hammerspoon, aerospace-keys.lua), so
-# Alt stays free for Emacs (Meta); the Windows key still works as $mod.
-set $mod Mod4
-exec_always --no-startup-id setxkbmap -option caps:super
+# Set $mod to the layer key: Caps Lock, made a Level 3 shift (Mod5) below. The
+# same key is the layer key of AeroSpace on the Mac (Hammerspoon,
+# aerospace-keys.lua). Alt stays free for Emacs (Meta) and Super (the Windows
+# key) stays free for Emacs too: it is the prefix swap, s-c for C-c and s-x for
+# C-x (sp-text-manipulation). No binding here uses Mod4.
+set $mod Mod5
+exec_always --no-startup-id setxkbmap -option lv3:caps_switch
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.

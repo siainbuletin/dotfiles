@@ -152,6 +152,38 @@ the line, respectively."
   (setq bind-key-describe-special-forms nil))
 #+end_src
 
+* Replaced prefixes and chords
+
+Most of the common Emacs keys are bound differently here. This table is the place to look them up.
+
+- How to find what a key does on this machine:
+   + =C-h k= then the key shows the command under it.
+   + =C-h w= (=where-is=) then a command name shows its keys.
+   + =M-x describe-key-briefly= is the one-line version.
+- Where the changes are made: =sp-macos= (Command is Super, Option is Meta), =sp-text-manipulation= (clipboard, undo, prefix swap) and the leader below.
+- "Mac" is macOS with Command as =s-=. "Linux/Windows" is Ctrl for the clipboard and Super for the prefixes.
+- A second key of a chord can stay a Ctrl chord: =s-x C-f= is =C-x C-f=.
+
+| Stock Emacs        | Job                  | Mac                | Linux/Windows           | Notes |
+|--------------------+----------------------+--------------------+-------------------------+-------|
+| =C-c= (region)     | copy (CUA)           | =s-c=              | =C-c= (typed first)     | =kill-ring-save= |
+| =C-x= (region)     | cut (CUA)            | =s-x=              | =C-x= (typed first)     | =kill-region= |
+| =M-w=              | copy                 | unbound            | unbound                 | use the copy key |
+| =C-w=              | cut                  | unbound            | unbound                 | use the cut key |
+| =C-y=              | paste                | =s-v=              | =C-v=                   | =yank= |
+| =C-v=              | scroll               | =C-v= (scroll)     | paste                   | scroll with =<next>= (page down) there |
+| =C-_=, =C-/=, =C-?=, =C-x u= | undo       | =s-z=              | =C-z=                   | =undo=, all four unbound |
+| =C-M-_=            | redo                 | =s-Z= or =S-s-z=   | =C-S-z=                 | =undo-redo= |
+| =C-z=              | suspend frame        | unbound            | undo                    | |
+| =C-c= prefix       | user and mode keys   | =C-c=              | =s-c=                   | =s-c C-c= is =C-c C-c= |
+| =C-x= prefix       | core commands        | =C-x=              | =s-x=                   | =s-x C-f= is =C-x C-f= |
+| =C-x C-SPC=        | old leader           | =C-x C-SPC=        | =s-x C-SPC=             | prints where the leader moved |
+| =C-;= (flyspell)   | correct word         | leader             | leader                  | spelling is on =C-; z= |
+
+- Lines marked "typed first" mean the typed key starts a sequence; inside a sequence it keeps its stock meaning.
+- The leader (=C-;=) and the shims for old =C-c= keys are described in the sections below; =M-x sp-keys-audit= lists them.
+- The top-level [[file:../../../../../../README.org][README.org]] points here.
+
 * Leader prefix
 
 Everything personal hangs off one prefix so that it can be remapped in one place.
@@ -161,7 +193,7 @@ Everything personal hangs off one prefix so that it can be remapped in one place
 - =sp-prefix= is a user option holding the prefix string for all personal keys.
 - Its default is =C-;=.
 - It was =C-x C-SPC=, which cannot be typed when the OS keeps Ctrl+Space for the input-source switch.
-- It is not =C-z=, =C-x=, =C-c= or =C-v=: these are the clipboard and undo keys (=C-v=, =C-z=) or prefixes (=C-x=, =C-c=); see =sp-text-manipulation=.
+- It is not =C-z=, =C-x=, =C-c= or =C-v=: these are clipboard and undo keys (=C-v=, =C-z=, and copy and cut on =C-c= and =C-x= on Linux and Windows); see =sp-text-manipulation=.
 - =flyspell-mode-map= used to bind =C-;=; =sp-spelling= now unbinds it, and its command lives on =C-; z p=.
 - Every prefix map below is built by appending a letter to this string.
 - Design: [[file:../../architecture/global-keymap-namespaces.org][global-keymap-namespaces]].

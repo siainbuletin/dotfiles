@@ -273,16 +273,16 @@ Decided on 2026-11-03: option C on the Mac, and the other two systems brought as
 
 - Three jobs, one key each, on every system:
    + *Meta* is Alt (Option on the Mac). Nothing else grabs it: AeroSpace, i3 and sway no longer bind Alt.
-   + *Clipboard and undo* is the system's own key: Command on the Mac (=s-c=, =s-x=, =s-v=, =s-z=, =s-Z=), Ctrl on Linux and Windows (CUA, with =C-v= and =C-z= plain bindings). Both are set in =sp-text-manipulation=.
+   + *Clipboard and undo* is the system's own key: Command on the Mac (=s-c=, =s-x=, =s-v=, =s-z=, =s-Z=), Ctrl on Linux and Windows (=C-v=, =C-z=, =C-S-z= plain bindings; copy and cut are the typed =C-c= and =C-x=, with the prefixes on =s-c= and =s-x=). Both are set in =sp-text-manipulation=.
    + *Window manager layer* is Caps Lock held, on the Mac and on Linux.
 - The window manager layer:
    + Mac: Hammerspoon turns Caps Lock into =F18= (=hidutil=) and runs the =aerospace= commands (=hammerspoon/.config/hammerspoon/aerospace-keys.lua=); =aerospace.toml= no longer binds =alt-*= in main mode.
-   + Linux: =caps:super= in X (=setxkbmap=, i3) and in sway (=xkb_options=); both use =$mod= = Mod4, so Caps Lock is Super and the Windows key still works.
+   + Linux: Caps Lock is Mod5 (=lv3:caps_switch=) in X (=setxkbmap=, i3) and in sway (=xkb_options=); both use =$mod= = Mod5, so Super (the Windows key) is free for Emacs.
    + Windows: no window manager is configured in this repository. If one is added, remap Caps Lock to a spare key with PowerToys Keyboard Manager and use that.
 - What stays different, because the hardware differs:
    + Command sits where Alt sits on a PC keyboard, so the thumb position of the clipboard keys is not the same.
-   + =s-= keys in Emacs (=s-b=, =s-i=, =s-=, =s--=, =s-0=) are Command on the Mac and Caps Lock (or the Windows key) on Linux. i3 and sway only take the combinations they bind, so the rest reach Emacs; check =s-b= and =s-i= after the first run.
-   + On Linux and Windows =C-c= and =C-x= are still CUA's region trick (the C-c leader twins =C-; a c= and =C-; a a= avoid it).
+   + =s-= keys in Emacs (=s-b=, =s-i=, =s-=, =s--=, =s-0=) are Command on the Mac and the Windows key on Linux. i3 and sway no longer bind Super at all.
+   + On Linux and Windows the prefixes are =s-c= and =s-x= (key translation, =sp-text-manipulation=), so the typed =C-c= and =C-x= are copy and cut.
 - Not run: none of this was tried on a real keyboard (no Emacs, i3, sway, AeroSpace or Hammerspoon in the container).
 - Related cross-platform documents (the same goal for other parts of the configuration):
    + [[file:../../../../adr/0019-cross-platform-shell-setup.org][ADR 0019]]: one repository, per-OS files picked by name (=##os.*=), fish on macOS and Linux, PowerShell on Windows.
