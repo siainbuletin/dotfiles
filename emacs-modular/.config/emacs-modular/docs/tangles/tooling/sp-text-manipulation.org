@@ -57,8 +57,10 @@ The file header: the first line carries the file name, a short summary and the =
       - =C-y= (=yank=), =C-w= (=kill-region=) and =M-w= (=kill-ring-save=).
       - =C-_=, =C-/=, =C-?=, =C-M-_= and =C-x u= (undo and redo).
    + =C-z= is unbound so it cannot suspend Emacs.
-   + =s-f= (=forward-word=) and =s-b= (=backward-word=) give word motion on Command; Meta (=M-f=, =M-b=) still works too.
-   + Org (=sp-org-base=) and Markdown (=sp-md=) bind =s-b= to bold in their own maps, which win in those buffers; =s-f= has no other global binding in the config.
+   + Considered and dropped: =s-f= (=forward-word=) and =s-b= (=backward-word=) for word motion on Command.
+      - Implemented in commit [[https://github.com/siainbuletin/dotfiles/commit/e53672da955959216b9260d7db6baee6f2956f66][e53672d]] (PR #297), then removed again.
+      - =s-b= clashes with bold in Org (=sp-org-base=) and Markdown (=sp-md=).
+      - The real problem was that =M-b= did nothing, so word motion stays on Meta (Option).
    + Org already binds =s-v= to =org-yank= (=sp-org-base=), which wins in Org buffers.
 - On Linux and Windows (Ctrl takes the place of Command):
    + CUA mode is off here too, so there is one layer of keys.
@@ -87,11 +89,7 @@ The file header: the first line carries the file name, a short summary and the =
   (keymap-global-set "s-v" #'yank)
   (keymap-global-set "s-z" #'undo)
   (keymap-global-set "s-Z" #'undo-redo)
-  (keymap-global-set "S-s-z" #'undo-redo)
-  ;; Word motion on Command, as Option+f / Option+b were on Meta.  Org and
-  ;; Markdown bind s-b to bold in their own maps, which win there.
-  (keymap-global-set "s-f" #'forward-word)
-  (keymap-global-set "s-b" #'backward-word))
+  (keymap-global-set "S-s-z" #'undo-redo))
  (t
   ;; Linux and Windows: Ctrl instead of Command, still no CUA. C-c and C-x
   ;; stay prefixes, so copy and cut take the Shift variants.
