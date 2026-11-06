@@ -918,5 +918,11 @@ Provides the =sp-agenda-views= feature and closes the file.
 
 What each pull request changed in this module; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/191][#191]] 🔧 =org-other-agenda= faces take their colours from the theme (=sp-org-agenda-board-accents=, =sp-org-agenda-board-roles=), see "org-other-agenda colours".
-- [[https://github.com/siainbuletin/dotfiles/pull/185][#185]] 🔧 =org-other-agenda= rows show links by their description (=sp-org-agenda-linkify-title=). Instead of the unfolded =[[id:...][title]]=. The link rendering of the query tables moved from =sp-collec-query-linkify= (and =-has-link-p=, =-open-link=, =-link-map=) to =sp-org-link-linkify= and friends in =sp-org-id-link=, and both use it. Follows #164. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/191][#191]]
+  - 🔧 =org-other-agenda= faces take their colours from the theme (=sp-org-agenda-board-accents=, =sp-org-agenda-board-roles=), see "org-other-agenda colours".
+- [[https://github.com/siainbuletin/dotfiles/pull/185][#185]]
+  - 🔧 =org-other-agenda= rows show links by their description (=sp-org-agenda-linkify-title=).
+  - Instead of the unfolded =[[id:...][title]]=.
+  - The link rendering of the query tables moved from =sp-collec-query-linkify= (and =-has-link-p=, =-open-link=, =-link-map=) to =sp-org-link-linkify= and friends in =sp-org-id-link=, and both use it.
+  - Follows #164.
+  - Not run in Emacs (none in the container).

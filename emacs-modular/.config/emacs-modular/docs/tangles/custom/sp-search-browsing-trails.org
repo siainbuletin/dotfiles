@@ -1598,7 +1598,34 @@ Most of the development that Claude did with this is dependent on selecting some
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/199][#199]] 🐛 Fixed =Args out of range: [], 0= when searching with =consult-omni=: no source was ever loaded (=consult-omni-sources-load-modules= sat in a =:tangle no= block), so every search ran with an empty source list. ✨ Added a vendored copy of =consult-omni= in =libraries/modules/cloned/consult-omni/= (GPL-3.0, upstream commit and two patches in =VENDORED.org=) loaded by =sp-browsing=, which is now in =sp-late-modules=; API keys are read from =var/consult-omni-secrets.el= (not tracked); a =Vulpea= title source for =consult-omni-local=; =sp-fetch-academic-omni= (=C-c w b s=), which adds a result of =consult-omni-scholar= by its DOI or PDF address. 🔧 Changed the three scope commands, which passed their arguments in the wrong position of =consult-omni-multi=. 🔥 Removed a Google Custom Search key from the doc (still in Git history; rotate it if it is real). Google Scholar stays with =biblio-gscholar=; the comparison is in [[file:sp-search-browsing-trails.org::*Google Scholar: biblio-gscholar or consult-omni][=sp-browsing= doc]]. Syntax-checked in Emacs 29.3 and tangle check passes; =consult-omni= itself was not run in a session and the Vulpea source and =sp-fetch-academic-omni= were not run against the real database or sources.
-- [[https://github.com/siainbuletin/dotfiles/pull/206][#206]] 🐛 Fixed =consult-omni/:config: Cannot open load file: elfeed=: a consult-omni source whose package is not installed (=elfeed=, =notmuch=, =consult-gh=, =consult-mu=) is skipped with a message instead of aborting the setup. Follows #199 and #202. Not run in Emacs. The =tooltips.css= warning of #202 is not changed here: the recipe links the files, so =M-x elpaca-rebuild RET org-special-block-extras= is needed after the recipe changed.
-- [[https://github.com/siainbuletin/dotfiles/pull/207][#207]] ✨ Added a =litdb= source to =consult-omni= (=litdb fulltext=, in the default search; =litdb semantic=, =litdb vsearch=, as =consult-omni-litdb-semantic=; =b= and =B= in =sp-search-menu=): asynchronous, so Emacs does not wait for the slow first litdb call. 🐛 Fixed the default search opening Google in the browser: =RET= on input that is not a result (results still loading) now only says so (=sp-consult-omni-ignore-new=); =RET= on a result opens it with =browse-url=. Follows #199 and #206. Tested in Emacs 29.3 batch with a fake =litdb= program (parsing, DOI/URL/file results, callback); =consult-omni= and a real litdb database were not run.
-- [[https://github.com/siainbuletin/dotfiles/pull/222][#222]] 🔧 Changed the docs of =sp-search=, =sp-browsing= and =sp-trails= into one: [[file:sp-search-browsing-trails.org][sp-search-browsing-trails]], with a table that compares the three modules at the top. It tangles =sp-search.el= and =sp-browsing.el= as before (their code and the text of every section are unchanged, one heading level down); =sp-trails.el= is still not tangled. The old =sp-search.org=, =sp-browsing.org= and =sp-trails.org= are gone and links to them point to the new doc. Tangle checked with a script that compares the blocks; Emacs is not in the container.
+- [[https://github.com/siainbuletin/dotfiles/pull/199][#199]]
+  - 🐛 Fixed =Args out of range: [], 0= when searching with =consult-omni=: no source was ever loaded (=consult-omni-sources-load-modules= sat in a =:tangle no= block), so every search ran with an empty source list.
+  - ✨ Added a vendored copy of =consult-omni= in =libraries/modules/cloned/consult-omni/= (GPL-3.0, upstream commit and two patches in =VENDORED.org=) loaded by =sp-browsing=, which is now in =sp-late-modules=
+    - API keys are read from =var/consult-omni-secrets.el= (not tracked);
+    - a =Vulpea= title source for =consult-omni-local=;
+    - =sp-fetch-academic-omni= (=C-c w b s=), which adds a result of =consult-omni-scholar= by its DOI or PDF address.
+  - 🔧 Changed the three scope commands, which passed their arguments in the wrong position of =consult-omni-multi=.
+  - 🔥 Removed a Google Custom Search key from the doc (still in Git history; rotate it if it is real).
+  - Google Scholar stays with =biblio-gscholar=
+    - the comparison is in [[file:sp-search-browsing-trails.org::*Google Scholar: biblio-gscholar or consult-omni][=sp-browsing= doc]].
+  - Syntax-checked in Emacs 29.3 and tangle check passes
+    - =consult-omni= itself was not run in a session and the Vulpea source and =sp-fetch-academic-omni= were not run against the real database or sources.
+- [[https://github.com/siainbuletin/dotfiles/pull/206][#206]]
+  - 🐛 Fixed =consult-omni/:config: Cannot open load file: elfeed=: a consult-omni source whose package is not installed (=elfeed=, =notmuch=, =consult-gh=, =consult-mu=) is skipped with a message instead of aborting the setup.
+  - Follows #199 and #202.
+  - Not run in Emacs.
+  - The =tooltips.css= warning of #202 is not changed here: the recipe links the files, so =M-x elpaca-rebuild RET org-special-block-extras= is needed after the recipe changed.
+- [[https://github.com/siainbuletin/dotfiles/pull/207][#207]]
+  - ✨ Added a =litdb= source to =consult-omni= (=litdb fulltext=, in the default search; =litdb semantic=, =litdb vsearch=, as =consult-omni-litdb-semantic=; =b= and =B= in =sp-search-menu=): asynchronous, so Emacs does not wait for the slow first litdb call.
+  - 🐛 Fixed the default search opening Google in the browser: =RET= on input that is not a result (results still loading) now only says so (=sp-consult-omni-ignore-new=)
+    - =RET= on a result opens it with =browse-url=.
+  - Follows #199 and #206.
+  - Tested in Emacs 29.3 batch with a fake =litdb= program (parsing, DOI/URL/file results, callback)
+    - =consult-omni= and a real litdb database were not run.
+- [[https://github.com/siainbuletin/dotfiles/pull/222][#222]]
+  - 🔧 Changed the docs of =sp-search=, =sp-browsing= and =sp-trails= into one: [[file:sp-search-browsing-trails.org][sp-search-browsing-trails]], with a table that compares the three modules at the top.
+  - It tangles =sp-search.el= and =sp-browsing.el= as before (their code and the text of every section are unchanged, one heading level down)
+    - =sp-trails.el= is still not tangled.
+  - The old =sp-search.org=, =sp-browsing.org= and =sp-trails.org= are gone and links to them point to the new doc.
+  - Tangle checked with a script that compares the blocks
+    - Emacs is not in the container.

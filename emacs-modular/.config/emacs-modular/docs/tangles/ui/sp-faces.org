@@ -294,5 +294,14 @@ Provides the =sp-faces= feature and closes the file.
 
 What each pull request changed in this module, newest last; the one-line summary is in [[file:../../../CHANGELOG.org][CHANGELOG.org]].
 
-- [[https://github.com/siainbuletin/dotfiles/pull/260][#260]] ✨ Added =M-x sp-org-heading-svg-tags-mode= to =sp-faces=: stock =svg-tag-mode= tags for the tags at the end of an Org heading, buffer-local and *off by default* (nothing runs at start). No tag-group colours or emoji; =#+filetags:= lines and TODO keywords are not touched; off in terminal frames. Redoes #254 (removed in #259) in the small form; the hang that led to #259 came from the vterm/fish setup. Not run in a graphic frame.
-- [[https://github.com/siainbuletin/dotfiles/pull/264][#264]] 🔥 Removed =svg-tag-mode= (the =prog-mode= hook and its =svg-tag-tags=) and =M-x sp-org-heading-svg-tags-mode= (#260) from =sp-faces=, at Sia's request: Emacs still hung at start, with a kqueue file-watch backtrace that points at =org-mem=, not at svg-tag-mode. Not run in Emacs (none in the container).
+- [[https://github.com/siainbuletin/dotfiles/pull/260][#260]]
+  - ✨ Added =M-x sp-org-heading-svg-tags-mode= to =sp-faces=: stock =svg-tag-mode= tags for the tags at the end of an Org heading, buffer-local and *off by default* (nothing runs at start).
+  - No tag-group colours or emoji
+    - =#+filetags:= lines and TODO keywords are not touched;
+    - off in terminal frames.
+  - Redoes #254 (removed in #259) in the small form
+    - the hang that led to #259 came from the vterm/fish setup.
+  - Not run in a graphic frame.
+- [[https://github.com/siainbuletin/dotfiles/pull/264][#264]]
+  - 🔥 Removed =svg-tag-mode= (the =prog-mode= hook and its =svg-tag-tags=) and =M-x sp-org-heading-svg-tags-mode= (#260) from =sp-faces=, at Sia's request: Emacs still hung at start, with a kqueue file-watch backtrace that points at =org-mem=, not at svg-tag-mode.
+  - Not run in Emacs (none in the container).
