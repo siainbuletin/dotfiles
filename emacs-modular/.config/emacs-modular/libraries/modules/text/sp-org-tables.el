@@ -255,6 +255,45 @@ Return nil when either colour is unknown (a terminal without colours)."
 
 (add-hook 'org-mode-hook #'sp-org-tables-quiet-pipes-mode)
 
+;;;; Dividers between table rows
+;; `org-table-widget' draws a rule only where the source has an hline, so rows
+;; run together.  It has no option for this, so the table is changed just
+;; before it is drawn: an hline goes between every two body rows.
+
+(defcustom sp-org-tables-row-dividers t
+  "Whether table widgets draw a rule between every two body rows."
+  :type 'boolean)
+
+(defun sp-org-tables--with-row-dividers (table)
+  "A copy of the widget TABLE plist with an `hline' between every two body rows.
+Header rows (those before the first `hline') and existing rules are left alone.
+A divider takes the source line of the row above it."
+  (let ((rows (plist-get table :rows))
+        (lines (plist-get table :lines))
+        (header-rows (or (plist-get table :header-rows) 0))
+        (index 0)
+        new-rows new-lines)
+    (while rows
+      (let ((row (pop rows))
+            (line (pop lines)))
+        (push row new-rows)
+        (push line new-lines)
+        (setq index (1+ index))
+        (when (and (listp row) rows (listp (car rows)) (> index header-rows))
+          (push 'hline new-rows)
+          (push line new-lines))))
+    (let ((new (plist-put (copy-sequence table) :rows (nreverse new-rows))))
+      (if (plist-get table :lines)
+          (plist-put new :lines (nreverse new-lines))
+        new))))
+
+(define-advice org-table-widget--render
+    (:filter-args (args) sp-org-tables-row-dividers)
+  "Draw a rule between body rows when `sp-org-tables-row-dividers' is set."
+  (if sp-org-tables-row-dividers
+      (cons (sp-org-tables--with-row-dividers (car args)) (cdr args))
+    args))
+
 ;;;; Following links in table widgets
 ;; The widget draws a row as an overlay `before-string'; the source of the row
 ;; stays hidden underneath.  A click or RET therefore lands on the source, not

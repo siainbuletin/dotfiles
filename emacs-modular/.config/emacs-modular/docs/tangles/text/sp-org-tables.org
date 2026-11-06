@@ -400,6 +400,58 @@ Return nil when either colour is unknown (a terminal without colours)."
 #+end_src
 
 
+** Dividers between table rows
+
+=org-table-widget= draws a rule only where the Org source has an =|---+---|= line, so body rows run together. The package has no option for row separators, so the module changes the table just before it is drawn.
+
+- *Where*: =:filter-args= advice on =org-table-widget--render=, which receives the parsed table (a plist of =:rows=, =:lines=, =:header-rows=).
+- *What*: =sp-org-tables--with-row-dividers= puts an =hline= between every two body rows; the widget then draws it like any rule.
+- *Left alone*: header rows (before the first =hline=), rules already in the source, and the top and bottom borders.
+- *=:lines=*: a divider takes the source line of the row above it, so mapping point to a row is unchanged.
+- *Switch*: =sp-org-tables-row-dividers= (default =t=); set it to =nil= to get the old look.
+- *Source file*: the Org source is not touched, only the drawn table.
+
+#+begin_src emacs-lisp -i
+;;;; Dividers between table rows
+;; `org-table-widget' draws a rule only where the source has an hline, so rows
+;; run together.  It has no option for this, so the table is changed just
+;; before it is drawn: an hline goes between every two body rows.
+
+(defcustom sp-org-tables-row-dividers t
+  "Whether table widgets draw a rule between every two body rows."
+  :type 'boolean)
+
+(defun sp-org-tables--with-row-dividers (table)
+  "A copy of the widget TABLE plist with an `hline' between every two body rows.
+Header rows (those before the first `hline') and existing rules are left alone.
+A divider takes the source line of the row above it."
+  (let ((rows (plist-get table :rows))
+        (lines (plist-get table :lines))
+        (header-rows (or (plist-get table :header-rows) 0))
+        (index 0)
+        new-rows new-lines)
+    (while rows
+      (let ((row (pop rows))
+            (line (pop lines)))
+        (push row new-rows)
+        (push line new-lines)
+        (setq index (1+ index))
+        (when (and (listp row) rows (listp (car rows)) (> index header-rows))
+          (push 'hline new-rows)
+          (push line new-lines))))
+    (let ((new (plist-put (copy-sequence table) :rows (nreverse new-rows))))
+      (if (plist-get table :lines)
+          (plist-put new :lines (nreverse new-lines))
+        new))))
+
+(define-advice org-table-widget--render
+    (:filter-args (args) sp-org-tables-row-dividers)
+  "Draw a rule between body rows when `sp-org-tables-row-dividers' is set."
+  (if sp-org-tables-row-dividers
+      (cons (sp-org-tables--with-row-dividers (car args)) (cdr args))
+    args))
+#+end_src
+
 ** Following links in a table widget
 
 In a table widget a click on a link, or =RET= on its row, opened a menu of every link in the entry before going anywhere. The cause: the widget draws each row as the =before-string= of an overlay and hides the source underneath, so the click or =RET= is delivered to the source (the start of the row). =org-open-at-point= finds no link there, goes up to the headline and offers every link of the entry. The drawn link text still carries the =htmlize-link= property Org gave it, with the link target, so the module reads the target from there:
