@@ -16,7 +16,11 @@
   (keymap-global-set "s-v" #'yank)
   (keymap-global-set "s-z" #'undo)
   (keymap-global-set "s-Z" #'undo-redo)
-  (keymap-global-set "S-s-z" #'undo-redo))
+  (keymap-global-set "S-s-z" #'undo-redo)
+  ;; Word motion on Command, as Option+f / Option+b were on Meta.  Org and
+  ;; Markdown bind s-b to bold in their own maps, which win there.
+  (keymap-global-set "s-f" #'forward-word)
+  (keymap-global-set "s-b" #'backward-word))
  (t
   ;; Linux and Windows: Ctrl instead of Command, still no CUA. C-c and C-x
   ;; stay prefixes, so copy and cut take the Shift variants.
