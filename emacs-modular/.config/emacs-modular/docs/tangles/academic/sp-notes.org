@@ -1,58 +1,19 @@
-#+TITLE: sp-notes.el: Denote workbook entries and consult-notes
+#+TITLE: sp-notes.el: consult-notes and the notes picker
 #+PROPERTY: header-args:emacs-lisp :tangle ../../../libraries/modules/academic/sp-notes.el :comments no :padline yes :noweb no :mkdirp yes
 #+STARTUP: content
 
 Literate source for =libraries/modules/academic/sp-notes.el=.
 
-- Every line of the module lives in the =emacs-lisp= blocks below, in order.
-- The =:tangle= path in the =#+PROPERTY= line at the top says where they are written.
-- To tangle, see [[file:../../tangling-instructions.org][Tangling instructions]].
+- The module sets up =consult-notes= and the notes picker.
+- Denote was removed from the configuration; notes are found by their =:ID:= and the vulpea database.
+- =sp-notes-notebook= opens =vulpea-find= in the buffer window instead of the minibuffer.
+  - =sp-workspaces= calls it for the =Notes= workspace.
+  - It is bound to =n n= in =lem+notes-keys= (=sp-keys=) and to =C-c w d f=.
+- The Denote workbook command was removed; old entries stay in =workbook/=.
+- Where notes are stored by tag is the job of =sp-notes-filing=.
 
-The original file has no newline after its last line. Org always ends a tangled file with one, so tangling adds that final newline and changes nothing else.
-
-A small module for a Denote-based notes workflow, adapted from Lambda Emacs. It provides a command that creates a dated workbook entry with Denote, sets up =consult-notes= to search Denote notes, and adds a variant that shows the consult-notes picker in a buffer window instead of the minibuffer.
-
-Dependencies and context:
-
-- Needs =denote= (configured in =sp-denote=) and installs =consult-notes=.
-- The comments make clear the workflow has largely moved to ID-based notes with vulpea and org-node, so this module is partly kept for older material.
-- Loaded in the Academic section of =init.el=.
-- Related bindings live in =sp-keys=, which puts =sp-denote-workbook-create-entry=, =consult-notes= and =consult-notes-search-in-all-notes= on the =n= notes prefix.
-- =sp-workspaces= calls =sp-denote-notebook=.
-
-The commentary at the top of the module says:
-
-#+begin_quote
-sia -set-notes.el --- packages for notes
-
-For a framework that looks to bring notes together, you need more settings for different things.
-This will be called as a module in itself later on
-this is a basic note-taking workflow that's based on denote (at first)
-- this will include calling on features for org-capture
-although the capture mechanism should be living somewhere separate.
-
-This is the configuration that was taken from Lambda Emacs
-
-This library provides settings fora basic notes workflow using the `Denote' package.
-#+end_quote
-
-* Sia's commentary
-
-Things I want from this module
-- The best note-taking method is the one you invent, and that progressively grows in complexity. An electronic second brain does not automatically lead to success. Your organic brain should dictate the second one, not vice versa [cite:@prot_2024].
-
-* Header
-
-** File header and commentary
-
-Lexical binding and several comment paragraphs.
-
-- They describe the plan for a notes framework that starts from Denote, with capture handled separately.
-- They note that the configuration came from Lambda Emacs.
-- The file's first line still carries an older file name.
-
-#+begin_src emacs-lisp -i
-;;; sp-notes.el --- Denote workbook entries and consult-notes -*- lexical-binding: t; -*-
+#+begin_src emacs-lisp
+;;; sp-notes.el --- consult-notes and the notes picker -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -60,57 +21,15 @@ Lexical binding and several comment paragraphs.
 
 ;; For a framework that looks to bring notes together, you need more settings for different things.
 ;; This will be called as a module in itself later on
-;; this is a basic note-taking workflow that's based on denote (at first)
 ;; - this will include calling on features for org-capture
 ;; although the capture mechanism should be living somewhere separate.
 
 ;; This is the configuration that was taken from Lambda Emacs
 
-;; This library provides settings fora basic notes workflow using the `Denote' package.
+;; This library provides `consult-notes' and `sp-notes-notebook' (Denote was removed).
 
 ;;; Code:
-#+end_src
 
-* Workbook entries
-
-** sp-denote-workbook-create-entry
-
-Creates a Denote note tagged =workbook= whose title is today's date (for example =2022 Tuesday 14 June=) inside the =workbook= folder of the first Denote directory. As the comment explains, =denote-directory= can now hold several trees, so the folder is built from the first entry of =denote-directories= instead of concatenating strings.
-
-The docstring says it is superseded by =sp-denote-log-entry=, but kept because old entries live in =workbook/=. After creating the note it calls =sp-insert-header-and-time-property=, which is not defined anywhere in this repository, so the command ends with an error after the note is created unless that function comes from outside the repo.
-
-#+begin_src emacs-lisp -i
-
-
-(defun sp-denote-workbook-create-entry ()
-  "Create an entry tagged \\='workbook\\=' with the date as its title.
-Superseded by `sp-denote-log-entry' in the user layer, which writes into
-log/ instead. Kept because old entries still live in workbook/."
-  (interactive)
-  (denote
-   (format-time-string "%Y %A %e %B")   ; format like Tuesday 14 June 2022
-   '("workbook")
-   nil
-   ;; `denote-directory' holds a list of trees, so the old
-   ;; (concat denote-directory "workbook") is a type error here. The workbook
-   ;; belongs to the notes tree, which denote returns as the first entry.
-   (expand-file-name "workbook" (car (denote-directories)))
-   nil
-   nil)
-  (sp-insert-header-and-time-property))
-#+end_src
-
-* Consult notes
-
-** consult-notes
-
-Installs =consult-notes=, a consult interface for picking and searching notes.
-
-- =C-c w d f= opens the picker. =C-c w d g= searches the text of all notes.
-- Enabling =consult-notes-denote-mode= registers Denote as a source. Without a source the picker would be empty.
-- A commented-out =:if= line explains it was not gated because the package should always be available.
-
-#+begin_src emacs-lisp -i
 ;;;; Consult Notes
 ;; Adapted from https://github.com/minad/consult/wiki/hrm-notes
 ;; this is taken from Lambda Emacs
@@ -118,116 +37,28 @@ Installs =consult-notes=, a consult interface for picking and searching notes.
   :ensure t
   ;; Not gated: I find that it makes the startup a lot slower if I have this turned on, it's not an extra, I want to be able to have it on hand.
   ;; :after consult
-  
+
   :commands
   (consult-notes
              consult-notes-search-in-all-notes)
 
   :bind
-  (("C-c w d f" . consult-notes)
+  (("C-c w d f" . sp-notes-notebook)
    ("C-c w d g" . consult-notes-search-in-all-notes))
 
   :config
-  ;; Without a source, consult-notes shows an empty picker. The denote
-  ;; source lists everything under `denote-directory'.
-  (consult-notes-denote-mode 1)
+  ;; Without a source, consult-notes shows an empty picker. Denote is
+  ;; gone: the notes are found by `vulpea-find' (see `sp-notes-notebook').
 )
-#+end_src
 
-** Notebook view
-
-=sp-denote-notebook= runs =consult-notes= with =vertico-buffer-display-action= bound so that, when Vertico is shown in a buffer, the candidates reuse an existing window rather than the minibuffer. The comment notes that Denote is used less now and that an ID-based version would need a different consult plugin.
-
-#+begin_src emacs-lisp -i
-;; Creating a notebook is a much more useful way of using consult-notes,
-;; instead of the minibuffer. However, I don't make much use of denote
-;; anymore, as I prefer having IDs.
-;;
-;; The better option would be adapting this to the ID-based workflow
-;; by making it query IDs.
-;; 
-;; But this means making use of a different consult plugin.
-(defun sp-denote-notebook ()
-  "Open `consult-notes in buffer window rather than minibuffer."
+;; The notes are ID-based and indexed by vulpea, so the notebook is the vulpea picker.
+(defun sp-notes-notebook ()
+  "Pick a note with `vulpea-find', in the buffer window rather than the minibuffer."
   (interactive)
   (let ((vertico-buffer-display-action
          '(display-buffer-reuse-window)))
-    (consult-notes)))
-#+end_src
+    (call-interactively #'vulpea-find)))
 
-* Provide
-
-Provides the =sp-notes= feature and closes the file.
-
-#+begin_src emacs-lisp -i
 (provide 'sp-notes)
 ;;; sp-notes.el ends here
 #+end_src
-* Sia's commentary
-** Making this setup more fit for production notes
-
-See also [[id:39bca7ea-c3f0-4026-9ddd-cd685a9fd7e4][Drafting workflow]] and [[file:~/.config/emacs-modular/docs/tangles/ui/sp-writedesk.org][sp-writedesk.el: Writing desk: Olivetti and Writeroom]] for how to make this setup more suitable for extended research and writing
-
-*** Take the model from EWS
-
-The EWS book is written and produced with the EWS configuration and some other software listed below. The Org mode source code of the book is freely available in the =documents= folder, so you can also 'roll your own' with the Org export functionality and associated external software.
-
-The [[https://lucidmanager.org/tags/emacs][EWS website]] is the forerunner of the book and explains the configuration. There is also a [[https://www.youtube.com/playlist?list=PLGx4TR_jvOQDIT878vGDe1ElUlij3UEKI][YouTube playlist]] that demonstrates how to use /Emacs Writing Studio/.
-
-This repository is not a maintained Emacs package. It provides a starting point to develop a configuration for beginning Emacs users. More advanced users can copy ideas. The code will only be updated when there are bugs due to future changes in packages or Emacs itself.
-
-The EWS configuration follows the following principles:
-
-- Stay as close as humanly bearable to vanilla GNU Emacs
-- Leverage functionality of the latest Emacs version
-- Standard keyboard shortcuts
-- No configuration for writing code (~prog-mode~)
-- Centred around Org mode
-- No-code configuration (customisation tool instead of writing Emacs Lisp)
- 
-Feel free to raise an issue if you have any suggestions on how to enhance the configuration, like to include additional packages useful to authors or fix some typos in the text.
-
-**** EWS Workflow
-The EWS configuration, associated website and book follow a basic workflow for authoring documents, visualised below.
-
-#+attr_html: :width 600
-[[file:documents/images/emacs-workflow.png]]
-
-- /Inspiration/ relates to reading, listening to and watching media such as e-books or lectures. Emacs can maintain and consume your bibliography or media collection.
-- /Ideation/ is the phase where we reflect on the ideas of others and develop our own. Emacs acts as a note-taking system in this phase.
-- /Production/ is the actual writing phase. EWS focuses on the capabilities of the Org mode package for writing projects.
-- /Publication/ is the last phase in which Org mode files are converted to the final product in ePub, PDF or office format.
-
-Another part of being a researcher and writer is /Administration/, which is not a phase in the process as such, but nevertheless essential. Administration in the EWS context relates to managing files and projects.
-
-**** Supporting Applications
-
-***** Inspiration
-- 
-- ~gs~ ([[https://www.ghostscript.com/][GhostScript]]) or ~mutool~ ([[https://mupdf.com/][MuPDF]]): View PDF files
-- ~pdftotext~ ([[https://poppler.freedesktop.org/][poppler-utils]]): Convert PDF to text (enable search)
-- ~soffice~ ([[https://www.libreoffice.org/][LibreOffice]]): View and create office documents
-- ~zip~: Unpack ePub documents
-- ~ddjvu~ ([[http://djvu.org/][DjVuLibre]]): View DjVu files
-- ~curl~: Reading RSS feeds
-- ~mpg321~, ~ogg123~ ([[https://www.xiph.org/][vorbis-tools]]), ~mplayer~, ~mpv~, or ~vlc~: Play music and watch videos
-     
-***** Production
-
-- ~hunspell~: Spellcheck. Also requires a hunspell dictionary
-- ~dvipng~: Preview mathematical notation (part of LaTeX)
-
-      
-***** Publication
-
-- ~convert~ ([[https://imagemagick.org/][ImageMagick]]) or =gm= ([[http://www.graphicsmagick.org/][GraphicsMagick]]): Convert image files
-- ~latex~ ([[https://www.latex-project.org/get/][TexLive, MacTex or MikTeX]]): Preview LaTeX and export Org to PDF
-- ~zip~: Create ePub and office documents
-
-**** Compiling the EWS book
-
-See [[file:~/.config/emacs-modular/docs/tangles/text/sp-typst.org][sp-typst.el: PDF of the literate docs and of Org files, typeset with Typst]]
-
-This repository contains the Org mode source files for the /Emacs Writing Studio/ book. The source files are optimised for export to PDF (using LaTeX) and ePub.
-
-To compile the book as a PDF, ePub you need the EWS configuration and the required supporting applications listed above. You will also need the [[https://graphviz.org/][Graphviz]] software, which draws some of the diagrams used in the book. Run the Org export function from inside the =00-emacs-writing-studio.org= file to generate the book.

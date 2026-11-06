@@ -174,7 +174,7 @@ The dividers, the fringe and the border around the frame are meant to vanish int
 
 =org-link-frame-setup= tells Org which function to use when following links of each type.
 
-- Here =file= and =denote= links open with plain =find-file= in the current window, instead of the default other-window behaviour.
+- Here =file= links open with plain =find-file= in the current window, instead of the default other-window behaviour.
 - The mail and news link types keep their usual other-frame functions.
 - The comment shows the author was unsure what it does.
 - The setting is Org-specific and arguably belongs in an Org module.
@@ -182,8 +182,7 @@ The dividers, the fringe and the border around the frame are meant to vanish int
 #+begin_src emacs-lisp -i
 ;; I don't remember what this linking thing actually does
 (setq org-link-frame-setup
-   '((denote . find-file)
-     (vm . vm-visit-folder-other-frame)
+   '((vm . vm-visit-folder-other-frame)
      (vm-imap . vm-visit-imap-folder-other-frame)
      (gnus . org-gnus-no-new-news)
      (file . find-file)

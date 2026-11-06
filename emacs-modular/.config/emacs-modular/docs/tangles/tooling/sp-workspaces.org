@@ -16,7 +16,7 @@ This module builds named workspaces on top of =tab-bar= and =tabspaces=. A works
 Dependencies:
 
 - =tabspaces= itself is declared in =sp-tabs=. This file only calls its internals, such as =tabspaces--list-tabspaces= and =tabspaces--name-tab-by-project-or-default=.
-- Other dependencies: =project.el=, =magit=, =org=, =mu4e=, and helpers from other modules such as =sp-denote-notebook= (in =sp-notes=).
+- Other dependencies: =project.el=, =magit=, =org=, =mu4e=, and helpers from other modules such as =sp-notes-notebook= (in =sp-notes=).
 - One helper it calls, =project-magit-dir=, is not defined anywhere in the repository. The command that relies on it stops with an error at that step.
 
 The module ends with a =projectile= declaration that was moved here from a deprecated =sp-projects= module. It is loaded in both the default and minimal module lists.
@@ -163,7 +163,7 @@ when the workspace is created."
 
 ** Notes workspace
 
-=sp-open-notes-in-workspace= switches to or creates a "Notes" tab and opens the notes directory with =sp-denote-notebook= from =sp-notes=.
+=sp-open-notes-in-workspace= switches to or creates a "Notes" tab and opens the notes directory with =sp-notes-notebook= from =sp-notes=.
 
 #+begin_src emacs-lisp -i
 ;;;;; Open Notes in Workspace
@@ -177,7 +177,7 @@ when the workspace is created."
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Notes")
-      (sp-denote-notebook))))
+      (sp-notes-notebook))))
 #+end_src
 
 ** Eshell workspace

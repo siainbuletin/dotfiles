@@ -19,7 +19,7 @@ This module is the central place for keybindings in the config.
 Where the commands come from:
 
 - Most bound commands are defined elsewhere. =sp-= helpers live in =sp-helper-funct= and other modules.
-- Many targets come from third-party packages: =consult=, =crux=, =magit=, =git-gutter=, =mu4e=, =denote=, =citar=, =tabspaces=, =ace-window=, =easysession=.
+- Many targets come from third-party packages: =consult=, =crux=, =magit=, =git-gutter=, =mu4e=, =citar=, =tabspaces=, =ace-window=, =easysession=.
 - A key whose command is not loaded yet simply errors when pressed.
 
 What the module installs and defines:
@@ -390,24 +390,25 @@ Notes:
 
 ** Notes and bibliography notes (n, n b)
 
-=lem+notes-keys= binds =denote=, =consult-notes= and its full-text search, and =sp-denote-workbook-create-entry=. A nested map, =lem+bib-keys= under =n b=, binds =citar= and =citar-denote= commands for adding citekeys and creating or opening literature notes.
+- =lem+notes-keys= binds:
+  - =n=: =sp-notes-notebook=, the vulpea note picker
+  - =s=: the full-text search of =consult-notes=
+  - =f=: =sp-notes-filing-lint=, the dry run of the tag filing
+- =lem+bib-keys= under =n b= binds the =citar= commands for creating or opening literature notes.
 
 #+begin_src emacs-lisp -i
 ;;;;;; Notes
 ;; General notes
 (bind-keys :prefix-map lem+notes-keys
            :prefix (concat sp-prefix " n")
-           ("d"  .  denote)
-           ("n"  .  consult-notes)
+           ("n"  .  sp-notes-notebook)
            ("s"  .  consult-notes-search-in-all-notes)
-           ("w"  .  sp-denote-workbook-create-entry))
+           ("f"  .  sp-notes-filing-lint))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")
-           ("a"  .  citar-denote-add-citekey)
            ("c"  .  citar-create-note)
-           ("o"  .  citar-open-notes)
-           ("O"  .  citar-denote-dwim))
+           ("o"  .  citar-open-notes))
 #+end_src
 
 ** Quit (q)

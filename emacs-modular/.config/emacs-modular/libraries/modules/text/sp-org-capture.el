@@ -46,14 +46,6 @@
          (function sp-org-issues-capture-target)
          (function sp-org-issues-capture-template))
 
-        ("n" "New note (with Denote)" plain
-         (file denote-last-path)
-         #'denote-org-capture
-         :no-save t
-         :immediate-finish nil
-         :kill-buffer t
-         :jump-to-captured t)
-
         ("l" "Listening log" entry
          (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
          "* %U\n %i\n %a")))
@@ -89,14 +81,6 @@
                  (file+headline org-default-notes-file "Notes")
                  "- %?")
 
-                ;; I want to replace this with something that doesn't rely on denote
-                ("p" "Permanent note" plain
-                 (file denote-last-path)
-                 #'denote-org-capture
-                 :no-save t
-                 :immediate-finish nil
-                 :kill-buffer t
-                 :jump-to-captured t)
 
                 ("t" "New task" entry
                  (file+headline org-default-notes-file "Tasks")

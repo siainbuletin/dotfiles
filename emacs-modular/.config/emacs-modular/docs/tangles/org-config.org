@@ -546,9 +546,9 @@ When changing the file name of a file, what happens if the links are dead?
 
 Since version 9.0, =org-mode= has a function for checking for dead links. This is called =org-lint=. It works for broken _local_ links.[fn:7]
 
-A package like =denote= doesn't have this issue because each note is maintained using the unique identifier, which is found both in the name of the file, and in the "metadata" / frontmatter of the file. The file can have its title changed, and that wouldn't pose a problem.
+ID links (=id:=) don't have this issue because each note is found by its =:ID:= property, not by its path. The file can be renamed or moved to another folder (see =sp-notes-filing=), and the links keep working.
 
-However, denote has an issue when it comes to _merging_ files: how do the identifiers get updated across the board? See [[file:denote.org][Denote configuration]] for this issue, as well as an issue I opened for the =denote-org= extension: https://github.com/protesilaos/denote-org/issues/16
+(Denote was removed from the configuration; its file-name convention is stripped by =sp-notes-filing=.)
 
 * Minor modes to enable for =org-mode=
 * Org block settings
