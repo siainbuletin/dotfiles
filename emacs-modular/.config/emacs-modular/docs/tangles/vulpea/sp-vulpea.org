@@ -89,6 +89,8 @@ Installs =vulpea= and waits for it to finish, so later code can call its functio
 
 Keybindings:
 - ~M-o n a~ in Org buffers runs =vulpea-buffer-alias-add= to add an alias to the current note.
+- ~M-o n n~ in Org buffers runs =org-id-get-create= to give the entry at point (or the file, before the first heading) an ID.
+  + It is the successor of the =M-o n n= of the removed =org-node= module (=org-node-nodeify-entry=), so the key is not new to the hand.
 - ~M-o f~ is =sp-find-note= (module =sp-org-tag-groups=), not =vulpea-find=, so notes show their tag emoji and colours.
 
 #+begin_src emacs-lisp -i
@@ -102,7 +104,8 @@ Keybindings:
 
   :bind
   (:map org-mode-map
-   ("M-o n a" . vulpea-buffer-alias-add))
+   ("M-o n a" . vulpea-buffer-alias-add)
+   ("M-o n n" . org-id-get-create))
 )
 #+end_src
 

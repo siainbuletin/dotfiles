@@ -23,7 +23,8 @@
 
   :bind
   (:map org-mode-map
-   ("M-o n a" . vulpea-buffer-alias-add))
+   ("M-o n a" . vulpea-buffer-alias-add)
+   ("M-o n n" . org-id-get-create))
 )
 
 (setq vulpea-db-sync-directories (list sp-notes-dir))
