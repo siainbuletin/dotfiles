@@ -1,6 +1,6 @@
 #+title: 0010 Phase out Denote; it does not touch the agenda
 #+date: 2026-10-23
-#+status: accepted
+#+status: superseded by 0024
 
 * Context
 =sp-denote= configured Denote and also added any saved note whose file name matched =_project= to =org-agenda-files= (=my-denote-add-to-agenda= on =after-save-hook=, and =my-denote-remove-from-agenda=). Notes are now kept with an ID-based workflow (vulpea, with org-node and org-mem on their way out), and I never use the file names Denote builds, which are long and hard to read. The agenda files are owned by =vulpea-para= ([[file:0009-one-agenda-owner-per-setting.org][0009]]), which rewrites =org-agenda-files= before every agenda, so the hooks could only add files for a moment.

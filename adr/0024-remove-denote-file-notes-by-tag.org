@@ -1,0 +1,36 @@
+#+title: 0024 Remove Denote; file notes into folders by tag
+#+date: 2026-11-06
+#+status: accepted
+
+* Context
+- [[file:0010-phase-out-denote.org][0010]] decided to phase Denote out and left the removal for later.
+- Notes are ID-based (=:ID:= property, vulpea); I never use the long Denote file names.
+- Links are =id:= links, so a file can be renamed or moved without breaking them.
+- The notes folder was flat, so finding a kind of note meant searching.
+- Tags already say what a note is (=litnote=, =person=, =emacs=, =docs=, ...), and a tag registry checks them.
+
+* Decision
+- Denote is removed:
+  - the =sp-denote= module, the Denote capture templates, the Denote keys and the workbook command are gone
+  - Denote file names (=20240101T120000--title__tags.org=) become =20240101120000_title.org=
+  - the =#+identifier:= line is dropped when the note has an =:ID:=; the ID is kept
+- Notes are filed into subfolders by their most important tag, by =sp-notes= (=sp-notes-filing-rules=, first match wins):
+  - =litnote= goes to =litnotes/=, =person= to =people/=, =emacs= to =docs-emacs/=
+  - =docs=, =process=, =workflow=, =system= go to =docs/=
+  - =film= to =objects/films/=, =hardware= to =objects/hardware/=
+  - =concept=, =zettel= to =knowledge/=
+  - anything else to =other/=
+- =inbox/=, =area/=, =log/=, =workbook/= and =inbox.org= are never touched: other modules address them by path.
+- Every tag used by a rule must be in the tag registry; the lint offers to register a missing one.
+- Moving existing notes is a dry run first (=sp-notes-filing-lint=); applying makes a backup and can be restored.
+
+* Alternatives considered
+- *Keep Denote names*: long names, and they duplicate the ID and the tags.
+- *Keep the folder flat*: nothing is wrong with links, but finding notes by kind stays a search.
+- *Folders by hand*: drifts as tags change; the rules are one list that the lint, the save hook and the scheduled run share.
+
+* Consequences
+- A new kind of note needs a registered tag and one line in =sp-notes-filing-rules=; the position is the precedence.
+- Old =[[denote:...]]= links are not rewritten by the filing; =sp-author-notes= converts them.
+- Rules match tags only, not titles or properties.
+- /untested/: not yet run on the real vault; the first run must be a dry run.
