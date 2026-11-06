@@ -576,3 +576,11 @@ What each pull request changed in this module, newest last; the one-line summary
   - A click now follows the link under the pointer (advice on =org-open-at-mouse=)
     - =RET= and =C-c C-o= on a row follow its link, and ask only when the row has several (=sp-org-tables-follow-link=, =sp-org-tables-open-row-link=). 5 ERT tests in Emacs 29.3 batch with a faked widget row (=tests/sp-org-tables-links-test.el=);
     - not run with the real widget in a graphical Emacs.
+- [[https://github.com/siainbuletin/dotfiles/pull/298][#298]]
+  - ✨ Added a rule between every two body rows of =org-table-widget= tables, which only draws a rule where the Org source has an =hline=
+    - =sp-org-tables-row-dividers= (default on) turns it off with =nil=
+  - The package has no option or hook for row separators, so there is no fork
+    - :filter-args advice on =org-table-widget--render= adds an =hline= between body rows before drawing (=sp-org-tables--with-row-dividers=)
+    - header rows, existing rules and the outer borders are untouched, and the Org source is not modified
+  - 3 ERT tests for the pure divider function pass in Emacs batch (=tests/sp-org-tables-dividers-test.el=)
+    - not tested with the real widget (no graphical Emacs in the container); the private function name =org-table-widget--render= needs checking against the installed version.

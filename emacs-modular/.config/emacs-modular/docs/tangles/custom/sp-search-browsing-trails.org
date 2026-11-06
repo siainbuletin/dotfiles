@@ -1629,3 +1629,9 @@ What each pull request changed in this module, newest last; the one-line summary
   - The old =sp-search.org=, =sp-browsing.org= and =sp-trails.org= are gone and links to them point to the new doc.
   - Tangle checked with a script that compares the blocks
     - Emacs is not in the container.
+- [[https://github.com/siainbuletin/dotfiles/pull/290][#290]]
+  - 🐛 Fixed =sp-navi= failing to load: =sp-search-menu= had one =)= too many on its =ag= entry, =(fboundp 'ag))))]= instead of =(fboundp 'ag)))]=, so reading =sp-search.el= stopped with =invalid-read-syntax=
+    - =sp-navi= requires =sp-search=, so it did not load either
+  - Fixed in the doc and the =.el= together
+    - =tools/check-tangle.sh= matches once both are committed
+  - Checked by reading every form of the file with Emacs 29.3 in batch; not loaded in a full session.
