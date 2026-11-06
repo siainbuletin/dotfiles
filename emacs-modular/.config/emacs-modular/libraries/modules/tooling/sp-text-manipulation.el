@@ -18,10 +18,29 @@
   (keymap-global-set "s-Z" #'undo-redo)
   (keymap-global-set "S-s-z" #'undo-redo))
  (t
-  ;; Linux and Windows: Ctrl instead of Command, still no CUA. C-c and C-x
-  ;; stay prefixes, so copy and cut take the Shift variants.
-  (keymap-global-set "C-S-c" #'kill-ring-save)
-  (keymap-global-set "C-S-x" #'kill-region)
+  ;; Linux and Windows: Super is the C-c and C-x prefix, Ctrl the clipboard.
+  ;; Without CUA, C-c and C-x cannot be both a prefix and copy and cut, so the
+  ;; prefixes move to Super (s-c is C-c, s-x is C-x) and the typed C-c and C-x
+  ;; become copy and cut. i3 and sway leave Super alone (their layer key is
+  ;; Mod5).
+  (defun sp-text-manipulation-first-key-p ()
+    "Return non-nil when no key of the current sequence was typed yet."
+    (zerop (length (this-command-keys-vector))))
+  (defun sp-text-manipulation-translate (typed event)
+    "Return EVENT for a TYPED key that starts a sequence, else TYPED itself."
+    (if (sp-text-manipulation-first-key-p) event typed))
+  ;; A translation is applied once, so the swap does not loop.
+  (keymap-set key-translation-map "s-c" "C-c")
+  (keymap-set key-translation-map "s-x" "C-x")
+  (keymap-set key-translation-map "C-c"
+              (lambda (_prompt) (sp-text-manipulation-translate (kbd "C-c") [sp-copy])))
+  (keymap-set key-translation-map "C-x"
+              (lambda (_prompt) (sp-text-manipulation-translate (kbd "C-x") [sp-cut])))
+  (keymap-global-set "<sp-copy>" #'kill-ring-save)
+  (keymap-global-set "<sp-cut>" #'kill-region)
+  (when (eq system-type 'windows-nt)
+    (setq w32-lwindow-modifier 'super
+          w32-rwindow-modifier 'super))
   (keymap-global-set "C-v" #'yank)
   (keymap-global-set "C-z" #'undo)
   (keymap-global-set "C-S-z" #'undo-redo)))

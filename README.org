@@ -12,6 +12,10 @@ Most of my operating system needs revolve around Emacs. Although there's a regul
 
 All of the existing configurations and their names (so you can start with Emacs with the proper flair in the terminal, as ~emacs --with-profile=<name>~ can be found declared in ~.emacs.profiles.el~ in the top directory.
 
+** Keys are bound differently from stock Emacs
+
+Most of the keys in my Emacs are bound differently, so stock advice (=C-w=, =M-w=, =C-y=, =C-x u=, and =C-c=/=C-x= as prefixes) does not match what I type. CUA mode is off; copy, cut, paste, undo and redo use Command on the Mac and Ctrl on Linux and Windows, where the =C-c= and =C-x= prefixes move to Super. The table of replaced prefixes and chords is in [[file:emacs-modular/.config/emacs-modular/docs/tangles/base/sp-keys.org][sp-keys.org]], section "Replaced prefixes and chords". To see what a key really does, use =C-h k= and press it, or =C-h w= for a command.
+
 ** Reviewing and merging AI-made changes on macOS
 
 On my Mac, Claude's pull requests are reviewed and merged with Stow, SourceGit, GitHub's merge button and Forge. The choices are in [[file:emacs-modular/.config/emacs-modular/docs/architecture/macos-review-and-merge.org][macos-review-and-merge.org]]; the reasons are in the decision records in [[file:adr/README.org][adr/]].
