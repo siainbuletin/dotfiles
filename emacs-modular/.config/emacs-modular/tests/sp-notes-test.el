@@ -1,7 +1,11 @@
-;;; sp-notes-filing-test.el --- Tests for sp-notes-filing -*- lexical-binding: t; -*-
+;;; sp-notes-test.el --- Tests for sp-notes (filing by tag) -*- lexical-binding: t; -*-
 
 (require 'ert)
-(require 'sp-notes-filing)
+(require 'use-package)
+(setq use-package-always-ensure nil)
+(setq use-package-ensure-function #'ignore)
+(require 'sp-notes)
+(require 'sp-org-tag-lint)
 
 (ert-deftest sp-notes-filing-folder-rules ()
   (should (equal (sp-notes-filing-folder '("litnote")) "litnotes"))
@@ -119,5 +123,30 @@
         (kill-buffer))
       (should (file-exists-p (expand-file-name "knowledge/n.org" root))))))
 
-(provide 'sp-notes-filing-test)
-;;; sp-notes-filing-test.el ends here
+(ert-deftest sp-notes-filing-unregistered-rule-tags ()
+  (let ((org-tag-persistent-alist '("litnote" "person"))
+        (org-tag-alist nil)
+        (sp-notes-filing-rules '((("litnote") . "litnotes") (("person" "newtag") . "people"))))
+    (should (equal (sp-notes-filing-unregistered-tags) '("newtag")))))
+
+(ert-deftest sp-notes-filing-check-offers-to-register ()
+  (let ((org-tag-persistent-alist '("litnote"))
+        (org-tag-alist nil)
+        (sp-notes-filing-rules '((("litnote") . "litnotes") (("newtag") . "x")))
+        added asked)
+    (cl-letf (((symbol-function 'y-or-n-p) (lambda (p) (setq asked p) t))
+              ((symbol-function 'sp-org-tag-add)
+               (lambda (tag &rest _) (push tag added) (push tag org-tag-persistent-alist))))
+      (should (null (sp-notes-filing-check-rule-tags)))
+      (should (equal added '("newtag")))
+      (should (string-match-p "newtag" asked)))))
+
+(ert-deftest sp-notes-filing-check-declined-stays-unregistered ()
+  (let ((org-tag-persistent-alist '("litnote"))
+        (org-tag-alist nil)
+        (sp-notes-filing-rules '((("newtag") . "x"))))
+    (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
+      (should (equal (sp-notes-filing-check-rule-tags) '("newtag"))))))
+
+(provide 'sp-notes-test)
+;;; sp-notes-test.el ends here
