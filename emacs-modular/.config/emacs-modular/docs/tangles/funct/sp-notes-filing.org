@@ -29,6 +29,23 @@ Literate source for =libraries/modules/funct/sp-notes-filing.el=.
 - A note with =emacs= and =docs= goes to =docs-emacs/=, because =emacs= comes first.
 - The tags used here are registered in =sp-org-tag-registry.el=.
 
+* Adding a rule for a new tag
+
+- Register the tag first with =M-x sp-org-tag-add=, so the tag lint accepts it.
+- Add a =(TAGS . FOLDER)= element to =sp-notes-filing-rules=, in `custom` or in the module.
+  - The position is the precedence: put it above any rule it must beat.
+  - One rule can take several tags, as =docs= does with =process=, =workflow= and =system=.
+  - FOLDER can be nested, like =objects/films=.
+- Run =M-x sp-notes-filing-lint=; the dry run shows which notes move.
+- Add the case to =tests/sp-notes-filing-test.el= (=sp-notes-filing-folder-rules= and =-precedence=).
+- Nothing else changes: the lint, the save hook and the scheduled run all read the same list.
+
+* Limits of the design
+
+- Rules match on tags only, not on title, property or location.
+- A tag in a rule that is not registered is not reported yet.
+- Moves are one level per note: a note is filed by its first matching rule.
+
 * File names
 
 - A Denote name like =20240101T120000--my-title__a_b.org= becomes =20240101120000_my_title.org=.
