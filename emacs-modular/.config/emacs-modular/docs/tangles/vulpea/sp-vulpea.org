@@ -2511,3 +2511,8 @@ What each pull request changed in these modules, newest last; the one-line summa
   - Not run in Emacs (none in the container).
 - [[https://github.com/siainbuletin/dotfiles/pull/289][#289]]
   - 🔧 Changed =sp-vulpea-base=: the =M-o f= binding of =vulpea-find= is removed, because =sp-find-note= (see the =sp-org-tag-groups= doc) takes that key and load order must not decide which one wins.
+- [[https://github.com/siainbuletin/dotfiles/pull/299][#299]]
+  - ✨ Added =M-o n n= in =org-mode-map=, running =org-id-get-create=, next to =M-o n a= (=vulpea-buffer-alias-add=) in =sp-vulpea-base=
+  - No clash: =M-o n a= and =M-o n i= (=sp-insert-note=) share the =M-o n= prefix and neither uses =n=
+    - the old =M-o n n= (=org-node-nodeify-entry=) belonged to the removed =org-node= module, and no module in =libraries/modules= binds it now
+  - Not tested in a running Emacs. The change is one =:bind= entry.

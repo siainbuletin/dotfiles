@@ -608,3 +608,8 @@ What each pull request changed in this module, newest last; the one-line summary
   - 🔧 Changed =README.org= and =docs/main.org= into one document, =README.org= at the top of the configuration: it has the introduction, the module tree and the sandbox how-to, and the tangling how-to moved to the new =docs/tangling-instructions.org=.
   - Removed =docs/main.org=
     - the module docs, =sp-sandbox=, =sp-typst= (its book now starts with =README.org=) and the architecture notes point to the new places.
+- [[https://github.com/siainbuletin/dotfiles/pull/295][#295]]
+  - 🔧 Changed the "Changes by pull request" sections in 50 =.org= files (the module docs, this =README.org= and a few architecture docs): 147 entries went from one long paragraph to a bullet with the PR link and one nested bullet per change
+    - one nested bullet per sentence, and a third level where a sentence had top-level =;= clauses
+  - Wording is unchanged: a script compared each file before and after with whitespace, =;=, =.= and =-= removed, and all files match
+    - splits happen only outside =(...)=, =verbatim=, =~code~= and links.
