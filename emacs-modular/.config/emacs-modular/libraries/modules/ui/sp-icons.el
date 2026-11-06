@@ -17,12 +17,12 @@
 
 ;;; Code:
 
-;; nerd-icons uses
+;; nerd-icons uses 
 (defun sp-font--icon-check ()
   "Report whether the Nerd Font for `nerd-icons' glyphs is present.
 Deliberately does NOT auto-install the font.  In a terminal the
 glyphs are rendered by the terminal emulator's own font (e.g. a
-Nerd Font configured in the terminal), not by Emacs.
+Nerd Font configured in the terminal), not by Emacs. 
 
 A GUI frame needs the font installed at the OS level -- run
 `M-x nerd-icons-install-fonts' once, by hand."

@@ -167,8 +167,7 @@ The closing parenthesis on its own line ends the =use-package= form.
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
   :custom
-  ;; Use with denote
-  (dg-use-denote t)
+  (dg-use-denote nil)
   (dg-context-window-width 0.3)
   ;; Auto-update context when moving between nodes
   (dg-context-auto-update t)
@@ -257,7 +256,7 @@ These are in the =:custom= block of the =use-package= form above. They used to b
 
 **** Denote integration
 
-Sets =dg-use-denote= so that nodes are handled as Denote notes.
+Sets =dg-use-denote= to nil: Denote was removed, so nodes are ID-based notes.
 
 
 **** Context panel

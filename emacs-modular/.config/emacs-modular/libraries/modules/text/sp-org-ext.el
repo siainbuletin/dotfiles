@@ -68,7 +68,7 @@
            :files ("lisp/*.el" "lisp/tooltips.css" "lisp/tooltips.js")))
 
 ;;;; org-context
-;; Allows saving the context of an Org-mode entry, such as when refiling,
+;; Allows saving the context of an Org-mode entry, such as when refiling, 
 ;; so that entries can be restored to their original location based on that context.
 (require 'org-context)
 
