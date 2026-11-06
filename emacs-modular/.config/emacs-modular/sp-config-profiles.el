@@ -101,7 +101,6 @@
 
         ;; Org related settings
         sp-org-base
-        sp-denote
         sp-org-appearance
         sp-org-capture
         sp-org-export

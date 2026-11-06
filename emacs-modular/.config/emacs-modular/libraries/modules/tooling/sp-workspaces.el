@@ -90,7 +90,7 @@ when the workspace is created."
     (progn
       (tab-bar-new-tab)
       (tab-bar-rename-tab "Notes")
-      (sp-denote-notebook))))
+      (sp-notes-notebook))))
 
 ;;;;; Eshell Workspace
 (defun sp-open-new-eshell-and-workspace ()

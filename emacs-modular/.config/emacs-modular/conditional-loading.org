@@ -97,7 +97,6 @@ This is also currently being loaded alphabetically.
 ** Org related settings (and other text modules) (~text/~)
 
 - sp-org-base :: the very basic functions -- the others should be stringed in after this
-- sp-denote :: the file creation subsystem (should be replaced with other text modules)
 - some defined essential org-features
    + sp-org-appearance ::
    + sp-org-capture ::
@@ -447,7 +446,6 @@ Modifications to be made by me, a human
 
         ;; Org related settings
         sp-org-base
-        sp-denote
         sp-org-appearance
         sp-org-capture
         sp-org-export

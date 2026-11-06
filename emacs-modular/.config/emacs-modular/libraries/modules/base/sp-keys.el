@@ -193,17 +193,14 @@ the line, respectively."
 ;; General notes
 (bind-keys :prefix-map lem+notes-keys
            :prefix (concat sp-prefix " n")
-           ("d"  .  denote)
-           ("n"  .  consult-notes)
+           ("n"  .  sp-notes-notebook)
            ("s"  .  consult-notes-search-in-all-notes)
-           ("w"  .  sp-denote-workbook-create-entry))
+           ("f"  .  sp-notes-filing-lint))
 ;; Biblio notes
 (bind-keys :prefix-map lem+bib-keys
            :prefix (concat sp-prefix " n b")
-           ("a"  .  citar-denote-add-citekey)
            ("c"  .  citar-create-note)
-           ("o"  .  citar-open-notes)
-           ("O"  .  citar-denote-dwim))
+           ("o"  .  citar-open-notes))
 
 ;;;;;; Quit Keybindings
 (bind-keys :prefix-map lem+quit-keys

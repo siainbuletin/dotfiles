@@ -47,6 +47,10 @@
         "website"
         "plugin"
         "workflow"
+        "system"
+        "litnote"
+        "film"
+        "hardware"
         ;; sp-org-tag-add: new tags go above this line
         ))
 
