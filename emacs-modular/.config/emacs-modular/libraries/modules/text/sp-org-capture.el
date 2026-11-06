@@ -50,7 +50,7 @@
          (file+datetree ,(sp-path sp-notes-dir "inbox/listening-log.org"))
          "* %U\n %i\n %a")))
 
-;; See also sp-vulpea.el for task capturing 
+;; See also sp-vulpea.el for task capturing
 
 ;;;;; Create Capture Frame
 ;; have these functions available for server
@@ -80,6 +80,7 @@
                  item
                  (file+headline org-default-notes-file "Notes")
                  "- %?")
+
 
                 ("t" "New task" entry
                  (file+headline org-default-notes-file "Tasks")

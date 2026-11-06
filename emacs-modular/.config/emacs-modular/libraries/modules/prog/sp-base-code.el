@@ -40,7 +40,7 @@ Result depends on syntax table's comment character."
 (use-package smartparens
   :ensure t
   :hook (prog-mode text-mode markdown-mode) ;; add `smartparens-mode` to these hooks
-  
+
   :config
   ;; load default config
   (require 'smartparens-config))
@@ -78,7 +78,7 @@ Result depends on syntax table's comment character."
   :ensure nil
   :defer t
 
-  :init 
+  :init
   (setq company-async-timeout 5
         company-dabbrev-downcase 0
         company-idle-delay 0.2
@@ -86,13 +86,13 @@ Result depends on syntax table's comment character."
         company-require-match nil
         company-selection-wrap-around t
         company-tooltip-align-annotations t)
-  
+
   :config
   (add-hook 'company-completion-started-hook 'company-init-quickhelp)
   (company-tng-mode t)
   (setq company-backends '())
   (add-to-list 'company-backends 'company-capf) ; LSP completion backend
-) 
+)
 
 (use-package lsp-mode
   :ensure t
@@ -116,11 +116,11 @@ Result depends on syntax table's comment character."
   :defer t
   ;; :init (global-flycheck-mode)
   )
-  
+
 (use-package lsp-ui
   :ensure t
   :defer t
-  :bind (:map lsp-ui-doc-frame-mode-map          
+  :bind (:map lsp-ui-doc-frame-mode-map
     ([mouse-1] . #'ignore)
     ([mouse-3] . #'lsp-ui-doc-hide)
     ([mouse-wheel-up] . #'lsp-ui-doc-scroll-up)
@@ -144,8 +144,8 @@ Result depends on syntax table's comment character."
 
 ;; how to make navigation better --- see Karthik
 ;; Selective display (C-x $)
-;; If you code with rigid indentation, you can get a quick overview of your 
-;; document with set-selective-display. No mucking around with folding, 
+;; If you code with rigid indentation, you can get a quick overview of your
+;; document with set-selective-display. No mucking around with folding,
 ;; outline- or hs-minor-mode regexps.
 
 ;; this navigation could be moved to a different module !!

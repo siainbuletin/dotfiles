@@ -13,18 +13,18 @@
 ;;;; org-semantic
 (use-package org-semantic-results
   :ensure (org-semantic :host github :repo "alberti42/org-semantic")
-  :custom 
+  :custom
   (org-semantic-vault-root (directory-file-name sp-notes-dir))
-  
+
   :bind (("C-c k s" . org-semantic-find)
          ("C-c k S" . org-semantic-find-in-directory)
          ("C-c k ." . org-semantic-find-at-point)
          ("C-c k R" . org-semantic-reindex))
-  
+
   ;; Follow mode, on for every results buffer.
-  :hook 
+  :hook
   (org-semantic-results-mode . next-error-follow-minor-mode)
-  
+
   ;; Reindex a vault as its notes are saved.
   :init (org-semantic-auto-reindex-mode 1)
 )

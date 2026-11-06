@@ -355,8 +355,8 @@ If TOP-NODE is provided, then just select from its sub-nodes."
 
 ;;;; Help at point
 
-;; With this on, eldoc shows the help text for whatever sits under the cursor, 
-;; without me invoking anything. Paired with eldoc-echo-area-prefer-doc-buffer, 
+;; With this on, eldoc shows the help text for whatever sits under the cursor,
+;; without me invoking anything. Paired with eldoc-echo-area-prefer-doc-buffer,
 ;; it makes wandering through unfamiliar code feel more guided.
 (setq eldoc-help-at-pt t) ;; EMACS-31
 
