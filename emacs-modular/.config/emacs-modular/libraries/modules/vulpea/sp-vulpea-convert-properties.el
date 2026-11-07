@@ -349,7 +349,6 @@ progress count and ETA in the echo area -- see
                (display-buffer (current-buffer)))
            (message "Nothing would be converted -- every property found is blocklisted."))))))))
 
-(define-obsolete-function-alias 'sia-vulpea-preview-convert-all-notes-properties 'sia-vulpea-convert-all-notes-properties-to-meta-dryrun "2026-11-07")
 
 (defun sia-vulpea-convert-all-notes-properties-to-meta (&optional keep-original)
   "Convert drawer properties to meta lines across every Vulpea note.

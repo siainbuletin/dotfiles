@@ -1283,7 +1283,6 @@ is read.  Drops anything that an earlier report left out with `d'."
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--show))
 
-(define-obsolete-function-alias 'sp-author-notes-preview 'sp-author-notes-dryrun "2026-11-07")
 
 (defun sp-author-notes--run-then (apply callback)
   "Run the job in slices, then call CALLBACK with the run.  Say that it started."
@@ -1340,7 +1339,6 @@ written in slices, so Emacs stays usable; the report opens when all are done."
               (sp-author-notes--change-count run)
               (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
-(define-obsolete-function-alias 'sp-author-notes-apply 'sp-author-notes-convert "2026-11-07")
 
 (defun sp-author-notes--ask (run)
   "Show the report of RUN and ask what to do with its changes."

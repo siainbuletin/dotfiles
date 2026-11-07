@@ -22,7 +22,7 @@
   - anything else to =other/=
 - =inbox/=, =area/=, =log/=, =workbook/= and =inbox.org= are never touched: other modules address them by path.
 - Every tag used by a rule must be in the tag registry; the lint offers to register a missing one.
-- Moving existing notes is a dry run first (=sp-notes-filing-lint=); applying makes a backup and can be restored.
+- Moving existing notes is a dry run first (=sp-notes-filing-dryrun=); applying makes a backup and can be restored.
 
 * Alternatives considered
 - *Keep Denote names*: long names, and they duplicate the ID and the tags.

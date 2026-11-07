@@ -313,7 +313,6 @@ when they are read."
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
 
-(define-obsolete-function-alias 'sp-litnotes-refs-report 'sp-litnotes-refs-dryrun "2026-11-07")
 
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."

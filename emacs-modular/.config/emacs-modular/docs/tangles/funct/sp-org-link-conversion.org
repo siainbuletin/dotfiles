@@ -555,7 +555,6 @@ and `[[Target^block]]' link to the note Target."
     (message "Wikilinks: %d converted automatically, %d resolved by hand (%d new notes), %d left as they were"
              auto manual sp-org--wl-created (- (length pending) manual))))
 
-(define-obsolete-function-alias 'sp-org-convert-wikilinks 'sp-org-wikilinks-convert "2026-11-07")
 #+end_src
 
 ** sp-org-wikilinks-dryrun

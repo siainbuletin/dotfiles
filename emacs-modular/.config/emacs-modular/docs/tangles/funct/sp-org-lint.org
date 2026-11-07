@@ -43,7 +43,7 @@ Command names follow [[file:../../../../../../adr/0025-dryrun-and-convert-comman
 
 - =-dryrun= previews what would change and writes nothing.
 - =-convert= applies the change, after the confirmation the command already asks for.
-- The old names (=-report=, =-preview=, =-apply=, =-run=, =-lint=) still work as obsolete aliases.
+- The old names (=-report=, =-preview=, =-apply=, =-run=, =-lint=) were removed without aliases.
 
 They used to have their own docs (=sp-author-notes.org=, =sp-author-notes-bibtex.org=) or sit in [[file:../academic/sp-academic.org][sp-academic.org]]; the code is unchanged, and =sp-litnotes= still requires the two litnote modules. The sections of the first two are one level deeper than they were.
 
@@ -1458,7 +1458,6 @@ instead of using the vulpea database."
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
 
-(define-obsolete-function-alias 'sp-org-lint-footnotes 'sp-org-lint-footnotes-dryrun "2026-11-07")
 
 ;;;###autoload
 (defun sp-org-lint-footnotes-convert ()
@@ -1497,7 +1496,6 @@ are skipped.  The work is done by a second Emacs."
                                      plans)
                              (list :backup-root root)))))
 
-(define-obsolete-function-alias 'sp-org-lint-footnotes-apply 'sp-org-lint-footnotes-convert "2026-11-07")
 #+end_src
 
 ** Provide
@@ -2968,7 +2966,6 @@ is read.  Drops anything that an earlier report left out with `d'."
   (setq sp-author-notes--excluded nil)
   (sp-author-notes--run-then nil #'sp-author-notes--show))
 
-(define-obsolete-function-alias 'sp-author-notes-preview 'sp-author-notes-dryrun "2026-11-07")
 
 (defun sp-author-notes--run-then (apply callback)
   "Run the job in slices, then call CALLBACK with the run.  Say that it started."
@@ -3025,7 +3022,6 @@ written in slices, so Emacs stays usable; the report opens when all are done."
               (sp-author-notes--change-count run)
               (if (= 1 (sp-author-notes--change-count run)) "" "s")))))
 
-(define-obsolete-function-alias 'sp-author-notes-apply 'sp-author-notes-convert "2026-11-07")
 
 (defun sp-author-notes--ask (run)
   "Show the report of RUN and ask what to do with its changes."
@@ -3976,7 +3972,6 @@ when they are read."
   (sp-litnotes-refs--scan
    (lambda (plans index) (sp-litnotes-refs--show-report plans index))))
 
-(define-obsolete-function-alias 'sp-litnotes-refs-report 'sp-litnotes-refs-dryrun "2026-11-07")
 
 (defun sp-litnotes-refs--show-report (plans index)
   "Show the report for PLANS and INDEX in `*litnote refs*'."
@@ -4607,7 +4602,6 @@ when they are read."
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
 
-(define-obsolete-function-alias 'sp-litnotes-titles-report 'sp-litnotes-titles-dryrun "2026-11-07")
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
@@ -4816,7 +4810,6 @@ this return the results, a plist per note."
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
 
-(define-obsolete-function-alias 'sp-litnotes-titles-apply 'sp-litnotes-titles-convert "2026-11-07")
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here

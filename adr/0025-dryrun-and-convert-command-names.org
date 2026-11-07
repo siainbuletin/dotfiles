@@ -16,7 +16,7 @@
 - A command that only reports and has nothing to apply (=sp-org-tag-lint=, =sp-org-tag-lint-buffer=) keeps its name; it has no =-convert= partner.
 - Commands whose name already starts with =convert= and whose apply step is the whole command (=sp-vulpea-convert-keywords=, =sp-vulpea-convert-properties-at-point=) keep it. They preview inside one run and ask before writing.
 - Only commands you call from =M-x=, a key or a report buffer are renamed. Internal functions such as =sp-notes-filing-apply= (a plan) keep their names.
-- The old names stay as obsolete aliases (=define-obsolete-function-alias=, dated 2026-11-07), so keys, scripts and muscle memory keep working.
+- The old names are removed, with no obsolete aliases (my choice, as with the tag-group rename in 0020). Every caller in the config, docs and tests uses the new names.
 
 * Renamed commands
 | Old name | New name |
@@ -48,6 +48,6 @@
 - New lint commands take both names from the start; a command without an apply step uses neither.
 - =sp-notes-filing-convert= and =sp-org-lint-footnotes-convert= are still bound in the report buffers (=C-c C-c=, =a=); only the names changed.
 - =sp-org-wikilinks-dryrun= is new: wikilinks had no preview before.
-- The obsolete aliases can be removed once I no longer use the old names; Emacs warns when I call one.
+- Calling an old name fails with =void-function=; update any key binding, script or note of mine that still uses it.
 - Docs and tests use the new names. Historical notes in the docs and the changelog keep the old ones.
 - /untested/: only run in a Linux container with Emacs 29 and stubs, not on the Mac or the real vault.

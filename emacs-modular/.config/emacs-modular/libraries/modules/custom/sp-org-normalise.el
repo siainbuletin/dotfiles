@@ -510,7 +510,6 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
   (interactive (list (sp-org-normalise--dir-arg)))
   (sp-org-normalise--show-plan (sp-org-normalise-plan-files (sp-org-normalise-files dir))))
 
-(define-obsolete-function-alias 'sp-org-normalise-preview 'sp-org-normalise-dryrun "2026-11-07")
 
 (defun sp-org-normalise--apply-plan (plan changes)
   "Apply CHANGES to the file of PLAN (FILE TEXT . CHANGES).  Return non-nil if done."
@@ -554,7 +553,6 @@ The second value lists (FILE . KEYWORDS) for files that declare a sequence."
                  "."
                "; the buffers are modified but not saved (C-x s to save, or revert them)."))))
 
-(define-obsolete-function-alias 'sp-org-normalise-run 'sp-org-normalise-convert "2026-11-07")
 
 (provide 'sp-org-normalise)
 ;;; sp-org-normalise.el ends here
