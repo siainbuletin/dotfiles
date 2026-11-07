@@ -278,18 +278,23 @@ needed to open the first buffer.")
 `sp-ai' is not loaded at startup: it installs and configures gptel,
 claude-code, agent-shell, eca, efrit and monet, and starts the
 mcp-server-lib, vulpea-mcp and org-mcp servers that Claude reaches
-through `emacsclient'.  Run this when you need them.  The terminal
-backend `eat' (from `sp-terminal') is loaded first, because
-claude-code waits for it."
+through `emacsclient'.  Run this when you need them; it waits for
+Elpaca to install what is missing, so the first call can take a
+while.  The terminal backend `eat' (from `sp-terminal') is loaded
+first, because claude-code waits for it."
   (interactive)
-  (message "[sp-ai] loading the AI packages...")
-  (sp-require-module 'sp-terminal)
-  (when (sp-require-module 'sp-ai)
+  (if (featurep 'sp-ai)
+      (message "[sp-ai] already loaded")
+    (message "[sp-ai] loading the AI packages...")
+    (sp-require-module 'sp-terminal)
+    (unless (sp-require-module 'sp-ai)
+      (user-error "[sp-ai] loading failed, see *Messages*"))
     ;; Orders declared after init are only processed on their own when a
-    ;; command is running interactively.
-    (when (fboundp 'elpaca-process-queues)
-      (elpaca-process-queues))
-    (message "[sp-ai] loaded; Elpaca installs any missing package in the background")))
+    ;; command is running interactively; wait, so that the packages are
+    ;; usable (and the servers up) when this returns.
+    (when (fboundp 'elpaca-wait)
+      (elpaca-wait))
+    (message "[sp-ai] loaded")))
 
 (defun sp-schedule-late-modules ()
   "Load `sp-late-modules' now, or once Emacs is idle after Elpaca's init."
