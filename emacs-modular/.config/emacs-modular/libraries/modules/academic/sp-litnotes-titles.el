@@ -436,7 +436,6 @@ when they are read."
   (clrhash sp-litnotes-titles--overrides)
   (sp-litnotes-titles--show-report))
 
-(define-obsolete-function-alias 'sp-litnotes-titles-report 'sp-litnotes-titles-dryrun "2026-11-07")
 
 (defun sp-litnotes-titles--show-report (&optional callback)
   "Read the notes, show the report and call CALLBACK with the plans.
@@ -639,7 +638,6 @@ this return the results, a plist per note."
   (sp-litnotes-titles--show-report #'sp-litnotes-titles--after-report)
   sp-litnotes-titles--last-results)
 
-(define-obsolete-function-alias 'sp-litnotes-titles-apply 'sp-litnotes-titles-convert "2026-11-07")
 
 (provide 'sp-litnotes-titles)
 ;; sp-litnotes-titles.el ends here

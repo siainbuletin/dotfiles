@@ -775,7 +775,6 @@ instead of using the vulpea database."
     (display-buffer buffer)
     (message "Linting footnotes of %d file(s) in the background" (length files))))
 
-(define-obsolete-function-alias 'sp-org-lint-footnotes 'sp-org-lint-footnotes-dryrun "2026-11-07")
 
 ;;;###autoload
 (defun sp-org-lint-footnotes-convert ()
@@ -814,7 +813,6 @@ are skipped.  The work is done by a second Emacs."
                                      plans)
                              (list :backup-root root)))))
 
-(define-obsolete-function-alias 'sp-org-lint-footnotes-apply 'sp-org-lint-footnotes-convert "2026-11-07")
 
 (provide 'sp-org-lint-footnotes)
 ;;; sp-org-lint-footnotes.el ends here

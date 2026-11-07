@@ -507,7 +507,6 @@ names one typo away from an author note), the order of the fields
   (let ((files (sp-bibtex-lint--files)))
     (sp-bibtex-lint--job "BibTeX lint" files nil #'sp-bibtex-lint--render)))
 
-(define-obsolete-function-alias 'sp-bibtex-lint-report 'sp-bibtex-lint-dryrun "2026-11-07")
 
 ;;;###autoload
 (defun sp-bibtex-lint-convert ()
@@ -527,7 +526,6 @@ comment inside is left alone."
                              (message "BibTeX rewrite done; %d entr%s still to look at (run sp-bibtex-lint-dryrun)"
                                       (length results) (if (= 1 (length results)) "y" "ies")))))))
 
-(define-obsolete-function-alias 'sp-bibtex-lint-apply 'sp-bibtex-lint-convert "2026-11-07")
 
 (defun sp-bibtex-author-capf ()
   "Complete a name in an author or editor field from the author notes.

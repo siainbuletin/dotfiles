@@ -388,7 +388,6 @@ First offers to register the rule tags that the tag registry lacks."
         (goto-char (point-min)))
       (pop-to-buffer (current-buffer)))))
 
-(define-obsolete-function-alias 'sp-notes-filing-lint 'sp-notes-filing-dryrun "2026-11-07")
 
 (defun sp-notes-filing-convert ()
   "Apply the plan shown in this report, after confirmation."
@@ -403,7 +402,6 @@ First offers to register the rule tags that the tag registry lacks."
         (when (plist-get res :failed)
           (message "Failed: %S" (plist-get res :failed)))))))
 
-(define-obsolete-function-alias 'sp-notes-filing-report-apply 'sp-notes-filing-convert "2026-11-07")
 
 ;;;; Automatic placement
 
