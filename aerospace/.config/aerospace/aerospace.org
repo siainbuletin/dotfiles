@@ -50,6 +50,7 @@ Literate source for the [[https://nikitabobko.github.io/AeroSpace/guide][AeroSpa
 - Terminal: =Return= opens WezTerm.
 - Layouts: =/= is tiles, =,= is accordion.
 - Focus: =h=, =j=, =k=, =l= move left, down, up, right.
+- The layer opens whether Caps Lock or Shift is pressed first: the layer key is bound with and without Shift (a hotkey only matches the modifiers it is bound with, so without this Shift+Caps would just type capitals).
 - Move window: =Shift+h/j/k/l=.
 - Resize: =Shift+-= shrinks and ~Shift+=~ grows by 50.
 - Workspaces: =1= to =9=, =a=, =b=, =d=, =e=, =m=, =t=, =w= switch; with =Shift= they move the window there; =Shift+o= moves it to workspace =O=.
