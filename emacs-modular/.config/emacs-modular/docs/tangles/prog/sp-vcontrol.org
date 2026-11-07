@@ -19,7 +19,7 @@ A short module that:
 Notes:
 
 - Depends on the =magit=, =transient=, =forge= and =code-review= packages.
-- The dotfiles are a normal repository in =~/dotfiles= (GNU Stow, see =stow-migration/README.md=), so Magit needs no special command: =M-x magit-status= on =~/dotfiles=, or pick it with =C-x p p= / =M-x magit-list-repositories=. The former =M-x yadm= is removed.
+- The dotfiles are a normal repository in =~/dotfiles= (GNU Stow, see =stow-migration/README.org=), so Magit needs no special command: =M-x magit-status= on =~/dotfiles=, or pick it with =C-x p p= / =M-x magit-list-repositories=. The former =M-x yadm= is removed.
 - Loaded in the Programming group of the default module list in =init.el=.
 - The Forge and code-review parts have not been run in a test environment yet.
 - =code-review= loads lazily, so a failure in it cannot stop Magit from loading (see Code review below).

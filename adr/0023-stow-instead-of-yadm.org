@@ -6,7 +6,7 @@
 yadm makes =$HOME= the work tree of a bare repository. That caused repeated trouble: Magit cannot open =~= (a TRAMP method, then a =~/.git= gitfile and =GIT_CEILING_DIRECTORIES= were needed), GUI tools cannot open the repo (ADR 0001), =status.showUntrackedFiles= has to be off, a huge blacklist =.gitignore= guards the home folder, and a checkout rewrites live config files. It was only used as a git wrapper plus three alternate files.
 
 * Decision
-Use a normal clone in =~/dotfiles= (history kept) and GNU Stow, one package per tool, ~--no-folding~. The Emacs config stays at =~/.config/emacs-modular=. OS-specific files become packages stowed only on that OS (=alacritty-darwin=, =alacritty-linux=). The mapping is =stow-migration/packages.tsv=; =stow-migration/migrate.sh= does the move with a backup and a rollback; the guide is =stow-migration/README.md=. This replaces the yadm part of ADR 0019 (alternate files) and makes ADR 0001's plain clone the only clone.
+Use a normal clone in =~/dotfiles= (history kept) and GNU Stow, one package per tool, ~--no-folding~. The Emacs config stays at =~/.config/emacs-modular=. OS-specific files become packages stowed only on that OS (=alacritty-darwin=, =alacritty-linux=). The mapping is =stow-migration/packages.tsv=; =stow-migration/migrate.sh= does the move with a backup and a rollback; the guide is =stow-migration/README.org=. This replaces the yadm part of ADR 0019 (alternate files) and makes ADR 0001's plain clone the only clone.
 
 * Why I chose Stow after all
 - This reverses the "not wanted" verdict on Stow in ADR 0001.
