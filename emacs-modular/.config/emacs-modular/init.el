@@ -414,7 +414,6 @@ Skips modules listed in `(lem-gui-only-modules)' when
                     'sp-refile ;; one command: refile, split into a note, merge a note
                     'sp-tab-inbox
                     'sp-org-tag-lint ;; tag registry, vault tag lint (before sp-org-link-conversion, which prompts for tags)
-                    'sp-notes-filing ;; file notes into subfolders by tag, drop Denote names (docs/tangles/funct/sp-notes-filing.org)
                     'sp-org-link-conversion
                     'sp-async-work ;; long jobs in slices, with mode-line progress (author and litnote commands)
                     'sp-author-notes ;; author notes and Works tables from pub-author (preview first)

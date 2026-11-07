@@ -78,17 +78,23 @@ a note without tags stays at the top of the root, like `sp-notes-filing-mode' le
 (declare-function vulpea-note-path "vulpea-note")
 (defvar vulpea-default-notes-directory)
 
+(defun sp-notes-create-base ()
+  "The directory `vulpea-create' resolves a relative file template against.
+`vulpea-default-notes-directory' is nil unless set (vulpea then works the
+directory out from the sync directories), so a nil falls back to
+`sp-notes-filing-root'.  Always a non-nil directory name."
+  (file-name-as-directory
+   (expand-file-name (or (bound-and-true-p vulpea-default-notes-directory)
+                         sp-notes-filing-root))))
+
 (defun sp-notes-create-file-template (tags)
   "The `vulpea-create' file-name template for a new note with TAGS.
-It is `sp-notes-create-folder' relative to `vulpea-default-notes-directory',
-which is where vulpea resolves the template; the name part follows
+It is `sp-notes-create-folder' relative to `sp-notes-create-base', which is
+where vulpea resolves the template; the name part follows
 `vulpea-create-default-function' (timestamp, underscore, slug)."
-  (let ((base (file-name-as-directory
-               (expand-file-name (if (boundp 'vulpea-default-notes-directory)
-                                     vulpea-default-notes-directory
-                                   sp-notes-filing-root)))))
-    (concat (string-remove-prefix "./" (file-relative-name (sp-notes-create-folder tags) base))
-            "${timestamp}_${slug}.org")))
+  (concat (string-remove-prefix
+           "./" (file-relative-name (sp-notes-create-folder tags) (sp-notes-create-base)))
+          "${timestamp}_${slug}.org"))
 
 (defun sp-notes-ensure-created (file)
   "Add :CREATED: to the file-level drawer of FILE when it has none.
@@ -143,6 +149,9 @@ vulpea version writes the properties it is given.  Returns NOTE."
                (not (y-or-n-p (format "A note titled \"%s\" exists.  Create another? " title))))
       (user-error "Aborted"))
     (let* ((tags (sp-org-tag-read-note-tags (format "Tags for \"%s\": " title)))
+           ;; Pin the base directory, so a nil `vulpea-default-notes-directory'
+           ;; cannot reach `file-name-as-directory' inside vulpea.
+           (vulpea-default-notes-directory (sp-notes-create-base))
            (note (vulpea-create title (sp-notes-create-file-template tags)
                                 :tags tags
                                 :properties (list (cons "CREATED" (sp-org-created-stamp)))))
@@ -269,7 +278,7 @@ the id in the file name, else the modification time."
   :prefix "sp-notes-filing-")
 
 (defcustom sp-notes-filing-root
-  (if (boundp 'sp-notes-dir) sp-notes-dir "~/notes")
+  (or (bound-and-true-p sp-notes-dir) "~/notes")
   "The notes folder whose notes are filed."
   :type 'directory
   :group 'sp-notes-filing)

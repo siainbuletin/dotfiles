@@ -13,7 +13,7 @@ The original file has no newline after its last line. Org always ends a tangled 
 Provides one command, =sp-move-region-to-heading=, bound globally to =M-a=. It:
 
 - cuts the active region,
-- asks for a target note (searched by title through Vulpea, or created on the spot with Denote),
+- asks for a target note (searched by title through Vulpea, or created on the spot with =sp-notes-create=),
 - asks for a heading inside that note (or creates one),
 - appends the text at the end of that heading's subtree,
 - saves the target file,
@@ -21,7 +21,7 @@ Provides one command, =sp-move-region-to-heading=, bound globally to =M-a=. It:
 
 Headings named "Resources" get special treatment: they are treated as generic buckets, so the link points at their parent or the file instead.
 
-It depends on =vulpea=, =org-id= and =denote=, all required at the top. It is loaded in the Functions group of =init.el=.
+It depends on =vulpea= and =org-id=, both required at the top. It calls =sp-notes-create= to make new notes. It is loaded in the Functions group of =init.el=.
 
 * Setup
 
@@ -41,12 +41,13 @@ The file header: the first line carries the file name, a short summary and the =
 
 ** Dependencies
 
-Loads Vulpea for note selection, =org-id= for ID links, and Denote for creating new notes.
+- Loads Vulpea for note selection and =org-id= for ID links.
+- New notes are made by =sp-notes-create= (=sp-notes=), loaded when first needed.
 
 #+begin_src emacs-lisp -i
 (require 'vulpea)
 (require 'org-id)
-(require 'denote)
+(declare-function sp-notes-create "sp-notes")
 #+end_src
 
 ** The create-heading choice
@@ -62,23 +63,22 @@ file instead of picking one of the existing headings.")
 
 * Choosing the target note
 
-** Creating a Denote note quietly
+** Creating a note quietly
 
-=sp--denote-create-and-get-path= calls =denote= with the given title and default settings, grabs the new file's path, and restores the window layout so the new buffer does not take over the screen.
+- =sp--create-note-and-get-path= calls =sp-notes-create= with the given title.
+  - =sp-notes-create= asks for the tags and files the note by them.
+  - It returns the new file's path.
+- The window layout is restored, so the new buffer does not take over the screen.
 
 #+begin_src emacs-lisp -i
-(defun sp--denote-create-and-get-path (title)
-  "Create a new Denote note titled TITLE and return its file path.
-The note is created with `denote' using default keywords/subdirectory/etc.
-(rename it afterwards with your usual `denote-rename-file' /
-`denote-rename-file-using-front-matter' bindings if needed). The
-creation buffer is not left on screen -- window layout is
-restored once the file path is captured."
-  (let (path)
-    (save-window-excursion
-      (denote title)
-      (setq path (buffer-file-name)))
-    path))
+(defun sp--create-note-and-get-path (title)
+  "Create a new note titled TITLE with `sp-notes-create' and return its file path.
+`sp-notes-create' asks for the tags and files the note by them.  The
+creation buffer is not left on screen -- window layout is restored
+once the file path is captured."
+  (require 'sp-notes)
+  (save-window-excursion
+    (sp-notes-create title)))
 #+end_src
 
 ** Selecting or creating the note
@@ -87,17 +87,17 @@ restored once the file path is captured."
 
 - If an existing note with a file is chosen, its path is returned.
 - Otherwise it works out a title from whatever Vulpea returned (a stub note, a plain string, or nothing, in which case it asks).
-- It confirms with =y-or-n-p= that you want a new Denote note with that title, and returns the new file's path.
+- It confirms with =y-or-n-p= that you want a new note with that title, and returns the new file's path.
 - Declining or giving an empty title aborts with "No target selected".
 
 #+begin_src emacs-lisp -i
 (defun sp--vulpea-select-or-create-file ()
-  "Select an existing note via Vulpea, or create one with Denote.
+  "Select an existing note via Vulpea, or create one with `sp-notes-create'.
 Uses the same note database as `vulpea-find', with the prompt of
 `sp-select-note'. If
 your input at the prompt doesn't match any existing note (i.e.
 nothing in the completion corresponds to an actual file), you're
-asked to confirm creating a new Denote note with that text as
+asked to confirm creating a new note with that text as
 its title; the new note becomes the target file."
   (let ((selection (sp-select-note "Move region to note: ")))
     (cond
@@ -114,9 +114,9 @@ its title; the new note becomes the target file."
         (unless (and title (not (string-empty-p title)))
           (user-error "No target selected"))
         (unless (y-or-n-p
-                 (format "No note found for \"%s\" -- create it with Denote? " title))
+                 (format "No note found for \"%s\" -- create it? " title))
           (user-error "No target selected"))
-        (sp--denote-create-and-get-path title))))))
+        (sp--create-note-and-get-path title))))))
 #+end_src
 
 * Choosing the target heading
@@ -292,7 +292,7 @@ TARGET is a marker pointing at the chosen heading; PATH is its
 full outline path (or its title, if newly created). Prompts for
 a target note via Vulpea's ID-based selection (so you search by
 title/ID rather than navigating directories); if nothing
-matches, offers to create a new Denote note on the spot. Then
+matches, offers to create a new note on the spot. Then
 prompts for a heading within that note (with completion,
 disambiguated by full outline path, plus an option to create a
 new heading) -- or, if the note has no headings yet, skips
