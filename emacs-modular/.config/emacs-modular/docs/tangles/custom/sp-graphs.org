@@ -167,7 +167,6 @@ The closing parenthesis on its own line ends the =use-package= form.
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
   :custom
-  (dg-use-denote nil)
   (dg-context-window-width 0.3)
   ;; Auto-update context when moving between nodes
   (dg-context-auto-update t)
@@ -253,10 +252,6 @@ The closing parenthesis on its own line ends the =use-package= form.
 *** Display and behaviour options
 
 These are in the =:custom= block of the =use-package= form above. They used to be plain =setq= calls after the form, which ran after =discourse-graphs-mode= had been turned on in =:config=; now they are set first. The package's =defcustom= forms do not override values that are already set.
-
-**** Denote integration
-
-Sets =dg-use-denote= to nil: Denote was removed, so nodes are ID-based notes.
 
 
 **** Context panel

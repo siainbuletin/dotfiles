@@ -51,7 +51,6 @@
                             "discourse-graphs-ui/out/*.html"
                             "discourse-graphs-ui/out/assets/*"))
   :custom
-  (dg-use-denote nil)
   (dg-context-window-width 0.3)
   ;; Auto-update context when moving between nodes
   (dg-context-auto-update t)

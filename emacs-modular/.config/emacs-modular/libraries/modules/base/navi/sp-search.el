@@ -455,8 +455,6 @@ QUERY is the search that produced them; it is stored in the view."
     ("O" "Open a saved view file" sp-search-open-view)]]
   [["Notes: plain text"
     ("n" "Grep the notes (consult-ripgrep)" sp-search-in-notes)
-    ("N" "Grep org-node notes" org-node-grep
-     :if (lambda () (fboundp 'org-node-grep)))
     ("v" "Grep vulpea notes" vulpea-grep
      :if (lambda () (fboundp 'vulpea-grep)))
     ("c" "Pick a note, then search all (consult-notes)" consult-notes
